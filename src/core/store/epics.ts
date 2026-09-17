@@ -14,7 +14,9 @@ export type CreateEpicRequest = {
   now: Date;
 };
 
-export type CreateEpicResult = { ok: true; epic: Task; tasks: Task[] } | Invalid;
+export type PartialEpic = { ok: false; reason: "partial"; epic: Task; attached: Task[]; failedId: string; errors: string[] };
+
+export type CreateEpicResult = { ok: true; epic: Task; tasks: Task[] } | Invalid | PartialEpic;
 
 export async function createEpic(root: string, request: CreateEpicRequest): Promise<CreateEpicResult> {
   const { tasks } = await loadBacklog(root);
@@ -30,13 +32,15 @@ export async function createEpic(root: string, request: CreateEpicRequest): Prom
   });
   if (!created.ok) return created;
 
-  const members: Task[] = [];
+  const attached: Task[] = [];
   for (const id of taskIds) {
     const result = await updateTask(root, { id, changes: { epic: created.task.id } });
-    if (!result.ok) return invalid([`${id}: ${describeFailure(result)}`]);
-    members.push(result.task);
+    if (!result.ok) {
+      return { ok: false, reason: "partial", epic: created.task, attached, failedId: id, errors: [`${id}: ${describeFailure(result)}`] };
+    }
+    attached.push(result.task);
   }
-  return { ok: true, epic: created.task, tasks: members };
+  return { ok: true, epic: created.task, tasks: attached };
 }
 
 function membershipErrors(taskIds: readonly string[], project: Project, tasks: readonly Task[]): string[] {

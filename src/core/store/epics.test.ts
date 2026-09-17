@@ -1,7 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createEpic } from "./epics";
 import { loadBacklog } from "./load";
+import { updateTask } from "./update";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
+
+vi.mock("./update", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./update")>();
+  return { ...actual, updateTask: vi.fn(actual.updateTask) };
+});
 
 const NOW = new Date("2026-09-17T14:50:00Z");
 
@@ -47,5 +53,24 @@ describe("createEpic", () => {
       errors: ["TI-1 из другого проекта", "SPA-3 — эпик, эпики не вкладываются", "SPA-9 не найдена"],
     });
     expect((await loadBacklog(root)).tasks).toHaveLength(5);
+  });
+
+  it("сообщает об эпике, который создан, но привязан не ко всем задачам", async () => {
+    const { root, project } = await setup();
+    vi.mocked(updateTask).mockResolvedValueOnce({ ok: false, reason: "not-found" });
+
+    const result = await createEpic(root, { project, title: "Загрузка", taskIds: ["SPA-1", "SPA-2"], now: NOW });
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "partial",
+      epic: { id: "SPA-5" },
+      attached: [],
+      failedId: "SPA-1",
+      errors: ["SPA-1: не найдена"],
+    });
+    const tasks = (await loadBacklog(root)).tasks;
+    expect(tasks.find((task) => task.id === "SPA-5")).toBeDefined();
+    expect(tasks.filter((task) => task.epic === "SPA-5")).toEqual([]);
   });
 });
