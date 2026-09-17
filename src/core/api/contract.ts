@@ -6,19 +6,6 @@ const taskId = z.string().regex(ID_PATTERN, "некорректный ID");
 const tagList = z.array(z.string());
 const idList = z.array(taskId);
 
-export const newTaskRequestSchema = z.strictObject({
-  projectId: z.string().min(1),
-  title: z.string(),
-  type: z.enum(TASK_TYPES).optional(),
-  priority: z.enum(PRIORITIES).optional(),
-  tags: tagList.optional(),
-  epic: taskId.optional(),
-  blockedBy: idList.optional(),
-  related: idList.optional(),
-  source: z.string().optional(),
-  body: z.string().optional(),
-});
-
 export const taskChangesSchema = z.strictObject({
   title: z.string().optional(),
   type: z.enum(TASK_TYPES).optional(),
@@ -45,7 +32,6 @@ export const newEpicRequestSchema = z.strictObject({
   taskIds: idList,
 });
 
-export type NewTaskRequest = z.infer<typeof newTaskRequestSchema>;
 export type TaskChangesRequest = z.infer<typeof taskChangesSchema>;
 export type NewEpicRequest = z.infer<typeof newEpicRequestSchema>;
 

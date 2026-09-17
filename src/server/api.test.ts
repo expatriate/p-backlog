@@ -28,36 +28,6 @@ describe("GET /api/projects и /api/tasks", () => {
   });
 });
 
-describe("POST /api/tasks", () => {
-  it("создаёт задачу в указанном проекте", async () => {
-    const backlog = await makeTestApp(SAMPLE_FILES);
-
-    const response = await backlog.json("/api/tasks", "POST", {
-      projectId: "spa",
-      title: "Новая задача",
-      priority: "critical",
-      tags: ["Upload", "network"],
-      body: "Описание\n\n- [ ] шаг",
-    });
-
-    expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ id: "SPA-4", priority: "critical", tags: ["upload", "network"], projectId: "spa" });
-    expect((await loadBacklog(backlog.root)).tasks.map((task) => task.id)).toContain("SPA-4");
-  });
-
-  it("отвечает 404 на неизвестный проект и 422 на нарушение схемы или правил", async () => {
-    const backlog = await makeTestApp(SAMPLE_FILES);
-
-    expect((await backlog.json("/api/tasks", "POST", { projectId: "nope", title: "X" })).status).toBe(404);
-    expect((await backlog.json("/api/tasks", "POST", { projectId: "spa", title: "X", status: "backlog" })).status).toBe(422);
-    expect((await backlog.json("/api/tasks", "POST", { projectId: "spa" })).status).toBe(422);
-
-    const broken = await backlog.json("/api/tasks", "POST", { projectId: "spa", title: "X", epic: "SPA-1" });
-    expect(broken.status).toBe(422);
-    expect(((await broken.json()) as ErrorResponse).errors).toEqual(["SPA-1 не является эпиком"]);
-  });
-});
-
 describe("PATCH /api/tasks/:id", () => {
   it("меняет задачу и возвращает новую версию", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
@@ -150,7 +120,7 @@ describe("защита локального API", () => {
     const foreign = await backlog.app.request("http://example.com/api/tasks", { headers: { host: "example.com" } });
     expect(foreign.status).toBe(403);
 
-    const plain = await backlog.request("/api/tasks", { method: "POST", body: "projectId=spa" });
+    const plain = await backlog.request("/api/epics", { method: "POST", body: "projectId=spa" });
     expect(plain.status).toBe(415);
   });
 });

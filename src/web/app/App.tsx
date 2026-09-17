@@ -9,10 +9,8 @@ export function App() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route index element={<TaskListPage />} />
-        <Route path="new" element={<TaskListPage />} />
         <Route path="t/:taskId" element={<TaskListPage />} />
         <Route path="p/:projectId" element={<TaskListPage />} />
-        <Route path="p/:projectId/new" element={<TaskListPage />} />
         <Route path="p/:projectId/t/:taskId" element={<TaskListPage />} />
       </Route>
     </Routes>

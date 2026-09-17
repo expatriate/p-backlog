@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, sortTasks } from "../../core/model/query";
 import type { Task } from "../../core/model/types";
 import { useTasks } from "../app/queries";
-import { NewTaskForm } from "../task/NewTaskForm";
+import { Button } from "../ui/Button";
 import { TaskPanel } from "../task/TaskPanel";
 import { EpicForm } from "./EpicForm";
 import { Toolbar } from "./Toolbar";
@@ -16,8 +16,7 @@ export function TaskListPage() {
   const { projectId, taskId } = useParams();
   const [search, setSearch] = useSearchParams();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
-  const { data, isPending } = useTasks();
+  const { data, isPending, isError, refetch } = useTasks();
   const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(new Set());
 
   const searchKey = search.toString();
@@ -47,7 +46,6 @@ export function TaskListPage() {
           onChange={(next) => setSearch(writeListParams(next), { replace: true })}
           tags={collectTags(projectTasks)}
           epics={projectTasks.filter((task) => task.type === "epic")}
-          onNewTask={() => navigate(withSearch(`${prefix}/new`))}
         />
 
         {parseErrors.length > 0 && (
@@ -68,11 +66,17 @@ export function TaskListPage() {
         )}
 
         <div className={styles.tableWrap}>
-          {isPending ? (
+          {isError ? (
+            <div className={styles.hint} role="status">
+              <p>Не удалось получить задачи. Проверьте, что сервер запущен: <code>npm start</code>.</p>
+              <Button onClick={() => void refetch()}>Повторить</Button>
+            </div>
+          ) : isPending ? (
             <p className={styles.hint}>Загружаем задачи…</p>
           ) : visibleTasks.length === 0 ? (
             <p className={styles.hint}>
-              Задач не нашлось. Их создаёт агент командой <code>backlog new</code> — или нажмите «Новая задача».
+              Задач не нашлось. Беклог наполняет агент: он записывает задачи командой <code>backlog new</code>, пока
+              работает над кодом.
             </p>
           ) : (
             <TaskTable
@@ -87,9 +91,6 @@ export function TaskListPage() {
         </div>
       </div>
 
-      {pathname.endsWith("/new") && (
-        <NewTaskForm key={projectId ?? "all"} projectId={projectId} onClose={() => navigate(withSearch(prefix))} />
-      )}
       {selectedTask && (
         <TaskPanel key={selectedTask.id} task={selectedTask} tasks={allTasks} index={index} onClose={() => navigate(withSearch(prefix))} />
       )}

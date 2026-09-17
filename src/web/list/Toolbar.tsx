@@ -1,5 +1,5 @@
 import type { SortKey, TaskSort } from "../../core/model/query";
-import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type Task } from "../../core/model/types";
+import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type Task, type TaskStatus } from "../../core/model/types";
 import { PRIORITY_LABELS, SORT_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
 import { Button } from "../ui/Button";
 import { ToggleChip } from "../ui/Chip";
@@ -11,13 +11,13 @@ export type ToolbarProps = {
   onChange: (params: ListParams) => void;
   tags: string[];
   epics: Task[];
-  onNewTask: () => void;
 };
 
 const SORT_KEYS: readonly SortKey[] = ["created", "priority", "progress", "title", "status"];
 
-export function Toolbar({ params, onChange, tags, epics, onNewTask }: ToolbarProps) {
+export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
   const { filter, sort } = params;
+  const pressedStatuses = filter.statuses ?? TASK_STATUSES;
   const setFilter = (patch: Partial<ListParams["filter"]>) => onChange({ ...params, filter: { ...filter, ...patch } });
   const setSort = (patch: Partial<TaskSort>) => onChange({ ...params, sort: { ...sort, ...patch } });
 
@@ -49,9 +49,6 @@ export function Toolbar({ params, onChange, tags, epics, onNewTask }: ToolbarPro
         >
           {sort.direction === "asc" ? "↑" : "↓"}
         </Button>
-        <Button variant="primary" onClick={onNewTask}>
-          Новая задача
-        </Button>
       </div>
 
       <div className={styles.line}>
@@ -59,8 +56,8 @@ export function Toolbar({ params, onChange, tags, epics, onNewTask }: ToolbarPro
           {TASK_STATUSES.map((status) => (
             <ToggleChip
               key={status}
-              pressed={filter.statuses?.includes(status) ?? false}
-              onToggle={() => setFilter({ statuses: toggle(filter.statuses ?? [], status) })}
+              pressed={pressedStatuses.includes(status)}
+              onToggle={() => setFilter({ statuses: allOrSome(toggle(pressedStatuses, status)) })}
             >
               {STATUS_LABELS[status]}
             </ToggleChip>
@@ -122,6 +119,10 @@ export function Toolbar({ params, onChange, tags, epics, onNewTask }: ToolbarPro
 
 function toggle<T extends string>(values: readonly T[], value: T): T[] {
   return values.includes(value) ? values.filter((candidate) => candidate !== value) : [...values, value];
+}
+
+function allOrSome(statuses: TaskStatus[]): TaskStatus[] | undefined {
+  return statuses.length === TASK_STATUSES.length ? undefined : statuses;
 }
 
 function emptyToUndefined<T>(values: T[]): T[] | undefined {

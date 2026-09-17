@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { EpicResponse, NewEpicRequest, NewTaskRequest, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { EpicResponse, NewEpicRequest, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import type { Project, Task } from "../../core/model/types";
 import { useBacklogApi } from "./backlog-api";
 
@@ -23,18 +23,9 @@ export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariab
   const { client } = useBacklogApi();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, version, changes }: UpdateTaskVariables) => client.updateTask(id, version, changes),
+    mutationFn: ({ id, version, changes }: UpdateTaskVariables) => client.updateTask(id, freshestVersion(queryClient, id) ?? version, changes),
     onSuccess: (task) => putTask(queryClient, task),
     onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
-  });
-}
-
-export function useCreateTask(): UseMutationResult<Task, Error, NewTaskRequest> {
-  const { client } = useBacklogApi();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: client.createTask,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
   });
 }
 
@@ -61,6 +52,10 @@ export function useLiveUpdates(): void {
     stream.addEventListener("open", refresh);
     return () => stream.close();
   }, [openEvents, queryClient]);
+}
+
+function freshestVersion(queryClient: ReturnType<typeof useQueryClient>, id: string): string | undefined {
+  return queryClient.getQueryData<TasksResponse>(TASKS_KEY)?.tasks.find((task) => task.id === id)?.version;
 }
 
 function putTask(queryClient: ReturnType<typeof useQueryClient>, task: Task): void {

@@ -1,10 +1,9 @@
 import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
-import { newEpicRequestSchema, newTaskRequestSchema, updateTaskRequestSchema } from "../core/api/contract";
+import { newEpicRequestSchema, updateTaskRequestSchema } from "../core/api/contract";
 import type { Project } from "../core/model/types";
 import { formatIssues } from "../core/model/zod-issues";
-import { createTask } from "../core/store/create";
 import { createEpic } from "../core/store/epics";
 import { loadBacklog } from "../core/store/load";
 import { updateTask } from "../core/store/update";
@@ -21,19 +20,6 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
   api.get("/tasks", async (c) => {
     const { tasks, errors } = await loadBacklog(root);
     return c.json({ tasks, errors });
-  });
-
-  api.post("/tasks", async (c) => {
-    const body = await readBody(c, newTaskRequestSchema);
-    if (!body.ok) return body.response;
-    const { projectId, ...input } = body.data;
-
-    const loaded = await loadBacklog(root);
-    const project = findProject(loaded.projects, projectId);
-    if (!project) return projectNotFound(c, projectId);
-
-    const created = await createTask(root, { project, input, existingTasks: loaded.tasks, now: now() });
-    return created.ok ? c.json(created.task, 201) : invalidResponse(c, created);
   });
 
   api.patch("/tasks/:id", async (c) => {

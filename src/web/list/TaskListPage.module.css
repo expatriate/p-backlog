@@ -25,6 +25,10 @@
   color: var(--ink-muted);
 }
 
+.hint p {
+  margin: 0 0 var(--space-3);
+}
+
 .hint code {
   padding: 1px 4px;
   border-radius: var(--radius-chip);

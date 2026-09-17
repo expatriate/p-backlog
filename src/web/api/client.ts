@@ -3,7 +3,6 @@ import type {
   EpicResponse,
   ErrorResponse,
   NewEpicRequest,
-  NewTaskRequest,
   PartialEpicResponse,
   TaskChangesRequest,
   TasksResponse,
@@ -27,7 +26,6 @@ export class ApiError extends Error {
 export type ApiClient = {
   projects: () => Promise<Project[]>;
   tasks: () => Promise<TasksResponse>;
-  createTask: (request: NewTaskRequest) => Promise<Task>;
   updateTask: (id: string, version: string, changes: TaskChangesRequest) => Promise<Task>;
   createEpic: (request: NewEpicRequest) => Promise<EpicResponse>;
 };
@@ -46,7 +44,6 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
   return {
     projects: async () => read<Project[]>(await apiFetch("/api/projects")),
     tasks: async () => read<TasksResponse>(await apiFetch("/api/tasks")),
-    createTask: (request) => send<Task>("POST", "/api/tasks", request),
     updateTask: (id, version, changes) => send<Task>("PATCH", `/api/tasks/${id}`, { version, changes }),
     createEpic: (request) => send<EpicResponse>("POST", "/api/epics", request),
   };
