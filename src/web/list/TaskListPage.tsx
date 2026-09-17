@@ -18,7 +18,8 @@ export function TaskListPage() {
   const { data, isPending } = useTasks();
   const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(new Set());
 
-  const params = readListParams(search);
+  const searchKey = search.toString();
+  const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
   const allTasks = useMemo(() => data?.tasks ?? [], [data]);
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const visibleTasks = useMemo(
