@@ -54,7 +54,9 @@ npm run dev         # сервер и Vite с горячей перезагру�
 
 ```bash
 npm test            # модульные, серверные и интерфейсные тесты
-npm run test:e2e    # Playwright: живое обновление списка
 npm run typecheck
 npm run lint
+
+npx playwright install chromium   # один раз, перед первым запуском e2e
+npm run test:e2e                  # Playwright: живое обновление списка
 ```
