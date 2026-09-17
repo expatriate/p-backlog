@@ -19,3 +19,11 @@ export function checklistItems(body: string): ChecklistItem[] {
   }
   return items;
 }
+
+export function toggleChecklistItem(body: string, line: number): string {
+  const item = checklistItems(body).find((candidate) => candidate.line === line);
+  if (!item) return body;
+  const lines = body.split("\n");
+  lines[line] = (lines[line] ?? "").replace(/\[[ xX]\]/, item.checked ? "[ ]" : "[x]");
+  return lines.join("\n");
+}

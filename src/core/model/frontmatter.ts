@@ -1,5 +1,6 @@
 import { Document, parse, visit } from "yaml";
-import type { ZodError, z } from "zod";
+import type { z } from "zod";
+import { formatIssues } from "./zod-issues";
 import type { ParseResult } from "./types";
 
 const DELIMITER = "---";
@@ -23,7 +24,7 @@ export function parseFrontmatter<Shape extends z.core.$ZodShape>(
   }
 
   const parsed = schema.safeParse(raw);
-  if (!parsed.success) return { ok: false, message: formatIssues(parsed.error) };
+  if (!parsed.success) return { ok: false, message: formatIssues(parsed.error).join("; ") };
 
   const knownFields = Object.keys(schema.shape);
   const extra = Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([key]) => !knownFields.includes(key)));
@@ -41,8 +42,4 @@ export function stringifyFrontmatter(data: Record<string, unknown>, body: string
   const yamlText = document.toString({ lineWidth: 0, flowCollectionPadding: false });
   const content = body.replace(/^\n+/, "").trimEnd();
   return content === "" ? `${DELIMITER}\n${yamlText}${DELIMITER}\n` : `${DELIMITER}\n${yamlText}${DELIMITER}\n\n${content}\n`;
-}
-
-function formatIssues(error: ZodError): string {
-  return error.issues.map((issue) => (issue.path.length > 0 ? `${issue.path.join(".")}: ${issue.message}` : issue.message)).join("; ");
 }
