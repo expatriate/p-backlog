@@ -49,4 +49,23 @@ describe("findProjectForDir", () => {
     const neighbour = await makeGitRepo(home, "spa-admin");
     expect(findProjectForDir([project("spa", [join(home, "spa")])], neighbour, home)).toBeUndefined();
   });
+
+  it("выбирает проект с самым специфичным репозиторием независимо от порядка в списке", async () => {
+    const home = await makeTempDir();
+    const parentRepo = await makeGitRepo(home, "projects");
+    const nestedRepo = await makeGitRepo(parentRepo, "spa");
+    const sibling = join(parentRepo, "other");
+    await mkdir(sibling, { recursive: true });
+
+    const monoProject = project("aaa-mono", [parentRepo]);
+    const spaProject = project("spa", [nestedRepo]);
+
+    for (const projects of [
+      [monoProject, spaProject],
+      [spaProject, monoProject],
+    ]) {
+      expect(findProjectForDir(projects, nestedRepo, home)?.id).toBe("spa");
+      expect(findProjectForDir(projects, sibling, home)?.id).toBe("aaa-mono");
+    }
+  });
 });

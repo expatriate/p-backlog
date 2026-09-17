@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { formatLocalIso } from "../model/dates";
+import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
 import { derivePrefix, deriveProjectId, formatId, parseId } from "../model/ids";
 import { parseProjectFile, serializeProject } from "../model/project-file";
@@ -20,13 +21,14 @@ const MAX_ID_ATTEMPTS = 20;
 export async function createTask(root: string, request: CreateTaskRequest): Promise<CreateTaskResult> {
   const { project, existingTasks } = request;
   const dir = join(root, project.id);
+  const index = buildIndex(existingTasks);
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt++) {
     const id = formatId(project.prefix, (await maxTaskNumber(dir, project.prefix)) + 1);
     const path = join(dir, taskFileName(id));
     const text = serializeTask(draftTask(id, path, request));
     const parsed = parseTaskFile(text, { projectId: project.id, path, version: contentVersion(text) });
     if (!parsed.ok) return invalid([parsed.message]);
-    const errors = integrityErrors(parsed.value, existingTasks);
+    const errors = integrityErrors(parsed.value, index);
     if (errors.length > 0) return invalid(errors);
     try {
       await writeFile(path, text, { encoding: "utf8", flag: "wx" });

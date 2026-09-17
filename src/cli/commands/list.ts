@@ -43,7 +43,7 @@ export async function runList(args: string[], io: CliIo): Promise<number> {
   const filtered = filterTasks(loaded.tasks, { projectId, query: values.query, statuses, tags: splitList(values.tag) }, index);
   const tasks = sortTasks(filtered, { key: "priority", direction: "desc" }, index);
 
-  if (values.json) io.print(JSON.stringify(tasks.map((task) => toJson(describeTask(task, loaded.tasks, index))), null, 2));
+  if (values.json) io.print(JSON.stringify(tasks.map((task) => toJson(describeTask(task, index))), null, 2));
   else io.print(tasks.length === 0 ? "Задач не найдено" : tasks.map((task) => formatTaskLine(task, index)).join("\n"));
   return EXIT.ok;
 }

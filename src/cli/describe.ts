@@ -14,7 +14,7 @@ export type TaskDescription = {
   warnings: string[];
 };
 
-export function describeTask(task: Task, tasks: readonly Task[], index: BacklogIndex): TaskDescription {
+export function describeTask(task: Task, index: BacklogIndex): TaskDescription {
   const open = openBlockers(task, index);
   return {
     task,
@@ -25,7 +25,7 @@ export function describeTask(task: Task, tasks: readonly Task[], index: BacklogI
     related: relatedTasks(task, index),
     epic: task.epic === undefined ? undefined : index.byId.get(task.epic),
     children: task.type === "epic" ? epicChildren(task, index) : [],
-    warnings: taskWarnings(task, tasks),
+    warnings: taskWarnings(task, index),
   };
 }
 

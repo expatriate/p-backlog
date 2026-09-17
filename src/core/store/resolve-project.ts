@@ -19,12 +19,13 @@ export function findRepoRoot(dir: string): string {
 
 export function findProjectForDir(projects: readonly Project[], dir: string, home: string): Project | undefined {
   const root = findRepoRoot(dir);
-  return projects.find((project) =>
-    project.repos.some((repo) => {
+  const matches = projects.flatMap((project) =>
+    project.repos.flatMap((repo) => {
       const repoPath = realpathOrNull(expandHome(repo, home));
-      return repoPath !== null && isSameOrInside(root, repoPath);
+      return repoPath !== null && isSameOrInside(root, repoPath) ? [{ project, repoPath }] : [];
     }),
   );
+  return matches.sort((a, b) => b.repoPath.length - a.repoPath.length)[0]?.project;
 }
 
 function isSameOrInside(path: string, container: string): boolean {

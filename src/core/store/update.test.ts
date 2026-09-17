@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "./load";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
-import { updateTask } from "./update";
+import { updateTask, type TaskChanges } from "./update";
 
 async function setup() {
   const root = await makeTempDir();
@@ -65,5 +65,30 @@ describe("updateTask", () => {
     const root = await setup();
     const result = await updateTask(root, { id: "SPA-2", changes: { status: "later" as never } });
     expect(result).toMatchObject({ ok: false, reason: "invalid" });
+  });
+
+  it("игнорирует поля вне списка изменяемых", async () => {
+    const root = await setup();
+    const createdBefore = (await loadBacklog(root)).tasks.find((task) => task.id === "SPA-2")?.created;
+
+    const changes = {
+      status: "done",
+      id: "SPA-777",
+      created: "2000-01-01T00:00:00+03:00",
+      projectId: "evil",
+      version: "fake",
+    } as unknown as TaskChanges;
+    const result = await updateTask(root, { id: "SPA-2", changes });
+
+    expect(result).toMatchObject({ ok: true, task: { id: "SPA-2", status: "done", created: createdBefore, projectId: "spa" } });
+
+    const reloaded = await loadBacklog(root);
+    expect(reloaded.errors).toEqual([]);
+    expect(reloaded.tasks.find((task) => task.id === "SPA-2")).toMatchObject({
+      id: "SPA-2",
+      status: "done",
+      created: createdBefore,
+      projectId: "spa",
+    });
   });
 });

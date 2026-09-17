@@ -23,6 +23,6 @@ export async function runShow(args: string[], io: CliIo): Promise<number> {
 }
 
 export async function printTask(io: CliIo, task: Task, tasks: readonly Task[], { json }: { json: boolean }): Promise<void> {
-  const description = describeTask(task, tasks, buildIndex(tasks));
+  const description = describeTask(task, buildIndex(tasks));
   io.print(json ? JSON.stringify(toJson(description), null, 2) : formatTaskDetails(description, await readFile(task.path, "utf8")));
 }
