@@ -1,5 +1,8 @@
 import { runList } from "./commands/list";
 import { runNew } from "./commands/new";
+import { runShow } from "./commands/show";
+import { runStatus } from "./commands/status";
+import { runTake } from "./commands/take";
 import { EXIT, UsageError, type CliIo } from "./io";
 
 const USAGE = `Использование:
@@ -17,6 +20,9 @@ const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
 const COMMANDS = new Map<string, (args: string[], io: CliIo) => Promise<number>>([
   ["new", runNew],
   ["list", runList],
+  ["show", runShow],
+  ["take", runTake],
+  ["status", runStatus],
 ]);
 
 export async function runCli(argv: readonly string[], io: CliIo): Promise<number> {
