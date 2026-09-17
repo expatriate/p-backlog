@@ -6,7 +6,7 @@ const DELIMITER = "---";
 
 export type FrontmatterParts<T> = { data: T; extra: Record<string, unknown>; body: string };
 
-export function parseFrontmatter<Shape extends z.ZodRawShape>(
+export function parseFrontmatter<Shape extends z.core.$ZodShape>(
   text: string,
   schema: z.ZodObject<Shape>,
 ): ParseResult<FrontmatterParts<z.output<z.ZodObject<Shape>>>> {

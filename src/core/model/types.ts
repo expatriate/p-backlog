@@ -32,7 +32,7 @@ export const taskFrontmatterSchema = z.object({
   epic: taskId.optional(),
   blockedBy: taskIdList,
   related: taskIdList,
-  created: z.string().datetime({ offset: true }),
+  created: z.iso.datetime({ offset: true }),
   source: z.string().optional(),
 });
 
