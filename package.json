@@ -13,7 +13,9 @@
     "build": "vite build && node scripts/build-node.mjs",
     "install-skill": "node scripts/install-skill.mjs",
     "start": "npm run build && node dist/server.js",
-    "dev": "concurrently -k -n server,web \"tsx watch src/server/main.ts\" \"vite\""
+    "dev": "concurrently -k -n server,web \"tsx watch src/server/main.ts\" \"vite\"",
+    "test:e2e": "playwright test",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
@@ -30,6 +32,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
