@@ -10,7 +10,8 @@
     "test": "vitest run",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json",
-    "build": "node scripts/build-node.mjs"
+    "build": "node scripts/build-node.mjs",
+    "install-skill": "node scripts/install-skill.mjs"
   },
   "dependencies": {
     "yaml": "^2.9.1",
