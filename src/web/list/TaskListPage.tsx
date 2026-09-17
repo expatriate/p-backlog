@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, sortTasks } from "../../core/model/query";
 import type { Task } from "../../core/model/types";
 import { useTasks } from "../app/queries";
+import { NewTaskForm } from "../task/NewTaskForm";
 import { TaskPanel } from "../task/TaskPanel";
+import { EpicForm } from "./EpicForm";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
 import { cx } from "../ui/cx";
@@ -15,6 +17,7 @@ export function TaskListPage() {
   const { projectId, taskId } = useParams();
   const [search, setSearch] = useSearchParams();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { data, isPending } = useTasks();
   const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(new Set());
 
@@ -35,8 +38,9 @@ export function TaskListPage() {
   const withSearch = (path: string) => ({ pathname: path === "" ? "/" : path, search: search.toString() });
   const selectedTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
   const parseErrors = (data?.errors ?? []).filter((error) => projectId === undefined || error.projectId === projectId);
+  const checkedTasks = visibleTasks.filter((task) => checkedIds.has(task.id));
 
-  const showsDrawer = selectedTask !== undefined;
+  const showsDrawer = selectedTask !== undefined || pathname.endsWith("/new");
 
   return (
     <main className={cx(styles.page, showsDrawer && styles.withDrawer)}>
@@ -62,6 +66,10 @@ export function TaskListPage() {
           </div>
         )}
 
+        {checkedTasks.length > 0 && (
+          <EpicForm tasks={checkedTasks} onDone={() => setCheckedIds(new Set())} />
+        )}
+
         <div className={styles.tableWrap}>
           {isPending ? (
             <p className={styles.hint}>Загружаем задачи…</p>
@@ -82,6 +90,9 @@ export function TaskListPage() {
         </div>
       </div>
 
+      {pathname.endsWith("/new") && (
+        <NewTaskForm projectId={projectId} onClose={() => navigate(withSearch(prefix))} />
+      )}
       {selectedTask && (
         <TaskPanel key={selectedTask.id} task={selectedTask} tasks={allTasks} index={index} onClose={() => navigate(withSearch(prefix))} />
       )}
