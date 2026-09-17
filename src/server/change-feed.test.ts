@@ -29,6 +29,23 @@ describe("createChangeFeed", () => {
     await expect(change).resolves.toBeUndefined();
   });
 
+  it("схлопывает пачку файловых изменений в одно событие", async () => {
+    const root = await makeTempDir();
+    await mkdir(join(root, "spa"), { recursive: true });
+    const feed = createChangeFeed(root, 300);
+    onTestFinished(() => feed.close());
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    let calls = 0;
+    feed.subscribe(() => {
+      calls++;
+    });
+    await Promise.all(["SPA-1", "SPA-2", "SPA-3"].map((id) => writeFile(join(root, `spa/${id}.md`), id, "utf8")));
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    expect(calls).toBe(1);
+  });
+
   it("после close не зовёт подписчиков", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
