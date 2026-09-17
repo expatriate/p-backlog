@@ -9,7 +9,6 @@ import { TaskPanel } from "../task/TaskPanel";
 import { EpicForm } from "./EpicForm";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
-import { cx } from "../ui/cx";
 import { readListParams, writeListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
@@ -40,10 +39,8 @@ export function TaskListPage() {
   const parseErrors = (data?.errors ?? []).filter((error) => projectId === undefined || error.projectId === projectId);
   const checkedTasks = visibleTasks.filter((task) => checkedIds.has(task.id));
 
-  const showsDrawer = selectedTask !== undefined || pathname.endsWith("/new");
-
   return (
-    <main className={cx(styles.page, showsDrawer && styles.withDrawer)}>
+    <main className={styles.page}>
       <div className={styles.list}>
         <Toolbar
           params={params}

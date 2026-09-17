@@ -47,13 +47,3 @@
   margin: var(--space-2) 0 0;
   padding-left: var(--space-4);
 }
-
-.withDrawer .list {
-  padding-right: var(--panel-width);
-}
-
-@media (max-width: 900px) {
-  .withDrawer .list {
-    padding-right: 0;
-  }
-}
