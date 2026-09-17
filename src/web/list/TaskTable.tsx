@@ -31,16 +31,16 @@ export function TaskTable({ tasks, index, selectedId, checkedIds, onCheck, taskH
     <table className={styles.table}>
       <thead>
         <tr>
-          <th className={styles.checkCell}>
+          <th className={styles.checkCell} scope="col">
             <span className={styles.srOnly}>Выбор</span>
           </th>
-          <th>ID</th>
-          <th>Задача</th>
-          <th className={styles.tags}>Теги</th>
-          <th>Статус</th>
-          <th className={styles.priorityCell}>Приоритет</th>
-          <th>Прогресс</th>
-          <th className={styles.date}>Создана</th>
+          <th scope="col">ID</th>
+          <th scope="col">Задача</th>
+          <th className={styles.tags} scope="col">Теги</th>
+          <th scope="col">Статус</th>
+          <th className={styles.priorityCell} scope="col">Приоритет</th>
+          <th scope="col">Прогресс</th>
+          <th className={styles.date} scope="col">Создана</th>
         </tr>
       </thead>
       <tbody>

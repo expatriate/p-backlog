@@ -33,7 +33,7 @@ export function Toolbar({ params, onChange, tags, epics, onNewTask }: ToolbarPro
         />
         <label className={styles.sort}>
           Сортировать по
-          <select value={sort.key} aria-label="Поле сортировки" onChange={(event) => setSort({ key: event.target.value as SortKey })}>
+          <select value={sort.key} onChange={(event) => setSort({ key: event.target.value as SortKey })}>
             {SORT_KEYS.map((key) => (
               <option key={key} value={key}>
                 {SORT_LABELS[key]}

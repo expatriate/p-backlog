@@ -66,7 +66,7 @@ describe("список задач", () => {
     const app = await renderApp(FILES);
     await screen.findAllByRole("row");
 
-    await app.user.selectOptions(screen.getByRole("combobox", { name: "Поле сортировки" }), "title");
+    await app.user.selectOptions(screen.getByRole("combobox", { name: "Сортировать по" }), "title");
 
     await waitFor(async () => expect(await rowTitles()).toEqual(["Таймауты загрузки", "Разобрать очередь", "Каталог тормозит"]));
 

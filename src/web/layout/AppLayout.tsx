@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
-import { OPEN_STATUSES } from "../../core/model/query";
+import { buildIndex } from "../../core/model/graph";
+import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
 import { useProjects, useTasks } from "../app/queries";
 import { cx } from "../ui/cx";
 import styles from "./AppLayout.module.css";
@@ -9,8 +11,9 @@ export function AppLayout() {
   const tasks = useTasks();
   const { search } = useLocation();
 
-  const openCount = (projectId: string) =>
-    (tasks.data?.tasks ?? []).filter((task) => task.projectId === projectId && OPEN_STATUSES.includes(task.status)).length;
+  const allTasks = useMemo(() => tasks.data?.tasks ?? [], [tasks.data]);
+  const index = useMemo(() => buildIndex(allTasks), [allTasks]);
+  const openCount = (projectId?: string) => filterTasks(allTasks, { projectId, statuses: OPEN_STATUSES }, index).length;
 
   return (
     <div className={styles.shell}>
@@ -20,7 +23,7 @@ export function AppLayout() {
           <li>
             <NavLink to={{ pathname: "/", search }} end className={({ isActive }) => navClass(isActive)}>
               <span className={styles.projectName}>Все проекты</span>
-              <span className={styles.count}>{tasks.data?.tasks.filter((task) => OPEN_STATUSES.includes(task.status)).length ?? ""}</span>
+              <span className={styles.count}>{openCount()}</span>
             </NavLink>
           </li>
           {(projects.data ?? []).map((project) => (
