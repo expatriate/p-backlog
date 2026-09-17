@@ -1,0 +1,72 @@
+import { useMutation, useQuery, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
+import { useEffect } from "react";
+import type { EpicResponse, NewEpicRequest, NewTaskRequest, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { Project, Task } from "../../core/model/types";
+import { useBacklogApi } from "./backlog-api";
+
+export const PROJECTS_KEY = ["projects"];
+export const TASKS_KEY = ["tasks"];
+
+export function useProjects() {
+  const { client } = useBacklogApi();
+  return useQuery<Project[]>({ queryKey: PROJECTS_KEY, queryFn: client.projects });
+}
+
+export function useTasks() {
+  const { client } = useBacklogApi();
+  return useQuery<TasksResponse>({ queryKey: TASKS_KEY, queryFn: client.tasks });
+}
+
+export type UpdateTaskVariables = { id: string; version: string; changes: TaskChangesRequest };
+
+export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariables> {
+  const { client } = useBacklogApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version, changes }: UpdateTaskVariables) => client.updateTask(id, version, changes),
+    onSuccess: (task) => putTask(queryClient, task),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
+  });
+}
+
+export function useCreateTask(): UseMutationResult<Task, Error, NewTaskRequest> {
+  const { client } = useBacklogApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: client.createTask,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
+  });
+}
+
+export function useCreateEpic(): UseMutationResult<EpicResponse, Error, NewEpicRequest> {
+  const { client } = useBacklogApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: client.createEpic,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
+  });
+}
+
+export function useLiveUpdates(): void {
+  const { openEvents } = useBacklogApi();
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const stream = openEvents();
+    if (!stream) return;
+    const refresh = () => {
+      void queryClient.invalidateQueries({ queryKey: TASKS_KEY });
+      void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
+    };
+    stream.addEventListener("change", refresh);
+    stream.addEventListener("open", refresh);
+    return () => stream.close();
+  }, [openEvents, queryClient]);
+}
+
+function putTask(queryClient: ReturnType<typeof useQueryClient>, task: Task): void {
+  queryClient.setQueryData<TasksResponse>(TASKS_KEY, (current) =>
+    current === undefined
+      ? current
+      : { ...current, tasks: current.tasks.map((candidate) => (candidate.id === task.id ? task : candidate)) },
+  );
+}
