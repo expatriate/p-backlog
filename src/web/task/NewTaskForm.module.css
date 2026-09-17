@@ -30,22 +30,6 @@
 
 .submit {
   align-self: flex-start;
-  padding: 7px var(--space-4);
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: var(--action);
-  color: var(--ink-inverse);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.submit:hover {
-  background: var(--action-hover);
-}
-
-.submit:disabled {
-  background: var(--ink-subtle);
-  cursor: progress;
 }
 
 .error {

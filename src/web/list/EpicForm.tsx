@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { PRIORITIES, type Priority, type Task } from "../../core/model/types";
 import { useCreateEpic } from "../app/queries";
+import { Button } from "../ui/Button";
 import { PRIORITY_LABELS } from "../labels";
 import styles from "./EpicForm.module.css";
 
@@ -39,9 +40,9 @@ export function EpicForm({ tasks, onDone }: { tasks: Task[]; onDone: () => void 
         {mixedProjects ? (
           <span className={styles.note}>Задачи из разных проектов — эпик собрать нельзя</span>
         ) : (
-          <button type="button" className={styles.action} onClick={() => setOpen(!open)}>
+          <Button variant="primary" onClick={() => setOpen(!open)}>
             {open ? "Отмена" : "Собрать в эпик"}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -71,9 +72,9 @@ export function EpicForm({ tasks, onDone }: { tasks: Task[]; onDone: () => void 
             <textarea value={body} rows={2} onChange={(event) => setBody(event.target.value)} />
           </label>
           {createEpic.error && <p className={styles.error}>{createEpic.error.message}</p>}
-          <button type="submit" className={styles.action} disabled={createEpic.isPending}>
+          <Button type="submit" variant="primary" disabled={createEpic.isPending}>
             Создать эпик
-          </button>
+          </Button>
         </form>
       )}
     </section>

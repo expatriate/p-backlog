@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { PRIORITIES, TASK_TYPES, type Priority, type TaskType } from "../../core/model/types";
 import { useCreateTask, useProjects } from "../app/queries";
 import { PRIORITY_LABELS, TYPE_LABELS } from "../labels";
+import { Button } from "../ui/Button";
 import { SidePanel } from "../ui/SidePanel";
 import styles from "./NewTaskForm.module.css";
 
@@ -86,9 +87,9 @@ export function NewTaskForm({ projectId, onClose }: { projectId?: string; onClos
           <textarea value={body} rows={10} onChange={(event) => setBody(event.target.value)} />
         </label>
         {createTask.error && <p className={styles.error}>{createTask.error.message}</p>}
-        <button type="submit" className={styles.submit} disabled={createTask.isPending}>
+        <Button type="submit" variant="primary" className={styles.submit} disabled={createTask.isPending}>
           Создать задачу
-        </button>
+        </Button>
       </form>
     </SidePanel>
   );

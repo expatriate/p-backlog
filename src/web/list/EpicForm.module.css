@@ -14,26 +14,6 @@
   color: var(--ink-muted);
 }
 
-.action {
-  padding: 5px var(--space-3);
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: var(--action);
-  color: var(--ink-inverse);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.action:hover {
-  background: var(--action-hover);
-}
-
-.action:disabled {
-  background: var(--ink-subtle);
-  cursor: progress;
-}
-
 .form {
   display: flex;
   flex-wrap: wrap;
