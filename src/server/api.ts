@@ -1,5 +1,6 @@
 import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
+import type { ZodType } from "zod";
 import { newEpicRequestSchema, newTaskRequestSchema, updateTaskRequestSchema } from "../core/api/contract";
 import type { Project } from "../core/model/types";
 import { formatIssues } from "../core/model/zod-issues";
@@ -23,9 +24,9 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
   });
 
   api.post("/tasks", async (c) => {
-    const request = newTaskRequestSchema.safeParse(await readJson(c));
-    if (!request.success) return c.json({ errors: formatIssues(request.error) }, 422);
-    const { projectId, ...input } = request.data;
+    const body = await readBody(c, newTaskRequestSchema);
+    if (!body.ok) return body.response;
+    const { projectId, ...input } = body.data;
 
     const loaded = await loadBacklog(root);
     const project = findProject(loaded.projects, projectId);
@@ -36,11 +37,11 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
   });
 
   api.patch("/tasks/:id", async (c) => {
-    const request = updateTaskRequestSchema.safeParse(await readJson(c));
-    if (!request.success) return c.json({ errors: formatIssues(request.error) }, 422);
+    const body = await readBody(c, updateTaskRequestSchema);
+    if (!body.ok) return body.response;
 
     const id = c.req.param("id");
-    const result = await updateTask(root, { id, changes: request.data.changes, expectedVersion: request.data.version });
+    const result = await updateTask(root, { id, changes: body.data.changes, expectedVersion: body.data.version });
     if (result.ok) return c.json(result.task);
     if (result.reason === "not-found") return c.json({ errors: [`Задача ${id} не найдена`] }, 404);
     if (result.reason === "conflict") return c.json({ errors: ["Задача изменилась на диске"], current: result.current }, 409);
@@ -48,9 +49,9 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
   });
 
   api.post("/epics", async (c) => {
-    const request = newEpicRequestSchema.safeParse(await readJson(c));
-    if (!request.success) return c.json({ errors: formatIssues(request.error) }, 422);
-    const { projectId, ...input } = request.data;
+    const body = await readBody(c, newEpicRequestSchema);
+    if (!body.ok) return body.response;
+    const { projectId, ...input } = body.data;
 
     const loaded = await loadBacklog(root);
     const project = findProject(loaded.projects, projectId);
@@ -90,6 +91,15 @@ function projectNotFound(c: Context, projectId: string) {
 
 function invalidResponse(c: Context, result: Invalid) {
   return c.json({ errors: result.errors }, 422);
+}
+
+type ParsedBody<T> = { ok: true; data: T } | { ok: false; response: Response };
+
+async function readBody<T>(c: Context, schema: ZodType<T>): Promise<ParsedBody<T>> {
+  const parsed = schema.safeParse(await readJson(c));
+  return parsed.success
+    ? { ok: true, data: parsed.data }
+    : { ok: false, response: c.json({ errors: formatIssues(parsed.error) }, 422) };
 }
 
 async function readJson(c: Context): Promise<unknown> {

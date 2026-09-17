@@ -86,7 +86,9 @@ describe("PATCH /api/tasks/:id", () => {
 
     expect((await backlog.json("/api/tasks/SPA-99", "PATCH", { version, changes: {} })).status).toBe(404);
     expect((await backlog.json("/api/tasks/SPA-1", "PATCH", { changes: { status: "done" } })).status).toBe(422);
-    expect((await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { id: "SPA-7" } })).status).toBe(422);
+    const unknownField = await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { id: "SPA-7" } });
+    expect(unknownField.status).toBe(422);
+    expect(((await unknownField.json()) as ErrorResponse).errors[0]).toContain("Нераспознанный ключ");
 
     const cycle = await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { blockedBy: ["SPA-2"] } });
     expect(cycle.status).toBe(422);

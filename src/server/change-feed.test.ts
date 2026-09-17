@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
-import { createChangeFeed, isHiddenPath } from "./change-feed";
+import { createChangeFeed, createDebouncer, isHiddenPath } from "./change-feed";
 
 function nextChange(feed: ReturnType<typeof createChangeFeed>, timeoutMs = 2000): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -29,21 +29,61 @@ describe("createChangeFeed", () => {
     await expect(change).resolves.toBeUndefined();
   });
 
-  it("объединяет пачку изменений в одно событие", async () => {
+  it("после close не зовёт подписчиков", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
-    const feed = createChangeFeed(root, 50);
-    onTestFinished(() => feed.close());
+    const feed = createChangeFeed(root, 20);
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    let count = 0;
+    let calls = 0;
     feed.subscribe(() => {
-      count++;
+      calls++;
     });
-    for (const id of ["SPA-1", "SPA-2", "SPA-3"]) await writeFile(join(root, `spa/${id}.md`), id, "utf8");
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    await feed.close();
+    await writeFile(join(root, "spa/SPA-1.md"), "задача", "utf8");
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
-    expect(count).toBe(1);
+    expect(calls).toBe(0);
+  });
+});
+
+describe("createDebouncer", () => {
+  it("схлопывает пачку вызовов в один", () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    let calls = 0;
+    const debouncer = createDebouncer(100, () => {
+      calls++;
+    });
+
+    debouncer.schedule();
+    vi.advanceTimersByTime(60);
+    debouncer.schedule();
+    vi.advanceTimersByTime(60);
+    debouncer.schedule();
+    expect(calls).toBe(0);
+
+    vi.advanceTimersByTime(100);
+    expect(calls).toBe(1);
+  });
+
+  it("отменённый вызов не срабатывает", () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    let calls = 0;
+    const debouncer = createDebouncer(100, () => {
+      calls++;
+    });
+
+    debouncer.schedule();
+    debouncer.cancel();
+    vi.advanceTimersByTime(500);
+
+    expect(calls).toBe(0);
   });
 });
 
