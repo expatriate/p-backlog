@@ -1,13 +1,15 @@
 import { useState, type FormEvent } from "react";
 import { PRIORITIES, type Priority, type Task } from "../../core/model/types";
+import { ApiError } from "../api/client";
 import { useCreateEpic } from "../app/queries";
 import { Button } from "../ui/Button";
 import { PRIORITY_LABELS } from "../labels";
 import styles from "./EpicForm.module.css";
 
-export function EpicForm({ tasks, onDone }: { tasks: Task[]; onDone: () => void }) {
+export function EpicForm({ tasks, onDone }: { tasks: readonly Task[]; onDone: () => void }) {
   const createEpic = useCreateEpic();
   const [open, setOpen] = useState(false);
+  const [partialEpicId, setPartialEpicId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
   const [body, setBody] = useState("");
@@ -24,14 +26,45 @@ export function EpicForm({ tasks, onDone }: { tasks: Task[]; onDone: () => void 
       { projectId, title, priority, body: body || undefined, taskIds: tasks.map((task) => task.id) },
       {
         onSuccess: () => {
-          setOpen(false);
-          setTitle("");
-          setBody("");
+          closeForm();
           onDone();
+        },
+        onError: (error) => {
+          if (error instanceof ApiError && error.status === 409 && error.epic) {
+            closeForm();
+            setPartialEpicId(error.epic.id);
+          }
         },
       },
     );
   };
+
+  const closeForm = () => {
+    setOpen(false);
+    setTitle("");
+    setBody("");
+  };
+
+  if (partialEpicId !== null) {
+    return (
+      <section className={styles.bar} aria-label="Выбранные задачи">
+        <div className={styles.summary}>
+          <span>
+            Эпик {partialEpicId} создан, но привязаны не все задачи. Откройте его и привяжите оставшиеся вручную — повторная
+            сборка создаст ещё один эпик.
+          </span>
+          <Button
+            onClick={() => {
+              setPartialEpicId(null);
+              onDone();
+            }}
+          >
+            Понятно
+          </Button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={styles.bar} aria-label="Выбранные задачи">
@@ -40,7 +73,7 @@ export function EpicForm({ tasks, onDone }: { tasks: Task[]; onDone: () => void 
         {mixedProjects ? (
           <span className={styles.note}>Задачи из разных проектов — эпик собрать нельзя</span>
         ) : (
-          <Button variant="primary" onClick={() => setOpen(!open)}>
+          <Button variant="primary" onClick={() => (open ? closeForm() : setOpen(true))}>
             {open ? "Отмена" : "Собрать в эпик"}
           </Button>
         )}

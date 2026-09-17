@@ -91,7 +91,7 @@ export function TaskListPage() {
       </div>
 
       {pathname.endsWith("/new") && (
-        <NewTaskForm projectId={projectId} onClose={() => navigate(withSearch(prefix))} />
+        <NewTaskForm key={projectId ?? "all"} projectId={projectId} onClose={() => navigate(withSearch(prefix))} />
       )}
       {selectedTask && (
         <TaskPanel key={selectedTask.id} task={selectedTask} tasks={allTasks} index={index} onClose={() => navigate(withSearch(prefix))} />
