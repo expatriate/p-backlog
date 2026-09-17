@@ -1,11 +1,12 @@
 import { chmod } from "node:fs/promises";
+import { parseArgs } from "node:util";
 import { build } from "esbuild";
 
-const outfile = process.argv[2] ?? "dist/cli.js";
+const { values } = parseArgs({ options: { outdir: { type: "string", default: "dist" } } });
 
 await build({
-  entryPoints: ["src/cli/main.ts"],
-  outfile,
+  entryPoints: { cli: "src/cli/main.ts", server: "src/server/main.ts" },
+  outdir: values.outdir,
   bundle: true,
   platform: "node",
   format: "esm",
@@ -14,4 +15,4 @@ await build({
   banner: { js: "#!/usr/bin/env node" },
   logLevel: "warning",
 });
-await chmod(outfile, 0o755);
+await chmod(`${values.outdir}/cli.js`, 0o755);

@@ -7,7 +7,7 @@ const buildDir = join(import.meta.dirname, "../dist/test");
 const cli = join(buildDir, "cli.js");
 
 beforeAll(() => {
-  execFileSync("node", ["scripts/build-node.mjs", cli], { cwd: join(import.meta.dirname, "..") });
+  execFileSync("node", ["scripts/build-node.mjs", "--outdir", buildDir], { cwd: join(import.meta.dirname, "..") });
 }, 60_000);
 
 describe("собранный бинарник backlog", () => {
