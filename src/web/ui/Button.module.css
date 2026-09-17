@@ -1,0 +1,37 @@
+.button {
+  padding: 6px var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--duration) var(--ease-out), border-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out);
+}
+
+.secondary {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-muted);
+}
+
+.secondary:hover {
+  border-color: var(--ink-subtle);
+  color: var(--ink);
+}
+
+.primary {
+  background: var(--action);
+  color: var(--ink-inverse);
+  font-weight: 600;
+}
+
+.primary:hover {
+  background: var(--action-hover);
+}
+
+.button:disabled {
+  background: var(--surface-sunken);
+  border-color: var(--line);
+  color: var(--ink-subtle);
+  cursor: progress;
+}

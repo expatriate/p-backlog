@@ -1,6 +1,7 @@
 import { Children, isValidElement, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Button } from "../ui/Button";
 import { checklistItems } from "../../core/model/checklist";
 import styles from "./TaskBody.module.css";
 
@@ -19,19 +20,16 @@ export function TaskBody({ body, onToggleLine, onSave }: TaskBodyProps) {
       <div className={styles.editor}>
         <textarea value={draft} rows={16} aria-label="Описание задачи" onChange={(event) => setDraft(event.target.value)} />
         <div className={styles.editorActions}>
-          <button
-            type="button"
-            className={styles.save}
+          <Button
+            variant="primary"
             onClick={() => {
               onSave(draft);
               setDraft(null);
             }}
           >
             Сохранить
-          </button>
-          <button type="button" onClick={() => setDraft(null)}>
-            Отмена
-          </button>
+          </Button>
+          <Button onClick={() => setDraft(null)}>Отмена</Button>
         </div>
       </div>
     );
@@ -47,6 +45,7 @@ export function TaskBody({ body, onToggleLine, onSave }: TaskBodyProps) {
               const line = (node?.position?.start.line ?? 0) - 1;
               const item = checklist.find((candidate) => candidate.line === line);
               if (!item) return <li>{children}</li>;
+              // remark-gfm сам вставляет в пункт свой disabled-чекбокс — убираем его, свой рисуем ниже
               const text = Children.toArray(children).filter((child) => !(isValidElement(child) && child.type === "input"));
               return (
                 <li className={styles.checkItem}>
@@ -62,9 +61,9 @@ export function TaskBody({ body, onToggleLine, onSave }: TaskBodyProps) {
           {body}
         </Markdown>
       </div>
-      <button type="button" className={styles.edit} onClick={() => setDraft(body)}>
+      <Button className={styles.edit} onClick={() => setDraft(body)}>
         Редактировать описание
-      </button>
+      </Button>
     </div>
   );
 }

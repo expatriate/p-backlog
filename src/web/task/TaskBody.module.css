@@ -84,33 +84,6 @@
   gap: var(--space-2);
 }
 
-.editorActions button:not(.save),
 .edit {
   align-self: flex-start;
-  padding: 5px var(--space-3);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--ink-muted);
-  cursor: pointer;
-}
-
-.editorActions button:not(.save):hover,
-.edit:hover {
-  color: var(--ink);
-  border-color: var(--ink-subtle);
-}
-
-.save {
-  padding: 5px var(--space-3);
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: var(--action);
-  color: var(--ink-inverse);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.save:hover {
-  background: var(--action-hover);
 }

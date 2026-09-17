@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { toggleChecklistItem } from "../../core/model/checklist";
 import { dependentTasks, epicChildren, relatedTasks, taskProgress, type BacklogIndex } from "../../core/model/graph";
@@ -8,6 +7,7 @@ import { ApiError } from "../api/client";
 import { useUpdateTask } from "../app/queries";
 import { formatDateTime } from "../labels";
 import { ProgressBar } from "../ui/ProgressBar";
+import { useDraft } from "../ui/use-draft";
 import { SidePanel } from "../ui/SidePanel";
 import { StatusBadge } from "../ui/StatusBadge";
 import { TaskBody } from "./TaskBody";
@@ -26,7 +26,7 @@ const OPTIONS_ID = "task-ids";
 
 export function TaskPanel({ task, tasks, index, onClose }: TaskPanelProps) {
   const updateTask = useUpdateTask();
-  const [title, setTitle] = useState(task.title);
+  const [title, setTitle, titleRef] = useDraft(task.title);
 
   const apply = (changes: TaskChangesRequest) => updateTask.mutate({ id: task.id, version: task.version, changes });
   const conflict = updateTask.error instanceof ApiError && updateTask.error.status === 409;
@@ -36,6 +36,7 @@ export function TaskPanel({ task, tasks, index, onClose }: TaskPanelProps) {
   return (
     <SidePanel label={`Задача ${task.id}`} heading={<span className={styles.id}>{task.id}</span>} onClose={onClose}>
       <input
+        ref={titleRef}
         className={styles.title}
         value={title}
         aria-label="Название задачи"

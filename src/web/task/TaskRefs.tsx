@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Task } from "../../core/model/types";
+import { Button } from "../ui/Button";
 import { StatusBadge } from "../ui/StatusBadge";
+import { normalizeTaskId } from "./normalize-task-id";
 import styles from "./TaskRefs.module.css";
 
 export type TaskRefsProps = {
@@ -16,7 +18,7 @@ export function TaskRefs({ label, ids, tasks, listId, onChange }: TaskRefsProps)
   const byId = new Map(tasks.map((task) => [task.id, task]));
 
   const add = () => {
-    const id = draft.trim().toUpperCase();
+    const id = normalizeTaskId(draft);
     if (id === "" || ids.includes(id)) return;
     onChange([...ids, id]);
     setDraft("");
@@ -54,9 +56,7 @@ export function TaskRefs({ label, ids, tasks, listId, onChange }: TaskRefsProps)
             }
           }}
         />
-        <button type="button" onClick={add}>
-          Добавить
-        </button>
+        <Button onClick={add}>Добавить</Button>
       </div>
     </section>
   );

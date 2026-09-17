@@ -30,32 +30,7 @@
 
 .direction {
   width: 32px;
-  height: 32px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--ink-muted);
-  cursor: pointer;
-}
-
-.direction:hover {
-  color: var(--ink);
-  border-color: var(--ink-subtle);
-}
-
-.primary {
-  padding: 7px var(--space-4);
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: var(--action);
-  color: var(--ink-inverse);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--duration) var(--ease-out);
-}
-
-.primary:hover {
-  background: var(--action-hover);
+  padding-inline: 0;
 }
 
 .group {

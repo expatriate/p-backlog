@@ -66,6 +66,16 @@ describe("карточка задачи", () => {
     await waitFor(() => expect(within(panel).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("100"));
   });
 
+  it("после сохранения не перебрасывает фокус на сам ящик", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    await app.user.click(within(panel).getByRole("checkbox", { name: "первый шаг" }));
+
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("- [x] первый шаг"));
+    expect(document.activeElement).not.toBe(panel);
+  });
+
   it("правка тегов и названия уходит на сервер по потере фокуса", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-1");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });

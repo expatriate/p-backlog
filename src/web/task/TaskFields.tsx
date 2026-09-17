@@ -1,13 +1,15 @@
-import { useState } from "react";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type Priority, type Task, type TaskStatus, type TaskType } from "../../core/model/types";
 import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
+import { useDraft } from "../ui/use-draft";
+import { normalizeTaskId } from "./normalize-task-id";
 import styles from "./TaskFields.module.css";
 
 export type TaskFieldsProps = { task: Task; optionsId: string; onChange: (changes: TaskChangesRequest) => void };
 
 export function TaskFields({ task, optionsId, onChange }: TaskFieldsProps) {
-  const [tags, setTags] = useState(task.tags.join(", "));
+  const [tags, setTags, tagsRef] = useDraft(task.tags.join(", "));
+  const [epic, setEpic, epicRef] = useDraft(task.epic ?? "");
 
   return (
     <>
@@ -45,11 +47,13 @@ export function TaskFields({ task, optionsId, onChange }: TaskFieldsProps) {
         <label>
           Эпик
           <input
+            ref={epicRef}
             list={optionsId}
-            defaultValue={task.epic ?? ""}
+            value={epic}
             placeholder="ID эпика"
-            onBlur={(event) => {
-              const value = event.target.value.trim().toUpperCase();
+            onChange={(event) => setEpic(event.target.value)}
+            onBlur={() => {
+              const value = normalizeTaskId(epic);
               if (value !== (task.epic ?? "")) onChange({ epic: value === "" ? null : value });
             }}
           />
@@ -58,7 +62,7 @@ export function TaskFields({ task, optionsId, onChange }: TaskFieldsProps) {
 
       <label className={styles.tags}>
         Теги через запятую
-        <input value={tags} onChange={(event) => setTags(event.target.value)} onBlur={() => saveTags(tags, task, onChange)} />
+        <input ref={tagsRef} value={tags} onChange={(event) => setTags(event.target.value)} onBlur={() => saveTags(tags, task, onChange)} />
       </label>
     </>
   );

@@ -1,6 +1,7 @@
 import type { SortKey, TaskSort } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type Task } from "../../core/model/types";
 import { PRIORITY_LABELS, SORT_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
+import { Button } from "../ui/Button";
 import { ToggleChip } from "../ui/Chip";
 import type { ListParams } from "./list-params";
 import styles from "./Toolbar.module.css";
@@ -41,17 +42,16 @@ export function Toolbar({ params, onChange, tags, epics, onNewTask }: ToolbarPro
             ))}
           </select>
         </label>
-        <button
-          type="button"
+        <Button
           className={styles.direction}
           aria-label={sort.direction === "asc" ? "По возрастанию" : "По убыванию"}
           onClick={() => setSort({ direction: sort.direction === "asc" ? "desc" : "asc" })}
         >
           {sort.direction === "asc" ? "↑" : "↓"}
-        </button>
-        <button type="button" className={styles.primary} onClick={onNewTask}>
+        </Button>
+        <Button variant="primary" onClick={onNewTask}>
           Новая задача
-        </button>
+        </Button>
       </div>
 
       <div className={styles.line}>
