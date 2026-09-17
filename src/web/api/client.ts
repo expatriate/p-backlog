@@ -4,6 +4,7 @@ import type {
   ErrorResponse,
   NewEpicRequest,
   NewTaskRequest,
+  PartialEpicResponse,
   TaskChangesRequest,
   TasksResponse,
 } from "../../core/api/contract";
@@ -16,6 +17,7 @@ export class ApiError extends Error {
     readonly status: number,
     readonly errors: string[],
     readonly current?: Task,
+    readonly epic?: Task,
   ) {
     super(errors.join("; "));
     this.name = "ApiError";
@@ -34,8 +36,9 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
   const read = async <T>(response: Response): Promise<T> => {
     if (response.ok) return (await response.json()) as T;
     const body = (await response.json().catch(() => ({ errors: [`Ошибка ${response.status}`] }))) as ErrorResponse &
-      Partial<ConflictResponse>;
-    throw new ApiError(response.status, body.errors ?? [`Ошибка ${response.status}`], body.current);
+      Partial<ConflictResponse> &
+      Partial<PartialEpicResponse>;
+    throw new ApiError(response.status, body.errors ?? [`Ошибка ${response.status}`], body.current, body.epic);
   };
   const send = async <T>(method: string, path: string, body: unknown): Promise<T> =>
     read<T>(await apiFetch(path, { method, body: JSON.stringify(body), headers: { "content-type": "application/json" } }));
