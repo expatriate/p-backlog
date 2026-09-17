@@ -58,7 +58,11 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
 
     const created = await createEpic(root, { project, ...input, now: now() });
     if (created.ok) return c.json({ epic: created.epic, tasks: created.tasks }, 201);
-    return c.json({ errors: created.errors }, 422);
+    if (created.reason === "partial") {
+      const errors = [`Эпик ${created.epic.id} создан, но привязать удалось не все задачи: ${created.errors.join("; ")}`];
+      return c.json({ errors, epic: created.epic }, 409);
+    }
+    return invalidResponse(c, created);
   });
 
   api.get("/events", (c) =>

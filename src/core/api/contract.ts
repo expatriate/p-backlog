@@ -53,3 +53,4 @@ export type TasksResponse = { tasks: Task[]; errors: ParseError[] };
 export type EpicResponse = { epic: Task; tasks: Task[] };
 export type ErrorResponse = { errors: string[] };
 export type ConflictResponse = ErrorResponse & { current: Task };
+export type PartialEpicResponse = ErrorResponse & { epic: Task };

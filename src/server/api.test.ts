@@ -1,9 +1,15 @@
-import { describe, expect, it } from "vitest";
-import type { ConflictResponse, ErrorResponse, EpicResponse, TasksResponse } from "../core/api/contract";
+import { describe, expect, it, vi } from "vitest";
+import type { ConflictResponse, ErrorResponse, EpicResponse, PartialEpicResponse, TasksResponse } from "../core/api/contract";
 import { loadBacklog } from "../core/store/load";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
 import { makeTestApp, SAMPLE_FILES } from "./testing/test-app";
+import { createEpic } from "../core/store/epics";
+
+vi.mock("../core/store/epics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../core/store/epics")>();
+  return { ...actual, createEpic: vi.fn(actual.createEpic) };
+});
 
 describe("GET /api/projects и /api/tasks", () => {
   it("отдают проекты, задачи и ошибки разбора", async () => {
@@ -98,6 +104,28 @@ describe("POST /api/epics", () => {
     const { epic, tasks } = (await response.json()) as EpicResponse;
     expect(epic).toMatchObject({ id: "SPA-4", type: "epic" });
     expect(tasks.map((task) => task.epic)).toEqual(["SPA-4", "SPA-4"]);
+  });
+
+  it("сообщает 409, если эпик создан, но привязаны не все задачи", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const loaded = await loadBacklog(backlog.root);
+    const epic = loaded.tasks[0];
+    if (!epic) throw new Error("нет задач");
+    vi.mocked(createEpic).mockResolvedValueOnce({
+      ok: false,
+      reason: "partial",
+      epic: { ...epic, id: "SPA-4", type: "epic" },
+      attached: [],
+      failedId: "SPA-2",
+      errors: ["SPA-2: не найдена"],
+    });
+
+    const response = await backlog.json("/api/epics", "POST", { projectId: "spa", title: "X", taskIds: ["SPA-1", "SPA-2"] });
+
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as PartialEpicResponse;
+    expect(body.errors[0]).toContain("Эпик SPA-4 создан");
+    expect(body.epic.id).toBe("SPA-4");
   });
 
   it("отклоняет задачи другого проекта и эпики", async () => {
