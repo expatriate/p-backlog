@@ -1,0 +1,36 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-subtle);
+}
+
+.backlog .dot {
+  background: var(--ink-subtle);
+}
+
+.inProgress .dot {
+  background: var(--accent);
+}
+
+.blocked .dot {
+  background: var(--warn);
+}
+
+.done .dot {
+  background: var(--ok);
+}
+
+.cancelled {
+  color: var(--ink-subtle);
+  text-decoration: line-through;
+}
