@@ -1,7 +1,7 @@
 import type { Priority, Project, Task } from "../model/types";
 import { createTask } from "./create";
 import { loadBacklog } from "./load";
-import { updateTask } from "./update";
+import { updateTaskIn } from "./update";
 import { invalid, type Invalid, type UpdateTaskResult } from "./write-result";
 
 export type CreateEpicRequest = {
@@ -20,6 +20,7 @@ export type CreateEpicResult = { ok: true; epic: Task; tasks: Task[] } | Invalid
 
 export async function createEpic(root: string, request: CreateEpicRequest): Promise<CreateEpicResult> {
   const { tasks } = await loadBacklog(root);
+  let snapshot: readonly Task[] = tasks;
   const taskIds = [...new Set(request.taskIds)];
   const errors = membershipErrors(taskIds, request.project, tasks);
   if (errors.length > 0) return invalid(errors);
@@ -31,13 +32,15 @@ export async function createEpic(root: string, request: CreateEpicRequest): Prom
     now: request.now,
   });
   if (!created.ok) return created;
+  snapshot = [...snapshot, created.task];
 
   const attached: Task[] = [];
   for (const id of taskIds) {
-    const result = await updateTask(root, { id, changes: { epic: created.task.id } });
+    const result = await updateTaskIn(snapshot, { id, changes: { epic: created.task.id } });
     if (!result.ok) {
       return { ok: false, reason: "partial", epic: created.task, attached, failedId: id, errors: [`${id}: ${describeFailure(result)}`] };
     }
+    snapshot = snapshot.map((task) => (task.id === id ? result.task : task));
     attached.push(result.task);
   }
   return { ok: true, epic: created.task, tasks: attached };

@@ -6,12 +6,11 @@ import { resolveBacklogRoot } from "../core/store/paths";
 import { createApp } from "./app";
 import { createChangeFeed } from "./change-feed";
 import { localHosts } from "./guards";
-
-const DEFAULT_PORT = 4317;
+import { readPort } from "./port";
 
 const home = homedir();
 const root = resolveBacklogRoot(process.env, home);
-const port = Number(process.env.PORT ?? DEFAULT_PORT);
+const port = readPort(process.env.PORT);
 
 await mkdir(root, { recursive: true });
 

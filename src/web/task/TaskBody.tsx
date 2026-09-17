@@ -8,25 +8,28 @@ import styles from "./TaskBody.module.css";
 export type TaskBodyProps = {
   body: string;
   onToggleLine: (line: number) => void;
-  onSave: (body: string) => void;
+  onSave: (body: string) => Promise<unknown>;
 };
 
 export function TaskBody({ body, onToggleLine, onSave }: TaskBodyProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const checklist = checklistItems(body);
 
+  const save = async (text: string) => {
+    try {
+      await onSave(text);
+      setDraft(null);
+    } catch {
+      // текст остаётся в поле: ошибку показывает карточка
+    }
+  };
+
   if (draft !== null) {
     return (
       <div className={styles.editor}>
         <textarea value={draft} rows={16} aria-label="Описание задачи" onChange={(event) => setDraft(event.target.value)} />
         <div className={styles.editorActions}>
-          <Button
-            variant="primary"
-            onClick={() => {
-              onSave(draft);
-              setDraft(null);
-            }}
-          >
+          <Button variant="primary" onClick={() => void save(draft)}>
             Сохранить
           </Button>
           <Button onClick={() => setDraft(null)}>Отмена</Button>

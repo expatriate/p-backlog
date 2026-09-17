@@ -31,9 +31,9 @@ export function readListParams(search: URLSearchParams): ListParams {
 export function writeListParams({ filter, sort }: ListParams): URLSearchParams {
   const search = new URLSearchParams();
   if (filter.query) search.set("q", filter.query);
-  if (filter.statuses && !sameValues(filter.statuses, OPEN_STATUSES)) {
-    search.set("status", filter.statuses.length === 0 ? ANY_STATUS : filter.statuses.join(","));
-  }
+  if (filter.statuses === undefined) search.set("status", ANY_STATUS);
+  else if (filter.statuses.length === 0) search.set("status", "");
+  else if (!sameValues(filter.statuses, OPEN_STATUSES)) search.set("status", filter.statuses.join(","));
   if (filter.priorities?.length) search.set("priority", filter.priorities.join(","));
   if (filter.tags?.length) search.set("tag", filter.tags.join(","));
   if (filter.epic !== undefined) search.set("epic", filter.epic ?? NO_EPIC);
@@ -44,9 +44,10 @@ export function writeListParams({ filter, sort }: ListParams): URLSearchParams {
   return search;
 }
 
-function readStatuses(value: string | null): readonly TaskStatus[] {
+function readStatuses(value: string | null): readonly TaskStatus[] | undefined {
   if (value === null) return OPEN_STATUSES;
-  if (value === ANY_STATUS) return [];
+  if (value === ANY_STATUS) return undefined;
+  if (value === "") return [];
   return readList(value, TASK_STATUSES) ?? OPEN_STATUSES;
 }
 

@@ -29,6 +29,7 @@ export function TaskPanel({ task, tasks, index, onClose }: TaskPanelProps) {
   const [title, setTitle, titleRef] = useDraft(task.title);
 
   const apply = (changes: TaskChangesRequest) => updateTask.mutate({ id: task.id, version: task.version, changes });
+  const applyAsync = (changes: TaskChangesRequest) => updateTask.mutateAsync({ id: task.id, version: task.version, changes });
   const conflict = updateTask.error instanceof ApiError && updateTask.error.status === 409;
   const warnings = taskWarnings(task, index);
   const children = task.type === "epic" ? epicChildren(task, index) : [];
@@ -74,7 +75,7 @@ export function TaskPanel({ task, tasks, index, onClose }: TaskPanelProps) {
       <TaskBody
         body={task.body}
         onToggleLine={(line) => apply({ body: toggleChecklistItem(task.body, line) })}
-        onSave={(body) => apply({ body })}
+        onSave={(body) => applyAsync({ body })}
       />
 
       <TaskRefs label="Блокируется" ids={task.blockedBy} tasks={tasks} listId={OPTIONS_ID} onChange={(blockedBy) => apply({ blockedBy })} />

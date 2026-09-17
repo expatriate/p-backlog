@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { createEpic } from "./epics";
 import { loadBacklog } from "./load";
-import { updateTask } from "./update";
+import { updateTaskIn } from "./update";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 
 vi.mock("./update", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./update")>();
-  return { ...actual, updateTask: vi.fn(actual.updateTask) };
+  return { ...actual, updateTaskIn: vi.fn(actual.updateTaskIn) };
 });
 
 const NOW = new Date("2026-09-17T14:50:00Z");
@@ -57,7 +57,7 @@ describe("createEpic", () => {
 
   it("сообщает об эпике, который создан, но привязан не ко всем задачам", async () => {
     const { root, project } = await setup();
-    vi.mocked(updateTask).mockResolvedValueOnce({ ok: false, reason: "not-found" });
+    vi.mocked(updateTaskIn).mockResolvedValueOnce({ ok: false, reason: "not-found" });
 
     const result = await createEpic(root, { project, title: "Загрузка", taskIds: ["SPA-1", "SPA-2"], now: NOW });
 

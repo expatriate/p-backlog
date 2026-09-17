@@ -14,8 +14,15 @@ export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVers
 
 const CHANGE_FIELDS = ["title", "type", "status", "priority", "tags", "blockedBy", "related", "body"] as const;
 
-export async function updateTask(root: string, { id, changes, expectedVersion }: UpdateTaskRequest): Promise<UpdateTaskResult> {
+export async function updateTask(root: string, request: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const { tasks } = await loadBacklog(root);
+  return updateTaskIn(tasks, request);
+}
+
+export async function updateTaskIn(
+  tasks: readonly Task[],
+  { id, changes, expectedVersion }: UpdateTaskRequest,
+): Promise<UpdateTaskResult> {
   const current = tasks.find((task) => task.id === id);
   if (!current) return { ok: false, reason: "not-found" };
   if (expectedVersion !== undefined && expectedVersion !== current.version) return { ok: false, reason: "conflict", current };

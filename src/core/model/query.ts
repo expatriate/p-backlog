@@ -90,7 +90,7 @@ function matchesEpic(task: Task, epic: string | null | undefined): boolean {
 }
 
 function anyOrIncludes<T>(allowed: readonly T[] | undefined, value: T): boolean {
-  return allowed === undefined || allowed.length === 0 || allowed.includes(value);
+  return allowed === undefined || allowed.includes(value);
 }
 
 function compareNullsLast(a: number | null, b: number | null, sign: number): number {

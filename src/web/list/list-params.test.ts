@@ -35,8 +35,9 @@ describe("readListParams", () => {
     expect(sort).toEqual({ key: "title", direction: "asc" });
   });
 
-  it("status=all означает любой статус, epic=none — без эпика", () => {
-    expect(read("status=all").filter.statuses).toEqual([]);
+  it("status=all означает любой статус, пустой status — ни одного, epic=none — без эпика", () => {
+    expect(read("status=all").filter.statuses).toBeUndefined();
+    expect(read("status=").filter.statuses).toEqual([]);
     expect(read("epic=none").filter.epic).toBeNull();
   });
 

@@ -34,13 +34,14 @@ describe("filterTasks", () => {
     expect(ids(filterTasks(tasks, { tags: ["Upload", "network"] }, index))).toEqual(["SPA-1"]);
   });
 
-  it("проект, статусы и приоритеты; пустой список — любой", () => {
-    expect(ids(filterTasks(tasks, { projectId: "spa", statuses: ["backlog", "in-progress"], priorities: [] }, index))).toEqual([
+  it("проект и статусы; пустой список значений не пропускает ничего, отсутствующий — пропускает всё", () => {
+    expect(ids(filterTasks(tasks, { projectId: "spa", statuses: ["backlog", "in-progress"] }, index))).toEqual([
       "SPA-1",
       "SPA-3",
       "SPA-4",
       "SPA-5",
     ]);
+    expect(ids(filterTasks(tasks, { projectId: "spa", priorities: [] }, index))).toEqual([]);
     expect(ids(filterTasks(tasks, { priorities: ["high", "low"] }, index))).toEqual(["SPA-1", "SPA-3"]);
   });
 
