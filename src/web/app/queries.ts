@@ -43,7 +43,7 @@ export function useCreateEpic(): UseMutationResult<EpicResponse, Error, NewEpicR
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: client.createEpic,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
   });
 }
 
