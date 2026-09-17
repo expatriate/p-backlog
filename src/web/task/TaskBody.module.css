@@ -1,0 +1,116 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.markdown {
+  max-width: 70ch;
+  color: var(--ink);
+}
+
+.markdown :global(h1),
+.markdown :global(h2),
+.markdown :global(h3) {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-md);
+  text-wrap: balance;
+}
+
+.markdown :global(p),
+.markdown :global(ul),
+.markdown :global(ol) {
+  margin: 0 0 var(--space-3);
+  text-wrap: pretty;
+}
+
+.markdown :global(ul) {
+  padding-left: var(--space-4);
+}
+
+.checkItem {
+  list-style: none;
+  margin-left: calc(var(--space-4) * -1);
+}
+
+.checkItem label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-chip);
+  cursor: pointer;
+  transition: background var(--duration) var(--ease-out);
+}
+
+.checkItem label:hover {
+  background: var(--surface-hover);
+}
+
+.checkItem input:checked + span {
+  color: var(--ink-muted);
+}
+
+.markdown :global(code) {
+  padding: 1px 4px;
+  border-radius: var(--radius-chip);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.markdown :global(pre) {
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  overflow-x: auto;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.editor textarea {
+  width: 100%;
+  padding: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.editorActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.editorActions button:not(.save),
+.edit {
+  align-self: flex-start;
+  padding: 5px var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.editorActions button:not(.save):hover,
+.edit:hover {
+  color: var(--ink);
+  border-color: var(--ink-subtle);
+}
+
+.save {
+  padding: 5px var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--action);
+  color: var(--ink-inverse);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save:hover {
+  background: var(--action-hover);
+}

@@ -4,8 +4,10 @@ import { buildIndex } from "../../core/model/graph";
 import { filterTasks, sortTasks } from "../../core/model/query";
 import type { Task } from "../../core/model/types";
 import { useTasks } from "../app/queries";
+import { TaskPanel } from "../task/TaskPanel";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
+import { cx } from "../ui/cx";
 import { readListParams, writeListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
@@ -16,8 +18,7 @@ export function TaskListPage() {
   const { data, isPending } = useTasks();
   const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(new Set());
 
-  const searchKey = search.toString();
-  const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
+  const params = readListParams(search);
   const allTasks = useMemo(() => data?.tasks ?? [], [data]);
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const visibleTasks = useMemo(
@@ -34,8 +35,10 @@ export function TaskListPage() {
   const selectedTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
   const parseErrors = (data?.errors ?? []).filter((error) => projectId === undefined || error.projectId === projectId);
 
+  const showsDrawer = selectedTask !== undefined;
+
   return (
-    <main className={styles.page}>
+    <main className={cx(styles.page, showsDrawer && styles.withDrawer)}>
       <div className={styles.list}>
         <Toolbar
           params={params}
@@ -78,6 +81,9 @@ export function TaskListPage() {
         </div>
       </div>
 
+      {selectedTask && (
+        <TaskPanel key={selectedTask.id} task={selectedTask} tasks={allTasks} index={index} onClose={() => navigate(withSearch(prefix))} />
+      )}
     </main>
   );
 }

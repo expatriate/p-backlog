@@ -1,0 +1,53 @@
+.drawer {
+  position: fixed;
+  inset-block: 0;
+  right: 0;
+  z-index: var(--z-panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: min(var(--panel-width), 100vw);
+  padding: var(--space-4) var(--space-5) var(--space-6);
+  border-left: 1px solid var(--line);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-panel);
+  overflow-y: auto;
+  animation: slide-in var(--duration) var(--ease-out);
+}
+
+.drawer:focus {
+  outline: none;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer {
+    animation: none;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.close {
+  border: none;
+  background: none;
+  color: var(--ink-subtle);
+  font-size: var(--text-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.close:hover {
+  color: var(--ink);
+}
