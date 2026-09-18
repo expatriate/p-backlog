@@ -1,4 +1,6 @@
+import { formatLocalIso } from "../core/model/dates";
 import { isBlocked, taskProgress, type BacklogIndex } from "../core/model/graph";
+import { deletionDate } from "../core/model/lifecycle";
 import { PRIORITIES, TASK_STATUSES, type Task } from "../core/model/types";
 import type { TaskDescription } from "./describe";
 
@@ -29,6 +31,10 @@ export function formatTaskDetails(description: TaskDescription, fileText: string
     `Файл: ${task.path}`,
     `Тип: ${task.type} · Статус: ${task.status} · Приоритет: ${task.priority} · Прогресс: ${formatProgress(description.progress)}`,
   ];
+  const deletesAt = deletionDate(task);
+  if (task.closed !== undefined && deletesAt !== undefined) lines.push(`Закрыта: ${task.closed} · удалится ${formatDay(deletesAt)}`);
+  if (task.resolution !== undefined) lines.push(`Причина закрытия: ${task.resolution} — ${task.reason ?? ""}`);
+  if (task.verified !== undefined) lines.push(`Проверена: ${task.verified}`);
   if (task.tags.length > 0) lines.push(`Теги: ${task.tags.join(", ")}`);
   if (task.epic !== undefined) lines.push(`Эпик: ${description.epic ? formatTaskRef(description.epic) : `${task.epic} (не найден)`}`);
   if (description.openBlockers.length > 0) lines.push(`Открытые блокеры: ${description.openBlockers.map(formatTaskRef).join("; ")}`);
@@ -40,6 +46,10 @@ export function formatTaskDetails(description: TaskDescription, fileText: string
   if (description.children.length > 0) lines.push(`Задачи эпика: ${description.children.map(formatTaskRef).join("; ")}`);
   if (description.warnings.length > 0) lines.push(`Предупреждения: ${description.warnings.join("; ")}`);
   return [...lines, "", fileText.trimEnd()].join("\n");
+}
+
+export function formatDay(date: Date): string {
+  return formatLocalIso(date).slice(0, "YYYY-MM-DD".length);
 }
 
 function formatProgress(progress: number | null): string {

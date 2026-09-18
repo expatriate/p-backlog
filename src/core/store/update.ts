@@ -7,13 +7,15 @@ import { contentVersion, writeFileAtomic } from "./fs-utils";
 import { loadBacklog } from "./load";
 import { invalid, type UpdateTaskResult } from "./write-result";
 
-export type TaskChanges = Partial<Pick<Task, "title" | "type" | "status" | "priority" | "tags" | "blockedBy" | "related" | "body">> & {
+export type TaskChanges = Partial<
+  Pick<Task, "title" | "type" | "status" | "priority" | "tags" | "blockedBy" | "related" | "body" | "source" | "verified">
+> & {
   epic?: string | null;
 };
 
 export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion?: string; now: Date; closure?: Closure };
 
-const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "related", "body"] as const;
+const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "related", "body", "source", "verified"] as const;
 
 export async function updateTask(root: string, request: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const { tasks } = await loadBacklog(root);

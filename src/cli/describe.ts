@@ -1,5 +1,6 @@
 import { dependentTasks, epicChildren, openBlockers, relatedTasks, taskProgress, type BacklogIndex } from "../core/model/graph";
 import { taskWarnings } from "../core/model/integrity";
+import { deletionDate } from "../core/model/lifecycle";
 import type { Task } from "../core/model/types";
 
 export type TaskDescription = {
@@ -41,5 +42,6 @@ export function toJson(description: TaskDescription): object {
     epicTask: description.epic && reference(description.epic),
     children: description.children.map(reference),
     warnings: description.warnings,
+    deletesAt: deletionDate(description.task)?.toISOString(),
   };
 }

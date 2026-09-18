@@ -1,9 +1,11 @@
 import { runCheck } from "./commands/check";
+import { runClose } from "./commands/close";
 import { runList } from "./commands/list";
 import { runNew } from "./commands/new";
 import { runShow } from "./commands/show";
 import { runStatus } from "./commands/status";
 import { runTake } from "./commands/take";
+import { runVerify } from "./commands/verify";
 import { EXIT, UsageError, type CliIo } from "./io";
 
 const USAGE = `Использование:
@@ -15,7 +17,9 @@ const USAGE = `Использование:
   backlog take <ID> [--force] [--json]
   backlog take --next [--project id] [--json]
   backlog status <ID> <backlog|in-progress|blocked|done|cancelled>
-  backlog check [--changed] [--project id | --all-projects] [--json]`;
+  backlog check [--changed] [--project id | --all-projects] [--json]
+  backlog close <ID> --as fixed|obsolete|duplicate --reason <улика> [--duplicate-of <ID>]
+  backlog verify <ID> [--source файл:строка]`;
 
 const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
 
@@ -26,6 +30,8 @@ const COMMANDS = new Map<string, (args: string[], io: CliIo) => Promise<number>>
   ["take", runTake],
   ["status", runStatus],
   ["check", runCheck],
+  ["close", runClose],
+  ["verify", runVerify],
 ]);
 
 export async function runCli(argv: readonly string[], io: CliIo): Promise<number> {
