@@ -48,6 +48,21 @@ describe("integrityErrors", () => {
     expect(integrityErrors(cWithCycle, buildIndex([a, b, c]))).toEqual(["цикл блокеров: SPA-3 → SPA-1 → SPA-2 → SPA-3"]);
   });
 
+  it("resolution только у закрытой задачи и в паре со своим статусом, reason — только с resolution", () => {
+    const index = buildIndex([]);
+    expect(integrityErrors(makeTask({ id: "SPA-1", status: "done", resolution: "fixed", reason: "есть" }), index)).toEqual([]);
+    expect(integrityErrors(makeTask({ id: "SPA-1", status: "cancelled", resolution: "obsolete", reason: "есть" }), index)).toEqual([]);
+    expect(integrityErrors(makeTask({ id: "SPA-1", status: "done", resolution: "duplicate", reason: "есть" }), index)).toEqual([
+      "resolution duplicate требует статус cancelled",
+    ]);
+    expect(integrityErrors(makeTask({ id: "SPA-1", resolution: "fixed", reason: "есть" }), index)).toEqual([
+      "resolution fixed требует статус done",
+    ]);
+    expect(integrityErrors(makeTask({ id: "SPA-1", status: "done", reason: "без причины" }), index)).toEqual([
+      "reason задаётся только вместе с resolution",
+    ]);
+  });
+
   it("не сообщает о цикле, который не проходит через кандидата", () => {
     const a = makeTask({ id: "SPA-1", blockedBy: ["SPA-2"] });
     const b = makeTask({ id: "SPA-2", blockedBy: ["SPA-1"] });

@@ -4,10 +4,12 @@ import { ID_PATTERN, PREFIX_PATTERN } from "./ids";
 export const TASK_TYPES = ["task", "epic"] as const;
 export const TASK_STATUSES = ["backlog", "in-progress", "blocked", "done", "cancelled"] as const;
 export const PRIORITIES = ["low", "medium", "high", "critical"] as const;
+export const RESOLUTIONS = ["fixed", "obsolete", "duplicate", "epic-done"] as const;
 
 export type TaskType = (typeof TASK_TYPES)[number];
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type Priority = (typeof PRIORITIES)[number];
+export type Resolution = (typeof RESOLUTIONS)[number];
 
 export function normalizeTag(tag: string): string {
   return tag.trim().toLowerCase();
@@ -34,12 +36,17 @@ export const taskFrontmatterSchema = z.object({
   related: taskIdList,
   created: z.iso.datetime({ offset: true }),
   source: z.string().optional(),
+  closed: z.iso.datetime({ offset: true }).optional(),
+  resolution: z.enum(RESOLUTIONS).optional(),
+  reason: z.string().optional(),
+  verified: z.iso.datetime({ offset: true }).optional(),
 });
 
 export const projectFrontmatterSchema = z.object({
   name: z.string().trim().min(1, "пустое имя проекта"),
   prefix: z.string().regex(PREFIX_PATTERN, "некорректный префикс"),
   repos: z.array(z.string()).default([]),
+  issuedUpTo: z.number().int().nonnegative().optional(),
 });
 
 type FileExtras = { extra: Record<string, unknown>; body: string; path: string };

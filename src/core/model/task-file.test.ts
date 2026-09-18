@@ -104,6 +104,32 @@ links:
     expect(reparsed).toEqual(parsed);
   });
 
+  it("пишет поля закрытия и проверки после source", () => {
+    const text = [
+      "---",
+      "id: SPA-1",
+      "title: X",
+      "type: task",
+      "status: cancelled",
+      "priority: medium",
+      "tags: []",
+      "blockedBy: []",
+      "related: [SPA-2]",
+      "created: 2026-09-17T10:00:00+03:00",
+      "source: src/a.ts:1",
+      "closed: 2026-09-18T10:00:00+03:00",
+      "resolution: duplicate",
+      "reason: дубль SPA-2",
+      "verified: 2026-09-17T12:00:00+03:00",
+      "---",
+      "",
+    ].join("\n");
+    const parsed = parseTaskFile(text, location);
+    if (!parsed.ok) throw new Error(parsed.message);
+    expect(parsed.value).toMatchObject({ closed: "2026-09-18T10:00:00+03:00", resolution: "duplicate", reason: "дубль SPA-2" });
+    expect(serializeTask(parsed.value)).toBe(text);
+  });
+
   it("не пишет пустое тело и отсутствующие необязательные поля", () => {
     const parsed = parseTaskFile("---\nid: SPA-1\ntitle: X\ncreated: 2026-09-17T10:00:00Z\n---\n", location);
     if (!parsed.ok) throw new Error(parsed.message);

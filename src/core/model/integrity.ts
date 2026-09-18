@@ -1,4 +1,5 @@
 import { missingReferences, type BacklogIndex } from "./graph";
+import { RESOLUTION_STATUS } from "./lifecycle";
 import type { Task } from "./types";
 
 export function integrityErrors(candidate: Task, index: BacklogIndex): string[] {
@@ -25,6 +26,11 @@ export function integrityErrors(candidate: Task, index: BacklogIndex): string[] 
 
   const cycle = findBlockerCycle(candidate, resolve);
   if (cycle) errors.push(`цикл блокеров: ${cycle.join(" → ")}`);
+
+  if (candidate.resolution !== undefined && candidate.status !== RESOLUTION_STATUS[candidate.resolution]) {
+    errors.push(`resolution ${candidate.resolution} требует статус ${RESOLUTION_STATUS[candidate.resolution]}`);
+  }
+  if (candidate.reason !== undefined && candidate.resolution === undefined) errors.push("reason задаётся только вместе с resolution");
 
   return errors;
 }

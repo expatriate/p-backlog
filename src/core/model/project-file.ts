@@ -3,7 +3,7 @@ import { projectFrontmatterSchema, type ParseResult, type Project } from "./type
 
 export type ProjectLocation = { id: string; path: string };
 
-export type ProjectContent = Pick<Project, "name" | "prefix" | "repos" | "extra" | "body">;
+export type ProjectContent = Pick<Project, "name" | "prefix" | "repos" | "issuedUpTo" | "extra" | "body">;
 
 export function parseProjectFile(text: string, location: ProjectLocation): ParseResult<Project> {
   const parsed = parseFrontmatter(text, projectFrontmatterSchema);
@@ -13,5 +13,6 @@ export function parseProjectFile(text: string, location: ProjectLocation): Parse
 }
 
 export function serializeProject(project: ProjectContent): string {
-  return stringifyFrontmatter({ name: project.name, prefix: project.prefix, repos: project.repos, ...project.extra }, project.body);
+  const { name, prefix, repos, issuedUpTo } = project;
+  return stringifyFrontmatter({ name, prefix, repos, issuedUpTo, ...project.extra }, project.body);
 }

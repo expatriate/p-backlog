@@ -15,6 +15,14 @@ describe("project-file", () => {
     expect(serializeProject(parsed.value)).toBe(text);
   });
 
+  it("хранит номер последней удалённой задачи после repos", () => {
+    const text = "---\nname: spa\nprefix: SPA\nrepos: []\nissuedUpTo: 14\n---\n";
+    const parsed = parseProjectFile(text, location);
+    expect(parsed).toMatchObject({ ok: true, value: { issuedUpTo: 14 } });
+    if (!parsed.ok) return;
+    expect(serializeProject(parsed.value)).toBe(text);
+  });
+
   it("отклоняет некорректный префикс", () => {
     expect(parseProjectFile("---\nname: spa\nprefix: spa\n---\n", location).ok).toBe(false);
   });
