@@ -1,4 +1,4 @@
-import { buildIndex, isClosed, type BacklogIndex } from "../model/graph";
+import { buildIndex, isClosed } from "../model/graph";
 import { parseId } from "../model/ids";
 import { completedEpicChildren, epicDoneClosure, isExpired } from "../model/lifecycle";
 import { serializeProject } from "../model/project-file";
@@ -19,11 +19,11 @@ export type SweepReport = {
 export async function sweepClosed(root: string, now: Date): Promise<SweepReport> {
   const report: SweepReport = { closedEpics: [], deleted: [], conflicts: [], invalid: [] };
   const initial = await loadBacklog(root);
-  await closeCompletedEpics(initial.tasks, now, report);
+  const epicsLeftOpen = await closeCompletedEpics(initial.tasks, now, report);
   const { projects, tasks } = report.closedEpics.length > 0 ? await loadBacklog(root) : initial;
 
-  const index = buildIndex(tasks);
-  const expired = tasks.filter((task) => isExpired(task, now) && !waitsForOpenEpic(task, index));
+  const waitsForEpic = (task: Task) => task.epic !== undefined && epicsLeftOpen.has(task.epic);
+  const expired = tasks.filter((task) => isExpired(task, now) && !waitsForEpic(task));
   const expiredIds = new Set(expired.map((task) => task.id));
   await reserveNumbers(projects, expired);
 
@@ -41,21 +41,22 @@ export async function sweepClosed(root: string, now: Date): Promise<SweepReport>
   return report;
 }
 
-async function closeCompletedEpics(tasks: readonly Task[], now: Date, report: SweepReport): Promise<void> {
+async function closeCompletedEpics(tasks: readonly Task[], now: Date, report: SweepReport): Promise<ReadonlySet<string>> {
   const index = buildIndex(tasks);
+  const leftOpen = new Set<string>();
   for (const epic of tasks) {
     const children = completedEpicChildren(epic, index);
     if (children === null) continue;
     const closure = epicDoneClosure(children);
     const result = await updateTaskIn(tasks, { id: epic.id, changes: { status: "done" }, expectedVersion: epic.version, now, closure });
-    if (result.ok) report.closedEpics.push(epic.id);
-    else recordFailure(report, epic.id, result);
+    if (result.ok) {
+      report.closedEpics.push(epic.id);
+    } else {
+      recordFailure(report, epic.id, result);
+      leftOpen.add(epic.id);
+    }
   }
-}
-
-function waitsForOpenEpic(task: Task, index: BacklogIndex): boolean {
-  const epic = task.epic === undefined ? undefined : index.byId.get(task.epic);
-  return epic !== undefined && !isClosed(epic.status);
+  return leftOpen;
 }
 
 function recordFailure(report: SweepReport, id: string, failure: UpdateTaskFailure): void {

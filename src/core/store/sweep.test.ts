@@ -116,7 +116,7 @@ describe("sweepClosed", () => {
     ]);
   });
 
-  it("просроченная задача открытого эпика ждёт, пока эпик не закроется", async () => {
+  it("просроченная задача завершённого эпика, который не удалось закрыть, ждёт его закрытия", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),
@@ -134,5 +134,23 @@ describe("sweepClosed", () => {
     });
     expect(await exists(join(root, "spa/SPA-2.md"))).toBe(true);
     expect((await loadBacklog(root)).projects[0]?.issuedUpTo).toBeUndefined();
+  });
+
+  it("просроченная задача эпика, у которого есть открытые задачи, удаляется по сроку; эпик остаётся открытым", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", "type: epic\n"),
+      "spa/SPA-2.md": taskFile("SPA-2", `epic: SPA-1\nstatus: done\n${EXPIRED}`),
+      "spa/SPA-3.md": taskFile("SPA-3", "epic: SPA-1\n"),
+    });
+
+    const report = await sweepClosed(root, NOW);
+
+    expect(report).toEqual({ closedEpics: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
+    expect(await exists(join(root, "spa/SPA-2.md"))).toBe(false);
+    const byId = new Map((await loadBacklog(root)).tasks.map((task) => [task.id, task]));
+    expect(byId.get("SPA-1")?.status).toBe("backlog");
+    expect(byId.get("SPA-3")?.epic).toBe("SPA-1");
   });
 });
