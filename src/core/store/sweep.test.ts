@@ -154,7 +154,7 @@ describe("sweepClosed", () => {
     expect(byId.get("SPA-3")?.epic).toBe("SPA-1");
   });
 
-  it("при неразобранном файле эпики не закрываются, а просроченные задачи удаляются по сроку", async () => {
+  it("при неразобранном файле завершённый эпик не закрывается и держит свои просроченные задачи", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),
@@ -165,8 +165,8 @@ describe("sweepClosed", () => {
 
     const report = await sweepClosed(root, NOW);
 
-    expect(report).toEqual({ closedEpics: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
-    expect(await exists(join(root, "spa/SPA-2.md"))).toBe(false);
+    expect(report).toEqual({ closedEpics: [], deleted: [], conflicts: [], invalid: [] });
+    expect(await exists(join(root, "spa/SPA-2.md"))).toBe(true);
     expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-1")?.status).toBe("backlog");
   });
 

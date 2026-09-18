@@ -38,7 +38,10 @@ export function isExpired(task: Task, now: Date): boolean {
 }
 
 export function epicsToClose(tasks: readonly Task[], parseErrors: readonly ParseError[]): EpicClosure[] {
-  if (parseErrors.length > 0) return [];
+  return parseErrors.length > 0 ? [] : completeEpics(tasks);
+}
+
+export function completeEpics(tasks: readonly Task[]): EpicClosure[] {
   const index = buildIndex(tasks);
   return tasks.flatMap((epic) => {
     const children = completedEpicChildren(epic, index);

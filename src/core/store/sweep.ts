@@ -1,6 +1,6 @@
 import { isClosed } from "../model/graph";
 import { parseId } from "../model/ids";
-import { epicsToClose, isExpired } from "../model/lifecycle";
+import { completeEpics, epicsToClose, isExpired } from "../model/lifecycle";
 import { serializeProject } from "../model/project-file";
 import type { Project, Task } from "../model/types";
 import { removeIfUnchanged, writeFileAtomic } from "./fs-utils";
@@ -43,7 +43,10 @@ async function closeCompletedEpics(loaded: LoadedBacklog, now: Date): Promise<Ep
     if (result.ok) closed.push(epic.id);
     else failures.push(sweepFailure(epic.id, result));
   }
-  return { closed, failures, leftOpen: new Set(failures.map(({ id }) => id)) };
+  const leftOpen = completeEpics(loaded.tasks)
+    .map(({ epic }) => epic.id)
+    .filter((id) => !closed.includes(id));
+  return { closed, failures, leftOpen: new Set(leftOpen) };
 }
 
 async function updateRemainingTasks(tasks: readonly Task[], expired: readonly Task[], now: Date): Promise<SweepFailure[]> {

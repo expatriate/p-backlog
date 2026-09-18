@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "./dates";
-import { changeStatus, deletionDate, epicsToClose, isExpired, settleLifecycle } from "./lifecycle";
+import { changeStatus, completeEpics, deletionDate, epicsToClose, isExpired, settleLifecycle } from "./lifecycle";
 import { makeTask } from "./testing/make-task";
 
 const NOW = new Date("2026-09-18T12:00:00Z");
@@ -68,25 +68,26 @@ describe("завершённый эпик", () => {
   const done = makeTask({ id: "SPA-2", epic: "SPA-1", status: "done", closed: CLOSED_AT });
   const cancelled = makeTask({ id: "SPA-3", epic: "SPA-1", status: "cancelled", closed: CLOSED_AT });
 
-  it("открытый эпик, у которого все задачи закрыты, закрывается с перечнем задач в причине", () => {
-    expect(epicsToClose([epic, done, cancelled], [])).toEqual([
+  it("открытый эпик, у которого все задачи закрыты, завершён; причина перечисляет задачи", () => {
+    expect(completeEpics([epic, done, cancelled])).toEqual([
       { epic, closure: { resolution: "epic-done", reason: "все задачи эпика закрыты: SPA-2, SPA-3" } },
     ]);
   });
 
-  it("эпик без задач, с открытой задачей или уже закрытый не закрывается; обычная задача — не эпик", () => {
+  it("эпик без задач, с открытой задачей или уже закрытый не завершён; обычная задача — не эпик", () => {
     const open = makeTask({ id: "SPA-4", epic: "SPA-1" });
     const closedEpic = { ...epic, status: "done" as const, closed: CLOSED_AT };
     const plainTask = makeTask({ id: "SPA-5" });
     const underPlainTask = makeTask({ id: "SPA-6", epic: "SPA-5", status: "done", closed: CLOSED_AT });
-    expect(epicsToClose([epic], [])).toEqual([]);
-    expect(epicsToClose([epic, done, open], [])).toEqual([]);
-    expect(epicsToClose([closedEpic, done], [])).toEqual([]);
-    expect(epicsToClose([plainTask, underPlainTask], [])).toEqual([]);
+    expect(completeEpics([epic])).toEqual([]);
+    expect(completeEpics([epic, done, open])).toEqual([]);
+    expect(completeEpics([closedEpic, done])).toEqual([]);
+    expect(completeEpics([plainTask, underPlainTask])).toEqual([]);
   });
 
   it("эпики закрываются, только когда разобраны все файлы: у неразобранного эпик неизвестен", () => {
     const parseError = { path: "/backlog/spa/SPA-9.md", projectId: "spa", message: "файл не начинается с frontmatter" };
+    expect(epicsToClose([epic, done, cancelled], [])).toEqual(completeEpics([epic, done, cancelled]));
     expect(epicsToClose([epic, done, cancelled], [parseError])).toEqual([]);
   });
 });
