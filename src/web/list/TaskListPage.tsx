@@ -7,6 +7,7 @@ import { useProjects, useTasks } from "../app/queries";
 import { Button } from "../ui/Button";
 import { TaskPanel } from "../task/TaskPanel";
 import { epicTones } from "../ui/epic-tone";
+import { epicChoices } from "./epic-choices";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
 import { DEFAULT_FILTER, dateColumnFor, followDateColumn, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
@@ -34,6 +35,7 @@ export function TaskListPage() {
     () => (projectId === undefined ? allTasks : allTasks.filter((task) => task.projectId === projectId)),
     [allTasks, projectId],
   );
+  const epics = useMemo(() => epicChoices(projectTasks, tones), [projectTasks, tones]);
 
   const projectName =
     projectId === undefined ? undefined : (projects.data?.find((project) => project.id === projectId)?.name ?? projectId);
@@ -52,12 +54,7 @@ export function TaskListPage() {
     <main className={styles.page}>
       <div className={styles.list}>
         <h1 className={styles.heading}>{viewTitle}</h1>
-        <Toolbar
-          params={params}
-          onChange={setParams}
-          tags={collectTags(projectTasks)}
-          epics={projectTasks.filter((task) => task.type === "epic")}
-        />
+        <Toolbar params={params} onChange={setParams} tags={collectTags(projectTasks)} epicChoices={epics} />
 
         {parseErrors.length > 0 && (
           <div className={styles.warning} role="status">

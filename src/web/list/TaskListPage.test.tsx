@@ -262,4 +262,71 @@ describe("список задач", () => {
     expect((await rowOf("Задача десятого")).getAttribute("data-epic-tone")).toBe("2");
     expect((await rowOf("Без эпика")).hasAttribute("data-epic-tone")).toBe(false);
   });
+
+  describe("фильтр по эпику", () => {
+    const EPIC_FILES = {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFixture("SPA-1", { title: "Эпик загрузки", type: "epic" }),
+      "spa/SPA-2.md": taskFixture("SPA-2", { title: "Таймауты", epic: "SPA-1" }),
+      "spa/SPA-3.md": taskFixture("SPA-3", { title: "Ретраи", epic: "SPA-1" }),
+      "spa/SPA-4.md": taskFixture("SPA-4", { title: "Сам по себе" }),
+    };
+
+    it("кнопка раскрывает эпики с цветом и числом задач, выбор фильтрует, «×» сбрасывает", async () => {
+      const app = await renderApp(EPIC_FILES);
+      await screen.findAllByRole("row");
+
+      await app.user.click(screen.getByRole("button", { name: "Эпик: любой" }));
+      const options = screen.getByRole("group", { name: "Эпики" });
+      expect(within(options).getByRole("button", { name: /Без эпика/ }).textContent).toContain("2");
+      const epic = within(options).getByRole("button", { name: /SPA-1/ });
+      expect(epic.textContent).toContain("Эпик загрузки");
+      expect(epic.textContent).toContain("2");
+      expect(epic.getAttribute("data-epic-tone")).toBe("1");
+
+      await app.user.click(epic);
+
+      await waitFor(async () => expect(await rowTitles()).toEqual(["Таймауты", "Ретраи"]));
+      expect(app.route()).toBe("/?epic=SPA-1");
+      expect(screen.queryByRole("group", { name: "Эпики" })).toBeNull();
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Эпик: Эпик загрузки" }));
+
+      await app.user.click(screen.getByRole("button", { name: "Сбросить эпик" }));
+
+      await waitFor(async () => expect(await rowTitles()).toHaveLength(4));
+      expect(app.route()).toBe("/");
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Эпик: любой" }));
+    });
+
+    it("«Без эпика» оставляет то, что не входит в эпики", async () => {
+      const app = await renderApp(EPIC_FILES);
+      await screen.findAllByRole("row");
+
+      await app.user.click(screen.getByRole("button", { name: "Эпик: любой" }));
+      await app.user.click(within(screen.getByRole("group", { name: "Эпики" })).getByRole("button", { name: /Без эпика/ }));
+
+      await waitFor(async () => expect(await rowTitles()).toEqual(["Эпик загрузки", "Сам по себе"]));
+      expect(app.route()).toBe("/?epic=none");
+      expect(screen.getByRole("button", { name: "Эпик: без эпика" })).toBeDefined();
+    });
+
+    it("Esc закрывает панель эпиков, но не карточку задачи", async () => {
+      const app = await renderApp(EPIC_FILES, "/t/SPA-2");
+      await screen.findByRole("complementary", { name: "Задача SPA-2" });
+      await app.user.click(screen.getByRole("button", { name: "Эпик: любой" }));
+
+      await app.user.keyboard("{Escape}");
+
+      expect(screen.queryByRole("group", { name: "Эпики" })).toBeNull();
+      expect(screen.getByRole("complementary", { name: "Задача SPA-2" })).toBeDefined();
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Эпик: любой" }));
+    });
+
+    it("без эпиков кнопки нет", async () => {
+      await renderApp(FILES);
+      await screen.findAllByRole("row");
+
+      expect(screen.queryByRole("button", { name: /^Эпик:/ })).toBeNull();
+    });
+  });
 });

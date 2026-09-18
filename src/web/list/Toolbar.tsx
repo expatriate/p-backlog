@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { normalizeText } from "../../core/model/query";
-import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type Task, type TaskStatus } from "../../core/model/types";
+import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
 import { Button } from "../ui/Button";
 import { ToggleChip } from "../ui/Chip";
+import { EpicPicker } from "./EpicPicker";
+import type { EpicChoices } from "./epic-choices";
 import { AUTO_CLOSED_VIEW, type ListParams } from "./list-params";
 import styles from "./Toolbar.module.css";
 
@@ -11,10 +13,10 @@ export type ToolbarProps = {
   params: ListParams;
   onChange: (params: ListParams) => void;
   tags: string[];
-  epics: Task[];
+  epicChoices: EpicChoices;
 };
 
-export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
+export function Toolbar({ params, onChange, tags, epicChoices }: ToolbarProps) {
   const { filter } = params;
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
   const setFilter = (patch: Partial<ListParams["filter"]>) => onChange({ ...params, filter: { ...filter, ...patch } });
@@ -72,27 +74,11 @@ export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
             закрыты агентом
           </ToggleChip>
         </div>
-        {epics.length > 0 && (
-          <label className={styles.sort}>
-            Эпик
-            <select
-              value={filter.epic === undefined ? "" : (filter.epic ?? "none")}
-              aria-label="Эпик"
-              onChange={(event) => setFilter({ epic: readEpicValue(event.target.value) })}
-            >
-              <option value="">любой</option>
-              <option value="none">без эпика</option>
-              {epics.map((epic) => (
-                <option key={epic.id} value={epic.id}>
-                  {epic.id} — {epic.title}
-                </option>
-              ))}
-            </select>
-          </label>
+        {epicChoices.epics.length > 0 && (
+          <EpicPicker choices={epicChoices} selected={filter.epic} onSelect={(epic) => setFilter({ epic })} />
         )}
+        {tags.length > 0 && <TagPicker tags={tags} selected={filter.tags ?? []} onToggle={toggleTag} />}
       </div>
-
-      {tags.length > 0 && <TagPicker tags={tags} selected={filter.tags ?? []} onToggle={toggleTag} />}
     </div>
   );
 }
@@ -151,9 +137,4 @@ function allOrSome(statuses: TaskStatus[]): TaskStatus[] | undefined {
 
 function emptyToUndefined<T>(values: T[]): T[] | undefined {
   return values.length > 0 ? values : undefined;
-}
-
-function readEpicValue(value: string): string | null | undefined {
-  if (value === "") return undefined;
-  return value === "none" ? null : value;
 }
