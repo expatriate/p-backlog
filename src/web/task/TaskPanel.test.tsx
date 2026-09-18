@@ -141,6 +141,18 @@ describe("карточка задачи", () => {
     await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).status).toBe("in-progress"));
   });
 
+  it("категория выбирается и убирается в карточке", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    const select = within(panel).getByRole("combobox", { name: "Категория" });
+
+    await app.user.selectOptions(select, "couplers");
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).category).toBe("couplers"));
+
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Категория" }), "");
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).category).toBeUndefined());
+  });
+
   it("клик по пункту чеклиста переключает его в файле и двигает прогресс", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-1");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });

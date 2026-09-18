@@ -37,7 +37,7 @@ description: Use when, while working on code, you notice a problem outside the c
 2. Создай задачу. Описание передавай всегда через heredoc — без него команда ждёт stdin:
    ```bash
    backlog new --title "Таймаут загрузки не учитывает размер файла" \
-     --priority high --tags upload,network --source src/upload/client.ts:88 <<'EOF'
+     --priority high --tags upload,network --source src/upload/client.ts:88 --category bug <<'EOF'
    Таймаут фиксированный — 30 с, файлы больше ~500 МБ обрываются на медленном канале.
 
    **Чем грозит:** большие файлы не загружаются, повторная попытка тоже падает.
@@ -53,6 +53,11 @@ description: Use when, while working on code, you notice a problem outside the c
    - `--priority`: `critical` — ломает прод или данные; `high` — заметный пользователю баг; `medium` — долг, который мешает работе; `low` — улучшение.
    - `--tags` — область кода и вид работы: `upload`, `auth`, `tech-debt`, `tests`.
    - `--source` — где заметил, `файл:строка`.
+   - `--category` — обязательно. Запах кода — его категория из каталога code-smells: `bloaters`,
+     `change-preventers`, `couplers`, `data-dealers`, `dispensables`, `functional-abusers`,
+     `lexical-abusers`, `oo-abusers`, `obfuscators`. Неправильное поведение — `bug`.
+   - `--found review` — находка аудита или ревью по просьбе пользователя; замеченное попутно флага не
+     требует.
    - Работаешь над задачей из беклога — добавь `--related <её ID>`.
    - Чеклист — проверяемые шаги: по нему считается прогресс.
 
@@ -134,3 +139,5 @@ description: Use when, while working on code, you notice a problem outside the c
 
 «Что в беклоге» → `backlog list`: открытые задачи текущего проекта по приоритету. По запросу:
 `--all-projects`, `--status done`, `--tag <тег>`, `--query <текст>`. Подробности — `backlog show <ID>`.
+
+Сменить категорию — `backlog category <ID> <категория|none>`.

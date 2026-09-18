@@ -1,5 +1,16 @@
 import type { TaskChangesRequest } from "../../core/api/contract";
-import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type Priority, type Task, type TaskStatus, type TaskType } from "../../core/model/types";
+import { CATEGORY_LABELS, NO_CATEGORY_LABEL } from "../../core/model/categories";
+import {
+  PRIORITIES,
+  TASK_CATEGORIES,
+  TASK_STATUSES,
+  TASK_TYPES,
+  type Priority,
+  type Task,
+  type TaskCategory,
+  type TaskStatus,
+  type TaskType,
+} from "../../core/model/types";
 import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
 import { useDraft } from "../ui/use-draft";
 import { normalizeTaskId } from "./normalize-task-id";
@@ -30,6 +41,20 @@ export function TaskFields({ task, epicListId, onChange }: TaskFieldsProps) {
             {PRIORITIES.map((priority) => (
               <option key={priority} value={priority}>
                 {PRIORITY_LABELS[priority]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Категория
+          <select
+            value={task.category ?? ""}
+            onChange={(event) => onChange({ category: event.target.value === "" ? null : (event.target.value as TaskCategory) })}
+          >
+            <option value="">{NO_CATEGORY_LABEL}</option>
+            {TASK_CATEGORIES.map((category) => (
+              <option key={category} value={category}>
+                {CATEGORY_LABELS[category]}
               </option>
             ))}
           </select>
