@@ -19,7 +19,9 @@ export type PopoverProps = {
   children: ReactNode;
 };
 
-export const POPOVER_INITIAL_FOCUS = { "data-popover-focus": "" } as const;
+const INITIAL_FOCUS_ATTRIBUTE = "data-popover-focus";
+
+export const POPOVER_INITIAL_FOCUS = { [INITIAL_FOCUS_ATTRIBUTE]: "" } as const;
 
 const ClosePopoverContext = createContext<(() => void) | null>(null);
 
@@ -48,7 +50,7 @@ export function Popover({ trigger, triggerProps, triggerRef, children }: Popover
     const sideMargin = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4"));
     const overflow = menu.getBoundingClientRect().right - (document.documentElement.clientWidth - sideMargin);
     menu.style.transform = overflow > 0 ? `translateX(-${overflow}px)` : "";
-    menu.querySelector<HTMLElement>("[data-popover-focus]")?.focus({ preventScroll: true });
+    menu.querySelector<HTMLElement>(`[${INITIAL_FOCUS_ATTRIBUTE}]`)?.focus({ preventScroll: true });
   }, [open]);
 
   useEffect(() => {
