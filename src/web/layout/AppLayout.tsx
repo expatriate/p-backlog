@@ -18,6 +18,13 @@ export function AppLayout() {
   const projectId = matchPath("/p/:projectId/*", pathname)?.params.projectId;
   const autoClosedCount = filterTasks(allTasks, { projectId, ...AUTO_CLOSED_VIEW.filter }, index).length;
   const autoClosedActive = new URLSearchParams(search).get("auto") === "1";
+  const onStats = matchPath("/stats", pathname) !== null || matchPath("/p/:projectId/stats", pathname) !== null;
+
+  const scopePath = (id?: string) => {
+    const base = id === undefined ? "" : `/p/${id}`;
+    if (onStats) return `${base}/stats`;
+    return base === "" ? "/" : base;
+  };
 
   return (
     <div className={styles.shell}>
@@ -25,14 +32,14 @@ export function AppLayout() {
         <div className={styles.brand}>Беклог</div>
         <ul className={styles.projects}>
           <li>
-            <NavLink to={{ pathname: "/", search }} end className={({ isActive }) => navClass(isActive)}>
+            <NavLink to={{ pathname: scopePath(), search: onStats ? "" : search }} end className={({ isActive }) => navClass(isActive)}>
               <span className={styles.projectName}>Все проекты</span>
               <span className={styles.count}>{openCount()}</span>
             </NavLink>
           </li>
           {(projects.data ?? []).map((project) => (
             <li key={project.id}>
-              <NavLink to={{ pathname: `/p/${project.id}`, search }} className={({ isActive }) => navClass(isActive)}>
+              <NavLink to={{ pathname: scopePath(project.id), search: onStats ? "" : search }} className={({ isActive }) => navClass(isActive)}>
                 <span className={styles.projectName}>{project.name}</span>
                 <span className={styles.count}>{openCount(project.id)}</span>
               </NavLink>
@@ -46,6 +53,9 @@ export function AppLayout() {
           <span className={styles.projectName}>Закрыты агентом</span>
           <span className={styles.count}>{autoClosedCount}</span>
         </Link>
+        <NavLink to={projectId === undefined ? "/stats" : `/p/${projectId}/stats`} className={({ isActive }) => navClass(isActive)}>
+          <span className={styles.projectName}>Статистика</span>
+        </NavLink>
       </nav>
       <Outlet />
     </div>

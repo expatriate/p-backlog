@@ -1,6 +1,7 @@
 import type { RouteObject } from "react-router";
 import { AppLayout } from "../layout/AppLayout";
 import { TaskListPage } from "../list/TaskListPage";
+import { StatsPage } from "../stats/StatsPage";
 import styles from "./App.module.css";
 import { useLiveUpdates } from "./queries";
 
@@ -13,6 +14,8 @@ export const routes: RouteObject[] = [
       { path: "t/:taskId", element: <TaskListPage /> },
       { path: "p/:projectId", element: <TaskListPage /> },
       { path: "p/:projectId/t/:taskId", element: <TaskListPage /> },
+      { path: "stats", element: <StatsPage /> },
+      { path: "p/:projectId/stats", element: <StatsPage /> },
     ],
   },
 ];
