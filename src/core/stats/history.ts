@@ -1,7 +1,6 @@
-import type { ChangeSource, JournalEvent, TaskSnapshot } from "../journal/events";
+import type { ChangeSource, JournalEvent, ProjectJournal, TaskSnapshot } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Resolution, Task, TaskStatus, TaskType } from "../model/types";
-import type { ProjectJournal } from "../store/journal";
 
 export type Transition = { at: number; from?: TaskStatus; to: TaskStatus; resolution?: Resolution; via: ChangeSource | "unknown" };
 
@@ -35,11 +34,13 @@ export function taskHistories(tasks: readonly Task[], journals: readonly Project
 export function isOpenAt(history: TaskHistory, moment: number): boolean {
   if (history.createdAt > moment) return false;
   const last = history.transitions.filter((transition) => transition.at <= moment).at(-1);
-  return last === undefined || !isClosed(last.to);
+  if (last !== undefined) return !isClosed(last.to);
+  const first = history.transitions[0];
+  return first?.from === undefined || !isClosed(first.from);
 }
 
 export function closingsOf(history: TaskHistory): Transition[] {
-  return history.transitions.filter((transition) => isClosed(transition.to));
+  return history.transitions.filter((transition) => isClosed(transition.to) && (transition.from === undefined || !isClosed(transition.from)));
 }
 
 export function reopeningsOf(history: TaskHistory): Transition[] {

@@ -41,6 +41,18 @@ describe("отчёт статистики", () => {
     expect(report.hotspots.folders).toEqual([{ label: "spa · src", count: 1 }]);
   });
 
+  it("закрытие в закрытие не удваивает «закрыто за неделю»", () => {
+    const task = makeTask({ id: "SPA-5", created: formatLocalIso(at(1)), status: "cancelled", closed: formatLocalIso(at(16)) });
+    const events: JournalEvent[] = [
+      { at: formatLocalIso(at(15)), task: "SPA-5", via: "cli", kind: "status", from: "backlog", to: "done" },
+      { at: formatLocalIso(at(16)), task: "SPA-5", via: "web", kind: "status", from: "done", to: "cancelled" },
+    ];
+
+    const report = statsReport({ tasks: [task], journals: [{ projectId: "spa", events, invalidLines: 0 }], now: NOW, projectId: "spa" });
+
+    expect(report.totals.closedLastWeek).toBe(1);
+  });
+
   it("пустая область — ноль задач и пустые медианы", () => {
     const report = statsReport({ tasks: [], journals: [], now: NOW });
 

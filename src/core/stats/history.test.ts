@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { JournalEvent } from "../journal/events";
+import type { JournalEvent, ProjectJournal } from "../journal/events";
 import { formatLocalIso } from "../model/dates";
 import { makeTask } from "../model/testing/make-task";
-import type { ProjectJournal } from "../store/journal";
 import { closingsOf, isOpenAt, reopeningsOf, taskHistories } from "./history";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
@@ -57,5 +56,30 @@ describe("история задачи", () => {
     if (!history) throw new Error("нет истории");
 
     expect(isOpenAt(history, at(4).getTime())).toBe(false);
+  });
+
+  it("закрытие в закрытие — не новое закрытие", () => {
+    const task = makeTask({ id: "SPA-1", created: iso(1), status: "cancelled" });
+    const events: JournalEvent[] = [
+      { at: iso(3), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done" },
+      { at: iso(4), task: "SPA-1", via: "web", kind: "status", from: "done", to: "cancelled" },
+    ];
+
+    const [history] = taskHistories([task], journal(events));
+    if (!history) throw new Error("нет истории");
+
+    expect(closingsOf(history)).toMatchObject([{ at: at(3).getTime(), to: "done" }]);
+    expect(isOpenAt(history, at(5).getTime())).toBe(false);
+  });
+
+  it("возврат из закрытого статуса, случившегося до начала журнала", () => {
+    const task = makeTask({ id: "SPA-1", created: iso(1), status: "backlog" });
+    const events: JournalEvent[] = [{ at: iso(6), task: "SPA-1", via: "cli", kind: "status", from: "done", to: "backlog" }];
+
+    const [history] = taskHistories([task], journal(events));
+    if (!history) throw new Error("нет истории");
+
+    expect(isOpenAt(history, at(4).getTime())).toBe(false);
+    expect(isOpenAt(history, at(7).getTime())).toBe(true);
   });
 });
