@@ -3,7 +3,7 @@ import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type Task, type TaskStatus } fro
 import { DIRECTION_LABELS, DIRECTION_MARKS, PRIORITY_LABELS, SORT_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
 import { Button } from "../ui/Button";
 import { ToggleChip } from "../ui/Chip";
-import { pickSortKey, reverseSort, type ListParams } from "./list-params";
+import { AUTO_CLOSED_VIEW, pickSortKey, reverseSort, type ListParams } from "./list-params";
 import styles from "./Toolbar.module.css";
 
 export type ToolbarProps = {
@@ -79,7 +79,7 @@ export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
           </ToggleChip>
           <ToggleChip
             pressed={filter.onlyAutoClosed === true}
-            onToggle={() => setFilter({ onlyAutoClosed: filter.onlyAutoClosed ? undefined : true })}
+            onToggle={() => setFilter(filter.onlyAutoClosed ? { onlyAutoClosed: undefined } : AUTO_CLOSED_VIEW.filter)}
           >
             закрыты агентом
           </ToggleChip>

@@ -135,6 +135,25 @@ describe("список задач", () => {
     expect(autoChip.getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("чип «закрыты агентом» из обычного вида включает закрытые статусы", async () => {
+    const app = await renderApp({
+      ...FILES,
+      "spa/SPA-5.md": taskFixture("SPA-5", { title: "Исправлено агентом", status: "done", closed: "2026-09-12T10:00:00+03:00", resolution: "fixed", reason: "есть" }),
+    });
+    await screen.findAllByRole("row");
+    const autoChip = within(screen.getByRole("group", { name: "Тип" })).getByRole("button", { name: "закрыты агентом" });
+
+    await app.user.click(autoChip);
+
+    await waitFor(async () => expect(await rowTitles()).toEqual(["Исправлено агентом"]));
+    expect(app.route()).toContain("status=done%2Ccancelled");
+    expect(app.route()).toContain("auto=1");
+
+    await app.user.click(autoChip);
+
+    expect(app.route()).not.toContain("auto=1");
+  });
+
   it("сообщает о файлах, которые не удалось разобрать", async () => {
     await renderApp({ ...FILES, "spa/SPA-9.md": "сломано" });
 
