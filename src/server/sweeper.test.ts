@@ -2,7 +2,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { SweepReport } from "../core/store/sweep";
 import { startSweeper } from "./sweeper";
 
-const EMPTY_REPORT: SweepReport = { closedEpics: [], deleted: [], conflicts: [], invalid: [] };
+const EMPTY_REPORT: SweepReport = { closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] };
 
 function useFakeClock() {
   vi.useFakeTimers();
@@ -50,6 +50,7 @@ describe("startSweeper", () => {
     useFakeClock();
     const report: SweepReport = {
       closedEpics: ["SPA-7", "SPA-8"],
+      blockingFiles: ["/backlog/notes/project.md", "/backlog/spa/SPA-9.md"],
       deleted: ["SPA-1"],
       conflicts: ["SPA-2", "SPA-3"],
       invalid: [
@@ -65,6 +66,7 @@ describe("startSweeper", () => {
 
     expect(log.mock.calls).toEqual([
       ["Закрыты завершённые эпики: SPA-7, SPA-8"],
+      ["Эпики не закрываются, пока не разобраны файлы: /backlog/notes/project.md, /backlog/spa/SPA-9.md"],
       ["Удалены закрытые задачи: SPA-1"],
       ["Задачи менялись во время прохода, повторю при следующем: SPA-2, SPA-3"],
       [

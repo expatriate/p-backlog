@@ -3,7 +3,7 @@ import { basename } from "node:path";
 import { buildIndex } from "../model/graph";
 import { ID_PATTERN, parseId } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
-import { epicsToClose, type Closure } from "../model/lifecycle";
+import { planEpicClosing, type Closure } from "../model/lifecycle";
 import type { ParseError, Project, Task } from "../model/types";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
 import { expandHome, PROJECT_FILE } from "../store/paths";
@@ -37,7 +37,7 @@ export async function checkBacklog(root: string, request: CheckRequest): Promise
 
 async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, now: Date): Promise<FixOutcome> {
   const isGone = goneTaskCheck(loaded);
-  const epicClosures = new Map(epicsToClose(loaded.tasks, loaded.errors).map(({ epic, closure }) => [epic.id, closure]));
+  const epicClosures = new Map(planEpicClosing(loaded.tasks, loaded.errors).close.map(({ epic, closure }) => [epic.id, closure]));
   const fixed: string[] = [];
   const failed: string[] = [];
   for (const task of loaded.tasks.filter((candidate) => inScope(candidate.projectId))) {
@@ -117,14 +117,22 @@ function findProblems(
   inScope: (projectId: string) => boolean,
 ): string[] {
   const index = buildIndex(loaded.tasks);
-  const parseErrors = loaded.errors
-    .filter((error) => inScope(error.projectId) || isProjectFileError(error))
-    .map((error) => `Файл ${error.path} не разобран: ${error.message}`);
   const integrity = loaded.tasks
     .filter((task) => inScope(task.projectId))
     .flatMap((task) => integrityErrors(task, index).map((error) => `${task.id}: ${error}`));
   const missingRepos = projects.filter((project) => repos.get(project.id) === undefined).map(missingRepoProblem);
-  return [...parseErrors, ...integrity, ...missingRepos];
+  return [...parseProblems(loaded, inScope), ...integrity, ...missingRepos];
+}
+
+function parseProblems(loaded: LoadedBacklog, inScope: (projectId: string) => boolean): string[] {
+  const waitingEpicIds = planEpicClosing(loaded.tasks, loaded.errors)
+    .waiting.filter(({ epic }) => inScope(epic.projectId))
+    .map(({ epic }) => epic.id);
+  const reported = loaded.errors
+    .filter((error) => waitingEpicIds.length > 0 || inScope(error.projectId) || isProjectFileError(error))
+    .map((error) => `Файл ${error.path} не разобран: ${error.message}`);
+  if (waitingEpicIds.length === 0) return reported;
+  return [...reported, `Эпики ${waitingEpicIds.join(", ")} завершены, но не закроются, пока не исправлены неразобранные файлы`];
 }
 
 function isProjectFileError(error: ParseError): boolean {

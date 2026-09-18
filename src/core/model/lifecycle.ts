@@ -17,6 +17,8 @@ export type Closure = { resolution: Resolution; reason: string };
 
 export type EpicClosure = { epic: Task; closure: Closure };
 
+export type EpicClosingPlan = { close: EpicClosure[]; waiting: EpicClosure[] };
+
 export function changeStatus(task: Task, status: TaskStatus, now: Date, closure?: Closure): Task {
   if (status === task.status) return task;
   return { ...task, status, closed: closedAt(task, status, now), resolution: closure?.resolution, reason: closure?.reason };
@@ -37,8 +39,9 @@ export function isExpired(task: Task, now: Date): boolean {
   return deletesAt !== undefined && deletesAt.getTime() <= now.getTime();
 }
 
-export function epicsToClose(tasks: readonly Task[], parseErrors: readonly ParseError[]): EpicClosure[] {
-  return parseErrors.length > 0 ? [] : completedEpics(tasks);
+export function planEpicClosing(tasks: readonly Task[], parseErrors: readonly ParseError[]): EpicClosingPlan {
+  const completed = completedEpics(tasks);
+  return parseErrors.length > 0 ? { close: [], waiting: completed } : { close: completed, waiting: [] };
 }
 
 export function completedEpics(tasks: readonly Task[]): EpicClosure[] {

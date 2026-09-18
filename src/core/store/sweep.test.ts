@@ -39,7 +39,7 @@ describe("sweepClosed", () => {
 
     const report = await sweepClosed(root, NOW);
 
-    expect(report).toEqual({ closedEpics: [], deleted: ["SPA-1", "SPA-5"], conflicts: [], invalid: [] });
+    expect(report).toEqual({ closedEpics: [], blockingFiles: [], deleted: ["SPA-1", "SPA-5"], conflicts: [], invalid: [] });
     expect(await exists(join(root, "spa/SPA-1.md"))).toBe(false);
     expect(await exists(join(root, "spa/SPA-5.md"))).toBe(false);
     const { projects, tasks, errors } = await loadBacklog(root);
@@ -75,7 +75,7 @@ describe("sweepClosed", () => {
     const projectText = projectFile("SPA");
     await writeFiles(root, { "spa/project.md": projectText, "spa/SPA-1.md": taskFile("SPA-1", `status: done\n${FRESH}`) });
 
-    expect(await sweepClosed(root, NOW)).toEqual({ closedEpics: [], deleted: [], conflicts: [], invalid: [] });
+    expect(await sweepClosed(root, NOW)).toEqual({ closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] });
     expect(await readFile(join(root, "spa/project.md"), "utf8")).toBe(projectText);
   });
 
@@ -85,6 +85,7 @@ describe("sweepClosed", () => {
 
     expect(await sweepClosed(root, NOW)).toEqual({
       closedEpics: [],
+      blockingFiles: [],
       deleted: [],
       conflicts: [],
       invalid: [{ id: "SPA-1", errors: ["задача не может блокировать саму себя"] }],
@@ -101,7 +102,7 @@ describe("sweepClosed", () => {
 
     const report = await sweepClosed(root, NOW);
 
-    expect(report).toEqual({ closedEpics: ["SPA-1"], deleted: ["SPA-2"], conflicts: [], invalid: [] });
+    expect(report).toEqual({ closedEpics: ["SPA-1"], blockingFiles: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
     expect(await exists(join(root, "spa/SPA-2.md"))).toBe(false);
     const { tasks, errors } = await loadBacklog(root);
     expect(errors).toEqual([]);
@@ -128,6 +129,7 @@ describe("sweepClosed", () => {
 
     expect(report).toEqual({
       closedEpics: [],
+      blockingFiles: [],
       deleted: [],
       conflicts: [],
       invalid: [{ id: "SPA-1", errors: ["задача не может блокировать саму себя"] }],
@@ -147,7 +149,7 @@ describe("sweepClosed", () => {
 
     const report = await sweepClosed(root, NOW);
 
-    expect(report).toEqual({ closedEpics: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
+    expect(report).toEqual({ closedEpics: [], blockingFiles: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
     expect(await exists(join(root, "spa/SPA-2.md"))).toBe(false);
     const byId = new Map((await loadBacklog(root)).tasks.map((task) => [task.id, task]));
     expect(byId.get("SPA-1")?.status).toBe("backlog");
@@ -161,11 +163,18 @@ describe("sweepClosed", () => {
       "spa/SPA-1.md": taskFile("SPA-1", "type: epic\n"),
       "spa/SPA-2.md": taskFile("SPA-2", `epic: SPA-1\nstatus: done\n${EXPIRED}`),
       "spa/SPA-3.md": "сломано",
+      "notes/todo.md": "заметки",
     });
 
     const report = await sweepClosed(root, NOW);
 
-    expect(report).toEqual({ closedEpics: [], deleted: [], conflicts: [], invalid: [] });
+    expect(report).toEqual({
+      closedEpics: [],
+      blockingFiles: [join(root, "notes/project.md"), join(root, "spa/SPA-3.md")],
+      deleted: [],
+      conflicts: [],
+      invalid: [],
+    });
     expect(await exists(join(root, "spa/SPA-2.md"))).toBe(true);
     expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-1")?.status).toBe("backlog");
   });
@@ -181,9 +190,17 @@ describe("sweepClosed", () => {
 
     expect(await sweepClosed(root, NOW)).toEqual({
       closedEpics: [],
+      blockingFiles: [],
       deleted: ["SPA-3"],
       conflicts: [],
       invalid: [{ id: "SPA-1", errors: ["задача не может блокировать саму себя"] }],
     });
+  });
+
+  it("неразобранный файл, когда закрывать нечего, в итог не попадает", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/SPA-2.md": "сломано" });
+
+    expect(await sweepClosed(root, NOW)).toEqual({ closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] });
   });
 });

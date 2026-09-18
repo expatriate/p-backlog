@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "./dates";
-import { changeStatus, completedEpics, deletionDate, epicsToClose, isExpired, settleLifecycle } from "./lifecycle";
+import { changeStatus, completedEpics, deletionDate, isExpired, planEpicClosing, settleLifecycle } from "./lifecycle";
 import { makeTask } from "./testing/make-task";
 
 const NOW = new Date("2026-09-18T12:00:00Z");
@@ -85,9 +85,10 @@ describe("завершённый эпик", () => {
     expect(completedEpics([plainTask, underPlainTask])).toEqual([]);
   });
 
-  it("эпики закрываются, только когда разобраны все файлы: у неразобранного эпик неизвестен", () => {
+  it("эпики закрываются, только когда разобраны все файлы, иначе ждут: у неразобранного эпик неизвестен", () => {
     const parseError = { path: "/backlog/spa/SPA-9.md", projectId: "spa", message: "файл не начинается с frontmatter" };
-    expect(epicsToClose([epic, done, cancelled], [])).toEqual(completedEpics([epic, done, cancelled]));
-    expect(epicsToClose([epic, done, cancelled], [parseError])).toEqual([]);
+    const completed = completedEpics([epic, done, cancelled]);
+    expect(planEpicClosing([epic, done, cancelled], [])).toEqual({ close: completed, waiting: [] });
+    expect(planEpicClosing([epic, done, cancelled], [parseError])).toEqual({ close: [], waiting: completed });
   });
 });

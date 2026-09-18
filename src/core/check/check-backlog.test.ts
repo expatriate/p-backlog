@@ -44,7 +44,10 @@ describe("checkBacklog", () => {
     const report = await checkBacklog(root, { projectIds: ["spa"], mode: "full", now: NOW, home });
 
     expect(report.fixed).toEqual(["SPA-9: убраны ссылки на несуществующие задачи: SPA-99"]);
-    expect(report.problems).toEqual([expect.stringMatching(/SPA-10\.md не разобран: файл не начинается с frontmatter/)]);
+    expect(report.problems).toEqual([
+      expect.stringMatching(/SPA-10\.md не разобран: файл не начинается с frontmatter/),
+      "Эпики SPA-7 завершены, но не закроются, пока не исправлены неразобранные файлы",
+    ]);
     expect(report.candidates).toEqual([
       {
         kind: "source-changed",
@@ -134,5 +137,28 @@ describe("checkBacklog", () => {
     expect(report.problems).toContainEqual(expect.stringMatching(/ti\/project\.md не разобран/));
     const spa1 = (await loadBacklog(root)).tasks.find((loaded) => loaded.id === "SPA-1");
     expect(spa1).toMatchObject({ blockedBy: [], related: ["TI-3", "XYZ-1"] });
+  });
+
+  it("эпик ждёт неразобранных файлов — о них сообщается в любом проекте", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-7.md": task("SPA-7", "type: epic\n"),
+      "spa/SPA-8.md": task("SPA-8", "epic: SPA-7\nstatus: done\nclosed: 2026-09-12T10:00:00+03:00\n"),
+      "docs/project.md": projectFile("DOC"),
+      "docs/DOC-1.md": "сломано",
+      "notes/todo.md": "заметки",
+    });
+
+    const report = await checkBacklog(root, { projectIds: ["spa"], mode: "full", now: NOW, home });
+
+    expect(report.fixed).toEqual([]);
+    expect(report.problems).toEqual([
+      expect.stringMatching(/docs\/DOC-1\.md не разобран: файл не начинается с frontmatter/),
+      expect.stringMatching(/notes\/project\.md не разобран: нет project\.md/),
+      "Эпики SPA-7 завершены, но не закроются, пока не исправлены неразобранные файлы",
+      expect.stringMatching(/^Проект spa: в repos нет путей/),
+    ]);
   });
 });

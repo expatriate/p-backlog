@@ -1,6 +1,6 @@
 import { isClosed } from "../model/graph";
 import { parseId } from "../model/ids";
-import { completedEpics, epicsToClose, isExpired } from "../model/lifecycle";
+import { isExpired, planEpicClosing } from "../model/lifecycle";
 import { serializeProject } from "../model/project-file";
 import type { Project, Task } from "../model/types";
 import { removeIfUnchanged, writeFileAtomic } from "./fs-utils";
@@ -11,6 +11,7 @@ import type { UpdateTaskFailure } from "./write-result";
 
 export type SweepReport = {
   closedEpics: string[];
+  blockingFiles: string[];
   deleted: string[];
   conflicts: string[];
   invalid: { id: string; errors: string[] }[];
@@ -18,7 +19,7 @@ export type SweepReport = {
 
 type SweepFailure = { id: string; reason: "conflict" } | { id: string; reason: "invalid"; errors: string[] };
 
-type EpicStep = { closed: string[]; failures: SweepFailure[]; leftOpen: ReadonlySet<string> };
+type EpicStep = { closed: string[]; failures: SweepFailure[]; leftOpen: ReadonlySet<string>; blockingFiles: string[] };
 
 type RemovalStep = { deleted: string[]; failures: SweepFailure[] };
 
@@ -32,21 +33,26 @@ export async function sweepClosed(root: string, now: Date): Promise<SweepReport>
   await reserveNumbers(projects, expired);
   const updateFailures = await updateRemainingTasks(tasks, expired, now);
   const removal = await removeExpired(expired);
-  return buildReport(epics.closed, removal.deleted, [...epics.failures, ...updateFailures, ...removal.failures]);
+  return {
+    closedEpics: epics.closed,
+    blockingFiles: epics.blockingFiles,
+    deleted: removal.deleted,
+    ...failureLists([...epics.failures, ...updateFailures, ...removal.failures]),
+  };
 }
 
 async function closeCompletedEpics(loaded: LoadedBacklog, now: Date): Promise<EpicStep> {
+  const plan = planEpicClosing(loaded.tasks, loaded.errors);
   const closed: string[] = [];
   const failures: SweepFailure[] = [];
-  for (const { epic, closure } of epicsToClose(loaded.tasks, loaded.errors)) {
+  for (const { epic, closure } of plan.close) {
     const result = await updateTaskIn(loaded.tasks, { id: epic.id, changes: { status: "done" }, expectedVersion: epic.version, now, closure });
     if (result.ok) closed.push(epic.id);
     else failures.push(sweepFailure(epic.id, result));
   }
-  const leftOpen = completedEpics(loaded.tasks)
-    .map(({ epic }) => epic.id)
-    .filter((id) => !closed.includes(id));
-  return { closed, failures, leftOpen: new Set(leftOpen) };
+  const leftOpen = new Set([...plan.waiting.map(({ epic }) => epic.id), ...failures.map(({ id }) => id)]);
+  const blockingFiles = plan.waiting.length === 0 ? [] : loaded.errors.map((error) => error.path);
+  return { closed, failures, leftOpen, blockingFiles };
 }
 
 async function updateRemainingTasks(tasks: readonly Task[], expired: readonly Task[], now: Date): Promise<SweepFailure[]> {
@@ -81,11 +87,9 @@ function sweepFailure(id: string, failure: UpdateTaskFailure): SweepFailure {
   }
 }
 
-function buildReport(closedEpics: string[], deleted: string[], failures: readonly SweepFailure[]): SweepReport {
+function failureLists(failures: readonly SweepFailure[]): Pick<SweepReport, "conflicts" | "invalid"> {
   const firstPerTask = failures.filter((failure, position) => failures.findIndex(({ id }) => id === failure.id) === position);
   return {
-    closedEpics,
-    deleted,
     conflicts: firstPerTask.filter((failure) => failure.reason === "conflict").map(({ id }) => id),
     invalid: firstPerTask.flatMap((failure) => (failure.reason === "invalid" ? [{ id: failure.id, errors: failure.errors }] : [])),
   };
