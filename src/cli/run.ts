@@ -1,3 +1,4 @@
+import { TASK_CATEGORIES } from "../core/model/types";
 import { runCategory } from "./commands/category";
 import { runCheck } from "./commands/check";
 import { runClose } from "./commands/close";
@@ -20,7 +21,7 @@ const USAGE = `Использование:
   backlog take <ID> [--force] [--json]
   backlog take --next [--project id] [--json]
   backlog status <ID> <backlog|in-progress|blocked|done|cancelled>
-  backlog category <ID> <bloaters|change-preventers|couplers|data-dealers|dispensables|functional-abusers|lexical-abusers|oo-abusers|obfuscators|bug|none>
+  backlog category <ID> <${TASK_CATEGORIES.join("|")}|none>
   backlog check [--changed] [--project id | --all-projects] [--json]
   backlog close <ID> --as fixed|obsolete|duplicate --reason <улика> [--duplicate-of <ID>]
   backlog verify <ID> [--source файл:строка]
