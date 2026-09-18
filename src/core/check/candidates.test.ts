@@ -27,6 +27,12 @@ describe("isReviewable и sourcePath", () => {
     expect(sourcePath("src/a.ts:10-20")).toBe("src/a.ts");
     expect(sourcePath("README.md")).toBe("README.md");
   });
+
+  it("путь нормализуется: без ./ в начале и / в конце", () => {
+    expect(sourcePath("./src/a.ts:3")).toBe("src/a.ts");
+    expect(sourcePath("src/shared/")).toBe("src/shared");
+    expect(sourcePath("./src/shared/")).toBe("src/shared");
+  });
 });
 
 describe("codeCandidates", () => {
@@ -82,6 +88,36 @@ describe("codeCandidates", () => {
       { kind: "source-missing", task: { id: "SPA-1", title: "Таймаут" }, path: "src/a.ts", renamedTo: "src/c.ts" },
     ]);
     expect(codeCandidates([task], facts({}))).toEqual([{ kind: "source-missing", task: { id: "SPA-1", title: "Таймаут" }, path: "src/a.ts" }]);
+  });
+
+  it("source-каталог: считаются коммиты и незакоммиченные правки файлов внутри него", () => {
+    const folder = makeTask({ id: "SPA-3", title: "Модель", created: CREATED, source: "src/shared" });
+    const existing = new Set(["src/shared"]);
+    const commits = [
+      commit("c3", "2026-09-14T10:00:00+03:00", [{ path: "src/lib/old.ts", renamedFrom: "src/shared/old.ts" }]),
+      commit("b2", "2026-09-13T10:00:00+03:00", [{ path: "src/shared-extra/b.ts" }]),
+      commit("a1", "2026-09-12T10:00:00+03:00", [{ path: "src/shared/model/a.ts" }]),
+    ];
+
+    expect(codeCandidates([folder], facts({ commits, existing }))).toEqual([
+      {
+        kind: "source-changed",
+        task: { id: "SPA-3", title: "Модель" },
+        path: "src/shared",
+        commits: [
+          { sha: "c3", subject: "Коммит c3" },
+          { sha: "a1", subject: "Коммит a1" },
+        ],
+        uncommitted: false,
+      },
+    ]);
+
+    const dirty = new Map([["src/shared/model/a.ts", Date.parse("2026-09-12T10:00:00Z")]]);
+    expect(codeCandidates([folder], facts({ existing, dirtyModifiedAt: dirty }))).toMatchObject([
+      { kind: "source-changed", path: "src/shared", commits: [], uncommitted: true },
+    ]);
+    const dirtyNeighbour = new Map([["src/shared-extra/b.ts", Date.parse("2026-09-12T10:00:00Z")]]);
+    expect(codeCandidates([folder], facts({ existing, dirtyModifiedAt: dirtyNeighbour }))).toEqual([]);
   });
 
   it("задачи без source здесь не участвуют", () => {

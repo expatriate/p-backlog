@@ -31,7 +31,7 @@ export async function collectRepoFacts(repo: string, { since, paths }: { since: 
 
 async function git(repo: string, args: string[]): Promise<string | null> {
   try {
-    const { stdout } = await runFile("git", ["-C", repo, "-c", "core.quotePath=false", ...args], { maxBuffer: GIT_OUTPUT_LIMIT });
+    const { stdout } = await runFile("git", ["-C", repo, "--no-optional-locks", "-c", "core.quotePath=false", ...args], { maxBuffer: GIT_OUTPUT_LIMIT });
     return stdout;
   } catch {
     return null;

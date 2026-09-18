@@ -18,7 +18,10 @@ export function isReviewable(task: Task): boolean {
 }
 
 export function sourcePath(source: string): string {
-  return source.replace(/:\d+(?:-\d+)?$/, "");
+  return source
+    .replace(/:\d+(?:-\d+)?$/, "")
+    .replace(/^\.\//, "")
+    .replace(/\/+$/, "");
 }
 
 export function reviewMark(task: Task): number {
@@ -36,7 +39,7 @@ export function codeCandidates(tasks: readonly Task[], facts: RepoFacts): Candid
     }
 
     const commits = commitsAfter(facts.commits, mark).filter((commit) => touches(commit, path));
-    const uncommitted = (facts.dirtyModifiedAt.get(path) ?? Number.NEGATIVE_INFINITY) > mark;
+    const uncommitted = [...facts.dirtyModifiedAt].some(([file, modifiedAt]) => isWithin(file, path) && modifiedAt > mark);
     if (commits.length === 0 && !uncommitted) return [];
     return [{ kind: "source-changed", task: taskRef(task), path, commits: commits.slice(0, MAX_COMMITS).map(commitRef), uncommitted }];
   });
@@ -86,7 +89,11 @@ function commitsAfter(commits: readonly Commit[], mark: number): Commit[] {
 }
 
 function touches(commit: Commit, path: string): boolean {
-  return commit.files.some((file) => file.path === path || file.renamedFrom === path);
+  return commit.files.some((file) => isWithin(file.path, path) || (file.renamedFrom !== undefined && isWithin(file.renamedFrom, path)));
+}
+
+function isWithin(file: string, path: string): boolean {
+  return file === path || file.startsWith(`${path}/`);
 }
 
 function taskRef(task: Task): TaskRef {

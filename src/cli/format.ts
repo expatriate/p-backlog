@@ -32,7 +32,7 @@ export function formatTaskDetails(description: TaskDescription, fileText: string
     `Тип: ${task.type} · Статус: ${task.status} · Приоритет: ${task.priority} · Прогресс: ${formatProgress(description.progress)}`,
   ];
   const deletesAt = deletionDate(task);
-  if (task.closed !== undefined && deletesAt !== undefined) lines.push(`Закрыта: ${task.closed} · удалится ${formatDay(deletesAt)}`);
+  if (deletesAt !== undefined) lines.push(`Закрыта: ${task.closed} · удалится ${formatDay(deletesAt)}`);
   if (task.resolution !== undefined) lines.push(`Причина закрытия: ${task.resolution} — ${task.reason ?? ""}`);
   if (task.verified !== undefined) lines.push(`Проверена: ${task.verified}`);
   if (task.tags.length > 0) lines.push(`Теги: ${task.tags.join(", ")}`);

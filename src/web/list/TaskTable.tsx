@@ -1,5 +1,6 @@
 import { Link } from "react-router";
-import { isBlocked, isClosed, taskProgress, type BacklogIndex } from "../../core/model/graph";
+import { isBlocked, taskProgress, type BacklogIndex } from "../../core/model/graph";
+import { deletionDate } from "../../core/model/lifecycle";
 import type { SortDirection, SortKey, TaskSort } from "../../core/model/query";
 import type { Priority, Task } from "../../core/model/types";
 import { DIRECTION_MARKS, PRIORITY_LABELS, RESOLUTION_LABELS, formatDate } from "../labels";
@@ -105,7 +106,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref }: 
               </td>
               <td className={cx(styles.priorityCell, PRIORITY_CLASS[task.priority])}>{PRIORITY_LABELS[task.priority]}</td>
               <td className={styles.progress}>
-                {isClosed(task.status) && task.closed !== undefined ? (
+                {deletionDate(task) !== undefined ? (
                   <Countdown task={task} now={now} />
                 ) : (
                   <ProgressBar progress={taskProgress(task, index)} />

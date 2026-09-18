@@ -52,6 +52,10 @@ describe("срок хранения", () => {
     expect(deletionDate(makeTask({ id: "SPA-2" }))).toBeUndefined();
   });
 
+  it("у открытой задачи с оставшимся closed даты удаления нет", () => {
+    expect(deletionDate(makeTask({ id: "SPA-1", closed: CLOSED_AT }))).toBeUndefined();
+  });
+
   it("просрочена с момента удаления, не раньше; открытая не просрочена никогда", () => {
     const task = makeTask({ id: "SPA-1", status: "done", closed: CLOSED_AT });
     expect(isExpired(task, new Date("2026-09-17T05:59:59Z"))).toBe(false);

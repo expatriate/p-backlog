@@ -26,12 +26,13 @@ export function settleLifecycle(task: Task, now: Date): Task {
 }
 
 export function deletionDate(task: Task): Date | undefined {
-  return task.closed === undefined ? undefined : new Date(Date.parse(task.closed) + RETENTION_DAYS * DAY_MS);
+  if (!isClosed(task.status) || task.closed === undefined) return undefined;
+  return new Date(Date.parse(task.closed) + RETENTION_DAYS * DAY_MS);
 }
 
 export function isExpired(task: Task, now: Date): boolean {
   const deletesAt = deletionDate(task);
-  return isClosed(task.status) && deletesAt !== undefined && deletesAt.getTime() <= now.getTime();
+  return deletesAt !== undefined && deletesAt.getTime() <= now.getTime();
 }
 
 export function completedEpicChildren(task: Task, index: BacklogIndex): string[] | null {

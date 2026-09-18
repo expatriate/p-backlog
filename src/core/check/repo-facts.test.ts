@@ -1,4 +1,4 @@
-import { rename, writeFile } from "node:fs/promises";
+import { readFile, rename, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
@@ -39,5 +39,18 @@ describe("collectRepoFacts", () => {
     const facts = await collectRepoFacts(dir, { since: new Date("2026-09-11T00:00:00Z"), paths: ["src/a.ts", "src/b.ts"] });
 
     expect(facts).toEqual({ isGit: false, commits: [], dirtyModifiedAt: new Map(), existing: new Set(["src/a.ts"]) });
+  });
+
+  it("не переписывает индекс git: сбор фактов не берёт index.lock, пока с репозиторием работает пользователь", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "export const a = 1;\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    const staleStat = new Date("2026-01-01T00:00:00Z");
+    await utimes(join(repo, "src/a.ts"), staleStat, staleStat);
+    const indexBefore = await readFile(join(repo, ".git/index"));
+
+    await collectRepoFacts(repo, { since: new Date("2026-09-01T00:00:00Z"), paths: ["src/a.ts"] });
+
+    expect(await readFile(join(repo, ".git/index"))).toEqual(indexBefore);
   });
 });
