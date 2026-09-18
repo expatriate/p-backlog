@@ -1,5 +1,7 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ConflictResponse, ErrorResponse, TasksResponse } from "../core/api/contract";
+import { readJournal } from "../core/store/journal";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
@@ -67,6 +69,16 @@ describe("PATCH /api/tasks/:id", () => {
     const cycle = await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { blockedBy: ["SPA-2"] } });
     expect(cycle.status).toBe(422);
     expect(((await cycle.json()) as ErrorResponse).errors[0]).toContain("цикл блокеров");
+  });
+
+  it("правка из интерфейса пишет в журнал событие с источником web", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const version = await backlog.taskVersion("SPA-1");
+
+    await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { status: "in-progress" } });
+
+    const journal = await readJournal(join(backlog.root, "spa"), "spa");
+    expect(journal.events).toMatchObject([{ kind: "status", task: "SPA-1", from: "backlog", to: "in-progress", via: "web" }]);
   });
 });
 

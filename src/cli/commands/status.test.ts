@@ -1,5 +1,7 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
+import { readJournal } from "../../core/store/journal";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -20,5 +22,18 @@ describe("backlog status", () => {
     expect((await run(["status", "SPA-1"])).code).toBe(EXIT.invalid);
     expect((await run(["status", "SPA-1", "later"])).code).toBe(EXIT.invalid);
     expect((await run(["status", "SPA-8", "done"])).code).toBe(EXIT.notFound);
+  });
+
+  it("создание и смена статуса через CLI попадают в журнал с источником cli", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--title", "X", "--priority", "high"]);
+
+    await run(["status", "SPA-1", "done"]);
+
+    const journal = await readJournal(join(root, "spa"), "spa");
+    expect(journal.events).toMatchObject([
+      { kind: "created", task: "SPA-1", priority: "high", via: "cli" },
+      { kind: "status", task: "SPA-1", from: "backlog", to: "done", via: "cli" },
+    ]);
   });
 });

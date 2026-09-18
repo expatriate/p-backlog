@@ -48,6 +48,7 @@ export async function runNew(args: string[], io: CliIo): Promise<number> {
     },
     existingTasks: loaded.tasks,
     now: io.now(),
+    via: "cli",
   });
   if (!result.ok) {
     for (const error of result.errors) io.warn(error);

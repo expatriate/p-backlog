@@ -1,9 +1,12 @@
+import { dirname } from "node:path";
 import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
 import { changeStatus, settleLifecycle, type Closure } from "../model/lifecycle";
 import { parseTaskFile, serializeTask } from "../model/task-file";
 import type { Task } from "../model/types";
+import { changeEvents, type ChangeSource } from "../journal/events";
 import { contentVersion, readTextOrNull, writeFileAtomic } from "./fs-utils";
+import { appendJournal } from "./journal";
 import { loadBacklog } from "./load";
 import { invalid, type UpdateTaskFailure, type UpdateTaskResult } from "./write-result";
 
@@ -13,7 +16,7 @@ export type TaskChanges = Partial<
   epic?: string | null;
 };
 
-export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion?: string; now: Date; closure?: Closure };
+export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion?: string; now: Date; closure?: Closure; via: ChangeSource };
 
 const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "related", "body", "source", "verified"] as const;
 
@@ -24,7 +27,7 @@ export async function updateTask(root: string, request: UpdateTaskRequest): Prom
 
 export async function updateTaskIn(
   tasks: readonly Task[],
-  { id, changes, expectedVersion, now, closure }: UpdateTaskRequest,
+  { id, changes, expectedVersion, now, closure, via }: UpdateTaskRequest,
 ): Promise<UpdateTaskResult> {
   const current = tasks.find((task) => task.id === id);
   if (!current) return { ok: false, reason: "not-found" };
@@ -39,6 +42,7 @@ export async function updateTaskIn(
   const changedOnDisk = expectedVersion === undefined ? null : await diskChange(current, expectedVersion);
   if (changedOnDisk !== null) return changedOnDisk;
   await writeFileAtomic(current.path, text);
+  await appendJournal(dirname(current.path), changeEvents(current, parsed.value, now, via));
   return { ok: true, task: parsed.value };
 }
 

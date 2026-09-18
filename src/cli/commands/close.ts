@@ -60,6 +60,7 @@ export async function runClose(args: string[], io: CliIo): Promise<number> {
     changes: { status, related },
     expectedVersion: task.version,
     now: io.now(),
+    via: "cli",
     closure: { resolution, reason },
   });
   if (!result.ok) return reportUpdateFailure(io, id, result);

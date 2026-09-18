@@ -30,6 +30,7 @@ export async function runVerify(args: string[], io: CliIo): Promise<number> {
     changes: { verified: formatLocalIso(now), source },
     expectedVersion: task.version,
     now,
+    via: "cli",
   });
   if (!result.ok) return reportUpdateFailure(io, id, result);
   io.print(source === undefined ? `${id}: подтверждена` : `${id}: подтверждена, source → ${source}`);

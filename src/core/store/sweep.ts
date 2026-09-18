@@ -1,9 +1,12 @@
+import { dirname } from "node:path";
 import { isClosed } from "../model/graph";
 import { parseId } from "../model/ids";
 import { isExpired, planEpicClosing } from "../model/lifecycle";
+import { deletedEvent } from "../journal/events";
 import { serializeProject } from "../model/project-file";
 import type { Project, Task } from "../model/types";
 import { removeIfUnchanged, writeFileAtomic } from "./fs-utils";
+import { appendJournal } from "./journal";
 import { loadBacklog, type LoadedBacklog } from "./load";
 import { referenceCleanup } from "./references";
 import { updateTaskIn } from "./update";
@@ -32,7 +35,7 @@ export async function sweepClosed(root: string, now: Date): Promise<SweepReport>
   const expired = tasks.filter((task) => isExpired(task, now) && !waitsForEpic(task));
   await reserveNumbers(projects, expired);
   const updateFailures = await updateRemainingTasks(tasks, expired, now);
-  const removal = await removeExpired(expired);
+  const removal = await removeExpired(expired, now);
   return {
     closedEpics: epics.closed,
     blockingFiles: epics.blockingFiles,
@@ -46,7 +49,7 @@ async function closeCompletedEpics(loaded: LoadedBacklog, now: Date): Promise<Ep
   const closed: string[] = [];
   const failures: SweepFailure[] = [];
   for (const { epic, closure } of plan.close) {
-    const result = await updateTaskIn(loaded.tasks, { id: epic.id, changes: { status: "done" }, expectedVersion: epic.version, now, closure });
+    const result = await updateTaskIn(loaded.tasks, { id: epic.id, changes: { status: "done" }, expectedVersion: epic.version, now, closure, via: "sweep" });
     if (result.ok) closed.push(epic.id);
     else failures.push(sweepFailure(epic.id, result));
   }
@@ -61,18 +64,20 @@ async function updateRemainingTasks(tasks: readonly Task[], expired: readonly Ta
   for (const task of tasks.filter((candidate) => !expiredIds.has(candidate.id))) {
     const cleanup = referenceCleanup(task, (id) => expiredIds.has(id));
     if (cleanup === null && !lacksClosedDate(task)) continue;
-    const result = await updateTaskIn(tasks, { id: task.id, changes: cleanup ?? {}, expectedVersion: task.version, now });
+    const result = await updateTaskIn(tasks, { id: task.id, changes: cleanup ?? {}, expectedVersion: task.version, now, via: "sweep" });
     if (!result.ok) failures.push(sweepFailure(task.id, result));
   }
   return failures;
 }
 
-async function removeExpired(expired: readonly Task[]): Promise<RemovalStep> {
+async function removeExpired(expired: readonly Task[], now: Date): Promise<RemovalStep> {
   const deleted: string[] = [];
   const failures: SweepFailure[] = [];
   for (const task of expired) {
-    if (await removeIfUnchanged(task.path, task.version)) deleted.push(task.id);
-    else failures.push({ id: task.id, reason: "conflict" });
+    if (await removeIfUnchanged(task.path, task.version)) {
+      deleted.push(task.id);
+      await appendJournal(dirname(task.path), [deletedEvent(task, now, "sweep")]);
+    } else failures.push({ id: task.id, reason: "conflict" });
   }
   return { deleted, failures };
 }

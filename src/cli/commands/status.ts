@@ -18,7 +18,7 @@ export async function runStatus(args: string[], io: CliIo): Promise<number> {
   const loaded = await loadBacklog(io.backlogRoot);
   const task = requireTask(loaded, io, id);
   if (!task) return EXIT.notFound;
-  const result = await updateTask(io.backlogRoot, { id, changes: { status: nextStatus }, expectedVersion: task.version, now: io.now() });
+  const result = await updateTask(io.backlogRoot, { id, changes: { status: nextStatus }, expectedVersion: task.version, now: io.now(), via: "cli" });
   if (!result.ok) return reportUpdateFailure(io, id, result);
 
   const uncheckedCount = checklistItems(task.body).filter((item) => !item.checked).length;

@@ -25,7 +25,7 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
     if (!body.ok) return body.response;
 
     const id = c.req.param("id");
-    const result = await updateTask(root, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now() });
+    const result = await updateTask(root, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now(), via: "web" });
     if (result.ok) return c.json(result.task);
     if (result.reason === "not-found") return c.json({ errors: [`Задача ${id} не найдена`] }, 404);
     if (result.reason === "conflict") return c.json({ errors: ["Задача изменилась на диске"], current: result.current }, 409);

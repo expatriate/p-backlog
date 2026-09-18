@@ -1,6 +1,7 @@
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
 import { checkBacklog } from "./check-backlog";
@@ -87,6 +88,21 @@ describe("checkBacklog", () => {
     expect(report.fixed).toEqual(["SPA-7: эпик закрыт — все задачи эпика закрыты: SPA-8"]);
     const epic = (await loadBacklog(root)).tasks.find((loaded) => loaded.id === "SPA-7");
     expect(epic).toMatchObject({ status: "done", resolution: "epic-done", reason: "все задачи эпика закрыты: SPA-8" });
+  });
+
+  it("закрытие эпика проверкой пишет в журнал событие от имени check", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-7.md": task("SPA-7", "type: epic\n"),
+      "spa/SPA-8.md": task("SPA-8", "epic: SPA-7\nstatus: done\nclosed: 2026-09-12T10:00:00+03:00\n"),
+    });
+
+    await checkBacklog(root, { projectIds: ["spa"], mode: "full", now: NOW, home });
+
+    const journal = await readJournal(join(root, "spa"), "spa");
+    expect(journal.events).toMatchObject([{ kind: "status", task: "SPA-7", to: "done", resolution: "epic-done", via: "check" }]);
   });
 
   it("узкий режим отдаёт только кандидатов по коду и ничего не пишет", async () => {

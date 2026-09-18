@@ -41,6 +41,7 @@ export async function runTake(args: string[], io: CliIo): Promise<number> {
       changes: { status: "in-progress" },
       expectedVersion: task.version,
       now: io.now(),
+      via: "cli",
     });
     if (!result.ok) return reportUpdateFailure(io, task.id, result);
   }

@@ -10,7 +10,7 @@ describe("backlog list", () => {
     await run(["new", "--title", "Низкий", "--priority", "low", "--tags", "ui"]);
     await run(["new", "--title", "Критичный", "--priority", "critical"]);
     await run(["new", "--title", "Закрытый"]);
-    await updateTask(root, { id: "SPA-3", changes: { status: "done" }, now: new Date() });
+    await updateTask(root, { id: "SPA-3", changes: { status: "done" }, now: new Date(), via: "cli" });
 
     const result = await run(["list"]);
 

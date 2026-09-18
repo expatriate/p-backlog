@@ -43,7 +43,7 @@ async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) =>
   for (const task of loaded.tasks.filter((candidate) => inScope(candidate.projectId))) {
     const fix = planFix(task, isGone, epicClosures.get(task.id));
     if (fix === null) continue;
-    const result = await updateTaskIn(loaded.tasks, { id: task.id, changes: fix.changes, expectedVersion: task.version, now, closure: fix.closure });
+    const result = await updateTaskIn(loaded.tasks, { id: task.id, changes: fix.changes, expectedVersion: task.version, now, closure: fix.closure, via: "check" });
     if (result.ok) fixed.push(...fix.notes.map((note) => `${task.id}: ${note}`));
     else failed.push(`${task.id}: не удалось исправить — ${fixFailure(result)}`);
   }

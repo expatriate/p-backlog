@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../model/dates";
 import { createTask } from "./create";
 import { hasErrorCode } from "./fs-utils";
+import { readJournal } from "./journal";
 import { loadBacklog } from "./load";
 import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
@@ -65,7 +66,7 @@ describe("sweepClosed", () => {
     const project = loaded.projects[0];
     if (!project) throw new Error("нет проекта");
 
-    const result = await createTask(root, { project, input: { title: "Новая" }, existingTasks: loaded.tasks, now: NOW });
+    const result = await createTask(root, { project, input: { title: "Новая" }, existingTasks: loaded.tasks, now: NOW, via: "cli" });
 
     expect(result.ok && result.task.id).toBe("SPA-3");
   });
@@ -202,5 +203,18 @@ describe("sweepClosed", () => {
     await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/SPA-2.md": "сломано" });
 
     expect(await sweepClosed(root, NOW)).toEqual({ closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] });
+  });
+
+  it("удаление пишет в журнал снимок задачи от имени прохода", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", `status: done\nresolution: fixed\nreason: исправлено\n${EXPIRED}`),
+    });
+
+    await sweepClosed(root, NOW);
+
+    const journal = await readJournal(join(root, "spa"), "spa");
+    expect(journal.events).toMatchObject([{ kind: "deleted", task: "SPA-1", via: "sweep", snapshot: { status: "done", resolution: "fixed" } }]);
   });
 });
