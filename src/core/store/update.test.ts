@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { formatLocalIso } from "../model/dates";
 import { loadBacklog } from "./load";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 import { updateTask, type TaskChanges } from "./update";
+
+const NOW = new Date("2026-09-18T12:00:00Z");
 
 async function setup() {
   const root = await makeTempDir();
@@ -25,7 +28,7 @@ describe("updateTask", () => {
     const root = await setup();
     const before = await version(root, "SPA-2");
 
-    const result = await updateTask(root, { id: "SPA-2", changes: { status: "in-progress", tags: ["A"], title: undefined }, expectedVersion: before });
+    const result = await updateTask(root, { id: "SPA-2", changes: { status: "in-progress", tags: ["A"], title: undefined }, expectedVersion: before, now: NOW });
 
     expect(result).toMatchObject({ ok: true, task: { status: "in-progress", tags: ["a"], title: "Задача SPA-2", extra: { owner: "dmitry" } } });
     const after = await version(root, "SPA-2");
@@ -35,14 +38,14 @@ describe("updateTask", () => {
 
   it("epic: null удаляет эпик", async () => {
     const root = await setup();
-    const result = await updateTask(root, { id: "SPA-2", changes: { epic: null } });
+    const result = await updateTask(root, { id: "SPA-2", changes: { epic: null }, now: NOW });
     expect(result.ok && result.task.epic).toBeUndefined();
   });
 
   it("возвращает not-found и conflict", async () => {
     const root = await setup();
-    expect(await updateTask(root, { id: "SPA-99", changes: { status: "done" } })).toEqual({ ok: false, reason: "not-found" });
-    expect(await updateTask(root, { id: "SPA-2", changes: { status: "done" }, expectedVersion: "устаревшая" })).toMatchObject({
+    expect(await updateTask(root, { id: "SPA-99", changes: { status: "done" }, now: NOW })).toEqual({ ok: false, reason: "not-found" });
+    expect(await updateTask(root, { id: "SPA-2", changes: { status: "done" }, expectedVersion: "устаревшая", now: NOW })).toMatchObject({
       ok: false,
       reason: "conflict",
       current: { id: "SPA-2", status: "backlog" },
@@ -52,18 +55,18 @@ describe("updateTask", () => {
   it("отклоняет нарушение правил и не меняет файл", async () => {
     const root = await setup();
     const before = await version(root, "SPA-2");
-    expect(await updateTask(root, { id: "SPA-2", changes: { blockedBy: ["SPA-3"] } })).toEqual({
+    expect(await updateTask(root, { id: "SPA-2", changes: { blockedBy: ["SPA-3"] }, now: NOW })).toEqual({
       ok: false,
       reason: "invalid",
       errors: ["цикл блокеров: SPA-2 → SPA-3 → SPA-2"],
     });
-    expect(await updateTask(root, { id: "SPA-1", changes: { type: "task" } })).toMatchObject({ ok: false, reason: "invalid" });
+    expect(await updateTask(root, { id: "SPA-1", changes: { type: "task" }, now: NOW })).toMatchObject({ ok: false, reason: "invalid" });
     expect(await version(root, "SPA-2")).toBe(before);
   });
 
   it("отклоняет значения, не проходящие схему", async () => {
     const root = await setup();
-    const result = await updateTask(root, { id: "SPA-2", changes: { status: "later" as never } });
+    const result = await updateTask(root, { id: "SPA-2", changes: { status: "later" as never }, now: NOW });
     expect(result).toMatchObject({ ok: false, reason: "invalid" });
   });
 
@@ -77,10 +80,13 @@ describe("updateTask", () => {
       created: "2000-01-01T00:00:00+03:00",
       projectId: "evil",
       version: "fake",
+      closed: "2000-01-01T00:00:00+03:00",
+      resolution: "fixed",
     } as unknown as TaskChanges;
-    const result = await updateTask(root, { id: "SPA-2", changes });
+    const result = await updateTask(root, { id: "SPA-2", changes, now: NOW });
 
     expect(result).toMatchObject({ ok: true, task: { id: "SPA-2", status: "done", created: createdBefore, projectId: "spa" } });
+    expect(result.ok && [result.task.closed, result.task.resolution]).toEqual([formatLocalIso(NOW), undefined]);
 
     const reloaded = await loadBacklog(root);
     expect(reloaded.errors).toEqual([]);
@@ -90,5 +96,33 @@ describe("updateTask", () => {
       created: createdBefore,
       projectId: "spa",
     });
+  });
+
+  it("закрытие ставит closed, причина пишется только вместе со сменой статуса", async () => {
+    const root = await setup();
+    const closure = { resolution: "obsolete" as const, reason: "модуль удалён" };
+
+    const closed = await updateTask(root, { id: "SPA-3", changes: { status: "cancelled" }, now: NOW, closure });
+
+    expect(closed).toMatchObject({ ok: true, task: { status: "cancelled", closed: formatLocalIso(NOW), resolution: "obsolete", reason: "модуль удалён" } });
+  });
+
+  it("возврат в работу стирает поля закрытия", async () => {
+    const root = await setup();
+    await updateTask(root, { id: "SPA-3", changes: { status: "cancelled" }, now: NOW, closure: { resolution: "obsolete", reason: "нет" } });
+
+    const reopened = await updateTask(root, { id: "SPA-3", changes: { status: "backlog" }, now: NOW });
+
+    expect(reopened.ok && [reopened.task.closed, reopened.task.resolution, reopened.task.reason]).toEqual([undefined, undefined, undefined]);
+    expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-3")?.closed).toBeUndefined();
+  });
+
+  it("любая запись закрытой задачи без closed ставит его", async () => {
+    const root = await setup();
+    await writeFiles(root, { "spa/SPA-4.md": taskFile("SPA-4", "status: done\n") });
+
+    const result = await updateTask(root, { id: "SPA-4", changes: { title: "Новое название" }, now: NOW });
+
+    expect(result.ok && result.task.closed).toBe(formatLocalIso(NOW));
   });
 });

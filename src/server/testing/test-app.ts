@@ -5,6 +5,7 @@ import { createApp } from "../app";
 import type { ChangeFeed } from "../change-feed";
 
 export const TEST_HOST = "localhost:4317";
+export const TEST_NOW = new Date("2026-09-18T12:00:00Z");
 
 export type TestApp = {
   root: string;
@@ -33,6 +34,7 @@ export async function makeTestApp(files: Record<string, string>, staticDir?: str
     changes,
     allowedHosts: new Set([TEST_HOST]),
     staticDir,
+    now: () => TEST_NOW,
   });
 
   const request = async (path: string, init: RequestInit = {}) =>

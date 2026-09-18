@@ -38,7 +38,7 @@ describe("backlog take", () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--title", "Эпик", "--type", "epic"]);
     await run(["new", "--title", "Часть", "--epic", "SPA-1"]);
-    await updateTask(root, { id: "SPA-2", changes: { status: "cancelled" } });
+    await updateTask(root, { id: "SPA-2", changes: { status: "cancelled" }, now: new Date() });
     await run(["new", "--title", "Ещё часть", "--epic", "SPA-1"]);
 
     const epic = await run(["take", "SPA-1"]);

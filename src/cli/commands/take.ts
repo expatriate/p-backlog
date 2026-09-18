@@ -36,7 +36,12 @@ export async function runTake(args: string[], io: CliIo): Promise<number> {
   }
 
   if (task.status !== "in-progress") {
-    const result = await updateTask(io.backlogRoot, { id: task.id, changes: { status: "in-progress" }, expectedVersion: task.version });
+    const result = await updateTask(io.backlogRoot, {
+      id: task.id,
+      changes: { status: "in-progress" },
+      expectedVersion: task.version,
+      now: io.now(),
+    });
     if (!result.ok) return reportUpdateFailure(io, task.id, result);
   }
   const refreshed = await loadBacklog(io.backlogRoot);

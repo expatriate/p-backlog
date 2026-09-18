@@ -8,9 +8,9 @@ import { updateTask } from "../core/store/update";
 import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
 
-export type ApiOptions = { root: string; changes: ChangeFeed };
+export type ApiOptions = { root: string; changes: ChangeFeed; now: () => Date };
 
-export function createApi({ root, changes }: ApiOptions): Hono {
+export function createApi({ root, changes, now }: ApiOptions): Hono {
   const api = new Hono();
 
   api.get("/projects", async (c) => c.json((await loadBacklog(root)).projects));
@@ -25,7 +25,7 @@ export function createApi({ root, changes }: ApiOptions): Hono {
     if (!body.ok) return body.response;
 
     const id = c.req.param("id");
-    const result = await updateTask(root, { id, changes: body.data.changes, expectedVersion: body.data.version });
+    const result = await updateTask(root, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now() });
     if (result.ok) return c.json(result.task);
     if (result.reason === "not-found") return c.json({ errors: [`Задача ${id} не найдена`] }, 404);
     if (result.reason === "conflict") return c.json({ errors: ["Задача изменилась на диске"], current: result.current }, 409);

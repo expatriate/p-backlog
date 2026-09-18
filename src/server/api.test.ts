@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ConflictResponse, ErrorResponse, TasksResponse } from "../core/api/contract";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
-import { makeTestApp, SAMPLE_FILES } from "./testing/test-app";
+import { formatLocalIso } from "../core/model/dates";
+import { makeTestApp, SAMPLE_FILES, TEST_NOW } from "./testing/test-app";
 
 describe("GET /api/projects и /api/tasks", () => {
   it("отдают проекты, задачи и ошибки разбора", async () => {
@@ -30,8 +31,18 @@ describe("PATCH /api/tasks/:id", () => {
 
     expect(response.status).toBe(200);
     const task = (await response.json()) as Task;
-    expect(task).toMatchObject({ status: "done", epic: "SPA-3" });
+    expect(task).toMatchObject({ status: "done", epic: "SPA-3", closed: formatLocalIso(TEST_NOW) });
     expect(task.version).not.toBe(version);
+  });
+
+  it("не даёт интерфейсу проставить причину закрытия", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const version = await backlog.taskVersion("SPA-1");
+
+    const response = await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { status: "done", resolution: "fixed" } });
+
+    expect(response.status).toBe(422);
+    expect(((await response.json()) as ErrorResponse).errors[0]).toContain("Нераспознанный ключ");
   });
 
   it("отвечает 409 на устаревшую версию и отдаёт актуальную задачу", async () => {

@@ -1,5 +1,6 @@
 import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
+import { changeStatus, settleLifecycle, type Closure } from "../model/lifecycle";
 import { parseTaskFile, serializeTask } from "../model/task-file";
 import type { Task } from "../model/types";
 import { contentVersion, writeFileAtomic } from "./fs-utils";
@@ -10,17 +11,17 @@ export type TaskChanges = Partial<Pick<Task, "title" | "type" | "status" | "prio
   epic?: string | null;
 };
 
-export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion?: string };
+export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion?: string; now: Date; closure?: Closure };
 
-const CHANGE_FIELDS = ["title", "type", "status", "priority", "tags", "blockedBy", "related", "body"] as const;
+const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "related", "body"] as const;
 
-export async function updateTask(root: string, { id, changes, expectedVersion }: UpdateTaskRequest): Promise<UpdateTaskResult> {
+export async function updateTask(root: string, { id, changes, expectedVersion, now, closure }: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const { tasks } = await loadBacklog(root);
   const current = tasks.find((task) => task.id === id);
   if (!current) return { ok: false, reason: "not-found" };
   if (expectedVersion !== undefined && expectedVersion !== current.version) return { ok: false, reason: "conflict", current };
 
-  const text = serializeTask(applyChanges(current, changes));
+  const text = serializeTask(applyChanges(current, changes, now, closure));
   const parsed = parseTaskFile(text, { projectId: current.projectId, path: current.path, version: contentVersion(text) });
   if (!parsed.ok) return invalid([parsed.message]);
   const errors = integrityErrors(parsed.value, buildIndex(tasks));
@@ -30,8 +31,10 @@ export async function updateTask(root: string, { id, changes, expectedVersion }:
   return { ok: true, task: parsed.value };
 }
 
-function applyChanges(task: Task, changes: TaskChanges): Task {
-  return { ...task, ...pickDefined(changes, CHANGE_FIELDS), epic: nextEpic(task.epic, changes.epic) };
+function applyChanges(task: Task, changes: TaskChanges, now: Date, closure: Closure | undefined): Task {
+  const edited = { ...task, ...pickDefined(changes, CHANGE_FIELDS), epic: nextEpic(task.epic, changes.epic) };
+  const moved = changes.status === undefined ? edited : changeStatus(edited, changes.status, now, closure);
+  return settleLifecycle(moved, now);
 }
 
 function pickDefined<T extends object, K extends keyof T>(source: T, keys: readonly K[]): Partial<Pick<T, K>> {
