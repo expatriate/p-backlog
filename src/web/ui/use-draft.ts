@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-export type Draft = [value: string, set: (next: string) => void, ref: RefObject<HTMLInputElement | null>];
+export type Draft<E extends HTMLElement> = [value: string, set: (next: string) => void, ref: RefObject<E | null>];
 
-export function useDraft(serverValue: string): Draft {
-  const ref = useRef<HTMLInputElement>(null);
+export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: string): Draft<E> {
+  const ref = useRef<E>(null);
   const [value, setValue] = useState(serverValue);
 
   useEffect(() => {

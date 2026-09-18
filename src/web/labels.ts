@@ -35,7 +35,6 @@ export const SORT_LABELS: Record<SortKey, string> = {
   id: "ID",
 };
 
-export const DIRECTION_LABELS: Record<SortDirection, string> = { asc: "По возрастанию", desc: "По убыванию" };
 export const DIRECTION_MARKS: Record<SortDirection, string> = { asc: "↑", desc: "↓" };
 
 export function formatDate(iso: string): string {

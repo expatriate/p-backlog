@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { projectFile } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
@@ -42,7 +42,7 @@ describe("карточка закрытой задачи", () => {
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
 
     expect(within(panel).getByText(/исправлено — Исправлено в a1b2c3d/)).toBeDefined();
-    expect(within(panel).getByText("5 дн.").closest("[title]")?.getAttribute("title")).toBe("удалится 23.09");
+    expect(within(panel).getByText("удалится через 5 дн.").closest("[title]")?.getAttribute("title")).toBe("удалится 23.09");
 
     await app.user.click(within(panel).getByRole("button", { name: "Вернуть в беклог" }));
 
@@ -56,7 +56,7 @@ describe("карточка закрытой задачи", () => {
     await renderApp(CLOSED_FILES, "/p/spa/t/SPA-1");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
 
-    expect(within(panel).getByText("сегодня")).toBeDefined();
+    expect(within(panel).getByText("удалится сегодня")).toBeDefined();
   });
 });
 
@@ -71,7 +71,67 @@ describe("карточка задачи", () => {
     const blockedBy = within(panel).getByRole("region", { name: "Блокируется" });
     expect(within(blockedBy).getByText("Блокер")).toBeDefined();
     expect(within(blockedBy).getByText("не найдена")).toBeDefined();
-    expect(within(panel).getByRole("heading", { name: "Ссылаются как на связанную" })).toBeDefined();
+    expect(within(panel).getByRole("heading", { level: 2, name: "Ссылаются как на связанную" })).toBeDefined();
+    expect(within(panel).getByRole("heading", { level: 2, name: "Блокируется" })).toBeDefined();
+  });
+
+  it("связанные задачи — ссылки на их карточки, ненайденная — просто текст", async () => {
+    await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    const blockedBy = within(panel).getByRole("region", { name: "Блокируется" });
+    expect(within(blockedBy).getByRole("link", { name: "Блокер" }).getAttribute("href")).toBe("/p/spa/t/SPA-2");
+    expect(within(blockedBy).getAllByRole("link")).toHaveLength(1);
+    const referrers = within(panel).getByRole("region", { name: "Ссылаются как на связанную" });
+    expect(within(referrers).getByRole("link", { name: "Связана" }).getAttribute("href")).toBe("/p/spa/t/SPA-4");
+  });
+
+  it("поле «Эпик» подсказывает только эпики", async () => {
+    await renderApp(FILES, "/p/spa/t/SPA-2");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });
+
+    const listId = within(panel).getByRole("combobox", { name: "Эпик" }).getAttribute("list") ?? "";
+    const options = [...(document.getElementById(listId)?.querySelectorAll("option") ?? [])].map((option) => option.value);
+    expect(options).toEqual(["SPA-3"]);
+  });
+
+  it("Esc в поле не закрывает карточку, а сохраняет правку", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    await app.user.type(within(panel).getByRole("textbox", { name: "Название задачи" }), " и повторы");
+    await app.user.keyboard("{Escape}");
+
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).title).toBe("Таймауты загрузки и повторы"));
+    expect(screen.getByRole("complementary", { name: "Задача SPA-1" })).toBeDefined();
+  });
+
+  it("Enter в названии сохраняет его", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    await app.user.type(within(panel).getByRole("textbox", { name: "Название задачи" }), " снова{Enter}");
+
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).title).toBe("Таймауты загрузки снова"));
+  });
+
+  it("закрытие с несохранённым описанием спрашивает подтверждение", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    onTestFinished(() => confirm.mockRestore());
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    await app.user.click(within(panel).getByRole("button", { name: "Редактировать описание" }));
+    await app.user.type(within(panel).getByRole("textbox", { name: "Описание задачи" }), "черновик");
+    await app.user.click(within(panel).getByRole("button", { name: "Закрыть" }));
+
+    expect(confirm).toHaveBeenCalledWith("Закрыть без сохранения описания?");
+    expect(screen.getByRole("complementary", { name: "Задача SPA-1" })).toBeDefined();
+
+    confirm.mockReturnValue(true);
+    await app.user.click(within(panel).getByRole("button", { name: "Закрыть" }));
+
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Задача SPA-1" })).toBeNull());
   });
 
   it("закрывается по Esc и возвращает на список", async () => {
@@ -111,6 +171,18 @@ describe("карточка задачи", () => {
 
     await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("- [x] первый шаг"));
     expect(document.activeElement).not.toBe(panel);
+  });
+
+  it("после переключения пункта с клавиатуры фокус остаётся на нём", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    const item = within(panel).getByRole("checkbox", { name: "первый шаг" });
+
+    item.focus();
+    await app.user.keyboard(" ");
+
+    await waitFor(() => expect(within(panel).getByRole("checkbox", { name: "первый шаг" })).toHaveProperty("checked", true));
+    expect(document.activeElement).toBe(within(panel).getByRole("checkbox", { name: "первый шаг" }));
   });
 
   it("правка тегов и названия уходит на сервер по потере фокуса", async () => {

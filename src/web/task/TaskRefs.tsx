@@ -1,19 +1,23 @@
 import { useState } from "react";
+import { Link, type To } from "react-router";
 import type { Task } from "../../core/model/types";
 import { Button } from "../ui/Button";
 import { StatusBadge } from "../ui/StatusBadge";
 import { normalizeTaskId } from "./normalize-task-id";
 import styles from "./TaskRefs.module.css";
 
+export type TaskHref = (id: string) => To;
+
 export type TaskRefsProps = {
   label: string;
   ids: readonly string[];
   tasks: readonly Task[];
   listId: string;
+  taskHref: TaskHref;
   onChange: (ids: string[]) => void;
 };
 
-export function TaskRefs({ label, ids, tasks, listId, onChange }: TaskRefsProps) {
+export function TaskRefs({ label, ids, tasks, listId, taskHref, onChange }: TaskRefsProps) {
   const [draft, setDraft] = useState("");
   const byId = new Map(tasks.map((task) => [task.id, task]));
 
@@ -26,14 +30,20 @@ export function TaskRefs({ label, ids, tasks, listId, onChange }: TaskRefsProps)
 
   return (
     <section className={styles.section} aria-label={label}>
-      <h3 className={styles.heading}>{label}</h3>
+      <h2 className={styles.heading}>{label}</h2>
       <ul className={styles.items}>
         {ids.map((id) => {
           const task = byId.get(id);
           return (
             <li key={id} className={styles.item}>
               <span className={styles.id}>{id}</span>
-              <span className={styles.title}>{task ? task.title : "не найдена"}</span>
+              {task ? (
+                <Link to={taskHref(id)} className={styles.title} title={task.title}>
+                  {task.title}
+                </Link>
+              ) : (
+                <span className={styles.title}>не найдена</span>
+              )}
               {task && <StatusBadge status={task.status} />}
               <button type="button" className={styles.remove} aria-label={`Убрать ${id}`} onClick={() => onChange(ids.filter((value) => value !== id))}>
                 ×

@@ -1,3 +1,5 @@
+import { useLayoutEffect, useState } from "react";
+import { Link } from "react-router";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { toggleChecklistItem } from "../../core/model/checklist";
 import { dependentTasks, epicChildren, isClosed, relatedTasks, taskProgress, type BacklogIndex } from "../../core/model/graph";
@@ -15,21 +17,23 @@ import { StatusBadge } from "../ui/StatusBadge";
 import { useNow } from "../ui/use-now";
 import { TaskBody } from "./TaskBody";
 import { TaskFields } from "./TaskFields";
-import { TaskOptions, TaskRefs } from "./TaskRefs";
+import { TaskOptions, TaskRefs, type TaskHref } from "./TaskRefs";
 import styles from "./TaskPanel.module.css";
 
 export type TaskPanelProps = {
   task: Task;
   tasks: readonly Task[];
   index: BacklogIndex;
+  taskHref: TaskHref;
   onClose: () => void;
 };
 
-const OPTIONS_ID = "task-ids";
+const TASK_LIST_ID = "task-ids";
+const EPIC_LIST_ID = "epic-ids";
 
-export function TaskPanel({ task, tasks, index, onClose }: TaskPanelProps) {
+export function TaskPanel({ task, tasks, index, taskHref, onClose }: TaskPanelProps) {
   const updateTask = useUpdateTask();
-  const [title, setTitle, titleRef] = useDraft(task.title);
+  const [bodyDraft, setBodyDraft] = useState<string | null>(null);
   const now = useNow();
 
   const apply = (changes: TaskChangesRequest) => updateTask.mutate({ id: task.id, version: task.version, changes });
@@ -39,17 +43,15 @@ export function TaskPanel({ task, tasks, index, onClose }: TaskPanelProps) {
   const children = task.type === "epic" ? epicChildren(task, index) : [];
 
   return (
-    <SidePanel label={`Задача ${task.id}`} heading={<span className={styles.id}>{task.id}</span>} onClose={onClose}>
-      <input
-        ref={titleRef}
-        className={styles.title}
-        value={title}
-        aria-label="Название задачи"
-        onChange={(event) => setTitle(event.target.value)}
-        onBlur={() => title !== task.title && apply({ title })}
-      />
+    <SidePanel
+      label={`Задача ${task.id}`}
+      heading={<span className={styles.id}>{task.id}</span>}
+      onClose={onClose}
+      canClose={() => bodyDraft === null || window.confirm("Закрыть без сохранения описания?")}
+    >
+      <TitleField title={task.title} onSave={(title) => apply({ title })} />
 
-      <TaskFields task={task} optionsId={OPTIONS_ID} onChange={apply} />
+      <TaskFields task={task} epicListId={EPIC_LIST_ID} onChange={apply} />
 
       <div className={styles.meta}>
         <StatusBadge status={task.status} />
@@ -91,31 +93,85 @@ export function TaskPanel({ task, tasks, index, onClose }: TaskPanelProps) {
 
       <TaskBody
         body={task.body}
+        draft={bodyDraft}
+        onDraftChange={setBodyDraft}
         onToggleLine={(line) => apply({ body: toggleChecklistItem(task.body, line) })}
         onSave={(body) => applyAsync({ body })}
       />
 
-      <TaskRefs label="Блокируется" ids={task.blockedBy} tasks={tasks} listId={OPTIONS_ID} onChange={(blockedBy) => apply({ blockedBy })} />
-      <TaskRefs label="Связанные" ids={task.related} tasks={tasks} listId={OPTIONS_ID} onChange={(related) => apply({ related })} />
+      <TaskRefs
+        label="Блокируется"
+        ids={task.blockedBy}
+        tasks={tasks}
+        listId={TASK_LIST_ID}
+        taskHref={taskHref}
+        onChange={(blockedBy) => apply({ blockedBy })}
+      />
+      <TaskRefs
+        label="Связанные"
+        ids={task.related}
+        tasks={tasks}
+        listId={TASK_LIST_ID}
+        taskHref={taskHref}
+        onChange={(related) => apply({ related })}
+      />
 
-      <ReadonlyRefs label="Блокирует" tasks={dependentTasks(task, index)} />
-      <ReadonlyRefs label="Ссылаются как на связанную" tasks={relatedTasks(task, index).filter((other) => !task.related.includes(other.id))} />
-      <ReadonlyRefs label="Задачи эпика" tasks={children} />
+      <ReadonlyRefs label="Блокирует" tasks={dependentTasks(task, index)} taskHref={taskHref} />
+      <ReadonlyRefs
+        label="Ссылаются как на связанную"
+        tasks={relatedTasks(task, index).filter((other) => !task.related.includes(other.id))}
+        taskHref={taskHref}
+      />
+      <ReadonlyRefs label="Задачи эпика" tasks={children} taskHref={taskHref} />
 
-      <TaskOptions id={OPTIONS_ID} tasks={tasks} />
+      <TaskOptions id={TASK_LIST_ID} tasks={tasks} />
+      <TaskOptions id={EPIC_LIST_ID} tasks={tasks.filter((candidate) => candidate.type === "epic")} />
     </SidePanel>
   );
 }
 
-function ReadonlyRefs({ label, tasks }: { label: string; tasks: readonly Task[] }) {
+function TitleField({ title: serverTitle, onSave }: { title: string; onSave: (title: string) => void }) {
+  const [title, setTitle, titleRef] = useDraft<HTMLTextAreaElement>(serverTitle);
+
+  useLayoutEffect(() => {
+    const field = titleRef.current;
+    if (!field) return;
+    const borders = field.offsetHeight - field.clientHeight;
+    field.style.height = "auto";
+    field.style.height = `${field.scrollHeight + borders}px`;
+  }, [title, titleRef]);
+
+  return (
+    <textarea
+      ref={titleRef}
+      className={styles.title}
+      rows={1}
+      value={title}
+      aria-label="Название задачи"
+      onChange={(event) => setTitle(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+      onBlur={() => title !== serverTitle && onSave(title)}
+    />
+  );
+}
+
+function ReadonlyRefs({ label, tasks, taskHref }: { label: string; tasks: readonly Task[]; taskHref: TaskHref }) {
   if (tasks.length === 0) return null;
   return (
     <section className={styles.readonlyRefs} aria-label={label}>
-      <h3>{label}</h3>
+      <h2>{label}</h2>
       <ul>
         {tasks.map((task) => (
           <li key={task.id}>
-            <span className={styles.id}>{task.id}</span> {task.title}
+            <span className={styles.id}>{task.id}</span>{" "}
+            <Link to={taskHref(task.id)} className={styles.refLink}>
+              {task.title}
+            </Link>
           </li>
         ))}
       </ul>

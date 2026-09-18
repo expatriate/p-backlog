@@ -14,10 +14,12 @@
 }
 
 .fill {
+  display: block;
+  width: 100%;
   height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
-  transition: width var(--duration) var(--ease-out);
+  background: var(--ink-subtle);
+  transform-origin: left center;
+  transition: transform var(--duration) var(--ease-out);
 }
 
 .value {

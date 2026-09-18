@@ -56,7 +56,6 @@ textarea {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: var(--radius-chip);
 }
 
 @media (prefers-reduced-motion: reduce) {

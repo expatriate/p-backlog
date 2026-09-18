@@ -4,10 +4,11 @@ import { deletionDate } from "../../core/model/lifecycle";
 import type { SortDirection, SortKey, TaskSort } from "../../core/model/query";
 import type { Priority, Task } from "../../core/model/types";
 import { DIRECTION_MARKS, PRIORITY_LABELS, RESOLUTION_LABELS, formatDate } from "../labels";
-import { Countdown } from "../ui/Countdown";
+import { DeletionLabel } from "../ui/Countdown";
 import { Chip } from "../ui/Chip";
 import { ProgressBar } from "../ui/ProgressBar";
 import { StatusBadge } from "../ui/StatusBadge";
+import type { TaskHref } from "../task/TaskRefs";
 import { cx } from "../ui/cx";
 import { useNow } from "../ui/use-now";
 import styles from "./TaskTable.module.css";
@@ -18,7 +19,7 @@ export type TaskTableProps = {
   selectedId?: string;
   sort: TaskSort;
   onSort: (key: SortKey) => void;
-  taskHref: (task: Task) => string;
+  taskHref: TaskHref;
 };
 
 const VISIBLE_TAGS = 2;
@@ -70,12 +71,12 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref }: 
           return (
             <tr key={task.id} className={cx(styles.row, task.id === selectedId && styles.selected)}>
               <td>
-                <Link to={taskHref(task)} className={styles.id}>
+                <Link to={taskHref(task.id)} className={styles.id}>
                   {task.id}
                 </Link>
               </td>
               <td>
-                <Link to={taskHref(task)} className={styles.title}>
+                <Link to={taskHref(task.id)} className={styles.title}>
                   {task.title}
                 </Link>
                 {task.type === "epic" && <span className={styles.marker}>эпик</span>}
@@ -96,10 +97,12 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref }: 
                 )}
               </td>
               <td className={styles.tags}>
-                {task.tags.slice(0, VISIBLE_TAGS).map((tag) => (
-                  <Chip key={tag}>#{tag}</Chip>
-                ))}
-                {task.tags.length > VISIBLE_TAGS && <Chip title={task.tags.join(", ")}>+{task.tags.length - VISIBLE_TAGS}</Chip>}
+                <div className={styles.tagList}>
+                  {task.tags.slice(0, VISIBLE_TAGS).map((tag) => (
+                    <Chip key={tag}>#{tag}</Chip>
+                  ))}
+                  {task.tags.length > VISIBLE_TAGS && <Chip title={task.tags.join(", ")}>+{task.tags.length - VISIBLE_TAGS}</Chip>}
+                </div>
               </td>
               <td>
                 <StatusBadge status={task.status} />
@@ -107,7 +110,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref }: 
               <td className={cx(styles.priorityCell, PRIORITY_CLASS[task.priority])}>{PRIORITY_LABELS[task.priority]}</td>
               <td className={styles.progress}>
                 {deletionDate(task) !== undefined ? (
-                  <Countdown task={task} now={now} />
+                  <DeletionLabel task={task} now={now} />
                 ) : (
                   <ProgressBar progress={taskProgress(task, index)} />
                 )}

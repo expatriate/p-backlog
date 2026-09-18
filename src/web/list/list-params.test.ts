@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OPEN_STATUSES } from "../../core/model/query";
-import { AUTO_CLOSED_VIEW, DEFAULT_SORT, pickSortKey, readListParams, writeListParams } from "./list-params";
+import { AUTO_CLOSED_VIEW, DEFAULT_SORT, isDefaultFilter, pickSortKey, readListParams, writeListParams } from "./list-params";
 
 const read = (search: string) => readListParams(new URLSearchParams(search));
 const write = (search: string) => writeListParams(read(search)).toString();
@@ -69,6 +69,18 @@ describe("writeListParams", () => {
   it("переживает круг чтение → запись → чтение", () => {
     const search = "q=%D1%82%D0%B0%D0%B9%D0%BC%D0%B0%D1%83%D1%82&status=done&priority=high%2Clow&tag=upload&epic=none&type=epic&unblocked=1&auto=1&sort=progress&dir=asc";
     expect(read(write(search))).toEqual(read(search));
+  });
+});
+
+describe("isDefaultFilter", () => {
+  it("фильтр по умолчанию не зависит от сортировки", () => {
+    expect(isDefaultFilter(read("sort=title&dir=asc").filter)).toBe(true);
+  });
+
+  it("поиск, другой набор статусов или тег — уже не фильтр по умолчанию", () => {
+    expect(isDefaultFilter(read("q=логин").filter)).toBe(false);
+    expect(isDefaultFilter(read("status=all").filter)).toBe(false);
+    expect(isDefaultFilter(read("tag=upload").filter)).toBe(false);
   });
 });
 

@@ -1,6 +1,7 @@
-import { SORT_KEYS, type SortKey, type TaskSort } from "../../core/model/query";
+import { useState } from "react";
+import { normalizeText, SORT_KEYS, type SortKey, type TaskSort } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type Task, type TaskStatus } from "../../core/model/types";
-import { DIRECTION_LABELS, DIRECTION_MARKS, PRIORITY_LABELS, SORT_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
+import { DIRECTION_MARKS, PRIORITY_LABELS, SORT_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
 import { Button } from "../ui/Button";
 import { ToggleChip } from "../ui/Chip";
 import { AUTO_CLOSED_VIEW, pickSortKey, reverseSort, type ListParams } from "./list-params";
@@ -18,6 +19,7 @@ export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
   const setFilter = (patch: Partial<ListParams["filter"]>) => onChange({ ...params, filter: { ...filter, ...patch } });
   const setSort = (next: TaskSort) => onChange({ ...params, sort: next });
+  const toggleTag = (tag: string) => setFilter({ tags: emptyToUndefined(toggle(filter.tags ?? [], tag)) });
 
   return (
     <div className={styles.toolbar}>
@@ -40,7 +42,12 @@ export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
             ))}
           </select>
         </label>
-        <Button className={styles.direction} aria-label={DIRECTION_LABELS[sort.direction]} onClick={() => setSort(reverseSort(sort))}>
+        <Button
+          className={styles.direction}
+          aria-label="По возрастанию"
+          aria-pressed={sort.direction === "asc"}
+          onClick={() => setSort(reverseSort(sort))}
+        >
           {DIRECTION_MARKS[sort.direction]}
         </Button>
       </div>
@@ -104,13 +111,49 @@ export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
         )}
       </div>
 
-      {tags.length > 0 && (
-        <div className={styles.group} role="group" aria-label="Теги">
-          {tags.map((tag) => (
-            <ToggleChip key={tag} pressed={filter.tags?.includes(tag) ?? false} onToggle={() => setFilter({ tags: emptyToUndefined(toggle(filter.tags ?? [], tag)) })}>
+      {tags.length > 0 && <TagPicker tags={tags} selected={filter.tags ?? []} onToggle={toggleTag} />}
+    </div>
+  );
+}
+
+function TagPicker({ tags, selected, onToggle }: { tags: string[]; selected: readonly string[]; onToggle: (tag: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const needle = normalizeText(query.trim());
+  const summary = selected.length === 0 ? `Теги (${tags.length})` : `Теги (${tags.length}), выбрано ${selected.length}`;
+
+  return (
+    <div className={styles.tagPicker}>
+      <div className={styles.line}>
+        <Button aria-expanded={open} onClick={() => setOpen(!open)}>
+          {summary}
+        </Button>
+        {!open &&
+          selected.map((tag) => (
+            <ToggleChip key={tag} pressed onToggle={() => onToggle(tag)}>
               #{tag}
             </ToggleChip>
           ))}
+      </div>
+      {open && (
+        <div className={styles.tagPanel}>
+          <input
+            type="search"
+            autoFocus
+            value={query}
+            placeholder="Найти тег"
+            aria-label="Найти тег"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <div className={styles.group} role="group" aria-label="Теги">
+            {tags
+              .filter((tag) => normalizeText(tag).includes(needle))
+              .map((tag) => (
+                <ToggleChip key={tag} pressed={selected.includes(tag)} onToggle={() => onToggle(tag)}>
+                  #{tag}
+                </ToggleChip>
+              ))}
+          </div>
         </div>
       )}
     </div>

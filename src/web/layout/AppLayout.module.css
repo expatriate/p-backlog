@@ -1,6 +1,7 @@
 .shell {
   display: grid;
   grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   height: 100%;
   background: var(--surface);
 }
@@ -71,6 +72,7 @@
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .sidebar {

@@ -1,14 +1,14 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, sortTasks } from "../../core/model/query";
 import type { Task } from "../../core/model/types";
-import { useTasks } from "../app/queries";
+import { useProjects, useTasks } from "../app/queries";
 import { Button } from "../ui/Button";
 import { TaskPanel } from "../task/TaskPanel";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
-import { pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
+import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
 export function TaskListPage() {
@@ -16,6 +16,7 @@ export function TaskListPage() {
   const [search, setSearch] = useSearchParams();
   const navigate = useNavigate();
   const { data, isPending, isError, refetch } = useTasks();
+  const projects = useProjects();
 
   const searchKey = search.toString();
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
@@ -30,15 +31,23 @@ export function TaskListPage() {
     [allTasks, projectId],
   );
 
+  const projectName =
+    projectId === undefined ? undefined : (projects.data?.find((project) => project.id === projectId)?.name ?? projectId);
+  const viewTitle = viewTitleFor(projectName, params.filter.onlyAutoClosed === true);
+  useEffect(() => {
+    document.title = `${viewTitle} — Беклог`;
+  }, [viewTitle]);
+
   const setParams = (next: ListParams) => setSearch(writeListParams(next), { replace: true });
   const prefix = projectId === undefined ? "" : `/p/${projectId}`;
-  const withSearch = (path: string) => ({ pathname: path === "" ? "/" : path, search: search.toString() });
+  const taskHref = (id: string) => ({ pathname: `${prefix}/t/${id}`, search: searchKey });
   const selectedTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
   const parseErrors = (data?.errors ?? []).filter((error) => projectId === undefined || error.projectId === projectId);
 
   return (
     <main className={styles.page}>
       <div className={styles.list}>
+        <h1 className={styles.heading}>{viewTitle}</h1>
         <Toolbar
           params={params}
           onChange={setParams}
@@ -62,16 +71,19 @@ export function TaskListPage() {
         <div className={styles.tableWrap}>
           {isError ? (
             <div className={styles.hint} role="status">
-              <p>Не удалось получить задачи. Проверьте, что сервер запущен: <code>npm start</code>.</p>
+              <p>
+                Сервер беклога не отвечает. Перезапустите его: <code>launchctl kickstart -k gui/$(id -u)/local.p-backlog</code>
+              </p>
               <Button onClick={() => void refetch()}>Повторить</Button>
             </div>
           ) : isPending ? (
             <p className={styles.hint}>Загружаем задачи…</p>
           ) : visibleTasks.length === 0 ? (
-            <p className={styles.hint}>
-              Задач не нашлось. Беклог наполняет агент: он записывает задачи командой <code>backlog new</code>, пока
-              работает над кодом.
-            </p>
+            <EmptyList
+              hasTasks={projectTasks.length > 0}
+              filter={params.filter}
+              onFilterChange={(filter) => setParams({ ...params, filter })}
+            />
           ) : (
             <TaskTable
               tasks={visibleTasks}
@@ -79,17 +91,61 @@ export function TaskListPage() {
               selectedId={selectedTask?.id}
               sort={params.sort}
               onSort={(key) => setParams({ ...params, sort: pickSortKey(params.sort, key) })}
-              taskHref={(task) => `${prefix}/t/${task.id}?${search.toString()}`}
+              taskHref={taskHref}
             />
           )}
         </div>
       </div>
 
       {selectedTask && (
-        <TaskPanel key={selectedTask.id} task={selectedTask} tasks={allTasks} index={index} onClose={() => navigate(withSearch(prefix))} />
+        <TaskPanel
+          key={selectedTask.id}
+          task={selectedTask}
+          tasks={allTasks}
+          index={index}
+          taskHref={taskHref}
+          onClose={() => navigate({ pathname: prefix === "" ? "/" : prefix, search: searchKey })}
+        />
       )}
     </main>
   );
+}
+
+function EmptyList({
+  hasTasks,
+  filter,
+  onFilterChange,
+}: {
+  hasTasks: boolean;
+  filter: ListParams["filter"];
+  onFilterChange: (filter: ListParams["filter"]) => void;
+}) {
+  if (!hasTasks) {
+    return (
+      <p className={styles.hint}>
+        Задач пока нет. Беклог наполняет агент: он записывает задачи командой <code>backlog new</code>, пока работает над кодом.
+      </p>
+    );
+  }
+  if (isDefaultFilter(filter)) {
+    return (
+      <div className={styles.hint} role="status">
+        <p>Открытых задач нет.</p>
+        <Button onClick={() => onFilterChange({ statuses: undefined })}>Показать все статусы</Button>
+      </div>
+    );
+  }
+  return (
+    <div className={styles.hint} role="status">
+      <p>Под фильтры ничего не подходит.</p>
+      <Button onClick={() => onFilterChange(DEFAULT_FILTER)}>Сбросить фильтры</Button>
+    </div>
+  );
+}
+
+function viewTitleFor(projectName: string | undefined, onlyAutoClosed: boolean): string {
+  if (onlyAutoClosed) return projectName === undefined ? "Закрыты агентом" : `Закрыты агентом · ${projectName}`;
+  return projectName ?? "Все проекты";
 }
 
 function collectTags(tasks: readonly Task[]): string[] {

@@ -4,6 +4,7 @@ import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../co
 export type ListParams = { filter: Omit<TaskFilter, "projectId">; sort: TaskSort };
 
 export const DEFAULT_SORT: TaskSort = { key: "created", direction: "desc" };
+export const DEFAULT_FILTER: ListParams["filter"] = { statuses: OPEN_STATUSES };
 export const NO_EPIC = "none";
 export const ANY_STATUS = "all";
 
@@ -49,6 +50,10 @@ export function readListParams(search: URLSearchParams): ListParams {
       direction: readOne(search.get("dir"), DIRECTIONS) ?? DEFAULT_SORT.direction,
     },
   };
+}
+
+export function isDefaultFilter(filter: ListParams["filter"]): boolean {
+  return writeListParams({ filter, sort: DEFAULT_SORT }).toString() === "";
 }
 
 export function writeListParams({ filter, sort }: ListParams): URLSearchParams {

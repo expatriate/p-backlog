@@ -95,6 +95,87 @@ describe("список задач", () => {
     expect(titleHeader.getAttribute("aria-sort")).toBe("descending");
   });
 
+  it("заголовок вида и заголовок вкладки называют, что открыто", async () => {
+    const app = await renderApp(FILES);
+    expect(await screen.findByRole("heading", { level: 1, name: "Все проекты" })).toBeDefined();
+    expect(document.title).toBe("Все проекты — Беклог");
+
+    await app.user.click(await screen.findByRole("link", { name: /spa/ }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: "spa" })).toBeDefined();
+    expect(document.title).toBe("spa — Беклог");
+  });
+
+  it("если задачи скрыты фильтрами, пустой список предлагает их сбросить", async () => {
+    const app = await renderApp(FILES);
+    await screen.findAllByRole("row");
+
+    await app.user.type(screen.getByRole("searchbox", { name: "Поиск задач" }), "нет такого");
+
+    expect(await screen.findByText("Под фильтры ничего не подходит.")).toBeDefined();
+    await app.user.click(screen.getByRole("button", { name: "Сбросить фильтры" }));
+    await waitFor(async () => expect(await rowTitles()).toHaveLength(3));
+  });
+
+  it("проект только с закрытыми задачами предлагает показать все статусы, а не сбросить фильтры", async () => {
+    const app = await renderApp({
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-2.md": taskFixture("SPA-2", { title: "Починить логин", status: "done" }),
+    });
+
+    expect(await screen.findByText("Открытых задач нет.")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Сбросить фильтры" })).toBeNull();
+    await app.user.click(screen.getByRole("button", { name: "Показать все статусы" }));
+
+    await waitFor(async () => expect(await rowTitles()).toEqual(["Починить логин"]));
+    expect(app.route()).toBe("/?status=all");
+  });
+
+  it("пустой беклог объясняет, откуда берутся задачи", async () => {
+    await renderApp({ "spa/project.md": projectFile("SPA") });
+
+    expect(await screen.findByText(/Беклог наполняет агент/)).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Сбросить фильтры" })).toBeNull();
+  });
+
+  it("теги выбираются в раскрывающемся списке, выбранные видны и в свёрнутом виде", async () => {
+    const app = await renderApp(FILES);
+    await screen.findAllByRole("row");
+    expect(screen.queryByRole("button", { name: "#upload" })).toBeNull();
+
+    await app.user.click(screen.getByRole("button", { name: "Теги (1)" }));
+    expect(document.activeElement).toBe(screen.getByRole("searchbox", { name: "Найти тег" }));
+    await app.user.click(within(screen.getByRole("group", { name: "Теги" })).getByRole("button", { name: "#upload" }));
+    await waitFor(async () => expect(await rowTitles()).toEqual(["Таймауты загрузки"]));
+    await app.user.click(screen.getByRole("button", { name: "Теги (1), выбрано 1" }));
+
+    expect(screen.getByRole("button", { name: "#upload" }).getAttribute("aria-pressed")).toBe("true");
+    expect(app.route()).toContain("tag=upload");
+  });
+
+  it("кнопка направления — переключатель «по возрастанию»", async () => {
+    const app = await renderApp(FILES);
+    await screen.findAllByRole("row");
+    const direction = screen.getByRole("button", { name: "По возрастанию" });
+    expect(direction.getAttribute("aria-pressed")).toBe("false");
+
+    await app.user.click(direction);
+
+    expect(screen.getByRole("button", { name: "По возрастанию" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("после закрытия карточки фокус возвращается на задачу, с которой её открыли", async () => {
+    const app = await renderApp(FILES);
+    const link = await screen.findByRole("link", { name: "Таймауты загрузки" });
+
+    await app.user.click(link);
+    await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    await app.user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Задача SPA-1" })).toBeNull());
+    expect(document.activeElement?.textContent).toBe("Таймауты загрузки");
+  });
+
   it("по тегам не сортирует", async () => {
     await renderApp(FILES);
     await screen.findAllByRole("row");
@@ -111,7 +192,7 @@ describe("список задач", () => {
     if (!row) throw new Error("нет строки");
     expect(within(row).getByText("кода нет").getAttribute("title")).toBe("модуль удалён");
     expect(within(row).queryByRole("progressbar")).toBeNull();
-    expect(within(row).getByText("5 дн.")).toBeDefined();
+    expect(within(row).getByText("удалится через 5 дн.")).toBeDefined();
   });
 
   it("ссылка «Закрыты агентом» показывает автозакрытые задачи проекта, свежие сверху", async () => {

@@ -5,9 +5,9 @@ import { useDraft } from "../ui/use-draft";
 import { normalizeTaskId } from "./normalize-task-id";
 import styles from "./TaskFields.module.css";
 
-export type TaskFieldsProps = { task: Task; optionsId: string; onChange: (changes: TaskChangesRequest) => void };
+export type TaskFieldsProps = { task: Task; epicListId: string; onChange: (changes: TaskChangesRequest) => void };
 
-export function TaskFields({ task, optionsId, onChange }: TaskFieldsProps) {
+export function TaskFields({ task, epicListId, onChange }: TaskFieldsProps) {
   const [tags, setTags, tagsRef] = useDraft(task.tags.join(", "));
   const [epic, setEpic, epicRef] = useDraft(task.epic ?? "");
 
@@ -48,7 +48,7 @@ export function TaskFields({ task, optionsId, onChange }: TaskFieldsProps) {
           Эпик
           <input
             ref={epicRef}
-            list={optionsId}
+            list={epicListId}
             value={epic}
             placeholder="ID эпика"
             onChange={(event) => setEpic(event.target.value)}

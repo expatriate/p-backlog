@@ -19,7 +19,7 @@
 }
 
 .inProgress .dot {
-  background: var(--accent);
+  background: var(--ink);
 }
 
 .blocked .dot {
