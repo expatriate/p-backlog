@@ -57,6 +57,14 @@ describe("события журнала", () => {
     expect(JSON.stringify(event)).not.toContain("длинное описание");
     expect(journalEventSchema.safeParse(JSON.parse(JSON.stringify(event))).success).toBe(true);
   });
+
+  it("снимок удаления хранит категорию", () => {
+    const task = makeTask({ id: "SPA-1", category: "bug" });
+
+    const event = deletedEvent(task, NOW, "sweep");
+
+    expect(event.kind === "deleted" && event.snapshot.category).toBe("bug");
+  });
 });
 
 describe("новые поля и события", () => {

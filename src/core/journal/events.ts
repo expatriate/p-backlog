@@ -52,6 +52,8 @@ export type JournalEvent = z.output<typeof journalEventSchema>;
 
 export type TaskSnapshot = z.output<typeof taskFrontmatterSchema>;
 
+const SNAPSHOT_FIELDS = Object.keys(taskFrontmatterSchema.shape) as (keyof TaskSnapshot)[];
+
 export type ProjectJournal = { projectId: string; events: JournalEvent[]; invalidLines: number };
 
 export function createdEvent(task: Task, now: Date, via: ChangeSource, provenance: Provenance = {}): JournalEvent {
@@ -91,23 +93,7 @@ export function deletedEvent(task: Task, now: Date, via: ChangeSource): JournalE
 }
 
 function snapshotOf(task: Task): TaskSnapshot {
-  return {
-    id: task.id,
-    title: task.title,
-    type: task.type,
-    status: task.status,
-    priority: task.priority,
-    tags: task.tags,
-    epic: task.epic,
-    blockedBy: task.blockedBy,
-    related: task.related,
-    created: task.created,
-    source: task.source,
-    closed: task.closed,
-    resolution: task.resolution,
-    reason: task.reason,
-    verified: task.verified,
-  };
+  return Object.fromEntries(SNAPSHOT_FIELDS.map((field) => [field, task[field]])) as TaskSnapshot;
 }
 
 export function candidateEvents(sightings: readonly CandidateSighting[], journal: readonly JournalEvent[], now: Date, mode: CheckMode): JournalEvent[] {
