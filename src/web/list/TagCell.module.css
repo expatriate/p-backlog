@@ -1,0 +1,17 @@
+.cell {
+  position: relative;
+  display: flex;
+  gap: var(--space-1);
+  width: 200px;
+  overflow: hidden;
+}
+
+.ruler {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: var(--space-1);
+  visibility: hidden;
+  pointer-events: none;
+}

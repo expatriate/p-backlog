@@ -106,13 +106,6 @@
   color: var(--tone-ink);
 }
 
-.tagList {
-  display: flex;
-  gap: var(--space-1);
-  overflow: hidden;
-  max-width: 200px;
-}
-
 .priorityCell {
   white-space: nowrap;
 }

@@ -5,7 +5,6 @@ import type { SortDirection, SortKey, TaskSort } from "../../core/model/query";
 import type { Priority, Task } from "../../core/model/types";
 import { DIRECTION_MARKS, PRIORITY_LABELS, RESOLUTION_LABELS, formatDate } from "../labels";
 import { DeletionLabel } from "../ui/Countdown";
-import { Chip } from "../ui/Chip";
 import { ProgressBar } from "../ui/ProgressBar";
 import { StatusBadge } from "../ui/StatusBadge";
 import type { TaskHref } from "../task/TaskRefs";
@@ -13,6 +12,7 @@ import { cx } from "../ui/cx";
 import { toneOf, type EpicTones } from "../ui/epic-tone";
 import { useNow } from "../ui/use-now";
 import type { DateColumn } from "./list-params";
+import { TagCell } from "./TagCell";
 import styles from "./TaskTable.module.css";
 
 export type TaskTableProps = {
@@ -26,8 +26,6 @@ export type TaskTableProps = {
   tones: EpicTones;
   isNew: (task: Task) => boolean;
 };
-
-const VISIBLE_TAGS = 2;
 
 const DATE_COLUMN_LABELS: Record<DateColumn, string> = { created: "Создана", closed: "Закрыта" };
 
@@ -109,12 +107,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
                 )}
               </td>
               <td className={styles.tags}>
-                <div className={styles.tagList}>
-                  {task.tags.slice(0, VISIBLE_TAGS).map((tag) => (
-                    <Chip key={tag}>#{tag}</Chip>
-                  ))}
-                  {task.tags.length > VISIBLE_TAGS && <Chip title={task.tags.join(", ")}>+{task.tags.length - VISIBLE_TAGS}</Chip>}
-                </div>
+                <TagCell tags={task.tags} />
               </td>
               <td>
                 <StatusBadge status={task.status} />
