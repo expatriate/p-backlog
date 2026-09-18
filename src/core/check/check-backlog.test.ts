@@ -38,15 +38,12 @@ async function setup() {
 }
 
 describe("checkBacklog", () => {
-  it("полный режим чинит данные, сообщает о проблемах и отдаёт кандидатов", async () => {
+  it("полный режим чинит данные, сообщает о проблемах и отдаёт кандидатов; при неразобранном файле эпики не закрывает", async () => {
     const { home, root } = await setup();
 
     const report = await checkBacklog(root, { projectIds: ["spa"], mode: "full", now: NOW, home });
 
-    expect(report.fixed).toEqual([
-      "SPA-7: эпик закрыт — все задачи эпика закрыты: SPA-8",
-      "SPA-9: убраны ссылки на несуществующие задачи: SPA-99",
-    ]);
+    expect(report.fixed).toEqual(["SPA-9: убраны ссылки на несуществующие задачи: SPA-99"]);
     expect(report.problems).toEqual([expect.stringMatching(/SPA-10\.md не разобран: файл не начинается с frontmatter/)]);
     expect(report.candidates).toEqual([
       {
@@ -69,8 +66,24 @@ describe("checkBacklog", () => {
     ]);
 
     const byId = new Map((await loadBacklog(root)).tasks.map((loaded) => [loaded.id, loaded]));
-    expect(byId.get("SPA-7")).toMatchObject({ status: "done", resolution: "epic-done", reason: "все задачи эпика закрыты: SPA-8" });
+    expect(byId.get("SPA-7")?.status).toBe("backlog");
     expect(byId.get("SPA-9")).toMatchObject({ blockedBy: [], related: ["SPA-10"] });
+  });
+
+  it("полный режим закрывает завершённый эпик, когда все файлы разобраны", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-7.md": task("SPA-7", "type: epic\n"),
+      "spa/SPA-8.md": task("SPA-8", "epic: SPA-7\nstatus: done\nclosed: 2026-09-12T10:00:00+03:00\n"),
+    });
+
+    const report = await checkBacklog(root, { projectIds: ["spa"], mode: "full", now: NOW, home });
+
+    expect(report.fixed).toEqual(["SPA-7: эпик закрыт — все задачи эпика закрыты: SPA-8"]);
+    const epic = (await loadBacklog(root)).tasks.find((loaded) => loaded.id === "SPA-7");
+    expect(epic).toMatchObject({ status: "done", resolution: "epic-done", reason: "все задачи эпика закрыты: SPA-8" });
   });
 
   it("узкий режим отдаёт только кандидатов по коду и ничего не пишет", async () => {

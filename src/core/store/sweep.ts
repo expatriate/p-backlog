@@ -1,10 +1,10 @@
-import { buildIndex, isClosed } from "../model/graph";
+import { isClosed } from "../model/graph";
 import { parseId } from "../model/ids";
-import { completedEpicChildren, epicDoneClosure, isExpired } from "../model/lifecycle";
+import { epicsToClose, isExpired } from "../model/lifecycle";
 import { serializeProject } from "../model/project-file";
 import type { Project, Task } from "../model/types";
 import { removeIfUnchanged, writeFileAtomic } from "./fs-utils";
-import { loadBacklog } from "./load";
+import { loadBacklog, type LoadedBacklog } from "./load";
 import { referenceCleanup } from "./references";
 import { updateTaskIn } from "./update";
 import type { UpdateTaskFailure } from "./write-result";
@@ -16,59 +16,76 @@ export type SweepReport = {
   invalid: { id: string; errors: string[] }[];
 };
 
+type SweepFailure = { id: string; reason: "conflict" } | { id: string; reason: "invalid"; errors: string[] };
+
+type EpicStep = { closed: string[]; failures: SweepFailure[]; leftOpen: ReadonlySet<string> };
+
+type RemovalStep = { deleted: string[]; failures: SweepFailure[] };
+
 export async function sweepClosed(root: string, now: Date): Promise<SweepReport> {
-  const report: SweepReport = { closedEpics: [], deleted: [], conflicts: [], invalid: [] };
   const initial = await loadBacklog(root);
-  const epicsLeftOpen = await closeCompletedEpics(initial.tasks, now, report);
-  const { projects, tasks } = report.closedEpics.length > 0 ? await loadBacklog(root) : initial;
+  const epics = await closeCompletedEpics(initial, now);
+  const { projects, tasks } = epics.closed.length > 0 ? await loadBacklog(root) : initial;
 
-  const waitsForEpic = (task: Task) => task.epic !== undefined && epicsLeftOpen.has(task.epic);
+  const waitsForEpic = (task: Task) => task.epic !== undefined && epics.leftOpen.has(task.epic);
   const expired = tasks.filter((task) => isExpired(task, now) && !waitsForEpic(task));
-  const expiredIds = new Set(expired.map((task) => task.id));
   await reserveNumbers(projects, expired);
+  const updateFailures = await updateRemainingTasks(tasks, expired, now);
+  const removal = await removeExpired(expired);
+  return buildReport(epics.closed, removal.deleted, [...epics.failures, ...updateFailures, ...removal.failures]);
+}
 
+async function closeCompletedEpics(loaded: LoadedBacklog, now: Date): Promise<EpicStep> {
+  const closed: string[] = [];
+  const failures: SweepFailure[] = [];
+  for (const { epic, closure } of epicsToClose(loaded.tasks, loaded.errors)) {
+    const result = await updateTaskIn(loaded.tasks, { id: epic.id, changes: { status: "done" }, expectedVersion: epic.version, now, closure });
+    if (result.ok) closed.push(epic.id);
+    else failures.push(sweepFailure(epic.id, result));
+  }
+  return { closed, failures, leftOpen: new Set(failures.map(({ id }) => id)) };
+}
+
+async function updateRemainingTasks(tasks: readonly Task[], expired: readonly Task[], now: Date): Promise<SweepFailure[]> {
+  const expiredIds = new Set(expired.map((task) => task.id));
+  const failures: SweepFailure[] = [];
   for (const task of tasks.filter((candidate) => !expiredIds.has(candidate.id))) {
     const cleanup = referenceCleanup(task, (id) => expiredIds.has(id));
     if (cleanup === null && !lacksClosedDate(task)) continue;
     const result = await updateTaskIn(tasks, { id: task.id, changes: cleanup ?? {}, expectedVersion: task.version, now });
-    if (!result.ok) recordFailure(report, task.id, result);
+    if (!result.ok) failures.push(sweepFailure(task.id, result));
   }
+  return failures;
+}
 
+async function removeExpired(expired: readonly Task[]): Promise<RemovalStep> {
+  const deleted: string[] = [];
+  const failures: SweepFailure[] = [];
   for (const task of expired) {
-    if (await removeIfUnchanged(task.path, task.version)) report.deleted.push(task.id);
-    else report.conflicts.push(task.id);
+    if (await removeIfUnchanged(task.path, task.version)) deleted.push(task.id);
+    else failures.push({ id: task.id, reason: "conflict" });
   }
-  return report;
+  return { deleted, failures };
 }
 
-async function closeCompletedEpics(tasks: readonly Task[], now: Date, report: SweepReport): Promise<ReadonlySet<string>> {
-  const index = buildIndex(tasks);
-  const leftOpen = new Set<string>();
-  for (const epic of tasks) {
-    const children = completedEpicChildren(epic, index);
-    if (children === null) continue;
-    const closure = epicDoneClosure(children);
-    const result = await updateTaskIn(tasks, { id: epic.id, changes: { status: "done" }, expectedVersion: epic.version, now, closure });
-    if (result.ok) {
-      report.closedEpics.push(epic.id);
-    } else {
-      recordFailure(report, epic.id, result);
-      leftOpen.add(epic.id);
-    }
-  }
-  return leftOpen;
-}
-
-function recordFailure(report: SweepReport, id: string, failure: UpdateTaskFailure): void {
+function sweepFailure(id: string, failure: UpdateTaskFailure): SweepFailure {
   switch (failure.reason) {
     case "invalid":
-      report.invalid.push({ id, errors: failure.errors });
-      return;
+      return { id, reason: "invalid", errors: failure.errors };
     case "conflict":
     case "not-found":
-      report.conflicts.push(id);
-      return;
+      return { id, reason: "conflict" };
   }
+}
+
+function buildReport(closedEpics: string[], deleted: string[], failures: readonly SweepFailure[]): SweepReport {
+  const firstPerTask = failures.filter((failure, position) => failures.findIndex(({ id }) => id === failure.id) === position);
+  return {
+    closedEpics,
+    deleted,
+    conflicts: firstPerTask.filter((failure) => failure.reason === "conflict").map(({ id }) => id),
+    invalid: firstPerTask.flatMap((failure) => (failure.reason === "invalid" ? [{ id: failure.id, errors: failure.errors }] : [])),
+  };
 }
 
 function lacksClosedDate(task: Task): boolean {

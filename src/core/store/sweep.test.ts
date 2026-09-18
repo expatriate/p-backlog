@@ -153,4 +153,37 @@ describe("sweepClosed", () => {
     expect(byId.get("SPA-1")?.status).toBe("backlog");
     expect(byId.get("SPA-3")?.epic).toBe("SPA-1");
   });
+
+  it("при неразобранном файле эпики не закрываются, а просроченные задачи удаляются по сроку", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", "type: epic\n"),
+      "spa/SPA-2.md": taskFile("SPA-2", `epic: SPA-1\nstatus: done\n${EXPIRED}`),
+      "spa/SPA-3.md": "сломано",
+    });
+
+    const report = await sweepClosed(root, NOW);
+
+    expect(report).toEqual({ closedEpics: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
+    expect(await exists(join(root, "spa/SPA-2.md"))).toBe(false);
+    expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-1")?.status).toBe("backlog");
+  });
+
+  it("задача, которая не записалась на нескольких шагах, попадает в итог один раз", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", "type: epic\nblockedBy: [SPA-1]\nrelated: [SPA-3]\n"),
+      "spa/SPA-2.md": taskFile("SPA-2", `epic: SPA-1\nstatus: done\n${FRESH}`),
+      "spa/SPA-3.md": taskFile("SPA-3", `status: done\n${EXPIRED}`),
+    });
+
+    expect(await sweepClosed(root, NOW)).toEqual({
+      closedEpics: [],
+      deleted: ["SPA-3"],
+      conflicts: [],
+      invalid: [{ id: "SPA-1", errors: ["задача не может блокировать саму себя"] }],
+    });
+  });
 });

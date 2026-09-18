@@ -1,9 +1,9 @@
 import { access } from "node:fs/promises";
 import { basename } from "node:path";
-import { buildIndex, type BacklogIndex } from "../model/graph";
+import { buildIndex } from "../model/graph";
 import { ID_PATTERN, parseId } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
-import { completedEpicChildren, epicDoneClosure, type Closure } from "../model/lifecycle";
+import { epicsToClose, type Closure } from "../model/lifecycle";
 import type { ParseError, Project, Task } from "../model/types";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
 import { expandHome, PROJECT_FILE } from "../store/paths";
@@ -37,11 +37,11 @@ export async function checkBacklog(root: string, request: CheckRequest): Promise
 
 async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, now: Date): Promise<FixOutcome> {
   const isGone = goneTaskCheck(loaded);
-  const index = buildIndex(loaded.tasks);
+  const epicClosures = new Map(epicsToClose(loaded.tasks, loaded.errors).map(({ epic, closure }) => [epic.id, closure]));
   const fixed: string[] = [];
   const failed: string[] = [];
   for (const task of loaded.tasks.filter((candidate) => inScope(candidate.projectId))) {
-    const fix = planFix(task, index, isGone);
+    const fix = planFix(task, isGone, epicClosures.get(task.id));
     if (fix === null) continue;
     const result = await updateTaskIn(loaded.tasks, { id: task.id, changes: fix.changes, expectedVersion: task.version, now, closure: fix.closure });
     if (result.ok) fixed.push(...fix.notes.map((note) => `${task.id}: ${note}`));
@@ -61,17 +61,15 @@ function fixFailure(failure: UpdateTaskFailure): string {
   }
 }
 
-function planFix(task: Task, index: BacklogIndex, isGone: (id: string) => boolean): Fix | null {
+function planFix(task: Task, isGone: (id: string) => boolean, epicClosure: Closure | undefined): Fix | null {
   const cleanup = referenceCleanup(task, isGone);
-  const closedChildren = completedEpicChildren(task, index);
-  if (cleanup === null && closedChildren === null) return null;
+  if (cleanup === null && epicClosure === undefined) return null;
 
   const notes: string[] = [];
   if (cleanup !== null) notes.push(`убраны ссылки на несуществующие задачи: ${goneReferences(task, isGone).join(", ")}`);
-  if (closedChildren === null) return { changes: cleanup ?? {}, notes };
-  const closure = epicDoneClosure(closedChildren);
-  notes.push(`эпик закрыт — ${closure.reason}`);
-  return { changes: { ...cleanup, status: "done" }, closure, notes };
+  if (epicClosure === undefined) return { changes: cleanup ?? {}, notes };
+  notes.push(`эпик закрыт — ${epicClosure.reason}`);
+  return { changes: { ...cleanup, status: "done" }, closure: epicClosure, notes };
 }
 
 function goneReferences(task: Task, isGone: (id: string) => boolean): string[] {

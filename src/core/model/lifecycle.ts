@@ -1,6 +1,6 @@
 import { formatLocalIso } from "./dates";
-import { epicChildren, isClosed, type BacklogIndex } from "./graph";
-import type { Resolution, Task, TaskStatus } from "./types";
+import { buildIndex, epicChildren, isClosed, type BacklogIndex } from "./graph";
+import type { ParseError, Resolution, Task, TaskStatus } from "./types";
 
 export const RETENTION_DAYS = 7;
 
@@ -14,6 +14,8 @@ export const RESOLUTION_STATUS: Record<Resolution, "done" | "cancelled"> = {
 };
 
 export type Closure = { resolution: Resolution; reason: string };
+
+export type EpicClosure = { epic: Task; closure: Closure };
 
 export function changeStatus(task: Task, status: TaskStatus, now: Date, closure?: Closure): Task {
   if (status === task.status) return task;
@@ -35,14 +37,23 @@ export function isExpired(task: Task, now: Date): boolean {
   return deletesAt !== undefined && deletesAt.getTime() <= now.getTime();
 }
 
-export function completedEpicChildren(task: Task, index: BacklogIndex): string[] | null {
+export function epicsToClose(tasks: readonly Task[], parseErrors: readonly ParseError[]): EpicClosure[] {
+  if (parseErrors.length > 0) return [];
+  const index = buildIndex(tasks);
+  return tasks.flatMap((epic) => {
+    const children = completedEpicChildren(epic, index);
+    return children === null ? [] : [{ epic, closure: epicDoneClosure(children) }];
+  });
+}
+
+function completedEpicChildren(task: Task, index: BacklogIndex): string[] | null {
   if (task.type !== "epic" || isClosed(task.status)) return null;
   const children = epicChildren(task, index);
   const complete = children.length > 0 && children.every((child) => isClosed(child.status));
   return complete ? children.map((child) => child.id) : null;
 }
 
-export function epicDoneClosure(childIds: readonly string[]): Closure {
+function epicDoneClosure(childIds: readonly string[]): Closure {
   return { resolution: "epic-done", reason: `все задачи эпика закрыты: ${childIds.join(", ")}` };
 }
 
