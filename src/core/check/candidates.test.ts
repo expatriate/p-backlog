@@ -139,6 +139,16 @@ describe("duplicateCandidates", () => {
     ]);
   });
 
+  it("одно место в source сравнивается по нормализованному пути и той же строке", () => {
+    const dotted = makeTask({ id: "SPA-3", title: "Очередь", source: "./src/queue.ts:40", created: CREATED });
+    const plain = makeTask({ id: "SPA-4", title: "Повтор", source: "src/queue.ts:40", created: CREATED });
+    const otherLine = makeTask({ id: "SPA-5", title: "Кэш", source: "src/queue.ts:41", created: CREATED });
+
+    expect(duplicateCandidates([dotted, plain, otherLine])).toEqual([
+      { kind: "duplicate", task: { id: "SPA-4", title: "Повтор" }, other: { id: "SPA-3", title: "Очередь" }, match: "source" },
+    ]);
+  });
+
   it("тот же файл, но другая строка — не дубль: в большом файле много разных проблем", () => {
     const first = makeTask({ id: "SPA-3", title: "Очередь", source: "src/queue.ts:1", created: CREATED });
     const second = makeTask({ id: "SPA-4", title: "Повтор", source: "src/queue.ts:40", created: CREATED });

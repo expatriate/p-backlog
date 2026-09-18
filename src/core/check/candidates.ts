@@ -12,6 +12,7 @@ export type Candidate =
   | { kind: "no-source"; task: TaskRef };
 
 const MAX_COMMITS = 3;
+const LINE_SUFFIX = /:\d+(?:-\d+)?$/;
 
 export function isReviewable(task: Task): boolean {
   return task.type === "task" && (task.status === "backlog" || task.status === "blocked");
@@ -19,7 +20,7 @@ export function isReviewable(task: Task): boolean {
 
 export function sourcePath(source: string): string {
   return source
-    .replace(/:\d+(?:-\d+)?$/, "")
+    .replace(LINE_SUFFIX, "")
     .replace(/^\.\//, "")
     .replace(/\/+$/, "");
 }
@@ -62,8 +63,12 @@ export function noSourceCandidates(tasks: readonly Task[], facts: RepoFacts): Ca
 
 function duplicateMatch(task: Task, other: Task): "source" | "title" | null {
   if (linked(task, other) || bothConfirmedAfterCreation(task, other)) return null;
-  if (task.source !== undefined && task.source === other.source) return "source";
+  if (task.source !== undefined && other.source !== undefined && samePlace(task.source, other.source)) return "source";
   return similarTitles(task.title, other.title) ? "title" : null;
+}
+
+function samePlace(a: string, b: string): boolean {
+  return sourcePath(a) === sourcePath(b) && LINE_SUFFIX.exec(a)?.[0] === LINE_SUFFIX.exec(b)?.[0];
 }
 
 function linked(a: Task, b: Task): boolean {
