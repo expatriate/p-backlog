@@ -1,6 +1,6 @@
 import { access } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { candidateEvents } from "../journal/events";
+import { candidateEvents, type CheckMode } from "../journal/events";
 import { buildIndex } from "../model/graph";
 import { ID_PATTERN, parseId } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
@@ -15,7 +15,7 @@ import type { UpdateTaskFailure } from "../store/write-result";
 import { codeCandidates, duplicateCandidates, isReviewable, noSourceCandidates, reviewMark, sourcePath, type Candidate } from "./candidates";
 import { collectRepoFacts } from "./repo-facts";
 
-export type CheckMode = "full" | "changed";
+export type { CheckMode };
 
 export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string };
 
