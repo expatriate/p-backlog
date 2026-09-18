@@ -2,11 +2,20 @@
   display: contents;
 }
 
+.selection {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
+}
+
 .toggle {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  max-width: min(320px, 100%);
+  min-width: 0;
+  max-width: 320px;
 }
 
 .chosenTitle {
@@ -28,7 +37,6 @@
   place-items: center;
   min-width: 24px;
   min-height: 24px;
-  margin-left: calc(var(--space-2) * -1);
   border: none;
   background: none;
   color: var(--ink-subtle);

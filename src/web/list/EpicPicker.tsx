@@ -30,37 +30,39 @@ export function EpicPicker({ choices, selected, onSelect }: EpicPickerProps) {
 
   return (
     <div className={styles.picker} onKeyDown={closeOnEscape}>
-      <Button
-        ref={toggle}
-        className={styles.toggle}
-        aria-expanded={open}
-        aria-label={chosen === undefined ? undefined : `Эпик: ${chosen.title}`}
-        title={chosen === undefined ? undefined : `${chosen.id} — ${chosen.title}`}
-        data-epic-tone={chosen?.tone}
-        onClick={() => setOpen(!open)}
-      >
-        {chosen === undefined ? (
-          `Эпик: ${selectionLabel(selected)}`
-        ) : (
-          <>
-            <span className={styles.dot} aria-hidden="true" />
-            <span className={styles.chosenTitle}>{chosen.title}</span>
-          </>
-        )}
-      </Button>
-      {selected !== undefined && (
-        <button
-          type="button"
-          className={styles.reset}
-          aria-label="Сбросить эпик"
-          onClick={() => {
-            onSelect(undefined);
-            toggle.current?.focus();
-          }}
+      <span className={styles.selection}>
+        <Button
+          ref={toggle}
+          className={styles.toggle}
+          aria-expanded={open}
+          aria-label={chosen === undefined ? undefined : `Эпик: ${chosen.title}`}
+          title={chosen === undefined ? undefined : `${chosen.id} — ${chosen.title}`}
+          data-epic-tone={chosen?.tone}
+          onClick={() => setOpen(!open)}
         >
-          ×
-        </button>
-      )}
+          {chosen === undefined ? (
+            `Эпик: ${selectionLabel(selected)}`
+          ) : (
+            <>
+              <span className={styles.dot} aria-hidden="true" />
+              <span className={styles.chosenTitle}>{chosen.title}</span>
+            </>
+          )}
+        </Button>
+        {selected !== undefined && (
+          <button
+            type="button"
+            className={styles.reset}
+            aria-label="Сбросить эпик"
+            onClick={() => {
+              onSelect(undefined);
+              toggle.current?.focus();
+            }}
+          >
+            ×
+          </button>
+        )}
+      </span>
       {open && (
         <div className={styles.panel}>
           <div className={styles.options} role="group" aria-label="Эпики">
