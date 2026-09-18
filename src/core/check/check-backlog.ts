@@ -9,6 +9,7 @@ import { loadBacklog, type LoadedBacklog } from "../store/load";
 import { expandHome } from "../store/paths";
 import { referenceCleanup } from "../store/references";
 import { updateTaskIn, type TaskChanges } from "../store/update";
+import type { UpdateTaskFailure } from "../store/write-result";
 import { codeCandidates, duplicateCandidates, isReviewable, noSourceCandidates, reviewMark, sourcePath, type Candidate } from "./candidates";
 import { collectRepoFacts } from "./repo-facts";
 
@@ -44,9 +45,20 @@ async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) =>
     if (fix === null) continue;
     const result = await updateTaskIn(loaded.tasks, { id: task.id, changes: fix.changes, expectedVersion: task.version, now, closure: fix.closure });
     if (result.ok) fixed.push(...fix.notes.map((note) => `${task.id}: ${note}`));
-    else failed.push(`${task.id}: не удалось исправить — ${result.reason === "invalid" ? result.errors.join("; ") : "файл изменился"}`);
+    else failed.push(`${task.id}: не удалось исправить — ${fixFailure(result)}`);
   }
   return { fixed, failed };
+}
+
+function fixFailure(failure: UpdateTaskFailure): string {
+  switch (failure.reason) {
+    case "invalid":
+      return failure.errors.join("; ");
+    case "conflict":
+      return "файл изменился во время проверки";
+    case "not-found":
+      return "файл исчез во время проверки";
+  }
 }
 
 function planFix(task: Task, index: BacklogIndex, isGone: (id: string) => boolean): Fix | null {

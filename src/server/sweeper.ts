@@ -13,7 +13,10 @@ export function startSweeper({ sweep, intervalMs, log }: SweeperOptions): () => 
   return () => clearInterval(timer);
 }
 
-function logReport({ deleted, skipped }: SweepReport, log: (line: string) => void): void {
+function logReport({ deleted, conflicts, invalid }: SweepReport, log: (line: string) => void): void {
   if (deleted.length > 0) log(`Удалены закрытые задачи: ${deleted.join(", ")}`);
-  if (skipped.length > 0) log(`Задачи менялись во время прохода, повторю при следующем: ${skipped.join(", ")}`);
+  if (conflicts.length > 0) log(`Задачи менялись во время прохода, повторю при следующем: ${conflicts.join(", ")}`);
+  if (invalid.length > 0) {
+    log(`Не удалось обновить задачи, исправьте файлы: ${invalid.map(({ id, errors }) => `${id} (${errors.join("; ")})`).join(", ")}`);
+  }
 }

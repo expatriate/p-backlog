@@ -1,15 +1,15 @@
-import { rm } from "node:fs/promises";
 import { isClosed } from "../model/graph";
 import { parseId } from "../model/ids";
 import { isExpired } from "../model/lifecycle";
 import { serializeProject } from "../model/project-file";
 import type { Project, Task } from "../model/types";
-import { writeFileAtomic } from "./fs-utils";
+import { removeIfUnchanged, writeFileAtomic } from "./fs-utils";
 import { loadBacklog } from "./load";
 import { referenceCleanup } from "./references";
 import { updateTaskIn } from "./update";
+import type { UpdateTaskFailure } from "./write-result";
 
-export type SweepReport = { deleted: string[]; skipped: string[] };
+export type SweepReport = { deleted: string[]; conflicts: string[]; invalid: { id: string; errors: string[] }[] };
 
 export async function sweepClosed(root: string, now: Date): Promise<SweepReport> {
   const { projects, tasks } = await loadBacklog(root);
@@ -17,16 +17,31 @@ export async function sweepClosed(root: string, now: Date): Promise<SweepReport>
   const expiredIds = new Set(expired.map((task) => task.id));
   await reserveNumbers(projects, expired);
 
-  const skipped: string[] = [];
+  const report: SweepReport = { deleted: [], conflicts: [], invalid: [] };
   for (const task of tasks.filter((candidate) => !expiredIds.has(candidate.id))) {
     const cleanup = referenceCleanup(task, (id) => expiredIds.has(id));
     if (cleanup === null && !lacksClosedDate(task)) continue;
     const result = await updateTaskIn(tasks, { id: task.id, changes: cleanup ?? {}, expectedVersion: task.version, now });
-    if (!result.ok) skipped.push(task.id);
+    if (!result.ok) recordFailure(report, task.id, result);
   }
 
-  await Promise.all(expired.map((task) => rm(task.path, { force: true })));
-  return { deleted: [...expiredIds], skipped };
+  for (const task of expired) {
+    if (await removeIfUnchanged(task.path, task.version)) report.deleted.push(task.id);
+    else report.conflicts.push(task.id);
+  }
+  return report;
+}
+
+function recordFailure(report: SweepReport, id: string, failure: UpdateTaskFailure): void {
+  switch (failure.reason) {
+    case "invalid":
+      report.invalid.push({ id, errors: failure.errors });
+      return;
+    case "conflict":
+    case "not-found":
+      report.conflicts.push(id);
+      return;
+  }
 }
 
 function lacksClosedDate(task: Task): boolean {

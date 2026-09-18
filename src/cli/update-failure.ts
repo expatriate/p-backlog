@@ -1,7 +1,7 @@
-import type { UpdateTaskResult } from "../core/store/write-result";
+import type { UpdateTaskFailure } from "../core/store/write-result";
 import { EXIT, type CliIo } from "./io";
 
-export function reportUpdateFailure(io: CliIo, id: string, result: Exclude<UpdateTaskResult, { ok: true }>): number {
+export function reportUpdateFailure(io: CliIo, id: string, result: UpdateTaskFailure): number {
   switch (result.reason) {
     case "not-found":
       io.warn(`Задача ${id} не найдена`);

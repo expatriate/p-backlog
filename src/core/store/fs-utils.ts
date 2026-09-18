@@ -20,6 +20,13 @@ export async function readTextOrNull(path: string): Promise<string | null> {
   }
 }
 
+export async function removeIfUnchanged(path: string, version: string): Promise<boolean> {
+  const text = await readTextOrNull(path);
+  if (text !== null && contentVersion(text) !== version) return false;
+  await rm(path, { force: true });
+  return true;
+}
+
 export async function listDir(path: string): Promise<Dirent[]> {
   try {
     return await readdir(path, { withFileTypes: true });

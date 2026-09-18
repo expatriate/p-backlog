@@ -3,9 +3,9 @@ import { integrityErrors } from "../model/integrity";
 import { changeStatus, settleLifecycle, type Closure } from "../model/lifecycle";
 import { parseTaskFile, serializeTask } from "../model/task-file";
 import type { Task } from "../model/types";
-import { contentVersion, writeFileAtomic } from "./fs-utils";
+import { contentVersion, readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { loadBacklog } from "./load";
-import { invalid, type UpdateTaskResult } from "./write-result";
+import { invalid, type UpdateTaskFailure, type UpdateTaskResult } from "./write-result";
 
 export type TaskChanges = Partial<
   Pick<Task, "title" | "type" | "status" | "priority" | "tags" | "blockedBy" | "related" | "body" | "source" | "verified">
@@ -36,8 +36,19 @@ export async function updateTaskIn(
   const errors = integrityErrors(parsed.value, buildIndex(tasks));
   if (errors.length > 0) return invalid(errors);
 
+  const changedOnDisk = expectedVersion === undefined ? null : await diskChange(current, expectedVersion);
+  if (changedOnDisk !== null) return changedOnDisk;
   await writeFileAtomic(current.path, text);
   return { ok: true, task: parsed.value };
+}
+
+async function diskChange(snapshot: Task, expectedVersion: string): Promise<UpdateTaskFailure | null> {
+  const text = await readTextOrNull(snapshot.path);
+  if (text === null) return { ok: false, reason: "not-found" };
+  const version = contentVersion(text);
+  if (version === expectedVersion) return null;
+  const fresh = parseTaskFile(text, { projectId: snapshot.projectId, path: snapshot.path, version });
+  return { ok: false, reason: "conflict", current: fresh.ok ? fresh.value : snapshot };
 }
 
 function applyChanges(task: Task, changes: TaskChanges, now: Date, closure: Closure | undefined): Task {

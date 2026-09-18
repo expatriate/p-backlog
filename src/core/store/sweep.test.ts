@@ -39,7 +39,7 @@ describe("sweepClosed", () => {
 
     const report = await sweepClosed(root, NOW);
 
-    expect(report).toEqual({ deleted: ["SPA-1", "SPA-5"], skipped: [] });
+    expect(report).toEqual({ deleted: ["SPA-1", "SPA-5"], conflicts: [], invalid: [] });
     expect(await exists(join(root, "spa/SPA-1.md"))).toBe(false);
     expect(await exists(join(root, "spa/SPA-5.md"))).toBe(false);
     const { projects, tasks, errors } = await loadBacklog(root);
@@ -75,7 +75,18 @@ describe("sweepClosed", () => {
     const projectText = projectFile("SPA");
     await writeFiles(root, { "spa/project.md": projectText, "spa/SPA-1.md": taskFile("SPA-1", `status: done\n${FRESH}`) });
 
-    expect(await sweepClosed(root, NOW)).toEqual({ deleted: [], skipped: [] });
+    expect(await sweepClosed(root, NOW)).toEqual({ deleted: [], conflicts: [], invalid: [] });
     expect(await readFile(join(root, "spa/project.md"), "utf8")).toBe(projectText);
+  });
+
+  it("задача, которую нельзя записать по правилам, попадает в invalid с ошибкой, а не в conflicts", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1", "status: done\nblockedBy: [SPA-1]\n") });
+
+    expect(await sweepClosed(root, NOW)).toEqual({
+      deleted: [],
+      conflicts: [],
+      invalid: [{ id: "SPA-1", errors: ["задача не может блокировать саму себя"] }],
+    });
   });
 });
