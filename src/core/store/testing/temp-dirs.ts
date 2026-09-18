@@ -17,6 +17,13 @@ export async function makeGitRepo(parent: string, name: string): Promise<string>
   return dir;
 }
 
+export function gitCommitAll(repo: string, message: string, isoDate: string): void {
+  const env = { ...process.env, GIT_AUTHOR_DATE: isoDate, GIT_COMMITTER_DATE: isoDate };
+  const identity = ["-c", "user.name=backlog-test", "-c", "user.email=test@backlog.local", "-c", "commit.gpgsign=false"];
+  execFileSync("git", ["add", "-A"], { cwd: repo });
+  execFileSync("git", [...identity, "commit", "-q", "-m", message], { cwd: repo, env });
+}
+
 export async function writeFiles(root: string, files: Record<string, string>): Promise<void> {
   for (const [relativePath, content] of Object.entries(files)) {
     const path = join(root, relativePath);
