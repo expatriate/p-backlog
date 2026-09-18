@@ -101,6 +101,14 @@ describe("новые поля и события", () => {
     expect(otherEvidence).toHaveLength(1);
   });
 
+  it("несколько наблюдений с одинаковыми task и evidence в одном вызове дают одно событие", () => {
+    const sighting = { task: "SPA-1", evidence: "duplicate" as const };
+
+    const events = candidateEvents([sighting, sighting], [], NOW, "full");
+
+    expect(events).toHaveLength(1);
+  });
+
   it("после закрытия и возврата кандидат снова новый", () => {
     const sighting = { task: "SPA-1", evidence: "source-missing" as const };
     const [first] = candidateEvents([sighting], [], NOW, "full");

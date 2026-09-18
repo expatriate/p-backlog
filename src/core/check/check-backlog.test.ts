@@ -138,6 +138,25 @@ describe("checkBacklog", () => {
     expect(candidates).toMatchObject([{ task: "SPA-2", evidence: "duplicate", mode: "full", via: "check" }]);
   });
 
+  it("три задачи с одним source — по одному кандидату duplicate на задачу, без повторов", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": task("SPA-1", "source: src/a.ts:1\n"),
+      "spa/SPA-2.md": task("SPA-2", "source: src/a.ts:1\n"),
+      "spa/SPA-3.md": task("SPA-3", "source: src/a.ts:1\n"),
+    });
+
+    await checkBacklog(root, { projectIds: ["spa"], mode: "full", now: NOW, home });
+
+    const candidates = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate");
+    expect(candidates).toMatchObject([
+      { task: "SPA-2", evidence: "duplicate" },
+      { task: "SPA-3", evidence: "duplicate" },
+    ]);
+  });
+
   it("сообщает о проекте без репозитория и проверяет только выбранные проекты", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");

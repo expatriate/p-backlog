@@ -98,9 +98,14 @@ function snapshotOf(task: Task): TaskSnapshot {
 
 export function candidateEvents(sightings: readonly CandidateSighting[], journal: readonly JournalEvent[], now: Date, mode: CheckMode): JournalEvent[] {
   const at = formatLocalIso(now);
-  return sightings
+  return dedupeSightings(sightings)
     .filter((sighting) => isNewCandidate(sighting, journal))
     .map((sighting) => ({ at, task: sighting.task, via: "check", kind: "candidate", evidence: sighting.evidence, mode }));
+}
+
+function dedupeSightings(sightings: readonly CandidateSighting[]): CandidateSighting[] {
+  const byKey = new Map(sightings.map((sighting) => [`${sighting.task}:${sighting.evidence}`, sighting]));
+  return [...byKey.values()];
 }
 
 function isNewCandidate({ task, evidence }: CandidateSighting, journal: readonly JournalEvent[]): boolean {
