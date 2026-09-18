@@ -42,6 +42,16 @@
   font-family: var(--font-mono);
 }
 
+.rowLabel a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.rowLabel a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .rowCount {
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
