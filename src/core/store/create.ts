@@ -23,7 +23,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
   const dir = join(root, project.id);
   const index = buildIndex(existingTasks);
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt++) {
-    const id = formatId(project.prefix, (await maxTaskNumber(dir, project.prefix)) + 1);
+    const id = formatId(project.prefix, await nextTaskNumber(dir, project));
     const path = join(dir, taskFileName(id));
     const text = serializeTask(draftTask(id, path, request));
     const parsed = parseTaskFile(text, { projectId: project.id, path, version: contentVersion(text) });
@@ -53,6 +53,10 @@ export async function createProject(root: string, repoRoot: string, existingProj
   const parsed = parseProjectFile(text, { id, path });
   if (!parsed.ok) throw new Error(parsed.message);
   return parsed.value;
+}
+
+async function nextTaskNumber(dir: string, project: Project): Promise<number> {
+  return Math.max(await maxTaskNumber(dir, project.prefix), project.issuedUpTo ?? 0) + 1;
 }
 
 async function maxTaskNumber(dir: string, prefix: string): Promise<number> {

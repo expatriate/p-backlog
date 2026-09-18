@@ -34,6 +34,16 @@ describe("createTask", () => {
     expect(await readFile(join(root, "spa/SPA-8.md"), "utf8")).toContain("- [ ] шаг");
   });
 
+  it("не выдаёт номера удалённых задач", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/project.md": `---\nname: spa\nprefix: SPA\nrepos: []\nissuedUpTo: 7\n---\n`, "spa/SPA-1.md": taskFile("SPA-1") });
+    const { loaded, project } = await loadProject(root, "spa");
+
+    const result = await createTask(root, { project, input: { title: "После удаления" }, existingTasks: loaded.tasks, now: NOW });
+
+    expect(result.ok && result.task.id).toBe("SPA-8");
+  });
+
   it("отклоняет задачу, нарушающую правила, и не создаёт файл", async () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": projectFile("SPA") });
