@@ -1,4 +1,14 @@
-import { useEffect, useRef, useState, type ComponentProps, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { Button } from "./Button";
 import styles from "./Popover.module.css";
 
@@ -6,8 +16,14 @@ export type PopoverProps = {
   trigger: ReactNode;
   triggerProps?: Pick<ComponentProps<"button">, "aria-label" | "title" | "className">;
   triggerRef?: RefObject<HTMLButtonElement | null>;
-  children: (closePopover: () => void) => ReactNode;
+  children: ReactNode;
 };
+
+const ClosePopoverContext = createContext<() => void>(() => undefined);
+
+export function useClosePopover(): () => void {
+  return useContext(ClosePopoverContext);
+}
 
 export function Popover({ trigger, triggerProps, triggerRef, children }: PopoverProps) {
   const [open, setOpen] = useState(false);
@@ -40,8 +56,11 @@ export function Popover({ trigger, triggerProps, triggerRef, children }: Popover
       <Button {...triggerProps} ref={button} aria-expanded={open} onClick={() => setOpen(!open)}>
         {trigger}
       </Button>
-      {/* eslint-disable-next-line react-hooks/refs -- closePopover only reads the ref inside later event handlers, never synchronously during this render */}
-      {open && <div className={styles.panel}>{children(closePopover)}</div>}
+      {open && (
+        <div className={styles.panel}>
+          <ClosePopoverContext value={closePopover}>{children}</ClosePopoverContext>
+        </div>
+      )}
     </div>
   );
 }

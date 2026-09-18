@@ -96,28 +96,24 @@ function TagPicker({ tags, selected, onToggle }: { tags: string[]; selected: rea
   return (
     <div className={styles.tagPicker}>
       <Popover trigger={summary}>
-        {() => (
-          <>
-            <input
-              type="search"
-              autoFocus
-              className={styles.tagSearch}
-              value={query}
-              placeholder="Найти тег"
-              aria-label="Найти тег"
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            <div className={styles.tagOptions} role="group" aria-label="Теги">
-              {tags
-                .filter((tag) => normalizeText(tag).includes(needle))
-                .map((tag) => (
-                  <ToggleChip key={tag} pressed={selected.includes(tag)} onToggle={() => onToggle(tag)}>
-                    #{tag}
-                  </ToggleChip>
-                ))}
-            </div>
-          </>
-        )}
+        <input
+          type="search"
+          autoFocus
+          className={styles.tagSearch}
+          value={query}
+          placeholder="Найти тег"
+          aria-label="Найти тег"
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <div className={styles.tagOptions} role="group" aria-label="Теги">
+          {tags
+            .filter((tag) => normalizeText(tag).includes(needle))
+            .map((tag) => (
+              <ToggleChip key={tag} pressed={selected.includes(tag)} onToggle={() => onToggle(tag)}>
+                #{tag}
+              </ToggleChip>
+            ))}
+        </div>
       </Popover>
       {selected.map((tag) => (
         <ToggleChip key={tag} pressed onToggle={() => onToggle(tag)}>
