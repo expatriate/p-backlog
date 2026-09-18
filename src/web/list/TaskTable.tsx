@@ -12,8 +12,6 @@ export type TaskTableProps = {
   tasks: Task[];
   index: BacklogIndex;
   selectedId?: string;
-  checkedIds: ReadonlySet<string>;
-  onCheck: (id: string, checked: boolean) => void;
   taskHref: (task: Task) => string;
 };
 
@@ -26,14 +24,11 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
   critical: styles.critical,
 };
 
-export function TaskTable({ tasks, index, selectedId, checkedIds, onCheck, taskHref }: TaskTableProps) {
+export function TaskTable({ tasks, index, selectedId, taskHref }: TaskTableProps) {
   return (
     <table className={styles.table}>
       <thead>
         <tr>
-          <th className={styles.checkCell} scope="col">
-            <span className={styles.srOnly}>Выбор</span>
-          </th>
           <th scope="col">ID</th>
           <th scope="col">Задача</th>
           <th className={styles.tags} scope="col">Теги</th>
@@ -49,15 +44,6 @@ export function TaskTable({ tasks, index, selectedId, checkedIds, onCheck, taskH
           const epic = task.epic === undefined ? undefined : index.byId.get(task.epic);
           return (
             <tr key={task.id} className={cx(styles.row, task.id === selectedId && styles.selected)}>
-              <td className={styles.checkCell}>
-                <input
-                  type="checkbox"
-                  checked={checkedIds.has(task.id)}
-                  disabled={task.type === "epic"}
-                  aria-label={`Выбрать ${task.id}`}
-                  onChange={(event) => onCheck(task.id, event.target.checked)}
-                />
-              </td>
               <td>
                 <Link to={taskHref(task)} className={styles.id}>
                   {task.id}

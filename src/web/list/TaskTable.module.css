@@ -32,11 +32,6 @@
   background: var(--surface-selected);
 }
 
-.checkCell {
-  width: 32px;
-  padding-right: 0;
-}
-
 .id {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
@@ -106,14 +101,6 @@ td.tags {
   color: var(--ink-subtle);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
 }
 
 @container (max-width: 940px) {

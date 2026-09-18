@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { EpicResponse, NewEpicRequest, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import type { Project, Task } from "../../core/model/types";
 import { useBacklogApi } from "./backlog-api";
 
@@ -25,15 +25,6 @@ export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariab
   return useMutation({
     mutationFn: ({ id, version, changes }: UpdateTaskVariables) => client.updateTask(id, freshestVersion(queryClient, id) ?? version, changes),
     onSuccess: (task) => putTask(queryClient, task),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
-  });
-}
-
-export function useCreateEpic(): UseMutationResult<EpicResponse, Error, NewEpicRequest> {
-  const { client } = useBacklogApi();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: client.createEpic,
     onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
   });
 }

@@ -1,18 +1,16 @@
 import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
-import { newEpicRequestSchema, updateTaskRequestSchema } from "../core/api/contract";
-import type { Project } from "../core/model/types";
+import { updateTaskRequestSchema } from "../core/api/contract";
 import { formatIssues } from "../core/model/zod-issues";
-import { createEpic } from "../core/store/epics";
 import { loadBacklog } from "../core/store/load";
 import { updateTask } from "../core/store/update";
 import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
 
-export type ApiOptions = { root: string; changes: ChangeFeed; now: () => Date };
+export type ApiOptions = { root: string; changes: ChangeFeed };
 
-export function createApi({ root, changes, now }: ApiOptions): Hono {
+export function createApi({ root, changes }: ApiOptions): Hono {
   const api = new Hono();
 
   api.get("/projects", async (c) => c.json((await loadBacklog(root)).projects));
@@ -34,24 +32,6 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
     return invalidResponse(c, result);
   });
 
-  api.post("/epics", async (c) => {
-    const body = await readBody(c, newEpicRequestSchema);
-    if (!body.ok) return body.response;
-    const { projectId, ...input } = body.data;
-
-    const loaded = await loadBacklog(root);
-    const project = findProject(loaded.projects, projectId);
-    if (!project) return projectNotFound(c, projectId);
-
-    const created = await createEpic(root, { project, ...input, now: now() });
-    if (created.ok) return c.json({ epic: created.epic, tasks: created.tasks }, 201);
-    if (created.reason === "partial") {
-      const errors = [`Эпик ${created.epic.id} создан, но привязать удалось не все задачи: ${created.errors.join("; ")}`];
-      return c.json({ errors, epic: created.epic }, 409);
-    }
-    return invalidResponse(c, created);
-  });
-
   api.get("/events", (c) =>
     streamSSE(c, async (stream) => {
       const unsubscribe = changes.subscribe(() => void stream.writeSSE({ event: "change", data: "" }));
@@ -65,14 +45,6 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
   );
 
   return api;
-}
-
-function findProject(projects: readonly Project[], projectId: string): Project | undefined {
-  return projects.find((project) => project.id === projectId);
-}
-
-function projectNotFound(c: Context, projectId: string) {
-  return c.json({ errors: [`Проект ${projectId} не найден`] }, 404);
 }
 
 function invalidResponse(c: Context, result: Invalid) {

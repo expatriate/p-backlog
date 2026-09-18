@@ -33,7 +33,6 @@ export async function makeTestApp(files: Record<string, string>, staticDir?: str
     changes,
     allowedHosts: new Set([TEST_HOST]),
     staticDir,
-    now: () => new Date("2026-09-17T14:50:00Z"),
   });
 
   const request = async (path: string, init: RequestInit = {}) =>

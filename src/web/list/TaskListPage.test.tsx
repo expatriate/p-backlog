@@ -15,7 +15,7 @@ const FILES = {
 
 async function rowTitles(): Promise<string[]> {
   const rows = await screen.findAllByRole("row");
-  return rows.slice(1).map((row) => within(row).getAllByRole("cell")[2]?.textContent ?? "");
+  return rows.slice(1).map((row) => within(row).getAllByRole("cell")[1]?.textContent ?? "");
 }
 
 describe("список задач", () => {

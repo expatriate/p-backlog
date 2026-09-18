@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, sortTasks } from "../../core/model/query";
@@ -6,7 +6,6 @@ import type { Task } from "../../core/model/types";
 import { useTasks } from "../app/queries";
 import { Button } from "../ui/Button";
 import { TaskPanel } from "../task/TaskPanel";
-import { EpicForm } from "./EpicForm";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
 import { readListParams, writeListParams } from "./list-params";
@@ -17,7 +16,6 @@ export function TaskListPage() {
   const [search, setSearch] = useSearchParams();
   const navigate = useNavigate();
   const { data, isPending, isError, refetch } = useTasks();
-  const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(new Set());
 
   const searchKey = search.toString();
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
@@ -36,7 +34,6 @@ export function TaskListPage() {
   const withSearch = (path: string) => ({ pathname: path === "" ? "/" : path, search: search.toString() });
   const selectedTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
   const parseErrors = (data?.errors ?? []).filter((error) => projectId === undefined || error.projectId === projectId);
-  const checkedTasks = visibleTasks.filter((task) => checkedIds.has(task.id));
 
   return (
     <main className={styles.page}>
@@ -61,10 +58,6 @@ export function TaskListPage() {
           </div>
         )}
 
-        {checkedTasks.length > 0 && (
-          <EpicForm tasks={checkedTasks} onDone={() => setCheckedIds(new Set())} />
-        )}
-
         <div className={styles.tableWrap}>
           {isError ? (
             <div className={styles.hint} role="status">
@@ -83,8 +76,6 @@ export function TaskListPage() {
               tasks={visibleTasks}
               index={index}
               selectedId={selectedTask?.id}
-              checkedIds={checkedIds}
-              onCheck={(id, checked) => setCheckedIds(toggleId(checkedIds, id, checked))}
               taskHref={(task) => `${prefix}/t/${task.id}?${search.toString()}`}
             />
           )}
@@ -100,11 +91,4 @@ export function TaskListPage() {
 
 function collectTags(tasks: readonly Task[]): string[] {
   return [...new Set(tasks.flatMap((task) => task.tags))].sort((a, b) => a.localeCompare(b, "ru"));
-}
-
-function toggleId(ids: ReadonlySet<string>, id: string, checked: boolean): ReadonlySet<string> {
-  const next = new Set(ids);
-  if (checked) next.add(id);
-  else next.delete(id);
-  return next;
 }

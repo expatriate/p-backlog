@@ -10,14 +10,13 @@ export type AppOptions = {
   changes: ChangeFeed;
   allowedHosts: ReadonlySet<string>;
   staticDir?: string;
-  now?: () => Date;
 };
 
-export function createApp({ root, changes, allowedHosts, staticDir, now = () => new Date() }: AppOptions): Hono {
+export function createApp({ root, changes, allowedHosts, staticDir }: AppOptions): Hono {
   const app = new Hono();
   app.use("*", allowLocalHostsOnly(allowedHosts));
   app.use("/api/*", requireJsonBody);
-  app.route("/api", createApi({ root, changes, now }));
+  app.route("/api", createApi({ root, changes }));
 
   if (staticDir !== undefined) {
     app.use("*", serveStatic({ root: staticDir }));
