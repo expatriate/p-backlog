@@ -161,6 +161,20 @@ describe("список задач", () => {
     expect(screen.getByRole("complementary", { name: "Задача SPA-1" })).toBeDefined();
   });
 
+  it("Esc при открытом меню закрывает меню, даже если фокус ушёл из него", async () => {
+    const app = await renderApp(FILES, "/t/SPA-1");
+    await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    await app.user.click(screen.getByRole("button", { name: "Теги (1)" }));
+
+    act(() => {
+      screen.getByRole("searchbox", { name: "Поиск задач" }).focus();
+    });
+    await app.user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("group", { name: "Теги" })).toBeNull();
+    expect(screen.getByRole("complementary", { name: "Задача SPA-1" })).toBeDefined();
+  });
+
   it("сортировки в тулбаре нет — только заголовки колонок", async () => {
     await renderApp(FILES);
     await screen.findAllByRole("row");
