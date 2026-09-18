@@ -115,4 +115,24 @@ describe("sweepClosed", () => {
       }),
     ]);
   });
+
+  it("просроченная задача открытого эпика ждёт, пока эпик не закроется", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", "type: epic\nblockedBy: [SPA-1]\n"),
+      "spa/SPA-2.md": taskFile("SPA-2", `epic: SPA-1\nstatus: done\n${EXPIRED}`),
+    });
+
+    const report = await sweepClosed(root, NOW);
+
+    expect(report).toEqual({
+      closedEpics: [],
+      deleted: [],
+      conflicts: [],
+      invalid: [{ id: "SPA-1", errors: ["задача не может блокировать саму себя"] }],
+    });
+    expect(await exists(join(root, "spa/SPA-2.md"))).toBe(true);
+    expect((await loadBacklog(root)).projects[0]?.issuedUpTo).toBeUndefined();
+  });
 });

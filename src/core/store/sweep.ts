@@ -1,4 +1,4 @@
-import { buildIndex, isClosed } from "../model/graph";
+import { buildIndex, isClosed, type BacklogIndex } from "../model/graph";
 import { parseId } from "../model/ids";
 import { completedEpicChildren, epicDoneClosure, isExpired } from "../model/lifecycle";
 import { serializeProject } from "../model/project-file";
@@ -22,7 +22,8 @@ export async function sweepClosed(root: string, now: Date): Promise<SweepReport>
   await closeCompletedEpics(initial.tasks, now, report);
   const { projects, tasks } = report.closedEpics.length > 0 ? await loadBacklog(root) : initial;
 
-  const expired = tasks.filter((task) => isExpired(task, now));
+  const index = buildIndex(tasks);
+  const expired = tasks.filter((task) => isExpired(task, now) && !waitsForOpenEpic(task, index));
   const expiredIds = new Set(expired.map((task) => task.id));
   await reserveNumbers(projects, expired);
 
@@ -50,6 +51,11 @@ async function closeCompletedEpics(tasks: readonly Task[], now: Date, report: Sw
     if (result.ok) report.closedEpics.push(epic.id);
     else recordFailure(report, epic.id, result);
   }
+}
+
+function waitsForOpenEpic(task: Task, index: BacklogIndex): boolean {
+  const epic = task.epic === undefined ? undefined : index.byId.get(task.epic);
+  return epic !== undefined && !isClosed(epic.status);
 }
 
 function recordFailure(report: SweepReport, id: string, failure: UpdateTaskFailure): void {
