@@ -1,11 +1,9 @@
 import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
-import { journalEventSchema, type JournalEvent } from "../journal/events";
+import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../journal/events";
 import { readTextOrNull } from "./fs-utils";
 
 export const JOURNAL_FILE = "journal.jsonl";
-
-export type ProjectJournal = { projectId: string; events: JournalEvent[]; invalidLines: number };
 
 export async function appendJournal(projectDir: string, events: readonly JournalEvent[]): Promise<void> {
   if (events.length === 0) return;

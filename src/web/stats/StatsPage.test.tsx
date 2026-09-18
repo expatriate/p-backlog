@@ -51,6 +51,13 @@ describe("страница статистики", () => {
     expect(await screen.findByText("Задач пока нет.")).toBeDefined();
   });
 
+  it("неизвестный проект — «Проект не найден» без кнопки «Повторить»", async () => {
+    await renderApp(FILES, "/p/nope/stats");
+
+    expect(await screen.findByText("Проект не найден.")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Повторить" })).toBeNull();
+  });
+
   it("где болит: папки из source и теги — ссылки на отфильтрованный список", async () => {
     await renderApp(FILES, "/p/spa/stats");
     const panel = await screen.findByRole("region", { name: "Где болит" });

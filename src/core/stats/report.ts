@@ -1,8 +1,8 @@
+import type { ProjectJournal } from "../journal/events";
 import { formatLocalIso } from "../model/dates";
 import { isClosed } from "../model/graph";
 import { DAY_MS } from "../model/lifecycle";
 import type { Priority, Task } from "../model/types";
-import type { ProjectJournal } from "../store/journal";
 import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
 import { closingsOf, taskHistories, type TaskHistory } from "./history";
 import { daysBetween, median, nearestRank } from "./numbers";
@@ -27,7 +27,7 @@ export function statsReport({ tasks, journals, now, projectId }: StatsInput): St
 
   return {
     taskCount: histories.length,
-    journalSince: eventMoments.length === 0 ? null : formatLocalIso(new Date(Math.min(...eventMoments))),
+    journalSince: eventMoments.length === 0 ? null : formatLocalIso(new Date(eventMoments.reduce((min, moment) => Math.min(min, moment)))),
     invalidJournalLines: scopedJournals.reduce((sum, journal) => sum + journal.invalidLines, 0),
     totals: totals(openTasks, histories, now, periodStart),
     weeks: weeklyFlow(histories, now),

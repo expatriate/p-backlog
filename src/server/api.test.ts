@@ -127,6 +127,15 @@ describe("GET /api/stats", () => {
     expect(spa.weeks).toHaveLength(12);
   });
 
+  it("пустой project — как без параметра, все проекты", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+
+    const response = await backlog.request("/api/stats?project=");
+
+    expect(response.status).toBe(200);
+    expect(((await response.json()) as StatsReport).totals.open).toBe(3);
+  });
+
   it("неизвестный проект — 404", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
 

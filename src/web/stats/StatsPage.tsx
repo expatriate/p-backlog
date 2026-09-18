@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useParams } from "react-router";
 import type { StatsReport, StatsTotals } from "../../core/stats/types";
+import { ApiError } from "../api/client";
 import { useProjects, useStats } from "../app/queries";
 import { formatDate } from "../labels";
 import { Button } from "../ui/Button";
@@ -28,10 +29,14 @@ export function StatsPage() {
     <main className={styles.page}>
       <h1 className={styles.heading}>{title}</h1>
       {stats.isError ? (
-        <div className={styles.hint} role="status">
-          <p>Сервер беклога не отвечает.</p>
-          <Button onClick={() => void stats.refetch()}>Повторить</Button>
-        </div>
+        stats.error instanceof ApiError && stats.error.status === 404 ? (
+          <p className={styles.hint}>Проект не найден.</p>
+        ) : (
+          <div className={styles.hint} role="status">
+            <p>Сервер беклога не отвечает.</p>
+            <Button onClick={() => void stats.refetch()}>Повторить</Button>
+          </div>
+        )
       ) : stats.isPending ? (
         <p className={styles.hint}>Считаем статистику…</p>
       ) : stats.data.taskCount === 0 ? (

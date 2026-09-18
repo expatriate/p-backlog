@@ -23,7 +23,7 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
   });
 
   api.get("/stats", async (c) => {
-    const projectId = c.req.query("project");
+    const projectId = c.req.query("project") || undefined;
     const { projects, tasks } = await loadBacklog(root);
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
       return c.json({ errors: [`Проект ${projectId} не найден`] }, 404);

@@ -28,6 +28,8 @@ export type JournalEvent = z.output<typeof journalEventSchema>;
 
 export type TaskSnapshot = z.output<typeof taskFrontmatterSchema>;
 
+export type ProjectJournal = { projectId: string; events: JournalEvent[]; invalidLines: number };
+
 export function createdEvent(task: Task, now: Date, via: ChangeSource): JournalEvent {
   return {
     at: formatLocalIso(now),
