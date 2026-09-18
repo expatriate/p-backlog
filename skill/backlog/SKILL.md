@@ -1,6 +1,6 @@
 ---
 name: backlog
-description: Use when, while working on code, you notice a problem outside the current task that deserves its own follow-up (bug, tech debt, missing test, risky TODO); when the user says «запиши в беклог», «заведи задачу», «что в беклоге»; or when asked to take a backlog task — «возьми SPA-12», «возьми следующую задачу», "pick up the next task".
+description: Use when, while working on code, you notice a problem outside the current task that deserves its own follow-up (bug, tech debt, missing test, risky TODO); when the user says «запиши в беклог», «заведи задачу», «что в беклоге»; when asked to take a backlog task — «возьми SPA-12», «возьми следующую задачу», "pick up the next task"; when asked to check or clean up the backlog — «проверь беклог», «почисти беклог»; or when a Stop hook message says the code of backlog tasks changed since their last check.
 ---
 
 # Беклог задач
@@ -89,6 +89,39 @@ description: Use when, while working on code, you notice a problem outside the c
    ## Заметки
    - <сегодняшняя дата>: сделано …; осталось …, потому что …
    ```
+
+## Перепроверить задачи
+
+Когда: сообщение хука «после последней проверки менялся код задач», просьба «проверь беклог» или
+«почисти беклог».
+
+1. `backlog check --json` из репозитория проекта (из другого каталога — `--project <id>`). Висячие ссылки
+   и завершённые эпики он уже исправил сам — это поле `fixed`, перескажи его пользователю одной строкой.
+2. По каждому кандидату из `candidates` прочитай задачу (`backlog show <ID>`), затем код по `path` и
+   коммиты из улик (`git show <sha>`).
+3. Реши:
+
+   | Что видно в коде | Команда |
+   |---|---|
+   | Описанной проблемы больше нет | `backlog close <ID> --as fixed --reason "Исправлено в <sha>: <что именно>"` |
+   | Кода или фичи, о которых задача, больше нет | `backlog close <ID> --as obsolete --reason "<что удалено и где>"` |
+   | `duplicate`: две задачи про одно | закрой менее полную: `backlog close <ID> --as duplicate --duplicate-of <другая> --reason "<в чём совпадают>"` |
+   | Проблема на месте, но файл переименован или код сдвинулся | `backlog verify <ID> --source <файл:строка>` |
+   | Проблема на месте или уверенности нет | `backlog verify <ID>` |
+
+   Закрывай только с конкретной уликой: коммит, строка, факт отсутствия кода. «Похоже, уже неактуально» —
+   не улика: подтверди задачу и оставь открытой. Закрытая задача через 7 дней удаляется вместе с файлом.
+
+4. `problems`: файл задачи не разбирается — поправь YAML руками, не меняя `id`; остальное перечисли
+   пользователю.
+5. В конце ответа — блок, по которому пользователь найдёт закрытое:
+   ```
+   Закрыто в беклоге:
+   - SPA-14 — Таймаут загрузки не учитывает размер файла: исправлено в a1b2c3d
+   ```
+   Подтверждённые задачи не перечисляй, достаточно «Остальные задачи подтверждены».
+
+Если перепроверку запросил хук, после неё просто закончи ответ: второй раз подряд хук не срабатывает.
 
 ## Посмотреть беклог
 
