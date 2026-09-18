@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import type { Project, Task } from "../../core/model/types";
 import { useBacklogApi } from "./backlog-api";
 
 export const PROJECTS_KEY = ["projects"];
 export const TASKS_KEY = ["tasks"];
+export const STATS_KEY = ["stats"];
 
 export function useProjects() {
   const { client } = useBacklogApi();
@@ -15,6 +16,11 @@ export function useProjects() {
 export function useTasks() {
   const { client } = useBacklogApi();
   return useQuery<TasksResponse>({ queryKey: TASKS_KEY, queryFn: client.tasks });
+}
+
+export function useStats(projectId: string | undefined) {
+  const { client } = useBacklogApi();
+  return useQuery<StatsReport>({ queryKey: [...STATS_KEY, projectId ?? "all"], queryFn: () => client.stats(projectId) });
 }
 
 export type UpdateTaskVariables = { id: string; version: string; changes: TaskChangesRequest };
@@ -38,6 +44,7 @@ export function useLiveUpdates(): void {
     const refresh = () => {
       void queryClient.invalidateQueries({ queryKey: TASKS_KEY });
       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
+      void queryClient.invalidateQueries({ queryKey: STATS_KEY });
     };
     stream.addEventListener("change", refresh);
     stream.addEventListener("open", refresh);

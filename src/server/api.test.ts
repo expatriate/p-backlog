@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { ConflictResponse, ErrorResponse, TasksResponse } from "../core/api/contract";
+import type { ConflictResponse, ErrorResponse, StatsReport, TasksResponse } from "../core/api/contract";
 import { readJournal } from "../core/store/journal";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
@@ -107,6 +107,33 @@ describe("GET /api/events", () => {
     const chunk = await reader.read();
     expect(new TextDecoder().decode(chunk.value)).toContain("event: change");
     await reader.cancel();
+  });
+});
+
+describe("GET /api/stats", () => {
+  it("отдаёт отчёт по всем проектам и по одному", async () => {
+    const backlog = await makeTestApp({
+      ...SAMPLE_FILES,
+      "spa/journal.jsonl": `${JSON.stringify({ at: "2026-09-18T10:00:00+03:00", task: "SPA-1", via: "cli", kind: "priority", from: "medium", to: "high" })}\nсломано\n`,
+    });
+
+    const all = (await (await backlog.request("/api/stats")).json()) as StatsReport;
+    const spa = (await (await backlog.request("/api/stats?project=spa")).json()) as StatsReport;
+
+    expect(all.totals.open).toBe(3);
+    expect(spa.totals.open).toBe(2);
+    expect(spa.invalidJournalLines).toBe(1);
+    expect(Date.parse(spa.journalSince ?? "")).toBe(Date.parse("2026-09-18T10:00:00+03:00"));
+    expect(spa.weeks).toHaveLength(12);
+  });
+
+  it("неизвестный проект — 404", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+
+    const response = await backlog.request("/api/stats?project=nope");
+
+    expect(response.status).toBe(404);
+    expect(((await response.json()) as ErrorResponse).errors).toEqual(["Проект nope не найден"]);
   });
 });
 

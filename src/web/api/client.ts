@@ -1,4 +1,4 @@
-import type { ConflictResponse, ErrorResponse, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { ConflictResponse, ErrorResponse, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import type { Project, Task } from "../../core/model/types";
 
 export type ApiFetch = (path: string, init?: RequestInit) => Promise<Response>;
@@ -18,6 +18,7 @@ export type ApiClient = {
   projects: () => Promise<Project[]>;
   tasks: () => Promise<TasksResponse>;
   updateTask: (id: string, version: string, changes: TaskChangesRequest) => Promise<Task>;
+  stats: (projectId?: string) => Promise<StatsReport>;
 };
 
 export function createApiClient(apiFetch: ApiFetch): ApiClient {
@@ -38,5 +39,7 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
           headers: { "content-type": "application/json" },
         }),
       ),
+    stats: async (projectId) =>
+      read<StatsReport>(await apiFetch(projectId === undefined ? "/api/stats" : `/api/stats?project=${encodeURIComponent(projectId)}`)),
   };
 }

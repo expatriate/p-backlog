@@ -3,7 +3,9 @@ import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import { updateTaskRequestSchema } from "../core/api/contract";
 import { formatIssues } from "../core/model/zod-issues";
+import { statsReport } from "../core/stats/report";
 import { loadBacklog } from "../core/store/load";
+import { readJournals } from "../core/store/journal";
 import { updateTask } from "../core/store/update";
 import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
@@ -18,6 +20,16 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
   api.get("/tasks", async (c) => {
     const { tasks, errors } = await loadBacklog(root);
     return c.json({ tasks, errors });
+  });
+
+  api.get("/stats", async (c) => {
+    const projectId = c.req.query("project");
+    const { projects, tasks } = await loadBacklog(root);
+    if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
+      return c.json({ errors: [`Проект ${projectId} не найден`] }, 404);
+    }
+    const journals = await readJournals(root, projects.map((project) => project.id));
+    return c.json(statsReport({ tasks, journals, now: now(), projectId }));
   });
 
   api.patch("/tasks/:id", async (c) => {
