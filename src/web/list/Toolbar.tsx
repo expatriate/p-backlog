@@ -14,13 +14,18 @@ export type ToolbarProps = {
   onChange: (params: ListParams) => void;
   tags: string[];
   epicChoices: EpicChoices;
+  autoClosedCount: number;
 };
 
-export function Toolbar({ params, onChange, tags, epicChoices }: ToolbarProps) {
+export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }: ToolbarProps) {
   const { filter } = params;
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
   const setFilter = (patch: Partial<ListParams["filter"]>) => onChange({ ...params, filter: { ...filter, ...patch } });
   const toggleTag = (tag: string) => setFilter({ tags: emptyToUndefined(toggle(filter.tags ?? [], tag)) });
+  const toggleAutoClosed = () => {
+    if (filter.onlyAutoClosed) setFilter({ onlyAutoClosed: undefined });
+    else onChange({ filter: { ...filter, ...AUTO_CLOSED_VIEW.filter }, sort: AUTO_CLOSED_VIEW.sort });
+  };
 
   return (
     <div className={styles.toolbar}>
@@ -69,9 +74,9 @@ export function Toolbar({ params, onChange, tags, epicChoices }: ToolbarProps) {
           </ToggleChip>
           <ToggleChip
             pressed={filter.onlyAutoClosed === true}
-            onToggle={() => setFilter(filter.onlyAutoClosed ? { onlyAutoClosed: undefined } : AUTO_CLOSED_VIEW.filter)}
+            onToggle={toggleAutoClosed}
           >
-            закрыты агентом
+            закрыты агентом <span className={styles.count}>{autoClosedCount}</span>
           </ToggleChip>
         </div>
       </div>

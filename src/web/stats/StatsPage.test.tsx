@@ -37,6 +37,10 @@ describe("страница статистики", () => {
     await app.user.click(screen.getByRole("link", { name: /^ti/ }));
     expect(await screen.findByRole("heading", { level: 1, name: "Статистика · ti" })).toBeDefined();
     expect(app.route()).toBe("/p/torg-io/stats");
+
+    await app.user.click(screen.getByRole("link", { name: "Задачи" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "ti" })).toBeDefined();
+    expect(app.route()).toBe("/p/torg-io");
   });
 
   it("битые строки журнала — предупреждение", async () => {

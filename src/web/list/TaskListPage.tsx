@@ -11,7 +11,7 @@ import { epicChoices } from "./epic-choices";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
 import { useSeenTasks } from "./use-seen-tasks";
-import { DEFAULT_FILTER, dateColumnFor, followDateColumn, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
+import { AUTO_CLOSED_VIEW, DEFAULT_FILTER, dateColumnFor, followDateColumn, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
 export function TaskListPage() {
@@ -38,6 +38,7 @@ export function TaskListPage() {
     [allTasks, projectId],
   );
   const epicFilterChoices = useMemo(() => epicChoices(projectTasks, tones), [projectTasks, tones]);
+  const autoClosedCount = filterTasks(allTasks, { projectId, ...AUTO_CLOSED_VIEW.filter }, index).length;
 
   const projectName =
     projectId === undefined ? undefined : (projects.data?.find((project) => project.id === projectId)?.name ?? projectId);
@@ -59,7 +60,7 @@ export function TaskListPage() {
     <main className={styles.page}>
       <div className={styles.list}>
         <h1 className={styles.heading}>{viewTitle}</h1>
-        <Toolbar params={params} onChange={setParams} tags={collectTags(projectTasks)} epicChoices={epicFilterChoices} />
+        <Toolbar params={params} onChange={setParams} tags={collectTags(projectTasks)} epicChoices={epicFilterChoices} autoClosedCount={autoClosedCount} />
 
         {parseErrors.length > 0 && (
           <div className={styles.warning} role="status">

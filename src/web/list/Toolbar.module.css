@@ -45,3 +45,8 @@
   min-height: 0;
   overflow-y: auto;
 }
+
+.count {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-subtle);
+}

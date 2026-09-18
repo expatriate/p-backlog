@@ -229,7 +229,7 @@ describe("список задач", () => {
     expect(within(row).getByText("удалится через 5 дн.")).toBeDefined();
   });
 
-  it("ссылка «Закрыты агентом» показывает автозакрытые задачи проекта, свежие сверху", async () => {
+  it("чип «закрыты агентом» со счётчиком показывает автозакрытые задачи проекта, свежие сверху", async () => {
     const auto = (id: string, title: string, closed: string) =>
       taskFixture(id, { title, status: "done", closed, resolution: "fixed", reason: "есть" });
     const app = await renderApp({
@@ -240,13 +240,13 @@ describe("список задач", () => {
     }, "/p/spa");
     await screen.findAllByRole("row");
 
-    const link = screen.getByRole("link", { name: /Закрыты агентом/ });
-    expect(link.textContent).toContain("2");
-    await app.user.click(link);
+    expect(screen.queryByRole("link", { name: /Закрыты агентом/ })).toBeNull();
+    const autoChip = within(screen.getByRole("group", { name: "Тип" })).getByRole("button", { name: /закрыты агентом/ });
+    expect(autoChip.textContent).toContain("2");
+    await app.user.click(autoChip);
 
     await waitFor(async () => expect(await rowTitles()).toEqual(["Свежее исправление", "Старое исправление"]));
     expect(app.route()).toBe("/p/spa?status=done%2Ccancelled&auto=1&sort=closed");
-    const autoChip = within(screen.getByRole("group", { name: "Тип" })).getByRole("button", { name: "закрыты агентом" });
     expect(autoChip.getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("columnheader", { name: /Закрыта/ }).getAttribute("aria-sort")).toBe("descending");
     const freshRow = screen.getByText("Свежее исправление").closest("tr");
@@ -260,7 +260,7 @@ describe("список задач", () => {
       "spa/SPA-5.md": taskFixture("SPA-5", { title: "Исправлено агентом", status: "done", closed: "2026-09-12T10:00:00+03:00", resolution: "fixed", reason: "есть" }),
     });
     await screen.findAllByRole("row");
-    const autoChip = within(screen.getByRole("group", { name: "Тип" })).getByRole("button", { name: "закрыты агентом" });
+    const autoChip = within(screen.getByRole("group", { name: "Тип" })).getByRole("button", { name: /закрыты агентом/ });
 
     await app.user.click(autoChip);
 

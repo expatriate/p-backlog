@@ -25,6 +25,14 @@
   color: var(--ink-subtle);
 }
 
+.groupLabel {
+  margin-bottom: calc(-1 * var(--space-2));
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  color: var(--ink-subtle);
+}
+
 .projects {
   display: flex;
   flex-direction: column;
