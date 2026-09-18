@@ -26,6 +26,22 @@
   --ok: oklch(0.74 0.1 152);
   --ok-soft: oklch(0.31 0.04 152);
 
+  --epic-tone-1-line: oklch(0.7 0.13 300);
+  --epic-tone-1-ink: oklch(0.82 0.1 300);
+  --epic-tone-1-soft: oklch(0.34 0.06 300);
+  --epic-tone-2-line: oklch(0.7 0.13 250);
+  --epic-tone-2-ink: oklch(0.82 0.09 250);
+  --epic-tone-2-soft: oklch(0.34 0.06 250);
+  --epic-tone-3-line: oklch(0.7 0.115 200);
+  --epic-tone-3-ink: oklch(0.82 0.1 200);
+  --epic-tone-3-soft: oklch(0.34 0.055 200);
+  --epic-tone-4-line: oklch(0.7 0.13 340);
+  --epic-tone-4-ink: oklch(0.82 0.1 340);
+  --epic-tone-4-soft: oklch(0.34 0.06 340);
+  --epic-tone-5-line: oklch(0.7 0.13 115);
+  --epic-tone-5-ink: oklch(0.82 0.1 115);
+  --epic-tone-5-soft: oklch(0.34 0.06 115);
+
   --panel-width: 420px;
   --panel-width-narrow: 360px;
 

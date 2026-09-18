@@ -10,6 +10,7 @@ import { ProgressBar } from "../ui/ProgressBar";
 import { StatusBadge } from "../ui/StatusBadge";
 import type { TaskHref } from "../task/TaskRefs";
 import { cx } from "../ui/cx";
+import { toneOf, type EpicTones } from "../ui/epic-tone";
 import { useNow } from "../ui/use-now";
 import type { DateColumn } from "./list-params";
 import styles from "./TaskTable.module.css";
@@ -22,6 +23,7 @@ export type TaskTableProps = {
   onSort: (key: SortKey) => void;
   taskHref: TaskHref;
   dateColumn: DateColumn;
+  tones: EpicTones;
 };
 
 const VISIBLE_TAGS = 2;
@@ -37,7 +39,7 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
   critical: styles.critical,
 };
 
-export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, dateColumn }: TaskTableProps) {
+export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, dateColumn, tones }: TaskTableProps) {
   const now = useNow();
   const sortableHeader = (key: SortKey, label: string, className?: string) => {
     const active = sort.key === key;
@@ -73,7 +75,11 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
           const blocked = isBlocked(task, index);
           const epic = task.epic === undefined ? undefined : index.byId.get(task.epic);
           return (
-            <tr key={task.id} className={cx(styles.row, task.id === selectedId && styles.selected)}>
+            <tr
+              key={task.id}
+              className={cx(styles.row, task.id === selectedId && styles.selected)}
+              data-epic-tone={toneOf(task, tones)}
+            >
               <td>
                 <Link to={taskHref(task.id)} className={styles.id}>
                   {task.id}
@@ -83,7 +89,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
                 <Link to={taskHref(task.id)} className={styles.title}>
                   {task.title}
                 </Link>
-                {task.type === "epic" && <span className={styles.marker}>эпик</span>}
+                {task.type === "epic" && <span className={cx(styles.marker, styles.epicMarker)}>эпик</span>}
                 {blocked && task.status !== "blocked" && (
                   <span className={styles.marker} title="Есть открытые блокеры">
                     блокеры
@@ -95,7 +101,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
                   </span>
                 )}
                 {epic && (
-                  <span className={styles.marker} title={epic.title}>
+                  <span className={cx(styles.marker, styles.epicMarker)} title={epic.title}>
                     {epic.id}
                   </span>
                 )}

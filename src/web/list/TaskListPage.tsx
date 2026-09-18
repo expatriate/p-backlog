@@ -6,6 +6,7 @@ import type { Task } from "../../core/model/types";
 import { useProjects, useTasks } from "../app/queries";
 import { Button } from "../ui/Button";
 import { TaskPanel } from "../task/TaskPanel";
+import { epicTones } from "../ui/epic-tone";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
 import { DEFAULT_FILTER, dateColumnFor, followDateColumn, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
@@ -24,6 +25,7 @@ export function TaskListPage() {
   const sort = useMemo(() => followDateColumn(params.sort, dateColumn), [params.sort, dateColumn]);
   const allTasks = useMemo(() => data?.tasks ?? [], [data]);
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
+  const tones = useMemo(() => epicTones(allTasks), [allTasks]);
   const visibleTasks = useMemo(
     () => sortTasks(filterTasks(allTasks, { ...params.filter, projectId }, index), sort, index),
     [allTasks, index, params.filter, sort, projectId],
@@ -95,6 +97,7 @@ export function TaskListPage() {
               dateColumn={dateColumn}
               onSort={(key) => setParams({ ...params, sort: pickSortKey(sort, key) })}
               taskHref={taskHref}
+              tones={tones}
             />
           )}
         </div>
@@ -108,6 +111,7 @@ export function TaskListPage() {
           index={index}
           taskHref={taskHref}
           onClose={() => navigate({ pathname: prefix === "" ? "/" : prefix, search: searchKey })}
+          tones={tones}
         />
       )}
     </main>

@@ -242,4 +242,24 @@ describe("список задач", () => {
 
     expect(await screen.findByText(/Не удалось разобрать файлы/)).toBeDefined();
   });
+
+  it("эпик и его задачи отмечены тоном эпика, тоны раздаются по номеру", async () => {
+    await renderApp({
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-2.md": taskFixture("SPA-2", { title: "Эпик два", type: "epic" }),
+      "spa/SPA-10.md": taskFixture("SPA-10", { title: "Эпик десять", type: "epic" }),
+      "spa/SPA-11.md": taskFixture("SPA-11", { title: "Задача десятого", epic: "SPA-10" }),
+      "spa/SPA-12.md": taskFixture("SPA-12", { title: "Без эпика" }),
+    });
+    const rowOf = async (title: string) => {
+      const row = (await screen.findByText(title)).closest("tr");
+      if (!row) throw new Error(`нет строки ${title}`);
+      return row;
+    };
+
+    expect((await rowOf("Эпик два")).getAttribute("data-epic-tone")).toBe("1");
+    expect((await rowOf("Эпик десять")).getAttribute("data-epic-tone")).toBe("2");
+    expect((await rowOf("Задача десятого")).getAttribute("data-epic-tone")).toBe("2");
+    expect((await rowOf("Без эпика")).hasAttribute("data-epic-tone")).toBe(false);
+  });
 });

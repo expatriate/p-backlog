@@ -76,6 +76,13 @@ describe("карточка задачи", () => {
     expect(within(panel).getByRole("heading", { level: 2, name: "Блокируется" })).toBeDefined();
   });
 
+  it("ID в шапке карточки отмечен тоном эпика задачи", async () => {
+    await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    expect(within(panel).getByText("SPA-1", { selector: "header *" }).getAttribute("data-epic-tone")).toBe("1");
+  });
+
   it("связанные задачи — ссылки на их карточки, ненайденная — просто текст", async () => {
     await renderApp(FILES, "/p/spa/t/SPA-1");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });

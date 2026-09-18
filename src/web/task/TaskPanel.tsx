@@ -15,6 +15,7 @@ import { useDraft } from "../ui/use-draft";
 import { useLeaveGuard } from "../ui/use-leave-guard";
 import { SidePanel } from "../ui/SidePanel";
 import { StatusBadge } from "../ui/StatusBadge";
+import { toneOf, type EpicTones } from "../ui/epic-tone";
 import { useNow } from "../ui/use-now";
 import { TaskBody } from "./TaskBody";
 import { TaskFields } from "./TaskFields";
@@ -27,13 +28,14 @@ export type TaskPanelProps = {
   index: BacklogIndex;
   taskHref: TaskHref;
   onClose: () => void;
+  tones: EpicTones;
 };
 
 const TASK_LIST_ID = "task-ids";
 const EPIC_LIST_ID = "epic-ids";
 const LEAVE_WITH_DRAFT = "Уйти без сохранения описания?";
 
-export function TaskPanel({ task, tasks, index, taskHref, onClose }: TaskPanelProps) {
+export function TaskPanel({ task, tasks, index, taskHref, onClose, tones }: TaskPanelProps) {
   const updateTask = useUpdateTask();
   const [bodyDraft, setBodyDraft] = useState<string | null>(null);
   const now = useNow();
@@ -46,7 +48,15 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose }: TaskPanelPr
   const children = task.type === "epic" ? epicChildren(task, index) : [];
 
   return (
-    <SidePanel label={`Задача ${task.id}`} heading={<span className={styles.id}>{task.id}</span>} onClose={onClose}>
+    <SidePanel
+      label={`Задача ${task.id}`}
+      heading={
+        <span className={styles.id} data-epic-tone={toneOf(task, tones)}>
+          {task.id}
+        </span>
+      }
+      onClose={onClose}
+    >
       <TitleField title={task.title} onSave={(title) => apply({ title })} />
 
       <TaskFields task={task} epicListId={EPIC_LIST_ID} onChange={apply} />

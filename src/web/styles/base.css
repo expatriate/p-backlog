@@ -66,3 +66,33 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+[data-epic-tone="1"] {
+  --tone-line: var(--epic-tone-1-line);
+  --tone-ink: var(--epic-tone-1-ink);
+  --tone-soft: var(--epic-tone-1-soft);
+}
+
+[data-epic-tone="2"] {
+  --tone-line: var(--epic-tone-2-line);
+  --tone-ink: var(--epic-tone-2-ink);
+  --tone-soft: var(--epic-tone-2-soft);
+}
+
+[data-epic-tone="3"] {
+  --tone-line: var(--epic-tone-3-line);
+  --tone-ink: var(--epic-tone-3-ink);
+  --tone-soft: var(--epic-tone-3-soft);
+}
+
+[data-epic-tone="4"] {
+  --tone-line: var(--epic-tone-4-line);
+  --tone-ink: var(--epic-tone-4-ink);
+  --tone-soft: var(--epic-tone-4-soft);
+}
+
+[data-epic-tone="5"] {
+  --tone-line: var(--epic-tone-5-line);
+  --tone-ink: var(--epic-tone-5-ink);
+  --tone-soft: var(--epic-tone-5-soft);
+}

@@ -85,6 +85,16 @@
   white-space: nowrap;
 }
 
+.row[data-epic-tone] td:first-child {
+  box-shadow: inset 3px 0 0 var(--tone-line);
+}
+
+.row[data-epic-tone] .epicMarker {
+  border-color: transparent;
+  background: var(--tone-soft);
+  color: var(--tone-ink);
+}
+
 .tagList {
   display: flex;
   gap: var(--space-1);

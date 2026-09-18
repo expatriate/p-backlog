@@ -4,6 +4,14 @@
   color: var(--ink-muted);
 }
 
+.id[data-epic-tone] {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-chip);
+  background: var(--tone-soft);
+  box-shadow: inset 3px 0 0 var(--tone-line);
+  color: var(--tone-ink);
+}
+
 .title {
   display: block;
   width: 100%;
