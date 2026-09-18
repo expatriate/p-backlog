@@ -139,6 +139,28 @@ describe("список задач", () => {
     expect(app.route()).toContain("tag=upload");
   });
 
+  it("выбор тега не закрывает меню тегов", async () => {
+    const app = await renderApp(FILES);
+    await screen.findAllByRole("row");
+
+    await app.user.click(screen.getByRole("button", { name: "Теги (1)" }));
+    await app.user.click(within(screen.getByRole("group", { name: "Теги" })).getByRole("button", { name: "#upload" }));
+
+    expect(screen.getByRole("group", { name: "Теги" })).toBeDefined();
+  });
+
+  it("Esc в меню тегов закрывает меню и возвращает фокус на кнопку, карточка остаётся", async () => {
+    const app = await renderApp(FILES, "/t/SPA-1");
+    await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    await app.user.click(screen.getByRole("button", { name: "Теги (1)" }));
+
+    await app.user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("group", { name: "Теги" })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Теги (1)" }));
+    expect(screen.getByRole("complementary", { name: "Задача SPA-1" })).toBeDefined();
+  });
+
   it("сортировки в тулбаре нет — только заголовки колонок", async () => {
     await renderApp(FILES);
     await screen.findAllByRole("row");
@@ -271,6 +293,30 @@ describe("список задач", () => {
       "spa/SPA-3.md": taskFixture("SPA-3", { title: "Ретраи", epic: "SPA-1" }),
       "spa/SPA-4.md": taskFixture("SPA-4", { title: "Сам по себе" }),
     };
+
+    it("кнопки «Эпик» и «Теги» стоят отдельной строкой, не в ряду чипов", async () => {
+      await renderApp({ ...EPIC_FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "С тегом", tags: "[upload]" }) });
+      await screen.findAllByRole("row");
+
+      const pickers = screen.getByRole("group", { name: "Эпик и теги" });
+      expect(within(pickers).getByRole("button", { name: "Эпик: любой" })).toBeDefined();
+      expect(within(pickers).getByRole("button", { name: "Теги (1)" })).toBeDefined();
+      expect(pickers.contains(screen.getByRole("group", { name: "Статус" }))).toBe(false);
+    });
+
+    it("клик вне меню закрывает меню эпика и меню тегов", async () => {
+      const app = await renderApp({ ...EPIC_FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "С тегом", tags: "[upload]" }) });
+      await screen.findAllByRole("row");
+      const heading = screen.getByRole("heading", { level: 1 });
+
+      await app.user.click(screen.getByRole("button", { name: "Эпик: любой" }));
+      await app.user.click(heading);
+      expect(screen.queryByRole("group", { name: "Эпики" })).toBeNull();
+
+      await app.user.click(screen.getByRole("button", { name: "Теги (1)" }));
+      await app.user.click(heading);
+      expect(screen.queryByRole("group", { name: "Теги" })).toBeNull();
+    });
 
     it("кнопка раскрывает эпики с цветом и числом задач, выбор фильтрует, «×» сбрасывает", async () => {
       const app = await renderApp(EPIC_FILES);

@@ -26,21 +26,22 @@
 }
 
 .tagPicker {
-  display: contents;
-}
-
-.tagPanel {
-  order: 1;
-  flex-basis: 100%;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--surface-sunken);
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
-.tagPanel input {
-  max-width: 280px;
+.tagSearch {
+  flex: none;
+  margin-bottom: var(--space-2);
+}
+
+.tagOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-height: 0;
+  overflow-y: auto;
 }

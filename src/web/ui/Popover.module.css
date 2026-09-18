@@ -1,0 +1,25 @@
+.anchor {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: var(--z-dropdown);
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  min-width: 240px;
+  max-width: min(420px, calc(100vw - 2 * var(--space-4)));
+  max-height: min(360px, 60vh);
+  overflow: hidden;
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-panel);
+}

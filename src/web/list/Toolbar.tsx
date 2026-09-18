@@ -2,8 +2,8 @@ import { useState } from "react";
 import { normalizeText } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
-import { Button } from "../ui/Button";
 import { ToggleChip } from "../ui/Chip";
+import { Popover } from "../ui/Popover";
 import { EpicPicker } from "./EpicPicker";
 import type { EpicChoices } from "./epic-choices";
 import { AUTO_CLOSED_VIEW, type ListParams } from "./list-params";
@@ -74,55 +74,56 @@ export function Toolbar({ params, onChange, tags, epicChoices }: ToolbarProps) {
             закрыты агентом
           </ToggleChip>
         </div>
-        {epicChoices.epics.length > 0 && (
-          <EpicPicker choices={epicChoices} selected={filter.epic} onSelect={(epic) => setFilter({ epic })} />
-        )}
-        {tags.length > 0 && <TagPicker tags={tags} selected={filter.tags ?? []} onToggle={toggleTag} />}
       </div>
+
+      {(epicChoices.epics.length > 0 || tags.length > 0) && (
+        <div className={styles.line} role="group" aria-label="Эпик и теги">
+          {epicChoices.epics.length > 0 && (
+            <EpicPicker choices={epicChoices} selected={filter.epic} onSelect={(epic) => setFilter({ epic })} />
+          )}
+          {tags.length > 0 && <TagPicker tags={tags} selected={filter.tags ?? []} onToggle={toggleTag} />}
+        </div>
+      )}
     </div>
   );
 }
 
 function TagPicker({ tags, selected, onToggle }: { tags: string[]; selected: readonly string[]; onToggle: (tag: string) => void }) {
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const needle = normalizeText(query.trim());
   const summary = selected.length === 0 ? `Теги (${tags.length})` : `Теги (${tags.length}), выбрано ${selected.length}`;
 
   return (
     <div className={styles.tagPicker}>
-      <div className={styles.line}>
-        <Button aria-expanded={open} onClick={() => setOpen(!open)}>
-          {summary}
-        </Button>
-        {!open &&
-          selected.map((tag) => (
-            <ToggleChip key={tag} pressed onToggle={() => onToggle(tag)}>
-              #{tag}
-            </ToggleChip>
-          ))}
-      </div>
-      {open && (
-        <div className={styles.tagPanel}>
-          <input
-            type="search"
-            autoFocus
-            value={query}
-            placeholder="Найти тег"
-            aria-label="Найти тег"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <div className={styles.group} role="group" aria-label="Теги">
-            {tags
-              .filter((tag) => normalizeText(tag).includes(needle))
-              .map((tag) => (
-                <ToggleChip key={tag} pressed={selected.includes(tag)} onToggle={() => onToggle(tag)}>
-                  #{tag}
-                </ToggleChip>
-              ))}
-          </div>
-        </div>
-      )}
+      <Popover trigger={summary}>
+        {() => (
+          <>
+            <input
+              type="search"
+              autoFocus
+              className={styles.tagSearch}
+              value={query}
+              placeholder="Найти тег"
+              aria-label="Найти тег"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <div className={styles.tagOptions} role="group" aria-label="Теги">
+              {tags
+                .filter((tag) => normalizeText(tag).includes(needle))
+                .map((tag) => (
+                  <ToggleChip key={tag} pressed={selected.includes(tag)} onToggle={() => onToggle(tag)}>
+                    #{tag}
+                  </ToggleChip>
+                ))}
+            </div>
+          </>
+        )}
+      </Popover>
+      {selected.map((tag) => (
+        <ToggleChip key={tag} pressed onToggle={() => onToggle(tag)}>
+          #{tag}
+        </ToggleChip>
+      ))}
     </div>
   );
 }
