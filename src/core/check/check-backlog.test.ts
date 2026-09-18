@@ -104,4 +104,22 @@ describe("checkBacklog", () => {
     expect(report.problems).toEqual([expect.stringMatching(/^Проект ti: ни один путь из repos не существует/)]);
     expect(report.candidates).toEqual([]);
   });
+
+  it("ссылки на задачи проекта, который не загрузился, и на неизвестный префикс не трогает, а о его project.md сообщает", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": task("SPA-1", "blockedBy: [SPA-99]\nrelated: [TI-3, XYZ-1]\n"),
+      "ti/project.md": "сломано",
+      "ti/TI-3.md": task("TI-3"),
+    });
+
+    const report = await checkBacklog(root, { projectIds: ["spa"], mode: "full", now: NOW, home });
+
+    expect(report.fixed).toEqual(["SPA-1: убраны ссылки на несуществующие задачи: SPA-99"]);
+    expect(report.problems).toContainEqual(expect.stringMatching(/ti\/project\.md не разобран/));
+    const spa1 = (await loadBacklog(root)).tasks.find((loaded) => loaded.id === "SPA-1");
+    expect(spa1).toMatchObject({ blockedBy: [], related: ["TI-3", "XYZ-1"] });
+  });
 });

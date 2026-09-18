@@ -1,12 +1,12 @@
 import { access } from "node:fs/promises";
 import { basename } from "node:path";
 import { buildIndex, type BacklogIndex } from "../model/graph";
-import { ID_PATTERN } from "../model/ids";
+import { ID_PATTERN, parseId } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
 import { completedEpicChildren, epicDoneClosure, type Closure } from "../model/lifecycle";
 import type { ParseError, Project, Task } from "../model/types";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
-import { expandHome } from "../store/paths";
+import { expandHome, PROJECT_FILE } from "../store/paths";
 import { referenceCleanup } from "../store/references";
 import { updateTaskIn, type TaskChanges } from "../store/update";
 import type { UpdateTaskFailure } from "../store/write-result";
@@ -36,12 +36,12 @@ export async function checkBacklog(root: string, request: CheckRequest): Promise
 }
 
 async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, now: Date): Promise<FixOutcome> {
-  const known = new Set([...loaded.tasks.map((task) => task.id), ...unparsedTaskIds(loaded.errors)]);
+  const isGone = goneTaskCheck(loaded);
   const index = buildIndex(loaded.tasks);
   const fixed: string[] = [];
   const failed: string[] = [];
   for (const task of loaded.tasks.filter((candidate) => inScope(candidate.projectId))) {
-    const fix = planFix(task, index, (id) => !known.has(id));
+    const fix = planFix(task, index, isGone);
     if (fix === null) continue;
     const result = await updateTaskIn(loaded.tasks, { id: task.id, changes: fix.changes, expectedVersion: task.version, now, closure: fix.closure });
     if (result.ok) fixed.push(...fix.notes.map((note) => `${task.id}: ${note}`));
@@ -79,6 +79,15 @@ function goneReferences(task: Task, isGone: (id: string) => boolean): string[] {
   return [...new Set(references.filter(isGone))];
 }
 
+function goneTaskCheck(loaded: LoadedBacklog): (id: string) => boolean {
+  const known = new Set([...loaded.tasks.map((task) => task.id), ...unparsedTaskIds(loaded.errors)]);
+  const loadedPrefixes = new Set(loaded.projects.map((project) => project.prefix));
+  return (id) => {
+    const prefix = parseId(id)?.prefix;
+    return prefix !== undefined && loadedPrefixes.has(prefix) && !known.has(id);
+  };
+}
+
 function unparsedTaskIds(errors: readonly ParseError[]): string[] {
   return errors.map((error) => basename(error.path, ".md")).filter((name) => ID_PATTERN.test(name));
 }
@@ -110,12 +119,18 @@ function findProblems(
   inScope: (projectId: string) => boolean,
 ): string[] {
   const index = buildIndex(loaded.tasks);
-  const parseErrors = loaded.errors.filter((error) => inScope(error.projectId)).map((error) => `Файл ${error.path} не разобран: ${error.message}`);
+  const parseErrors = loaded.errors
+    .filter((error) => inScope(error.projectId) || isProjectFileError(error))
+    .map((error) => `Файл ${error.path} не разобран: ${error.message}`);
   const integrity = loaded.tasks
     .filter((task) => inScope(task.projectId))
     .flatMap((task) => integrityErrors(task, index).map((error) => `${task.id}: ${error}`));
   const missingRepos = projects.filter((project) => repos.get(project.id) === undefined).map(missingRepoProblem);
   return [...parseErrors, ...integrity, ...missingRepos];
+}
+
+function isProjectFileError(error: ParseError): boolean {
+  return basename(error.path) === PROJECT_FILE;
 }
 
 function missingRepoProblem(project: Project): string {
