@@ -1,6 +1,6 @@
-import { isClosed } from "../model/graph";
+import { buildIndex, isClosed } from "../model/graph";
 import { parseId } from "../model/ids";
-import { isExpired } from "../model/lifecycle";
+import { completedEpicChildren, epicDoneClosure, isExpired } from "../model/lifecycle";
 import { serializeProject } from "../model/project-file";
 import type { Project, Task } from "../model/types";
 import { removeIfUnchanged, writeFileAtomic } from "./fs-utils";
@@ -9,15 +9,23 @@ import { referenceCleanup } from "./references";
 import { updateTaskIn } from "./update";
 import type { UpdateTaskFailure } from "./write-result";
 
-export type SweepReport = { deleted: string[]; conflicts: string[]; invalid: { id: string; errors: string[] }[] };
+export type SweepReport = {
+  closedEpics: string[];
+  deleted: string[];
+  conflicts: string[];
+  invalid: { id: string; errors: string[] }[];
+};
 
 export async function sweepClosed(root: string, now: Date): Promise<SweepReport> {
-  const { projects, tasks } = await loadBacklog(root);
+  const report: SweepReport = { closedEpics: [], deleted: [], conflicts: [], invalid: [] };
+  const initial = await loadBacklog(root);
+  await closeCompletedEpics(initial.tasks, now, report);
+  const { projects, tasks } = report.closedEpics.length > 0 ? await loadBacklog(root) : initial;
+
   const expired = tasks.filter((task) => isExpired(task, now));
   const expiredIds = new Set(expired.map((task) => task.id));
   await reserveNumbers(projects, expired);
 
-  const report: SweepReport = { deleted: [], conflicts: [], invalid: [] };
   for (const task of tasks.filter((candidate) => !expiredIds.has(candidate.id))) {
     const cleanup = referenceCleanup(task, (id) => expiredIds.has(id));
     if (cleanup === null && !lacksClosedDate(task)) continue;
@@ -30,6 +38,18 @@ export async function sweepClosed(root: string, now: Date): Promise<SweepReport>
     else report.conflicts.push(task.id);
   }
   return report;
+}
+
+async function closeCompletedEpics(tasks: readonly Task[], now: Date, report: SweepReport): Promise<void> {
+  const index = buildIndex(tasks);
+  for (const epic of tasks) {
+    const children = completedEpicChildren(epic, index);
+    if (children === null) continue;
+    const closure = epicDoneClosure(children);
+    const result = await updateTaskIn(tasks, { id: epic.id, changes: { status: "done" }, expectedVersion: epic.version, now, closure });
+    if (result.ok) report.closedEpics.push(epic.id);
+    else recordFailure(report, epic.id, result);
+  }
 }
 
 function recordFailure(report: SweepReport, id: string, failure: UpdateTaskFailure): void {

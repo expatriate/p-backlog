@@ -1,5 +1,5 @@
 import { formatLocalIso } from "./dates";
-import { isClosed } from "./graph";
+import { epicChildren, isClosed, type BacklogIndex } from "./graph";
 import type { Resolution, Task, TaskStatus } from "./types";
 
 export const RETENTION_DAYS = 7;
@@ -32,6 +32,17 @@ export function deletionDate(task: Task): Date | undefined {
 export function isExpired(task: Task, now: Date): boolean {
   const deletesAt = deletionDate(task);
   return isClosed(task.status) && deletesAt !== undefined && deletesAt.getTime() <= now.getTime();
+}
+
+export function completedEpicChildren(task: Task, index: BacklogIndex): string[] | null {
+  if (task.type !== "epic" || isClosed(task.status)) return null;
+  const children = epicChildren(task, index);
+  const complete = children.length > 0 && children.every((child) => isClosed(child.status));
+  return complete ? children.map((child) => child.id) : null;
+}
+
+export function epicDoneClosure(childIds: readonly string[]): Closure {
+  return { resolution: "epic-done", reason: `все задачи эпика закрыты: ${childIds.join(", ")}` };
 }
 
 function closedAt(task: Task, status: TaskStatus, now: Date): string | undefined {

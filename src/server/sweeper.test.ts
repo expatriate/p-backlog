@@ -2,7 +2,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { SweepReport } from "../core/store/sweep";
 import { startSweeper } from "./sweeper";
 
-const EMPTY_REPORT: SweepReport = { deleted: [], conflicts: [], invalid: [] };
+const EMPTY_REPORT: SweepReport = { closedEpics: [], deleted: [], conflicts: [], invalid: [] };
 
 function useFakeClock() {
   vi.useFakeTimers();
@@ -13,8 +13,8 @@ describe("startSweeper", () => {
   it("проходит сразу и затем по интервалу, пишет итог в лог, после остановки не запускается", async () => {
     useFakeClock();
     const reports: SweepReport[] = [
-      { deleted: ["SPA-1", "SPA-4"], conflicts: [], invalid: [] },
-      { deleted: [], conflicts: ["SPA-2"], invalid: [] },
+      { ...EMPTY_REPORT, deleted: ["SPA-1", "SPA-4"] },
+      { ...EMPTY_REPORT, conflicts: ["SPA-2"] },
     ];
     const sweep = vi.fn(async () => reports.shift() ?? EMPTY_REPORT);
     const log = vi.fn();
@@ -49,6 +49,7 @@ describe("startSweeper", () => {
   it("каждая непустая часть итога — отдельной строкой лога", async () => {
     useFakeClock();
     const report: SweepReport = {
+      closedEpics: ["SPA-7", "SPA-8"],
       deleted: ["SPA-1"],
       conflicts: ["SPA-2", "SPA-3"],
       invalid: [
@@ -63,6 +64,7 @@ describe("startSweeper", () => {
     stop();
 
     expect(log.mock.calls).toEqual([
+      ["Закрыты завершённые эпики: SPA-7, SPA-8"],
       ["Удалены закрытые задачи: SPA-1"],
       ["Задачи менялись во время прохода, повторю при следующем: SPA-2, SPA-3"],
       [

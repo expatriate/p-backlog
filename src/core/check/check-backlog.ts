@@ -1,9 +1,9 @@
 import { access } from "node:fs/promises";
 import { basename } from "node:path";
-import { buildIndex, epicChildren, isClosed, type BacklogIndex } from "../model/graph";
+import { buildIndex, type BacklogIndex } from "../model/graph";
 import { ID_PATTERN } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
-import type { Closure } from "../model/lifecycle";
+import { completedEpicChildren, epicDoneClosure, type Closure } from "../model/lifecycle";
 import type { ParseError, Project, Task } from "../model/types";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
 import { expandHome } from "../store/paths";
@@ -69,16 +69,9 @@ function planFix(task: Task, index: BacklogIndex, isGone: (id: string) => boolea
   const notes: string[] = [];
   if (cleanup !== null) notes.push(`убраны ссылки на несуществующие задачи: ${goneReferences(task, isGone).join(", ")}`);
   if (closedChildren === null) return { changes: cleanup ?? {}, notes };
-  const reason = `все задачи эпика закрыты: ${closedChildren.join(", ")}`;
-  notes.push(`эпик закрыт — ${reason}`);
-  return { changes: { ...cleanup, status: "done" }, closure: { resolution: "epic-done", reason }, notes };
-}
-
-function completedEpicChildren(task: Task, index: BacklogIndex): string[] | null {
-  if (task.type !== "epic" || isClosed(task.status)) return null;
-  const children = epicChildren(task, index);
-  const complete = children.length > 0 && children.every((child) => isClosed(child.status));
-  return complete ? children.map((child) => child.id) : null;
+  const closure = epicDoneClosure(closedChildren);
+  notes.push(`эпик закрыт — ${closure.reason}`);
+  return { changes: { ...cleanup, status: "done" }, closure, notes };
 }
 
 function goneReferences(task: Task, isGone: (id: string) => boolean): string[] {

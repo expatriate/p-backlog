@@ -13,7 +13,8 @@ export function startSweeper({ sweep, intervalMs, log }: SweeperOptions): () => 
   return () => clearInterval(timer);
 }
 
-function logReport({ deleted, conflicts, invalid }: SweepReport, log: (line: string) => void): void {
+function logReport({ closedEpics, deleted, conflicts, invalid }: SweepReport, log: (line: string) => void): void {
+  if (closedEpics.length > 0) log(`Закрыты завершённые эпики: ${closedEpics.join(", ")}`);
   if (deleted.length > 0) log(`Удалены закрытые задачи: ${deleted.join(", ")}`);
   if (conflicts.length > 0) log(`Задачи менялись во время прохода, повторю при следующем: ${conflicts.join(", ")}`);
   if (invalid.length > 0) {

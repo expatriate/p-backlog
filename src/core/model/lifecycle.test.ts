@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "./dates";
-import { changeStatus, deletionDate, isExpired, settleLifecycle } from "./lifecycle";
+import { buildIndex } from "./graph";
+import { changeStatus, completedEpicChildren, deletionDate, epicDoneClosure, isExpired, settleLifecycle } from "./lifecycle";
 import { makeTask } from "./testing/make-task";
 
 const NOW = new Date("2026-09-18T12:00:00Z");
@@ -56,5 +57,28 @@ describe("срок хранения", () => {
     expect(isExpired(task, new Date("2026-09-17T05:59:59Z"))).toBe(false);
     expect(isExpired(task, new Date("2026-09-17T06:00:00Z"))).toBe(true);
     expect(isExpired(makeTask({ id: "SPA-2", closed: CLOSED_AT }), NOW)).toBe(false);
+  });
+});
+
+describe("завершённый эпик", () => {
+  const epic = makeTask({ id: "SPA-1", type: "epic" });
+  const done = makeTask({ id: "SPA-2", epic: "SPA-1", status: "done", closed: CLOSED_AT });
+  const cancelled = makeTask({ id: "SPA-3", epic: "SPA-1", status: "cancelled", closed: CLOSED_AT });
+
+  it("открытый эпик, у которого все задачи закрыты, отдаёт ID задач", () => {
+    expect(completedEpicChildren(epic, buildIndex([epic, done, cancelled]))).toEqual(["SPA-2", "SPA-3"]);
+  });
+
+  it("эпик без задач, с открытой задачей или уже закрытый не завершается; обычная задача — не эпик", () => {
+    const open = makeTask({ id: "SPA-4", epic: "SPA-1" });
+    const closedEpic = { ...epic, status: "done" as const, closed: CLOSED_AT };
+    expect(completedEpicChildren(epic, buildIndex([epic]))).toBeNull();
+    expect(completedEpicChildren(epic, buildIndex([epic, done, open]))).toBeNull();
+    expect(completedEpicChildren(closedEpic, buildIndex([closedEpic, done]))).toBeNull();
+    expect(completedEpicChildren(done, buildIndex([epic, done]))).toBeNull();
+  });
+
+  it("причина закрытия перечисляет задачи эпика", () => {
+    expect(epicDoneClosure(["SPA-2", "SPA-3"])).toEqual({ resolution: "epic-done", reason: "все задачи эпика закрыты: SPA-2, SPA-3" });
   });
 });

@@ -39,7 +39,7 @@ describe("sweepClosed", () => {
 
     const report = await sweepClosed(root, NOW);
 
-    expect(report).toEqual({ deleted: ["SPA-1", "SPA-5"], conflicts: [], invalid: [] });
+    expect(report).toEqual({ closedEpics: [], deleted: ["SPA-1", "SPA-5"], conflicts: [], invalid: [] });
     expect(await exists(join(root, "spa/SPA-1.md"))).toBe(false);
     expect(await exists(join(root, "spa/SPA-5.md"))).toBe(false);
     const { projects, tasks, errors } = await loadBacklog(root);
@@ -75,7 +75,7 @@ describe("sweepClosed", () => {
     const projectText = projectFile("SPA");
     await writeFiles(root, { "spa/project.md": projectText, "spa/SPA-1.md": taskFile("SPA-1", `status: done\n${FRESH}`) });
 
-    expect(await sweepClosed(root, NOW)).toEqual({ deleted: [], conflicts: [], invalid: [] });
+    expect(await sweepClosed(root, NOW)).toEqual({ closedEpics: [], deleted: [], conflicts: [], invalid: [] });
     expect(await readFile(join(root, "spa/project.md"), "utf8")).toBe(projectText);
   });
 
@@ -84,9 +84,35 @@ describe("sweepClosed", () => {
     await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1", "status: done\nblockedBy: [SPA-1]\n") });
 
     expect(await sweepClosed(root, NOW)).toEqual({
+      closedEpics: [],
       deleted: [],
       conflicts: [],
       invalid: [{ id: "SPA-1", errors: ["задача не может блокировать саму себя"] }],
     });
+  });
+
+  it("сначала закрывает завершённый эпик, потом удаляет его просроченную задачу; у эпика свой отсчёт", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", "type: epic\n"),
+      "spa/SPA-2.md": taskFile("SPA-2", `epic: SPA-1\nstatus: done\n${EXPIRED}`),
+    });
+
+    const report = await sweepClosed(root, NOW);
+
+    expect(report).toEqual({ closedEpics: ["SPA-1"], deleted: ["SPA-2"], conflicts: [], invalid: [] });
+    expect(await exists(join(root, "spa/SPA-2.md"))).toBe(false);
+    const { tasks, errors } = await loadBacklog(root);
+    expect(errors).toEqual([]);
+    expect(tasks).toEqual([
+      expect.objectContaining({
+        id: "SPA-1",
+        status: "done",
+        closed: formatLocalIso(NOW),
+        resolution: "epic-done",
+        reason: "все задачи эпика закрыты: SPA-2",
+      }),
+    ]);
   });
 });
