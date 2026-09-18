@@ -307,9 +307,10 @@ describe("список задач", () => {
       "spa/SPA-3.md": taskFixture("SPA-3", { title: "Ретраи", epic: "SPA-1" }),
       "spa/SPA-4.md": taskFixture("SPA-4", { title: "Сам по себе" }),
     };
+    const EPIC_AND_TAG_FILES = { ...EPIC_FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "С тегом", tags: "[upload]" }) };
 
     it("кнопки «Эпик» и «Теги» стоят отдельной строкой, не в ряду чипов", async () => {
-      await renderApp({ ...EPIC_FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "С тегом", tags: "[upload]" }) });
+      await renderApp(EPIC_AND_TAG_FILES);
       await screen.findAllByRole("row");
 
       const pickers = screen.getByRole("group", { name: "Эпик и теги" });
@@ -319,7 +320,7 @@ describe("список задач", () => {
     });
 
     it("клик вне меню закрывает меню эпика и меню тегов", async () => {
-      const app = await renderApp({ ...EPIC_FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "С тегом", tags: "[upload]" }) });
+      const app = await renderApp(EPIC_AND_TAG_FILES);
       await screen.findAllByRole("row");
       const heading = screen.getByRole("heading", { level: 1 });
 
@@ -370,7 +371,7 @@ describe("список задач", () => {
       expect(screen.getByRole("button", { name: "Эпик: без эпика" })).toBeDefined();
     });
 
-    it("Esc закрывает панель эпиков, но не карточку задачи", async () => {
+    it("Esc закрывает меню эпиков, но не карточку задачи", async () => {
       const app = await renderApp(EPIC_FILES, "/t/SPA-2");
       await screen.findByRole("complementary", { name: "Задача SPA-2" });
       await app.user.click(screen.getByRole("button", { name: "Эпик: любой" }));
@@ -382,7 +383,7 @@ describe("список задач", () => {
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Эпик: любой" }));
     });
 
-    it("повторное нажатие на кнопку закрывает панель, выбранный пункт отмечен", async () => {
+    it("повторное нажатие на кнопку закрывает меню, выбранный пункт отмечен", async () => {
       const app = await renderApp(EPIC_FILES);
       await screen.findAllByRole("row");
 

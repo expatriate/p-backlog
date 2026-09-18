@@ -14,7 +14,7 @@ export function EpicPicker({ choices, selected, onSelect }: EpicPickerProps) {
   const chosen = choices.epics.find((epic) => epic.id === selected);
 
   return (
-    <div className={styles.selection} data-epic-tone={chosen?.tone}>
+    <div className={styles.selection}>
       <Popover
         triggerRef={trigger}
         triggerProps={{
@@ -27,7 +27,7 @@ export function EpicPicker({ choices, selected, onSelect }: EpicPickerProps) {
             `Эпик: ${selectionLabel(selected)}`
           ) : (
             <>
-              <span className={styles.dot} aria-hidden="true" />
+              <span className={styles.dot} data-epic-tone={chosen.tone} aria-hidden="true" />
               <span className={styles.chosenTitle}>{chosen.title}</span>
             </>
           )

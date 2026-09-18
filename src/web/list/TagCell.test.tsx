@@ -5,19 +5,24 @@ import { TagCell } from "./TagCell";
 const CHIP_WIDTHS: Record<string, number> = { "#dev-env": 72, "#mock-backend": 110, "#upload": 64, "+3": 31 };
 
 function visibleChips(): string[] {
-  return screen.getAllByText(/^[#+]/, { ignore: '[aria-hidden="true"] *' }).map((chip) => chip.textContent ?? "");
+  return screen.queryAllByText(/^[#+]/, { ignore: '[aria-hidden="true"] *' }).map((chip) => chip.textContent ?? "");
+}
+
+function stubLayout(cellWidth: number) {
+  const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+    return { width: CHIP_WIDTHS[this.textContent ?? ""] ?? 0 } as DOMRect;
+  });
+  const width = vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(cellWidth);
+  onTestFinished(() => {
+    rect.mockRestore();
+    width.mockRestore();
+  });
+  return width;
 }
 
 describe("ячейка тегов", () => {
   it("показывает теги, которые влезают целиком, остальные — в «+N» с подсказкой", () => {
-    const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
-      return { width: CHIP_WIDTHS[this.textContent ?? ""] ?? 0 } as DOMRect;
-    });
-    const width = vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(200);
-    onTestFinished(() => {
-      rect.mockRestore();
-      width.mockRestore();
-    });
+    stubLayout(200);
 
     render(<TagCell tags={["dev-env", "mock-backend", "upload"]} />);
 
@@ -32,10 +37,7 @@ describe("ячейка тегов", () => {
   });
 
   it("ячейка, появившаяся после сужения окна, пересчитывает теги", () => {
-    const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
-      return { width: CHIP_WIDTHS[this.textContent ?? ""] ?? 0 } as DOMRect;
-    });
-    const width = vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(0);
+    const width = stubLayout(0);
     const originalResizeObserver = globalThis.ResizeObserver;
     const callbacks: ResizeObserverCallback[] = [];
     vi.stubGlobal(
@@ -50,8 +52,6 @@ describe("ячейка тегов", () => {
       },
     );
     onTestFinished(() => {
-      rect.mockRestore();
-      width.mockRestore();
       vi.stubGlobal("ResizeObserver", originalResizeObserver);
     });
 
@@ -65,5 +65,12 @@ describe("ячейка тегов", () => {
     });
 
     expect(visibleChips()).toEqual(["#dev-env", "+2"]);
+  });
+
+  it("без тегов ячейка пустая, без линейки для измерения", () => {
+    const { container } = render(<TagCell tags={[]} />);
+
+    expect(visibleChips()).toEqual([]);
+    expect(container.querySelector('[aria-hidden="true"]')).toBeNull();
   });
 });
