@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "./dates";
-import { changeStatus, completeEpics, deletionDate, epicsToClose, isExpired, settleLifecycle } from "./lifecycle";
+import { changeStatus, completedEpics, deletionDate, epicsToClose, isExpired, settleLifecycle } from "./lifecycle";
 import { makeTask } from "./testing/make-task";
 
 const NOW = new Date("2026-09-18T12:00:00Z");
@@ -69,7 +69,7 @@ describe("завершённый эпик", () => {
   const cancelled = makeTask({ id: "SPA-3", epic: "SPA-1", status: "cancelled", closed: CLOSED_AT });
 
   it("открытый эпик, у которого все задачи закрыты, завершён; причина перечисляет задачи", () => {
-    expect(completeEpics([epic, done, cancelled])).toEqual([
+    expect(completedEpics([epic, done, cancelled])).toEqual([
       { epic, closure: { resolution: "epic-done", reason: "все задачи эпика закрыты: SPA-2, SPA-3" } },
     ]);
   });
@@ -79,15 +79,15 @@ describe("завершённый эпик", () => {
     const closedEpic = { ...epic, status: "done" as const, closed: CLOSED_AT };
     const plainTask = makeTask({ id: "SPA-5" });
     const underPlainTask = makeTask({ id: "SPA-6", epic: "SPA-5", status: "done", closed: CLOSED_AT });
-    expect(completeEpics([epic])).toEqual([]);
-    expect(completeEpics([epic, done, open])).toEqual([]);
-    expect(completeEpics([closedEpic, done])).toEqual([]);
-    expect(completeEpics([plainTask, underPlainTask])).toEqual([]);
+    expect(completedEpics([epic])).toEqual([]);
+    expect(completedEpics([epic, done, open])).toEqual([]);
+    expect(completedEpics([closedEpic, done])).toEqual([]);
+    expect(completedEpics([plainTask, underPlainTask])).toEqual([]);
   });
 
   it("эпики закрываются, только когда разобраны все файлы: у неразобранного эпик неизвестен", () => {
     const parseError = { path: "/backlog/spa/SPA-9.md", projectId: "spa", message: "файл не начинается с frontmatter" };
-    expect(epicsToClose([epic, done, cancelled], [])).toEqual(completeEpics([epic, done, cancelled]));
+    expect(epicsToClose([epic, done, cancelled], [])).toEqual(completedEpics([epic, done, cancelled]));
     expect(epicsToClose([epic, done, cancelled], [parseError])).toEqual([]);
   });
 });
