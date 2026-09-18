@@ -1,0 +1,8 @@
+.crash {
+  max-width: 60ch;
+  margin: var(--space-6) var(--space-5);
+}
+
+.crash h1 {
+  font-size: var(--text-lg);
+}

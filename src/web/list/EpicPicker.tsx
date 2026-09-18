@@ -1,10 +1,11 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import type { TaskFilter } from "../../core/model/query";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
 import type { EpicChoices } from "./epic-choices";
 import styles from "./EpicPicker.module.css";
 
-export type EpicSelection = string | null | undefined;
+export type EpicSelection = TaskFilter["epic"];
 
 export type EpicPickerProps = { choices: EpicChoices; selected: EpicSelection; onSelect: (epic: EpicSelection) => void };
 

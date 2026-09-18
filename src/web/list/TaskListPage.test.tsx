@@ -322,6 +322,24 @@ describe("список задач", () => {
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Эпик: любой" }));
     });
 
+    it("повторное нажатие на кнопку закрывает панель, выбранный пункт отмечен", async () => {
+      const app = await renderApp(EPIC_FILES);
+      await screen.findAllByRole("row");
+
+      await app.user.click(screen.getByRole("button", { name: "Эпик: любой" }));
+      expect(screen.getByRole("button", { name: "Любой эпик" }).getAttribute("aria-pressed")).toBe("true");
+
+      await app.user.click(screen.getByRole("button", { name: /SPA-1/ }));
+      await app.user.click(screen.getByRole("button", { name: "Эпик: Эпик загрузки" }));
+
+      expect(screen.getByRole("button", { name: /SPA-1/ }).getAttribute("aria-pressed")).toBe("true");
+      expect(screen.getByRole("button", { name: "Любой эпик" }).getAttribute("aria-pressed")).toBe("false");
+
+      await app.user.click(screen.getByRole("button", { name: "Эпик: Эпик загрузки" }));
+
+      expect(screen.queryByRole("group", { name: "Эпики" })).toBeNull();
+    });
+
     it("без эпиков кнопки нет", async () => {
       await renderApp(FILES);
       await screen.findAllByRole("row");

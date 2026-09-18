@@ -4,8 +4,7 @@ import { loadBacklog } from "../../core/store/load";
 import { projectFile } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
-import { renderApp } from "../testing/render-app";
-import type { RenderedApp } from "../testing/render-app";
+import { renderApp, type RenderedApp } from "../testing/render-app";
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),
@@ -281,6 +280,36 @@ describe("черновик описания при уходе с задачи", 
 
     expect(confirm).toHaveBeenCalledWith(LEAVE);
     expect(app.route()).toBe("/p/spa/t/SPA-1");
+  });
+
+  it("согласие на «назад» уходит со страницы задачи", async () => {
+    const confirm = stubConfirm(true);
+    const app = await renderApp(FILES, "/p/spa");
+    await app.user.click(await screen.findByRole("link", { name: "Таймауты загрузки" }));
+    await startDraft(app);
+
+    await act(async () => {
+      await app.router.navigate(-1);
+    });
+
+    expect(confirm).toHaveBeenCalledWith(LEAVE);
+    expect(app.route()).toBe("/p/spa");
+    expect(screen.queryByRole("complementary", { name: "Задача SPA-1" })).toBeNull();
+  });
+
+  it("перезагрузка с черновиком получает предупреждение браузера", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await startDraft(app);
+
+    const beforeCancel = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(beforeCancel);
+    expect(beforeCancel.defaultPrevented).toBe(true);
+
+    await app.user.click(within(panel).getByRole("button", { name: "Отмена" }));
+
+    const afterCancel = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(afterCancel);
+    expect(afterCancel.defaultPrevented).toBe(false);
   });
 
   it("смена фильтра и переходы без черновика ничего не спрашивают", async () => {

@@ -15,7 +15,6 @@ import { useDraft } from "../ui/use-draft";
 import { useLeaveGuard } from "../ui/use-leave-guard";
 import { SidePanel } from "../ui/SidePanel";
 import { StatusBadge } from "../ui/StatusBadge";
-import { toneOf, type EpicTones } from "../ui/epic-tone";
 import { useNow } from "../ui/use-now";
 import { TaskBody } from "./TaskBody";
 import { TaskFields } from "./TaskFields";
@@ -28,14 +27,14 @@ export type TaskPanelProps = {
   index: BacklogIndex;
   taskHref: TaskHref;
   onClose: () => void;
-  tones: EpicTones;
+  tone: number | undefined;
 };
 
 const TASK_LIST_ID = "task-ids";
 const EPIC_LIST_ID = "epic-ids";
 const LEAVE_WITH_DRAFT = "Уйти без сохранения описания?";
 
-export function TaskPanel({ task, tasks, index, taskHref, onClose, tones }: TaskPanelProps) {
+export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskPanelProps) {
   const updateTask = useUpdateTask();
   const [bodyDraft, setBodyDraft] = useState<string | null>(null);
   const now = useNow();
@@ -51,7 +50,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tones }: Task
     <SidePanel
       label={`Задача ${task.id}`}
       heading={
-        <span className={styles.id} data-epic-tone={toneOf(task, tones)}>
+        <span className={styles.id} data-epic-tone={tone}>
           {task.id}
         </span>
       }
