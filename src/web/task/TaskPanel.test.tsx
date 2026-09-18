@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { projectFile } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
+import { freezeDate } from "../testing/freeze-date";
 import { renderApp } from "../testing/render-app";
 
 const FILES = {
@@ -22,6 +23,42 @@ async function taskOnDisk(root: string, id: string) {
   if (!task) throw new Error(`нет задачи ${id}`);
   return task;
 }
+
+const CLOSED_FILES = {
+  "spa/project.md": projectFile("SPA"),
+  "spa/SPA-1.md": taskFixture("SPA-1", {
+    title: "Таймауты загрузки",
+    status: "done",
+    closed: "2026-09-16T12:00:00Z",
+    resolution: "fixed",
+    reason: "Исправлено в a1b2c3d",
+  }),
+};
+
+describe("карточка закрытой задачи", () => {
+  it("показывает причину и отсчёт до удаления, «Вернуть в беклог» снимает закрытие в файле", async () => {
+    freezeDate("2026-09-18T12:00:00Z");
+    const app = await renderApp(CLOSED_FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    expect(within(panel).getByText(/исправлено — Исправлено в a1b2c3d/)).toBeDefined();
+    expect(within(panel).getByText("5 дн.").closest("[title]")?.getAttribute("title")).toBe("удалится 23.09");
+
+    await app.user.click(within(panel).getByRole("button", { name: "Вернуть в беклог" }));
+
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).status).toBe("backlog"));
+    const reopened = await taskOnDisk(app.root, "SPA-1");
+    expect([reopened.closed, reopened.resolution, reopened.reason]).toEqual([undefined, undefined, undefined]);
+  });
+
+  it("в последние сутки вместо дней пишет «сегодня»", async () => {
+    freezeDate("2026-09-23T06:00:00Z");
+    await renderApp(CLOSED_FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    expect(within(panel).getByText("сегодня")).toBeDefined();
+  });
+});
 
 describe("карточка задачи", () => {
   it("показывает поля, связи, прогресс и предупреждения", async () => {

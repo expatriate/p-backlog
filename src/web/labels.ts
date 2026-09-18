@@ -1,5 +1,5 @@
 import type { SortDirection, SortKey } from "../core/model/query";
-import type { Priority, TaskStatus, TaskType } from "../core/model/types";
+import type { Priority, Resolution, TaskStatus, TaskType } from "../core/model/types";
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
   backlog: "в беклоге",
@@ -18,6 +18,13 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
 
 export const TYPE_LABELS: Record<TaskType, string> = { task: "задача", epic: "эпик" };
 
+export const RESOLUTION_LABELS: Record<Resolution, string> = {
+  fixed: "исправлено",
+  obsolete: "кода нет",
+  duplicate: "дубль",
+  "epic-done": "эпик завершён",
+};
+
 export const SORT_LABELS: Record<SortKey, string> = {
   created: "дате создания",
   priority: "приоритету",
@@ -32,6 +39,10 @@ export const DIRECTION_MARKS: Record<SortDirection, string> = { asc: "↑", desc
 
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
+export function formatDayMonth(date: Date): string {
+  return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
 }
 
 export function formatDateTime(iso: string): string {

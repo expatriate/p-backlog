@@ -1,12 +1,14 @@
 import { Link } from "react-router";
-import { isBlocked, taskProgress, type BacklogIndex } from "../../core/model/graph";
+import { isBlocked, isClosed, taskProgress, type BacklogIndex } from "../../core/model/graph";
 import type { SortDirection, SortKey, TaskSort } from "../../core/model/query";
 import type { Priority, Task } from "../../core/model/types";
-import { DIRECTION_MARKS, PRIORITY_LABELS, formatDate } from "../labels";
+import { DIRECTION_MARKS, PRIORITY_LABELS, RESOLUTION_LABELS, formatDate } from "../labels";
+import { Countdown } from "../ui/Countdown";
 import { Chip } from "../ui/Chip";
 import { ProgressBar } from "../ui/ProgressBar";
 import { StatusBadge } from "../ui/StatusBadge";
 import { cx } from "../ui/cx";
+import { useNow } from "../ui/use-now";
 import styles from "./TaskTable.module.css";
 
 export type TaskTableProps = {
@@ -30,6 +32,7 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
 };
 
 export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref }: TaskTableProps) {
+  const now = useNow();
   const sortableHeader = (key: SortKey, label: string, className?: string) => {
     const active = sort.key === key;
     return (
@@ -80,6 +83,11 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref }: 
                     блокеры
                   </span>
                 )}
+                {task.resolution !== undefined && (
+                  <span className={styles.marker} title={task.reason}>
+                    {RESOLUTION_LABELS[task.resolution]}
+                  </span>
+                )}
                 {epic && (
                   <span className={styles.marker} title={epic.title}>
                     {epic.id}
@@ -97,7 +105,11 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref }: 
               </td>
               <td className={cx(styles.priorityCell, PRIORITY_CLASS[task.priority])}>{PRIORITY_LABELS[task.priority]}</td>
               <td className={styles.progress}>
-                <ProgressBar progress={taskProgress(task, index)} />
+                {isClosed(task.status) && task.closed !== undefined ? (
+                  <Countdown task={task} now={now} />
+                ) : (
+                  <ProgressBar progress={taskProgress(task, index)} />
+                )}
               </td>
               <td className={styles.date}>{formatDate(task.created)}</td>
             </tr>

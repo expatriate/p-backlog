@@ -1,0 +1,38 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.track {
+  flex: 1;
+  min-width: 48px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ink-subtle);
+  transition: width var(--duration) var(--ease-out);
+}
+
+.value {
+  min-width: 34px;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.lastDay .fill {
+  background: var(--accent);
+}
+
+.lastDay .value {
+  color: var(--accent-ink);
+}

@@ -1,15 +1,18 @@
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { toggleChecklistItem } from "../../core/model/checklist";
-import { dependentTasks, epicChildren, relatedTasks, taskProgress, type BacklogIndex } from "../../core/model/graph";
+import { dependentTasks, epicChildren, isClosed, relatedTasks, taskProgress, type BacklogIndex } from "../../core/model/graph";
 import { taskWarnings } from "../../core/model/integrity";
 import type { Task } from "../../core/model/types";
 import { ApiError } from "../api/client";
 import { useUpdateTask } from "../app/queries";
-import { formatDateTime } from "../labels";
+import { formatDateTime, RESOLUTION_LABELS } from "../labels";
+import { Button } from "../ui/Button";
+import { Countdown } from "../ui/Countdown";
 import { ProgressBar } from "../ui/ProgressBar";
 import { useDraft } from "../ui/use-draft";
 import { SidePanel } from "../ui/SidePanel";
 import { StatusBadge } from "../ui/StatusBadge";
+import { useNow } from "../ui/use-now";
 import { TaskBody } from "./TaskBody";
 import { TaskFields } from "./TaskFields";
 import { TaskOptions, TaskRefs } from "./TaskRefs";
@@ -27,6 +30,7 @@ const OPTIONS_ID = "task-ids";
 export function TaskPanel({ task, tasks, index, onClose }: TaskPanelProps) {
   const updateTask = useUpdateTask();
   const [title, setTitle, titleRef] = useDraft(task.title);
+  const now = useNow();
 
   const apply = (changes: TaskChangesRequest) => updateTask.mutate({ id: task.id, version: task.version, changes });
   const applyAsync = (changes: TaskChangesRequest) => updateTask.mutateAsync({ id: task.id, version: task.version, changes });
@@ -53,6 +57,19 @@ export function TaskPanel({ task, tasks, index, onClose }: TaskPanelProps) {
         <span>создана {formatDateTime(task.created)}</span>
         {task.source && <span className={styles.source}>{task.source}</span>}
       </div>
+
+      {isClosed(task.status) && (
+        <div className={styles.closure}>
+          <p>
+            Закрыта{task.closed === undefined ? "" : ` ${formatDateTime(task.closed)}`}
+            {task.resolution !== undefined && ` · ${RESOLUTION_LABELS[task.resolution]} — ${task.reason ?? ""}`}
+          </p>
+          <Countdown task={task} now={now} />
+          <Button className={styles.restore} onClick={() => apply({ status: "backlog" })}>
+            Вернуть в беклог
+          </Button>
+        </div>
+      )}
 
       {conflict && (
         <p className={styles.conflict} role="status">

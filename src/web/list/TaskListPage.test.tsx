@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { projectFile } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
+import { freezeDate } from "../testing/freeze-date";
 import { renderApp } from "../testing/render-app";
 
 const FILES = {
@@ -99,6 +100,18 @@ describe("список задач", () => {
     await screen.findAllByRole("row");
 
     expect(within(screen.getByRole("columnheader", { name: "Теги" })).queryByRole("button")).toBeNull();
+  });
+
+  it("у закрытой задачи вместо прогресса — отсчёт до удаления, у автозакрытой — метка причины", async () => {
+    freezeDate("2026-09-12T12:00:00Z");
+    const closed = { status: "cancelled", closed: "2026-09-10T10:00:00+03:00", resolution: "obsolete", reason: "модуль удалён" };
+    await renderApp({ ...FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "Устаревшая", ...closed }) }, "/?status=cancelled");
+
+    const row = (await screen.findByText("Устаревшая")).closest("tr");
+    if (!row) throw new Error("нет строки");
+    expect(within(row).getByText("кода нет").getAttribute("title")).toBe("модуль удалён");
+    expect(within(row).queryByRole("progressbar")).toBeNull();
+    expect(within(row).getByText("5 дн.")).toBeDefined();
   });
 
   it("сообщает о файлах, которые не удалось разобрать", async () => {

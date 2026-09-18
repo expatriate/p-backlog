@@ -4,7 +4,7 @@ import type { Resolution, Task, TaskStatus } from "./types";
 
 export const RETENTION_DAYS = 7;
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const RESOLUTION_STATUS: Record<Resolution, "done" | "cancelled"> = {
   fixed: "done",
