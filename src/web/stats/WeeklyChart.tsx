@@ -34,7 +34,7 @@ export function WeeklyChart({ weeks }: { weeks: WeekFlow[] }) {
         </svg>
       </div>
       <figcaption className={styles.caption}>
-        <span className={styles.axis}>
+        <span>
           {first === undefined ? "" : formatDayMonth(new Date(first.start))} — сейчас
         </span>
         <span className={styles.legend}>

@@ -50,4 +50,30 @@ describe("страница статистики", () => {
 
     expect(await screen.findByText("Задач пока нет.")).toBeDefined();
   });
+
+  it("где болит: папки из source и теги — ссылки на отфильтрованный список", async () => {
+    await renderApp(FILES, "/p/spa/stats");
+    const panel = await screen.findByRole("region", { name: "Где болит" });
+
+    expect(within(panel).getByText("src/upload")).toBeDefined();
+    expect(within(panel).getByRole("link", { name: /#upload/ }).getAttribute("href")).toBe("/p/spa?tag=upload");
+  });
+
+  it("возраст открытых: корзины и критичные с высокими старше недели", async () => {
+    await renderApp(FILES, "/p/spa/stats");
+    const panel = await screen.findByRole("region", { name: "Возраст открытых" });
+
+    expect(within(panel).getByText("Критичные и высокие старше 7 дней: 1")).toBeDefined();
+    expect(within(panel).getByRole("img", { name: "до 7 дней: 1; 7–30 дней: 1; 30–90 дней: 0; больше 90 дней: 0" })).toBeDefined();
+  });
+
+  it("как закрываются: причины, кто закрыл, шум и возвраты", async () => {
+    await renderApp(FILES, "/p/spa/stats");
+    const panel = await screen.findByRole("region", { name: "Как закрываются" });
+
+    expect(within(panel).getByText("сделано")).toBeDefined();
+    expect(within(panel).getByText("неизвестно: 1")).toBeDefined();
+    expect(within(panel).getByText("Дубли среди закрытых: 0%")).toBeDefined();
+    expect(within(panel).getByText("Возвраты: 0")).toBeDefined();
+  });
 });

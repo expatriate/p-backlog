@@ -5,7 +5,10 @@ import { useProjects, useStats } from "../app/queries";
 import { formatDate } from "../labels";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
+import { AgePanel } from "./AgePanel";
+import { ClosingPanel } from "./ClosingPanel";
 import { formatDays, formatSigned } from "./format";
+import { HotspotsPanel } from "./HotspotsPanel";
 import { Panel } from "./Panel";
 import { WeeklyChart } from "./WeeklyChart";
 import styles from "./StatsPage.module.css";
@@ -34,13 +37,13 @@ export function StatsPage() {
       ) : stats.data.taskCount === 0 ? (
         <p className={styles.hint}>Задач пока нет.</p>
       ) : (
-        <StatsContent report={stats.data} />
+        <StatsContent report={stats.data} listPath={projectId === undefined ? "/" : `/p/${projectId}`} />
       )}
     </main>
   );
 }
 
-function StatsContent({ report }: { report: StatsReport }) {
+function StatsContent({ report, listPath }: { report: StatsReport; listPath: string }) {
   return (
     <div className={styles.content}>
       {report.invalidJournalLines > 0 && (
@@ -53,6 +56,9 @@ function StatsContent({ report }: { report: StatsReport }) {
         <Panel title="Долг по неделям">
           <WeeklyChart weeks={report.weeks} />
         </Panel>
+        <HotspotsPanel hotspots={report.hotspots} listPath={listPath} />
+        <AgePanel age={report.age} />
+        <ClosingPanel closing={report.closing} />
       </div>
       <p className={styles.note}>{journalNote(report.journalSince)}</p>
     </div>

@@ -1,0 +1,181 @@
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.countList {
+  min-width: 0;
+}
+
+.subTitle {
+  margin: 0 0 var(--space-2);
+  color: var(--ink-subtle);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.rowLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowLabel code {
+  font-family: var(--font-mono);
+}
+
+.rowCount {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  margin: 0;
+  color: var(--ink-subtle);
+  font-size: var(--text-sm);
+}
+
+.actors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.ageRows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ageRow {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr) 2.5rem;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.ageLabel {
+  color: var(--ink-muted);
+}
+
+.ageTrack {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--surface-sunken);
+}
+
+.ageSegment {
+  height: 100%;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-subtle);
+}
+
+.legendItem::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--space-1);
+  border-radius: 2px;
+  background: var(--segment);
+}
+
+.ageSegment,
+.share {
+  background: var(--segment);
+}
+
+.critical {
+  --segment: var(--accent);
+}
+
+.high {
+  --segment: var(--warn);
+}
+
+.medium {
+  --segment: var(--ink-subtle);
+}
+
+.low {
+  --segment: var(--line-strong);
+}
+
+.done {
+  --segment: var(--ok);
+}
+
+.fixed {
+  --segment: var(--ink);
+}
+
+.obsolete {
+  --segment: var(--ink-subtle);
+}
+
+.duplicate {
+  --segment: var(--warn);
+}
+
+.cancelled {
+  --segment: var(--line-strong);
+}
+
+.shareBar {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--surface-sunken);
+}
+
+.share {
+  height: 100%;
+}
+
+.alarm {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.alarmOn {
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+@container (max-width: 600px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
