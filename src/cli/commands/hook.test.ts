@@ -1,0 +1,37 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
+import { EXIT } from "../io";
+import { makeCliSandbox } from "../testing/cli-harness";
+
+describe("backlog hook stop", () => {
+  it("просит перепроверить задачи, чей код менялся", async () => {
+    const { run, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Поправить таймаут", "2026-09-18T10:00:00Z");
+    const event = (active: boolean) => JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: active });
+
+    const blocked = await run(["hook", "stop"], { stdin: event(false) });
+
+    expect(blocked.code).toBe(EXIT.ok);
+    expect(JSON.parse(blocked.out)).toEqual({
+      decision: "block",
+      reason: "Беклог spa: после последней проверки менялся код задач — SPA-1 (изменён src/a.ts). Перепроверь их по скиллу backlog, раздел «Перепроверить задачи».",
+    });
+    expect((await run(["hook", "stop"], { stdin: event(true) })).out).toBe("");
+  });
+
+  it("молчит, если событие не разобрать, у каталога нет проекта или кандидатов нет", async () => {
+    const { run, repo, home } = await makeCliSandbox();
+    await run(["new", "--title", "X"]);
+
+    for (const stdin of ["не json", "{}", JSON.stringify({ cwd: home }), JSON.stringify({ cwd: repo })]) {
+      expect(await run(["hook", "stop"], { stdin })).toEqual({ code: EXIT.ok, out: "", err: "" });
+    }
+    expect((await run(["hook", "start"])).code).toBe(EXIT.invalid);
+  });
+});

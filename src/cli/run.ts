@@ -1,5 +1,6 @@
 import { runCheck } from "./commands/check";
 import { runClose } from "./commands/close";
+import { runHook } from "./commands/hook";
 import { runList } from "./commands/list";
 import { runNew } from "./commands/new";
 import { runShow } from "./commands/show";
@@ -19,7 +20,8 @@ const USAGE = `Использование:
   backlog status <ID> <backlog|in-progress|blocked|done|cancelled>
   backlog check [--changed] [--project id | --all-projects] [--json]
   backlog close <ID> --as fixed|obsolete|duplicate --reason <улика> [--duplicate-of <ID>]
-  backlog verify <ID> [--source файл:строка]`;
+  backlog verify <ID> [--source файл:строка]
+  backlog hook stop   (для хука Stop в Claude Code, событие читается из stdin)`;
 
 const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
 
@@ -32,6 +34,7 @@ const COMMANDS = new Map<string, (args: string[], io: CliIo) => Promise<number>>
   ["check", runCheck],
   ["close", runClose],
   ["verify", runVerify],
+  ["hook", runHook],
 ]);
 
 export async function runCli(argv: readonly string[], io: CliIo): Promise<number> {
