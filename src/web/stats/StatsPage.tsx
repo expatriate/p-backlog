@@ -29,14 +29,7 @@ export function StatsPage() {
     <main className={styles.page}>
       <h1 className={styles.heading}>{title}</h1>
       {stats.isError ? (
-        stats.error instanceof ApiError && stats.error.status === 404 ? (
-          <p className={styles.hint}>Проект не найден.</p>
-        ) : (
-          <div className={styles.hint} role="status">
-            <p>Сервер беклога не отвечает.</p>
-            <Button onClick={() => void stats.refetch()}>Повторить</Button>
-          </div>
-        )
+        <StatsError error={stats.error} onRetry={() => void stats.refetch()} />
       ) : stats.isPending ? (
         <p className={styles.hint}>Считаем статистику…</p>
       ) : stats.data.taskCount === 0 ? (
@@ -45,6 +38,18 @@ export function StatsPage() {
         <StatsContent report={stats.data} listPath={projectId === undefined ? "/" : `/p/${projectId}`} />
       )}
     </main>
+  );
+}
+
+function StatsError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  if (error instanceof ApiError && error.status === 404) {
+    return <p className={styles.hint}>Проект не найден.</p>;
+  }
+  return (
+    <div className={styles.hint} role="status">
+      <p>Сервер беклога не отвечает.</p>
+      <Button onClick={onRetry}>Повторить</Button>
+    </div>
   );
 }
 
