@@ -1,25 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import styles from "./SidePanel.module.css";
 
-export type SidePanelProps = {
-  label: string;
-  heading: ReactNode;
-  onClose: () => void;
-  canClose?: () => boolean;
-  children: ReactNode;
-};
+export type SidePanelProps = { label: string; heading: ReactNode; onClose: () => void; children: ReactNode };
 
 const FORM_FIELDS = "input, textarea, select";
 
-export function SidePanel({ label, heading, onClose, canClose, children }: SidePanelProps) {
+export function SidePanel({ label, heading, onClose, children }: SidePanelProps) {
   const panel = useRef<HTMLElement>(null);
-  const requestClose = useRef(onClose);
+  const close = useRef(onClose);
 
   useEffect(() => {
-    requestClose.current = () => {
-      if (canClose?.() === false) return;
-      onClose();
-    };
+    close.current = onClose;
   });
 
   useLayoutEffect(() => {
@@ -32,7 +23,7 @@ export function SidePanel({ label, heading, onClose, canClose, children }: SideP
         event.target.blur();
         return;
       }
-      requestClose.current();
+      close.current();
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => {
@@ -45,7 +36,7 @@ export function SidePanel({ label, heading, onClose, canClose, children }: SideP
     <aside ref={panel} className={styles.drawer} aria-label={label} tabIndex={-1}>
       <header className={styles.header}>
         {heading}
-        <button type="button" className={styles.close} aria-label="Закрыть" onClick={() => requestClose.current()}>
+        <button type="button" className={styles.close} aria-label="Закрыть" onClick={() => close.current()}>
           ×
         </button>
       </header>

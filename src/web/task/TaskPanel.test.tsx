@@ -1,10 +1,11 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { projectFile } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
 import { renderApp } from "../testing/render-app";
+import type { RenderedApp } from "../testing/render-app";
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),
@@ -115,25 +116,6 @@ describe("карточка задачи", () => {
     await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).title).toBe("Таймауты загрузки снова"));
   });
 
-  it("закрытие с несохранённым описанием спрашивает подтверждение", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-    onTestFinished(() => confirm.mockRestore());
-    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
-    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
-
-    await app.user.click(within(panel).getByRole("button", { name: "Редактировать описание" }));
-    await app.user.type(within(panel).getByRole("textbox", { name: "Описание задачи" }), "черновик");
-    await app.user.click(within(panel).getByRole("button", { name: "Закрыть" }));
-
-    expect(confirm).toHaveBeenCalledWith("Закрыть без сохранения описания?");
-    expect(screen.getByRole("complementary", { name: "Задача SPA-1" })).toBeDefined();
-
-    confirm.mockReturnValue(true);
-    await app.user.click(within(panel).getByRole("button", { name: "Закрыть" }));
-
-    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Задача SPA-1" })).toBeNull());
-  });
-
   it("закрывается по Esc и возвращает на список", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-1");
     await screen.findByRole("complementary", { name: "Задача SPA-1" });
@@ -214,5 +196,100 @@ describe("карточка задачи", () => {
 
     expect(await within(panel).findByText(/SPA-1 не является эпиком/)).toBeDefined();
     expect((await taskOnDisk(app.root, "SPA-2")).epic).toBeUndefined();
+  });
+});
+
+describe("черновик описания при уходе с задачи", () => {
+  const LEAVE = "Уйти без сохранения описания?";
+
+  function stubConfirm(answer: boolean) {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(answer);
+    onTestFinished(() => confirm.mockRestore());
+    return confirm;
+  }
+
+  async function startDraft(app: RenderedApp) {
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    await app.user.click(within(panel).getByRole("button", { name: "Редактировать описание" }));
+    await app.user.type(within(panel).getByRole("textbox", { name: "Описание задачи" }), " черновик");
+    return panel;
+  }
+
+  it("закрытие карточки спрашивает: отказ оставляет черновик, согласие закрывает", async () => {
+    const confirm = stubConfirm(false);
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await startDraft(app);
+
+    await app.user.click(within(panel).getByRole("button", { name: "Закрыть" }));
+
+    expect(confirm).toHaveBeenCalledWith(LEAVE);
+    expect(app.route()).toBe("/p/spa/t/SPA-1");
+    expect(within(panel).getByRole<HTMLTextAreaElement>("textbox", { name: "Описание задачи" }).value).toContain("черновик");
+
+    confirm.mockReturnValue(true);
+    await app.user.click(within(panel).getByRole("button", { name: "Закрыть" }));
+
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Задача SPA-1" })).toBeNull());
+    expect(app.route()).toBe("/p/spa");
+  });
+
+  it("переход к другой задаче из списка спрашивает, согласие открывает её", async () => {
+    const confirm = stubConfirm(false);
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    await startDraft(app);
+    const otherTask = () => within(screen.getByRole("table")).getByRole("link", { name: "Связана" });
+
+    await app.user.click(otherTask());
+
+    expect(confirm).toHaveBeenCalledWith(LEAVE);
+    expect(app.route()).toBe("/p/spa/t/SPA-1");
+
+    confirm.mockReturnValue(true);
+    await app.user.click(otherTask());
+
+    expect(await screen.findByRole("complementary", { name: "Задача SPA-4" })).toBeDefined();
+  });
+
+  it("ссылка на связанную задачу в карточке и проект в боковой панели спрашивают", async () => {
+    const confirm = stubConfirm(false);
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await startDraft(app);
+
+    await app.user.click(within(panel).getByRole("link", { name: "Блокер" }));
+    await app.user.click(screen.getByRole("link", { name: /Все проекты/ }));
+
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(app.route()).toBe("/p/spa/t/SPA-1");
+  });
+
+  it("«назад» в браузере спрашивает", async () => {
+    const confirm = stubConfirm(false);
+    const app = await renderApp(FILES, "/p/spa");
+    await app.user.click(await screen.findByRole("link", { name: "Таймауты загрузки" }));
+    await startDraft(app);
+
+    await act(async () => {
+      await app.router.navigate(-1);
+    });
+
+    expect(confirm).toHaveBeenCalledWith(LEAVE);
+    expect(app.route()).toBe("/p/spa/t/SPA-1");
+  });
+
+  it("смена фильтра и переходы без черновика ничего не спрашивают", async () => {
+    const confirm = stubConfirm(false);
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await startDraft(app);
+
+    await app.user.click(within(screen.getByRole("group", { name: "Статус" })).getByRole("button", { name: "сделана" }));
+
+    expect(app.route()).toContain("status=");
+    expect(within(panel).getByRole("textbox", { name: "Описание задачи" })).toBeDefined();
+
+    await app.user.click(within(panel).getByRole("button", { name: "Отмена" }));
+    await app.user.click(within(screen.getByRole("table")).getByRole("link", { name: "Связана" }));
+
+    expect(await screen.findByRole("complementary", { name: "Задача SPA-4" })).toBeDefined();
+    expect(confirm).not.toHaveBeenCalled();
   });
 });
