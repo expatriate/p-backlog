@@ -11,6 +11,7 @@ import { StatusBadge } from "../ui/StatusBadge";
 import type { TaskHref } from "../task/TaskRefs";
 import { cx } from "../ui/cx";
 import { useNow } from "../ui/use-now";
+import type { DateColumn } from "./list-params";
 import styles from "./TaskTable.module.css";
 
 export type TaskTableProps = {
@@ -20,9 +21,12 @@ export type TaskTableProps = {
   sort: TaskSort;
   onSort: (key: SortKey) => void;
   taskHref: TaskHref;
+  dateColumn: DateColumn;
 };
 
 const VISIBLE_TAGS = 2;
+
+const DATE_COLUMN_LABELS: Record<DateColumn, string> = { created: "Создана", closed: "Закрыта" };
 
 const ARIA_SORT: Record<SortDirection, "ascending" | "descending"> = { asc: "ascending", desc: "descending" };
 
@@ -33,7 +37,7 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
   critical: styles.critical,
 };
 
-export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref }: TaskTableProps) {
+export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, dateColumn }: TaskTableProps) {
   const now = useNow();
   const sortableHeader = (key: SortKey, label: string, className?: string) => {
     const active = sort.key === key;
@@ -61,7 +65,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref }: 
           {sortableHeader("status", "Статус")}
           {sortableHeader("priority", "Приоритет", styles.priorityCell)}
           {sortableHeader("progress", "Прогресс")}
-          {sortableHeader("created", "Создана", styles.date)}
+          {sortableHeader(dateColumn, DATE_COLUMN_LABELS[dateColumn], styles.date)}
         </tr>
       </thead>
       <tbody>
@@ -115,11 +119,16 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref }: 
                   <ProgressBar progress={taskProgress(task, index)} />
                 )}
               </td>
-              <td className={styles.date}>{formatDate(task.created)}</td>
+              <td className={styles.date}>{formatTaskDate(task, dateColumn)}</td>
             </tr>
           );
         })}
       </tbody>
     </table>
   );
+}
+
+function formatTaskDate(task: Task, column: DateColumn): string {
+  const iso = column === "closed" ? task.closed : task.created;
+  return iso === undefined ? "—" : formatDate(iso);
 }

@@ -63,20 +63,6 @@ describe("список задач", () => {
     await waitFor(async () => expect(await rowTitles()).not.toContain("Починить логин"));
   });
 
-  it("сортировка меняет порядок и направление", async () => {
-    const app = await renderApp(FILES);
-    await screen.findAllByRole("row");
-
-    await app.user.selectOptions(screen.getByRole("combobox", { name: "Сортировать по" }), "title");
-
-    await waitFor(async () => expect(await rowTitles()).toEqual(["Каталог тормозит", "Разобрать очередь", "Таймауты загрузки"]));
-
-    await app.user.click(screen.getByRole("button", { name: "По возрастанию" }));
-
-    await waitFor(async () => expect(await rowTitles()).toEqual(["Таймауты загрузки", "Разобрать очередь", "Каталог тормозит"]));
-    expect(app.route()).toContain("sort=title");
-  });
-
   it("клик по заголовку колонки сортирует по ней, повторный — меняет направление", async () => {
     const app = await renderApp(FILES);
     await screen.findAllByRole("row");
@@ -153,15 +139,27 @@ describe("список задач", () => {
     expect(app.route()).toContain("tag=upload");
   });
 
-  it("кнопка направления — переключатель «по возрастанию»", async () => {
-    const app = await renderApp(FILES);
+  it("сортировки в тулбаре нет — только заголовки колонок", async () => {
+    await renderApp(FILES);
     await screen.findAllByRole("row");
-    const direction = screen.getByRole("button", { name: "По возрастанию" });
-    expect(direction.getAttribute("aria-pressed")).toBe("false");
 
-    await app.user.click(direction);
+    expect(screen.queryByRole("combobox", { name: "Сортировать по" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "По возрастанию" })).toBeNull();
+  });
 
-    expect(screen.getByRole("button", { name: "По возрастанию" }).getAttribute("aria-pressed")).toBe("true");
+  it("если к закрытым добавить открытые статусы, колонка даты снова «Создана» и сортирует по ней", async () => {
+    const app = await renderApp(
+      {
+        ...FILES,
+        "spa/SPA-5.md": taskFixture("SPA-5", { title: "Исправлено агентом", status: "done", closed: "2026-09-12T10:00:00+03:00", resolution: "fixed", reason: "есть" }),
+      },
+      "/p/spa?status=done%2Ccancelled&auto=1&sort=closed",
+    );
+    expect((await screen.findByRole("columnheader", { name: /Закрыта/ })).getAttribute("aria-sort")).toBe("descending");
+
+    await app.user.click(within(screen.getByRole("group", { name: "Статус" })).getByRole("button", { name: "в беклоге" }));
+
+    expect((await screen.findByRole("columnheader", { name: /Создана/ })).getAttribute("aria-sort")).toBe("descending");
   });
 
   it("после закрытия карточки фокус возвращается на задачу, с которой её открыли", async () => {
@@ -214,6 +212,10 @@ describe("список задач", () => {
     expect(app.route()).toBe("/p/spa?status=done%2Ccancelled&auto=1&sort=closed");
     const autoChip = within(screen.getByRole("group", { name: "Тип" })).getByRole("button", { name: "закрыты агентом" });
     expect(autoChip.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("columnheader", { name: /Закрыта/ }).getAttribute("aria-sort")).toBe("descending");
+    const freshRow = screen.getByText("Свежее исправление").closest("tr");
+    if (!freshRow) throw new Error("нет строки");
+    expect(within(freshRow).getByText("14.09.26")).toBeDefined();
   });
 
   it("чип «закрыты агентом» из обычного вида включает закрытые статусы", async () => {

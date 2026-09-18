@@ -8,7 +8,7 @@ import { Button } from "../ui/Button";
 import { TaskPanel } from "../task/TaskPanel";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
-import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
+import { DEFAULT_FILTER, dateColumnFor, followDateColumn, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
 export function TaskListPage() {
@@ -20,11 +20,13 @@ export function TaskListPage() {
 
   const searchKey = search.toString();
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
+  const dateColumn = dateColumnFor(params.filter);
+  const sort = useMemo(() => followDateColumn(params.sort, dateColumn), [params.sort, dateColumn]);
   const allTasks = useMemo(() => data?.tasks ?? [], [data]);
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const visibleTasks = useMemo(
-    () => sortTasks(filterTasks(allTasks, { ...params.filter, projectId }, index), params.sort, index),
-    [allTasks, index, params.filter, params.sort, projectId],
+    () => sortTasks(filterTasks(allTasks, { ...params.filter, projectId }, index), sort, index),
+    [allTasks, index, params.filter, sort, projectId],
   );
   const projectTasks = useMemo(
     () => (projectId === undefined ? allTasks : allTasks.filter((task) => task.projectId === projectId)),
@@ -89,8 +91,9 @@ export function TaskListPage() {
               tasks={visibleTasks}
               index={index}
               selectedId={selectedTask?.id}
-              sort={params.sort}
-              onSort={(key) => setParams({ ...params, sort: pickSortKey(params.sort, key) })}
+              sort={sort}
+              dateColumn={dateColumn}
+              onSort={(key) => setParams({ ...params, sort: pickSortKey(sort, key) })}
               taskHref={taskHref}
             />
           )}

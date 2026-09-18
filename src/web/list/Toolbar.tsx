@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { normalizeText, SORT_KEYS, type SortKey, type TaskSort } from "../../core/model/query";
+import { normalizeText } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type Task, type TaskStatus } from "../../core/model/types";
-import { DIRECTION_MARKS, PRIORITY_LABELS, SORT_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
+import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
 import { Button } from "../ui/Button";
 import { ToggleChip } from "../ui/Chip";
-import { AUTO_CLOSED_VIEW, pickSortKey, reverseSort, type ListParams } from "./list-params";
+import { AUTO_CLOSED_VIEW, type ListParams } from "./list-params";
 import styles from "./Toolbar.module.css";
 
 export type ToolbarProps = {
@@ -15,10 +15,9 @@ export type ToolbarProps = {
 };
 
 export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
-  const { filter, sort } = params;
+  const { filter } = params;
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
   const setFilter = (patch: Partial<ListParams["filter"]>) => onChange({ ...params, filter: { ...filter, ...patch } });
-  const setSort = (next: TaskSort) => onChange({ ...params, sort: next });
   const toggleTag = (tag: string) => setFilter({ tags: emptyToUndefined(toggle(filter.tags ?? [], tag)) });
 
   return (
@@ -32,24 +31,6 @@ export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
           aria-label="Поиск задач"
           onChange={(event) => setFilter({ query: event.target.value || undefined })}
         />
-        <label className={styles.sort}>
-          Сортировать по
-          <select value={sort.key} onChange={(event) => setSort(pickSortKey(sort, event.target.value as SortKey))}>
-            {SORT_KEYS.map((key) => (
-              <option key={key} value={key}>
-                {SORT_LABELS[key]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Button
-          className={styles.direction}
-          aria-label="По возрастанию"
-          aria-pressed={sort.direction === "asc"}
-          onClick={() => setSort(reverseSort(sort))}
-        >
-          {DIRECTION_MARKS[sort.direction]}
-        </Button>
       </div>
 
       <div className={styles.line}>

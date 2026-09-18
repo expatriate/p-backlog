@@ -1,3 +1,4 @@
+import { isClosed } from "../../core/model/graph";
 import { OPEN_STATUSES, SORT_KEYS, type SortDirection, type SortKey, type TaskFilter, type TaskSort } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 
@@ -29,8 +30,20 @@ export function pickSortKey(sort: TaskSort, key: SortKey): TaskSort {
   return sort.key === key ? reverseSort(sort) : { key, direction: NATURAL_DIRECTION[key] };
 }
 
-export function reverseSort(sort: TaskSort): TaskSort {
+function reverseSort(sort: TaskSort): TaskSort {
   return { ...sort, direction: sort.direction === "asc" ? "desc" : "asc" };
+}
+
+export type DateColumn = Extract<SortKey, "created" | "closed">;
+
+export function dateColumnFor(filter: ListParams["filter"]): DateColumn {
+  const statuses = filter.statuses ?? [];
+  return statuses.length > 0 && statuses.every(isClosed) ? "closed" : "created";
+}
+
+export function followDateColumn(sort: TaskSort, column: DateColumn): TaskSort {
+  const sortsByDate = sort.key === "created" || sort.key === "closed";
+  return sortsByDate && sort.key !== column ? { ...sort, key: column } : sort;
 }
 
 export function readListParams(search: URLSearchParams): ListParams {

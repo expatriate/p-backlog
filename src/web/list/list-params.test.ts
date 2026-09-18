@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OPEN_STATUSES } from "../../core/model/query";
-import { AUTO_CLOSED_VIEW, DEFAULT_SORT, isDefaultFilter, pickSortKey, readListParams, writeListParams } from "./list-params";
+import { AUTO_CLOSED_VIEW, DEFAULT_SORT, dateColumnFor, followDateColumn, isDefaultFilter, pickSortKey, readListParams, writeListParams } from "./list-params";
 
 const read = (search: string) => readListParams(new URLSearchParams(search));
 const write = (search: string) => writeListParams(read(search)).toString();
@@ -101,5 +101,22 @@ describe("вид «Закрыты агентом»", () => {
   it("закрытые статусы, только автозакрытые, свежие сверху", () => {
     expect(writeListParams(AUTO_CLOSED_VIEW).toString()).toBe("status=done%2Ccancelled&auto=1&sort=closed");
     expect(pickSortKey(DEFAULT_SORT, "closed")).toEqual({ key: "closed", direction: "desc" });
+  });
+});
+
+describe("колонка даты", () => {
+  it("только закрытые статусы — «Закрыта», иначе «Создана»", () => {
+    expect(dateColumnFor(read("status=done,cancelled").filter)).toBe("closed");
+    expect(dateColumnFor(read("status=done").filter)).toBe("closed");
+    expect(dateColumnFor(read("").filter)).toBe("created");
+    expect(dateColumnFor(read("status=all").filter)).toBe("created");
+    expect(dateColumnFor(read("status=").filter)).toBe("created");
+    expect(dateColumnFor(read("status=done,backlog").filter)).toBe("created");
+  });
+
+  it("сортировка по дате переходит на дату колонки, остальные не трогает", () => {
+    expect(followDateColumn({ key: "closed", direction: "desc" }, "created")).toEqual({ key: "created", direction: "desc" });
+    expect(followDateColumn({ key: "created", direction: "asc" }, "closed")).toEqual({ key: "closed", direction: "asc" });
+    expect(followDateColumn({ key: "title", direction: "asc" }, "closed")).toEqual({ key: "title", direction: "asc" });
   });
 });

@@ -32,11 +32,6 @@
   max-width: 100%;
 }
 
-.direction {
-  width: 32px;
-  padding-inline: 0;
-}
-
 .group {
   display: flex;
   align-items: center;

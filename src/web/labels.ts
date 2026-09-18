@@ -1,4 +1,4 @@
-import type { SortDirection, SortKey } from "../core/model/query";
+import type { SortDirection } from "../core/model/query";
 import type { Priority, Resolution, TaskStatus, TaskType } from "../core/model/types";
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -23,16 +23,6 @@ export const RESOLUTION_LABELS: Record<Resolution, string> = {
   obsolete: "кода нет",
   duplicate: "дубль",
   "epic-done": "эпик завершён",
-};
-
-export const SORT_LABELS: Record<SortKey, string> = {
-  created: "дате создания",
-  closed: "дате закрытия",
-  priority: "приоритету",
-  progress: "прогрессу",
-  title: "названию",
-  status: "статусу",
-  id: "ID",
 };
 
 export const DIRECTION_MARKS: Record<SortDirection, string> = { asc: "↑", desc: "↓" };
