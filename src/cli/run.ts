@@ -1,3 +1,4 @@
+import { runCheck } from "./commands/check";
 import { runList } from "./commands/list";
 import { runNew } from "./commands/new";
 import { runShow } from "./commands/show";
@@ -13,7 +14,8 @@ const USAGE = `Использование:
   backlog show <ID> [--json]
   backlog take <ID> [--force] [--json]
   backlog take --next [--project id] [--json]
-  backlog status <ID> <backlog|in-progress|blocked|done|cancelled>`;
+  backlog status <ID> <backlog|in-progress|blocked|done|cancelled>
+  backlog check [--changed] [--project id | --all-projects] [--json]`;
 
 const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
 
@@ -23,6 +25,7 @@ const COMMANDS = new Map<string, (args: string[], io: CliIo) => Promise<number>>
   ["show", runShow],
   ["take", runTake],
   ["status", runStatus],
+  ["check", runCheck],
 ]);
 
 export async function runCli(argv: readonly string[], io: CliIo): Promise<number> {
