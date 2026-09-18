@@ -3,7 +3,7 @@ import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
 import { changeStatus, settleLifecycle, type Closure } from "../model/lifecycle";
 import { parseTaskFile, serializeTask } from "../model/task-file";
-import type { Task } from "../model/types";
+import type { Task, TaskCategory } from "../model/types";
 import { changeEvents, type ChangeSource } from "../journal/events";
 import { contentVersion, readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { appendJournal } from "./journal";
@@ -14,6 +14,7 @@ export type TaskChanges = Partial<
   Pick<Task, "title" | "type" | "status" | "priority" | "tags" | "blockedBy" | "related" | "body" | "source" | "verified">
 > & {
   epic?: string | null;
+  category?: TaskCategory | null;
 };
 
 export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion?: string; now: Date; closure?: Closure; via: ChangeSource };
@@ -56,7 +57,12 @@ async function diskChange(snapshot: Task, expectedVersion: string): Promise<Upda
 }
 
 function applyChanges(task: Task, changes: TaskChanges, now: Date, closure: Closure | undefined): Task {
-  const edited = { ...task, ...pickDefined(changes, CHANGE_FIELDS), epic: nextEpic(task.epic, changes.epic) };
+  const edited = {
+    ...task,
+    ...pickDefined(changes, CHANGE_FIELDS),
+    epic: nextOptional(task.epic, changes.epic),
+    category: nextOptional(task.category, changes.category),
+  };
   const moved = changes.status === undefined ? edited : changeStatus(edited, changes.status, now, closure);
   return settleLifecycle(moved, now);
 }
@@ -67,7 +73,7 @@ function pickDefined<T extends object, K extends keyof T>(source: T, keys: reado
   return picked;
 }
 
-function nextEpic(current: string | undefined, change: string | null | undefined): string | undefined {
+function nextOptional<T>(current: T | undefined, change: T | null | undefined): T | undefined {
   if (change === null) return undefined;
   return change ?? current;
 }

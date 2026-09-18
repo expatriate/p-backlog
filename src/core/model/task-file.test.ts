@@ -138,3 +138,20 @@ links:
     );
   });
 });
+
+describe("категория задачи", () => {
+  const location = { projectId: "spa", path: "/b/spa/SPA-1.md", version: "v" };
+
+  it("разбирается и записывается", () => {
+    const parsed = parseTaskFile("---\nid: SPA-1\ntitle: X\ncreated: 2026-09-17T10:00:00+03:00\ncategory: couplers\n---\n", location);
+
+    expect(parsed.ok && parsed.value.category).toBe("couplers");
+    expect(parsed.ok && serializeTask(parsed.value)).toContain("category: couplers");
+  });
+
+  it("неизвестная категория — ошибка разбора", () => {
+    const parsed = parseTaskFile("---\nid: SPA-1\ntitle: X\ncreated: 2026-09-17T10:00:00+03:00\ncategory: spaghetti\n---\n", location);
+
+    expect(parsed.ok).toBe(false);
+  });
+});

@@ -203,4 +203,35 @@ describe("журнал правок", () => {
     expect(result).toMatchObject({ ok: true, task: { status: "done" } });
     expect(errors).toHaveBeenCalled();
   });
+
+  it("категория ставится и убирается, в журнале события category", async () => {
+    const root = await setup();
+
+    const set = await updateTask(root, { id: "SPA-3", changes: { category: "couplers" }, now: NOW, via: "web" });
+    const cleared = await updateTask(root, { id: "SPA-3", changes: { category: null }, now: NOW, via: "cli" });
+
+    expect(set.ok && set.task.category).toBe("couplers");
+    expect(cleared.ok && cleared.task.category).toBeUndefined();
+    const journal = await readJournal(join(root, "spa"), "spa");
+    expect(journal.events).toEqual([
+      expect.objectContaining({ kind: "category", to: "couplers", via: "web" }),
+      expect.objectContaining({ kind: "category", from: "couplers", via: "cli" }),
+    ]);
+    expect(journal.events[0]).not.toHaveProperty("from");
+    expect(journal.events[1]).not.toHaveProperty("to");
+  });
+
+  it("подтверждение пишет verified, с новым source — с полем source", async () => {
+    const root = await setup();
+
+    await updateTask(root, { id: "SPA-3", changes: { verified: "2026-09-18T15:00:00+03:00" }, now: NOW, via: "cli" });
+    await updateTask(root, { id: "SPA-3", changes: { verified: "2026-09-18T16:00:00+03:00", source: "src/a.ts:9" }, now: NOW, via: "cli" });
+
+    const events = (await readJournal(join(root, "spa"), "spa")).events;
+    expect(events).toEqual([
+      expect.objectContaining({ kind: "verified", via: "cli" }),
+      expect.objectContaining({ kind: "verified", source: "src/a.ts:9" }),
+    ]);
+    expect(events[0]).not.toHaveProperty("source");
+  });
 });

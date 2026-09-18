@@ -4,11 +4,24 @@ import { ID_PATTERN, PREFIX_PATTERN } from "./ids";
 export const TASK_TYPES = ["task", "epic"] as const;
 export const TASK_STATUSES = ["backlog", "in-progress", "blocked", "done", "cancelled"] as const;
 export const PRIORITIES = ["low", "medium", "high", "critical"] as const;
+export const TASK_CATEGORIES = [
+  "bloaters",
+  "change-preventers",
+  "couplers",
+  "data-dealers",
+  "dispensables",
+  "functional-abusers",
+  "lexical-abusers",
+  "oo-abusers",
+  "obfuscators",
+  "bug",
+] as const;
 export const RESOLUTIONS = ["fixed", "obsolete", "duplicate", "epic-done"] as const;
 
 export type TaskType = (typeof TASK_TYPES)[number];
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type Priority = (typeof PRIORITIES)[number];
+export type TaskCategory = (typeof TASK_CATEGORIES)[number];
 export type Resolution = (typeof RESOLUTIONS)[number];
 
 export function normalizeTag(tag: string): string {
@@ -27,6 +40,7 @@ export const taskFrontmatterSchema = z.object({
   type: z.enum(TASK_TYPES).default("task"),
   status: z.enum(TASK_STATUSES).default("backlog"),
   priority: z.enum(PRIORITIES).default("medium"),
+  category: z.enum(TASK_CATEGORIES).optional(),
   tags: z
     .array(z.string())
     .default([])
