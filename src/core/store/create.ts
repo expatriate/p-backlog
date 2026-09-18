@@ -4,7 +4,7 @@ import { formatLocalIso } from "../model/dates";
 import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
 import { derivePrefix, deriveProjectId, formatId, parseId } from "../model/ids";
-import { createdEvent, type ChangeSource } from "../journal/events";
+import { createdEvent, type ChangeSource, type Provenance } from "../journal/events";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import { parseTaskFile, serializeTask } from "../model/task-file";
 import type { Project, Task } from "../model/types";
@@ -14,9 +14,16 @@ import { PROJECT_FILE, taskFileName } from "./paths";
 import { invalid, type CreateTaskResult } from "./write-result";
 
 export type NewTaskInput = Pick<Task, "title"> &
-  Partial<Pick<Task, "type" | "priority" | "tags" | "epic" | "blockedBy" | "related" | "source" | "body">>;
+  Partial<Pick<Task, "type" | "priority" | "tags" | "epic" | "blockedBy" | "related" | "source" | "body" | "category">>;
 
-export type CreateTaskRequest = { project: Project; input: NewTaskInput; existingTasks: readonly Task[]; now: Date; via: ChangeSource };
+export type CreateTaskRequest = {
+  project: Project;
+  input: NewTaskInput;
+  existingTasks: readonly Task[];
+  now: Date;
+  via: ChangeSource;
+  provenance?: Provenance;
+};
 
 const MAX_ID_ATTEMPTS = 20;
 
@@ -34,7 +41,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
     if (errors.length > 0) return invalid(errors);
     try {
       await writeFile(path, text, { encoding: "utf8", flag: "wx" });
-      await appendJournal(dir, [createdEvent(parsed.value, request.now, request.via)]);
+      await appendJournal(dir, [createdEvent(parsed.value, request.now, request.via, request.provenance)]);
       return { ok: true, task: parsed.value };
     } catch (error) {
       if (!hasErrorCode(error, "EEXIST")) throw error;
@@ -77,6 +84,7 @@ function draftTask(id: string, path: string, { project, input, now }: CreateTask
     type: input.type ?? "task",
     status: "backlog",
     priority: input.priority ?? "medium",
+    category: input.category,
     tags: input.tags ?? [],
     epic: input.epic,
     blockedBy: input.blockedBy ?? [],

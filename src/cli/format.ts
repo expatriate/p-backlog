@@ -1,3 +1,4 @@
+import { CATEGORY_LABELS } from "../core/model/categories";
 import { formatLocalIso } from "../core/model/dates";
 import { isBlocked, taskProgress, type BacklogIndex } from "../core/model/graph";
 import { deletionDate } from "../core/model/lifecycle";
@@ -29,7 +30,7 @@ export function formatTaskDetails(description: TaskDescription, fileText: string
   const lines = [
     `${task.id} · ${task.title}`,
     `Файл: ${task.path}`,
-    `Тип: ${task.type} · Статус: ${task.status} · Приоритет: ${task.priority} · Прогресс: ${formatProgress(description.progress)}`,
+    `Тип: ${task.type} · Статус: ${task.status} · Приоритет: ${task.priority} · Прогресс: ${formatProgress(description.progress)}${task.category === undefined ? "" : ` · Категория: ${CATEGORY_LABELS[task.category]}`}`,
   ];
   const deletesAt = deletionDate(task);
   if (deletesAt !== undefined) lines.push(`Закрыта: ${task.closed} · удалится ${formatDay(deletesAt)}`);

@@ -23,6 +23,13 @@ describe("backlog show", () => {
     expect(JSON.parse((await run(["show", "SPA-1", "--json"])).out)).toMatchObject({ progress: 0, children: [{ id: "SPA-3" }] });
   });
 
+  it("показывает категорию в строке типа и статуса", async () => {
+    const { run } = await makeCliSandbox();
+    await run(["new", "--title", "X", "--category", "bug"]);
+
+    expect((await run(["show", "SPA-1"])).out).toContain("· Категория: Ошибка");
+  });
+
   it("сообщает о ненайденной и о неразобранной задаче", async () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--title", "X"]);

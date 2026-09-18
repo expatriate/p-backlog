@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../../core/model/dates";
 import { loadBacklog } from "../../core/store/load";
+import { readJournal } from "../../core/store/journal";
 import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
@@ -34,5 +35,17 @@ describe("backlog verify", () => {
     expect((await run(["verify", "SPA-1"])).code).toBe(EXIT.refused);
     expect((await run(["verify", "SPA-40"])).code).toBe(EXIT.notFound);
     expect((await run(["verify", "SPA-1", "--source", " "])).code).toBe(EXIT.invalid);
+  });
+
+  it("подтверждение пишет в журнал verified, с --source — с новым местом", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--title", "X", "--source", "src/a.ts:1"]);
+
+    await run(["verify", "SPA-1"], { now: new Date("2026-09-17T15:00:00Z") });
+    await run(["verify", "SPA-1", "--source", "src/b.ts:2"], { now: new Date("2026-09-17T16:00:00Z") });
+
+    const verified = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "verified");
+    expect(verified).toMatchObject([{ via: "cli" }, { via: "cli", source: "src/b.ts:2" }]);
+    expect(verified[0]).not.toHaveProperty("source");
   });
 });

@@ -1,3 +1,4 @@
+import { runCategory } from "./commands/category";
 import { runCheck } from "./commands/check";
 import { runClose } from "./commands/close";
 import { runHook } from "./commands/hook";
@@ -11,6 +12,7 @@ import { EXIT, UsageError, type CliIo } from "./io";
 
 const USAGE = `Использование:
   backlog new --title <заголовок> [--type task|epic] [--priority low|medium|high|critical] [--tags a,b]
+              [--category <категория>] [--found review|incidental]
               [--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]
               (описание задачи читается из stdin)
   backlog list [--query текст] [--status s,…] [--tag t,…] [--project id | --all-projects] [--json]
@@ -18,6 +20,7 @@ const USAGE = `Использование:
   backlog take <ID> [--force] [--json]
   backlog take --next [--project id] [--json]
   backlog status <ID> <backlog|in-progress|blocked|done|cancelled>
+  backlog category <ID> <bloaters|change-preventers|couplers|data-dealers|dispensables|functional-abusers|lexical-abusers|oo-abusers|obfuscators|bug|none>
   backlog check [--changed] [--project id | --all-projects] [--json]
   backlog close <ID> --as fixed|obsolete|duplicate --reason <улика> [--duplicate-of <ID>]
   backlog verify <ID> [--source файл:строка]
@@ -31,6 +34,7 @@ const COMMANDS = new Map<string, (args: string[], io: CliIo) => Promise<number>>
   ["show", runShow],
   ["take", runTake],
   ["status", runStatus],
+  ["category", runCategory],
   ["check", runCheck],
   ["close", runClose],
   ["verify", runVerify],

@@ -1,9 +1,11 @@
 import { parseArgs } from "node:util";
-import { PRIORITIES, TASK_TYPES } from "../../core/model/types";
+import { FOUND_HOW } from "../../core/journal/events";
+import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES } from "../../core/model/types";
 import { createTask } from "../../core/store/create";
 import { loadBacklog } from "../../core/store/load";
 import { EXIT, parseChoice, splitList, UsageError, withUsageErrors, type CliIo } from "../io";
 import { ensureProject } from "../lookups";
+import { readOrigin } from "../origin";
 
 export async function runNew(args: string[], io: CliIo): Promise<number> {
   const { values, positionals } = withUsageErrors(() =>
@@ -15,6 +17,8 @@ export async function runNew(args: string[], io: CliIo): Promise<number> {
         type: { type: "string" },
         priority: { type: "string" },
         tags: { type: "string" },
+        category: { type: "string" },
+        found: { type: "string" },
         source: { type: "string" },
         epic: { type: "string" },
         "blocked-by": { type: "string" },
@@ -28,6 +32,8 @@ export async function runNew(args: string[], io: CliIo): Promise<number> {
   if (values.title === undefined) throw new UsageError("--title обязателен");
   const type = values.type === undefined ? undefined : parseChoice(values.type, TASK_TYPES, "--type");
   const priority = values.priority === undefined ? undefined : parseChoice(values.priority, PRIORITIES, "--priority");
+  const category = values.category === undefined ? undefined : parseChoice(values.category, TASK_CATEGORIES, "--category");
+  const found = values.found === undefined ? "incidental" : parseChoice(values.found, FOUND_HOW, "--found");
 
   const loaded = await loadBacklog(io.backlogRoot);
   const project = await ensureProject(loaded, io, values.project);
@@ -39,6 +45,7 @@ export async function runNew(args: string[], io: CliIo): Promise<number> {
       title: values.title,
       type,
       priority,
+      category,
       tags: splitList(values.tags),
       source: values.source,
       epic: values.epic,
@@ -49,6 +56,7 @@ export async function runNew(args: string[], io: CliIo): Promise<number> {
     existingTasks: loaded.tasks,
     now: io.now(),
     via: "cli",
+    provenance: { found, origin: await readOrigin(io.cwd) },
   });
   if (!result.ok) {
     for (const error of result.errors) io.warn(error);
