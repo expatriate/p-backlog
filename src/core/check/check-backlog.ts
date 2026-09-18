@@ -1,11 +1,13 @@
 import { access } from "node:fs/promises";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
+import { candidateEvents } from "../journal/events";
 import { buildIndex } from "../model/graph";
 import { ID_PATTERN, parseId } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
 import { planEpicClosing, type Closure } from "../model/lifecycle";
 import type { ParseError, Project, Task } from "../model/types";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
+import { appendJournal, readJournal } from "../store/journal";
 import { expandHome, PROJECT_FILE } from "../store/paths";
 import { referenceCleanup } from "../store/references";
 import { updateTaskIn, type TaskChanges } from "../store/update";
@@ -31,8 +33,25 @@ export async function checkBacklog(root: string, request: CheckRequest): Promise
   const projects = current.projects.filter((project) => inScope(project.id));
   const repos = new Map(await Promise.all(projects.map(async (project) => [project.id, await findRepo(project, request.home)] as const)));
   const candidates = await Promise.all(projects.map((project) => projectCandidates(project, current.tasks, repos.get(project.id), request.mode)));
+  await recordCandidates(root, current.tasks, candidates.flat(), request);
   const problems = request.mode === "full" ? [...fixes.failed, ...findProblems(current, projects, repos, inScope)] : [];
   return { fixed: fixes.fixed, problems, candidates: candidates.flat() };
+}
+
+async function recordCandidates(root: string, tasks: readonly Task[], candidates: readonly Candidate[], { mode, now }: CheckRequest): Promise<void> {
+  const projectOf = new Map(tasks.map((task) => [task.id, task.projectId]));
+  const byProject = new Map<string, Candidate[]>();
+  for (const candidate of candidates) {
+    const projectId = projectOf.get(candidate.task.id);
+    if (projectId === undefined) continue;
+    byProject.set(projectId, [...(byProject.get(projectId) ?? []), candidate]);
+  }
+  for (const [projectId, found] of byProject) {
+    const dir = join(root, projectId);
+    const journal = await readJournal(dir, projectId);
+    const sightings = found.map((candidate) => ({ task: candidate.task.id, evidence: candidate.kind }));
+    await appendJournal(dir, candidateEvents(sightings, journal.events, now, mode));
+  }
 }
 
 async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, now: Date): Promise<FixOutcome> {

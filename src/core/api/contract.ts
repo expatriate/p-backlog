@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ID_PATTERN } from "../model/ids";
-import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type ParseError, type Task } from "../model/types";
+import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, type ParseError, type Task } from "../model/types";
 
 const taskId = z.string().regex(ID_PATTERN, "некорректный ID");
 const idList = z.array(taskId);
@@ -15,6 +15,7 @@ export const taskChangesSchema = z.strictObject({
   blockedBy: idList.optional(),
   related: idList.optional(),
   body: z.string().optional(),
+  category: z.enum(TASK_CATEGORIES).nullable().optional(),
 });
 
 export const updateTaskRequestSchema = z.strictObject({

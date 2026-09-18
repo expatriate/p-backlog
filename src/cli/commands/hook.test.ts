@@ -1,13 +1,14 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readJournal } from "../../core/store/journal";
 import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
 describe("backlog hook stop", () => {
   it("просит перепроверить задачи, чей код менялся", async () => {
-    const { run, repo } = await makeCliSandbox();
+    const { run, repo, root } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n" });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
     await run(["new", "--title", "Таймаут", "--source", "src/a.ts:1"]);
@@ -23,6 +24,9 @@ describe("backlog hook stop", () => {
       reason: "Беклог spa: после последней проверки менялся код задач — SPA-1 (изменён src/a.ts). Перепроверь их по скиллу backlog, раздел «Перепроверить задачи».",
     });
     expect((await run(["hook", "stop"], { stdin: event(true) })).out).toBe("");
+
+    const journal = await readJournal(join(root, "spa"), "spa");
+    expect(journal.events).toContainEqual(expect.objectContaining({ kind: "candidate", mode: "changed", via: "check" }));
   });
 
   it("молчит, если событие не разобрать, у каталога нет проекта или кандидатов нет", async () => {

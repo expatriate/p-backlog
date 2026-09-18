@@ -80,6 +80,31 @@ describe("PATCH /api/tasks/:id", () => {
     const journal = await readJournal(join(backlog.root, "spa"), "spa");
     expect(journal.events).toMatchObject([{ kind: "status", task: "SPA-1", from: "backlog", to: "in-progress", via: "web" }]);
   });
+
+  it("категория ставится и убирается, в журнале события category от web", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+
+    const set = await backlog.json("/api/tasks/SPA-1", "PATCH", { version: await backlog.taskVersion("SPA-1"), changes: { category: "bug" } });
+    expect(set.status).toBe(200);
+    expect(((await set.json()) as Task).category).toBe("bug");
+
+    const cleared = await backlog.json("/api/tasks/SPA-1", "PATCH", { version: await backlog.taskVersion("SPA-1"), changes: { category: null } });
+    expect(((await cleared.json()) as Task).category).toBeUndefined();
+
+    const events = (await readJournal(join(backlog.root, "spa"), "spa")).events;
+    expect(events).toMatchObject([
+      { kind: "category", to: "bug", via: "web" },
+      { kind: "category", from: "bug", via: "web" },
+    ]);
+  });
+
+  it("неизвестная категория — 422", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+
+    const response = await backlog.json("/api/tasks/SPA-1", "PATCH", { version: await backlog.taskVersion("SPA-1"), changes: { category: "spaghetti" } });
+
+    expect(response.status).toBe(422);
+  });
 });
 
 describe("защита локального API", () => {

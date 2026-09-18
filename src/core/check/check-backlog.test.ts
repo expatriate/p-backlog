@@ -121,6 +121,23 @@ describe("checkBacklog", () => {
     expect(byId.get("SPA-7")?.status).toBe("backlog");
   });
 
+  it("полная проверка пишет кандидатов в журнал один раз до решения", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": task("SPA-1", "source: src/a.ts:1\n"),
+      "spa/SPA-2.md": task("SPA-2", "source: src/a.ts:1\n"),
+    });
+
+    const first = await checkBacklog(root, { projectIds: ["spa"], mode: "full", now: NOW, home });
+    await checkBacklog(root, { projectIds: ["spa"], mode: "full", now: NOW, home });
+
+    expect(first.candidates).toMatchObject([{ kind: "duplicate", task: { id: "SPA-2" }, other: { id: "SPA-1" } }]);
+    const candidates = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate");
+    expect(candidates).toMatchObject([{ task: "SPA-2", evidence: "duplicate", mode: "full", via: "check" }]);
+  });
+
   it("сообщает о проекте без репозитория и проверяет только выбранные проекты", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
