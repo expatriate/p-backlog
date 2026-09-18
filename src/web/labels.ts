@@ -27,6 +27,7 @@ export const RESOLUTION_LABELS: Record<Resolution, string> = {
 
 export const SORT_LABELS: Record<SortKey, string> = {
   created: "дате создания",
+  closed: "дате закрытия",
   priority: "приоритету",
   progress: "прогрессу",
   title: "названию",

@@ -7,10 +7,16 @@ export const DEFAULT_SORT: TaskSort = { key: "created", direction: "desc" };
 export const NO_EPIC = "none";
 export const ANY_STATUS = "all";
 
+export const AUTO_CLOSED_VIEW: ListParams = {
+  filter: { statuses: ["done", "cancelled"], onlyAutoClosed: true },
+  sort: { key: "closed", direction: "desc" },
+};
+
 const DIRECTIONS: readonly SortDirection[] = ["asc", "desc"];
 
 const NATURAL_DIRECTION: Record<SortKey, SortDirection> = {
   created: "desc",
+  closed: "desc",
   priority: "desc",
   progress: "desc",
   title: "asc",
@@ -36,6 +42,7 @@ export function readListParams(search: URLSearchParams): ListParams {
       epic: readEpic(search.get("epic")),
       type: readOne(search.get("type"), TASK_TYPES),
       onlyUnblocked: search.get("unblocked") === "1" ? true : undefined,
+      onlyAutoClosed: search.get("auto") === "1" ? true : undefined,
     },
     sort: {
       key: readOne(search.get("sort"), SORT_KEYS) ?? DEFAULT_SORT.key,
@@ -55,6 +62,7 @@ export function writeListParams({ filter, sort }: ListParams): URLSearchParams {
   if (filter.epic !== undefined) search.set("epic", filter.epic ?? NO_EPIC);
   if (filter.type) search.set("type", filter.type);
   if (filter.onlyUnblocked) search.set("unblocked", "1");
+  if (filter.onlyAutoClosed) search.set("auto", "1");
   if (sort.key !== DEFAULT_SORT.key) search.set("sort", sort.key);
   if (sort.direction !== DEFAULT_SORT.direction) search.set("dir", sort.direction);
   return search;

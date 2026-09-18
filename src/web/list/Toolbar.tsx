@@ -77,6 +77,12 @@ export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
           <ToggleChip pressed={filter.onlyUnblocked === true} onToggle={() => setFilter({ onlyUnblocked: filter.onlyUnblocked ? undefined : true })}>
             без блокеров
           </ToggleChip>
+          <ToggleChip
+            pressed={filter.onlyAutoClosed === true}
+            onToggle={() => setFilter({ onlyAutoClosed: filter.onlyAutoClosed ? undefined : true })}
+          >
+            закрыты агентом
+          </ToggleChip>
         </div>
         {epics.length > 0 && (
           <label className={styles.sort}>

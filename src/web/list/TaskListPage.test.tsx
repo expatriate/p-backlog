@@ -16,7 +16,7 @@ const FILES = {
 
 async function rowTitles(): Promise<string[]> {
   const rows = await screen.findAllByRole("row");
-  return rows.slice(1).map((row) => within(row).getAllByRole("cell")[1]?.textContent ?? "");
+  return rows.slice(1).map((row) => within(row).getAllByRole("link")[1]?.textContent ?? "");
 }
 
 describe("список задач", () => {
@@ -112,6 +112,27 @@ describe("список задач", () => {
     expect(within(row).getByText("кода нет").getAttribute("title")).toBe("модуль удалён");
     expect(within(row).queryByRole("progressbar")).toBeNull();
     expect(within(row).getByText("5 дн.")).toBeDefined();
+  });
+
+  it("ссылка «Закрыты агентом» показывает автозакрытые задачи проекта, свежие сверху", async () => {
+    const auto = (id: string, title: string, closed: string) =>
+      taskFixture(id, { title, status: "done", closed, resolution: "fixed", reason: "есть" });
+    const app = await renderApp({
+      ...FILES,
+      "spa/SPA-5.md": auto("SPA-5", "Старое исправление", "2026-09-12T10:00:00+03:00"),
+      "spa/SPA-6.md": auto("SPA-6", "Свежее исправление", "2026-09-14T10:00:00+03:00"),
+      "torg-io/TI-2.md": auto("TI-2", "Чужой проект", "2026-09-14T10:00:00+03:00"),
+    }, "/p/spa");
+    await screen.findAllByRole("row");
+
+    const link = screen.getByRole("link", { name: /Закрыты агентом/ });
+    expect(link.textContent).toContain("2");
+    await app.user.click(link);
+
+    await waitFor(async () => expect(await rowTitles()).toEqual(["Свежее исправление", "Старое исправление"]));
+    expect(app.route()).toBe("/p/spa?status=done%2Ccancelled&auto=1&sort=closed");
+    const autoChip = within(screen.getByRole("group", { name: "Тип" })).getByRole("button", { name: "закрыты агентом" });
+    expect(autoChip.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("сообщает о файлах, которые не удалось разобрать", async () => {

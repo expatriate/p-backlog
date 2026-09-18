@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OPEN_STATUSES } from "../../core/model/query";
-import { DEFAULT_SORT, pickSortKey, readListParams, writeListParams } from "./list-params";
+import { AUTO_CLOSED_VIEW, DEFAULT_SORT, pickSortKey, readListParams, writeListParams } from "./list-params";
 
 const read = (search: string) => readListParams(new URLSearchParams(search));
 const write = (search: string) => writeListParams(read(search)).toString();
@@ -16,6 +16,7 @@ describe("readListParams", () => {
         epic: undefined,
         type: undefined,
         onlyUnblocked: undefined,
+        onlyAutoClosed: undefined,
       },
       sort: DEFAULT_SORT,
     });
@@ -31,6 +32,7 @@ describe("readListParams", () => {
       epic: "SPA-3",
       type: "task",
       onlyUnblocked: true,
+      onlyAutoClosed: undefined,
     });
     expect(sort).toEqual({ key: "title", direction: "asc" });
   });
@@ -65,7 +67,7 @@ describe("writeListParams", () => {
   });
 
   it("переживает круг чтение → запись → чтение", () => {
-    const search = "q=%D1%82%D0%B0%D0%B9%D0%BC%D0%B0%D1%83%D1%82&status=done&priority=high%2Clow&tag=upload&epic=none&type=epic&unblocked=1&sort=progress&dir=asc";
+    const search = "q=%D1%82%D0%B0%D0%B9%D0%BC%D0%B0%D1%83%D1%82&status=done&priority=high%2Clow&tag=upload&epic=none&type=epic&unblocked=1&auto=1&sort=progress&dir=asc";
     expect(read(write(search))).toEqual(read(search));
   });
 });
@@ -80,5 +82,12 @@ describe("pickSortKey", () => {
   it("то же поле меняет направление", () => {
     expect(pickSortKey({ key: "title", direction: "asc" }, "title")).toEqual({ key: "title", direction: "desc" });
     expect(pickSortKey(DEFAULT_SORT, "created")).toEqual({ key: "created", direction: "asc" });
+  });
+});
+
+describe("вид «Закрыты агентом»", () => {
+  it("закрытые статусы, только автозакрытые, свежие сверху", () => {
+    expect(writeListParams(AUTO_CLOSED_VIEW).toString()).toBe("status=done%2Ccancelled&auto=1&sort=closed");
+    expect(pickSortKey(DEFAULT_SORT, "closed")).toEqual({ key: "closed", direction: "desc" });
   });
 });

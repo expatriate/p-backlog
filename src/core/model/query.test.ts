@@ -50,6 +50,14 @@ describe("filterTasks", () => {
     expect(ids(filterTasks(tasks, { epic: null, projectId: "spa" }, index))).toEqual(["SPA-2", "SPA-3", "SPA-4", "SPA-5"]);
   });
 
+  it("«закрыты агентом» — только задачи с причиной автозакрытия", () => {
+    const closed = [
+      makeTask({ id: "SPA-1", status: "done", closed: "2026-09-12T10:00:00+03:00", resolution: "fixed", reason: "есть" }),
+      makeTask({ id: "SPA-2", status: "done", closed: "2026-09-13T10:00:00+03:00" }),
+    ];
+    expect(ids(filterTasks(closed, { onlyAutoClosed: true }, buildIndex(closed)))).toEqual(["SPA-1"]);
+  });
+
   it("тип и «только незаблокированные»", () => {
     expect(ids(filterTasks(tasks, { type: "epic" }, index))).toEqual(["SPA-5"]);
     expect(ids(filterTasks(tasks, { onlyUnblocked: true, projectId: "spa" }, index))).toEqual(["SPA-1", "SPA-3", "SPA-5"]);
@@ -75,6 +83,19 @@ describe("sortTasks", () => {
     ["id", "desc", ["SPA-3", "SPA-2", "SPA-1"]],
   ] as const)("%s %s", (key, direction, expected) => {
     expect(ids(sortTasks(tasks, { key, direction }, index))).toEqual(expected);
+  });
+});
+
+describe("sortTasks по дате закрытия", () => {
+  it("свежие сверху, незакрытые в конце в обоих направлениях", () => {
+    const tasks = [
+      makeTask({ id: "SPA-1", status: "done", closed: "2026-09-12T10:00:00+03:00" }),
+      makeTask({ id: "SPA-2" }),
+      makeTask({ id: "SPA-3", status: "cancelled", closed: "2026-09-14T10:00:00+03:00" }),
+    ];
+    const index = buildIndex(tasks);
+    expect(ids(sortTasks(tasks, { key: "closed", direction: "desc" }, index))).toEqual(["SPA-3", "SPA-1", "SPA-2"]);
+    expect(ids(sortTasks(tasks, { key: "closed", direction: "asc" }, index))).toEqual(["SPA-1", "SPA-3", "SPA-2"]);
   });
 });
 

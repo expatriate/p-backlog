@@ -1,19 +1,23 @@
 import { useMemo } from "react";
-import { NavLink, Outlet, useLocation } from "react-router";
+import { Link, matchPath, NavLink, Outlet, useLocation } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
 import { useProjects, useTasks } from "../app/queries";
+import { AUTO_CLOSED_VIEW, writeListParams } from "../list/list-params";
 import { cx } from "../ui/cx";
 import styles from "./AppLayout.module.css";
 
 export function AppLayout() {
   const projects = useProjects();
   const tasks = useTasks();
-  const { search } = useLocation();
+  const { pathname, search } = useLocation();
 
   const allTasks = useMemo(() => tasks.data?.tasks ?? [], [tasks.data]);
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const openCount = (projectId?: string) => filterTasks(allTasks, { projectId, statuses: OPEN_STATUSES }, index).length;
+  const projectId = matchPath("/p/:projectId/*", pathname)?.params.projectId;
+  const autoClosedCount = filterTasks(allTasks, { projectId, ...AUTO_CLOSED_VIEW.filter }, index).length;
+  const autoClosedActive = new URLSearchParams(search).get("auto") === "1";
 
   return (
     <div className={styles.shell}>
@@ -35,6 +39,13 @@ export function AppLayout() {
             </li>
           ))}
         </ul>
+        <Link
+          to={{ pathname: projectId === undefined ? "/" : `/p/${projectId}`, search: writeListParams(AUTO_CLOSED_VIEW).toString() }}
+          className={navClass(autoClosedActive)}
+        >
+          <span className={styles.projectName}>Закрыты агентом</span>
+          <span className={styles.count}>{autoClosedCount}</span>
+        </Link>
       </nav>
       <Outlet />
     </div>
