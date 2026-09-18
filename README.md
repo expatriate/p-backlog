@@ -42,7 +42,7 @@ npm run install-skill   # ~/.claude/skills/backlog → skill/backlog и хук S
 | `backlog check [--changed] [--project id \| --all-projects] [--json]` | Чинит висячие ссылки и завершённые эпики, находит задачи, которые пора перепроверить |
 | `backlog close <ID> --as fixed\|obsolete\|duplicate --reason <улика> [--duplicate-of ID]` | Закрывает задачу с причиной |
 | `backlog verify <ID> [--source файл:строка]` | Отмечает, что задача ещё актуальна |
-| `backlog hook stop` | Хук Stop для Claude Code: просит агента перепроверить задачи, чей код он менял |
+| `backlog hook stop` | Хук Stop для Claude Code: просит агента перепроверить задачи, чей код изменился |
 
 Коды выхода: `0` — успех, `1` — ошибка аргументов или правил (у `check` — есть что перепроверить),
 `2` — не найдено, `3` — задача уже закрыта или `take` отклонён.
