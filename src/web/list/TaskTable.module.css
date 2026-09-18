@@ -24,6 +24,27 @@
   vertical-align: middle;
 }
 
+.sortButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sortButton:hover,
+.sorted {
+  color: var(--ink);
+}
+
+.sortMark {
+  min-width: 1ch;
+}
+
 .row:hover td {
   background: var(--surface-hover);
 }

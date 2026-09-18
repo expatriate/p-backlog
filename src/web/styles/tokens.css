@@ -1,30 +1,30 @@
 :root {
-  --surface: oklch(1 0 0);
-  --surface-sunken: oklch(0.975 0.004 27);
-  --surface-raised: oklch(1 0 0);
-  --surface-hover: oklch(0.965 0.005 27);
-  --surface-selected: oklch(0.955 0.017 27);
+  --surface: oklch(0.25 0 0);
+  --surface-sunken: oklch(0.215 0 0);
+  --surface-raised: oklch(0.29 0 0);
+  --surface-hover: oklch(0.31 0 0);
+  --surface-selected: oklch(0.35 0 0);
 
-  --ink: oklch(0.24 0.012 30);
-  --ink-muted: oklch(0.47 0.01 30);
-  --ink-subtle: oklch(0.55 0.008 30);
-  --ink-inverse: oklch(0.99 0 0);
+  --ink: oklch(0.94 0 0);
+  --ink-muted: oklch(0.8 0 0);
+  --ink-subtle: oklch(0.73 0 0);
+  --ink-inverse: oklch(0.2 0 0);
 
-  --line: oklch(0.9 0.004 30);
-  --line-strong: oklch(0.82 0.006 30);
+  --line: oklch(0.36 0 0);
+  --line-strong: oklch(0.55 0 0);
 
-  --accent: oklch(0.418 0.155 27.2);
-  --accent-hover: oklch(0.36 0.15 27.2);
-  --accent-soft: oklch(0.955 0.03 27.2);
-  --accent-ink: oklch(0.38 0.15 27.2);
+  --accent: oklch(0.66 0.16 27.2);
+  --accent-hover: oklch(0.72 0.15 27.2);
+  --accent-soft: oklch(0.35 0.06 27.2);
+  --accent-ink: oklch(0.76 0.13 27.2);
 
-  --action: oklch(0.24 0.012 30);
-  --action-hover: oklch(0.16 0.012 30);
+  --action: oklch(0.94 0 0);
+  --action-hover: oklch(1 0 0);
 
-  --warn: oklch(0.55 0.11 68);
-  --warn-soft: oklch(0.96 0.035 68);
-  --ok: oklch(0.5 0.08 152);
-  --ok-soft: oklch(0.955 0.03 152);
+  --warn: oklch(0.76 0.12 75);
+  --warn-soft: oklch(0.33 0.05 75);
+  --ok: oklch(0.74 0.1 152);
+  --ok-soft: oklch(0.31 0.04 152);
 
   --panel-width: 420px;
   --panel-width-narrow: 360px;
@@ -50,8 +50,8 @@
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --shadow-panel: 0 1px 2px oklch(0.24 0.012 30 / 0.06), 0 8px 24px oklch(0.24 0.012 30 / 0.08);
-  --shadow-dialog: 0 24px 60px oklch(0.24 0.012 30 / 0.22);
+  --shadow-panel: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px oklch(0 0 0 / 0.35);
+  --shadow-dialog: 0 24px 60px oklch(0 0 0 / 0.5);
 
   --z-dropdown: 10;
   --z-panel: 20;
@@ -60,41 +60,5 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --duration: 160ms;
 
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --surface: oklch(0.2 0.008 30);
-    --surface-sunken: oklch(0.17 0.008 30);
-    --surface-raised: oklch(0.24 0.009 30);
-    --surface-hover: oklch(0.26 0.01 30);
-    --surface-selected: oklch(0.3 0.03 27);
-
-    --ink: oklch(0.93 0.005 60);
-    --ink-muted: oklch(0.75 0.008 60);
-    --ink-subtle: oklch(0.6 0.008 60);
-    --ink-inverse: oklch(0.18 0.01 30);
-
-    --line: oklch(0.32 0.008 30);
-    --line-strong: oklch(0.42 0.01 30);
-
-    --accent: oklch(0.63 0.15 27.2);
-    --accent-hover: oklch(0.7 0.15 27.2);
-    --accent-soft: oklch(0.32 0.055 27.2);
-    --accent-ink: oklch(0.75 0.13 27.2);
-
-    --action: oklch(0.93 0.005 60);
-    --action-hover: oklch(1 0 0);
-
-    --warn: oklch(0.72 0.11 68);
-    --warn-soft: oklch(0.3 0.045 68);
-    --ok: oklch(0.7 0.1 152);
-    --ok-soft: oklch(0.28 0.04 152);
-
-    --shadow-panel: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px oklch(0 0 0 / 0.35);
-    --shadow-dialog: 0 24px 60px oklch(0 0 0 / 0.5);
-
-    color-scheme: dark;
-  }
+  color-scheme: dark;
 }

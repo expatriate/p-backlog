@@ -8,7 +8,7 @@ import { Button } from "../ui/Button";
 import { TaskPanel } from "../task/TaskPanel";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
-import { readListParams, writeListParams } from "./list-params";
+import { pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
 export function TaskListPage() {
@@ -30,6 +30,7 @@ export function TaskListPage() {
     [allTasks, projectId],
   );
 
+  const setParams = (next: ListParams) => setSearch(writeListParams(next), { replace: true });
   const prefix = projectId === undefined ? "" : `/p/${projectId}`;
   const withSearch = (path: string) => ({ pathname: path === "" ? "/" : path, search: search.toString() });
   const selectedTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
@@ -40,7 +41,7 @@ export function TaskListPage() {
       <div className={styles.list}>
         <Toolbar
           params={params}
-          onChange={(next) => setSearch(writeListParams(next), { replace: true })}
+          onChange={setParams}
           tags={collectTags(projectTasks)}
           epics={projectTasks.filter((task) => task.type === "epic")}
         />
@@ -76,6 +77,8 @@ export function TaskListPage() {
               tasks={visibleTasks}
               index={index}
               selectedId={selectedTask?.id}
+              sort={params.sort}
+              onSort={(key) => setParams({ ...params, sort: pickSortKey(params.sort, key) })}
               taskHref={(task) => `${prefix}/t/${task.id}?${search.toString()}`}
             />
           )}

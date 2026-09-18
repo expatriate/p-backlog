@@ -1,4 +1,4 @@
-import { OPEN_STATUSES, type SortDirection, type SortKey, type TaskFilter, type TaskSort } from "../../core/model/query";
+import { OPEN_STATUSES, SORT_KEYS, type SortDirection, type SortKey, type TaskFilter, type TaskSort } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 
 export type ListParams = { filter: Omit<TaskFilter, "projectId">; sort: TaskSort };
@@ -7,8 +7,24 @@ export const DEFAULT_SORT: TaskSort = { key: "created", direction: "desc" };
 export const NO_EPIC = "none";
 export const ANY_STATUS = "all";
 
-const SORT_KEYS: readonly SortKey[] = ["created", "priority", "progress", "title", "status"];
 const DIRECTIONS: readonly SortDirection[] = ["asc", "desc"];
+
+const NATURAL_DIRECTION: Record<SortKey, SortDirection> = {
+  created: "desc",
+  priority: "desc",
+  progress: "desc",
+  title: "asc",
+  status: "asc",
+  id: "asc",
+};
+
+export function pickSortKey(sort: TaskSort, key: SortKey): TaskSort {
+  return sort.key === key ? reverseSort(sort) : { key, direction: NATURAL_DIRECTION[key] };
+}
+
+export function reverseSort(sort: TaskSort): TaskSort {
+  return { ...sort, direction: sort.direction === "asc" ? "desc" : "asc" };
+}
 
 export function readListParams(search: URLSearchParams): ListParams {
   return {

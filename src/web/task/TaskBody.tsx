@@ -44,6 +44,11 @@ export function TaskBody({ body, onToggleLine, onSave }: TaskBodyProps) {
         <Markdown
           remarkPlugins={[remarkGfm]}
           components={{
+            table: ({ children }) => (
+              <div className={styles.tableScroll}>
+                <table>{children}</table>
+              </div>
+            ),
             li: ({ node, children }) => {
               const line = (node?.position?.start.line ?? 0) - 1;
               const item = checklist.find((candidate) => candidate.line === line);

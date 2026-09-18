@@ -1,9 +1,9 @@
-import type { SortKey, TaskSort } from "../../core/model/query";
+import { SORT_KEYS, type SortKey, type TaskSort } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type Task, type TaskStatus } from "../../core/model/types";
-import { PRIORITY_LABELS, SORT_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
+import { DIRECTION_LABELS, DIRECTION_MARKS, PRIORITY_LABELS, SORT_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
 import { Button } from "../ui/Button";
 import { ToggleChip } from "../ui/Chip";
-import type { ListParams } from "./list-params";
+import { pickSortKey, reverseSort, type ListParams } from "./list-params";
 import styles from "./Toolbar.module.css";
 
 export type ToolbarProps = {
@@ -13,13 +13,11 @@ export type ToolbarProps = {
   epics: Task[];
 };
 
-const SORT_KEYS: readonly SortKey[] = ["created", "priority", "progress", "title", "status"];
-
 export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
   const { filter, sort } = params;
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
   const setFilter = (patch: Partial<ListParams["filter"]>) => onChange({ ...params, filter: { ...filter, ...patch } });
-  const setSort = (patch: Partial<TaskSort>) => onChange({ ...params, sort: { ...sort, ...patch } });
+  const setSort = (next: TaskSort) => onChange({ ...params, sort: next });
 
   return (
     <div className={styles.toolbar}>
@@ -34,7 +32,7 @@ export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
         />
         <label className={styles.sort}>
           Сортировать по
-          <select value={sort.key} onChange={(event) => setSort({ key: event.target.value as SortKey })}>
+          <select value={sort.key} onChange={(event) => setSort(pickSortKey(sort, event.target.value as SortKey))}>
             {SORT_KEYS.map((key) => (
               <option key={key} value={key}>
                 {SORT_LABELS[key]}
@@ -42,12 +40,8 @@ export function Toolbar({ params, onChange, tags, epics }: ToolbarProps) {
             ))}
           </select>
         </label>
-        <Button
-          className={styles.direction}
-          aria-label={sort.direction === "asc" ? "По возрастанию" : "По убыванию"}
-          onClick={() => setSort({ direction: sort.direction === "asc" ? "desc" : "asc" })}
-        >
-          {sort.direction === "asc" ? "↑" : "↓"}
+        <Button className={styles.direction} aria-label={DIRECTION_LABELS[sort.direction]} onClick={() => setSort(reverseSort(sort))}>
+          {DIRECTION_MARKS[sort.direction]}
         </Button>
       </div>
 

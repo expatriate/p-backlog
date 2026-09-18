@@ -16,7 +16,8 @@ export type TaskFilter = {
   onlyUnblocked?: boolean;
 };
 
-export type SortKey = "created" | "priority" | "progress" | "title" | "status";
+export const SORT_KEYS = ["created", "priority", "progress", "title", "status", "id"] as const;
+export type SortKey = (typeof SORT_KEYS)[number];
 export type SortDirection = "asc" | "desc";
 export type TaskSort = { key: SortKey; direction: SortDirection };
 
@@ -62,6 +63,8 @@ export function sortTasks(tasks: readonly Task[], sort: TaskSort, index: Backlog
         return sign * a.title.localeCompare(b.title, "ru");
       case "progress":
         return compareNullsLast(progress.get(a.id) ?? null, progress.get(b.id) ?? null, sign);
+      case "id":
+        return sign * compareIds(a.id, b.id);
     }
   };
   return [...tasks].sort((a, b) => compare(a, b) || compareIds(a.id, b.id));

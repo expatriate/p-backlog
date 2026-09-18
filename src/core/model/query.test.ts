@@ -71,6 +71,8 @@ describe("sortTasks", () => {
     ["title", "asc", ["SPA-2", "SPA-1", "SPA-3"]],
     ["progress", "desc", ["SPA-1", "SPA-2", "SPA-3"]],
     ["progress", "asc", ["SPA-2", "SPA-1", "SPA-3"]],
+    ["id", "asc", ["SPA-1", "SPA-2", "SPA-3"]],
+    ["id", "desc", ["SPA-3", "SPA-2", "SPA-1"]],
   ] as const)("%s %s", (key, direction, expected) => {
     expect(ids(sortTasks(tasks, { key, direction }, index))).toEqual(expected);
   });

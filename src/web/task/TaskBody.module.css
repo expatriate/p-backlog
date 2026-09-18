@@ -51,6 +51,17 @@
   color: var(--ink-muted);
 }
 
+.markdown :global(a) {
+  color: var(--ink);
+  text-decoration-color: var(--ink-subtle);
+  text-underline-offset: 2px;
+}
+
+.markdown :global(a:hover) {
+  color: var(--accent-ink);
+  text-decoration-color: currentColor;
+}
+
 .markdown :global(code) {
   padding: 1px 4px;
   border-radius: var(--radius-chip);
@@ -64,6 +75,12 @@
   border-radius: var(--radius-control);
   background: var(--surface-sunken);
   overflow-x: auto;
+}
+
+.tableScroll {
+  margin: 0 0 var(--space-3);
+  overflow-x: auto;
+  overflow-wrap: normal;
 }
 
 .editor {

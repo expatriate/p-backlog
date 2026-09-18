@@ -68,12 +68,37 @@ describe("список задач", () => {
 
     await app.user.selectOptions(screen.getByRole("combobox", { name: "Сортировать по" }), "title");
 
-    await waitFor(async () => expect(await rowTitles()).toEqual(["Таймауты загрузки", "Разобрать очередь", "Каталог тормозит"]));
+    await waitFor(async () => expect(await rowTitles()).toEqual(["Каталог тормозит", "Разобрать очередь", "Таймауты загрузки"]));
 
-    await app.user.click(screen.getByRole("button", { name: "По убыванию" }));
+    await app.user.click(screen.getByRole("button", { name: "По возрастанию" }));
+
+    await waitFor(async () => expect(await rowTitles()).toEqual(["Таймауты загрузки", "Разобрать очередь", "Каталог тормозит"]));
+    expect(app.route()).toContain("sort=title");
+  });
+
+  it("клик по заголовку колонки сортирует по ней, повторный — меняет направление", async () => {
+    const app = await renderApp(FILES);
+    await screen.findAllByRole("row");
+    const titleHeader = screen.getByRole("columnheader", { name: /Задача/ });
+    expect(screen.getByRole("columnheader", { name: /Создана/ }).getAttribute("aria-sort")).toBe("descending");
+
+    await app.user.click(within(titleHeader).getByRole("button"));
 
     await waitFor(async () => expect(await rowTitles()).toEqual(["Каталог тормозит", "Разобрать очередь", "Таймауты загрузки"]));
+    expect(titleHeader.getAttribute("aria-sort")).toBe("ascending");
     expect(app.route()).toContain("sort=title");
+
+    await app.user.click(within(titleHeader).getByRole("button"));
+
+    await waitFor(async () => expect(await rowTitles()).toEqual(["Таймауты загрузки", "Разобрать очередь", "Каталог тормозит"]));
+    expect(titleHeader.getAttribute("aria-sort")).toBe("descending");
+  });
+
+  it("по тегам не сортирует", async () => {
+    await renderApp(FILES);
+    await screen.findAllByRole("row");
+
+    expect(within(screen.getByRole("columnheader", { name: "Теги" })).queryByRole("button")).toBeNull();
   });
 
   it("сообщает о файлах, которые не удалось разобрать", async () => {

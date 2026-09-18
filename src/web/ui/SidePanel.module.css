@@ -12,6 +12,7 @@
   background: var(--surface-raised);
   box-shadow: var(--shadow-panel);
   overflow-y: auto;
+  overflow-wrap: anywhere;
   animation: slide-in var(--duration) var(--ease-out);
 }
 

@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import { isBlocked, taskProgress, type BacklogIndex } from "../../core/model/graph";
+import type { SortDirection, SortKey, TaskSort } from "../../core/model/query";
 import type { Priority, Task } from "../../core/model/types";
-import { PRIORITY_LABELS, formatDate } from "../labels";
+import { DIRECTION_MARKS, PRIORITY_LABELS, formatDate } from "../labels";
 import { Chip } from "../ui/Chip";
 import { ProgressBar } from "../ui/ProgressBar";
 import { StatusBadge } from "../ui/StatusBadge";
@@ -12,10 +13,14 @@ export type TaskTableProps = {
   tasks: Task[];
   index: BacklogIndex;
   selectedId?: string;
+  sort: TaskSort;
+  onSort: (key: SortKey) => void;
   taskHref: (task: Task) => string;
 };
 
 const VISIBLE_TAGS = 2;
+
+const ARIA_SORT: Record<SortDirection, "ascending" | "descending"> = { asc: "ascending", desc: "descending" };
 
 const PRIORITY_CLASS: Record<Priority, string | undefined> = {
   low: styles.low,
@@ -24,18 +29,34 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
   critical: styles.critical,
 };
 
-export function TaskTable({ tasks, index, selectedId, taskHref }: TaskTableProps) {
+export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref }: TaskTableProps) {
+  const sortableHeader = (key: SortKey, label: string, className?: string) => {
+    const active = sort.key === key;
+    return (
+      <th className={className} scope="col" aria-sort={active ? ARIA_SORT[sort.direction] : undefined}>
+        <button type="button" className={cx(styles.sortButton, active && styles.sorted)} onClick={() => onSort(key)}>
+          {label}
+          <span className={styles.sortMark} aria-hidden="true">
+            {active && DIRECTION_MARKS[sort.direction]}
+          </span>
+        </button>
+      </th>
+    );
+  };
+
   return (
     <table className={styles.table}>
       <thead>
         <tr>
-          <th scope="col">ID</th>
-          <th scope="col">Задача</th>
-          <th className={styles.tags} scope="col">Теги</th>
-          <th scope="col">Статус</th>
-          <th className={styles.priorityCell} scope="col">Приоритет</th>
-          <th scope="col">Прогресс</th>
-          <th className={styles.date} scope="col">Создана</th>
+          {sortableHeader("id", "ID")}
+          {sortableHeader("title", "Задача")}
+          <th className={styles.tags} scope="col">
+            Теги
+          </th>
+          {sortableHeader("status", "Статус")}
+          {sortableHeader("priority", "Приоритет", styles.priorityCell)}
+          {sortableHeader("progress", "Прогресс")}
+          {sortableHeader("created", "Создана", styles.date)}
         </tr>
       </thead>
       <tbody>

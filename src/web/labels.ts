@@ -1,4 +1,4 @@
-import type { SortKey } from "../core/model/query";
+import type { SortDirection, SortKey } from "../core/model/query";
 import type { Priority, TaskStatus, TaskType } from "../core/model/types";
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -24,7 +24,11 @@ export const SORT_LABELS: Record<SortKey, string> = {
   progress: "прогрессу",
   title: "названию",
   status: "статусу",
+  id: "ID",
 };
+
+export const DIRECTION_LABELS: Record<SortDirection, string> = { asc: "По возрастанию", desc: "По убыванию" };
+export const DIRECTION_MARKS: Record<SortDirection, string> = { asc: "↑", desc: "↓" };
 
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" });
