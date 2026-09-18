@@ -3,7 +3,7 @@ import { normalizeText } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
 import { ToggleChip } from "../ui/Chip";
-import { Popover } from "../ui/Popover";
+import { Popover, POPOVER_INITIAL_FOCUS } from "../ui/Popover";
 import { EpicPicker } from "./EpicPicker";
 import type { EpicChoices } from "./epic-choices";
 import { AUTO_CLOSED_VIEW, type ListParams } from "./list-params";
@@ -98,7 +98,7 @@ function TagPicker({ tags, selected, onToggle }: { tags: string[]; selected: rea
       <Popover trigger={summary}>
         <input
           type="search"
-          autoFocus
+          {...POPOVER_INITIAL_FOCUS}
           className={styles.tagSearch}
           value={query}
           placeholder="Найти тег"

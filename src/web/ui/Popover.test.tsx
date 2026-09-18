@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { Popover } from "./Popover";
+import { Popover, POPOVER_INITIAL_FOCUS } from "./Popover";
 
 function stubViewport(clientWidth: number): void {
   const clientWidthSpy = vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(clientWidth);
@@ -48,5 +48,22 @@ describe("Popover", () => {
 
     const menu = screen.getByText("содержимое").parentElement as HTMLElement;
     expect(menu.style.transform).toBe("");
+  });
+
+  it("меню ставит начальный фокус без прокрутки страницы", async () => {
+    const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+    onTestFinished(() => focusSpy.mockRestore());
+    const user = userEvent.setup();
+    render(
+      <Popover trigger="Меню">
+        <input aria-label="Поле" {...POPOVER_INITIAL_FOCUS} />
+      </Popover>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Меню" }));
+
+    const field = screen.getByRole("textbox", { name: "Поле" });
+    expect(document.activeElement).toBe(field);
+    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
   });
 });

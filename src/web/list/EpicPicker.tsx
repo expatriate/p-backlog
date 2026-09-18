@@ -1,7 +1,7 @@
 import { useRef, type ReactNode } from "react";
 import type { TaskFilter } from "../../core/model/query";
 import { cx } from "../ui/cx";
-import { Popover, useClosePopover } from "../ui/Popover";
+import { Popover, POPOVER_INITIAL_FOCUS, useClosePopover } from "../ui/Popover";
 import type { EpicChoices } from "./epic-choices";
 import styles from "./EpicPicker.module.css";
 
@@ -88,7 +88,7 @@ function EpicOption({ pressed, tone, onChoose, children }: { pressed: boolean; t
       className={cx(styles.option, pressed && styles.pressed)}
       aria-pressed={pressed}
       data-epic-tone={tone}
-      autoFocus={pressed}
+      {...(pressed ? POPOVER_INITIAL_FOCUS : {})}
       onClick={onChoose}
     >
       {children}
