@@ -1,5 +1,5 @@
-import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { projectFile } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
@@ -328,5 +328,86 @@ describe("список задач", () => {
 
       expect(screen.queryByRole("button", { name: /^Эпик:/ })).toBeNull();
     });
+  });
+});
+
+describe("шильдик «новая»", () => {
+  const SEEN_KEY = "p-backlog.seen";
+  const NEW_FILES = {
+    "spa/project.md": projectFile("SPA"),
+    "spa/SPA-1.md": taskFixture("SPA-1", { title: "Старая", created: "2026-09-10T10:00:00+03:00" }),
+    "spa/SPA-2.md": taskFixture("SPA-2", { title: "Свежая", created: "2026-09-16T10:00:00+03:00" }),
+    "spa/SPA-3.md": taskFixture("SPA-3", {
+      title: "Свежая закрытая",
+      created: "2026-09-16T11:00:00+03:00",
+      status: "done",
+      closed: "2026-09-16T12:00:00+03:00",
+    }),
+  };
+
+  function rememberFirstVisit(iso: string, seen: string[] = []) {
+    localStorage.setItem(SEEN_KEY, JSON.stringify({ since: Date.parse(iso), ids: seen }));
+  }
+
+  async function hasBadge(title: string): Promise<boolean> {
+    const row = (await screen.findByRole("link", { name: title })).closest("tr");
+    if (!row) throw new Error(`нет строки ${title}`);
+    return within(row).queryByText("новая") !== null;
+  }
+
+  it("при первом запуске существующие задачи не новые", async () => {
+    await renderApp(NEW_FILES);
+
+    expect(await hasBadge("Свежая")).toBe(false);
+    expect(JSON.parse(localStorage.getItem(SEEN_KEY) ?? "null")).toMatchObject({ ids: [] });
+  });
+
+  it("задача, созданная после первого запуска, новая, пока её не открыли; у закрытых шильдика нет", async () => {
+    rememberFirstVisit("2026-09-15T00:00:00+03:00");
+    const app = await renderApp(NEW_FILES, "/?status=all");
+
+    expect(await hasBadge("Старая")).toBe(false);
+    expect(await hasBadge("Свежая")).toBe(true);
+    expect(await hasBadge("Свежая закрытая")).toBe(false);
+
+    await app.user.click(screen.getByRole("link", { name: "Свежая" }));
+    await screen.findByRole("complementary", { name: "Задача SPA-2" });
+    expect(await hasBadge("Свежая")).toBe(false);
+
+    await app.user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Задача SPA-2" })).toBeNull());
+
+    expect(await hasBadge("Свежая")).toBe(false);
+    expect(JSON.parse(localStorage.getItem(SEEN_KEY) ?? "null").ids).toEqual(["SPA-2"]);
+  });
+
+  it("просмотр в другой вкладке снимает шильдик", async () => {
+    rememberFirstVisit("2026-09-15T00:00:00+03:00");
+    await renderApp(NEW_FILES);
+    expect(await hasBadge("Свежая")).toBe(true);
+
+    rememberFirstVisit("2026-09-15T00:00:00+03:00", ["SPA-2"]);
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: SEEN_KEY }));
+    });
+
+    expect(await hasBadge("Свежая")).toBe(false);
+  });
+
+  it("без доступа к localStorage шильдиков нет, список работает", async () => {
+    const denied = () => {
+      throw new Error("доступ запрещён");
+    };
+    const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(denied);
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(denied);
+    onTestFinished(() => {
+      getItem.mockRestore();
+      setItem.mockRestore();
+    });
+
+    await renderApp(NEW_FILES);
+
+    expect(await hasBadge("Свежая")).toBe(false);
+    expect(await rowTitles()).toEqual(["Свежая", "Старая"]);
   });
 });

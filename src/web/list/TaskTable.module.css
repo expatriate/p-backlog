@@ -75,6 +75,17 @@
   text-underline-offset: 2px;
 }
 
+.newBadge {
+  margin-right: var(--space-2);
+  padding: 1px 6px;
+  border-radius: var(--radius-chip);
+  background: var(--ink);
+  color: var(--ink-inverse);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .marker {
   margin-left: var(--space-2);
   padding: 1px 6px;

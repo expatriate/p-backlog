@@ -24,6 +24,7 @@ export type TaskTableProps = {
   taskHref: TaskHref;
   dateColumn: DateColumn;
   tones: EpicTones;
+  isNew: (task: Task) => boolean;
 };
 
 const VISIBLE_TAGS = 2;
@@ -39,7 +40,7 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
   critical: styles.critical,
 };
 
-export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, dateColumn, tones }: TaskTableProps) {
+export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, dateColumn, tones, isNew }: TaskTableProps) {
   const now = useNow();
   const sortableHeader = (key: SortKey, label: string, className?: string) => {
     const active = sort.key === key;
@@ -86,6 +87,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
                 </Link>
               </td>
               <td>
+                {isNew(task) && <span className={styles.newBadge}>новая</span>}
                 <Link to={taskHref(task.id)} className={styles.title}>
                   {task.title}
                 </Link>

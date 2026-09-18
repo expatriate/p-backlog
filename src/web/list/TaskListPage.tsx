@@ -10,6 +10,7 @@ import { epicTones } from "../ui/epic-tone";
 import { epicChoices } from "./epic-choices";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
+import { useSeenTasks } from "./use-seen-tasks";
 import { DEFAULT_FILTER, dateColumnFor, followDateColumn, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
@@ -19,6 +20,7 @@ export function TaskListPage() {
   const navigate = useNavigate();
   const { data, isPending, isError, refetch } = useTasks();
   const projects = useProjects();
+  const { isNew, markSeen } = useSeenTasks();
 
   const searchKey = search.toString();
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
@@ -48,6 +50,9 @@ export function TaskListPage() {
   const prefix = projectId === undefined ? "" : `/p/${projectId}`;
   const taskHref = (id: string) => ({ pathname: `${prefix}/t/${id}`, search: searchKey });
   const selectedTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
+  useEffect(() => {
+    if (selectedTask !== undefined) markSeen(selectedTask);
+  }, [selectedTask, markSeen]);
   const parseErrors = (data?.errors ?? []).filter((error) => projectId === undefined || error.projectId === projectId);
 
   return (
@@ -95,6 +100,7 @@ export function TaskListPage() {
               onSort={(key) => setParams({ ...params, sort: pickSortKey(sort, key) })}
               taskHref={taskHref}
               tones={tones}
+              isNew={isNew}
             />
           )}
         </div>
