@@ -25,6 +25,13 @@ describe("события журнала", () => {
     ]);
   });
 
+  it("смена только приоритета — одно событие приоритета", () => {
+    const before = makeTask({ id: "SPA-1", priority: "low" });
+    const after = makeTask({ id: "SPA-1", priority: "high" });
+
+    expect(changeEvents(before, after, NOW, "cli")).toMatchObject([{ kind: "priority", from: "low", to: "high", via: "cli" }]);
+  });
+
   it("возврат в беклог — событие статуса без причины", () => {
     const before = makeTask({ id: "SPA-1", status: "done", resolution: "fixed" });
     const after = makeTask({ id: "SPA-1", status: "backlog" });

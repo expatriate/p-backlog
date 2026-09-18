@@ -31,4 +31,18 @@ describe("недели", () => {
       { start: formatLocalIso(new Date(2026, 8, 14)), created: 1, closed: 1, openAtEnd: 1 },
     ]);
   });
+
+  it("возврат в другую неделю: закрытие считается в своей неделе, потом задача снова открыта", () => {
+    const task = makeTask({ id: "SPA-1", created: formatLocalIso(at(7, 25)), status: "backlog" });
+    const events: JournalEvent[] = [
+      { at: formatLocalIso(at(8, 2)), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done" },
+      { at: formatLocalIso(at(8, 10)), task: "SPA-1", via: "web", kind: "status", from: "done", to: "backlog" },
+    ];
+
+    const weeks = weeklyFlow(taskHistories([task], [{ projectId: "spa", events, invalidLines: 0 }]), NOW);
+    const weekOf = (start: Date) => weeks.find((week) => week.start === formatLocalIso(start));
+
+    expect(weekOf(new Date(2026, 7, 31))).toMatchObject({ closed: 1, openAtEnd: 0 });
+    expect(weekOf(new Date(2026, 8, 7))).toMatchObject({ openAtEnd: 1 });
+  });
 });

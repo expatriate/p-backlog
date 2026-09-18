@@ -53,6 +53,37 @@ describe("отчёт статистики", () => {
     expect(report.totals.closedLastWeek).toBe(1);
   });
 
+  it("удалённая задача, известная только по снимку, попадает в закрытые и в причины", () => {
+    const events: JournalEvent[] = [
+      {
+        at: formatLocalIso(at(19)),
+        task: "SPA-9",
+        via: "sweep",
+        kind: "deleted",
+        snapshot: {
+          id: "SPA-9",
+          title: "Пропала",
+          type: "task",
+          status: "done",
+          priority: "medium",
+          tags: [],
+          blockedBy: [],
+          related: [],
+          created: formatLocalIso(at(10)),
+          closed: formatLocalIso(at(12)),
+          resolution: "fixed",
+        },
+      },
+    ];
+
+    const report = statsReport({ tasks: [], journals: [{ projectId: "spa", events, invalidLines: 0 }], now: NOW, projectId: "spa" });
+
+    expect(report.totals.createdLastWeek).toBe(0);
+    expect(report.totals.closedLastWeek).toBe(1);
+    expect(report.totals.leadTimeMedianDays).toBeCloseTo(2);
+    expect(report.closing.byReason.fixed).toBe(1);
+  });
+
   it("пустая область — ноль задач и пустые медианы", () => {
     const report = statsReport({ tasks: [], journals: [], now: NOW });
 

@@ -1,6 +1,8 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../../core/model/dates";
 import { loadBacklog } from "../../core/store/load";
+import { readJournal } from "../../core/store/journal";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -29,6 +31,16 @@ describe("backlog close", () => {
     const shown = (await run(["show", "SPA-1"])).out;
     expect(shown).toContain(`удалится ${DELETION_DAY}`);
     expect(shown).toContain("Причина закрытия: fixed — Исправлено в a1b2c3d: таймаут от размера");
+  });
+
+  it("пишет событие статуса в журнал проекта", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--title", "Устарело"]);
+
+    await run(["close", "SPA-1", "--as", "obsolete", "--reason", "больше не нужно"]);
+
+    const journal = await readJournal(join(root, "spa"), "spa");
+    expect(journal.events.at(-1)).toMatchObject({ kind: "status", to: "cancelled", resolution: "obsolete", via: "cli" });
   });
 
   it("дубль отменяется и связывается с оригиналом", async () => {
