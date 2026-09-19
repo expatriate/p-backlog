@@ -172,6 +172,17 @@ describe("вкладки статистики", () => {
     expect(within(epics).getByText("0/1 · темпа нет")).toBeDefined();
   });
 
+  it("эпик без задач — без некорректной шкалы прогресса", async () => {
+    await renderApp(
+      { ...FILES, "spa/SPA-4.md": taskFixture("SPA-4", { title: "Вход", type: "epic", created: "2026-09-10T10:00:00+03:00" }) },
+      "/p/spa/stats/flow",
+    );
+
+    const epics = await screen.findByRole("region", { name: "Эпики" });
+    expect(within(epics).getByText("0/0 · темпа нет")).toBeDefined();
+    expect(within(epics).queryByRole("progressbar", { name: /SPA-4/ })).toBeNull();
+  });
+
   it("без взятий в работу — подсказка вместо времени", async () => {
     await renderApp(FILES, "/stats/flow");
 

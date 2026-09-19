@@ -86,26 +86,32 @@ export function EpicsPanel({ epics, tones }: { epics: EpicFlow[]; tones: EpicTon
         <p className={styles.muted}>Открытых эпиков нет</p>
       ) : (
         <ul className={styles.rows}>
-          {epics.map((epic) => (
-            <li key={epic.id} className={styles.epicRow} data-epic-tone={tones.get(epic.id)}>
-              <span className={styles.rowLabel}>
-                <Link to={`/p/${epic.projectId}/t/${epic.id}`}>{epic.id}</Link> {epic.title}
-              </span>
-              <span
-                className={styles.epicTrack}
-                role="progressbar"
-                aria-label={`${epic.id}: закрыто ${epic.closed} из ${epic.total}`}
-                aria-valuenow={epic.closed}
-                aria-valuemin={0}
-                aria-valuemax={epic.total}
-              >
-                <span className={styles.epicFill} style={{ transform: `scaleX(${epic.total === 0 ? 0 : epic.closed / epic.total})` }} />
-              </span>
-              <span className={styles.rowValue}>
-                {epic.closed}/{epic.total} · {epicEta(epic.weeks)}
-              </span>
-            </li>
-          ))}
+          {epics.map((epic) => {
+            const trackProps =
+              epic.total === 0
+                ? { "aria-hidden": "true" as const }
+                : {
+                    role: "progressbar" as const,
+                    "aria-label": `${epic.id}: закрыто ${epic.closed} из ${epic.total}`,
+                    "aria-valuenow": epic.closed,
+                    "aria-valuemin": 0,
+                    "aria-valuemax": epic.total,
+                  };
+            const progress = epic.total === 0 ? 0 : epic.closed / epic.total;
+            return (
+              <li key={epic.id} className={styles.epicRow} data-epic-tone={tones.get(epic.id)}>
+                <span className={styles.rowLabel}>
+                  <Link to={`/p/${epic.projectId}/t/${epic.id}`}>{epic.id}</Link> {epic.title}
+                </span>
+                <span className={styles.epicTrack} {...trackProps}>
+                  <span className={styles.epicFill} style={{ transform: `scaleX(${progress})` }} />
+                </span>
+                <span className={styles.rowValue}>
+                  {epic.closed}/{epic.total} · {epicEta(epic.weeks)}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Panel>
