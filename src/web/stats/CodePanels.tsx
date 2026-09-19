@@ -15,7 +15,7 @@ export function ChurnPanel({ churn }: { churn: ChurnRow[] }) {
         <ul className={flowStyles.rows}>
           {churn.map((row) => (
             <li key={row.label} className={styles.churnRow}>
-              <code className={flowStyles.rowLabel}>{row.label}</code>
+              <code className={flowStyles.rowLabel} title={row.label}>{row.label}</code>
               <span className={flowStyles.rowValue}>{row.commits} коммитов</span>
               <span className={flowStyles.rowValue}>
                 {row.tasks} задач, вес {row.weight}
