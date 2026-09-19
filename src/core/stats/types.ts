@@ -111,3 +111,13 @@ export type EffectReport = {
 export type SignalKind = "debt-growing" | "urgent-stale" | "stuck" | "noisy-check";
 export type Signal = { kind: SignalKind; text: string };
 export type SignalsReport = { signals: Signal[] };
+
+export type TokenCounts = { input: number; cacheWrite5m: number; cacheWrite1h: number; cacheRead: number; output: number };
+export type UsageKind = "hook" | "cli" | "skill";
+export type UsageBucket = { day: string; projectId: string | null; model: string; kind: UsageKind; tokens: TokenCounts; hookTurns: number };
+export type TranscriptState = {
+  hookOpen: boolean;
+  lastModel: string | null;
+  pending: Record<string, "cli" | "skill">;
+  pendingEstimates: { kind: "cli" | "skill"; chars: number; day: string; projectId: string | null }[];
+};
