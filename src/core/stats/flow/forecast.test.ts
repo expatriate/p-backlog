@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../../model/dates";
+import { DAY_MS } from "../../model/lifecycle";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
 import { flowForecast } from "./forecast";
@@ -38,5 +39,30 @@ describe("прогноз", () => {
     const forecast = flowForecast(taskHistories([closed("SPA-1", OLD, iso(10))], []), 0, NOW);
 
     expect(forecast).toMatchObject({ open: 0, weeks: null, until: null });
+  });
+
+  it("округление вверх до целого числа недель", () => {
+    const exact = flowForecast(
+      taskHistories([...["SPA-1", "SPA-2", "SPA-3"].map((id) => closed(id, OLD, iso(10))), open("SPA-4", iso(11))], []),
+      3,
+      NOW,
+    );
+    const fractional = flowForecast(
+      taskHistories(["SPA-1", "SPA-2", "SPA-3", "SPA-4", "SPA-5"].map((id) => closed(id, OLD, iso(10))), []),
+      3,
+      NOW,
+    );
+
+    expect(exact).toMatchObject({ closed: 3, created: 1, weeklyNet: 0.5, weeks: 6 });
+    expect(fractional).toMatchObject({ closed: 5, created: 0, weeklyNet: 1.25, weeks: 3 });
+  });
+
+  it("границы окна: −28 дней исключены, «сейчас» включено", () => {
+    const nowMs = NOW.getTime();
+    const excluded = flowForecast(taskHistories([closed("SPA-1", OLD, formatLocalIso(new Date(nowMs - 28 * DAY_MS)))], []), 1, NOW);
+    const included = flowForecast(taskHistories([closed("SPA-1", OLD, formatLocalIso(new Date(nowMs)))], []), 1, NOW);
+
+    expect(excluded.closed).toBe(0);
+    expect(included.closed).toBe(1);
   });
 });
