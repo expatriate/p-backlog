@@ -48,4 +48,30 @@ describe("backlog verify", () => {
     expect(verified).toMatchObject([{ via: "cli" }, { via: "cli", source: "src/b.ts:2" }]);
     expect(verified[0]).not.toHaveProperty("source");
   });
+
+  it("new и verify пишут якорь фрагмента; правка вне фрагмента не делает задачу кандидатом", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    const lines = Array.from({ length: 20 }, (_, index) => `line ${index + 1}`);
+    await writeFiles(repo, { "src/a.ts": lines.join("\n") });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--title", "Таймаут", "--source", "src/a.ts:3"]);
+    expect((await loadBacklog(root)).tasks[0]?.anchor).toMatch(/^[0-9a-f]{12}$/);
+
+    await writeFile(join(repo, "src/a.ts"), lines.map((line, index) => (index === 15 ? "changed" : line)).join("\n"));
+    gitCommitAll(repo, "Правка далеко от задачи", "2026-09-17T15:00:00Z");
+
+    expect((await run(["check", "--changed"])).out).toBe("Беклог в порядке");
+  });
+
+  it("подтверждает несколько задач сразу; --source — только с одной", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--title", "A"]);
+    await run(["new", "--title", "B"]);
+
+    const result = await run(["verify", "SPA-1", "SPA-2"], { now: new Date("2026-09-17T16:00:00Z") });
+
+    expect(result).toMatchObject({ code: EXIT.ok, out: "SPA-1: подтверждена\nSPA-2: подтверждена" });
+    expect((await loadBacklog(root)).tasks.every((task) => task.verified !== undefined)).toBe(true);
+    expect((await run(["verify", "SPA-1", "SPA-2", "--source", "src/a.ts:1"])).code).toBe(EXIT.invalid);
+  });
 });

@@ -8,7 +8,7 @@ export type CommitRef = { sha: string; subject: string };
 
 export type Candidate =
   | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string }
-  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; snippet?: string; diff?: string }
+  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string }
   | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: "source" | "title" }
   | { kind: "no-source"; task: TaskRef };
 

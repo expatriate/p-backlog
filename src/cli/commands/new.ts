@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { sourceAnchor } from "../../core/check/check-backlog";
 import { FOUND_HOW } from "../../core/journal/events";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES } from "../../core/model/types";
 import { createTask } from "../../core/store/create";
@@ -48,6 +49,7 @@ export async function runNew(args: string[], io: CliIo): Promise<number> {
       category,
       tags: splitList(values.tags),
       source: values.source,
+      anchor: values.source === undefined ? undefined : await sourceAnchor(project, values.source, io.home),
       epic: values.epic,
       blockedBy: splitList(values["blocked-by"]),
       related: splitList(values.related),

@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { candidateEvents, type CheckMode } from "../journal/events";
 import { buildIndex } from "../model/graph";
@@ -12,7 +12,7 @@ import { expandHome, PROJECT_FILE } from "../store/paths";
 import { referenceCleanup } from "../store/references";
 import { updateTaskIn, type TaskChanges } from "../store/update";
 import type { UpdateTaskFailure } from "../store/write-result";
-import { snippetOf } from "./anchor";
+import { anchorOf, snippetOf } from "./anchor";
 import { anchorPlans, codeCandidates, duplicateCandidates, isReviewable, noSourceCandidates, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
 import { collectRepoFacts, diffSince, type RepoFacts } from "./repo-facts";
 
@@ -23,6 +23,8 @@ export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now
 export type CheckReport = { fixed: string[]; problems: string[]; candidates: Candidate[] };
 
 type Fix = { changes: TaskChanges; closure?: Closure; notes: string[] };
+const PROBLEM_LIMIT = 400;
+
 type ProjectReview = { candidates: Candidate[]; plans: AnchorPlan[] };
 type FixOutcome = { fixed: string[]; failed: string[] };
 
@@ -134,7 +136,14 @@ async function withContext(candidate: Candidate, tasks: readonly Task[], facts: 
   const text = facts.texts.get(candidate.path);
   const snippet = text === undefined || task.source === undefined ? undefined : snippetOf(text, task.source);
   const diff = await diffSince(repo, candidate.path, new Date(reviewMark(task)));
-  return { ...candidate, ...(snippet === undefined ? {} : { snippet }), ...(diff === undefined ? {} : { diff }) };
+  const problem = firstParagraph(task.body);
+  return { ...candidate, ...(problem === undefined ? {} : { problem }), ...(snippet === undefined ? {} : { snippet }), ...(diff === undefined ? {} : { diff }) };
+}
+
+function firstParagraph(body: string): string | undefined {
+  const paragraph = body.trim().split(/\n\s*\n/)[0]?.trim() ?? "";
+  if (paragraph === "") return undefined;
+  return paragraph.length <= PROBLEM_LIMIT ? paragraph : `${paragraph.slice(0, PROBLEM_LIMIT)}…`;
 }
 
 async function applyAnchorPlans(tasks: readonly Task[], plans: readonly AnchorPlan[], now: Date): Promise<string[]> {
@@ -146,6 +155,13 @@ async function applyAnchorPlans(tasks: readonly Task[], plans: readonly AnchorPl
     if (result.ok && plan.note !== undefined) notes.push(plan.note);
   }
   return notes;
+}
+
+export async function sourceAnchor(project: Project, source: string, home: string): Promise<string | undefined> {
+  const repo = await findRepo(project, home);
+  if (repo === undefined) return undefined;
+  const text = await readFile(join(repo, sourcePath(source)), "utf8").catch(() => null);
+  return text === null ? undefined : (anchorOf(text, source) ?? undefined);
 }
 
 async function findRepo(project: Project, home: string): Promise<string | undefined> {
