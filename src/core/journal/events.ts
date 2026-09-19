@@ -97,46 +97,48 @@ function snapshotOf(task: Task): TaskSnapshot {
   return Object.fromEntries(SNAPSHOT_FIELDS.map((field) => [field, task[field]])) as TaskSnapshot;
 }
 
+type EpisodeState = "open" | "ended";
+
 export function candidateEvents(sightings: readonly CandidateSighting[], journal: readonly JournalEvent[], now: Date, mode: CheckMode): JournalEvent[] {
   const at = formatLocalIso(now);
+  const states = episodeStates(journal);
   return dedupeSightings(sightings)
-    .filter((sighting) => isNewCandidate(sighting, journal))
+    .filter((sighting) => states.get(episodeKey(sighting.task, sighting.evidence)) !== "open")
     .map((sighting) => ({ at, task: sighting.task, via: "check", kind: "candidate", evidence: sighting.evidence, mode }));
 }
 
 export function candidateGoneEvents(sightings: readonly CandidateSighting[], tasks: readonly string[], journal: readonly JournalEvent[], now: Date): JournalEvent[] {
   const at = formatLocalIso(now);
-  const seen = new Set(sightings.map((sighting) => `${sighting.task}:${sighting.evidence}`));
+  const states = episodeStates(journal);
+  const seen = new Set(sightings.map((sighting) => episodeKey(sighting.task, sighting.evidence)));
   return tasks.flatMap((task) =>
     CANDIDATE_EVIDENCE.flatMap((evidence): JournalEvent[] => {
-      if (seen.has(`${task}:${evidence}`) || isNewCandidate({ task, evidence }, journal)) return [];
-      return [{ at, task, via: "check", kind: "candidate-gone", evidence }];
+      const key = episodeKey(task, evidence);
+      return seen.has(key) || states.get(key) !== "open" ? [] : [{ at, task, via: "check", kind: "candidate-gone", evidence }];
     }),
   );
 }
 
-function dedupeSightings(sightings: readonly CandidateSighting[]): CandidateSighting[] {
-  const byKey = new Map(sightings.map((sighting) => [`${sighting.task}:${sighting.evidence}`, sighting]));
-  return [...byKey.values()];
-}
-
-function isNewCandidate({ task, evidence }: CandidateSighting, journal: readonly JournalEvent[]): boolean {
-  const last = journal.filter((event) => event.task === task && endsOrRepeatsEpisode(event, evidence)).at(-1);
-  return !(last?.kind === "candidate" && last.evidence === evidence);
-}
-
-function endsOrRepeatsEpisode(event: JournalEvent, evidence: CandidateEvidence): boolean {
-  switch (event.kind) {
-    case "candidate":
-      return event.evidence === evidence;
-    case "candidate-gone":
-      return event.evidence === evidence;
-    case "verified":
-    case "deleted":
-      return true;
-    case "status":
-      return isClosed(event.to);
-    default:
-      return false;
+function episodeStates(journal: readonly JournalEvent[]): Map<string, EpisodeState> {
+  const states = new Map<string, EpisodeState>();
+  for (const event of journal) {
+    if (event.kind === "candidate") states.set(episodeKey(event.task, event.evidence), "open");
+    else if (event.kind === "candidate-gone") states.set(episodeKey(event.task, event.evidence), "ended");
+    else if (endsEpisodes(event)) for (const evidence of CANDIDATE_EVIDENCE) states.set(episodeKey(event.task, evidence), "ended");
   }
+  return states;
+}
+
+function endsEpisodes(event: JournalEvent): boolean {
+  if (event.kind === "verified" || event.kind === "deleted") return true;
+  return event.kind === "status" && isClosed(event.to);
+}
+
+function episodeKey(task: string, evidence: CandidateEvidence): string {
+  return `${task}:${evidence}`;
+}
+
+function dedupeSightings(sightings: readonly CandidateSighting[]): CandidateSighting[] {
+  const byKey = new Map(sightings.map((sighting) => [episodeKey(sighting.task, sighting.evidence), sighting]));
+  return [...byKey.values()];
 }
