@@ -6,7 +6,7 @@ import { fixKey, type FixRequest } from "../stats/code/fixes";
 import type { CollectedCode, FixCommit, ProjectCode, RepoCode } from "../stats/types";
 import { expandHome } from "../store/paths";
 import { emptyCodeCache, type CodeCacheStore } from "./code-cache";
-import { readFixCommit, readHead, readMainCommit, readRepoCode } from "./git-code";
+import { readFixCommits, readHead, readMainCommit, readRepoCode } from "./git-code";
 import { runGit, type GitRunner } from "../git/run";
 
 
@@ -39,7 +39,17 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
     });
   };
 
-  const repoCode = async (repo: string, now: Date): Promise<RepoCode | null> => {
+  const inFlight = new Map<string, Promise<RepoCode | null>>();
+
+  const repoCode = (repo: string, now: Date): Promise<RepoCode | null> => {
+    const running = inFlight.get(repo);
+    if (running !== undefined) return running;
+    const started = readRepoOnce(repo, now).finally(() => inFlight.delete(repo));
+    inFlight.set(repo, started);
+    return started;
+  };
+
+  const readRepoOnce = async (repo: string, now: Date): Promise<RepoCode | null> => {
     const head = await readHead(git, repo);
     if (head === null) return null;
     const mainCommit = await readMainCommit(git, repo);
@@ -54,16 +64,13 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
     return code;
   };
 
-  const fixCommit = async (repo: string, hash: string): Promise<FixCommit | null> => {
-    const cacheKey = `${repo} ${hash}`;
-    const cached = fixCache.get(cacheKey);
-    if (cached !== undefined) return cached;
-    const commit = await readFixCommit(git, repo, hash);
-    if (commit !== null) {
-      fixCache.set(cacheKey, commit);
+  const fixCommitsOf = async (repo: string, hashes: readonly string[]): Promise<void> => {
+    const missing = hashes.filter((hash) => !fixCache.has(`${repo} ${hash}`));
+    if (missing.length === 0) return;
+    for (const [hash, commit] of await readFixCommits(git, repo, missing)) {
+      fixCache.set(`${repo} ${hash}`, commit);
       changed = true;
     }
-    return commit;
   };
 
   return {
@@ -78,11 +85,15 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
       const available = new Map<string, string[]>();
       const projectCodes: ProjectCode[] = [];
       const seenUnavailable = new Set<string>();
-      for (const project of projects) {
-        const repos: RepoCode[] = [];
-        for (const repo of project.repos) {
-          const expanded = expandHome(repo, home);
-          const code = await repoCode(expanded, now);
+      const scanned = await Promise.all(
+        projects.map(async (project) => ({
+          project,
+          repos: await Promise.all(project.repos.map(async (repo) => ({ repo, expanded: expandHome(repo, home), code: await repoCode(expandHome(repo, home), now) }))),
+        })),
+      );
+      for (const { project, repos } of scanned) {
+        const readable: RepoCode[] = [];
+        for (const { repo, expanded, code } of repos) {
           if (code === null) {
             if (!seenUnavailable.has(repo)) {
               seenUnavailable.add(repo);
@@ -90,17 +101,18 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
             }
             continue;
           }
-          repos.push(code);
+          readable.push(code);
           available.set(project.id, [...(available.get(project.id) ?? []), expanded]);
         }
-        projectCodes.push({ projectId: project.id, name: project.name, repos });
+        projectCodes.push({ projectId: project.id, name: project.name, repos: readable });
       }
+      await Promise.all(requests.flatMap(({ projectId, hashes }) => (available.get(projectId) ?? []).map((repo) => fixCommitsOf(repo, hashes))));
       const fixCommits = new Map<string, FixCommit>();
       for (const { projectId, hashes } of requests) {
         for (const hash of hashes) {
           for (const repo of available.get(projectId) ?? []) {
-            const commit = await fixCommit(repo, hash);
-            if (commit === null) continue;
+            const commit = fixCache.get(`${repo} ${hash}`);
+            if (commit === undefined) continue;
             fixCommits.set(fixKey(projectId, hash), commit);
             break;
           }

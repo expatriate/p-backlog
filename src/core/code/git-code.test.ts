@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
-import { readFixCommit, readHead, readMainCommit, readRepoCode } from "./git-code";
+import { readFixCommits, readHead, readMainCommit, readRepoCode } from "./git-code";
 import { runGit, type GitRunner } from "../git/run";
 
 const AGENT_MESSAGE = "fix: retry\n\nCo-authored-by: claude Sonnet 5 <noreply@anthropic.com>";
@@ -34,11 +34,11 @@ describe("чтение git для вкладки «Код»", () => {
   it("коммит исправления: дата и агент по трейлеру без учёта регистра, неизвестный хеш — null", async () => {
     const repo = await sampleRepo();
 
-    const commit = await readFixCommit(runGit, repo, shortHead(repo));
+    const commit = (await readFixCommits(runGit, repo, [shortHead(repo)])).get(shortHead(repo));
 
     expect(commit?.byAgent).toBe(true);
     expect(Date.parse(commit?.date ?? "")).toBe(Date.parse("2026-09-10T10:00:00+03:00"));
-    expect(await readFixCommit(runGit, repo, "deadbee")).toBeNull();
+    expect((await readFixCommits(runGit, repo, ["deadbee"])).get("deadbee")).toBeUndefined();
   });
 
   it("репозиторий — поддиректория: пути коммитов и строк относительны ей", async () => {
@@ -94,7 +94,7 @@ describe("чтение git для вкладки «Код»", () => {
   it("размер коммита исправления", async () => {
     const repo = await sampleRepo();
 
-    const commit = await readFixCommit(runGit, repo, shortHead(repo));
+    const commit = (await readFixCommits(runGit, repo, [shortHead(repo)])).get(shortHead(repo));
 
     expect(commit?.lines).toBe(2);
   });
@@ -106,7 +106,7 @@ describe("чтение git для вкладки «Код»", () => {
     await writeFiles(repo, { "src/a.ts": "one\ntwo\nthree\n", "src/a.test.ts": "a\nb\nc\n" });
     gitCommitAll(repo, "fix: with test", "2026-09-10T10:00:00+03:00");
 
-    const commit = await readFixCommit(runGit, repo, shortHead(repo));
+    const commit = (await readFixCommits(runGit, repo, [shortHead(repo)])).get(shortHead(repo));
 
     expect(commit).toMatchObject({ lines: 5, testLines: 3 });
   });
@@ -118,7 +118,7 @@ describe("чтение git для вкладки «Код»", () => {
     await writeFiles(repo, { "package-lock.json": "{\n}\n" });
     gitCommitAll(repo, "fix: lockfile only", "2026-09-10T10:00:00+03:00");
 
-    const commit = await readFixCommit(runGit, repo, shortHead(repo));
+    const commit = (await readFixCommits(runGit, repo, [shortHead(repo)])).get(shortHead(repo));
 
     expect(Date.parse(commit?.date ?? "")).toBe(Date.parse("2026-09-10T10:00:00+03:00"));
     expect(commit?.lines).toBe(0);

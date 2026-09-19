@@ -37,19 +37,54 @@ export async function readMainCommit(git: GitRunner, repo: string): Promise<stri
   return head === null ? null : head.trim();
 }
 
-export async function readFixCommit(git: GitRunner, repo: string, hash: string): Promise<FixCommit | null> {
-  const commit = `${hash}^{commit}`;
-  const header = await git(repo, ["log", "-1", `--format=%cI${FIELD}%(trailers:key=Co-authored-by,valueonly,separator=${FIELD})`, commit, "--"]);
-  if (header === null) return null;
-  const stats = await git(repo, ["show", "--numstat", "--format=", "--diff-merges=first-parent", commit, "--relative", "--", ".", ...CHURN_EXCLUDES]);
-  const [date = "", ...trailers] = header.trim().split(FIELD);
-  const rows = (stats ?? "").split("\n");
-  return {
-    date,
-    byAgent: trailers.some((trailer) => AGENT_TRAILER.test(trailer.trim())),
-    lines: numstatLines(rows),
-    testLines: numstatLines(rows.filter((row) => isTestPath(row.split("\t")[2] ?? ""))),
-  };
+export async function readFixCommits(git: GitRunner, repo: string, hashes: readonly string[]): Promise<Map<string, FixCommit>> {
+  if (hashes.length === 0) return new Map();
+  const batch = await readFixBatch(git, repo, hashes);
+  if (batch !== null) return batch;
+  const found = new Map<string, FixCommit>();
+  for (const hash of hashes) {
+    const single = await readFixBatch(git, repo, [hash]);
+    const commit = single?.get(hash);
+    if (commit !== undefined) found.set(hash, commit);
+  }
+  return found;
+}
+
+async function readFixBatch(git: GitRunner, repo: string, hashes: readonly string[]): Promise<Map<string, FixCommit> | null> {
+  const commits = hashes.map((hash) => `${hash}^{commit}`);
+  const [headers, stats] = await Promise.all([
+    git(repo, ["log", "--no-walk=unsorted", ...commits, `--format=tformat:${RECORD}%H${FIELD}%cI${FIELD}%(trailers:key=Co-authored-by,valueonly,separator=${FIELD})`, "--"]),
+    git(repo, ["log", "--no-walk=unsorted", ...commits, `--format=tformat:${RECORD}%H`, "--numstat", "--diff-merges=first-parent", "--relative", "--", ".", ...CHURN_EXCLUDES]),
+  ]);
+  if (headers === null) return null;
+  const changedLines = new Map(parseFixStats(stats ?? ""));
+  const byFullHash = new Map(parseFixHeaders(headers, changedLines));
+  return new Map(hashes.flatMap((hash) => matchHash(byFullHash, hash)));
+}
+
+function matchHash(commits: ReadonlyMap<string, FixCommit>, hash: string): [string, FixCommit][] {
+  const full = [...commits.keys()].find((candidate) => candidate.startsWith(hash));
+  const commit = full === undefined ? undefined : commits.get(full);
+  return commit === undefined ? [] : [[hash, commit]];
+}
+
+function parseFixHeaders(output: string, changedLines: ReadonlyMap<string, { lines: number; testLines: number }>): [string, FixCommit][] {
+  return records(output).map((record): [string, FixCommit] => {
+    const [full = "", date = "", ...trailers] = record.split("\n")[0]?.split(FIELD) ?? [];
+    const changed = changedLines.get(full) ?? { lines: 0, testLines: 0 };
+    return [full, { date, byAgent: trailers.some((trailer) => AGENT_TRAILER.test(trailer.trim())), ...changed }];
+  });
+}
+
+function parseFixStats(output: string): [string, { lines: number; testLines: number }][] {
+  return records(output).map((record): [string, { lines: number; testLines: number }] => {
+    const [full = "", ...rows] = record.split("\n");
+    return [full.trim(), { lines: numstatLines(rows), testLines: numstatLines(rows.filter((row) => isTestPath(row.split("\t")[2] ?? ""))) }];
+  });
+}
+
+function records(output: string): string[] {
+  return output.split(RECORD).filter((record) => record.trim() !== "");
 }
 
 async function readUnits(git: GitRunner, repo: string, since: Date, mainCommit: string | null): Promise<CommitUnit[]> {
