@@ -121,3 +121,12 @@ export type TranscriptState = {
   pending: Record<string, "cli" | "skill">;
   pendingEstimates: { kind: "cli" | "skill"; chars: number; day: string; projectId: string | null }[];
 };
+
+export type CliRun = { at: string; command: string; cwd: string; ms: number; rssMb: number; exitCode: number };
+
+export type ScanProgress = { filesTotal: number; filesDone: number; bytesLeft: number };
+export type CostTotals = { tokens: number; cost: number | null; hookTurns: number; cliRuns: number; hookRuns: number };
+export type CostDay = { day: string; hookTokens: number; cliTokens: number; cost: number | null; hookTurns: number; cliRuns: number; hookRuns: number };
+export type CostModel = { model: string; tokens: number; cost: number | null };
+export type CostCommand = { command: string; runs: number; avgMs: number; avgRssMb: number; maxRssMb: number };
+export type CostReport = { scan: ScanProgress; since: string | null; totals: CostTotals; days: CostDay[]; models: CostModel[]; commands: CostCommand[] };

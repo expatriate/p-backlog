@@ -1,11 +1,12 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import type { CliRun } from "../stats/types";
 import { readTextOrNull } from "./fs-utils";
 
 export const RUNS_FILE = ".runs.jsonl";
 
-export type CliRun = { at: string; command: string; cwd: string; ms: number; rssMb: number; exitCode: number };
+export type { CliRun } from "../stats/types";
 
 const cliRunSchema = z.object({
   at: z.iso.datetime({ offset: true }),
