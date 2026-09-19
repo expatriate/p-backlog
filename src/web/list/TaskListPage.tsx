@@ -11,6 +11,7 @@ import { epicChoices } from "./epic-choices";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
 import { useSeenTasks } from "./use-seen-tasks";
+import { toggledTags } from "./tag-filter";
 import { AUTO_CLOSED_VIEW, DEFAULT_FILTER, dateColumnFor, followDateColumn, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
@@ -102,6 +103,8 @@ export function TaskListPage() {
               taskHref={taskHref}
               tones={tones}
               isNew={isNew}
+              selectedTags={params.filter.tags ?? []}
+              onToggleTag={(tag) => setParams({ ...params, filter: { ...params.filter, tags: toggledTags(params.filter.tags ?? [], tag) } })}
             />
           )}
         </div>

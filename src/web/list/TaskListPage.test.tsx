@@ -124,19 +124,38 @@ describe("список задач", () => {
     expect(screen.queryByRole("button", { name: "Сбросить фильтры" })).toBeNull();
   });
 
-  it("теги выбираются в раскрывающемся списке, выбранные видны и в свёрнутом виде", async () => {
+  it("теги выбираются в меню, выбранные видны и в свёрнутом виде", async () => {
     const app = await renderApp(FILES);
     await screen.findAllByRole("row");
-    expect(screen.queryByRole("button", { name: "#upload" })).toBeNull();
 
     await app.user.click(screen.getByRole("button", { name: "Теги (1)" }));
     expect(document.activeElement).toBe(screen.getByRole("searchbox", { name: "Найти тег" }));
-    await app.user.click(within(screen.getByRole("group", { name: "Теги" })).getByRole("button", { name: "#upload" }));
+    const menu = screen.getByRole("group", { name: "Теги" });
+    await app.user.click(within(menu).getByRole("button", { name: "#upload" }));
     await waitFor(async () => expect(await rowTitles()).toEqual(["Таймауты загрузки"]));
     await app.user.click(screen.getByRole("button", { name: "Теги (1), выбрано 1" }));
 
-    expect(screen.getByRole("button", { name: "#upload" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(menu).getByRole("button", { name: "#upload" }).getAttribute("aria-pressed")).toBe("true");
     expect(app.route()).toContain("tag=upload");
+  });
+
+  it("клик по тегу в строке включает фильтр, повторный — снимает", async () => {
+    const app = await renderApp(FILES);
+    const row = (await screen.findByText("Таймауты загрузки")).closest("tr");
+    if (!row) throw new Error("нет строки");
+    const tag = within(row).getByRole("button", { name: "#upload" });
+    expect(tag.getAttribute("aria-pressed")).toBe("false");
+
+    await app.user.click(tag);
+
+    await waitFor(async () => expect(await rowTitles()).toEqual(["Таймауты загрузки"]));
+    expect(app.route()).toContain("tag=upload");
+    const pressed = within(screen.getAllByRole("row")[1] as HTMLElement).getByRole("button", { name: "#upload" });
+    expect(pressed.getAttribute("aria-pressed")).toBe("true");
+
+    await app.user.click(pressed);
+
+    await waitFor(() => expect(app.route()).not.toContain("tag=upload"));
   });
 
   it("выбор тега не закрывает меню тегов", async () => {
@@ -217,7 +236,7 @@ describe("список задач", () => {
     expect(within(screen.getByRole("columnheader", { name: "Теги" })).queryByRole("button")).toBeNull();
   });
 
-  it("у закрытой задачи вместо прогресса — отсчёт до удаления, у автозакрытой — метка причины", async () => {
+  it("у закрытой задачи перед названием столбик удаления с подсказкой, прогресса в таблице нет", async () => {
     freezeDate("2026-09-12T12:00:00Z");
     const closed = { status: "cancelled", closed: "2026-09-10T10:00:00+03:00", resolution: "obsolete", reason: "модуль удалён" };
     await renderApp({ ...FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "Устаревшая", ...closed }) }, "/?status=cancelled");
@@ -226,7 +245,8 @@ describe("список задач", () => {
     if (!row) throw new Error("нет строки");
     expect(within(row).getByText("кода нет").getAttribute("title")).toBe("модуль удалён");
     expect(within(row).queryByRole("progressbar")).toBeNull();
-    expect(within(row).getByText("удалится через 5 дн.")).toBeDefined();
+    const bar = within(row).getByRole("img", { name: /удалится через 5 дн\./ });
+    expect(bar.getAttribute("title")).toBe("удалится 17.09");
   });
 
   it("чип «закрыты агентом» со счётчиком показывает автозакрытые задачи проекта, свежие сверху", async () => {

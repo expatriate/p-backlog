@@ -19,6 +19,16 @@ export function Countdown({ task, now }: { task: Task; now: Date }) {
   );
 }
 
+export function DeletionBar({ task, now }: { task: Task; now: Date }) {
+  const deletion = deletionFor(task, now);
+  if (deletion === undefined) return null;
+  return (
+    <span className={cx(styles.bar, deletion.lastDay && styles.lastDay)} title={deletion.title} role="img" aria-label={`${deletion.text}, ${deletion.title}`}>
+      <span className={styles.barFill} style={{ transform: `scaleY(${deletion.fraction})` }} />
+    </span>
+  );
+}
+
 export function DeletionLabel({ task, now }: { task: Task; now: Date }) {
   const deletion = deletionFor(task, now);
   if (deletion === undefined) return null;

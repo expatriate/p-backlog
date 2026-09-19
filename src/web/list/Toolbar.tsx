@@ -3,6 +3,7 @@ import { normalizeText } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
 import { ToggleChip } from "../ui/Chip";
+import { toggledTags } from "./tag-filter";
 import { Popover, POPOVER_INITIAL_FOCUS } from "../ui/Popover";
 import { EpicPicker } from "./EpicPicker";
 import type { EpicChoices } from "./epic-choices";
@@ -21,7 +22,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
   const { filter } = params;
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
   const setFilter = (patch: Partial<ListParams["filter"]>) => onChange({ ...params, filter: { ...filter, ...patch } });
-  const toggleTag = (tag: string) => setFilter({ tags: emptyToUndefined(toggle(filter.tags ?? [], tag)) });
+  const toggleTag = (tag: string) => setFilter({ tags: toggledTags(filter.tags ?? [], tag) });
   const toggleAutoClosed = () => {
     if (filter.onlyAutoClosed) setFilter({ onlyAutoClosed: undefined });
     else onChange({ filter: { ...filter, ...AUTO_CLOSED_VIEW.filter }, sort: AUTO_CLOSED_VIEW.sort });

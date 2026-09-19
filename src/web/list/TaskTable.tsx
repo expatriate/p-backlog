@@ -1,11 +1,9 @@
 import { Link } from "react-router";
-import { isBlocked, taskProgress, type BacklogIndex } from "../../core/model/graph";
-import { deletionDate } from "../../core/model/lifecycle";
+import { isBlocked, type BacklogIndex } from "../../core/model/graph";
 import type { SortDirection, SortKey, TaskSort } from "../../core/model/query";
 import type { Priority, Task } from "../../core/model/types";
 import { DIRECTION_MARKS, PRIORITY_LABELS, RESOLUTION_LABELS, formatDate } from "../labels";
-import { DeletionLabel } from "../ui/Countdown";
-import { ProgressBar } from "../ui/ProgressBar";
+import { DeletionBar } from "../ui/Countdown";
 import { StatusBadge } from "../ui/StatusBadge";
 import type { TaskHref } from "../task/TaskRefs";
 import { cx } from "../ui/cx";
@@ -19,6 +17,8 @@ export type TaskTableProps = {
   tasks: Task[];
   index: BacklogIndex;
   selectedId?: string;
+  selectedTags: readonly string[];
+  onToggleTag: (tag: string) => void;
   sort: TaskSort;
   onSort: (key: SortKey) => void;
   taskHref: TaskHref;
@@ -38,7 +38,7 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
   critical: styles.critical,
 };
 
-export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, dateColumn, tones, isNew }: TaskTableProps) {
+export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, dateColumn, tones, isNew, selectedTags, onToggleTag }: TaskTableProps) {
   const now = useNow();
   const sortableHeader = (key: SortKey, label: string, className?: string) => {
     const active = sort.key === key;
@@ -65,7 +65,6 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
           </th>
           {sortableHeader("status", "Статус")}
           {sortableHeader("priority", "Приоритет", styles.priorityCell)}
-          {sortableHeader("progress", "Прогресс")}
           {sortableHeader(dateColumn, DATE_COLUMN_LABELS[dateColumn], styles.date)}
         </tr>
       </thead>
@@ -85,6 +84,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
                 </Link>
               </td>
               <td>
+                <DeletionBar task={task} now={now} />
                 {isNew(task) && <span className={styles.newBadge}>новая</span>}
                 <Link to={taskHref(task.id)} className={styles.title}>
                   {task.title}
@@ -107,19 +107,12 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
                 )}
               </td>
               <td className={styles.tags}>
-                <TagCell tags={task.tags} />
+                <TagCell tags={task.tags} selected={selectedTags} onToggle={onToggleTag} />
               </td>
               <td>
                 <StatusBadge status={task.status} />
               </td>
               <td className={cx(styles.priorityCell, PRIORITY_CLASS[task.priority])}>{PRIORITY_LABELS[task.priority]}</td>
-              <td className={styles.progress}>
-                {deletionDate(task) !== undefined ? (
-                  <DeletionLabel task={task} now={now} />
-                ) : (
-                  <ProgressBar progress={taskProgress(task, index)} />
-                )}
-              </td>
               <td className={styles.date}>{formatTaskDate(task, dateColumn)}</td>
             </tr>
           );

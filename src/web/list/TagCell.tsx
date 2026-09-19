@@ -1,13 +1,16 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { Chip } from "../ui/Chip";
+import { Chip, ToggleChip } from "../ui/Chip";
 import { fittingTagCount } from "./fit-tags";
 import styles from "./TagCell.module.css";
 
-export function TagCell({ tags }: { tags: readonly string[] }) {
+export type TagCellProps = { tags: readonly string[]; selected: readonly string[]; onToggle: (tag: string) => void };
+
+export function TagCell({ tags, selected, onToggle }: TagCellProps) {
   const cell = useRef<HTMLDivElement>(null);
   const tagRuler = useRef<HTMLSpanElement>(null);
   const moreRuler = useRef<HTMLSpanElement>(null);
   const [visibleCount, setVisibleCount] = useState(tags.length);
+  const [expanded, setExpanded] = useState(false);
 
   useLayoutEffect(() => {
     const box = cell.current;
@@ -28,14 +31,27 @@ export function TagCell({ tags }: { tags: readonly string[] }) {
 
   if (tags.length === 0) return <div ref={cell} className={styles.cell} />;
 
+  const shown = expanded ? tags : tags.slice(0, visibleCount);
   const hiddenCount = tags.length - visibleCount;
 
   return (
     <div ref={cell} className={styles.cell}>
-      {tags.slice(0, visibleCount).map((tag) => (
-        <Chip key={tag}>#{tag}</Chip>
+      {shown.map((tag) => (
+        <ToggleChip key={tag} pressed={selected.includes(tag)} onToggle={() => onToggle(tag)}>
+          #{tag}
+        </ToggleChip>
       ))}
-      {hiddenCount > 0 && <Chip title={tags.join(", ")}>+{hiddenCount}</Chip>}
+      {expanded ? (
+        <button type="button" className={styles.more} onClick={() => setExpanded(false)} aria-expanded={true}>
+          свернуть
+        </button>
+      ) : (
+        hiddenCount > 0 && (
+          <button type="button" className={styles.more} onClick={() => setExpanded(true)} aria-expanded={false} aria-label={`Показать ещё ${hiddenCount}`} title={tags.join(", ")}>
+            +{hiddenCount}
+          </button>
+        )
+      )}
       <div className={styles.ruler} aria-hidden="true">
         <span ref={tagRuler} className={styles.rulerTags}>
           {tags.map((tag) => (

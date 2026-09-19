@@ -1,4 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { TagCell } from "./TagCell";
 
@@ -24,14 +25,14 @@ describe("ячейка тегов", () => {
   it("показывает теги, которые влезают целиком, остальные — в «+N» с подсказкой", () => {
     stubLayout(200);
 
-    render(<TagCell tags={["dev-env", "mock-backend", "upload"]} />);
+    render(<TagCell tags={["dev-env", "mock-backend", "upload"]} selected={[]} onToggle={() => undefined} />);
 
     expect(visibleChips()).toEqual(["#dev-env", "+2"]);
     expect(screen.getByText("+2").getAttribute("title")).toBe("dev-env, mock-backend, upload");
   });
 
   it("если всё влезает, «+N» нет", () => {
-    render(<TagCell tags={["upload"]} />);
+    render(<TagCell tags={["upload"]} selected={[]} onToggle={() => undefined} />);
 
     expect(visibleChips()).toEqual(["#upload"]);
   });
@@ -55,7 +56,7 @@ describe("ячейка тегов", () => {
       vi.stubGlobal("ResizeObserver", originalResizeObserver);
     });
 
-    render(<TagCell tags={["dev-env", "mock-backend", "upload"]} />);
+    render(<TagCell tags={["dev-env", "mock-backend", "upload"]} selected={[]} onToggle={() => undefined} />);
 
     expect(visibleChips()).toEqual(["+3"]);
 
@@ -68,9 +69,34 @@ describe("ячейка тегов", () => {
   });
 
   it("без тегов ячейка пустая, без линейки для измерения", () => {
-    const { container } = render(<TagCell tags={[]} />);
+    const { container } = render(<TagCell tags={[]} selected={[]} onToggle={() => undefined} />);
 
     expect(visibleChips()).toEqual([]);
     expect(container.querySelector('[aria-hidden="true"]')).toBeNull();
+  });
+
+  it("клик по тегу переключает фильтр, выбранный тег нажат", async () => {
+    const toggled: string[] = [];
+    render(<TagCell tags={["upload"]} selected={["upload"]} onToggle={(tag) => toggled.push(tag)} />);
+
+    const chip = screen.getByRole("button", { name: "#upload" });
+    expect(chip.getAttribute("aria-pressed")).toBe("true");
+    await userEvent.click(chip);
+
+    expect(toggled).toEqual(["upload"]);
+  });
+
+  it("«+N» раскрывает спрятанные теги, «свернуть» возвращает обратно", async () => {
+    stubLayout(200);
+    render(<TagCell tags={["dev-env", "mock-backend", "upload"]} selected={[]} onToggle={() => undefined} />);
+    expect(visibleChips()).toEqual(["#dev-env", "+2"]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Показать ещё 2" }));
+
+    expect(visibleChips()).toEqual(["#dev-env", "#mock-backend", "#upload"]);
+
+    await userEvent.click(screen.getByRole("button", { name: "свернуть" }));
+
+    expect(visibleChips()).toEqual(["#dev-env", "+2"]);
   });
 });

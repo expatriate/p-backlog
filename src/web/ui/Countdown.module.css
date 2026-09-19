@@ -37,3 +37,30 @@
 .urgent {
   color: var(--accent-ink);
 }
+
+.bar {
+  display: inline-block;
+  flex: none;
+  width: 3px;
+  height: 1.1em;
+  vertical-align: text-bottom;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--ink-subtle);
+  transform-origin: bottom center;
+}
+
+.lastDay.bar {
+  background: var(--accent-soft);
+}
+
+.lastDay .barFill {
+  background: var(--accent);
+}
