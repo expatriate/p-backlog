@@ -1,4 +1,4 @@
-import { formatDayMonth } from "../labels";
+import { formatDayMonth } from "../../core/stats/format";
 import styles from "./WeeklyChart.module.css";
 
 const WIDTH = 360;

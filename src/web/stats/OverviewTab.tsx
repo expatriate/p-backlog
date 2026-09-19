@@ -1,10 +1,10 @@
 import { useParams } from "react-router";
+import { formatDays, formatSigned } from "../../core/stats/format";
 import type { StatsReport, StatsTotals } from "../../core/stats/types";
 import { useStats } from "../app/queries";
 import { cx } from "../ui/cx";
 import { AgePanel } from "./AgePanel";
 import { ClosingPanel } from "./ClosingPanel";
-import { formatDays, formatSigned } from "./format";
 import { HotspotsPanel } from "./HotspotsPanel";
 import { Panel } from "./Panel";
 import { StatsTabState } from "./StatsTabState";

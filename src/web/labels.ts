@@ -1,4 +1,4 @@
-import type { CandidateEvidence, FoundHow } from "../core/journal/events";
+import type { FoundHow } from "../core/journal/events";
 import type { SortDirection } from "../core/model/query";
 import type { Priority, Resolution, TaskStatus, TaskType } from "../core/model/types";
 
@@ -28,22 +28,10 @@ export const RESOLUTION_LABELS: Record<Resolution, string> = {
 
 export const DIRECTION_MARKS: Record<SortDirection, string> = { asc: "↑", desc: "↓" };
 
-export const EVIDENCE_LABELS: Record<CandidateEvidence | "total", string> = {
-  "source-changed": "код изменился",
-  "source-missing": "файл пропал",
-  duplicate: "дубль",
-  "no-source": "нет source",
-  total: "Всего",
-};
-
 export const FOUND_LABELS: Record<FoundHow | "unknown", string> = { review: "на ревью", incidental: "попутно", unknown: "неизвестно" };
 
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" });
-}
-
-export function formatDayMonth(date: Date): string {
-  return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
 }
 
 export function formatDateTime(iso: string): string {

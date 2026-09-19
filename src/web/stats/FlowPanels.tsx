@@ -1,8 +1,9 @@
 import { Link } from "react-router";
+import { forecastText, formatDays, formatShare } from "../../core/stats/format";
 import type { EpicFlow, FlowCycle, FlowForecast, FlowNow, FlowWip } from "../../core/stats/types";
 import type { EpicTones } from "../ui/epic-tone";
 import { STATUS_LABELS } from "../labels";
-import { epicEta, forecastText, formatDays, formatShare, formatStay } from "./format";
+import { epicEta, formatStay } from "./format";
 import { Panel } from "./Panel";
 import { WeeklyBars } from "./WeeklyBars";
 import styles from "./FlowPanels.module.css";

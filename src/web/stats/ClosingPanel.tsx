@@ -1,6 +1,6 @@
+import { formatShare } from "../../core/stats/format";
 import type { ClosingBreakdown, ClosingReason } from "../../core/stats/types";
 import { cx } from "../ui/cx";
-import { formatShare } from "./format";
 import { Panel } from "./Panel";
 import styles from "./StatsPanels.module.css";
 

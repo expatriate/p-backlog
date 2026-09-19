@@ -1,5 +1,5 @@
+import { formatDayMonth } from "../../core/stats/format";
 import type { WeekFlow } from "../../core/stats/types";
-import { formatDayMonth } from "../labels";
 import styles from "./WeeklyChart.module.css";
 
 const WIDTH = 360;

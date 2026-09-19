@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { categoryLabel } from "../../core/model/categories";
+import { EVIDENCE_LABELS, formatShare } from "../../core/stats/format";
 import type { AccuracyRow, BranchRow, CategoryRow, FoundRow } from "../../core/stats/types";
-import { EVIDENCE_LABELS, FOUND_LABELS } from "../labels";
+import { FOUND_LABELS } from "../labels";
 import flowStyles from "./FlowPanels.module.css";
-import { formatShare } from "./format";
 import { Panel } from "./Panel";
 import styles from "./QualityPanels.module.css";
 

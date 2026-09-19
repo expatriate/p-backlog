@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
+import { formatDays, formatDecimal } from "../../core/stats/format";
 import type { ChurnRow, CodeDensity, DensityRow, FixBreakdown } from "../../core/stats/types";
-import { formatDays, formatDecimal } from "./format";
 import { Panel } from "./Panel";
 import flowStyles from "./FlowPanels.module.css";
 import styles from "./CodePanels.module.css";

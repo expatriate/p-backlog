@@ -1,6 +1,6 @@
 import { DAY_MS, deletionDate, RETENTION_DAYS } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
-import { formatDayMonth } from "../labels";
+import { formatDayMonth } from "../../core/stats/format";
 import { cx } from "./cx";
 import styles from "./Countdown.module.css";
 
