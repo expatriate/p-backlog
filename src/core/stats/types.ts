@@ -58,3 +58,23 @@ export type FlowReport = {
   forecast: FlowForecast;
   epics: EpicFlow[];
 };
+
+export type RepoCode = { commits: string[][]; lines: { path: string; lines: number }[] };
+export type ProjectCode = { projectId: string; name: string; repos: RepoCode[] };
+export type FixCommit = { date: string; byAgent: boolean };
+export type CollectedCode = { projects: ProjectCode[]; unavailableRepos: string[]; fixCommits: ReadonlyMap<string, FixCommit> };
+export type ChurnRow = { label: string; commits: number; tasks: number; weight: number; score: number };
+export type DensityRow = { lines: number; open: number; perKloc: number | null };
+export type ProjectDensity = DensityRow & { projectId: string; name: string };
+export type FolderDensity = DensityRow & { label: string };
+export type CodeDensity = { projects: ProjectDensity[]; folders: FolderDensity[] };
+export type FixBreakdown = { agent: number; human: number; unknown: number; agentMedianDays: number | null; humanMedianDays: number | null };
+export type CodeReport = {
+  taskCount: number;
+  journalSince: string | null;
+  invalidJournalLines: number;
+  unavailableRepos: string[];
+  churn: ChurnRow[];
+  density: CodeDensity;
+  fixes: FixBreakdown;
+};
