@@ -2,6 +2,7 @@ import type { RouteObject } from "react-router";
 import { AppLayout } from "../layout/AppLayout";
 import { TaskListPage } from "../list/TaskListPage";
 import { CodeTab } from "../stats/CodeTab";
+import { CostTab } from "../stats/CostTab";
 import { EffectTab } from "../stats/EffectTab";
 import { FlowTab } from "../stats/FlowTab";
 import { OverviewTab } from "../stats/OverviewTab";
@@ -16,6 +17,7 @@ const STATS_TAB_ROUTES: RouteObject[] = [
   { path: "code", element: <CodeTab /> },
   { path: "quality", element: <QualityTab /> },
   { path: "effect", element: <EffectTab /> },
+  { path: "cost", element: <CostTab /> },
 ];
 
 export const routes: RouteObject[] = [

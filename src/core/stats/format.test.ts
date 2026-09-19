@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { forecastTail, forecastText, formatDays, formatDecimal, formatP90, formatShare, formatSigned, NBSP, plural } from "./format";
+import { forecastTail, forecastText, formatDays, formatDecimal, formatMoney, formatP90, formatShare, formatSigned, NBSP, plural } from "./format";
 
 describe("формат статистики", () => {
   it("дни: нет данных, меньше дня, округление", () => {
@@ -35,6 +35,12 @@ describe("формат статистики", () => {
   it("число с одним знаком после запятой без «,0»", () => {
     expect(formatDecimal(2.44)).toBe("2,4");
     expect(formatDecimal(4)).toBe("4");
+  });
+
+  it("деньги: разделитель разрядов, две цифры после запятой, null — «—»", () => {
+    expect(formatMoney(1234.56)).toBe(`$1${NBSP}234,56`);
+    expect(formatMoney(0)).toBe("$0,00");
+    expect(formatMoney(null)).toBe("—");
   });
 });
 

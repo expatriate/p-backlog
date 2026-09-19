@@ -10,6 +10,7 @@ const STATS_TABS = [
   { label: "Код", segment: "code" },
   { label: "Качество", segment: "quality" },
   { label: "Эффект", segment: "effect" },
+  { label: "Стоимость", segment: "cost" },
 ] as const;
 
 export function StatsPage() {

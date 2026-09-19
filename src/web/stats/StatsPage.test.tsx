@@ -2,6 +2,7 @@ import { screen, within } from "@testing-library/react";
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../../core/store/testing/temp-dirs";
+import { routes } from "../app/App";
 import { taskFixture } from "../testing/fixtures";
 import { renderApp } from "../testing/render-app";
 import { NBSP } from "../../core/stats/format";
@@ -286,6 +287,53 @@ describe("вкладка «Эффект»", () => {
     expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("2")).toBeDefined();
     expect(screen.getByRole("img", { name: new RegExp(`12${NBSP}недель: в пулреквестах 2${NBSP}строки`) })).toBeDefined();
     expect(screen.getByRole("region", { name: "По проектам" })).toBeDefined();
+  });
+});
+
+describe("вкладка «Стоимость»", () => {
+  it("заголовок, число вызовов CLI, таблица «Команды» и сводка памяти сервера", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    const transcriptsDir = await makeTempDir();
+    const at = "2026-09-18T09:00:00.000Z";
+    await writeFiles(transcriptsDir, {
+      "proj1/session.jsonl":
+        [
+          { type: "user", isMeta: true, timestamp: at, cwd: repo, message: { content: "Stop hook feedback:\nБеклог spa: тест" } },
+          {
+            type: "assistant",
+            timestamp: at,
+            cwd: repo,
+            message: { model: "claude-opus-5", usage: { input_tokens: 1000, output_tokens: 200, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
+          },
+        ]
+          .map((line) => JSON.stringify(line))
+          .join("\n") + "\n",
+    });
+    const runs =
+      [
+        { at: "2026-09-18T09:30:00+03:00", command: "hook stop", cwd: repo, ms: 120, rssMb: 90, exitCode: 0 },
+        { at: "2026-09-18T09:31:00+03:00", command: "list", cwd: repo, ms: 40, rssMb: 80, exitCode: 0 },
+      ]
+        .map((line) => JSON.stringify(line))
+        .join("\n") + "\n";
+
+    const app = await renderApp({ "spa/project.md": projectFile("SPA", [repo]), ".runs.jsonl": runs }, "/p/spa/stats", routes, {
+      transcriptsDir,
+      beforeRender: (backlog) => backlog.memory.sample(),
+    });
+
+    await app.user.click(await screen.findByRole("link", { name: "Стоимость" }));
+
+    expect(app.route()).toBe("/p/spa/stats/cost");
+    expect(document.title).toBe("Стоимость · Статистика · spa — Беклог");
+
+    const cliCalls = await screen.findByRole("group", { name: "Вызовов CLI" });
+    expect(within(cliCalls).getByText("1")).toBeDefined();
+
+    const commands = screen.getByRole("region", { name: "Команды" });
+    expect(within(commands).getByRole("row", { name: /list/ })).toBeDefined();
+
+    expect(await screen.findByRole("img", { name: new RegExp(`сейчас \\S+${NBSP}МБ, максимум за час \\S+${NBSP}МБ`) })).toBeDefined();
   });
 });
 

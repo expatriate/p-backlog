@@ -41,6 +41,11 @@ export function formatDecimal(value: number): string {
   return String(Math.round(value * 10) / 10).replace(".", ",");
 }
 
+export function formatMoney(value: number | null): string {
+  if (value === null) return "—";
+  return `$${value.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export function formatDayMonth(date: Date): string {
   return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
 }
