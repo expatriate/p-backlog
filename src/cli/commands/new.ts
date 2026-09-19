@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { sourceAnchor } from "../../core/check/check-backlog";
+import { sourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW } from "../../core/journal/events";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES } from "../../core/model/types";
 import { createTask } from "../../core/store/create";

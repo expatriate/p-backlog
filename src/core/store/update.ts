@@ -63,14 +63,16 @@ function applyChanges(task: Task, changes: TaskChanges, now: Date, closure: Clos
     ...pickDefined(changes, CHANGE_FIELDS),
     epic: nextOptional(task.epic, changes.epic),
     category: nextOptional(task.category, changes.category),
-    anchor: nextOptional(task.anchor, changes.anchor ?? (sourceChanged(task, changes) ? null : undefined)),
+    anchor: nextAnchor(task, changes),
   };
   const moved = changes.status === undefined ? edited : changeStatus(edited, changes.status, now, closure);
   return settleLifecycle(moved, now);
 }
 
-function sourceChanged(task: Task, changes: TaskChanges): boolean {
-  return changes.source !== undefined && changes.source !== task.source;
+function nextAnchor(task: Task, changes: TaskChanges): string | undefined {
+  if (changes.anchor !== undefined) return changes.anchor ?? undefined;
+  const sourceMoved = changes.source !== undefined && changes.source !== task.source;
+  return sourceMoved ? undefined : task.anchor;
 }
 
 function pickDefined<T extends object, K extends keyof T>(source: T, keys: readonly K[]): Partial<Pick<T, K>> {

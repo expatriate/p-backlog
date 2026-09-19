@@ -55,10 +55,18 @@ describe("backlog verify", () => {
     await writeFiles(repo, { "src/a.ts": lines.join("\n") });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
     await run(["new", "--title", "Таймаут", "--source", "src/a.ts:3"]);
-    expect((await loadBacklog(root)).tasks[0]?.anchor).toMatch(/^[0-9a-f]{12}$/);
+    expect((await loadBacklog(root)).tasks[0]?.anchor).toMatch(/^[0-9a-f]{12}@1-5$/);
 
     await writeFile(join(repo, "src/a.ts"), lines.map((line, index) => (index === 15 ? "changed" : line)).join("\n"));
     gitCommitAll(repo, "Правка далеко от задачи", "2026-09-17T15:00:00Z");
+
+    expect((await run(["check", "--changed"])).out).toBe("Беклог в порядке");
+
+    await writeFile(join(repo, "src/a.ts"), lines.map((line, index) => (index === 2 ? "changed near task" : line)).join("\n"));
+    gitCommitAll(repo, "Правка в строках задачи", "2026-09-17T16:00:00Z");
+    expect((await run(["check", "--changed"])).code).toBe(EXIT.needsReview);
+
+    await run(["verify", "SPA-1"], { now: new Date("2026-09-17T17:00:00Z") });
 
     expect((await run(["check", "--changed"])).out).toBe("Беклог в порядке");
   });

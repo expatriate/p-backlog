@@ -1,4 +1,3 @@
-import { access, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { candidateEvents, type CheckMode } from "../journal/events";
 import { buildIndex } from "../model/graph";
@@ -8,12 +7,13 @@ import { planEpicClosing, type Closure } from "../model/lifecycle";
 import type { ParseError, Project, Task } from "../model/types";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
 import { appendJournal, readJournal } from "../store/journal";
-import { expandHome, PROJECT_FILE } from "../store/paths";
+import { PROJECT_FILE } from "../store/paths";
 import { referenceCleanup } from "../store/references";
 import { updateTaskIn, type TaskChanges } from "../store/update";
 import type { UpdateTaskFailure } from "../store/write-result";
-import { anchorOf, snippetOf } from "./anchor";
-import { anchorPlans, codeCandidates, duplicateCandidates, isReviewable, noSourceCandidates, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
+import { snippetOf } from "./anchor";
+import { findRepo } from "./project-repo";
+import { codeReview, duplicateCandidates, isReviewable, noSourceCandidates, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
 import { collectRepoFacts, diffSince, type RepoFacts } from "./repo-facts";
 
 export type { CheckMode };
@@ -124,8 +124,9 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
   const since = new Date(Math.min(...tasks.map(reviewMark)));
   const paths = [...new Set(tasks.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
   const facts = await collectRepoFacts(repo, { since, paths });
-  const code = await Promise.all(codeCandidates(tasks, facts).map((candidate) => withContext(candidate, tasks, facts, repo)));
-  const plans = anchorPlans(tasks, facts, code);
+  const review = codeReview(tasks, facts);
+  const code = await Promise.all(review.candidates.map((candidate) => withContext(candidate, tasks, facts, repo)));
+  const plans = review.plans;
   return { candidates: mode === "full" ? [...code, ...duplicates, ...noSourceCandidates(tasks, facts)] : code, plans };
 }
 
@@ -155,20 +156,6 @@ async function applyAnchorPlans(tasks: readonly Task[], plans: readonly AnchorPl
     if (result.ok && plan.note !== undefined) notes.push(plan.note);
   }
   return notes;
-}
-
-export async function sourceAnchor(project: Project, source: string, home: string): Promise<string | undefined> {
-  const repo = await findRepo(project, home);
-  if (repo === undefined) return undefined;
-  const text = await readFile(join(repo, sourcePath(source)), "utf8").catch(() => null);
-  return text === null ? undefined : (anchorOf(text, source) ?? undefined);
-}
-
-async function findRepo(project: Project, home: string): Promise<string | undefined> {
-  for (const repo of project.repos.map((path) => expandHome(path, home))) {
-    if (await access(repo).then(() => true, () => false)) return repo;
-  }
-  return undefined;
 }
 
 function findProblems(

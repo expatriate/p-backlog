@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { sourceAnchor } from "../../core/check/check-backlog";
+import { sourceAnchor } from "../../core/check/project-repo";
 import { formatLocalIso } from "../../core/model/dates";
 import { isClosed } from "../../core/model/graph";
 import type { Task } from "../../core/model/types";
@@ -22,7 +22,7 @@ export async function runVerify(args: string[], io: CliIo): Promise<number> {
 
   const loaded = await loadBacklog(io.backlogRoot);
   let exitCode: number = EXIT.ok;
-  for (const id of positionals) {
+  for (const id of new Set(positionals)) {
     const code = await verifyOne(loaded, id, source, io);
     if (exitCode === EXIT.ok) exitCode = code;
   }

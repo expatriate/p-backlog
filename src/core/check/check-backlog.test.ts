@@ -44,7 +44,7 @@ describe("checkBacklog", () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
     const repo = await makeGitRepo(home, "projects/spa");
-    const code = ["one", "two", "three", "four", "five", "six"].join("\n");
+    const code = ["const one = 1;", "const two = 2;", "const three = 3;", "const four = 4;", "const five = 5;", "const six = 6;"].join("\n");
     await writeFiles(repo, { "src/a.ts": code, "src/b.ts": code });
     gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
     await writeFiles(root, {
@@ -60,7 +60,8 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([]);
     expect(report.fixed).toEqual(["SPA-1: source сдвинулся :3 → :5"]);
     const tasks = (await loadBacklog(root)).tasks;
-    expect(tasks.find((item) => item.id === "SPA-1")).toMatchObject({ source: "src/a.ts:5", anchor: anchorOf(code, "src/a.ts:3") });
+    const shifted = ["new1", "new2", code].join("\n");
+    expect(tasks.find((item) => item.id === "SPA-1")).toMatchObject({ source: "src/a.ts:5", anchor: anchorOf(shifted, "src/a.ts:5") });
     expect(tasks.find((item) => item.id === "SPA-2")?.anchor).toBe(anchorOf(code, "src/b.ts:3"));
   });
 
