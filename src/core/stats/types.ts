@@ -38,3 +38,10 @@ export type StatsReport = {
   age: AgeBreakdown;
   closing: ClosingBreakdown;
 };
+
+export type WorkStatus = "in-progress" | "blocked";
+export type LongestInWork = { id: string; projectId: string; title: string; status: WorkStatus; days: number; atLeast: boolean };
+export type FlowNow = { inProgress: number; blocked: number; longest: LongestInWork[] };
+export type FlowCycle = { medianDays: number | null; p90Days: number | null; blockedShare: number | null; sample: number };
+export type WipWeek = { start: string; max: number | null };
+export type FlowWip = { weeks: WipWeek[]; current: number };
