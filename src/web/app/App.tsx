@@ -4,6 +4,7 @@ import { TaskListPage } from "../list/TaskListPage";
 import { CodeTab } from "../stats/CodeTab";
 import { FlowTab } from "../stats/FlowTab";
 import { OverviewTab } from "../stats/OverviewTab";
+import { QualityTab } from "../stats/QualityTab";
 import { StatsPage } from "../stats/StatsPage";
 import styles from "./App.module.css";
 import { useLiveUpdates } from "./queries";
@@ -12,6 +13,7 @@ const STATS_TAB_ROUTES: RouteObject[] = [
   { index: true, element: <OverviewTab /> },
   { path: "flow", element: <FlowTab /> },
   { path: "code", element: <CodeTab /> },
+  { path: "quality", element: <QualityTab /> },
 ];
 
 export const routes: RouteObject[] = [

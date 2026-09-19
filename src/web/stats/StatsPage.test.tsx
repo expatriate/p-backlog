@@ -231,3 +231,39 @@ describe("вкладка «Код»", () => {
     expect(screen.getByText("Исправлений за 12 недель нет")).toBeDefined();
   });
 });
+
+describe("вкладка «Качество»", () => {
+  const cells = (row: HTMLElement) => within(row).getAllByRole("cell").map((cell) => cell.textContent);
+
+  it("точность, категории и происхождение", async () => {
+    const event = (fields: Record<string, unknown>) => JSON.stringify({ via: "check", ...fields });
+    const app = await renderApp(
+      {
+        ...FILES,
+        "spa/journal.jsonl": [
+          event({ at: "2026-09-16T10:00:00+03:00", task: "SPA-1", kind: "candidate", evidence: "source-changed", mode: "changed" }),
+          event({ at: "2026-09-17T10:00:00+03:00", task: "SPA-1", kind: "verified", via: "cli" }),
+        ].join("\n"),
+      },
+      "/stats",
+    );
+
+    await app.user.click(await screen.findByRole("link", { name: "Качество" }));
+
+    const accuracyPanel = await screen.findByRole("region", { name: "Точность проверки" });
+    expect(app.route()).toBe("/stats/quality");
+    expect(document.title).toBe("Качество · Статистика · Все проекты — Беклог");
+    expect(cells(within(accuracyPanel).getByRole("row", { name: /код изменился/ }))).toEqual(["код изменился", "1", "0", "1", "0", "0%"]);
+    const categoriesPanel = screen.getByRole("region", { name: "Категории" });
+    expect(cells(within(categoriesPanel).getByRole("row", { name: /не указана/ }))).toEqual(["не указана", "3", "8", "4", "1"]);
+    const originPanel = screen.getByRole("region", { name: "Происхождение" });
+    expect(cells(within(originPanel).getByRole("row", { name: /неизвестно/ }))).toEqual(["неизвестно", "4", "3", "0"]);
+    expect(within(originPanel).getByText("Ветки появятся у задач, заведённых через backlog new в репозитории")).toBeDefined();
+  });
+
+  it("без кандидатов — пустое состояние точности", async () => {
+    await renderApp(FILES, "/stats/quality");
+
+    expect(await screen.findByText("Проверка ещё не находила кандидатов")).toBeDefined();
+  });
+});
