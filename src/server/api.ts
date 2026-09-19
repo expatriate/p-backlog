@@ -3,7 +3,7 @@ import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import { updateTaskRequestSchema } from "../core/api/contract";
 import { createCodeSource } from "../core/code/code-source";
-import type { Project } from "../core/model/types";
+import type { Project, Task } from "../core/model/types";
 import { formatIssues } from "../core/model/zod-issues";
 import { costReport } from "../core/stats/cost/cost-report";
 import { codeFixRequests, codeReport } from "../core/stats/code/code-report";
@@ -39,18 +39,24 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
 
   const codeSource = createCodeSource({ home });
 
+  const statsScopeOf = async (c: Context): Promise<{ projectId?: string; projects: Project[]; tasks: Task[] } | Response> => {
+    const projectId = c.req.query("project") || undefined;
+    const { projects, tasks } = await loadBacklog(root);
+    if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
+      return c.json({ errors: [`Проект ${projectId} не найден`] }, 404);
+    }
+    return { projectId, projects, tasks };
+  };
+
   const scopedStats =
-    <R extends StatsReport | FlowReport | CodeReport | QualityReport | SignalsReport | EffectReport | CostReport>(
+    <R extends StatsReport | FlowReport | CodeReport | QualityReport | SignalsReport | EffectReport>(
       report: (input: StatsInput, projects: readonly Project[]) => R | Promise<R>,
     ) =>
     async (c: Context) => {
-      const projectId = c.req.query("project") || undefined;
-      const { projects, tasks } = await loadBacklog(root);
-      if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
-        return c.json({ errors: [`Проект ${projectId} не найден`] }, 404);
-      }
-      const journals = await readJournals(root, projects.map((project) => project.id));
-      return c.json(await report({ tasks, journals, now: now(), projectId }, projects));
+      const scope = await statsScopeOf(c);
+      if (scope instanceof Response) return scope;
+      const journals = await readJournals(root, scope.projects.map((project) => project.id));
+      return c.json(await report({ tasks: scope.tasks, journals, now: now(), projectId: scope.projectId }, scope.projects));
     };
 
   const statsOfCode = async (input: StatsInput, projects: readonly Project[]): Promise<CodeReport> => {
@@ -71,7 +77,7 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
     return repoRootsByCwd.get(cwd) ?? null;
   };
 
-  const statsOfCost = async (input: StatsInput, projects: readonly Project[]): Promise<CostReport> => {
+  const statsOfCost = async (projectId: string | undefined, projects: readonly Project[]): Promise<CostReport> => {
     usage.ensureStarted();
     const { cache, scan } = usage.snapshot();
     const runs = await readRuns(root);
@@ -79,7 +85,7 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
       const repoRoot = repoRootOf(cwd);
       return repoRoot === null ? null : (findProjectForRepoRoot(projects, repoRoot, home)?.id ?? null);
     };
-    return costReport({ buckets: bucketsOf(cache), runs, projectOf, projectId: input.projectId, now: input.now, scan });
+    return costReport({ buckets: bucketsOf(cache), runs, projectOf, projectId, now: now(), scan });
   };
 
   api.get("/stats", scopedStats(statsReport));
@@ -88,7 +94,10 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
   api.get("/stats/effect", scopedStats(statsOfEffect));
   api.get("/stats/quality", scopedStats(qualityReport));
   api.get("/stats/signals", scopedStats((input) => ({ signals: statsSignals(input) })));
-  api.get("/stats/cost", scopedStats(statsOfCost));
+  api.get("/stats/cost", async (c) => {
+    const scope = await statsScopeOf(c);
+    return scope instanceof Response ? scope : c.json(await statsOfCost(scope.projectId, scope.projects));
+  });
   api.get("/stats/memory", (c) => c.json({ samples: memory.samples() }));
 
   api.patch("/tasks/:id", async (c) => {
