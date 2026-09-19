@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { ConflictResponse, ErrorResponse, FlowReport, StatsReport, TasksResponse } from "../core/api/contract";
+import type { CodeReport, ConflictResponse, ErrorResponse, FlowReport, StatsReport, TasksResponse } from "../core/api/contract";
 import { readJournal } from "../core/store/journal";
-import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
+import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
 import { makeTestApp, SAMPLE_FILES, TEST_NOW } from "./testing/test-app";
@@ -193,6 +193,34 @@ describe("GET /api/stats/flow", () => {
     expect(((await empty.json()) as FlowReport).forecast.open).toBe(3);
     expect(unknown.status).toBe(404);
     expect(((await unknown.json()) as ErrorResponse).errors).toEqual(["Проект nope не найден"]);
+  });
+});
+
+describe("GET /api/stats/code", () => {
+  it("отдаёт отчёт по коду проекта и недоступные репозитории", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\nb\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const backlog = await makeTestApp({
+      "spa/project.md": projectFile("SPA", [repo, "/nope/repo"]),
+      "spa/SPA-1.md": taskFile("SPA-1", "priority: high\nsource: src/a.ts:1\n"),
+    });
+
+    const report = (await (await backlog.request("/api/stats/code?project=spa")).json()) as CodeReport;
+
+    expect(report.churn).toEqual([{ label: "src", commits: 1, tasks: 1, weight: 4, score: 4 }]);
+    expect(report.density.projects).toEqual([{ projectId: "spa", name: "spa", lines: 2, open: 1, perKloc: 500 }]);
+    expect(report.unavailableRepos).toEqual(["/nope/repo"]);
+  });
+
+  it("неизвестный проект — 404, пустой — все проекты", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+
+    const unknown = await backlog.request("/api/stats/code?project=nope");
+    const empty = await backlog.request("/api/stats/code?project=");
+
+    expect(unknown.status).toBe(404);
+    expect(((await empty.json()) as CodeReport).taskCount).toBe(3);
   });
 });
 

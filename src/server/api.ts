@@ -2,11 +2,14 @@ import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import { updateTaskRequestSchema } from "../core/api/contract";
+import { createCodeSource } from "../core/code/code-source";
+import type { Project } from "../core/model/types";
 import { formatIssues } from "../core/model/zod-issues";
+import { codeFixRequests, codeReport } from "../core/stats/code/code-report";
 import { flowReport } from "../core/stats/flow/flow-report";
 import { statsReport } from "../core/stats/report";
 import type { StatsInput } from "../core/stats/scope";
-import type { FlowReport, StatsReport } from "../core/stats/types";
+import type { CodeReport, FlowReport, StatsReport } from "../core/stats/types";
 import { loadBacklog } from "../core/store/load";
 import { readJournals } from "../core/store/journal";
 import { updateTask } from "../core/store/update";
@@ -25,18 +28,28 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
     return c.json({ tasks, errors });
   });
 
-  const scopedStats = <R extends StatsReport | FlowReport>(report: (input: StatsInput) => R) => async (c: Context) => {
-    const projectId = c.req.query("project") || undefined;
-    const { projects, tasks } = await loadBacklog(root);
-    if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
-      return c.json({ errors: [`Проект ${projectId} не найден`] }, 404);
-    }
-    const journals = await readJournals(root, projects.map((project) => project.id));
-    return c.json(report({ tasks, journals, now: now(), projectId }));
+  const codeSource = createCodeSource();
+
+  const scopedStats =
+    <R extends StatsReport | FlowReport | CodeReport>(report: (input: StatsInput, projects: readonly Project[]) => R | Promise<R>) =>
+    async (c: Context) => {
+      const projectId = c.req.query("project") || undefined;
+      const { projects, tasks } = await loadBacklog(root);
+      if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
+        return c.json({ errors: [`Проект ${projectId} не найден`] }, 404);
+      }
+      const journals = await readJournals(root, projects.map((project) => project.id));
+      return c.json(await report({ tasks, journals, now: now(), projectId }, projects));
+    };
+
+  const statsOfCode = async (input: StatsInput, projects: readonly Project[]): Promise<CodeReport> => {
+    const scoped = projects.filter((project) => input.projectId === undefined || project.id === input.projectId);
+    return codeReport({ ...input, code: await codeSource.collect(scoped, codeFixRequests(input), input.now) });
   };
 
   api.get("/stats", scopedStats(statsReport));
   api.get("/stats/flow", scopedStats(flowReport));
+  api.get("/stats/code", scopedStats(statsOfCode));
 
   api.patch("/tasks/:id", async (c) => {
     const body = await readBody(c, updateTaskRequestSchema);
