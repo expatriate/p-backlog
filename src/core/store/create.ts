@@ -14,7 +14,7 @@ import { PROJECT_FILE, taskFileName } from "./paths";
 import { invalid, type CreateTaskResult } from "./write-result";
 
 export type NewTaskInput = Pick<Task, "title"> &
-  Partial<Pick<Task, "type" | "priority" | "tags" | "epic" | "blockedBy" | "related" | "source" | "body" | "category">>;
+  Partial<Pick<Task, "type" | "priority" | "tags" | "epic" | "blockedBy" | "related" | "source" | "anchor" | "body" | "category">>;
 
 export type CreateTaskRequest = {
   project: Project;
@@ -91,6 +91,7 @@ function draftTask(id: string, path: string, { project, input, now }: CreateTask
     related: input.related ?? [],
     created: formatLocalIso(now),
     source: input.source,
+    anchor: input.anchor,
     extra: {},
     body: input.body ?? "",
     projectId: project.id,

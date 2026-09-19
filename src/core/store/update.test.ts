@@ -221,6 +221,18 @@ describe("журнал правок", () => {
     expect(journal.events[1]).not.toHaveProperty("to");
   });
 
+  it("новый source без якоря сбрасывает якорь, с якорем — записывает его", async () => {
+    const root = await setup();
+    const anchorOf = async () => (await loadBacklog(root)).tasks.find((task) => task.id === "SPA-3")?.anchor;
+    await updateTask(root, { id: "SPA-3", changes: { source: "src/a.ts:1", anchor: "aaaaaaaaaaaa" }, now: NOW, via: "cli" });
+    await updateTask(root, { id: "SPA-3", changes: { title: "Другой заголовок" }, now: NOW, via: "web" });
+    expect(await anchorOf()).toBe("aaaaaaaaaaaa");
+
+    await updateTask(root, { id: "SPA-3", changes: { source: "src/b.ts:2" }, now: NOW, via: "web" });
+
+    expect(await anchorOf()).toBeUndefined();
+  });
+
   it("подтверждение пишет verified, с новым source — с полем source", async () => {
     const root = await setup();
 

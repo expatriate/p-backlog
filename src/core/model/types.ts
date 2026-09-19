@@ -50,6 +50,7 @@ export const taskFrontmatterSchema = z.object({
   related: taskIdList,
   created: z.iso.datetime({ offset: true }),
   source: z.string().optional(),
+  anchor: z.string().optional(),
   closed: z.iso.datetime({ offset: true }).optional(),
   resolution: z.enum(RESOLUTIONS).optional(),
   reason: z.string().optional(),
