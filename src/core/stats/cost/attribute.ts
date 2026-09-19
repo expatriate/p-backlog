@@ -4,7 +4,7 @@ import type { TokenCounts, TranscriptState, UsageBucket } from "../types";
 
 export type TranscriptLine = unknown;
 
-type LineContext = { day: string; projectId: string | null };
+type LineContext = { day: string; cwd: string };
 
 const BACKLOG_COMMAND = /(?:^|&&|;|\|)\s*backlog\b/;
 
@@ -26,7 +26,7 @@ const usageSchema = z
 type Usage = z.infer<typeof usageSchema>;
 
 const assistantMessageSchema = z
-  .object({ model: z.string().optional(), usage: usageSchema.optional(), content: z.array(z.unknown()).optional() })
+  .object({ id: z.string().optional(), model: z.string().optional(), usage: usageSchema.optional(), content: z.array(z.unknown()).optional() })
   .passthrough();
 
 const userMessageSchema = z.object({ content: z.unknown().optional() }).passthrough();
@@ -45,14 +45,14 @@ const lineSchema = z
   .passthrough();
 
 export function newTranscriptState(): TranscriptState {
-  return { hookOpen: false, lastModel: null, pending: {}, pendingEstimates: [] };
+  return { hookOpen: false, lastModel: null, lastMessageId: null, pending: {}, pendingEstimates: [] };
 }
 
-export function attributeLine(line: TranscriptLine, state: TranscriptState, projectOf: (cwd: string) => string | null): UsageBucket[] {
+export function attributeLine(line: TranscriptLine, state: TranscriptState): UsageBucket[] {
   const parsed = lineSchema.safeParse(line);
   if (!parsed.success) return [];
   const { type, timestamp, cwd, isMeta, message } = parsed.data;
-  const context: LineContext = { day: typeof timestamp === "string" ? dayOf(timestamp) : "", projectId: typeof cwd === "string" ? projectOf(cwd) : null };
+  const context: LineContext = { day: typeof timestamp === "string" ? dayOf(timestamp) : "", cwd: cwd ?? "" };
 
   if (type === "assistant") return attributeAssistant(message, state, context);
   if (type === "user") return attributeUser(message, isMeta === true, state, context);
@@ -62,10 +62,12 @@ export function attributeLine(line: TranscriptLine, state: TranscriptState, proj
 function attributeAssistant(rawMessage: unknown, state: TranscriptState, context: LineContext): UsageBucket[] {
   const message = assistantMessageSchema.safeParse(rawMessage);
   if (!message.success) return [];
-  const { model, usage, content } = message.data;
+  const { id, model, usage, content } = message.data;
   const buckets: UsageBucket[] = [];
-  if (model && model !== "<synthetic>" && usage) {
+  const repeatOfCountedMessage = id !== undefined && id === state.lastMessageId;
+  if (model && model !== "<synthetic>" && usage && !repeatOfCountedMessage) {
     state.lastModel = model;
+    state.lastMessageId = id ?? null;
     const tokens = tokensFrom(usage);
     if (state.hookOpen) buckets.push({ ...context, model, kind: "hook", tokens, hookTurns: 0 });
     buckets.push(...drainEstimates(state, model));
@@ -123,7 +125,7 @@ function drainEstimates(state: TranscriptState, model: string): UsageBucket[] {
   const buckets = state.pendingEstimates.map(
     (estimate): UsageBucket => ({
       day: estimate.day,
-      projectId: estimate.projectId,
+      cwd: estimate.cwd,
       model,
       kind: estimate.kind,
       tokens: { ...ZERO_TOKENS, cacheWrite5m: Math.ceil(estimate.chars / 3) },

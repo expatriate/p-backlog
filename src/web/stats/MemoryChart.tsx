@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { MemorySample } from "../../core/stats/types";
 import { useMemorySamples } from "../app/queries";
 import { formatMb } from "./cost-format";
@@ -21,13 +22,17 @@ export function MemoryPanel() {
 function MemoryLine({ samples }: { samples: MemorySample[] }) {
   const current = samples.at(-1)?.rssMb ?? null;
   const max = samples.length === 0 ? null : Math.max(...samples.map((sample) => sample.rssMb));
-  const summary = `сейчас ${formatMb(current)}, максимум за час ${formatMb(max)}`;
+  const summaryId = useId();
+  const summary = `Сейчас ${formatMb(current)}, максимум за час ${formatMb(max)}`;
   const slot = WIDTH / Math.max(samples.length - 1, 1);
   const peak = Math.max(1, ...samples.map((sample) => sample.rssMb));
   const points = samples.map((sample, index) => `${index * slot},${HEIGHT - (sample.rssMb / peak) * (HEIGHT - 4) - 2}`).join(" ");
   return (
     <figure className={styles.chart}>
-      <div role="img" aria-label={summary}>
+      <p id={summaryId} className={styles.summary}>
+        {summary}
+      </p>
+      <div role="img" aria-labelledby={summaryId}>
         <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" className={styles.line} aria-hidden="true">
           <polyline points={points} className={styles.open} />
         </svg>

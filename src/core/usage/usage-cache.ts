@@ -7,7 +7,8 @@ import { readTextOrNull, writeFileAtomic } from "../store/fs-utils";
 export const USAGE_CACHE_FILE = ".usage-cache.json";
 
 export type UsageCacheEntry = { size: number; offset: number; state: TranscriptState; buckets: UsageBucket[] };
-export type UsageCache = { version: 1; files: Record<string, UsageCacheEntry> };
+export const USAGE_CACHE_VERSION = 2;
+export type UsageCache = { version: typeof USAGE_CACHE_VERSION; files: Record<string, UsageCacheEntry> };
 
 const tokenCountsSchema = z.object({
   input: z.number(),
@@ -19,7 +20,7 @@ const tokenCountsSchema = z.object({
 
 const usageBucketSchema = z.object({
   day: z.string(),
-  projectId: z.string().nullable(),
+  cwd: z.string(),
   model: z.string(),
   kind: z.enum(["hook", "cli", "skill"]),
   tokens: tokenCountsSchema,
@@ -30,12 +31,13 @@ const pendingEstimateSchema = z.object({
   kind: z.enum(["cli", "skill"]),
   chars: z.number(),
   day: z.string(),
-  projectId: z.string().nullable(),
+  cwd: z.string(),
 });
 
 const transcriptStateSchema = z.object({
   hookOpen: z.boolean(),
   lastModel: z.string().nullable(),
+  lastMessageId: z.string().nullable(),
   pending: z.record(z.string(), z.enum(["cli", "skill"])),
   pendingEstimates: z.array(pendingEstimateSchema),
 });
@@ -48,12 +50,12 @@ const usageCacheEntrySchema = z.object({
 });
 
 const usageCacheSchema = z.object({
-  version: z.literal(1),
+  version: z.literal(USAGE_CACHE_VERSION),
   files: z.record(z.string(), usageCacheEntrySchema),
 });
 
 export function emptyUsageCache(): UsageCache {
-  return { version: 1, files: {} };
+  return { version: USAGE_CACHE_VERSION, files: {} };
 }
 
 export async function readUsageCache(root: string): Promise<UsageCache> {

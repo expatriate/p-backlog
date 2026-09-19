@@ -53,7 +53,10 @@ export function useCostStats(projectId: string | undefined) {
   return useQuery<CostReport>({
     queryKey: [...STATS_KEY, "cost", projectId ?? "all"],
     queryFn: () => client.costStats(projectId),
-    refetchInterval: (query) => ((query.state.data?.scan.bytesLeft ?? 0) > 0 ? 10_000 : false),
+    refetchInterval: (query) => {
+      const scan = query.state.data?.scan;
+      return scan !== undefined && (!scan.listed || scan.bytesLeft > 0) ? 10_000 : false;
+    },
   });
 }
 

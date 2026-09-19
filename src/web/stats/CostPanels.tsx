@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { COST_TOTALS_DAYS } from "../../core/stats/cost/cost-report";
 import { formatDayMonth, formatMoney, NBSP, pluralCount } from "../../core/stats/format";
 import type { CostCommand, CostDay, CostModel, CostTotals } from "../../core/stats/types";
@@ -32,7 +33,7 @@ export function TokensChartPanel({ days }: { days: CostDay[] }) {
   const hookTokens = sum(days.map((day) => day.hookTokens));
   const cliTokens = sum(days.map((day) => day.cliTokens));
   const cost = totalMoney(days);
-  const summary = `${pluralCount(days.length, "день", "дня", "дней")}: из-за хука ${pluralCount(hookTokens, "токен", "токена", "токенов")}, вывод CLI и скилл ${formatLines(cliTokens)}, ≈${NBSP}${formatMoney(cost)}`;
+  const summary = `За ${pluralCount(days.length, "день", "дня", "дней")}: из-за хука ${pluralCount(hookTokens, "токен", "токена", "токенов")}, вывод CLI и скилл ${formatLines(cliTokens)}, ≈${NBSP}${formatMoney(cost)}`;
   return (
     <Panel title="Токены по дням">
       <DayBars
@@ -48,7 +49,7 @@ export function TokensChartPanel({ days }: { days: CostDay[] }) {
 export function RunsChartPanel({ days }: { days: CostDay[] }) {
   const hookRuns = sum(days.map((day) => day.hookRuns));
   const cliRuns = sum(days.map((day) => day.cliRuns));
-  const summary = `${pluralCount(days.length, "день", "дня", "дней")}: запусков хука ${formatLines(hookRuns)}, других команд ${formatLines(cliRuns)}`;
+  const summary = `За ${pluralCount(days.length, "день", "дня", "дней")}: запусков хука ${formatLines(hookRuns)}, других команд ${formatLines(cliRuns)}`;
   return (
     <Panel title="Вызовы по дням">
       <DayBars rows={days.map((day) => ({ day: day.day, primary: day.hookRuns, secondary: day.cliRuns }))} summary={summary} legendPrimary="хука" legendSecondary="других команд" />
@@ -133,13 +134,17 @@ function DayBars({
   legendPrimary: string;
   legendSecondary: string;
 }) {
+  const summaryId = useId();
   const slot = WIDTH / Math.max(rows.length, 1);
   const peak = Math.max(1, ...rows.map((row) => row.primary + row.secondary));
   const height = (value: number) => (value / peak) * HEIGHT;
   const first = rows[0];
   return (
     <figure className={styles.chart}>
-      <div role="img" aria-label={summary}>
+      <p id={summaryId} className={styles.summary}>
+        {summary}
+      </p>
+      <div role="img" aria-labelledby={summaryId}>
         <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" className={styles.bars} aria-hidden="true">
           {rows.map((row, index) => {
             const primary = height(row.primary);

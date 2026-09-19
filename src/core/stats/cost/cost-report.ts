@@ -16,9 +16,10 @@ export type CostInput = {
 };
 
 export function costReport({ buckets, runs, projectOf, projectId, now, scan }: CostInput): CostReport {
-  const inScope = (candidate: string | null) => projectId === undefined || candidate === projectId;
-  const scopedBuckets = buckets.filter((bucket) => inScope(bucket.projectId));
-  const scopedRuns = runs.filter((run) => inScope(projectOf(run.cwd)));
+  const projectOfCwd = memoizedByCwd(projectOf);
+  const inScope = (cwd: string) => projectId === undefined || projectOfCwd(cwd) === projectId;
+  const scopedBuckets = buckets.filter((bucket) => inScope(bucket.cwd));
+  const scopedRuns = runs.filter((run) => inScope(run.cwd));
 
   const days = dayRange(now, COST_REPORT_DAYS);
   const dayWindow = new Set(days);
@@ -35,6 +36,14 @@ export function costReport({ buckets, runs, projectOf, projectId, now, scan }: C
     days: days.map((day) => dayRow(day, scopedBuckets, runsInWindow)),
     models: modelsOf(scopedBuckets),
     commands: commandsOf(runsInWindow),
+  };
+}
+
+function memoizedByCwd(projectOf: (cwd: string) => string | null): (cwd: string) => string | null {
+  const known = new Map<string, string | null>();
+  return (cwd) => {
+    if (!known.has(cwd)) known.set(cwd, projectOf(cwd));
+    return known.get(cwd) ?? null;
   };
 }
 

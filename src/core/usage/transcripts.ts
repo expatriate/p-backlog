@@ -3,20 +3,20 @@ import { join } from "node:path";
 import { attributeLine, newTranscriptState } from "../stats/cost/attribute";
 import type { TokenCounts, TranscriptState, UsageBucket } from "../stats/types";
 import { listDir } from "../store/fs-utils";
-import type { UsageCache, UsageCacheEntry } from "./usage-cache";
+import { USAGE_CACHE_VERSION, type UsageCache, type UsageCacheEntry } from "./usage-cache";
 
 export type TranscriptFile = { path: string; size: number };
 
 export type ScanTranscriptsInput = {
   files: readonly TranscriptFile[];
   cache: UsageCache;
-  projectOf: (cwd: string) => string | null;
   byteBudget: number;
 };
 
-export type ScanTranscriptsResult = { cache: UsageCache; bytesLeft: number; filesDone: number };
+export type ScanTranscriptsResult = { cache: UsageCache; bytesRead: number; bytesLeft: number; filesDone: number };
 
 const NEWLINE = 0x0a;
+const COUNTED_LINE_MARKERS = ['"type":"assistant"', '"type":"user"'];
 
 export async function listTranscripts(claudeProjectsDir: string): Promise<TranscriptFile[]> {
   const files: TranscriptFile[] = [];
@@ -26,26 +26,30 @@ export async function listTranscripts(claudeProjectsDir: string): Promise<Transc
     for (const entry of await listDir(projectDir)) {
       const entryPath = join(projectDir, entry.name);
       if (entry.isFile() && entry.name.endsWith(".jsonl")) {
-        files.push(await withSize(entryPath));
+        files.push(...(await withSize(entryPath)));
         continue;
       }
       if (!entry.isDirectory()) continue;
       const subagentsDir = join(entryPath, "subagents");
       for (const subagentEntry of await listDir(subagentsDir)) {
-        if (subagentEntry.isFile() && subagentEntry.name.endsWith(".jsonl")) files.push(await withSize(join(subagentsDir, subagentEntry.name)));
+        if (subagentEntry.isFile() && subagentEntry.name.endsWith(".jsonl")) files.push(...(await withSize(join(subagentsDir, subagentEntry.name))));
       }
     }
   }
   return files;
 }
 
-async function withSize(path: string): Promise<TranscriptFile> {
-  return { path, size: (await stat(path)).size };
+async function withSize(path: string): Promise<TranscriptFile[]> {
+  try {
+    return [{ path, size: (await stat(path)).size }];
+  } catch {
+    return [];
+  }
 }
 
 type ScanStart = { offset: number; state: TranscriptState; buckets: UsageBucket[] };
 
-export async function scanTranscripts({ files, cache, projectOf, byteBudget }: ScanTranscriptsInput): Promise<ScanTranscriptsResult> {
+export async function scanTranscripts({ files, cache, byteBudget }: ScanTranscriptsInput): Promise<ScanTranscriptsResult> {
   let remainingBudget = byteBudget;
   const resultFiles: Record<string, UsageCacheEntry> = {};
 
@@ -55,33 +59,41 @@ export async function scanTranscripts({ files, cache, projectOf, byteBudget }: S
     const start: ScanStart = resumable ? { offset: previous.offset, state: structuredClone(previous.state), buckets: previous.buckets } : { offset: 0, state: newTranscriptState(), buckets: [] };
 
     const chunkSize = Math.min(file.size - start.offset, remainingBudget);
-    resultFiles[file.path] = await scanChunk(file, start, chunkSize, projectOf);
-    if (chunkSize > 0) remainingBudget -= chunkSize;
+    resultFiles[file.path] = await scanChunk(file, start, chunkSize);
+    if (chunkSize > 0) {
+      remainingBudget -= chunkSize;
+      await yieldToEventLoop();
+    }
   }
 
   return {
-    cache: { version: 1, files: resultFiles },
+    cache: { version: USAGE_CACHE_VERSION, files: resultFiles },
+    bytesRead: byteBudget - remainingBudget,
     bytesLeft: Object.values(resultFiles).reduce((sum, entry) => sum + (entry.size - entry.offset), 0),
     filesDone: Object.values(resultFiles).filter((entry) => entry.offset === entry.size).length,
   };
 }
 
-async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: number, projectOf: (cwd: string) => string | null): Promise<UsageCacheEntry> {
+async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: number): Promise<UsageCacheEntry> {
   if (chunkSize <= 0) return { size: file.size, offset: start.offset, state: start.state, buckets: start.buckets };
 
   const chunk = await readChunk(file.path, start.offset, chunkSize);
   const lastNewline = chunk.lastIndexOf(NEWLINE);
   if (lastNewline === -1) return { size: file.size, offset: start.offset, state: start.state, buckets: start.buckets };
 
-  let mergedBuckets = start.buckets;
+  const bucketsByKey = new Map(start.buckets.map((bucket) => [bucketKey(bucket), bucket]));
   for (const line of chunk.subarray(0, lastNewline).toString("utf8").split("\n")) {
-    if (line.trim() === "") continue;
+    if (!COUNTED_LINE_MARKERS.some((marker) => line.includes(marker))) continue;
     const parsed = parseLineOrNull(line);
     if (parsed === null) continue;
-    for (const addition of attributeLine(parsed, start.state, projectOf)) mergedBuckets = mergeBucket(mergedBuckets, addition);
+    for (const addition of attributeLine(parsed, start.state)) {
+      const key = bucketKey(addition);
+      const existing = bucketsByKey.get(key);
+      bucketsByKey.set(key, existing === undefined ? addition : combineBuckets(existing, addition));
+    }
   }
 
-  return { size: file.size, offset: start.offset + lastNewline + 1, state: start.state, buckets: mergedBuckets };
+  return { size: file.size, offset: start.offset + lastNewline + 1, state: start.state, buckets: [...bucketsByKey.values()] };
 }
 
 async function readChunk(path: string, position: number, length: number): Promise<Buffer> {
@@ -103,12 +115,16 @@ function parseLineOrNull(line: string): unknown {
   }
 }
 
-function mergeBucket(buckets: UsageBucket[], addition: UsageBucket): UsageBucket[] {
-  const index = buckets.findIndex((bucket) => bucket.day === addition.day && bucket.projectId === addition.projectId && bucket.model === addition.model && bucket.kind === addition.kind);
-  if (index === -1) return [...buckets, addition];
-  const existing = buckets[index] as UsageBucket;
-  const combined: UsageBucket = { ...existing, tokens: combineTokens(existing.tokens, addition.tokens), hookTurns: existing.hookTurns + addition.hookTurns };
-  return buckets.map((bucket, candidateIndex) => (candidateIndex === index ? combined : bucket));
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+function bucketKey(bucket: UsageBucket): string {
+  return JSON.stringify([bucket.day, bucket.cwd, bucket.model, bucket.kind]);
+}
+
+function combineBuckets(existing: UsageBucket, addition: UsageBucket): UsageBucket {
+  return { ...existing, tokens: combineTokens(existing.tokens, addition.tokens), hookTurns: existing.hookTurns + addition.hookTurns };
 }
 
 function combineTokens(a: TokenCounts, b: TokenCounts): TokenCounts {

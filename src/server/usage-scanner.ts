@@ -1,50 +1,43 @@
-import type { Project } from "../core/model/types";
 import type { ScanProgress } from "../core/stats/types";
-import { loadBacklog } from "../core/store/load";
-import { findProjectForDir } from "../core/store/resolve-project";
-import { listTranscripts, scanTranscripts } from "../core/usage/transcripts";
+import { listTranscripts, scanTranscripts, type TranscriptFile } from "../core/usage/transcripts";
 import { emptyUsageCache, readUsageCache, writeUsageCache, type UsageCache } from "../core/usage/usage-cache";
 
-export type UsageScannerOptions = { root: string; claudeProjectsDir: string; home: string; byteBudget?: number; intervalMs?: number };
+export type UsageScannerOptions = { root: string; claudeProjectsDir: string; byteBudget?: number; intervalMs?: number };
 
 export type UsageScanner = {
   start: () => void;
   stop: () => void;
-  scanOnce: (projects: readonly Project[]) => Promise<void>;
-  ensureStarted: (projects: readonly Project[]) => void;
+  scanOnce: () => Promise<void>;
+  ensureStarted: () => void;
   snapshot: () => { cache: UsageCache; scan: ScanProgress };
 };
 
-const DEFAULT_BYTE_BUDGET = 200 * 1024 * 1024;
+const DEFAULT_BYTE_BUDGET = 16 * 1024 * 1024;
 const DEFAULT_INTERVAL_MS = 60_000;
-const CATCH_UP_DELAY_MS = 1_000;
-const EMPTY_SCAN: ScanProgress = { filesTotal: 0, filesDone: 0, bytesLeft: 0 };
+const CATCH_UP_DELAY_MS = 100;
+const NOT_LISTED: ScanProgress = { listed: false, filesTotal: 0, filesDone: 0, bytesLeft: 0 };
 
-export function createUsageScanner({ root, claudeProjectsDir, home, byteBudget = DEFAULT_BYTE_BUDGET, intervalMs = DEFAULT_INTERVAL_MS }: UsageScannerOptions): UsageScanner {
-  let cache: UsageCache = emptyUsageCache();
-  let cacheLoaded = false;
-  let scan: ScanProgress = EMPTY_SCAN;
-  let started = false;
+export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAULT_BYTE_BUDGET, intervalMs = DEFAULT_INTERVAL_MS }: UsageScannerOptions): UsageScanner {
+  let cache: UsageCache | null = null;
+  let scan: ScanProgress = NOT_LISTED;
   let inFlight: Promise<void> | null = null;
-  let timer: ReturnType<typeof setInterval> | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let running = false;
+  let budgetExhausted = false;
 
-  const runPass = async (projects: readonly Project[]): Promise<void> => {
-    if (!cacheLoaded) {
-      cache = await readUsageCache(root);
-      cacheLoaded = true;
-    }
+  const runPass = async (): Promise<void> => {
+    const current = cache ?? (await readUsageCache(root));
     const files = await listTranscripts(claudeProjectsDir);
-    const projectOf = (cwd: string): string | null => findProjectForDir(projects, cwd, home)?.id ?? null;
-    const result = await scanTranscripts({ files, cache, projectOf, byteBudget });
+    scan = progressBefore(files, current);
+    const result = await scanTranscripts({ files, cache: current, byteBudget });
     cache = result.cache;
-    scan = { filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft };
-    await writeUsageCache(root, cache);
+    scan = { listed: true, filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft };
+    budgetExhausted = result.bytesRead >= byteBudget;
+    if (result.bytesRead > 0) await writeUsageCache(root, result.cache);
   };
 
-  const scanOnce = (projects: readonly Project[]): Promise<void> => {
-    started = true;
-    if (inFlight !== null) return inFlight;
-    inFlight = runPass(projects)
+  const scanOnce = (): Promise<void> => {
+    inFlight ??= runPass()
       .catch((error: unknown) => {
         process.stderr.write(`Не удалось прочитать расшифровки Claude Code: ${error instanceof Error ? error.message : String(error)}\n`);
       })
@@ -54,27 +47,38 @@ export function createUsageScanner({ root, claudeProjectsDir, home, byteBudget =
     return inFlight;
   };
 
-  const scanFromTimer = (): void => {
-    void loadBacklog(root)
-      .then(({ projects }) => scanOnce(projects))
-      .then(() => {
-        if (timer !== null && scan.bytesLeft > 0) setTimeout(scanFromTimer, CATCH_UP_DELAY_MS);
-      });
+  const tick = async (): Promise<void> => {
+    await scanOnce();
+    if (running) timer = setTimeout(() => void tick(), budgetExhausted ? CATCH_UP_DELAY_MS : intervalMs);
   };
 
   return {
     start: () => {
-      scanFromTimer();
-      timer = setInterval(scanFromTimer, intervalMs);
+      running = true;
+      void tick();
     },
     stop: () => {
-      if (timer !== null) clearInterval(timer);
+      running = false;
+      if (timer !== null) clearTimeout(timer);
       timer = null;
     },
     scanOnce,
-    ensureStarted: (projects) => {
-      if (!started) void scanOnce(projects);
+    ensureStarted: () => {
+      if (!scan.listed && inFlight === null) void scanOnce();
     },
-    snapshot: () => ({ cache, scan }),
+    snapshot: () => ({ cache: cache ?? emptyUsageCache(), scan }),
+  };
+}
+
+function progressBefore(files: readonly TranscriptFile[], cache: UsageCache): ScanProgress {
+  const offsetOf = (file: TranscriptFile) => {
+    const cached = cache.files[file.path];
+    return cached !== undefined && file.size >= cached.size ? cached.offset : 0;
+  };
+  return {
+    listed: true,
+    filesTotal: files.length,
+    filesDone: files.filter((file) => offsetOf(file) === file.size).length,
+    bytesLeft: files.reduce((sum, file) => sum + (file.size - offsetOf(file)), 0),
   };
 }

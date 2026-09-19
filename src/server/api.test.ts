@@ -6,7 +6,6 @@ import { readJournal } from "../core/store/journal";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
-import { loadBacklog } from "../core/store/load";
 import { makeTestApp, SAMPLE_FILES, TEST_NOW } from "./testing/test-app";
 
 describe("GET /api/projects и /api/tasks", () => {
@@ -302,8 +301,7 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
       "utf8",
     );
 
-    const { projects } = await loadBacklog(backlog.root);
-    await backlog.usage.scanOnce(projects);
+    await backlog.usage.scanOnce();
 
     const response = await backlog.request("/api/stats/cost?project=spa");
     expect(response.status).toBe(200);

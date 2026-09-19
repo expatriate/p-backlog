@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import { ApiError } from "../api/client";
-import type { CostReport } from "../../core/stats/types";
+import type { CostReport, ScanProgress } from "../../core/stats/types";
+import { pluralCount } from "../../core/stats/format";
 import { useCostStats } from "../app/queries";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
@@ -28,11 +29,7 @@ export function CostTab() {
       </div>
       {cost.data && (
         <div className={styles.content}>
-          {cost.data.scan.bytesLeft > 0 && (
-            <p className={styles.warning} role="status">
-              Считаем расход по расшифровкам Claude Code: прочитано {cost.data.scan.filesDone} из {cost.data.scan.filesTotal} файлов
-            </p>
-          )}
+          <ScanNotice scan={cost.data.scan} />
           <Cost report={cost.data} />
           <p className={styles.note}>
             Токены из расшифровок Claude Code: ходы, запущенные Stop-хуком беклога, — точно; вывод команд backlog и скилла — оценка по длине текста. Деньги — по ценам Claude API, подписка может стоить
@@ -42,6 +39,22 @@ export function CostTab() {
       )}
     </>
   );
+}
+
+function ScanNotice({ scan }: { scan: ScanProgress }) {
+  const text = scanNoticeText(scan);
+  return (
+    <p className={text === null ? "visually-hidden" : styles.warning} role="status">
+      {text}
+    </p>
+  );
+}
+
+function scanNoticeText(scan: ScanProgress): string | null {
+  if (!scan.listed) return "Считаем расход по расшифровкам Claude Code…";
+  if (scan.filesTotal === 0) return "Расшифровки Claude Code не найдены.";
+  if (scan.bytesLeft > 0) return `Считаем расход по расшифровкам Claude Code: прочитано ${scan.filesDone} из ${pluralCount(scan.filesTotal, "файла", "файлов", "файлов")}`;
+  return null;
 }
 
 function Cost({ report }: { report: CostReport }) {

@@ -333,7 +333,13 @@ describe("вкладка «Стоимость»", () => {
     const commands = screen.getByRole("region", { name: "Команды" });
     expect(within(commands).getByRole("row", { name: /list/ })).toBeDefined();
 
-    expect(await screen.findByRole("img", { name: new RegExp(`сейчас \\S+${NBSP}МБ, максимум за час \\S+${NBSP}МБ`) })).toBeDefined();
+    expect(await screen.findByRole("img", { name: new RegExp(`Сейчас \\S+${NBSP}МБ, максимум за час \\S+${NBSP}МБ`) })).toBeDefined();
+  });
+
+  it("каталог расшифровок пуст — вкладка говорит, что расшифровки не найдены", async () => {
+    await renderApp({ "spa/project.md": projectFile("SPA") }, "/stats/cost", routes, { transcriptsDir: await makeTempDir() });
+
+    expect(await screen.findByText("Расшифровки Claude Code не найдены.")).toBeDefined();
   });
 });
 

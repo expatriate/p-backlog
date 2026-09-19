@@ -4,7 +4,7 @@ import type { CliRun, ScanProgress, TokenCounts, UsageBucket } from "../types";
 import { costReport } from "./cost-report";
 
 const NOW = new Date(2026, 8, 19, 12);
-const SCAN: ScanProgress = { filesTotal: 3, filesDone: 3, bytesLeft: 0 };
+const SCAN: ScanProgress = { listed: true, filesTotal: 3, filesDone: 3, bytesLeft: 0 };
 const PROJECT_OF = (cwd: string): string | null => (cwd.includes("spa") ? "spa" : cwd.includes("ti") ? "ti" : null);
 
 function dayAt(offset: number): string {
@@ -20,7 +20,7 @@ function tokens(overrides: Partial<TokenCounts> = {}): TokenCounts {
 }
 
 function bucket(overrides: Partial<UsageBucket> = {}): UsageBucket {
-  return { day: dayAt(0), projectId: "spa", model: "claude-sonnet-5", kind: "hook", tokens: tokens({ input: 1000 }), hookTurns: 0, ...overrides };
+  return { day: dayAt(0), cwd: "/Users/x/projects/spa", model: "claude-sonnet-5", kind: "hook", tokens: tokens({ input: 1000 }), hookTurns: 0, ...overrides };
 }
 
 function run(overrides: Partial<CliRun> = {}): CliRun {
@@ -56,7 +56,7 @@ describe("отчёт о стоимости", () => {
   });
 
   it("область проекта отсекает чужие вклад и запуски, во «Всех проектах» — всё", () => {
-    const buckets = [bucket({ projectId: "spa", tokens: tokens({ input: 100 }) }), bucket({ projectId: "ti", tokens: tokens({ input: 900 }) })];
+    const buckets = [bucket({ cwd: "/Users/x/projects/spa", tokens: tokens({ input: 100 }) }), bucket({ cwd: "/Users/x/projects/ti", tokens: tokens({ input: 900 }) })];
     const runs = [run({ cwd: "/Users/x/projects/spa" }), run({ cwd: "/Users/x/projects/ti" }), run({ cwd: "/Users/x/projects/unknown" })];
 
     const scoped = costReport({ buckets, runs, projectOf: PROJECT_OF, projectId: "spa", now: NOW, scan: SCAN });

@@ -22,3 +22,8 @@
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
+
+.summary {
+  margin: 0;
+  font-size: var(--text-sm);
+}

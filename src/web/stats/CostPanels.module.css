@@ -50,3 +50,8 @@
 .legendOther::before {
   background: var(--ink-subtle);
 }
+
+.summary {
+  margin: 0;
+  font-size: var(--text-sm);
+}

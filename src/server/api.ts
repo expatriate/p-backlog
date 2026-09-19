@@ -17,7 +17,7 @@ import type { CodeReport, CostReport, EffectReport, FlowReport, QualityReport, S
 import { loadBacklog } from "../core/store/load";
 import { readJournals } from "../core/store/journal";
 import { readRuns } from "../core/store/runs";
-import { findProjectForDir } from "../core/store/resolve-project";
+import { findProjectForRepoRoot, findRepoRoot } from "../core/store/resolve-project";
 import { updateTask } from "../core/store/update";
 import type { UsageCache } from "../core/usage/usage-cache";
 import type { Invalid } from "../core/store/write-result";
@@ -65,11 +65,20 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
     return effectReport({ ...input, code: { ...scopedCode, fixCommits: allFixes.fixCommits } });
   };
 
+  const repoRootsByCwd = new Map<string, string | null>();
+  const repoRootOf = (cwd: string): string | null => {
+    if (!repoRootsByCwd.has(cwd)) repoRootsByCwd.set(cwd, repoRootOrNull(cwd));
+    return repoRootsByCwd.get(cwd) ?? null;
+  };
+
   const statsOfCost = async (input: StatsInput, projects: readonly Project[]): Promise<CostReport> => {
-    usage.ensureStarted(projects);
+    usage.ensureStarted();
     const { cache, scan } = usage.snapshot();
     const runs = await readRuns(root);
-    const projectOf = (cwd: string) => findProjectForDir(projects, cwd, home)?.id ?? null;
+    const projectOf = (cwd: string) => {
+      const repoRoot = repoRootOf(cwd);
+      return repoRoot === null ? null : (findProjectForRepoRoot(projects, repoRoot, home)?.id ?? null);
+    };
     return costReport({ buckets: bucketsOf(cache), runs, projectOf, projectId: input.projectId, now: input.now, scan });
   };
 
@@ -131,5 +140,13 @@ async function readJson(c: Context): Promise<unknown> {
     return await c.req.json();
   } catch {
     return undefined;
+  }
+}
+
+function repoRootOrNull(cwd: string): string | null {
+  try {
+    return findRepoRoot(cwd);
+  } catch {
+    return null;
   }
 }

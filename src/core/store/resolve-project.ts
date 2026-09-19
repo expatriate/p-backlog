@@ -18,7 +18,10 @@ export function findRepoRoot(dir: string): string {
 }
 
 export function findProjectForDir(projects: readonly Project[], dir: string, home: string): Project | undefined {
-  const root = findRepoRoot(dir);
+  return findProjectForRepoRoot(projects, findRepoRoot(dir), home);
+}
+
+export function findProjectForRepoRoot(projects: readonly Project[], root: string, home: string): Project | undefined {
   const matches = projects.flatMap((project) =>
     project.repos.flatMap((repo) => {
       const repoPath = realpathOrNull(expandHome(repo, home));

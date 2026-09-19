@@ -114,17 +114,18 @@ export type SignalsReport = { signals: Signal[] };
 
 export type TokenCounts = { input: number; cacheWrite5m: number; cacheWrite1h: number; cacheRead: number; output: number };
 export type UsageKind = "hook" | "cli" | "skill";
-export type UsageBucket = { day: string; projectId: string | null; model: string; kind: UsageKind; tokens: TokenCounts; hookTurns: number };
+export type UsageBucket = { day: string; cwd: string; model: string; kind: UsageKind; tokens: TokenCounts; hookTurns: number };
 export type TranscriptState = {
   hookOpen: boolean;
   lastModel: string | null;
+  lastMessageId: string | null;
   pending: Record<string, "cli" | "skill">;
-  pendingEstimates: { kind: "cli" | "skill"; chars: number; day: string; projectId: string | null }[];
+  pendingEstimates: { kind: "cli" | "skill"; chars: number; day: string; cwd: string }[];
 };
 
 export type CliRun = { at: string; command: string; cwd: string; ms: number; rssMb: number; exitCode: number };
 
-export type ScanProgress = { filesTotal: number; filesDone: number; bytesLeft: number };
+export type ScanProgress = { listed: boolean; filesTotal: number; filesDone: number; bytesLeft: number };
 export type CostTotals = { tokens: number; cost: number | null; hookTurns: number; cliRuns: number; hookRuns: number };
 export type CostDay = { day: string; hookTokens: number; cliTokens: number; cost: number | null; hookTurns: number; cliRuns: number; hookRuns: number };
 export type CostModel = { model: string; tokens: number; cost: number | null };

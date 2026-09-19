@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider, type RouteObject } from "react-router";
-import { loadBacklog } from "../../core/store/load";
 import { makeTestApp, type TestApp, type TestAppOptions } from "../../server/testing/test-app";
 import { routes } from "../app/App";
 import { BacklogApiProvider, type BacklogApi } from "../app/backlog-api";
@@ -20,8 +19,7 @@ export async function renderApp(files: Record<string, string>, route = "/", appR
   const { beforeRender, ...testAppOptions } = options;
   const backlog = await makeTestApp(files, testAppOptions);
   if (testAppOptions.transcriptsDir !== undefined) {
-    const { projects } = await loadBacklog(backlog.root);
-    await backlog.usage.scanOnce(projects);
+    await backlog.usage.scanOnce();
   }
   await beforeRender?.(backlog);
   const api: BacklogApi = {

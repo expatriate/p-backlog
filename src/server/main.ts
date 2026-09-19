@@ -20,7 +20,7 @@ const port = readPort(process.env.PORT);
 
 await mkdir(root, { recursive: true });
 
-const usage = createUsageScanner({ root, claudeProjectsDir: join(home, ".claude", "projects"), home });
+const usage = createUsageScanner({ root, claudeProjectsDir: join(home, ".claude", "projects") });
 const memory = createMemorySampler();
 
 const app = createApp({

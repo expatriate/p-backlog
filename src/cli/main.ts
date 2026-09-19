@@ -14,7 +14,6 @@ async function readStdin(): Promise<string> {
 const home = homedir();
 const backlogRoot = resolveBacklogRoot(process.env, home);
 const argv = process.argv.slice(2);
-const startedAt = performance.now();
 
 const exitCode = await runCli(argv, {
   cwd: process.cwd(),
@@ -32,7 +31,7 @@ try {
     at: formatLocalIso(new Date()),
     command: commandName(argv),
     cwd: process.cwd(),
-    ms: Math.round(performance.now() - startedAt),
+    ms: Math.round(performance.now()),
     rssMb: Math.round((process.resourceUsage().maxRSS / 1024) * 10) / 10,
     exitCode,
   });
