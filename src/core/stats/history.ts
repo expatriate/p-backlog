@@ -4,7 +4,7 @@ import type { Resolution, Task, TaskStatus, TaskType } from "../model/types";
 
 export type Transition = { at: number; from?: TaskStatus; to: TaskStatus; resolution?: Resolution; via: ChangeSource | "unknown" };
 
-export type TaskHistory = { id: string; projectId: string; type: TaskType; createdAt: number; source?: string; finalStatus: TaskStatus; transitions: Transition[] };
+export type TaskHistory = { id: string; projectId: string; type: TaskType; createdAt: number; source?: string; reason?: string; finalStatus: TaskStatus; transitions: Transition[] };
 
 type Known = { projectId: string; final?: Task | TaskSnapshot; created?: Extract<JournalEvent, { kind: "created" }>; transitions: Transition[] };
 
@@ -63,6 +63,7 @@ function historyOf(id: string, { projectId, final, created, transitions }: Known
       type,
       createdAt: Date.parse(createdIso),
       source: final?.source ?? created?.source,
+      reason: final?.reason,
       finalStatus: final?.status ?? "backlog",
       transitions: [...ordered, ...restoredClosing(final, ordered)],
     },
