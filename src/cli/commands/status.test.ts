@@ -8,7 +8,7 @@ import { makeCliSandbox } from "../testing/cli-harness";
 describe("backlog status", () => {
   it("меняет статус и предупреждает о неотмеченных пунктах при done", async () => {
     const { run, root } = await makeCliSandbox();
-    await run(["new", "--title", "X"], { stdin: "- [ ] a\n- [x] b" });
+    await run(["new", "--category", "bug", "--title", "X"], { stdin: "- [ ] a\n- [x] b" });
 
     const result = await run(["status", "SPA-1", "done"]);
 
@@ -18,7 +18,7 @@ describe("backlog status", () => {
 
   it("проверяет аргументы и существование задачи", async () => {
     const { run } = await makeCliSandbox();
-    await run(["new", "--title", "X"]);
+    await run(["new", "--category", "bug", "--title", "X"]);
     expect((await run(["status", "SPA-1"])).code).toBe(EXIT.invalid);
     expect((await run(["status", "SPA-1", "later"])).code).toBe(EXIT.invalid);
     expect((await run(["status", "SPA-8", "done"])).code).toBe(EXIT.notFound);
@@ -26,7 +26,7 @@ describe("backlog status", () => {
 
   it("создание и смена статуса через CLI попадают в журнал с источником cli", async () => {
     const { run, root } = await makeCliSandbox();
-    await run(["new", "--title", "X", "--priority", "high"]);
+    await run(["new", "--category", "bug", "--title", "X", "--priority", "high"]);
 
     await run(["status", "SPA-1", "done"]);
 

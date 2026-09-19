@@ -14,7 +14,7 @@ import { EXIT, UsageError, type CliIo } from "./io";
 
 const USAGE = `Использование:
   backlog new --title <заголовок> [--type task|epic] [--priority low|medium|high|critical] [--tags a,b]
-              [--category <категория>] [--found review|incidental]
+              --category <категория> (для задач обязателен) [--found review|incidental]
               [--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]
               [--force — создать, даже если похожая открытая задача уже есть]
               (описание задачи читается из stdin)

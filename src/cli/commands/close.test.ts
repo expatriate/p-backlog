@@ -17,7 +17,7 @@ async function task(root: string, id: string) {
 describe("backlog close", () => {
   it("закрывает задачу с причиной, датой закрытия и сроком удаления", async () => {
     const { run, root } = await makeCliSandbox();
-    await run(["new", "--title", "Таймаут"]);
+    await run(["new", "--category", "bug", "--title", "Таймаут"]);
 
     const result = await run(["close", "SPA-1", "--as", "fixed", "--reason", "Исправлено в a1b2c3d:\n  таймаут от размера"]);
 
@@ -35,7 +35,7 @@ describe("backlog close", () => {
 
   it("пишет событие статуса в журнал проекта", async () => {
     const { run, root } = await makeCliSandbox();
-    await run(["new", "--title", "Устарело"]);
+    await run(["new", "--category", "bug", "--title", "Устарело"]);
 
     await run(["close", "SPA-1", "--as", "obsolete", "--reason", "больше не нужно"]);
 
@@ -45,8 +45,8 @@ describe("backlog close", () => {
 
   it("дубль отменяется и связывается с оригиналом", async () => {
     const { run, root } = await makeCliSandbox();
-    await run(["new", "--title", "Оригинал"]);
-    await run(["new", "--title", "Дубль"]);
+    await run(["new", "--category", "bug", "--title", "Оригинал"]);
+    await run(["new", "--category", "bug", "--title", "Дубль"]);
 
     const result = await run(["close", "SPA-2", "--as", "duplicate", "--duplicate-of", "SPA-1", "--reason", "то же, что SPA-1"]);
 
@@ -56,9 +56,9 @@ describe("backlog close", () => {
 
   it("отказывает закрытой задаче, эпику, неизвестным ID и неверному оригиналу", async () => {
     const { run } = await makeCliSandbox();
-    await run(["new", "--title", "Открытая"]);
+    await run(["new", "--category", "bug", "--title", "Открытая"]);
     await run(["new", "--title", "Эпик", "--type", "epic"]);
-    await run(["new", "--title", "Закрытая"]);
+    await run(["new", "--category", "bug", "--title", "Закрытая"]);
     await run(["status", "SPA-3", "done"]);
 
     const close = (...args: string[]) => run(["close", ...args]);
@@ -73,7 +73,7 @@ describe("backlog close", () => {
 
   it("проверяет аргументы: --reason обязателен, --duplicate-of только с duplicate", async () => {
     const { run } = await makeCliSandbox();
-    await run(["new", "--title", "Открытая"]);
+    await run(["new", "--category", "bug", "--title", "Открытая"]);
 
     expect((await run(["close", "SPA-1", "--as", "fixed"])).code).toBe(EXIT.invalid);
     expect((await run(["close", "SPA-1", "--as", "fixed", "--reason", "  "])).code).toBe(EXIT.invalid);

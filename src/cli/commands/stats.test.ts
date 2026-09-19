@@ -6,8 +6,8 @@ import { NBSP } from "../../core/stats/format";
 describe("backlog stats", () => {
   it("сводка проекта с тревогами и ссылкой", async () => {
     const { run } = await makeCliSandbox();
-    await run(["new", "--title", "Упало", "--priority", "critical"], { now: new Date("2026-09-01T10:00:00Z") });
-    await run(["new", "--title", "Ещё"]);
+    await run(["new", "--category", "bug", "--title", "Упало", "--priority", "critical"], { now: new Date("2026-09-01T10:00:00Z") });
+    await run(["new", "--category", "bug", "--title", "Ещё"]);
 
     const result = await run(["stats"]);
 
@@ -25,7 +25,7 @@ describe("backlog stats", () => {
 
   it("все проекты без тревог и JSON", async () => {
     const { run } = await makeCliSandbox();
-    await run(["new", "--title", "Одна"]);
+    await run(["new", "--category", "bug", "--title", "Одна"]);
 
     const text = await run(["stats", "--all-projects"]);
     const json = JSON.parse((await run(["stats", "--json"])).out) as { totals: { open: number }; forecast: { created: number }; signals: unknown[] };

@@ -12,7 +12,7 @@ describe("backlog hook stop", () => {
     const { run, repo, root } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n" });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
-    await run(["new", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
     await writeFile(join(repo, "src/a.ts"), "2\n");
     gitCommitAll(repo, "Поправить таймаут", "2026-09-18T10:00:00Z");
     const event = (active: boolean) => JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: active });
@@ -32,7 +32,7 @@ describe("backlog hook stop", () => {
 
   it("молчит, если событие не разобрать, у каталога нет проекта или кандидатов нет", async () => {
     const { run, repo, home } = await makeCliSandbox();
-    await run(["new", "--title", "X"]);
+    await run(["new", "--category", "bug", "--title", "X"]);
 
     for (const stdin of ["не json", "{}", JSON.stringify({ cwd: home }), JSON.stringify({ cwd: repo })]) {
       expect(await run(["hook", "stop"], { stdin })).toEqual({ code: EXIT.ok, out: "", err: "" });
@@ -42,7 +42,7 @@ describe("backlog hook stop", () => {
 
   it("показывает новую тревогу раз в день, без блокировки", async () => {
     const { run, repo, root } = await makeCliSandbox();
-    await run(["new", "--title", "Упало", "--priority", "critical"], { now: new Date(2026, 8, 1, 10) });
+    await run(["new", "--category", "bug", "--title", "Упало", "--priority", "critical"], { now: new Date(2026, 8, 1, 10) });
     const stdin = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
 
     const first = await run(["hook", "stop"], { stdin, now: new Date(2026, 8, 17, 10) });
@@ -59,7 +59,7 @@ describe("backlog hook stop", () => {
     const { run, repo } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n" });
     gitCommitAll(repo, "Начало", "2026-09-01T10:00:00Z");
-    await run(["new", "--title", "Упало", "--priority", "critical", "--source", "src/a.ts:1"], { now: new Date("2026-09-01T10:00:00Z") });
+    await run(["new", "--category", "bug", "--title", "Упало", "--priority", "critical", "--source", "src/a.ts:1"], { now: new Date("2026-09-01T10:00:00Z") });
     await writeFile(join(repo, "src/a.ts"), "2\n");
     gitCommitAll(repo, "Правка", "2026-09-16T10:00:00Z");
     const stdin = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
@@ -72,7 +72,7 @@ describe("backlog hook stop", () => {
 
   it("нечитаемый журнал не роняет хук: тревог нет, предупреждение в stderr", async () => {
     const { run, repo, root } = await makeCliSandbox();
-    await run(["new", "--title", "Упало", "--priority", "critical"], { now: new Date("2026-09-01T10:00:00Z") });
+    await run(["new", "--category", "bug", "--title", "Упало", "--priority", "critical"], { now: new Date("2026-09-01T10:00:00Z") });
     await rm(join(root, "spa", "journal.jsonl"));
     await mkdir(join(root, "spa", "journal.jsonl"));
     const stdin = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
@@ -88,7 +88,7 @@ describe("backlog hook stop", () => {
     const { run, repo } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n", "src/b.ts": "1\n" });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
-    await run(["new", "--title", "Мелочь про форматирование", "--priority", "low", "--source", "src/a.ts:1"], { now: new Date("2026-09-16T11:00:00Z") });
+    await run(["new", "--category", "bug", "--title", "Мелочь про форматирование", "--priority", "low", "--source", "src/a.ts:1"], { now: new Date("2026-09-16T11:00:00Z") });
     await writeFile(join(repo, "src/a.ts"), "2\n");
     gitCommitAll(repo, "Правка", "2026-09-17T10:00:00Z");
     const stdin = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
@@ -100,7 +100,7 @@ describe("backlog hook stop", () => {
     expect(again.out).toBe("");
     expect((await run(["check"])).out).toContain("SPA-1");
 
-    await run(["new", "--title", "Важная ошибка загрузки", "--priority", "high", "--source", "src/b.ts:1"], { now: new Date("2026-09-16T11:00:00Z") });
+    await run(["new", "--category", "bug", "--title", "Важная ошибка загрузки", "--priority", "high", "--source", "src/b.ts:1"], { now: new Date("2026-09-16T11:00:00Z") });
     await writeFile(join(repo, "src/b.ts"), "2\n");
     gitCommitAll(repo, "Правка b", "2026-09-17T11:00:00Z");
 

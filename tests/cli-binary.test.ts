@@ -17,7 +17,7 @@ describe("собранный бинарник backlog", () => {
     const env = { ...process.env, BACKLOG_DIR: join(home, "store") };
     const run = (args: string[], input?: string) => spawnSync(cli, args, { cwd: repo, env, input, encoding: "utf8" });
 
-    const created = run(["new", "--title", "Проверка бинарника"], "- [ ] шаг\n");
+    const created = run(["new", "--category", "bug", "--title", "Проверка бинарника"], "- [ ] шаг\n");
     expect(created.status).toBe(0);
     expect(created.stdout).toMatch(/^DA-1 .*DA-1\.md\n$/);
 

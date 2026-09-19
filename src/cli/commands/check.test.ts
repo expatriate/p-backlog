@@ -10,7 +10,7 @@ async function sandboxWithChangedSource() {
   const sandbox = await makeCliSandbox();
   await writeFiles(sandbox.repo, { "src/a.ts": "1\n" });
   gitCommitAll(sandbox.repo, "Начало", "2026-09-16T10:00:00Z");
-  await sandbox.run(["new", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+  await sandbox.run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
   await writeFile(join(sandbox.repo, "src/a.ts"), "2\n");
   gitCommitAll(sandbox.repo, "Поправить таймаут", "2026-09-18T10:00:00Z");
   return sandbox;
@@ -37,7 +37,7 @@ describe("backlog check", () => {
 
   it("чинит висячие ссылки и пишет, что исправил; без находок — код 0", async () => {
     const { run, root } = await makeCliSandbox();
-    await run(["new", "--title", "Первая"]);
+    await run(["new", "--category", "bug", "--title", "Первая"]);
     await writeFiles(root, { "spa/SPA-2.md": "---\nid: SPA-2\ntitle: Вторая\ncreated: 2026-09-17T10:00:00Z\nblockedBy: [SPA-40]\n---\n" });
 
     const fixed = await run(["check"]);
@@ -49,7 +49,7 @@ describe("backlog check", () => {
 
   it("выбирает проект как list: текущий, --project или --all-projects", async () => {
     const { run, home } = await makeCliSandbox();
-    await run(["new", "--title", "X"]);
+    await run(["new", "--category", "bug", "--title", "X"]);
 
     expect((await run(["check"], { cwd: home })).code).toBe(EXIT.notFound);
     expect((await run(["check", "--project", "spa"], { cwd: home })).out).toBe("Беклог в порядке");

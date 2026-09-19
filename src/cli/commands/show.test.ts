@@ -7,8 +7,8 @@ describe("backlog show", () => {
   it("показывает прогресс, связи, предупреждения и содержимое файла", async () => {
     const { run } = await makeCliSandbox();
     await run(["new", "--title", "Эпик", "--type", "epic"]);
-    await run(["new", "--title", "Блокер"]);
-    await run(["new", "--title", "Основная", "--epic", "SPA-1", "--blocked-by", "SPA-2,SPA-77"], { stdin: "- [x] a\n- [ ] b" });
+    await run(["new", "--category", "bug", "--title", "Блокер"]);
+    await run(["new", "--category", "bug", "--title", "Основная", "--epic", "SPA-1", "--blocked-by", "SPA-2,SPA-77"], { stdin: "- [x] a\n- [ ] b" });
 
     const result = await run(["show", "SPA-3"]);
 
@@ -32,7 +32,7 @@ describe("backlog show", () => {
 
   it("сообщает о ненайденной и о неразобранной задаче", async () => {
     const { run, root } = await makeCliSandbox();
-    await run(["new", "--title", "X"]);
+    await run(["new", "--category", "bug", "--title", "X"]);
     await writeFiles(root, { "spa/SPA-5.md": "сломано" });
     expect(await run(["show", "SPA-4"])).toMatchObject({ code: EXIT.notFound, err: "Задача SPA-4 не найдена" });
     expect((await run(["show", "SPA-5"])).err).toContain("Файл задачи SPA-5 не разобран");

@@ -11,18 +11,18 @@ import { makeCliSandbox } from "../testing/cli-harness";
 describe("backlog new", () => {
   it("похожая открытая задача — отказ с её ID, --force создаёт всё равно, закрытая не мешает", async () => {
     const { run } = await makeCliSandbox();
-    await run(["new", "--title", "Таймаут загрузки не учитывает размер файла", "--source", "src/upload.ts:88"]);
+    await run(["new", "--category", "bug", "--title", "Таймаут загрузки не учитывает размер файла", "--source", "src/upload.ts:88"]);
 
-    const sameSource = await run(["new", "--title", "Совсем другое описание", "--source", "src/upload.ts:88"]);
-    const sameTitle = await run(["new", "--title", "Загрузка: таймаут не учитывает размер файла"]);
+    const sameSource = await run(["new", "--category", "bug", "--title", "Совсем другое описание", "--source", "src/upload.ts:88"]);
+    const sameTitle = await run(["new", "--category", "bug", "--title", "Загрузка: таймаут не учитывает размер файла"]);
 
     expect(sameSource).toMatchObject({ code: EXIT.refused, out: "" });
     expect(sameSource.err).toBe("Похоже на SPA-1 — «Таймаут загрузки не учитывает размер файла» (тот же source). Если это другая задача — добавьте --force");
     expect(sameTitle.err).toContain("(похожий заголовок)");
-    expect((await run(["new", "--title", "Совсем другое описание", "--source", "src/upload.ts:88", "--force"])).code).toBe(EXIT.ok);
+    expect((await run(["new", "--category", "bug", "--title", "Совсем другое описание", "--source", "src/upload.ts:88", "--force"])).code).toBe(EXIT.ok);
 
     await run(["status", "SPA-1", "cancelled"]);
-    expect((await run(["new", "--title", "Загрузка: таймаут не учитывает размер файла"])).code).toBe(EXIT.ok);
+    expect((await run(["new", "--category", "bug", "--title", "Загрузка: таймаут не учитывает размер файла"])).code).toBe(EXIT.ok);
   });
 
   it("создаёт проект по git-корню и задачу с описанием из stdin", async () => {
@@ -30,7 +30,7 @@ describe("backlog new", () => {
     await mkdir(join(repo, "src"));
 
     const result = await run(
-      ["new", "--title", "Таймауты загрузки", "--priority", "high", "--tags", "upload, network", "--source", "src/a.ts:10"],
+      ["new", "--category", "bug", "--title", "Таймауты загрузки", "--priority", "high", "--tags", "upload, network", "--source", "src/a.ts:10"],
       { cwd: join(repo, "src"), stdin: "Описание\n\n## Чеклист\n- [ ] шаг\n" },
     );
 
@@ -44,9 +44,9 @@ describe("backlog new", () => {
 
   it("второй вызов использует существующий проект, --json печатает задачу", async () => {
     const { run } = await makeCliSandbox();
-    await run(["new", "--title", "Первая"]);
+    await run(["new", "--category", "bug", "--title", "Первая"]);
 
-    const result = await run(["new", "--title", "Вторая", "--related", "SPA-1", "--json"]);
+    const result = await run(["new", "--category", "bug", "--title", "Вторая", "--related", "SPA-1", "--json"]);
 
     expect(result.code).toBe(EXIT.ok);
     expect(result.err).toBe("");
@@ -56,13 +56,16 @@ describe("backlog new", () => {
   it("ошибки аргументов и правил — код 1, неизвестный --project — код 2", async () => {
     const { run } = await makeCliSandbox();
     expect((await run(["new"])).code).toBe(EXIT.invalid);
-    expect((await run(["new", "--title", "X", "--priority", "urgent"])).err).toContain("--priority");
-    expect((await run(["new", "--title", "X", "--unknown"])).code).toBe(EXIT.invalid);
-    expect(await run(["new", "--title", "X", "--epic", "SPA-40"])).toMatchObject({
+    const noCategory = await run(["new", "--title", "Без категории"]);
+    expect(noCategory).toMatchObject({ code: EXIT.invalid, err: expect.stringContaining("--category обязателен") });
+    expect((await run(["new", "--title", "Эпик без категории", "--type", "epic"])).code).toBe(EXIT.ok);
+    expect((await run(["new", "--category", "bug", "--title", "X", "--priority", "urgent"])).err).toContain("--priority");
+    expect((await run(["new", "--category", "bug", "--title", "X", "--unknown"])).code).toBe(EXIT.invalid);
+    expect(await run(["new", "--category", "bug", "--title", "X", "--epic", "SPA-40"])).toMatchObject({
       code: EXIT.invalid,
       err: expect.stringContaining("эпик SPA-40 не найден"),
     });
-    expect((await run(["new", "--title", "X", "--project", "nope"])).code).toBe(EXIT.notFound);
+    expect((await run(["new", "--category", "bug", "--title", "X", "--project", "nope"])).code).toBe(EXIT.notFound);
   });
 
   it("категория, как найдена и происхождение попадают в файл и журнал", async () => {
@@ -82,24 +85,23 @@ describe("backlog new", () => {
   it("без коммитов происхождения нет, по умолчанию — найдена попутно", async () => {
     const { run, root } = await makeCliSandbox();
 
-    await run(["new", "--title", "X"]);
+    await run(["new", "--category", "bug", "--title", "X"]);
 
     const [created] = (await readJournal(join(root, "spa"), "spa")).events;
     expect(created).toMatchObject({ kind: "created", found: "incidental" });
     expect(created).not.toHaveProperty("origin");
-    expect(created).not.toHaveProperty("category");
   });
 
   it("задача в чужой проект из другого репозитория — без происхождения", async () => {
     const { run, root, repo, home } = await makeCliSandbox();
     await writeFiles(repo, { "a.ts": "a\n" });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
-    await run(["new", "--title", "Первая"]);
+    await run(["new", "--category", "bug", "--title", "Первая"]);
     const other = await makeGitRepo(home, "projects/other");
     await writeFiles(other, { "b.ts": "b\n" });
     gitCommitAll(other, "Начало other", "2026-09-16T10:00:00Z");
 
-    await run(["new", "--title", "Вторая", "--project", "spa"], { cwd: other });
+    await run(["new", "--category", "bug", "--title", "Вторая", "--project", "spa"], { cwd: other });
 
     const events = (await readJournal(join(root, "spa"), "spa")).events;
     expect(events[0]).toHaveProperty("origin");
@@ -108,9 +110,9 @@ describe("backlog new", () => {
 
   it("вне git происхождения нет", async () => {
     const { run, root, home } = await makeCliSandbox();
-    await run(["new", "--title", "Первая"]);
+    await run(["new", "--category", "bug", "--title", "Первая"]);
 
-    await run(["new", "--title", "Вторая", "--project", "spa"], { cwd: home });
+    await run(["new", "--category", "bug", "--title", "Вторая", "--project", "spa"], { cwd: home });
 
     const events = (await readJournal(join(root, "spa"), "spa")).events;
     expect(events[1]).not.toHaveProperty("origin");
@@ -120,6 +122,6 @@ describe("backlog new", () => {
     const { run } = await makeCliSandbox();
 
     expect((await run(["new", "--title", "X", "--category", "spaghetti"])).code).toBe(1);
-    expect((await run(["new", "--title", "X", "--found", "maybe"])).code).toBe(1);
+    expect((await run(["new", "--category", "bug", "--title", "X", "--found", "maybe"])).code).toBe(1);
   });
 });

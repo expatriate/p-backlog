@@ -13,7 +13,7 @@ describe("backlog verify", () => {
     const { run, repo, root } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n" });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
-    await run(["new", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
     await writeFile(join(repo, "src/a.ts"), "2\n");
     gitCommitAll(repo, "Поправить соседнее", "2026-09-17T15:00:00Z");
     expect((await run(["check"])).code).toBe(EXIT.needsReview);
@@ -29,7 +29,7 @@ describe("backlog verify", () => {
 
   it("отказывает закрытой и неизвестной задаче, пустому --source", async () => {
     const { run } = await makeCliSandbox();
-    await run(["new", "--title", "X"]);
+    await run(["new", "--category", "bug", "--title", "X"]);
     await run(["status", "SPA-1", "cancelled"]);
 
     expect((await run(["verify", "SPA-1"])).code).toBe(EXIT.refused);
@@ -39,7 +39,7 @@ describe("backlog verify", () => {
 
   it("подтверждение пишет в журнал verified, с --source — с новым местом", async () => {
     const { run, root } = await makeCliSandbox();
-    await run(["new", "--title", "X", "--source", "src/a.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "X", "--source", "src/a.ts:1"]);
 
     await run(["verify", "SPA-1"], { now: new Date("2026-09-17T15:00:00Z") });
     await run(["verify", "SPA-1", "--source", "src/b.ts:2"], { now: new Date("2026-09-17T16:00:00Z") });
@@ -54,7 +54,7 @@ describe("backlog verify", () => {
     const lines = Array.from({ length: 20 }, (_, index) => `line ${index + 1}`);
     await writeFiles(repo, { "src/a.ts": lines.join("\n") });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
-    await run(["new", "--title", "Таймаут", "--source", "src/a.ts:3"]);
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:3"]);
     expect((await loadBacklog(root)).tasks[0]?.anchor).toMatch(/^[0-9a-f]{12}@1-5$/);
 
     await writeFile(join(repo, "src/a.ts"), lines.map((line, index) => (index === 15 ? "changed" : line)).join("\n"));
@@ -73,8 +73,8 @@ describe("backlog verify", () => {
 
   it("подтверждает несколько задач сразу; --source — только с одной", async () => {
     const { run, root } = await makeCliSandbox();
-    await run(["new", "--title", "A"]);
-    await run(["new", "--title", "B"]);
+    await run(["new", "--category", "bug", "--title", "A"]);
+    await run(["new", "--category", "bug", "--title", "B"]);
 
     const result = await run(["verify", "SPA-1", "SPA-2"], { now: new Date("2026-09-17T16:00:00Z") });
 

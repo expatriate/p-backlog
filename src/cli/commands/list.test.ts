@@ -7,9 +7,9 @@ import { makeCliSandbox } from "../testing/cli-harness";
 describe("backlog list", () => {
   it("по умолчанию показывает открытые задачи текущего проекта по приоритету", async () => {
     const { run, root } = await makeCliSandbox();
-    await run(["new", "--title", "Низкий", "--priority", "low", "--tags", "ui"]);
-    await run(["new", "--title", "Критичный", "--priority", "critical"]);
-    await run(["new", "--title", "Закрытый"]);
+    await run(["new", "--category", "bug", "--title", "Низкий", "--priority", "low", "--tags", "ui"]);
+    await run(["new", "--category", "bug", "--title", "Критичный", "--priority", "critical"]);
+    await run(["new", "--category", "bug", "--title", "Закрытый"]);
     await updateTask(root, { id: "SPA-3", changes: { status: "done" }, now: new Date(), via: "cli" });
 
     const result = await run(["list"]);
@@ -24,7 +24,7 @@ describe("backlog list", () => {
 
   it("вне проекта требует --project или --all-projects и выводит ошибки разбора", async () => {
     const { run, home, root } = await makeCliSandbox();
-    await run(["new", "--title", "X"]);
+    await run(["new", "--category", "bug", "--title", "X"]);
     await writeFiles(root, { "spa/SPA-9.md": "сломано" });
 
     expect((await run(["list"], { cwd: home })).code).toBe(EXIT.notFound);
