@@ -1,7 +1,7 @@
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { EffectProject, EffectTotals, EffectWeek } from "../../core/stats/types";
 import { EffectChart } from "./EffectChart";
-import { formatApprox, formatNoiseShare, isEstimated } from "./effect-format";
+import { formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
 import flowStyles from "./FlowPanels.module.css";
 import { Figure } from "./Figure";
 import { Panel } from "./Panel";
@@ -14,19 +14,19 @@ export function EffectFigures({ totals }: { totals: EffectTotals }) {
       <Figure label="Посторонних правок вынесено" value={keptOutValue(totals)} note={keptOutNote(totals)} />
       <Figure label="Без беклога шум был бы" value={formatNoiseShare(totals.noiseShare)} note="доля посторонних правок в пулреквестах" />
       <Figure label="Вынесено в беклог" value={String(totals.fixedTasks + totals.openTasks)} note={`исправлено ${totals.fixedTasks}, ожидают ${totals.openTasks}`} />
-      <Figure label="Строк в пулреквестах" value={String(totals.realLines)} note="за 12 недель" />
+      <Figure label="Строк в пулреквестах" value={formatLines(totals.realLines)} note="с внедрения беклога" />
     </div>
   );
 }
 
 function keptOutValue(totals: EffectTotals): string {
-  if (totals.estimatedLines === null) return `${totals.fixedLines} строк`;
+  if (totals.estimatedLines === null) return `${formatLines(totals.fixedLines)} строк`;
   return `${formatApprox(totals.deferredLines, isEstimated(totals.estimatedLines))} строк`;
 }
 
 function keptOutNote(totals: EffectTotals): string {
-  if (totals.estimatedLines === null) return `исправлено ${totals.fixedLines}; оценка ожидающих появится после ${MIN_FIXES_FOR_ESTIMATE} исправлений`;
-  return `исправлено ${totals.fixedLines} + ожидают ${formatApprox(totals.estimatedLines, isEstimated(totals.estimatedLines))}`;
+  if (totals.estimatedLines === null) return `исправлено ${formatLines(totals.fixedLines)}; оценка ожидающих появится после ${MIN_FIXES_FOR_ESTIMATE} исправлений`;
+  return `исправлено ${formatLines(totals.fixedLines)} + ожидают ${formatApprox(totals.estimatedLines, isEstimated(totals.estimatedLines))}`;
 }
 
 export function EffectChartPanel({ weeks, totals }: { weeks: EffectWeek[]; totals: EffectTotals }) {
@@ -60,9 +60,9 @@ export function ProjectsPanel({ projects }: { projects: EffectProject[] }) {
                 <tr key={project.projectId}>
                   <th scope="row">{project.name}</th>
                   <td>{project.deferredTasks}</td>
-                  <td>{project.fixedLines}</td>
+                  <td>{formatLines(project.fixedLines)}</td>
                   <td>{project.estimatedLines === null ? "—" : formatApprox(project.estimatedLines, isEstimated(project.estimatedLines))}</td>
-                  <td>{project.realLines}</td>
+                  <td>{formatLines(project.realLines)}</td>
                   <td>{formatNoiseShare(project.noiseShare)}</td>
                 </tr>
               ))}

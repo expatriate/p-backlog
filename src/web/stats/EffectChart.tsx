@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { formatDayMonth } from "../../core/stats/format";
 import type { EffectTotals, EffectWeek } from "../../core/stats/types";
-import { formatApprox, formatNoiseShare, isEstimated } from "./effect-format";
+import { formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
 import styles from "./EffectPanels.module.css";
 
 const WIDTH = 360;
@@ -13,7 +13,7 @@ export function EffectChart({ weeks, totals }: { weeks: EffectWeek[]; totals: Ef
   const peak = Math.max(1, ...weeks.map((week) => week.onTopicLines + week.deferredLines));
   const height = (lines: number) => (lines / peak) * HEIGHT;
   const deferredText = formatApprox(totals.deferredLines, isEstimated(totals.estimatedLines));
-  const summary = `${weeks.length} недель: в пулреквестах ${totals.realLines} строк, вынесено ${deferredText} строк, шум без беклога ${formatNoiseShare(totals.noiseShare)}`;
+  const summary = `${weeks.length} недель: в пулреквестах ${formatLines(totals.realLines)} строк, вынесено ${deferredText} строк, шум без беклога ${formatNoiseShare(totals.noiseShare)}`;
   const first = weeks[0];
   return (
     <figure className={styles.chart}>
