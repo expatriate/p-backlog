@@ -108,7 +108,7 @@ export type EffectReport = {
   projects: EffectProject[];
 };
 
-export type SignalKind = "debt-growing" | "urgent-stale" | "stuck" | "noisy-check" | "low-changed";
+export type SignalKind = "debt-growing" | "urgent-stale" | "stuck" | "noisy-check" | "low-changed" | "stale-low";
 export type Signal = { kind: SignalKind; text: string };
 export type SignalsReport = { signals: Signal[] };
 

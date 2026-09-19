@@ -110,3 +110,13 @@ function compareNullsLast(a: number | null, b: number | null, sign: number): num
   if (b === null) return -1;
   return sign * (a - b);
 }
+
+export const STALE_LOW_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function staleLowTasks(tasks: readonly Task[], now: Date): Task[] {
+  const cutoff = now.getTime() - STALE_LOW_DAYS * DAY_MS;
+  return tasks
+    .filter((task) => task.type === "task" && task.status === "backlog" && task.priority === "low" && Date.parse(task.created) < cutoff)
+    .sort((a, b) => Date.parse(a.created) - Date.parse(b.created));
+}

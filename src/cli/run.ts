@@ -9,6 +9,7 @@ import { runShow } from "./commands/show";
 import { runStats } from "./commands/stats";
 import { runStatus } from "./commands/status";
 import { runTake } from "./commands/take";
+import { runPrune } from "./commands/prune";
 import { runVerify } from "./commands/verify";
 import { EXIT, UsageError, type CliIo } from "./io";
 
@@ -27,6 +28,7 @@ const USAGE = `Использование:
   backlog category <ID> <${TASK_CATEGORIES.join("|")}|none>
   backlog check [--changed] [--project id | --all-projects] [--json]
   backlog close <ID> --as fixed|obsolete|duplicate --reason <улика> [--duplicate-of <ID>]
+  backlog prune [--project id | --all-projects] [--apply]   (задачи с низким приоритетом старше 30 дней)
   backlog verify <ID> [<ID> …] [--source файл:строка — только для одной задачи]
   backlog hook stop   (для хука Stop в Claude Code, событие читается из stdin)`;
 
@@ -43,6 +45,7 @@ const COMMANDS = new Map<string, (args: string[], io: CliIo) => Promise<number>>
   ["check", runCheck],
   ["close", runClose],
   ["verify", runVerify],
+  ["prune", runPrune],
   ["hook", runHook],
 ]);
 

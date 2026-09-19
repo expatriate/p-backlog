@@ -1,3 +1,4 @@
+import { STALE_LOW_DAYS, staleLowTasks } from "../../model/query";
 import { STALE_URGENT_DAYS } from "../breakdowns";
 import { inWorkTasks } from "../flow/current";
 import { EVIDENCE_LABELS, formatDays, pluralCount } from "../format";
@@ -14,7 +15,7 @@ const NOISY_MAX_PERCENT = 20;
 
 export function statsSignals(input: StatsInput): Signal[] {
   const overview = statsReport(input);
-  return [...debtGrowing(overview), ...urgentStale(overview), ...stuck(input), ...noisyChecks(qualityReport(input).accuracy)];
+  return [...debtGrowing(overview), ...urgentStale(overview), ...stuck(input), ...noisyChecks(qualityReport(input).accuracy), ...staleLow(input)];
 }
 
 function debtGrowing({ weeks }: StatsReport): Signal[] {
@@ -38,6 +39,11 @@ function stuck(input: StatsInput): Signal[] {
   const longest = stuckTasks[0];
   if (longest === undefined) return [];
   return [{ kind: "stuck", text: `Застряли в работе: ${stuckTasks.length}, дольше всех ${longest.id} — ${formatDays(longest.days)}` }];
+}
+
+function staleLow(input: StatsInput): Signal[] {
+  const stale = staleLowTasks(statsScope(input).tasks, input.now);
+  return stale.length === 0 ? [] : [{ kind: "stale-low", text: `Задач с низким приоритетом старше ${STALE_LOW_DAYS} дней: ${stale.length} — разберите (backlog prune)` }];
 }
 
 function noisyChecks(accuracy: readonly AccuracyRow[]): Signal[] {

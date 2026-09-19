@@ -78,4 +78,17 @@ describe("тревоги", () => {
       { kind: "stuck", text: `Застряли в работе: 1, дольше всех SPA-1 — 9${NBSP}дн.` },
     ]);
   });
+
+  it("задачи с низким приоритетом старше 30 дней, которые не брали в работу", () => {
+    const tasks = [
+      makeTask({ id: "SPA-1", created: iso(7, 1), priority: "low" }),
+      makeTask({ id: "SPA-2", created: iso(7, 1), priority: "low", status: "in-progress" }),
+      makeTask({ id: "SPA-3", created: iso(8, 10), priority: "low" }),
+    ];
+
+    expect(statsSignals({ tasks, journals: journal([]), now: NOW, projectId: "spa" })).toContainEqual({
+      kind: "stale-low",
+      text: "Задач с низким приоритетом старше 30 дней: 1 — разберите (backlog prune)",
+    });
+  });
 });
