@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
+import { NBSP } from "../../core/stats/format";
 
 describe("backlog stats", () => {
   it("сводка проекта с тревогами и ссылкой", async () => {
@@ -14,8 +15,8 @@ describe("backlog stats", () => {
     expect(result.out.split("\n")).toEqual([
       "spa · статистика",
       "Открыто: 2 (вес 10) · за неделю: +1 (создано 1, закрыто 0)",
-      "Возраст, медиана: 8 дн. · до закрытия, медиана: —",
-      "Прогноз: Долг растёт на 0,5 задач в неделю (за 4 недели: закрыто 0, создано 2)",
+      `Возраст, медиана: 8${NBSP}дн. · до закрытия, медиана: —`,
+      `Прогноз: Долг растёт на 0,5${NBSP}задач в неделю (за 4${NBSP}недели: закрыто 0, создано 2)`,
       "Тревоги:",
       "- Срочные задачи ждут дольше 7 дней: 1",
       "Подробнее: http://localhost:4317/p/spa/stats",

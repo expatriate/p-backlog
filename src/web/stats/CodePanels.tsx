@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { formatDays, formatDecimal } from "../../core/stats/format";
+import { formatDays, formatDecimal, NBSP, pluralCount } from "../../core/stats/format";
 import type { ChurnRow, CodeDensity, DensityRow, FixBreakdown } from "../../core/stats/types";
 import { Panel } from "./Panel";
 import flowStyles from "./FlowPanels.module.css";
@@ -8,20 +8,21 @@ import styles from "./CodePanels.module.css";
 export function ChurnPanel({ churn }: { churn: ChurnRow[] }) {
   const top = churn[0]?.score ?? 1;
   return (
-    <Panel title="Меняется × долг">
+    <Panel title="Долг в часто меняемом коде">
+      <p className={flowStyles.muted}>Место в списке — коммиты за 90 дней × вес открытых задач папки</p>
       {churn.length === 0 ? (
         <p className={flowStyles.muted}>Долг не лежит в коде, который меняли за 90 дней</p>
       ) : (
         <ul className={flowStyles.rows}>
           {churn.map((row) => (
             <li key={row.label} className={styles.churnRow}>
-              <code className={flowStyles.rowLabel} title={row.label}>{row.label}</code>
-              <span className={flowStyles.rowValue}>{row.commits} коммитов</span>
+              <code className={flowStyles.rowLabel}>{row.label}</code>
+              <span className={flowStyles.rowValue}>{pluralCount(row.commits, "коммит", "коммита", "коммитов")}</span>
               <span className={flowStyles.rowValue}>
-                {row.tasks} задач, вес {row.weight}
+                {pluralCount(row.tasks, "задача", "задачи", "задач")}, вес {row.weight}
               </span>
-              <span className={styles.track} aria-hidden="true">
-                <span className={styles.fill} style={{ transform: `scaleX(${row.score / top})` }} />
+              <span className={flowStyles.track} aria-hidden="true">
+                <span className={flowStyles.fill} style={{ transform: `scaleX(${row.score / top})` }} />
               </span>
             </li>
           ))}
@@ -57,9 +58,9 @@ function DensityRows({ rows }: { rows: { key: string; label: ReactNode; row: Den
       {rows.map(({ key, label, row }) => (
         <li key={key} className={styles.densityRow}>
           <span className={flowStyles.rowLabel}>{label}</span>
-          <span className={flowStyles.rowValue}>{row.lines} строк</span>
-          <span className={flowStyles.rowValue}>{row.open} задач</span>
-          <span className={flowStyles.rowValue}>{row.perKloc === null ? "—" : `${formatDecimal(row.perKloc)} на 1000 строк`}</span>
+          <span className={flowStyles.rowValue}>{pluralCount(row.lines, "строка", "строки", "строк")}</span>
+          <span className={flowStyles.rowValue}>{pluralCount(row.open, "задача", "задачи", "задач")}</span>
+          <span className={flowStyles.rowValue}>{row.perKloc === null ? "—" : `${formatDecimal(row.perKloc)} на 1000${NBSP}строк`}</span>
         </li>
       ))}
     </ul>
@@ -73,15 +74,25 @@ export function FixesPanel({ fixes }: { fixes: FixBreakdown }) {
         <p className={flowStyles.muted}>Исправлений за 12 недель нет</p>
       ) : (
         <ul className={flowStyles.rows}>
-          <li>
-            агент: {fixes.agent} · медиана {formatDays(fixes.agentMedianDays)}
+          <FixRow label="агент" count={fixes.agent} medianDays={fixes.agentMedianDays} />
+          <FixRow label="человек" count={fixes.human} medianDays={fixes.humanMedianDays} />
+          <li className={flowStyles.row}>
+            <span className={flowStyles.rowLabel}>без коммита</span>
+            <span className={flowStyles.rowValue}>{fixes.unknown}</span>
           </li>
-          <li>
-            человек: {fixes.human} · медиана {formatDays(fixes.humanMedianDays)}
-          </li>
-          <li>без коммита: {fixes.unknown}</li>
         </ul>
       )}
     </Panel>
+  );
+}
+
+function FixRow({ label, count, medianDays }: { label: string; count: number; medianDays: number | null }) {
+  return (
+    <li className={flowStyles.row}>
+      <span className={flowStyles.rowLabel}>{label}</span>
+      <span className={flowStyles.rowValue}>
+        {count} · медиана {formatDays(medianDays)}
+      </span>
+    </li>
   );
 }

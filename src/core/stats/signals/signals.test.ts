@@ -3,6 +3,7 @@ import type { JournalEvent } from "../../journal/events";
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { statsSignals } from "./signals";
+import { NBSP } from "../format";
 
 const NOW = new Date(2026, 8, 18, 12);
 const iso = (month: number, day: number) => formatLocalIso(new Date(2026, month, day, 12));
@@ -19,9 +20,9 @@ describe("тревоги", () => {
     const events: JournalEvent[] = [{ at: iso(8, 3), task: "SPA-4", via: "cli", kind: "status", from: "backlog", to: "blocked" }];
 
     expect(statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).toEqual([
-      { kind: "debt-growing", text: "Долг растёт третью неделю подряд: за 3 недели создано 3, закрыто 0" },
+      { kind: "debt-growing", text: `Долг растёт третью неделю подряд: за 3${NBSP}недели создано 3, закрыто 0` },
       { kind: "urgent-stale", text: "Срочные задачи ждут дольше 7 дней: 1" },
-      { kind: "stuck", text: "Застряли в работе: 1, дольше всех SPA-4 — 15 дн." },
+      { kind: "stuck", text: `Застряли в работе: 1, дольше всех SPA-4 — 15${NBSP}дн.` },
     ]);
   });
 
@@ -74,7 +75,7 @@ describe("тревоги", () => {
     const tasks = [makeTask({ id: "SPA-1", created: iso(8, 9), status: "in-progress" })];
 
     expect(statsSignals({ tasks, journals: journal([]), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "stuck")).toEqual([
-      { kind: "stuck", text: "Застряли в работе: 1, дольше всех SPA-1 — 9 дн." },
+      { kind: "stuck", text: `Застряли в работе: 1, дольше всех SPA-1 — 9${NBSP}дн.` },
     ]);
   });
 });

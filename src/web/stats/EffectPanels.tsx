@@ -1,3 +1,4 @@
+import { NBSP, plural } from "../../core/stats/format";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { EffectProject, EffectTotals, EffectWeek } from "../../core/stats/types";
 import { EffectChart } from "./EffectChart";
@@ -12,7 +13,7 @@ export function EffectFigures({ totals }: { totals: EffectTotals }) {
   return (
     <div className={totalsStyles.totals}>
       <Figure label="Посторонних правок вынесено" value={keptOutValue(totals)} note={keptOutNote(totals)} />
-      <Figure label="Без беклога шум был бы" value={formatNoiseShare(totals.noiseShare)} note="доля посторонних правок в пулреквестах" />
+      <Figure label="Шум без беклога" value={formatNoiseShare(totals.noiseShare)} note="доля посторонних правок в пулреквестах" />
       <Figure label="Вынесено в беклог" value={String(totals.fixedTasks + totals.openTasks)} note={`исправлено ${totals.fixedTasks}, ожидают ${totals.openTasks}`} />
       <Figure label="Строк в пулреквестах" value={formatLines(totals.realLines)} note="с внедрения беклога" />
     </div>
@@ -20,8 +21,8 @@ export function EffectFigures({ totals }: { totals: EffectTotals }) {
 }
 
 function keptOutValue(totals: EffectTotals): string {
-  if (totals.estimatedLines === null) return `${formatLines(totals.fixedLines)} строк`;
-  return `${formatApprox(totals.deferredLines, isEstimated(totals.estimatedLines))} строк`;
+  if (totals.estimatedLines === null) return `${formatLines(totals.fixedLines)}${NBSP}${plural(totals.fixedLines, "строка", "строки", "строк")}`;
+  return `${formatApprox(totals.deferredLines, isEstimated(totals.estimatedLines))}${NBSP}${plural(totals.deferredLines, "строка", "строки", "строк")}`;
 }
 
 function keptOutNote(totals: EffectTotals): string {

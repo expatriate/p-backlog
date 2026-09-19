@@ -1,6 +1,6 @@
 import { STALE_URGENT_DAYS } from "../breakdowns";
 import { inWorkTasks } from "../flow/current";
-import { EVIDENCE_LABELS, formatDays } from "../format";
+import { EVIDENCE_LABELS, formatDays, pluralCount } from "../format";
 import { qualityReport } from "../quality/quality-report";
 import { statsReport } from "../report";
 import { statsScope, type StatsInput } from "../scope";
@@ -22,7 +22,7 @@ function debtGrowing({ weeks }: StatsReport): Signal[] {
   if (recent.length < GROWTH_WEEKS || !recent.every((week) => week.created > week.closed)) return [];
   const created = recent.reduce((sum, week) => sum + week.created, 0);
   const closed = recent.reduce((sum, week) => sum + week.closed, 0);
-  return [{ kind: "debt-growing", text: `Долг растёт третью неделю подряд: за ${GROWTH_WEEKS} недели создано ${created}, закрыто ${closed}` }];
+  return [{ kind: "debt-growing", text: `Долг растёт третью неделю подряд: за ${pluralCount(GROWTH_WEEKS, "неделю", "недели", "недель")} создано ${created}, закрыто ${closed}` }];
 }
 
 function urgentStale({ age }: StatsReport): Signal[] {

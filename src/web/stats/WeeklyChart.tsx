@@ -1,4 +1,4 @@
-import { formatDayMonth } from "../../core/stats/format";
+import { formatDayMonth, pluralCount } from "../../core/stats/format";
 import type { WeekFlow } from "../../core/stats/types";
 import styles from "./WeeklyChart.module.css";
 
@@ -15,7 +15,7 @@ export function WeeklyChart({ weeks }: { weeks: WeekFlow[] }) {
   const maxFlow = Math.max(1, ...weeks.flatMap((week) => [week.created, week.closed]));
   const barHeight = (value: number) => (value / maxFlow) * BAR_HEIGHT;
   const points = weeks.map((week, index) => `${index * slot + slot / 2},${LINE_HEIGHT - (week.openAtEnd / maxOpen) * (LINE_HEIGHT - 4) - 2}`).join(" ");
-  const summary = `${weeks.length} недель: создано ${created}, закрыто ${closed}, открыто сейчас ${openNow}`;
+  const summary = `${pluralCount(weeks.length, "неделя", "недели", "недель")}: создано ${created}, закрыто ${closed}, открыто сейчас ${openNow}`;
   const first = weeks[0];
 
   return (

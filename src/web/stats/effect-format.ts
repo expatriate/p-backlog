@@ -1,4 +1,4 @@
-import { formatShare } from "../../core/stats/format";
+import { formatShare, NBSP } from "../../core/stats/format";
 
 export function isEstimated(estimatedLines: number | null): boolean {
   return typeof estimatedLines === "number" && estimatedLines > 0;
@@ -9,9 +9,9 @@ export function formatLines(value: number): string {
 }
 
 export function formatApprox(value: number, approx: boolean): string {
-  return approx ? `≈ ${formatLines(value)}` : formatLines(value);
+  return approx ? `≈${NBSP}${formatLines(value)}` : formatLines(value);
 }
 
 export function formatNoiseShare(noiseShare: number | null): string {
-  return noiseShare === null ? "—" : `≈ ${formatShare(noiseShare)}`;
+  return noiseShare === null ? "—" : `≈${NBSP}${formatShare(noiseShare)}`;
 }

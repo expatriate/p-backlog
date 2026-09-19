@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { forecastTail, forecastText, formatDays, formatShare } from "../../core/stats/format";
+import { forecastTail, forecastText, formatDays, formatP90, formatShare, pluralCount } from "../../core/stats/format";
 import type { EpicFlow, FlowCycle, FlowForecast, FlowNow, FlowWip } from "../../core/stats/types";
 import type { EpicTones } from "../ui/epic-tone";
 import { STATUS_LABELS } from "../labels";
@@ -54,7 +54,7 @@ export function CyclePanel({ cycle }: { cycle: FlowCycle }) {
       ) : (
         <>
           <p className={styles.lead}>
-            медиана {formatDays(cycle.medianDays)} · 90% — за {formatDays(cycle.p90Days)}
+            медиана {formatDays(cycle.medianDays)} · 90% — {formatP90(cycle.p90Days)}
           </p>
           <p className={styles.muted}>
             в блокировке — {formatShare(cycle.blockedShare)} этого времени · закрытий с работой: {cycle.sample}
@@ -72,7 +72,7 @@ export function WipPanel({ wip }: { wip: FlowWip }) {
     <Panel title="В работе одновременно">
       <WeeklyBars
         weeks={wip.weeks.map((week) => ({ start: week.start, value: week.max }))}
-        summary={`${wip.weeks.length} недель: сейчас в работе ${wip.current}, максимум ${peak}`}
+        summary={`${pluralCount(wip.weeks.length, "неделя", "недели", "недель")}: сейчас в работе ${wip.current}, максимум ${peak}`}
       />
     </Panel>
   );
