@@ -1,4 +1,5 @@
-import type { Priority } from "../model/types";
+import type { CandidateEvidence, FoundHow } from "../journal/events";
+import type { Priority, TaskCategory } from "../model/types";
 
 export type ClosingReason = "done" | "fixed" | "obsolete" | "duplicate" | "cancelled";
 export type AgeBucket = "week" | "month" | "quarter" | "older";
@@ -77,4 +78,18 @@ export type CodeReport = {
   churn: ChurnRow[];
   density: CodeDensity;
   fixes: FixBreakdown;
+};
+
+export type AccuracyRow = { evidence: CandidateEvidence | "total"; candidates: number; closed: number; verified: number; open: number; precision: number | null };
+export type CategoryRow = { category: TaskCategory | null; open: number; weight: number; created: number; closed: number };
+export type FoundRow = { found: FoundHow | null; created: number; open: number; fixed: number };
+export type BranchRow = { label: string; created: number; open: number };
+export type QualityReport = {
+  taskCount: number;
+  journalSince: string | null;
+  invalidJournalLines: number;
+  accuracy: AccuracyRow[];
+  categories: CategoryRow[];
+  found: FoundRow[];
+  branches: BranchRow[];
 };

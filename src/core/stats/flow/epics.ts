@@ -25,7 +25,7 @@ export function flowEpics(tasks: readonly Task[], histories: readonly TaskHistor
     .map(({ flow }) => flow);
 }
 
-const NO_HISTORY: TaskHistory = { id: "", projectId: "", type: "task", createdAt: 0, finalStatus: "backlog", transitions: [] };
+const NO_HISTORY: TaskHistory = { id: "", projectId: "", type: "task", createdAt: 0, finalStatus: "backlog", transitions: [], candidates: [], verifications: [] };
 
 function epicWeeks(total: number, open: number, weeklyRate: number): number | null {
   if (total === 0) return null;

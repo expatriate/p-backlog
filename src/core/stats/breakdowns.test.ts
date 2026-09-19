@@ -69,6 +69,8 @@ describe("как закрываются", () => {
       source,
       finalStatus: transitions.at(-1)?.to ?? "backlog",
       transitions,
+      candidates: [],
+      verifications: [],
     });
     const histories = [
       history("SPA-1", [{ at: at(5).getTime(), from: "backlog", to: "done", via: "cli" }], "src/a.ts:1"),
