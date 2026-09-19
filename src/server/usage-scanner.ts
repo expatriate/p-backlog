@@ -17,6 +17,7 @@ export type UsageScanner = {
 
 const DEFAULT_BYTE_BUDGET = 200 * 1024 * 1024;
 const DEFAULT_INTERVAL_MS = 60_000;
+const CATCH_UP_DELAY_MS = 1_000;
 const EMPTY_SCAN: ScanProgress = { filesTotal: 0, filesDone: 0, bytesLeft: 0 };
 
 export function createUsageScanner({ root, claudeProjectsDir, home, byteBudget = DEFAULT_BYTE_BUDGET, intervalMs = DEFAULT_INTERVAL_MS }: UsageScannerOptions): UsageScanner {
@@ -54,7 +55,11 @@ export function createUsageScanner({ root, claudeProjectsDir, home, byteBudget =
   };
 
   const scanFromTimer = (): void => {
-    void loadBacklog(root).then(({ projects }) => scanOnce(projects));
+    void loadBacklog(root)
+      .then(({ projects }) => scanOnce(projects))
+      .then(() => {
+        if (timer !== null && scan.bytesLeft > 0) setTimeout(scanFromTimer, CATCH_UP_DELAY_MS);
+      });
   };
 
   return {
