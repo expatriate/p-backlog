@@ -25,8 +25,8 @@ function folderRows(project: ProjectCode, openTasks: readonly Task[]): FolderDen
     (file) => folderOf(file.path),
     (file) => file.lines,
   );
-  const ownTasks = openTasks.filter((task) => task.projectId === project.projectId && task.source !== undefined);
-  const open = countBy(ownTasks, (task) => folderOf(task.source ?? ""));
+  const ownSources = openTasks.flatMap((task) => (task.projectId === project.projectId && task.source !== undefined ? [task.source] : []));
+  const open = countBy(ownSources, folderOf);
   return [...open.entries()]
     .flatMap(([label, count]) => {
       const folderLines = lines.get(label) ?? 0;

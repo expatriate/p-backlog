@@ -41,13 +41,13 @@ export async function readFixCommits(git: GitRunner, repo: string, hashes: reado
   if (hashes.length === 0) return new Map();
   const batch = await readFixBatch(git, repo, hashes);
   if (batch !== null) return batch;
-  const found = new Map<string, FixCommit>();
-  for (const hash of hashes) {
-    const single = await readFixBatch(git, repo, [hash]);
-    const commit = single?.get(hash);
-    if (commit !== undefined) found.set(hash, commit);
-  }
-  return found;
+  const known = await knownHashes(git, repo, hashes);
+  return known.length === 0 ? new Map() : ((await readFixBatch(git, repo, known)) ?? new Map());
+}
+
+async function knownHashes(git: GitRunner, repo: string, hashes: readonly string[]): Promise<string[]> {
+  const checked = await Promise.all(hashes.map(async (hash) => ((await git(repo, ["rev-parse", "--verify", "--quiet", `${hash}^{commit}`])) === null ? [] : [hash])));
+  return checked.flat();
 }
 
 async function readFixBatch(git: GitRunner, repo: string, hashes: readonly string[]): Promise<Map<string, FixCommit> | null> {

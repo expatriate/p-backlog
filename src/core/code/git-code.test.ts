@@ -163,4 +163,19 @@ describe("чтение git для вкладки «Код»", () => {
     execFileSync("git", ["-C", repo, "checkout", "-q", "--detach"]);
     expect(await readMainCommit(runGit, repo)).toBe(onWork);
   });
+
+  it("в батче есть чужой хеш — свои коммиты всё равно находятся", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const first = shortHead(repo);
+    await writeFiles(repo, { "src/a.ts": "a\nb\n" });
+    gitCommitAll(repo, "second", "2026-09-11T10:00:00+03:00");
+    const second = shortHead(repo);
+
+    const commits = await readFixCommits(runGit, repo, [first, "deadbee", second, "0123456789abcdef"]);
+
+    expect([...commits.keys()].sort()).toEqual([first, second].sort());
+    expect(commits.get(second)?.lines).toBe(1);
+  });
 });

@@ -99,17 +99,15 @@ function snapshotOf(task: Task): TaskSnapshot {
 
 type EpisodeState = "open" | "ended";
 
-export function candidateEvents(sightings: readonly CandidateSighting[], journal: readonly JournalEvent[], now: Date, mode: CheckMode): JournalEvent[] {
+export function candidateEvents(sightings: readonly CandidateSighting[], states: EpisodeStates, now: Date, mode: CheckMode): JournalEvent[] {
   const at = formatLocalIso(now);
-  const states = episodeStates(journal);
   return dedupeSightings(sightings)
     .filter((sighting) => states.get(episodeKey(sighting.task, sighting.evidence)) !== "open")
     .map((sighting) => ({ at, task: sighting.task, via: "check", kind: "candidate", evidence: sighting.evidence, mode }));
 }
 
-export function candidateGoneEvents(sightings: readonly CandidateSighting[], tasks: readonly string[], journal: readonly JournalEvent[], now: Date): JournalEvent[] {
+export function candidateGoneEvents(sightings: readonly CandidateSighting[], tasks: readonly string[], states: EpisodeStates, now: Date): JournalEvent[] {
   const at = formatLocalIso(now);
-  const states = episodeStates(journal);
   const seen = new Set(sightings.map((sighting) => episodeKey(sighting.task, sighting.evidence)));
   return tasks.flatMap((task) =>
     CANDIDATE_EVIDENCE.flatMap((evidence): JournalEvent[] => {
@@ -119,7 +117,9 @@ export function candidateGoneEvents(sightings: readonly CandidateSighting[], tas
   );
 }
 
-function episodeStates(journal: readonly JournalEvent[]): Map<string, EpisodeState> {
+export type EpisodeStates = ReadonlyMap<string, EpisodeState>;
+
+export function episodeStates(journal: readonly JournalEvent[]): EpisodeStates {
   const states = new Map<string, EpisodeState>();
   for (const event of journal) {
     if (event.kind === "candidate") states.set(episodeKey(event.task, event.evidence), "open");

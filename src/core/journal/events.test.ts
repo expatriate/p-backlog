@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
-import { candidateEvents, candidateGoneEvents, changeEvents, createdEvent, deletedEvent, journalEventSchema } from "./events";
+import { candidateEvents, candidateGoneEvents, episodeStates, changeEvents, createdEvent, deletedEvent, journalEventSchema } from "./events";
 
 const NOW = new Date(2026, 8, 18, 12, 0, 0);
 const AT = "2026-09-18T12:00:00";
@@ -85,15 +85,10 @@ describe("новые поля и события", () => {
 
   it("кандидат пишется при первом появлении и после решения, повтор не пишется", () => {
     const sighting = { task: "SPA-1", evidence: "source-changed" as const };
-    const first = candidateEvents([sighting], [], NOW, "changed");
-    const repeat = candidateEvents([sighting], first, NOW, "changed");
-    const afterVerify = candidateEvents(
-      [sighting],
-      [...first, { at: first[0]?.at ?? "", task: "SPA-1", via: "cli", kind: "verified" }],
-      NOW,
-      "full",
-    );
-    const otherEvidence = candidateEvents([{ task: "SPA-1", evidence: "no-source" }], first, NOW, "changed");
+    const first = candidateEvents([sighting], episodeStates([]), NOW, "changed");
+    const repeat = candidateEvents([sighting], episodeStates(first), NOW, "changed");
+    const afterVerify = candidateEvents([sighting], episodeStates([...first, { at: first[0]?.at ?? "", task: "SPA-1", via: "cli", kind: "verified" }]), NOW, "full");
+    const otherEvidence = candidateEvents([{ task: "SPA-1", evidence: "no-source" }], episodeStates(first), NOW, "changed");
 
     expect(first).toMatchObject([{ kind: "candidate", task: "SPA-1", evidence: "source-changed", mode: "changed", via: "check" }]);
     expect(repeat).toEqual([]);
@@ -104,19 +99,19 @@ describe("новые поля и события", () => {
   it("несколько наблюдений с одинаковыми task и evidence в одном вызове дают одно событие", () => {
     const sighting = { task: "SPA-1", evidence: "duplicate" as const };
 
-    const events = candidateEvents([sighting, sighting], [], NOW, "full");
+    const events = candidateEvents([sighting, sighting], episodeStates([]), NOW, "full");
 
     expect(events).toHaveLength(1);
   });
 
   it("после закрытия и возврата кандидат снова новый", () => {
     const sighting = { task: "SPA-1", evidence: "source-missing" as const };
-    const [first] = candidateEvents([sighting], [], NOW, "full");
+    const [first] = candidateEvents([sighting], episodeStates([]), NOW, "full");
     if (!first) throw new Error("нет события");
     const closed = { at: first.at, task: "SPA-1", via: "cli" as const, kind: "status" as const, from: "backlog" as const, to: "done" as const };
     const reopened = { at: first.at, task: "SPA-1", via: "web" as const, kind: "status" as const, from: "done" as const, to: "backlog" as const };
 
-    expect(candidateEvents([sighting], [first, closed, reopened], NOW, "full")).toHaveLength(1);
+    expect(candidateEvents([sighting], episodeStates([first, closed, reopened]), NOW, "full")).toHaveLength(1);
   });
 
   it("новые события проходят схему", () => {
@@ -131,14 +126,14 @@ describe("новые поля и события", () => {
   });
 
   it("улика пропала в полном прогоне — эпизод закрыт, её возвращение даёт новый эпизод", () => {
-    const first = candidateEvents([{ task: "SPA-1", evidence: "source-changed" }], [], NOW, "full");
-    const repeat = candidateEvents([{ task: "SPA-1", evidence: "source-changed" }], first, NOW, "full");
+    const first = candidateEvents([{ task: "SPA-1", evidence: "source-changed" }], episodeStates([]), NOW, "full");
+    const repeat = candidateEvents([{ task: "SPA-1", evidence: "source-changed" }], episodeStates(first), NOW, "full");
     expect(repeat).toEqual([]);
 
-    const gone = candidateGoneEvents([], ["SPA-1"], first, NOW);
+    const gone = candidateGoneEvents([], ["SPA-1"], episodeStates(first), NOW);
     expect(gone).toMatchObject([{ task: "SPA-1", kind: "candidate-gone", evidence: "source-changed" }]);
-    expect(candidateGoneEvents([], ["SPA-1"], [...first, ...gone], NOW)).toEqual([]);
+    expect(candidateGoneEvents([], ["SPA-1"], episodeStates([...first, ...gone]), NOW)).toEqual([]);
 
-    expect(candidateEvents([{ task: "SPA-1", evidence: "source-changed" }], [...first, ...gone], NOW, "full")).toMatchObject([{ kind: "candidate" }]);
+    expect(candidateEvents([{ task: "SPA-1", evidence: "source-changed" }], episodeStates([...first, ...gone]), NOW, "full")).toMatchObject([{ kind: "candidate" }]);
   });
 });

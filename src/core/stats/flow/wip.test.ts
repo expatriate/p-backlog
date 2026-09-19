@@ -47,8 +47,7 @@ describe("в работе одновременно", () => {
 
     const weeks = flowWip(histories, NOW, journalStart);
 
-    expect(weeks[4]?.max).toBe(null);
-    expect(weeks[5]?.max).toBe(1);
+    expect(weeks.map((week) => week.max)).toEqual([null, null, null, null, null, 1, 0, 0, 0, 0, 0, 0]);
   });
 
   it("повторный переход «в работу» без выхода не удваивает счёт", () => {

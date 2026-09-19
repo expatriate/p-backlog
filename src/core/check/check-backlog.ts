@@ -1,5 +1,5 @@
 import { basename, join } from "node:path";
-import { candidateEvents, candidateGoneEvents, type CheckMode } from "../journal/events";
+import { candidateEvents, candidateGoneEvents, episodeStates, type CheckMode } from "../journal/events";
 import { buildIndex } from "../model/graph";
 import { ID_PATTERN, parseId } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
@@ -53,9 +53,10 @@ async function recordCandidates(root: string, tasks: readonly Task[], candidates
     if (found.length === 0 && (mode !== "full" || reviewed.length === 0)) continue;
     try {
       const journal = await readJournal(dir, projectId);
+      const states = episodeStates(journal.events);
       const sightings = found.map((candidate) => ({ task: candidate.task.id, evidence: candidate.kind }));
-      const gone = mode === "full" ? candidateGoneEvents(sightings, reviewed, journal.events, now) : [];
-      await appendJournal(dir, [...candidateEvents(sightings, journal.events, now, mode), ...gone]);
+      const gone = mode === "full" ? candidateGoneEvents(sightings, reviewed, states, now) : [];
+      await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone]);
     } catch (error) {
       console.error(`Не удалось записать кандидатов в журнал ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
     }

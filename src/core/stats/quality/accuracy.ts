@@ -2,7 +2,6 @@ import { CANDIDATE_EVIDENCE, type CandidateEvidence } from "../../journal/events
 import { closingsOf, type TaskHistory } from "../history";
 import type { AccuracyRow } from "../types";
 
-
 type Outcome = "closed" | "verified" | "open";
 type Episode = { evidence: CandidateEvidence; outcome: Outcome };
 

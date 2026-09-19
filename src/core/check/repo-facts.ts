@@ -16,7 +16,6 @@ export type RepoFacts = {
 
 const DIFF_LINE_LIMIT = 80;
 
-
 export async function collectRepoFacts(repo: string, { since, paths }: { since: Date; paths: readonly string[] }): Promise<RepoFacts> {
   const [log, status, existing] = await Promise.all([
     git(repo, ["log", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%s`, "--name-status", "-M"]),

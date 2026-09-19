@@ -122,3 +122,7 @@ function restoredTransitions(final: Task | TaskSnapshot | undefined, ordered: re
   if (!lastClosed || last === undefined) return [];
   return [{ at: last.at + 1, from: last.to, to: final.status, via: "unknown" }];
 }
+
+export function emptyHistory(): TaskHistory {
+  return { id: "", projectId: "", type: "task", createdAt: 0, finalStatus: "backlog", transitions: [], candidates: [], verifications: [] };
+}
