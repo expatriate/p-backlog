@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { CodeReport, FlowReport, QualityReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { CodeReport, FlowReport, QualityReport, SignalsReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import type { Project, Task } from "../../core/model/types";
 import { useBacklogApi } from "./backlog-api";
 
@@ -36,6 +36,11 @@ export function useCodeStats(projectId: string | undefined) {
 export function useQualityStats(projectId: string | undefined) {
   const { client } = useBacklogApi();
   return useQuery<QualityReport>({ queryKey: [...STATS_KEY, "quality", projectId ?? "all"], queryFn: () => client.qualityStats(projectId) });
+}
+
+export function useSignals(projectId: string | undefined) {
+  const { client } = useBacklogApi();
+  return useQuery<SignalsReport>({ queryKey: [...STATS_KEY, "signals", projectId ?? "all"], queryFn: () => client.signals(projectId) });
 }
 
 export type UpdateTaskVariables = { id: string; version: string; changes: TaskChangesRequest };

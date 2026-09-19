@@ -1,4 +1,4 @@
-import type { CodeReport, ConflictResponse, ErrorResponse, FlowReport, QualityReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { CodeReport, ConflictResponse, ErrorResponse, FlowReport, QualityReport, SignalsReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import type { Project, Task } from "../../core/model/types";
 
 export type ApiFetch = (path: string, init?: RequestInit) => Promise<Response>;
@@ -22,6 +22,7 @@ export type ApiClient = {
   flowStats: (projectId?: string) => Promise<FlowReport>;
   codeStats: (projectId?: string) => Promise<CodeReport>;
   qualityStats: (projectId?: string) => Promise<QualityReport>;
+  signals: (projectId?: string) => Promise<SignalsReport>;
 };
 
 export function createApiClient(apiFetch: ApiFetch): ApiClient {
@@ -46,6 +47,7 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
     flowStats: async (projectId) => read<FlowReport>(await apiFetch(scopedPath("/api/stats/flow", projectId))),
     codeStats: async (projectId) => read<CodeReport>(await apiFetch(scopedPath("/api/stats/code", projectId))),
     qualityStats: async (projectId) => read<QualityReport>(await apiFetch(scopedPath("/api/stats/quality", projectId))),
+    signals: async (projectId) => read<SignalsReport>(await apiFetch(scopedPath("/api/stats/signals", projectId))),
   };
 }
 

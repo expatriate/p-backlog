@@ -267,3 +267,13 @@ describe("вкладка «Качество»", () => {
     expect(await screen.findByText("Проверка ещё не находила кандидатов")).toBeDefined();
   });
 });
+
+describe("тревоги", () => {
+  it("блок над вкладками и число у раздела «Статистика»", async () => {
+    await renderApp(FILES, "/stats/flow");
+
+    const block = await screen.findByRole("status", { name: "Тревоги" });
+    expect(within(block).getByText("Срочные задачи ждут дольше 7 дней: 1")).toBeDefined();
+    expect(screen.getByRole("link", { name: "Статистика" }).textContent).toContain("1");
+  });
+});

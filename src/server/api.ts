@@ -10,7 +10,8 @@ import { flowReport } from "../core/stats/flow/flow-report";
 import { qualityReport } from "../core/stats/quality/quality-report";
 import { statsReport } from "../core/stats/report";
 import type { StatsInput } from "../core/stats/scope";
-import type { CodeReport, FlowReport, QualityReport, StatsReport } from "../core/stats/types";
+import { statsSignals } from "../core/stats/signals/signals";
+import type { CodeReport, FlowReport, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
 import { loadBacklog } from "../core/store/load";
 import { readJournals } from "../core/store/journal";
 import { updateTask } from "../core/store/update";
@@ -32,7 +33,9 @@ export function createApi({ root, changes, now, home }: ApiOptions): Hono {
   const codeSource = createCodeSource({ home });
 
   const scopedStats =
-    <R extends StatsReport | FlowReport | CodeReport | QualityReport>(report: (input: StatsInput, projects: readonly Project[]) => R | Promise<R>) =>
+    <R extends StatsReport | FlowReport | CodeReport | QualityReport | SignalsReport>(
+      report: (input: StatsInput, projects: readonly Project[]) => R | Promise<R>,
+    ) =>
     async (c: Context) => {
       const projectId = c.req.query("project") || undefined;
       const { projects, tasks } = await loadBacklog(root);
@@ -52,6 +55,7 @@ export function createApi({ root, changes, now, home }: ApiOptions): Hono {
   api.get("/stats/flow", scopedStats(flowReport));
   api.get("/stats/code", scopedStats(statsOfCode));
   api.get("/stats/quality", scopedStats(qualityReport));
+  api.get("/stats/signals", scopedStats((input) => ({ signals: statsSignals(input) })));
 
   api.patch("/tasks/:id", async (c) => {
     const body = await readBody(c, updateTaskRequestSchema);

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { CodeReport, ConflictResponse, ErrorResponse, FlowReport, QualityReport, StatsReport, TasksResponse } from "../core/api/contract";
+import type { CodeReport, ConflictResponse, ErrorResponse, FlowReport, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
 import { readJournal } from "../core/store/journal";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
@@ -234,6 +234,20 @@ describe("GET /api/stats/quality", () => {
     expect(spa.taskCount).toBe(2);
     expect(spa.found.map((row) => row.found)).toEqual(["review", "incidental", null]);
     expect(unknown.status).toBe(404);
+  });
+});
+
+describe("GET /api/stats/signals", () => {
+  it("тревоги области, неизвестный проект — 404", async () => {
+    const backlog = await makeTestApp({
+      ...SAMPLE_FILES,
+      "spa/SPA-9.md": "---\nid: SPA-9\ntitle: Задача SPA-9\ncreated: 2026-09-01T10:00:00+03:00\npriority: critical\n---\n",
+    });
+
+    const report = (await (await backlog.request("/api/stats/signals?project=spa")).json()) as SignalsReport;
+
+    expect(report.signals).toContainEqual({ kind: "urgent-stale", text: "Срочные задачи ждут дольше 7 дней: 1" });
+    expect((await backlog.request("/api/stats/signals?project=nope")).status).toBe(404);
   });
 });
 

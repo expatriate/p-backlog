@@ -11,6 +11,21 @@
   font-weight: 600;
 }
 
+.signals {
+  margin: var(--space-3) var(--space-5) 0;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-control);
+  background: var(--warn-soft);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.signals ul {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
 .tabs {
   display: flex;
   gap: var(--space-1);

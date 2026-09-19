@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link, matchPath, NavLink, Outlet, useLocation } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
-import { useProjects, useTasks } from "../app/queries";
+import { useProjects, useSignals, useTasks } from "../app/queries";
 import { cx } from "../ui/cx";
 import styles from "./AppLayout.module.css";
 
@@ -15,6 +15,7 @@ export function AppLayout() {
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const openCount = (projectId?: string) => filterTasks(allTasks, { projectId, statuses: OPEN_STATUSES }, index).length;
   const projectId = matchPath("/p/:projectId/*", pathname)?.params.projectId;
+  const signals = useSignals(projectId);
   const statsTab = (matchPath("/stats/*", pathname) ?? matchPath("/p/:projectId/stats/*", pathname))?.params["*"];
   const onStats = statsTab !== undefined;
   const scopePath = (id?: string) => (onStats ? `${statsPath(id)}${statsTab === "" ? "" : `/${statsTab}`}` : listPath(id));
@@ -32,6 +33,11 @@ export function AppLayout() {
           <li>
             <Link to={statsPath(projectId)} className={navClass(onStats)} aria-current={onStats ? "page" : undefined}>
               <span className={styles.projectName}>Статистика</span>
+              {(signals.data?.signals.length ?? 0) > 0 && (
+                <span className={styles.count} aria-hidden="true">
+                  {signals.data?.signals.length}
+                </span>
+              )}
             </Link>
           </li>
         </ul>
