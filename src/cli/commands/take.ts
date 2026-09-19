@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { sourcePath } from "../../core/check/candidates";
 import { buildIndex, epicChildren, isClosed, openBlockers, type BacklogIndex } from "../../core/model/graph";
 import { pickNextTask } from "../../core/model/query";
 import type { Task } from "../../core/model/types";
@@ -21,11 +22,13 @@ export async function runTake(args: string[], io: CliIo): Promise<number> {
         next: { type: "boolean", default: false },
         force: { type: "boolean", default: false },
         project: { type: "string" },
+        path: { type: "string" },
         json: { type: "boolean", default: false },
       },
     }),
   );
   const loaded = await loadBacklog(io.backlogRoot);
+  if (values.path !== undefined) return takeByPath(loaded, io, positionals, values.path, values.project);
   const task = values.next ? selectNext(loaded, io, positionals, values.project) : selectById(loaded, io, positionals);
   if (!task) return EXIT.notFound;
 
@@ -34,7 +37,43 @@ export async function runTake(args: string[], io: CliIo): Promise<number> {
     for (const line of refusal.lines) io.warn(line);
     return refusal.code;
   }
+  return takeOne(task, io, values.json);
+}
 
+async function takeByPath(loaded: LoadedBacklog, io: CliIo, positionals: string[], path: string, projectId: string | undefined): Promise<number> {
+  if (positionals.length > 0) throw new UsageError("Укажите либо ID, либо --path");
+  const project = requireProject(loaded, io, projectId);
+  if (!project) return EXIT.notFound;
+  const target = sourcePath(path);
+  const index = buildIndex(loaded.tasks);
+  const matching = loaded.tasks.filter((task) => task.projectId === project.id && isOpenTaskAt(task, target));
+  const takeable = matching.filter((task) => {
+    const refusal = takeRefusal(task, index, { ignoreBlockers: false });
+    for (const line of refusal?.lines ?? []) io.warn(line);
+    return refusal === null;
+  });
+  if (takeable.length === 0) {
+    if (matching.length === 0) io.warn(`Открытых задач по ${target} нет`);
+    return EXIT.notFound;
+  }
+  for (const [position, task] of takeable.entries()) {
+    if (position > 0) io.print("---");
+    const code = await takeOne(task, io, false);
+    if (code !== EXIT.ok) return code;
+  }
+  return EXIT.ok;
+}
+
+function isOpenTaskAt(task: Task, path: string): boolean {
+  const workable = task.type === "task" && !isClosed(task.status) && task.status !== "blocked";
+  return workable && task.source !== undefined && isInside(sourcePath(task.source), path);
+}
+
+function isInside(file: string, path: string): boolean {
+  return file === path || file.startsWith(`${path}/`);
+}
+
+async function takeOne(task: Task, io: CliIo, json: boolean): Promise<number> {
   if (task.status !== "in-progress") {
     const result = await updateTask(io.backlogRoot, {
       id: task.id,
@@ -47,7 +86,7 @@ export async function runTake(args: string[], io: CliIo): Promise<number> {
   }
   const refreshed = await loadBacklog(io.backlogRoot);
   const taken = refreshed.tasks.find((candidate) => candidate.id === task.id) ?? task;
-  await printTask(io, taken, refreshed.tasks, { json: values.json });
+  await printTask(io, taken, refreshed.tasks, { json });
   return EXIT.ok;
 }
 

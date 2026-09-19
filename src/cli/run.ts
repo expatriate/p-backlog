@@ -24,6 +24,7 @@ const USAGE = `Использование:
   backlog show <ID> [--json]
   backlog take <ID> [--force] [--json]
   backlog take --next [--project id] [--json]
+  backlog take --path <файл|каталог> [--project id]   (все открытые задачи внутри пути)
   backlog status <ID> <backlog|in-progress|blocked|done|cancelled>
   backlog category <ID> <${TASK_CATEGORIES.join("|")}|none>
   backlog check [--changed] [--project id | --all-projects] [--json]

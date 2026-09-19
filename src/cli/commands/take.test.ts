@@ -66,4 +66,22 @@ describe("backlog take", () => {
     expect((await run(["take", "--next"], { cwd: home })).code).toBe(EXIT.notFound);
     expect((await run(["take", "SPA-1", "--next"])).code).toBe(EXIT.invalid);
   });
+
+  it("--path берёт все открытые задачи внутри пути, заблокированные пропускает", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Первая в stats", "--source", "src/web/stats/A.tsx:3"]);
+    await run(["new", "--category", "bug", "--title", "Вторая в stats", "--source", "src/web/stats/B.tsx:9"]);
+    await run(["new", "--category", "bug", "--title", "Заблокированная в stats", "--source", "src/web/stats/C.tsx:1", "--blocked-by", "SPA-4"]);
+    await run(["new", "--category", "bug", "--title", "Где-то ещё", "--source", "src/web/list/L.tsx:1"]);
+
+    const result = await run(["take", "--path", "./src/web/stats/"]);
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(result.out).toContain("Первая в stats");
+    expect(result.out).toContain("Вторая в stats");
+    expect(result.out).toContain("\n---\n");
+    expect(result.err).toContain("SPA-3 заблокирована открытыми задачами");
+    expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2"), await statusOf(root, "SPA-3"), await statusOf(root, "SPA-4")]).toEqual(["in-progress", "in-progress", "backlog", "backlog"]);
+    expect(await run(["take", "--path", "src/server"])).toMatchObject({ code: EXIT.notFound, err: "Открытых задач по src/server нет" });
+  });
 });
