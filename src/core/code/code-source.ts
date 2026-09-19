@@ -4,20 +4,39 @@ import type { Project } from "../model/types";
 import { fixKey, type FixRequest } from "../stats/code/fixes";
 import type { CollectedCode, FixCommit, ProjectCode, RepoCode } from "../stats/types";
 import { expandHome } from "../store/paths";
+import { emptyCodeCache, type CodeCacheStore } from "./code-cache";
 import { readFixCommit, readHead, readMainCommit, readRepoCode, runGit, type GitRunner } from "./git-code";
 
 const CHURN_DAYS = 90;
 
-export type CodeSourceOptions = { home: string; git?: GitRunner };
+export type CodeSourceOptions = { home: string; git?: GitRunner; store?: CodeCacheStore };
 
 export type CodeSource = {
   collect: (projects: readonly Project[], requests: readonly FixRequest[], now: Date) => Promise<CollectedCode>;
   stateKey: (projects: readonly Project[]) => Promise<string>;
 };
 
-export function createCodeSource({ home, git = runGit }: CodeSourceOptions): CodeSource {
+export function createCodeSource({ home, git = runGit, store }: CodeSourceOptions): CodeSource {
   const repoCache = new Map<string, { key: string; code: RepoCode }>();
   const fixCache = new Map<string, FixCommit | null>();
+  let changed = false;
+  let restored: Promise<void> | null = null;
+
+  const restore = (): Promise<void> => {
+    restored ??= (store?.read() ?? Promise.resolve(emptyCodeCache())).then((snapshot) => {
+      for (const [repo, entry] of Object.entries(snapshot.repos)) if (!repoCache.has(repo)) repoCache.set(repo, entry);
+      for (const [key, commit] of Object.entries(snapshot.fixes)) if (!fixCache.has(key)) fixCache.set(key, commit);
+    });
+    return restored;
+  };
+
+  const persist = async (): Promise<void> => {
+    if (store === undefined || !changed) return;
+    changed = false;
+    await store.write({ repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache) }).catch((error: unknown) => {
+      console.error(`Не удалось сохранить кэш git: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  };
 
   const repoCode = async (repo: string, now: Date): Promise<RepoCode | null> => {
     const head = await readHead(git, repo);
@@ -27,7 +46,10 @@ export function createCodeSource({ home, git = runGit }: CodeSourceOptions): Cod
     const cached = repoCache.get(repo);
     if (cached?.key === key) return cached.code;
     const code = await readRepoCode(git, repo, new Date(now.getTime() - CHURN_DAYS * DAY_MS), mainCommit);
-    if (code !== null) repoCache.set(repo, { key, code });
+    if (code !== null) {
+      repoCache.set(repo, { key, code });
+      changed = true;
+    }
     return code;
   };
 
@@ -36,6 +58,7 @@ export function createCodeSource({ home, git = runGit }: CodeSourceOptions): Cod
     if (fixCache.has(cacheKey)) return fixCache.get(cacheKey) ?? null;
     const commit = await readFixCommit(git, repo, hash);
     fixCache.set(cacheKey, commit);
+    changed = true;
     return commit;
   };
 
@@ -46,6 +69,7 @@ export function createCodeSource({ home, git = runGit }: CodeSourceOptions): Cod
       return states.join(" ");
     },
     collect: async (projects, requests, now) => {
+      await restore();
       const unavailableRepos: string[] = [];
       const available = new Map<string, string[]>();
       const projectCodes: ProjectCode[] = [];
@@ -78,6 +102,7 @@ export function createCodeSource({ home, git = runGit }: CodeSourceOptions): Cod
           }
         }
       }
+      await persist();
       return { projects: projectCodes, unavailableRepos, fixCommits };
     },
   };

@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import { updateTaskRequestSchema } from "../core/api/contract";
+import { createCodeCacheFile } from "../core/code/code-cache";
 import { createCodeSource } from "../core/code/code-source";
 import type { Project, Task } from "../core/model/types";
 import { formatIssues } from "../core/model/zod-issues";
@@ -55,7 +56,7 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
     return c.json({ tasks, errors });
   });
 
-  const codeSource = createCodeSource({ home });
+  const codeSource = createCodeSource({ home, store: createCodeCacheFile(root) });
 
   const statsScopeOf = async (c: Context): Promise<{ projectId?: string; projects: Project[]; tasks: Task[] } | Response> => {
     const projectId = c.req.query("project") || undefined;

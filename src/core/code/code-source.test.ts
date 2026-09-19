@@ -1,7 +1,10 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Project } from "../model/types";
 import { fixKey } from "../stats/code/fixes";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { CODE_CACHE_FILE, createCodeCacheFile } from "./code-cache";
 import { createCodeSource, type CodeSource } from "./code-source";
 import { runGit, type GitRunner } from "./git-code";
 
@@ -69,5 +72,26 @@ describe("сбор данных git по проектам", () => {
     const code = await source.collect([projectOf("a", ["/nope/repo"]), projectOf("b", ["/nope/repo"])], [], NOW);
 
     expect(code.unavailableRepos).toEqual(["/nope/repo"]);
+  });
+
+  it("после перезапуска данные репозитория и коммиты исправлений берутся с диска, битый файл — из git", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const head = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const cacheRoot = await makeTempDir();
+    const projects = [projectOf("spa", [repo])];
+    const requests = [{ projectId: "spa", hashes: [head] }];
+    const first = await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }).collect(projects, requests, NOW);
+
+    const onlyRevParse: GitRunner = (dir, args) => (args[0] === "rev-parse" ? runGit(dir, args) : Promise.resolve(null));
+    const restarted = await createCodeSource({ home: "/h", git: onlyRevParse, store: createCodeCacheFile(cacheRoot) }).collect(projects, requests, NOW);
+
+    expect(restarted.projects).toEqual(first.projects);
+    expect(restarted.fixCommits.get(fixKey("spa", head))).toEqual(first.fixCommits.get(fixKey("spa", head)));
+
+    await writeFile(join(cacheRoot, CODE_CACHE_FILE), "{битый", "utf8");
+    const fromGit = await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }).collect(projects, requests, NOW);
+    expect(fromGit.projects).toEqual(first.projects);
   });
 });
