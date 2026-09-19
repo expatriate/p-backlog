@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { formatShare } from "../../core/stats/format";
 import type { ClosingBreakdown, ClosingReason } from "../../core/stats/types";
 import { cx } from "../ui/cx";
@@ -26,15 +27,24 @@ export function ClosingPanel({ closing }: { closing: ClosingBreakdown }) {
           </li>
         ))}
       </ul>
-      <p className={styles.actors}>
-        <span className={styles.muted}>Кто закрыл:</span>
-        <span>агент: {closing.byActor.agent}</span>
-        <span>вы: {closing.byActor.human}</span>
-        <span>неизвестно: {closing.byActor.unknown}</span>
-      </p>
-      <p className={styles.muted}>Дубли среди закрытых: {formatShare(closing.duplicateShare)}</p>
-      <p className={styles.muted}>Без source среди созданных: {formatShare(closing.withoutSourceShare)}</p>
-      <p className={styles.muted}>Возвраты: {closing.reopened}</p>
+      <p className={styles.muted}>Кто закрыл:</p>
+      <ul className={styles.rows}>
+        <MetricRow label="агент" value={closing.byActor.agent} />
+        <MetricRow label="человек" value={closing.byActor.human} />
+        <MetricRow label="неизвестно" value={closing.byActor.unknown} />
+        <MetricRow label="Дубли среди закрытых" value={formatShare(closing.duplicateShare)} />
+        <MetricRow label="Без source среди созданных" value={formatShare(closing.withoutSourceShare)} />
+        <MetricRow label="Возвраты" value={closing.reopened} />
+      </ul>
     </Panel>
+  );
+}
+
+function MetricRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <li className={styles.row}>
+      <span className={styles.rowLabel}>{label}</span>
+      <span className={styles.rowCount}>{value}</span>
+    </li>
   );
 }

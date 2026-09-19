@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
 import { renderApp } from "../testing/render-app";
+import { NBSP } from "../../core/stats/format";
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),
@@ -23,7 +24,7 @@ describe("страница статистики", () => {
     const open = await screen.findByRole("group", { name: "Открыто" });
     expect(within(open).getByText("3")).toBeDefined();
     expect(within(open).getByText("вес 8")).toBeDefined();
-    expect(screen.getByRole("img", { name: /12 недель: создано 4, закрыто 1, открыто сейчас 3/ })).toBeDefined();
+    expect(screen.getByRole("img", { name: new RegExp(`12${NBSP}недель: создано 4, закрыто 1, открыто сейчас 3`) })).toBeDefined();
     expect(screen.getByText(/Журнал ещё пуст/)).toBeDefined();
   });
 
@@ -47,7 +48,7 @@ describe("страница статистики", () => {
   it("битые строки журнала — предупреждение", async () => {
     await renderApp({ ...FILES, "spa/journal.jsonl": "сломано\n" }, "/stats");
 
-    expect(await screen.findByText("Не удалось разобрать строк журнала: 1")).toBeDefined();
+    expect(await screen.findByText("Не удалось разобрать строк журнала: 1. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.")).toBeDefined();
   });
 
   it("без задач — «Задач пока нет»", async () => {
@@ -76,7 +77,7 @@ describe("страница статистики", () => {
     const panel = await screen.findByRole("region", { name: "Возраст открытых" });
 
     expect(within(panel).getByText("Критичные и высокие старше 7 дней: 1")).toBeDefined();
-    expect(within(panel).getByRole("img", { name: "до 7 дней: 1; 7–30 дней: 1; 30–90 дней: 0; больше 90 дней: 0" })).toBeDefined();
+    expect(within(panel).getByRole("img", { name: "до 7 дней: 1 (средних 1); 7–30 дней: 1 (высоких 1); 30–90 дней: 0; больше 90 дней: 0" })).toBeDefined();
   });
 
   it("как закрываются: причины, кто закрыл, шум и возвраты", async () => {
@@ -84,9 +85,9 @@ describe("страница статистики", () => {
     const panel = await screen.findByRole("region", { name: "Как закрываются" });
 
     expect(within(panel).getByText("сделано")).toBeDefined();
-    expect(within(panel).getByText("неизвестно: 1")).toBeDefined();
-    expect(within(panel).getByText("Дубли среди закрытых: 0%")).toBeDefined();
-    expect(within(panel).getByText("Возвраты: 0")).toBeDefined();
+    expect(within(panel).getByText("неизвестно").closest("li")?.textContent).toBe("неизвестно1");
+    expect(within(panel).getByText("Дубли среди закрытых").closest("li")?.textContent).toBe("Дубли среди закрытых0%");
+    expect(within(panel).getByText("Возвраты").closest("li")?.textContent).toBe("Возвраты0");
   });
 });
 
@@ -167,7 +168,7 @@ describe("вкладки статистики", () => {
     const cycle = await screen.findByRole("region", { name: "Время в работе" });
     expect(within(cycle).getByText("медиана 2 дн. · 90% — за 2 дн.")).toBeDefined();
     expect(within(cycle).getByText("в блокировке — 0% этого времени · закрытий с работой: 1")).toBeDefined();
-    expect(screen.getByRole("img", { name: "12 недель: сейчас в работе 1, максимум 2" })).toBeDefined();
+    expect(screen.getByRole("img", { name: `12${NBSP}недель: сейчас в работе 1, максимум 2` })).toBeDefined();
     const epics = screen.getByRole("region", { name: "Эпики" });
     expect(within(epics).getByRole("link", { name: "SPA-4" })).toBeDefined();
     expect(within(epics).getByText("0/1 · темпа нет")).toBeDefined();
@@ -210,17 +211,17 @@ describe("вкладка «Код»", () => {
 
     await app.user.click(await screen.findByRole("link", { name: "Код" }));
 
-    const churnPanel = await screen.findByRole("region", { name: "Меняется × долг" });
+    const churnPanel = await screen.findByRole("region", { name: "Долг в часто меняемом коде" });
     expect(app.route()).toBe("/p/spa/stats/code");
     expect(document.title).toBe("Код · Статистика · spa — Беклог");
     expect(within(churnPanel).getByText("src/upload")).toBeDefined();
-    expect(within(churnPanel).getByText("1 коммитов")).toBeDefined();
-    expect(within(churnPanel).getByText("1 задач, вес 4")).toBeDefined();
+    expect(within(churnPanel).getByText("1 коммит")).toBeDefined();
+    expect(within(churnPanel).getByText("1 задача, вес 4")).toBeDefined();
     const densityPanel = screen.getByRole("region", { name: "Плотность долга" });
     expect(within(densityPanel).getByText("1000 на 1000 строк")).toBeDefined();
     const fixesPanel = screen.getByRole("region", { name: "Кто исправил" });
-    expect(within(fixesPanel).getByText("агент: 1 · медиана 1 дн.")).toBeDefined();
-    expect(screen.getByText("Нет доступа к репозиторию: /nope/repo")).toBeDefined();
+    expect(within(fixesPanel).getByText("агент").closest("li")?.textContent).toBe(`агент1 · медиана 1${NBSP}дн.`);
+    expect(screen.getByText("Нет доступа к репозиторию: /nope/repo. Проверьте путь в repos файла project.md и что это git-репозиторий.")).toBeDefined();
   });
 
   it("без репозиториев и исправлений — пустые состояния", async () => {
@@ -283,7 +284,7 @@ describe("вкладка «Эффект»", () => {
     expect(within(kept).getByText("0 строк")).toBeDefined();
     expect(within(kept).getByText("исправлено 0; оценка ожидающих появится после 5 исправлений")).toBeDefined();
     expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("2")).toBeDefined();
-    expect(screen.getByRole("img", { name: /12 недель: в пулреквестах 2 строк/ })).toBeDefined();
+    expect(screen.getByRole("img", { name: new RegExp(`12${NBSP}недель: в пулреквестах 2${NBSP}строки`) })).toBeDefined();
     expect(screen.getByRole("region", { name: "По проектам" })).toBeDefined();
   });
 });
