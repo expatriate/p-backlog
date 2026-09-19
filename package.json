@@ -24,8 +24,10 @@
     "hono": "^4.13.8",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-is": "^19.3.0",
     "react-markdown": "^10.1.0",
     "react-router": "^8.4.0",
+    "recharts": "^3.10.1",
     "remark-gfm": "^4.0.1",
     "yaml": "^2.9.1",
     "zod": "^4.6.5"
