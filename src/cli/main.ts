@@ -1,8 +1,8 @@
 import { homedir } from "node:os";
 import { formatLocalIso } from "../core/model/dates";
-import { appendRun, commandName } from "../core/store/runs";
+import { appendRun } from "../core/store/runs";
 import { resolveBacklogRoot } from "../core/store/paths";
-import { runCli } from "./run";
+import { commandName, runCli } from "./run";
 
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return "";

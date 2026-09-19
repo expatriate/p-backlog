@@ -1,7 +1,6 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { COMMAND_NAMES } from "../../cli/run";
 import { readTextOrNull } from "./fs-utils";
 
 export const RUNS_FILE = ".runs.jsonl";
@@ -38,10 +37,4 @@ function parseRun(line: string): CliRun | null {
   } catch {
     return null;
   }
-}
-
-export function commandName(argv: readonly string[]): string {
-  const [name, sub] = argv;
-  if (name === undefined || !COMMAND_NAMES.includes(name)) return "help";
-  return name === "hook" && sub !== undefined ? `hook ${sub}` : name;
 }

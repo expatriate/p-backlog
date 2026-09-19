@@ -63,3 +63,9 @@ export async function runCli(argv: readonly string[], io: CliIo): Promise<number
     return EXIT.invalid;
   }
 }
+
+export function commandName(argv: readonly string[]): string {
+  const [name, sub] = argv;
+  if (name === undefined || !COMMAND_NAMES.includes(name)) return "help";
+  return name === "hook" && sub !== undefined ? `hook ${sub}` : name;
+}

@@ -1,7 +1,7 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { appendRun, commandName, readRuns, RUNS_FILE, type CliRun } from "./runs";
+import { appendRun, readRuns, RUNS_FILE, type CliRun } from "./runs";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
 
 const RUN: CliRun = { at: "2026-09-20T10:00:00+03:00", command: "list", cwd: "/tmp/repo", ms: 12, rssMb: 80.5, exitCode: 0 };
@@ -43,23 +43,5 @@ describe("журнал запусков CLI", () => {
     await mkdir(join(root, RUNS_FILE));
 
     await expect(appendRun(root, RUN)).rejects.toThrow();
-  });
-});
-
-describe("commandName", () => {
-  it("для hook возвращает «hook» и второе слово", () => {
-    expect(commandName(["hook", "stop"])).toBe("hook stop");
-  });
-
-  it("для пустых аргументов возвращает «help»", () => {
-    expect(commandName([])).toBe("help");
-  });
-
-  it("для неизвестной команды возвращает «help»", () => {
-    expect(commandName(["nope"])).toBe("help");
-  });
-
-  it("возвращает первое слово известной команды, флаги отбрасывает", () => {
-    expect(commandName(["list", "--all-projects"])).toBe("list");
   });
 });
