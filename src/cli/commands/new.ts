@@ -2,7 +2,8 @@ import { parseArgs } from "node:util";
 import { findSimilarTask } from "../../core/check/candidates";
 import { sourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW } from "../../core/journal/events";
-import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES } from "../../core/model/types";
+import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project } from "../../core/model/types";
+import { findProjectForDir } from "../../core/store/resolve-project";
 import { createTask } from "../../core/store/create";
 import { loadBacklog } from "../../core/store/load";
 import { EXIT, parseChoice, splitList, UsageError, withUsageErrors, type CliIo } from "../io";
@@ -67,7 +68,7 @@ export async function runNew(args: string[], io: CliIo): Promise<number> {
     existingTasks: loaded.tasks,
     now: io.now(),
     via: "cli",
-    provenance: { found, origin: await readOrigin(io.cwd) },
+    provenance: { found, origin: cwdBelongsTo(project, loaded.projects, io) ? await readOrigin(io.cwd) : undefined },
   });
   if (!result.ok) {
     for (const error of result.errors) io.warn(error);
@@ -75,4 +76,8 @@ export async function runNew(args: string[], io: CliIo): Promise<number> {
   }
   io.print(values.json ? JSON.stringify(result.task, null, 2) : `${result.task.id} ${result.task.path}`);
   return EXIT.ok;
+}
+
+function cwdBelongsTo(project: Project, knownProjects: readonly Project[], io: CliIo): boolean {
+  return findProjectForDir([...knownProjects, project], io.cwd, io.home)?.id === project.id;
 }

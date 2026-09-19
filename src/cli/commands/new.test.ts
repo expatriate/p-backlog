@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
-import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitCommitAll, makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -88,6 +88,22 @@ describe("backlog new", () => {
     expect(created).toMatchObject({ kind: "created", found: "incidental" });
     expect(created).not.toHaveProperty("origin");
     expect(created).not.toHaveProperty("category");
+  });
+
+  it("задача в чужой проект из другого репозитория — без происхождения", async () => {
+    const { run, root, repo, home } = await makeCliSandbox();
+    await writeFiles(repo, { "a.ts": "a\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--title", "Первая"]);
+    const other = await makeGitRepo(home, "projects/other");
+    await writeFiles(other, { "b.ts": "b\n" });
+    gitCommitAll(other, "Начало other", "2026-09-16T10:00:00Z");
+
+    await run(["new", "--title", "Вторая", "--project", "spa"], { cwd: other });
+
+    const events = (await readJournal(join(root, "spa"), "spa")).events;
+    expect(events[0]).toHaveProperty("origin");
+    expect(events[1]).not.toHaveProperty("origin");
   });
 
   it("вне git происхождения нет", async () => {
