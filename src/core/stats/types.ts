@@ -63,7 +63,7 @@ export type FlowReport = {
 export type CommitUnit = { date: string; lines: number };
 export type RepoCode = { commits: string[][]; lines: { path: string; lines: number }[]; units: CommitUnit[] };
 export type ProjectCode = { projectId: string; name: string; repos: RepoCode[] };
-export type FixCommit = { date: string; byAgent: boolean; lines: number };
+export type FixCommit = { date: string; byAgent: boolean; lines: number; testLines: number };
 export type CollectedCode = { projects: ProjectCode[]; unavailableRepos: string[]; fixCommits: ReadonlyMap<string, FixCommit> };
 export type ChurnRow = { label: string; commits: number; tasks: number; weight: number; score: number };
 export type DensityRow = { lines: number; open: number; perKloc: number | null };
@@ -95,8 +95,8 @@ export type QualityReport = {
   branches: BranchRow[];
 };
 
-export type EffectTotals = { realLines: number; fixedTasks: number; fixedLines: number; openTasks: number; estimatedLines: number | null; deferredLines: number; noiseShare: number | null };
-export type EffectWeek = { start: string; onTopicLines: number; deferredLines: number; deferredTasks: number };
+export type EffectTotals = { realLines: number; fixedTasks: number; fixedLines: number; openTasks: number; estimatedLines: number | null; deferredLines: number; deferredTestLines: number; noiseShare: number | null };
+export type EffectWeek = { start: string; onTopicLines: number; deferredLines: number; deferredTestLines: number; deferredTasks: number };
 export type EffectProject = { projectId: string; name: string; realLines: number; deferredTasks: number; fixedLines: number; estimatedLines: number | null; noiseShare: number | null };
 export type EffectReport = {
   taskCount: number;

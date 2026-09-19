@@ -12,8 +12,10 @@ export const MIN_FIXES_FOR_ESTIMATE = 5;
 
 export type EffectInput = StatsInput & { code: CollectedCode };
 
-type Deferred = { history: TaskHistory; fixedLines: number | null; fixedAt: number | null };
-type Estimate = (category: TaskCategory | undefined) => number | null;
+type Deferred = { history: TaskHistory; fixedLines: number | null; fixedTestLines: number; fixedAt: number | null };
+type FixSize = { lines: number; testLines: number };
+type FixSample = FixSize & { category: TaskCategory | undefined };
+type Estimate = (category: TaskCategory | undefined) => FixSize | null;
 
 export function effectReport({ code, ...input }: EffectInput): EffectReport {
   const { now, projectId } = input;
@@ -94,35 +96,43 @@ function buildDeferred(candidates: readonly TaskHistory[], code: CollectedCode):
     groups.set(entry.key, group);
   }
   const fixed = [...groups.values()].flatMap(({ commit, histories }) =>
-    histories.map((history): Deferred => ({ history, fixedLines: commit.lines / histories.length, fixedAt: Date.parse(commit.date) })),
+    histories.map((history): Deferred => ({ history, fixedLines: commit.lines / histories.length, fixedTestLines: commit.testLines / histories.length, fixedAt: Date.parse(commit.date) })),
   );
-  return [...fixed, ...open.map((history): Deferred => ({ history, fixedLines: null, fixedAt: null }))];
+  return [...fixed, ...open.map((history): Deferred => ({ history, fixedLines: null, fixedTestLines: 0, fixedAt: null }))];
 }
 
-function estimateSamples(histories: readonly TaskHistory[], code: CollectedCode): { category: TaskCategory | undefined; lines: number }[] {
-  const seen = new Map<string, { category: TaskCategory | undefined; lines: number }>();
+function estimateSamples(histories: readonly TaskHistory[], code: CollectedCode): FixSample[] {
+  const seen = new Map<string, FixSample>();
   for (const history of histories) {
     if (!isFixed(history)) continue;
     const entry = fixCommitEntry(history, code);
     if (entry === undefined || seen.has(entry.key)) continue;
-    seen.set(entry.key, { category: history.category, lines: entry.commit.lines });
+    seen.set(entry.key, { category: history.category, lines: entry.commit.lines, testLines: entry.commit.testLines });
   }
   return [...seen.values()];
 }
 
-function estimator(sizes: readonly { category: TaskCategory | undefined; lines: number }[]): Estimate {
-  const overall = sizes.length >= MIN_FIXES_FOR_ESTIMATE ? median(sizes.map((size) => size.lines)) : null;
+function estimator(samples: readonly FixSample[]): Estimate {
+  const overall = sizeOf(samples);
   return (category) => {
     if (category === undefined) return overall;
-    const own = sizes.filter((size) => size.category === category).map((size) => size.lines);
-    return own.length >= MIN_FIXES_FOR_ESTIMATE ? median(own) : overall;
+    return sizeOf(samples.filter((sample) => sample.category === category)) ?? overall;
   };
+}
+
+function sizeOf(samples: readonly FixSample[]): FixSize | null {
+  const lines = samples.length < MIN_FIXES_FOR_ESTIMATE ? null : median(samples.map((sample) => sample.lines));
+  if (lines === null) return null;
+  const totalLines = samples.reduce((sum, sample) => sum + sample.lines, 0);
+  const testShare = totalLines === 0 ? 0 : samples.reduce((sum, sample) => sum + sample.testLines, 0) / totalLines;
+  return { lines, testLines: lines * testShare };
 }
 
 function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], estimate: Estimate): EffectTotals {
   const fixed = deferred.flatMap((item) => (item.fixedLines === null ? [] : [item.fixedLines]));
   const open = deferred.filter((item) => item.fixedLines === null);
-  const estimatedLines = estimatedLinesOf(open, estimate);
+  const estimated = estimatedSizeOf(open, estimate);
+  const estimatedLines = estimated?.lines ?? null;
   const realLines = units.reduce((sum, unit) => sum + unit.lines, 0);
   const fixedLines = fixed.reduce((sum, lines) => sum + lines, 0);
   const deferredLines = fixedLines + (estimatedLines ?? 0);
@@ -134,14 +144,20 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
     openTasks: open.length,
     estimatedLines,
     deferredLines,
+    deferredTestLines: sum(deferred.map((item) => item.fixedTestLines)) + (estimated?.testLines ?? 0),
     noiseShare: realLines === 0 ? null : deferredLines / denominator,
   };
 }
 
-function estimatedLinesOf(open: readonly Deferred[], estimate: Estimate): number | null {
-  if (open.length === 0) return 0;
+function estimatedSizeOf(open: readonly Deferred[], estimate: Estimate): FixSize | null {
   const estimates = open.map((item) => estimate(item.history.category));
-  return estimates.some((value) => value === null) ? null : estimates.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+  if (estimates.some((size) => size === null)) return null;
+  const sizes = estimates.filter((size) => size !== null);
+  return { lines: sum(sizes.map((size) => size.lines)), testLines: sum(sizes.map((size) => size.testLines)) };
+}
+
+function sum(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0);
 }
 
 function weeksOf(deferred: readonly Deferred[], periodUnits: readonly CommitUnit[], estimate: Estimate, now: Date): EffectWeek[] {
@@ -153,12 +169,13 @@ function weeksOf(deferred: readonly Deferred[], periodUnits: readonly CommitUnit
     const fixedInWeek = deferred.filter((item) => item.fixedAt !== null && inWeek(item.fixedAt));
     const openInWeek = deferred.filter((item) => item.fixedLines === null && inWeek(item.history.createdAt));
     const fixedLinesInWeek = fixedInWeek.reduce((sum, item) => sum + (item.fixedLines ?? 0), 0);
-    const estimatedLinesInWeek = estimatedLinesOf(openInWeek, estimate);
-    const deferredLines = fixedLinesInWeek + (estimatedLinesInWeek ?? 0);
+    const estimatedInWeek = estimatedSizeOf(openInWeek, estimate);
+    const deferredLines = fixedLinesInWeek + (estimatedInWeek?.lines ?? 0);
     return {
       start: formatLocalIso(start),
       onTopicLines: Math.max(0, rawRealLines - fixedLinesInWeek),
       deferredLines,
+      deferredTestLines: sum(fixedInWeek.map((item) => item.fixedTestLines)) + (estimatedInWeek?.testLines ?? 0),
       deferredTasks: fixedInWeek.length + openInWeek.length,
     };
   });

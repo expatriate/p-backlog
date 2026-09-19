@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { CommitUnit, FixCommit, RepoCode } from "../stats/types";
+import { isTestPath } from "./test-paths";
 
 export type GitRunner = (repo: string, args: string[]) => Promise<string | null>;
 
@@ -58,7 +59,13 @@ export async function readFixCommit(git: GitRunner, repo: string, hash: string):
   if (header === null) return null;
   const stats = await git(repo, ["show", "--numstat", "--format=", "--diff-merges=first-parent", commit, "--relative", "--", ".", ...CHURN_EXCLUDES]);
   const [date = "", ...trailers] = header.trim().split(FIELD);
-  return { date, byAgent: trailers.some((trailer) => AGENT_TRAILER.test(trailer.trim())), lines: numstatLines((stats ?? "").split("\n")) };
+  const rows = (stats ?? "").split("\n");
+  return {
+    date,
+    byAgent: trailers.some((trailer) => AGENT_TRAILER.test(trailer.trim())),
+    lines: numstatLines(rows),
+    testLines: numstatLines(rows.filter((row) => isTestPath(row.split("\t")[2] ?? ""))),
+  };
 }
 
 async function readUnits(git: GitRunner, repo: string, since: Date, mainCommit: string | null): Promise<CommitUnit[]> {

@@ -10,7 +10,7 @@ const NOW = new Date(2026, 8, 18, 12);
 const iso = (month: number, day: number) => formatLocalIso(new Date(2026, month, day, 12));
 const fixed = (index: number, lines: number): { task: Task; commit: [string, FixCommit] } => ({
   task: makeTask({ id: `SPA-${index}`, created: iso(8, index), status: "done", closed: iso(8, 10), resolution: "fixed", reason: `Исправлено в aaaaaa${index}`, category: "bug" }),
-  commit: [fixKey("spa", `aaaaaa${index}`), { date: iso(8, 10), byAgent: true, lines }],
+  commit: [fixKey("spa", `aaaaaa${index}`), { date: iso(8, 10), byAgent: true, lines, testLines: lines / 2 }],
 });
 const code = (commits: [string, FixCommit][], units = [{ date: iso(8, 15), lines: 300 }, { date: iso(8, 2), lines: 100 }, { date: iso(5, 1), lines: 999 }]): CollectedCode => ({
   projects: [{ projectId: "spa", name: "Проект spa", repos: [{ commits: [], lines: [], units }] }],
@@ -30,9 +30,9 @@ describe("эффект беклога", () => {
   it("исправленные — точно, открытые — по медиане, закрытые без исправления не считаются", () => {
     const report = effectReport({ tasks: [...fixes.map((fix) => fix.task), ...others], journals: [], now: NOW, projectId: "spa", code: code(fixes.map((fix) => fix.commit)) });
 
-    expect(report.totals).toEqual({ realLines: 400, fixedTasks: 6, fixedLines: 210, openTasks: 2, estimatedLines: 70, deferredLines: 280, noiseShare: 280 / 470 });
+    expect(report.totals).toEqual({ realLines: 400, fixedTasks: 6, fixedLines: 210, openTasks: 2, estimatedLines: 70, deferredLines: 280, deferredTestLines: 140, noiseShare: 280 / 470 });
     expect(report.weeks).toHaveLength(12);
-    expect(report.weeks.at(-1)).toMatchObject({ onTopicLines: 300, deferredLines: 70, deferredTasks: 2 });
+    expect(report.weeks.at(-1)).toMatchObject({ onTopicLines: 300, deferredLines: 70, deferredTestLines: 35, deferredTasks: 2 });
     expect(report.weeks.at(-2)).toMatchObject({ onTopicLines: 0, deferredLines: 210, deferredTasks: 6 });
     expect(report.weeks.at(-3)).toMatchObject({ onTopicLines: 100, deferredLines: 0, deferredTasks: 0 });
     expect(report.projects).toEqual([{ projectId: "spa", name: "Проект spa", realLines: 400, deferredTasks: 8, fixedLines: 210, estimatedLines: 70, noiseShare: 280 / 470 }]);
@@ -50,7 +50,7 @@ describe("эффект беклога", () => {
     const tiFixes = [10, 20, 30, 40, 50].map((lines, index) =>
       makeTask({ id: `TI-${index + 1}`, projectId: "ti", created: iso(8, index + 1), status: "done", closed: iso(8, 10), resolution: "fixed", reason: `Исправлено в cccccc${index + 1}` }),
     );
-    const commits: [string, FixCommit][] = [10, 20, 30, 40, 50].map((lines, index) => [fixKey("ti", `cccccc${index + 1}`), { date: iso(8, 10), byAgent: true, lines }]);
+    const commits: [string, FixCommit][] = [10, 20, 30, 40, 50].map((lines, index) => [fixKey("ti", `cccccc${index + 1}`), { date: iso(8, 10), byAgent: true, lines, testLines: 0 }]);
     const openInSpa = makeTask({ id: "SPA-7", created: iso(8, 15) });
 
     const report = effectReport({ tasks: [...tiFixes, openInSpa], journals: [], now: NOW, projectId: "spa", code: code(commits) });
@@ -71,7 +71,7 @@ describe("эффект беклога", () => {
     const sharedTwo = sameFix("SPA-102", 2);
     const singles = [11, 22, 33, 44].map((lines, index) => fixed(index + 3, lines));
     const openTask = makeTask({ id: "SPA-108", created: iso(8, 16), category: "bug" });
-    const commits: [string, FixCommit][] = [[fixKey("spa", "bbbbbb1"), { date: iso(8, 10), byAgent: true, lines: 40 }], ...singles.map((fix) => fix.commit)];
+    const commits: [string, FixCommit][] = [[fixKey("spa", "bbbbbb1"), { date: iso(8, 10), byAgent: true, lines: 40, testLines: 10 }], ...singles.map((fix) => fix.commit)];
 
     const report = effectReport({
       tasks: [sharedOne, sharedTwo, ...singles.map((fix) => fix.task), openTask],
@@ -84,6 +84,8 @@ describe("эффект беклога", () => {
     expect(report.totals.fixedTasks).toBe(6);
     expect(report.totals.fixedLines).toBe(40 + 11 + 22 + 33 + 44);
     expect(report.totals.estimatedLines).toBe(33);
+    const sampleTestShare = (10 + 5.5 + 11 + 16.5 + 22) / (40 + 11 + 22 + 33 + 44);
+    expect(report.totals.deferredTestLines).toBeCloseTo(10 + 5.5 + 11 + 16.5 + 22 + 33 * sampleTestShare);
   });
 
   it("окно итогов начинается с даты внедрения беклога проектом, недели показывают весь период", () => {

@@ -42,9 +42,9 @@ describe("кто исправил", () => {
     };
     const histories = taskHistories(tasks, [{ projectId: "spa", events: [deleted], invalidLines: 0 }]);
     const commits = new Map<string, FixCommit>([
-      [fixKey("spa", "aaaaaaa"), { date: iso(3), byAgent: true, lines: 0 }],
-      [fixKey("spa", "ccccccc"), { date: iso(6), byAgent: false, lines: 0 }],
-      [fixKey("spa", "ddddddd"), { date: iso(8), byAgent: true, lines: 0 }],
+      [fixKey("spa", "aaaaaaa"), { date: iso(3), byAgent: true, lines: 0, testLines: 0 }],
+      [fixKey("spa", "ccccccc"), { date: iso(6), byAgent: false, lines: 0, testLines: 0 }],
+      [fixKey("spa", "ddddddd"), { date: iso(8), byAgent: true, lines: 0, testLines: 0 }],
     ]);
 
     expect(fixRequests(histories, FROM, TO)).toEqual([{ projectId: "spa", hashes: ["aaaaaaa", "bbbbbbb", "ccccccc", "ddddddd"] }]);
@@ -59,7 +59,7 @@ describe("кто исправил", () => {
 
   it("коммит раньше создания задачи — 0 дней", () => {
     const histories = taskHistories([fixed("SPA-1", 5, 6, "Исправлено в aaaaaaa")], []);
-    const commits = new Map<string, FixCommit>([[fixKey("spa", "aaaaaaa"), { date: iso(1), byAgent: true, lines: 0 }]]);
+    const commits = new Map<string, FixCommit>([[fixKey("spa", "aaaaaaa"), { date: iso(1), byAgent: true, lines: 0, testLines: 0 }]]);
 
     expect(fixBreakdown(histories, FROM, TO, commits)).toEqual({ agent: 1, human: 0, unknown: 0, agentMedianDays: 0, humanMedianDays: null });
   });

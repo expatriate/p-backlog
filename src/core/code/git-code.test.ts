@@ -98,6 +98,18 @@ describe("чтение git для вкладки «Код»", () => {
     expect(commit?.lines).toBe(2);
   });
 
+  it("строки тестов в коммите исправления считаются отдельно", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "one\n" });
+    gitCommitAll(repo, "init", "2026-09-01T10:00:00+03:00");
+    await writeFiles(repo, { "src/a.ts": "one\ntwo\nthree\n", "src/a.test.ts": "a\nb\nc\n" });
+    gitCommitAll(repo, "fix: with test", "2026-09-10T10:00:00+03:00");
+
+    const commit = await readFixCommit(runGit, repo, shortHead(repo));
+
+    expect(commit).toMatchObject({ lines: 5, testLines: 3 });
+  });
+
   it("коммит исправления меняет только lock-файл — берётся сам коммит, а не ближайший предок по пути", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "one\n" });
