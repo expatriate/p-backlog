@@ -41,12 +41,12 @@ describe("backlog hook stop", () => {
 
   it("показывает новую тревогу раз в день, без блокировки", async () => {
     const { run, repo, root } = await makeCliSandbox();
-    await run(["new", "--title", "Упало", "--priority", "critical"], { now: new Date("2026-09-01T10:00:00Z") });
+    await run(["new", "--title", "Упало", "--priority", "critical"], { now: new Date(2026, 8, 1, 10) });
     const stdin = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
 
-    const first = await run(["hook", "stop"], { stdin, now: new Date("2026-09-17T10:00:00Z") });
-    const again = await run(["hook", "stop"], { stdin, now: new Date("2026-09-17T18:00:00Z") });
-    const nextDay = await run(["hook", "stop"], { stdin, now: new Date("2026-09-18T10:00:00Z") });
+    const first = await run(["hook", "stop"], { stdin, now: new Date(2026, 8, 17, 10) });
+    const again = await run(["hook", "stop"], { stdin, now: new Date(2026, 8, 17, 18) });
+    const nextDay = await run(["hook", "stop"], { stdin, now: new Date(2026, 8, 18, 10) });
 
     expect(JSON.parse(first.out)).toEqual({ systemMessage: "Беклог spa: Срочные задачи ждут дольше 7 дней: 1" });
     expect(again.out).toBe("");
