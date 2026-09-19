@@ -39,7 +39,6 @@ const textBlockSchema = z.object({ type: z.literal("text"), text: z.string() }).
 
 const bashInputSchema = z.object({ command: z.string() }).passthrough();
 
-const skillInputSchema = z.object({ skill: z.string() }).passthrough();
 
 const lineSchema = z
   .object({ type: z.string().optional(), timestamp: z.string().optional(), cwd: z.string().optional(), isMeta: z.boolean().optional(), message: z.unknown().optional() })
@@ -55,10 +54,6 @@ export function attributeLine(line: TranscriptLine, state: TranscriptState, proj
   const { type, timestamp, cwd, isMeta, message } = parsed.data;
   const context: LineContext = { day: typeof timestamp === "string" ? dayOf(timestamp) : "", projectId: typeof cwd === "string" ? projectOf(cwd) : null };
 
-  if (type === "tool_use") {
-    registerToolUseBlock(line, state);
-    return [];
-  }
   if (type === "assistant") return attributeAssistant(message, state, context);
   if (type === "user") return attributeUser(message, isMeta === true, state, context);
   return [];
@@ -121,11 +116,6 @@ function registerToolUseBlock(raw: unknown, state: TranscriptState): void {
   if (block.data.name === "Bash") {
     const input = bashInputSchema.safeParse(block.data.input);
     if (input.success && BACKLOG_COMMAND.test(input.data.command)) state.pending[block.data.id] = "cli";
-    return;
-  }
-  if (block.data.name === "Skill") {
-    const input = skillInputSchema.safeParse(block.data.input);
-    if (input.success && input.data.skill === "backlog") state.pending[block.data.id] = "skill";
   }
 }
 

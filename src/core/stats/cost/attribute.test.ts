@@ -104,13 +104,16 @@ describe("отнесение строк расшифровки к накладн
     expect(buckets.some((bucket) => bucket.kind === "cli")).toBe(false);
   });
 
-  it("загрузка скилла backlog: tool_use Skill и текст скилла дают оценку у следующей модели", () => {
+  it("загрузка скилла backlog считается один раз — по тексту скилла, результат «Launching skill» не считается", () => {
     const state = newTranscriptState();
-    attributeLine({ type: "tool_use", id: "toolu_5", name: "Skill", input: { skill: "backlog", args: "" } }, state, PROJECT_OF);
-    attributeLine(skillBodyLine("2026-09-19T11:00:00.000Z"), state, PROJECT_OF);
+    const skillCall = { type: "tool_use", id: "toolu_5", name: "Skill", input: { skill: "backlog", args: "" } };
+    attributeLine(assistantLine("2026-09-19T10:59:59.000Z", "claude-haiku-4-5", usage(1, 1), [skillCall]), state, PROJECT_OF);
+    attributeLine(toolResultLine("2026-09-19T11:00:00.000Z", "toolu_5", "Launching skill: backlog"), state, PROJECT_OF);
+    attributeLine(skillBodyLine("2026-09-19T11:00:00.500Z"), state, PROJECT_OF);
 
     const buckets = attributeLine(assistantLine("2026-09-19T11:00:01.000Z", "claude-haiku-4-5", usage(1, 1)), state, PROJECT_OF);
 
+    expect(buckets.filter((bucket) => bucket.kind === "skill")).toHaveLength(1);
     expect(buckets).toContainEqual(expect.objectContaining({ kind: "skill", model: "claude-haiku-4-5" }));
   });
 
