@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { formatLocalIso } from "../../model/dates";
 import type { TokenCounts, TranscriptState, UsageBucket } from "../types";
+import { fastModel } from "./pricing";
 
 export type TranscriptLine = unknown;
 
 type LineContext = { day: string; cwd: string };
+
+const FAST_SPEED = "fast";
 
 const BACKLOG_COMMAND = /(?:^|&&|;|\|)\s*backlog\b/;
 
@@ -16,6 +19,7 @@ const usageSchema = z
     output_tokens: z.number().optional(),
     cache_read_input_tokens: z.number().optional(),
     cache_creation_input_tokens: z.number().optional(),
+    speed: z.string().optional(),
     cache_creation: z
       .object({ ephemeral_5m_input_tokens: z.number().optional(), ephemeral_1h_input_tokens: z.number().optional() })
       .passthrough()
@@ -66,11 +70,12 @@ function attributeAssistant(rawMessage: unknown, state: TranscriptState, context
   const buckets: UsageBucket[] = [];
   const repeatOfCountedMessage = id !== undefined && id === state.lastMessageId;
   if (model && model !== "<synthetic>" && usage && !repeatOfCountedMessage) {
-    state.lastModel = model;
+    const pricedModel = usage.speed === FAST_SPEED ? fastModel(model) : model;
+    state.lastModel = pricedModel;
     state.lastMessageId = id ?? null;
     const tokens = tokensFrom(usage);
-    if (state.hookOpen) buckets.push({ ...context, model, kind: "hook", tokens, hookTurns: 0 });
-    buckets.push(...drainEstimates(state, model));
+    if (state.hookOpen) buckets.push({ ...context, model: pricedModel, kind: "hook", tokens, hookTurns: 0 });
+    buckets.push(...drainEstimates(state, pricedModel));
   }
   if (content) for (const block of content) registerToolUseBlock(block, state);
   return buckets;

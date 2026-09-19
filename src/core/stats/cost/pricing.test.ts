@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TokenCounts } from "../types";
-import { costOf, priceOf } from "./pricing";
+import { costOf, fastModel, priceOf } from "./pricing";
 
 const MILLION: TokenCounts = { input: 1_000_000, cacheWrite5m: 1_000_000, cacheWrite1h: 1_000_000, cacheRead: 1_000_000, output: 1_000_000 };
 const ZERO: TokenCounts = { input: 0, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 };
@@ -11,11 +11,11 @@ describe("цены моделей", () => {
   });
 
   it("claude-opus-5 в быстром режиме — вдвое дороже входа, выхода и чтения кэша", () => {
-    expect(priceOf("claude-opus-5", "fast")).toEqual({ input: 10, output: 50, cacheRead: 1 });
+    expect(priceOf(fastModel("claude-opus-5"))).toEqual({ input: 10, output: 50, cacheRead: 1 });
   });
 
   it("быстрый режим не действует на другие модели", () => {
-    expect(priceOf("claude-sonnet-5", "fast")).toEqual({ input: 2, output: 10, cacheRead: 0.2 });
+    expect(priceOf(fastModel("claude-sonnet-5"))).toEqual({ input: 2, output: 10, cacheRead: 0.2 });
   });
 
   it("датированный id ищется по префиксу, модель вне таблицы — null", () => {
@@ -52,7 +52,7 @@ describe("стоимость по токенам", () => {
 
   it("быстрый режим удваивает стоимость входа и выхода", () => {
     const normal = costOf("claude-opus-5", MILLION);
-    const fast = costOf("claude-opus-5", MILLION, "fast");
+    const fast = costOf(fastModel("claude-opus-5"), MILLION);
     expect(fast).toBeCloseTo((normal ?? 0) * 2);
   });
 });

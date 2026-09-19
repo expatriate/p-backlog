@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../../model/dates";
 import { attributeLine, newTranscriptState } from "./attribute";
+import { fastModel } from "./pricing";
 
 const CWD = "/Users/x/projects/spa";
 
@@ -135,5 +136,14 @@ describe("отнесение строк расшифровки к накладн
 
     expect(buckets).toEqual([]);
     expect(state.lastModel).toBeNull();
+  });
+
+  it("ответ в быстром режиме относится к отдельной модели с ценой быстрого режима", () => {
+    const state = newTranscriptState();
+    attributeLine(hookFeedbackLine("2026-09-19T09:00:00.000Z"), state);
+
+    const [bucket] = attributeLine(assistantLine("2026-09-19T09:00:01.000Z", "claude-opus-5", { ...usage(100, 20), speed: "fast" }), state);
+
+    expect(bucket?.model).toBe(fastModel("claude-opus-5"));
   });
 });
