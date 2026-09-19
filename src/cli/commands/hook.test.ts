@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readJournal } from "../../core/store/journal";
@@ -37,5 +37,35 @@ describe("backlog hook stop", () => {
       expect(await run(["hook", "stop"], { stdin })).toEqual({ code: EXIT.ok, out: "", err: "" });
     }
     expect((await run(["hook", "start"])).code).toBe(EXIT.invalid);
+  });
+
+  it("показывает новую тревогу раз в день, без блокировки", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    await run(["new", "--title", "Упало", "--priority", "critical"], { now: new Date("2026-09-01T10:00:00Z") });
+    const stdin = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    const first = await run(["hook", "stop"], { stdin, now: new Date("2026-09-17T10:00:00Z") });
+    const again = await run(["hook", "stop"], { stdin, now: new Date("2026-09-17T18:00:00Z") });
+    const nextDay = await run(["hook", "stop"], { stdin, now: new Date("2026-09-18T10:00:00Z") });
+
+    expect(JSON.parse(first.out)).toEqual({ systemMessage: "Беклог spa: Срочные задачи ждут дольше 7 дней: 1" });
+    expect(again.out).toBe("");
+    expect(JSON.parse(nextDay.out)).toEqual({ systemMessage: "Беклог spa: Срочные задачи ждут дольше 7 дней: 1" });
+    expect(JSON.parse(await readFile(join(root, "spa", "signals-shown.json"), "utf8"))).toEqual({ "urgent-stale": "2026-09-18" });
+  });
+
+  it("вместе с кандидатами — и блокировка, и сообщение", async () => {
+    const { run, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-01T10:00:00Z");
+    await run(["new", "--title", "Упало", "--priority", "critical", "--source", "src/a.ts:1"], { now: new Date("2026-09-01T10:00:00Z") });
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Правка", "2026-09-16T10:00:00Z");
+    const stdin = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    const result = JSON.parse((await run(["hook", "stop"], { stdin })).out) as Record<string, string>;
+
+    expect(result.decision).toBe("block");
+    expect(result.systemMessage).toBe("Беклог spa: Срочные задачи ждут дольше 7 дней: 1");
   });
 });
