@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { CodeReport, EffectReport, FlowReport, QualityReport, SignalsReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { CodeReport, CostReport, EffectReport, FlowReport, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import type { Project, Task } from "../../core/model/types";
 import { useBacklogApi } from "./backlog-api";
 
@@ -46,6 +46,20 @@ export function useQualityStats(projectId: string | undefined) {
 export function useSignals(projectId: string | undefined) {
   const { client } = useBacklogApi();
   return useQuery<SignalsReport>({ queryKey: [...STATS_KEY, "signals", projectId ?? "all"], queryFn: () => client.signals(projectId) });
+}
+
+export function useCostStats(projectId: string | undefined) {
+  const { client } = useBacklogApi();
+  return useQuery<CostReport>({
+    queryKey: [...STATS_KEY, "cost", projectId ?? "all"],
+    queryFn: () => client.costStats(projectId),
+    refetchInterval: (query) => ((query.state.data?.scan.bytesLeft ?? 0) > 0 ? 10_000 : false),
+  });
+}
+
+export function useMemorySamples() {
+  const { client } = useBacklogApi();
+  return useQuery<MemorySamplesResponse>({ queryKey: [...STATS_KEY, "memory"], queryFn: client.memorySamples, refetchInterval: 5000 });
 }
 
 export type UpdateTaskVariables = { id: string; version: string; changes: TaskChangesRequest };

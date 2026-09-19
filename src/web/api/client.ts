@@ -1,4 +1,4 @@
-import type { CodeReport, ConflictResponse, EffectReport, ErrorResponse, FlowReport, QualityReport, SignalsReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { CodeReport, ConflictResponse, CostReport, EffectReport, ErrorResponse, FlowReport, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import type { Project, Task } from "../../core/model/types";
 
 export type ApiFetch = (path: string, init?: RequestInit) => Promise<Response>;
@@ -24,6 +24,8 @@ export type ApiClient = {
   effectStats: (projectId?: string) => Promise<EffectReport>;
   qualityStats: (projectId?: string) => Promise<QualityReport>;
   signals: (projectId?: string) => Promise<SignalsReport>;
+  costStats: (projectId?: string) => Promise<CostReport>;
+  memorySamples: () => Promise<MemorySamplesResponse>;
 };
 
 export function createApiClient(apiFetch: ApiFetch): ApiClient {
@@ -50,6 +52,8 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
     effectStats: async (projectId) => read<EffectReport>(await apiFetch(scopedPath("/api/stats/effect", projectId))),
     qualityStats: async (projectId) => read<QualityReport>(await apiFetch(scopedPath("/api/stats/quality", projectId))),
     signals: async (projectId) => read<SignalsReport>(await apiFetch(scopedPath("/api/stats/signals", projectId))),
+    costStats: async (projectId) => read<CostReport>(await apiFetch(scopedPath("/api/stats/cost", projectId))),
+    memorySamples: async () => read<MemorySamplesResponse>(await apiFetch("/api/stats/memory")),
   };
 }
 

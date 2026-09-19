@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ID_PATTERN } from "../model/ids";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, type ParseError, type Task } from "../model/types";
+import type { MemorySample } from "../stats/types";
 
 const taskId = z.string().regex(ID_PATTERN, "некорректный ID");
 const idList = z.array(taskId);
@@ -28,4 +29,6 @@ export type TaskChangesRequest = z.infer<typeof taskChangesSchema>;
 export type TasksResponse = { tasks: Task[]; errors: ParseError[] };
 export type ErrorResponse = { errors: string[] };
 export type ConflictResponse = ErrorResponse & { current: Task };
-export type { CodeReport, EffectReport, FlowReport, QualityReport, SignalsReport, StatsReport } from "../stats/types";
+export type { CodeReport, CostReport, EffectReport, FlowReport, MemorySample, QualityReport, SignalsReport, StatsReport } from "../stats/types";
+
+export type MemorySamplesResponse = { samples: MemorySample[] };

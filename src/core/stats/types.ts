@@ -130,3 +130,5 @@ export type CostDay = { day: string; hookTokens: number; cliTokens: number; cost
 export type CostModel = { model: string; tokens: number; cost: number | null };
 export type CostCommand = { command: string; runs: number; avgMs: number; avgRssMb: number; maxRssMb: number };
 export type CostReport = { scan: ScanProgress; since: string | null; totals: CostTotals; days: CostDay[]; models: CostModel[]; commands: CostCommand[] };
+
+export type MemorySample = { at: string; rssMb: number; heapUsedMb: number };

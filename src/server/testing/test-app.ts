@@ -3,20 +3,26 @@ import { loadBacklog } from "../../core/store/load";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { createApp } from "../app";
 import type { ChangeFeed } from "../change-feed";
+import { createMemorySampler, type MemorySampler } from "../memory-sampler";
+import { createUsageScanner, type UsageScanner } from "../usage-scanner";
 
 export const TEST_HOST = "localhost:4317";
 export const TEST_NOW = new Date("2026-09-18T12:00:00Z");
 
+export type TestAppOptions = { staticDir?: string; transcriptsDir?: string };
+
 export type TestApp = {
   root: string;
   app: Hono;
+  usage: UsageScanner;
+  memory: MemorySampler;
   emitChange: () => void;
   request: (path: string, init?: RequestInit) => Promise<Response>;
   json: (path: string, method: "POST" | "PATCH", body: unknown) => Promise<Response>;
   taskVersion: (id: string) => Promise<string>;
 };
 
-export async function makeTestApp(files: Record<string, string>, staticDir?: string): Promise<TestApp> {
+export async function makeTestApp(files: Record<string, string>, options: TestAppOptions = {}): Promise<TestApp> {
   const root = await makeTempDir();
   await writeFiles(root, files);
 
@@ -29,12 +35,17 @@ export async function makeTestApp(files: Record<string, string>, staticDir?: str
     close: async () => listeners.clear(),
   };
 
+  const usage = createUsageScanner({ root, claudeProjectsDir: options.transcriptsDir ?? (await makeTempDir()), home: root });
+  const memory = createMemorySampler();
+
   const app = createApp({
     root,
     changes,
     allowedHosts: new Set([TEST_HOST]),
     home: root,
-    staticDir,
+    usage,
+    memory,
+    staticDir: options.staticDir,
     now: () => TEST_NOW,
   });
 
@@ -44,6 +55,8 @@ export async function makeTestApp(files: Record<string, string>, staticDir?: str
   return {
     root,
     app,
+    usage,
+    memory,
     emitChange: () => listeners.forEach((listener) => listener()),
     request,
     json: (path, method, body) =>

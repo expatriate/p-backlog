@@ -1,10 +1,12 @@
+import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { CodeReport, ConflictResponse, EffectReport, ErrorResponse, FlowReport, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
+import type { CodeReport, ConflictResponse, CostReport, EffectReport, ErrorResponse, FlowReport, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
 import { readJournal } from "../core/store/journal";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
+import { loadBacklog } from "../core/store/load";
 import { makeTestApp, SAMPLE_FILES, TEST_NOW } from "./testing/test-app";
 
 describe("GET /api/projects и /api/tasks", () => {
@@ -269,6 +271,64 @@ describe("GET /api/stats/signals", () => {
   });
 });
 
+describe("GET /api/stats/cost и /api/stats/memory", () => {
+  it("после scanOnce считает токены, ход хука, вызовы CLI и деньги; неизвестный проект — 404", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    const transcriptsDir = await makeTempDir();
+    const at = "2026-09-18T09:00:00.000Z";
+    await writeFiles(transcriptsDir, {
+      "proj1/session.jsonl": [
+        { type: "user", isMeta: true, timestamp: at, cwd: repo, message: { content: "Stop hook feedback:\nБеклог spa: тест" } },
+        {
+          type: "assistant",
+          timestamp: at,
+          cwd: repo,
+          message: { model: "claude-opus-5", usage: { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
+        },
+      ]
+        .map((line) => JSON.stringify(line))
+        .join("\n") + "\n",
+    });
+
+    const backlog = await makeTestApp({ "spa/project.md": projectFile("SPA", [repo]) }, { transcriptsDir });
+    await appendFile(
+      join(backlog.root, ".runs.jsonl"),
+      [
+        { at: "2026-09-18T09:30:00+03:00", command: "hook stop", cwd: repo, ms: 120, rssMb: 90, exitCode: 0 },
+        { at: "2026-09-18T09:31:00+03:00", command: "list", cwd: repo, ms: 40, rssMb: 80, exitCode: 0 },
+      ]
+        .map((line) => JSON.stringify(line))
+        .join("\n") + "\n",
+      "utf8",
+    );
+
+    const { projects } = await loadBacklog(backlog.root);
+    await backlog.usage.scanOnce(projects);
+
+    const response = await backlog.request("/api/stats/cost?project=spa");
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as CostReport;
+    expect(report.totals).toMatchObject({ hookTurns: 1, hookRuns: 1, cliRuns: 1 });
+    expect(report.totals.tokens).toBeGreaterThan(0);
+    expect(report.totals.cost).not.toBeNull();
+    expect(report.totals.cost ?? 0).toBeGreaterThan(0);
+
+    expect((await backlog.request("/api/stats/cost?project=nope")).status).toBe(404);
+  });
+
+  it("отдаёт точки памяти сервера", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    backlog.memory.sample();
+
+    const response = await backlog.request("/api/stats/memory");
+
+    expect(response.status).toBe(200);
+    const { samples } = (await response.json()) as MemorySamplesResponse;
+    expect(samples.length).toBeGreaterThan(0);
+    expect(samples[0]?.rssMb).toBeGreaterThan(0);
+  });
+});
+
 describe("статика", () => {
   it("отдаёт файл и возвращает index.html на путь приложения", async () => {
     const staticDir = await makeTempDir();
@@ -276,7 +336,7 @@ describe("статика", () => {
       "index.html": "<!doctype html><title>Беклог</title>",
       "assets/app.js": "console.log('app');",
     });
-    const backlog = await makeTestApp(SAMPLE_FILES, staticDir);
+    const backlog = await makeTestApp(SAMPLE_FILES, { staticDir });
 
     expect(await (await backlog.request("/assets/app.js")).text()).toContain("app");
     const page = await backlog.request("/p/spa/t/SPA-1");
