@@ -16,6 +16,7 @@ const USAGE = `Использование:
   backlog new --title <заголовок> [--type task|epic] [--priority low|medium|high|critical] [--tags a,b]
               [--category <категория>] [--found review|incidental]
               [--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]
+              [--force — создать, даже если похожая открытая задача уже есть]
               (описание задачи читается из stdin)
   backlog list [--query текст] [--status s,…] [--tag t,…] [--project id | --all-projects] [--json]
   backlog stats [--project id | --all-projects] [--json]
@@ -26,7 +27,7 @@ const USAGE = `Использование:
   backlog category <ID> <${TASK_CATEGORIES.join("|")}|none>
   backlog check [--changed] [--project id | --all-projects] [--json]
   backlog close <ID> --as fixed|obsolete|duplicate --reason <улика> [--duplicate-of <ID>]
-  backlog verify <ID> [--source файл:строка]
+  backlog verify <ID> [<ID> …] [--source файл:строка — только для одной задачи]
   backlog hook stop   (для хука Stop в Claude Code, событие читается из stdin)`;
 
 const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);

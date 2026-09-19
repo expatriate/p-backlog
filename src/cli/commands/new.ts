@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { findSimilarTask } from "../../core/check/candidates";
 import { sourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW } from "../../core/journal/events";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES } from "../../core/model/types";
@@ -26,6 +27,7 @@ export async function runNew(args: string[], io: CliIo): Promise<number> {
         related: { type: "string" },
         project: { type: "string" },
         json: { type: "boolean", default: false },
+        force: { type: "boolean", default: false },
       },
     }),
   );
@@ -39,6 +41,13 @@ export async function runNew(args: string[], io: CliIo): Promise<number> {
   const loaded = await loadBacklog(io.backlogRoot);
   const project = await ensureProject(loaded, io, values.project);
   if (!project) return EXIT.notFound;
+
+  const similar = values.force ? null : findSimilarTask({ title: values.title, source: values.source }, loaded.tasks.filter((task) => task.projectId === project.id));
+  if (similar !== null) {
+    const why = similar.match === "source" ? "тот же source" : "похожий заголовок";
+    io.warn(`Похоже на ${similar.task.id} — «${similar.task.title}» (${why}). Если это другая задача — добавьте --force`);
+    return EXIT.refused;
+  }
 
   const result = await createTask(io.backlogRoot, {
     project,

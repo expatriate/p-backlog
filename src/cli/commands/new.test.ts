@@ -9,6 +9,22 @@ import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
 describe("backlog new", () => {
+  it("похожая открытая задача — отказ с её ID, --force создаёт всё равно, закрытая не мешает", async () => {
+    const { run } = await makeCliSandbox();
+    await run(["new", "--title", "Таймаут загрузки не учитывает размер файла", "--source", "src/upload.ts:88"]);
+
+    const sameSource = await run(["new", "--title", "Совсем другое описание", "--source", "src/upload.ts:88"]);
+    const sameTitle = await run(["new", "--title", "Загрузка: таймаут не учитывает размер файла"]);
+
+    expect(sameSource).toMatchObject({ code: EXIT.refused, out: "" });
+    expect(sameSource.err).toBe("Похоже на SPA-1 — «Таймаут загрузки не учитывает размер файла» (тот же source). Если это другая задача — добавьте --force");
+    expect(sameTitle.err).toContain("(похожий заголовок)");
+    expect((await run(["new", "--title", "Совсем другое описание", "--source", "src/upload.ts:88", "--force"])).code).toBe(EXIT.ok);
+
+    await run(["status", "SPA-1", "cancelled"]);
+    expect((await run(["new", "--title", "Загрузка: таймаут не учитывает размер файла"])).code).toBe(EXIT.ok);
+  });
+
   it("создаёт проект по git-корню и задачу с описанием из stdin", async () => {
     const { run, root, repo } = await makeCliSandbox();
     await mkdir(join(repo, "src"));

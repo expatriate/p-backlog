@@ -1,3 +1,4 @@
+import { isClosed } from "../model/graph";
 import type { Task } from "../model/types";
 import { anchorOf, findMoved, hasLines, isAnchorFor, lineSuffix, SOURCE_LINES } from "./anchor";
 import type { Commit, RepoFacts } from "./repo-facts";
@@ -81,6 +82,17 @@ function anchorState(task: Task, facts: RepoFacts): AnchorState {
   const moved = findMoved(text, task.source, task.anchor);
   const movedAnchor = moved === null ? null : anchorOf(text, moved);
   return moved === null || movedAnchor === null ? { kind: "changed" } : { kind: "moved", source: moved, anchor: movedAnchor };
+}
+
+export type SimilarTask = { task: TaskRef; match: "source" | "title" };
+
+export function findSimilarTask(draft: { title: string; source?: string }, tasks: readonly Task[]): SimilarTask | null {
+  const open = tasks.filter((task) => task.type === "task" && !isClosed(task.status));
+  const { source } = draft;
+  const bySource = source === undefined ? undefined : open.find((task) => task.source !== undefined && samePlace(task.source, source));
+  if (bySource !== undefined) return { task: taskRef(bySource), match: "source" };
+  const byTitle = open.find((task) => similarTitles(task.title, draft.title));
+  return byTitle === undefined ? null : { task: taskRef(byTitle), match: "title" };
 }
 
 export function duplicateCandidates(tasks: readonly Task[]): Candidate[] {
