@@ -9,7 +9,7 @@ export default tseslint.config(
   ...tseslint.configs.strict,
   { languageOptions: { globals: globals.node } },
   {
-    files: ["src/core/model/**/*.ts"],
+    files: ["src/core/model/**/*.ts", "src/core/journal/**/*.ts", "src/core/stats/**/*.ts"],
     rules: { "no-restricted-imports": ["error", { patterns: ["node:*"] }] },
   },
   {
