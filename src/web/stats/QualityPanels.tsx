@@ -6,6 +6,7 @@ import flowStyles from "./FlowPanels.module.css";
 import { Panel } from "./Panel";
 import styles from "./QualityPanels.module.css";
 import { StatsTable } from "./StatsTable";
+import { STATS_PERIOD } from "./periods";
 
 export function AccuracyPanel({ rows }: { rows: AccuracyRow[] }) {
   return (
@@ -30,7 +31,7 @@ export function CategoriesPanel({ rows }: { rows: CategoryRow[] }) {
   return (
     <Panel title="Категории">
       {rows.length === 0 ? (
-        <p className={flowStyles.muted}>За 12 недель задач не было</p>
+        <p className={flowStyles.muted}>За {STATS_PERIOD} задач не было</p>
       ) : (
         <StatsTable
           label="Категории"

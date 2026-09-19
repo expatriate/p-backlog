@@ -4,14 +4,15 @@ import type { ChurnRow, CodeDensity, DensityRow, FixBreakdown } from "../../core
 import { Panel } from "./Panel";
 import flowStyles from "./FlowPanels.module.css";
 import styles from "./CodePanels.module.css";
+import { CHURN_PERIOD, STATS_PERIOD } from "./periods";
 
 export function ChurnPanel({ churn }: { churn: ChurnRow[] }) {
   const top = churn[0]?.score ?? 1;
   return (
     <Panel title="Долг в часто меняемом коде">
-      <p className={flowStyles.muted}>Место в списке — коммиты за 90 дней × вес открытых задач папки</p>
+      <p className={flowStyles.muted}>Место в списке — коммиты за {CHURN_PERIOD} × вес открытых задач папки</p>
       {churn.length === 0 ? (
-        <p className={flowStyles.muted}>Долг не лежит в коде, который меняли за 90 дней</p>
+        <p className={flowStyles.muted}>Долг не лежит в коде, который меняли за {CHURN_PERIOD}</p>
       ) : (
         <ul className={flowStyles.rows}>
           {churn.map((row) => (
@@ -71,7 +72,7 @@ export function FixesPanel({ fixes }: { fixes: FixBreakdown }) {
   return (
     <Panel title="Кто исправил">
       {fixes.agent + fixes.human + fixes.unknown === 0 ? (
-        <p className={flowStyles.muted}>Исправлений за 12 недель нет</p>
+        <p className={flowStyles.muted}>Исправлений за {STATS_PERIOD} нет</p>
       ) : (
         <ul className={flowStyles.rows}>
           <FixRow label="агент" count={fixes.agent} medianDays={fixes.agentMedianDays} />

@@ -5,6 +5,7 @@ import { ChurnPanel, DensityPanel, FixesPanel } from "./CodePanels";
 import flowStyles from "./FlowPanels.module.css";
 import { StatsTabState } from "./StatsTabState";
 import styles from "./StatsPage.module.css";
+import { CHURN_PERIOD } from "./periods";
 
 export function CodeTab() {
   const { projectId } = useParams();
@@ -31,7 +32,7 @@ function Code({ report }: { report: CodeReport }) {
         <DensityPanel density={report.density} />
         <FixesPanel fixes={report.fixes} />
       </div>
-      <p className={styles.note}>Изменения — коммиты за 90 дней; строки — на последнем коммите.</p>
+      <p className={styles.note}>Изменения — коммиты за {CHURN_PERIOD}; строки — на последнем коммите.</p>
     </>
   );
 }

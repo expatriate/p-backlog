@@ -3,6 +3,8 @@ import { folderOf } from "../breakdowns";
 import { PRIORITY_WEIGHT } from "../report";
 import type { ChurnRow, ProjectCode } from "../types";
 
+export const CHURN_DAYS = 90;
+
 const CHURN_LIMIT = 8;
 
 export function churn(openTasks: readonly Task[], projects: readonly ProjectCode[], withProject: boolean): ChurnRow[] {

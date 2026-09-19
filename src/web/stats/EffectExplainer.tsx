@@ -5,6 +5,7 @@ import type { EffectTotals } from "../../core/stats/types";
 import { codeAndTests, formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
 import { Panel } from "./Panel";
 import styles from "./EffectExplainer.module.css";
+import { STATS_PERIOD_GENITIVE } from "./periods";
 
 export function EffectExplainer({ totals }: { totals: EffectTotals }) {
   return (
@@ -27,8 +28,8 @@ export function EffectExplainer({ totals }: { totals: EffectTotals }) {
           <Now>{codeAndTests(totals)}</Now>
         </li>
         <li>
-          Шум без беклога = вынесено ÷ (строк в пулреквестах + оценка ожидающих); исправления уже внутри пулреквестов и не удваиваются. Окно — с внедрения беклога в проекте, не раньше 12
-          недель.
+          Шум без беклога = вынесено ÷ (строк в пулреквестах + оценка ожидающих); исправления уже внутри пулреквестов и не удваиваются. Окно — с внедрения беклога в проекте, не раньше
+          {STATS_PERIOD_GENITIVE} назад.
           <Now>{noiseText(totals)}</Now>
         </li>
       </ol>

@@ -57,20 +57,6 @@
   gap: var(--space-3);
 }
 
-.epicTrack {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-.epicFill {
-  display: block;
-  height: 100%;
-  background: var(--tone-line, var(--ink-subtle));
-  transform-origin: left center;
-}
-
 .wide {
   grid-column: 1 / -1;
 }
@@ -87,4 +73,8 @@
   height: 100%;
   background: var(--accent-ink);
   transform-origin: left center;
+}
+
+.epicFill {
+  background: var(--tone-line, var(--ink-subtle));
 }

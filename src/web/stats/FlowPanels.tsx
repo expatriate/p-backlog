@@ -6,6 +6,7 @@ import { STATUS_LABELS } from "../labels";
 import { epicEta, formatStay } from "./format";
 import { Panel } from "./Panel";
 import { WipChart } from "./WipChart";
+import { cx } from "../ui/cx";
 import styles from "./FlowPanels.module.css";
 
 export function ForecastPanel({ forecast }: { forecast: FlowForecast }) {
@@ -97,8 +98,8 @@ export function EpicsPanel({ epics, tones }: { epics: EpicFlow[]; tones: EpicTon
                 <span className={styles.rowLabel}>
                   <Link to={`/p/${epic.projectId}/t/${epic.id}`}>{epic.id}</Link> {epic.title}
                 </span>
-                <span className={styles.epicTrack} {...trackProps}>
-                  <span className={styles.epicFill} style={{ transform: `scaleX(${progress})` }} />
+                <span className={styles.track} {...trackProps}>
+                  <span className={cx(styles.fill, styles.epicFill)} style={{ transform: `scaleX(${progress})` }} />
                 </span>
                 <span className={styles.rowValue}>
                   {epic.closed}/{epic.total} · {epicEta(epic.weeks)}

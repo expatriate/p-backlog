@@ -1,13 +1,13 @@
 import { formatLocalIso } from "../model/dates";
 import { DAY_MS } from "../model/lifecycle";
 import type { Project } from "../model/types";
+import { CHURN_DAYS } from "../stats/code/churn";
 import { fixKey, type FixRequest } from "../stats/code/fixes";
 import type { CollectedCode, FixCommit, ProjectCode, RepoCode } from "../stats/types";
 import { expandHome } from "../store/paths";
 import { emptyCodeCache, type CodeCacheStore } from "./code-cache";
 import { readFixCommit, readHead, readMainCommit, readRepoCode, runGit, type GitRunner } from "./git-code";
 
-const CHURN_DAYS = 90;
 
 export type CodeSourceOptions = { home: string; git?: GitRunner; store?: CodeCacheStore };
 
