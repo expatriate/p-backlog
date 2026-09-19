@@ -2,9 +2,9 @@ import { useParams } from "react-router";
 import { formatDays, formatSigned } from "../../core/stats/format";
 import type { StatsReport, StatsTotals } from "../../core/stats/types";
 import { useStats } from "../app/queries";
-import { cx } from "../ui/cx";
 import { AgePanel } from "./AgePanel";
 import { ClosingPanel } from "./ClosingPanel";
+import { Figure } from "./Figure";
 import { HotspotsPanel } from "./HotspotsPanel";
 import { Panel } from "./Panel";
 import { StatsTabState } from "./StatsTabState";
@@ -49,16 +49,6 @@ function Totals({ totals }: { totals: StatsTotals }) {
         value={formatDays(totals.leadTimeMedianDays)}
         note={totals.leadTimeP90Days === null ? "закрытий нет" : `90% — за ${formatDays(totals.leadTimeP90Days)}`}
       />
-    </div>
-  );
-}
-
-function Figure({ label, value, note, tone }: { label: string; value: string; note: string; tone?: "growth" | "decline" }) {
-  return (
-    <div className={styles.figure} role="group" aria-label={label}>
-      <span className={styles.figureLabel}>{label}</span>
-      <span className={cx(styles.figureValue, tone === "growth" && styles.growth, tone === "decline" && styles.decline)}>{value}</span>
-      <span className={styles.figureNote}>{note}</span>
     </div>
   );
 }

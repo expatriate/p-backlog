@@ -268,6 +268,26 @@ describe("вкладка «Качество»", () => {
   });
 });
 
+describe("вкладка «Эффект»", () => {
+  it("числа, график и таблица; без 5 исправлений — оценки нет", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\nb\n" });
+    gitCommitAll(repo, "init", "2026-09-12T10:00:00+03:00");
+    const app = await renderApp({ ...FILES, "spa/project.md": projectFile("SPA", [repo]) }, "/p/spa/stats");
+
+    await app.user.click(await screen.findByRole("link", { name: "Эффект" }));
+
+    const kept = await screen.findByRole("group", { name: "Не попало в пулреквесты" });
+    expect(app.route()).toBe("/p/spa/stats/effect");
+    expect(document.title).toBe("Эффект · Статистика · spa — Беклог");
+    expect(within(kept).getByText("0 строк")).toBeDefined();
+    expect(within(kept).getByText("исправлено 0; оценка ожидающих появится после 5 исправлений")).toBeDefined();
+    expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("2")).toBeDefined();
+    expect(screen.getByRole("img", { name: /12 недель: в пулреквестах 2 строк/ })).toBeDefined();
+    expect(screen.getByRole("region", { name: "По проектам" })).toBeDefined();
+  });
+});
+
 describe("тревоги", () => {
   it("блок над вкладками и число у раздела «Статистика»", async () => {
     await renderApp(FILES, "/stats/flow");
