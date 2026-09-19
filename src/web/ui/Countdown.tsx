@@ -32,7 +32,15 @@ export function DeletionLabel({ task, now }: { task: Task; now: Date }) {
 function deletionFor(task: Task, now: Date): Deletion | undefined {
   const deletesAt = deletionDate(task);
   if (deletesAt === undefined) return undefined;
-  const remainingMs = Math.max(0, deletesAt.getTime() - now.getTime());
+  if (now.getTime() >= deletesAt.getTime()) {
+    return {
+      text: "удаление задержано",
+      title: `должна была удалиться ${formatDayMonth(deletesAt)}; проход удаления держит задачу, пока её эпик не закрыт или беклог не исправлен`,
+      fraction: 0,
+      lastDay: false,
+    };
+  }
+  const remainingMs = deletesAt.getTime() - now.getTime();
   const lastDay = remainingMs < DAY_MS;
   return {
     text: lastDay ? "удалится сегодня" : `удалится через ${Math.ceil(remainingMs / DAY_MS)} дн.`,

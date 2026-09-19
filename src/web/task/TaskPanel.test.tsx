@@ -58,6 +58,15 @@ describe("карточка закрытой задачи", () => {
 
     expect(within(panel).getByText("удалится сегодня")).toBeDefined();
   });
+
+  it("срок удаления прошёл, а задача на месте — «удаление задержано», а не «сегодня»", async () => {
+    freezeDate("2026-09-30T12:00:00Z");
+    await renderApp(CLOSED_FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    expect(within(panel).getByText("удаление задержано")).toBeDefined();
+    expect(within(panel).queryByText("удалится сегодня")).toBeNull();
+  });
 });
 
 describe("карточка задачи", () => {
