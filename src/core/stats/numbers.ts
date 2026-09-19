@@ -19,3 +19,12 @@ export function nearestRank(values: readonly number[], fraction: number): number
 export function daysBetween(from: number, to: number): number {
   return (to - from) / DAY_MS;
 }
+
+export function countBy<T>(items: Iterable<T>, keyOf: (item: T) => string, amountOf: (item: T) => number = () => 1): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const item of items) {
+    const key = keyOf(item);
+    totals.set(key, (totals.get(key) ?? 0) + amountOf(item));
+  }
+  return totals;
+}

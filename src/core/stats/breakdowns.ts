@@ -2,6 +2,7 @@ import { DAY_MS } from "../model/lifecycle";
 import { PRIORITIES, type Priority, type Task } from "../model/types";
 import { closingsOf, reopeningsOf, type TaskHistory, type Transition } from "./history";
 import type { AgeBreakdown, AgeBucket, ClosingBreakdown, ClosingReason, Hotspots } from "./types";
+import { countBy } from "./numbers";
 
 const HOTSPOT_LIMIT = 8;
 export const STALE_URGENT_DAYS = 7;
@@ -69,7 +70,6 @@ function priorityCounts(tasks: readonly Task[]): Record<Priority, number> {
 }
 
 function topCounts(values: readonly string[]): [string, number][] {
-  const counts = new Map<string, number>();
-  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  const counts = countBy(values, (value) => value);
   return [...counts.entries()].sort(([a, countA], [b, countB]) => countB - countA || a.localeCompare(b)).slice(0, HOTSPOT_LIMIT);
 }

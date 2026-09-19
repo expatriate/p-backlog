@@ -1,5 +1,6 @@
 import type { Task } from "../../model/types";
 import { folderOf } from "../breakdowns";
+import { countBy } from "../numbers";
 import { PRIORITY_WEIGHT } from "../report";
 import type { ChurnRow, ProjectCode } from "../types";
 
@@ -23,11 +24,8 @@ export function churn(openTasks: readonly Task[], projects: readonly ProjectCode
 }
 
 function folderCommits(project: ProjectCode): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const files of project.repos.flatMap((repo) => repo.commits)) {
-    for (const folder of new Set(files.map(folderOf))) counts.set(folder, (counts.get(folder) ?? 0) + 1);
-  }
-  return counts;
+  const touched = project.repos.flatMap((repo) => repo.commits).flatMap((files) => [...new Set(files.map(folderOf))]);
+  return countBy(touched, (folder) => folder);
 }
 
 function folderDebt(tasks: readonly Task[]): Map<string, { tasks: number; weight: number }> {

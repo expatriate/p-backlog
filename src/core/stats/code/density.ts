@@ -1,5 +1,6 @@
 import type { Task } from "../../model/types";
 import { folderOf } from "../breakdowns";
+import { countBy } from "../numbers";
 import type { CodeDensity, DensityRow, FolderDensity, ProjectCode, ProjectDensity } from "../types";
 
 const FOLDER_LIMIT = 8;
@@ -19,13 +20,13 @@ export function density(openTasks: readonly Task[], projects: readonly ProjectCo
 }
 
 function folderRows(project: ProjectCode, openTasks: readonly Task[]): FolderDensity[] {
-  const lines = new Map<string, number>();
-  for (const file of project.repos.flatMap((repo) => repo.lines)) lines.set(folderOf(file.path), (lines.get(folderOf(file.path)) ?? 0) + file.lines);
-  const open = new Map<string, number>();
-  for (const task of openTasks) {
-    if (task.projectId !== project.projectId || task.source === undefined) continue;
-    open.set(folderOf(task.source), (open.get(folderOf(task.source)) ?? 0) + 1);
-  }
+  const lines = countBy(
+    project.repos.flatMap((repo) => repo.lines),
+    (file) => folderOf(file.path),
+    (file) => file.lines,
+  );
+  const ownTasks = openTasks.filter((task) => task.projectId === project.projectId && task.source !== undefined);
+  const open = countBy(ownTasks, (task) => folderOf(task.source ?? ""));
   return [...open.entries()]
     .flatMap(([label, count]) => {
       const folderLines = lines.get(label) ?? 0;
