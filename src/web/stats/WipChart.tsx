@@ -7,6 +7,9 @@ import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, chartLabel, DATE_AXIS_PROPS, TOOL
 import { rowTooltip } from "./charts/ChartTooltip";
 
 const WIP = "var(--chart-bar-neutral)";
+const ZERO_LINE_PX = 2;
+
+const zeroAsLine = (value: number | undefined | null) => (value === 0 ? ZERO_LINE_PX : 0);
 
 const weekTooltip = rowTooltip((week: WipWeek) => ({
   title: tooltipWeek(week.start),
@@ -23,7 +26,7 @@ export function WipChart({ wip }: { wip: FlowWip }) {
         <XAxis dataKey="start" tickFormatter={axisDay} {...DATE_AXIS_PROPS} />
         <YAxis allowDecimals={false} tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
         <Tooltip content={weekTooltip} {...TOOLTIP_PROPS} />
-        <Bar dataKey="max" fill={WIP} radius={BAR_RADIUS} isAnimationActive={false} />
+        <Bar dataKey="max" fill={WIP} radius={BAR_RADIUS} minPointSize={zeroAsLine} isAnimationActive={false} />
       </BarChart>
     </ChartFrame>
   );
