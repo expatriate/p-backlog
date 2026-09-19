@@ -54,9 +54,13 @@ async function recordCandidates(root: string, tasks: readonly Task[], candidates
   }
   for (const [projectId, found] of byProject) {
     const dir = join(root, projectId);
-    const journal = await readJournal(dir, projectId);
-    const sightings = found.map((candidate) => ({ task: candidate.task.id, evidence: candidate.kind }));
-    await appendJournal(dir, candidateEvents(sightings, journal.events, now, mode));
+    try {
+      const journal = await readJournal(dir, projectId);
+      const sightings = found.map((candidate) => ({ task: candidate.task.id, evidence: candidate.kind }));
+      await appendJournal(dir, candidateEvents(sightings, journal.events, now, mode));
+    } catch (error) {
+      console.error(`Не удалось записать кандидатов в журнал ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 }
 

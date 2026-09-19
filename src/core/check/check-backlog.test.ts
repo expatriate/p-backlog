@@ -1,6 +1,6 @@
-import { rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
@@ -40,6 +40,19 @@ async function setup() {
 }
 
 describe("checkBacklog", () => {
+  it("нечитаемый журнал не роняет проверку: кандидаты есть, ошибка в stderr", async () => {
+    const { home, root } = await setup();
+    await rm(join(root, "spa", "journal.jsonl"), { force: true });
+    await mkdir(join(root, "spa", "journal.jsonl"));
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const report = await checkBacklog(root, { projectIds: ["spa"], mode: "changed", now: NOW, home });
+
+    expect(report.candidates.map((candidate) => candidate.task.id)).toContain("SPA-1");
+    expect(errors).toHaveBeenCalledWith(expect.stringContaining("Не удалось записать кандидатов"));
+    errors.mockRestore();
+  });
+
   it("сдвинутый фрагмент переносит source сам, задаче без якоря дописывает якорь, кандидатом не становится", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
