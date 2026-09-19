@@ -59,7 +59,7 @@ export async function scanTranscripts({ files, cache, byteBudget }: ScanTranscri
     const start: ScanStart = resumable ? { offset: previous.offset, state: structuredClone(previous.state), buckets: previous.buckets } : { offset: 0, state: newTranscriptState(), buckets: [] };
 
     const chunkSize = Math.min(file.size - start.offset, remainingBudget);
-    resultFiles[file.path] = await scanChunk(file, start, chunkSize);
+    resultFiles[file.path] = await scanChunk(file, start, chunkSize, byteBudget);
     if (chunkSize > 0) {
       remainingBudget -= chunkSize;
       await yieldToEventLoop();
@@ -74,12 +74,15 @@ export async function scanTranscripts({ files, cache, byteBudget }: ScanTranscri
   };
 }
 
-async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: number): Promise<UsageCacheEntry> {
+async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: number, longestReadableLine: number): Promise<UsageCacheEntry> {
   if (chunkSize <= 0) return { size: file.size, offset: start.offset, state: start.state, buckets: start.buckets };
 
   const chunk = await readChunk(file.path, start.offset, chunkSize);
   const lastNewline = chunk.lastIndexOf(NEWLINE);
-  if (lastNewline === -1) return { size: file.size, offset: start.offset, state: start.state, buckets: start.buckets };
+  if (lastNewline === -1) {
+    const lineTooLong = chunk.length >= longestReadableLine;
+    return { size: file.size, offset: start.offset + (lineTooLong ? chunk.length : 0), state: start.state, buckets: start.buckets };
+  }
 
   const bucketsByKey = new Map(start.buckets.map((bucket) => [bucketKey(bucket), bucket]));
   for (const line of chunk.subarray(0, lastNewline).toString("utf8").split("\n")) {

@@ -165,6 +165,18 @@ describe("чтение расшифровок по частям", () => {
     expect(Object.values(cache.files)[0]?.buckets).toContainEqual(expect.objectContaining({ kind: "cli", model: "claude-opus-5", tokens: expect.objectContaining({ cacheWrite5m: 10 }) }));
   });
 
+  it("строка длиннее лимита прохода пропускается, следующие строки читаются", async () => {
+    const root = await makeTempDir();
+    const giant = JSON.stringify({ type: "user", message: { content: "x".repeat(500) } });
+    const text = `${giant}\n${jsonl([assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 7, output: 3 })])}`;
+    const file = await transcriptFile(join(root, "session.jsonl"), text);
+
+    let cache = emptyUsageCache();
+    for (let pass = 0; pass < 10; pass++) cache = (await scanTranscripts({ files: [file], cache, byteBudget: 200 })).cache;
+
+    expect(Object.values(cache.files)[0]?.offset).toBe(file.size);
+  });
+
   it("кэш на диске после записи читается обратно", async () => {
     const root = await makeTempDir();
     const path = join(root, "session.jsonl");
