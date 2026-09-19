@@ -19,10 +19,10 @@ export function forecastText({ open, weeklyNet, weeks, until }: FlowForecast): s
   if (open === 0) return "Открытых задач нет";
   if (weeks !== null && until !== null) return `Долг разберётся примерно за ${weeks} нед. (к ${formatDayMonth(new Date(until))})`;
   if (weeklyNet === 0) return "Долг не уменьшается";
-  return `Долг растёт на ${formatRate(-weeklyNet)} задач в неделю`;
+  return `Долг растёт на ${formatDecimal(-weeklyNet)} задач в неделю`;
 }
 
-function formatRate(value: number): string {
+export function formatDecimal(value: number): string {
   return String(Math.round(value * 10) / 10).replace(".", ",");
 }
 

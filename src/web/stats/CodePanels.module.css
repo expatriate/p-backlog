@@ -1,0 +1,40 @@
+.churnRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto minmax(48px, 120px);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.densityRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: var(--space-3);
+}
+
+.track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  background: var(--accent-ink);
+  transform-origin: left center;
+}
+
+.subTitle {
+  margin: var(--space-3) 0 var(--space-1);
+  color: var(--ink-subtle);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+@container (max-width: 520px) {
+  .churnRow,
+  .densityRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

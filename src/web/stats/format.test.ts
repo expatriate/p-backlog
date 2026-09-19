@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { epicEta, forecastText, formatDays, formatShare, formatSigned, formatStay } from "./format";
+import { epicEta, forecastText, formatDays, formatDecimal, formatShare, formatSigned, formatStay } from "./format";
 
 describe("формат статистики", () => {
   it("дни: нет данных, меньше дня, округление", () => {
@@ -14,6 +14,11 @@ describe("формат статистики", () => {
     expect(formatSigned(5)).toBe("+5");
     expect(formatSigned(-3)).toBe("-3");
     expect(formatSigned(0)).toBe("0");
+  });
+
+  it("число с одним знаком после запятой без «,0»", () => {
+    expect(formatDecimal(2.44)).toBe("2,4");
+    expect(formatDecimal(4)).toBe("4");
   });
 });
 

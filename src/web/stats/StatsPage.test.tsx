@@ -1,6 +1,7 @@
 import { screen, within } from "@testing-library/react";
+import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { projectFile } from "../../core/store/testing/temp-dirs";
+import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
 import { renderApp } from "../testing/render-app";
 
@@ -189,5 +190,44 @@ describe("вкладки статистики", () => {
     const cycle = await screen.findByRole("region", { name: "Время в работе" });
     expect(within(cycle).getByText("Появится, когда задачи начнут брать в работу")).toBeDefined();
     expect(screen.getByText("Открытых эпиков нет")).toBeDefined();
+  });
+});
+
+describe("вкладка «Код»", () => {
+  it("меняется × долг, плотность, кто исправил и недоступный репозиторий", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/upload/client.ts": "a\nb\n" });
+    gitCommitAll(repo, "fix: upload\n\nCo-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>", "2026-09-12T10:00:00+03:00");
+    const sha = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
+    const app = await renderApp(
+      {
+        ...FILES,
+        "spa/project.md": projectFile("SPA", [repo, "/nope/repo"]),
+        "spa/SPA-4.md": taskFixture("SPA-4", { title: "Починили загрузку", status: "done", resolution: "fixed", reason: `"Исправлено в ${sha}"`, created: "2026-09-11T10:00:00+03:00", closed: "2026-09-13T10:00:00+03:00" }),
+      },
+      "/p/spa/stats",
+    );
+
+    await app.user.click(await screen.findByRole("link", { name: "Код" }));
+
+    const churnPanel = await screen.findByRole("region", { name: "Меняется × долг" });
+    expect(app.route()).toBe("/p/spa/stats/code");
+    expect(document.title).toBe("Код · Статистика · spa — Беклог");
+    expect(within(churnPanel).getByText("src/upload")).toBeDefined();
+    expect(within(churnPanel).getByText("1 коммитов")).toBeDefined();
+    expect(within(churnPanel).getByText("1 задач, вес 4")).toBeDefined();
+    const densityPanel = screen.getByRole("region", { name: "Плотность долга" });
+    expect(within(densityPanel).getByText("1000 на 1000 строк")).toBeDefined();
+    const fixesPanel = screen.getByRole("region", { name: "Кто исправил" });
+    expect(within(fixesPanel).getByText("агент: 1 · медиана 1 дн.")).toBeDefined();
+    expect(screen.getByText("Нет доступа к репозиторию: /nope/repo")).toBeDefined();
+  });
+
+  it("без репозиториев и исправлений — пустые состояния", async () => {
+    await renderApp(FILES, "/stats/code");
+
+    expect(await screen.findByText("Долг не лежит в коде, который меняли за 90 дней")).toBeDefined();
+    expect(screen.getByText("Нет данных о коде: у проектов нет доступных репозиториев")).toBeDefined();
+    expect(screen.getByText("Исправлений за 12 недель нет")).toBeDefined();
   });
 });
