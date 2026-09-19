@@ -1,5 +1,5 @@
 import { defineConfig } from "@playwright/test";
-import { E2E_BACKLOG_DIR, E2E_PORT } from "./tests/e2e/backlog-dir";
+import { E2E_BACKLOG_DIR, E2E_HOME, E2E_PORT } from "./tests/e2e/backlog-dir";
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -8,7 +8,7 @@ export default defineConfig({
   webServer: {
     command: "npm run build && node dist/server.js",
     url: `http://127.0.0.1:${E2E_PORT}/api/projects`,
-    env: { BACKLOG_DIR: E2E_BACKLOG_DIR, PORT: String(E2E_PORT) },
+    env: { BACKLOG_DIR: E2E_BACKLOG_DIR, PORT: String(E2E_PORT), HOME: E2E_HOME },
     timeout: 120_000,
   },
 });
