@@ -4,7 +4,7 @@ import type { Resolution, Task, TaskStatus, TaskType } from "../model/types";
 
 export type Transition = { at: number; from?: TaskStatus; to: TaskStatus; resolution?: Resolution; via: ChangeSource | "unknown" };
 
-export type TaskHistory = { id: string; projectId: string; type: TaskType; createdAt: number; source?: string; transitions: Transition[] };
+export type TaskHistory = { id: string; projectId: string; type: TaskType; createdAt: number; source?: string; finalStatus: TaskStatus; transitions: Transition[] };
 
 type Known = { projectId: string; final?: Task | TaskSnapshot; created?: Extract<JournalEvent, { kind: "created" }>; transitions: Transition[] };
 
@@ -39,8 +39,12 @@ export function isOpenAt(history: TaskHistory, moment: number): boolean {
   return first?.from === undefined || !isClosed(first.from);
 }
 
+export function isClosing(transition: Transition): boolean {
+  return isClosed(transition.to) && (transition.from === undefined || !isClosed(transition.from));
+}
+
 export function closingsOf(history: TaskHistory): Transition[] {
-  return history.transitions.filter((transition) => isClosed(transition.to) && (transition.from === undefined || !isClosed(transition.from)));
+  return history.transitions.filter(isClosing);
 }
 
 export function reopeningsOf(history: TaskHistory): Transition[] {
@@ -52,7 +56,17 @@ function historyOf(id: string, { projectId, final, created, transitions }: Known
   const type = final?.type ?? created?.type;
   if (createdIso === undefined || type === undefined) return [];
   const ordered = [...transitions].sort((a, b) => a.at - b.at);
-  return [{ id, projectId, type, createdAt: Date.parse(createdIso), source: final?.source ?? created?.source, transitions: [...ordered, ...restoredClosing(final, ordered)] }];
+  return [
+    {
+      id,
+      projectId,
+      type,
+      createdAt: Date.parse(createdIso),
+      source: final?.source ?? created?.source,
+      finalStatus: final?.status ?? "backlog",
+      transitions: [...ordered, ...restoredClosing(final, ordered)],
+    },
+  ];
 }
 
 function restoredClosing(final: Task | TaskSnapshot | undefined, ordered: readonly Transition[]): Transition[] {

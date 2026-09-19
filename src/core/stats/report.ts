@@ -1,13 +1,12 @@
-import type { ProjectJournal } from "../journal/events";
-import { formatLocalIso } from "../model/dates";
 import { isClosed } from "../model/graph";
 import { DAY_MS } from "../model/lifecycle";
 import type { Priority, Task } from "../model/types";
 import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
-import { closingsOf, taskHistories, type TaskHistory } from "./history";
+import { closingsOf, type TaskHistory } from "./history";
 import { daysBetween, median, nearestRank } from "./numbers";
+import { statsScope, type StatsInput } from "./scope";
 import type { StatsReport, StatsTotals } from "./types";
-import { STATS_WEEKS, weekStarts, weeklyFlow } from "./weeks";
+import { periodStart, weeklyFlow } from "./weeks";
 
 export const PRIORITY_WEIGHT: Record<Priority, number> = { critical: 8, high: 4, medium: 2, low: 1 };
 
@@ -15,25 +14,22 @@ const STALE_DAYS = 30;
 const LEAD_TIME_TAIL = 0.9;
 const LAST_WEEK_MS = 7 * DAY_MS;
 
-export type StatsInput = { tasks: readonly Task[]; journals: readonly ProjectJournal[]; now: Date; projectId?: string };
-
-export function statsReport({ tasks, journals, now, projectId }: StatsInput): StatsReport {
-  const inScope = (candidate: string) => projectId === undefined || candidate === projectId;
-  const scopedJournals = journals.filter((journal) => inScope(journal.projectId));
-  const histories = taskHistories(tasks, scopedJournals).filter((history) => history.type === "task" && inScope(history.projectId));
-  const openTasks = tasks.filter((task) => task.type === "task" && inScope(task.projectId) && !isClosed(task.status));
-  const periodStart = weekStarts(now, STATS_WEEKS)[0]?.getTime() ?? now.getTime();
-  const eventMoments = scopedJournals.flatMap((journal) => journal.events.map((event) => Date.parse(event.at)));
+export function statsReport(input: StatsInput): StatsReport {
+  const { now, projectId } = input;
+  const scope = statsScope(input);
+  const histories = scope.histories.filter((history) => history.type === "task");
+  const openTasks = scope.tasks.filter((task) => task.type === "task" && !isClosed(task.status));
+  const start = periodStart(now);
 
   return {
     taskCount: histories.length,
-    journalSince: eventMoments.length === 0 ? null : formatLocalIso(new Date(eventMoments.reduce((min, moment) => Math.min(min, moment)))),
-    invalidJournalLines: scopedJournals.reduce((sum, journal) => sum + journal.invalidLines, 0),
-    totals: totals(openTasks, histories, now, periodStart),
+    journalSince: scope.journalSince,
+    invalidJournalLines: scope.invalidJournalLines,
+    totals: totals(openTasks, histories, now, start),
     weeks: weeklyFlow(histories, now),
     hotspots: hotspots(openTasks, projectId === undefined),
     age: ageBreakdown(openTasks, now),
-    closing: closingBreakdown(histories, periodStart, now.getTime()),
+    closing: closingBreakdown(histories, start, now.getTime()),
   };
 }
 

@@ -9,6 +9,10 @@ export function weekStarts(now: Date, count: number): Date[] {
   return Array.from({ length: count }, (_, index) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7 * (count - 1 - index)));
 }
 
+export function periodStart(now: Date): number {
+  return weekStarts(now, STATS_WEEKS)[0]?.getTime() ?? now.getTime();
+}
+
 export function weeklyFlow(histories: readonly TaskHistory[], now: Date): WeekFlow[] {
   const starts = weekStarts(now, STATS_WEEKS);
   const closings = histories.flatMap(closingsOf);

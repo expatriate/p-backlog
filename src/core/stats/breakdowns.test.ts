@@ -67,6 +67,7 @@ describe("как закрываются", () => {
       type: "task",
       createdAt: at(2).getTime(),
       source,
+      finalStatus: transitions.at(-1)?.to ?? "backlog",
       transitions,
     });
     const histories = [
