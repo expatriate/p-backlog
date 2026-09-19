@@ -79,7 +79,7 @@ export function TaskListPage() {
           {isError ? (
             <div className={styles.hint} role="status">
               <p>
-                Сервер беклога не отвечает. Перезапустите его: <code>launchctl kickstart -k gui/$(id -u)/local.p-backlog</code>
+                Сервер беклога не отвечает. Запустите его: <code>npm start</code> в репозитории p-backlog или, если установлен LaunchAgent из README, <code>launchctl kickstart -k gui/$(id -u)/local.p-backlog</code>
               </p>
               <Button onClick={() => void refetch()}>Повторить</Button>
             </div>

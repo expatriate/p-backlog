@@ -34,14 +34,17 @@ npm run install-skill   # ~/.claude/skills/backlog → skill/backlog и хук S
 
 | Команда | Что делает |
 |---|---|
-| `backlog new --title <t> [--type task\|epic] [--priority low\|medium\|high\|critical] [--tags a,b] [--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]` | Создаёт задачу, описание читается из stdin |
+| `backlog new --title <t> --category <категория> [--type task\|epic] [--priority low\|medium\|high\|critical] [--tags a,b] [--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--force] [--json]` | Создаёт задачу, описание читается из stdin; похожая открытая задача — отказ (код 3), `--force` создаёт всё равно |
 | `backlog list [--query q] [--status s,…] [--tag t,…] [--project id \| --all-projects] [--json]` | Список задач, по умолчанию открытые задачи текущего проекта |
 | `backlog show <ID> [--json]` | Задача целиком: связи, блокеры, предупреждения |
 | `backlog take <ID> \| --next [--force] [--json]` | Берёт задачу в работу, проверяя блокеры |
+| `backlog take --path <файл\|каталог>` | Берёт в работу все открытые задачи внутри пути |
 | `backlog status <ID> <backlog\|in-progress\|blocked\|done\|cancelled>` | Меняет статус |
 | `backlog check [--changed] [--project id \| --all-projects] [--json]` | Чинит висячие ссылки и завершённые эпики, находит задачи, которые пора перепроверить |
-| `backlog close <ID> --as fixed\|obsolete\|duplicate --reason <улика> [--duplicate-of ID]` | Закрывает задачу с причиной |
-| `backlog verify <ID> [--source файл:строка]` | Отмечает, что задача ещё актуальна |
+| `backlog close <ID> --as fixed\|obsolete\|duplicate --reason <улика> [--duplicate-of ID]` | Закрывает задачу с причиной; `fixed` — только с хешем коммита из репозитория проекта |
+| `backlog verify <ID> [<ID> …] [--source файл:строка]` | Отмечает, что задачи ещё актуальны, и запоминает фрагмент кода |
+| `backlog prune [--project id \| --all-projects] [--apply]` | Задачи с низким приоритетом старше 30 дней; `--apply` отменяет их |
+| `backlog stats [--project id \| --all-projects] [--json]` | Сводка статистики и тревоги |
 | `backlog hook stop` | Хук Stop для Claude Code: просит агента перепроверить задачи, чей код изменился |
 
 Коды выхода: `0` — успех, `1` — ошибка аргументов или правил (у `check` — есть что перепроверить),
@@ -67,6 +70,18 @@ npm run dev         # сервер и Vite с горячей перезагру�
 
 Сервер слушает только `127.0.0.1` и показывает изменения каталога сразу: задача, созданная агентом,
 появляется в открытой вкладке без перезагрузки.
+
+Чтобы сервер работал постоянно и поднимался сам (macOS), установите LaunchAgent из шаблона:
+
+```bash
+npm run build
+sed -e "s|NODE_PATH|$(command -v node)|" -e "s|REPO_PATH|$PWD|g" -e "s|HOME_PATH|$HOME|g" \
+  scripts/local.p-backlog.plist > ~/Library/LaunchAgents/local.p-backlog.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.p-backlog.plist
+launchctl kickstart -k gui/$(id -u)/local.p-backlog   # перезапуск после npm run build
+```
+
+Журнал сервера — `~/Library/Logs/p-backlog.log`.
 
 ## Разработка
 
