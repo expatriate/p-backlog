@@ -6,7 +6,7 @@ import { loadBacklog } from "../../core/store/load";
 import { describeTask, toJson } from "../describe";
 import { formatTaskLine } from "../format";
 import { EXIT, parseChoice, splitList, UsageError, withUsageErrors, type CliIo } from "../io";
-import { requireProject } from "../lookups";
+import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 
 export async function runList(args: string[], io: CliIo): Promise<number> {
   const { values, positionals } = withUsageErrors(() =>
@@ -17,23 +17,18 @@ export async function runList(args: string[], io: CliIo): Promise<number> {
         query: { type: "string" },
         status: { type: "string" },
         tag: { type: "string" },
-        project: { type: "string" },
-        "all-projects": { type: "boolean", default: false },
+        ...SCOPE_OPTIONS,
         json: { type: "boolean", default: false },
       },
     }),
   );
   if (positionals.length > 0) throw new UsageError(`Лишние аргументы: ${positionals.join(" ")}`);
-  if (values.project !== undefined && values["all-projects"]) throw new UsageError("Укажите либо --project, либо --all-projects");
   const statuses = splitList(values.status)?.map((status) => parseChoice(status, TASK_STATUSES, "--status")) ?? OPEN_STATUSES;
 
   const loaded = await loadBacklog(io.backlogRoot);
-  let projectId: string | undefined;
-  if (!values["all-projects"]) {
-    const project = requireProject(loaded, io, values.project);
-    if (!project) return EXIT.notFound;
-    projectId = project.id;
-  }
+  const scope = resolveScope(loaded, io, values);
+  if (scope === null) return EXIT.notFound;
+  const projectId = scope.project?.id;
 
   for (const error of loaded.errors) {
     if (projectId === undefined || error.projectId === projectId) io.warn(`Ошибка разбора ${error.path}: ${error.message}`);

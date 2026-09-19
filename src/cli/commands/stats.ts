@@ -6,7 +6,7 @@ import { readJournals } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
 import { DEFAULT_PORT } from "../../server/port";
 import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
-import { requireProject } from "../lookups";
+import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { statsSummary } from "../stats-summary";
 
 export async function runStats(args: string[], io: CliIo): Promise<number> {
@@ -14,15 +14,15 @@ export async function runStats(args: string[], io: CliIo): Promise<number> {
     parseArgs({
       args,
       allowPositionals: true,
-      options: { project: { type: "string" }, "all-projects": { type: "boolean", default: false }, json: { type: "boolean", default: false } },
+      options: { ...SCOPE_OPTIONS, json: { type: "boolean", default: false } },
     }),
   );
   if (positionals.length > 0) throw new UsageError(`Лишние аргументы: ${positionals.join(" ")}`);
-  if (values.project !== undefined && values["all-projects"]) throw new UsageError("Укажите либо --project, либо --all-projects");
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const project = values["all-projects"] ? undefined : requireProject(loaded, io, values.project);
-  if (!values["all-projects"] && project === undefined) return EXIT.notFound;
+  const scope = resolveScope(loaded, io, values);
+  if (scope === null) return EXIT.notFound;
+  const { project } = scope;
 
   const journals = await readJournals(io.backlogRoot, loaded.projects.map((candidate) => candidate.id));
   const input = { tasks: loaded.tasks, journals, now: io.now(), projectId: project?.id };

@@ -4,7 +4,7 @@ import { formatDayMonth } from "../../core/stats/format";
 import { loadBacklog } from "../../core/store/load";
 import { updateTask } from "../../core/store/update";
 import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
-import { requireProject } from "../lookups";
+import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { reportUpdateFailure } from "../update-failure";
 
 const PRUNE_REASON = `Низкий приоритет, не брали в работу ${STALE_LOW_DAYS}+ дней (backlog prune)`;
@@ -14,19 +14,15 @@ export async function runPrune(args: string[], io: CliIo): Promise<number> {
     parseArgs({
       args,
       allowPositionals: true,
-      options: { project: { type: "string" }, "all-projects": { type: "boolean", default: false }, apply: { type: "boolean", default: false } },
+      options: { ...SCOPE_OPTIONS, apply: { type: "boolean", default: false } },
     }),
   );
   if (positionals.length > 0) throw new UsageError(`Лишние аргументы: ${positionals.join(" ")}`);
-  if (values.project !== undefined && values["all-projects"]) throw new UsageError("Укажите либо --project, либо --all-projects");
 
   const loaded = await loadBacklog(io.backlogRoot);
-  let projectIds = loaded.projects.map((project) => project.id);
-  if (!values["all-projects"]) {
-    const project = requireProject(loaded, io, values.project);
-    if (!project) return EXIT.notFound;
-    projectIds = [project.id];
-  }
+  const scope = resolveScope(loaded, io, values);
+  if (scope === null) return EXIT.notFound;
+  const { projectIds } = scope;
   const stale = staleLowTasks(
     loaded.tasks.filter((task) => projectIds.includes(task.projectId)),
     io.now(),
