@@ -25,11 +25,15 @@ export function fixRequests(histories: readonly TaskHistory[], from: number, to:
   return [...byProject.entries()].filter(([, hashes]) => hashes.size > 0).map(([projectId, hashes]) => ({ projectId, hashes: [...hashes] }));
 }
 
+export function fixCommitOf(history: TaskHistory, commits: ReadonlyMap<string, FixCommit>): FixCommit | undefined {
+  return reasonHashes(history.reason)
+    .map((hash) => commits.get(fixKey(history.projectId, hash)))
+    .find((commit) => commit !== undefined);
+}
+
 export function fixBreakdown(histories: readonly TaskHistory[], from: number, to: number, commits: ReadonlyMap<string, FixCommit>): FixBreakdown {
   const resolved = fixClosings(histories, from, to).map(({ history }) => {
-    const commit = reasonHashes(history.reason)
-      .map((hash) => commits.get(fixKey(history.projectId, hash)))
-      .find((candidate) => candidate !== undefined);
+    const commit = fixCommitOf(history, commits);
     return commit === undefined ? undefined : { byAgent: commit.byAgent, days: Math.max(0, (Date.parse(commit.date) - history.createdAt) / DAY_MS) };
   });
   const agentDays = resolved.flatMap((fix) => (fix?.byAgent === true ? [fix.days] : []));

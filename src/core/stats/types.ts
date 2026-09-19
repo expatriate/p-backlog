@@ -95,6 +95,19 @@ export type QualityReport = {
   branches: BranchRow[];
 };
 
+export type EffectTotals = { realLines: number; fixedTasks: number; fixedLines: number; openTasks: number; estimatedLines: number | null; deferredLines: number; noiseShare: number | null };
+export type EffectWeek = { start: string; realLines: number; deferredLines: number; deferredTasks: number };
+export type EffectProject = { projectId: string; name: string; realLines: number; deferredTasks: number; fixedLines: number; estimatedLines: number | null; noiseShare: number | null };
+export type EffectReport = {
+  taskCount: number;
+  journalSince: string | null;
+  invalidJournalLines: number;
+  unavailableRepos: string[];
+  totals: EffectTotals;
+  weeks: EffectWeek[];
+  projects: EffectProject[];
+};
+
 export type SignalKind = "debt-growing" | "urgent-stale" | "stuck" | "noisy-check";
 export type Signal = { kind: SignalKind; text: string };
 export type SignalsReport = { signals: Signal[] };
