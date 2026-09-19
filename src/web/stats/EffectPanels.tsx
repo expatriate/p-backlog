@@ -32,7 +32,7 @@ function keptOutNote(totals: EffectTotals): string {
 
 export function EffectChartPanel({ weeks, totals }: { weeks: EffectWeek[]; totals: EffectTotals }) {
   return (
-    <Panel title="Без беклога и с ним">
+    <Panel title="Эффективность">
       <EffectWeeksChart weeks={weeks} totals={totals} />
     </Panel>
   );
