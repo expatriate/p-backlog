@@ -140,4 +140,6 @@ description: Use when, while working on code, you notice a problem outside the c
 «Что в беклоге» → `backlog list`: открытые задачи текущего проекта по приоритету. По запросу:
 `--all-projects`, `--status done`, `--tag <тег>`, `--query <текст>`. Подробности — `backlog show <ID>`.
 
+Сводка и тревоги — `backlog stats`.
+
 Сменить категорию — `backlog category <ID> <категория|none>`.

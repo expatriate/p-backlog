@@ -6,6 +6,7 @@ import { runHook } from "./commands/hook";
 import { runList } from "./commands/list";
 import { runNew } from "./commands/new";
 import { runShow } from "./commands/show";
+import { runStats } from "./commands/stats";
 import { runStatus } from "./commands/status";
 import { runTake } from "./commands/take";
 import { runVerify } from "./commands/verify";
@@ -17,6 +18,7 @@ const USAGE = `Использование:
               [--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]
               (описание задачи читается из stdin)
   backlog list [--query текст] [--status s,…] [--tag t,…] [--project id | --all-projects] [--json]
+  backlog stats [--project id | --all-projects] [--json]
   backlog show <ID> [--json]
   backlog take <ID> [--force] [--json]
   backlog take --next [--project id] [--json]
@@ -32,6 +34,7 @@ const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
 const COMMANDS = new Map<string, (args: string[], io: CliIo) => Promise<number>>([
   ["new", runNew],
   ["list", runList],
+  ["stats", runStats],
   ["show", runShow],
   ["take", runTake],
   ["status", runStatus],
