@@ -93,3 +93,7 @@ export type QualityReport = {
   found: FoundRow[];
   branches: BranchRow[];
 };
+
+export type SignalKind = "debt-growing" | "urgent-stale" | "stuck" | "noisy-check";
+export type Signal = { kind: SignalKind; text: string };
+export type SignalsReport = { signals: Signal[] };
