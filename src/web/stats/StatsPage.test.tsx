@@ -250,13 +250,11 @@ describe("вкладка «Качество»", () => {
 
     await app.user.click(await screen.findByRole("link", { name: "Качество" }));
 
-    const [accuracyPanel] = await screen.findAllByRole("region", { name: "Точность проверки" });
-    if (accuracyPanel === undefined) throw new Error("нет панели точности");
+    const accuracyPanel = await screen.findByRole("region", { name: "Точность проверки" });
     expect(app.route()).toBe("/stats/quality");
     expect(document.title).toBe("Качество · Статистика · Все проекты — Беклог");
     expect(cells(within(accuracyPanel).getByRole("row", { name: /код изменился/ }))).toEqual(["код изменился", "1", "0", "1", "0", "0%"]);
-    const [categoriesPanel] = screen.getAllByRole("region", { name: "Категории" });
-    if (categoriesPanel === undefined) throw new Error("нет панели категорий");
+    const categoriesPanel = screen.getByRole("region", { name: "Категории" });
     expect(cells(within(categoriesPanel).getByRole("row", { name: /не указана/ }))).toEqual(["не указана", "3", "8", "4", "1"]);
     const originPanel = screen.getByRole("region", { name: "Происхождение" });
     expect(cells(within(originPanel).getByRole("row", { name: /неизвестно/ }))).toEqual(["неизвестно", "4", "3", "0"]);

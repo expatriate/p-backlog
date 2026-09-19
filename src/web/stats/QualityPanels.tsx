@@ -67,7 +67,7 @@ export function OriginPanel({ found, branches }: { found: FoundRow[]; branches: 
 
 function Table({ label, head, rows }: { label: string; head: string[]; rows: { key: string; cells: ReactNode[] }[] }) {
   return (
-    <div className={styles.scroll} tabIndex={0} role="region" aria-label={label}>
+    <div className={styles.scroll} tabIndex={0} role="region" aria-label={`Таблица «${label}»`}>
       <table className={styles.table} aria-label={label}>
         <thead>
           <tr>
