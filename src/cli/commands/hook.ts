@@ -6,6 +6,7 @@ import { readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
 import { findProjectForDir } from "../../core/store/resolve-project";
 import { readSignalsShown, writeSignalsShown } from "../../core/store/signals-shown";
+import { pluralCount } from "../../core/stats/format";
 import { statsSignals } from "../../core/stats/signals/signals";
 import { markShown, signalsToShow, type SignalsShown } from "../../core/stats/signals/shown";
 import type { Signal } from "../../core/stats/types";
@@ -24,10 +25,13 @@ export async function runHook(args: string[], io: CliIo): Promise<number> {
   const project = findProjectForDir(loaded.projects, event.cwd, io.home);
   if (!project) return EXIT.ok;
   const { candidates } = await checkBacklog(io.backlogRoot, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home });
+  const lowPriority = new Set(loaded.tasks.filter((task) => task.priority === "low").map((task) => task.id));
+  const blocking = candidates.filter((candidate) => !lowPriority.has(candidate.task.id));
+  const lowCount = candidates.length - blocking.length;
 
-  const signals = await freshSignals(project, loaded.tasks.filter((task) => task.projectId === project.id), io);
+  const signals = await freshSignals(project, loaded.tasks.filter((task) => task.projectId === project.id), lowChangedSignals(lowCount), io);
   const response = {
-    ...(candidates.length > 0 ? { decision: "block", reason: stopReason(project.id, candidates) } : {}),
+    ...(blocking.length > 0 ? { decision: "block", reason: stopReason(project.id, blocking) } : {}),
     ...(signals.fresh.length > 0 ? { systemMessage: `Беклог ${project.id}: ${signals.fresh.map((signal) => signal.text).join("; ")}` } : {}),
   };
   if (Object.keys(response).length > 0) io.print(JSON.stringify(response));
@@ -37,13 +41,18 @@ export async function runHook(args: string[], io: CliIo): Promise<number> {
 
 type FreshSignals = { fresh: Signal[]; remember: () => Promise<void> };
 
-async function freshSignals(project: Project, tasks: readonly Task[], io: CliIo): Promise<FreshSignals> {
+function lowChangedSignals(count: number): Signal[] {
+  if (count === 0) return [];
+  return [{ kind: "low-changed", text: `Код менялся у ${pluralCount(count, "задачи", "задач", "задач")} с низким приоритетом — перепроверьте при случае («почисти беклог»)` }];
+}
+
+async function freshSignals(project: Project, tasks: readonly Task[], extra: readonly Signal[], io: CliIo): Promise<FreshSignals> {
   const projectDir = dirname(project.path);
   const today = formatLocalIso(io.now()).slice(0, 10);
   try {
     const journal = await readJournal(projectDir, project.id);
     const shown = await readSignalsShown(projectDir);
-    const fresh = signalsToShow(statsSignals({ tasks, journals: [journal], now: io.now(), projectId: project.id }), shown, today);
+    const fresh = signalsToShow([...statsSignals({ tasks, journals: [journal], now: io.now(), projectId: project.id }), ...extra], shown, today);
     return { fresh, remember: () => (fresh.length === 0 ? Promise.resolve() : rememberShown(projectDir, markShown(shown, fresh, today), io)) };
   } catch (error) {
     io.warn(`Не удалось посчитать тревоги: ${errorText(error)}`);

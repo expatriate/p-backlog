@@ -1,6 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { NBSP } from "../../core/stats/format";
 import { readJournal } from "../../core/store/journal";
 import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
@@ -81,5 +82,32 @@ describe("backlog hook stop", () => {
     expect(result.code).toBe(EXIT.ok);
     expect(result.out).toBe("");
     expect(result.err).toContain("Не удалось посчитать тревоги");
+  });
+
+  it("задачи с низким приоритетом не останавливают сессию: уведомление раз в день, полный check их видит", async () => {
+    const { run, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n", "src/b.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--title", "Мелочь про форматирование", "--priority", "low", "--source", "src/a.ts:1"], { now: new Date("2026-09-16T11:00:00Z") });
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Правка", "2026-09-17T10:00:00Z");
+    const stdin = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    const first = await run(["hook", "stop"], { stdin, now: new Date(2026, 8, 18, 10) });
+    const again = await run(["hook", "stop"], { stdin, now: new Date(2026, 8, 18, 12) });
+
+    expect(JSON.parse(first.out)).toEqual({ systemMessage: `Беклог spa: Код менялся у 1${NBSP}задачи с низким приоритетом — перепроверьте при случае («почисти беклог»)` });
+    expect(again.out).toBe("");
+    expect((await run(["check"])).out).toContain("SPA-1");
+
+    await run(["new", "--title", "Важная ошибка загрузки", "--priority", "high", "--source", "src/b.ts:1"], { now: new Date("2026-09-16T11:00:00Z") });
+    await writeFile(join(repo, "src/b.ts"), "2\n");
+    gitCommitAll(repo, "Правка b", "2026-09-17T11:00:00Z");
+
+    const mixed = JSON.parse((await run(["hook", "stop"], { stdin, now: new Date(2026, 8, 18, 14) })).out) as Record<string, string>;
+
+    expect(mixed.decision).toBe("block");
+    expect(mixed.reason).toContain("SPA-2");
+    expect(mixed.reason).not.toContain("SPA-1");
   });
 });
