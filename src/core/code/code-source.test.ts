@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Project } from "../model/types";
@@ -81,7 +81,7 @@ describe("сбор данных git по проектам", () => {
     const head = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
     const cacheRoot = await makeTempDir();
     const projects = [projectOf("spa", [repo])];
-    const requests = [{ projectId: "spa", hashes: [head] }];
+    const requests = [{ projectId: "spa", hashes: [head, "deadbee"] }];
     const first = await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }).collect(projects, requests, NOW);
 
     const onlyRevParse: GitRunner = (dir, args) => (args[0] === "rev-parse" ? runGit(dir, args) : Promise.resolve(null));
@@ -89,6 +89,7 @@ describe("сбор данных git по проектам", () => {
 
     expect(restarted.projects).toEqual(first.projects);
     expect(restarted.fixCommits.get(fixKey("spa", head))).toEqual(first.fixCommits.get(fixKey("spa", head)));
+    expect(JSON.parse(await readFile(join(cacheRoot, CODE_CACHE_FILE), "utf8")).fixes).not.toHaveProperty(`${repo} deadbee`);
 
     await writeFile(join(cacheRoot, CODE_CACHE_FILE), "{битый", "utf8");
     const fromGit = await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }).collect(projects, requests, NOW);

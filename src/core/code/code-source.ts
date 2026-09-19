@@ -33,7 +33,8 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
   const persist = async (): Promise<void> => {
     if (store === undefined || !changed) return;
     changed = false;
-    await store.write({ repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache) }).catch((error: unknown) => {
+    const foundFixes = [...fixCache].filter((entry): entry is [string, FixCommit] => entry[1] !== null);
+    await store.write({ repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(foundFixes) }).catch((error: unknown) => {
       console.error(`Не удалось сохранить кэш git: ${error instanceof Error ? error.message : String(error)}`);
     });
   };

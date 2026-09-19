@@ -6,7 +6,7 @@ import { readTextOrNull, writeFileAtomic } from "../store/fs-utils";
 export const CODE_CACHE_FILE = ".code-cache.json";
 const CODE_CACHE_VERSION = 1;
 
-export type CodeCacheSnapshot = { repos: Record<string, { key: string; code: RepoCode }>; fixes: Record<string, FixCommit | null> };
+export type CodeCacheSnapshot = { repos: Record<string, { key: string; code: RepoCode }>; fixes: Record<string, FixCommit> };
 
 export type CodeCacheStore = { read: () => Promise<CodeCacheSnapshot>; write: (snapshot: CodeCacheSnapshot) => Promise<void> };
 
@@ -21,7 +21,7 @@ const fixCommitSchema = z.object({ date: z.string(), byAgent: z.boolean(), lines
 const snapshotSchema = z.object({
   version: z.literal(CODE_CACHE_VERSION),
   repos: z.record(z.string(), z.object({ key: z.string(), code: repoCodeSchema })),
-  fixes: z.record(z.string(), fixCommitSchema.nullable()),
+  fixes: z.record(z.string(), fixCommitSchema),
 });
 
 export function emptyCodeCache(): CodeCacheSnapshot {

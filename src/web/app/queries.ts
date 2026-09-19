@@ -8,6 +8,8 @@ export const PROJECTS_KEY = ["projects"];
 export const TASKS_KEY = ["tasks"];
 export const STATS_KEY = ["stats"];
 
+const STATS_STALE_MS = 60_000;
+
 export function useProjects() {
   const { client } = useBacklogApi();
   return useQuery<Project[]>({ queryKey: PROJECTS_KEY, queryFn: client.projects });
@@ -20,12 +22,12 @@ export function useTasks() {
 
 export function useStats(projectId: string | undefined) {
   const { client } = useBacklogApi();
-  return useQuery<StatsReport>({ queryKey: [...STATS_KEY, "overview", projectId ?? "all"], queryFn: () => client.stats(projectId) });
+  return useQuery<StatsReport>({ queryKey: [...STATS_KEY, "overview", projectId ?? "all"], queryFn: () => client.stats(projectId), staleTime: STATS_STALE_MS });
 }
 
 export function useFlowStats(projectId: string | undefined) {
   const { client } = useBacklogApi();
-  return useQuery<FlowReport>({ queryKey: [...STATS_KEY, "flow", projectId ?? "all"], queryFn: () => client.flowStats(projectId) });
+  return useQuery<FlowReport>({ queryKey: [...STATS_KEY, "flow", projectId ?? "all"], queryFn: () => client.flowStats(projectId), staleTime: STATS_STALE_MS });
 }
 
 export function useCodeStats(projectId: string | undefined) {
@@ -40,12 +42,12 @@ export function useEffectStats(projectId: string | undefined) {
 
 export function useQualityStats(projectId: string | undefined) {
   const { client } = useBacklogApi();
-  return useQuery<QualityReport>({ queryKey: [...STATS_KEY, "quality", projectId ?? "all"], queryFn: () => client.qualityStats(projectId) });
+  return useQuery<QualityReport>({ queryKey: [...STATS_KEY, "quality", projectId ?? "all"], queryFn: () => client.qualityStats(projectId), staleTime: STATS_STALE_MS });
 }
 
 export function useSignals(projectId: string | undefined) {
   const { client } = useBacklogApi();
-  return useQuery<SignalsReport>({ queryKey: [...STATS_KEY, "signals", projectId ?? "all"], queryFn: () => client.signals(projectId) });
+  return useQuery<SignalsReport>({ queryKey: [...STATS_KEY, "signals", projectId ?? "all"], queryFn: () => client.signals(projectId), staleTime: STATS_STALE_MS });
 }
 
 export function useCostStats(projectId: string | undefined) {
