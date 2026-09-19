@@ -14,7 +14,7 @@ describe("сбор данных git по проектам", () => {
     await writeFiles(repo, { "src/a.ts": "a\n" });
     gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
     const head = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
-    const source: CodeSource = createCodeSource();
+    const source: CodeSource = createCodeSource({ home: "/home/backlog-test" });
 
     const code = await source.collect([projectOf("spa", [repo, "/nope/repo"])], [{ projectId: "spa", hashes: [head, "deadbee"] }], NOW);
 
@@ -22,6 +22,27 @@ describe("сбор данных git по проектам", () => {
     expect(code.unavailableRepos).toEqual(["/nope/repo"]);
     expect(code.fixCommits.get(fixKey("spa", head))?.byAgent).toBe(false);
     expect(code.fixCommits.has(fixKey("spa", "deadbee"))).toBe(false);
+  });
+
+  it("репозиторий с `~` раскрывается в домашний каталог перед обращением к git", async () => {
+    const home = await makeTempDir();
+    const repo = await makeGitRepo(home, "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const source: CodeSource = createCodeSource({ home });
+
+    const code = await source.collect([projectOf("spa", ["~/spa"])], [], NOW);
+
+    expect(code.projects).toEqual([{ projectId: "spa", name: "Проект spa", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 1 }] }] }]);
+    expect(code.unavailableRepos).toEqual([]);
+  });
+
+  it("недоступный путь остаётся в списке таким, как записан в project.md", async () => {
+    const source: CodeSource = createCodeSource({ home: "/home/backlog-test" });
+
+    const code = await source.collect([projectOf("spa", ["~/nope"])], [], NOW);
+
+    expect(code.unavailableRepos).toEqual(["~/nope"]);
   });
 
   it("при том же HEAD и дне git читается один раз", async () => {
@@ -33,12 +54,20 @@ describe("сбор данных git по проектам", () => {
       calls.push(args[0] ?? "");
       return await runGit(dir, args);
     };
-    const source = createCodeSource(counting);
+    const source = createCodeSource({ home: "/home/backlog-test", git: counting });
 
     await source.collect([projectOf("spa", [repo])], [], NOW);
     await source.collect([projectOf("spa", [repo])], [], NOW);
 
     expect(calls.filter((call) => call === "log")).toHaveLength(1);
     expect(calls.filter((call) => call === "rev-parse")).toHaveLength(2);
+  });
+
+  it("один и тот же недоступный путь у двух проектов — одна запись", async () => {
+    const source: CodeSource = createCodeSource({ home: "/home/backlog-test" });
+
+    const code = await source.collect([projectOf("a", ["/nope/repo"]), projectOf("b", ["/nope/repo"])], [], NOW);
+
+    expect(code.unavailableRepos).toEqual(["/nope/repo"]);
   });
 });

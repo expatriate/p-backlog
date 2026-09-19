@@ -16,9 +16,9 @@ import { updateTask } from "../core/store/update";
 import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
 
-export type ApiOptions = { root: string; changes: ChangeFeed; now: () => Date };
+export type ApiOptions = { root: string; changes: ChangeFeed; now: () => Date; home: string };
 
-export function createApi({ root, changes, now }: ApiOptions): Hono {
+export function createApi({ root, changes, now, home }: ApiOptions): Hono {
   const api = new Hono();
 
   api.get("/projects", async (c) => c.json((await loadBacklog(root)).projects));
@@ -28,7 +28,7 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
     return c.json({ tasks, errors });
   });
 
-  const codeSource = createCodeSource();
+  const codeSource = createCodeSource({ home });
 
   const scopedStats =
     <R extends StatsReport | FlowReport | CodeReport>(report: (input: StatsInput, projects: readonly Project[]) => R | Promise<R>) =>

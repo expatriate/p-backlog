@@ -22,6 +22,7 @@ const app = createApp({
   root,
   changes: createChangeFeed(root),
   allowedHosts: localHosts(port),
+  home,
   staticDir: join(import.meta.dirname, "web"),
 });
 

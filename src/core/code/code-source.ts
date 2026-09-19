@@ -3,13 +3,16 @@ import { DAY_MS } from "../model/lifecycle";
 import type { Project } from "../model/types";
 import { fixKey, type FixRequest } from "../stats/code/fixes";
 import type { CollectedCode, FixCommit, ProjectCode, RepoCode } from "../stats/types";
+import { expandHome } from "../store/paths";
 import { readFixCommit, readHead, readRepoCode, runGit, type GitRunner } from "./git-code";
 
 const CHURN_DAYS = 90;
 
+export type CodeSourceOptions = { home: string; git?: GitRunner };
+
 export type CodeSource = { collect: (projects: readonly Project[], requests: readonly FixRequest[], now: Date) => Promise<CollectedCode> };
 
-export function createCodeSource(git: GitRunner = runGit): CodeSource {
+export function createCodeSource({ home, git = runGit }: CodeSourceOptions): CodeSource {
   const repoCache = new Map<string, { key: string; code: RepoCode }>();
   const fixCache = new Map<string, FixCommit | null>();
 
@@ -37,16 +40,21 @@ export function createCodeSource(git: GitRunner = runGit): CodeSource {
       const unavailableRepos: string[] = [];
       const available = new Map<string, string[]>();
       const projectCodes: ProjectCode[] = [];
+      const seenUnavailable = new Set<string>();
       for (const project of projects) {
         const repos: RepoCode[] = [];
         for (const repo of project.repos) {
-          const code = await repoCode(repo, now);
+          const expanded = expandHome(repo, home);
+          const code = await repoCode(expanded, now);
           if (code === null) {
-            unavailableRepos.push(repo);
+            if (!seenUnavailable.has(repo)) {
+              seenUnavailable.add(repo);
+              unavailableRepos.push(repo);
+            }
             continue;
           }
           repos.push(code);
-          available.set(project.id, [...(available.get(project.id) ?? []), repo]);
+          available.set(project.id, [...(available.get(project.id) ?? []), expanded]);
         }
         projectCodes.push({ projectId: project.id, name: project.name, repos });
       }

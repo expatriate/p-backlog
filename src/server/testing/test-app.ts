@@ -33,6 +33,7 @@ export async function makeTestApp(files: Record<string, string>, staticDir?: str
     root,
     changes,
     allowedHosts: new Set([TEST_HOST]),
+    home: root,
     staticDir,
     now: () => TEST_NOW,
   });
