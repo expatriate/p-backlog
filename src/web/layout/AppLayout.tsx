@@ -15,9 +15,9 @@ export function AppLayout() {
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const openCount = (projectId?: string) => filterTasks(allTasks, { projectId, statuses: OPEN_STATUSES }, index).length;
   const projectId = matchPath("/p/:projectId/*", pathname)?.params.projectId;
-  const onStats = matchPath("/stats", pathname) !== null || matchPath("/p/:projectId/stats", pathname) !== null;
-
-  const scopePath = onStats ? statsPath : listPath;
+  const statsTab = (matchPath("/stats/*", pathname) ?? matchPath("/p/:projectId/stats/*", pathname))?.params["*"];
+  const onStats = statsTab !== undefined;
+  const scopePath = (id?: string) => (onStats ? `${statsPath(id)}${statsTab === "" ? "" : `/${statsTab}`}` : listPath(id));
 
   return (
     <div className={styles.shell}>

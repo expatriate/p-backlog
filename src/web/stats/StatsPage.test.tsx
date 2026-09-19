@@ -88,3 +88,54 @@ describe("страница статистики", () => {
     expect(within(panel).getByText("Возвраты: 0")).toBeDefined();
   });
 });
+
+describe("вкладки статистики", () => {
+  it("«Обзор» активен по умолчанию, «Поток» меняет адрес и заголовок вкладки", async () => {
+    const app = await renderApp(FILES, "/stats");
+    const tabs = await screen.findByRole("navigation", { name: "Разделы статистики" });
+    expect(within(tabs).getByRole("link", { name: "Обзор" }).getAttribute("aria-current")).toBe("page");
+
+    await app.user.click(within(tabs).getByRole("link", { name: "Поток" }));
+
+    expect(await screen.findByRole("region", { name: "Прогноз" })).toBeDefined();
+    expect(app.route()).toBe("/stats/flow");
+    expect(document.title).toBe("Поток · Статистика · Все проекты — Беклог");
+    expect(within(tabs).getByRole("link", { name: "Поток" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Статистика" }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("смена проекта на «Потоке» остаётся на «Потоке»", async () => {
+    const app = await renderApp(FILES, "/p/spa/stats/flow");
+    await screen.findByRole("region", { name: "Прогноз" });
+
+    await app.user.click(screen.getByRole("link", { name: /^ti/ }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Статистика · ti" })).toBeDefined();
+    expect(app.route()).toBe("/p/torg-io/stats/flow");
+  });
+
+  it("прогноз и задачи в работе", async () => {
+    await renderApp(
+      {
+        ...FILES,
+        "spa/SPA-2.md": taskFixture("SPA-2", { title: "Логин", status: "in-progress", created: "2026-09-16T10:00:00+03:00" }),
+        "spa/journal.jsonl": `${JSON.stringify({ at: "2026-09-16T12:00:00+03:00", task: "SPA-2", via: "cli", kind: "status", from: "backlog", to: "in-progress" })}\n`,
+      },
+      "/stats/flow",
+    );
+
+    const forecast = await screen.findByRole("region", { name: "Прогноз" });
+    expect(within(forecast).getByText("Долг растёт на 0,8 задач в неделю")).toBeDefined();
+    expect(within(forecast).getByText("за 4 недели: закрыто 1, создано 4")).toBeDefined();
+    const now = screen.getByRole("region", { name: "В работе сейчас" });
+    expect(within(now).getByText("в работе: 1 · заблокировано: 0")).toBeDefined();
+    expect(within(now).getByRole("link", { name: "SPA-2" })).toBeDefined();
+    expect(within(now).getByText("в работе · 2 дн.")).toBeDefined();
+  });
+
+  it("неизвестный проект на «Потоке» — «Проект не найден.»", async () => {
+    await renderApp(FILES, "/p/nope/stats/flow");
+
+    expect(await screen.findByText("Проект не найден.")).toBeDefined();
+  });
+});
