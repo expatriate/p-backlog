@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { open, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { attributeLine, flushEstimates, newTranscriptState } from "../stats/cost/attribute";
@@ -16,6 +17,7 @@ export type ScanTranscriptsInput = {
 export type ScanTranscriptsResult = { cache: UsageCache; bytesRead: number; bytesLeft: number; filesDone: number };
 
 const NEWLINE = 0x0a;
+const FINGERPRINT_BYTES = 256;
 const COUNTED_LINE_MARKERS = ['"type":"assistant"', '"type":"user"'];
 
 export async function listTranscripts(claudeProjectsDir: string): Promise<TranscriptFile[]> {
@@ -55,11 +57,13 @@ export async function scanTranscripts({ files, cache, byteBudget }: ScanTranscri
 
   for (const file of files) {
     const previous = cache.files[file.path];
-    const resumable = previous !== undefined && file.size >= previous.size;
+    const resumable = previous !== undefined && file.size >= previous.size && (await fingerprintOf(file.path, previous.offset)) === previous.fingerprint;
     const start: ScanStart = resumable ? { offset: previous.offset, state: structuredClone(previous.state), buckets: previous.buckets } : { offset: 0, state: newTranscriptState(), buckets: [] };
 
     const chunkSize = Math.min(file.size - start.offset, remainingBudget);
-    resultFiles[file.path] = await scanChunk(file, start, chunkSize, byteBudget);
+    const scanned = await scanChunk(file, start, chunkSize, byteBudget);
+    const unmoved = resumable && scanned.offset === previous.offset;
+    resultFiles[file.path] = { ...scanned, fingerprint: unmoved ? previous.fingerprint : await fingerprintOf(file.path, scanned.offset) };
     if (chunkSize > 0) {
       remainingBudget -= chunkSize;
       await yieldToEventLoop();
@@ -74,7 +78,7 @@ export async function scanTranscripts({ files, cache, byteBudget }: ScanTranscri
   };
 }
 
-async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: number, longestReadableLine: number): Promise<UsageCacheEntry> {
+async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: number, longestReadableLine: number): Promise<Omit<UsageCacheEntry, "fingerprint">> {
   if (chunkSize <= 0) return { size: file.size, offset: start.offset, state: start.state, buckets: start.buckets };
 
   const chunk = await readChunk(file.path, start.offset, chunkSize);
@@ -95,6 +99,12 @@ async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: numb
   const offset = start.offset + lastNewline + 1;
   if (offset === file.size) for (const addition of flushEstimates(start.state)) addBucket(bucketsByKey, addition);
   return { size: file.size, offset, state: start.state, buckets: [...bucketsByKey.values()] };
+}
+
+async function fingerprintOf(path: string, offset: number): Promise<string> {
+  const edge = Math.min(FINGERPRINT_BYTES, offset);
+  const [head, tail] = await Promise.all([readChunk(path, 0, edge), readChunk(path, offset - edge, edge)]);
+  return createHash("sha1").update(head).update(tail).digest("hex");
 }
 
 async function readChunk(path: string, position: number, length: number): Promise<Buffer> {

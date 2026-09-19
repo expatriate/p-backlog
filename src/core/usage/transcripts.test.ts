@@ -177,6 +177,19 @@ describe("чтение расшифровок по частям", () => {
     expect(Object.values(cache.files)[0]?.offset).toBe(file.size);
   });
 
+  it("файл перезаписан с тем же размером — читается заново, старый вклад не остаётся", async () => {
+    const root = await makeTempDir();
+    const path = join(root, "session.jsonl");
+    const original = await transcriptFile(path, jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-opus-5", { input: 100, output: 20 })]));
+    const pass1 = await scanTranscripts({ files: [original], cache: emptyUsageCache(), byteBudget: BIG_BUDGET });
+
+    const sameSize = await transcriptFile(path, jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-opus-5", { input: 300, output: 40 })]));
+    expect(sameSize.size).toBe(original.size);
+    const pass2 = await scanTranscripts({ files: [sameSize], cache: pass1.cache, byteBudget: BIG_BUDGET });
+
+    expect(totalTokens(pass2.cache.files)).toBe(340);
+  });
+
   it("кэш на диске после записи читается обратно", async () => {
     const root = await makeTempDir();
     const path = join(root, "session.jsonl");
