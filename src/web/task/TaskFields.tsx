@@ -5,11 +5,7 @@ import {
   TASK_CATEGORIES,
   TASK_STATUSES,
   TASK_TYPES,
-  type Priority,
   type Task,
-  type TaskCategory,
-  type TaskStatus,
-  type TaskType,
 } from "../../core/model/types";
 import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
 import { useDraft } from "../ui/use-draft";
@@ -25,50 +21,17 @@ export function TaskFields({ task, epicListId, onChange }: TaskFieldsProps) {
   return (
     <>
       <div className={styles.grid}>
-        <label>
-          Статус
-          <select value={task.status} onChange={(event) => onChange({ status: event.target.value as TaskStatus })}>
-            {TASK_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {STATUS_LABELS[status]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Приоритет
-          <select value={task.priority} onChange={(event) => onChange({ priority: event.target.value as Priority })}>
-            {PRIORITIES.map((priority) => (
-              <option key={priority} value={priority}>
-                {PRIORITY_LABELS[priority]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Категория
-          <select
-            value={task.category ?? ""}
-            onChange={(event) => onChange({ category: event.target.value === "" ? null : (event.target.value as TaskCategory) })}
-          >
-            <option value="">{NO_CATEGORY_LABEL}</option>
-            {TASK_CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {CATEGORY_LABELS[category]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Тип
-          <select value={task.type} onChange={(event) => onChange({ type: event.target.value as TaskType })}>
-            {TASK_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {TYPE_LABELS[type]}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ChoiceSelect label="Статус" value={task.status} choices={TASK_STATUSES} labels={STATUS_LABELS} onChange={(status) => status !== null && onChange({ status })} />
+        <ChoiceSelect label="Приоритет" value={task.priority} choices={PRIORITIES} labels={PRIORITY_LABELS} onChange={(priority) => priority !== null && onChange({ priority })} />
+        <ChoiceSelect
+          label="Категория"
+          value={task.category}
+          choices={TASK_CATEGORIES}
+          labels={CATEGORY_LABELS}
+          emptyLabel={NO_CATEGORY_LABEL}
+          onChange={(category) => onChange({ category })}
+        />
+        <ChoiceSelect label="Тип" value={task.type} choices={TASK_TYPES} labels={TYPE_LABELS} onChange={(type) => type !== null && onChange({ type })} />
         <label>
           Эпик
           <input
@@ -90,6 +53,31 @@ export function TaskFields({ task, epicListId, onChange }: TaskFieldsProps) {
         <input ref={tagsRef} value={tags} onChange={(event) => setTags(event.target.value)} onBlur={() => saveTags(tags, task, onChange)} />
       </label>
     </>
+  );
+}
+
+type ChoiceSelectProps<T extends string> = {
+  label: string;
+  value: T | undefined;
+  choices: readonly T[];
+  labels: Record<T, string>;
+  emptyLabel?: string;
+  onChange: (value: T | null) => void;
+};
+
+function ChoiceSelect<T extends string>({ label, value, choices, labels, emptyLabel, onChange }: ChoiceSelectProps<T>) {
+  return (
+    <label>
+      {label}
+      <select value={value ?? ""} onChange={(event) => onChange(choices.find((choice) => choice === event.target.value) ?? null)}>
+        {emptyLabel !== undefined && <option value="">{emptyLabel}</option>}
+        {choices.map((choice) => (
+          <option key={choice} value={choice}>
+            {labels[choice]}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
