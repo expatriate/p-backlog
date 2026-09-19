@@ -5,9 +5,10 @@ import { pluralCount } from "../../core/stats/format";
 import { useCostStats } from "../app/queries";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
-import { CommandsPanel, CostFigures, ModelsPanel, RunsChartPanel, TokensChartPanel } from "./CostPanels";
+import { CommandsPanel, CostFigures, ModelsPanel } from "./CostPanels";
 import flowStyles from "./FlowPanels.module.css";
 import { MemoryPanel } from "./MemoryChart";
+import { SpendPanel } from "./SpendChart";
 import styles from "./StatsPage.module.css";
 
 export function CostTab() {
@@ -63,10 +64,7 @@ function Cost({ report }: { report: CostReport }) {
       <CostFigures totals={report.totals} days={report.days} models={report.models} />
       <div className={styles.blocks}>
         <div className={flowStyles.wide}>
-          <TokensChartPanel days={report.days} />
-        </div>
-        <div className={flowStyles.wide}>
-          <RunsChartPanel days={report.days} />
+          <SpendPanel days={report.days} />
         </div>
         <ModelsPanel models={report.models} />
         <MemoryPanel />

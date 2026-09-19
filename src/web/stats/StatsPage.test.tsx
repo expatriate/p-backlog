@@ -330,10 +330,12 @@ describe("вкладка «Стоимость»", () => {
     const cliCalls = await screen.findByRole("group", { name: "Вызовов CLI" });
     expect(within(cliCalls).getByText("1")).toBeDefined();
 
+    expect(screen.getByRole("figure", { name: new RegExp(`^За 30${NBSP}дней: из-за хука .*; запусков хука 1, других команд 1$`) })).toBeDefined();
+
     const commands = screen.getByRole("region", { name: "Команды" });
     expect(within(commands).getByRole("row", { name: /list/ })).toBeDefined();
 
-    expect(await screen.findByRole("img", { name: new RegExp(`Сейчас \\S+${NBSP}МБ, максимум за час \\S+${NBSP}МБ`) })).toBeDefined();
+    expect(await screen.findByRole("figure", { name: new RegExp(`Сейчас \\S+${NBSP}МБ, максимум за час \\S+${NBSP}МБ`) })).toBeDefined();
   });
 
   it("каталог расшифровок пуст — вкладка говорит, что расшифровки не найдены", async () => {

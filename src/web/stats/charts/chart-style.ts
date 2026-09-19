@@ -3,3 +3,7 @@ export const AXIS_PROPS = { tickLine: false, axisLine: false } as const;
 export const DATE_AXIS_PROPS = { ...AXIS_PROPS, interval: "preserveStartEnd", minTickGap: 16 } as const;
 export const VALUE_AXIS_WIDTH = 48;
 export const TOOLTIP_PROPS = { isAnimationActive: false, cursor: { fill: "var(--surface-hover)" } } as const;
+
+export function chartTitle(name: string, step: "дням" | "неделям" | "замерам"): string {
+  return `${name}. Стрелки влево и вправо — по ${step}`;
+}

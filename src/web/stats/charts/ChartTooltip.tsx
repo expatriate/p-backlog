@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { TooltipContentProps } from "recharts";
+import type { TooltipContentProps, TooltipValueType } from "recharts";
 import { cx } from "../../ui/cx";
 import type { LegendShape } from "./ChartFrame";
 import styles from "./ChartFrame.module.css";
@@ -8,7 +8,7 @@ export type TooltipRow = { label: string; value: string; shape?: LegendShape; co
 export type TooltipView = { title: string; rows: TooltipRow[] };
 
 export function rowTooltip<Row>(describe: (row: Row) => TooltipView) {
-  return function RowTooltip({ active, payload }: TooltipContentProps<number, string>): ReactNode {
+  return function RowTooltip({ active, payload }: TooltipContentProps<TooltipValueType, number | string>): ReactNode {
     const row: unknown = payload?.[0]?.payload;
     if (!active || row === undefined) return null;
     const { title, rows } = describe(row as Row);
