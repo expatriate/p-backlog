@@ -2,7 +2,8 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
-import { readFixCommit, readHead, readRepoCode, runGit, type GitRunner } from "./git-code";
+import { readFixCommit, readHead, readRepoCode } from "./git-code";
+import { runGit, type GitRunner } from "../git/run";
 
 const AGENT_MESSAGE = "fix: retry\n\nCo-authored-by: claude Sonnet 5 <noreply@anthropic.com>";
 

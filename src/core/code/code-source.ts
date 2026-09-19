@@ -6,7 +6,8 @@ import { fixKey, type FixRequest } from "../stats/code/fixes";
 import type { CollectedCode, FixCommit, ProjectCode, RepoCode } from "../stats/types";
 import { expandHome } from "../store/paths";
 import { emptyCodeCache, type CodeCacheStore } from "./code-cache";
-import { readFixCommit, readHead, readMainCommit, readRepoCode, runGit, type GitRunner } from "./git-code";
+import { readFixCommit, readHead, readMainCommit, readRepoCode } from "./git-code";
+import { runGit, type GitRunner } from "../git/run";
 
 
 export type CodeSourceOptions = { home: string; git?: GitRunner; store?: CodeCacheStore };

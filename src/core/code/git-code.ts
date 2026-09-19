@@ -1,15 +1,8 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { FIELD, RECORD, type GitRunner } from "../git/run";
 import type { CommitUnit, FixCommit, RepoCode } from "../stats/types";
 import { isTestPath } from "./test-paths";
 
-export type GitRunner = (repo: string, args: string[]) => Promise<string | null>;
-
-const runFile = promisify(execFile);
-const RECORD = "\x1e";
-const FIELD = "\x1f";
 const LOG_RECORD_SEPARATOR = `${RECORD}\0\n`;
-const GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
 const LOCK_FILES = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"];
 const LOCK_EXCLUDES = LOCK_FILES.map((name) => `:!*${name}`);
 const NON_CODE_EXTENSIONS = [".md", ".mdx", ".svg"];
@@ -17,20 +10,6 @@ const CHURN_EXCLUDES = [...LOCK_EXCLUDES, ...NON_CODE_EXTENSIONS.map((ext) => `:
 const MAIN_REFS = ["origin/HEAD", "main", "master"];
 const AGENT_TRAILER = /^claude/i;
 const GREP_PREFIX = "HEAD:";
-const GREP_NO_MATCH_EXIT = 1;
-
-export const runGit: GitRunner = async (repo, args) => {
-  try {
-    const { stdout } = await runFile("git", ["-C", repo, "--no-optional-locks", "-c", "core.quotePath=false", ...args], { maxBuffer: GIT_OUTPUT_LIMIT });
-    return stdout;
-  } catch (error) {
-    return args[0] === "grep" && exitCodeOf(error) === GREP_NO_MATCH_EXIT ? "" : null;
-  }
-};
-
-function exitCodeOf(error: unknown): unknown {
-  return typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
-}
 
 export async function readHead(git: GitRunner, repo: string): Promise<string | null> {
   const output = await git(repo, ["rev-parse", "--verify", "--quiet", "HEAD"]);

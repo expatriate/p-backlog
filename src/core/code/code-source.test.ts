@@ -7,7 +7,7 @@ import { fixKey } from "../stats/code/fixes";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { CODE_CACHE_FILE, createCodeCacheFile } from "./code-cache";
 import { createCodeSource, type CodeSource } from "./code-source";
-import { runGit, type GitRunner } from "./git-code";
+import { runGit, type GitRunner } from "../git/run";
 
 const NOW = new Date("2026-09-18T12:00:00+03:00");
 const projectOf = (id: string, repos: string[]): Project => ({ id, name: `Проект ${id}`, prefix: "SPA", repos, extra: {}, body: "", path: `/backlog/${id}/project.md` });

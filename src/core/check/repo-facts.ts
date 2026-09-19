@@ -1,7 +1,6 @@
-import { execFile } from "node:child_process";
 import { access, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { promisify } from "node:util";
+import { FIELD, RECORD, runGit as git } from "../git/run";
 
 export type FileChange = { path: string; renamedFrom?: string };
 
@@ -17,10 +16,6 @@ export type RepoFacts = {
 
 const DIFF_LINE_LIMIT = 80;
 
-const runFile = promisify(execFile);
-const RECORD = "\x1e";
-const FIELD = "\x1f";
-const GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
 
 export async function collectRepoFacts(repo: string, { since, paths }: { since: Date; paths: readonly string[] }): Promise<RepoFacts> {
   const [log, status, existing] = await Promise.all([
@@ -46,15 +41,6 @@ export async function diffSince(repo: string, path: string, since: Date): Promis
 async function fileTexts(repo: string, paths: readonly string[]): Promise<Map<string, string>> {
   const entries = await Promise.all(paths.map((path) => readFile(join(repo, path), "utf8").then((text): [string, string] => [path, text], () => null)));
   return new Map(entries.filter((entry) => entry !== null));
-}
-
-async function git(repo: string, args: string[]): Promise<string | null> {
-  try {
-    const { stdout } = await runFile("git", ["-C", repo, "--no-optional-locks", "-c", "core.quotePath=false", ...args], { maxBuffer: GIT_OUTPUT_LIMIT });
-    return stdout;
-  } catch {
-    return null;
-  }
 }
 
 function parseLog(output: string): Commit[] {
