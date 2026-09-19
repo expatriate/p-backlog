@@ -69,7 +69,7 @@ describe("чтение git для вкладки «Код»", () => {
     expect(await readRepoCode(runGit, dir, new Date("2026-09-05T00:00:00+03:00"))).toBeNull();
   });
 
-  it("коммиты основной ветки с размером: слияние целиком, без lock-файлов и бинарных", async () => {
+  it("коммиты основной ветки с размером: слияние целиком, без lock-файлов, документации и бинарных", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a\n" });
     gitCommitAll(repo, "init", "2026-09-01T10:00:00+03:00");
@@ -77,7 +77,7 @@ describe("чтение git для вкладки «Код»", () => {
     execFileSync("git", ["checkout", "-q", "-b", "feature"], { cwd: repo });
     await writeFiles(repo, { "src/b.ts": "1\n2\n3\n", "package-lock.json": "{\n}\n" });
     gitCommitAll(repo, "feature one", "2026-09-10T10:00:00+03:00");
-    await writeFiles(repo, { "src/c.ts": "1\n", "logo.png": "\x00PNG\n" });
+    await writeFiles(repo, { "src/c.ts": "1\n", "logo.png": "\x00PNG\n", "docs/plan.md": "1\n2\n" });
     gitCommitAll(repo, "feature two", "2026-09-11T10:00:00+03:00");
     execFileSync("git", ["checkout", "-q", main], { cwd: repo });
     execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "merge", "-q", "--no-ff", "-m", "merge feature", "feature"], {
@@ -96,5 +96,18 @@ describe("чтение git для вкладки «Код»", () => {
     const commit = await readFixCommit(runGit, repo, shortHead(repo));
 
     expect(commit?.lines).toBe(2);
+  });
+
+  it("коммит исправления меняет только lock-файл — берётся сам коммит, а не ближайший предок по пути", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "one\n" });
+    gitCommitAll(repo, "init", "2026-09-01T10:00:00+03:00");
+    await writeFiles(repo, { "package-lock.json": "{\n}\n" });
+    gitCommitAll(repo, "fix: lockfile only", "2026-09-10T10:00:00+03:00");
+
+    const commit = await readFixCommit(runGit, repo, shortHead(repo));
+
+    expect(Date.parse(commit?.date ?? "")).toBe(Date.parse("2026-09-10T10:00:00+03:00"));
+    expect(commit?.lines).toBe(0);
   });
 });

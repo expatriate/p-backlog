@@ -4,7 +4,7 @@ import type { Project } from "../model/types";
 import { fixKey, type FixRequest } from "../stats/code/fixes";
 import type { CollectedCode, FixCommit, ProjectCode, RepoCode } from "../stats/types";
 import { expandHome } from "../store/paths";
-import { readFixCommit, readHead, readRepoCode, runGit, type GitRunner } from "./git-code";
+import { readFixCommit, readHead, readMainCommit, readRepoCode, runGit, type GitRunner } from "./git-code";
 
 const CHURN_DAYS = 90;
 
@@ -19,10 +19,11 @@ export function createCodeSource({ home, git = runGit }: CodeSourceOptions): Cod
   const repoCode = async (repo: string, now: Date): Promise<RepoCode | null> => {
     const head = await readHead(git, repo);
     if (head === null) return null;
-    const key = `${head} ${formatLocalIso(now).slice(0, 10)}`;
+    const mainCommit = await readMainCommit(git, repo);
+    const key = `${head} ${mainCommit ?? ""} ${formatLocalIso(now).slice(0, 10)}`;
     const cached = repoCache.get(repo);
     if (cached?.key === key) return cached.code;
-    const code = await readRepoCode(git, repo, new Date(now.getTime() - CHURN_DAYS * DAY_MS));
+    const code = await readRepoCode(git, repo, new Date(now.getTime() - CHURN_DAYS * DAY_MS), mainCommit);
     if (code !== null) repoCache.set(repo, { key, code });
     return code;
   };

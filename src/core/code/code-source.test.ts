@@ -60,7 +60,7 @@ describe("сбор данных git по проектам", () => {
     await source.collect([projectOf("spa", [repo])], [], NOW);
 
     expect(calls.filter((call) => call === "log")).toHaveLength(2);
-    expect(calls.filter((call) => call === "rev-parse")).toHaveLength(5);
+    expect(calls.filter((call) => call === "rev-parse")).toHaveLength(8);
   });
 
   it("один и тот же недоступный путь у двух проектов — одна запись", async () => {

@@ -13,7 +13,7 @@ export async function makeTempDir(): Promise<string> {
 export async function makeGitRepo(parent: string, name: string): Promise<string> {
   const dir = join(parent, name);
   await mkdir(dir, { recursive: true });
-  execFileSync("git", ["init", "-q"], { cwd: dir });
+  execFileSync("git", ["init", "-q", "-b", "master"], { cwd: dir });
   return dir;
 }
 

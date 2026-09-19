@@ -11,6 +11,8 @@ const LOG_RECORD_SEPARATOR = `${RECORD}\0\n`;
 const GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
 const LOCK_FILES = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"];
 const LOCK_EXCLUDES = LOCK_FILES.map((name) => `:!*${name}`);
+const NON_CODE_EXTENSIONS = [".md", ".mdx", ".svg"];
+const CHURN_EXCLUDES = [...LOCK_EXCLUDES, ...NON_CODE_EXTENSIONS.map((ext) => `:!*${ext}`)];
 const MAIN_REFS = ["origin/HEAD", "main", "master"];
 const AGENT_TRAILER = /^claude/i;
 const GREP_PREFIX = "HEAD:";
@@ -30,40 +32,40 @@ export async function readHead(git: GitRunner, repo: string): Promise<string | n
   return head === "" ? null : head;
 }
 
-export async function readRepoCode(git: GitRunner, repo: string, since: Date): Promise<RepoCode | null> {
+export async function readRepoCode(git: GitRunner, repo: string, since: Date, mainCommit?: string | null): Promise<RepoCode | null> {
+  const resolvedMainCommit = mainCommit === undefined ? await readMainCommit(git, repo) : mainCommit;
   const [log, grep, units] = await Promise.all([
     git(repo, ["log", `--since=${since.toISOString()}`, `--format=tformat:${RECORD}`, "--name-only", "-M", "--relative", "-z", "--", "."]),
     git(repo, ["grep", "-I", "-c", "-z", "", "HEAD", "--", ".", ...LOCK_EXCLUDES]),
-    readUnits(git, repo, since),
+    readUnits(git, repo, since, resolvedMainCommit),
   ]);
   if (log === null) return null;
   return { commits: parseCommits(log), lines: parseLines(grep ?? ""), units };
 }
 
-export async function readFixCommit(git: GitRunner, repo: string, hash: string): Promise<FixCommit | null> {
-  const output = await git(repo, [
-    "log",
-    "-1",
-    "--diff-merges=first-parent",
-    "--numstat",
-    `--format=%cI${FIELD}%(trailers:key=Co-authored-by,valueonly,separator=${FIELD})${RECORD}`,
-    `${hash}^{commit}`,
-    "--relative",
-    "--",
-    ".",
-    ...LOCK_EXCLUDES,
-  ]);
-  if (output === null) return null;
-  const [header = "", stats = ""] = output.split(RECORD);
-  const [date = "", ...trailers] = header.trim().split(FIELD);
-  return { date, byAgent: trailers.some((trailer) => AGENT_TRAILER.test(trailer.trim())), lines: numstatLines(stats.split("\n")) };
+export async function readMainCommit(git: GitRunner, repo: string): Promise<string | null> {
+  for (const ref of MAIN_REFS) {
+    const output = await git(repo, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]);
+    if (output !== null) return output.trim();
+  }
+  const head = await git(repo, ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"]);
+  return head === null ? null : head.trim();
 }
 
-async function readUnits(git: GitRunner, repo: string, since: Date): Promise<CommitUnit[]> {
-  const ref = await mainRef(git, repo);
+export async function readFixCommit(git: GitRunner, repo: string, hash: string): Promise<FixCommit | null> {
+  const commit = `${hash}^{commit}`;
+  const header = await git(repo, ["log", "-1", `--format=%cI${FIELD}%(trailers:key=Co-authored-by,valueonly,separator=${FIELD})`, commit, "--"]);
+  if (header === null) return null;
+  const stats = await git(repo, ["show", "--numstat", "--format=", "--diff-merges=first-parent", commit, "--relative", "--", ".", ...CHURN_EXCLUDES]);
+  const [date = "", ...trailers] = header.trim().split(FIELD);
+  return { date, byAgent: trailers.some((trailer) => AGENT_TRAILER.test(trailer.trim())), lines: numstatLines((stats ?? "").split("\n")) };
+}
+
+async function readUnits(git: GitRunner, repo: string, since: Date, mainCommit: string | null): Promise<CommitUnit[]> {
+  if (mainCommit === null) return [];
   const output = await git(repo, [
     "log",
-    ref,
+    mainCommit,
     "--first-parent",
     "--diff-merges=first-parent",
     `--since=${since.toISOString()}`,
@@ -72,16 +74,9 @@ async function readUnits(git: GitRunner, repo: string, since: Date): Promise<Com
     "--relative",
     "--",
     ".",
-    ...LOCK_EXCLUDES,
+    ...CHURN_EXCLUDES,
   ]);
   return output === null ? [] : parseUnits(output);
-}
-
-async function mainRef(git: GitRunner, repo: string): Promise<string> {
-  for (const ref of MAIN_REFS) {
-    if ((await git(repo, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`])) !== null) return ref;
-  }
-  return "HEAD";
 }
 
 function parseUnits(output: string): CommitUnit[] {
