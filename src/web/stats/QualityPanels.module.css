@@ -2,6 +2,11 @@
   overflow-x: auto;
 }
 
+.scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -23,9 +28,14 @@
   text-align: left;
 }
 
-.table th {
+.table thead th {
   color: var(--ink-subtle);
   font-weight: 500;
+}
+
+.table tbody th {
+  color: var(--ink);
+  font-weight: 400;
 }
 
 .table code {
