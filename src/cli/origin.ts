@@ -6,9 +6,8 @@ const runFile = promisify(execFile);
 const DETACHED_HEAD = "HEAD";
 
 export async function readOrigin(dir: string): Promise<TaskOrigin | undefined> {
-  const commit = await gitLine(dir, ["rev-parse", "--short", "HEAD"]);
+  const [commit, branch] = await Promise.all([gitLine(dir, ["rev-parse", "--short", "HEAD"]), gitLine(dir, ["rev-parse", "--abbrev-ref", "HEAD"])]);
   if (commit === null) return undefined;
-  const branch = await gitLine(dir, ["rev-parse", "--abbrev-ref", "HEAD"]);
   return branch === null || branch === DETACHED_HEAD ? { commit } : { branch, commit };
 }
 
