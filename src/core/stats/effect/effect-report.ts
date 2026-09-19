@@ -24,7 +24,8 @@ export function effectReport({ code, ...input }: EffectInput): EffectReport {
   const inPeriod = (moment: number) => moment >= from && moment <= to;
   const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
   const deferred = buildDeferred(histories.filter((history) => inPeriod(history.createdAt)), code);
-  const estimate = estimator(estimateSamples(histories, code));
+  const allHistories = statsScope({ ...input, projectId: undefined }).histories.filter((history) => history.type === "task");
+  const estimate = estimator(estimateSamples(allHistories, code));
   const adoptionStart = (id: string) => {
     const created = histories.filter((history) => history.projectId === id).map((history) => history.createdAt);
     return created.length === 0 ? from : Math.max(from, Math.min(...created));

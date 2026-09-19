@@ -46,6 +46,18 @@ describe("эффект беклога", () => {
     expect(report.totals).toMatchObject({ fixedTasks: 4, fixedLines: 100, openTasks: 2, estimatedLines: null, deferredLines: 100 });
   });
 
+  it("в проекте оценка ожидающих опирается на исправления всего беклога", () => {
+    const tiFixes = [10, 20, 30, 40, 50].map((lines, index) =>
+      makeTask({ id: `TI-${index + 1}`, projectId: "ti", created: iso(8, index + 1), status: "done", closed: iso(8, 10), resolution: "fixed", reason: `Исправлено в cccccc${index + 1}` }),
+    );
+    const commits: [string, FixCommit][] = [10, 20, 30, 40, 50].map((lines, index) => [fixKey("ti", `cccccc${index + 1}`), { date: iso(8, 10), byAgent: true, lines }]);
+    const openInSpa = makeTask({ id: "SPA-7", created: iso(8, 15) });
+
+    const report = effectReport({ tasks: [...tiFixes, openInSpa], journals: [], now: NOW, projectId: "spa", code: code(commits) });
+
+    expect(report.totals).toMatchObject({ fixedTasks: 0, openTasks: 1, estimatedLines: 30 });
+  });
+
   it("без коммитов после внедрения сравнивать не с чем — доля шума пустая", () => {
     const report = effectReport({ tasks: [...fixes.map((fix) => fix.task), ...others], journals: [], now: NOW, projectId: "spa", code: code(fixes.map((fix) => fix.commit), []) });
 

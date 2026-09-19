@@ -54,7 +54,9 @@ export function createApi({ root, changes, now, home }: ApiOptions): Hono {
 
   const statsOfEffect = async (input: StatsInput, projects: readonly Project[]): Promise<EffectReport> => {
     const scoped = projects.filter((project) => input.projectId === undefined || project.id === input.projectId);
-    return effectReport({ ...input, code: await codeSource.collect(scoped, codeFixRequests(input), input.now) });
+    const scopedCode = await codeSource.collect(scoped, codeFixRequests(input), input.now);
+    const allFixes = input.projectId === undefined ? scopedCode : await codeSource.collect(projects, codeFixRequests({ ...input, projectId: undefined }), input.now);
+    return effectReport({ ...input, code: { ...scopedCode, fixCommits: allFixes.fixCommits } });
   };
 
   api.get("/stats", scopedStats(statsReport));
