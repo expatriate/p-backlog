@@ -3,7 +3,7 @@ import { makeTask } from "../../model/testing/make-task";
 import type { ProjectCode } from "../types";
 import { churn } from "./churn";
 
-const project = (projectId: string, commits: string[][][]): ProjectCode => ({ projectId, name: projectId, repos: commits.map((repoCommits) => ({ commits: repoCommits, lines: [] })) });
+const project = (projectId: string, commits: string[][][]): ProjectCode => ({ projectId, name: projectId, repos: commits.map((repoCommits) => ({ commits: repoCommits, lines: [], units: [] })) });
 
 describe("меняется × долг", () => {
   it("коммит считается один раз на папку, репозитории проекта складываются, балл — коммиты × вес", () => {

@@ -6,7 +6,7 @@ import { density } from "./density";
 const project = (projectId: string, lines: Record<string, number>): ProjectCode => ({
   projectId,
   name: `Проект ${projectId}`,
-  repos: [{ commits: [], lines: Object.entries(lines).map(([path, count]) => ({ path, lines: count })) }],
+  repos: [{ commits: [], lines: Object.entries(lines).map(([path, count]) => ({ path, lines: count })), units: [] }],
 });
 
 describe("плотность долга", () => {

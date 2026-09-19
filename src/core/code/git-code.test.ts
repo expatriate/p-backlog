@@ -68,4 +68,33 @@ describe("чтение git для вкладки «Код»", () => {
     expect(await readHead(runGit, dir)).toBeNull();
     expect(await readRepoCode(runGit, dir, new Date("2026-09-05T00:00:00+03:00"))).toBeNull();
   });
+
+  it("коммиты основной ветки с размером: слияние целиком, без lock-файлов и бинарных", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-01T10:00:00+03:00");
+    const main = execFileSync("git", ["branch", "--show-current"], { cwd: repo, encoding: "utf8" }).trim();
+    execFileSync("git", ["checkout", "-q", "-b", "feature"], { cwd: repo });
+    await writeFiles(repo, { "src/b.ts": "1\n2\n3\n", "package-lock.json": "{\n}\n" });
+    gitCommitAll(repo, "feature one", "2026-09-10T10:00:00+03:00");
+    await writeFiles(repo, { "src/c.ts": "1\n", "logo.png": "\x00PNG\n" });
+    gitCommitAll(repo, "feature two", "2026-09-11T10:00:00+03:00");
+    execFileSync("git", ["checkout", "-q", main], { cwd: repo });
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "merge", "-q", "--no-ff", "-m", "merge feature", "feature"], {
+      cwd: repo,
+      env: { ...process.env, GIT_AUTHOR_DATE: "2026-09-12T10:00:00+03:00", GIT_COMMITTER_DATE: "2026-09-12T10:00:00+03:00" },
+    });
+
+    const code = await readRepoCode(runGit, repo, new Date("2026-09-05T00:00:00+03:00"));
+
+    expect(code?.units).toEqual([{ date: "2026-09-12T10:00:00+03:00", lines: 4 }]);
+  });
+
+  it("размер коммита исправления", async () => {
+    const repo = await sampleRepo();
+
+    const commit = await readFixCommit(runGit, repo, shortHead(repo));
+
+    expect(commit?.lines).toBe(2);
+  });
 });

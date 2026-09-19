@@ -16,8 +16,8 @@ describe("отчёт «Код»", () => {
     ];
     const code = {
       projects: [
-        { projectId: "spa", name: "spa", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 2000 }] }] },
-        { projectId: "ti", name: "ti", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 10 }] }] },
+        { projectId: "spa", name: "spa", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 2000 }], units: [] }] },
+        { projectId: "ti", name: "ti", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 10 }], units: [] }] },
       ],
       unavailableRepos: ["/nope"],
       fixCommits: new Map(),

@@ -60,9 +60,10 @@ export type FlowReport = {
   epics: EpicFlow[];
 };
 
-export type RepoCode = { commits: string[][]; lines: { path: string; lines: number }[] };
+export type CommitUnit = { date: string; lines: number };
+export type RepoCode = { commits: string[][]; lines: { path: string; lines: number }[]; units: CommitUnit[] };
 export type ProjectCode = { projectId: string; name: string; repos: RepoCode[] };
-export type FixCommit = { date: string; byAgent: boolean };
+export type FixCommit = { date: string; byAgent: boolean; lines: number };
 export type CollectedCode = { projects: ProjectCode[]; unavailableRepos: string[]; fixCommits: ReadonlyMap<string, FixCommit> };
 export type ChurnRow = { label: string; commits: number; tasks: number; weight: number; score: number };
 export type DensityRow = { lines: number; open: number; perKloc: number | null };
