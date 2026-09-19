@@ -3,7 +3,8 @@ import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { resolveBacklogRoot } from "../core/store/paths";
-import { sweepClosed } from "../core/store/sweep";
+import { trimRuns } from "../core/store/runs";
+import { sweepClosed, type SweepReport } from "../core/store/sweep";
 import { createApp } from "./app";
 import { createChangeFeed } from "./change-feed";
 import { localHosts } from "./guards";
@@ -36,7 +37,12 @@ const app = createApp({
 usage.start();
 memory.start();
 
-startSweeper({ sweep: () => sweepClosed(root, new Date()), intervalMs: SWEEP_INTERVAL_MS, log: (line) => process.stdout.write(`${line}\n`) });
+const sweepAll = async (now: Date): Promise<SweepReport> => {
+  await trimRuns(root, now).catch((error: unknown) => process.stderr.write(`Не удалось обрезать журнал запусков: ${error instanceof Error ? error.message : String(error)}\n`));
+  return sweepClosed(root, now);
+};
+
+startSweeper({ sweep: () => sweepAll(new Date()), intervalMs: SWEEP_INTERVAL_MS, log: (line) => process.stdout.write(`${line}\n`) });
 
 serve({ fetch: app.fetch, hostname: "127.0.0.1", port }, () => {
   process.stdout.write(`p-backlog: http://localhost:${port}\nКаталог беклога: ${root}\n`);

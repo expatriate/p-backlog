@@ -1,7 +1,7 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { appendRun, readRuns, RUNS_FILE, type CliRun } from "./runs";
+import { appendRun, readRuns, RUNS_FILE, trimRuns, type CliRun } from "./runs";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
 
 const RUN: CliRun = { at: "2026-09-20T10:00:00+03:00", command: "list", cwd: "/tmp/repo", ms: 12, rssMb: 80.5, exitCode: 0 };
@@ -43,5 +43,17 @@ describe("журнал запусков CLI", () => {
     await mkdir(join(root, RUNS_FILE));
 
     await expect(appendRun(root, RUN)).rejects.toThrow();
+  });
+
+  it("обрезка оставляет запуски последних 30 дней, файл без старых строк не переписывает", async () => {
+    const root = await makeTempDir();
+    const old = { ...RUN, at: "2026-08-01T10:00:00+03:00", command: "old" };
+    await appendRun(root, old);
+    await appendRun(root, RUN);
+    const now = new Date("2026-09-20T12:00:00+03:00");
+
+    expect(await trimRuns(root, now)).toBe(1);
+    expect(await readRuns(root)).toEqual([RUN]);
+    expect(await trimRuns(root, now)).toBe(0);
   });
 });
