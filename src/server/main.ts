@@ -9,7 +9,7 @@ import { createApp } from "./app";
 import { createChangeFeed } from "./change-feed";
 import { localHosts } from "./guards";
 import { createMemorySampler } from "./memory-sampler";
-import { readPort } from "./port";
+import { listenFailure, readPort } from "./port";
 import { startSweeper } from "./sweeper";
 import { createUsageScanner } from "./usage-scanner";
 
@@ -44,6 +44,11 @@ const sweepAll = async (now: Date): Promise<SweepReport> => {
 
 startSweeper({ sweep: () => sweepAll(new Date()), intervalMs: SWEEP_INTERVAL_MS, log: (line) => process.stdout.write(`${line}\n`) });
 
-serve({ fetch: app.fetch, hostname: "127.0.0.1", port }, () => {
+const server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port }, () => {
   process.stdout.write(`p-backlog: http://localhost:${port}\nКаталог беклога: ${root}\n`);
+});
+
+server.on("error", (error: NodeJS.ErrnoException) => {
+  process.stderr.write(`${listenFailure(error, port)}\n`);
+  process.exit(1);
 });

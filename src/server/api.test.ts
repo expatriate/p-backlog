@@ -108,6 +108,17 @@ describe("PATCH /api/tasks/:id", () => {
   });
 });
 
+describe("неизвестный адрес API", () => {
+  it("отдаёт 404 с ошибкой, а не страницу приложения", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES, { staticDir: await makeTempDir() });
+
+    const response = await backlog.request("/api/stats/flow");
+
+    expect(response.status).toBe(404);
+    expect(((await response.json()) as ErrorResponse).errors).toEqual(["Неизвестный адрес API: /api/stats/flow"]);
+  });
+});
+
 describe("защита локального API", () => {
   it("отклоняет чужой Host и не-JSON тело", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);

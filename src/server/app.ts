@@ -23,6 +23,7 @@ export function createApp({ root, changes, allowedHosts, home, usage, memory, st
   app.use("*", allowLocalHostsOnly(allowedHosts));
   app.use("/api/*", requireJsonBody);
   app.route("/api", createApi({ root, changes, now, home, usage, memory }));
+  app.all("/api/*", (c) => c.json({ errors: [`Неизвестный адрес API: ${new URL(c.req.url).pathname}`] }, 404));
 
   if (staticDir !== undefined) {
     app.use("*", serveStatic({ root: staticDir }));
