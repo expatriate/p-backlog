@@ -25,7 +25,7 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
     return c.json({ tasks, errors });
   });
 
-  const scopedStats = (report: (input: StatsInput) => StatsReport | FlowReport) => async (c: Context) => {
+  const scopedStats = <R extends StatsReport | FlowReport>(report: (input: StatsInput) => R) => async (c: Context) => {
     const projectId = c.req.query("project") || undefined;
     const { projects, tasks } = await loadBacklog(root);
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
