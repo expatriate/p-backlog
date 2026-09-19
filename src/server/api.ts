@@ -3,7 +3,10 @@ import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import { updateTaskRequestSchema } from "../core/api/contract";
 import { formatIssues } from "../core/model/zod-issues";
+import { flowReport } from "../core/stats/flow/flow-report";
 import { statsReport } from "../core/stats/report";
+import type { StatsInput } from "../core/stats/scope";
+import type { FlowReport, StatsReport } from "../core/stats/types";
 import { loadBacklog } from "../core/store/load";
 import { readJournals } from "../core/store/journal";
 import { updateTask } from "../core/store/update";
@@ -22,15 +25,18 @@ export function createApi({ root, changes, now }: ApiOptions): Hono {
     return c.json({ tasks, errors });
   });
 
-  api.get("/stats", async (c) => {
+  const scopedStats = (report: (input: StatsInput) => StatsReport | FlowReport) => async (c: Context) => {
     const projectId = c.req.query("project") || undefined;
     const { projects, tasks } = await loadBacklog(root);
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
       return c.json({ errors: [`Проект ${projectId} не найден`] }, 404);
     }
     const journals = await readJournals(root, projects.map((project) => project.id));
-    return c.json(statsReport({ tasks, journals, now: now(), projectId }));
-  });
+    return c.json(report({ tasks, journals, now: now(), projectId }));
+  };
+
+  api.get("/stats", scopedStats(statsReport));
+  api.get("/stats/flow", scopedStats(flowReport));
 
   api.patch("/tasks/:id", async (c) => {
     const body = await readBody(c, updateTaskRequestSchema);

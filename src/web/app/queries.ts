@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { FlowReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import type { Project, Task } from "../../core/model/types";
 import { useBacklogApi } from "./backlog-api";
 
@@ -20,7 +20,12 @@ export function useTasks() {
 
 export function useStats(projectId: string | undefined) {
   const { client } = useBacklogApi();
-  return useQuery<StatsReport>({ queryKey: [...STATS_KEY, projectId ?? "all"], queryFn: () => client.stats(projectId) });
+  return useQuery<StatsReport>({ queryKey: [...STATS_KEY, "overview", projectId ?? "all"], queryFn: () => client.stats(projectId) });
+}
+
+export function useFlowStats(projectId: string | undefined) {
+  const { client } = useBacklogApi();
+  return useQuery<FlowReport>({ queryKey: [...STATS_KEY, "flow", projectId ?? "all"], queryFn: () => client.flowStats(projectId) });
 }
 
 export type UpdateTaskVariables = { id: string; version: string; changes: TaskChangesRequest };

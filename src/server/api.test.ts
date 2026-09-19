@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { ConflictResponse, ErrorResponse, StatsReport, TasksResponse } from "../core/api/contract";
+import type { ConflictResponse, ErrorResponse, FlowReport, StatsReport, TasksResponse } from "../core/api/contract";
 import { readJournal } from "../core/store/journal";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
@@ -168,6 +168,31 @@ describe("GET /api/stats", () => {
 
     expect(response.status).toBe(404);
     expect(((await response.json()) as ErrorResponse).errors).toEqual(["Проект nope не найден"]);
+  });
+});
+
+describe("GET /api/stats/flow", () => {
+  it("отдаёт отчёт потока по всем проектам и по одному", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+
+    const all = (await (await backlog.request("/api/stats/flow")).json()) as FlowReport;
+    const spa = (await (await backlog.request("/api/stats/flow?project=spa")).json()) as FlowReport;
+
+    expect(all.forecast.open).toBe(3);
+    expect(spa.forecast.open).toBe(2);
+    expect(spa.epics.map((epic) => epic.id)).toEqual(["SPA-3"]);
+    expect(spa.wip.weeks).toHaveLength(12);
+  });
+
+  it("пустой project — все проекты, неизвестный — 404", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+
+    const empty = await backlog.request("/api/stats/flow?project=");
+    const unknown = await backlog.request("/api/stats/flow?project=nope");
+
+    expect(((await empty.json()) as FlowReport).forecast.open).toBe(3);
+    expect(unknown.status).toBe(404);
+    expect(((await unknown.json()) as ErrorResponse).errors).toEqual(["Проект nope не найден"]);
   });
 });
 

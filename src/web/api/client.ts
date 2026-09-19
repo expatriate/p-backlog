@@ -1,4 +1,4 @@
-import type { ConflictResponse, ErrorResponse, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { ConflictResponse, ErrorResponse, FlowReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import type { Project, Task } from "../../core/model/types";
 
 export type ApiFetch = (path: string, init?: RequestInit) => Promise<Response>;
@@ -19,6 +19,7 @@ export type ApiClient = {
   tasks: () => Promise<TasksResponse>;
   updateTask: (id: string, version: string, changes: TaskChangesRequest) => Promise<Task>;
   stats: (projectId?: string) => Promise<StatsReport>;
+  flowStats: (projectId?: string) => Promise<FlowReport>;
 };
 
 export function createApiClient(apiFetch: ApiFetch): ApiClient {
@@ -39,7 +40,11 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
           headers: { "content-type": "application/json" },
         }),
       ),
-    stats: async (projectId) =>
-      read<StatsReport>(await apiFetch(projectId === undefined ? "/api/stats" : `/api/stats?project=${encodeURIComponent(projectId)}`)),
+    stats: async (projectId) => read<StatsReport>(await apiFetch(scopedPath("/api/stats", projectId))),
+    flowStats: async (projectId) => read<FlowReport>(await apiFetch(scopedPath("/api/stats/flow", projectId))),
   };
+}
+
+function scopedPath(path: string, projectId: string | undefined): string {
+  return projectId === undefined ? path : `${path}?project=${encodeURIComponent(projectId)}`;
 }
