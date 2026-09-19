@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
+import { anchorOf } from "./anchor";
 import { checkBacklog } from "./check-backlog";
 
 const NOW = new Date("2026-09-18T12:00:00Z");
@@ -39,6 +40,30 @@ async function setup() {
 }
 
 describe("checkBacklog", () => {
+  it("сдвинутый фрагмент переносит source сам, задаче без якоря дописывает якорь, кандидатом не становится", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    const code = ["one", "two", "three", "four", "five", "six"].join("\n");
+    await writeFiles(repo, { "src/a.ts": code, "src/b.ts": code });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3\nanchor: ${anchorOf(code, "src/a.ts:3")}\n`),
+      "spa/SPA-2.md": task("SPA-2", "source: src/b.ts:3\n"),
+    });
+    await writeFile(join(repo, "src/a.ts"), ["new1", "new2", code].join("\n"));
+    gitCommitAll(repo, "Добавлены строки сверху", "2026-09-12T10:00:00+03:00");
+
+    const report = await checkBacklog(root, { projectIds: ["spa"], mode: "changed", now: NOW, home });
+
+    expect(report.candidates).toEqual([]);
+    expect(report.fixed).toEqual(["SPA-1: source сдвинулся :3 → :5"]);
+    const tasks = (await loadBacklog(root)).tasks;
+    expect(tasks.find((item) => item.id === "SPA-1")).toMatchObject({ source: "src/a.ts:5", anchor: anchorOf(code, "src/a.ts:3") });
+    expect(tasks.find((item) => item.id === "SPA-2")?.anchor).toBe(anchorOf(code, "src/b.ts:3"));
+  });
+
   it("полный режим чинит данные, сообщает о проблемах и отдаёт кандидатов; при неразобранном файле эпики не закрывает", async () => {
     const { home, root } = await setup();
 
@@ -56,6 +81,7 @@ describe("checkBacklog", () => {
         path: "src/upload.ts",
         commits: [{ sha: expect.stringMatching(/^[0-9a-f]{7,}$/), subject: "Таймаут от размера файла" }],
         uncommitted: false,
+        diff: expect.stringMatching(/-v1\n\+v2/),
       },
       { kind: "source-missing", task: { id: "SPA-2", title: "Задача SPA-2" }, path: "src/legacy.ts" },
       {

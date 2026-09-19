@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access, stat } from "node:fs/promises";
+import { access, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
@@ -12,7 +12,10 @@ export type RepoFacts = {
   commits: Commit[];
   dirtyModifiedAt: ReadonlyMap<string, number>;
   existing: ReadonlySet<string>;
+  texts: ReadonlyMap<string, string>;
 };
+
+const DIFF_LINE_LIMIT = 80;
 
 const runFile = promisify(execFile);
 const RECORD = "\x1e";
@@ -25,8 +28,24 @@ export async function collectRepoFacts(repo: string, { since, paths }: { since: 
     git(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
     existingPaths(repo, paths),
   ]);
-  if (log === null || status === null) return { isGit: false, commits: [], dirtyModifiedAt: new Map(), existing };
-  return { isGit: true, commits: parseLog(log), dirtyModifiedAt: await modificationTimes(repo, parseStatus(status)), existing };
+  const texts = await fileTexts(repo, [...existing]);
+  if (log === null || status === null) return { isGit: false, commits: [], dirtyModifiedAt: new Map(), existing, texts };
+  return { isGit: true, commits: parseLog(log), dirtyModifiedAt: await modificationTimes(repo, parseStatus(status)), existing, texts };
+}
+
+export async function diffSince(repo: string, path: string, since: Date): Promise<string | undefined> {
+  const base = (await git(repo, ["rev-list", "-1", `--before=${since.toISOString()}`, "HEAD"]))?.trim();
+  if (base === undefined || base === "") return undefined;
+  const diff = await git(repo, ["diff", "--no-color", base, "--", path]);
+  if (diff === null || diff.trim() === "") return undefined;
+  const lines = diff.trimEnd().split("\n");
+  if (lines.length <= DIFF_LINE_LIMIT) return lines.join("\n");
+  return [...lines.slice(0, DIFF_LINE_LIMIT), `… ещё ${lines.length - DIFF_LINE_LIMIT} строк`].join("\n");
+}
+
+async function fileTexts(repo: string, paths: readonly string[]): Promise<Map<string, string>> {
+  const entries = await Promise.all(paths.map((path) => readFile(join(repo, path), "utf8").then((text): [string, string] => [path, text], () => null)));
+  return new Map(entries.filter((entry) => entry !== null));
 }
 
 async function git(repo: string, args: string[]): Promise<string | null> {

@@ -1,4 +1,5 @@
 import type { Task } from "../model/types";
+import { anchorOf, findMoved, sourceLines } from "./anchor";
 import type { Commit, RepoFacts } from "./repo-facts";
 import { similarTitles } from "./similar-titles";
 
@@ -7,9 +8,13 @@ export type CommitRef = { sha: string; subject: string };
 
 export type Candidate =
   | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string }
-  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean }
+  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; snippet?: string; diff?: string }
   | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: "source" | "title" }
   | { kind: "no-source"; task: TaskRef };
+
+export type AnchorPlan = { id: string; changes: { source?: string; anchor: string }; note?: string };
+
+type AnchorState = { kind: "none" } | { kind: "same" } | { kind: "moved"; source: string } | { kind: "changed" };
 
 const MAX_COMMITS = 3;
 const LINE_SUFFIX = /:\d+(?:-\d+)?$/;
@@ -39,11 +44,41 @@ export function codeCandidates(tasks: readonly Task[], facts: RepoFacts): Candid
       return [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.commits, mark) }];
     }
 
+    const anchor = anchorState(task, facts);
+    if (anchor.kind === "same" || anchor.kind === "moved") return [];
     const commits = commitsAfter(facts.commits, mark).filter((commit) => touches(commit, path));
     const uncommitted = [...facts.dirtyModifiedAt].some(([file, modifiedAt]) => isWithin(file, path) && modifiedAt > mark);
-    if (commits.length === 0 && !uncommitted) return [];
+    if (anchor.kind === "none" && commits.length === 0 && !uncommitted) return [];
     return [{ kind: "source-changed", task: taskRef(task), path, commits: commits.slice(0, MAX_COMMITS).map(commitRef), uncommitted }];
   });
+}
+
+export function anchorPlans(tasks: readonly Task[], facts: RepoFacts, candidates: readonly Candidate[]): AnchorPlan[] {
+  const flagged = new Set(candidates.map((candidate) => candidate.task.id));
+  return tasks.flatMap((task): AnchorPlan[] => {
+    if (task.source === undefined || sourceLines(task.source) === null) return [];
+    const state = anchorState(task, facts);
+    if (state.kind === "moved" && task.anchor !== undefined) {
+      return [{ id: task.id, changes: { source: state.source, anchor: task.anchor }, note: `${task.id}: source сдвинулся ${lineSuffix(task.source)} → ${lineSuffix(state.source)}` }];
+    }
+    if (state.kind !== "none" || task.anchor !== undefined || flagged.has(task.id)) return [];
+    const text = facts.texts.get(sourcePath(task.source));
+    const anchor = text === undefined ? null : anchorOf(text, task.source);
+    return anchor === null ? [] : [{ id: task.id, changes: { anchor } }];
+  });
+}
+
+function anchorState(task: Task, facts: RepoFacts): AnchorState {
+  if (task.anchor === undefined || task.source === undefined) return { kind: "none" };
+  const text = facts.texts.get(sourcePath(task.source));
+  if (text === undefined || sourceLines(task.source) === null) return { kind: "none" };
+  if (anchorOf(text, task.source) === task.anchor) return { kind: "same" };
+  const moved = findMoved(text, task.source, task.anchor);
+  return moved === null ? { kind: "changed" } : { kind: "moved", source: moved };
+}
+
+function lineSuffix(source: string): string {
+  return LINE_SUFFIX.exec(source)?.[0] ?? "";
 }
 
 export function duplicateCandidates(tasks: readonly Task[]): Candidate[] {

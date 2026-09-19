@@ -12,8 +12,9 @@ import { expandHome, PROJECT_FILE } from "../store/paths";
 import { referenceCleanup } from "../store/references";
 import { updateTaskIn, type TaskChanges } from "../store/update";
 import type { UpdateTaskFailure } from "../store/write-result";
-import { codeCandidates, duplicateCandidates, isReviewable, noSourceCandidates, reviewMark, sourcePath, type Candidate } from "./candidates";
-import { collectRepoFacts } from "./repo-facts";
+import { snippetOf } from "./anchor";
+import { anchorPlans, codeCandidates, duplicateCandidates, isReviewable, noSourceCandidates, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
+import { collectRepoFacts, diffSince, type RepoFacts } from "./repo-facts";
 
 export type { CheckMode };
 
@@ -22,6 +23,7 @@ export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now
 export type CheckReport = { fixed: string[]; problems: string[]; candidates: Candidate[] };
 
 type Fix = { changes: TaskChanges; closure?: Closure; notes: string[] };
+type ProjectReview = { candidates: Candidate[]; plans: AnchorPlan[] };
 type FixOutcome = { fixed: string[]; failed: string[] };
 
 export async function checkBacklog(root: string, request: CheckRequest): Promise<CheckReport> {
@@ -32,10 +34,12 @@ export async function checkBacklog(root: string, request: CheckRequest): Promise
 
   const projects = current.projects.filter((project) => inScope(project.id));
   const repos = new Map(await Promise.all(projects.map(async (project) => [project.id, await findRepo(project, request.home)] as const)));
-  const candidates = await Promise.all(projects.map((project) => projectCandidates(project, current.tasks, repos.get(project.id), request.mode)));
-  await recordCandidates(root, current.tasks, candidates.flat(), request);
+  const reviews = await Promise.all(projects.map((project) => projectReview(project, current.tasks, repos.get(project.id), request.mode)));
+  const candidates = reviews.flatMap((review) => review.candidates);
+  const moved = await applyAnchorPlans(current.tasks, reviews.flatMap((review) => review.plans), request.now);
+  await recordCandidates(root, current.tasks, candidates, request);
   const problems = request.mode === "full" ? [...fixes.failed, ...findProblems(current, projects, repos, inScope)] : [];
-  return { fixed: fixes.fixed, problems, candidates: candidates.flat() };
+  return { fixed: [...fixes.fixed, ...moved], problems, candidates };
 }
 
 async function recordCandidates(root: string, tasks: readonly Task[], candidates: readonly Candidate[], { mode, now }: CheckRequest): Promise<void> {
@@ -109,17 +113,39 @@ function unparsedTaskIds(errors: readonly ParseError[]): string[] {
   return errors.map((error) => basename(error.path, ".md")).filter((name) => ID_PATTERN.test(name));
 }
 
-async function projectCandidates(project: Project, allTasks: readonly Task[], repo: string | undefined, mode: CheckMode): Promise<Candidate[]> {
+async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, mode: CheckMode): Promise<ProjectReview> {
   const tasks = allTasks.filter((task) => task.projectId === project.id && isReviewable(task));
-  if (tasks.length === 0) return [];
+  if (tasks.length === 0) return { candidates: [], plans: [] };
   const duplicates = mode === "full" ? duplicateCandidates(tasks) : [];
-  if (repo === undefined) return duplicates;
+  if (repo === undefined) return { candidates: duplicates, plans: [] };
 
   const since = new Date(Math.min(...tasks.map(reviewMark)));
   const paths = [...new Set(tasks.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
   const facts = await collectRepoFacts(repo, { since, paths });
-  const code = codeCandidates(tasks, facts);
-  return mode === "full" ? [...code, ...duplicates, ...noSourceCandidates(tasks, facts)] : code;
+  const code = await Promise.all(codeCandidates(tasks, facts).map((candidate) => withContext(candidate, tasks, facts, repo)));
+  const plans = anchorPlans(tasks, facts, code);
+  return { candidates: mode === "full" ? [...code, ...duplicates, ...noSourceCandidates(tasks, facts)] : code, plans };
+}
+
+async function withContext(candidate: Candidate, tasks: readonly Task[], facts: RepoFacts, repo: string): Promise<Candidate> {
+  if (candidate.kind !== "source-changed") return candidate;
+  const task = tasks.find((item) => item.id === candidate.task.id);
+  if (task === undefined) return candidate;
+  const text = facts.texts.get(candidate.path);
+  const snippet = text === undefined || task.source === undefined ? undefined : snippetOf(text, task.source);
+  const diff = await diffSince(repo, candidate.path, new Date(reviewMark(task)));
+  return { ...candidate, ...(snippet === undefined ? {} : { snippet }), ...(diff === undefined ? {} : { diff }) };
+}
+
+async function applyAnchorPlans(tasks: readonly Task[], plans: readonly AnchorPlan[], now: Date): Promise<string[]> {
+  const notes: string[] = [];
+  for (const plan of plans) {
+    const task = tasks.find((item) => item.id === plan.id);
+    if (task === undefined) continue;
+    const result = await updateTaskIn(tasks, { id: plan.id, changes: plan.changes, expectedVersion: task.version, now, via: "check" });
+    if (result.ok && plan.note !== undefined) notes.push(plan.note);
+  }
+  return notes;
 }
 
 async function findRepo(project: Project, home: string): Promise<string | undefined> {

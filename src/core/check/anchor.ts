@@ -5,6 +5,8 @@ export type LineSpan = { from: number; to: number };
 const LINE_SUFFIX = /:(\d+)(?:-(\d+))?$/;
 const CONTEXT_LINES = 2;
 const ANCHOR_LENGTH = 12;
+const SNIPPET_CONTEXT = 3;
+const LINE_NUMBER_WIDTH = 5;
 
 export function sourceLines(source: string): LineSpan | null {
   const match = LINE_SUFFIX.exec(source);
@@ -36,6 +38,18 @@ export function findMoved(text: string, source: string, anchor: string): string 
   const match = LINE_SUFFIX.exec(source);
   const first = Number(match?.[1]) + shift;
   return withLines(source, first, match?.[2] === undefined ? undefined : Number(match[2]) + shift);
+}
+
+export function snippetOf(text: string, source: string): string | undefined {
+  const span = sourceLines(source);
+  const lines = text.split("\n");
+  if (span === null || span.from > lines.length) return undefined;
+  const from = Math.max(1, span.from - SNIPPET_CONTEXT);
+  const to = Math.min(lines.length, span.to + SNIPPET_CONTEXT);
+  return lines
+    .slice(from - 1, to)
+    .map((line, index) => `${String(from + index).padStart(LINE_NUMBER_WIDTH)}│ ${line}`)
+    .join("\n");
 }
 
 export function withLines(source: string, first: number, last?: number): string {

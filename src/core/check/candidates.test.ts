@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
-import { codeCandidates, duplicateCandidates, isReviewable, noSourceCandidates, sourcePath } from "./candidates";
+import { anchorOf } from "./anchor";
+import { anchorPlans, codeCandidates, duplicateCandidates, isReviewable, noSourceCandidates, sourcePath } from "./candidates";
 import type { Commit, RepoFacts } from "./repo-facts";
 
 const CREATED = "2026-09-11T10:00:00+03:00";
@@ -10,7 +11,7 @@ function commit(sha: string, date: string, files: Commit["files"]): Commit {
 }
 
 function facts(overrides: Partial<RepoFacts>): RepoFacts {
-  return { isGit: true, commits: [], dirtyModifiedAt: new Map(), existing: new Set(), ...overrides };
+  return { isGit: true, commits: [], dirtyModifiedAt: new Map(), existing: new Set(), texts: new Map(), ...overrides };
 }
 
 describe("isReviewable и sourcePath", () => {
@@ -177,5 +178,37 @@ describe("noSourceCandidates", () => {
     expect(noSourceCandidates([task], after)).toEqual([{ kind: "no-source", task: { id: "SPA-1", title: task.title } }]);
     expect(noSourceCandidates([{ ...task, verified: "2026-09-13T10:00:00+03:00" }], after)).toEqual([]);
     expect(noSourceCandidates([{ ...task, source: "src/a.ts" }], after)).toEqual([]);
+  });
+});
+
+describe("якорь фрагмента в проверке", () => {
+  const text = ["a", "b", "c", "d", "e", "f", "g"].join("\n");
+  const anchored = makeTask({ id: "SPA-5", title: "Якорь", created: CREATED, source: "src/a.ts:4", anchor: anchorOf(text, "src/a.ts:4") ?? "" });
+  const laterCommit = [commit("e5", "2026-09-15T10:00:00+03:00", [{ path: "src/a.ts" }])];
+  const withText = (content: string) => facts({ commits: laterCommit, existing: new Set(["src/a.ts"]), texts: new Map([["src/a.ts", content]]) });
+
+  it("фрагмент на месте — не кандидат, хотя файл менялся", () => {
+    expect(codeCandidates([anchored], withText(text.replace("a", "A")))).toEqual([]);
+    expect(anchorPlans([anchored], withText(text), [])).toEqual([]);
+  });
+
+  it("фрагмент сдвинулся — не кандидат, source переносится с тем же якорем", () => {
+    const shifted = withText(["x", "y", text].join("\n"));
+
+    expect(codeCandidates([anchored], shifted)).toEqual([]);
+    expect(anchorPlans([anchored], shifted, [])).toEqual([{ id: "SPA-5", changes: { source: "src/a.ts:6", anchor: anchored.anchor }, note: "SPA-5: source сдвинулся :4 → :6" }]);
+  });
+
+  it("фрагмент изменился — кандидат, даже без коммитов после отметки", () => {
+    const changed = facts({ existing: new Set(["src/a.ts"]), texts: new Map([["src/a.ts", text.replace("d", "D")]]) });
+
+    expect(codeCandidates([anchored], changed)).toMatchObject([{ kind: "source-changed", task: { id: "SPA-5" }, commits: [], uncommitted: false }]);
+  });
+
+  it("задача без якоря, код не менялся — получает якорь по текущему файлу", () => {
+    const plain = makeTask({ id: "SPA-6", title: "Без якоря", created: CREATED, verified: "2026-09-16T10:00:00+03:00", source: "src/a.ts:4" });
+
+    expect(codeCandidates([plain], withText(text))).toEqual([]);
+    expect(anchorPlans([plain], withText(text), [])).toEqual([{ id: "SPA-6", changes: { anchor: anchored.anchor } }]);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anchorOf, findMoved, sourceLines, withLines } from "./anchor";
+import { anchorOf, findMoved, snippetOf, sourceLines, withLines } from "./anchor";
 
 const FILE = ["a", "b", "c  ", "d", "e", "f", "g", "h"].join("\n");
 
@@ -35,5 +35,14 @@ describe("якорь фрагмента", () => {
 
     expect(findMoved(["z", FILE].join("\n"), "x:2-3", anchor)).toBe("x:3-4");
     expect(withLines("x:2-3", 5, 6)).toBe("x:5-6");
+  });
+
+  it("фрагмент для агента — строка ±5 с номерами, за концом файла — ничего", () => {
+    const snippet = snippetOf(FILE, "x:6") ?? "";
+
+    expect(snippet.split("\n")).toHaveLength(8);
+    expect(snippet.split("\n")[0]).toBe("    1│ a");
+    expect(snippet).toContain("    6│ f");
+    expect(snippetOf(FILE, "x:40")).toBeUndefined();
   });
 });
