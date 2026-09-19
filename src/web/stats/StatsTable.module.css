@@ -1,0 +1,47 @@
+.scroll {
+  overflow-x: auto;
+  background: linear-gradient(to right, var(--surface-raised) 30%, transparent) left / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--surface-raised) 30%, transparent) right / 24px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, color-mix(in oklch, var(--ink) 35%, transparent), transparent) left / 10px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in oklch, var(--ink) 35%, transparent), transparent) right / 10px 100% no-repeat scroll;
+}
+
+.scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--line);
+  text-align: end;
+  white-space: nowrap;
+}
+
+.table th:first-child,
+.table td:first-child {
+  padding-inline-start: 0;
+  text-align: start;
+}
+
+.table thead th {
+  color: var(--ink-subtle);
+  font-weight: 500;
+}
+
+.table tbody th {
+  color: var(--ink);
+  font-weight: 400;
+}
+
+.table code {
+  font-family: var(--font-mono);
+}

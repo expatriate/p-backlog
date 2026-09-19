@@ -6,7 +6,7 @@ import { codeAndTests, formatApprox, formatLines, formatNoiseShare, isEstimated 
 import flowStyles from "./FlowPanels.module.css";
 import { Figure } from "./Figure";
 import { Panel } from "./Panel";
-import styles from "./QualityPanels.module.css";
+import { StatsTable } from "./StatsTable";
 import totalsStyles from "./StatsPage.module.css";
 
 export function EffectFigures({ totals }: { totals: EffectTotals }) {
@@ -44,32 +44,21 @@ export function ProjectsPanel({ projects }: { projects: EffectProject[] }) {
       {projects.length === 0 ? (
         <p className={flowStyles.muted}>Нет данных о коде: у проектов нет доступных репозиториев</p>
       ) : (
-        <div className={styles.scroll} tabIndex={0} role="region" aria-label="Таблица «По проектам»">
-          <table className={styles.table} aria-label="По проектам">
-            <thead>
-              <tr>
-                <th scope="col">Проект</th>
-                <th scope="col">Вынесено задач</th>
-                <th scope="col">Исправлено строк</th>
-                <th scope="col">Оценка ожидающих</th>
-                <th scope="col">Строк в пулреквестах</th>
-                <th scope="col">Шум без беклога</th>
-              </tr>
-            </thead>
-            <tbody>
-              {projects.map((project) => (
-                <tr key={project.projectId}>
-                  <th scope="row">{project.name}</th>
-                  <td>{project.deferredTasks}</td>
-                  <td>{formatLines(project.fixedLines)}</td>
-                  <td>{project.estimatedLines === null ? "—" : formatApprox(project.estimatedLines, isEstimated(project.estimatedLines))}</td>
-                  <td>{formatLines(project.realLines)}</td>
-                  <td>{formatNoiseShare(project.noiseShare)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <StatsTable
+          label="По проектам"
+          head={["Проект", "Вынесено задач", "Исправлено строк", "Оценка ожидающих", "Строк в пулреквестах", "Шум без беклога"]}
+          rows={projects.map((project) => ({
+            key: project.projectId,
+            cells: [
+              project.name,
+              project.deferredTasks,
+              formatLines(project.fixedLines),
+              project.estimatedLines === null ? "—" : formatApprox(project.estimatedLines, isEstimated(project.estimatedLines)),
+              formatLines(project.realLines),
+              formatNoiseShare(project.noiseShare),
+            ],
+          }))}
+        />
       )}
     </Panel>
   );

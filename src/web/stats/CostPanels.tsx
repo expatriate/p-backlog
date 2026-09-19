@@ -6,7 +6,7 @@ import { formatLines } from "./effect-format";
 import { Figure } from "./Figure";
 import flowStyles from "./FlowPanels.module.css";
 import { Panel } from "./Panel";
-import tableStyles from "./QualityPanels.module.css";
+import { StatsTable } from "./StatsTable";
 import totalsStyles from "./StatsPage.module.css";
 
 export function CostFigures({ totals, days, models }: { totals: CostTotals; days: CostDay[]; models: CostModel[] }) {
@@ -30,26 +30,11 @@ export function ModelsPanel({ models }: { models: CostModel[] }) {
       {models.length === 0 ? (
         <p className={flowStyles.muted}>Моделей пока нет</p>
       ) : (
-        <div className={tableStyles.scroll} tabIndex={0} role="region" aria-label="Таблица «По моделям»">
-          <table className={tableStyles.table} aria-label="По моделям">
-            <thead>
-              <tr>
-                <th scope="col">Модель</th>
-                <th scope="col">Токены</th>
-                <th scope="col">По ценам API</th>
-              </tr>
-            </thead>
-            <tbody>
-              {models.map((model) => (
-                <tr key={model.model}>
-                  <th scope="row">{model.model}</th>
-                  <td>{formatLines(model.tokens)}</td>
-                  <td>{formatMoney(model.cost)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <StatsTable
+          label="По моделям"
+          head={["Модель", "Токены", "По ценам API"]}
+          rows={models.map((model) => ({ key: model.model, cells: [model.model, formatLines(model.tokens), formatMoney(model.cost)] }))}
+        />
       )}
     </Panel>
   );
@@ -61,30 +46,14 @@ export function CommandsPanel({ commands }: { commands: CostCommand[] }) {
       {commands.length === 0 ? (
         <p className={flowStyles.muted}>Команд пока не было</p>
       ) : (
-        <div className={tableStyles.scroll} tabIndex={0} role="region" aria-label="Таблица «Команды»">
-          <table className={tableStyles.table} aria-label="Команды">
-            <thead>
-              <tr>
-                <th scope="col">Команда</th>
-                <th scope="col">Запусков</th>
-                <th scope="col">Среднее время</th>
-                <th scope="col">Средняя память</th>
-                <th scope="col">Пиковая память</th>
-              </tr>
-            </thead>
-            <tbody>
-              {commands.map((command) => (
-                <tr key={command.command}>
-                  <th scope="row">{command.command}</th>
-                  <td>{formatLines(command.runs)}</td>
-                  <td>{formatMs(command.avgMs)}</td>
-                  <td>{formatMb(command.avgRssMb)}</td>
-                  <td>{formatMb(command.maxRssMb)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <StatsTable
+          label="Команды"
+          head={["Команда", "Запусков", "Среднее время", "Средняя память", "Пиковая память"]}
+          rows={commands.map((command) => ({
+            key: command.command,
+            cells: [command.command, formatLines(command.runs), formatMs(command.avgMs), formatMb(command.avgRssMb), formatMb(command.maxRssMb)],
+          }))}
+        />
       )}
     </Panel>
   );
