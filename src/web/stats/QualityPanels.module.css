@@ -2,8 +2,8 @@
   overflow-x: auto;
   background: linear-gradient(to right, var(--surface-raised) 30%, transparent) left / 24px 100% no-repeat local,
     linear-gradient(to left, var(--surface-raised) 30%, transparent) right / 24px 100% no-repeat local,
-    radial-gradient(farthest-side at 0 50%, oklch(0 0 0 / 0.5), transparent) left / 12px 100% no-repeat scroll,
-    radial-gradient(farthest-side at 100% 50%, oklch(0 0 0 / 0.5), transparent) right / 12px 100% no-repeat scroll;
+    radial-gradient(farthest-side at 0 50%, color-mix(in oklch, var(--ink) 35%, transparent), transparent) left / 10px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in oklch, var(--ink) 35%, transparent), transparent) right / 10px 100% no-repeat scroll;
 }
 
 .scroll:focus-visible {

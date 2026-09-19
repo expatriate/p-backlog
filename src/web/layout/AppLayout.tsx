@@ -39,7 +39,7 @@ export function AppLayout() {
               <span className={styles.projectName}>Статистика</span>
               {signalCount > 0 && (
                 <>
-                  <span className={cx(styles.count, styles.signalCount)}>{signalCount}</span>
+                  <span className={cx(styles.count, styles.signalCount)} aria-hidden="true">{signalCount}</span>
                   <span className="visually-hidden">, тревог: {signalCount}</span>
                 </>
               )}

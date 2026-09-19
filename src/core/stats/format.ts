@@ -15,7 +15,7 @@ export function plural(count: number, one: string, few: string, many: string): s
 }
 
 export function pluralCount(count: number, one: string, few: string, many: string): string {
-  return `${count}${NBSP}${plural(count, one, few, many)}`;
+  return `${count.toLocaleString("ru-RU")}${NBSP}${plural(count, one, few, many)}`;
 }
 
 export function formatDays(days: number | null): string {
