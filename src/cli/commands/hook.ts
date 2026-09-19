@@ -25,7 +25,7 @@ export async function runHook(args: string[], io: CliIo): Promise<number> {
   if (!project) return EXIT.ok;
   const { candidates } = await checkBacklog(io.backlogRoot, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home });
 
-  const signals = await freshSignals(project, loaded.tasks, io);
+  const signals = await freshSignals(project, loaded.tasks.filter((task) => task.projectId === project.id), io);
   const response = {
     ...(candidates.length > 0 ? { decision: "block", reason: stopReason(project.id, candidates) } : {}),
     ...(signals.fresh.length > 0 ? { systemMessage: `Беклог ${project.id}: ${signals.fresh.map((signal) => signal.text).join("; ")}` } : {}),
