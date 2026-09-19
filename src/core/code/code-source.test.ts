@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -94,5 +95,24 @@ describe("сбор данных git по проектам", () => {
     await writeFile(join(cacheRoot, CODE_CACHE_FILE), "{битый", "utf8");
     const fromGit = await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }).collect(projects, requests, NOW);
     expect(fromGit.projects).toEqual(first.projects);
+  });
+
+  it("коммит исправления, подтянутый позже через fetch, находится без перезапуска", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const clone = join(await makeTempDir(), "clone");
+    execFileSync("git", ["clone", "-q", repo, clone]);
+    await writeFiles(clone, { "src/a.ts": "b\n" });
+    gitCommitAll(clone, "fix elsewhere", "2026-09-11T10:00:00+03:00");
+    const hash = (await runGit(clone, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const source = createCodeSource({ home: "/h" });
+    const request = [{ projectId: "spa", hashes: [hash] }];
+
+    expect((await source.collect([projectOf("spa", [repo])], request, NOW)).fixCommits.has(fixKey("spa", hash))).toBe(false);
+
+    execFileSync("git", ["-C", repo, "fetch", "-q", clone, "HEAD"]);
+
+    expect((await source.collect([projectOf("spa", [repo])], request, NOW)).fixCommits.has(fixKey("spa", hash))).toBe(true);
   });
 });

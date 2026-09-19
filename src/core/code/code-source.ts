@@ -18,7 +18,7 @@ export type CodeSource = {
 
 export function createCodeSource({ home, git = runGit, store }: CodeSourceOptions): CodeSource {
   const repoCache = new Map<string, { key: string; code: RepoCode }>();
-  const fixCache = new Map<string, FixCommit | null>();
+  const fixCache = new Map<string, FixCommit>();
   let changed = false;
   let restored: Promise<void> | null = null;
 
@@ -33,8 +33,7 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
   const persist = async (): Promise<void> => {
     if (store === undefined || !changed) return;
     changed = false;
-    const foundFixes = [...fixCache].filter((entry): entry is [string, FixCommit] => entry[1] !== null);
-    await store.write({ repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(foundFixes) }).catch((error: unknown) => {
+    await store.write({ repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache) }).catch((error: unknown) => {
       console.error(`Не удалось сохранить кэш git: ${error instanceof Error ? error.message : String(error)}`);
     });
   };
@@ -56,10 +55,13 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
 
   const fixCommit = async (repo: string, hash: string): Promise<FixCommit | null> => {
     const cacheKey = `${repo} ${hash}`;
-    if (fixCache.has(cacheKey)) return fixCache.get(cacheKey) ?? null;
+    const cached = fixCache.get(cacheKey);
+    if (cached !== undefined) return cached;
     const commit = await readFixCommit(git, repo, hash);
-    fixCache.set(cacheKey, commit);
-    changed = true;
+    if (commit !== null) {
+      fixCache.set(cacheKey, commit);
+      changed = true;
+    }
     return commit;
   };
 

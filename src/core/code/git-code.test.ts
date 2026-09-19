@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
-import { readFixCommit, readHead, readRepoCode, runGit } from "./git-code";
+import { readFixCommit, readHead, readRepoCode, runGit, type GitRunner } from "./git-code";
 
 const AGENT_MESSAGE = "fix: retry\n\nCo-authored-by: claude Sonnet 5 <noreply@anthropic.com>";
 
@@ -121,5 +121,19 @@ describe("чтение git для вкладки «Код»", () => {
 
     expect(Date.parse(commit?.date ?? "")).toBe(Date.parse("2026-09-10T10:00:00+03:00"));
     expect(commit?.lines).toBe(0);
+  });
+
+  it("репозиторий без строк текста доступен: git grep без совпадений — это ноль строк, а не ошибка", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/empty.ts": "" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+
+    const code = await readRepoCode(runGit, repo, new Date("2026-09-01T00:00:00Z"));
+
+    expect(code).not.toBeNull();
+    expect(code?.lines).toEqual([]);
+
+    const grepFails: GitRunner = (dir, args) => (args[0] === "grep" ? Promise.resolve(null) : runGit(dir, args));
+    expect(await readRepoCode(grepFails, repo, new Date("2026-09-01T00:00:00Z"))).toBeNull();
   });
 });

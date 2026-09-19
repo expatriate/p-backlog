@@ -17,15 +17,20 @@ const CHURN_EXCLUDES = [...LOCK_EXCLUDES, ...NON_CODE_EXTENSIONS.map((ext) => `:
 const MAIN_REFS = ["origin/HEAD", "main", "master"];
 const AGENT_TRAILER = /^claude/i;
 const GREP_PREFIX = "HEAD:";
+const GREP_NO_MATCH_EXIT = 1;
 
 export const runGit: GitRunner = async (repo, args) => {
   try {
     const { stdout } = await runFile("git", ["-C", repo, "--no-optional-locks", "-c", "core.quotePath=false", ...args], { maxBuffer: GIT_OUTPUT_LIMIT });
     return stdout;
-  } catch {
-    return null;
+  } catch (error) {
+    return args[0] === "grep" && exitCodeOf(error) === GREP_NO_MATCH_EXIT ? "" : null;
   }
 };
+
+function exitCodeOf(error: unknown): unknown {
+  return typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+}
 
 export async function readHead(git: GitRunner, repo: string): Promise<string | null> {
   const output = await git(repo, ["rev-parse", "--verify", "--quiet", "HEAD"]);
@@ -40,8 +45,8 @@ export async function readRepoCode(git: GitRunner, repo: string, since: Date, ma
     git(repo, ["grep", "-I", "-c", "-z", "", "HEAD", "--", ".", ...LOCK_EXCLUDES]),
     readUnits(git, repo, since, resolvedMainCommit),
   ]);
-  if (log === null) return null;
-  return { commits: parseCommits(log), lines: parseLines(grep ?? ""), units };
+  if (log === null || grep === null) return null;
+  return { commits: parseCommits(log), lines: parseLines(grep), units };
 }
 
 export async function readMainCommit(git: GitRunner, repo: string): Promise<string | null> {
