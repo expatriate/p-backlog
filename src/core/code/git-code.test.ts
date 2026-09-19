@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
-import { readFixCommit, readHead, readRepoCode } from "./git-code";
+import { readFixCommit, readHead, readMainCommit, readRepoCode } from "./git-code";
 import { runGit, type GitRunner } from "../git/run";
 
 const AGENT_MESSAGE = "fix: retry\n\nCo-authored-by: claude Sonnet 5 <noreply@anthropic.com>";
@@ -136,5 +136,31 @@ describe("чтение git для вкладки «Код»", () => {
 
     const grepFails: GitRunner = (dir, args) => (args[0] === "grep" ? Promise.resolve(null) : runGit(dir, args));
     expect(await readRepoCode(grepFails, repo, new Date("2026-09-01T00:00:00Z"))).toBeNull();
+  });
+
+  it("основная ветка: origin/HEAD, иначе main, иначе master, иначе HEAD", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const head = (await runGit(repo, ["rev-parse", "HEAD"]))?.trim();
+    const commitOn = async (branch: string, text: string): Promise<string> => {
+      execFileSync("git", ["-C", repo, "checkout", "-q", "-B", branch, "master"]);
+      await writeFiles(repo, { "src/a.ts": text });
+      gitCommitAll(repo, `on ${branch}`, "2026-09-11T10:00:00+03:00");
+      return (await runGit(repo, ["rev-parse", "HEAD"]))?.trim() ?? "";
+    };
+
+    expect(await readMainCommit(runGit, repo)).toBe(head);
+
+    const onMain = await commitOn("main", "a\nmain\n");
+    execFileSync("git", ["-C", repo, "checkout", "-q", "master"]);
+    expect(await readMainCommit(runGit, repo)).toBe(onMain);
+
+    const onWork = await commitOn("work", "a\nwork\n");
+    execFileSync("git", ["-C", repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/heads/work"]);
+    expect(await readMainCommit(runGit, repo)).toBe(onWork);
+
+    execFileSync("git", ["-C", repo, "checkout", "-q", "--detach"]);
+    expect(await readMainCommit(runGit, repo)).toBe(onWork);
   });
 });
