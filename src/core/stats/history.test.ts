@@ -82,4 +82,39 @@ describe("история задачи", () => {
     expect(isOpenAt(history, at(4).getTime())).toBe(false);
     expect(isOpenAt(history, at(7).getTime())).toBe(true);
   });
+
+  it("файл удалён мимо CLI — задача не остаётся открытой навсегда", () => {
+    const events: JournalEvent[] = [{ at: iso(1), task: "SPA-1", via: "cli", kind: "created", type: "task", priority: "medium", tags: [] }];
+
+    const [history] = taskHistories([], journal(events));
+
+    expect(history?.finalStatus).toBe("cancelled");
+    expect(isOpenAt(history as never, at(5).getTime())).toBe(false);
+  });
+
+  it("файл закрыт правкой без даты закрытия — закрытие по последнему известному переходу", () => {
+    const task = makeTask({ id: "SPA-1", created: iso(1), status: "done", resolution: "fixed" });
+    const events: JournalEvent[] = [
+      { at: iso(1), task: "SPA-1", via: "cli", kind: "created", type: "task", priority: "medium", tags: [] },
+      { at: iso(2), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "in-progress" },
+    ];
+
+    const [history] = taskHistories([task], journal(events));
+
+    expect(closingsOf(history ?? { transitions: [] } as never)).toMatchObject([{ to: "done", via: "unknown" }]);
+    expect(isOpenAt(history as never, at(5).getTime())).toBe(false);
+  });
+
+  it("файл открыт правкой после закрытия — задача снова открыта", () => {
+    const task = makeTask({ id: "SPA-1", created: iso(1), status: "backlog" });
+    const events: JournalEvent[] = [
+      { at: iso(1), task: "SPA-1", via: "cli", kind: "created", type: "task", priority: "medium", tags: [] },
+      { at: iso(2), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" },
+    ];
+
+    const [history] = taskHistories([task], journal(events));
+
+    expect(reopeningsOf(history as never)).toMatchObject([{ to: "backlog", via: "unknown" }]);
+    expect(isOpenAt(history as never, at(5).getTime())).toBe(true);
+  });
 });

@@ -89,8 +89,8 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, tran
       createdAt: Date.parse(createdIso),
       source: final?.source ?? created?.source,
       reason: final?.reason,
-      finalStatus: final?.status ?? "backlog",
-      transitions: [...ordered, ...restoredClosing(final, ordered)],
+      finalStatus: final?.status ?? "cancelled",
+      transitions: [...ordered, ...restoredTransitions(final, ordered, Date.parse(createdIso))],
       category: categoryOf(final, created, categoryEvents),
       found: created?.found,
       branch: created?.origin?.branch,
@@ -110,9 +110,15 @@ function categoryOf(
   return lastCategoryEvent !== undefined ? lastCategoryEvent.to : created?.category;
 }
 
-function restoredClosing(final: Task | TaskSnapshot | undefined, ordered: readonly Transition[]): Transition[] {
-  if (final === undefined || !isClosed(final.status) || final.closed === undefined) return [];
+function restoredTransitions(final: Task | TaskSnapshot | undefined, ordered: readonly Transition[], createdAt: number): Transition[] {
   const last = ordered.at(-1);
-  if (last !== undefined && isClosed(last.to)) return [];
-  return [{ at: Date.parse(final.closed), to: final.status, resolution: final.resolution, via: "unknown" }];
+  const lastClosed = last !== undefined && isClosed(last.to);
+  if (final === undefined) return lastClosed ? [] : [{ at: last?.at ?? createdAt, to: "cancelled", via: "unknown" }];
+  if (isClosed(final.status)) {
+    if (lastClosed) return [];
+    const at = final.closed === undefined ? (last?.at ?? createdAt) : Date.parse(final.closed);
+    return [{ at, to: final.status, resolution: final.resolution, via: "unknown" }];
+  }
+  if (!lastClosed || last === undefined) return [];
+  return [{ at: last.at + 1, from: last.to, to: final.status, via: "unknown" }];
 }
