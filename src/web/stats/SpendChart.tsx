@@ -3,8 +3,9 @@ import { formatMoney, NBSP, pluralCount } from "../../core/stats/format";
 import type { CostDay } from "../../core/stats/types";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
-import { AXIS_PROPS, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
+import { sum } from "./cost-format";
 import { formatLines } from "./effect-format";
 import { Panel } from "./Panel";
 
@@ -42,9 +43,9 @@ export function SpendPanel({ days }: { days: CostDay[] }) {
           <YAxis yAxisId="runs" orientation="right" allowDecimals={false} tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
           <Tooltip content={dayTooltip} {...TOOLTIP_PROPS} />
           <Bar yAxisId="tokens" dataKey="hookTokens" stackId="tokens" fill={HOOK_TOKENS} isAnimationActive={false} />
-          <Bar yAxisId="tokens" dataKey="cliTokens" stackId="tokens" fill={CLI_TOKENS} radius={[2, 2, 0, 0]} isAnimationActive={false} />
-          <Line yAxisId="runs" dataKey="hookRuns" stroke={HOOK_RUNS} strokeWidth={2} dot={false} isAnimationActive={false} />
-          <Line yAxisId="runs" dataKey="cliRuns" stroke={OTHER_RUNS} strokeWidth={2} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
+          <Bar yAxisId="tokens" dataKey="cliTokens" stackId="tokens" fill={CLI_TOKENS} radius={BAR_RADIUS} isAnimationActive={false} />
+          <Line yAxisId="runs" dataKey="hookRuns" stroke={HOOK_RUNS} strokeWidth={LINE_WIDTH} dot={false} isAnimationActive={false} />
+          <Line yAxisId="runs" dataKey="cliRuns" stroke={OTHER_RUNS} strokeWidth={LINE_WIDTH} strokeDasharray={DASHED_LINE} dot={false} isAnimationActive={false} />
         </ComposedChart>
       </ChartFrame>
     </Panel>
@@ -62,8 +63,4 @@ function spendSummary(days: CostDay[]): string {
 function totalMoney(days: CostDay[]): number | null {
   if (days.every((day) => day.cost === null)) return null;
   return days.reduce((total, day) => total + (day.cost ?? 0), 0);
-}
-
-function sum(values: number[]): number {
-  return values.reduce((total, value) => total + value, 0);
 }

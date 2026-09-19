@@ -12,3 +12,7 @@ export function formatMs(value: number): string {
 export function costValue(cost: number | null): string {
   return cost === null ? "—" : `≈${NBSP}${formatMoney(cost)}`;
 }
+
+export function sum(values: number[]): number {
+  return values.reduce((total, value) => total + value, 0);
+}

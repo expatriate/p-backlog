@@ -1,7 +1,7 @@
 import { COST_TOTALS_DAYS } from "../../core/stats/cost/cost-report";
 import { formatMoney } from "../../core/stats/format";
 import type { CostCommand, CostDay, CostModel, CostTotals } from "../../core/stats/types";
-import { costValue, formatMb, formatMs } from "./cost-format";
+import { costValue, formatMb, formatMs, sum } from "./cost-format";
 import { formatLines } from "./effect-format";
 import { Figure } from "./Figure";
 import flowStyles from "./FlowPanels.module.css";
@@ -88,8 +88,4 @@ export function CommandsPanel({ commands }: { commands: CostCommand[] }) {
       )}
     </Panel>
   );
-}
-
-function sum(values: number[]): number {
-  return values.reduce((total, value) => total + value, 0);
 }

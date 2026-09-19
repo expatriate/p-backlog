@@ -3,7 +3,7 @@ import { pluralCount } from "../../core/stats/format";
 import type { FlowWip, WipWeek } from "../../core/stats/types";
 import { ChartFrame } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipWeek } from "./charts/chart-format";
-import { AXIS_PROPS, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 
 const WIP = "var(--ink-muted)";
@@ -23,7 +23,7 @@ export function WipChart({ wip }: { wip: FlowWip }) {
         <XAxis dataKey="start" tickFormatter={axisDay} {...DATE_AXIS_PROPS} />
         <YAxis allowDecimals={false} tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
         <Tooltip content={weekTooltip} {...TOOLTIP_PROPS} />
-        <Bar dataKey="max" fill={WIP} radius={[2, 2, 0, 0]} isAnimationActive={false} />
+        <Bar dataKey="max" fill={WIP} radius={BAR_RADIUS} isAnimationActive={false} />
       </BarChart>
     </ChartFrame>
   );

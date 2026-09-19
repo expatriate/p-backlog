@@ -4,7 +4,7 @@ import { NBSP, plural, pluralCount } from "../../core/stats/format";
 import type { EffectTotals, EffectWeek } from "../../core/stats/types";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipWeek } from "./charts/chart-format";
-import { AXIS_PROPS, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { formatApprox, formatNoiseShare, isEstimated } from "./effect-format";
 
@@ -43,7 +43,7 @@ export function EffectWeeksChart({ weeks, totals }: { weeks: EffectWeek[]; total
         <YAxis tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
         <Tooltip content={weekTooltip} {...TOOLTIP_PROPS} />
         <Bar dataKey="onTopicLines" stackId="lines" fill={REAL} isAnimationActive={false} />
-        <Bar dataKey="deferredLines" stackId="lines" fill={`url(#${patternId})`} radius={[2, 2, 0, 0]} isAnimationActive={false} />
+        <Bar dataKey="deferredLines" stackId="lines" fill={`url(#${patternId})`} radius={BAR_RADIUS} isAnimationActive={false} />
       </BarChart>
     </ChartFrame>
   );

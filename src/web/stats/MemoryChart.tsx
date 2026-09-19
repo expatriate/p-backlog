@@ -3,7 +3,7 @@ import type { MemorySample } from "../../core/stats/types";
 import { useMemorySamples } from "../app/queries";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisTime, tooltipTime } from "./charts/chart-format";
-import { AXIS_PROPS, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { formatMb } from "./cost-format";
 import { Panel } from "./Panel";
@@ -39,8 +39,8 @@ export function MemoryPanel() {
           <XAxis dataKey="at" tickFormatter={axisTime} {...DATE_AXIS_PROPS} />
           <YAxis tickFormatter={(value: number) => formatMb(value)} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
           <Tooltip content={sampleTooltip} {...TOOLTIP_PROPS} cursor={{ stroke: "var(--line-strong)" }} />
-          <Area dataKey="rssMb" stroke={RSS} strokeWidth={2} fill={RSS} fillOpacity={0.12} dot={false} isAnimationActive={false} />
-          <Area dataKey="heapUsedMb" stroke={HEAP} strokeWidth={2} strokeDasharray="4 3" fill="none" dot={false} isAnimationActive={false} />
+          <Area dataKey="rssMb" stroke={RSS} strokeWidth={LINE_WIDTH} fill={RSS} fillOpacity={0.12} dot={false} isAnimationActive={false} />
+          <Area dataKey="heapUsedMb" stroke={HEAP} strokeWidth={LINE_WIDTH} strokeDasharray={DASHED_LINE} fill="none" dot={false} isAnimationActive={false} />
         </AreaChart>
       </ChartFrame>
     </Panel>

@@ -7,3 +7,6 @@ export const TOOLTIP_PROPS = { isAnimationActive: false, cursor: { fill: "var(--
 export function chartTitle(name: string, step: "дням" | "неделям" | "замерам"): string {
   return `${name}. Стрелки влево и вправо — по ${step}`;
 }
+export const BAR_RADIUS: [number, number, number, number] = [2, 2, 0, 0];
+export const LINE_WIDTH = 2;
+export const DASHED_LINE = "4 3";

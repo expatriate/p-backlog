@@ -3,7 +3,7 @@ import { pluralCount } from "../../core/stats/format";
 import type { WeekFlow } from "../../core/stats/types";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipWeek } from "./charts/chart-format";
-import { AXIS_PROPS, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, BAR_RADIUS, LINE_WIDTH, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 
 const CREATED = "var(--ink-subtle)";
@@ -38,9 +38,9 @@ export function WeeklyFlowChart({ weeks }: { weeks: WeekFlow[] }) {
         <YAxis yAxisId="flow" allowDecimals={false} tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
         <YAxis yAxisId="open" orientation="right" allowDecimals={false} tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
         <Tooltip content={weekTooltip} {...TOOLTIP_PROPS} />
-        <Bar yAxisId="flow" dataKey="created" fill={CREATED} radius={[2, 2, 0, 0]} isAnimationActive={false} />
-        <Bar yAxisId="flow" dataKey="closed" fill={CLOSED} radius={[2, 2, 0, 0]} isAnimationActive={false} />
-        <Line yAxisId="open" dataKey="openAtEnd" stroke={OPEN} strokeWidth={2} dot={false} isAnimationActive={false} />
+        <Bar yAxisId="flow" dataKey="created" fill={CREATED} radius={BAR_RADIUS} isAnimationActive={false} />
+        <Bar yAxisId="flow" dataKey="closed" fill={CLOSED} radius={BAR_RADIUS} isAnimationActive={false} />
+        <Line yAxisId="open" dataKey="openAtEnd" stroke={OPEN} strokeWidth={LINE_WIDTH} dot={false} isAnimationActive={false} />
       </ComposedChart>
     </ChartFrame>
   );
