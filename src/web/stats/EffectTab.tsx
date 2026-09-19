@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import type { EffectReport } from "../../core/stats/types";
 import { useEffectStats } from "../app/queries";
+import { EffectExplainer } from "./EffectExplainer";
 import { EffectChartPanel, EffectFigures, ProjectsPanel } from "./EffectPanels";
 import flowStyles from "./FlowPanels.module.css";
 import { StatsTabState } from "./StatsTabState";
@@ -32,11 +33,10 @@ function Effect({ report }: { report: EffectReport }) {
         <div className={flowStyles.wide}>
           <ProjectsPanel projects={report.projects} />
         </div>
+        <div className={flowStyles.wide}>
+          <EffectExplainer totals={report.totals} />
+        </div>
       </div>
-      <p className={styles.note}>
-        Оценка: каждая задача беклога — правка, которая без него попала бы в пулреквест. Размер исправленных — весь коммит исправления (если он закрывает несколько задач, строки делятся между ними);
-        размер ожидающих — по медиане исправлений.
-      </p>
     </>
   );
 }

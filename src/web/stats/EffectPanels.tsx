@@ -2,7 +2,7 @@ import { NBSP, plural } from "../../core/stats/format";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { EffectProject, EffectTotals, EffectWeek } from "../../core/stats/types";
 import { EffectWeeksChart } from "./EffectWeeksChart";
-import { formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
+import { codeAndTests, formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
 import flowStyles from "./FlowPanels.module.css";
 import { Figure } from "./Figure";
 import { Panel } from "./Panel";
@@ -12,7 +12,7 @@ import totalsStyles from "./StatsPage.module.css";
 export function EffectFigures({ totals }: { totals: EffectTotals }) {
   return (
     <div className={totalsStyles.totals}>
-      <Figure label="Посторонних правок вынесено" value={keptOutValue(totals)} note={keptOutNote(totals)} />
+      <Figure label="Посторонних правок вынесено" value={keptOutValue(totals)} note={`${keptOutNote(totals)} · ${codeAndTests(totals)}`} />
       <Figure label="Шум без беклога" value={formatNoiseShare(totals.noiseShare)} note="доля посторонних правок в пулреквестах" />
       <Figure label="Вынесено в беклог" value={String(totals.fixedTasks + totals.openTasks)} note={`исправлено ${totals.fixedTasks}, ожидают ${totals.openTasks}`} />
       <Figure label="Строк в пулреквестах" value={formatLines(totals.realLines)} note="с внедрения беклога" />

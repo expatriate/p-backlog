@@ -283,10 +283,15 @@ describe("вкладка «Эффект»", () => {
     expect(app.route()).toBe("/p/spa/stats/effect");
     expect(document.title).toBe("Эффект · Статистика · spa — Беклог");
     expect(within(kept).getByText("0 строк")).toBeDefined();
-    expect(within(kept).getByText("исправлено 0; оценка ожидающих появится после 5 исправлений")).toBeDefined();
+    expect(within(kept).getByText("исправлено 0; оценка ожидающих появится после 5 исправлений · код 0, тесты 0")).toBeDefined();
     expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("2")).toBeDefined();
     expect(screen.getByRole("figure", { name: new RegExp(`12${NBSP}недель: в пулреквестах 2${NBSP}строки`) })).toBeDefined();
     expect(screen.getByRole("region", { name: "По проектам" })).toBeDefined();
+
+    const explainer = screen.getByRole("region", { name: "Как считается выигрыш" });
+    expect(within(explainer).getByText("Сейчас: 0 задач — 0 строк")).toBeDefined();
+    expect(within(explainer).getByText(/^Сейчас: \d+ задач[аи]?, оценка появится после 5 исправлений$/)).toBeDefined();
+    expect(within(explainer).getByText("Сейчас: код 0, тесты 0")).toBeDefined();
   });
 });
 

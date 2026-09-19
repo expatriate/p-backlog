@@ -1,4 +1,5 @@
 import { formatShare, NBSP } from "../../core/stats/format";
+import type { EffectTotals } from "../../core/stats/types";
 
 export function isEstimated(estimatedLines: number | null): boolean {
   return typeof estimatedLines === "number" && estimatedLines > 0;
@@ -14,4 +15,9 @@ export function formatApprox(value: number, approx: boolean): string {
 
 export function formatNoiseShare(noiseShare: number | null): string {
   return noiseShare === null ? "—" : `≈${NBSP}${formatShare(noiseShare)}`;
+}
+
+export function codeAndTests({ deferredLines, deferredTestLines, estimatedLines }: Pick<EffectTotals, "deferredLines" | "deferredTestLines" | "estimatedLines">): string {
+  const approx = isEstimated(estimatedLines);
+  return `код ${formatApprox(deferredLines - deferredTestLines, approx)}, тесты ${formatApprox(deferredTestLines, approx)}`;
 }

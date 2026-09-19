@@ -19,8 +19,10 @@ const LEGEND: LegendItem[] = [
 const weekTooltip = rowTooltip((week: EffectWeek) => ({
   title: tooltipWeek(week.start),
   rows: [
-    { label: "в пулреквестах", value: pluralCount(week.onTopicLines, "строка", "строки", "строк"), shape: "bar", color: REAL },
-    { label: "вынесено в беклог", value: pluralCount(week.deferredLines, "строка", "строки", "строк"), shape: "hatch", color: DEFERRED },
+    { label: "в пулреквестах", value: pluralCount(Math.round(week.onTopicLines), "строка", "строки", "строк"), shape: "bar", color: REAL },
+    { label: "вынесено в беклог", value: roughLines(week.deferredLines), shape: "hatch", color: DEFERRED },
+    { label: "код", value: roughLines(week.deferredLines - week.deferredTestLines) },
+    { label: "тесты", value: roughLines(week.deferredTestLines) },
     { label: "задач вынесено", value: String(week.deferredTasks) },
   ],
 }));
@@ -47,4 +49,8 @@ export function EffectWeeksChart({ weeks, totals }: { weeks: EffectWeek[]; total
       </BarChart>
     </ChartFrame>
   );
+}
+
+function roughLines(lines: number): string {
+  return formatApprox(lines, Math.round(lines) > 0);
 }
