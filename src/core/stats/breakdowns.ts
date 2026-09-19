@@ -4,7 +4,7 @@ import { closingsOf, reopeningsOf, type TaskHistory, type Transition } from "./h
 import type { AgeBreakdown, AgeBucket, ClosingBreakdown, ClosingReason, Hotspots } from "./types";
 
 const HOTSPOT_LIMIT = 8;
-const STALE_URGENT_DAYS = 7;
+export const STALE_URGENT_DAYS = 7;
 const AGE_LIMITS: readonly { bucket: AgeBucket; belowDays: number }[] = [
   { bucket: "week", belowDays: 7 },
   { bucket: "month", belowDays: 30 },

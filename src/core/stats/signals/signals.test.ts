@@ -53,4 +53,26 @@ describe("тревоги", () => {
       { kind: "noisy-check", text: "Проверка «код изменился» почти всегда ошибается: точность 10% на 10 решённых" },
     ]);
   });
+
+  it("точность в тексте округляется вниз: 19 из 97 решённых — 19%, не 20%", () => {
+    const tasks = Array.from({ length: 97 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(8, 14) }));
+    const events: JournalEvent[] = tasks.flatMap((task, index) => [
+      { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed" },
+      index < 19
+        ? { at: iso(8, 16), task: task.id, via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" }
+        : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
+    ]);
+
+    expect(statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check")).toEqual([
+      { kind: "noisy-check", text: "Проверка «код изменился» почти всегда ошибается: точность 19% на 97 решённых" },
+    ]);
+  });
+
+  it("«не меньше»: задача в работе без перехода в журнале и старше 7 дней — тревога есть", () => {
+    const tasks = [makeTask({ id: "SPA-1", created: iso(8, 9), status: "in-progress" })];
+
+    expect(statsSignals({ tasks, journals: journal([]), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "stuck")).toEqual([
+      { kind: "stuck", text: "Застряли в работе: 1, дольше всех SPA-1 — 9 дн." },
+    ]);
+  });
 });
