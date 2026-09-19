@@ -48,3 +48,28 @@
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
 }
+
+.epicRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(64px, 160px) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.epicTrack {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.epicFill {
+  display: block;
+  height: 100%;
+  background: var(--tone-line, var(--ink-subtle));
+  transform-origin: left center;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}

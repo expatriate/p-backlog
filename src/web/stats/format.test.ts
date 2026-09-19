@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { forecastText, formatDays, formatShare, formatSigned, formatStay } from "./format";
+import { epicEta, forecastText, formatDays, formatShare, formatSigned, formatStay } from "./format";
 
 describe("формат статистики", () => {
   it("дни: нет данных, меньше дня, округление", () => {
@@ -32,5 +32,11 @@ describe("тексты потока", () => {
     expect(formatStay(3.2, true)).toBe("не меньше 3 дн.");
     expect(formatStay(0.5, true)).toBe("меньше дня");
     expect(formatStay(3.2, false)).toBe("3 дн.");
+  });
+
+  it("срок эпика", () => {
+    expect(epicEta(3)).toBe("≈ 3 нед.");
+    expect(epicEta(0)).toBe("готов");
+    expect(epicEta(null)).toBe("темпа нет");
   });
 });

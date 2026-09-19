@@ -138,4 +138,37 @@ describe("вкладки статистики", () => {
 
     expect(await screen.findByText("Проект не найден.")).toBeDefined();
   });
+
+  it("время в работе, одновременность и эпики", async () => {
+    const event = (at: string, task: string, from: string, to: string) => JSON.stringify({ at, task, via: "cli", kind: "status", from, to });
+    await renderApp(
+      {
+        ...FILES,
+        "spa/SPA-2.md": taskFixture("SPA-2", { title: "Логин", status: "in-progress", epic: "SPA-4", created: "2026-09-16T10:00:00+03:00" }),
+        "spa/SPA-4.md": taskFixture("SPA-4", { title: "Вход", type: "epic", created: "2026-09-10T10:00:00+03:00" }),
+        "spa/journal.jsonl": [
+          event("2026-09-15T12:00:00+03:00", "SPA-3", "backlog", "in-progress"),
+          event("2026-09-16T12:00:00+03:00", "SPA-2", "backlog", "in-progress"),
+          event("2026-09-17T12:00:00+03:00", "SPA-3", "in-progress", "done"),
+        ].join("\n"),
+      },
+      "/p/spa/stats/flow",
+    );
+
+    const cycle = await screen.findByRole("region", { name: "Время в работе" });
+    expect(within(cycle).getByText("медиана 2 дн. · 90% — за 2 дн.")).toBeDefined();
+    expect(within(cycle).getByText("в блокировке — 0% этого времени · закрытий с работой: 1")).toBeDefined();
+    expect(screen.getByRole("img", { name: "12 недель: сейчас в работе 1, максимум 2" })).toBeDefined();
+    const epics = screen.getByRole("region", { name: "Эпики" });
+    expect(within(epics).getByRole("link", { name: "SPA-4" })).toBeDefined();
+    expect(within(epics).getByText("0/1 · темпа нет")).toBeDefined();
+  });
+
+  it("без взятий в работу — подсказка вместо времени", async () => {
+    await renderApp(FILES, "/stats/flow");
+
+    const cycle = await screen.findByRole("region", { name: "Время в работе" });
+    expect(within(cycle).getByText("Появится, когда задачи начнут брать в работу")).toBeDefined();
+    expect(screen.getByText("Открытых эпиков нет")).toBeDefined();
+  });
 });

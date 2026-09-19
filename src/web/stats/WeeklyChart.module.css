@@ -36,6 +36,10 @@
   fill: var(--ok);
 }
 
+.single {
+  fill: var(--ink-muted);
+}
+
 .caption {
   display: flex;
   flex-wrap: wrap;
