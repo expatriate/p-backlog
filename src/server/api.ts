@@ -5,6 +5,7 @@ import { updateTaskRequestSchema } from "../core/api/contract";
 import { createCodeSource } from "../core/code/code-source";
 import type { Project, Task } from "../core/model/types";
 import { formatIssues } from "../core/model/zod-issues";
+import { formatLocalIso } from "../core/model/dates";
 import { costReport } from "../core/stats/cost/cost-report";
 import { codeFixRequests, codeReport } from "../core/stats/code/code-report";
 import { effectReport } from "../core/stats/effect/effect-report";
@@ -14,7 +15,7 @@ import { statsReport } from "../core/stats/report";
 import type { StatsInput } from "../core/stats/scope";
 import { statsSignals } from "../core/stats/signals/signals";
 import type { CodeReport, CostReport, EffectReport, FlowReport, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
-import { loadBacklog } from "../core/store/load";
+import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { readJournals } from "../core/store/journal";
 import { readRuns } from "../core/store/runs";
 import { findProjectForRepoRoot, findRepoRoot } from "../core/store/resolve-project";
@@ -23,17 +24,34 @@ import type { UsageCache } from "../core/usage/usage-cache";
 import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
 import type { MemorySampler } from "./memory-sampler";
+import { createReportCache } from "./report-cache";
 import type { UsageScanner } from "./usage-scanner";
 
 export type ApiOptions = { root: string; changes: ChangeFeed; now: () => Date; home: string; usage: UsageScanner; memory: MemorySampler };
 
+const REPORT_TTL_MS = 5 * 60 * 1000;
+
 export function createApi({ root, changes, now, home, usage, memory }: ApiOptions): Hono {
   const api = new Hono();
+  const reports = createReportCache({ ttlMs: REPORT_TTL_MS, now: () => now().getTime() });
+  let snapshot: Promise<LoadedBacklog> | null = null;
+  const backlog = (): Promise<LoadedBacklog> => {
+    snapshot ??= loadBacklog(root).catch((error: unknown) => {
+      snapshot = null;
+      throw error;
+    });
+    return snapshot;
+  };
+  const forgetBacklog = () => {
+    snapshot = null;
+    reports.clear();
+  };
+  changes.subscribe(forgetBacklog);
 
-  api.get("/projects", async (c) => c.json((await loadBacklog(root)).projects));
+  api.get("/projects", async (c) => c.json((await backlog()).projects));
 
   api.get("/tasks", async (c) => {
-    const { tasks, errors } = await loadBacklog(root);
+    const { tasks, errors } = await backlog();
     return c.json({ tasks, errors });
   });
 
@@ -41,7 +59,7 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
 
   const statsScopeOf = async (c: Context): Promise<{ projectId?: string; projects: Project[]; tasks: Task[] } | Response> => {
     const projectId = c.req.query("project") || undefined;
-    const { projects, tasks } = await loadBacklog(root);
+    const { projects, tasks } = await backlog();
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
       return c.json({ errors: [`Проект ${projectId} не найден`] }, 404);
     }
@@ -50,13 +68,20 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
 
   const scopedStats =
     <R extends StatsReport | FlowReport | CodeReport | QualityReport | SignalsReport | EffectReport>(
+      name: string,
       report: (input: StatsInput, projects: readonly Project[]) => R | Promise<R>,
+      sourceKey?: (projects: readonly Project[]) => Promise<string>,
     ) =>
     async (c: Context) => {
       const scope = await statsScopeOf(c);
       if (scope instanceof Response) return scope;
-      const journals = await readJournals(root, scope.projects.map((project) => project.id));
-      return c.json(await report({ tasks: scope.tasks, journals, now: now(), projectId: scope.projectId }, scope.projects));
+      const moment = now();
+      const key = [name, scope.projectId ?? "*", formatLocalIso(moment).slice(0, 10), sourceKey === undefined ? "" : await sourceKey(scope.projects)].join("|");
+      const result = await reports.get(key, async () => {
+        const journals = await readJournals(root, scope.projects.map((project) => project.id));
+        return report({ tasks: scope.tasks, journals, now: moment, projectId: scope.projectId }, scope.projects);
+      });
+      return c.json(result);
     };
 
   const statsOfCode = async (input: StatsInput, projects: readonly Project[]): Promise<CodeReport> => {
@@ -88,12 +113,13 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
     return costReport({ buckets: bucketsOf(cache), runs, projectOf, projectId, now: now(), scan });
   };
 
-  api.get("/stats", scopedStats(statsReport));
-  api.get("/stats/flow", scopedStats(flowReport));
-  api.get("/stats/code", scopedStats(statsOfCode));
-  api.get("/stats/effect", scopedStats(statsOfEffect));
-  api.get("/stats/quality", scopedStats(qualityReport));
-  api.get("/stats/signals", scopedStats((input) => ({ signals: statsSignals(input) })));
+  const codeState = (projects: readonly Project[]) => codeSource.stateKey(projects);
+  api.get("/stats", scopedStats("stats", statsReport));
+  api.get("/stats/flow", scopedStats("flow", flowReport));
+  api.get("/stats/code", scopedStats("code", statsOfCode, codeState));
+  api.get("/stats/effect", scopedStats("effect", statsOfEffect, codeState));
+  api.get("/stats/quality", scopedStats("quality", qualityReport));
+  api.get("/stats/signals", scopedStats("signals", (input) => ({ signals: statsSignals(input) })));
   api.get("/stats/cost", async (c) => {
     const scope = await statsScopeOf(c);
     return scope instanceof Response ? scope : c.json(await statsOfCost(scope.projectId, scope.projects));
@@ -106,6 +132,7 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
 
     const id = c.req.param("id");
     const result = await updateTask(root, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now(), via: "web" });
+    forgetBacklog();
     if (result.ok) return c.json(result.task);
     if (result.reason === "not-found") return c.json({ errors: [`Задача ${id} не найдена`] }, 404);
     if (result.reason === "conflict") return c.json({ errors: ["Задача изменилась на диске"], current: result.current }, 409);

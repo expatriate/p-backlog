@@ -172,6 +172,39 @@ describe("GET /api/stats", () => {
   });
 });
 
+describe("кэш отчётов", () => {
+  it("без изменений файлов отчёт отдаётся из кэша, изменение файлов и запись через API его сбрасывают", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const openCount = async () => ((await (await backlog.request("/api/stats?project=spa")).json()) as StatsReport).totals.open;
+    const before = await openCount();
+
+    await writeFiles(backlog.root, { "spa/SPA-7.md": taskFile("SPA-7") });
+    expect(await openCount()).toBe(before);
+
+    backlog.emitChange();
+    expect(await openCount()).toBe(before + 1);
+
+    await writeFiles(backlog.root, { "spa/SPA-8.md": taskFile("SPA-8") });
+    const patched = await backlog.json("/api/tasks/SPA-1", "PATCH", { version: await backlog.taskVersion("SPA-1"), changes: { priority: "low" } });
+    expect(patched.status).toBe(200);
+    expect(await openCount()).toBe(before + 2);
+  });
+
+  it("новый коммит в репозитории пересчитывает отчёт «Код» без изменения файлов беклога", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const backlog = await makeTestApp({ "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": taskFile("SPA-1", "source: src/a.ts:1\n") });
+    const commits = async () => ((await (await backlog.request("/api/stats/code?project=spa")).json()) as CodeReport).churn[0]?.commits;
+
+    expect(await commits()).toBe(1);
+    await writeFiles(repo, { "src/a.ts": "a\nb\n" });
+    gitCommitAll(repo, "second", "2026-09-12T10:00:00+03:00");
+
+    expect(await commits()).toBe(2);
+  });
+});
+
 describe("GET /api/stats/flow", () => {
   it("отдаёт отчёт потока по всем проектам и по одному", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);

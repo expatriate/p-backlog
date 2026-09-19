@@ -10,7 +10,10 @@ const CHURN_DAYS = 90;
 
 export type CodeSourceOptions = { home: string; git?: GitRunner };
 
-export type CodeSource = { collect: (projects: readonly Project[], requests: readonly FixRequest[], now: Date) => Promise<CollectedCode> };
+export type CodeSource = {
+  collect: (projects: readonly Project[], requests: readonly FixRequest[], now: Date) => Promise<CollectedCode>;
+  stateKey: (projects: readonly Project[]) => Promise<string>;
+};
 
 export function createCodeSource({ home, git = runGit }: CodeSourceOptions): CodeSource {
   const repoCache = new Map<string, { key: string; code: RepoCode }>();
@@ -37,6 +40,11 @@ export function createCodeSource({ home, git = runGit }: CodeSourceOptions): Cod
   };
 
   return {
+    stateKey: async (projects) => {
+      const repos = [...new Set(projects.flatMap((project) => project.repos.map((repo) => expandHome(repo, home))))];
+      const states = await Promise.all(repos.map(async (repo) => `${repo}@${(await readHead(git, repo)) ?? ""}:${(await readMainCommit(git, repo)) ?? ""}`));
+      return states.join(" ");
+    },
     collect: async (projects, requests, now) => {
       const unavailableRepos: string[] = [];
       const available = new Map<string, string[]>();
