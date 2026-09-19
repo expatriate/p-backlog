@@ -96,7 +96,7 @@ export type QualityReport = {
 };
 
 export type EffectTotals = { realLines: number; fixedTasks: number; fixedLines: number; openTasks: number; estimatedLines: number | null; deferredLines: number; noiseShare: number | null };
-export type EffectWeek = { start: string; realLines: number; deferredLines: number; deferredTasks: number };
+export type EffectWeek = { start: string; onTopicLines: number; deferredLines: number; deferredTasks: number };
 export type EffectProject = { projectId: string; name: string; realLines: number; deferredTasks: number; fixedLines: number; estimatedLines: number | null; noiseShare: number | null };
 export type EffectReport = {
   taskCount: number;

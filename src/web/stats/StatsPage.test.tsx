@@ -277,7 +277,7 @@ describe("вкладка «Эффект»", () => {
 
     await app.user.click(await screen.findByRole("link", { name: "Эффект" }));
 
-    const kept = await screen.findByRole("group", { name: "Не попало в пулреквесты" });
+    const kept = await screen.findByRole("group", { name: "Посторонних правок вынесено" });
     expect(app.route()).toBe("/p/spa/stats/effect");
     expect(document.title).toBe("Эффект · Статистика · spa — Беклог");
     expect(within(kept).getByText("0 строк")).toBeDefined();

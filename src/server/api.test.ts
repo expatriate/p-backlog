@@ -228,7 +228,7 @@ describe("GET /api/stats/effect", () => {
   it("отчёт эффекта по проекту с репозиторием, неизвестный проект — 404", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a\nb\n" });
-    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    gitCommitAll(repo, "init", "2026-09-17T20:00:00+03:00");
     const backlog = await makeTestApp({
       "spa/project.md": projectFile("SPA", [repo]),
       "spa/SPA-1.md": taskFile("SPA-1", "source: src/a.ts:1\n"),
