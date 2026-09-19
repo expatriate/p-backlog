@@ -4,10 +4,9 @@ import { formatLocalIso } from "../../core/model/dates";
 import { isClosed } from "../../core/model/graph";
 import type { Task } from "../../core/model/types";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
-import { updateTask } from "../../core/store/update";
 import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
 import { requireTask } from "../lookups";
-import { reportUpdateFailure } from "../update-failure";
+import { writeTask } from "../task-write";
 
 const USAGE = "Использование: backlog verify <ID> [<ID> …] [--source файл:строка — только для одной задачи]";
 
@@ -37,15 +36,9 @@ async function verifyOne(loaded: LoadedBacklog, id: string, source: string | und
     return EXIT.refused;
   }
 
-  const now = io.now();
-  const result = await updateTask(io.backlogRoot, {
-    id,
-    changes: { verified: formatLocalIso(now), source, anchor: (await anchorFor(loaded, task, source ?? task.source, io)) ?? null },
-    expectedVersion: task.version,
-    now,
-    via: "cli",
-  });
-  if (!result.ok) return reportUpdateFailure(io, id, result);
+  const anchor = (await anchorFor(loaded, task, source ?? task.source, io)) ?? null;
+  const written = await writeTask(io, task, { verified: formatLocalIso(io.now()), source, anchor });
+  if (!written.ok) return written.exitCode;
   io.print(source === undefined ? `${id}: подтверждена` : `${id}: подтверждена, source → ${source}`);
   return EXIT.ok;
 }

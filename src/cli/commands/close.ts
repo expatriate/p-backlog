@@ -5,11 +5,10 @@ import type { Task } from "../../core/model/types";
 import { findRepo, hasCommit } from "../../core/check/project-repo";
 import { reasonHashes } from "../../core/stats/code/fixes";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
-import { updateTask } from "../../core/store/update";
 import { formatDay } from "../format";
 import { EXIT, parseChoice, UsageError, withUsageErrors, type CliIo } from "../io";
 import { requireTask } from "../lookups";
-import { reportUpdateFailure } from "../update-failure";
+import { writeTask } from "../task-write";
 
 const CLOSE_RESOLUTIONS = ["fixed", "obsolete", "duplicate"] as const;
 const USAGE = "Использование: backlog close <ID> --as fixed|obsolete|duplicate --reason <улика> [--duplicate-of <ID>]";
@@ -62,16 +61,9 @@ export async function runClose(args: string[], io: CliIo): Promise<number> {
   }
 
   const status = RESOLUTION_STATUS[resolution];
-  const result = await updateTask(io.backlogRoot, {
-    id,
-    changes: { status, related },
-    expectedVersion: task.version,
-    now: io.now(),
-    via: "cli",
-    closure: { resolution, reason },
-  });
-  if (!result.ok) return reportUpdateFailure(io, id, result);
-  const deletesAt = deletionDate(result.task);
+  const written = await writeTask(io, task, { status, related }, { resolution, reason });
+  if (!written.ok) return written.exitCode;
+  const deletesAt = deletionDate(written.task);
   io.print(`${id}: ${task.status} → ${status} (${resolution})${deletesAt === undefined ? "" : `. Удалится ${formatDay(deletesAt)}`}`);
   return EXIT.ok;
 }

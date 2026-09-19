@@ -2,10 +2,9 @@ import { parseArgs } from "node:util";
 import { staleLowTasks, STALE_LOW_DAYS } from "../../core/model/query";
 import { formatDayMonth } from "../../core/stats/format";
 import { loadBacklog } from "../../core/store/load";
-import { updateTask } from "../../core/store/update";
 import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
-import { reportUpdateFailure } from "../update-failure";
+import { writeTask } from "../task-write";
 
 const PRUNE_REASON = `Низкий приоритет, не брали в работу ${STALE_LOW_DAYS}+ дней (backlog prune)`;
 
@@ -38,15 +37,8 @@ export async function runPrune(args: string[], io: CliIo): Promise<number> {
   }
 
   for (const task of stale) {
-    const result = await updateTask(io.backlogRoot, {
-      id: task.id,
-      changes: { status: "cancelled" },
-      expectedVersion: task.version,
-      now: io.now(),
-      via: "cli",
-      closure: { resolution: "obsolete", reason: PRUNE_REASON },
-    });
-    if (!result.ok) return reportUpdateFailure(io, task.id, result);
+    const written = await writeTask(io, task, { status: "cancelled" }, { resolution: "obsolete", reason: PRUNE_REASON });
+    if (!written.ok) return written.exitCode;
     io.print(`${task.id}: отменена`);
   }
   return EXIT.ok;

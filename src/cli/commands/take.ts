@@ -4,11 +4,10 @@ import { buildIndex, epicChildren, isClosed, openBlockers, type BacklogIndex } f
 import { pickNextTask } from "../../core/model/query";
 import type { Task } from "../../core/model/types";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
-import { updateTask } from "../../core/store/update";
 import { formatTaskRef } from "../format";
 import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
 import { requireProject, requireTask } from "../lookups";
-import { reportUpdateFailure } from "../update-failure";
+import { writeTask } from "../task-write";
 import { printTask } from "./show";
 
 type Refusal = { code: number; lines: string[] };
@@ -75,14 +74,8 @@ function isInside(file: string, path: string): boolean {
 
 async function takeOne(task: Task, io: CliIo, json: boolean): Promise<number> {
   if (task.status !== "in-progress") {
-    const result = await updateTask(io.backlogRoot, {
-      id: task.id,
-      changes: { status: "in-progress" },
-      expectedVersion: task.version,
-      now: io.now(),
-      via: "cli",
-    });
-    if (!result.ok) return reportUpdateFailure(io, task.id, result);
+    const written = await writeTask(io, task, { status: "in-progress" });
+    if (!written.ok) return written.exitCode;
   }
   const refreshed = await loadBacklog(io.backlogRoot);
   const taken = refreshed.tasks.find((candidate) => candidate.id === task.id) ?? task;
