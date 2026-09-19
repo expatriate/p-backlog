@@ -9,7 +9,7 @@ type LineContext = { day: string; cwd: string };
 
 const FAST_SPEED = "fast";
 
-const BACKLOG_COMMAND = /(?:^|&&|;|\|)\s*backlog\b/;
+const BACKLOG_COMMAND = /(?:^|&&|\|\||;|\||\n)\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*backlog(?=\s|$)/;
 
 const ZERO_TOKENS: TokenCounts = { input: 0, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 };
 
@@ -124,6 +124,10 @@ function registerToolUseBlock(raw: unknown, state: TranscriptState): void {
     const input = bashInputSchema.safeParse(block.data.input);
     if (input.success && BACKLOG_COMMAND.test(input.data.command)) state.pending[block.data.id] = "cli";
   }
+}
+
+export function flushEstimates(state: TranscriptState): UsageBucket[] {
+  return state.lastModel === null ? [] : drainEstimates(state, state.lastModel);
 }
 
 function drainEstimates(state: TranscriptState, model: string): UsageBucket[] {

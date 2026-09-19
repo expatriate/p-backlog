@@ -110,7 +110,10 @@ function dayRow(day: string, buckets: readonly UsageBucket[], runs: readonly Cli
 function modelsOf(buckets: readonly UsageBucket[]): CostModel[] {
   const byModel = new Map<string, UsageBucket[]>();
   for (const bucket of buckets) byModel.set(bucket.model, [...(byModel.get(bucket.model) ?? []), bucket]);
-  return [...byModel.entries()].map(([model, modelBuckets]) => ({ model, tokens: tokensTotalOf(modelBuckets), cost: costOfBuckets(modelBuckets) })).sort((a, b) => b.tokens - a.tokens);
+  return [...byModel.entries()]
+    .map(([model, modelBuckets]) => ({ model, tokens: tokensTotalOf(modelBuckets), cost: costOfBuckets(modelBuckets) }))
+    .filter((row) => row.tokens > 0)
+    .sort((a, b) => b.tokens - a.tokens);
 }
 
 function commandsOf(runs: readonly CliRun[]): CostCommand[] {

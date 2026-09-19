@@ -1,6 +1,6 @@
 import { open, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { attributeLine, newTranscriptState } from "../stats/cost/attribute";
+import { attributeLine, flushEstimates, newTranscriptState } from "../stats/cost/attribute";
 import type { TokenCounts, TranscriptState, UsageBucket } from "../stats/types";
 import { listDir } from "../store/fs-utils";
 import { USAGE_CACHE_VERSION, type UsageCache, type UsageCacheEntry } from "./usage-cache";
@@ -86,14 +86,12 @@ async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: numb
     if (!COUNTED_LINE_MARKERS.some((marker) => line.includes(marker))) continue;
     const parsed = parseLineOrNull(line);
     if (parsed === null) continue;
-    for (const addition of attributeLine(parsed, start.state)) {
-      const key = bucketKey(addition);
-      const existing = bucketsByKey.get(key);
-      bucketsByKey.set(key, existing === undefined ? addition : combineBuckets(existing, addition));
-    }
+    for (const addition of attributeLine(parsed, start.state)) addBucket(bucketsByKey, addition);
   }
 
-  return { size: file.size, offset: start.offset + lastNewline + 1, state: start.state, buckets: [...bucketsByKey.values()] };
+  const offset = start.offset + lastNewline + 1;
+  if (offset === file.size) for (const addition of flushEstimates(start.state)) addBucket(bucketsByKey, addition);
+  return { size: file.size, offset, state: start.state, buckets: [...bucketsByKey.values()] };
 }
 
 async function readChunk(path: string, position: number, length: number): Promise<Buffer> {
@@ -117,6 +115,12 @@ function parseLineOrNull(line: string): unknown {
 
 function yieldToEventLoop(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
+}
+
+function addBucket(buckets: Map<string, UsageBucket>, addition: UsageBucket): void {
+  const key = bucketKey(addition);
+  const existing = buckets.get(key);
+  buckets.set(key, existing === undefined ? addition : combineBuckets(existing, addition));
 }
 
 function bucketKey(bucket: UsageBucket): string {

@@ -125,4 +125,10 @@ describe("отчёт о стоимости", () => {
   it("scan передаётся в отчёт без изменений", () => {
     expect(costReport({ buckets: [], runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN }).scan).toEqual(SCAN);
   });
+
+  it("модель без токенов (ход хука до первого ответа) в таблицу моделей не попадает", () => {
+    const buckets = [bucket({ model: "unknown", tokens: tokens(), hookTurns: 1 }), bucket({ model: "claude-sonnet-5" })];
+
+    expect(costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN }).models.map((row) => row.model)).toEqual(["claude-sonnet-5"]);
+  });
 });

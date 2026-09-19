@@ -152,6 +152,19 @@ describe("чтение расшифровок по частям", () => {
     expect(totalTokens(pass2.cache.files)).toBe(500);
   });
 
+  it("вывод backlog в конце расшифровки без следующего ответа учитывается по последней модели", async () => {
+    const root = await makeTempDir();
+    const lines = [
+      assistantLine("2026-09-19T09:00:00.000Z", "claude-opus-5", { input: 1, output: 1 }, [bashToolUse("toolu_1", "backlog list")]),
+      toolResultLine("2026-09-19T09:00:01.000Z", "toolu_1", "x".repeat(30)),
+    ];
+    const file = await transcriptFile(join(root, "session.jsonl"), jsonl(lines));
+
+    const { cache } = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET });
+
+    expect(Object.values(cache.files)[0]?.buckets).toContainEqual(expect.objectContaining({ kind: "cli", model: "claude-opus-5", tokens: expect.objectContaining({ cacheWrite5m: 10 }) }));
+  });
+
   it("кэш на диске после записи читается обратно", async () => {
     const root = await makeTempDir();
     const path = join(root, "session.jsonl");

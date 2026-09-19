@@ -157,4 +157,15 @@ describe("отнесение строк расшифровки к накладн
 
     expect(next.map((bucket) => bucket.kind)).toEqual(["hook"]);
   });
+
+  it("команда backlog узнаётся после присваиваний окружения, а пути и похожие слова — нет", () => {
+    const counted = (command: string) => {
+      const state = newTranscriptState();
+      attributeLine(assistantLine("2026-09-19T10:00:00.000Z", "claude-sonnet-5", usage(5, 5), [bashToolUse("toolu_1", command)]), state);
+      return state.pending.toolu_1 === "cli";
+    };
+
+    expect(["BACKLOG_DIR=/tmp/x backlog list", "cd x; FOO=1 BAR=2 backlog show PB-1", "backlog", "git status && backlog check --json"].map(counted)).toEqual([true, true, true, true]);
+    expect(["ls backlog/", "cat ~/backlog/p/PB-1.md", "backlog-web start", "echo backlogs"].map(counted)).toEqual([false, false, false, false]);
+  });
 });
