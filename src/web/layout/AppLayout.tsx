@@ -23,6 +23,9 @@ export function AppLayout() {
 
   return (
     <div className={styles.shell}>
+      <a href="#content" className={cx("visually-hidden", styles.skipLink)}>
+        Перейти к содержимому
+      </a>
       <nav className={styles.sidebar} aria-label="Навигация">
         <div className={styles.brand}>Беклог</div>
         <ul className={styles.projects} aria-label="Разделы">
@@ -36,7 +39,7 @@ export function AppLayout() {
               <span className={styles.projectName}>Статистика</span>
               {signalCount > 0 && (
                 <>
-                  <span className={styles.count}>{signalCount}</span>
+                  <span className={cx(styles.count, styles.signalCount)}>{signalCount}</span>
                   <span className="visually-hidden">, тревог: {signalCount}</span>
                 </>
               )}
@@ -56,7 +59,9 @@ export function AppLayout() {
           {(projects.data ?? []).map((project) => (
             <li key={project.id}>
               <NavLink to={{ pathname: scopePath(project.id), search: onStats ? "" : search }} className={({ isActive }) => navClass(isActive)}>
-                <span className={styles.projectName}>{project.name}</span>
+                <span className={styles.projectName} title={project.name}>
+                  {project.name}
+                </span>
                 <span className={styles.count}>{openCount(project.id)}</span>
               </NavLink>
             </li>

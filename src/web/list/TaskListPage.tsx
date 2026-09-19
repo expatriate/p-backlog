@@ -57,7 +57,7 @@ export function TaskListPage() {
   const parseErrors = (data?.errors ?? []).filter((error) => projectId === undefined || error.projectId === projectId);
 
   return (
-    <main className={styles.page}>
+    <main id="content" tabIndex={-1} className={styles.page}>
       <div className={styles.list}>
         <h1 className={styles.heading}>{viewTitle}</h1>
         <Toolbar params={params} onChange={setParams} tags={collectTags(projectTasks)} epicChoices={epicFilterChoices} autoClosedCount={autoClosedCount} />

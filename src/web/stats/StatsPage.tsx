@@ -29,7 +29,7 @@ export function StatsPage() {
   }, [active, heading]);
 
   return (
-    <main className={styles.page}>
+    <main id="content" tabIndex={-1} className={styles.page}>
       <h1 className={styles.heading}>{heading}</h1>
       {(signals.data?.signals.length ?? 0) > 0 && (
         <div className={styles.signals} role="status" aria-labelledby="stats-signals-heading">

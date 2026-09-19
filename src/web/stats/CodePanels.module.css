@@ -11,20 +11,6 @@
   gap: var(--space-3);
 }
 
-.track {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-.fill {
-  display: block;
-  height: 100%;
-  background: var(--accent-ink);
-  transform-origin: left center;
-}
-
 .subTitle {
   margin: var(--space-3) 0 var(--space-1);
   color: var(--ink-subtle);

@@ -1,3 +1,20 @@
+.skipLink:focus {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: var(--z-dialog);
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  color: var(--ink);
+}
+
 .shell {
   display: grid;
   grid-template-columns: 224px minmax(0, 1fr);
@@ -77,6 +94,11 @@
   color: var(--ink-subtle);
 }
 
+.signalCount {
+  color: var(--warn);
+  font-weight: 600;
+}
+
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
@@ -85,14 +107,16 @@
 
   .sidebar {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
     border-right: none;
     border-bottom: 1px solid var(--line);
-    overflow-x: auto;
   }
 
   .projects {
     flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-2);
   }
 }

@@ -1,12 +1,14 @@
 .panel {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
   padding: var(--space-4);
-  border: 1px solid var(--line);
+  border: none;
   border-radius: var(--radius-control);
   background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line);
 }
 
 .title {

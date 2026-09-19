@@ -10,7 +10,7 @@ export function CodeTab() {
   const { projectId } = useParams();
   const code = useCodeStats(projectId);
   return (
-    <StatsTabState error={code.error} data={code.data} onRetry={() => void code.refetch()}>
+    <StatsTabState error={code.error} data={code.data} isFetching={code.isFetching} onRetry={() => void code.refetch()}>
       {code.data && <Code report={code.data} />}
     </StatsTabState>
   );
@@ -21,7 +21,7 @@ function Code({ report }: { report: CodeReport }) {
     <>
       {report.unavailableRepos.map((repo) => (
         <p key={repo} className={styles.warning} role="status">
-          Нет доступа к репозиторию: {repo}
+          Нет доступа к репозиторию: {repo}. Проверьте путь в repos файла project.md и что это git-репозиторий.
         </p>
       ))}
       <div className={styles.blocks}>

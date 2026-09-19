@@ -28,15 +28,15 @@
 
 .signals ul {
   margin: 0;
-  padding-left: var(--space-4);
+  padding-inline-start: var(--space-4);
 }
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
   padding: var(--space-3) var(--space-5) 0;
   border-bottom: 1px solid var(--line);
-  overflow-x: auto;
 }
 
 .tab {
@@ -71,8 +71,13 @@
   color: var(--ink-muted);
 }
 
+.hintLoading {
+  color: var(--ink-subtle);
+}
+
 .hint p {
   margin: 0 0 var(--space-3);
+  text-wrap: pretty;
 }
 
 .warning {
@@ -83,6 +88,7 @@
   background: var(--warn-soft);
   color: var(--ink);
   font-size: var(--text-sm);
+  text-wrap: pretty;
 }
 
 .totals {
@@ -96,9 +102,10 @@
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-3);
-  border: 1px solid var(--line);
+  border: none;
   border-radius: var(--radius-control);
   background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line);
 }
 
 .figureLabel,
@@ -128,9 +135,11 @@
 }
 
 .note {
+  max-width: 70ch;
   margin: 0;
   color: var(--ink-subtle);
   font-size: var(--text-sm);
+  text-wrap: pretty;
 }
 
 @container (max-width: 900px) {

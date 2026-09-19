@@ -9,7 +9,7 @@ export function QualityTab() {
   const { projectId } = useParams();
   const quality = useQualityStats(projectId);
   return (
-    <StatsTabState error={quality.error} data={quality.data} onRetry={() => void quality.refetch()}>
+    <StatsTabState error={quality.error} data={quality.data} isFetching={quality.isFetching} onRetry={() => void quality.refetch()}>
       {quality.data && <Quality report={quality.data} />}
     </StatsTabState>
   );

@@ -12,7 +12,7 @@ export function FlowTab() {
   const { projectId } = useParams();
   const flow = useFlowStats(projectId);
   return (
-    <StatsTabState error={flow.error} data={flow.data} onRetry={() => void flow.refetch()}>
+    <StatsTabState error={flow.error} data={flow.data} isFetching={flow.isFetching} onRetry={() => void flow.refetch()}>
       {flow.data && <Flow report={flow.data} />}
     </StatsTabState>
   );

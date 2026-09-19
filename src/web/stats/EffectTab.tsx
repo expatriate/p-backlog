@@ -10,7 +10,7 @@ export function EffectTab() {
   const { projectId } = useParams();
   const effect = useEffectStats(projectId);
   return (
-    <StatsTabState error={effect.error} data={effect.data} onRetry={() => void effect.refetch()}>
+    <StatsTabState error={effect.error} data={effect.data} isFetching={effect.isFetching} onRetry={() => void effect.refetch()}>
       {effect.data && <Effect report={effect.data} />}
     </StatsTabState>
   );
@@ -21,7 +21,7 @@ function Effect({ report }: { report: EffectReport }) {
     <>
       {report.unavailableRepos.map((repo) => (
         <p key={repo} className={styles.warning} role="status">
-          Нет доступа к репозиторию: {repo}
+          Нет доступа к репозиторию: {repo}. Проверьте путь в repos файла project.md и что это git-репозиторий.
         </p>
       ))}
       <EffectFigures totals={report.totals} />
@@ -34,8 +34,8 @@ function Effect({ report }: { report: EffectReport }) {
         </div>
       </div>
       <p className={styles.note}>
-        Оценка: каждая задача беклога — правка, которая без него попала бы в пулреквест. Размер исправленных — по коммиту исправления, ожидающих — по медиане исправлений. Размер исправленных — весь
-        коммит исправления; общий коммит делится между задачами.
+        Оценка: каждая задача беклога — правка, которая без него попала бы в пулреквест. Размер исправленных — весь коммит исправления (если он закрывает несколько задач, строки делятся между ними);
+        размер ожидающих — по медиане исправлений.
       </p>
     </>
   );

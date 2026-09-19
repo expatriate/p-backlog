@@ -28,19 +28,20 @@
 
 .rowLabel {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .rowLabel a {
   color: var(--ink);
   font-family: var(--font-mono);
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-color: var(--ink-subtle);
+  text-underline-offset: 2px;
 }
 
 .rowLabel a:hover {
-  text-decoration: underline;
+  text-decoration-color: var(--ink);
 }
 
 .rowValue {
@@ -72,4 +73,18 @@
 
 .wide {
   grid-column: 1 / -1;
+}
+
+.track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  background: var(--accent-ink);
+  transform-origin: left center;
 }

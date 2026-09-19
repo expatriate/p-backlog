@@ -20,6 +20,7 @@ body {
   font-size: var(--text-base);
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,

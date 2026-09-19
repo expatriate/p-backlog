@@ -1,5 +1,5 @@
 import { useParams } from "react-router";
-import { formatDays, formatSigned } from "../../core/stats/format";
+import { formatDays, formatP90, formatSigned, NBSP } from "../../core/stats/format";
 import type { StatsReport, StatsTotals } from "../../core/stats/types";
 import { useStats } from "../app/queries";
 import { AgePanel } from "./AgePanel";
@@ -15,7 +15,7 @@ export function OverviewTab() {
   const { projectId } = useParams();
   const stats = useStats(projectId);
   return (
-    <StatsTabState error={stats.error} data={stats.data} onRetry={() => void stats.refetch()}>
+    <StatsTabState error={stats.error} data={stats.data} isFetching={stats.isFetching} onRetry={() => void stats.refetch()}>
       {stats.data && <Overview report={stats.data} listPath={projectId === undefined ? "/" : `/p/${projectId}`} />}
     </StatsTabState>
   );
@@ -43,11 +43,11 @@ function Totals({ totals }: { totals: StatsTotals }) {
     <div className={styles.totals}>
       <Figure label="Открыто" value={String(totals.open)} note={`вес ${totals.openWeight}`} />
       <Figure label="За неделю" value={formatSigned(net)} tone={netTone(net)} note={`создано ${totals.createdLastWeek}, закрыто ${totals.closedLastWeek}`} />
-      <Figure label="Возраст, медиана" value={formatDays(totals.ageMedianDays)} note={`старше 30 дн.: ${totals.olderThan30Days}`} />
+      <Figure label="Возраст, медиана" value={formatDays(totals.ageMedianDays)} note={`старше 30${NBSP}дн.: ${totals.olderThan30Days}`} />
       <Figure
         label="До закрытия, медиана"
         value={formatDays(totals.leadTimeMedianDays)}
-        note={totals.leadTimeP90Days === null ? "закрытий нет" : `90% — за ${formatDays(totals.leadTimeP90Days)}`}
+        note={totals.leadTimeP90Days === null ? "закрытий нет" : `90% — ${formatP90(totals.leadTimeP90Days)}`}
       />
     </div>
   );
