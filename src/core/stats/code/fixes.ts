@@ -30,7 +30,7 @@ export function fixBreakdown(histories: readonly TaskHistory[], from: number, to
     const commit = reasonHashes(history.reason)
       .map((hash) => commits.get(fixKey(history.projectId, hash)))
       .find((candidate) => candidate !== undefined);
-    return commit === undefined ? undefined : { byAgent: commit.byAgent, days: (Date.parse(commit.date) - history.createdAt) / DAY_MS };
+    return commit === undefined ? undefined : { byAgent: commit.byAgent, days: Math.max(0, (Date.parse(commit.date) - history.createdAt) / DAY_MS) };
   });
   const agentDays = resolved.flatMap((fix) => (fix?.byAgent === true ? [fix.days] : []));
   const humanDays = resolved.flatMap((fix) => (fix?.byAgent === false ? [fix.days] : []));
