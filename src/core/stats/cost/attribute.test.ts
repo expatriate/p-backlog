@@ -146,4 +146,15 @@ describe("отнесение строк расшифровки к накладн
 
     expect(bucket?.model).toBe(fastModel("claude-opus-5"));
   });
+
+  it("вывод backlog внутри хода хука не оценивается отдельно: он уже во входе ответов хода", () => {
+    const state = newTranscriptState();
+    attributeLine(hookFeedbackLine("2026-09-19T09:00:00.000Z"), state);
+    attributeLine(assistantLine("2026-09-19T09:00:01.000Z", "claude-opus-5", usage(10, 5), [bashToolUse("toolu_3", "backlog check --json")]), state);
+    attributeLine(toolResultLine("2026-09-19T09:00:02.000Z", "toolu_3", "a".repeat(300)), state);
+
+    const next = attributeLine(assistantLine("2026-09-19T09:00:03.000Z", "claude-opus-5", usage(1, 1)), state);
+
+    expect(next.map((bucket) => bucket.kind)).toEqual(["hook"]);
+  });
 });

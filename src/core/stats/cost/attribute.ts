@@ -96,7 +96,7 @@ function attributeUser(rawMessage: unknown, isMeta: boolean, state: TranscriptSt
       state.hookOpen = true;
       return [{ ...context, model: state.lastModel ?? "unknown", kind: "hook", tokens: ZERO_TOKENS, hookTurns: 1 }];
     }
-    if (text.startsWith("Base directory for this skill:") && text.includes("/skills/backlog")) {
+    if (!state.hookOpen && text.startsWith("Base directory for this skill:") && text.includes("/skills/backlog")) {
       state.pendingEstimates.push({ kind: "skill", chars: text.length, ...context });
     }
     return [];
@@ -112,7 +112,7 @@ function resolveToolResults(blocks: unknown[], state: TranscriptState, context: 
     if (!block.success || !block.data.tool_use_id) continue;
     const kind = state.pending[block.data.tool_use_id];
     if (!kind) continue;
-    state.pendingEstimates.push({ kind, chars: textOf(block.data.content).length, ...context });
+    if (!state.hookOpen) state.pendingEstimates.push({ kind, chars: textOf(block.data.content).length, ...context });
     Reflect.deleteProperty(state.pending, block.data.tool_use_id);
   }
 }
