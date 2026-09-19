@@ -13,13 +13,14 @@ export function flowReport(input: StatsInput): FlowReport {
   const scope = statsScope(input);
   const histories = scope.histories.filter((history) => history.type === "task");
   const tasks = scope.tasks.filter((task) => task.type === "task");
+  const flowState = flowNow(tasks, histories, now);
   return {
     taskCount: histories.length,
     journalSince: scope.journalSince,
     invalidJournalLines: scope.invalidJournalLines,
-    now: flowNow(tasks, histories, now),
+    now: flowState,
     cycle: flowCycle(histories, periodStart(now), now.getTime()),
-    wip: flowWip(histories, now, scope.journalStart),
+    wip: { weeks: flowWip(histories, now, scope.journalStart), current: flowState.inProgress },
     forecast: flowForecast(histories, tasks.filter((task) => !isClosed(task.status)).length, now),
     epics: flowEpics(scope.tasks, scope.histories, now),
   };

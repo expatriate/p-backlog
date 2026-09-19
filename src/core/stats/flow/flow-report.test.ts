@@ -33,4 +33,14 @@ describe("отчёт потока", () => {
     expect(report.forecast.open).toBe(2);
     expect(report.epics.map((epic) => epic.id)).toEqual(["SPA-3"]);
   });
+
+  it("«в работе сейчас» — одно число, даже если файл разошёлся с журналом", () => {
+    const tasks = [makeTask({ id: "SPA-1", created: iso(1), status: "in-progress" })];
+    const journals = [{ projectId: "spa", events: [status("SPA-1", 15, "backlog", "in-progress"), status("SPA-1", 16, "in-progress", "backlog")], invalidLines: 0 }];
+
+    const report = flowReport({ tasks, journals, now: NOW, projectId: "spa" });
+
+    expect(report.now.inProgress).toBe(1);
+    expect(report.wip.current).toBe(report.now.inProgress);
+  });
 });

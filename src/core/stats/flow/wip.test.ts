@@ -24,20 +24,30 @@ describe("в работе одновременно", () => {
     ];
     const histories = taskHistories(tasks, [{ projectId: "spa", events, invalidLines: 0 }]);
 
-    const wip = flowWip(histories, NOW, at(15).getTime());
+    const weeks = flowWip(histories, NOW, at(15).getTime());
 
-    expect(wip.weeks).toHaveLength(12);
-    expect(wip.weeks.slice(0, 11).every((week) => week.max === null)).toBe(true);
-    expect(wip.weeks[11]?.max).toBe(2);
-    expect(wip.current).toBe(1);
+    expect(weeks).toHaveLength(12);
+    expect(weeks.slice(0, 11).every((week) => week.max === null)).toBe(true);
+    expect(weeks[11]?.max).toBe(2);
   });
 
-  it("без журнала все недели пустые, сейчас — по статусам файлов", () => {
+  it("без журнала все недели пустые", () => {
     const tasks = [makeTask({ id: "SPA-1", created: iso(1), status: "in-progress" })];
 
-    const wip = flowWip(taskHistories(tasks, []), NOW, null);
+    const weeks = flowWip(taskHistories(tasks, []), NOW, null);
 
-    expect(wip.weeks.every((week) => week.max === null)).toBe(true);
-    expect(wip.current).toBe(1);
+    expect(weeks.every((week) => week.max === null)).toBe(true);
+  });
+
+  it("журнал начинается в середине недели — задача уже в работе на этот момент", () => {
+    const tasks = [makeTask({ id: "SPA-1", created: iso(-60), status: "blocked" })];
+    const events = [status("SPA-1", -25, "in-progress", "blocked")];
+    const histories = taskHistories(tasks, [{ projectId: "spa", events, invalidLines: 0 }]);
+    const journalStart = at(-26, 9).getTime();
+
+    const weeks = flowWip(histories, NOW, journalStart);
+
+    expect(weeks[4]?.max).toBe(null);
+    expect(weeks[5]?.max).toBe(1);
   });
 });
