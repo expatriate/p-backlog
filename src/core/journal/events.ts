@@ -46,6 +46,7 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
   z.object({ ...eventBase, kind: z.literal("category"), from: z.enum(TASK_CATEGORIES).optional(), to: z.enum(TASK_CATEGORIES).optional() }),
   z.object({ ...eventBase, kind: z.literal("verified"), source: z.string().optional() }),
   z.object({ ...eventBase, kind: z.literal("candidate"), evidence: z.enum(CANDIDATE_EVIDENCE), mode: z.enum(CHECK_MODES) }),
+  z.object({ ...eventBase, kind: z.literal("candidate-gone"), evidence: z.enum(CANDIDATE_EVIDENCE) }),
 ]);
 
 export type JournalEvent = z.output<typeof journalEventSchema>;
@@ -103,6 +104,17 @@ export function candidateEvents(sightings: readonly CandidateSighting[], journal
     .map((sighting) => ({ at, task: sighting.task, via: "check", kind: "candidate", evidence: sighting.evidence, mode }));
 }
 
+export function candidateGoneEvents(sightings: readonly CandidateSighting[], tasks: readonly string[], journal: readonly JournalEvent[], now: Date): JournalEvent[] {
+  const at = formatLocalIso(now);
+  const seen = new Set(sightings.map((sighting) => `${sighting.task}:${sighting.evidence}`));
+  return tasks.flatMap((task) =>
+    CANDIDATE_EVIDENCE.flatMap((evidence): JournalEvent[] => {
+      if (seen.has(`${task}:${evidence}`) || isNewCandidate({ task, evidence }, journal)) return [];
+      return [{ at, task, via: "check", kind: "candidate-gone", evidence }];
+    }),
+  );
+}
+
 function dedupeSightings(sightings: readonly CandidateSighting[]): CandidateSighting[] {
   const byKey = new Map(sightings.map((sighting) => [`${sighting.task}:${sighting.evidence}`, sighting]));
   return [...byKey.values()];
@@ -116,6 +128,8 @@ function isNewCandidate({ task, evidence }: CandidateSighting, journal: readonly
 function endsOrRepeatsEpisode(event: JournalEvent, evidence: CandidateEvidence): boolean {
   switch (event.kind) {
     case "candidate":
+      return event.evidence === evidence;
+    case "candidate-gone":
       return event.evidence === evidence;
     case "verified":
     case "deleted":

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
-import { candidateEvents, changeEvents, createdEvent, deletedEvent, journalEventSchema } from "./events";
+import { candidateEvents, candidateGoneEvents, changeEvents, createdEvent, deletedEvent, journalEventSchema } from "./events";
 
 const NOW = new Date(2026, 8, 18, 12, 0, 0);
 const AT = "2026-09-18T12:00:00";
@@ -128,5 +128,17 @@ describe("новые поля и события", () => {
     ]) {
       expect(journalEventSchema.safeParse(event).success).toBe(true);
     }
+  });
+
+  it("улика пропала в полном прогоне — эпизод закрыт, её возвращение даёт новый эпизод", () => {
+    const first = candidateEvents([{ task: "SPA-1", evidence: "source-changed" }], [], NOW, "full");
+    const repeat = candidateEvents([{ task: "SPA-1", evidence: "source-changed" }], first, NOW, "full");
+    expect(repeat).toEqual([]);
+
+    const gone = candidateGoneEvents([], ["SPA-1"], first, NOW);
+    expect(gone).toMatchObject([{ task: "SPA-1", kind: "candidate-gone", evidence: "source-changed" }]);
+    expect(candidateGoneEvents([], ["SPA-1"], [...first, ...gone], NOW)).toEqual([]);
+
+    expect(candidateEvents([{ task: "SPA-1", evidence: "source-changed" }], [...first, ...gone], NOW, "full")).toMatchObject([{ kind: "candidate" }]);
   });
 });

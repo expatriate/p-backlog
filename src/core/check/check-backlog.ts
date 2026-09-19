@@ -1,5 +1,5 @@
 import { basename, join } from "node:path";
-import { candidateEvents, type CheckMode } from "../journal/events";
+import { candidateEvents, candidateGoneEvents, type CheckMode } from "../journal/events";
 import { buildIndex } from "../model/graph";
 import { ID_PATTERN, parseId } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
@@ -44,20 +44,18 @@ export async function checkBacklog(root: string, request: CheckRequest): Promise
   return { fixed: [...fixes.fixed, ...moved], problems, candidates };
 }
 
-async function recordCandidates(root: string, tasks: readonly Task[], candidates: readonly Candidate[], { mode, now }: CheckRequest): Promise<void> {
+async function recordCandidates(root: string, tasks: readonly Task[], candidates: readonly Candidate[], { mode, now, projectIds }: CheckRequest): Promise<void> {
   const projectOf = new Map(tasks.map((task) => [task.id, task.projectId]));
-  const byProject = new Map<string, Candidate[]>();
-  for (const candidate of candidates) {
-    const projectId = projectOf.get(candidate.task.id);
-    if (projectId === undefined) continue;
-    byProject.set(projectId, [...(byProject.get(projectId) ?? []), candidate]);
-  }
-  for (const [projectId, found] of byProject) {
+  for (const projectId of projectIds) {
     const dir = join(root, projectId);
+    const found = candidates.filter((candidate) => projectOf.get(candidate.task.id) === projectId);
+    const reviewed = tasks.filter((task) => task.projectId === projectId && isReviewable(task)).map((task) => task.id);
+    if (found.length === 0 && (mode !== "full" || reviewed.length === 0)) continue;
     try {
       const journal = await readJournal(dir, projectId);
       const sightings = found.map((candidate) => ({ task: candidate.task.id, evidence: candidate.kind }));
-      await appendJournal(dir, candidateEvents(sightings, journal.events, now, mode));
+      const gone = mode === "full" ? candidateGoneEvents(sightings, reviewed, journal.events, now) : [];
+      await appendJournal(dir, [...candidateEvents(sightings, journal.events, now, mode), ...gone]);
     } catch (error) {
       console.error(`Не удалось записать кандидатов в журнал ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
     }
