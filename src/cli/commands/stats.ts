@@ -1,5 +1,6 @@
 import { parseArgs } from "node:util";
-import { flowReport } from "../../core/stats/flow/flow-report";
+import { flowForecast } from "../../core/stats/flow/forecast";
+import { reportBase } from "../../core/stats/scope";
 import { statsReport } from "../../core/stats/report";
 import { statsSignals } from "../../core/stats/signals/signals";
 import { readJournals } from "../../core/store/journal";
@@ -26,8 +27,9 @@ export async function runStats(args: string[], io: CliIo): Promise<number> {
 
   const journals = await readJournals(io.backlogRoot, loaded.projects.map((candidate) => candidate.id));
   const input = { tasks: loaded.tasks, journals, now: io.now(), projectId: project?.id };
-  const totals = statsReport(input).totals;
-  const forecast = flowReport(input).forecast;
+  const base = reportBase(input);
+  const totals = statsReport(input, base).totals;
+  const forecast = flowForecast(base.histories, base.openTasks.length, io.now());
   const signals = statsSignals(input);
 
   if (values.json) {

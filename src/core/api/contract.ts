@@ -29,6 +29,6 @@ export type TaskChangesRequest = z.infer<typeof taskChangesSchema>;
 export type TasksResponse = { tasks: Task[]; errors: ParseError[] };
 export type ErrorResponse = { errors: string[] };
 export type ConflictResponse = ErrorResponse & { current: Task };
-export type { CodeReport, CostReport, EffectReport, FlowReport, MemorySample, QualityReport, SignalsReport, StatsReport } from "../stats/types";
+export type { CodeReport, CostReport, EffectReport, MemorySample, QualityReport, SignalsReport, StatsReport } from "../stats/types";
 
 export type MemorySamplesResponse = { samples: MemorySample[] };

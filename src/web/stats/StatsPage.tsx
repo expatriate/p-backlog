@@ -6,7 +6,6 @@ import styles from "./StatsPage.module.css";
 
 const STATS_TABS = [
   { label: "Обзор", segment: "" },
-  { label: "Поток", segment: "flow" },
   { label: "Код", segment: "code" },
   { label: "Качество", segment: "quality" },
   { label: "Эффект", segment: "effect" },

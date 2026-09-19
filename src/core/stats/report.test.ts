@@ -91,4 +91,31 @@ describe("отчёт статистики", () => {
     expect(report.totals).toMatchObject({ open: 0, ageMedianDays: null, leadTimeMedianDays: null });
     expect(report.journalSince).toBeNull();
   });
+
+  it("прошлая неделя: открытые, перевес, медианы возраста и времени до закрытия; без журнала за тот период — null", () => {
+    const week = 7 * 24 * 60 * 60 * 1000;
+    const weekAgo = new Date(NOW.getTime() - week);
+    const older = [
+      makeTask({ id: "SPA-10", created: formatLocalIso(at(2)) }),
+      makeTask({ id: "SPA-11", created: formatLocalIso(at(4)), status: "done", closed: formatLocalIso(at(8)) }),
+      makeTask({ id: "SPA-12", created: formatLocalIso(at(16)) }),
+    ];
+    const events: JournalEvent[] = [
+      { at: formatLocalIso(at(2)), task: "SPA-10", via: "cli", kind: "created", type: "task", priority: "medium", tags: [] },
+      { at: formatLocalIso(at(4)), task: "SPA-11", via: "cli", kind: "created", type: "task", priority: "medium", tags: [] },
+      { at: formatLocalIso(at(8)), task: "SPA-11", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" },
+      { at: formatLocalIso(at(16)), task: "SPA-12", via: "cli", kind: "created", type: "task", priority: "medium", tags: [] },
+    ];
+    const journalsWithHistory = [{ projectId: "spa", events, invalidLines: 0 }];
+
+    const previous = statsReport({ tasks: older, journals: journalsWithHistory, now: NOW, projectId: "spa" }).totals.previous;
+
+    expect(previous).toEqual({
+      open: 1,
+      net: -1,
+      ageMedianDays: (weekAgo.getTime() - at(2).getTime()) / (24 * 60 * 60 * 1000),
+      leadTimeMedianDays: 4,
+    });
+    expect(statsReport({ tasks: older, journals: [{ projectId: "spa", events: events.slice(3), invalidLines: 0 }], now: NOW, projectId: "spa" }).totals.previous).toBeNull();
+  });
 });

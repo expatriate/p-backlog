@@ -29,6 +29,21 @@ describe("страница статистики", () => {
     expect(screen.getByText(/Журнал ещё пуст/)).toBeDefined();
   });
 
+  it("сравнение с прошлой неделей: стрелка, величина и пояснение для экранного диктора", async () => {
+    const created = (at: string, task: string) => JSON.stringify({ at, task, via: "cli", kind: "created", type: "task", priority: "medium", tags: [] });
+    await renderApp(
+      {
+        ...FILES,
+        "spa/journal.jsonl": [created("2026-09-05T10:00:00+03:00", "SPA-1"), created("2026-09-16T10:00:00+03:00", "SPA-2"), created("2026-09-15T10:00:00+03:00", "SPA-3")].join("\n"),
+      },
+      "/p/spa/stats",
+    );
+
+    const open = await screen.findByRole("group", { name: "Открыто" });
+    expect(within(open).getByText("↑ 1 за неделю")).toBeDefined();
+    expect(within(open).getByText("на 1 больше, чем неделю назад — хуже")).toBeDefined();
+  });
+
   it("ссылка «Статистика» в боковой панели сохраняет проект, переключение проекта остаётся на статистике", async () => {
     const app = await renderApp(FILES, "/p/spa");
     await screen.findAllByRole("row");
@@ -93,105 +108,24 @@ describe("страница статистики", () => {
 });
 
 describe("вкладки статистики", () => {
-  it("«Обзор» активен по умолчанию, «Поток» меняет адрес и заголовок вкладки", async () => {
+  it("«Обзор» активен по умолчанию, «Качество» меняет адрес и заголовок вкладки", async () => {
     const app = await renderApp(FILES, "/stats");
     const tabs = await screen.findByRole("navigation", { name: "Разделы статистики" });
     expect(within(tabs).getByRole("link", { name: "Обзор" }).getAttribute("aria-current")).toBe("page");
 
-    await app.user.click(within(tabs).getByRole("link", { name: "Поток" }));
+    await app.user.click(within(tabs).getByRole("link", { name: "Качество" }));
 
-    expect(await screen.findByRole("region", { name: "Прогноз" })).toBeDefined();
-    expect(app.route()).toBe("/stats/flow");
-    expect(document.title).toBe("Поток · Статистика · Все проекты — Беклог");
-    expect(within(tabs).getByRole("link", { name: "Поток" }).getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("link", { name: /^Статистика/ }).getAttribute("aria-current")).toBe("page");
+    expect(app.route()).toBe("/stats/quality");
+    expect(document.title).toBe("Качество · Статистика · Все проекты — Беклог");
+    expect(within(tabs).getByRole("link", { name: "Качество" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.queryByRole("link", { name: "Поток" })).toBeNull();
   });
 
-  it("адрес со слэшем в конце — «Поток» активен и заголовок вкладки", async () => {
-    await renderApp(FILES, "/stats/flow/");
-    const tabs = await screen.findByRole("navigation", { name: "Разделы статистики" });
-
-    expect(within(tabs).getByRole("link", { name: "Поток" }).getAttribute("aria-current")).toBe("page");
-    expect(document.title).toBe("Поток · Статистика · Все проекты — Беклог");
-  });
-
-  it("смена проекта на «Потоке» остаётся на «Потоке»", async () => {
-    const app = await renderApp(FILES, "/p/spa/stats/flow");
-    await screen.findByRole("region", { name: "Прогноз" });
-
-    await app.user.click(screen.getByRole("link", { name: /^ti/ }));
-
-    expect(await screen.findByRole("heading", { level: 1, name: "Статистика · ti" })).toBeDefined();
-    expect(app.route()).toBe("/p/torg-io/stats/flow");
-  });
-
-  it("прогноз и задачи в работе", async () => {
-    await renderApp(
-      {
-        ...FILES,
-        "spa/SPA-2.md": taskFixture("SPA-2", { title: "Логин", status: "in-progress", created: "2026-09-16T10:00:00+03:00" }),
-        "spa/journal.jsonl": `${JSON.stringify({ at: "2026-09-16T12:00:00+03:00", task: "SPA-2", via: "cli", kind: "status", from: "backlog", to: "in-progress" })}\n`,
-      },
-      "/stats/flow",
-    );
-
-    const forecast = await screen.findByRole("region", { name: "Прогноз" });
-    expect(within(forecast).getByText("Долг растёт на 0,8 задач в неделю")).toBeDefined();
-    expect(within(forecast).getByText("за 4 недели: закрыто 1, создано 4")).toBeDefined();
-    const now = screen.getByRole("region", { name: "В работе сейчас" });
-    expect(within(now).getByText("в работе: 1 · заблокировано: 0")).toBeDefined();
-    expect(within(now).getByRole("link", { name: "SPA-2" })).toBeDefined();
-    expect(within(now).getByText("в работе · 2 дн.")).toBeDefined();
-  });
-
-  it("неизвестный проект на «Потоке» — «Проект не найден.»", async () => {
-    await renderApp(FILES, "/p/nope/stats/flow");
-
-    expect(await screen.findByText("Проект не найден.")).toBeDefined();
-  });
-
-  it("время в работе, одновременность и эпики", async () => {
-    const event = (at: string, task: string, from: string, to: string) => JSON.stringify({ at, task, via: "cli", kind: "status", from, to });
-    await renderApp(
-      {
-        ...FILES,
-        "spa/SPA-2.md": taskFixture("SPA-2", { title: "Логин", status: "in-progress", epic: "SPA-4", created: "2026-09-16T10:00:00+03:00" }),
-        "spa/SPA-4.md": taskFixture("SPA-4", { title: "Вход", type: "epic", created: "2026-09-10T10:00:00+03:00" }),
-        "spa/journal.jsonl": [
-          event("2026-09-15T12:00:00+03:00", "SPA-3", "backlog", "in-progress"),
-          event("2026-09-16T12:00:00+03:00", "SPA-2", "backlog", "in-progress"),
-          event("2026-09-17T12:00:00+03:00", "SPA-3", "in-progress", "done"),
-        ].join("\n"),
-      },
-      "/p/spa/stats/flow",
-    );
-
-    const cycle = await screen.findByRole("region", { name: "Время в работе" });
-    expect(within(cycle).getByText("медиана 2 дн. · 90% — за 2 дн.")).toBeDefined();
-    expect(within(cycle).getByText("в блокировке — 0% этого времени · закрытий с работой: 1")).toBeDefined();
-    expect(screen.getByRole("figure", { name: `12${NBSP}недель: сейчас в работе 1, максимум 2` })).toBeDefined();
-    const epics = screen.getByRole("region", { name: "Эпики" });
-    expect(within(epics).getByRole("link", { name: "SPA-4" })).toBeDefined();
-    expect(within(epics).getByText("0/1 · темпа нет")).toBeDefined();
-  });
-
-  it("эпик без задач — без некорректной шкалы прогресса", async () => {
-    await renderApp(
-      { ...FILES, "spa/SPA-4.md": taskFixture("SPA-4", { title: "Вход", type: "epic", created: "2026-09-10T10:00:00+03:00" }) },
-      "/p/spa/stats/flow",
-    );
-
-    const epics = await screen.findByRole("region", { name: "Эпики" });
-    expect(within(epics).getByText("0/0 · темпа нет")).toBeDefined();
-    expect(within(epics).queryByRole("progressbar", { name: /SPA-4/ })).toBeNull();
-  });
-
-  it("без взятий в работу — подсказка вместо времени", async () => {
+  it("старый адрес «Потока» открывает «Обзор»", async () => {
     await renderApp(FILES, "/stats/flow");
 
-    const cycle = await screen.findByRole("region", { name: "Время в работе" });
-    expect(within(cycle).getByText("Появится, когда задачи начнут брать в работу")).toBeDefined();
-    expect(screen.getByText("Открытых эпиков нет")).toBeDefined();
+    expect(await screen.findByRole("group", { name: "Открыто" })).toBeDefined();
+    expect(document.title).toBe("Статистика · Все проекты — Беклог");
   });
 });
 
@@ -352,7 +286,7 @@ describe("вкладка «Стоимость»", () => {
 
 describe("тревоги", () => {
   it("блок над вкладками и число у раздела «Статистика»", async () => {
-    await renderApp(FILES, "/stats/flow");
+    await renderApp(FILES, "/stats");
 
     const block = await screen.findByRole("status", { name: "Тревоги" });
     expect(within(block).getByText("Тревоги")).toBeDefined();

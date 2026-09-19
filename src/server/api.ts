@@ -10,12 +10,11 @@ import { formatLocalIso } from "../core/model/dates";
 import { costReport } from "../core/stats/cost/cost-report";
 import { codeFixRequests, codeReport } from "../core/stats/code/code-report";
 import { effectReport } from "../core/stats/effect/effect-report";
-import { flowReport } from "../core/stats/flow/flow-report";
 import { qualityReport } from "../core/stats/quality/quality-report";
 import { statsReport } from "../core/stats/report";
 import { reportBase, type StatsInput } from "../core/stats/scope";
 import { statsSignals } from "../core/stats/signals/signals";
-import type { CodeReport, CostReport, EffectReport, FlowReport, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
+import type { CodeReport, CostReport, EffectReport, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { readJournals } from "../core/store/journal";
 import { readRuns } from "../core/store/runs";
@@ -68,7 +67,7 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
   };
 
   const scopedStats =
-    <R extends StatsReport | FlowReport | CodeReport | QualityReport | SignalsReport | EffectReport>(
+    <R extends StatsReport | CodeReport | QualityReport | SignalsReport | EffectReport>(
       name: string,
       report: (input: StatsInput, projects: readonly Project[]) => R | Promise<R>,
       sourceKey?: (projects: readonly Project[]) => Promise<string>,
@@ -118,7 +117,6 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
 
   const codeState = (projects: readonly Project[]) => codeSource.stateKey(projects);
   api.get("/stats", scopedStats("stats", (input) => statsReport(input)));
-  api.get("/stats/flow", scopedStats("flow", (input) => flowReport(input)));
   api.get("/stats/code", scopedStats("code", statsOfCode, codeState));
   api.get("/stats/effect", scopedStats("effect", statsOfEffect, codeState));
   api.get("/stats/quality", scopedStats("quality", (input) => qualityReport(input)));

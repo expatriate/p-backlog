@@ -114,6 +114,11 @@
   font-size: var(--text-sm);
 }
 
+.figureTrend {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
 .figureValue {
   font-size: var(--text-xl);
   font-weight: 600;

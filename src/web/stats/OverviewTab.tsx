@@ -5,6 +5,7 @@ import { useStats } from "../app/queries";
 import { AgePanel } from "./AgePanel";
 import { ClosingPanel } from "./ClosingPanel";
 import { Figure } from "./Figure";
+import { trendOf } from "./trend";
 import { HotspotsPanel } from "./HotspotsPanel";
 import { Panel } from "./Panel";
 import { StatsTabState } from "./StatsTabState";
@@ -39,15 +40,28 @@ function Overview({ report, listPath }: { report: StatsReport; listPath: string 
 
 function Totals({ totals }: { totals: StatsTotals }) {
   const net = totals.createdLastWeek - totals.closedLastWeek;
+  const previous = totals.previous;
   return (
     <div className={styles.totals}>
-      <Figure label="Открыто" value={String(totals.open)} note={`вес ${totals.openWeight}`} />
-      <Figure label="За неделю" value={formatSigned(net)} tone={netTone(net)} note={`создано ${totals.createdLastWeek}, закрыто ${totals.closedLastWeek}`} />
-      <Figure label="Возраст, медиана" value={formatDays(totals.ageMedianDays)} note={`старше 30${NBSP}дн.: ${totals.olderThan30Days}`} />
+      <Figure label="Открыто" value={String(totals.open)} note={`вес ${totals.openWeight}`} trend={trendOf(totals.open, previous?.open ?? null, String)} />
+      <Figure
+        label="За неделю"
+        value={formatSigned(net)}
+        tone={netTone(net)}
+        note={`создано ${totals.createdLastWeek}, закрыто ${totals.closedLastWeek}`}
+        trend={trendOf(net, previous?.net ?? null, String)}
+      />
+      <Figure
+        label="Возраст, медиана"
+        value={formatDays(totals.ageMedianDays)}
+        note={`старше 30${NBSP}дн.: ${totals.olderThan30Days}`}
+        trend={trendOf(totals.ageMedianDays, previous?.ageMedianDays ?? null, formatDays)}
+      />
       <Figure
         label="До закрытия, медиана"
         value={formatDays(totals.leadTimeMedianDays)}
         note={totals.leadTimeP90Days === null ? "закрытий нет" : `90% — ${formatP90(totals.leadTimeP90Days)}`}
+        trend={trendOf(totals.leadTimeMedianDays, previous?.leadTimeMedianDays ?? null, formatDays)}
       />
     </div>
   );

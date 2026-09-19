@@ -1,10 +1,10 @@
 import { DAY_MS } from "../model/lifecycle";
 import type { Priority, Task } from "../model/types";
 import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
-import { closingsOf, type TaskHistory } from "./history";
+import { closingsOf, isOpenAt, type TaskHistory } from "./history";
 import { daysBetween, median, nearestRank, TAIL_FRACTION } from "./numbers";
 import { reportBase, type ReportBase, type StatsInput } from "./scope";
-import type { StatsReport, StatsTotals } from "./types";
+import type { PreviousTotals, StatsReport, StatsTotals } from "./types";
 import { periodStart, weeklyFlow } from "./weeks";
 
 export const PRIORITY_WEIGHT: Record<Priority, number> = { critical: 8, high: 4, medium: 2, low: 1 };
@@ -19,7 +19,7 @@ export function statsReport(input: StatsInput, base: ReportBase = reportBase(inp
 
   return {
     ...base.head,
-    totals: totals(openTasks, histories, now, start),
+    totals: totals(openTasks, histories, now, start, base.scope.journalStart),
     weeks: weeklyFlow(histories, now),
     hotspots: hotspots(openTasks, projectId === undefined),
     age: ageBreakdown(openTasks, now),
@@ -27,7 +27,7 @@ export function statsReport(input: StatsInput, base: ReportBase = reportBase(inp
   };
 }
 
-function totals(openTasks: readonly Task[], histories: readonly TaskHistory[], now: Date, periodStart: number): StatsTotals {
+function totals(openTasks: readonly Task[], histories: readonly TaskHistory[], now: Date, periodStart: number, journalStart: number | null): StatsTotals {
   const nowMs = now.getTime();
   const inLastWeek = (moment: number) => moment > nowMs - LAST_WEEK_MS && moment <= nowMs;
   const ages = openTasks.map((task) => daysBetween(Date.parse(task.created), nowMs));
@@ -45,5 +45,21 @@ function totals(openTasks: readonly Task[], histories: readonly TaskHistory[], n
     olderThan30Days: ages.filter((age) => age >= STALE_DAYS).length,
     leadTimeMedianDays: median(leadTimes),
     leadTimeP90Days: nearestRank(leadTimes, TAIL_FRACTION),
+    previous: previousTotals(histories, nowMs, journalStart),
+  };
+}
+
+function previousTotals(histories: readonly TaskHistory[], nowMs: number, journalStart: number | null): PreviousTotals | null {
+  const weekAgo = nowMs - LAST_WEEK_MS;
+  if (journalStart === null || journalStart > weekAgo) return null;
+  const inWeekBefore = (moment: number) => moment > weekAgo - LAST_WEEK_MS && moment <= weekAgo;
+  const openThen = histories.filter((history) => isOpenAt(history, weekAgo));
+  const closedThen = histories.flatMap(closingsOf).filter((closing) => inWeekBefore(closing.at));
+  const leadTimes = histories.flatMap((history) => closingsOf(history).filter((closing) => inWeekBefore(closing.at)).map((closing) => daysBetween(history.createdAt, closing.at)));
+  return {
+    open: openThen.length,
+    net: histories.filter((history) => inWeekBefore(history.createdAt)).length - closedThen.length,
+    ageMedianDays: median(openThen.map((history) => daysBetween(history.createdAt, weekAgo))),
+    leadTimeMedianDays: median(leadTimes),
   };
 }

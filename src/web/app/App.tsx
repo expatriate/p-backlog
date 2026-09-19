@@ -1,10 +1,9 @@
-import type { RouteObject } from "react-router";
+import { Navigate, type RouteObject } from "react-router";
 import { AppLayout } from "../layout/AppLayout";
 import { TaskListPage } from "../list/TaskListPage";
 import { CodeTab } from "../stats/CodeTab";
 import { CostTab } from "../stats/CostTab";
 import { EffectTab } from "../stats/EffectTab";
-import { FlowTab } from "../stats/FlowTab";
 import { OverviewTab } from "../stats/OverviewTab";
 import { QualityTab } from "../stats/QualityTab";
 import { StatsPage } from "../stats/StatsPage";
@@ -13,7 +12,7 @@ import { useLiveUpdates } from "./queries";
 
 const STATS_TAB_ROUTES: RouteObject[] = [
   { index: true, element: <OverviewTab /> },
-  { path: "flow", element: <FlowTab /> },
+  { path: "flow", element: <Navigate to=".." relative="path" replace /> },
   { path: "code", element: <CodeTab /> },
   { path: "quality", element: <QualityTab /> },
   { path: "effect", element: <EffectTab /> },
