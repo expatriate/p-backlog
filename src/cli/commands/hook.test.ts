@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readJournal } from "../../core/store/journal";
@@ -67,5 +67,19 @@ describe("backlog hook stop", () => {
 
     expect(result.decision).toBe("block");
     expect(result.systemMessage).toBe("Беклог spa: Срочные задачи ждут дольше 7 дней: 1");
+  });
+
+  it("нечитаемый журнал не роняет хук: тревог нет, предупреждение в stderr", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    await run(["new", "--title", "Упало", "--priority", "critical"], { now: new Date("2026-09-01T10:00:00Z") });
+    await rm(join(root, "spa", "journal.jsonl"));
+    await mkdir(join(root, "spa", "journal.jsonl"));
+    const stdin = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    const result = await run(["hook", "stop"], { stdin });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(result.out).toBe("");
+    expect(result.err).toContain("Не удалось посчитать тревоги");
   });
 });

@@ -7,7 +7,9 @@ import { loadBacklog } from "../../core/store/load";
 import { findProjectForDir } from "../../core/store/resolve-project";
 import { readSignalsShown, writeSignalsShown } from "../../core/store/signals-shown";
 import { statsSignals } from "../../core/stats/signals/signals";
-import { markShown, signalsToShow } from "../../core/stats/signals/shown";
+import { markShown, signalsToShow, type SignalsShown } from "../../core/stats/signals/shown";
+import type { Signal } from "../../core/stats/types";
+import type { Project, Task } from "../../core/model/types";
 import { EXIT, UsageError, type CliIo } from "../io";
 import { stopReason } from "../stop-reason";
 
@@ -23,24 +25,42 @@ export async function runHook(args: string[], io: CliIo): Promise<number> {
   if (!project) return EXIT.ok;
   const { candidates } = await checkBacklog(io.backlogRoot, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home });
 
-  const projectDir = dirname(project.path);
-  const journal = await readJournal(projectDir, project.id);
-  const today = formatLocalIso(io.now()).slice(0, 10);
-  const shown = await readSignalsShown(projectDir);
-  const fresh = signalsToShow(statsSignals({ tasks: loaded.tasks, journals: [journal], now: io.now(), projectId: project.id }), shown, today);
+  const signals = await freshSignals(project, loaded.tasks, io);
   const response = {
     ...(candidates.length > 0 ? { decision: "block", reason: stopReason(project.id, candidates) } : {}),
-    ...(fresh.length > 0 ? { systemMessage: `Беклог ${project.id}: ${fresh.map((signal) => signal.text).join("; ")}` } : {}),
+    ...(signals.fresh.length > 0 ? { systemMessage: `Беклог ${project.id}: ${signals.fresh.map((signal) => signal.text).join("; ")}` } : {}),
   };
   if (Object.keys(response).length > 0) io.print(JSON.stringify(response));
-  if (fresh.length > 0) {
-    try {
-      await writeSignalsShown(projectDir, markShown(shown, fresh, today));
-    } catch (error) {
-      io.warn(`Не удалось сохранить показанные тревоги: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
+  await signals.remember();
   return EXIT.ok;
+}
+
+type FreshSignals = { fresh: Signal[]; remember: () => Promise<void> };
+
+async function freshSignals(project: Project, tasks: readonly Task[], io: CliIo): Promise<FreshSignals> {
+  const projectDir = dirname(project.path);
+  const today = formatLocalIso(io.now()).slice(0, 10);
+  try {
+    const journal = await readJournal(projectDir, project.id);
+    const shown = await readSignalsShown(projectDir);
+    const fresh = signalsToShow(statsSignals({ tasks, journals: [journal], now: io.now(), projectId: project.id }), shown, today);
+    return { fresh, remember: () => (fresh.length === 0 ? Promise.resolve() : rememberShown(projectDir, markShown(shown, fresh, today), io)) };
+  } catch (error) {
+    io.warn(`Не удалось посчитать тревоги: ${errorText(error)}`);
+    return { fresh: [], remember: () => Promise.resolve() };
+  }
+}
+
+async function rememberShown(projectDir: string, shown: SignalsShown, io: CliIo): Promise<void> {
+  try {
+    await writeSignalsShown(projectDir, shown);
+  } catch (error) {
+    io.warn(`Не удалось сохранить показанные тревоги: ${errorText(error)}`);
+  }
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function parseStopEvent(text: string): z.infer<typeof stopEventSchema> | null {

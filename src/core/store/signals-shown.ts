@@ -8,9 +8,9 @@ export const SIGNALS_SHOWN_FILE = "signals-shown.json";
 const shownSchema = z.record(z.string(), z.string());
 
 export async function readSignalsShown(projectDir: string): Promise<SignalsShown> {
-  const text = await readTextOrNull(join(projectDir, SIGNALS_SHOWN_FILE));
-  if (text === null) return {};
   try {
+    const text = await readTextOrNull(join(projectDir, SIGNALS_SHOWN_FILE));
+    if (text === null) return {};
     const parsed = shownSchema.safeParse(JSON.parse(text));
     return parsed.success ? parsed.data : {};
   } catch {

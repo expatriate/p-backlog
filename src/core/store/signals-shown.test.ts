@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readSignalsShown, SIGNALS_SHOWN_FILE, writeSignalsShown } from "./signals-shown";
@@ -14,6 +14,13 @@ describe("показанные тревоги", () => {
     await writeFile(join(dir, SIGNALS_SHOWN_FILE), "не json");
     expect(await readSignalsShown(dir)).toEqual({});
     await writeFile(join(dir, SIGNALS_SHOWN_FILE), "[1, 2]");
+    expect(await readSignalsShown(dir)).toEqual({});
+  });
+
+  it("файл, который нельзя прочитать, — ничего не показано", async () => {
+    const dir = await makeTempDir();
+    await mkdir(join(dir, SIGNALS_SHOWN_FILE));
+
     expect(await readSignalsShown(dir)).toEqual({});
   });
 });
