@@ -30,6 +30,10 @@ export function forecastText({ open, weeklyNet, weeks, until }: FlowForecast): s
   return `Долг растёт на ${formatDecimal(-weeklyNet)} задач в неделю`;
 }
 
+export function forecastTail({ windowWeeks, closed, created }: FlowForecast): string {
+  return `за ${windowWeeks} недели: закрыто ${closed}, создано ${created}`;
+}
+
 export const EVIDENCE_LABELS: Record<CandidateEvidence | "total", string> = {
   "source-changed": "код изменился",
   "source-missing": "файл пропал",

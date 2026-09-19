@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { forecastText, formatDays, formatShare } from "../../core/stats/format";
+import { forecastTail, forecastText, formatDays, formatShare } from "../../core/stats/format";
 import type { EpicFlow, FlowCycle, FlowForecast, FlowNow, FlowWip } from "../../core/stats/types";
 import type { EpicTones } from "../ui/epic-tone";
 import { STATUS_LABELS } from "../labels";
@@ -12,9 +12,7 @@ export function ForecastPanel({ forecast }: { forecast: FlowForecast }) {
   return (
     <Panel title="Прогноз">
       <p className={styles.lead}>{forecastText(forecast)}</p>
-      <p className={styles.muted}>
-        за {forecast.windowWeeks} недели: закрыто {forecast.closed}, создано {forecast.created}
-      </p>
+      <p className={styles.muted}>{forecastTail(forecast)}</p>
     </Panel>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { forecastText, formatDays, formatDecimal, formatShare, formatSigned } from "./format";
+import { forecastTail, forecastText, formatDays, formatDecimal, formatShare, formatSigned } from "./format";
 
 describe("формат статистики", () => {
   it("дни: нет данных, меньше дня, округление", () => {
@@ -31,5 +31,9 @@ describe("тексты потока", () => {
     expect(forecastText(forecast)).toBe("Долг не уменьшается");
     expect(forecastText({ ...forecast, weeklyNet: -0.75 })).toBe("Долг растёт на 0,8 задач в неделю");
     expect(forecastText({ ...forecast, weeklyNet: -2 })).toBe("Долг растёт на 2 задач в неделю");
+  });
+
+  it("хвост прогноза — один текст для CLI и веба", () => {
+    expect(forecastTail({ ...forecast, closed: 2, created: 20, windowWeeks: 4 })).toBe("за 4 недели: закрыто 2, создано 20");
   });
 });
