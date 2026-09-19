@@ -25,7 +25,7 @@ describe("страница статистики", () => {
     const open = await screen.findByRole("group", { name: "Открыто" });
     expect(within(open).getByText("3")).toBeDefined();
     expect(within(open).getByText("вес 8")).toBeDefined();
-    expect(screen.getByRole("img", { name: new RegExp(`12${NBSP}недель: создано 4, закрыто 1, открыто сейчас 3`) })).toBeDefined();
+    expect(screen.getByRole("figure", { name: new RegExp(`12${NBSP}недель: создано 4, закрыто 1, открыто сейчас 3`) })).toBeDefined();
     expect(screen.getByText(/Журнал ещё пуст/)).toBeDefined();
   });
 
@@ -169,7 +169,7 @@ describe("вкладки статистики", () => {
     const cycle = await screen.findByRole("region", { name: "Время в работе" });
     expect(within(cycle).getByText("медиана 2 дн. · 90% — за 2 дн.")).toBeDefined();
     expect(within(cycle).getByText("в блокировке — 0% этого времени · закрытий с работой: 1")).toBeDefined();
-    expect(screen.getByRole("img", { name: `12${NBSP}недель: сейчас в работе 1, максимум 2` })).toBeDefined();
+    expect(screen.getByRole("figure", { name: `12${NBSP}недель: сейчас в работе 1, максимум 2` })).toBeDefined();
     const epics = screen.getByRole("region", { name: "Эпики" });
     expect(within(epics).getByRole("link", { name: "SPA-4" })).toBeDefined();
     expect(within(epics).getByText("0/1 · темпа нет")).toBeDefined();
@@ -285,7 +285,7 @@ describe("вкладка «Эффект»", () => {
     expect(within(kept).getByText("0 строк")).toBeDefined();
     expect(within(kept).getByText("исправлено 0; оценка ожидающих появится после 5 исправлений")).toBeDefined();
     expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("2")).toBeDefined();
-    expect(screen.getByRole("img", { name: new RegExp(`12${NBSP}недель: в пулреквестах 2${NBSP}строки`) })).toBeDefined();
+    expect(screen.getByRole("figure", { name: new RegExp(`12${NBSP}недель: в пулреквестах 2${NBSP}строки`) })).toBeDefined();
     expect(screen.getByRole("region", { name: "По проектам" })).toBeDefined();
   });
 });

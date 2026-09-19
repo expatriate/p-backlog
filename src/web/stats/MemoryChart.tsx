@@ -37,7 +37,7 @@ export function MemoryPanel() {
         <AreaChart data={samples} margin={CHART_MARGIN} title={chartTitle("Память сервера", "замерам")}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="at" tickFormatter={axisTime} {...DATE_AXIS_PROPS} />
-          <YAxis tickFormatter={(value: number) => formatMb(value)} width={VALUE_AXIS_WIDTH + 16} {...AXIS_PROPS} />
+          <YAxis tickFormatter={(value: number) => formatMb(value)} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
           <Tooltip content={sampleTooltip} {...TOOLTIP_PROPS} cursor={{ stroke: "var(--line-strong)" }} />
           <Area dataKey="rssMb" stroke={RSS} strokeWidth={2} fill={RSS} fillOpacity={0.12} dot={false} isAnimationActive={false} />
           <Area dataKey="heapUsedMb" stroke={HEAP} strokeWidth={2} strokeDasharray="4 3" fill="none" dot={false} isAnimationActive={false} />

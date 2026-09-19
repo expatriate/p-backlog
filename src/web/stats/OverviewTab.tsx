@@ -8,7 +8,7 @@ import { Figure } from "./Figure";
 import { HotspotsPanel } from "./HotspotsPanel";
 import { Panel } from "./Panel";
 import { StatsTabState } from "./StatsTabState";
-import { WeeklyChart } from "./WeeklyChart";
+import { WeeklyFlowChart } from "./WeeklyFlowChart";
 import styles from "./StatsPage.module.css";
 
 export function OverviewTab() {
@@ -27,7 +27,7 @@ function Overview({ report, listPath }: { report: StatsReport; listPath: string 
       <Totals totals={report.totals} />
       <div className={styles.blocks}>
         <Panel title="Долг по неделям">
-          <WeeklyChart weeks={report.weeks} />
+          <WeeklyFlowChart weeks={report.weeks} />
         </Panel>
         <HotspotsPanel hotspots={report.hotspots} listPath={listPath} />
         <AgePanel age={report.age} />

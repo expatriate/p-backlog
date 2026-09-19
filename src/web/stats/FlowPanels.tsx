@@ -1,11 +1,11 @@
 import { Link } from "react-router";
-import { forecastTail, forecastText, formatDays, formatP90, formatShare, pluralCount } from "../../core/stats/format";
+import { forecastTail, forecastText, formatDays, formatP90, formatShare } from "../../core/stats/format";
 import type { EpicFlow, FlowCycle, FlowForecast, FlowNow, FlowWip } from "../../core/stats/types";
 import type { EpicTones } from "../ui/epic-tone";
 import { STATUS_LABELS } from "../labels";
 import { epicEta, formatStay } from "./format";
 import { Panel } from "./Panel";
-import { WeeklyBars } from "./WeeklyBars";
+import { WipChart } from "./WipChart";
 import styles from "./FlowPanels.module.css";
 
 export function ForecastPanel({ forecast }: { forecast: FlowForecast }) {
@@ -66,14 +66,9 @@ export function CyclePanel({ cycle }: { cycle: FlowCycle }) {
 }
 
 export function WipPanel({ wip }: { wip: FlowWip }) {
-  const known = wip.weeks.flatMap((week) => (week.max === null ? [] : [week.max]));
-  const peak = known.length === 0 ? "—" : String(known.reduce((max, value) => Math.max(max, value)));
   return (
     <Panel title="В работе одновременно">
-      <WeeklyBars
-        weeks={wip.weeks.map((week) => ({ start: week.start, value: week.max }))}
-        summary={`${pluralCount(wip.weeks.length, "неделя", "недели", "недель")}: сейчас в работе ${wip.current}, максимум ${peak}`}
-      />
+      <WipChart wip={wip} />
     </Panel>
   );
 }

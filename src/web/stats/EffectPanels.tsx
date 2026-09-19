@@ -1,7 +1,7 @@
 import { NBSP, plural } from "../../core/stats/format";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { EffectProject, EffectTotals, EffectWeek } from "../../core/stats/types";
-import { EffectChart } from "./EffectChart";
+import { EffectWeeksChart } from "./EffectWeeksChart";
 import { formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
 import flowStyles from "./FlowPanels.module.css";
 import { Figure } from "./Figure";
@@ -33,7 +33,7 @@ function keptOutNote(totals: EffectTotals): string {
 export function EffectChartPanel({ weeks, totals }: { weeks: EffectWeek[]; totals: EffectTotals }) {
   return (
     <Panel title="Без беклога и с ним">
-      <EffectChart weeks={weeks} totals={totals} />
+      <EffectWeeksChart weeks={weeks} totals={totals} />
     </Panel>
   );
 }
