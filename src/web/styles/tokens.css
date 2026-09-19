@@ -42,6 +42,14 @@
   --epic-tone-5-ink: oklch(0.82 0.1 115);
   --epic-tone-5-soft: oklch(0.34 0.06 115);
 
+  --chart-bar-warm: oklch(0.6 0.11 27.2);
+  --chart-bar-neutral: oklch(0.54 0 0);
+  --chart-bar-green: oklch(0.6 0.09 152);
+  --chart-line-green: oklch(0.86 0.15 152);
+  --chart-line-yellow: oklch(0.88 0.14 90);
+  --chart-line-blue: oklch(0.8 0.11 250);
+  --chart-line-bright: oklch(0.96 0 0);
+
   --panel-width: 420px;
   --panel-width-narrow: 360px;
 

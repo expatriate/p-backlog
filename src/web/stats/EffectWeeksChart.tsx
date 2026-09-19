@@ -8,7 +8,7 @@ import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOL
 import { rowTooltip } from "./charts/ChartTooltip";
 import { formatApprox, formatNoiseShare, isEstimated } from "./effect-format";
 
-const REAL = "var(--ink-subtle)";
+const REAL = "var(--chart-bar-neutral)";
 const DEFERRED = "var(--accent-ink)";
 
 const LEGEND: LegendItem[] = [

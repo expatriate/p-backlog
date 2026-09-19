@@ -8,5 +8,6 @@ export function chartTitle(name: string, step: "дням" | "неделям" | "
   return `${name}. Стрелки влево и вправо — по ${step}`;
 }
 export const BAR_RADIUS: [number, number, number, number] = [2, 2, 0, 0];
-export const LINE_WIDTH = 2;
-export const DASHED_LINE = "4 3";
+export const LINE_WIDTH = 3;
+export const DASHED_LINE_WIDTH = 2;
+export const DASHED_LINE = "5 4";

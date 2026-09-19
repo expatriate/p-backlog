@@ -3,14 +3,14 @@ import type { MemorySample } from "../../core/stats/types";
 import { useMemorySamples } from "../app/queries";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisTime, tooltipTime } from "./charts/chart-format";
-import { AXIS_PROPS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, DASHED_LINE_WIDTH, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { formatMb } from "./cost-format";
 import { Panel } from "./Panel";
 import styles from "./MemoryChart.module.css";
 
-const RSS = "var(--ink)";
-const HEAP = "var(--ink-subtle)";
+const RSS = "var(--chart-line-bright)";
+const HEAP = "var(--chart-line-blue)";
 
 const LEGEND: LegendItem[] = [
   { label: "память процесса", shape: "line", color: RSS },
@@ -40,7 +40,7 @@ export function MemoryPanel() {
           <YAxis tickFormatter={(value: number) => formatMb(value)} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
           <Tooltip content={sampleTooltip} {...TOOLTIP_PROPS} cursor={{ stroke: "var(--line-strong)" }} />
           <Area dataKey="rssMb" stroke={RSS} strokeWidth={LINE_WIDTH} fill={RSS} fillOpacity={0.12} dot={false} isAnimationActive={false} />
-          <Area dataKey="heapUsedMb" stroke={HEAP} strokeWidth={LINE_WIDTH} strokeDasharray={DASHED_LINE} fill="none" dot={false} isAnimationActive={false} />
+          <Area dataKey="heapUsedMb" stroke={HEAP} strokeWidth={DASHED_LINE_WIDTH} strokeDasharray={DASHED_LINE} fill="none" dot={false} isAnimationActive={false} />
         </AreaChart>
       </ChartFrame>
     </Panel>

@@ -3,16 +3,17 @@ import { formatMoney, NBSP, pluralCount } from "../../core/stats/format";
 import type { CostDay } from "../../core/stats/types";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
-import { AXIS_PROPS, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, DASHED_LINE_WIDTH, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
+import { nonZeroDot } from "./charts/value-dot";
 import { sum } from "./cost-format";
 import { formatLines } from "./effect-format";
 import { Panel } from "./Panel";
 
-const HOOK_TOKENS = "var(--accent-ink)";
-const CLI_TOKENS = "var(--ink-subtle)";
-const HOOK_RUNS = "var(--ok)";
-const OTHER_RUNS = "var(--warn)";
+const HOOK_TOKENS = "var(--chart-bar-warm)";
+const CLI_TOKENS = "var(--chart-bar-neutral)";
+const HOOK_RUNS = "var(--chart-line-green)";
+const OTHER_RUNS = "var(--chart-line-yellow)";
 
 const LEGEND: LegendItem[] = [
   { label: "токены ходов хука", shape: "bar", color: HOOK_TOKENS },
@@ -44,8 +45,8 @@ export function SpendPanel({ days }: { days: CostDay[] }) {
           <Tooltip content={dayTooltip} {...TOOLTIP_PROPS} />
           <Bar yAxisId="tokens" dataKey="hookTokens" stackId="tokens" fill={HOOK_TOKENS} isAnimationActive={false} />
           <Bar yAxisId="tokens" dataKey="cliTokens" stackId="tokens" fill={CLI_TOKENS} radius={BAR_RADIUS} isAnimationActive={false} />
-          <Line yAxisId="runs" dataKey="hookRuns" stroke={HOOK_RUNS} strokeWidth={LINE_WIDTH} dot={false} isAnimationActive={false} />
-          <Line yAxisId="runs" dataKey="cliRuns" stroke={OTHER_RUNS} strokeWidth={LINE_WIDTH} strokeDasharray={DASHED_LINE} dot={false} isAnimationActive={false} />
+          <Line yAxisId="runs" dataKey="hookRuns" stroke={HOOK_RUNS} strokeWidth={LINE_WIDTH} dot={nonZeroDot(HOOK_RUNS)} isAnimationActive={false} />
+          <Line yAxisId="runs" dataKey="cliRuns" stroke={OTHER_RUNS} strokeWidth={DASHED_LINE_WIDTH} strokeDasharray={DASHED_LINE} dot={nonZeroDot(OTHER_RUNS)} isAnimationActive={false} />
         </ComposedChart>
       </ChartFrame>
     </Panel>

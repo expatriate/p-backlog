@@ -6,7 +6,7 @@ import { axisDay, compactNumber, tooltipWeek } from "./charts/chart-format";
 import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 
-const WIP = "var(--ink-muted)";
+const WIP = "var(--chart-bar-neutral)";
 
 const weekTooltip = rowTooltip((week: WipWeek) => ({
   title: tooltipWeek(week.start),

@@ -5,10 +5,11 @@ import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipWeek } from "./charts/chart-format";
 import { AXIS_PROPS, BAR_RADIUS, LINE_WIDTH, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
+import { nonZeroDot } from "./charts/value-dot";
 
-const CREATED = "var(--ink-subtle)";
-const CLOSED = "var(--ok)";
-const OPEN = "var(--ink)";
+const CREATED = "var(--chart-bar-neutral)";
+const CLOSED = "var(--chart-bar-green)";
+const OPEN = "var(--chart-line-bright)";
 
 const LEGEND: LegendItem[] = [
   { label: "создано", shape: "bar", color: CREATED },
@@ -40,7 +41,7 @@ export function WeeklyFlowChart({ weeks }: { weeks: WeekFlow[] }) {
         <Tooltip content={weekTooltip} {...TOOLTIP_PROPS} />
         <Bar yAxisId="flow" dataKey="created" fill={CREATED} radius={BAR_RADIUS} isAnimationActive={false} />
         <Bar yAxisId="flow" dataKey="closed" fill={CLOSED} radius={BAR_RADIUS} isAnimationActive={false} />
-        <Line yAxisId="open" dataKey="openAtEnd" stroke={OPEN} strokeWidth={LINE_WIDTH} dot={false} isAnimationActive={false} />
+        <Line yAxisId="open" dataKey="openAtEnd" stroke={OPEN} strokeWidth={LINE_WIDTH} dot={nonZeroDot(OPEN)} isAnimationActive={false} />
       </ComposedChart>
     </ChartFrame>
   );
