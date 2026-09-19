@@ -2,7 +2,9 @@ import { parseArgs } from "node:util";
 import { isClosed } from "../../core/model/graph";
 import { deletionDate, RESOLUTION_STATUS } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
-import { loadBacklog } from "../../core/store/load";
+import { findRepo, hasCommit } from "../../core/check/project-repo";
+import { reasonHashes } from "../../core/stats/code/fixes";
+import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { updateTask } from "../../core/store/update";
 import { formatDay } from "../format";
 import { EXIT, parseChoice, UsageError, withUsageErrors, type CliIo } from "../io";
@@ -54,6 +56,11 @@ export async function runClose(args: string[], io: CliIo): Promise<number> {
     related = [...new Set([...task.related, original.id])];
   }
 
+  if (resolution === "fixed" && !(await fixCommitFound(loaded, task, reason, io))) {
+    io.warn('Укажите коммит исправления: --reason "Исправлено в <sha>: …" (коммит должен быть в репозитории проекта)');
+    return EXIT.invalid;
+  }
+
   const status = RESOLUTION_STATUS[resolution];
   const result = await updateTask(io.backlogRoot, {
     id,
@@ -74,4 +81,12 @@ function originalProblem(task: Task, original: Task): string | null {
   if (original.projectId !== task.projectId) return `${original.id} из другого проекта`;
   if (isClosed(original.status)) return `${original.id} уже закрыта — закройте ${task.id} как fixed или obsolete`;
   return null;
+}
+
+async function fixCommitFound(loaded: LoadedBacklog, task: Task, reason: string, io: CliIo): Promise<boolean> {
+  const project = loaded.projects.find((candidate) => candidate.id === task.projectId);
+  const repo = project === undefined ? undefined : await findRepo(project, io.home);
+  if (repo === undefined) return true;
+  for (const sha of reasonHashes(reason)) if (await hasCommit(repo, sha)) return true;
+  return false;
 }

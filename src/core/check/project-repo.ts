@@ -1,5 +1,7 @@
+import { execFile } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import type { Project } from "../model/types";
 import { expandHome } from "../store/paths";
 import { anchorOf } from "./anchor";
@@ -17,4 +19,13 @@ export async function findRepo(project: Project, home: string): Promise<string |
     if (await access(repo).then(() => true, () => false)) return repo;
   }
   return undefined;
+}
+
+const runFile = promisify(execFile);
+
+export async function hasCommit(repo: string, sha: string): Promise<boolean> {
+  return runFile("git", ["-C", repo, "--no-optional-locks", "cat-file", "-e", `${sha}^{commit}`]).then(
+    () => true,
+    () => false,
+  );
 }
