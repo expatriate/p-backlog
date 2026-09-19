@@ -22,7 +22,7 @@ export function forecastText({ open, weeklyNet, weeks, until }: FlowForecast): s
   return `Долг растёт на ${formatRate(-weeklyNet)} задач в неделю`;
 }
 
-export function formatRate(value: number): string {
+function formatRate(value: number): string {
   return String(Math.round(value * 10) / 10).replace(".", ",");
 }
 
