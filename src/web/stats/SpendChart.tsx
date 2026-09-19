@@ -3,7 +3,7 @@ import { formatMoney, NBSP, pluralCount } from "../../core/stats/format";
 import type { CostDay } from "../../core/stats/types";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
-import { AXIS_PROPS, DASHED_LINE_WIDTH, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, DASHED_LINE_WIDTH, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, chartLabel, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
 import { sum } from "./cost-format";
@@ -37,7 +37,7 @@ export function SpendPanel({ days }: { days: CostDay[] }) {
   return (
     <Panel title="Расход по дням">
       <ChartFrame summary={spendSummary(days)} legend={LEGEND}>
-        <ComposedChart data={days} margin={CHART_MARGIN} title={chartTitle("Расход по дням", "дням")}>
+        <ComposedChart data={days} margin={CHART_MARGIN} aria-label={chartLabel("Расход по дням", "дням")}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="day" tickFormatter={axisDay} {...DATE_AXIS_PROPS} />
           <YAxis yAxisId="tokens" tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />

@@ -4,7 +4,7 @@ export const DATE_AXIS_PROPS = { ...AXIS_PROPS, interval: "preserveStartEnd", mi
 export const VALUE_AXIS_WIDTH = 60;
 export const TOOLTIP_PROPS = { isAnimationActive: false, cursor: { fill: "var(--surface-hover)" } } as const;
 
-export function chartTitle(name: string, step: "дням" | "неделям" | "замерам"): string {
+export function chartLabel(name: string, step: "дням" | "неделям" | "замерам"): string {
   return `${name}. Стрелки влево и вправо — по ${step}`;
 }
 export const BAR_RADIUS: [number, number, number, number] = [2, 2, 0, 0];

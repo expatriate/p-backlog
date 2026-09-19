@@ -3,7 +3,7 @@ import { pluralCount } from "../../core/stats/format";
 import type { WeekFlow } from "../../core/stats/types";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipWeek } from "./charts/chart-format";
-import { AXIS_PROPS, BAR_RADIUS, LINE_WIDTH, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, BAR_RADIUS, LINE_WIDTH, CHART_MARGIN, chartLabel, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
 
@@ -33,7 +33,7 @@ export function WeeklyFlowChart({ weeks }: { weeks: WeekFlow[] }) {
   const summary = `${pluralCount(weeks.length, "неделя", "недели", "недель")}: создано ${created}, закрыто ${closed}, открыто сейчас ${openNow}`;
   return (
     <ChartFrame summary={summary} legend={LEGEND}>
-      <ComposedChart data={weeks} margin={CHART_MARGIN} title={chartTitle("Долг по неделям", "неделям")}>
+      <ComposedChart data={weeks} margin={CHART_MARGIN} aria-label={chartLabel("Долг по неделям", "неделям")}>
         <CartesianGrid vertical={false} />
         <XAxis dataKey="start" tickFormatter={axisDay} {...DATE_AXIS_PROPS} />
         <YAxis yAxisId="flow" allowDecimals={false} tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />

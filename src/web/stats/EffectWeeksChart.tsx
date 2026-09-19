@@ -4,7 +4,7 @@ import { NBSP, plural, pluralCount } from "../../core/stats/format";
 import type { EffectTotals, EffectWeek } from "../../core/stats/types";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipWeek } from "./charts/chart-format";
-import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, chartTitle, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, chartLabel, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { formatApprox, formatNoiseShare, isEstimated } from "./effect-format";
 
@@ -33,7 +33,7 @@ export function EffectWeeksChart({ weeks, totals }: { weeks: EffectWeek[]; total
   const summary = `${pluralCount(weeks.length, "неделя", "недели", "недель")}: в пулреквестах ${pluralCount(totals.realLines, "строка", "строки", "строк")}, вынесено ${deferredText}${NBSP}${plural(totals.deferredLines, "строка", "строки", "строк")}, шум без беклога ${formatNoiseShare(totals.noiseShare)}`;
   return (
     <ChartFrame summary={summary} legend={LEGEND}>
-      <BarChart data={weeks} margin={CHART_MARGIN} title={chartTitle("Без беклога и с ним", "неделям")}>
+      <BarChart data={weeks} margin={CHART_MARGIN} aria-label={chartLabel("Без беклога и с ним", "неделям")}>
         <defs>
           <pattern id={patternId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <rect width="6" height="6" fill="var(--surface-raised)" />
