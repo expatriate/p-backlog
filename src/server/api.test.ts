@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { CodeReport, ConflictResponse, ErrorResponse, FlowReport, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
+import type { CodeReport, ConflictResponse, EffectReport, ErrorResponse, FlowReport, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
 import { readJournal } from "../core/store/journal";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
@@ -221,6 +221,24 @@ describe("GET /api/stats/code", () => {
 
     expect(unknown.status).toBe(404);
     expect(((await empty.json()) as CodeReport).taskCount).toBe(3);
+  });
+});
+
+describe("GET /api/stats/effect", () => {
+  it("отчёт эффекта по проекту с репозиторием, неизвестный проект — 404", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\nb\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const backlog = await makeTestApp({
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": taskFile("SPA-1", "source: src/a.ts:1\n"),
+    });
+
+    const report = (await (await backlog.request("/api/stats/effect?project=spa")).json()) as EffectReport;
+
+    expect(report.totals).toMatchObject({ realLines: 2, openTasks: 1, estimatedLines: null });
+    expect(report.projects).toHaveLength(1);
+    expect((await backlog.request("/api/stats/effect?project=nope")).status).toBe(404);
   });
 });
 

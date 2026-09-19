@@ -6,12 +6,13 @@ import { createCodeSource } from "../core/code/code-source";
 import type { Project } from "../core/model/types";
 import { formatIssues } from "../core/model/zod-issues";
 import { codeFixRequests, codeReport } from "../core/stats/code/code-report";
+import { effectReport } from "../core/stats/effect/effect-report";
 import { flowReport } from "../core/stats/flow/flow-report";
 import { qualityReport } from "../core/stats/quality/quality-report";
 import { statsReport } from "../core/stats/report";
 import type { StatsInput } from "../core/stats/scope";
 import { statsSignals } from "../core/stats/signals/signals";
-import type { CodeReport, FlowReport, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
+import type { CodeReport, EffectReport, FlowReport, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
 import { loadBacklog } from "../core/store/load";
 import { readJournals } from "../core/store/journal";
 import { updateTask } from "../core/store/update";
@@ -33,7 +34,7 @@ export function createApi({ root, changes, now, home }: ApiOptions): Hono {
   const codeSource = createCodeSource({ home });
 
   const scopedStats =
-    <R extends StatsReport | FlowReport | CodeReport | QualityReport | SignalsReport>(
+    <R extends StatsReport | FlowReport | CodeReport | QualityReport | SignalsReport | EffectReport>(
       report: (input: StatsInput, projects: readonly Project[]) => R | Promise<R>,
     ) =>
     async (c: Context) => {
@@ -51,9 +52,15 @@ export function createApi({ root, changes, now, home }: ApiOptions): Hono {
     return codeReport({ ...input, code: await codeSource.collect(scoped, codeFixRequests(input), input.now) });
   };
 
+  const statsOfEffect = async (input: StatsInput, projects: readonly Project[]): Promise<EffectReport> => {
+    const scoped = projects.filter((project) => input.projectId === undefined || project.id === input.projectId);
+    return effectReport({ ...input, code: await codeSource.collect(scoped, codeFixRequests(input), input.now) });
+  };
+
   api.get("/stats", scopedStats(statsReport));
   api.get("/stats/flow", scopedStats(flowReport));
   api.get("/stats/code", scopedStats(statsOfCode));
+  api.get("/stats/effect", scopedStats(statsOfEffect));
   api.get("/stats/quality", scopedStats(qualityReport));
   api.get("/stats/signals", scopedStats((input) => ({ signals: statsSignals(input) })));
 
