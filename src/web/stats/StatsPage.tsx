@@ -31,7 +31,10 @@ export function StatsPage() {
     <main className={styles.page}>
       <h1 className={styles.heading}>{heading}</h1>
       {(signals.data?.signals.length ?? 0) > 0 && (
-        <div className={styles.signals} role="status" aria-label="Тревоги">
+        <div className={styles.signals} role="status" aria-labelledby="stats-signals-heading">
+          <strong id="stats-signals-heading" className={styles.signalsTitle}>
+            Тревоги
+          </strong>
           <ul>
             {signals.data?.signals.map((signal) => (
               <li key={signal.text}>{signal.text}</li>

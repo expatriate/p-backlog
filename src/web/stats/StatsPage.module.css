@@ -21,6 +21,11 @@
   font-size: var(--text-sm);
 }
 
+.signalsTitle {
+  display: block;
+  margin-bottom: var(--space-1);
+}
+
 .signals ul {
   margin: 0;
   padding-left: var(--space-4);

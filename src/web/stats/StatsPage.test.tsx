@@ -31,7 +31,7 @@ describe("страница статистики", () => {
     const app = await renderApp(FILES, "/p/spa");
     await screen.findAllByRole("row");
 
-    await app.user.click(screen.getByRole("link", { name: "Статистика" }));
+    await app.user.click(screen.getByRole("link", { name: /^Статистика/ }));
     expect(await screen.findByRole("heading", { level: 1, name: "Статистика · spa" })).toBeDefined();
     expect(app.route()).toBe("/p/spa/stats");
 
@@ -102,7 +102,7 @@ describe("вкладки статистики", () => {
     expect(app.route()).toBe("/stats/flow");
     expect(document.title).toBe("Поток · Статистика · Все проекты — Беклог");
     expect(within(tabs).getByRole("link", { name: "Поток" }).getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("link", { name: "Статистика" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: /^Статистика/ }).getAttribute("aria-current")).toBe("page");
   });
 
   it("адрес со слэшем в конце — «Поток» активен и заголовок вкладки", async () => {
@@ -273,7 +273,9 @@ describe("тревоги", () => {
     await renderApp(FILES, "/stats/flow");
 
     const block = await screen.findByRole("status", { name: "Тревоги" });
+    expect(within(block).getByText("Тревоги")).toBeDefined();
     expect(within(block).getByText("Срочные задачи ждут дольше 7 дней: 1")).toBeDefined();
-    expect(screen.getByRole("link", { name: "Статистика" }).textContent).toContain("1");
+    expect(screen.getByRole("link", { name: /^Статистика/ }).textContent).toContain("1");
+    expect(screen.getByRole("link", { name: /тревог: 1/ })).toBeDefined();
   });
 });
