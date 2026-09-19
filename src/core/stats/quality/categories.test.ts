@@ -36,4 +36,23 @@ describe("категории", () => {
       { category: null, open: 1, weight: 2, created: 1, closed: 0 },
     ]);
   });
+
+  it("категория файла главнее события created, даже если файл её убрал", () => {
+    const tasks = [makeTask({ id: "SPA-1", created: iso(3) })];
+    const events: JournalEvent[] = [
+      { at: iso(3), task: "SPA-1", via: "cli", kind: "created", type: "task", priority: "medium", tags: [], category: "bug" },
+      { at: iso(5), task: "SPA-1", via: "cli", kind: "category", from: "bug" },
+    ];
+
+    expect(categoryBreakdown(tasks, taskHistories(tasks, journal(events)), FROM, TO)).toEqual([{ category: null, open: 1, weight: 2, created: 1, closed: 0 }]);
+  });
+
+  it("задача только из журнала берёт категорию из последнего события category", () => {
+    const events: JournalEvent[] = [
+      { at: iso(3), task: "SPA-1", via: "cli", kind: "created", type: "task", priority: "medium", tags: [], category: "bug" },
+      { at: iso(5), task: "SPA-1", via: "cli", kind: "category", from: "bug", to: "couplers" },
+    ];
+
+    expect(taskHistories([], journal(events))[0]?.category).toBe("couplers");
+  });
 });

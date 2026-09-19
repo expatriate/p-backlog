@@ -24,6 +24,7 @@ type Known = {
   projectId: string;
   final?: Task | TaskSnapshot;
   created?: Extract<JournalEvent, { kind: "created" }>;
+  categoryEvents: { at: number; to?: TaskCategory }[];
   transitions: Transition[];
   candidates: { at: number; evidence: CandidateEvidence }[];
   verifications: number[];
@@ -34,7 +35,7 @@ export function taskHistories(tasks: readonly Task[], journals: readonly Project
   const entry = (id: string, projectId: string): Known => {
     const existing = known.get(id);
     if (existing) return existing;
-    const created: Known = { projectId, transitions: [], candidates: [], verifications: [] };
+    const created: Known = { projectId, categoryEvents: [], transitions: [], candidates: [], verifications: [] };
     known.set(id, created);
     return created;
   };
@@ -44,6 +45,7 @@ export function taskHistories(tasks: readonly Task[], journals: readonly Project
       const item = entry(event.task, projectId);
       if (event.kind === "created") item.created = event;
       if (event.kind === "deleted") item.final ??= event.snapshot;
+      if (event.kind === "category") item.categoryEvents.push({ at: Date.parse(event.at), to: event.to });
       if (event.kind === "status") {
         item.transitions.push({ at: Date.parse(event.at), from: event.from, to: event.to, resolution: event.resolution, via: event.via });
       }
@@ -74,7 +76,7 @@ export function reopeningsOf(history: TaskHistory): Transition[] {
   return history.transitions.filter((transition) => transition.from !== undefined && isClosed(transition.from) && !isClosed(transition.to));
 }
 
-function historyOf(id: string, { projectId, final, created, transitions, candidates, verifications }: Known): TaskHistory[] {
+function historyOf(id: string, { projectId, final, created, categoryEvents, transitions, candidates, verifications }: Known): TaskHistory[] {
   const createdIso = final?.created ?? created?.at;
   const type = final?.type ?? created?.type;
   if (createdIso === undefined || type === undefined) return [];
@@ -89,13 +91,23 @@ function historyOf(id: string, { projectId, final, created, transitions, candida
       reason: final?.reason,
       finalStatus: final?.status ?? "backlog",
       transitions: [...ordered, ...restoredClosing(final, ordered)],
-      category: final?.category ?? created?.category,
+      category: categoryOf(final, created, categoryEvents),
       found: created?.found,
       branch: created?.origin?.branch,
       candidates: [...candidates].sort((a, b) => a.at - b.at),
       verifications: [...verifications].sort((a, b) => a - b),
     },
   ];
+}
+
+function categoryOf(
+  final: Task | TaskSnapshot | undefined,
+  created: Extract<JournalEvent, { kind: "created" }> | undefined,
+  categoryEvents: readonly { at: number; to?: TaskCategory }[],
+): TaskCategory | undefined {
+  if (final !== undefined) return final.category;
+  const lastCategoryEvent = [...categoryEvents].sort((a, b) => a.at - b.at).at(-1);
+  return lastCategoryEvent !== undefined ? lastCategoryEvent.to : created?.category;
 }
 
 function restoredClosing(final: Task | TaskSnapshot | undefined, ordered: readonly Transition[]): Transition[] {
