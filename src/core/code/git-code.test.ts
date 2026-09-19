@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { readFixCommit, readHead, readRepoCode, runGit } from "./git-code";
@@ -37,6 +38,28 @@ describe("чтение git для вкладки «Код»", () => {
     expect(commit?.byAgent).toBe(true);
     expect(Date.parse(commit?.date ?? "")).toBe(Date.parse("2026-09-10T10:00:00+03:00"));
     expect(await readFixCommit(runGit, repo, "deadbee")).toBeNull();
+  });
+
+  it("репозиторий — поддиректория: пути коммитов и строк относительны ей", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "pkg/src/a.ts": "a\n", "other/b.ts": "b\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+
+    const code = await readRepoCode(runGit, join(repo, "pkg"), new Date("2026-09-05T00:00:00+03:00"));
+
+    expect(code?.commits).toEqual([["src/a.ts"]]);
+    expect(code?.lines.every(({ path }) => path.startsWith("src/"))).toBe(true);
+  });
+
+  it("путь с кавычкой не теряется в строках и коммитах", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { 'src/we"ird.ts': "x\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+
+    const code = await readRepoCode(runGit, repo, new Date("2026-09-05T00:00:00+03:00"));
+
+    expect(code?.commits).toEqual([['src/we"ird.ts']]);
+    expect(code?.lines).toEqual([{ path: 'src/we"ird.ts', lines: 1 }]);
   });
 
   it("не git — HEAD нет и данных нет", async () => {
