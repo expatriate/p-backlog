@@ -3,7 +3,7 @@ import { DAY_MS } from "../model/lifecycle";
 import type { Priority, Task } from "../model/types";
 import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
 import { closingsOf, type TaskHistory } from "./history";
-import { daysBetween, median, nearestRank } from "./numbers";
+import { daysBetween, median, nearestRank, TAIL_FRACTION } from "./numbers";
 import { statsScope, type StatsInput } from "./scope";
 import type { StatsReport, StatsTotals } from "./types";
 import { periodStart, weeklyFlow } from "./weeks";
@@ -11,7 +11,6 @@ import { periodStart, weeklyFlow } from "./weeks";
 export const PRIORITY_WEIGHT: Record<Priority, number> = { critical: 8, high: 4, medium: 2, low: 1 };
 
 const STALE_DAYS = 30;
-const LEAD_TIME_TAIL = 0.9;
 const LAST_WEEK_MS = 7 * DAY_MS;
 
 export function statsReport(input: StatsInput): StatsReport {
@@ -50,6 +49,6 @@ function totals(openTasks: readonly Task[], histories: readonly TaskHistory[], n
     ageMedianDays: median(ages),
     olderThan30Days: ages.filter((age) => age >= STALE_DAYS).length,
     leadTimeMedianDays: median(leadTimes),
-    leadTimeP90Days: nearestRank(leadTimes, LEAD_TIME_TAIL),
+    leadTimeP90Days: nearestRank(leadTimes, TAIL_FRACTION),
   };
 }

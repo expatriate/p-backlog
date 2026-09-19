@@ -1,5 +1,7 @@
 import { DAY_MS } from "../model/lifecycle";
 
+export const TAIL_FRACTION = 0.9;
+
 export function median(values: readonly number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);

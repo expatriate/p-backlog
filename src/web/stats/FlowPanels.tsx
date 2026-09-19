@@ -12,7 +12,7 @@ export function ForecastPanel({ forecast }: { forecast: FlowForecast }) {
     <Panel title="Прогноз">
       <p className={styles.lead}>{forecastText(forecast)}</p>
       <p className={styles.muted}>
-        за 4 недели: закрыто {forecast.closed}, создано {forecast.created}
+        за {forecast.windowWeeks} недели: закрыто {forecast.closed}, создано {forecast.created}
       </p>
     </Panel>
   );

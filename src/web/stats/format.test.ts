@@ -18,7 +18,7 @@ describe("формат статистики", () => {
 });
 
 describe("тексты потока", () => {
-  const forecast = { closed: 0, created: 0, open: 3, weeklyNet: 0, weeks: null, until: null };
+  const forecast = { closed: 0, created: 0, open: 3, weeklyNet: 0, weeks: null, until: null, windowWeeks: 4 };
 
   it("прогноз по чистому темпу", () => {
     expect(forecastText({ ...forecast, open: 0 })).toBe("Открытых задач нет");

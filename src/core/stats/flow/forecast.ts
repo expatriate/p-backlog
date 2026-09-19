@@ -18,7 +18,7 @@ export function flowForecast(histories: readonly TaskHistory[], open: number, no
   const created = histories.filter((history) => inWindow(history.createdAt)).length;
   const weeklyNet = (closed - created) / FORECAST_WINDOW_WEEKS;
   const weeks = open > 0 && weeklyNet > 0 ? Math.ceil(open / weeklyNet) : null;
-  return { closed, created, open, weeklyNet, weeks, until: weeks === null ? null : formatLocalIso(weeksLater(now, weeks)) };
+  return { closed, created, open, weeklyNet, weeks, until: weeks === null ? null : formatLocalIso(weeksLater(now, weeks)), windowWeeks: FORECAST_WINDOW_WEEKS };
 }
 
 function weeksLater(now: Date, weeks: number): Date {

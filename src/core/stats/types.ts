@@ -46,7 +46,7 @@ export type FlowCycle = { medianDays: number | null; p90Days: number | null; blo
 export type WipWeek = { start: string; max: number | null };
 export type FlowWip = { weeks: WipWeek[]; current: number };
 
-export type FlowForecast = { closed: number; created: number; open: number; weeklyNet: number; weeks: number | null; until: string | null };
+export type FlowForecast = { closed: number; created: number; open: number; weeklyNet: number; weeks: number | null; until: string | null; windowWeeks: number };
 export type EpicFlow = { id: string; projectId: string; title: string; closed: number; total: number; weeks: number | null };
 export type FlowReport = {
   taskCount: number;

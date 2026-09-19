@@ -1,9 +1,7 @@
 import { DAY_MS } from "../../model/lifecycle";
 import { isClosing, type TaskHistory, type Transition } from "../history";
-import { median, nearestRank } from "../numbers";
+import { median, nearestRank, TAIL_FRACTION } from "../numbers";
 import type { FlowCycle } from "../types";
-
-const CYCLE_TAIL = 0.9;
 
 type WorkSpan = { closedAt: number; duration: number; blocked: number };
 
@@ -14,7 +12,7 @@ export function flowCycle(histories: readonly TaskHistory[], from: number, to: n
   const blocked = spans.reduce((sum, span) => sum + span.blocked, 0);
   return {
     medianDays: median(days),
-    p90Days: nearestRank(days, CYCLE_TAIL),
+    p90Days: nearestRank(days, TAIL_FRACTION),
     blockedShare: total === 0 ? null : blocked / total,
     sample: spans.length,
   };
