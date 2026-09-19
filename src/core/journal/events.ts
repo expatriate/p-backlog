@@ -15,7 +15,7 @@ export type TaskOrigin = { branch?: string; commit: string };
 
 export type Provenance = { found?: FoundHow; origin?: TaskOrigin };
 
-export const CANDIDATE_EVIDENCE = ["source-missing", "source-changed", "duplicate", "no-source"] as const;
+export const CANDIDATE_EVIDENCE = ["source-changed", "source-missing", "duplicate", "no-source"] as const;
 
 export type CandidateEvidence = (typeof CANDIDATE_EVIDENCE)[number];
 

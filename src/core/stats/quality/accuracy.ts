@@ -1,8 +1,7 @@
-import type { CandidateEvidence } from "../../journal/events";
+import { CANDIDATE_EVIDENCE, type CandidateEvidence } from "../../journal/events";
 import { closingsOf, type TaskHistory } from "../history";
 import type { AccuracyRow } from "../types";
 
-const EVIDENCE_ORDER: readonly CandidateEvidence[] = ["source-changed", "source-missing", "duplicate", "no-source"];
 
 type Outcome = "closed" | "verified" | "open";
 type Episode = { evidence: CandidateEvidence; outcome: Outcome };
@@ -14,7 +13,7 @@ export function accuracy(histories: readonly TaskHistory[], from: number, to: nu
       .map((candidate): Episode => ({ evidence: candidate.evidence, outcome: outcomeAfter(history, candidate.at) })),
   );
   if (episodes.length === 0) return [];
-  const byEvidence = EVIDENCE_ORDER.flatMap((evidence) => {
+  const byEvidence = CANDIDATE_EVIDENCE.flatMap((evidence) => {
     const own = episodes.filter((episode) => episode.evidence === evidence);
     return own.length === 0 ? [] : [accuracyRow(evidence, own)];
   });

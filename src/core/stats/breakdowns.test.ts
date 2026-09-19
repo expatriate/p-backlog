@@ -3,6 +3,7 @@ import { formatLocalIso } from "../model/dates";
 import { makeTask } from "../model/testing/make-task";
 import { ageBreakdown, closingBreakdown, folderOf, hotspots } from "./breakdowns";
 import type { TaskHistory } from "./history";
+import { makeHistory } from "./testing/make-history";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 
@@ -61,16 +62,13 @@ describe("возраст открытых", () => {
 
 describe("как закрываются", () => {
   it("причины, кто закрыл, шум и возвраты за период", () => {
-    const history = (id: string, transitions: TaskHistory["transitions"], source?: string): TaskHistory => ({
+    const history = (id: string, transitions: TaskHistory["transitions"], source?: string): TaskHistory => makeHistory({
       id,
       projectId: "spa",
-      type: "task",
       createdAt: at(2).getTime(),
       source,
       finalStatus: transitions.at(-1)?.to ?? "backlog",
       transitions,
-      candidates: [],
-      verifications: [],
     });
     const histories = [
       history("SPA-1", [{ at: at(5).getTime(), from: "backlog", to: "done", via: "cli" }], "src/a.ts:1"),

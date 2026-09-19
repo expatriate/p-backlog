@@ -4,6 +4,7 @@ import type { Task } from "../../model/types";
 import { closingsOf, type TaskHistory } from "../history";
 import type { EpicFlow } from "../types";
 import { FORECAST_WINDOW_WEEKS, inForecastWindow } from "./forecast";
+import { makeHistory } from "../testing/make-history";
 
 const EPIC_LIMIT = 8;
 
@@ -25,7 +26,7 @@ export function flowEpics(tasks: readonly Task[], histories: readonly TaskHistor
     .map(({ flow }) => flow);
 }
 
-const NO_HISTORY: TaskHistory = { id: "", projectId: "", type: "task", createdAt: 0, finalStatus: "backlog", transitions: [], candidates: [], verifications: [] };
+const NO_HISTORY = makeHistory();
 
 function epicWeeks(total: number, open: number, weeklyRate: number): number | null {
   if (total === 0) return null;
