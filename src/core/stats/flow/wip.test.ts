@@ -50,4 +50,14 @@ describe("в работе одновременно", () => {
     expect(weeks[4]?.max).toBe(null);
     expect(weeks[5]?.max).toBe(1);
   });
+
+  it("повторный переход «в работу» без выхода не удваивает счёт", () => {
+    const tasks = [makeTask({ id: "SPA-1", created: iso(1), status: "in-progress" })];
+    const events = [status("SPA-1", 15, "backlog", "in-progress"), status("SPA-1", 16, "blocked", "in-progress")];
+    const histories = taskHistories(tasks, [{ projectId: "spa", events, invalidLines: 0 }]);
+
+    const weeks = flowWip(histories, NOW, at(15).getTime());
+
+    expect(weeks[11]?.max).toBe(1);
+  });
 });

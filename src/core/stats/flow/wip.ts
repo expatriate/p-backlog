@@ -4,16 +4,45 @@ import type { WipWeek } from "../types";
 import { STATS_WEEKS, weekStarts } from "../weeks";
 import { statusAt } from "./status-at";
 
+type Step = { at: number; delta: number };
+
 export function flowWip(histories: readonly TaskHistory[], now: Date, journalStart: number | null): WipWeek[] {
   const nowMs = now.getTime();
   const starts = weekStarts(now, STATS_WEEKS);
-  const inProgressAt = (moment: number) => histories.filter((history) => history.createdAt <= moment && statusAt(history, moment) === "in-progress").length;
-  const moments = histories.flatMap((history) => history.transitions.map((transition) => transition.at));
-  return starts.map((start, index) => {
-    const end = starts[index + 1]?.getTime() ?? nowMs + 1;
+  const steps = inProgressSteps(histories);
+  let index = 0;
+  let inProgress = journalStart === null ? 0 : inProgressAt(histories, journalStart);
+  while (journalStart !== null && index < steps.length && (steps[index]?.at ?? 0) <= journalStart) index++;
+
+  return starts.map((start, position) => {
+    const end = starts[position + 1]?.getTime() ?? nowMs + 1;
     if (journalStart === null || end <= journalStart) return { start: formatLocalIso(start), max: null };
-    const from = Math.max(start.getTime(), journalStart);
-    const checks = [from, ...moments.filter((moment) => moment >= from && moment < end)];
-    return { start: formatLocalIso(start), max: checks.reduce((max, moment) => Math.max(max, inProgressAt(moment)), 0) };
+    let max = inProgress;
+    while (index < steps.length && (steps[index]?.at ?? 0) < end) {
+      const moment = steps[index]?.at;
+      while (index < steps.length && steps[index]?.at === moment) {
+        inProgress += steps[index]?.delta ?? 0;
+        index++;
+      }
+      max = Math.max(max, inProgress);
+    }
+    return { start: formatLocalIso(start), max };
   });
+}
+
+function inProgressSteps(histories: readonly TaskHistory[]): Step[] {
+  const steps = histories.flatMap((history) => {
+    let inProgress = false;
+    return history.transitions.flatMap((transition): Step[] => {
+      const nowInProgress = transition.to === "in-progress";
+      if (nowInProgress === inProgress) return [];
+      inProgress = nowInProgress;
+      return [{ at: transition.at, delta: nowInProgress ? 1 : -1 }];
+    });
+  });
+  return steps.sort((a, b) => a.at - b.at);
+}
+
+function inProgressAt(histories: readonly TaskHistory[], moment: number): number {
+  return histories.filter((history) => history.createdAt <= moment && statusAt(history, moment) === "in-progress").length;
 }
