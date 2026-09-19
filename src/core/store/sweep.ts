@@ -3,9 +3,9 @@ import { isClosed } from "../model/graph";
 import { parseId } from "../model/ids";
 import { isExpired, planEpicClosing } from "../model/lifecycle";
 import { deletedEvent } from "../journal/events";
-import { serializeProject } from "../model/project-file";
+import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { Project, Task } from "../model/types";
-import { removeIfUnchanged, writeFileAtomic } from "./fs-utils";
+import { readTextOrNull, removeIfUnchanged, writeFileAtomic } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { loadBacklog, type LoadedBacklog } from "./load";
 import { referenceCleanup } from "./references";
@@ -33,9 +33,10 @@ export async function sweepClosed(root: string, now: Date): Promise<SweepReport>
 
   const waitsForEpic = (task: Task) => task.epic !== undefined && epics.leftOpen.has(task.epic);
   const expired = tasks.filter((task) => isExpired(task, now) && !waitsForEpic(task));
-  await reserveNumbers(projects, expired);
-  const updateFailures = await updateRemainingTasks(tasks, expired, now);
-  const removal = await removeExpired(expired, now);
+  const reserved = await reserveNumbers(projects, expired);
+  const removable = expired.filter((task) => reserved.has(task.projectId));
+  const updateFailures = await updateRemainingTasks(tasks, removable, now);
+  const removal = await removeExpired(removable, now);
   return {
     closedEpics: epics.closed,
     blockingFiles: epics.blockingFiles,
@@ -104,11 +105,20 @@ function lacksClosedDate(task: Task): boolean {
   return isClosed(task.status) && task.closed === undefined;
 }
 
-async function reserveNumbers(projects: readonly Project[], expired: readonly Task[]): Promise<void> {
+async function reserveNumbers(projects: readonly Project[], expired: readonly Task[]): Promise<Set<string>> {
+  const reserved = new Set<string>();
   for (const project of projects) {
     const numbers = expired.filter((task) => task.projectId === project.id).flatMap((task) => parseId(task.id)?.number ?? []);
-    if (numbers.length === 0) continue;
-    const issuedUpTo = Math.max(project.issuedUpTo ?? 0, ...numbers);
-    if (issuedUpTo !== project.issuedUpTo) await writeFileAtomic(project.path, serializeProject({ ...project, issuedUpTo }));
+    if (numbers.length === 0 || (await raiseIssuedUpTo(project, Math.max(...numbers)))) reserved.add(project.id);
   }
+  return reserved;
+}
+
+export async function raiseIssuedUpTo(project: Pick<Project, "id" | "path">, number: number): Promise<boolean> {
+  const text = await readTextOrNull(project.path);
+  const current = text === null ? null : parseProjectFile(text, { id: project.id, path: project.path });
+  if (current === null || !current.ok) return false;
+  const issuedUpTo = Math.max(current.value.issuedUpTo ?? 0, number);
+  if (issuedUpTo !== current.value.issuedUpTo) await writeFileAtomic(project.path, serializeProject({ ...current.value, issuedUpTo }));
+  return true;
 }
