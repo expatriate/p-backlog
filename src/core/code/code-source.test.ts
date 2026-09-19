@@ -49,22 +49,24 @@ describe("сбор данных git по проектам", () => {
     expect(code.unavailableRepos).toEqual(["~/nope"]);
   });
 
-  it("при том же HEAD и дне git читается один раз", async () => {
+  it("при том же HEAD и дне данные берутся из кэша, после нового коммита читаются заново", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a\n" });
     gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
-    const calls: string[] = [];
-    const counting: GitRunner = async (dir, args) => {
-      calls.push(args[0] ?? "");
-      return await runGit(dir, args);
-    };
-    const source = createCodeSource({ home: "/home/backlog-test", git: counting });
+    const onlyRevParse: GitRunner = (dir, args) => (args[0] === "rev-parse" ? runGit(dir, args) : Promise.resolve(null));
+    let git: GitRunner = runGit;
+    const source = createCodeSource({ home: "/home/backlog-test", git: (dir, args) => git(dir, args) });
+    const projects = [projectOf("spa", [repo])];
 
-    await source.collect([projectOf("spa", [repo])], [], NOW);
-    await source.collect([projectOf("spa", [repo])], [], NOW);
+    const first = await source.collect(projects, [], NOW);
+    git = onlyRevParse;
 
-    expect(calls.filter((call) => call === "log")).toHaveLength(2);
-    expect(calls.filter((call) => call === "rev-parse")).toHaveLength(8);
+    expect((await source.collect(projects, [], NOW)).projects).toEqual(first.projects);
+
+    await writeFiles(repo, { "src/a.ts": "a\nb\n" });
+    gitCommitAll(repo, "second", "2026-09-12T10:00:00+03:00");
+
+    expect((await source.collect(projects, [], NOW)).unavailableRepos).toEqual([repo]);
   });
 
   it("один и тот же недоступный путь у двух проектов — одна запись", async () => {
