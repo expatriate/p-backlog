@@ -1,5 +1,5 @@
 import { isClosed } from "../../model/graph";
-import { statsScope, type StatsInput } from "../scope";
+import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { FlowReport } from "../types";
 import { periodStart } from "../weeks";
 import { flowNow } from "./current";
@@ -8,16 +8,12 @@ import { flowEpics } from "./epics";
 import { flowForecast } from "./forecast";
 import { flowWip } from "./wip";
 
-export function flowReport(input: StatsInput): FlowReport {
+export function flowReport(input: StatsInput, base: ReportBase = reportBase(input)): FlowReport {
   const { now } = input;
-  const scope = statsScope(input);
-  const histories = scope.histories.filter((history) => history.type === "task");
-  const tasks = scope.tasks.filter((task) => task.type === "task");
+  const { scope, histories, tasks } = base;
   const flowState = flowNow(tasks, histories, now);
   return {
-    taskCount: histories.length,
-    journalSince: scope.journalSince,
-    invalidJournalLines: scope.invalidJournalLines,
+    ...base.head,
     now: flowState,
     cycle: flowCycle(histories, periodStart(now), now.getTime()),
     wip: { weeks: flowWip(histories, now, scope.journalStart), current: flowState.inProgress },

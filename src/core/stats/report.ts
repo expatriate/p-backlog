@@ -1,10 +1,9 @@
-import { isClosed } from "../model/graph";
 import { DAY_MS } from "../model/lifecycle";
 import type { Priority, Task } from "../model/types";
 import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
 import { closingsOf, type TaskHistory } from "./history";
 import { daysBetween, median, nearestRank, TAIL_FRACTION } from "./numbers";
-import { statsScope, type StatsInput } from "./scope";
+import { reportBase, type ReportBase, type StatsInput } from "./scope";
 import type { StatsReport, StatsTotals } from "./types";
 import { periodStart, weeklyFlow } from "./weeks";
 
@@ -13,17 +12,13 @@ export const PRIORITY_WEIGHT: Record<Priority, number> = { critical: 8, high: 4,
 const STALE_DAYS = 30;
 const LAST_WEEK_MS = 7 * DAY_MS;
 
-export function statsReport(input: StatsInput): StatsReport {
+export function statsReport(input: StatsInput, base: ReportBase = reportBase(input)): StatsReport {
   const { now, projectId } = input;
-  const scope = statsScope(input);
-  const histories = scope.histories.filter((history) => history.type === "task");
-  const openTasks = scope.tasks.filter((task) => task.type === "task" && !isClosed(task.status));
+  const { histories, openTasks } = base;
   const start = periodStart(now);
 
   return {
-    taskCount: histories.length,
-    journalSince: scope.journalSince,
-    invalidJournalLines: scope.invalidJournalLines,
+    ...base.head,
     totals: totals(openTasks, histories, now, start),
     weeks: weeklyFlow(histories, now),
     hotspots: hotspots(openTasks, projectId === undefined),

@@ -1,6 +1,7 @@
 import type { ProjectJournal } from "../journal/events";
 import { formatLocalIso } from "../model/dates";
 import type { Task } from "../model/types";
+import { isClosed } from "../model/graph";
 import { taskHistories, type TaskHistory } from "./history";
 
 export type StatsInput = { tasks: readonly Task[]; journals: readonly ProjectJournal[]; now: Date; projectId?: string };
@@ -24,5 +25,22 @@ export function statsScope({ tasks, journals, projectId }: StatsInput): StatsSco
     journalStart,
     journalSince: journalStart === null ? null : formatLocalIso(new Date(journalStart)),
     invalidJournalLines: scopedJournals.reduce((sum, journal) => sum + journal.invalidLines, 0),
+  };
+}
+
+export type ReportHead = { taskCount: number; journalSince: string | null; invalidJournalLines: number };
+
+export type ReportBase = { scope: StatsScope; histories: TaskHistory[]; tasks: Task[]; openTasks: Task[]; head: ReportHead };
+
+export function reportBase(input: StatsInput): ReportBase {
+  const scope = statsScope(input);
+  const histories = scope.histories.filter((history) => history.type === "task");
+  const tasks = scope.tasks.filter((task) => task.type === "task");
+  return {
+    scope,
+    histories,
+    tasks,
+    openTasks: tasks.filter((task) => !isClosed(task.status)),
+    head: { taskCount: histories.length, journalSince: scope.journalSince, invalidJournalLines: scope.invalidJournalLines },
   };
 }

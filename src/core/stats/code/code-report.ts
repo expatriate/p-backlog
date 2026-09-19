@@ -1,5 +1,4 @@
-import { isClosed } from "../../model/graph";
-import { statsScope, type StatsInput } from "../scope";
+import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { CodeReport, CollectedCode } from "../types";
 import { periodStart } from "../weeks";
 import { churn } from "./churn";
@@ -8,16 +7,12 @@ import { fixBreakdown, fixRequests, type FixRequest } from "./fixes";
 
 export type CodeInput = StatsInput & { code: CollectedCode };
 
-export function codeReport({ code, ...input }: CodeInput): CodeReport {
+export function codeReport({ code, ...input }: CodeInput, base: ReportBase = reportBase(input)): CodeReport {
   const { now, projectId } = input;
-  const scope = statsScope(input);
-  const histories = scope.histories.filter((history) => history.type === "task");
-  const openTasks = scope.tasks.filter((task) => task.type === "task" && !isClosed(task.status));
+  const { histories, openTasks } = base;
   const projects = code.projects.filter((project) => projectId === undefined || project.projectId === projectId);
   return {
-    taskCount: histories.length,
-    journalSince: scope.journalSince,
-    invalidJournalLines: scope.invalidJournalLines,
+    ...base.head,
     unavailableRepos: code.unavailableRepos,
     churn: churn(openTasks, projects, projectId === undefined),
     density: density(openTasks, projects, projectId),
@@ -25,7 +20,6 @@ export function codeReport({ code, ...input }: CodeInput): CodeReport {
   };
 }
 
-export function codeFixRequests(input: StatsInput): FixRequest[] {
-  const histories = statsScope(input).histories.filter((history) => history.type === "task");
-  return fixRequests(histories, periodStart(input.now), input.now.getTime());
+export function codeFixRequests(input: StatsInput, base: ReportBase = reportBase(input)): FixRequest[] {
+  return fixRequests(base.histories, periodStart(input.now), input.now.getTime());
 }

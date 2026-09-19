@@ -13,7 +13,7 @@ import { effectReport } from "../core/stats/effect/effect-report";
 import { flowReport } from "../core/stats/flow/flow-report";
 import { qualityReport } from "../core/stats/quality/quality-report";
 import { statsReport } from "../core/stats/report";
-import type { StatsInput } from "../core/stats/scope";
+import { reportBase, type StatsInput } from "../core/stats/scope";
 import { statsSignals } from "../core/stats/signals/signals";
 import type { CodeReport, CostReport, EffectReport, FlowReport, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
@@ -86,13 +86,15 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
     };
 
   const statsOfCode = async (input: StatsInput, projects: readonly Project[]): Promise<CodeReport> => {
+    const base = reportBase(input);
     const scoped = projects.filter((project) => input.projectId === undefined || project.id === input.projectId);
-    return codeReport({ ...input, code: await codeSource.collect(scoped, codeFixRequests(input), input.now) });
+    return codeReport({ ...input, code: await codeSource.collect(scoped, codeFixRequests(input, base), input.now) }, base);
   };
 
   const statsOfEffect = async (input: StatsInput, projects: readonly Project[]): Promise<EffectReport> => {
+    const base = reportBase(input);
     const scoped = projects.filter((project) => input.projectId === undefined || project.id === input.projectId);
-    const scopedCode = await codeSource.collect(scoped, codeFixRequests(input), input.now);
+    const scopedCode = await codeSource.collect(scoped, codeFixRequests(input, base), input.now);
     const allFixes = input.projectId === undefined ? scopedCode : await codeSource.collect(projects, codeFixRequests({ ...input, projectId: undefined }), input.now);
     return effectReport({ ...input, code: { ...scopedCode, fixCommits: allFixes.fixCommits } });
   };
@@ -115,11 +117,11 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
   };
 
   const codeState = (projects: readonly Project[]) => codeSource.stateKey(projects);
-  api.get("/stats", scopedStats("stats", statsReport));
-  api.get("/stats/flow", scopedStats("flow", flowReport));
+  api.get("/stats", scopedStats("stats", (input) => statsReport(input)));
+  api.get("/stats/flow", scopedStats("flow", (input) => flowReport(input)));
   api.get("/stats/code", scopedStats("code", statsOfCode, codeState));
   api.get("/stats/effect", scopedStats("effect", statsOfEffect, codeState));
-  api.get("/stats/quality", scopedStats("quality", qualityReport));
+  api.get("/stats/quality", scopedStats("quality", (input) => qualityReport(input)));
   api.get("/stats/signals", scopedStats("signals", (input) => ({ signals: statsSignals(input) })));
   api.get("/stats/cost", async (c) => {
     const scope = await statsScopeOf(c);

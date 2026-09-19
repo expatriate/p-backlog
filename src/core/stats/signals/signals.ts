@@ -4,7 +4,7 @@ import { inWorkTasks } from "../flow/current";
 import { EVIDENCE_LABELS, formatDays, pluralCount } from "../format";
 import { qualityReport } from "../quality/quality-report";
 import { statsReport } from "../report";
-import { statsScope, type StatsInput } from "../scope";
+import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { AccuracyRow, Signal, StatsReport } from "../types";
 
 const GROWTH_WEEKS = 3;
@@ -13,9 +13,9 @@ const STUCK_BLOCKED_DAYS = 14;
 const NOISY_MIN_DECIDED = 10;
 const NOISY_MAX_PERCENT = 20;
 
-export function statsSignals(input: StatsInput): Signal[] {
-  const overview = statsReport(input);
-  return [...debtGrowing(overview), ...urgentStale(overview), ...stuck(input), ...noisyChecks(qualityReport(input).accuracy), ...staleLow(input)];
+export function statsSignals(input: StatsInput, base: ReportBase = reportBase(input)): Signal[] {
+  const overview = statsReport(input, base);
+  return [...debtGrowing(overview), ...urgentStale(overview), ...stuck(base, input.now), ...noisyChecks(qualityReport(input, base).accuracy), ...staleLow(base, input.now)];
 }
 
 function debtGrowing({ weeks }: StatsReport): Signal[] {
@@ -30,10 +30,8 @@ function urgentStale({ age }: StatsReport): Signal[] {
   return age.urgentStale === 0 ? [] : [{ kind: "urgent-stale", text: `Срочные задачи ждут дольше ${STALE_URGENT_DAYS} дней: ${age.urgentStale}` }];
 }
 
-function stuck(input: StatsInput): Signal[] {
-  const scope = statsScope(input);
-  const tasks = scope.tasks.filter((task) => task.type === "task");
-  const stuckTasks = inWorkTasks(tasks, scope.histories, input.now).filter(
+function stuck({ scope, tasks }: ReportBase, now: Date): Signal[] {
+  const stuckTasks = inWorkTasks(tasks, scope.histories, now).filter(
     (item) => item.days > (item.status === "blocked" ? STUCK_BLOCKED_DAYS : STUCK_IN_PROGRESS_DAYS),
   );
   const longest = stuckTasks[0];
@@ -41,8 +39,8 @@ function stuck(input: StatsInput): Signal[] {
   return [{ kind: "stuck", text: `Застряли в работе: ${stuckTasks.length}, дольше всех ${longest.id} — ${formatDays(longest.days)}` }];
 }
 
-function staleLow(input: StatsInput): Signal[] {
-  const stale = staleLowTasks(statsScope(input).tasks, input.now);
+function staleLow({ scope }: ReportBase, now: Date): Signal[] {
+  const stale = staleLowTasks(scope.tasks, now);
   return stale.length === 0 ? [] : [{ kind: "stale-low", text: `Задач с низким приоритетом старше ${STALE_LOW_DAYS} дней: ${stale.length} — разберите (backlog prune)` }];
 }
 
