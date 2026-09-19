@@ -131,7 +131,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
       />
       <ReadonlyRefs label="Задачи эпика" tasks={children} taskHref={taskHref} />
 
-      <TaskOptions id={TASK_LIST_ID} tasks={tasks} />
+      <TaskOptions id={TASK_LIST_ID} tasks={tasks.filter((other) => other.id !== task.id)} />
       <TaskOptions id={EPIC_LIST_ID} tasks={tasks.filter((candidate) => candidate.type === "epic")} />
     </SidePanel>
   );

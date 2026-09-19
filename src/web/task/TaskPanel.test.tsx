@@ -102,6 +102,16 @@ describe("карточка задачи", () => {
     expect(options).toEqual(["SPA-3"]);
   });
 
+  it("подсказки блокеров и связей не предлагают саму задачу", async () => {
+    await renderApp(FILES, "/p/spa/t/SPA-2");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });
+
+    const listId = within(panel).getByRole("combobox", { name: "Добавить в «Блокируется»" }).getAttribute("list") ?? "";
+    const options = [...(document.getElementById(listId)?.querySelectorAll("option") ?? [])].map((option) => option.value);
+    expect(options).not.toContain("SPA-2");
+    expect(options).toContain("SPA-1");
+  });
+
   it("Esc в поле не закрывает карточку, а сохраняет правку", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-1");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
