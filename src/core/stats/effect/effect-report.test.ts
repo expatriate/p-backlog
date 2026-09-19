@@ -46,6 +46,13 @@ describe("эффект беклога", () => {
     expect(report.totals).toMatchObject({ fixedTasks: 4, fixedLines: 100, openTasks: 2, estimatedLines: null, deferredLines: 100 });
   });
 
+  it("без коммитов после внедрения сравнивать не с чем — доля шума пустая", () => {
+    const report = effectReport({ tasks: [...fixes.map((fix) => fix.task), ...others], journals: [], now: NOW, projectId: "spa", code: code(fixes.map((fix) => fix.commit), []) });
+
+    expect(report.totals.realLines).toBe(0);
+    expect(report.totals.noiseShare).toBeNull();
+  });
+
   it("одна и та же задача-исправление на нескольких задачах — коммит учтён один раз, в медиане тоже один раз", () => {
     const sameFix = (id: string, day: number) => makeTask({ id, created: iso(8, day), status: "done", closed: iso(8, 10), resolution: "fixed", reason: "Исправлено в bbbbbb1", category: "bug" });
     const sharedOne = sameFix("SPA-101", 1);

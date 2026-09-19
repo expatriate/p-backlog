@@ -133,7 +133,7 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
     openTasks: open.length,
     estimatedLines,
     deferredLines,
-    noiseShare: denominator === 0 ? null : deferredLines / denominator,
+    noiseShare: realLines === 0 ? null : deferredLines / denominator,
   };
 }
 
