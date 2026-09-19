@@ -1,4 +1,6 @@
 import { homedir } from "node:os";
+import { formatLocalIso } from "../core/model/dates";
+import { appendRun, commandName } from "../core/store/runs";
 import { resolveBacklogRoot } from "../core/store/paths";
 import { runCli } from "./run";
 
@@ -10,13 +12,30 @@ async function readStdin(): Promise<string> {
 }
 
 const home = homedir();
+const backlogRoot = resolveBacklogRoot(process.env, home);
+const argv = process.argv.slice(2);
+const startedAt = performance.now();
 
-process.exitCode = await runCli(process.argv.slice(2), {
+const exitCode = await runCli(argv, {
   cwd: process.cwd(),
   home,
-  backlogRoot: resolveBacklogRoot(process.env, home),
+  backlogRoot,
   now: () => new Date(),
   readStdin,
   print: (line) => process.stdout.write(`${line}\n`),
   warn: (line) => process.stderr.write(`${line}\n`),
 });
+process.exitCode = exitCode;
+
+try {
+  await appendRun(backlogRoot, {
+    at: formatLocalIso(new Date()),
+    command: commandName(argv),
+    cwd: process.cwd(),
+    ms: Math.round(performance.now() - startedAt),
+    rssMb: Math.round((process.resourceUsage().maxRSS / 1024) * 10) / 10,
+    exitCode,
+  });
+} catch (error) {
+  process.stderr.write(`Не удалось записать запуск: ${error instanceof Error ? error.message : String(error)}\n`);
+}

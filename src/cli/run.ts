@@ -45,6 +45,8 @@ const COMMANDS = new Map<string, (args: string[], io: CliIo) => Promise<number>>
   ["hook", runHook],
 ]);
 
+export const COMMAND_NAMES: readonly string[] = [...COMMANDS.keys()];
+
 export async function runCli(argv: readonly string[], io: CliIo): Promise<number> {
   const [name, ...args] = argv;
   const command = name === undefined ? undefined : COMMANDS.get(name);
