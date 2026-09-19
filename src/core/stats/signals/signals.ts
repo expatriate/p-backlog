@@ -10,7 +10,7 @@ const GROWTH_WEEKS = 3;
 const STUCK_IN_PROGRESS_DAYS = 7;
 const STUCK_BLOCKED_DAYS = 14;
 const NOISY_MIN_DECIDED = 10;
-const NOISY_MAX_PRECISION = 0.2;
+const NOISY_MAX_PERCENT = 20;
 
 export function statsSignals(input: StatsInput): Signal[] {
   const overview = statsReport(input);
@@ -43,7 +43,9 @@ function stuck(input: StatsInput): Signal[] {
 function noisyChecks(accuracy: readonly AccuracyRow[]): Signal[] {
   return accuracy.flatMap((row) => {
     const decided = row.closed + row.verified;
-    if (row.evidence === "total" || decided < NOISY_MIN_DECIDED || row.precision === null || row.precision >= NOISY_MAX_PRECISION) return [];
-    return [{ kind: "noisy-check", text: `Проверка «${EVIDENCE_LABELS[row.evidence]}» почти всегда ошибается: точность ${Math.floor(row.precision * 100)}% на ${decided} решённых` }];
+    if (row.evidence === "total" || decided < NOISY_MIN_DECIDED || row.precision === null) return [];
+    const shownPercent = Math.round(row.precision * 100);
+    if (shownPercent >= NOISY_MAX_PERCENT) return [];
+    return [{ kind: "noisy-check", text: `Проверка «${EVIDENCE_LABELS[row.evidence]}» почти всегда ошибается: точность ${shownPercent}% на ${decided} решённых` }];
   });
 }
