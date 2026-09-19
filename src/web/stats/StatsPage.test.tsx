@@ -104,6 +104,14 @@ describe("вкладки статистики", () => {
     expect(screen.getByRole("link", { name: "Статистика" }).getAttribute("aria-current")).toBe("page");
   });
 
+  it("адрес со слэшем в конце — «Поток» активен и заголовок вкладки", async () => {
+    await renderApp(FILES, "/stats/flow/");
+    const tabs = await screen.findByRole("navigation", { name: "Разделы статистики" });
+
+    expect(within(tabs).getByRole("link", { name: "Поток" }).getAttribute("aria-current")).toBe("page");
+    expect(document.title).toBe("Поток · Статистика · Все проекты — Беклог");
+  });
+
   it("смена проекта на «Потоке» остаётся на «Потоке»", async () => {
     const app = await renderApp(FILES, "/p/spa/stats/flow");
     await screen.findByRole("region", { name: "Прогноз" });

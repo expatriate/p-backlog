@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link, Outlet, useLocation, useParams } from "react-router";
+import { Link, matchPath, Outlet, useLocation, useParams } from "react-router";
 import { useProjects } from "../app/queries";
 import { cx } from "../ui/cx";
 import styles from "./StatsPage.module.css";
@@ -17,7 +17,8 @@ export function StatsPage() {
   const heading = `Статистика · ${scopeName}`;
   const base = projectId === undefined ? "/stats" : `/p/${projectId}/stats`;
   const tabPath = (segment: string) => (segment === "" ? base : `${base}/${segment}`);
-  const active = STATS_TABS.find((tab) => tab.segment !== "" && pathname === tabPath(tab.segment)) ?? STATS_TABS[0];
+  const isActiveTab = (segment: string) => segment !== "" && matchPath({ path: tabPath(segment), end: true }, pathname) !== null;
+  const active = STATS_TABS.find((tab) => isActiveTab(tab.segment)) ?? STATS_TABS[0];
 
   useEffect(() => {
     document.title = active.segment === "" ? `${heading} — Беклог` : `${active.label} · ${heading} — Беклог`;
