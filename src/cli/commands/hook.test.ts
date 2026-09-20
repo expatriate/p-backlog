@@ -110,4 +110,35 @@ describe("backlog hook stop", () => {
     expect(mixed.reason).toContain("SPA-2");
     expect(mixed.reason).not.toContain("SPA-1");
   });
+
+  it("в одной сессии задача называется один раз, в новой — снова", async () => {
+    const { run, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Правка", "2026-09-18T10:00:00Z");
+    const event = (session: string) => JSON.stringify({ session_id: session, cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    const first = await run(["hook", "stop"], { stdin: event("s1") });
+    const second = await run(["hook", "stop"], { stdin: event("s1") });
+    const nextSession = await run(["hook", "stop"], { stdin: event("s2") });
+
+    expect(JSON.parse(first.out).decision).toBe("block");
+    expect(second.out).toBe("");
+    expect(JSON.parse(nextSession.out).decision).toBe("block");
+  });
+
+  it("без session_id в событии глушения нет", async () => {
+    const { run, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Правка", "2026-09-18T10:00:00Z");
+    const stdin = JSON.stringify({ cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    expect(JSON.parse((await run(["hook", "stop"], { stdin })).out).decision).toBe("block");
+    expect(JSON.parse((await run(["hook", "stop"], { stdin })).out).decision).toBe("block");
+  });
 });
