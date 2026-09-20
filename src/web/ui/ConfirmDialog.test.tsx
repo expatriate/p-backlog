@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -30,5 +30,28 @@ describe("подтверждение действия", () => {
     await user.click(confirm);
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("Esc закрывает без действия", () => {
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+    render(
+      <ConfirmDialog
+        open
+        title="Удалить проект «Торг»?"
+        description="Задач: 27. Отменить нельзя."
+        confirmWord="torg-io"
+        confirmWordLabel="Введите id проекта: torg-io"
+        confirmLabel="Удалить"
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+      />,
+    );
+
+    const dialog = document.querySelector("dialog");
+    fireEvent(dialog as HTMLDialogElement, new Event("cancel", { cancelable: true }));
+
+    expect(onCancel).toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 });

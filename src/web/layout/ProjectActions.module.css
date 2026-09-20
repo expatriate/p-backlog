@@ -1,0 +1,35 @@
+.action {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink-subtle);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.action:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+li:hover .action,
+li:focus-within .action {
+  opacity: 1;
+}
+
+.danger:hover {
+  color: var(--accent-ink);
+}
+
+@media (hover: none) {
+  .action {
+    opacity: 1;
+  }
+}

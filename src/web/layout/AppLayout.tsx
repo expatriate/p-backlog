@@ -7,7 +7,7 @@ import type { Project } from "../../core/model/types";
 import { useProjects, useSignals, useTasks } from "../app/queries";
 import { activeProjectIds, tasksInScope } from "../app/scope";
 import { cx } from "../ui/cx";
-import { ProjectMenu } from "./ProjectMenu";
+import { ProjectActions } from "./ProjectActions";
 import styles from "./AppLayout.module.css";
 
 export function AppLayout() {
@@ -97,7 +97,7 @@ function ProjectRow({ project, to, search, openTasks }: { project: Project; to: 
         </span>
         <span className={styles.count}>{openTasks}</span>
       </NavLink>
-      <ProjectMenu project={project} openTasks={openTasks} />
+      <ProjectActions project={project} openTasks={openTasks} />
     </li>
   );
 }

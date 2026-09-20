@@ -23,8 +23,7 @@ describe("боковая панель", () => {
   it("меню проекта переключает активность", async () => {
     const { user } = await renderApp(FILES);
 
-    await user.click(await screen.findByRole("button", { name: "Действия с проектом spa" }));
-    await user.click(screen.getByRole("button", { name: "Сделать неактивным" }));
+    await user.click(await screen.findByRole("button", { name: "Сделать неактивным: spa" }));
 
     const inactive = await screen.findByRole("list", { name: "Неактивные" });
     expect(await within(inactive).findByRole("link", { name: "spa1" })).toBeTruthy();
@@ -33,8 +32,7 @@ describe("боковая панель", () => {
   it("удаление проекта просит ввести его id", async () => {
     const { user, root } = await renderApp(FILES);
 
-    await user.click(await screen.findByRole("button", { name: "Действия с проектом spa" }));
-    await user.click(screen.getByRole("button", { name: "Удалить…" }));
+    await user.click(await screen.findByRole("button", { name: "Удалить проект spa" }));
 
     const confirm = screen.getByRole("button", { name: "Удалить" }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
