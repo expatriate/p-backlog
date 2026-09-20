@@ -40,8 +40,12 @@ export function isExpired(task: Task, now: Date): boolean {
 }
 
 export function planEpicClosing(tasks: readonly Task[], parseErrors: readonly ParseError[]): EpicClosingPlan {
+  const unreadableProjects = new Set(parseErrors.map((error) => error.projectId));
   const completed = completedEpics(tasks);
-  return parseErrors.length > 0 ? { close: [], waiting: completed } : { close: completed, waiting: [] };
+  return {
+    close: completed.filter(({ epic }) => !unreadableProjects.has(epic.projectId)),
+    waiting: completed.filter(({ epic }) => unreadableProjects.has(epic.projectId)),
+  };
 }
 
 export function completedEpics(tasks: readonly Task[]): EpicClosure[] {

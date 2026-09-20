@@ -157,21 +157,24 @@ describe("sweepClosed", () => {
     expect(byId.get("SPA-3")?.epic).toBe("SPA-1");
   });
 
-  it("при неразобранном файле завершённый эпик не закрывается и держит свои просроченные задачи", async () => {
+  it("неразобранный файл держит эпик своего проекта, но не чужого", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),
       "spa/SPA-1.md": taskFile("SPA-1", "type: epic\n"),
       "spa/SPA-2.md": taskFile("SPA-2", `epic: SPA-1\nstatus: done\n${EXPIRED}`),
       "spa/SPA-3.md": "сломано",
+      "ti/project.md": projectFile("TI"),
+      "ti/TI-1.md": taskFile("TI-1", "type: epic\n"),
+      "ti/TI-2.md": taskFile("TI-2", `epic: TI-1\nstatus: done\n${FRESH}`),
       "notes/todo.md": "заметки",
     });
 
     const report = await sweepClosed(root, NOW);
 
     expect(report).toEqual({
-      closedEpics: [],
-      blockingFiles: [join(root, "notes/project.md"), join(root, "spa/SPA-3.md")],
+      closedEpics: ["TI-1"],
+      blockingFiles: [join(root, "spa/SPA-3.md")],
       deleted: [],
       conflicts: [],
       invalid: [],

@@ -21,10 +21,8 @@ export async function loadBacklog(root: string): Promise<LoadedBacklog> {
 async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBacklog> {
   const projectPath = join(dir, PROJECT_FILE);
   const projectText = await readTextOrNull(projectPath);
-  const project: ParseResult<Project> =
-    projectText === null
-      ? { ok: false, message: `нет ${PROJECT_FILE}` }
-      : parseProjectFile(projectText, { id: projectId, path: projectPath });
+  if (projectText === null) return { projects: [], tasks: [], errors: [] };
+  const project: ParseResult<Project> = parseProjectFile(projectText, { id: projectId, path: projectPath });
   if (!project.ok) return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, message: project.message }] };
 
   const taskPaths = (await listDir(dir))

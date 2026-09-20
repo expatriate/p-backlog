@@ -231,7 +231,7 @@ describe("checkBacklog", () => {
     expect(spa1).toMatchObject({ blockedBy: [], related: ["TI-3", "XYZ-1"] });
   });
 
-  it("эпик ждёт неразобранных файлов — о них сообщается в любом проекте", async () => {
+  it("посторонний каталог и чужие ошибки не мешают закрыть эпик, свой неразобранный файл мешает", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
     await writeFiles(root, {
@@ -245,12 +245,12 @@ describe("checkBacklog", () => {
 
     const report = await checkBacklog(root, { projectIds: ["spa"], mode: "full", now: NOW, home });
 
-    expect(report.fixed).toEqual([]);
-    expect(report.problems).toEqual([
-      expect.stringMatching(/docs\/DOC-1\.md не разобран: файл не начинается с frontmatter/),
-      expect.stringMatching(/notes\/project\.md не разобран: нет project\.md/),
-      "Эпики SPA-7 завершены, но не закроются, пока не исправлены неразобранные файлы",
-      expect.stringMatching(/^Проект spa: в repos нет путей/),
-    ]);
+    expect(report.fixed).toEqual(["SPA-7: эпик закрыт — все задачи эпика закрыты: SPA-8"]);
+    expect(report.problems).toEqual([expect.stringMatching(/^Проект spa: в repos нет путей/)]);
+
+    await writeFiles(root, { "spa/SPA-9.md": "сломано" });
+    const blocked = await checkBacklog(root, { projectIds: ["spa"], mode: "full", now: NOW, home });
+
+    expect(blocked.problems).toContainEqual(expect.stringMatching(/spa\/SPA-9\.md не разобран/));
   });
 });

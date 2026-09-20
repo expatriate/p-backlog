@@ -55,7 +55,8 @@ async function closeCompletedEpics(loaded: LoadedBacklog, now: Date): Promise<Ep
     else failures.push(sweepFailure(epic.id, result));
   }
   const leftOpen = new Set([...plan.waiting.map(({ epic }) => epic.id), ...failures.map(({ id }) => id)]);
-  const blockingFiles = plan.waiting.length === 0 ? [] : loaded.errors.map((error) => error.path);
+  const waitingProjects = new Set(plan.waiting.map(({ epic }) => epic.projectId));
+  const blockingFiles = loaded.errors.filter((error) => waitingProjects.has(error.projectId)).map((error) => error.path);
   return { closed, failures, leftOpen, blockingFiles };
 }
 
