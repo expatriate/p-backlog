@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../../core/model/dates";
@@ -81,5 +81,19 @@ describe("backlog verify", () => {
     expect(result).toMatchObject({ code: EXIT.ok, out: "SPA-1: подтверждена\nSPA-2: подтверждена" });
     expect((await loadBacklog(root)).tasks.every((task) => task.verified !== undefined)).toBe(true);
     expect((await run(["verify", "SPA-1", "SPA-2", "--source", "src/a.ts:1"])).code).toBe(EXIT.invalid);
+  });
+
+  it("verify при недоступном файле кода сохраняет прежний якорь", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    const anchor = (await loadBacklog(root)).tasks[0]?.anchor;
+    expect(anchor).toMatch(/^[0-9a-f]{12}@/);
+
+    await rm(join(repo, "src/a.ts"));
+    await run(["verify", "SPA-1"], { now: new Date("2026-09-17T16:00:00Z") });
+
+    expect((await loadBacklog(root)).tasks[0]?.anchor).toBe(anchor);
   });
 });

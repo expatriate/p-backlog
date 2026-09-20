@@ -36,7 +36,7 @@ async function verifyOne(loaded: LoadedBacklog, id: string, source: string | und
     return EXIT.refused;
   }
 
-  const anchor = (await anchorFor(loaded, task, source ?? task.source, io)) ?? null;
+  const anchor = await anchorFor(loaded, task, source ?? task.source, io);
   const written = await writeTask(io, task, { verified: formatLocalIso(io.now()), source, anchor });
   if (!written.ok) return written.exitCode;
   io.print(source === undefined ? `${id}: подтверждена` : `${id}: подтверждена, source → ${source}`);
