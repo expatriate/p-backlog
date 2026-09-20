@@ -111,13 +111,13 @@ describe("вкладки статистики", () => {
   it("«Обзор» активен по умолчанию, «Качество» меняет адрес и заголовок вкладки", async () => {
     const app = await renderApp(FILES, "/stats");
     const tabs = await screen.findByRole("navigation", { name: "Разделы статистики" });
-    expect(within(tabs).getByRole("link", { name: "Обзор" }).getAttribute("aria-current")).toBe("page");
+    expect(within(tabs).getByRole("link", { name: "Обзор" }).getAttribute("aria-current")).toBe("true");
 
     await app.user.click(within(tabs).getByRole("link", { name: "Качество" }));
 
     expect(app.route()).toBe("/stats/quality");
     expect(document.title).toBe("Качество · Статистика · Все проекты — Беклог");
-    expect(within(tabs).getByRole("link", { name: "Качество" }).getAttribute("aria-current")).toBe("page");
+    expect(within(tabs).getByRole("link", { name: "Качество" }).getAttribute("aria-current")).toBe("true");
     expect(screen.queryByRole("link", { name: "Поток" })).toBeNull();
   });
 

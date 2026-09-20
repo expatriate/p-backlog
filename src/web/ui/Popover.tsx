@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useId,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -33,6 +34,8 @@ export function useClosePopover(): () => void {
 
 export function Popover({ trigger, triggerProps, triggerRef, children }: PopoverProps) {
   const [open, setOpen] = useState(false);
+  const triggerId = useId();
+  const panelId = useId();
   const anchor = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const ownTrigger = useRef<HTMLButtonElement>(null);
@@ -77,11 +80,19 @@ export function Popover({ trigger, triggerProps, triggerRef, children }: Popover
 
   return (
     <div ref={anchor} className={styles.anchor}>
-      <Button {...triggerProps} ref={button} aria-expanded={open} onClick={() => setOpen(!open)}>
+      <Button
+        {...triggerProps}
+        id={triggerId}
+        ref={button}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-controls={open ? panelId : undefined}
+        onClick={() => setOpen(!open)}
+      >
         {trigger}
       </Button>
       {open && (
-        <div ref={panel} className={styles.panel}>
+        <div ref={panel} id={panelId} role="group" aria-labelledby={triggerId} className={styles.panel}>
           <ClosePopoverContext value={closePopover}>{children}</ClosePopoverContext>
         </div>
       )}

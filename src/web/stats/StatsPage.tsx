@@ -46,7 +46,7 @@ export function StatsPage() {
       )}
       <nav className={styles.tabs} aria-label="Разделы статистики">
         {STATS_TABS.map((tab) => (
-          <Link key={tab.label} to={tabPath(tab.segment)} className={cx(styles.tab, tab === active && styles.tabActive)} aria-current={tab === active ? "page" : undefined}>
+          <Link key={tab.label} to={tabPath(tab.segment)} className={cx(styles.tab, tab === active && styles.tabActive)} aria-current={tab === active ? "true" : undefined}>
             {tab.label}
           </Link>
         ))}

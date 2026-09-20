@@ -52,14 +52,14 @@ export function AppLayout() {
         </div>
         <ul className={styles.projects} aria-labelledby="sidebar-projects">
           <li>
-            <NavLink to={{ pathname: scopePath(), search: onStats ? "" : search }} end className={({ isActive }) => navClass(isActive)}>
+            <NavLink to={{ pathname: scopePath(), search: onStats ? "" : search }} end aria-current="true" className={({ isActive }) => navClass(isActive)}>
               <span className={styles.projectName}>Все проекты</span>
               <span className={styles.count}>{openCount()}</span>
             </NavLink>
           </li>
           {(projects.data ?? []).map((project) => (
             <li key={project.id}>
-              <NavLink to={{ pathname: scopePath(project.id), search: onStats ? "" : search }} className={({ isActive }) => navClass(isActive)}>
+              <NavLink to={{ pathname: scopePath(project.id), search: onStats ? "" : search }} aria-current="true" className={({ isActive }) => navClass(isActive)}>
                 <span className={styles.projectName} title={project.name}>
                   {project.name}
                 </span>

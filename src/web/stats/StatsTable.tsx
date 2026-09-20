@@ -6,7 +6,7 @@ export type StatsTableRow = { key: string; cells: ReactNode[] };
 export function StatsTable({ label, head, rows }: { label: string; head: string[]; rows: StatsTableRow[] }) {
   return (
     <div className={styles.scroll} tabIndex={0} role="region" aria-label={`Таблица «${label}»`}>
-      <table className={styles.table} aria-label={label}>
+      <table className={styles.table}>
         <thead>
           <tr>
             {head.map((title) => (
