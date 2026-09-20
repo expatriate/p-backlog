@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
 import { anchorOf } from "./anchor";
-import { codeReview, duplicateCandidates, isReviewable, noSourceCandidates, sourcePath } from "./candidates";
+import { codeReview, duplicateCandidates, isReviewable, sourcePath } from "./candidates";
 import type { Task } from "../model/types";
 import type { Commit, RepoFacts } from "./repo-facts";
 
@@ -171,18 +171,6 @@ describe("duplicateCandidates", () => {
   });
 });
 
-describe("noSourceCandidates", () => {
-  it("задача без source — кандидат, только если в репозитории были коммиты после её отметки", () => {
-    const task = makeTask({ id: "SPA-1", created: CREATED });
-    const before = facts({ commits: [commit("a1", "2026-09-10T10:00:00+03:00", [])] });
-    const after = facts({ commits: [commit("b2", "2026-09-12T10:00:00+03:00", [])] });
-
-    expect(noSourceCandidates([task], before)).toEqual([]);
-    expect(noSourceCandidates([task], after)).toEqual([{ kind: "no-source", task: { id: "SPA-1", title: task.title } }]);
-    expect(noSourceCandidates([{ ...task, verified: "2026-09-13T10:00:00+03:00" }], after)).toEqual([]);
-    expect(noSourceCandidates([{ ...task, source: "src/a.ts" }], after)).toEqual([]);
-  });
-});
 
 describe("якорь фрагмента в проверке", () => {
   const text = ["const alpha = 1;", "const beta = 2;", "const gamma = 3;", "const delta = 4;", "const epsilon = 5;", "const zeta = 6;", "const eta = 7;"].join("\n");

@@ -19,7 +19,5 @@ function evidence(candidate: Candidate): string {
         : `файла ${candidate.path} нет — переименован в ${candidate.renamedTo}`;
     case "duplicate":
       return `похоже на дубль ${candidate.other.id} (${DUPLICATE_MATCH[candidate.match]})`;
-    case "no-source":
-      return "без source, в репозитории были коммиты после последней проверки";
   }
 }

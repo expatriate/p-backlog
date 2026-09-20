@@ -104,9 +104,6 @@ describe("checkBacklog", () => {
         other: { id: "SPA-4", title: "Таймаут загрузки не учитывает размер файла" },
         match: "title",
       },
-      { kind: "no-source", task: { id: "SPA-4", title: "Таймаут загрузки не учитывает размер файла" } },
-      { kind: "no-source", task: { id: "SPA-5", title: "Загрузка: таймаут не учитывает большие файлы" } },
-      { kind: "no-source", task: { id: "SPA-9", title: "Задача SPA-9" } },
     ]);
 
     const byId = new Map((await loadBacklog(root)).tasks.map((loaded) => [loaded.id, loaded]));

@@ -10,8 +10,7 @@ export type CommitRef = { sha: string; subject: string };
 export type Candidate =
   | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string  | undefined}
   | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string }
-  | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: "source" | "title" }
-  | { kind: "no-source"; task: TaskRef };
+  | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: "source" | "title" };
 
 export type AnchorPlan = { id: string; changes: { source?: string; anchor: string }; note?: string };
 
@@ -98,12 +97,6 @@ export function duplicateCandidates(tasks: readonly Task[]): Candidate[] {
       return match === null ? [] : [{ kind: "duplicate", task: taskRef(task), other: taskRef(older), match }];
     }),
   );
-}
-
-export function noSourceCandidates(tasks: readonly Task[], facts: RepoFacts): Candidate[] {
-  return tasks
-    .filter((task) => task.source === undefined && commitsAfter(facts.commits, reviewMark(task)).length > 0)
-    .map((task) => ({ kind: "no-source", task: taskRef(task) }));
 }
 
 function duplicateMatch(task: Task, other: Task): "source" | "title" | null {

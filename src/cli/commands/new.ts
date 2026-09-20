@@ -39,6 +39,7 @@ export async function runNew(args: string[], io: CliIo): Promise<number> {
   const category = values.category === undefined ? undefined : parseChoice(values.category, TASK_CATEGORIES, "--category");
   if (category === undefined && type !== "epic") throw new UsageError("--category обязателен: bug или категория запаха из каталога code-smells");
   const found = values.found === undefined ? "incidental" : parseChoice(values.found, FOUND_HOW, "--found");
+  if (category === "bug" && values.source === undefined) io.warn("У бага нет --source: без файла:строки проверка не увидит, что код задачи изменился");
 
   const loaded = await loadBacklog(io.backlogRoot);
   const project = await ensureProject(loaded, io, values.project);

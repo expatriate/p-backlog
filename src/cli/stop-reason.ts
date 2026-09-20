@@ -27,7 +27,5 @@ function briefEvidence(candidate: Candidate): string {
         : `${candidate.task.id} (${candidate.path} переименован в ${candidate.renamedTo})`;
     case "duplicate":
       return `${candidate.task.id} (похожа на ${candidate.other.id})`;
-    case "no-source":
-      return `${candidate.task.id} (без source)`;
   }
 }

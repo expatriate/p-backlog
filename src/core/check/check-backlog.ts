@@ -15,7 +15,7 @@ import { updateTaskIn, type TaskChanges } from "../store/update";
 import type { UpdateTaskFailure } from "../store/write-result";
 import { snippetOf } from "./anchor";
 import { findRepo } from "./project-repo";
-import { codeReview, duplicateCandidates, isReviewable, noSourceCandidates, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
+import { codeReview, duplicateCandidates, isReviewable, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
 import { collectRepoFacts, diffSince, type RepoFacts } from "./repo-facts";
 
 export type { CheckMode };
@@ -132,7 +132,7 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
   const review = codeReview(tasks, facts);
   const code = await Promise.all(review.candidates.map((candidate) => withContext(candidate, tasks, facts, repo)));
   const plans = review.plans;
-  return { candidates: mode === "full" ? [...code, ...duplicates, ...noSourceCandidates(tasks, facts)] : code, plans };
+  return { candidates: mode === "full" ? [...code, ...duplicates] : code, plans };
 }
 
 async function withContext(candidate: Candidate, tasks: readonly Task[], facts: RepoFacts, repo: string): Promise<Candidate> {

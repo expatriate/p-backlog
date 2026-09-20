@@ -44,9 +44,9 @@ describe("backlog new", () => {
 
   it("второй вызов использует существующий проект, --json печатает задачу", async () => {
     const { run } = await makeCliSandbox();
-    await run(["new", "--category", "bug", "--title", "Первая"]);
+    await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
 
-    const result = await run(["new", "--category", "bug", "--title", "Вторая", "--related", "SPA-1", "--json"]);
+    const result = await run(["new", "--category", "bug", "--title", "Вторая", "--related", "SPA-1", "--source", "src/b.ts:2", "--json"]);
 
     expect(result.code).toBe(EXIT.ok);
     expect(result.err).toBe("");
@@ -123,5 +123,15 @@ describe("backlog new", () => {
 
     expect((await run(["new", "--title", "X", "--category", "spaghetti"])).code).toBe(1);
     expect((await run(["new", "--category", "bug", "--title", "X", "--found", "maybe"])).code).toBe(1);
+  });
+
+  it("баг без --source создаётся, но с предупреждением", async () => {
+    const { run } = await makeCliSandbox();
+
+    const created = await run(["new", "--category", "bug", "--title", "Падает на пустом ответе"]);
+
+    expect(created.code).toBe(EXIT.ok);
+    expect(created.err).toContain("У бага нет --source");
+    expect((await run(["new", "--category", "bug", "--title", "Другой", "--source", "src/a.ts:1"])).err).toBe("");
   });
 });
