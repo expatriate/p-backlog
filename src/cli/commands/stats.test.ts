@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
+import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { NBSP } from "../../core/stats/format";
 
 describe("backlog stats", () => {
@@ -41,5 +42,15 @@ describe("backlog stats", () => {
 
     expect((await run(["stats", "--project", "spa", "--all-projects"])).code).toBe(EXIT.invalid);
     expect((await run(["stats"], { cwd: home })).code).toBe(EXIT.notFound);
+  });
+
+  it("--all-projects не считает неактивные проекты", async () => {
+    const { run, root, home } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Активная"]);
+    await writeFiles(root, { "ti/project.md": projectFile("TI", [], { active: false }), "ti/TI-1.md": taskFile("TI-1") });
+
+    const all = JSON.parse((await run(["stats", "--all-projects", "--json"], { cwd: home })).out) as { totals: { open: number } };
+
+    expect(all.totals.open).toBe(1);
   });
 });

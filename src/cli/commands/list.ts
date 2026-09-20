@@ -35,7 +35,12 @@ export async function runList(args: string[], io: CliIo): Promise<number> {
   }
 
   const index = buildIndex(loaded.tasks);
-  const filtered = filterTasks(loaded.tasks, { projectId, query: values.query, statuses, tags: splitList(values.tag) }, index);
+  const inScope = new Set(scope.activeIds);
+  const filtered = filterTasks(
+    loaded.tasks.filter((task) => inScope.has(task.projectId)),
+    { projectId, query: values.query, statuses, tags: splitList(values.tag) },
+    index,
+  );
   const tasks = sortTasks(filtered, { key: "priority", direction: "desc" }, index);
 
   if (values.json) io.print(JSON.stringify(tasks.map((task) => toJson(describeTask(task, index))), null, 2));

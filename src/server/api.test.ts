@@ -362,6 +362,26 @@ describe("статика", () => {
   });
 });
 
+describe("неактивные проекты", () => {
+  it("не входят в общую статистику, но открываются напрямую; список задач отдаёт все", async () => {
+    const backlog = await makeTestApp({
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1"),
+      "torg-io/project.md": projectFile("TI", [], { active: false }),
+      "torg-io/TI-1.md": taskFile("TI-1"),
+    });
+
+    const all = (await (await backlog.request("/api/stats")).json()) as StatsReport;
+    expect(all.taskCount).toBe(1);
+
+    const scoped = (await (await backlog.request("/api/stats?project=torg-io")).json()) as StatsReport;
+    expect(scoped.taskCount).toBe(1);
+
+    const { tasks } = (await (await backlog.request("/api/tasks")).json()) as TasksResponse;
+    expect(tasks.map((task) => task.id)).toEqual(["SPA-1", "TI-1"]);
+  });
+});
+
 describe("тело запроса", () => {
   it("неразобранный JSON отличается от несовпадения со схемой", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);

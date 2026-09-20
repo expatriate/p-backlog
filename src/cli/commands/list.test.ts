@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { writeFiles } from "../../core/store/testing/temp-dirs";
+import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { updateTask } from "../../core/store/update";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
@@ -33,5 +33,17 @@ describe("backlog list", () => {
     expect(all.out).toContain("SPA-1");
     expect(all.err).toContain("SPA-9.md");
     expect((await run(["list", "--project", "spa", "--all-projects"])).code).toBe(EXIT.invalid);
+  });
+
+  it("--all-projects пропускает неактивные проекты", async () => {
+    const { run, root, home } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Активная"]);
+    await writeFiles(root, { "ti/project.md": projectFile("TI", [], { active: false }), "ti/TI-1.md": taskFile("TI-1") });
+
+    const all = await run(["list", "--all-projects"], { cwd: home });
+
+    expect(all.out).toContain("SPA-1");
+    expect(all.out).not.toContain("TI-1");
+    expect((await run(["list", "--project", "ti"], { cwd: home })).out).toContain("TI-1");
   });
 });

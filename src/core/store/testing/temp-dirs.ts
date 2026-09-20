@@ -34,8 +34,9 @@ export async function writeFiles(root: string, files: Record<string, string>): P
   }
 }
 
-export function projectFile(prefix: string, repos: string[] = []): string {
-  return `---\nname: ${prefix.toLowerCase()}\nprefix: ${prefix}\nrepos: [${repos.join(", ")}]\n---\n`;
+export function projectFile(prefix: string, repos: string[] = [], { active = true }: { active?: boolean } = {}): string {
+  const activeLine = active ? "" : "active: false\n";
+  return `---\nname: ${prefix.toLowerCase()}\nprefix: ${prefix}\nrepos: [${repos.join(", ")}]\n${activeLine}---\n`;
 }
 
 export function taskFile(id: string, fields = ""): string {

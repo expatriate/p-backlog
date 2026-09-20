@@ -63,7 +63,10 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
       return c.json({ errors: [`Проект ${projectId} не найден`] }, 404);
     }
-    return { projectId, projects, tasks };
+    if (projectId !== undefined) return { projectId, projects, tasks };
+    const active = projects.filter((project) => project.active);
+    const activeIds = new Set(active.map((project) => project.id));
+    return { projectId, projects: active, tasks: tasks.filter((task) => activeIds.has(task.projectId)) };
   };
 
   const scopedStats =
