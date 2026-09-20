@@ -18,7 +18,7 @@ export type TestApp = {
   memory: MemorySampler;
   emitChange: () => void;
   request: (path: string, init?: RequestInit) => Promise<Response>;
-  json: (path: string, method: "POST" | "PATCH", body: unknown) => Promise<Response>;
+  json: (path: string, method: "POST" | "PATCH" | "DELETE", body: unknown) => Promise<Response>;
   taskVersion: (id: string) => Promise<string>;
 };
 

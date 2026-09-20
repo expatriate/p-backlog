@@ -19,6 +19,10 @@ export const taskChangesSchema = z.strictObject({
   category: z.enum(TASK_CATEGORIES).nullable().optional(),
 });
 
+export const projectActiveSchema = z.strictObject({ active: z.boolean() });
+
+export const projectDeleteSchema = z.strictObject({ confirm: z.string() });
+
 export const updateTaskRequestSchema = z.strictObject({
   version: z.string().min(1),
   changes: taskChangesSchema,
@@ -27,6 +31,7 @@ export const updateTaskRequestSchema = z.strictObject({
 export type TaskChangesRequest = z.infer<typeof taskChangesSchema>;
 
 export type TasksResponse = { tasks: Task[]; errors: ParseError[] };
+export type ProjectDeletedResponse = { deleted: string };
 export type ErrorResponse = { errors: string[] };
 export type ConflictResponse = ErrorResponse & { current: Task };
 export type { CodeReport, CostReport, EffectReport, MemorySample, QualityReport, SignalsReport, StatsReport } from "../stats/types";

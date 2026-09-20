@@ -1,4 +1,17 @@
-import type { CodeReport, ConflictResponse, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type {
+  CodeReport,
+  ConflictResponse,
+  CostReport,
+  EffectReport,
+  ErrorResponse,
+  MemorySamplesResponse,
+  ProjectDeletedResponse,
+  QualityReport,
+  SignalsReport,
+  StatsReport,
+  TaskChangesRequest,
+  TasksResponse,
+} from "../../core/api/contract";
 import type { Project, Task } from "../../core/model/types";
 
 export type ApiFetch = (path: string, init?: RequestInit) => Promise<Response>;
@@ -16,6 +29,8 @@ export class ApiError extends Error {
 
 export type ApiClient = {
   projects: () => Promise<Project[]>;
+  setProjectActive: (id: string, active: boolean) => Promise<Project>;
+  deleteProject: (id: string, confirm: string) => Promise<void>;
   tasks: () => Promise<TasksResponse>;
   updateTask: (id: string, version: string, changes: TaskChangesRequest) => Promise<Task>;
   stats: (projectId?: string) => Promise<StatsReport>;
@@ -36,15 +51,12 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
   };
   return {
     projects: async () => read<Project[]>(await apiFetch("/api/projects")),
+    setProjectActive: async (id, active) => read<Project>(await apiFetch(projectPath(id), jsonInit("PATCH", { active }))),
+    deleteProject: async (id, confirm) => {
+      await read<ProjectDeletedResponse>(await apiFetch(projectPath(id), jsonInit("DELETE", { confirm })));
+    },
     tasks: async () => read<TasksResponse>(await apiFetch("/api/tasks")),
-    updateTask: async (id, version, changes) =>
-      read<Task>(
-        await apiFetch(`/api/tasks/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ version, changes }),
-          headers: { "content-type": "application/json" },
-        }),
-      ),
+    updateTask: async (id, version, changes) => read<Task>(await apiFetch(`/api/tasks/${id}`, jsonInit("PATCH", { version, changes }))),
     stats: async (projectId) => read<StatsReport>(await apiFetch(scopedPath("/api/stats", projectId))),
     codeStats: async (projectId) => read<CodeReport>(await apiFetch(scopedPath("/api/stats/code", projectId))),
     effectStats: async (projectId) => read<EffectReport>(await apiFetch(scopedPath("/api/stats/effect", projectId))),
@@ -53,6 +65,14 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
     costStats: async (projectId) => read<CostReport>(await apiFetch(scopedPath("/api/stats/cost", projectId))),
     memorySamples: async () => read<MemorySamplesResponse>(await apiFetch("/api/stats/memory")),
   };
+}
+
+function projectPath(id: string): string {
+  return `/api/projects/${encodeURIComponent(id)}`;
+}
+
+function jsonInit(method: string, body: unknown): RequestInit {
+  return { method, body: JSON.stringify(body), headers: { "content-type": "application/json" } };
 }
 
 function scopedPath(path: string, projectId: string | undefined): string {

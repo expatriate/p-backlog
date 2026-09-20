@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
-import { updateTaskRequestSchema } from "../core/api/contract";
+import { projectActiveSchema, projectDeleteSchema, updateTaskRequestSchema } from "../core/api/contract";
 import { createCodeCacheFile } from "../core/code/code-cache";
 import { createCodeSource } from "../core/code/code-source";
 import type { Project, Task } from "../core/model/types";
@@ -18,6 +18,7 @@ import type { CodeReport, CostReport, EffectReport, QualityReport, SignalsReport
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { readJournals } from "../core/store/journal";
 import { readRuns } from "../core/store/runs";
+import { deleteProject, setProjectActive } from "../core/store/projects";
 import { findProjectForRepoRoot, findRepoRoot } from "../core/store/resolve-project";
 import { updateTask } from "../core/store/update";
 import type { UsageCache } from "../core/usage/usage-cache";
@@ -141,6 +142,27 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
     if (result.reason === "not-found") return c.json({ errors: [`Задача ${id} не найдена`] }, 404);
     if (result.reason === "conflict") return c.json({ errors: ["Задача изменилась на диске"], current: result.current }, 409);
     return invalidResponse(c, result);
+  });
+
+  api.patch("/projects/:id", async (c) => {
+    const body = await readBody(c, projectActiveSchema);
+    if (!body.ok) return body.response;
+
+    const id = c.req.param("id");
+    const result = await setProjectActive(root, id, body.data.active);
+    forgetBacklog();
+    return result.ok ? c.json(result.project) : c.json({ errors: [`Проект ${id} не найден`] }, 404);
+  });
+
+  api.delete("/projects/:id", async (c) => {
+    const body = await readBody(c, projectDeleteSchema);
+    if (!body.ok) return body.response;
+
+    const id = c.req.param("id");
+    if (body.data.confirm !== id) return c.json({ errors: ["Подтверждение не совпадает с id проекта"] }, 422);
+    const result = await deleteProject(root, id);
+    forgetBacklog();
+    return result.ok ? c.json({ deleted: id }) : c.json({ errors: [`Проект ${id} не найден`] }, 404);
   });
 
   api.get("/events", (c) =>

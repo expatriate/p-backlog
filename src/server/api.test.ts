@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { CodeReport, ConflictResponse, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
 import { readJournal } from "../core/store/journal";
+import { loadBacklog } from "../core/store/load";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
@@ -379,6 +380,27 @@ describe("неактивные проекты", () => {
 
     const { tasks } = (await (await backlog.request("/api/tasks")).json()) as TasksResponse;
     expect(tasks.map((task) => task.id)).toEqual(["SPA-1", "TI-1"]);
+  });
+});
+
+describe("PATCH и DELETE /api/projects/:id", () => {
+  it("меняют активность и удаляют проект только с точным подтверждением", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+
+    const patched = await backlog.json("/api/projects/spa", "PATCH", { active: false });
+    expect(patched.status).toBe(200);
+    expect((await patched.json()) as Project).toMatchObject({ id: "spa", active: false });
+
+    const wrong = await backlog.json("/api/projects/spa", "DELETE", { confirm: "SPA" });
+    expect(wrong.status).toBe(422);
+    expect((await loadBacklog(backlog.root)).projects.map((project) => project.id)).toContain("spa");
+
+    const deleted = await backlog.json("/api/projects/spa", "DELETE", { confirm: "spa" });
+    expect(deleted.status).toBe(200);
+    expect((await loadBacklog(backlog.root)).projects.map((project) => project.id)).toEqual(["torg-io"]);
+
+    expect((await backlog.json("/api/projects/spa", "PATCH", { active: true })).status).toBe(404);
+    expect((await backlog.json("/api/projects/spa", "DELETE", { confirm: "spa" })).status).toBe(404);
   });
 });
 
