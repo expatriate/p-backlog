@@ -98,6 +98,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
                 {task.resolution !== undefined && (
                   <span className={styles.marker} title={task.reason}>
                     {RESOLUTION_LABELS[task.resolution]}
+                    {task.reason !== undefined && <span className="visually-hidden">: {task.reason}</span>}
                   </span>
                 )}
                 {epic && (

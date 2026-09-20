@@ -12,3 +12,8 @@
   font-size: var(--text-sm);
   color: var(--ink-subtle);
 }
+
+.fieldError {
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+}

@@ -223,7 +223,7 @@ describe("карточка задачи", () => {
     await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).tags).toEqual(["upload", "network"]));
   });
 
-  it("показывает ошибку правил и не ломает карточку", async () => {
+  it("неизвестный и неэпический ID показывают ошибку рядом с полем и не уходят на сервер", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-2");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });
 
@@ -231,7 +231,10 @@ describe("карточка задачи", () => {
     await app.user.type(epic, "SPA-1");
     await app.user.tab();
 
-    expect(await within(panel).findByText(/SPA-1 не является эпиком/)).toBeDefined();
+    const error = await within(panel).findByRole("alert");
+    expect(error.textContent).toBe("SPA-1 не является эпиком");
+    expect(epic.getAttribute("aria-invalid")).toBe("true");
+    expect(epic.getAttribute("aria-describedby")).toBe(error.id);
     expect((await taskOnDisk(app.root, "SPA-2")).epic).toBeUndefined();
   });
 });
@@ -358,5 +361,16 @@ describe("черновик описания при уходе с задачи", 
 
     expect(await screen.findByRole("complementary", { name: "Задача SPA-4" })).toBeDefined();
     expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it("после сохранения карточка говорит «Сохранено»", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    const priority = within(panel).getByRole("combobox", { name: "Приоритет" });
+    await app.user.selectOptions(priority, "critical");
+
+    expect((await within(panel).findByRole("status")).textContent).toBe("Сохраняем…");
+    await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe("Сохранено"));
   });
 });

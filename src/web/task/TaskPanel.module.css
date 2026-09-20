@@ -115,3 +115,10 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+.saving {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--ink-subtle);
+  font-size: var(--text-sm);
+}

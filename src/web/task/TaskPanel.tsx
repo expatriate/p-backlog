@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Link } from "react-router";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { toggleChecklistItem } from "../../core/model/checklist";
@@ -40,6 +40,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
   const now = useNow();
   useLeaveGuard(bodyDraft !== null, LEAVE_WITH_DRAFT);
 
+  const saveNote = useSaveNote(updateTask.isPending, updateTask.isSuccess, updateTask.submittedAt);
   const apply = (changes: TaskChangesRequest) => updateTask.mutate({ id: task.id, version: task.version, changes });
   const applyAsync = (changes: TaskChangesRequest) => updateTask.mutateAsync({ id: task.id, version: task.version, changes });
   const conflict = updateTask.error instanceof ApiError && updateTask.error.status === 409;
@@ -58,7 +59,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
     >
       <TitleField title={task.title} onSave={(title) => apply({ title })} />
 
-      <TaskFields task={task} epicListId={EPIC_LIST_ID} onChange={apply} />
+      <TaskFields task={task} epicListId={EPIC_LIST_ID} knownTasks={tasks} onChange={apply} />
 
       <div className={styles.meta}>
         <StatusBadge status={task.status} />
@@ -66,6 +67,10 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
         <span>создана {formatDateTime(task.created)}</span>
         {task.source && <span className={styles.source}>{task.source}</span>}
       </div>
+
+      <p className={styles.saving} role="status">
+        {saveNote}
+      </p>
 
       {isClosed(task.status) && (
         <div className={styles.closure}>
@@ -81,12 +86,12 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
       )}
 
       {conflict && (
-        <p className={styles.conflict} role="status">
+        <p className={styles.conflict} role="alert">
           Задача изменилась на диске, показана актуальная версия. Повторите правку.
         </p>
       )}
       {!conflict && updateTask.error && (
-        <p className={styles.conflict} role="status">
+        <p className={styles.conflict} role="alert">
           {updateTask.error.message}
         </p>
       )}
@@ -101,6 +106,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
       <TaskBody
         body={task.body}
         draft={bodyDraft}
+        saving={updateTask.isPending}
         onDraftChange={setBodyDraft}
         onToggleLine={(line) => apply({ body: toggleChecklistItem(task.body, line) })}
         onSave={(body) => applyAsync({ body })}
@@ -137,15 +143,38 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
   );
 }
 
+const SAVED_NOTE_MS = 2000;
+
+function useSaveNote(pending: boolean, success: boolean, submittedAt: number): string {
+  const [fadedSave, setFadedSave] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!success) return;
+    const timer = setTimeout(() => setFadedSave(submittedAt), SAVED_NOTE_MS);
+    return () => clearTimeout(timer);
+  }, [success, submittedAt]);
+
+  if (pending) return "Сохраняем…";
+  return success && fadedSave !== submittedAt ? "Сохранено" : "";
+}
+
 function TitleField({ title: serverTitle, onSave }: { title: string; onSave: (title: string) => void }) {
   const [title, setTitle, titleRef] = useDraft<HTMLTextAreaElement>(serverTitle);
 
   useLayoutEffect(() => {
     const field = titleRef.current;
     if (!field) return;
-    const borders = field.offsetHeight - field.clientHeight;
-    field.style.height = "auto";
-    field.style.height = `${field.scrollHeight + borders}px`;
+    const fit = () => {
+      const borders = field.offsetHeight - field.clientHeight;
+      field.style.height = "auto";
+      field.style.height = `${field.scrollHeight + borders}px`;
+    };
+    fit();
+    const box = field.parentElement;
+    if (!box) return;
+    const observer = new ResizeObserver(fit);
+    observer.observe(box);
+    return () => observer.disconnect();
   }, [title, titleRef]);
 
   return (

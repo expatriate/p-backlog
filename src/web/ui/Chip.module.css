@@ -3,7 +3,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: 3px var(--space-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-chip);
   background: var(--surface);
   color: var(--ink-muted);
@@ -35,6 +35,6 @@
 }
 
 .static:hover {
-  border-color: var(--line);
+  border-color: var(--line-strong);
   color: var(--ink-muted);
 }

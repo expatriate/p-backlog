@@ -8,6 +8,7 @@ import styles from "./TaskBody.module.css";
 export type TaskBodyProps = {
   body: string;
   draft: string | null;
+  saving: boolean;
   onDraftChange: (draft: string | null) => void;
   onToggleLine: (line: number) => void;
   onSave: (body: string) => Promise<unknown>;
@@ -19,7 +20,7 @@ const ChecklistContext = createContext<Checklist>({ items: [], onToggleLine: () 
 
 const MARKDOWN_COMPONENTS: Components = { table: MarkdownTable, li: MarkdownItem };
 
-export function TaskBody({ body, draft, onDraftChange, onToggleLine, onSave }: TaskBodyProps) {
+export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onSave }: TaskBodyProps) {
   const checklist = useMemo(() => ({ items: checklistItems(body), onToggleLine }), [body, onToggleLine]);
 
   const save = async (text: string) => {
@@ -36,10 +37,12 @@ export function TaskBody({ body, draft, onDraftChange, onToggleLine, onSave }: T
       <div className={styles.editor}>
         <textarea value={draft} rows={16} aria-label="Описание задачи" onChange={(event) => onDraftChange(event.target.value)} />
         <div className={styles.editorActions}>
-          <Button variant="primary" onClick={() => void save(draft)}>
-            Сохранить
+          <Button variant="primary" disabled={saving} onClick={() => void save(draft)}>
+            {saving ? "Сохраняем…" : "Сохранить"}
           </Button>
-          <Button onClick={() => onDraftChange(null)}>Отмена</Button>
+          <Button disabled={saving} onClick={() => onDraftChange(null)}>
+            Отмена
+          </Button>
         </div>
       </div>
     );

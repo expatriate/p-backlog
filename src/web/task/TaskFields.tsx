@@ -1,3 +1,4 @@
+import { useId, useState } from "react";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { CATEGORY_LABELS, NO_CATEGORY_LABEL } from "../../core/model/categories";
 import {
@@ -12,11 +13,21 @@ import { useDraft } from "../ui/use-draft";
 import { normalizeTaskId } from "./normalize-task-id";
 import styles from "./TaskFields.module.css";
 
-export type TaskFieldsProps = { task: Task; epicListId: string; onChange: (changes: TaskChangesRequest) => void };
+export type TaskFieldsProps = { task: Task; epicListId: string; knownTasks: readonly Task[]; onChange: (changes: TaskChangesRequest) => void };
 
-export function TaskFields({ task, epicListId, onChange }: TaskFieldsProps) {
+export function TaskFields({ task, epicListId, knownTasks, onChange }: TaskFieldsProps) {
   const [tags, setTags, tagsRef] = useDraft(task.tags.join(", "));
   const [epic, setEpic, epicRef] = useDraft(task.epic ?? "");
+  const [epicError, setEpicError] = useState<string | null>(null);
+  const epicErrorId = useId();
+
+  const saveEpic = () => {
+    const value = normalizeTaskId(epic);
+    const problem = value === "" ? null : epicProblem(value, knownTasks);
+    setEpicError(problem);
+    if (problem !== null) return;
+    if (value !== (task.epic ?? "")) onChange({ epic: value === "" ? null : value });
+  };
 
   return (
     <>
@@ -39,12 +50,19 @@ export function TaskFields({ task, epicListId, onChange }: TaskFieldsProps) {
             list={epicListId}
             value={epic}
             placeholder="ID эпика"
-            onChange={(event) => setEpic(event.target.value)}
-            onBlur={() => {
-              const value = normalizeTaskId(epic);
-              if (value !== (task.epic ?? "")) onChange({ epic: value === "" ? null : value });
+            aria-invalid={epicError !== null}
+            aria-describedby={epicError === null ? undefined : epicErrorId}
+            onChange={(event) => {
+              setEpic(event.target.value);
+              setEpicError(null);
             }}
+            onBlur={saveEpic}
           />
+          {epicError !== null && (
+            <span id={epicErrorId} className={styles.fieldError} role="alert">
+              {epicError}
+            </span>
+          )}
         </label>
       </div>
 
@@ -79,6 +97,13 @@ function ChoiceSelect<T extends string>({ label, value, choices, labels, emptyLa
       </select>
     </label>
   );
+}
+
+function epicProblem(id: string, knownTasks: readonly Task[]): string | null {
+  const target = knownTasks.find((candidate) => candidate.id === id);
+  if (target === undefined) return `Задачи ${id} нет в беклоге`;
+  if (target.type !== "epic") return `${id} не является эпиком`;
+  return null;
 }
 
 function saveTags(value: string, task: Task, onChange: (changes: TaskChangesRequest) => void): void {
