@@ -1,6 +1,6 @@
 import { FOUND_HOW, type FoundHow } from "../../journal/events";
 import { isClosed } from "../../model/graph";
-import { closingsOf, type TaskHistory } from "../history";
+import { isFixedNow, type TaskHistory } from "../history";
 import type { BranchRow, FoundRow } from "../types";
 
 const BRANCH_LIMIT = 8;
@@ -14,7 +14,7 @@ export function foundBreakdown(histories: readonly TaskHistory[], from: number, 
       found,
       created: own.length,
       open: own.filter(isOpenNow).length,
-      fixed: own.filter((history) => !isOpenNow(history) && closingsOf(history).at(-1)?.resolution === "fixed").length,
+      fixed: own.filter(isFixedNow).length,
     };
   });
 }

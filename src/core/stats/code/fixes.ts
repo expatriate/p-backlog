@@ -1,5 +1,5 @@
 import { DAY_MS } from "../../model/lifecycle";
-import { closingsOf, type TaskHistory } from "../history";
+import { closingsOf, isFixedNow, type TaskHistory } from "../history";
 import { median } from "../numbers";
 import type { FixBreakdown, FixCommit } from "../types";
 
@@ -17,7 +17,7 @@ export function fixKey(projectId: string, hash: string): string {
 
 export function fixRequests(histories: readonly TaskHistory[], from: number, to: number): FixRequest[] {
   const byProject = new Map<string, Set<string>>();
-  for (const { history } of fixClosings(histories, from, to)) {
+  for (const history of fixClosings(histories, from, to)) {
     const hashes = byProject.get(history.projectId) ?? new Set<string>();
     for (const hash of reasonHashes(history.reason)) hashes.add(hash);
     byProject.set(history.projectId, hashes);
@@ -32,7 +32,7 @@ export function fixCommitOf(history: TaskHistory, commits: ReadonlyMap<string, F
 }
 
 export function fixBreakdown(histories: readonly TaskHistory[], from: number, to: number, commits: ReadonlyMap<string, FixCommit>): FixBreakdown {
-  const resolved = fixClosings(histories, from, to).map(({ history }) => {
+  const resolved = fixClosings(histories, from, to).map((history) => {
     const commit = fixCommitOf(history, commits);
     return commit === undefined ? undefined : { byAgent: commit.byAgent, days: Math.max(0, (Date.parse(commit.date) - history.createdAt) / DAY_MS) };
   });
@@ -47,10 +47,9 @@ export function fixBreakdown(histories: readonly TaskHistory[], from: number, to
   };
 }
 
-function fixClosings(histories: readonly TaskHistory[], from: number, to: number): { history: TaskHistory }[] {
-  return histories.flatMap((history) =>
-    closingsOf(history)
-      .filter((closing) => closing.resolution === "fixed" && closing.at >= from && closing.at <= to)
-      .map(() => ({ history })),
-  );
+function fixClosings(histories: readonly TaskHistory[], from: number, to: number): TaskHistory[] {
+  return histories.filter((history) => {
+    const closing = closingsOf(history).at(-1);
+    return isFixedNow(history) && closing !== undefined && closing.at >= from && closing.at <= to;
+  });
 }

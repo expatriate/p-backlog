@@ -72,6 +72,10 @@ export function closingsOf(history: TaskHistory): Transition[] {
   return history.transitions.filter(isClosing);
 }
 
+export function isFixedNow(history: TaskHistory): boolean {
+  return isClosed(history.finalStatus) && closingsOf(history).at(-1)?.resolution === "fixed";
+}
+
 export function reopeningsOf(history: TaskHistory): Transition[] {
   return history.transitions.filter((transition) => transition.from !== undefined && isClosed(transition.from) && !isClosed(transition.to));
 }

@@ -57,6 +57,17 @@ describe("кто исправил", () => {
     expect(fixBreakdown(histories, at(10).getTime(), TO, new Map())).toEqual({ agent: 0, human: 0, unknown: 0, agentMedianDays: null, humanMedianDays: null });
   });
 
+  it("задача, переоткрытая после исправления, исправлением не считается", () => {
+    const task = makeTask({ id: "SPA-1", created: iso(1), status: "backlog" });
+    const events: JournalEvent[] = [
+      { at: iso(5), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" },
+      { at: iso(7), task: "SPA-1", via: "web", kind: "status", from: "done", to: "backlog" },
+    ];
+    const histories = taskHistories([task], [{ projectId: "spa", events, invalidLines: 0 }]);
+
+    expect(fixBreakdown(histories, FROM, TO, new Map())).toEqual({ agent: 0, human: 0, unknown: 0, agentMedianDays: null, humanMedianDays: null });
+  });
+
   it("коммит раньше создания задачи — 0 дней", () => {
     const histories = taskHistories([fixed("SPA-1", 5, 6, "Исправлено в aaaaaaa")], []);
     const commits = new Map<string, FixCommit>([[fixKey("spa", "aaaaaaa"), { date: iso(1), byAgent: true, lines: 0, testLines: 0 }]]);

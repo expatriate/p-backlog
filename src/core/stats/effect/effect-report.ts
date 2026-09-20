@@ -2,7 +2,7 @@ import { formatLocalIso } from "../../model/dates";
 import { isClosed } from "../../model/graph";
 import type { TaskCategory } from "../../model/types";
 import { fixKey, reasonHashes } from "../code/fixes";
-import { closingsOf, type TaskHistory } from "../history";
+import { isFixedNow, type TaskHistory } from "../history";
 import { median } from "../numbers";
 import { statsScope, type StatsInput } from "../scope";
 import type { CollectedCode, CommitUnit, EffectProject, EffectReport, EffectTotals, EffectWeek, FixCommit } from "../types";
@@ -76,10 +76,6 @@ function fixCommitEntry(history: TaskHistory, code: CollectedCode): { key: strin
   return commit === undefined ? undefined : { key, commit };
 }
 
-function isFixed(history: TaskHistory): boolean {
-  return isClosed(history.finalStatus) && closingsOf(history).at(-1)?.resolution === "fixed";
-}
-
 function buildDeferred(candidates: readonly TaskHistory[], code: CollectedCode): Deferred[] {
   const groups = new Map<string, { commit: FixCommit; histories: TaskHistory[] }>();
   const open: TaskHistory[] = [];
@@ -88,7 +84,7 @@ function buildDeferred(candidates: readonly TaskHistory[], code: CollectedCode):
       open.push(history);
       continue;
     }
-    if (!isFixed(history)) continue;
+    if (!isFixedNow(history)) continue;
     const entry = fixCommitEntry(history, code);
     if (entry === undefined) continue;
     const group = groups.get(entry.key) ?? { commit: entry.commit, histories: [] };
@@ -104,7 +100,7 @@ function buildDeferred(candidates: readonly TaskHistory[], code: CollectedCode):
 function estimateSamples(histories: readonly TaskHistory[], code: CollectedCode): FixSample[] {
   const seen = new Map<string, FixSample>();
   for (const history of histories) {
-    if (!isFixed(history)) continue;
+    if (!isFixedNow(history)) continue;
     const entry = fixCommitEntry(history, code);
     if (entry === undefined || seen.has(entry.key)) continue;
     seen.set(entry.key, { category: history.category, lines: entry.commit.lines, testLines: entry.commit.testLines });
