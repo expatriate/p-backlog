@@ -296,7 +296,7 @@ describe("черновик описания при уходе с задачи", 
     const panel = await startDraft(app);
 
     await app.user.click(within(panel).getByRole("link", { name: "Блокер" }));
-    await app.user.click(screen.getByRole("link", { name: /Все проекты/ }));
+    await app.user.click(screen.getByRole("link", { name: "Проекты" }));
 
     expect(confirm).toHaveBeenCalledTimes(2);
     expect(app.route()).toBe("/p/spa/t/SPA-1");

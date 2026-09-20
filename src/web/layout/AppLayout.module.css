@@ -87,9 +87,54 @@
   gap: var(--space-2);
 }
 
-.actionsSlot {
+.scope {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scopeRow {
+  color: var(--ink);
+}
+
+.scopeCurrent {
+  background: var(--surface-selected);
+  font-weight: 600;
+}
+
+.scopeName {
+  font-weight: 600;
+}
+
+.scopeNote {
+  margin: 0;
+  padding: 0 var(--space-2) 0 calc(var(--space-2) + 20px + var(--space-2));
+  color: var(--ink-subtle);
+  font-size: var(--text-sm);
+}
+
+.disclosure {
   flex: none;
-  width: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.muted .projectName,
+.muted .count {
+  color: var(--ink-subtle);
+}
+
+.number {
+  font-variant-numeric: tabular-nums;
 }
 
 .health {
@@ -121,6 +166,10 @@
   background: var(--surface-selected);
   color: var(--ink);
   font-weight: 600;
+}
+
+.scopeRow:hover {
+  background: var(--surface-hover);
 }
 
 .rowLink {

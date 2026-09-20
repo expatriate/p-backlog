@@ -12,29 +12,43 @@ const FILES = {
 };
 
 describe("боковая панель", () => {
-  it("неактивный проект стоит отдельной группой и не входит в счётчик «Все проекты»", async () => {
+  it("неучтённый проект остаётся в списке, но не входит в счёт области", async () => {
     await renderApp(FILES);
 
-    const inactive = await screen.findByRole("list", { name: "Неактивные" });
-    expect(within(inactive).getByRole("link", { name: "ti" })).toBeTruthy();
-    expect((await screen.findByRole("link", { name: /Все проекты/ })).closest("li")?.textContent).toBe("Все проекты1");
+    const ti = (await screen.findByRole("checkbox", { name: "Учитывать ti в «Проекты»" })) as HTMLInputElement;
+    const list = screen.getByRole("list", { name: "Проекты" });
+
+    expect(within(list).getAllByRole("link").map((link) => link.textContent)).toEqual(["spa", "ti"]);
+    expect(ti.checked).toBe(false);
+    expect(screen.getByRole("link", { name: "Проекты" }).closest("div")?.textContent).toContain("1 задача");
   });
 
-  it("меню проекта переключает активность", async () => {
+  it("галочка включает проект в область", async () => {
+    const { user, root } = await renderApp(FILES);
+
+    await user.click(await screen.findByRole("checkbox", { name: "Учитывать ti в «Проекты»" }));
+
+    await waitFor(async () => expect((await loadBacklog(root)).projects.find((project) => project.id === "torg-io")?.active).toBe(true));
+    await waitFor(() => expect(screen.getByRole("link", { name: "Проекты" }).closest("div")?.textContent).toContain("2 задачи"));
+  });
+
+  it("список проектов сворачивается", async () => {
     const { user } = await renderApp(FILES);
 
-    await user.click(await screen.findByRole("button", { name: "Действия с проектом spa" }));
-    await user.click(screen.getByRole("button", { name: "Сделать неактивным" }));
+    await user.click(await screen.findByRole("button", { name: "Свернуть список проектов" }));
 
-    const inactive = await screen.findByRole("list", { name: "Неактивные" });
-    expect(await within(inactive).findByRole("link", { name: "spa" })).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Проекты" })).toBeNull();
+    expect(screen.getByText("учтено 1 из 2 проектов")).toBeDefined();
+
+    await user.click(screen.getByRole("button", { name: "Развернуть список проектов" }));
+
+    expect(await screen.findByRole("list", { name: "Проекты" })).toBeDefined();
   });
 
   it("удаление проекта просит ввести его id", async () => {
     const { user, root } = await renderApp(FILES);
 
-    await user.click(await screen.findByRole("button", { name: "Действия с проектом spa" }));
-    await user.click(screen.getByRole("button", { name: "Удалить…" }));
+    await user.click(await screen.findByRole("button", { name: "Удалить проект spa" }));
 
     const confirm = screen.getByRole("button", { name: "Удалить" }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
@@ -56,7 +70,6 @@ describe("боковая панель", () => {
 
     const bars = await screen.findAllByRole("img", { name: "открыто 4: критичных 1, высоких 1" });
 
-    expect(bars).toHaveLength(2);
     expect([...(bars[0] as HTMLElement).children].map((part) => (part as HTMLElement).style.width)).toEqual(["25%", "25%", "50%"]);
   });
 });
