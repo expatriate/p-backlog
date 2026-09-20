@@ -1,3 +1,4 @@
+import { errorText } from "../errors";
 import { Document, parse, visit } from "yaml";
 import type { z } from "zod";
 import { formatIssues } from "./zod-issues";
@@ -20,7 +21,7 @@ export function parseFrontmatter<Shape extends z.core.$ZodShape>(
   try {
     raw = parse(lines.slice(1, closing).join("\n"));
   } catch (error) {
-    return { ok: false, message: `ошибка YAML: ${error instanceof Error ? error.message : String(error)}` };
+    return { ok: false, message: `ошибка YAML: ${errorText(error)}` };
   }
 
   const parsed = schema.safeParse(raw);

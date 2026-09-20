@@ -1,3 +1,4 @@
+import { errorText } from "../errors";
 import { formatLocalIso } from "../model/dates";
 import { DAY_MS } from "../model/lifecycle";
 import type { Project } from "../model/types";
@@ -34,7 +35,7 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
     if (store === undefined || !changed) return;
     changed = false;
     await store.write({ repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache) }).catch((error: unknown) => {
-      console.error(`Не удалось сохранить кэш git: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`Не удалось сохранить кэш git: ${errorText(error)}`);
     });
   };
 

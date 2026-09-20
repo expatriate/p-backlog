@@ -1,4 +1,5 @@
 import { isBlocked, taskProgress, type BacklogIndex } from "./graph";
+import { DAY_MS } from "./lifecycle";
 import { compareIds } from "./ids";
 import { normalizeTag, PRIORITIES, type Priority, type Task, type TaskStatus, type TaskType } from "./types";
 
@@ -112,7 +113,6 @@ function compareNullsLast(a: number | null, b: number | null, sign: number): num
 }
 
 export const STALE_LOW_DAYS = 30;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function staleLowTasks(tasks: readonly Task[], now: Date): Task[] {
   const cutoff = now.getTime() - STALE_LOW_DAYS * DAY_MS;

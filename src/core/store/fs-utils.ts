@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
 import { readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import type { z } from "zod";
 
 export function contentVersion(text: string): string {
   return createHash("sha1").update(text).digest("hex");
@@ -17,6 +18,27 @@ export async function readTextOrNull(path: string): Promise<string | null> {
   } catch (error) {
     if (hasErrorCode(error, "ENOENT")) return null;
     throw error;
+  }
+}
+
+export type JsonLines<T> = { values: T[]; invalidLines: number };
+
+export async function readJsonLines<T>(path: string, schema: z.ZodType<T>): Promise<JsonLines<T>> {
+  const text = (await readTextOrNull(path)) ?? "";
+  const parsed = text
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => parseJson(line, schema));
+  const values = parsed.filter((value): value is T => value !== null);
+  return { values, invalidLines: parsed.length - values.length };
+}
+
+export function parseJson<T>(text: string, schema: z.ZodType<T>): T | null {
+  try {
+    const parsed = schema.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
   }
 }
 

@@ -1,3 +1,4 @@
+import { errorText } from "../errors";
 import { basename, join } from "node:path";
 import { candidateEvents, candidateGoneEvents, episodeStates, type CheckMode } from "../journal/events";
 import { buildIndex } from "../model/graph";
@@ -58,7 +59,7 @@ async function recordCandidates(root: string, tasks: readonly Task[], candidates
       const gone = mode === "full" ? candidateGoneEvents(sightings, reviewed, states, now) : [];
       await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone]);
     } catch (error) {
-      console.error(`Не удалось записать кандидатов в журнал ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`Не удалось записать кандидатов в журнал ${projectId}: ${errorText(error)}`);
     }
   }
 }

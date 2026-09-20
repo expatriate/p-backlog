@@ -1,3 +1,4 @@
+import { errorText } from "../../core/errors";
 import { dirname } from "node:path";
 import { z } from "zod";
 import { checkBacklog } from "../../core/check/check-backlog";
@@ -66,10 +67,6 @@ async function rememberShown(projectDir: string, shown: SignalsShown, io: CliIo)
   } catch (error) {
     io.warn(`Не удалось сохранить показанные тревоги: ${errorText(error)}`);
   }
-}
-
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function parseStopEvent(text: string): z.infer<typeof stopEventSchema> | null {

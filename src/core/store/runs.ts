@@ -1,15 +1,15 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { DAY_MS } from "../model/lifecycle";
 import type { CliRun } from "../stats/types";
-import { readTextOrNull, writeFileAtomic } from "./fs-utils";
+import { readJsonLines, writeFileAtomic } from "./fs-utils";
 
 export const RUNS_FILE = ".runs.jsonl";
 
 export type { CliRun } from "../stats/types";
 
 export const RUNS_KEPT_DAYS = 30;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 const cliRunSchema = z.object({
   at: z.iso.datetime({ offset: true }),
@@ -26,12 +26,7 @@ export async function appendRun(root: string, run: CliRun): Promise<void> {
 }
 
 export async function readRuns(root: string): Promise<CliRun[]> {
-  const text = (await readTextOrNull(join(root, RUNS_FILE))) ?? "";
-  return text
-    .split("\n")
-    .filter((line) => line.trim() !== "")
-    .map(parseRun)
-    .filter((run): run is CliRun => run !== null);
+  return (await readJsonLines(join(root, RUNS_FILE), cliRunSchema)).values;
 }
 
 export async function trimRuns(root: string, now: Date): Promise<number> {
@@ -41,13 +36,4 @@ export async function trimRuns(root: string, now: Date): Promise<number> {
   const removed = runs.length - kept.length;
   if (removed > 0) await writeFileAtomic(join(root, RUNS_FILE), kept.map((run) => `${JSON.stringify(run)}\n`).join(""));
   return removed;
-}
-
-function parseRun(line: string): CliRun | null {
-  try {
-    const parsed = cliRunSchema.safeParse(JSON.parse(line));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
 }

@@ -1,3 +1,4 @@
+import { errorText } from "../core/errors";
 export type CliIo = {
   cwd: string;
   home: string;
@@ -16,7 +17,7 @@ export function withUsageErrors<T>(parse: () => T): T {
   try {
     return parse();
   } catch (error) {
-    throw new UsageError(error instanceof Error ? error.message : String(error));
+    throw new UsageError(errorText(error));
   }
 }
 

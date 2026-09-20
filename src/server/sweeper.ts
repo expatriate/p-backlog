@@ -1,3 +1,4 @@
+import { errorText } from "../core/errors";
 import type { SweepReport } from "../core/store/sweep";
 
 export type SweeperOptions = { sweep: () => Promise<SweepReport>; intervalMs: number; log: (line: string) => void };
@@ -6,7 +7,7 @@ export function startSweeper({ sweep, intervalMs, log }: SweeperOptions): () => 
   const run = () =>
     sweep().then(
       (report) => logReport(report, log),
-      (error: unknown) => log(`Не удалось удалить закрытые задачи: ${error instanceof Error ? error.message : String(error)}`),
+      (error: unknown) => log(`Не удалось удалить закрытые задачи: ${errorText(error)}`),
     );
   void run();
   const timer = setInterval(() => void run(), intervalMs);

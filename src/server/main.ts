@@ -1,3 +1,4 @@
+import { errorText } from "../core/errors";
 import { serve } from "@hono/node-server";
 import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -38,7 +39,7 @@ usage.start();
 memory.start();
 
 const sweepAll = async (now: Date): Promise<SweepReport> => {
-  await trimRuns(root, now).catch((error: unknown) => process.stderr.write(`Не удалось обрезать журнал запусков: ${error instanceof Error ? error.message : String(error)}\n`));
+  await trimRuns(root, now).catch((error: unknown) => process.stderr.write(`Не удалось обрезать журнал запусков: ${errorText(error)}\n`));
   return sweepClosed(root, now);
 };
 

@@ -17,10 +17,10 @@ describe("показанные тревоги", () => {
     expect(await readSignalsShown(dir)).toEqual({});
   });
 
-  it("файл, который нельзя прочитать, — ничего не показано", async () => {
+  it("файл, который нельзя прочитать, не выдаётся за пустой", async () => {
     const dir = await makeTempDir();
     await mkdir(join(dir, SIGNALS_SHOWN_FILE));
 
-    expect(await readSignalsShown(dir)).toEqual({});
+    await expect(readSignalsShown(dir)).rejects.toThrow();
   });
 });

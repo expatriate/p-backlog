@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import type { TranscriptState, UsageBucket } from "../stats/types";
-import { readTextOrNull, writeFileAtomic } from "../store/fs-utils";
+import { parseJson, readTextOrNull, writeFileAtomic } from "../store/fs-utils";
 
 export const USAGE_CACHE_FILE = ".usage-cache.json";
 
@@ -61,13 +61,7 @@ export function emptyUsageCache(): UsageCache {
 
 export async function readUsageCache(root: string): Promise<UsageCache> {
   const text = await readTextOrNull(join(root, USAGE_CACHE_FILE));
-  if (text === null) return emptyUsageCache();
-  try {
-    const parsed = usageCacheSchema.safeParse(JSON.parse(text));
-    return parsed.success ? parsed.data : emptyUsageCache();
-  } catch {
-    return emptyUsageCache();
-  }
+  return (text === null ? null : parseJson(text, usageCacheSchema)) ?? emptyUsageCache();
 }
 
 export async function writeUsageCache(root: string, cache: UsageCache): Promise<void> {
