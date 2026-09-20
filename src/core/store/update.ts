@@ -3,22 +3,22 @@ import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
 import { changeStatus, settleLifecycle, type Closure } from "../model/lifecycle";
 import { parseTaskFile, serializeTask } from "../model/task-file";
-import type { Task, TaskCategory } from "../model/types";
+import type { OptionalFields, Task, TaskCategory } from "../model/types";
 import { changeEvents, type ChangeSource } from "../journal/events";
 import { contentVersion, readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { loadBacklog } from "./load";
 import { invalid, type UpdateTaskFailure, type UpdateTaskResult } from "./write-result";
 
-export type TaskChanges = Partial<
+export type TaskChanges = OptionalFields<
   Pick<Task, "title" | "type" | "status" | "priority" | "tags" | "blockedBy" | "related" | "body" | "source" | "verified">
 > & {
-  epic?: string | null;
-  category?: TaskCategory | null;
-  anchor?: string | null;
+  epic?: string | null | undefined;
+  category?: TaskCategory | null | undefined;
+  anchor?: string | null | undefined;
 };
 
-export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion?: string; now: Date; closure?: Closure; via: ChangeSource };
+export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion?: string | undefined; now: Date; closure?: Closure | undefined; via: ChangeSource };
 
 const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "related", "body", "source", "verified"] as const;
 
@@ -75,9 +75,12 @@ function nextAnchor(task: Task, changes: TaskChanges): string | undefined {
   return sourceMoved ? undefined : task.anchor;
 }
 
-function pickDefined<T extends object, K extends keyof T>(source: T, keys: readonly K[]): Partial<Pick<T, K>> {
-  const picked: Partial<Pick<T, K>> = {};
-  for (const key of keys) if (source[key] !== undefined) picked[key] = source[key];
+function pickDefined<T extends object, K extends keyof T>(source: T, keys: readonly K[]): { [P in K]?: Exclude<T[P], undefined> } {
+  const picked: { [P in K]?: Exclude<T[P], undefined> } = {};
+  for (const key of keys) {
+    const value = source[key];
+    if (value !== undefined) picked[key] = value as Exclude<T[typeof key], undefined>;
+  }
   return picked;
 }
 

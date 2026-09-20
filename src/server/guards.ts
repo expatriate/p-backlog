@@ -11,6 +11,7 @@ export function allowLocalHostsOnly(allowedHosts: ReadonlySet<string>): Middlewa
     const { host } = new URL(c.req.url);
     if (!allowedHosts.has(host)) return c.json({ errors: [`Запросы с хоста ${host} не принимаются`] }, 403);
     await next();
+    return undefined;
   };
 }
 
@@ -19,4 +20,5 @@ export const requireJsonBody: MiddlewareHandler = async (c, next) => {
     return c.json({ errors: ["Ожидается Content-Type: application/json"] }, 415);
   }
   await next();
+  return undefined;
 };

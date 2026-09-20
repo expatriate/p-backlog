@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { ID_PATTERN, PREFIX_PATTERN } from "./ids";
 
+export type OptionalFields<T> = { [K in keyof T]?: T[K] | undefined };
+
 export const TASK_TYPES = ["task", "epic"] as const;
 export const TASK_STATUSES = ["backlog", "in-progress", "blocked", "done", "cancelled"] as const;
 export const PRIORITIES = ["low", "medium", "high", "critical"] as const;

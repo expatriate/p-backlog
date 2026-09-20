@@ -10,7 +10,7 @@ export type CostInput = {
   buckets: readonly UsageBucket[];
   runs: readonly CliRun[];
   projectOf: (cwd: string) => string | null;
-  projectId?: string;
+  projectId?: string | undefined;
   now: Date;
   scan: ScanProgress;
 };

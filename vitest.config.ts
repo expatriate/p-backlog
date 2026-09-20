@@ -3,6 +3,12 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/testing/**", "src/web/main.tsx", "src/server/main.ts", "src/cli/main.ts"],
+      reporter: ["text-summary", "text"],
+    },
     projects: [
       {
         test: {

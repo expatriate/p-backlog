@@ -15,7 +15,7 @@ export type AppOptions = {
   home: string;
   usage: UsageScanner;
   memory: MemorySampler;
-  staticDir?: string;
+  staticDir?: string | undefined;
   now?: () => Date;
 };
 

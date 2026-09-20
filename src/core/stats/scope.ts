@@ -4,7 +4,7 @@ import type { Task } from "../model/types";
 import { isClosed } from "../model/graph";
 import { taskHistories, type TaskHistory } from "./history";
 
-export type StatsInput = { tasks: readonly Task[]; journals: readonly ProjectJournal[]; now: Date; projectId?: string };
+export type StatsInput = { tasks: readonly Task[]; journals: readonly ProjectJournal[]; now: Date; projectId?: string | undefined };
 
 export type StatsScope = {
   tasks: Task[];

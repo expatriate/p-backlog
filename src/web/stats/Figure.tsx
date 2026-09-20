@@ -3,7 +3,7 @@ import styles from "./StatsPage.module.css";
 
 export type FigureTrend = { text: string; speech: string; better: boolean };
 
-export function Figure({ label, value, note, tone, trend }: { label: string; value: string; note: string; tone?: "growth" | "decline"; trend?: FigureTrend }) {
+export function Figure({ label, value, note, tone, trend }: { label: string; value: string; note: string; tone?: "growth" | "decline" | undefined; trend?: FigureTrend | undefined }) {
   return (
     <div className={styles.figure} role="group" aria-label={label}>
       <span className={styles.figureLabel}>{label}</span>

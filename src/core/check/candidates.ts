@@ -8,7 +8,7 @@ export type TaskRef = { id: string; title: string };
 export type CommitRef = { sha: string; subject: string };
 
 export type Candidate =
-  | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string }
+  | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string  | undefined}
   | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string }
   | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: "source" | "title" }
   | { kind: "no-source"; task: TaskRef };
@@ -82,7 +82,7 @@ function anchorState(task: Task, facts: RepoFacts): AnchorState {
 
 export type SimilarTask = { task: TaskRef; match: "source" | "title" };
 
-export function findSimilarTask(draft: { title: string; source?: string }, tasks: readonly Task[]): SimilarTask | null {
+export function findSimilarTask(draft: { title: string; source?: string | undefined }, tasks: readonly Task[]): SimilarTask | null {
   const open = tasks.filter((task) => task.type === "task" && !isClosed(task.status));
   const { source } = draft;
   const bySource = source === undefined ? undefined : open.find((task) => task.source !== undefined && samePlace(task.source, source));

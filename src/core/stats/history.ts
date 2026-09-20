@@ -2,20 +2,20 @@ import type { CandidateEvidence, ChangeSource, FoundHow, JournalEvent, ProjectJo
 import { isClosed } from "../model/graph";
 import type { Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
 
-export type Transition = { at: number; from?: TaskStatus; to: TaskStatus; resolution?: Resolution; via: ChangeSource | "unknown" };
+export type Transition = { at: number; from?: TaskStatus | undefined; to: TaskStatus; resolution?: Resolution | undefined; via: ChangeSource | "unknown" };
 
 export type TaskHistory = {
   id: string;
   projectId: string;
   type: TaskType;
   createdAt: number;
-  source?: string;
-  reason?: string;
+  source?: string | undefined;
+  reason?: string | undefined;
   finalStatus: TaskStatus;
   transitions: Transition[];
-  category?: TaskCategory;
-  found?: FoundHow;
-  branch?: string;
+  category?: TaskCategory | undefined;
+  found?: FoundHow | undefined;
+  branch?: string | undefined;
   candidates: { at: number; evidence: CandidateEvidence }[];
   verifications: number[];
 };
@@ -24,7 +24,7 @@ type Known = {
   projectId: string;
   final?: Task | TaskSnapshot;
   created?: Extract<JournalEvent, { kind: "created" }>;
-  categoryEvents: { at: number; to?: TaskCategory }[];
+  categoryEvents: { at: number; to?: TaskCategory | undefined }[];
   transitions: Transition[];
   candidates: { at: number; evidence: CandidateEvidence }[];
   verifications: number[];
@@ -107,7 +107,7 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, tran
 function categoryOf(
   final: Task | TaskSnapshot | undefined,
   created: Extract<JournalEvent, { kind: "created" }> | undefined,
-  categoryEvents: readonly { at: number; to?: TaskCategory }[],
+  categoryEvents: readonly { at: number; to?: TaskCategory | undefined }[],
 ): TaskCategory | undefined {
   if (final !== undefined) return final.category;
   const lastCategoryEvent = [...categoryEvents].sort((a, b) => a.at - b.at).at(-1);

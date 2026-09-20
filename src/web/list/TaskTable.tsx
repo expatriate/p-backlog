@@ -16,7 +16,7 @@ import styles from "./TaskTable.module.css";
 export type TaskTableProps = {
   tasks: Task[];
   index: BacklogIndex;
-  selectedId?: string;
+  selectedId?: string | undefined;
   selectedTags: readonly string[];
   onToggleTag: (tag: string) => void;
   sort: TaskSort;

@@ -7,14 +7,14 @@ import { derivePrefix, deriveProjectId, formatId, parseId } from "../model/ids";
 import { createdEvent, type ChangeSource, type Provenance } from "../journal/events";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import { parseTaskFile, serializeTask } from "../model/task-file";
-import type { Project, Task } from "../model/types";
+import type { OptionalFields, Project, Task } from "../model/types";
 import { contentVersion, hasErrorCode, listDir } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { PROJECT_FILE, taskFileName } from "./paths";
 import { invalid, type CreateTaskResult } from "./write-result";
 
 export type NewTaskInput = Pick<Task, "title"> &
-  Partial<Pick<Task, "type" | "priority" | "tags" | "epic" | "blockedBy" | "related" | "source" | "anchor" | "body" | "category">>;
+  OptionalFields<Pick<Task, "type" | "priority" | "tags" | "epic" | "blockedBy" | "related" | "source" | "anchor" | "body" | "category">>;
 
 export type CreateTaskRequest = {
   project: Project;

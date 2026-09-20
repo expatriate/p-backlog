@@ -81,7 +81,7 @@ function EpicOptions({ choices, selected, onSelect }: EpicPickerProps) {
   );
 }
 
-function EpicOption({ pressed, tone, onChoose, children }: { pressed: boolean; tone?: number; onChoose: () => void; children: ReactNode }) {
+function EpicOption({ pressed, tone, onChoose, children }: { pressed: boolean; tone?: number | undefined; onChoose: () => void; children: ReactNode }) {
   return (
     <button
       type="button"

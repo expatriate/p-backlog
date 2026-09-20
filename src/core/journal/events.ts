@@ -11,9 +11,9 @@ export const FOUND_HOW = ["review", "incidental"] as const;
 
 export type FoundHow = (typeof FOUND_HOW)[number];
 
-export type TaskOrigin = { branch?: string; commit: string };
+export type TaskOrigin = { branch?: string | undefined; commit: string };
 
-export type Provenance = { found?: FoundHow; origin?: TaskOrigin };
+export type Provenance = { found?: FoundHow | undefined; origin?: TaskOrigin | undefined };
 
 export const CANDIDATE_EVIDENCE = ["source-changed", "source-missing", "duplicate", "no-source"] as const;
 

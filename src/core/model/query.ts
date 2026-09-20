@@ -7,15 +7,15 @@ export const OPEN_STATUSES: readonly TaskStatus[] = ["backlog", "in-progress", "
 const STATUS_SORT_ORDER: readonly TaskStatus[] = ["in-progress", "blocked", "backlog", "done", "cancelled"];
 
 export type TaskFilter = {
-  projectId?: string;
-  query?: string;
-  statuses?: readonly TaskStatus[];
-  priorities?: readonly Priority[];
-  tags?: readonly string[];
-  epic?: string | null;
-  type?: TaskType;
-  onlyUnblocked?: boolean;
-  onlyAutoClosed?: boolean;
+  projectId?: string | undefined;
+  query?: string | undefined;
+  statuses?: readonly TaskStatus[] | undefined;
+  priorities?: readonly Priority[] | undefined;
+  tags?: readonly string[] | undefined;
+  epic?: string | null | undefined;
+  type?: TaskType | undefined;
+  onlyUnblocked?: boolean | undefined;
+  onlyAutoClosed?: boolean | undefined;
 };
 
 export const SORT_KEYS = ["created", "closed", "priority", "progress", "title", "status", "id"] as const;

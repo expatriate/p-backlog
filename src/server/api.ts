@@ -57,7 +57,7 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
 
   const codeSource = createCodeSource({ home, store: createCodeCacheFile(root) });
 
-  const statsScopeOf = async (c: Context): Promise<{ projectId?: string; projects: Project[]; tasks: Task[] } | Response> => {
+  const statsScopeOf = async (c: Context): Promise<{ projectId?: string | undefined; projects: Project[]; tasks: Task[] } | Response> => {
     const projectId = c.req.query("project") || undefined;
     const { projects, tasks } = await backlog();
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
