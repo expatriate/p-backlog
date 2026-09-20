@@ -16,7 +16,7 @@ describe("боковая панель", () => {
     await renderApp(FILES);
 
     const inactive = await screen.findByRole("list", { name: "Неактивные" });
-    expect(within(inactive).getByRole("link", { name: "ti1" })).toBeTruthy();
+    expect(within(inactive).getByRole("link", { name: "ti" })).toBeTruthy();
     expect((await screen.findByRole("link", { name: /Все проекты/ })).textContent).toBe("Все проекты1");
   });
 
@@ -26,7 +26,7 @@ describe("боковая панель", () => {
     await user.click(await screen.findByRole("button", { name: "Сделать неактивным: spa" }));
 
     const inactive = await screen.findByRole("list", { name: "Неактивные" });
-    expect(await within(inactive).findByRole("link", { name: "spa1" })).toBeTruthy();
+    expect(await within(inactive).findByRole("link", { name: "spa" })).toBeTruthy();
   });
 
   it("удаление проекта просит ввести его id", async () => {

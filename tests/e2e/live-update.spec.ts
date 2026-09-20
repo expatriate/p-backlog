@@ -25,5 +25,5 @@ test("задача, созданную агентом в каталоге, ви�
   await writeTask("SPA-2", "Прилетела из каталога");
 
   await expect(page.getByRole("link", { name: "Прилетела из каталога" })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("link", { name: /spa/ })).toContainText("2");
+  await expect(page.getByRole("listitem").filter({ has: page.getByRole("link", { name: /spa/ }) })).toContainText("2");
 });

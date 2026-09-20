@@ -62,12 +62,29 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-control);
+  color: var(--ink-muted);
+  transition: background var(--duration) var(--ease-out), color var(--duration) var(--ease-out);
 }
 
-.row > a {
+.row:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.row:has(a[aria-current="true"]) {
+  background: var(--surface-selected);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.rowLink {
   flex: 1;
   min-width: 0;
+  color: inherit;
+  text-decoration: none;
 }
 
 .inactive .projectName,

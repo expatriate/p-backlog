@@ -25,7 +25,7 @@ describe("список задач", () => {
 
     await waitFor(async () => expect(await rowTitles()).toEqual(["Каталог тормозит", "Разобрать очередь", "Таймауты загрузки"]));
     const spa = await screen.findByRole("link", { name: /spa/ });
-    expect(spa.textContent).toContain("2");
+    expect(spa.closest("li")?.textContent).toContain("2");
   });
 
   it("фильтрует по проекту через боковую панель", async () => {

@@ -91,13 +91,13 @@ export function AppLayout() {
 function ProjectRow({ project, to, search, openTasks }: { project: Project; to: string; search: string; openTasks: number }) {
   return (
     <li className={styles.row}>
-      <NavLink to={{ pathname: to, search }} aria-current="true" className={({ isActive }) => navClass(isActive)}>
+      <NavLink to={{ pathname: to, search }} aria-current="true" className={cx(styles.rowLink)}>
         <span className={styles.projectName} title={project.name}>
           {project.name}
         </span>
-        <span className={styles.count}>{openTasks}</span>
       </NavLink>
       <ProjectActions project={project} openTasks={openTasks} />
+      <span className={styles.count}>{openTasks}</span>
     </li>
   );
 }
