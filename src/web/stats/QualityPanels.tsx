@@ -15,6 +15,7 @@ export function AccuracyPanel({ rows, weeks }: { rows: AccuracyRow[]; weeks: Acc
         <p className={rowStyles.muted}>Проверка ещё не находила кандидатов</p>
       ) : (
         <>
+          <p className={rowStyles.muted}>Доля кандидатов проверки, после которых задача закрылась; остальные подтверждены как актуальные</p>
           <AccuracyWeeksChart weeks={weeks} />
           <StatsTable
             label="Точность проверки за период"
