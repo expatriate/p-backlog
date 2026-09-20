@@ -4,36 +4,23 @@ import type { Project } from "../../core/model/types";
 import { listPath } from "../app/paths";
 import { useDeleteProject, useSetProjectActive } from "../app/queries";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { cx } from "../ui/cx";
+import { Popover, useClosePopover } from "../ui/Popover";
 import styles from "./ProjectActions.module.css";
 
 export function ProjectActions({ project, openTasks }: { project: Project; openTasks: number }) {
   const [confirming, setConfirming] = useState(false);
-  const setActive = useSetProjectActive();
   const deleteProject = useDeleteProject();
   const navigate = useNavigate();
-  const activityLabel = project.active ? "Сделать неактивным" : "Сделать активным";
 
   return (
     <>
-      <button
-        type="button"
-        className={styles.action}
-        aria-label={`${activityLabel}: ${project.name}`}
-        title={activityLabel}
-        onClick={() => setActive.mutate({ id: project.id, active: !project.active })}
+      <Popover
+        trigger={<MoreIcon />}
+        triggerProps={{ "aria-label": `Действия с проектом ${project.name}`, className: styles.trigger }}
+        panelClassName={styles.menu}
       >
-        {project.active ? <EyeOffIcon /> : <EyeIcon />}
-      </button>
-      <button
-        type="button"
-        className={cx(styles.action, styles.danger)}
-        aria-label={`Удалить проект ${project.name}`}
-        title="Удалить проект"
-        onClick={() => setConfirming(true)}
-      >
-        <TrashIcon />
-      </button>
+        <MenuItems project={project} onDelete={() => setConfirming(true)} />
+      </Popover>
       <ConfirmDialog
         open={confirming}
         title={`Удалить проект «${project.name}»?`}
@@ -48,6 +35,48 @@ export function ProjectActions({ project, openTasks }: { project: Project; openT
         }}
       />
     </>
+  );
+}
+
+function MenuItems({ project, onDelete }: { project: Project; onDelete: () => void }) {
+  const setActive = useSetProjectActive();
+  const closePopover = useClosePopover();
+
+  return (
+    <div className={styles.items}>
+      <button
+        type="button"
+        className={styles.item}
+        onClick={() => {
+          setActive.mutate({ id: project.id, active: !project.active });
+          closePopover();
+        }}
+      >
+        {project.active ? <EyeOffIcon /> : <EyeIcon />}
+        {project.active ? "Сделать неактивным" : "Сделать активным"}
+      </button>
+      <button
+        type="button"
+        className={`${styles.item} ${styles.danger}`}
+        onClick={() => {
+          closePopover();
+          onDelete();
+        }}
+      >
+        <TrashIcon />
+        Удалить…
+      </button>
+    </div>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+      <circle cx="4" cy="8" r="1.3" />
+      <circle cx="8" cy="8" r="1.3" />
+      <circle cx="12" cy="8" r="1.3" />
+    </svg>
   );
 }
 

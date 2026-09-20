@@ -11,12 +11,14 @@ import {
   type RefObject,
 } from "react";
 import { Button } from "./Button";
+import { cx } from "./cx";
 import styles from "./Popover.module.css";
 
 export type PopoverProps = {
   trigger: ReactNode;
   triggerProps?: Pick<ComponentProps<"button">, "aria-label" | "title" | "className">;
   triggerRef?: RefObject<HTMLButtonElement | null>;
+  panelClassName?: string | undefined;
   children: ReactNode;
 };
 
@@ -32,7 +34,7 @@ export function useClosePopover(): () => void {
   return closePopover;
 }
 
-export function Popover({ trigger, triggerProps, triggerRef, children }: PopoverProps) {
+export function Popover({ trigger, triggerProps, triggerRef, panelClassName, children }: PopoverProps) {
   const [open, setOpen] = useState(false);
   const triggerId = useId();
   const panelId = useId();
@@ -92,7 +94,7 @@ export function Popover({ trigger, triggerProps, triggerRef, children }: Popover
         {trigger}
       </Button>
       {open && (
-        <div ref={panel} id={panelId} role="group" aria-labelledby={triggerId} className={styles.panel}>
+        <div ref={panel} id={panelId} role="group" aria-labelledby={triggerId} className={cx(styles.panel, panelClassName)}>
           <ClosePopoverContext value={closePopover}>{children}</ClosePopoverContext>
         </div>
       )}

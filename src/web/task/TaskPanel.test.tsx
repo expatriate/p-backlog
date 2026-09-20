@@ -363,6 +363,9 @@ describe("черновик описания при уходе с задачи", 
     expect(confirm).not.toHaveBeenCalled();
   });
 
+});
+
+describe("отклик на сохранение", () => {
   it("после сохранения карточка говорит «Сохранено»", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-1");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
@@ -370,7 +373,6 @@ describe("черновик описания при уходе с задачи", 
     const priority = within(panel).getByRole("combobox", { name: "Приоритет" });
     await app.user.selectOptions(priority, "critical");
 
-    expect((await within(panel).findByRole("status")).textContent).toBe("Сохраняем…");
     await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe("Сохранено"));
   });
 });

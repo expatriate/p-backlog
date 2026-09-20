@@ -2,12 +2,12 @@ import { useMemo } from "react";
 import { listPath, statsPath } from "../app/paths";
 import { Link, matchPath, NavLink, Outlet, useLocation } from "react-router";
 import { buildIndex } from "../../core/model/graph";
-import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
 import type { Project } from "../../core/model/types";
 import { useProjects, useSignals, useTasks } from "../app/queries";
 import { activeProjectIds, tasksInScope } from "../app/scope";
 import { cx } from "../ui/cx";
 import { ProjectActions } from "./ProjectActions";
+import { healthSpeech, projectHealth, type ProjectHealth } from "./project-health";
 import styles from "./AppLayout.module.css";
 
 export function AppLayout() {
@@ -19,7 +19,7 @@ export function AppLayout() {
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const allProjects = useMemo(() => projects.data ?? [], [projects.data]);
   const activeIds = useMemo(() => activeProjectIds(allProjects), [allProjects]);
-  const openCount = (projectId?: string) => filterTasks(tasksInScope(allTasks, projectId, activeIds), { statuses: OPEN_STATUSES }, index).length;
+  const healthOf = (projectId?: string) => projectHealth(tasksInScope(allTasks, projectId, activeIds), index);
   const projectId = matchPath("/p/:projectId/*", pathname)?.params.projectId;
   const signals = useSignals(projectId);
   const signalCount = signals.data?.signals.length ?? 0;
@@ -33,7 +33,10 @@ export function AppLayout() {
         Перейти к содержимому
       </a>
       <nav className={styles.sidebar} aria-label="Навигация">
-        <div className={styles.brand}>Беклог</div>
+        <Link to={listPath()} className={styles.brand}>
+          беклог
+          <span className={styles.brandMark} aria-hidden="true" />
+        </Link>
         <ul className={styles.projects} aria-label="Разделы">
           <li>
             <Link to={listPath(projectId)} className={navClass(!onStats)} aria-current={onStats ? undefined : "page"}>
@@ -56,16 +59,11 @@ export function AppLayout() {
           Проекты
         </div>
         <ul className={styles.projects} aria-labelledby="sidebar-projects">
-          <li>
-            <NavLink to={{ pathname: scopePath(), search: onStats ? "" : search }} end aria-current="true" className={({ isActive }) => navClass(isActive)}>
-              <span className={styles.projectName}>Все проекты</span>
-              <span className={styles.count}>{openCount()}</span>
-            </NavLink>
-          </li>
+          <ProjectRow to={scopePath()} search={onStats ? "" : search} name="Все проекты" health={healthOf()} end />
           {allProjects
             .filter((project) => project.active)
             .map((project) => (
-              <ProjectRow key={project.id} project={project} to={scopePath(project.id)} search={onStats ? "" : search} openTasks={openCount(project.id)} />
+              <ProjectRow key={project.id} project={project} to={scopePath(project.id)} search={onStats ? "" : search} name={project.name} health={healthOf(project.id)} />
             ))}
         </ul>
         {allProjects.some((project) => !project.active) && (
@@ -77,7 +75,7 @@ export function AppLayout() {
               {allProjects
                 .filter((project) => !project.active)
                 .map((project) => (
-                  <ProjectRow key={project.id} project={project} to={scopePath(project.id)} search={onStats ? "" : search} openTasks={openCount(project.id)} />
+                  <ProjectRow key={project.id} project={project} to={scopePath(project.id)} search={onStats ? "" : search} name={project.name} health={healthOf(project.id)} />
                 ))}
             </ul>
           </>
@@ -88,17 +86,34 @@ export function AppLayout() {
   );
 }
 
-function ProjectRow({ project, to, search, openTasks }: { project: Project; to: string; search: string; openTasks: number }) {
+type ProjectRowProps = { name: string; to: string; search: string; health: ProjectHealth; project?: Project; end?: boolean };
+
+function ProjectRow({ name, to, search, health, project, end = false }: ProjectRowProps) {
   return (
     <li className={styles.row}>
-      <NavLink to={{ pathname: to, search }} aria-current="true" className={cx(styles.rowLink)}>
-        <span className={styles.projectName} title={project.name}>
-          {project.name}
-        </span>
-      </NavLink>
-      <ProjectActions project={project} openTasks={openTasks} />
-      <span className={styles.count}>{openTasks}</span>
+      <div className={styles.rowLine}>
+        <NavLink to={{ pathname: to, search }} end={end} aria-current="true" className={cx(styles.rowLink)}>
+          <span className={styles.projectName} title={name}>
+            {name}
+          </span>
+        </NavLink>
+        {project === undefined ? <span className={styles.actionsSlot} /> : <ProjectActions project={project} openTasks={health.open} />}
+        <span className={styles.count}>{health.open}</span>
+      </div>
+      <HealthBar health={health} />
     </li>
+  );
+}
+
+function HealthBar({ health }: { health: ProjectHealth }) {
+  if (health.open === 0) return null;
+  const share = (count: number) => `${(count / health.open) * 100}%`;
+  return (
+    <span className={styles.health} role="img" aria-label={healthSpeech(health)}>
+      <span className={styles.critical} style={{ width: share(health.critical) }} />
+      <span className={styles.high} style={{ width: share(health.high) }} />
+      <span className={styles.rest} style={{ width: share(health.rest) }} />
+    </span>
   );
 }
 

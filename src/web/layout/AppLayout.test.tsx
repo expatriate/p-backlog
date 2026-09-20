@@ -17,13 +17,14 @@ describe("боковая панель", () => {
 
     const inactive = await screen.findByRole("list", { name: "Неактивные" });
     expect(within(inactive).getByRole("link", { name: "ti" })).toBeTruthy();
-    expect((await screen.findByRole("link", { name: /Все проекты/ })).textContent).toBe("Все проекты1");
+    expect((await screen.findByRole("link", { name: /Все проекты/ })).closest("li")?.textContent).toBe("Все проекты1");
   });
 
   it("меню проекта переключает активность", async () => {
     const { user } = await renderApp(FILES);
 
-    await user.click(await screen.findByRole("button", { name: "Сделать неактивным: spa" }));
+    await user.click(await screen.findByRole("button", { name: "Действия с проектом spa" }));
+    await user.click(screen.getByRole("button", { name: "Сделать неактивным" }));
 
     const inactive = await screen.findByRole("list", { name: "Неактивные" });
     expect(await within(inactive).findByRole("link", { name: "spa" })).toBeTruthy();
@@ -32,7 +33,8 @@ describe("боковая панель", () => {
   it("удаление проекта просит ввести его id", async () => {
     const { user, root } = await renderApp(FILES);
 
-    await user.click(await screen.findByRole("button", { name: "Удалить проект spa" }));
+    await user.click(await screen.findByRole("button", { name: "Действия с проектом spa" }));
+    await user.click(screen.getByRole("button", { name: "Удалить…" }));
 
     const confirm = screen.getByRole("button", { name: "Удалить" }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
@@ -41,5 +43,20 @@ describe("боковая панель", () => {
     await user.click(confirm);
 
     await waitFor(async () => expect((await loadBacklog(root)).projects.map((project) => project.id)).toEqual(["torg-io"]));
+  });
+
+  it("полоска показывает доли приоритетов и озвучивается", async () => {
+    await renderApp({
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", "priority: critical\n"),
+      "spa/SPA-2.md": taskFile("SPA-2", "priority: high\n"),
+      "spa/SPA-3.md": taskFile("SPA-3"),
+      "spa/SPA-4.md": taskFile("SPA-4"),
+    });
+
+    const bars = await screen.findAllByRole("img", { name: "открыто 4: критичных 1, высоких 1" });
+
+    expect(bars).toHaveLength(2);
+    expect([...(bars[0] as HTMLElement).children].map((part) => (part as HTMLElement).style.width)).toEqual(["25%", "25%", "50%"]);
   });
 });

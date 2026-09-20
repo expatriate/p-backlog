@@ -1,35 +1,63 @@
-.action {
-  display: inline-flex;
+.trigger {
   flex: none;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 24px;
   height: 24px;
   padding: 0;
-  border: 0;
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--ink-subtle);
+  background: var(--surface);
+  color: var(--ink-muted);
   opacity: 0;
-  cursor: pointer;
 }
 
-.action:hover {
-  background: var(--surface-hover);
-  color: var(--ink);
-}
-
-li:hover .action,
-li:focus-within .action {
+li:hover .trigger,
+li:focus-within .trigger,
+.trigger[aria-expanded="true"] {
   opacity: 1;
 }
 
-.danger:hover {
-  color: var(--accent-ink);
-}
-
 @media (hover: none) {
-  .action {
+  .trigger {
     opacity: 1;
   }
+}
+
+.menu {
+  position: fixed;
+  top: auto;
+  left: auto;
+  width: max-content;
+  max-width: 240px;
+  padding: var(--space-1);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--surface-hover);
+}
+
+.danger {
+  color: var(--accent-ink);
 }
