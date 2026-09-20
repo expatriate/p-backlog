@@ -1,6 +1,6 @@
-import { commandName } from "./run";
+import { commandName, runCli } from "./run";
 import { describe, expect, it } from "vitest";
-import { EXIT } from "./io";
+import { EXIT, type CliIo } from "./io";
 import { makeCliSandbox } from "./testing/cli-harness";
 
 describe("runCli", () => {
@@ -9,6 +9,25 @@ describe("runCli", () => {
     expect(await run([])).toMatchObject({ code: EXIT.ok, err: expect.stringContaining("Использование") });
     expect((await run(["--help"])).code).toBe(EXIT.ok);
     expect((await run(["remove", "SPA-1"])).code).toBe(EXIT.invalid);
+  });
+
+  it("неожиданная ошибка команды не уходит стеком: текст в stderr и отдельный код", async () => {
+    const { root, repo } = await makeCliSandbox();
+    const warnings: string[] = [];
+    const io: CliIo = {
+      cwd: repo,
+      home: root,
+      backlogRoot: root,
+      now: () => new Date("2026-09-18T12:00:00Z"),
+      readStdin: () => Promise.reject(new Error("не прочитать stdin")),
+      print: () => undefined,
+      warn: (line) => warnings.push(line),
+    };
+
+    const code = await runCli(["new", "--category", "bug", "--title", "Таймаут"], io);
+
+    expect(code).toBe(EXIT.failed);
+    expect(warnings.at(-1)).toBe("Команда new не выполнена: не прочитать stdin");
   });
 });
 

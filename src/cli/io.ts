@@ -8,7 +8,7 @@ export type CliIo = {
   warn: (line: string) => void;
 };
 
-export const EXIT = { ok: 0, invalid: 1, needsReview: 1, notFound: 2, refused: 3 } as const;
+export const EXIT = { ok: 0, invalid: 1, needsReview: 1, notFound: 2, refused: 3, failed: 4 } as const;
 
 export class UsageError extends Error {}
 

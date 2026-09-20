@@ -1,6 +1,7 @@
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { join } from "node:path";
+import { errorText } from "../core/errors";
 import { createApi } from "./api";
 import type { ChangeFeed } from "./change-feed";
 import { allowLocalHostsOnly, requireJsonBody } from "./guards";
@@ -24,6 +25,8 @@ export function createApp({ root, changes, allowedHosts, home, usage, memory, st
   app.use("/api/*", requireJsonBody);
   app.route("/api", createApi({ root, changes, now, home, usage, memory }));
   app.all("/api/*", (c) => c.json({ errors: [`Неизвестный адрес API: ${new URL(c.req.url).pathname}`] }, 404));
+
+  app.onError((error, c) => c.json({ errors: [errorText(error)] }, 500));
 
   if (staticDir !== undefined) {
     app.use("*", serveStatic({ root: staticDir }));

@@ -361,3 +361,17 @@ describe("статика", () => {
     expect(await page.text()).toContain("Беклог");
   });
 });
+
+describe("неожиданная ошибка сервера", () => {
+  it("отдаётся тем же JSON, что и остальные ошибки API", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    backlog.usage.snapshot = () => {
+      throw new Error("сканер расшифровок упал");
+    };
+
+    const response = await backlog.request("/api/stats/cost");
+
+    expect(response.status).toBe(500);
+    expect((await response.json()) as ErrorResponse).toEqual({ errors: ["сканер расшифровок упал"] });
+  });
+});

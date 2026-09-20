@@ -11,6 +11,7 @@ import { runStatus } from "./commands/status";
 import { runTake } from "./commands/take";
 import { runPrune } from "./commands/prune";
 import { runVerify } from "./commands/verify";
+import { errorText } from "../core/errors";
 import { EXIT, UsageError, type CliIo } from "./io";
 
 const USAGE = `Использование:
@@ -63,9 +64,12 @@ export async function runCli(argv: readonly string[], io: CliIo): Promise<number
   try {
     return await command(args, io);
   } catch (error) {
-    if (!(error instanceof UsageError)) throw error;
-    io.warn(error.message);
-    return EXIT.invalid;
+    if (error instanceof UsageError) {
+      io.warn(error.message);
+      return EXIT.invalid;
+    }
+    io.warn(`Команда ${name} не выполнена: ${errorText(error)}`);
+    return EXIT.failed;
   }
 }
 
