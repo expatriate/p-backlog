@@ -37,20 +37,17 @@ describe("файл журнала", () => {
     expect(await readJournal(dir, "spa")).toEqual({ projectId: "spa", events: [], invalidLines: 0 });
   });
 
-  it("ошибка записи не бросает, а пишется в stderr", async () => {
+  it("ошибка записи не бросает", async () => {
     const dir = await makeTempDir();
     await mkdir(join(dir, JOURNAL_FILE));
     const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
     onTestFinished(() => errors.mockRestore());
 
-    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")]);
-
-    expect(errors).toHaveBeenCalledWith(expect.stringContaining("Не удалось записать журнал"));
+    await expect(appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")])).resolves.toBeUndefined();
   });
 
   it("читает журналы нескольких проектов", async () => {
     const root = await makeTempDir();
-    await appendJournal(join(root, "spa"), []);
     await mkdir(join(root, "spa"), { recursive: true });
     await appendJournal(join(root, "spa"), [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")]);
 

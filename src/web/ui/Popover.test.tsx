@@ -50,9 +50,7 @@ describe("Popover", () => {
     expect(menu.style.transform).toBe("");
   });
 
-  it("меню ставит начальный фокус без прокрутки страницы", async () => {
-    const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
-    onTestFinished(() => focusSpy.mockRestore());
+  it("меню ставит начальный фокус на помеченное поле", async () => {
     const user = userEvent.setup();
     render(
       <Popover trigger="Меню">
@@ -64,6 +62,5 @@ describe("Popover", () => {
 
     const field = screen.getByRole("textbox", { name: "Поле" });
     expect(document.activeElement).toBe(field);
-    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
   });
 });

@@ -10,17 +10,19 @@ export async function makeTempDir(): Promise<string> {
   return dir;
 }
 
+export const ISOLATED_GIT_ENV = { GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" } as const;
+
 export async function makeGitRepo(parent: string, name: string): Promise<string> {
   const dir = join(parent, name);
   await mkdir(dir, { recursive: true });
-  execFileSync("git", ["init", "-q", "-b", "master"], { cwd: dir });
+  execFileSync("git", ["init", "-q", "-b", "master"], { cwd: dir, env: { ...process.env, ...ISOLATED_GIT_ENV } });
   return dir;
 }
 
 export function gitCommitAll(repo: string, message: string, isoDate: string): void {
-  const env = { ...process.env, GIT_AUTHOR_DATE: isoDate, GIT_COMMITTER_DATE: isoDate };
+  const env = { ...process.env, ...ISOLATED_GIT_ENV, GIT_AUTHOR_DATE: isoDate, GIT_COMMITTER_DATE: isoDate };
   const identity = ["-c", "user.name=backlog-test", "-c", "user.email=test@backlog.local", "-c", "commit.gpgsign=false"];
-  execFileSync("git", ["add", "-A"], { cwd: repo });
+  execFileSync("git", ["add", "-A"], { cwd: repo, env });
   execFileSync("git", [...identity, "commit", "-q", "-m", message], { cwd: repo, env });
 }
 

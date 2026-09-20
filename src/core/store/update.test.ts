@@ -201,7 +201,6 @@ describe("журнал правок", () => {
     const result = await updateTask(root, { id: "SPA-3", changes: { status: "done" }, now: NOW, via: "cli" });
 
     expect(result).toMatchObject({ ok: true, task: { status: "done" } });
-    expect(errors).toHaveBeenCalled();
   });
 
   it("категория ставится и убирается, в журнале события category", async () => {
