@@ -71,7 +71,7 @@ export function AppLayout() {
                   </span>
                   <span className={styles.count}>{openCount(project.id)}</span>
                 </NavLink>
-                <ProjectMenu project={project} />
+                <ProjectMenu project={project} openTasks={openCount(project.id)} />
               </li>
             ))}
         </ul>
@@ -91,7 +91,7 @@ export function AppLayout() {
                       </span>
                       <span className={styles.count}>{openCount(project.id)}</span>
                     </NavLink>
-                    <ProjectMenu project={project} />
+                    <ProjectMenu project={project} openTasks={openCount(project.id)} />
                   </li>
                 ))}
             </ul>

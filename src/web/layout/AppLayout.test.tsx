@@ -1,5 +1,6 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { loadBacklog } from "../../core/store/load";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import { renderApp } from "../testing/render-app";
 
@@ -27,5 +28,20 @@ describe("боковая панель", () => {
 
     const inactive = await screen.findByRole("list", { name: "Неактивные" });
     expect(await within(inactive).findByRole("link", { name: "spa1" })).toBeTruthy();
+  });
+
+  it("удаление проекта просит ввести его id", async () => {
+    const { user, root } = await renderApp(FILES);
+
+    await user.click(await screen.findByRole("button", { name: "Действия с проектом spa" }));
+    await user.click(screen.getByRole("button", { name: "Удалить…" }));
+
+    const confirm = screen.getByRole("button", { name: "Удалить" }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+
+    await user.type(screen.getByRole("textbox"), "spa");
+    await user.click(confirm);
+
+    await waitFor(async () => expect((await loadBacklog(root)).projects.map((project) => project.id)).toEqual(["torg-io"]));
   });
 });

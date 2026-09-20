@@ -1,0 +1,47 @@
+.dialog {
+  width: min(420px, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface-raised);
+  color: var(--ink);
+  box-shadow: var(--shadow-panel);
+}
+
+.dialog::backdrop {
+  background: oklch(0 0 0 / 0.5);
+}
+
+.title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+}
+
+.description {
+  margin: 0 0 var(--space-3);
+  color: var(--ink-muted);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--ink-subtle);
+  font-size: var(--text-sm);
+}
+
+.input {
+  padding: 6px var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
