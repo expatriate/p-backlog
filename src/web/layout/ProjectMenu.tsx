@@ -14,7 +14,11 @@ export function ProjectMenu({ project, openTasks }: { project: Project; openTask
 
   return (
     <>
-      <Popover trigger="…" triggerProps={{ "aria-label": `Действия с проектом ${project.name}`, className: styles.trigger }}>
+      <Popover
+        trigger="…"
+        triggerProps={{ "aria-label": `Действия с проектом ${project.name}`, className: styles.trigger }}
+        panelClassName={styles.panel}
+      >
         <MenuItems project={project} onDelete={() => setConfirming(true)} />
       </Popover>
       <ConfirmDialog

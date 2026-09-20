@@ -160,6 +160,11 @@ description: Use when, while working on code, you notice a problem outside the c
 
 ## Посмотреть беклог
 
+Проект, который больше не ведётся, помечается неактивным: `backlog project status <id> inactive` — его
+задачи выпадают из «Все проекты» (список и статистика), но остаются доступны на странице проекта.
+`backlog project list` показывает статусы. Удаление проекта (`backlog project delete <id> --confirm <id>`)
+сносит каталог со всеми задачами — выполнять только по прямой просьбе пользователя.
+
 «Что в беклоге» → `backlog list`: открытые задачи текущего проекта по приоритету. По запросу:
 `--all-projects`, `--status done`, `--tag <тег>`, `--query <текст>`. Подробности — `backlog show <ID>`.
 

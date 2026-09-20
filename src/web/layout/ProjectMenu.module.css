@@ -20,6 +20,14 @@ li:focus-within .trigger,
   }
 }
 
+.panel {
+  position: fixed;
+  top: auto;
+  left: auto;
+  width: max-content;
+  max-width: 240px;
+}
+
 .items {
   display: flex;
   flex-direction: column;
