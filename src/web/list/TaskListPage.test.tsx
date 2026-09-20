@@ -83,8 +83,8 @@ describe("список задач", () => {
 
   it("заголовок вида и заголовок вкладки называют, что открыто", async () => {
     const app = await renderApp(FILES);
-    expect(await screen.findByRole("heading", { level: 1, name: "Все проекты" })).toBeDefined();
-    expect(document.title).toBe("Все проекты — Беклог");
+    expect(await screen.findByRole("heading", { level: 1, name: "Проекты" })).toBeDefined();
+    expect(document.title).toBe("Проекты — Беклог");
 
     await app.user.click(await screen.findByRole("link", { name: /spa/ }));
 
@@ -511,7 +511,7 @@ describe("шильдик «новая»", () => {
   });
 });
 
-describe("область «Все проекты»", () => {
+describe("область «Проекты»", () => {
   it("не показывает задачи неактивного проекта", async () => {
     await renderApp({
       "spa/project.md": projectFile("SPA"),

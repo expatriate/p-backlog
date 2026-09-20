@@ -38,6 +38,6 @@ export async function runStats(args: string[], io: CliIo): Promise<number> {
     return EXIT.ok;
   }
   const path = project === undefined ? "/stats" : `/p/${project.id}/stats`;
-  io.print(statsSummary({ scopeName: project?.name ?? "Все проекты", totals, forecast, signals, url: `http://localhost:${readPort(io.env.PORT)}${path}` }));
+  io.print(statsSummary({ scopeName: project?.name ?? "Проекты", totals, forecast, signals, url: `http://localhost:${readPort(io.env.PORT)}${path}` }));
   return EXIT.ok;
 }

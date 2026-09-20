@@ -156,7 +156,7 @@ function EmptyList({
 
 function viewTitleFor(projectName: string | undefined, onlyAutoClosed: boolean): string {
   if (onlyAutoClosed) return projectName === undefined ? "Закрыты агентом" : `Закрыты агентом · ${projectName}`;
-  return projectName ?? "Все проекты";
+  return projectName ?? "Проекты";
 }
 
 function collectTags(tasks: readonly Task[]): string[] {

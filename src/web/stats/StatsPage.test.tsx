@@ -20,8 +20,8 @@ describe("страница статистики", () => {
   it("показывает заголовок, четыре числа, недели и подпись о журнале", async () => {
     await renderApp(FILES, "/stats");
 
-    expect(await screen.findByRole("heading", { level: 1, name: "Статистика · Все проекты" })).toBeDefined();
-    expect(document.title).toBe("Статистика · Все проекты — Беклог");
+    expect(await screen.findByRole("heading", { level: 1, name: "Статистика · Проекты" })).toBeDefined();
+    expect(document.title).toBe("Статистика · Проекты — Беклог");
     const open = await screen.findByRole("group", { name: "Открыто" });
     expect(within(open).getByText("3")).toBeDefined();
     expect(within(open).getByText("вес 8")).toBeDefined();
@@ -116,7 +116,7 @@ describe("вкладки статистики", () => {
     await app.user.click(within(tabs).getByRole("link", { name: "Качество" }));
 
     expect(app.route()).toBe("/stats/quality");
-    expect(document.title).toBe("Качество · Статистика · Все проекты — Беклог");
+    expect(document.title).toBe("Качество · Статистика · Проекты — Беклог");
     expect(within(tabs).getByRole("link", { name: "Качество" }).getAttribute("aria-current")).toBe("true");
     expect(screen.queryByRole("link", { name: "Поток" })).toBeNull();
   });
@@ -125,7 +125,7 @@ describe("вкладки статистики", () => {
     await renderApp(FILES, "/stats/flow");
 
     expect(await screen.findByRole("group", { name: "Открыто" })).toBeDefined();
-    expect(document.title).toBe("Статистика · Все проекты — Беклог");
+    expect(document.title).toBe("Статистика · Проекты — Беклог");
   });
 });
 
@@ -188,7 +188,7 @@ describe("вкладка «Качество»", () => {
 
     const accuracyPanel = await screen.findByRole("region", { name: "Точность проверки" });
     expect(app.route()).toBe("/stats/quality");
-    expect(document.title).toBe("Качество · Статистика · Все проекты — Беклог");
+    expect(document.title).toBe("Качество · Статистика · Проекты — Беклог");
     expect(cells(within(accuracyPanel).getByRole("row", { name: /код изменился/ }))).toEqual(["код изменился", "1", "0", "1", "0", "0%"]);
     const categoriesPanel = screen.getByRole("region", { name: "Категории" });
     expect(cells(within(categoriesPanel).getByRole("row", { name: /не указана/ }))).toEqual(["не указана", "3", "8", "4", "1"]);

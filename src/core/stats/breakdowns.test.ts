@@ -15,7 +15,7 @@ describe("где болит", () => {
     expect(folderOf("src/a")).toBe("src");
   });
 
-  it("8 папок и тегов с наибольшим числом задач, при равенстве — по алфавиту; в «Все проекты» — с проектом", () => {
+  it("8 папок и тегов с наибольшим числом задач, при равенстве — по алфавиту; в общей области — с проектом", () => {
     const tasks = [
       makeTask({ id: "SPA-1", source: "src/a/b.ts:3", tags: ["upload", "tests"] }),
       makeTask({ id: "SPA-2", source: "src/a/c.ts:9", tags: ["upload"] }),

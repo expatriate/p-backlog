@@ -31,7 +31,7 @@ describe("backlog stats", () => {
     const text = await run(["stats", "--all-projects"]);
     const json = JSON.parse((await run(["stats", "--json"])).out) as { totals: { open: number }; forecast: { created: number }; signals: unknown[] };
 
-    expect(text.out).toContain("Все проекты · статистика");
+    expect(text.out).toContain("Проекты · статистика");
     expect(text.out).toContain("Тревог нет");
     expect(text.out).toContain("Подробнее: http://localhost:4317/stats");
     expect(json).toMatchObject({ totals: { open: 1 }, forecast: { created: 1 }, signals: [] });

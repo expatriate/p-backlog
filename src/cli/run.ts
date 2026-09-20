@@ -36,7 +36,7 @@ const USAGE = `Использование:
   backlog prune [--project id | --all-projects] [--apply]   (задачи с низким приоритетом старше 30 дней)
   backlog verify <ID> [<ID> …] [--source файл:строка — только для одной задачи]
   backlog project list
-  backlog project status <id> active|inactive   (неактивные не входят в «Все проекты»)
+  backlog project status <id> active|inactive   (неактивные не входят в общую область)
   backlog project delete <id> --confirm <id>    (удаляет каталог проекта со всеми задачами)
   backlog hook stop   (для хука Stop в Claude Code, событие читается из stdin)`;
 
