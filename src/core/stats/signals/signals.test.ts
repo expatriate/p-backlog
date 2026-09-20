@@ -51,7 +51,7 @@ describe("тревоги", () => {
     ]);
 
     expect(statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check")).toEqual([
-      { kind: "noisy-check", text: "Проверка «код изменился» почти всегда ошибается: точность 10% на 10 решённых" },
+      { kind: "noisy-check", text: `Проверка «код изменился» почти всегда ошибается: точность 10% на 10 решённых за 14${NBSP}дней` },
     ]);
   });
 
@@ -68,7 +68,31 @@ describe("тревоги", () => {
     };
 
     expect(noisy(19)).toEqual([]);
-    expect(noisy(18)).toEqual([{ kind: "noisy-check", text: "Проверка «код изменился» почти всегда ошибается: точность 19% на 97 решённых" }]);
+    expect(noisy(18)).toEqual([{ kind: "noisy-check", text: `Проверка «код изменился» почти всегда ошибается: точность 19% на 97 решённых за 14${NBSP}дней` }]);
+  });
+
+  it("старый всплеск кандидатов не держит тревогу: за две недели решений мало", () => {
+    const old = Array.from({ length: 40 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(7, 1) }));
+    const events: JournalEvent[] = old.flatMap((task) => [
+      { at: iso(7, 2), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed" },
+      { at: iso(7, 3), task: task.id, via: "cli", kind: "verified" },
+    ]);
+
+    const signals = statsSignals({ tasks: old, journals: journal(events), now: NOW, projectId: "spa" });
+
+    expect(signals.filter((signal) => signal.kind === "noisy-check")).toEqual([]);
+  });
+
+  it("улика «нет source» в тревогу не идёт: закрывать по ней нечего", () => {
+    const tasks = Array.from({ length: 12 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(8, 14) }));
+    const events: JournalEvent[] = tasks.flatMap((task) => [
+      { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "no-source", mode: "full" },
+      { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
+    ]);
+
+    const signals = statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" });
+
+    expect(signals.filter((signal) => signal.kind === "noisy-check")).toEqual([]);
   });
 
   it("«не меньше»: задача в работе без перехода в журнале и старше 7 дней — тревога есть", () => {
