@@ -1,0 +1,9 @@
+import type { Project, Task } from "../../core/model/types";
+
+export function activeProjectIds(projects: readonly Project[]): Set<string> {
+  return new Set(projects.filter((project) => project.active).map((project) => project.id));
+}
+
+export function tasksInScope(tasks: readonly Task[], projectId: string | undefined, activeIds: ReadonlySet<string>): Task[] {
+  return tasks.filter((task) => (projectId === undefined ? activeIds.has(task.projectId) : task.projectId === projectId));
+}

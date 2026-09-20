@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { listPath } from "../app/paths";
+import { activeProjectIds, tasksInScope } from "../app/scope";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, sortTasks } from "../../core/model/query";
@@ -28,23 +29,14 @@ export function TaskListPage() {
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
   const dateColumn = dateColumnFor(params.filter);
   const sort = useMemo(() => followDateColumn(params.sort, dateColumn), [params.sort, dateColumn]);
-  const activeIds = useMemo(() => new Set((projects.data ?? []).filter((project) => project.active).map((project) => project.id)), [projects.data]);
-  const allTasks = useMemo(
-    () => (projectId === undefined ? (data?.tasks ?? []).filter((task) => activeIds.has(task.projectId)) : (data?.tasks ?? [])),
-    [data, projectId, activeIds],
-  );
+  const allTasks = useMemo(() => data?.tasks ?? [], [data]);
+  const activeIds = useMemo(() => activeProjectIds(projects.data ?? []), [projects.data]);
+  const scopedTasks = useMemo(() => tasksInScope(allTasks, projectId, activeIds), [allTasks, projectId, activeIds]);
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const tones = useMemo(() => epicTones(allTasks), [allTasks]);
-  const visibleTasks = useMemo(
-    () => sortTasks(filterTasks(allTasks, { ...params.filter, projectId }, index), sort, index),
-    [allTasks, index, params.filter, sort, projectId],
-  );
-  const projectTasks = useMemo(
-    () => (projectId === undefined ? allTasks : allTasks.filter((task) => task.projectId === projectId)),
-    [allTasks, projectId],
-  );
-  const epicFilterChoices = useMemo(() => epicChoices(projectTasks, tones), [projectTasks, tones]);
-  const autoClosedCount = filterTasks(allTasks, { projectId, ...AUTO_CLOSED_VIEW.filter }, index).length;
+  const visibleTasks = useMemo(() => sortTasks(filterTasks(scopedTasks, params.filter, index), sort, index), [scopedTasks, index, params.filter, sort]);
+  const epicFilterChoices = useMemo(() => epicChoices(scopedTasks, tones), [scopedTasks, tones]);
+  const autoClosedCount = filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, index).length;
 
   const projectName =
     projectId === undefined ? undefined : (projects.data?.find((project) => project.id === projectId)?.name ?? projectId);
@@ -66,7 +58,7 @@ export function TaskListPage() {
     <main id="content" tabIndex={-1} className={styles.page}>
       <div className={styles.list}>
         <h1 className={styles.heading}>{viewTitle}</h1>
-        <Toolbar params={params} onChange={setParams} tags={collectTags(projectTasks)} epicChoices={epicFilterChoices} autoClosedCount={autoClosedCount} />
+        <Toolbar params={params} onChange={setParams} tags={collectTags(scopedTasks)} epicChoices={epicFilterChoices} autoClosedCount={autoClosedCount} />
 
         {parseErrors.length > 0 && (
           <div className={styles.warning} role="status">
@@ -93,7 +85,7 @@ export function TaskListPage() {
             <p className={styles.hint}>Загружаем задачи…</p>
           ) : visibleTasks.length === 0 ? (
             <EmptyList
-              hasTasks={projectTasks.length > 0}
+              hasTasks={scopedTasks.length > 0}
               filter={params.filter}
               onFilterChange={(filter) => setParams({ ...params, filter })}
             />
