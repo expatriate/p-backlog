@@ -1,6 +1,8 @@
 import { CANDIDATE_EVIDENCE, type CandidateEvidence } from "../../journal/events";
 import { closingsOf, type TaskHistory } from "../history";
-import type { AccuracyRow } from "../types";
+import { formatLocalIso } from "../../model/dates";
+import { weekWindows } from "../weeks";
+import type { AccuracyRow, AccuracyWeek } from "../types";
 
 type Outcome = "closed" | "verified" | "open";
 type Episode = { evidence: CandidateEvidence; outcome: Outcome };
@@ -17,6 +19,19 @@ export function accuracy(histories: readonly TaskHistory[], from: number, to: nu
     return own.length === 0 ? [] : [accuracyRow(evidence, own)];
   });
   return [...byEvidence, accuracyRow("total", episodes)];
+}
+
+export function accuracyWeeks(histories: readonly TaskHistory[], now: Date): AccuracyWeek[] {
+  return weekWindows(now).map(({ start, inWeek }) => {
+    const decided = histories.flatMap((history) =>
+      history.candidates
+        .filter((candidate) => inWeek(candidate.at) && candidate.evidence !== "no-source")
+        .map((candidate) => outcomeAfter(history, candidate.at))
+        .filter((outcome) => outcome !== "open"),
+    );
+    const closed = decided.filter((outcome) => outcome === "closed").length;
+    return { start: formatLocalIso(start), decided: decided.length, precision: decided.length === 0 ? null : closed / decided.length };
+  });
 }
 
 function outcomeAfter(history: TaskHistory, moment: number): Outcome {

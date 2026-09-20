@@ -1,26 +1,30 @@
 import { categoryLabel } from "../../core/model/categories";
 import { EVIDENCE_LABELS, formatShare } from "../../core/stats/format";
-import type { AccuracyRow, BranchRow, CategoryRow, FoundRow } from "../../core/stats/types";
+import type { AccuracyRow, AccuracyWeek, BranchRow, CategoryRow, FoundRow } from "../../core/stats/types";
+import { AccuracyWeeksChart } from "./AccuracyWeeksChart";
 import { FOUND_LABELS } from "../labels";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import { StatsTable } from "./StatsTable";
 import { STATS_PERIOD } from "./periods";
 
-export function AccuracyPanel({ rows }: { rows: AccuracyRow[] }) {
+export function AccuracyPanel({ rows, weeks }: { rows: AccuracyRow[]; weeks: AccuracyWeek[] }) {
   return (
     <Panel title="Точность проверки">
       {rows.length === 0 ? (
         <p className={rowStyles.muted}>Проверка ещё не находила кандидатов</p>
       ) : (
-        <StatsTable
-          label="Точность проверки"
-          head={["Улика", "Кандидатов", "Закрыто", "Подтверждено", "Без решения", "Точность"]}
-          rows={rows.map((row) => ({
-            key: row.evidence,
-            cells: [EVIDENCE_LABELS[row.evidence], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)],
-          }))}
-        />
+        <>
+          <AccuracyWeeksChart weeks={weeks} />
+          <StatsTable
+            label="Точность проверки за период"
+            head={["Улика", "Кандидатов", "Закрыто", "Подтверждено", "Без решения", "Точность"]}
+            rows={rows.map((row) => ({
+              key: row.evidence,
+              cells: [EVIDENCE_LABELS[row.evidence], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)],
+            }))}
+          />
+        </>
       )}
     </Panel>
   );

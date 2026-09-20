@@ -3,7 +3,7 @@ import type { JournalEvent } from "../../journal/events";
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
-import { accuracy } from "./accuracy";
+import { accuracy, accuracyWeeks } from "./accuracy";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 const iso = (day: number, hour = 12) => formatLocalIso(at(day, hour));
@@ -47,5 +47,27 @@ describe("точность проверки", () => {
     const tasks = [makeTask({ id: "SPA-1", created: iso(1) })];
 
     expect(accuracy(taskHistories(tasks, journal([candidate("SPA-1", 3, "source-changed")])), at(5).getTime(), TO)).toEqual([]);
+  });
+
+  it("по неделям: точность считается без улики «нет source»", () => {
+    const tasks = [
+      makeTask({ id: "SPA-1", created: iso(1), status: "done", closed: iso(16), resolution: "fixed" }),
+      makeTask({ id: "SPA-2", created: iso(1) }),
+      makeTask({ id: "SPA-3", created: iso(1) }),
+    ];
+    const events: JournalEvent[] = [
+      candidate("SPA-1", 15, "source-changed"),
+      { at: iso(16), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" },
+      candidate("SPA-2", 15, "source-changed"),
+      verified("SPA-2", 16),
+      candidate("SPA-3", 15, "no-source"),
+      verified("SPA-3", 16),
+    ];
+
+    const weeks = accuracyWeeks(taskHistories(tasks, journal(events)), at(18));
+
+    expect(weeks).toHaveLength(12);
+    expect(weeks.at(-1)).toMatchObject({ decided: 2, precision: 0.5 });
+    expect(weeks.at(-2)).toMatchObject({ decided: 0, precision: null });
   });
 });
