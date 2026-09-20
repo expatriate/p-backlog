@@ -362,6 +362,19 @@ describe("статика", () => {
   });
 });
 
+describe("тело запроса", () => {
+  it("неразобранный JSON отличается от несовпадения со схемой", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+
+    const broken = await backlog.request("/api/tasks/SPA-1", { method: "PATCH", body: "{", headers: { "content-type": "application/json" } });
+    expect(broken.status).toBe(400);
+    expect(((await broken.json()) as ErrorResponse).errors[0]).toContain("не разобрано");
+
+    const wrongShape = await backlog.json("/api/tasks/SPA-1", "PATCH", { version: 1 });
+    expect(wrongShape.status).toBe(422);
+  });
+});
+
 describe("неожиданная ошибка сервера", () => {
   it("отдаётся тем же JSON, что и остальные ошибки API", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);

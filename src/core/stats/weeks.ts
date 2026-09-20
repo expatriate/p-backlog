@@ -13,12 +13,18 @@ export function periodStart(now: Date): number {
   return weekStarts(now, STATS_WEEKS)[0]?.getTime() ?? now.getTime();
 }
 
-export function weeklyFlow(histories: readonly TaskHistory[], now: Date): WeekFlow[] {
-  const starts = weekStarts(now, STATS_WEEKS);
-  const closings = histories.flatMap(closingsOf);
+export function weekWindows(now: Date, count = STATS_WEEKS): { start: Date; inWeek: (moment: number) => boolean }[] {
+  const starts = weekStarts(now, count);
   return starts.map((start, index) => {
     const end = starts[index + 1]?.getTime() ?? now.getTime() + 1;
-    const inWeek = (moment: number) => moment >= start.getTime() && moment < end;
+    return { start, inWeek: (moment: number) => moment >= start.getTime() && moment < end };
+  });
+}
+
+export function weeklyFlow(histories: readonly TaskHistory[], now: Date): WeekFlow[] {
+  const closings = histories.flatMap(closingsOf);
+  return weekWindows(now).map(({ start, inWeek }, index, windows) => {
+    const end = windows[index + 1]?.start.getTime() ?? now.getTime() + 1;
     return {
       start: formatLocalIso(start),
       created: histories.filter((history) => inWeek(history.createdAt)).length,

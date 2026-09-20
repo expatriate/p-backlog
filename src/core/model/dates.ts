@@ -1,3 +1,7 @@
+export function formatLocalDay(date: Date): string {
+  return formatLocalIso(date).slice(0, 10);
+}
+
 export function formatLocalIso(date: Date): string {
   const pad = (value: number) => String(Math.abs(value)).padStart(2, "0");
   const offsetMinutes = -date.getTimezoneOffset();

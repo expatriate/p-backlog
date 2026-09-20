@@ -1,10 +1,8 @@
 import type { Task } from "../../model/types";
 import { folderOf } from "../breakdowns";
 import { countBy } from "../numbers";
-import { PRIORITY_WEIGHT } from "../report";
+import { PRIORITY_WEIGHT } from "../weights";
 import type { ChurnRow, ProjectCode } from "../types";
-
-export const CHURN_DAYS = 90;
 
 const CHURN_LIMIT = 8;
 

@@ -1,4 +1,4 @@
-import { formatLocalIso } from "../../model/dates";
+import { formatLocalDay } from "../../model/dates";
 import type { CliRun, CostCommand, CostDay, CostModel, CostReport, CostTotals, ScanProgress, TokenCounts, UsageBucket } from "../types";
 import { costOf } from "./pricing";
 
@@ -48,11 +48,11 @@ function memoizedByCwd(projectOf: (cwd: string) => string | null): (cwd: string)
 }
 
 function dayRange(now: Date, count: number): string[] {
-  return Array.from({ length: count }, (_, index) => formatLocalIso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (count - 1 - index))).slice(0, 10));
+  return Array.from({ length: count }, (_, index) => formatLocalDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (count - 1 - index))));
 }
 
 function localDay(at: string): string {
-  return formatLocalIso(new Date(at)).slice(0, 10);
+  return formatLocalDay(new Date(at));
 }
 
 function tokenSum(tokens: TokenCounts): number {

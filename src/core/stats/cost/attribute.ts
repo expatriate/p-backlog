@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { formatLocalIso } from "../../model/dates";
+import { formatLocalDay } from "../../model/dates";
 import type { TokenCounts, TranscriptState, UsageBucket } from "../types";
 import { fastModel } from "./pricing";
 
@@ -8,6 +8,10 @@ export type TranscriptLine = unknown;
 type LineContext = { day: string; cwd: string };
 
 const FAST_SPEED = "fast";
+
+const CHARS_PER_TOKEN = 3;
+
+const PENDING_TOOL_LIMIT = 64;
 
 const BACKLOG_COMMAND = /(?:^|&&|\|\||;|\||\n)\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*backlog(?=\s|$)/;
 
@@ -122,8 +126,15 @@ function registerToolUseBlock(raw: unknown, state: TranscriptState): void {
   if (!block.success) return;
   if (block.data.name === "Bash") {
     const input = bashInputSchema.safeParse(block.data.input);
-    if (input.success && BACKLOG_COMMAND.test(input.data.command)) state.pending[block.data.id] = "cli";
+    if (!input.success || !BACKLOG_COMMAND.test(input.data.command)) return;
+    state.pending[block.data.id] = "cli";
+    forgetOldestPending(state);
   }
+}
+
+function forgetOldestPending(state: TranscriptState): void {
+  const ids = Object.keys(state.pending);
+  for (const id of ids.slice(0, Math.max(0, ids.length - PENDING_TOOL_LIMIT))) Reflect.deleteProperty(state.pending, id);
 }
 
 export function flushEstimates(state: TranscriptState): UsageBucket[] {
@@ -137,7 +148,7 @@ function drainEstimates(state: TranscriptState, model: string): UsageBucket[] {
       cwd: estimate.cwd,
       model,
       kind: estimate.kind,
-      tokens: { ...ZERO_TOKENS, cacheWrite5m: Math.ceil(estimate.chars / 3) },
+      tokens: { ...ZERO_TOKENS, cacheWrite5m: Math.ceil(estimate.chars / CHARS_PER_TOKEN) },
       hookTurns: 0,
     }),
   );
@@ -169,5 +180,5 @@ function tokensFrom(usage: Usage): TokenCounts {
 
 function dayOf(timestamp: string): string {
   const date = new Date(timestamp);
-  return Number.isNaN(date.getTime()) ? "" : formatLocalIso(date).slice(0, 10);
+  return Number.isNaN(date.getTime()) ? "" : formatLocalDay(date);
 }

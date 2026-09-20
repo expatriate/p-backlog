@@ -1,4 +1,4 @@
-import { CHURN_DAYS } from "../../core/stats/code/churn";
+import { CHURN_DAYS } from "../../core/code/code-window";
 import { pluralCount } from "../../core/stats/format";
 import { STATS_WEEKS } from "../../core/stats/weeks";
 

@@ -16,6 +16,10 @@ export function nearestRank(values: readonly number[], fraction: number): number
   return sorted[Math.ceil(fraction * sorted.length) - 1] ?? null;
 }
 
+export function smallest(values: readonly number[]): number | null {
+  return values.reduce<number | null>((least, value) => (least === null || value < least ? value : least), null);
+}
+
 export function daysBetween(from: number, to: number): number {
   return (to - from) / DAY_MS;
 }

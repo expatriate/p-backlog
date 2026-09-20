@@ -5,7 +5,7 @@ import { makeGitRepo, makeTempDir } from "../../core/store/testing/temp-dirs";
 
 export type CliRun = { code: number; out: string; err: string };
 
-export type CliRunOptions = { cwd?: string; stdin?: string; now?: Date };
+export type CliRunOptions = { cwd?: string; stdin?: string; now?: Date; env?: NodeJS.ProcessEnv };
 
 const SANDBOX_NOW = new Date("2026-09-17T14:50:00Z");
 
@@ -27,6 +27,7 @@ export async function makeCliSandbox(): Promise<CliSandbox> {
       cwd: options.cwd ?? repo,
       home,
       backlogRoot: root,
+      env: options.env ?? {},
       now: () => options.now ?? SANDBOX_NOW,
       readStdin: async () => options.stdin ?? "",
       print: (line) => out.push(line),

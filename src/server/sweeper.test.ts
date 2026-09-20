@@ -18,8 +18,9 @@ describe("startSweeper", () => {
     ];
     const sweep = vi.fn(async () => reports.shift() ?? EMPTY_REPORT);
     const log = vi.fn();
+    const warn = vi.fn();
 
-    const stop = startSweeper({ sweep, intervalMs: 1000, log });
+    const stop = startSweeper({ sweep, intervalMs: 1000, log, warn });
     await vi.advanceTimersByTimeAsync(0);
     expect(sweep).toHaveBeenCalledTimes(1);
     expect(log).toHaveBeenCalledWith("Удалены закрытые задачи: SPA-1, SPA-4");
@@ -37,12 +38,14 @@ describe("startSweeper", () => {
     useFakeClock();
     const sweep = vi.fn().mockRejectedValueOnce(new Error("EACCES")).mockResolvedValue(EMPTY_REPORT);
     const log = vi.fn();
+    const warn = vi.fn();
 
-    const stop = startSweeper({ sweep, intervalMs: 1000, log });
+    const stop = startSweeper({ sweep, intervalMs: 1000, log, warn });
     await vi.advanceTimersByTimeAsync(1000);
     stop();
 
-    expect(log).toHaveBeenCalledWith("Не удалось удалить закрытые задачи: EACCES");
+    expect(warn).toHaveBeenCalledWith("Не удалось удалить закрытые задачи: EACCES");
+    expect(log).not.toHaveBeenCalled();
     expect(sweep).toHaveBeenCalledTimes(2);
   });
 
@@ -60,7 +63,7 @@ describe("startSweeper", () => {
     };
     const log = vi.fn();
 
-    const stop = startSweeper({ sweep: async () => report, intervalMs: 1000, log });
+    const stop = startSweeper({ sweep: async () => report, intervalMs: 1000, log, warn: vi.fn() });
     await vi.advanceTimersByTimeAsync(0);
     stop();
 

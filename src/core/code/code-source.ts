@@ -1,13 +1,14 @@
 import { errorText } from "../errors";
-import { formatLocalIso } from "../model/dates";
+import { formatLocalDay } from "../model/dates";
 import { DAY_MS } from "../model/lifecycle";
 import type { Project } from "../model/types";
 import { runGit, type GitRunner } from "../git/run";
-import { CHURN_DAYS } from "../stats/code/churn";
+
 import { fixKey, type FixRequest } from "../stats/code/fixes";
 import type { CollectedCode, FixCommit, ProjectCode, RepoCode } from "../stats/types";
 import { expandHome } from "../store/paths";
 import { emptyCodeCache, type CodeCacheStore } from "./code-cache";
+import { CHURN_DAYS } from "./code-window";
 import { readFixCommits, readHead, readMainCommit, readRepoCode } from "./git-code";
 
 export type CodeSourceOptions = { home: string; git?: GitRunner; store?: CodeCacheStore };
@@ -29,6 +30,15 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
       for (const [key, commit] of Object.entries(snapshot.fixes)) if (!fixCache.has(key)) fixCache.set(key, commit);
     });
     return restored;
+  };
+
+  const dropStaleFixes = (now: Date): void => {
+    const oldest = now.getTime() - CHURN_DAYS * DAY_MS;
+    for (const [key, commit] of fixCache) {
+      if (Date.parse(commit.date) >= oldest) continue;
+      fixCache.delete(key);
+      changed = true;
+    }
   };
 
   const persist = async (): Promise<void> => {
@@ -53,7 +63,7 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
     const head = await readHead(git, repo);
     if (head === null) return null;
     const mainCommit = await readMainCommit(git, repo);
-    const key = `${head} ${mainCommit ?? ""} ${formatLocalIso(now).slice(0, 10)}`;
+    const key = `${head} ${mainCommit ?? ""} ${formatLocalDay(now)}`;
     const cached = repoCache.get(repo);
     if (cached?.key === key) return cached.code;
     const code = await readRepoCode(git, repo, new Date(now.getTime() - CHURN_DAYS * DAY_MS), mainCommit);
@@ -118,6 +128,7 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
           }
         }
       }
+      dropStaleFixes(now);
       await persist();
       return { projects: projectCodes, unavailableRepos, fixCommits };
     },

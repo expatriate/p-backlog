@@ -20,6 +20,7 @@ const exitCode = await runCli(argv, {
   cwd: process.cwd(),
   home,
   backlogRoot,
+  env: process.env,
   now: () => new Date(),
   readStdin,
   print: (line) => process.stdout.write(`${line}\n`),

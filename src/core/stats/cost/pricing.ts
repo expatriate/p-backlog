@@ -7,6 +7,8 @@ export const PRICES_AS_OF = "2026-06-24";
 const FAST_PRICED_MODEL = "claude-opus-5";
 const FAST_MODEL_SUFFIX = " (быстрый режим)";
 const FAST_PRICE_FACTOR = 2;
+const CACHE_WRITE_5M_FACTOR = 1.25;
+const CACHE_WRITE_1H_FACTOR = 2;
 
 const PRICE_TABLE: Record<string, ModelPrice> = {
   "claude-fable-5-1": { input: 10, output: 50, cacheRead: 0.25 },
@@ -49,6 +51,6 @@ export function costOf(model: string, tokens: TokenCounts): number | null {
   const price = priceOf(model);
   if (!price) return null;
   const { input, cacheWrite5m, cacheWrite1h, cacheRead, output } = tokens;
-  const total = input * price.input + cacheWrite5m * price.input * 1.25 + cacheWrite1h * price.input * 2 + cacheRead * price.cacheRead + output * price.output;
+  const total = input * price.input + cacheWrite5m * price.input * CACHE_WRITE_5M_FACTOR + cacheWrite1h * price.input * CACHE_WRITE_1H_FACTOR + cacheRead * price.cacheRead + output * price.output;
   return total / 1_000_000;
 }

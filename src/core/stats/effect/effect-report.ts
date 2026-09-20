@@ -1,12 +1,12 @@
 import { formatLocalIso } from "../../model/dates";
 import { isClosed } from "../../model/graph";
 import type { TaskCategory } from "../../model/types";
-import { fixKey, reasonHashes } from "../code/fixes";
+import { fixCommitEntry } from "../code/fixes";
 import { isFixedNow, type TaskHistory } from "../history";
-import { median } from "../numbers";
+import { median, smallest } from "../numbers";
 import { statsScope, type StatsInput } from "../scope";
 import type { CollectedCode, CommitUnit, EffectProject, EffectReport, EffectTotals, EffectWeek, FixCommit } from "../types";
-import { periodStart, STATS_WEEKS, weekStarts } from "../weeks";
+import { periodStart, weekWindows } from "../weeks";
 
 export const MIN_FIXES_FOR_ESTIMATE = 5;
 
@@ -29,8 +29,8 @@ export function effectReport({ code, ...input }: EffectInput): EffectReport {
   const allHistories = statsScope({ ...input, projectId: undefined }).histories.filter((history) => history.type === "task");
   const estimate = estimator(estimateSamples(allHistories, code));
   const adoptionStart = (id: string) => {
-    const created = histories.filter((history) => history.projectId === id).map((history) => history.createdAt);
-    return created.length === 0 ? from : Math.max(from, Math.min(...created));
+    const firstCreated = smallest(histories.filter((history) => history.projectId === id).map((history) => history.createdAt));
+    return firstCreated === null ? from : Math.max(from, firstCreated);
   };
   const unitsSince = (id: string, since: number) =>
     projects
@@ -68,14 +68,6 @@ export function effectReport({ code, ...input }: EffectInput): EffectReport {
   };
 }
 
-function fixCommitEntry(history: TaskHistory, code: CollectedCode): { key: string; commit: FixCommit } | undefined {
-  const hash = reasonHashes(history.reason).find((candidate) => code.fixCommits.has(fixKey(history.projectId, candidate)));
-  if (hash === undefined) return undefined;
-  const key = fixKey(history.projectId, hash);
-  const commit = code.fixCommits.get(key);
-  return commit === undefined ? undefined : { key, commit };
-}
-
 function buildDeferred(candidates: readonly TaskHistory[], code: CollectedCode): Deferred[] {
   const groups = new Map<string, { commit: FixCommit; histories: TaskHistory[] }>();
   const open: TaskHistory[] = [];
@@ -85,7 +77,7 @@ function buildDeferred(candidates: readonly TaskHistory[], code: CollectedCode):
       continue;
     }
     if (!isFixedNow(history)) continue;
-    const entry = fixCommitEntry(history, code);
+    const entry = fixCommitEntry(history, code.fixCommits);
     if (entry === undefined) continue;
     const group = groups.get(entry.key) ?? { commit: entry.commit, histories: [] };
     group.histories.push(history);
@@ -101,7 +93,7 @@ function estimateSamples(histories: readonly TaskHistory[], code: CollectedCode)
   const seen = new Map<string, FixSample>();
   for (const history of histories) {
     if (!isFixedNow(history)) continue;
-    const entry = fixCommitEntry(history, code);
+    const entry = fixCommitEntry(history, code.fixCommits);
     if (entry === undefined || seen.has(entry.key)) continue;
     seen.set(entry.key, { category: history.category, lines: entry.commit.lines, testLines: entry.commit.testLines });
   }
@@ -157,10 +149,7 @@ function sum(values: readonly number[]): number {
 }
 
 function weeksOf(deferred: readonly Deferred[], periodUnits: readonly CommitUnit[], estimate: Estimate, now: Date): EffectWeek[] {
-  const starts = weekStarts(now, STATS_WEEKS);
-  return starts.map((start, index) => {
-    const end = starts[index + 1]?.getTime() ?? now.getTime() + 1;
-    const inWeek = (moment: number) => moment >= start.getTime() && moment < end;
+  return weekWindows(now).map(({ start, inWeek }) => {
     const rawRealLines = periodUnits.filter((unit) => inWeek(Date.parse(unit.date))).reduce((sum, unit) => sum + unit.lines, 0);
     const fixedInWeek = deferred.filter((item) => item.fixedAt !== null && inWeek(item.fixedAt));
     const openInWeek = deferred.filter((item) => item.fixedLines === null && inWeek(item.history.createdAt));

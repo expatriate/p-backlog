@@ -1,7 +1,7 @@
 import { categoryLabel } from "../../model/categories";
 import type { Task, TaskCategory } from "../../model/types";
 import { closingsOf, type TaskHistory } from "../history";
-import { PRIORITY_WEIGHT } from "../report";
+import { PRIORITY_WEIGHT } from "../weights";
 import type { CategoryRow } from "../types";
 
 export function categoryBreakdown(openTasks: readonly Task[], histories: readonly TaskHistory[], from: number, to: number): CategoryRow[] {

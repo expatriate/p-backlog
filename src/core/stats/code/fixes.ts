@@ -25,15 +25,18 @@ export function fixRequests(histories: readonly TaskHistory[], from: number, to:
   return [...byProject.entries()].filter(([, hashes]) => hashes.size > 0).map(([projectId, hashes]) => ({ projectId, hashes: [...hashes] }));
 }
 
-export function fixCommitOf(history: TaskHistory, commits: ReadonlyMap<string, FixCommit>): FixCommit | undefined {
+export type FixCommitEntry = { key: string; commit: FixCommit };
+
+export function fixCommitEntry(history: TaskHistory, commits: ReadonlyMap<string, FixCommit>): FixCommitEntry | undefined {
   return reasonHashes(history.reason)
-    .map((hash) => commits.get(fixKey(history.projectId, hash)))
-    .find((commit) => commit !== undefined);
+    .map((hash) => ({ key: fixKey(history.projectId, hash), commit: commits.get(fixKey(history.projectId, hash)) }))
+    .flatMap(({ key, commit }) => (commit === undefined ? [] : [{ key, commit }]))
+    .at(0);
 }
 
 export function fixBreakdown(histories: readonly TaskHistory[], from: number, to: number, commits: ReadonlyMap<string, FixCommit>): FixBreakdown {
   const resolved = fixClosings(histories, from, to).map((history) => {
-    const commit = fixCommitOf(history, commits);
+    const commit = fixCommitEntry(history, commits)?.commit;
     return commit === undefined ? undefined : { byAgent: commit.byAgent, days: Math.max(0, (Date.parse(commit.date) - history.createdAt) / DAY_MS) };
   });
   const agentDays = resolved.flatMap((fix) => (fix?.byAgent === true ? [fix.days] : []));

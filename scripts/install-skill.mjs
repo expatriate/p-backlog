@@ -15,8 +15,14 @@ async function linkSkill() {
   const target = join(skillsDir, "backlog");
   const existing = await lstat(target).catch(() => null);
   if (existing === null) {
-    await mkdir(skillsDir, { recursive: true });
-    await symlink(source, target, "dir");
+    try {
+      await mkdir(skillsDir, { recursive: true });
+      await symlink(source, target, "dir");
+    } catch (error) {
+      console.error(`Не удалось создать ссылку ${target} (${error.code ?? error.message}).`);
+      process.exitCode = 1;
+      return false;
+    }
     console.log(`Скилл установлен: ${target} → ${source}`);
     return true;
   }
@@ -30,17 +36,12 @@ async function linkSkill() {
 }
 
 async function addStopHook() {
-  const text = await readFile(settingsPath, "utf8").catch((error) => (error.code === "ENOENT" ? "{}" : Promise.reject(error)));
-  let settings;
-  try {
-    settings = JSON.parse(text);
-  } catch {
-    console.error(`${settingsPath} — не JSON, хук Stop не добавлен. Исправьте файл и повторите.`);
-    process.exitCode = 1;
-    return;
-  }
+  const text = await readSettings();
+  if (text === null) return;
+  const settings = parseSettings(text);
+  if (settings === null) return;
   settings.hooks ??= {};
-  settings.hooks.Stop ??= [];
+  if (!Array.isArray(settings.hooks.Stop)) settings.hooks.Stop = [];
   const installed = settings.hooks.Stop.some((group) => group.hooks?.some((hook) => hook.command === STOP_HOOK_COMMAND));
   if (installed) {
     console.log(`Хук Stop уже есть в ${settingsPath}`);
@@ -50,4 +51,30 @@ async function addStopHook() {
   await mkdir(dirname(settingsPath), { recursive: true });
   await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
   console.log(`Хук Stop добавлен в ${settingsPath}`);
+}
+
+async function readSettings() {
+  try {
+    return await readFile(settingsPath, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") return "{}";
+    console.error(`${settingsPath} не прочитать (${error.code ?? error.message}), хук Stop не добавлен.`);
+    process.exitCode = 1;
+    return null;
+  }
+}
+
+function parseSettings(text) {
+  let settings;
+  try {
+    settings = JSON.parse(text);
+  } catch {
+    settings = undefined;
+  }
+  if (typeof settings !== "object" || settings === null || Array.isArray(settings)) {
+    console.error(`${settingsPath} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`);
+    process.exitCode = 1;
+    return null;
+  }
+  return settings;
 }

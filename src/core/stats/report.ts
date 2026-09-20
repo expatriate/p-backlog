@@ -1,13 +1,12 @@
 import { DAY_MS } from "../model/lifecycle";
-import type { Priority, Task } from "../model/types";
+import type { Task } from "../model/types";
 import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
 import { closingsOf, isOpenAt, type TaskHistory } from "./history";
 import { daysBetween, median, nearestRank, TAIL_FRACTION } from "./numbers";
 import { reportBase, type ReportBase, type StatsInput } from "./scope";
+import { PRIORITY_WEIGHT } from "./weights";
 import type { PreviousTotals, StatsReport, StatsTotals } from "./types";
 import { periodStart, weeklyFlow } from "./weeks";
-
-export const PRIORITY_WEIGHT: Record<Priority, number> = { critical: 8, high: 4, medium: 2, low: 1 };
 
 const STALE_DAYS = 30;
 const LAST_WEEK_MS = 7 * DAY_MS;

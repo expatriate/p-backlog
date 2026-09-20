@@ -1,3 +1,4 @@
+import { smallest } from "../stats/numbers";
 import { errorText } from "../errors";
 import { basename, join } from "node:path";
 import { candidateEvents, candidateGoneEvents, episodeStates, type CheckMode } from "../journal/events";
@@ -125,7 +126,7 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
   const duplicates = mode === "full" ? duplicateCandidates(tasks) : [];
   if (repo === undefined) return { candidates: duplicates, plans: [] };
 
-  const since = new Date(Math.min(...tasks.map(reviewMark)));
+  const since = new Date(smallest(tasks.map(reviewMark)) ?? Date.now());
   const paths = [...new Set(tasks.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
   const facts = await collectRepoFacts(repo, { since, paths });
   const review = codeReview(tasks, facts);

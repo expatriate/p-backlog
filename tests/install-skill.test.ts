@@ -53,7 +53,7 @@ describe("install-skill", () => {
     const result = run();
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("не JSON");
+    expect(result.stderr).toContain("не объект JSON");
     expect(await readFile(settingsPath, "utf8")).toBe("{ сломано");
   });
 });

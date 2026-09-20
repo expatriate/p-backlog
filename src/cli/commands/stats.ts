@@ -5,7 +5,7 @@ import { statsReport } from "../../core/stats/report";
 import { statsSignals } from "../../core/stats/signals/signals";
 import { readJournals } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
-import { DEFAULT_PORT } from "../../server/port";
+import { readPort } from "../../server/port";
 import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { statsSummary } from "../stats-summary";
@@ -37,6 +37,6 @@ export async function runStats(args: string[], io: CliIo): Promise<number> {
     return EXIT.ok;
   }
   const path = project === undefined ? "/stats" : `/p/${project.id}/stats`;
-  io.print(statsSummary({ scopeName: project?.name ?? "Все проекты", totals, forecast, signals, url: `http://localhost:${DEFAULT_PORT}${path}` }));
+  io.print(statsSummary({ scopeName: project?.name ?? "Все проекты", totals, forecast, signals, url: `http://localhost:${readPort(io.env.PORT)}${path}` }));
   return EXIT.ok;
 }

@@ -2,7 +2,7 @@ import { errorText } from "../../core/errors";
 import { dirname } from "node:path";
 import { z } from "zod";
 import { checkBacklog } from "../../core/check/check-backlog";
-import { formatLocalIso } from "../../core/model/dates";
+import { formatLocalDay } from "../../core/model/dates";
 import { readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
 import { findProjectForDir } from "../../core/store/resolve-project";
@@ -49,7 +49,7 @@ function lowChangedSignals(count: number): Signal[] {
 
 async function freshSignals(project: Project, tasks: readonly Task[], extra: readonly Signal[], io: CliIo): Promise<FreshSignals> {
   const projectDir = dirname(project.path);
-  const today = formatLocalIso(io.now()).slice(0, 10);
+  const today = formatLocalDay(io.now());
   try {
     const journal = await readJournal(projectDir, project.id);
     const shown = await readSignalsShown(projectDir);

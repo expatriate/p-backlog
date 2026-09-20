@@ -6,7 +6,7 @@ import { createCodeCacheFile } from "../core/code/code-cache";
 import { createCodeSource } from "../core/code/code-source";
 import type { Project, Task } from "../core/model/types";
 import { formatIssues } from "../core/model/zod-issues";
-import { formatLocalIso } from "../core/model/dates";
+import { formatLocalDay } from "../core/model/dates";
 import { costReport } from "../core/stats/cost/cost-report";
 import { codeFixRequests, codeReport } from "../core/stats/code/code-report";
 import { effectReport } from "../core/stats/effect/effect-report";
@@ -76,7 +76,7 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
       const scope = await statsScopeOf(c);
       if (scope instanceof Response) return scope;
       const moment = now();
-      const key = [name, scope.projectId ?? "*", formatLocalIso(moment).slice(0, 10), sourceKey === undefined ? "" : await sourceKey(scope.projects)].join("|");
+      const key = [name, scope.projectId ?? "*", formatLocalDay(moment), sourceKey === undefined ? "" : await sourceKey(scope.projects)].join("|");
       const result = await reports.get(key, async () => {
         const journals = await readJournals(root, scope.projects.map((project) => project.id));
         return report({ tasks: scope.tasks, journals, now: moment, projectId: scope.projectId }, scope.projects);
@@ -166,17 +166,19 @@ function invalidResponse(c: Context, result: Invalid) {
 type ParsedBody<T> = { ok: true; data: T } | { ok: false; response: Response };
 
 async function readBody<T>(c: Context, schema: ZodType<T>): Promise<ParsedBody<T>> {
-  const parsed = schema.safeParse(await readJson(c));
+  const body = await readJson(c);
+  if (body.ok === false) return { ok: false, response: c.json({ errors: ["Тело запроса не разобрано: ожидается JSON"] }, 400) };
+  const parsed = schema.safeParse(body.value);
   return parsed.success
     ? { ok: true, data: parsed.data }
     : { ok: false, response: c.json({ errors: formatIssues(parsed.error) }, 422) };
 }
 
-async function readJson(c: Context): Promise<unknown> {
+async function readJson(c: Context): Promise<{ ok: true; value: unknown } | { ok: false }> {
   try {
-    return await c.req.json();
+    return { ok: true, value: await c.req.json() };
   } catch {
-    return undefined;
+    return { ok: false };
   }
 }
 
