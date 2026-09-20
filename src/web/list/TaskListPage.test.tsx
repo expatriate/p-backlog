@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { projectFile } from "../../core/store/testing/temp-dirs";
+import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
 import { renderApp } from "../testing/render-app";
@@ -508,5 +508,19 @@ describe("шильдик «новая»", () => {
 
     expect(await hasBadge("Свежая")).toBe(false);
     expect(await rowTitles()).toEqual(["Свежая", "Старая"]);
+  });
+});
+
+describe("область «Все проекты»", () => {
+  it("не показывает задачи неактивного проекта", async () => {
+    await renderApp({
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1"),
+      "torg-io/project.md": projectFile("TI", [], { active: false }),
+      "torg-io/TI-1.md": taskFile("TI-1"),
+    });
+
+    expect(await screen.findAllByRole("link", { name: /SPA-1/ })).not.toHaveLength(0);
+    expect(screen.queryAllByRole("link", { name: /TI-1/ })).toHaveLength(0);
   });
 });

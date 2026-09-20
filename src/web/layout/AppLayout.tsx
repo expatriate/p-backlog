@@ -5,6 +5,7 @@ import { buildIndex } from "../../core/model/graph";
 import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
 import { useProjects, useSignals, useTasks } from "../app/queries";
 import { cx } from "../ui/cx";
+import { ProjectMenu } from "./ProjectMenu";
 import styles from "./AppLayout.module.css";
 
 export function AppLayout() {
@@ -14,7 +15,10 @@ export function AppLayout() {
 
   const allTasks = useMemo(() => tasks.data?.tasks ?? [], [tasks.data]);
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
-  const openCount = (projectId?: string) => filterTasks(allTasks, { projectId, statuses: OPEN_STATUSES }, index).length;
+  const allProjects = useMemo(() => projects.data ?? [], [projects.data]);
+  const activeIds = useMemo(() => new Set(allProjects.filter((project) => project.active).map((project) => project.id)), [allProjects]);
+  const openCount = (projectId?: string) =>
+    filterTasks(allTasks, { projectId, statuses: OPEN_STATUSES }, index).filter((task) => projectId !== undefined || activeIds.has(task.projectId)).length;
   const projectId = matchPath("/p/:projectId/*", pathname)?.params.projectId;
   const signals = useSignals(projectId);
   const signalCount = signals.data?.signals.length ?? 0;
@@ -57,17 +61,42 @@ export function AppLayout() {
               <span className={styles.count}>{openCount()}</span>
             </NavLink>
           </li>
-          {(projects.data ?? []).map((project) => (
-            <li key={project.id}>
-              <NavLink to={{ pathname: scopePath(project.id), search: onStats ? "" : search }} aria-current="true" className={({ isActive }) => navClass(isActive)}>
-                <span className={styles.projectName} title={project.name}>
-                  {project.name}
-                </span>
-                <span className={styles.count}>{openCount(project.id)}</span>
-              </NavLink>
-            </li>
-          ))}
+          {allProjects
+            .filter((project) => project.active)
+            .map((project) => (
+              <li key={project.id} className={styles.row}>
+                <NavLink to={{ pathname: scopePath(project.id), search: onStats ? "" : search }} aria-current="true" className={({ isActive }) => navClass(isActive)}>
+                  <span className={styles.projectName} title={project.name}>
+                    {project.name}
+                  </span>
+                  <span className={styles.count}>{openCount(project.id)}</span>
+                </NavLink>
+                <ProjectMenu project={project} />
+              </li>
+            ))}
         </ul>
+        {allProjects.some((project) => !project.active) && (
+          <>
+            <div className={styles.groupLabel} id="sidebar-inactive">
+              Неактивные
+            </div>
+            <ul className={cx(styles.projects, styles.inactive)} aria-labelledby="sidebar-inactive">
+              {allProjects
+                .filter((project) => !project.active)
+                .map((project) => (
+                  <li key={project.id} className={styles.row}>
+                    <NavLink to={{ pathname: scopePath(project.id), search: onStats ? "" : search }} aria-current="true" className={({ isActive }) => navClass(isActive)}>
+                      <span className={styles.projectName} title={project.name}>
+                        {project.name}
+                      </span>
+                      <span className={styles.count}>{openCount(project.id)}</span>
+                    </NavLink>
+                    <ProjectMenu project={project} />
+                  </li>
+                ))}
+            </ul>
+          </>
+        )}
       </nav>
       <Outlet />
     </div>

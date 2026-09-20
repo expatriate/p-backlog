@@ -59,6 +59,22 @@
   list-style: none;
 }
 
+.row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.row > a {
+  flex: 1;
+  min-width: 0;
+}
+
+.inactive .projectName,
+.inactive .count {
+  color: var(--ink-subtle);
+}
+
 .project {
   display: flex;
   align-items: center;

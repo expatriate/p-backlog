@@ -62,6 +62,32 @@ export function useMemorySamples() {
   return useQuery<MemorySamplesResponse>({ queryKey: [...STATS_KEY, "memory"], queryFn: client.memorySamples, refetchInterval: 5000 });
 }
 
+export type SetProjectActiveVariables = { id: string; active: boolean };
+
+export function useSetProjectActive(): UseMutationResult<Project, Error, SetProjectActiveVariables> {
+  const { client } = useBacklogApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, active }: SetProjectActiveVariables) => client.setProjectActive(id, active),
+    onSuccess: () => invalidateScope(queryClient),
+  });
+}
+
+export type DeleteProjectVariables = { id: string; confirm: string };
+
+export function useDeleteProject(): UseMutationResult<void, Error, DeleteProjectVariables> {
+  const { client } = useBacklogApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, confirm }: DeleteProjectVariables) => client.deleteProject(id, confirm),
+    onSuccess: () => invalidateScope(queryClient),
+  });
+}
+
+function invalidateScope(queryClient: ReturnType<typeof useQueryClient>): void {
+  for (const queryKey of [PROJECTS_KEY, TASKS_KEY, STATS_KEY]) void queryClient.invalidateQueries({ queryKey });
+}
+
 export type UpdateTaskVariables = { id: string; version: string; changes: TaskChangesRequest };
 
 export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariables> {

@@ -28,7 +28,11 @@ export function TaskListPage() {
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
   const dateColumn = dateColumnFor(params.filter);
   const sort = useMemo(() => followDateColumn(params.sort, dateColumn), [params.sort, dateColumn]);
-  const allTasks = useMemo(() => data?.tasks ?? [], [data]);
+  const activeIds = useMemo(() => new Set((projects.data ?? []).filter((project) => project.active).map((project) => project.id)), [projects.data]);
+  const allTasks = useMemo(
+    () => (projectId === undefined ? (data?.tasks ?? []).filter((task) => activeIds.has(task.projectId)) : (data?.tasks ?? [])),
+    [data, projectId, activeIds],
+  );
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const tones = useMemo(() => epicTones(allTasks), [allTasks]);
   const visibleTasks = useMemo(
