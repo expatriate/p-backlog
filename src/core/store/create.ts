@@ -58,7 +58,7 @@ export async function createProject(root: string, repoRoot: string, existingProj
   const dir = join(root, id);
   await mkdir(dir, { recursive: true });
   const path = join(dir, PROJECT_FILE);
-  const text = serializeProject({ name, prefix, repos: [repoRoot], extra: {}, body: "" });
+  const text = serializeProject({ name, prefix, repos: [repoRoot], active: true, extra: {}, body: "" });
   await writeFile(path, text, { encoding: "utf8", flag: "wx" });
   const parsed = parseProjectFile(text, { id, path });
   if (!parsed.ok) throw new Error(parsed.message);

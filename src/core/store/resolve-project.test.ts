@@ -6,7 +6,7 @@ import { findProjectForDir, findRepoRoot } from "./resolve-project";
 import { makeGitRepo, makeTempDir } from "./testing/temp-dirs";
 
 function project(id: string, repos: string[]): Project {
-  return { id, name: id, prefix: id.toUpperCase(), repos, extra: {}, body: "", path: `/backlog/${id}/project.md` };
+  return { id, name: id, prefix: id.toUpperCase(), repos, active: true, extra: {}, body: "", path: `/backlog/${id}/project.md` };
 }
 
 describe("findRepoRoot", () => {

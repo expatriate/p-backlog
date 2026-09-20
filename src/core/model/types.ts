@@ -64,6 +64,7 @@ export const projectFrontmatterSchema = z.object({
   prefix: z.string().regex(PREFIX_PATTERN, "некорректный префикс"),
   repos: z.array(z.string()).default([]),
   issuedUpTo: z.number().int().nonnegative().optional(),
+  active: z.boolean().default(true),
 });
 
 type FileExtras = { extra: Record<string, unknown>; body: string; path: string };

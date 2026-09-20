@@ -10,7 +10,7 @@ import { createCodeSource, type CodeSource } from "./code-source";
 import { runGit, type GitRunner } from "../git/run";
 
 const NOW = new Date("2026-09-18T12:00:00+03:00");
-const projectOf = (id: string, repos: string[]): Project => ({ id, name: `Проект ${id}`, prefix: "SPA", repos, extra: {}, body: "", path: `/backlog/${id}/project.md` });
+const projectOf = (id: string, repos: string[]): Project => ({ id, name: `Проект ${id}`, prefix: "SPA", repos, active: true, extra: {}, body: "", path: `/backlog/${id}/project.md` });
 
 describe("сбор данных git по проектам", () => {
   it("проекты с данными репозиториев, недоступные пути, коммиты исправлений по ключу проекта", async () => {
