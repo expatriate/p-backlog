@@ -2,9 +2,8 @@ import { categoryLabel } from "../../core/model/categories";
 import { EVIDENCE_LABELS, formatShare } from "../../core/stats/format";
 import type { AccuracyRow, BranchRow, CategoryRow, FoundRow } from "../../core/stats/types";
 import { FOUND_LABELS } from "../labels";
-import flowStyles from "./FlowPanels.module.css";
+import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
-import styles from "./QualityPanels.module.css";
 import { StatsTable } from "./StatsTable";
 import { STATS_PERIOD } from "./periods";
 
@@ -12,7 +11,7 @@ export function AccuracyPanel({ rows }: { rows: AccuracyRow[] }) {
   return (
     <Panel title="Точность проверки">
       {rows.length === 0 ? (
-        <p className={flowStyles.muted}>Проверка ещё не находила кандидатов</p>
+        <p className={rowStyles.muted}>Проверка ещё не находила кандидатов</p>
       ) : (
         <StatsTable
           label="Точность проверки"
@@ -31,7 +30,7 @@ export function CategoriesPanel({ rows }: { rows: CategoryRow[] }) {
   return (
     <Panel title="Категории">
       {rows.length === 0 ? (
-        <p className={flowStyles.muted}>За {STATS_PERIOD} задач не было</p>
+        <p className={rowStyles.muted}>За {STATS_PERIOD} задач не было</p>
       ) : (
         <StatsTable
           label="Категории"
@@ -46,15 +45,15 @@ export function CategoriesPanel({ rows }: { rows: CategoryRow[] }) {
 export function OriginPanel({ found, branches }: { found: FoundRow[]; branches: BranchRow[] }) {
   return (
     <Panel title="Происхождение">
-      <h3 className={styles.subTitle}>Как найдены</h3>
+      <h3 className={rowStyles.subTitle}>Как найдены</h3>
       <StatsTable
         label="Как найдены"
         head={["Как найдена", "Создано", "Открыто", "Исправлено"]}
         rows={found.map((row) => ({ key: row.found ?? "unknown", cells: [FOUND_LABELS[row.found ?? "unknown"], row.created, row.open, row.fixed] }))}
       />
-      <h3 className={styles.subTitle}>Ветки</h3>
+      <h3 className={rowStyles.subTitle}>Ветки</h3>
       {branches.length === 0 ? (
-        <p className={flowStyles.muted}>Ветки появятся у задач, заведённых через backlog new в репозитории</p>
+        <p className={rowStyles.muted}>Ветки появятся у задач, заведённых через backlog new в репозитории</p>
       ) : (
         <StatsTable
           label="Ветки"

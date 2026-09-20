@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import { formatDays, formatP90, formatSigned, NBSP } from "../../core/stats/format";
 import type { StatsReport, StatsTotals } from "../../core/stats/types";
+import { listPath } from "../app/paths";
 import { useStats } from "../app/queries";
 import { AgePanel } from "./AgePanel";
 import { ClosingPanel } from "./ClosingPanel";
@@ -17,7 +18,7 @@ export function OverviewTab() {
   const stats = useStats(projectId);
   return (
     <StatsTabState error={stats.error} data={stats.data} isFetching={stats.isFetching} onRetry={() => void stats.refetch()}>
-      {stats.data && <Overview report={stats.data} listPath={projectId === undefined ? "/" : `/p/${projectId}`} />}
+      {stats.data && <Overview report={stats.data} listPath={listPath(projectId)} />}
     </StatsTabState>
   );
 }

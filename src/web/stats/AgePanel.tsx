@@ -2,6 +2,7 @@ import type { AgeBreakdown, AgeBucket } from "../../core/stats/types";
 import { PRIORITIES } from "../../core/model/types";
 import { PRIORITY_LABELS } from "../labels";
 import { cx } from "../ui/cx";
+import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import styles from "./StatsPanels.module.css";
 
@@ -32,7 +33,7 @@ export function AgePanel({ age }: { age: AgeBreakdown }) {
                 <span key={priority} className={cx(styles.ageSegment, styles[priority])} style={{ width: `${(byPriority[priority] / max) * 100}%` }} />
               ))}
             </span>
-            <span className={styles.rowCount}>{total}</span>
+            <span className={rowStyles.rowValue}>{total}</span>
           </div>
         ))}
       </div>

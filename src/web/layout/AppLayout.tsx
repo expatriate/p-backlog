@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { listPath, statsPath } from "../app/paths";
 import { Link, matchPath, NavLink, Outlet, useLocation } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
@@ -71,14 +72,6 @@ export function AppLayout() {
       <Outlet />
     </div>
   );
-}
-
-function listPath(projectId?: string): string {
-  return projectId === undefined ? "/" : `/p/${projectId}`;
-}
-
-function statsPath(projectId?: string): string {
-  return projectId === undefined ? "/stats" : `/p/${projectId}/stats`;
 }
 
 function navClass(isActive: boolean): string {

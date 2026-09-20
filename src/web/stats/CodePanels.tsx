@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { formatDays, formatDecimal, NBSP, pluralCount } from "../../core/stats/format";
 import type { ChurnRow, CodeDensity, DensityRow, FixBreakdown } from "../../core/stats/types";
 import { Panel } from "./Panel";
-import flowStyles from "./FlowPanels.module.css";
+import rowStyles from "./PanelRows.module.css";
 import styles from "./CodePanels.module.css";
 import { CHURN_PERIOD, STATS_PERIOD } from "./periods";
 
@@ -10,20 +10,20 @@ export function ChurnPanel({ churn }: { churn: ChurnRow[] }) {
   const top = churn[0]?.score ?? 1;
   return (
     <Panel title="Долг в часто меняемом коде">
-      <p className={flowStyles.muted}>Место в списке — коммиты за {CHURN_PERIOD} × вес открытых задач папки</p>
+      <p className={rowStyles.muted}>Место в списке — коммиты за {CHURN_PERIOD} × вес открытых задач папки</p>
       {churn.length === 0 ? (
-        <p className={flowStyles.muted}>Долг не лежит в коде, который меняли за {CHURN_PERIOD}</p>
+        <p className={rowStyles.muted}>Долг не лежит в коде, который меняли за {CHURN_PERIOD}</p>
       ) : (
-        <ul className={flowStyles.rows}>
+        <ul className={rowStyles.rows}>
           {churn.map((row) => (
             <li key={row.label} className={styles.churnRow}>
-              <code className={flowStyles.rowLabel}>{row.label}</code>
-              <span className={flowStyles.rowValue}>{pluralCount(row.commits, "коммит", "коммита", "коммитов")}</span>
-              <span className={flowStyles.rowValue}>
+              <code className={rowStyles.rowLabel}>{row.label}</code>
+              <span className={rowStyles.rowValue}>{pluralCount(row.commits, "коммит", "коммита", "коммитов")}</span>
+              <span className={rowStyles.rowValue}>
                 {pluralCount(row.tasks, "задача", "задачи", "задач")}, вес {row.weight}
               </span>
-              <span className={flowStyles.track} aria-hidden="true">
-                <span className={flowStyles.fill} style={{ transform: `scaleX(${row.score / top})` }} />
+              <span className={rowStyles.track} aria-hidden="true">
+                <span className={rowStyles.fill} style={{ transform: `scaleX(${row.score / top})` }} />
               </span>
             </li>
           ))}
@@ -37,7 +37,7 @@ export function DensityPanel({ density }: { density: CodeDensity }) {
   return (
     <Panel title="Плотность долга">
       {density.projects.length === 0 ? (
-        <p className={flowStyles.muted}>Нет данных о коде: у проектов нет доступных репозиториев</p>
+        <p className={rowStyles.muted}>Нет данных о коде: у проектов нет доступных репозиториев</p>
       ) : (
         <>
           <DensityRows rows={density.projects.map((row) => ({ key: row.projectId, label: row.name, row }))} />
@@ -55,13 +55,13 @@ export function DensityPanel({ density }: { density: CodeDensity }) {
 
 function DensityRows({ rows }: { rows: { key: string; label: ReactNode; row: DensityRow }[] }) {
   return (
-    <ul className={flowStyles.rows}>
+    <ul className={rowStyles.rows}>
       {rows.map(({ key, label, row }) => (
         <li key={key} className={styles.densityRow}>
-          <span className={flowStyles.rowLabel}>{label}</span>
-          <span className={flowStyles.rowValue}>{pluralCount(row.lines, "строка", "строки", "строк")}</span>
-          <span className={flowStyles.rowValue}>{pluralCount(row.open, "задача", "задачи", "задач")}</span>
-          <span className={flowStyles.rowValue}>{row.perKloc === null ? "—" : `${formatDecimal(row.perKloc)} на 1000${NBSP}строк`}</span>
+          <span className={rowStyles.rowLabel}>{label}</span>
+          <span className={rowStyles.rowValue}>{pluralCount(row.lines, "строка", "строки", "строк")}</span>
+          <span className={rowStyles.rowValue}>{pluralCount(row.open, "задача", "задачи", "задач")}</span>
+          <span className={rowStyles.rowValue}>{row.perKloc === null ? "—" : `${formatDecimal(row.perKloc)} на 1000${NBSP}строк`}</span>
         </li>
       ))}
     </ul>
@@ -72,14 +72,14 @@ export function FixesPanel({ fixes }: { fixes: FixBreakdown }) {
   return (
     <Panel title="Кто исправил">
       {fixes.agent + fixes.human + fixes.unknown === 0 ? (
-        <p className={flowStyles.muted}>Исправлений за {STATS_PERIOD} нет</p>
+        <p className={rowStyles.muted}>Исправлений за {STATS_PERIOD} нет</p>
       ) : (
-        <ul className={flowStyles.rows}>
+        <ul className={rowStyles.rows}>
           <FixRow label="агент" count={fixes.agent} medianDays={fixes.agentMedianDays} />
           <FixRow label="человек" count={fixes.human} medianDays={fixes.humanMedianDays} />
-          <li className={flowStyles.row}>
-            <span className={flowStyles.rowLabel}>без коммита</span>
-            <span className={flowStyles.rowValue}>{fixes.unknown}</span>
+          <li className={rowStyles.row}>
+            <span className={rowStyles.rowLabel}>без коммита</span>
+            <span className={rowStyles.rowValue}>{fixes.unknown}</span>
           </li>
         </ul>
       )}
@@ -89,9 +89,9 @@ export function FixesPanel({ fixes }: { fixes: FixBreakdown }) {
 
 function FixRow({ label, count, medianDays }: { label: string; count: number; medianDays: number | null }) {
   return (
-    <li className={flowStyles.row}>
-      <span className={flowStyles.rowLabel}>{label}</span>
-      <span className={flowStyles.rowValue}>
+    <li className={rowStyles.row}>
+      <span className={rowStyles.rowLabel}>{label}</span>
+      <span className={rowStyles.rowValue}>
         {count} · медиана {formatDays(medianDays)}
       </span>
     </li>

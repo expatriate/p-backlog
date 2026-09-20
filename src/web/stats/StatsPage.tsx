@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { statsPath } from "../app/paths";
 import { Link, matchPath, Outlet, useLocation, useParams } from "react-router";
 import { useProjects, useSignals } from "../app/queries";
 import { cx } from "../ui/cx";
@@ -19,7 +20,7 @@ export function StatsPage() {
   const signals = useSignals(projectId);
   const scopeName = projectId === undefined ? "Все проекты" : (projects.data?.find((project) => project.id === projectId)?.name ?? projectId);
   const heading = `Статистика · ${scopeName}`;
-  const base = projectId === undefined ? "/stats" : `/p/${projectId}/stats`;
+  const base = statsPath(projectId);
   const tabPath = (segment: string) => (segment === "" ? base : `${base}/${segment}`);
   const isActiveTab = (segment: string) => segment !== "" && matchPath({ path: tabPath(segment), end: true }, pathname) !== null;
   const active = STATS_TABS.find((tab) => isActiveTab(tab.segment)) ?? STATS_TABS[0];

@@ -4,7 +4,7 @@ import type { CostCommand, CostDay, CostModel, CostTotals } from "../../core/sta
 import { costValue, formatMb, formatMs, sum } from "./cost-format";
 import { formatLines } from "./effect-format";
 import { Figure } from "./Figure";
-import flowStyles from "./FlowPanels.module.css";
+import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import { StatsTable } from "./StatsTable";
 import totalsStyles from "./StatsPage.module.css";
@@ -28,7 +28,7 @@ export function ModelsPanel({ models }: { models: CostModel[] }) {
   return (
     <Panel title="По моделям">
       {models.length === 0 ? (
-        <p className={flowStyles.muted}>Моделей пока нет</p>
+        <p className={rowStyles.muted}>Моделей пока нет</p>
       ) : (
         <StatsTable
           label="По моделям"
@@ -44,7 +44,7 @@ export function CommandsPanel({ commands }: { commands: CostCommand[] }) {
   return (
     <Panel title="Команды">
       {commands.length === 0 ? (
-        <p className={flowStyles.muted}>Команд пока не было</p>
+        <p className={rowStyles.muted}>Команд пока не было</p>
       ) : (
         <StatsTable
           label="Команды"

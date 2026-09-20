@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { listPath } from "../app/paths";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, sortTasks } from "../../core/model/query";
@@ -49,7 +50,7 @@ export function TaskListPage() {
   }, [viewTitle]);
 
   const setParams = (next: ListParams) => setSearch(writeListParams(next), { replace: true });
-  const prefix = projectId === undefined ? "" : `/p/${projectId}`;
+  const prefix = projectId === undefined ? "" : listPath(projectId);
   const taskHref = (id: string) => ({ pathname: `${prefix}/t/${id}`, search: searchKey });
   const selectedTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
   useEffect(() => {

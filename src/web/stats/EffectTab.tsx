@@ -3,7 +3,7 @@ import type { EffectReport } from "../../core/stats/types";
 import { useEffectStats } from "../app/queries";
 import { EffectExplainer } from "./EffectExplainer";
 import { EffectChartPanel, EffectFigures, ProjectsPanel } from "./EffectPanels";
-import flowStyles from "./FlowPanels.module.css";
+import rowStyles from "./PanelRows.module.css";
 import { StatsTabState } from "./StatsTabState";
 import styles from "./StatsPage.module.css";
 
@@ -27,13 +27,13 @@ function Effect({ report }: { report: EffectReport }) {
       ))}
       <EffectFigures totals={report.totals} />
       <div className={styles.blocks}>
-        <div className={flowStyles.wide}>
+        <div className={rowStyles.wide}>
           <EffectChartPanel weeks={report.weeks} totals={report.totals} />
         </div>
-        <div className={flowStyles.wide}>
+        <div className={rowStyles.wide}>
           <ProjectsPanel projects={report.projects} />
         </div>
-        <div className={flowStyles.wide}>
+        <div className={rowStyles.wide}>
           <EffectExplainer totals={report.totals} />
         </div>
       </div>

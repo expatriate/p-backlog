@@ -3,7 +3,7 @@ import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { EffectProject, EffectTotals, EffectWeek } from "../../core/stats/types";
 import { EffectWeeksChart } from "./EffectWeeksChart";
 import { codeAndTests, formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
-import flowStyles from "./FlowPanels.module.css";
+import rowStyles from "./PanelRows.module.css";
 import { Figure } from "./Figure";
 import { Panel } from "./Panel";
 import { StatsTable } from "./StatsTable";
@@ -42,7 +42,7 @@ export function ProjectsPanel({ projects }: { projects: EffectProject[] }) {
   return (
     <Panel title="По проектам">
       {projects.length === 0 ? (
-        <p className={flowStyles.muted}>Нет данных о коде: у проектов нет доступных репозиториев</p>
+        <p className={rowStyles.muted}>Нет данных о коде: у проектов нет доступных репозиториев</p>
       ) : (
         <StatsTable
           label="По проектам"

@@ -2,7 +2,7 @@ import { useParams } from "react-router";
 import type { CodeReport } from "../../core/stats/types";
 import { useCodeStats } from "../app/queries";
 import { ChurnPanel, DensityPanel, FixesPanel } from "./CodePanels";
-import flowStyles from "./FlowPanels.module.css";
+import rowStyles from "./PanelRows.module.css";
 import { StatsTabState } from "./StatsTabState";
 import styles from "./StatsPage.module.css";
 import { CHURN_PERIOD } from "./periods";
@@ -26,7 +26,7 @@ function Code({ report }: { report: CodeReport }) {
         </p>
       ))}
       <div className={styles.blocks}>
-        <div className={flowStyles.wide}>
+        <div className={rowStyles.wide}>
           <ChurnPanel churn={report.churn} />
         </div>
         <DensityPanel density={report.density} />

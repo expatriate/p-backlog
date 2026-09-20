@@ -7,6 +7,40 @@ import styles from "./StatsPage.module.css";
 
 type JournalFacts = { taskCount: number; journalSince: string | null; invalidJournalLines: number };
 
+export function StatsRequestState({
+  error,
+  loaded,
+  isFetching,
+  onRetry,
+  emptyMessage = null,
+  children,
+}: {
+  error: unknown;
+  loaded: boolean;
+  isFetching: boolean;
+  onRetry: () => void;
+  emptyMessage?: string | null;
+  children: ReactNode;
+}) {
+  const notFound = error instanceof ApiError && error.status === 404;
+  const isLoading = error === null && !loaded;
+  const message = statusMessage(error, notFound, loaded, emptyMessage);
+
+  return (
+    <>
+      <div role="status" aria-live="polite" className={message === null ? "visually-hidden" : cx(styles.hint, isLoading && styles.hintLoading)}>
+        {message !== null && <p>{message}</p>}
+        {error !== null && !notFound && (
+          <Button onClick={onRetry} disabled={isFetching}>
+            Повторить
+          </Button>
+        )}
+      </div>
+      {error === null && loaded && emptyMessage === null && <div className={styles.content}>{children}</div>}
+    </>
+  );
+}
+
 export function StatsTabState({
   error,
   data,
@@ -20,23 +54,16 @@ export function StatsTabState({
   onRetry: () => void;
   children: ReactNode;
 }) {
-  const notFound = error instanceof ApiError && error.status === 404;
-  const isLoading = error === null && data === undefined;
-  const message = statusMessage(error, notFound, data);
-  const showContent = error === null && data !== undefined && data.taskCount > 0;
-
   return (
-    <>
-      <div role="status" aria-live="polite" className={message === null ? "visually-hidden" : cx(styles.hint, isLoading && styles.hintLoading)}>
-        {message !== null && <p>{message}</p>}
-        {error !== null && !notFound && (
-          <Button onClick={onRetry} disabled={isFetching}>
-            Повторить
-          </Button>
-        )}
-      </div>
-      {showContent && data !== undefined && (
-        <div className={styles.content}>
+    <StatsRequestState
+      error={error}
+      loaded={data !== undefined}
+      isFetching={isFetching}
+      onRetry={onRetry}
+      emptyMessage={data !== undefined && data.taskCount === 0 ? "Задач пока нет." : null}
+    >
+      {data !== undefined && (
+        <>
           {data.invalidJournalLines > 0 && (
             <p className={styles.warning} role="status">
               Не удалось разобрать строк журнала: {data.invalidJournalLines}. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.
@@ -44,17 +71,16 @@ export function StatsTabState({
           )}
           {children}
           <p className={styles.note}>{journalNote(data.journalSince)}</p>
-        </div>
+        </>
       )}
-    </>
+    </StatsRequestState>
   );
 }
 
-function statusMessage(error: unknown, notFound: boolean, data: JournalFacts | undefined): string | null {
+function statusMessage(error: unknown, notFound: boolean, loaded: boolean, emptyMessage: string | null): string | null {
   if (error !== null) return notFound ? "Проект не найден." : "Сервер беклога не отвечает.";
-  if (data === undefined) return "Считаем статистику…";
-  if (data.taskCount === 0) return "Задач пока нет.";
-  return null;
+  if (!loaded) return "Считаем статистику…";
+  return emptyMessage;
 }
 
 function journalNote(since: string | null): string {

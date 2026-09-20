@@ -8,69 +8,6 @@
   min-width: 0;
 }
 
-.subTitle {
-  margin: 0 0 var(--space-2);
-  color: var(--ink-subtle);
-  font-size: var(--text-sm);
-  font-weight: 500;
-}
-
-.rows {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--text-sm);
-}
-
-.row {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.countRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(48px, 96px);
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.rowLabel {
-  min-width: 0;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.rowLabel code {
-  font-family: var(--font-mono);
-}
-
-.rowLabel a {
-  color: var(--ink);
-  text-decoration: underline;
-  text-decoration-color: var(--ink-subtle);
-  text-underline-offset: 2px;
-}
-
-.rowLabel a:hover {
-  text-decoration-color: var(--ink);
-}
-
-.rowCount {
-  flex-shrink: 0;
-  color: var(--ink-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.muted {
-  margin: 0;
-  color: var(--ink-subtle);
-  font-size: var(--text-sm);
-}
-
 .ageRows {
   display: flex;
   flex-direction: column;
