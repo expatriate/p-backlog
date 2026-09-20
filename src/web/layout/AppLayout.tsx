@@ -4,11 +4,11 @@ import { Link, matchPath, NavLink, Outlet, useLocation } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import type { Project } from "../../core/model/types";
 import { useProjects, useSignals, useTasks } from "../app/queries";
+import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
 import { activeProjectIds, tasksInScope } from "../app/scope";
 import { plural, pluralCount } from "../../core/stats/format";
 import { cx } from "../ui/cx";
 import { ProjectCheckbox, ProjectDeleteButton } from "./ProjectControls";
-import { healthSpeech, projectHealth, type ProjectHealth } from "./project-health";
 import styles from "./AppLayout.module.css";
 
 const PROJECT_LIST_ID = "sidebar-projects";
@@ -22,14 +22,14 @@ export function AppLayout() {
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const allProjects = useMemo(() => projects.data ?? [], [projects.data]);
   const activeIds = useMemo(() => activeProjectIds(allProjects), [allProjects]);
-  const healthOf = (projectId?: string) => projectHealth(tasksInScope(allTasks, projectId, activeIds), index);
+  const openCount = (projectId?: string) => filterTasks(tasksInScope(allTasks, projectId, activeIds), { statuses: OPEN_STATUSES }, index).length;
   const projectId = matchPath("/p/:projectId/*", pathname)?.params.projectId;
   const signals = useSignals(projectId);
   const signalCount = signals.data?.signals.length ?? 0;
   const statsTab = (matchPath("/stats/*", pathname) ?? matchPath("/p/:projectId/stats/*", pathname))?.params["*"];
   const onStats = statsTab !== undefined;
   const scopePath = (id?: string) => (onStats ? `${statsPath(id)}${statsTab === "" ? "" : `/${statsTab}`}` : listPath(id));
-  const scopeHealth = healthOf();
+  const scopeTasks = openCount();
   const [listOpen, setListOpen] = useState(true);
 
   return (
@@ -62,30 +62,27 @@ export function AppLayout() {
         </ul>
         <div className={styles.scope}>
           <div className={cx(styles.row, styles.scopeRow, projectId === undefined && styles.scopeCurrent)}>
-            <div className={styles.rowLine}>
-              <button
-                type="button"
-                className={styles.disclosure}
-                aria-expanded={listOpen}
-                aria-controls={PROJECT_LIST_ID}
-                aria-label={listOpen ? "Свернуть список проектов" : "Развернуть список проектов"}
-                onClick={() => setListOpen(!listOpen)}
-              >
-                <Chevron open={listOpen} />
-              </button>
-              <NavLink to={{ pathname: scopePath(), search: onStats ? "" : search }} end aria-current="true" className={cx(styles.rowLink, styles.scopeName)}>
-                Проекты
-              </NavLink>
-              <span className={styles.count}>
-                <span className={styles.number}>{scopeHealth.open}</span> {plural(scopeHealth.open, "задача", "задачи", "задач")}
-              </span>
-            </div>
-            <HealthBar health={scopeHealth} />
+            <button
+              type="button"
+              className={styles.disclosure}
+              aria-expanded={listOpen}
+              aria-controls={PROJECT_LIST_ID}
+              aria-label={listOpen ? "Свернуть список проектов" : "Развернуть список проектов"}
+              onClick={() => setListOpen(!listOpen)}
+            >
+              <Chevron open={listOpen} />
+            </button>
+            <NavLink to={{ pathname: scopePath(), search: onStats ? "" : search }} end aria-current="true" className={cx(styles.rowLink, styles.scopeName)}>
+              Проекты
+            </NavLink>
+            <span className={styles.count}>
+              <span className={styles.number}>{scopeTasks}</span> {plural(scopeTasks, "задача", "задачи", "задач")}
+            </span>
           </div>
           {listOpen ? (
             <ul className={styles.projects} id={PROJECT_LIST_ID} aria-label="Проекты">
               {allProjects.map((project) => (
-                <ProjectRow key={project.id} project={project} to={scopePath(project.id)} search={onStats ? "" : search} name={project.name} health={healthOf(project.id)} />
+                <ProjectRow key={project.id} project={project} to={scopePath(project.id)} search={onStats ? "" : search} name={project.name} openTasks={openCount(project.id)} />
               ))}
             </ul>
           ) : (
@@ -100,22 +97,19 @@ export function AppLayout() {
   );
 }
 
-type ProjectRowProps = { name: string; to: string; search: string; health: ProjectHealth; project: Project };
+type ProjectRowProps = { name: string; to: string; search: string; openTasks: number; project: Project };
 
-function ProjectRow({ name, to, search, health, project }: ProjectRowProps) {
+function ProjectRow({ name, to, search, openTasks, project }: ProjectRowProps) {
   return (
     <li className={cx(styles.row, !project.active && styles.muted)}>
-      <div className={styles.rowLine}>
-        <ProjectCheckbox project={project} />
-        <NavLink to={{ pathname: to, search }} aria-current="true" className={cx(styles.rowLink)}>
-          <span className={styles.projectName} title={name}>
-            {name}
-          </span>
-        </NavLink>
-        <span className={styles.count}>{health.open}</span>
-        <ProjectDeleteButton project={project} openTasks={health.open} />
-      </div>
-      {project.active && <HealthBar health={health} />}
+      <ProjectCheckbox project={project} />
+      <NavLink to={{ pathname: to, search }} aria-current="true" className={cx(styles.rowLink)}>
+        <span className={styles.projectName} title={name}>
+          {name}
+        </span>
+      </NavLink>
+      <span className={styles.count}>{openTasks}</span>
+      <ProjectDeleteButton project={project} openTasks={openTasks} />
     </li>
   );
 }
@@ -125,18 +119,6 @@ function Chevron({ open }: { open: boolean }) {
     <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {open ? <path d="M4 6.5 8 10.5l4-4" /> : <path d="M6 4l4 4-4 4" />}
     </svg>
-  );
-}
-
-function HealthBar({ health }: { health: ProjectHealth }) {
-  if (health.open === 0) return null;
-  const share = (count: number) => `${(count / health.open) * 100}%`;
-  return (
-    <span className={styles.health} role="img" aria-label={healthSpeech(health)}>
-      <span className={styles.critical} style={{ width: share(health.critical) }} />
-      <span className={styles.high} style={{ width: share(health.high) }} />
-      <span className={styles.rest} style={{ width: share(health.rest) }} />
-    </span>
   );
 }
 

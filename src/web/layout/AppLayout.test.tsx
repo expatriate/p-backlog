@@ -58,18 +58,4 @@ describe("боковая панель", () => {
 
     await waitFor(async () => expect((await loadBacklog(root)).projects.map((project) => project.id)).toEqual(["torg-io"]));
   });
-
-  it("полоска показывает доли приоритетов и озвучивается", async () => {
-    await renderApp({
-      "spa/project.md": projectFile("SPA"),
-      "spa/SPA-1.md": taskFile("SPA-1", "priority: critical\n"),
-      "spa/SPA-2.md": taskFile("SPA-2", "priority: high\n"),
-      "spa/SPA-3.md": taskFile("SPA-3"),
-      "spa/SPA-4.md": taskFile("SPA-4"),
-    });
-
-    const bars = await screen.findAllByRole("img", { name: "открыто 4: критичных 1, высоких 1" });
-
-    expect([...(bars[0] as HTMLElement).children].map((part) => (part as HTMLElement).style.width)).toEqual(["25%", "25%", "50%"]);
-  });
 });
