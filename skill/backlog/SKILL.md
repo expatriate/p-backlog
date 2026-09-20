@@ -75,6 +75,10 @@ description: Use when, while working on code, you notice a problem outside the c
    ```
    Если CLI написал «Создан проект …» — добавь это одной строкой.
 
+Несколько задач про одно — собрать их в эпик: создать эпик (`backlog new --type epic --title …`) и перенести
+задачи `backlog epic <ID> [<ID> …] --to <ID эпика>`; `--to none` вынимает задачу из эпика. Эпик закрывается
+сам, когда закрыты все его задачи.
+
 ## Взять задачу в работу
 
 «Возьми SPA-12» → `backlog take SPA-12`. «Возьми следующую» → `backlog take --next` (проект — по текущему

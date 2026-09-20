@@ -1,6 +1,7 @@
 import { TASK_CATEGORIES } from "../core/model/types";
 import { runCategory } from "./commands/category";
 import { runCheck } from "./commands/check";
+import { runEpic } from "./commands/epic";
 import { runClose } from "./commands/close";
 import { runHook } from "./commands/hook";
 import { runList } from "./commands/list";
@@ -29,6 +30,7 @@ const USAGE = `Использование:
   backlog take --path <файл|каталог> [--project id]   (все открытые задачи внутри пути)
   backlog status <ID> <backlog|in-progress|blocked|done|cancelled>
   backlog category <ID> <${TASK_CATEGORIES.join("|")}|none>
+  backlog epic <ID> [<ID> …] --to <ID эпика|none>   (переносит задачи в эпик или вынимает из него)
   backlog check [--changed] [--project id | --all-projects] [--json]
   backlog close <ID> --as fixed|obsolete|duplicate --reason <улика> [--duplicate-of <ID>]
   backlog prune [--project id | --all-projects] [--apply]   (задачи с низким приоритетом старше 30 дней)
@@ -48,6 +50,7 @@ const COMMANDS = new Map<string, (args: string[], io: CliIo) => Promise<number>>
   ["take", runTake],
   ["status", runStatus],
   ["category", runCategory],
+  ["epic", runEpic],
   ["check", runCheck],
   ["close", runClose],
   ["verify", runVerify],
