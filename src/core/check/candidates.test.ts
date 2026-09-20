@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
 import { anchorOf } from "./anchor";
-import { codeCandidates, codeReview, duplicateCandidates, isReviewable, noSourceCandidates, sourcePath } from "./candidates";
+import { codeReview, duplicateCandidates, isReviewable, noSourceCandidates, sourcePath } from "./candidates";
+import type { Task } from "../model/types";
 import type { Commit, RepoFacts } from "./repo-facts";
 
 const CREATED = "2026-09-11T10:00:00+03:00";
+
+const codeCandidates = (tasks: readonly Task[], repoFacts: RepoFacts) => codeReview(tasks, repoFacts).candidates;
 
 function commit(sha: string, date: string, files: Commit["files"]): Commit {
   return { sha, date, subject: `Коммит ${sha}`, files };

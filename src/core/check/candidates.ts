@@ -45,10 +45,6 @@ export function codeReview(tasks: readonly Task[], facts: RepoFacts): CodeReview
   return { candidates, plans };
 }
 
-export function codeCandidates(tasks: readonly Task[], facts: RepoFacts): Candidate[] {
-  return codeReview(tasks, facts).candidates;
-}
-
 function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts): Candidate[] {
   if (task.source === undefined) return [];
   const path = sourcePath(task.source);

@@ -2,18 +2,7 @@ import { compareIds } from "../../model/ids";
 import type { Task, TaskStatus } from "../../model/types";
 import type { TaskHistory } from "../history";
 import { daysBetween } from "../numbers";
-import type { FlowNow, LongestInWork, WorkStatus } from "../types";
-
-const LONGEST_LIMIT = 5;
-
-export function flowNow(tasks: readonly Task[], histories: readonly TaskHistory[], now: Date): FlowNow {
-  const inWork = tasks.filter((task) => isWorkStatus(task.status));
-  return {
-    inProgress: inWork.filter((task) => task.status === "in-progress").length,
-    blocked: inWork.filter((task) => task.status === "blocked").length,
-    longest: inWorkTasks(tasks, histories, now).slice(0, LONGEST_LIMIT),
-  };
-}
+import type { LongestInWork, WorkStatus } from "../types";
 
 export function inWorkTasks(tasks: readonly Task[], histories: readonly TaskHistory[], now: Date): LongestInWork[] {
   const nowMs = now.getTime();
