@@ -58,6 +58,23 @@ describe("эффект беклога", () => {
     expect(report.totals).toMatchObject({ fixedTasks: 0, openTasks: 1, estimatedLines: 30 });
   });
 
+  it("исправления из невлитых веток не делают долю шума больше 100%", () => {
+    const bigFixes = [100, 100, 100, 100, 200].map((lines, index) => fixed(index + 1, lines));
+    const units = [{ date: iso(8, 15), lines: 50 }];
+
+    const report = effectReport({ tasks: bigFixes.map((fix) => fix.task), journals: [], now: NOW, projectId: "spa", code: code(bigFixes.map((fix) => fix.commit), units) });
+
+    expect(report.totals).toMatchObject({ realLines: 50, fixedLines: 600, openTasks: 0, noiseShare: 1 });
+  });
+
+  it("пока оценка ожидающих неизвестна, доля шума пустая, а не нулевая", () => {
+    const few = fixes.slice(0, 4);
+
+    const report = effectReport({ tasks: [...few.map((fix) => fix.task), ...others], journals: [], now: NOW, projectId: "spa", code: code(few.map((fix) => fix.commit)) });
+
+    expect(report.totals).toMatchObject({ openTasks: 2, estimatedLines: null, noiseShare: null });
+  });
+
   it("без коммитов после внедрения сравнивать не с чем — доля шума пустая", () => {
     const report = effectReport({ tasks: [...fixes.map((fix) => fix.task), ...others], journals: [], now: NOW, projectId: "spa", code: code(fixes.map((fix) => fix.commit), []) });
 

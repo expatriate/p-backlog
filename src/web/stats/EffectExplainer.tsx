@@ -53,6 +53,7 @@ function pendingText(totals: EffectTotals): string {
 }
 
 function noiseText(totals: EffectTotals): string {
+  if (totals.estimatedLines === null && totals.openTasks > 0) return `оценка появится после ${MIN_FIXES_FOR_ESTIMATE} исправлений`;
   if (totals.noiseShare === null) return "нет коммитов после внедрения";
   const estimated = totals.estimatedLines ?? 0;
   const approx = isEstimated(totals.estimatedLines);
