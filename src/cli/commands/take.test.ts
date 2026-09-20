@@ -62,7 +62,7 @@ describe("backlog take", () => {
     expect(result.out).toContain("SPA-3 · Высокая");
     expect(await statusOf(root, "SPA-3")).toBe("in-progress");
     expect((await run(["take", "--next", "--project", "spa"], { cwd: home })).out).toContain("SPA-1 · Блокер");
-    expect((await run(["take", "--next"])).code).toBe(EXIT.notFound);
+    expect((await run(["take", "--next"])).code).toBe(EXIT.refused);
     expect((await run(["take", "--next"], { cwd: home })).code).toBe(EXIT.notFound);
     expect((await run(["take", "SPA-1", "--next"])).code).toBe(EXIT.invalid);
   });
@@ -83,5 +83,16 @@ describe("backlog take", () => {
     expect(result.err).toContain("SPA-3 заблокирована открытыми задачами");
     expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2"), await statusOf(root, "SPA-3"), await statusOf(root, "SPA-4")]).toEqual(["in-progress", "in-progress", "backlog", "backlog"]);
     expect(await run(["take", "--path", "src/server"])).toMatchObject({ code: EXIT.notFound, err: "Открытых задач по src/server нет" });
+  });
+
+  it("режимы не сочетаются, а «все заблокированы» отличается от «нет задач»", async () => {
+    const { run } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Блокер", "--source", "src/b.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Зависимая", "--blocked-by", "SPA-1", "--source", "src/a.ts:2"]);
+
+    expect((await run(["take", "--next", "--path", "src/a.ts"])).code).toBe(EXIT.invalid);
+    expect((await run(["take", "SPA-2", "--path", "src/a.ts"])).code).toBe(EXIT.invalid);
+    expect((await run(["take", "--path", "src/a.ts"])).code).toBe(EXIT.refused);
+    expect((await run(["take", "--path", "нет-такого"])).code).toBe(EXIT.notFound);
   });
 });

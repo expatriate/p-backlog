@@ -6,6 +6,8 @@ import type { Task } from "../../core/model/types";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { formatTaskRef } from "../format";
 import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
+
+const USAGE = "Использование: backlog take <ID> | backlog take --next | backlog take --path <путь>";
 import { requireProject, requireTask } from "../lookups";
 import { writeTask } from "../task-write";
 import { printTask } from "./show";
@@ -26,21 +28,33 @@ export async function runTake(args: string[], io: CliIo): Promise<number> {
       },
     }),
   );
+  const mode = takeMode(values, positionals);
   const loaded = await loadBacklog(io.backlogRoot);
-  if (values.path !== undefined) return takeByPath(loaded, io, positionals, values.path, values.project);
-  const task = values.next ? selectNext(loaded, io, positionals, values.project) : selectById(loaded, io, positionals);
-  if (!task) return EXIT.notFound;
+  if (mode.kind === "path") return takeByPath(loaded, io, mode.path, values.project, { json: values.json });
+  const selected = mode.kind === "next" ? selectNext(loaded, io, values.project) : (requireTask(loaded, io, mode.id) ?? EXIT.notFound);
+  if (typeof selected === "number") return selected;
 
-  const refusal = takeRefusal(task, buildIndex(loaded.tasks), { ignoreBlockers: values.force });
+  const refusal = takeRefusal(selected, buildIndex(loaded.tasks), { ignoreBlockers: values.force });
   if (refusal) {
     for (const line of refusal.lines) io.warn(line);
     return refusal.code;
   }
-  return takeOne(task, io, values.json);
+  return takeOne(selected, io, { json: values.json });
 }
 
-async function takeByPath(loaded: LoadedBacklog, io: CliIo, positionals: string[], path: string, projectId: string | undefined): Promise<number> {
-  if (positionals.length > 0) throw new UsageError("Укажите либо ID, либо --path");
+type TakeMode = { kind: "path"; path: string } | { kind: "next" } | { kind: "id"; id: string };
+
+function takeMode(values: { path?: string | undefined; next: boolean }, positionals: string[]): TakeMode {
+  const chosen = [values.path !== undefined && "--path", values.next && "--next", positionals.length > 0 && "ID"].filter((name) => name !== false);
+  if (chosen.length > 1) throw new UsageError(`Укажите что-то одно: ${chosen.join(", ")}`);
+  if (values.path !== undefined) return { kind: "path", path: values.path };
+  if (values.next) return { kind: "next" };
+  const [id] = positionals;
+  if (id === undefined || positionals.length > 1) throw new UsageError(USAGE);
+  return { kind: "id", id };
+}
+
+async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projectId: string | undefined, { json }: { json: boolean }): Promise<number> {
   const project = requireProject(loaded, io, projectId);
   if (!project) return EXIT.notFound;
   const target = sourcePath(path);
@@ -52,12 +66,13 @@ async function takeByPath(loaded: LoadedBacklog, io: CliIo, positionals: string[
     return refusal === null;
   });
   if (takeable.length === 0) {
-    if (matching.length === 0) io.warn(`Открытых задач по ${target} нет`);
+    if (matching.length > 0) return EXIT.refused;
+    io.warn(`Открытых задач по ${target} нет`);
     return EXIT.notFound;
   }
   for (const [position, task] of takeable.entries()) {
     if (position > 0) io.print("---");
-    const code = await takeOne(task, io, false);
+    const code = await takeOne(task, io, { json });
     if (code !== EXIT.ok) return code;
   }
   return EXIT.ok;
@@ -72,7 +87,7 @@ function isInside(file: string, path: string): boolean {
   return file === path || file.startsWith(`${path}/`);
 }
 
-async function takeOne(task: Task, io: CliIo, json: boolean): Promise<number> {
+async function takeOne(task: Task, io: CliIo, { json }: { json: boolean }): Promise<number> {
   if (task.status !== "in-progress") {
     const written = await writeTask(io, task, { status: "in-progress" });
     if (!written.ok) return written.exitCode;
@@ -83,19 +98,19 @@ async function takeOne(task: Task, io: CliIo, json: boolean): Promise<number> {
   return EXIT.ok;
 }
 
-function selectById(loaded: LoadedBacklog, io: CliIo, positionals: string[]): Task | undefined {
-  const [id, ...rest] = positionals;
-  if (id === undefined || rest.length > 0) throw new UsageError("Использование: backlog take <ID> | backlog take --next");
-  return requireTask(loaded, io, id);
+function selectNext(loaded: LoadedBacklog, io: CliIo, projectId: string | undefined): Task | number {
+  const project = requireProject(loaded, io, projectId);
+  if (!project) return EXIT.notFound;
+  const index = buildIndex(loaded.tasks);
+  const task = pickNextTask(loaded.tasks, project.id, index);
+  if (task) return task;
+  io.warn(`В проекте ${project.id} нет задач, которые можно взять в работу`);
+  const blocked = loaded.tasks.some((candidate) => candidate.projectId === project.id && isTakeable(candidate) && openBlockers(candidate, index).length > 0);
+  return blocked ? EXIT.refused : EXIT.notFound;
 }
 
-function selectNext(loaded: LoadedBacklog, io: CliIo, positionals: string[], projectId: string | undefined): Task | undefined {
-  if (positionals.length > 0) throw new UsageError("Укажите либо ID, либо --next");
-  const project = requireProject(loaded, io, projectId);
-  if (!project) return undefined;
-  const task = pickNextTask(loaded.tasks, project.id, buildIndex(loaded.tasks));
-  if (!task) io.warn(`В проекте ${project.id} нет задач, которые можно взять в работу`);
-  return task;
+function isTakeable(task: Task): boolean {
+  return task.type === "task" && !isClosed(task.status);
 }
 
 function takeRefusal(task: Task, index: BacklogIndex, { ignoreBlockers }: { ignoreBlockers: boolean }): Refusal | null {
