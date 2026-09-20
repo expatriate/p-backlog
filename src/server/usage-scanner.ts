@@ -1,3 +1,4 @@
+import { errorText } from "../core/errors";
 import type { ScanProgress } from "../core/stats/types";
 import { listTranscripts, scanTranscripts, type TranscriptFile } from "../core/usage/transcripts";
 import { emptyUsageCache, readUsageCache, writeUsageCache, type UsageCache } from "../core/usage/usage-cache";
@@ -14,7 +15,7 @@ export type UsageScanner = {
 
 const DEFAULT_BYTE_BUDGET = 16 * 1024 * 1024;
 const DEFAULT_INTERVAL_MS = 60_000;
-const CATCH_UP_DELAY_MS = 100;
+export const CATCH_UP_DELAY_MS = 100;
 const NOT_LISTED: ScanProgress = { listed: false, filesTotal: 0, filesDone: 0, bytesLeft: 0 };
 
 export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAULT_BYTE_BUDGET, intervalMs = DEFAULT_INTERVAL_MS }: UsageScannerOptions): UsageScanner {
@@ -39,7 +40,8 @@ export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAU
   const scanOnce = (): Promise<void> => {
     inFlight ??= runPass()
       .catch((error: unknown) => {
-        process.stderr.write(`Не удалось прочитать расшифровки Claude Code: ${error instanceof Error ? error.message : String(error)}\n`);
+        budgetExhausted = false;
+        process.stderr.write(`Не удалось прочитать расшифровки Claude Code: ${errorText(error)}\n`);
       })
       .finally(() => {
         inFlight = null;

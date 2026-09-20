@@ -1,5 +1,6 @@
 import { relative, sep } from "node:path";
 import { watch } from "chokidar";
+import { errorText } from "../core/errors";
 
 export type ChangeListener = () => void;
 
@@ -37,6 +38,7 @@ export function createChangeFeed(root: string, debounceMs = CHANGE_DEBOUNCE_MS):
 
   const watcher = watch(root, { ignoreInitial: true, ignored: (path) => isHiddenPath(root, path) });
   watcher.on("all", () => debouncer.schedule());
+  watcher.on("error", (error) => process.stderr.write(`Наблюдатель за каталогом ${root}: ${errorText(error)}\n`));
 
   return {
     subscribe: (listener) => {
