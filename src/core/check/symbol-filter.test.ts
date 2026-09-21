@@ -1,0 +1,77 @@
+import { createHash } from "node:crypto";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { makeTask } from "../model/testing/make-task";
+import { openCodeGraph } from "../graph/code-graph";
+import { makeGraph } from "../graph/testing/make-graph";
+import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import type { Candidate } from "./candidates";
+import { filterBySymbol } from "./symbol-filter";
+
+const SYMBOLS = [
+  { name: "uploadFile", kind: "Function", from: 1, to: 3 },
+  { name: "retry", kind: "Function", from: 5, to: 7 },
+];
+
+function body(uploadMark: string, retryMark: string): string {
+  return [`export function uploadFile() {`, `  return "${uploadMark}";`, "}", "", "export function retry() {", `  return "${retryMark}";`, "}", ""].join("\n");
+}
+
+async function repoWithChange({ inSymbol }: { inSymbol: boolean }): Promise<string> {
+  const repo = await makeGitRepo(await makeTempDir(), "spa");
+  await writeFiles(repo, { "src/upload.ts": body("v1", "v1") });
+  gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+  await writeFile(join(repo, "src/upload.ts"), inSymbol ? body("v2", "v1") : body("v1", "v2"));
+  gitCommitAll(repo, "Правка", "2026-09-12T10:00:00+03:00");
+  const hash = createHash("sha256")
+    .update(await readFile(join(repo, "src/upload.ts")))
+    .digest("hex");
+  await makeGraph(repo, [{ path: "src/upload.ts", hash, symbols: SYMBOLS }]);
+  return repo;
+}
+
+const task = makeTask({ id: "SPA-1", source: "src/upload.ts:2", created: "2026-09-11T10:00:00+03:00" });
+const candidate: Candidate = { kind: "source-changed", task: { id: "SPA-1", title: task.title }, path: "src/upload.ts", commits: [], uncommitted: false };
+
+describe("filterBySymbol", () => {
+  it("правка в другом символе того же файла убирает кандидата", async () => {
+    const repo = await repoWithChange({ inSymbol: false });
+    const graph = openCodeGraph(repo);
+
+    expect(await filterBySymbol([candidate], [task], repo, graph)).toEqual([]);
+    graph?.close();
+  });
+
+  it("правка внутри символа задачи оставляет кандидата и помечает его", async () => {
+    const repo = await repoWithChange({ inSymbol: true });
+    const graph = openCodeGraph(repo);
+
+    expect(await filterBySymbol([candidate], [task], repo, graph)).toEqual([{ ...candidate, bySymbol: true }]);
+    graph?.close();
+  });
+
+  it("без графа кандидат остаётся в том же сценарии", async () => {
+    const repo = await repoWithChange({ inSymbol: false });
+
+    expect(await filterBySymbol([candidate], [task], repo, null)).toEqual([candidate]);
+  });
+
+  it("файл изменился после сборки графа — кандидат остаётся", async () => {
+    const repo = await repoWithChange({ inSymbol: false });
+    const graph = openCodeGraph(repo);
+    await writeFile(join(repo, "src/upload.ts"), body("v3", "v3"));
+
+    expect(await filterBySymbol([candidate], [task], repo, graph)).toEqual([candidate]);
+    graph?.close();
+  });
+
+  it("кандидатов других видов не трогает", async () => {
+    const repo = await repoWithChange({ inSymbol: false });
+    const graph = openCodeGraph(repo);
+    const missing: Candidate = { kind: "source-missing", task: { id: "SPA-2", title: "Задача SPA-2" }, path: "src/gone.ts" };
+
+    expect(await filterBySymbol([missing], [task], repo, graph)).toEqual([missing]);
+    graph?.close();
+  });
+});

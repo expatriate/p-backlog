@@ -17,6 +17,8 @@ import { snippetOf } from "./anchor";
 import { findRepo } from "./project-repo";
 import { codeReview, duplicateCandidates, isReviewable, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
 import { collectRepoFacts, diffSince, type RepoFacts } from "./repo-facts";
+import { filterBySymbol } from "./symbol-filter";
+import { openCodeGraph } from "../graph/code-graph";
 
 export type { CheckMode };
 
@@ -130,9 +132,14 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
   const paths = [...new Set(tasks.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
   const facts = await collectRepoFacts(repo, { since, paths });
   const review = codeReview(tasks, facts);
-  const code = await Promise.all(review.candidates.map((candidate) => withContext(candidate, tasks, facts, repo)));
-  const plans = review.plans;
-  return { candidates: mode === "full" ? [...code, ...duplicates] : code, plans };
+  const graph = openCodeGraph(repo);
+  try {
+    const kept = await filterBySymbol(review.candidates, tasks, repo, graph);
+    const code = await Promise.all(kept.map((candidate) => withContext(candidate, tasks, facts, repo)));
+    return { candidates: mode === "full" ? [...code, ...duplicates] : code, plans: review.plans };
+  } finally {
+    graph?.close();
+  }
 }
 
 async function withContext(candidate: Candidate, tasks: readonly Task[], facts: RepoFacts, repo: string): Promise<Candidate> {

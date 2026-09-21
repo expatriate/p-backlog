@@ -9,7 +9,7 @@ export type CommitRef = { sha: string; subject: string };
 
 export type Candidate =
   | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string  | undefined}
-  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string }
+  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string; bySymbol?: boolean }
   | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: "source" | "title" };
 
 export type AnchorPlan = { id: string; changes: { source?: string; anchor: string }; note?: string };
