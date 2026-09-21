@@ -2,7 +2,7 @@ import { CANDIDATE_EVIDENCE, type CandidateEvidence } from "../../journal/events
 import { closingsOf, type TaskHistory } from "../history";
 import { formatLocalIso } from "../../model/dates";
 import { weekWindows } from "../weeks";
-import type { AccuracyRow, AccuracyWeek } from "../types";
+import type { AccuracyRow, AccuracyWeek, SymbolAccuracyRow } from "../types";
 
 type Outcome = "closed" | "verified" | "open";
 type Episode = { evidence: CandidateEvidence; outcome: Outcome };
@@ -31,6 +31,22 @@ export function accuracyWeeks(histories: readonly TaskHistory[], now: Date): Acc
     );
     const closed = decided.filter((outcome) => outcome === "closed").length;
     return { start: formatLocalIso(start), decided: decided.length, precision: decided.length === 0 ? null : closed / decided.length };
+  });
+}
+
+export function symbolAccuracy(histories: readonly TaskHistory[], from: number, to: number): SymbolAccuracyRow[] {
+  const episodes = histories.flatMap((history) =>
+    history.candidates
+      .filter((candidate) => candidate.evidence === "source-changed" && candidate.at >= from && candidate.at <= to)
+      .map((candidate) => ({ by: candidate.bySymbol === true ? "symbol" : "file", outcome: outcomeAfter(history, candidate.at) }) as const),
+  );
+  return (["symbol", "file"] as const).flatMap((by) => {
+    const own = episodes.filter((episode) => episode.by === by);
+    if (own.length === 0) return [];
+    const count = (outcome: Outcome) => own.filter((episode) => episode.outcome === outcome).length;
+    const closed = count("closed");
+    const verified = count("verified");
+    return [{ by, candidates: own.length, closed, verified, open: count("open"), precision: closed + verified === 0 ? null : closed / (closed + verified) }];
   });
 }
 

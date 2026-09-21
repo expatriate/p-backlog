@@ -1,6 +1,6 @@
 import { categoryLabel } from "../../core/model/categories";
 import { EVIDENCE_LABELS, formatShare } from "../../core/stats/format";
-import type { AccuracyRow, AccuracyWeek, BranchRow, CategoryRow, FoundRow } from "../../core/stats/types";
+import type { AccuracyRow, AccuracyWeek, BranchRow, CategoryRow, FoundRow, SymbolAccuracyRow } from "../../core/stats/types";
 import { AccuracyWeeksChart } from "./AccuracyWeeksChart";
 import { FOUND_LABELS } from "../labels";
 import rowStyles from "./PanelRows.module.css";
@@ -8,7 +8,9 @@ import { Panel } from "./Panel";
 import { StatsTable } from "./StatsTable";
 import { STATS_PERIOD } from "./periods";
 
-export function AccuracyPanel({ rows, weeks }: { rows: AccuracyRow[]; weeks: AccuracyWeek[] }) {
+const SYMBOL_LABELS = { symbol: "└ из них проверено по символу", file: "└ из них проверено по файлу" } as const;
+
+export function AccuracyPanel({ rows, weeks, symbolRows }: { rows: AccuracyRow[]; weeks: AccuracyWeek[]; symbolRows: SymbolAccuracyRow[] }) {
   return (
     <Panel title="Точность проверки">
       {rows.length === 0 ? (
@@ -20,10 +22,16 @@ export function AccuracyPanel({ rows, weeks }: { rows: AccuracyRow[]; weeks: Acc
           <StatsTable
             label="Точность проверки за период"
             head={["Улика", "Кандидатов", "Закрыто", "Подтверждено", "Без решения", "Точность"]}
-            rows={rows.map((row) => ({
-              key: row.evidence,
-              cells: [EVIDENCE_LABELS[row.evidence], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)],
-            }))}
+            rows={[
+              ...rows.map((row) => ({
+                key: row.evidence,
+                cells: [EVIDENCE_LABELS[row.evidence], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)],
+              })),
+              ...symbolRows.map((row) => ({
+                key: `by-${row.by}`,
+                cells: [SYMBOL_LABELS[row.by], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)],
+              })),
+            ]}
           />
         </>
       )}

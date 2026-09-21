@@ -58,7 +58,7 @@ async function recordCandidates(root: string, tasks: readonly Task[], candidates
     try {
       const journal = await readJournal(dir, projectId);
       const states = episodeStates(journal.events);
-      const sightings = found.map((candidate) => ({ task: candidate.task.id, evidence: candidate.kind }));
+      const sightings = found.map((candidate) => ({ task: candidate.task.id, evidence: candidate.kind, ...(candidate.kind === "source-changed" && candidate.bySymbol === true ? { bySymbol: true } : {}) }));
       const gone = mode === "full" ? candidateGoneEvents(sightings, reviewed, states, now) : [];
       await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone]);
     } catch (error) {

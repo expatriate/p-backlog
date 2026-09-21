@@ -3,7 +3,7 @@ import type { JournalEvent } from "../../journal/events";
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
-import { accuracy, accuracyWeeks } from "./accuracy";
+import { accuracy, accuracyWeeks, symbolAccuracy } from "./accuracy";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 const iso = (day: number, hour = 12) => formatLocalIso(at(day, hour));
@@ -12,6 +12,7 @@ const TO = at(18).getTime();
 const journal = (events: JournalEvent[]) => [{ projectId: "spa", events, invalidLines: 0 }];
 
 const candidate = (task: string, day: number, evidence: "source-changed" | "source-missing" | "duplicate" | "no-source"): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence, mode: "changed" });
+const symbolCandidate = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", bySymbol: true });
 const verified = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "cli", kind: "verified" });
 
 describe("точность проверки", () => {
@@ -69,5 +70,35 @@ describe("точность проверки", () => {
     expect(weeks).toHaveLength(12);
     expect(weeks.at(-1)).toMatchObject({ decided: 2, precision: 0.5 });
     expect(weeks.at(-2)).toMatchObject({ decided: 0, precision: null });
+  });
+});
+
+describe("точность по способу проверки", () => {
+  it("кандидаты, подтверждённые графом, считаются отдельно от проверенных по файлу", () => {
+    const tasks = [
+      makeTask({ id: "SPA-1", created: iso(1), status: "done", closed: iso(5), resolution: "fixed" }),
+      makeTask({ id: "SPA-2", created: iso(1) }),
+      makeTask({ id: "SPA-3", created: iso(1) }),
+    ];
+    const events: JournalEvent[] = [
+      symbolCandidate("SPA-1", 3),
+      { at: iso(5), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" },
+      symbolCandidate("SPA-2", 3),
+      verified("SPA-2", 4),
+      candidate("SPA-3", 3, "source-changed"),
+      verified("SPA-3", 4),
+    ];
+
+    expect(symbolAccuracy(taskHistories(tasks, journal(events)), FROM, TO)).toEqual([
+      { by: "symbol", candidates: 2, closed: 1, verified: 1, open: 0, precision: 0.5 },
+      { by: "file", candidates: 1, closed: 0, verified: 1, open: 0, precision: 0 },
+    ]);
+  });
+
+  it("улики, кроме «код изменился», в разбиение не идут", () => {
+    const tasks = [makeTask({ id: "SPA-1", created: iso(1) })];
+    const events: JournalEvent[] = [candidate("SPA-1", 3, "duplicate"), verified("SPA-1", 4)];
+
+    expect(symbolAccuracy(taskHistories(tasks, journal(events)), FROM, TO)).toEqual([]);
   });
 });

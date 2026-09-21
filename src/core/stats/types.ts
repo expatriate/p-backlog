@@ -71,6 +71,7 @@ export type CodeReport = {
 export type AccuracyWeek = { start: string; decided: number; precision: number | null };
 
 export type AccuracyRow = { evidence: CandidateEvidence | "total"; candidates: number; closed: number; verified: number; open: number; precision: number | null };
+export type SymbolAccuracyRow = { by: "symbol" | "file"; candidates: number; closed: number; verified: number; open: number; precision: number | null };
 export type CategoryRow = { category: TaskCategory | null; open: number; weight: number; created: number; closed: number };
 export type FoundRow = { found: FoundHow | null; created: number; open: number; fixed: number };
 export type BranchRow = { label: string; created: number; open: number };
@@ -80,6 +81,7 @@ export type QualityReport = {
   invalidJournalLines: number;
   accuracy: AccuracyRow[];
   accuracyWeeks: AccuracyWeek[];
+  symbolAccuracy: SymbolAccuracyRow[];
   categories: CategoryRow[];
   found: FoundRow[];
   branches: BranchRow[];

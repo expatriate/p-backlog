@@ -23,7 +23,7 @@ export const CHECK_MODES = ["full", "changed"] as const;
 
 export type CheckMode = (typeof CHECK_MODES)[number];
 
-export type CandidateSighting = { task: string; evidence: CandidateEvidence };
+export type CandidateSighting = { task: string; evidence: CandidateEvidence; bySymbol?: boolean };
 
 const eventBase = { at: z.iso.datetime({ offset: true }), task: z.string().min(1), via: z.enum(CHANGE_SOURCES) };
 
@@ -45,7 +45,7 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
   z.object({ ...eventBase, kind: z.literal("deleted"), snapshot: taskFrontmatterSchema }),
   z.object({ ...eventBase, kind: z.literal("category"), from: z.enum(TASK_CATEGORIES).optional(), to: z.enum(TASK_CATEGORIES).optional() }),
   z.object({ ...eventBase, kind: z.literal("verified"), source: z.string().optional() }),
-  z.object({ ...eventBase, kind: z.literal("candidate"), evidence: z.enum(CANDIDATE_EVIDENCE), mode: z.enum(CHECK_MODES) }),
+  z.object({ ...eventBase, kind: z.literal("candidate"), evidence: z.enum(CANDIDATE_EVIDENCE), mode: z.enum(CHECK_MODES), bySymbol: z.boolean().optional() }),
   z.object({ ...eventBase, kind: z.literal("candidate-gone"), evidence: z.enum(CANDIDATE_EVIDENCE) }),
 ]);
 
@@ -103,7 +103,7 @@ export function candidateEvents(sightings: readonly CandidateSighting[], states:
   const at = formatLocalIso(now);
   return dedupeSightings(sightings)
     .filter((sighting) => states.get(episodeKey(sighting.task, sighting.evidence)) !== "open")
-    .map((sighting) => ({ at, task: sighting.task, via: "check", kind: "candidate", evidence: sighting.evidence, mode }));
+    .map((sighting) => ({ at, task: sighting.task, via: "check", kind: "candidate", evidence: sighting.evidence, mode, ...(sighting.bySymbol === true ? { bySymbol: true } : {}) }));
 }
 
 export function candidateGoneEvents(sightings: readonly CandidateSighting[], tasks: readonly string[], states: EpisodeStates, now: Date): JournalEvent[] {

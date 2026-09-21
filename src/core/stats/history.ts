@@ -16,7 +16,7 @@ export type TaskHistory = {
   category?: TaskCategory | undefined;
   found?: FoundHow | undefined;
   branch?: string | undefined;
-  candidates: { at: number; evidence: CandidateEvidence }[];
+  candidates: { at: number; evidence: CandidateEvidence; bySymbol?: boolean }[];
   verifications: number[];
 };
 
@@ -26,7 +26,7 @@ type Known = {
   created?: Extract<JournalEvent, { kind: "created" }>;
   categoryEvents: { at: number; to?: TaskCategory | undefined }[];
   transitions: Transition[];
-  candidates: { at: number; evidence: CandidateEvidence }[];
+  candidates: { at: number; evidence: CandidateEvidence; bySymbol?: boolean }[];
   verifications: number[];
 };
 
@@ -49,7 +49,7 @@ export function taskHistories(tasks: readonly Task[], journals: readonly Project
       if (event.kind === "status") {
         item.transitions.push({ at: Date.parse(event.at), from: event.from, to: event.to, resolution: event.resolution, via: event.via });
       }
-      if (event.kind === "candidate") item.candidates.push({ at: Date.parse(event.at), evidence: event.evidence });
+      if (event.kind === "candidate") item.candidates.push({ at: Date.parse(event.at), evidence: event.evidence, ...(event.bySymbol === true ? { bySymbol: true } : {}) });
       if (event.kind === "verified") item.verifications.push(Date.parse(event.at));
     }
   }
