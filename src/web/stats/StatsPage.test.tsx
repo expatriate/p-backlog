@@ -133,12 +133,12 @@ describe("страница статистики", () => {
     expect(within(panel).getByRole("img", { name: "до 7 дней: 1 (средних 1); 7–30 дней: 1 (высоких 1); 30–90 дней: 0; больше 90 дней: 0" })).toBeDefined();
   });
 
-  it("как закрываются: причины, кто закрыл, шум и возвраты", async () => {
+  it("как закрываются: причины, шум и возвраты", async () => {
     await renderApp(FILES, "/p/spa/stats");
     const panel = await screen.findByRole("region", { name: "Как закрываются" });
 
     expect(within(panel).getByText("сделано")).toBeDefined();
-    expect(within(panel).getByText("неизвестно").closest("li")?.textContent).toBe("неизвестно1");
+    expect(within(panel).getByText("сделано").closest("li")?.textContent).toBe("сделано1");
     expect(within(panel).getByText("Дубли среди закрытых").closest("li")?.textContent).toBe("Дубли среди закрытых0%");
     expect(within(panel).getByText("Возвраты").closest("li")?.textContent).toBe("Возвраты0");
   });

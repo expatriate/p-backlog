@@ -29,7 +29,6 @@ export type AgeBreakdown = { buckets: { bucket: AgeBucket; byPriority: Record<Pr
 
 export type ClosingBreakdown = {
   byReason: Record<ClosingReason, number>;
-  byActor: { agent: number; human: number; unknown: number };
   duplicateShare: number | null;
   withoutSourceShare: number | null;
   reopened: number;

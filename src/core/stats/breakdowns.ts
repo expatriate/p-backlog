@@ -12,7 +12,6 @@ const AGE_LIMITS: readonly { bucket: AgeBucket; belowDays: number }[] = [
   { bucket: "quarter", belowDays: 90 },
   { bucket: "older", belowDays: Number.POSITIVE_INFINITY },
 ];
-const AGENT_SOURCES: ReadonlySet<Transition["via"]> = new Set(["cli", "check", "sweep"]);
 
 export function folderOf(source: string): string {
   const path = source.replace(/(:\d+)+$/, "");
@@ -49,11 +48,6 @@ export function closingBreakdown(histories: readonly TaskHistory[], from: number
   for (const closing of closings) byReason[closingReason(closing)] += 1;
   return {
     byReason,
-    byActor: {
-      agent: closings.filter((closing) => AGENT_SOURCES.has(closing.via)).length,
-      human: closings.filter((closing) => closing.via === "web").length,
-      unknown: closings.filter((closing) => closing.via === "unknown").length,
-    },
     duplicateShare: closings.length === 0 ? null : byReason.duplicate / closings.length,
     withoutSourceShare: created.length === 0 ? null : created.filter((history) => history.source === undefined).length / created.length,
     reopened: histories.flatMap(reopeningsOf).filter((reopening) => inPeriod(reopening.at)).length,

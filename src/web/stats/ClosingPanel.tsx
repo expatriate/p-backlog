@@ -28,12 +28,6 @@ export function ClosingPanel({ closing }: { closing: ClosingBreakdown }) {
           </li>
         ))}
       </ul>
-      <p className={rowStyles.muted}>Кто закрыл:</p>
-      <ul className={rowStyles.rows}>
-        <MetricRow label="агент" value={closing.byActor.agent} />
-        <MetricRow label="человек" value={closing.byActor.human} />
-        <MetricRow label="неизвестно" value={closing.byActor.unknown} />
-      </ul>
       <p className={rowStyles.muted}>Шум и возвраты:</p>
       <ul className={rowStyles.rows}>
         <MetricRow label="Дубли среди закрытых" value={formatShare(closing.duplicateShare)} />

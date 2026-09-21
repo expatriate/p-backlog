@@ -84,7 +84,6 @@ describe("как закрываются", () => {
     const closing = closingBreakdown(histories, at(1).getTime(), at(30).getTime());
 
     expect(closing.byReason).toEqual({ done: 1, fixed: 1, obsolete: 1, duplicate: 1, cancelled: 1 });
-    expect(closing.byActor).toEqual({ agent: 3, human: 1, unknown: 1 });
     expect(closing.duplicateShare).toBeCloseTo(0.2);
     expect(closing.withoutSourceShare).toBeCloseTo(0.4);
     expect(closing.reopened).toBe(1);
