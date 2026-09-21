@@ -1,5 +1,5 @@
 import { useParams } from "react-router";
-import { formatDays, formatP90, formatSigned, NBSP } from "../../core/stats/format";
+import { formatSigned } from "../../core/stats/format";
 import type { StatsReport, StatsTotals } from "../../core/stats/types";
 import { listPath } from "../app/paths";
 import { useStats } from "../app/queries";
@@ -55,25 +55,12 @@ function Totals({ totals }: { totals: StatsTotals }) {
         }
         note="заведено и закрыто"
       />
-      <Figure label="Открыто" value={String(totals.open)} note={`вес ${totals.openWeight}`} trend={trendOf(totals.open, previous?.open ?? null, String)} />
       <Figure
         label="За неделю"
         value={formatSigned(net)}
         tone={netTone(net)}
         note={`создано ${totals.createdLastWeek}, закрыто ${totals.closedLastWeek}`}
         trend={trendOf(net, previous?.net ?? null, String)}
-      />
-      <Figure
-        label="Возраст, медиана"
-        value={formatDays(totals.ageMedianDays)}
-        note={`старше 30${NBSP}дн.: ${totals.olderThan30Days}`}
-        trend={trendOf(totals.ageMedianDays, previous?.ageMedianDays ?? null, formatDays)}
-      />
-      <Figure
-        label="До закрытия, медиана"
-        value={formatDays(totals.leadTimeMedianDays)}
-        note={totals.leadTimeP90Days === null ? "закрытий нет" : `90% — ${formatP90(totals.leadTimeP90Days)}`}
-        trend={trendOf(totals.leadTimeMedianDays, previous?.leadTimeMedianDays ?? null, formatDays)}
       />
     </div>
   );

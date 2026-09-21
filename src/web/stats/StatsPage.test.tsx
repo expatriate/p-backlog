@@ -24,9 +24,9 @@ describe("страница статистики", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: "Статистика · Проекты" })).toBeDefined();
     expect(document.title).toBe("Статистика · Проекты — Беклог");
-    const open = await screen.findByRole("group", { name: "Открыто" });
-    expect(within(open).getByText("3")).toBeDefined();
-    expect(within(open).getByText("вес 8")).toBeDefined();
+    const week = await screen.findByRole("group", { name: "За неделю" });
+    expect(within(week).getByText("+2")).toBeDefined();
+    expect(within(week).getByText("создано 3, закрыто 1")).toBeDefined();
     expect(screen.getByRole("figure", { name: new RegExp(`12${NBSP}недель: создано 4, закрыто 1, открыто сейчас 3`) })).toBeDefined();
     expect(screen.getByText(/Журнал ещё пуст/)).toBeDefined();
   });
@@ -65,14 +65,20 @@ describe("страница статистики", () => {
     await renderApp(
       {
         ...FILES,
-        "spa/journal.jsonl": [created("2026-09-05T10:00:00+03:00", "SPA-1"), created("2026-09-16T10:00:00+03:00", "SPA-2"), created("2026-09-15T10:00:00+03:00", "SPA-3")].join("\n"),
+        "spa/SPA-6.md": taskFixture("SPA-6", { title: "Прошлая неделя", created: "2026-09-08T10:00:00+03:00" }),
+        "spa/journal.jsonl": [
+          created("2026-09-05T10:00:00+03:00", "SPA-1"),
+          created("2026-09-08T10:00:00+03:00", "SPA-6"),
+          created("2026-09-16T10:00:00+03:00", "SPA-2"),
+          created("2026-09-15T10:00:00+03:00", "SPA-3"),
+        ].join("\n"),
       },
       "/p/spa/stats",
     );
 
-    const open = await screen.findByRole("group", { name: "Открыто" });
-    expect(within(open).getByText("↑ 1 за неделю")).toBeDefined();
-    expect(within(open).getByText("на 1 больше, чем неделю назад — хуже")).toBeDefined();
+    const week = await screen.findByRole("group", { name: "За неделю" });
+    expect(week.textContent).toContain(`↓${NBSP}1${NBSP}за${NBSP}неделю`);
+    expect(within(week).getByText("на 1 меньше, чем неделю назад — лучше")).toBeDefined();
   });
 
   it("ссылка «Статистика» в боковой панели сохраняет проект, переключение проекта остаётся на статистике", async () => {
@@ -155,7 +161,7 @@ describe("вкладки статистики", () => {
   it("старый адрес «Потока» открывает «Обзор»", async () => {
     await renderApp(FILES, "/stats/flow");
 
-    expect(await screen.findByRole("group", { name: "Открыто" })).toBeDefined();
+    expect(await screen.findByRole("group", { name: "За неделю" })).toBeDefined();
     expect(document.title).toBe("Статистика · Проекты — Беклог");
   });
 });
