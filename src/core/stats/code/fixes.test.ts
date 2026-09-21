@@ -3,8 +3,7 @@ import type { JournalEvent } from "../../journal/events";
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
-import type { FixCommit } from "../types";
-import { fixBreakdown, fixKey, fixRequests, reasonHashes } from "./fixes";
+import { fixRequests, reasonHashes } from "./fixes";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 const iso = (day: number, hour = 12) => formatLocalIso(at(day, hour));
@@ -24,8 +23,8 @@ describe("хеши из причины", () => {
   });
 });
 
-describe("кто исправил", () => {
-  it("агент, человек и без коммита; медианы от создания до коммита; удалённая задача по снимку", () => {
+describe("запросы к коммитам исправлений", () => {
+  it("хеши из причин закрытия собираются по проектам, включая удалённую задачу по снимку", () => {
     const tasks = [
       fixed("SPA-1", 1, 5, "Исправлено в aaaaaaa"),
       fixed("SPA-2", 2, 6, "Исправлено в bbbbbbb: см. ccccccc"),
@@ -41,20 +40,14 @@ describe("кто исправил", () => {
       snapshot: { id: snapshot.id, title: snapshot.title, type: "task", status: "done", priority: "medium", tags: [], blockedBy: [], related: [], created: snapshot.created, closed: snapshot.closed, resolution: "fixed", reason: snapshot.reason },
     };
     const histories = taskHistories(tasks, [{ projectId: "spa", events: [deleted], invalidLines: 0 }]);
-    const commits = new Map<string, FixCommit>([
-      [fixKey("spa", "aaaaaaa"), { date: iso(3), byAgent: true, lines: 0, testLines: 0 }],
-      [fixKey("spa", "ccccccc"), { date: iso(6), byAgent: false, lines: 0, testLines: 0 }],
-      [fixKey("spa", "ddddddd"), { date: iso(8), byAgent: true, lines: 0, testLines: 0 }],
-    ]);
 
     expect(fixRequests(histories, FROM, TO)).toEqual([{ projectId: "spa", hashes: ["aaaaaaa", "bbbbbbb", "ccccccc", "ddddddd"] }]);
-    expect(fixBreakdown(histories, FROM, TO, commits)).toEqual({ agent: 2, human: 1, unknown: 1, agentMedianDays: 3, humanMedianDays: 4 });
   });
 
   it("закрытия вне периода не считаются", () => {
     const histories = taskHistories([fixed("SPA-1", 1, 5, "Исправлено в aaaaaaa")], []);
 
-    expect(fixBreakdown(histories, at(10).getTime(), TO, new Map())).toEqual({ agent: 0, human: 0, unknown: 0, agentMedianDays: null, humanMedianDays: null });
+    expect(fixRequests(histories, at(10).getTime(), TO)).toEqual([]);
   });
 
   it("задача, переоткрытая после исправления, исправлением не считается", () => {
@@ -65,13 +58,7 @@ describe("кто исправил", () => {
     ];
     const histories = taskHistories([task], [{ projectId: "spa", events, invalidLines: 0 }]);
 
-    expect(fixBreakdown(histories, FROM, TO, new Map())).toEqual({ agent: 0, human: 0, unknown: 0, agentMedianDays: null, humanMedianDays: null });
+    expect(fixRequests(histories, FROM, TO)).toEqual([]);
   });
 
-  it("коммит раньше создания задачи — 0 дней", () => {
-    const histories = taskHistories([fixed("SPA-1", 5, 6, "Исправлено в aaaaaaa")], []);
-    const commits = new Map<string, FixCommit>([[fixKey("spa", "aaaaaaa"), { date: iso(1), byAgent: true, lines: 0, testLines: 0 }]]);
-
-    expect(fixBreakdown(histories, FROM, TO, commits)).toEqual({ agent: 1, human: 0, unknown: 0, agentMedianDays: 0, humanMedianDays: null });
-  });
 });

@@ -191,8 +191,6 @@ describe("вкладка «Код»", () => {
     expect(within(churnPanel).getByText("1 задача, вес 4")).toBeDefined();
     const densityPanel = screen.getByRole("region", { name: "Плотность долга" });
     expect(within(densityPanel).getByText("1000 на 1000 строк")).toBeDefined();
-    const fixesPanel = screen.getByRole("region", { name: "Кто исправил" });
-    expect(within(fixesPanel).getByText("агент").closest("li")?.textContent).toBe(`агент1 · медиана 1${NBSP}дн.`);
     expect(screen.getByText("Нет доступа к репозиторию: /nope/repo. Проверьте путь в repos файла project.md и что это git-репозиторий.")).toBeDefined();
   });
 
@@ -201,7 +199,6 @@ describe("вкладка «Код»", () => {
 
     expect(await screen.findByText("Долг не лежит в коде, который меняли за 90 дней")).toBeDefined();
     expect(screen.getByText("Нет данных о коде: у проектов нет доступных репозиториев")).toBeDefined();
-    expect(screen.getByText("Исправлений за 12 недель нет")).toBeDefined();
   });
 });
 

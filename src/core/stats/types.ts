@@ -61,7 +61,6 @@ export type DensityRow = { lines: number; open: number; perKloc: number | null }
 export type ProjectDensity = DensityRow & { projectId: string; name: string };
 export type FolderDensity = DensityRow & { label: string };
 export type CodeDensity = { projects: ProjectDensity[]; folders: FolderDensity[] };
-export type FixBreakdown = { agent: number; human: number; unknown: number; agentMedianDays: number | null; humanMedianDays: number | null };
 export type CodeReport = {
   taskCount: number;
   journalSince: string | null;
@@ -69,7 +68,6 @@ export type CodeReport = {
   unavailableRepos: string[];
   churn: ChurnRow[];
   density: CodeDensity;
-  fixes: FixBreakdown;
 };
 
 export type AccuracyWeek = { start: string; decided: number; precision: number | null };

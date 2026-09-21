@@ -1,7 +1,5 @@
-import { DAY_MS } from "../../model/lifecycle";
 import { closingsOf, isFixedNow, type TaskHistory } from "../history";
-import { median } from "../numbers";
-import type { FixBreakdown, FixCommit } from "../types";
+import type { FixCommit } from "../types";
 
 const HASH_PATTERN = /(?<![\p{L}\p{N}])[0-9a-f]{7,40}(?![\p{L}\p{N}])/gu;
 
@@ -32,22 +30,6 @@ export function fixCommitEntry(history: TaskHistory, commits: ReadonlyMap<string
     .map((hash) => ({ key: fixKey(history.projectId, hash), commit: commits.get(fixKey(history.projectId, hash)) }))
     .flatMap(({ key, commit }) => (commit === undefined ? [] : [{ key, commit }]))
     .at(0);
-}
-
-export function fixBreakdown(histories: readonly TaskHistory[], from: number, to: number, commits: ReadonlyMap<string, FixCommit>): FixBreakdown {
-  const resolved = fixClosings(histories, from, to).map((history) => {
-    const commit = fixCommitEntry(history, commits)?.commit;
-    return commit === undefined ? undefined : { byAgent: commit.byAgent, days: Math.max(0, (Date.parse(commit.date) - history.createdAt) / DAY_MS) };
-  });
-  const agentDays = resolved.flatMap((fix) => (fix?.byAgent === true ? [fix.days] : []));
-  const humanDays = resolved.flatMap((fix) => (fix?.byAgent === false ? [fix.days] : []));
-  return {
-    agent: agentDays.length,
-    human: humanDays.length,
-    unknown: resolved.filter((fix) => fix === undefined).length,
-    agentMedianDays: median(agentDays),
-    humanMedianDays: median(humanDays),
-  };
 }
 
 function fixClosings(histories: readonly TaskHistory[], from: number, to: number): TaskHistory[] {

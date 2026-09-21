@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
-import { formatDays, formatDecimal, NBSP, pluralCount } from "../../core/stats/format";
-import type { ChurnRow, CodeDensity, DensityRow, FixBreakdown } from "../../core/stats/types";
+import { formatDecimal, NBSP, pluralCount } from "../../core/stats/format";
+import type { ChurnRow, CodeDensity, DensityRow } from "../../core/stats/types";
 import { Panel } from "./Panel";
 import rowStyles from "./PanelRows.module.css";
 import styles from "./CodePanels.module.css";
-import { CHURN_PERIOD, STATS_PERIOD } from "./periods";
+import { CHURN_PERIOD } from "./periods";
 
 export function ChurnPanel({ churn }: { churn: ChurnRow[] }) {
   const top = churn[0]?.score ?? 1;
@@ -68,32 +68,3 @@ function DensityRows({ rows }: { rows: { key: string; label: ReactNode; row: Den
   );
 }
 
-export function FixesPanel({ fixes }: { fixes: FixBreakdown }) {
-  return (
-    <Panel title="Кто исправил">
-      {fixes.agent + fixes.human + fixes.unknown === 0 ? (
-        <p className={rowStyles.muted}>Исправлений за {STATS_PERIOD} нет</p>
-      ) : (
-        <ul className={rowStyles.rows}>
-          <FixRow label="агент" count={fixes.agent} medianDays={fixes.agentMedianDays} />
-          <FixRow label="человек" count={fixes.human} medianDays={fixes.humanMedianDays} />
-          <li className={rowStyles.row}>
-            <span className={rowStyles.rowLabel}>без коммита</span>
-            <span className={rowStyles.rowValue}>{fixes.unknown}</span>
-          </li>
-        </ul>
-      )}
-    </Panel>
-  );
-}
-
-function FixRow({ label, count, medianDays }: { label: string; count: number; medianDays: number | null }) {
-  return (
-    <li className={rowStyles.row}>
-      <span className={rowStyles.rowLabel}>{label}</span>
-      <span className={rowStyles.rowValue}>
-        {count} · медиана {formatDays(medianDays)}
-      </span>
-    </li>
-  );
-}

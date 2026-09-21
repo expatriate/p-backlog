@@ -29,7 +29,6 @@ describe("отчёт «Код»", () => {
     expect(report.unavailableRepos).toEqual(["/nope"]);
     expect(report.churn).toEqual([{ label: "src", commits: 1, tasks: 1, weight: 4, score: 4 }]);
     expect(report.density.projects).toEqual([{ projectId: "spa", name: "spa", lines: 2000, open: 1, perKloc: 0.5 }]);
-    expect(report.fixes.unknown).toBe(1);
     expect(codeFixRequests({ tasks, journals: [], now: NOW, projectId: "spa" })).toEqual([{ projectId: "spa", hashes: ["abcdef1"] }]);
   });
 });

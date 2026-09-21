@@ -1,7 +1,7 @@
 import { useParams } from "react-router";
 import type { CodeReport } from "../../core/stats/types";
 import { useCodeStats } from "../app/queries";
-import { ChurnPanel, DensityPanel, FixesPanel } from "./CodePanels";
+import { ChurnPanel, DensityPanel } from "./CodePanels";
 import rowStyles from "./PanelRows.module.css";
 import { StatsTabState } from "./StatsTabState";
 import styles from "./StatsPage.module.css";
@@ -30,7 +30,6 @@ function Code({ report }: { report: CodeReport }) {
           <ChurnPanel churn={report.churn} />
         </div>
         <DensityPanel density={report.density} />
-        <FixesPanel fixes={report.fixes} />
       </div>
       <p className={styles.note}>Изменения — коммиты за {CHURN_PERIOD}; строки — на последнем коммите.</p>
     </>
