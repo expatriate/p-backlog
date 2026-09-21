@@ -107,6 +107,21 @@
   font-size: var(--text-sm);
 }
 
+.graphNote {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: auto 0 0;
+  padding: var(--space-2);
+  color: var(--ink-subtle);
+  font-size: var(--text-sm);
+}
+
+.graphNote code {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
 .disclosure {
   flex: none;
   display: inline-flex;

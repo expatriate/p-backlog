@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { listPath, statsPath } from "../app/paths";
 import { Link, matchPath, NavLink, Outlet, useLocation } from "react-router";
 import { buildIndex } from "../../core/model/graph";
-import type { Project } from "../../core/model/types";
+import type { ProjectView } from "../../core/api/contract";
 import { useProjects, useSignals, useTasks } from "../app/queries";
 import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
 import { activeProjectIds, tasksInScope } from "../app/scope";
@@ -30,6 +30,7 @@ export function AppLayout() {
   const onStats = statsTab !== undefined;
   const scopePath = (id?: string) => (onStats ? `${statsPath(id)}${statsTab === "" ? "" : `/${statsTab}`}` : listPath(id));
   const scopeTasks = openCount();
+  const withoutGraph = useMemo(() => allProjects.filter((project) => project.active && project.repos.length > 0 && !project.codeGraph), [allProjects]);
   const [listOpen, setListOpen] = useState(true);
 
   return (
@@ -91,13 +92,21 @@ export function AppLayout() {
             </p>
           )}
         </div>
+        {withoutGraph.length > 0 && (
+          <p className={styles.graphNote}>
+            Без графа кода: {pluralCount(withoutGraph.length, "проект", "проекта", "проектов")}
+            <span>
+              <code>code-review-graph build</code> — кандидаты проверки точнее
+            </span>
+          </p>
+        )}
       </nav>
       <Outlet />
     </div>
   );
 }
 
-type ProjectRowProps = { name: string; to: string; search: string; openTasks: number; project: Project };
+type ProjectRowProps = { name: string; to: string; search: string; openTasks: number; project: ProjectView };
 
 function ProjectRow({ name, to, search, openTasks, project }: ProjectRowProps) {
   return (

@@ -1,7 +1,7 @@
 import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { CodeReport, ConflictResponse, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
+import type { CodeReport, ConflictResponse, ProjectView, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
 import { readJournal } from "../core/store/journal";
 import { loadBacklog } from "../core/store/load";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
@@ -23,6 +23,27 @@ describe("GET /api/projects и /api/tasks", () => {
     expect(tasks[0]).toMatchObject({ id: "SPA-1", priority: "high", tags: ["upload"], projectId: "spa" });
     expect(tasks[0]?.version).toHaveLength(40);
     expect(errors).toEqual([{ path: expect.stringContaining("SPA-9.md"), projectId: "spa", message: expect.any(String) }]);
+  });
+});
+
+describe("GET /api/projects: граф кода", () => {
+  it("проект знает, собран ли граф в его репозитории", async () => {
+    const home = await makeTempDir();
+    const withGraph = await makeGitRepo(home, "projects/spa");
+    const withoutGraph = await makeGitRepo(home, "projects/torg-io");
+    await writeFiles(withGraph, { ".code-review-graph/graph.db": "" });
+    const backlog = await makeTestApp({
+      ...SAMPLE_FILES,
+      "spa/project.md": projectFile("SPA", [withGraph]),
+      "torg-io/project.md": projectFile("TI", [withoutGraph]),
+    });
+
+    const projects = (await (await backlog.request("/api/projects")).json()) as ProjectView[];
+
+    expect(projects.map((project) => [project.id, project.codeGraph])).toEqual([
+      ["spa", true],
+      ["torg-io", false],
+    ]);
   });
 });
 

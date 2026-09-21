@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { CodeReport, CostReport, EffectReport, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { CodeReport, CostReport, EffectReport, MemorySamplesResponse, ProjectView, QualityReport, SignalsReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import type { Project, Task } from "../../core/model/types";
 import { useBacklogApi } from "./backlog-api";
 
@@ -12,7 +12,7 @@ const STATS_STALE_MS = 60_000;
 
 export function useProjects() {
   const { client } = useBacklogApi();
-  return useQuery<Project[]>({ queryKey: PROJECTS_KEY, queryFn: client.projects });
+  return useQuery<ProjectView[]>({ queryKey: PROJECTS_KEY, queryFn: client.projects });
 }
 
 export function useTasks() {

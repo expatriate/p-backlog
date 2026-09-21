@@ -1,7 +1,9 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
-import { projectActiveSchema, projectDeleteSchema, updateTaskRequestSchema } from "../core/api/contract";
+import { projectActiveSchema, projectDeleteSchema, updateTaskRequestSchema, type ProjectView } from "../core/api/contract";
 import { createCodeCacheFile } from "../core/code/code-cache";
 import { createCodeSource } from "../core/code/code-source";
 import type { Project, Task } from "../core/model/types";
@@ -49,7 +51,7 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
   };
   changes.subscribe(forgetBacklog);
 
-  api.get("/projects", async (c) => c.json((await backlog()).projects));
+  api.get("/projects", async (c) => c.json((await backlog()).projects.map((project): ProjectView => ({ ...project, codeGraph: hasCodeGraph(project) }))));
 
   api.get("/tasks", async (c) => {
     const { tasks, errors } = await backlog();
@@ -213,4 +215,8 @@ function repoRootOrNull(cwd: string): string | null {
   } catch {
     return null;
   }
+}
+
+function hasCodeGraph(project: Project): boolean {
+  return project.repos.some((repo) => existsSync(join(repo, ".code-review-graph", "graph.db")));
 }

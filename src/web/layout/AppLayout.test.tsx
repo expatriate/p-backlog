@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
-import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
+import { makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { renderApp } from "../testing/render-app";
 
 const FILES = {
@@ -57,5 +57,27 @@ describe("боковая панель", () => {
     await user.click(confirm);
 
     await waitFor(async () => expect((await loadBacklog(root)).projects.map((project) => project.id)).toEqual(["torg-io"]));
+  });
+});
+
+describe("уведомление про граф кода", () => {
+  async function filesWithRepos({ graph }: { graph: boolean }) {
+    const home = await makeTempDir();
+    const repo = await makeGitRepo(home, "projects/spa");
+    if (graph) await writeFiles(repo, { ".code-review-graph/graph.db": "" });
+    return { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": taskFile("SPA-1") };
+  }
+
+  it("строка появляется, когда у активного проекта нет графа", async () => {
+    await renderApp(await filesWithRepos({ graph: false }));
+
+    expect(await screen.findByText(/Без графа кода: 1 проект/)).toBeTruthy();
+  });
+
+  it("строки нет, когда граф собран у всех проектов", async () => {
+    await renderApp(await filesWithRepos({ graph: true }));
+
+    await screen.findByRole("list", { name: "Проекты" });
+    expect(screen.queryByText(/Без графа кода/)).toBeNull();
   });
 });

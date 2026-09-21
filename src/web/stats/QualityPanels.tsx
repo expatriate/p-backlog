@@ -22,16 +22,15 @@ export function AccuracyPanel({ rows, weeks, symbolRows }: { rows: AccuracyRow[]
           <StatsTable
             label="Точность проверки за период"
             head={["Улика", "Кандидатов", "Закрыто", "Подтверждено", "Без решения", "Точность"]}
-            rows={[
-              ...rows.map((row) => ({
-                key: row.evidence,
-                cells: [EVIDENCE_LABELS[row.evidence], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)],
-              })),
-              ...symbolRows.map((row) => ({
-                key: `by-${row.by}`,
-                cells: [SYMBOL_LABELS[row.by], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)],
-              })),
-            ]}
+            rows={rows.flatMap((row) => [
+              { key: row.evidence, cells: [EVIDENCE_LABELS[row.evidence], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)] },
+              ...(row.evidence === "source-changed"
+                ? symbolRows.map((split) => ({
+                    key: `by-${split.by}`,
+                    cells: [SYMBOL_LABELS[split.by], split.candidates, split.closed, split.verified, split.open, formatShare(split.precision)],
+                  }))
+                : []),
+            ])}
           />
         </>
       )}
