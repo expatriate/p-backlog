@@ -6,6 +6,8 @@ import { daysBetween, median, nearestRank, TAIL_FRACTION } from "./numbers";
 import { reportBase, type ReportBase, type StatsInput } from "./scope";
 import { PRIORITY_WEIGHT } from "./weights";
 import type { PreviousTotals, StatsReport, StatsTotals } from "./types";
+import { dailyIntake } from "./days";
+import { formatLocalDay } from "../model/dates";
 import { periodStart, weeklyFlow } from "./weeks";
 
 const STALE_DAYS = 30;
@@ -20,6 +22,7 @@ export function statsReport(input: StatsInput, base: ReportBase = reportBase(inp
     ...base.head,
     totals: totals(openTasks, histories, now, start, base.scope.journalStart),
     weeks: weeklyFlow(histories, now),
+    days: dailyIntake(histories, now),
     hotspots: hotspots(openTasks, projectId === undefined),
     age: ageBreakdown(openTasks, now),
     closing: closingBreakdown(histories, start, now.getTime()),
@@ -35,8 +38,11 @@ function totals(openTasks: readonly Task[], histories: readonly TaskHistory[], n
       .filter((closing) => closing.at >= periodStart && closing.at <= nowMs)
       .map((closing) => daysBetween(history.createdAt, closing.at)),
   );
+  const today = formatLocalDay(now);
   return {
     open: openTasks.length,
+    createdToday: histories.filter((history) => formatLocalDay(new Date(history.createdAt)) === today).length,
+    closedToday: histories.flatMap(closingsOf).filter((closing) => formatLocalDay(new Date(closing.at)) === today).length,
     openWeight: openTasks.reduce((sum, task) => sum + PRIORITY_WEIGHT[task.priority], 0),
     createdLastWeek: histories.filter((history) => inLastWeek(history.createdAt)).length,
     closedLastWeek: histories.flatMap(closingsOf).filter((closing) => inLastWeek(closing.at)).length,

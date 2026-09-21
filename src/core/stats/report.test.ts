@@ -119,3 +119,40 @@ describe("отчёт статистики", () => {
     expect(statsReport({ tasks: older, journals: [{ projectId: "spa", events: events.slice(3), invalidLines: 0 }], now: NOW, projectId: "spa" }).totals.previous).toBeNull();
   });
 });
+
+describe("заведённые задачи по дням", () => {
+  const dayTasks = [
+    makeTask({ id: "SPA-1", created: formatLocalIso(at(18, 9)) }),
+    makeTask({ id: "SPA-2", created: formatLocalIso(at(18, 23)) }),
+    makeTask({ id: "SPA-3", created: formatLocalIso(at(17)) }),
+    makeTask({ id: "SPA-4", created: formatLocalIso(at(18)), type: "epic" }),
+    makeTask({ id: "TI-1", projectId: "ti", created: formatLocalIso(at(18)) }),
+  ];
+  const empty = [
+    { projectId: "spa", events: [] as JournalEvent[], invalidLines: 0 },
+    { projectId: "ti", events: [] as JournalEvent[], invalidLines: 0 },
+  ];
+
+  it("последний день — сегодняшний, дни без задач остаются нулями", () => {
+    const report = statsReport({ tasks: dayTasks, journals: empty, now: NOW, projectId: "spa" });
+
+    expect(report.days).toHaveLength(30);
+    expect(report.days.at(-1)).toEqual({ day: "2026-09-18", created: 2 });
+    expect(report.days.at(-2)).toEqual({ day: "2026-09-17", created: 1 });
+    expect(report.days.at(-3)).toEqual({ day: "2026-09-16", created: 0 });
+  });
+
+  it("задачи за сегодня: заведено и закрыто, только по выбранной области", () => {
+    const closedToday = [
+      ...dayTasks,
+      makeTask({ id: "SPA-5", created: formatLocalIso(at(10)), status: "done", closed: formatLocalIso(at(18, 15)) }),
+      makeTask({ id: "SPA-6", created: formatLocalIso(at(10)), status: "done", closed: formatLocalIso(at(17)) }),
+      makeTask({ id: "TI-2", projectId: "ti", created: formatLocalIso(at(10)), status: "done", closed: formatLocalIso(at(18)) }),
+    ];
+    const own = statsReport({ tasks: closedToday, journals: empty, now: NOW, projectId: "spa" });
+    const all = statsReport({ tasks: closedToday, journals: empty, now: NOW });
+
+    expect(own.totals).toMatchObject({ createdToday: 2, closedToday: 1 });
+    expect(all.totals).toMatchObject({ createdToday: 3, closedToday: 2 });
+  });
+});

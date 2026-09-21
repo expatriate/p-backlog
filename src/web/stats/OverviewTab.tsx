@@ -10,6 +10,7 @@ import { trendOf } from "./trend";
 import { HotspotsPanel } from "./HotspotsPanel";
 import { Panel } from "./Panel";
 import { StatsTabState } from "./StatsTabState";
+import { DailyIntakePanel } from "./DailyIntakeChart";
 import { WeeklyFlowChart } from "./WeeklyFlowChart";
 import styles from "./StatsPage.module.css";
 
@@ -31,6 +32,7 @@ function Overview({ report, listPath }: { report: StatsReport; listPath: string 
         <Panel title="Долг по неделям">
           <WeeklyFlowChart weeks={report.weeks} />
         </Panel>
+        <DailyIntakePanel days={report.days} />
         <HotspotsPanel hotspots={report.hotspots} listPath={listPath} />
         <AgePanel age={report.age} />
         <ClosingPanel closing={report.closing} />
@@ -44,6 +46,15 @@ function Totals({ totals }: { totals: StatsTotals }) {
   const previous = totals.previous;
   return (
     <div className={styles.totals}>
+      <Figure
+        label="Задачи сегодня"
+        value={
+          <>
+            <span className={styles.growth}>+{totals.createdToday}</span> <span className={styles.decline}>−{totals.closedToday}</span>
+          </>
+        }
+        note="заведено и закрыто"
+      />
       <Figure label="Открыто" value={String(totals.open)} note={`вес ${totals.openWeight}`} trend={trendOf(totals.open, previous?.open ?? null, String)} />
       <Figure
         label="За неделю"

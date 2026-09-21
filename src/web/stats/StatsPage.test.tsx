@@ -7,6 +7,8 @@ import { taskFixture } from "../testing/fixtures";
 import { renderApp } from "../testing/render-app";
 import { NBSP } from "../../core/stats/format";
 
+const MINUS = "\u2212";
+
 const FILES = {
   "spa/project.md": projectFile("SPA"),
   "spa/SPA-1.md": taskFixture("SPA-1", { title: "Таймауты", priority: "high", tags: "[upload]", source: "src/upload/client.ts:88", created: "2026-09-10T10:00:00+03:00" }),
@@ -27,6 +29,35 @@ describe("страница статистики", () => {
     expect(within(open).getByText("вес 8")).toBeDefined();
     expect(screen.getByRole("figure", { name: new RegExp(`12${NBSP}недель: создано 4, закрыто 1, открыто сейчас 3`) })).toBeDefined();
     expect(screen.getByText(/Журнал ещё пуст/)).toBeDefined();
+  });
+
+  it("«Задачи сегодня» считает заведённые и закрытые за день в выбранной области", async () => {
+    const today = {
+      ...FILES,
+      "spa/SPA-4.md": taskFixture("SPA-4", { title: "Сегодняшняя", created: "2026-09-18T10:00:00+03:00" }),
+      "spa/SPA-5.md": taskFixture("SPA-5", { title: "Закрыли сегодня", status: "done", closed: "2026-09-18T11:00:00+03:00", created: "2026-09-12T10:00:00+03:00" }),
+      "torg-io/TI-2.md": taskFixture("TI-2", { title: "Чужая сегодняшняя", created: "2026-09-18T10:00:00+03:00" }),
+    };
+
+    await renderApp(today, "/p/spa/stats");
+    const own = await screen.findByRole("group", { name: "Задачи сегодня" });
+
+    expect(own.textContent).toContain("+1");
+    expect(own.textContent).toContain(`${MINUS}1`);
+  });
+
+  it("«Задачи сегодня» в области «Проекты» считает все активные проекты", async () => {
+    const today = {
+      ...FILES,
+      "spa/SPA-4.md": taskFixture("SPA-4", { title: "Сегодняшняя", created: "2026-09-18T10:00:00+03:00" }),
+      "torg-io/TI-2.md": taskFixture("TI-2", { title: "Чужая сегодняшняя", created: "2026-09-18T10:00:00+03:00" }),
+    };
+
+    await renderApp(today, "/stats");
+    const all = await screen.findByRole("group", { name: "Задачи сегодня" });
+
+    expect(all.textContent).toContain("+2");
+    expect(all.textContent).toContain(`${MINUS}0`);
   });
 
   it("сравнение с прошлой неделей: стрелка, величина и пояснение для экранного диктора", async () => {

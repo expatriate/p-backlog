@@ -1,10 +1,10 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { cx } from "../ui/cx";
 import styles from "./StatsPage.module.css";
 
 export type FigureTrend = { text: string; speech: string; better: boolean };
 
-export function Figure({ label, value, note, tone, trend }: { label: string; value: string; note: string; tone?: "growth" | "decline" | undefined; trend?: FigureTrend | undefined }) {
+export function Figure({ label, value, note, tone, trend }: { label: string; value: ReactNode; note: string; tone?: "growth" | "decline" | undefined; trend?: FigureTrend | undefined }) {
   const labelId = useId();
 
   return (

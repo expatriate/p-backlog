@@ -1,6 +1,7 @@
 import { formatLocalDay } from "../../model/dates";
 import type { CliRun, CostCommand, CostDay, CostModel, CostReport, CostTotals, ScanProgress, TokenCounts, UsageBucket } from "../types";
 import { costOf } from "./pricing";
+import { dayRange } from "../days";
 
 export const COST_REPORT_DAYS = 30;
 export const COST_TOTALS_DAYS = 7;
@@ -47,9 +48,6 @@ function memoizedByCwd(projectOf: (cwd: string) => string | null): (cwd: string)
   };
 }
 
-function dayRange(now: Date, count: number): string[] {
-  return Array.from({ length: count }, (_, index) => formatLocalDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (count - 1 - index))));
-}
 
 function localDay(at: string): string {
   return formatLocalDay(new Date(at));

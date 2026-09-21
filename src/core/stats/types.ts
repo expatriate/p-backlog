@@ -5,6 +5,7 @@ export type ClosingReason = "done" | "fixed" | "obsolete" | "duplicate" | "cance
 export type AgeBucket = "week" | "month" | "quarter" | "older";
 
 export type WeekFlow = { start: string; created: number; closed: number; openAtEnd: number };
+export type DayFlow = { day: string; created: number };
 
 export type PreviousTotals = { open: number; net: number; ageMedianDays: number | null; leadTimeMedianDays: number | null };
 
@@ -17,6 +18,8 @@ export type StatsTotals = {
   olderThan30Days: number;
   leadTimeMedianDays: number | null;
   leadTimeP90Days: number | null;
+  createdToday: number;
+  closedToday: number;
   previous: PreviousTotals | null;
 };
 
@@ -38,6 +41,7 @@ export type StatsReport = {
   invalidJournalLines: number;
   totals: StatsTotals;
   weeks: WeekFlow[];
+  days: DayFlow[];
   hotspots: Hotspots;
   age: AgeBreakdown;
   closing: ClosingBreakdown;
