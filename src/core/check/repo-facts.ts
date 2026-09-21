@@ -37,6 +37,25 @@ export async function diffSince(repo: string, path: string, since: Date): Promis
   return [...lines.slice(0, DIFF_LINE_LIMIT), `… ещё ${lines.length - DIFF_LINE_LIMIT} строк`].join("\n");
 }
 
+export type LineRange = { from: number; to: number };
+
+const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/gm;
+
+export async function changedLines(repo: string, path: string, since: Date): Promise<LineRange[] | null> {
+  const base = (await git(repo, ["rev-list", "-1", `--before=${since.toISOString()}`, "HEAD"]))?.trim();
+  if (base === undefined || base === "") return null;
+  const diff = await git(repo, ["diff", "--unified=0", base, "--", path]);
+  return diff === null ? null : hunkRanges(diff);
+}
+
+function hunkRanges(diff: string): LineRange[] {
+  return [...diff.matchAll(HUNK_HEADER)].map((match) => {
+    const start = Number(match[1]);
+    const count = match[2] === undefined ? 1 : Number(match[2]);
+    return count === 0 ? { from: start, to: start + 1 } : { from: start, to: start + count - 1 };
+  });
+}
+
 async function fileTexts(repo: string, paths: readonly string[]): Promise<Map<string, string>> {
   const entries = await Promise.all(paths.map((path) => readFile(join(repo, path), "utf8").then((text): [string, string] => [path, text], () => null)));
   return new Map(entries.filter((entry) => entry !== null));
