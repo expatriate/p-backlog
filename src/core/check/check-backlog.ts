@@ -15,10 +15,10 @@ import { updateTaskIn, type TaskChanges } from "../store/update";
 import type { UpdateTaskFailure } from "../store/write-result";
 import { snippetOf } from "./anchor";
 import { findRepo } from "./project-repo";
-import { codeReview, duplicateCandidates, isReviewable, reviewMark, sourcePath, type AnchorPlan, type Candidate, type SymbolOf } from "./candidates";
+import { codeReview, duplicateCandidates, isReviewable, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
 import { collectRepoFacts, diffSince, type RepoFacts } from "./repo-facts";
-import { fileHashSync, filterBySymbol, sourceLine } from "./symbol-filter";
-import { openCodeGraph, type CodeGraph } from "../graph/code-graph";
+import { filterBySymbol, symbolNames } from "./symbol-filter";
+import { openCodeGraph } from "../graph/code-graph";
 
 export type { CheckMode };
 
@@ -133,25 +133,13 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
   const review = codeReview(tasks, facts);
   const graph = openCodeGraph(repo);
   try {
-    const duplicates = mode === "full" ? duplicateCandidates(tasks, symbolKey(repo, graph)) : [];
+    const duplicates = mode === "full" ? duplicateCandidates(tasks, symbolNames(repo, graph)) : [];
     const kept = await filterBySymbol(review.candidates, tasks, repo, graph);
     const code = await Promise.all(kept.map((candidate) => withContext(candidate, tasks, facts, repo)));
     return { candidates: mode === "full" ? [...code, ...duplicates] : code, plans: review.plans };
   } finally {
     graph?.close();
   }
-}
-
-function symbolKey(repo: string, graph: CodeGraph | null): SymbolOf {
-  if (graph === null) return () => null;
-  return (task) => {
-    const line = sourceLine(task.source);
-    if (task.source === undefined || line === null) return null;
-    const path = sourcePath(task.source);
-    const hash = fileHashSync(join(repo, path));
-    const symbol = hash === null ? null : graph.symbolAt(path, line, hash);
-    return symbol === null ? null : `${path}::${symbol.name}`;
-  };
 }
 
 async function withContext(candidate: Candidate, tasks: readonly Task[], facts: RepoFacts, repo: string): Promise<Candidate> {

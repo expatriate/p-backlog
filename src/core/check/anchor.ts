@@ -19,6 +19,11 @@ export function anchorOf(text: string, source: string): string | null {
   return window === null ? null : `${hashLines(lines.slice(window.from - 1, window.to))}@${window.from}-${window.to}`;
 }
 
+export function sourceLine(source: string | undefined): number | null {
+  const match = source === undefined ? null : SOURCE_LINES.exec(source);
+  return match === null || match[1] === undefined ? null : Number(match[1]);
+}
+
 export function isAnchorFor(anchor: string, source: string): boolean {
   const parsed = parseAnchor(anchor);
   const span = sourceSpan(source);

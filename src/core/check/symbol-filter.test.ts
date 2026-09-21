@@ -7,7 +7,9 @@ import { openCodeGraph } from "../graph/code-graph";
 import { makeGraph } from "../graph/testing/make-graph";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import type { Candidate } from "./candidates";
-import { filterBySymbol } from "./symbol-filter";
+import { duplicateCandidates } from "./candidates";
+import { filterBySymbol, symbolNames } from "./symbol-filter";
+import type { CodeGraph } from "../graph/code-graph";
 
 const SYMBOLS = [
   { name: "uploadFile", kind: "Function", from: 1, to: 3 },
@@ -73,5 +75,25 @@ describe("filterBySymbol", () => {
 
     expect(await filterBySymbol([missing], [task], repo, graph)).toEqual([missing]);
     graph?.close();
+  });
+});
+
+describe("symbolNames", () => {
+  it("символ каждой задачи спрашивается у графа один раз, а не на каждую пару", async () => {
+    const repo = await repoWithChange({ inSymbol: false });
+    let asked = 0;
+    const counting: CodeGraph = {
+      symbolAt: () => {
+        asked++;
+        return { name: "uploadFile", from: 1, to: 3 };
+      },
+      close: () => undefined,
+    };
+    const tasks = ["SPA-1", "SPA-2", "SPA-3"].map((id, index) => makeTask({ id, title: `Задача ${id}`, source: `src/upload.ts:${index + 1}` }));
+
+    const duplicates = duplicateCandidates(tasks, symbolNames(repo, counting));
+
+    expect(duplicates).toHaveLength(3);
+    expect(asked).toBe(3);
   });
 });

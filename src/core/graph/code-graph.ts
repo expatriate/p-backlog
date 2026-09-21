@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 
-export type GraphSymbol = { name: string; kind: string; from: number; to: number };
+export type GraphSymbol = { name: string; from: number; to: number };
 
 export type CodeGraph = {
   symbolAt(path: string, line: number, fileHash: string): GraphSymbol | null;
@@ -11,7 +11,7 @@ export type CodeGraph = {
 const GRAPH_FILE = join(".code-review-graph", "graph.db");
 const SUPPORTED_SCHEMA = "13";
 
-type SymbolRow = { name: string; kind: string; line_start: number; line_end: number };
+type SymbolRow = { name: string; line_start: number; line_end: number };
 
 export function openCodeGraph(repo: string): CodeGraph | null {
   let db: DatabaseSync | null = null;
@@ -37,7 +37,7 @@ function readMetadata(db: DatabaseSync): Map<string, string> {
 function codeGraph(db: DatabaseSync, repo: string): CodeGraph {
   const fresh = db.prepare("select 1 from nodes where kind = 'File' and file_path = ? and file_hash = ?");
   const enclosing = db.prepare(
-    "select name, kind, line_start, line_end from nodes where file_path = ? and kind != 'File' and line_start <= ? and line_end >= ? order by line_end - line_start asc limit 1",
+    "select name, line_start, line_end from nodes where file_path = ? and kind != 'File' and line_start <= ? and line_end >= ? order by line_end - line_start asc limit 1",
   );
 
   return {
@@ -45,7 +45,7 @@ function codeGraph(db: DatabaseSync, repo: string): CodeGraph {
       const file = join(repo, path);
       if (ask(fresh, (statement) => statement.get(file, fileHash), undefined) === undefined) return null;
       const row = ask(enclosing, (statement) => statement.get(file, line, line) as SymbolRow | undefined, undefined);
-      return row === undefined ? null : { name: row.name, kind: row.kind, from: row.line_start, to: row.line_end };
+      return row === undefined ? null : { name: row.name, from: row.line_start, to: row.line_end };
     },
     close() {
       closeQuietly(db);
