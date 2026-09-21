@@ -1,6 +1,6 @@
 import type { Candidate } from "../core/check/candidates";
 
-const DUPLICATE_MATCH = { source: "то же место в коде", title: "похожие заголовки" } as const;
+const DUPLICATE_MATCH = { source: "то же место в коде", title: "похожие заголовки", symbol: "тот же символ в коде" } as const;
 
 export function describeCandidate(candidate: Candidate): string {
   return `${candidate.task.id} — ${candidate.task.title}: ${evidence(candidate)}`;

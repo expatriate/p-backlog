@@ -10,7 +10,7 @@ export type CommitRef = { sha: string; subject: string };
 export type Candidate =
   | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string  | undefined}
   | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string; bySymbol?: boolean }
-  | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: "source" | "title" };
+  | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: "source" | "title" | "symbol" };
 
 export type AnchorPlan = { id: string; changes: { source?: string; anchor: string }; note?: string };
 
@@ -90,18 +90,22 @@ export function findSimilarTask(draft: { title: string; source?: string | undefi
   return byTitle === undefined ? null : { task: taskRef(byTitle), match: "title" };
 }
 
-export function duplicateCandidates(tasks: readonly Task[]): Candidate[] {
+export type SymbolOf = (task: Task) => string | null;
+
+export function duplicateCandidates(tasks: readonly Task[], symbolOf: SymbolOf = () => null): Candidate[] {
   return tasks.flatMap((task, index) =>
     tasks.slice(0, index).flatMap((older): Candidate[] => {
-      const match = duplicateMatch(task, older);
+      const match = duplicateMatch(task, older, symbolOf);
       return match === null ? [] : [{ kind: "duplicate", task: taskRef(task), other: taskRef(older), match }];
     }),
   );
 }
 
-function duplicateMatch(task: Task, other: Task): "source" | "title" | null {
+function duplicateMatch(task: Task, other: Task, symbolOf: SymbolOf): "source" | "title" | "symbol" | null {
   if (linked(task, other) || bothConfirmedAfterCreation(task, other)) return null;
   if (task.source !== undefined && other.source !== undefined && samePlace(task.source, other.source)) return "source";
+  const symbol = symbolOf(task);
+  if (symbol !== null && symbol === symbolOf(other)) return "symbol";
   return similarTitles(task.title, other.title) ? "title" : null;
 }
 

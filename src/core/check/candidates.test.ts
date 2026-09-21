@@ -143,6 +143,24 @@ describe("duplicateCandidates", () => {
     ]);
   });
 
+  it("две задачи в одном символе — дубль, даже когда строки разные", () => {
+    const first = makeTask({ id: "SPA-3", title: "Очередь висит", source: "src/queue.ts:12", created: CREATED });
+    const second = makeTask({ id: "SPA-4", title: "Повторная отправка", source: "src/queue.ts:20", created: CREATED });
+    const symbolOf = (task: Task) => (task.source?.startsWith("src/queue.ts") === true ? "src/queue.ts::drainQueue" : null);
+
+    expect(duplicateCandidates([first, second], symbolOf)).toEqual([
+      { kind: "duplicate", task: { id: "SPA-4", title: "Повторная отправка" }, other: { id: "SPA-3", title: "Очередь висит" }, match: "symbol" },
+    ]);
+  });
+
+  it("задачи в разных символах дублями не считаются", () => {
+    const first = makeTask({ id: "SPA-3", title: "Очередь висит", source: "src/queue.ts:12", created: CREATED });
+    const second = makeTask({ id: "SPA-4", title: "Повторная отправка", source: "src/queue.ts:80", created: CREATED });
+    const symbolOf = (task: Task) => (task.source === "src/queue.ts:12" ? "src/queue.ts::drainQueue" : "src/queue.ts::retry");
+
+    expect(duplicateCandidates([first, second], symbolOf)).toEqual([]);
+  });
+
   it("одно место в source сравнивается по нормализованному пути и той же строке", () => {
     const dotted = makeTask({ id: "SPA-3", title: "Очередь", source: "./src/queue.ts:40", created: CREATED });
     const plain = makeTask({ id: "SPA-4", title: "Повтор", source: "src/queue.ts:40", created: CREATED });
