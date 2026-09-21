@@ -8,7 +8,7 @@ import { makeGraph } from "../graph/testing/make-graph";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import type { Candidate } from "./candidates";
 import { duplicateCandidates } from "./candidates";
-import { filterBySymbol, symbolNames } from "./symbol-filter";
+import { filterBySymbol, symbolLookup, symbolNames } from "./symbol-filter";
 import type { CodeGraph } from "../graph/code-graph";
 
 const SYMBOLS = [
@@ -41,7 +41,7 @@ describe("filterBySymbol", () => {
     const repo = await repoWithChange({ inSymbol: false });
     const graph = openCodeGraph(repo);
 
-    expect(await filterBySymbol([candidate], [task], repo, graph)).toEqual([]);
+    expect(await filterBySymbol([candidate], [task], repo, symbolLookup(repo, graph))).toEqual([]);
     graph?.close();
   });
 
@@ -49,14 +49,14 @@ describe("filterBySymbol", () => {
     const repo = await repoWithChange({ inSymbol: true });
     const graph = openCodeGraph(repo);
 
-    expect(await filterBySymbol([candidate], [task], repo, graph)).toEqual([{ ...candidate, bySymbol: true }]);
+    expect(await filterBySymbol([candidate], [task], repo, symbolLookup(repo, graph))).toEqual([{ ...candidate, bySymbol: true }]);
     graph?.close();
   });
 
   it("без графа кандидат остаётся в том же сценарии", async () => {
     const repo = await repoWithChange({ inSymbol: false });
 
-    expect(await filterBySymbol([candidate], [task], repo, null)).toEqual([candidate]);
+    expect(await filterBySymbol([candidate], [task], repo, symbolLookup(repo, null))).toEqual([candidate]);
   });
 
   it("файл изменился после сборки графа — кандидат остаётся", async () => {
@@ -64,8 +64,24 @@ describe("filterBySymbol", () => {
     const graph = openCodeGraph(repo);
     await writeFile(join(repo, "src/upload.ts"), body("v3", "v3"));
 
-    expect(await filterBySymbol([candidate], [task], repo, graph)).toEqual([candidate]);
+    expect(await filterBySymbol([candidate], [task], repo, symbolLookup(repo, graph))).toEqual([candidate]);
     graph?.close();
+  });
+
+  it("правка внутри объявленного диапазона source, но в соседнем символе, кандидата оставляет", async () => {
+    const repo = await repoWithChange({ inSymbol: false });
+    const graph = openCodeGraph(repo);
+    const spanning = makeTask({ id: "SPA-9", source: "src/upload.ts:2-6", created: "2026-09-11T10:00:00+03:00" });
+    const spanningCandidate: Candidate = { kind: "source-changed", task: { id: "SPA-9", title: spanning.title }, path: "src/upload.ts", commits: [], uncommitted: false };
+
+    expect(await filterBySymbol([spanningCandidate], [spanning], repo, symbolLookup(repo, graph))).toEqual([{ ...spanningCandidate, bySymbol: true }]);
+    graph?.close();
+  });
+
+  it("путь репозитория с хвостовым слешем не выключает фильтр", async () => {
+    const repo = await repoWithChange({ inSymbol: false });
+
+    expect(await filterBySymbol([candidate], [task], `${repo}/`, symbolLookup(`${repo}/`, openCodeGraph(`${repo}/`)))).toEqual([]);
   });
 
   it("кандидатов других видов не трогает", async () => {
@@ -73,7 +89,7 @@ describe("filterBySymbol", () => {
     const graph = openCodeGraph(repo);
     const missing: Candidate = { kind: "source-missing", task: { id: "SPA-2", title: "Задача SPA-2" }, path: "src/gone.ts" };
 
-    expect(await filterBySymbol([missing], [task], repo, graph)).toEqual([missing]);
+    expect(await filterBySymbol([missing], [task], repo, symbolLookup(repo, graph))).toEqual([missing]);
     graph?.close();
   });
 });
@@ -91,7 +107,7 @@ describe("symbolNames", () => {
     };
     const tasks = ["SPA-1", "SPA-2", "SPA-3"].map((id, index) => makeTask({ id, title: `Задача ${id}`, source: `src/upload.ts:${index + 1}` }));
 
-    const duplicates = duplicateCandidates(tasks, symbolNames(repo, counting));
+    const duplicates = duplicateCandidates(tasks, symbolNames(symbolLookup(repo, counting)));
 
     expect(duplicates).toHaveLength(3);
     expect(asked).toBe(3);

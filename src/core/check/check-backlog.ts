@@ -17,7 +17,7 @@ import { snippetOf } from "./anchor";
 import { findRepo } from "./project-repo";
 import { codeReview, duplicateCandidates, isReviewable, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
 import { collectRepoFacts, diffSince, type RepoFacts } from "./repo-facts";
-import { filterBySymbol, symbolNames } from "./symbol-filter";
+import { filterBySymbol, symbolLookup, symbolNames } from "./symbol-filter";
 import { openCodeGraph } from "../graph/code-graph";
 
 export type { CheckMode };
@@ -133,8 +133,9 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
   const review = codeReview(tasks, facts);
   const graph = openCodeGraph(repo);
   try {
-    const duplicates = mode === "full" ? duplicateCandidates(tasks, symbolNames(repo, graph)) : [];
-    const kept = await filterBySymbol(review.candidates, tasks, repo, graph);
+    const symbolOf = symbolLookup(repo, graph);
+    const duplicates = mode === "full" ? duplicateCandidates(tasks, symbolNames(symbolOf)) : [];
+    const kept = await filterBySymbol(review.candidates, tasks, repo, symbolOf);
     const code = await Promise.all(kept.map((candidate) => withContext(candidate, tasks, facts, repo)));
     return { candidates: mode === "full" ? [...code, ...duplicates] : code, plans: review.plans };
   } finally {

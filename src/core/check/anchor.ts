@@ -19,9 +19,13 @@ export function anchorOf(text: string, source: string): string | null {
   return window === null ? null : `${hashLines(lines.slice(window.from - 1, window.to))}@${window.from}-${window.to}`;
 }
 
-export function sourceLine(source: string | undefined): number | null {
+export type LineRange = { from: number; to: number };
+
+export function sourceRange(source: string | undefined): LineRange | null {
   const match = source === undefined ? null : SOURCE_LINES.exec(source);
-  return match === null || match[1] === undefined ? null : Number(match[1]);
+  if (match === null || match[1] === undefined) return null;
+  const first = Number(match[1]);
+  return { from: first, to: match[2] === undefined ? first : Number(match[2]) };
 }
 
 export function isAnchorFor(anchor: string, source: string): boolean {

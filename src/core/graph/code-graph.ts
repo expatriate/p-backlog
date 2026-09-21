@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 
@@ -18,11 +19,12 @@ export function openCodeGraph(repo: string): CodeGraph | null {
   try {
     db = new DatabaseSync(join(repo, GRAPH_FILE), { readOnly: true });
     const meta = readMetadata(db);
-    if (meta.get("schema_version") !== SUPPORTED_SCHEMA || meta.get("repo_root") !== repo) {
+    const root = meta.get("repo_root");
+    if (meta.get("schema_version") !== SUPPORTED_SCHEMA || root === undefined || realpathSync(root) !== realpathSync(repo)) {
       db.close();
       return null;
     }
-    return codeGraph(db, repo);
+    return codeGraph(db, root);
   } catch {
     closeQuietly(db);
     return null;

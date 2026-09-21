@@ -1,6 +1,7 @@
 import { access, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { FIELD, RECORD, runGit as git } from "../git/run";
+import type { LineRange } from "./anchor";
 
 export type FileChange = { path: string; renamedFrom?: string };
 
@@ -36,8 +37,6 @@ export async function diffSince(repo: string, path: string, since: Date): Promis
   if (lines.length <= DIFF_LINE_LIMIT) return lines.join("\n");
   return [...lines.slice(0, DIFF_LINE_LIMIT), `… ещё ${lines.length - DIFF_LINE_LIMIT} строк`].join("\n");
 }
-
-export type LineRange = { from: number; to: number };
 
 const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/gm;
 
