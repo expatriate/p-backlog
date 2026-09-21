@@ -4,3 +4,4 @@ coverage/
 test-results/
 playwright-report/
 .DS_Store
+.code-review-graph/
