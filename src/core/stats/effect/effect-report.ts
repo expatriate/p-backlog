@@ -5,7 +5,8 @@ import { fixCommitEntry } from "../code/fixes";
 import { isFixedNow, type TaskHistory } from "../history";
 import { median, smallest } from "../numbers";
 import { statsScope, type StatsInput } from "../scope";
-import type { CollectedCode, CommitUnit, EffectProject, EffectReport, EffectTotals, EffectWeek, FixCommit } from "../types";
+import type { CollectedCode, CommitUnit, EffectProject, EffectReport, EffectTotals, EffectPeriod, FixCommit } from "../types";
+import { dayWindows } from "../days";
 import { periodStart, weekWindows } from "../weeks";
 
 export const MIN_FIXES_FOR_ESTIMATE = 5;
@@ -52,7 +53,8 @@ export function effectReport({ code, ...input }: EffectInput): EffectReport {
     invalidJournalLines: scope.invalidJournalLines,
     unavailableRepos: code.unavailableRepos,
     totals,
-    weeks: weeksOf(deferred, periodUnits, estimate, now),
+    weeks: bucketsOf(weekBuckets(now), deferred, periodUnits, estimate),
+    days: bucketsOf(dayWindows(now), deferred, periodUnits, estimate),
     projects: projects.map((project): EffectProject => {
       const own = totalsOf(deferred.filter((item) => item.history.projectId === project.projectId), unitsForTotals(project.projectId), estimate);
       return {
@@ -148,8 +150,14 @@ function sum(values: readonly number[]): number {
   return values.reduce((total, value) => total + value, 0);
 }
 
-function weeksOf(deferred: readonly Deferred[], periodUnits: readonly CommitUnit[], estimate: Estimate, now: Date): EffectWeek[] {
-  return weekWindows(now).map(({ start, inWeek }) => {
+type Bucket = { start: Date; inWindow: (moment: number) => boolean };
+
+function weekBuckets(now: Date): Bucket[] {
+  return weekWindows(now).map(({ start, inWeek }) => ({ start, inWindow: inWeek }));
+}
+
+function bucketsOf(buckets: readonly Bucket[], deferred: readonly Deferred[], periodUnits: readonly CommitUnit[], estimate: Estimate): EffectPeriod[] {
+  return buckets.map(({ start, inWindow: inWeek }) => {
     const rawRealLines = periodUnits.filter((unit) => inWeek(Date.parse(unit.date))).reduce((sum, unit) => sum + unit.lines, 0);
     const fixedInWeek = deferred.filter((item) => item.fixedAt !== null && inWeek(item.fixedAt));
     const openInWeek = deferred.filter((item) => item.fixedLines === null && inWeek(item.history.createdAt));

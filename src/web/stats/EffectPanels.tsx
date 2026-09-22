@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { NBSP, plural } from "../../core/stats/format";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
-import type { EffectProject, EffectTotals, EffectWeek } from "../../core/stats/types";
-import { EffectWeeksChart } from "./EffectWeeksChart";
+import type { EffectPeriod, EffectProject, EffectTotals } from "../../core/stats/types";
+import { EffectWeeksChart, type Grain } from "./EffectWeeksChart";
+import { ToggleChip } from "../ui/Chip";
 import { codeAndTests, formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
 import rowStyles from "./PanelRows.module.css";
 import { Figure } from "./Figure";
@@ -30,10 +32,22 @@ function keptOutNote(totals: EffectTotals): string {
   return `исправлено ${formatLines(totals.fixedLines)} + ожидают ${formatApprox(totals.estimatedLines, isEstimated(totals.estimatedLines))}`;
 }
 
-export function EffectChartPanel({ weeks, totals }: { weeks: EffectWeek[]; totals: EffectTotals }) {
+export function EffectChartPanel({ weeks, days, totals }: { weeks: EffectPeriod[]; days: EffectPeriod[]; totals: EffectTotals }) {
+  const [grain, setGrain] = useState<Grain>("week");
+  const toggle = (
+    <span role="group" aria-label="Масштаб графика" className={rowStyles.grain}>
+      <ToggleChip pressed={grain === "week"} onToggle={() => setGrain("week")}>
+        неделя
+      </ToggleChip>
+      <ToggleChip pressed={grain === "day"} onToggle={() => setGrain("day")}>
+        день
+      </ToggleChip>
+    </span>
+  );
+
   return (
-    <Panel title="Эффективность">
-      <EffectWeeksChart weeks={weeks} totals={totals} />
+    <Panel title="Эффективность" aside={toggle}>
+      <EffectWeeksChart periods={grain === "week" ? weeks : days} totals={totals} grain={grain} />
     </Panel>
   );
 }

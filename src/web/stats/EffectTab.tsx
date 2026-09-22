@@ -28,7 +28,7 @@ function Effect({ report }: { report: EffectReport }) {
       <EffectFigures totals={report.totals} />
       <div className={styles.blocks}>
         <div className={rowStyles.wide}>
-          <EffectChartPanel weeks={report.weeks} totals={report.totals} />
+          <EffectChartPanel weeks={report.weeks} days={report.days} totals={report.totals} />
         </div>
         <div className={rowStyles.wide}>
           <ProjectsPanel projects={report.projects} />

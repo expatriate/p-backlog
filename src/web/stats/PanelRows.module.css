@@ -86,3 +86,8 @@
   background: var(--accent-ink);
   transform-origin: left center;
 }
+
+.grain {
+  display: inline-flex;
+  gap: var(--space-1);
+}

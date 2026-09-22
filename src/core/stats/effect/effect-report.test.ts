@@ -38,6 +38,17 @@ describe("эффект беклога", () => {
     expect(report.projects).toEqual([{ projectId: "spa", name: "Проект spa", realLines: 400, deferredTasks: 8, fixedLines: 210, estimatedLines: 70, noiseShare: 280 / 470 }]);
   });
 
+  it("по дням: правка и вынесенная задача попадают каждая в свой день", () => {
+    const report = effectReport({ tasks: [...fixes.map((fix) => fix.task), ...others], journals: [], now: NOW, projectId: "spa", code: code(fixes.map((fix) => fix.commit)) });
+    const day = (month: number, date: number) => report.days.find((bucket) => bucket.start.startsWith(iso(month, date).slice(0, 10)));
+
+    expect(report.days).toHaveLength(30);
+    expect(day(8, 15)).toMatchObject({ onTopicLines: 300, deferredLines: 35, deferredTasks: 1 });
+    expect(day(8, 16)).toMatchObject({ onTopicLines: 0, deferredLines: 35, deferredTasks: 1 });
+    expect(day(8, 10)).toMatchObject({ onTopicLines: 0, deferredLines: 210, deferredTasks: 6 });
+    expect(day(8, 2)).toMatchObject({ onTopicLines: 100, deferredLines: 0, deferredTasks: 0 });
+  });
+
   it("меньше 5 исправлений — оценки ожидающих нет", () => {
     const few = fixes.slice(0, 4);
 

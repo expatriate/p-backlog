@@ -253,8 +253,16 @@ describe("вкладка «Эффект»", () => {
     expect(within(kept).getByText("0 строк")).toBeDefined();
     expect(within(kept).getByText("исправлено 0; оценка ожидающих появится после 5 исправлений · код 0, тесты 0")).toBeDefined();
     expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("2")).toBeDefined();
-    expect(screen.getByRole("figure", { name: new RegExp(`12${NBSP}недель: в пулреквестах 2${NBSP}строки`) })).toBeDefined();
+    expect(screen.getByRole("figure", { name: /С внедрения беклога: в пулреквестах 2/ })).toBeDefined();
     expect(screen.getByRole("region", { name: "По проектам" })).toBeDefined();
+
+    const grain = screen.getByRole("group", { name: "Масштаб графика" });
+    expect(within(grain).getByRole("button", { name: "неделя" }).getAttribute("aria-pressed")).toBe("true");
+
+    await app.user.click(within(grain).getByRole("button", { name: "день" }));
+
+    expect(within(grain).getByRole("button", { name: "день" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(grain).getByRole("button", { name: "неделя" }).getAttribute("aria-pressed")).toBe("false");
 
     const explainer = screen.getByRole("region", { name: "Как считается выигрыш" });
     expect(within(explainer).getByText("Сейчас: 0 задач — 0 строк")).toBeDefined();
