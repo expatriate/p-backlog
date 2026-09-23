@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import type { Project } from "../../core/model/types";
 import { listPath } from "../app/paths";
 import { useDeleteProject, useSetProjectActive } from "../app/queries";
+import { requestErrorMessage } from "../app/RequestErrorText";
 import { useMessages } from "../i18n";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import styles from "./ProjectControls.module.css";
@@ -77,10 +78,11 @@ function useFocusAfterDialogCloses<T extends HTMLElement>(dialogOpen: boolean): 
 }
 
 function MutationError({ error, action }: { error: Error | null; action: string }) {
+  const { app } = useMessages();
   if (error === null) return null;
   return (
     <span className={styles.error} role="alert">
-      {action}: {error.message}
+      {action}: {requestErrorMessage(app, error)}
     </span>
   );
 }

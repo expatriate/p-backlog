@@ -6,8 +6,13 @@ import { appRu } from "./app/messages.ru";
 import { useSettings } from "./app/queries";
 import { layoutEn } from "./layout/messages.en";
 import { layoutRu } from "./layout/messages.ru";
+import { Button } from "./ui/Button";
 import { uiEn } from "./ui/messages.en";
 import { uiRu } from "./ui/messages.ru";
+import styles from "./i18n.module.css";
+
+const SETTINGS_ERROR_TEXT = "Сервер беклога не отвечает · Backlog server is not responding";
+const SETTINGS_RETRY_TEXT = "Повторить · Retry";
 
 export { useSetLanguage } from "./app/queries";
 
@@ -29,6 +34,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
     if (language !== undefined) document.documentElement.lang = language;
   }, [language]);
 
+  if (settings.isError) return <SettingsLoadError onRetry={() => void settings.refetch()} />;
   if (language === undefined) return null;
 
   const messages: WebMessages = { ...CATALOGS[language], core: coreMessages(language) };
@@ -37,6 +43,15 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
     <LanguageContext.Provider value={language}>
       <MessagesContext.Provider value={messages}>{children}</MessagesContext.Provider>
     </LanguageContext.Provider>
+  );
+}
+
+function SettingsLoadError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className={styles.settingsError} role="alert">
+      <p>{SETTINGS_ERROR_TEXT}</p>
+      <Button onClick={onRetry}>{SETTINGS_RETRY_TEXT}</Button>
+    </div>
   );
 }
 

@@ -13,6 +13,12 @@ function failTasksRequest(app: TestApp): void {
   app.request = async (path, init) => (path === "/api/tasks" ? Promise.reject(new TypeError("Failed to fetch")) : request(path, init));
 }
 
+function failProjectActivePatch(app: TestApp): void {
+  const request = app.request;
+  app.request = async (path, init) =>
+    path.startsWith("/api/projects/") && init?.method === "PATCH" ? Promise.reject(new TypeError("Failed to fetch")) : request(path, init);
+}
+
 const FILES = {
   "spa/project.md": projectFile("SPA"),
   "spa/SPA-1.md": taskFile("SPA-1"),
@@ -39,6 +45,14 @@ describe("боковая панель", () => {
 
     await waitFor(async () => expect((await loadBacklog(root)).projects.find((project) => project.id === "torg-io")?.active).toBe(true));
     await waitFor(() => expect(screen.getByRole("link", { name: "Проекты" }).closest("div")?.textContent).toContain("2 задачи"));
+  });
+
+  it("сбой сети при переключении галочки показывает «сервер не отвечает» по-русски, а не внутренний текст", async () => {
+    const { user } = await renderApp(FILES, "/", undefined, { beforeRender: failProjectActivePatch });
+
+    await user.click(await screen.findByRole("checkbox", { name: "Учитывать проект ti в области «Проекты»" }));
+
+    expect(await screen.findByText(/Сервер беклога не отвечает/)).toBeDefined();
   });
 
   it("список проектов сворачивается, заметка об охвате видна всегда", async () => {
