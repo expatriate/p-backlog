@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildIndex } from "./graph";
-import { filterTasks, matchesQuery, normalizeText, pickNextTask, sortTasks } from "./query";
+import { filterTasks, normalizeText, pickNextTask, sortTasks } from "./query";
 import { makeTask } from "./testing/make-task";
 
 const ids = (tasks: readonly { id: string }[]) => tasks.map((task) => task.id);
@@ -11,11 +11,12 @@ describe("поиск", () => {
   });
 
   it("требует вхождения каждого слова в ID, заголовок или описание", () => {
-    const task = makeTask({ id: "SPA-12", title: "Таймауты загрузки", body: "Большие файлы ещё падают" });
-    expect(matchesQuery(task, "таймауты еще")).toBe(true);
-    expect(matchesQuery(task, "spa-12 файлы")).toBe(true);
-    expect(matchesQuery(task, "таймауты сеть")).toBe(false);
-    expect(matchesQuery(task, "   ")).toBe(true);
+    const tasks = [makeTask({ id: "SPA-12", title: "Таймауты загрузки", body: "Большие файлы ещё падают" })];
+    const found = (query: string) => ids(filterTasks(tasks, { query }, buildIndex(tasks)));
+    expect(found("таймауты еще")).toEqual(["SPA-12"]);
+    expect(found("spa-12 файлы")).toEqual(["SPA-12"]);
+    expect(found("таймауты сеть")).toEqual([]);
+    expect(found("   ")).toEqual(["SPA-12"]);
   });
 });
 

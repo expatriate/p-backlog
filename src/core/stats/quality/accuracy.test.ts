@@ -4,6 +4,7 @@ import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
 import { accuracy, accuracyWeeks, symbolAccuracy } from "./accuracy";
+import { period } from "../period";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 const iso = (day: number, hour = 12) => formatLocalIso(at(day, hour));
@@ -36,7 +37,7 @@ describe("точность проверки", () => {
       verified("SPA-5", 9),
     ];
 
-    expect(accuracy(taskHistories(tasks, journal(events)), FROM, TO)).toEqual([
+    expect(accuracy(taskHistories(tasks, journal(events)), period(FROM, TO))).toEqual([
       { evidence: "source-changed", candidates: 4, closed: 2, verified: 1, open: 1, precision: 2 / 3 },
       { evidence: "source-missing", candidates: 1, closed: 1, verified: 0, open: 0, precision: 1 },
       { evidence: "duplicate", candidates: 1, closed: 0, verified: 0, open: 1, precision: null },
@@ -47,7 +48,7 @@ describe("точность проверки", () => {
   it("кандидаты вне периода не считаются, без эпизодов — пусто", () => {
     const tasks = [makeTask({ id: "SPA-1", created: iso(1) })];
 
-    expect(accuracy(taskHistories(tasks, journal([candidate("SPA-1", 3, "source-changed")])), at(5).getTime(), TO)).toEqual([]);
+    expect(accuracy(taskHistories(tasks, journal([candidate("SPA-1", 3, "source-changed")])), period(at(5).getTime(), TO))).toEqual([]);
   });
 
   it("по неделям: точность считается без улики «нет source»", () => {
@@ -89,7 +90,7 @@ describe("точность по способу проверки", () => {
       verified("SPA-3", 4),
     ];
 
-    expect(symbolAccuracy(taskHistories(tasks, journal(events)), FROM, TO)).toEqual([
+    expect(symbolAccuracy(taskHistories(tasks, journal(events)), period(FROM, TO))).toEqual([
       { by: "symbol", candidates: 2, closed: 1, verified: 1, open: 0, precision: 0.5 },
       { by: "file", candidates: 1, closed: 0, verified: 1, open: 0, precision: 0 },
     ]);
@@ -99,6 +100,6 @@ describe("точность по способу проверки", () => {
     const tasks = [makeTask({ id: "SPA-1", created: iso(1) })];
     const events: JournalEvent[] = [candidate("SPA-1", 3, "duplicate"), verified("SPA-1", 4)];
 
-    expect(symbolAccuracy(taskHistories(tasks, journal(events)), FROM, TO)).toEqual([]);
+    expect(symbolAccuracy(taskHistories(tasks, journal(events)), period(FROM, TO))).toEqual([]);
   });
 });

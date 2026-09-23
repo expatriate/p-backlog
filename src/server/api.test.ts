@@ -7,6 +7,7 @@ import { loadBacklog } from "../core/store/load";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
+import { runGit } from "../core/git/run";
 import { makeTestApp, SAMPLE_FILES, TEST_NOW } from "./testing/test-app";
 
 describe("GET /api/projects и /api/tasks", () => {
@@ -77,6 +78,24 @@ describe("PATCH /api/tasks/:id", () => {
 
     expect(response.status).toBe(409);
     expect(((await response.json()) as ConflictResponse).current).toMatchObject({ id: "SPA-1", status: "backlog" });
+  });
+
+  it("правка поверх снимка, устаревшего без события наблюдателя, не пишет поверх файла и проходит со свежей версией", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const { tasks } = (await (await backlog.request("/api/tasks")).json()) as TasksResponse;
+    const external = taskFile("SPA-1", "priority: low\n");
+    await writeFiles(backlog.root, { "spa/SPA-1.md": external });
+
+    const stale = await backlog.json("/api/tasks/SPA-1", "PATCH", { version: tasks[0]?.version, changes: { status: "done" } });
+
+    expect(stale.status).toBe(409);
+    const { current } = (await stale.json()) as ConflictResponse;
+    expect(current).toMatchObject({ id: "SPA-1", priority: "low" });
+    expect(await readFile(join(backlog.root, "spa/SPA-1.md"), "utf8")).toBe(external);
+
+    const retried = await backlog.json("/api/tasks/SPA-1", "PATCH", { version: current.version, changes: { status: "done" } });
+    expect(retried.status).toBe(200);
+    expect((await retried.json()) as Task).toMatchObject({ priority: "low", status: "done" });
   });
 
   it("отвечает 404, 422 на неизвестное поле и 422 на нарушение правил", async () => {
@@ -281,6 +300,31 @@ describe("GET /api/stats/effect", () => {
     expect(report.totals).toMatchObject({ realLines: 2, openTasks: 1, estimatedLines: null });
     expect(report.projects).toHaveLength(1);
     expect((await backlog.request("/api/stats/effect?project=nope")).status).toBe(404);
+  });
+
+  it("оценка ожидающих в проекте опирается на исправления соседних проектов", async () => {
+    const home = await makeTempDir();
+    const spaRepo = await makeGitRepo(home, "spa");
+    await writeFiles(spaRepo, { "src/a.ts": "a\n" });
+    gitCommitAll(spaRepo, "init", "2026-09-17T09:00:00+03:00");
+    const tiRepo = await makeGitRepo(home, "ti");
+    const tiFixes: Record<string, string> = {};
+    for (const index of [1, 2, 3, 4, 5]) {
+      await writeFiles(tiRepo, { "src/b.ts": `${"x\n".repeat(index * 3)}` });
+      gitCommitAll(tiRepo, `fix ${index}`, "2026-09-17T11:00:00+03:00");
+      const sha = (await runGit(tiRepo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+      tiFixes[`ti/TI-${index}.md`] = taskFile(`TI-${index}`, `status: done\nclosed: 2026-09-17T12:00:00+03:00\nresolution: fixed\nreason: Исправлено в ${sha}\n`);
+    }
+    const backlog = await makeTestApp({
+      "spa/project.md": projectFile("SPA", [spaRepo]),
+      "spa/SPA-1.md": taskFile("SPA-1", "source: src/a.ts:1\n"),
+      "ti/project.md": projectFile("TI", [tiRepo]),
+      ...tiFixes,
+    });
+
+    const report = (await (await backlog.request("/api/stats/effect?project=spa")).json()) as EffectReport;
+
+    expect(report.totals).toMatchObject({ openTasks: 1, estimatedLines: 3 });
   });
 });
 

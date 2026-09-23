@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { statsPath } from "../app/paths";
 import { Link, matchPath, Outlet, useLocation, useParams } from "react-router";
 import { useProjects, useSignals } from "../app/queries";
+import { projectNameOf } from "../app/scope";
 import { cx } from "../ui/cx";
 import styles from "./StatsPage.module.css";
 
@@ -18,7 +19,7 @@ export function StatsPage() {
   const { pathname } = useLocation();
   const projects = useProjects();
   const signals = useSignals(projectId);
-  const scopeName = projectId === undefined ? "Проекты" : (projects.data?.find((project) => project.id === projectId)?.name ?? projectId);
+  const scopeName = projectId === undefined ? "Проекты" : projectNameOf(projects.data, projectId);
   const heading = `Статистика · ${scopeName}`;
   const base = statsPath(projectId);
   const tabPath = (segment: string) => (segment === "" ? base : `${base}/${segment}`);

@@ -3,9 +3,9 @@ import type { CliIo } from "../io";
 import { runCli } from "../run";
 import { makeGitRepo, makeTempDir } from "../../core/store/testing/temp-dirs";
 
-export type CliRun = { code: number; out: string; err: string };
+type CliRun = { code: number; out: string; err: string };
 
-export type CliRunOptions = { cwd?: string; stdin?: string; now?: Date; env?: NodeJS.ProcessEnv };
+type CliRunOptions = { cwd?: string; stdin?: string; now?: Date; env?: NodeJS.ProcessEnv };
 
 const SANDBOX_NOW = new Date("2026-09-17T14:50:00Z");
 

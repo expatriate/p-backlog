@@ -1,13 +1,15 @@
-import { DAY_MS } from "../model/lifecycle";
 import { PRIORITIES, type Priority, type Task } from "../model/types";
 import { closingsOf, reopeningsOf, type TaskHistory, type Transition } from "./history";
 import type { AgeBreakdown, AgeBucket, ClosingBreakdown, ClosingReason, Hotspots } from "./types";
-import { countBy } from "./numbers";
+import { projectLabel } from "./format";
+import { countBy, daysBetween } from "./numbers";
+import type { Period } from "./period";
+import { DAYS_PER_WEEK } from "./weeks";
 
 const HOTSPOT_LIMIT = 8;
 export const STALE_URGENT_DAYS = 7;
 const AGE_LIMITS: readonly { bucket: AgeBucket; belowDays: number }[] = [
-  { bucket: "week", belowDays: 7 },
+  { bucket: "week", belowDays: DAYS_PER_WEEK },
   { bucket: "month", belowDays: 30 },
   { bucket: "quarter", belowDays: 90 },
   { bucket: "older", belowDays: Number.POSITIVE_INFINITY },
@@ -23,7 +25,7 @@ export function hotspots(openTasks: readonly Task[], withProject: boolean): Hots
   const folders = openTasks.flatMap((task) => {
     if (task.source === undefined) return [];
     const folder = folderOf(task.source);
-    return [withProject ? `${task.projectId} · ${folder}` : folder];
+    return [projectLabel(task.projectId, folder, withProject)];
   });
   return {
     folders: topCounts(folders).map(([label, count]) => ({ label, count })),
@@ -32,25 +34,28 @@ export function hotspots(openTasks: readonly Task[], withProject: boolean): Hots
 }
 
 export function ageBreakdown(openTasks: readonly Task[], now: Date): AgeBreakdown {
-  const ageOf = (task: Task) => (now.getTime() - Date.parse(task.created)) / DAY_MS;
+  const ageOf = (task: Task) => daysBetween(Date.parse(task.created), now.getTime());
   const bucketOf = (task: Task) => AGE_LIMITS.find(({ belowDays }) => ageOf(task) < belowDays)?.bucket ?? "older";
   return {
     buckets: AGE_LIMITS.map(({ bucket }) => ({ bucket, byPriority: priorityCounts(openTasks.filter((task) => bucketOf(task) === bucket)) })),
-    urgentStale: openTasks.filter((task) => (task.priority === "critical" || task.priority === "high") && ageOf(task) >= STALE_URGENT_DAYS).length,
+    urgentStale: urgentStaleCount(openTasks, now),
   };
 }
 
-export function closingBreakdown(histories: readonly TaskHistory[], from: number, to: number): ClosingBreakdown {
-  const inPeriod = (moment: number) => moment >= from && moment <= to;
-  const closings = histories.flatMap(closingsOf).filter((closing) => inPeriod(closing.at));
-  const created = histories.filter((history) => inPeriod(history.createdAt));
+export function urgentStaleCount(openTasks: readonly Task[], now: Date): number {
+  return openTasks.filter((task) => (task.priority === "critical" || task.priority === "high") && daysBetween(Date.parse(task.created), now.getTime()) >= STALE_URGENT_DAYS).length;
+}
+
+export function closingBreakdown(histories: readonly TaskHistory[], period: Period): ClosingBreakdown {
+  const closings = histories.flatMap(closingsOf).filter((closing) => period.contains(closing.at));
+  const created = histories.filter((history) => period.contains(history.createdAt));
   const byReason: Record<ClosingReason, number> = { done: 0, fixed: 0, obsolete: 0, duplicate: 0, cancelled: 0 };
   for (const closing of closings) byReason[closingReason(closing)] += 1;
   return {
     byReason,
     duplicateShare: closings.length === 0 ? null : byReason.duplicate / closings.length,
     withoutSourceShare: created.length === 0 ? null : created.filter((history) => history.source === undefined).length / created.length,
-    reopened: histories.flatMap(reopeningsOf).filter((reopening) => inPeriod(reopening.at)).length,
+    reopened: histories.flatMap(reopeningsOf).filter((reopening) => period.contains(reopening.at)).length,
   };
 }
 

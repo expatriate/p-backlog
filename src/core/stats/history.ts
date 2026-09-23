@@ -64,7 +64,7 @@ export function isOpenAt(history: TaskHistory, moment: number): boolean {
   return first?.from === undefined || !isClosed(first.from);
 }
 
-export function isClosing(transition: Transition): boolean {
+function isClosing(transition: Transition): boolean {
   return isClosed(transition.to) && (transition.from === undefined || !isClosed(transition.from));
 }
 

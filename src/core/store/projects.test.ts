@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { deleteProject, setProjectActive } from "./projects";
+import { deleteProject, reserveIssuedUpTo, setProjectActive } from "./projects";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 import { loadBacklog } from "./load";
 
@@ -20,6 +20,26 @@ describe("проекты", () => {
     expect(await setProjectActive(root, "spa", true)).toMatchObject({ ok: true, project: { active: true } });
     expect(await readFile(join(root, "spa/project.md"), "utf8")).not.toContain("active");
     expect(await setProjectActive(root, "нет-такого", false)).toEqual({ ok: false, reason: "not-found" });
+  });
+
+  it("резерв номера берёт project.md с диска: правки имени и repos не теряются, номер не уменьшается", async () => {
+    const root = await makeTempDir();
+    const path = join(root, "spa/project.md");
+    await writeFiles(root, { "spa/project.md": "---\nname: Переименован руками\nprefix: SPA\nrepos: [/new/repo]\nissuedUpTo: 9\n---\nЗаметки\n" });
+
+    expect(await reserveIssuedUpTo({ id: "spa", path }, 5)).toBe(true);
+    expect(await reserveIssuedUpTo({ id: "spa", path }, 12)).toBe(true);
+
+    const [project] = (await loadBacklog(root)).projects;
+    expect(project).toMatchObject({ name: "Переименован руками", repos: ["/new/repo"], issuedUpTo: 12, body: "Заметки\n" });
+  });
+
+  it("битый или пропавший project.md — номер не зарезервирован", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/project.md": "сломано" });
+
+    expect(await reserveIssuedUpTo({ id: "spa", path: join(root, "spa/project.md") }, 1)).toBe(false);
+    expect(await reserveIssuedUpTo({ id: "web", path: join(root, "web/project.md") }, 1)).toBe(false);
   });
 
   it("удаление сносит каталог проекта, посторонний каталог не трогает", async () => {

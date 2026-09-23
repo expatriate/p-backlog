@@ -4,6 +4,7 @@ import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
 import { categoryBreakdown } from "./categories";
+import { period } from "../period";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 const iso = (day: number, hour = 12) => formatLocalIso(at(day, hour));
@@ -29,7 +30,7 @@ describe("категории", () => {
     };
     const open = tasks.filter((task) => task.status !== "done");
 
-    expect(categoryBreakdown(open, taskHistories(tasks, journal([deleted])), FROM, TO)).toEqual([
+    expect(categoryBreakdown(open, taskHistories(tasks, journal([deleted])), period(FROM, TO))).toEqual([
       { category: "bloaters", open: 1, weight: 4, created: 2, closed: 1 },
       { category: "bug", open: 2, weight: 2, created: 2, closed: 0 },
       { category: "couplers", open: 0, weight: 0, created: 1, closed: 1 },
@@ -44,7 +45,7 @@ describe("категории", () => {
       { at: iso(5), task: "SPA-1", via: "cli", kind: "category", from: "bug" },
     ];
 
-    expect(categoryBreakdown(tasks, taskHistories(tasks, journal(events)), FROM, TO)).toEqual([{ category: null, open: 1, weight: 2, created: 1, closed: 0 }]);
+    expect(categoryBreakdown(tasks, taskHistories(tasks, journal(events)), period(FROM, TO))).toEqual([{ category: null, open: 1, weight: 2, created: 1, closed: 0 }]);
   });
 
   it("задача только из журнала берёт категорию из последнего события category", () => {

@@ -1,6 +1,6 @@
 import type { TokenCounts } from "../types";
 
-export type ModelPrice = { input: number; output: number; cacheRead: number };
+type ModelPrice = { input: number; output: number; cacheRead: number };
 
 
 const FAST_PRICED_MODEL = "claude-opus-5";
@@ -36,7 +36,7 @@ export function fastModel(model: string): string {
   return `${model}${FAST_MODEL_SUFFIX}`;
 }
 
-export function priceOf(model: string): ModelPrice | null {
+function priceOf(model: string): ModelPrice | null {
   const fast = model.endsWith(FAST_MODEL_SUFFIX);
   const stripped = baseModelId(fast ? model.slice(0, -FAST_MODEL_SUFFIX.length) : model);
   const key = PRICE_KEYS_BY_LENGTH_DESC.find((candidate) => stripped.startsWith(candidate));

@@ -1,28 +1,27 @@
-import { parseArgs } from "node:util";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
 import { TASK_STATUSES } from "../../core/model/types";
 import { loadBacklog } from "../../core/store/load";
 import { describeTask, toJson } from "../describe";
 import { formatTaskLine } from "../format";
-import { EXIT, parseChoice, splitList, UsageError, withUsageErrors, type CliIo } from "../io";
+import type { CliCommand } from "../command";
+import { EXIT, parseChoice, parseOptions, splitList, type CliIo } from "../io";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 
-export async function runList(args: string[], io: CliIo): Promise<number> {
-  const { values, positionals } = withUsageErrors(() =>
-    parseArgs({
-      args,
-      allowPositionals: true,
-      options: {
-        query: { type: "string" },
-        status: { type: "string" },
-        tag: { type: "string" },
-        ...SCOPE_OPTIONS,
-        json: { type: "boolean", default: false },
-      },
-    }),
-  );
-  if (positionals.length > 0) throw new UsageError(`Лишние аргументы: ${positionals.join(" ")}`);
+export const listCommand: CliCommand = {
+  name: "list",
+  usage: ["[--query текст] [--status s,…] [--tag t,…] [--project id | --all-projects] [--json]"],
+  run: runList,
+};
+
+async function runList(args: string[], io: CliIo): Promise<number> {
+  const values = parseOptions(args, {
+    query: { type: "string" },
+    status: { type: "string" },
+    tag: { type: "string" },
+    ...SCOPE_OPTIONS,
+    json: { type: "boolean", default: false },
+  });
   const statuses = splitList(values.status)?.map((status) => parseChoice(status, TASK_STATUSES, "--status")) ?? OPEN_STATUSES;
 
   const loaded = await loadBacklog(io.backlogRoot);

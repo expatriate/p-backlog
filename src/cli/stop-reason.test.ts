@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Candidate } from "../core/check/candidates";
+import { attributeLine, newTranscriptState } from "../core/stats/cost/attribute";
 import { STOP_REASON_LIMIT, stopReason } from "./stop-reason";
 
 function changed(id: string, path: string): Candidate {
@@ -29,5 +30,13 @@ describe("stopReason", () => {
     expect(reason).toMatch(/SPA-1 \(изменён .*; SPA-\d+ \(изменён [^)]+\) и ещё \d+\. Перепроверь/);
     const shown = reason.match(/SPA-\d+ \(/g)?.length ?? 0;
     expect(reason).toContain(`и ещё ${30 - shown}.`);
+  });
+
+  it("учёт затрат узнаёт по этой причине ход хука", () => {
+    const feedback = `Stop hook feedback:\n${stopReason("spa", [changed("SPA-4", "src/upload/client.ts")])}`;
+
+    const turns = attributeLine({ type: "user", isMeta: true, timestamp: "2026-09-19T09:00:00.000Z", cwd: "/x/spa", message: { content: feedback } }, newTranscriptState());
+
+    expect(turns).toEqual([expect.objectContaining({ kind: "hook", hookTurns: 1 })]);
   });
 });

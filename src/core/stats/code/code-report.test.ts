@@ -20,7 +20,6 @@ describe("отчёт «Код»", () => {
         { projectId: "ti", name: "ti", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 10 }], units: [] }] },
       ],
       unavailableRepos: ["/nope"],
-      fixCommits: new Map(),
     };
 
     const report = codeReport({ tasks, journals: [], now: NOW, projectId: "spa", code });

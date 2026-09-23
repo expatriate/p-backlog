@@ -33,6 +33,10 @@ export async function readJsonLines<T>(path: string, schema: z.ZodType<T>): Prom
   return { values, invalidLines: parsed.length - values.length };
 }
 
+export function toJsonLines(values: readonly unknown[]): string {
+  return values.map((value) => `${JSON.stringify(value)}\n`).join("");
+}
+
 export function parseJson<T>(text: string, schema: z.ZodType<T>): T | null {
   try {
     const parsed = schema.safeParse(JSON.parse(text));
@@ -40,6 +44,15 @@ export function parseJson<T>(text: string, schema: z.ZodType<T>): T | null {
   } catch {
     return null;
   }
+}
+
+export async function readJsonFile<T>(path: string, schema: z.ZodType<T>): Promise<T | null> {
+  const text = await readTextOrNull(path);
+  return text === null ? null : parseJson(text, schema);
+}
+
+export async function writeJsonFile(path: string, value: unknown): Promise<void> {
+  await writeFileAtomic(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 export async function removeIfUnchanged(path: string, version: string): Promise<boolean> {

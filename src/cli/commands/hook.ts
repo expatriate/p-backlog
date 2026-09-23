@@ -5,28 +5,37 @@ import { checkBacklog } from "../../core/check/check-backlog";
 import { formatLocalDay } from "../../core/model/dates";
 import { readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
+import { parseJson } from "../../core/store/fs-utils";
 import { findProjectForDir } from "../../core/store/resolve-project";
 import { readSignalsShown, writeSignalsShown } from "../../core/store/signals-shown";
 import { readSessionShown, writeSessionShown } from "../../core/store/session-shown";
+import { HOOK_STOP_EVENT, hookMessage } from "../../core/stats/cost/hook-signature";
 import { pluralCount } from "../../core/stats/format";
 import { statsSignals } from "../../core/stats/signals/signals";
 import { markShown, signalsToShow, type SignalsShown } from "../../core/stats/signals/shown";
 import type { Signal } from "../../core/stats/types";
 import type { Project, Task } from "../../core/model/types";
-import { EXIT, UsageError, type CliIo } from "../io";
+import { usageError, type CliCommand } from "../command";
+import { EXIT, type CliIo } from "../io";
 import { stopReason } from "../stop-reason";
 
 const stopEventSchema = z.object({ cwd: z.string(), session_id: z.string().optional(), stop_hook_active: z.boolean().optional() });
 
-export async function runHook(args: string[], io: CliIo): Promise<number> {
-  if (args.length !== 1 || args[0] !== "stop") throw new UsageError("Использование: backlog hook stop (событие Claude Code читается из stdin)");
-  const event = parseStopEvent(await io.readStdin());
+export const hookCommand: CliCommand = {
+  name: "hook",
+  usage: [`${HOOK_STOP_EVENT}   (для хука Stop в Claude Code, событие читается из stdin)`],
+  run: runHook,
+};
+
+async function runHook(args: string[], io: CliIo): Promise<number> {
+  if (args.length !== 1 || args[0] !== HOOK_STOP_EVENT) throw usageError(hookCommand);
+  const event = parseJson(await io.readStdin(), stopEventSchema);
   if (event === null || event.stop_hook_active === true) return EXIT.ok;
 
   const loaded = await loadBacklog(io.backlogRoot);
   const project = findProjectForDir(loaded.projects, event.cwd, io.home);
   if (!project) return EXIT.ok;
-  const { candidates } = await checkBacklog(io.backlogRoot, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home });
+  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home });
   const lowPriority = new Set(loaded.tasks.filter((task) => task.priority === "low").map((task) => task.id));
   const worthTelling = candidates.filter((candidate) => !lowPriority.has(candidate.task.id));
   const lowCount = candidates.length - worthTelling.length;
@@ -36,7 +45,7 @@ export async function runHook(args: string[], io: CliIo): Promise<number> {
   const signals = await freshSignals(project, loaded.tasks.filter((task) => task.projectId === project.id), lowChangedSignals(lowCount), io);
   const response = {
     ...(blocking.length > 0 ? { decision: "block", reason: stopReason(project.id, blocking) } : {}),
-    ...(signals.fresh.length > 0 ? { systemMessage: `Беклог ${project.id}: ${signals.fresh.map((signal) => signal.text).join("; ")}` } : {}),
+    ...(signals.fresh.length > 0 ? { systemMessage: hookMessage(project.id, signals.fresh.map((signal) => signal.text).join("; ")) } : {}),
   };
   if (Object.keys(response).length > 0) io.print(JSON.stringify(response));
   await signals.remember();
@@ -90,14 +99,5 @@ async function rememberShown(projectDir: string, shown: SignalsShown, io: CliIo)
     await writeSignalsShown(projectDir, shown);
   } catch (error) {
     io.warn(`Не удалось сохранить показанные тревоги: ${errorText(error)}`);
-  }
-}
-
-function parseStopEvent(text: string): z.infer<typeof stopEventSchema> | null {
-  try {
-    const parsed = stopEventSchema.safeParse(JSON.parse(text));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
   }
 }

@@ -31,14 +31,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
   return (
     <div className={styles.toolbar}>
       <div className={styles.line}>
-        <input
-          type="search"
-          className={styles.search}
-          value={filter.query ?? ""}
-          placeholder="Поиск по названию, описанию и ID"
-          aria-label="Поиск задач"
-          onChange={(event) => setFilter({ query: event.target.value || undefined })}
-        />
+        <SearchField query={filter.query ?? ""} onChange={(query) => setFilter({ query: query || undefined })} />
       </div>
 
       <div className={styles.line}>
@@ -91,6 +84,34 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
         </div>
       )}
     </div>
+  );
+}
+
+type SearchEditing = { text: string; sent: ReadonlySet<string> };
+
+function SearchField({ query, onChange }: { query: string; onChange: (query: string) => void }) {
+  const [editing, setEditing] = useState<SearchEditing>();
+  const [seenQuery, setSeenQuery] = useState(query);
+  if (query !== seenQuery) {
+    setSeenQuery(query);
+    if (editing !== undefined && !editing.sent.has(query)) setEditing({ text: query, sent: new Set() });
+  }
+
+  return (
+    <input
+      type="search"
+      className={styles.search}
+      value={editing?.text ?? query}
+      placeholder="Поиск по названию, описанию и ID"
+      aria-label="Поиск задач"
+      onFocus={() => setEditing({ text: query, sent: new Set() })}
+      onBlur={() => setEditing(undefined)}
+      onChange={(event) => {
+        const text = event.target.value;
+        setEditing((current) => ({ text, sent: new Set([...(current?.sent ?? []), text]) }));
+        onChange(text);
+      }}
+    />
   );
 }
 

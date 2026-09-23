@@ -1,12 +1,14 @@
-import { useMutation, useQuery, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryOptions } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { CodeReport, CostReport, EffectReport, MemorySamplesResponse, ProjectView, QualityReport, SignalsReport, StatsReport, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { MemorySamplesResponse, ProjectView, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import { MEMORY_SAMPLE_INTERVAL_MS } from "../../core/api/memory";
 import type { Project, Task } from "../../core/model/types";
+import type { ApiClient } from "../api/client";
 import { useBacklogApi } from "./backlog-api";
 
-export const PROJECTS_KEY = ["projects"];
-export const TASKS_KEY = ["tasks"];
-export const STATS_KEY = ["stats"];
+const PROJECTS_KEY = ["projects"];
+const TASKS_KEY = ["tasks"];
+const STATS_KEY = ["stats"];
 
 const STATS_STALE_MS = 60_000;
 
@@ -21,35 +23,28 @@ export function useTasks() {
 }
 
 export function useStats(projectId: string | undefined) {
-  const { client } = useBacklogApi();
-  return useQuery<StatsReport>({ queryKey: [...STATS_KEY, "overview", projectId ?? "all"], queryFn: () => client.stats(projectId), staleTime: STATS_STALE_MS });
+  return useStatsReport("overview", projectId, (client) => client.stats(projectId));
 }
 
 export function useCodeStats(projectId: string | undefined) {
-  const { client } = useBacklogApi();
-  return useQuery<CodeReport>({ queryKey: [...STATS_KEY, "code", projectId ?? "all"], queryFn: () => client.codeStats(projectId) });
+  return useStatsReport("code", projectId, (client) => client.codeStats(projectId));
 }
 
 export function useEffectStats(projectId: string | undefined) {
-  const { client } = useBacklogApi();
-  return useQuery<EffectReport>({ queryKey: [...STATS_KEY, "effect", projectId ?? "all"], queryFn: () => client.effectStats(projectId) });
+  return useStatsReport("effect", projectId, (client) => client.effectStats(projectId));
 }
 
 export function useQualityStats(projectId: string | undefined) {
-  const { client } = useBacklogApi();
-  return useQuery<QualityReport>({ queryKey: [...STATS_KEY, "quality", projectId ?? "all"], queryFn: () => client.qualityStats(projectId), staleTime: STATS_STALE_MS });
+  return useStatsReport("quality", projectId, (client) => client.qualityStats(projectId));
 }
 
 export function useSignals(projectId: string | undefined) {
-  const { client } = useBacklogApi();
-  return useQuery<SignalsReport>({ queryKey: [...STATS_KEY, "signals", projectId ?? "all"], queryFn: () => client.signals(projectId), staleTime: STATS_STALE_MS });
+  return useStatsReport("signals", projectId, (client) => client.signals(projectId));
 }
 
 export function useCostStats(projectId: string | undefined) {
-  const { client } = useBacklogApi();
-  return useQuery<CostReport>({
-    queryKey: [...STATS_KEY, "cost", projectId ?? "all"],
-    queryFn: () => client.costStats(projectId),
+  return useStatsReport("cost", projectId, (client) => client.costStats(projectId), {
+    staleTime: 0,
     refetchInterval: (query) => {
       const scan = query.state.data?.scan;
       return scan !== undefined && (!scan.listed || scan.bytesLeft > 0) ? 10_000 : false;
@@ -59,7 +54,12 @@ export function useCostStats(projectId: string | undefined) {
 
 export function useMemorySamples() {
   const { client } = useBacklogApi();
-  return useQuery<MemorySamplesResponse>({ queryKey: [...STATS_KEY, "memory"], queryFn: client.memorySamples, refetchInterval: 5000 });
+  return useQuery<MemorySamplesResponse>({ queryKey: [...STATS_KEY, "memory"], queryFn: client.memorySamples, refetchInterval: MEMORY_SAMPLE_INTERVAL_MS });
+}
+
+function useStatsReport<T>(report: string, projectId: string | undefined, fetchReport: (client: ApiClient) => Promise<T>, overrides: Partial<UseQueryOptions<T>> = {}) {
+  const { client } = useBacklogApi();
+  return useQuery<T>({ queryKey: [...STATS_KEY, report, projectId ?? "all"], queryFn: () => fetchReport(client), staleTime: STATS_STALE_MS, ...overrides });
 }
 
 export type SetProjectActiveVariables = { id: string; active: boolean };

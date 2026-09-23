@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
-import { listPath } from "../app/paths";
-import { activeProjectIds, tasksInScope } from "../app/scope";
+import { listPath, taskPath } from "../app/paths";
+import { activeProjectIds, projectNameOf, tasksInScope } from "../app/scope";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, sortTasks } from "../../core/model/query";
@@ -39,16 +39,14 @@ export function TaskListPage() {
   const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, index).length, [scopedTasks, index]);
   const tags = useMemo(() => collectTags(scopedTasks), [scopedTasks]);
 
-  const projectName =
-    projectId === undefined ? undefined : (projects.data?.find((project) => project.id === projectId)?.name ?? projectId);
+  const projectName = projectId === undefined ? undefined : projectNameOf(projects.data, projectId);
   const viewTitle = viewTitleFor(projectName, params.filter.onlyAutoClosed === true);
   useEffect(() => {
     document.title = `${viewTitle} — Беклог`;
   }, [viewTitle]);
 
   const setParams = (next: ListParams) => setSearch(writeListParams(next), { replace: true });
-  const prefix = projectId === undefined ? "" : listPath(projectId);
-  const taskHref = (id: string) => ({ pathname: `${prefix}/t/${id}`, search: searchKey });
+  const taskHref = (id: string) => ({ pathname: taskPath(projectId, id), search: searchKey });
   const selectedTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
   useEffect(() => {
     if (selectedTask !== undefined) markSeen(selectedTask);
@@ -115,7 +113,7 @@ export function TaskListPage() {
           tasks={allTasks}
           index={index}
           taskHref={taskHref}
-          onClose={() => navigate({ pathname: prefix === "" ? "/" : prefix, search: searchKey })}
+          onClose={() => navigate({ pathname: listPath(projectId), search: searchKey })}
           tone={toneOf(selectedTask, tones)}
         />
       )}

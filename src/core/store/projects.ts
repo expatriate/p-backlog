@@ -16,13 +16,24 @@ export type ProjectDeleteResult = { ok: true } | ProjectNotFound;
 export async function setProjectActive(root: string, id: string, active: boolean): Promise<ProjectWriteResult> {
   const dir = projectDir(root, id);
   if (dir === null) return NOT_FOUND;
-  const path = join(dir, PROJECT_FILE);
+  return editProjectFile({ id, path: join(dir, PROJECT_FILE) }, (project) => ({ ...project, active }));
+}
+
+export async function reserveIssuedUpTo(project: Pick<Project, "id" | "path">, number: number): Promise<boolean> {
+  const edited = await editProjectFile(project, (current) => {
+    const issuedUpTo = Math.max(current.issuedUpTo ?? 0, number);
+    return issuedUpTo === current.issuedUpTo ? current : { ...current, issuedUpTo };
+  });
+  return edited.ok;
+}
+
+async function editProjectFile({ id, path }: Pick<Project, "id" | "path">, edit: (project: Project) => Project): Promise<ProjectWriteResult> {
   const text = await readTextOrNull(path);
   if (text === null) return NOT_FOUND;
   const parsed = parseProjectFile(text, { id, path });
   if (!parsed.ok) return { ok: false, reason: "invalid", message: parsed.message };
-  const project = { ...parsed.value, active };
-  await writeFileAtomic(path, serializeProject(project));
+  const project = edit(parsed.value);
+  if (project !== parsed.value) await writeFileAtomic(path, serializeProject(project));
   return { ok: true, project };
 }
 

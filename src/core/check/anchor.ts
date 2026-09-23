@@ -22,10 +22,8 @@ export function anchorOf(text: string, source: string): string | null {
 export type LineRange = { from: number; to: number };
 
 export function sourceRange(source: string | undefined): LineRange | null {
-  const match = source === undefined ? null : SOURCE_LINES.exec(source);
-  if (match === null || match[1] === undefined) return null;
-  const first = Number(match[1]);
-  return { from: first, to: match[2] === undefined ? first : Number(match[2]) };
+  const span = source === undefined ? null : sourceSpan(source);
+  return span === null ? null : { from: span.first, to: span.last };
 }
 
 export function isAnchorFor(anchor: string, source: string): boolean {

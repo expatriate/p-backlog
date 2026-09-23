@@ -6,7 +6,7 @@ import type { ChangeFeed } from "../change-feed";
 import { createMemorySampler, type MemorySampler } from "../memory-sampler";
 import { createUsageScanner, type UsageScanner } from "../usage-scanner";
 
-export const TEST_HOST = "localhost:4317";
+const TEST_HOST = "localhost:4317";
 export const TEST_NOW = new Date("2026-09-18T12:00:00Z");
 
 export type TestAppOptions = { staticDir?: string; transcriptsDir?: string };

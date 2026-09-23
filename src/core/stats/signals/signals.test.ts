@@ -20,7 +20,7 @@ describe("тревоги", () => {
     const events: JournalEvent[] = [{ at: iso(8, 3), task: "SPA-4", via: "cli", kind: "status", from: "backlog", to: "blocked" }];
 
     expect(statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).toEqual([
-      { kind: "debt-growing", text: `Долг растёт третью неделю подряд: за 3${NBSP}недели создано 3, закрыто 0` },
+      { kind: "debt-growing", text: `Долг растёт 3${NBSP}недели подряд: создано 3, закрыто 0` },
       { kind: "urgent-stale", text: "Срочные задачи ждут дольше 7 дней: 1" },
       { kind: "stuck", text: `Застряли в работе: 1, дольше всех SPA-4 — 15${NBSP}дн.` },
     ]);

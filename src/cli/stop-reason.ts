@@ -1,4 +1,5 @@
 import type { Candidate } from "../core/check/candidates";
+import { hookMessage } from "../core/stats/cost/hook-signature";
 
 export const STOP_REASON_LIMIT = 500;
 
@@ -14,7 +15,7 @@ export function stopReason(projectId: string, candidates: readonly Candidate[]):
 
 function compose(projectId: string, shown: readonly string[], hidden: number): string {
   const more = hidden > 0 ? ` и ещё ${hidden}` : "";
-  return `Беклог ${projectId}: после последней проверки менялся код задач — ${shown.join("; ")}${more}. Перепроверь их по скиллу backlog, раздел «Перепроверить задачи».`;
+  return hookMessage(projectId, `после последней проверки менялся код задач — ${shown.join("; ")}${more}. Перепроверь их по скиллу backlog, раздел «Перепроверить задачи».`);
 }
 
 function briefEvidence(candidate: Candidate): string {

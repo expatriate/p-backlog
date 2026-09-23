@@ -2,7 +2,7 @@ import { mkdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Project } from "../model/types";
-import { findProjectForDir, findRepoRoot } from "./resolve-project";
+import { cachedRepoRoots, findProjectForDir, findRepoRoot } from "./resolve-project";
 import { makeGitRepo, makeTempDir } from "./testing/temp-dirs";
 
 function project(id: string, repos: string[]): Project {
@@ -67,5 +67,35 @@ describe("findProjectForDir", () => {
       expect(findProjectForDir(projects, nestedRepo, home)?.id).toBe("spa");
       expect(findProjectForDir(projects, sibling, home)?.id).toBe("aaa-mono");
     }
+  });
+});
+
+describe("cachedRepoRoots", () => {
+  it("корень git для вложенного каталога, сам каталог вне git, несуществующий — null", async () => {
+    const home = await makeTempDir();
+    const repo = await makeGitRepo(home, "spa");
+    const nested = join(repo, "src", "deep");
+    await mkdir(nested, { recursive: true });
+    const plain = join(home, "plain");
+    await mkdir(plain);
+    const rootOf = cachedRepoRoots();
+
+    expect(await rootOf(nested)).toBe(repo);
+    expect(await rootOf(plain)).toBe(plain);
+    expect(await rootOf(join(home, "нет"))).toBeNull();
+  });
+
+  it("каталог, которого не было, находится после истечения срока кэша, а не остаётся null навсегда", async () => {
+    const home = await makeTempDir();
+    const later = join(home, "later");
+    let clock = 0;
+    const rootOf = cachedRepoRoots({ ttlMs: 1000, now: () => clock });
+
+    expect(await rootOf(later)).toBeNull();
+    await makeGitRepo(home, "later");
+    clock = 999;
+    expect(await rootOf(later)).toBeNull();
+    clock = 1000;
+    expect(await rootOf(later)).toBe(later);
   });
 });

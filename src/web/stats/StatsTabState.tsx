@@ -1,27 +1,25 @@
+import type { UseQueryResult } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import type { ReportHead } from "../../core/stats/types";
 import { ApiError } from "../api/client";
 import { formatDate } from "../labels";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
 import styles from "./StatsPage.module.css";
 
-type JournalFacts = { taskCount: number; journalSince: string | null; invalidJournalLines: number };
+type ReportQuery<T> = Pick<UseQueryResult<T>, "error" | "data" | "isFetching" | "refetch">;
 
-export function StatsRequestState({
-  error,
-  loaded,
-  isFetching,
-  onRetry,
+export function StatsRequestState<T>({
+  query,
   emptyMessage = null,
   children,
 }: {
-  error: unknown;
-  loaded: boolean;
-  isFetching: boolean;
-  onRetry: () => void;
+  query: ReportQuery<T>;
   emptyMessage?: string | null;
-  children: ReactNode;
+  children: (report: T) => ReactNode;
 }) {
+  const { error, data, isFetching } = query;
+  const loaded = data !== undefined;
   const notFound = error instanceof ApiError && error.status === 404;
   const isLoading = error === null && !loaded;
   const message = statusMessage(error, notFound, loaded, emptyMessage);
@@ -31,46 +29,28 @@ export function StatsRequestState({
       <div role="status" aria-live="polite" className={message === null ? "visually-hidden" : cx(styles.hint, isLoading && styles.hintLoading)}>
         {message !== null && <p>{message}</p>}
         {error !== null && !notFound && (
-          <Button onClick={onRetry} disabled={isFetching}>
+          <Button onClick={() => void query.refetch()} disabled={isFetching}>
             Повторить
           </Button>
         )}
       </div>
-      {error === null && loaded && emptyMessage === null && <div className={styles.content}>{children}</div>}
+      {error === null && data !== undefined && emptyMessage === null && <div className={styles.content}>{children(data)}</div>}
     </>
   );
 }
 
-export function StatsTabState({
-  error,
-  data,
-  isFetching,
-  onRetry,
-  children,
-}: {
-  error: unknown;
-  data: JournalFacts | undefined;
-  isFetching: boolean;
-  onRetry: () => void;
-  children: ReactNode;
-}) {
+export function StatsTabState<T extends ReportHead>({ query, children }: { query: ReportQuery<T>; children: (report: T) => ReactNode }) {
   return (
-    <StatsRequestState
-      error={error}
-      loaded={data !== undefined}
-      isFetching={isFetching}
-      onRetry={onRetry}
-      emptyMessage={data !== undefined && data.taskCount === 0 ? "Задач пока нет." : null}
-    >
-      {data !== undefined && (
+    <StatsRequestState query={query} emptyMessage={query.data?.taskCount === 0 ? "Задач пока нет." : null}>
+      {(report) => (
         <>
-          {data.invalidJournalLines > 0 && (
+          {report.invalidJournalLines > 0 && (
             <p className={styles.warning} role="status">
-              Не удалось разобрать строк журнала: {data.invalidJournalLines}. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.
+              Не удалось разобрать строк журнала: {report.invalidJournalLines}. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.
             </p>
           )}
-          {children}
-          <p className={styles.note}>{journalNote(data.journalSince)}</p>
+          {children(report)}
+          <p className={styles.note}>{journalNote(report.journalSince)}</p>
         </>
       )}
     </StatsRequestState>

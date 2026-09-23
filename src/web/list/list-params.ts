@@ -6,8 +6,8 @@ export type ListParams = { filter: Omit<TaskFilter, "projectId">; sort: TaskSort
 
 export const DEFAULT_SORT: TaskSort = { key: "created", direction: "desc" };
 export const DEFAULT_FILTER: ListParams["filter"] = { statuses: OPEN_STATUSES };
-export const NO_EPIC = "none";
-export const ANY_STATUS = "all";
+const NO_EPIC = "none";
+const ANY_STATUS = "all";
 
 export const AUTO_CLOSED_VIEW: ListParams = {
   filter: { statuses: ["done", "cancelled"], onlyAutoClosed: true },

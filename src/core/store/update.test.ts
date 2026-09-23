@@ -2,10 +2,12 @@ import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { formatLocalIso } from "../model/dates";
+import { buildIndex } from "../model/graph";
 import { JOURNAL_FILE, readJournal } from "./journal";
 import { loadBacklog } from "./load";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
-import { updateTask, updateTaskIn, type TaskChanges } from "./update";
+import { updateTask } from "./testing/update-task";
+import { updateTaskInIndex, type TaskChanges } from "./update";
 
 const NOW = new Date("2026-09-18T12:00:00Z");
 
@@ -62,7 +64,7 @@ describe("updateTask", () => {
     await writeFiles(root, { "spa/SPA-2.md": edited });
     const snapshotVersion = tasks.find((task) => task.id === "SPA-2")?.version;
 
-    const result = await updateTaskIn(tasks, { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: snapshotVersion, now: NOW, via: "cli" });
+    const result = await updateTaskInIndex(buildIndex(tasks), { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: snapshotVersion, now: NOW, via: "cli" });
 
     expect(result).toMatchObject({ ok: false, reason: "conflict", current: { id: "SPA-2", status: "in-progress" } });
     expect(await readFile(join(root, "spa/SPA-2.md"), "utf8")).toBe(edited);
@@ -71,15 +73,16 @@ describe("updateTask", () => {
   it("файл пропал или перестал разбираться после загрузки снимка — not-found и conflict со снимком", async () => {
     const root = await setup();
     const { tasks } = await loadBacklog(root);
-    const version = (id: string) => tasks.find((task) => task.id === id)?.version;
+    const index = buildIndex(tasks);
+    const version = (id: string) => index.byId.get(id)?.version;
     await rm(join(root, "spa/SPA-3.md"));
     await writeFiles(root, { "spa/SPA-2.md": "сломано" });
 
-    expect(await updateTaskIn(tasks, { id: "SPA-3", changes: { title: "Новое" }, expectedVersion: version("SPA-3"), now: NOW, via: "cli" })).toEqual({
+    expect(await updateTaskInIndex(index, { id: "SPA-3", changes: { title: "Новое" }, expectedVersion: version("SPA-3"), now: NOW, via: "cli" })).toEqual({
       ok: false,
       reason: "not-found",
     });
-    expect(await updateTaskIn(tasks, { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: version("SPA-2"), now: NOW, via: "cli" })).toMatchObject({
+    expect(await updateTaskInIndex(index, { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: version("SPA-2"), now: NOW, via: "cli" })).toMatchObject({
       ok: false,
       reason: "conflict",
       current: { id: "SPA-2", version: version("SPA-2") },

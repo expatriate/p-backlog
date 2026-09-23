@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { CATEGORY_LABELS, NO_CATEGORY_LABEL } from "../../core/model/categories";
+import { epicProblems } from "../../core/model/integrity";
 import {
   PRIORITIES,
   TASK_CATEGORIES,
@@ -23,9 +24,10 @@ export function TaskFields({ task, epicListId, knownTasks, onChange }: TaskField
 
   const saveEpic = () => {
     const value = normalizeTaskId(epic);
-    const problem = value === "" ? null : epicProblem(value, knownTasks);
-    setEpicError(problem);
-    if (problem !== null) return;
+    const resolve = (id: string) => knownTasks.find((known) => known.id === id);
+    const problems = value === "" ? [] : epicProblems({ ...task, epic: value }, resolve);
+    setEpicError(problems.length === 0 ? null : problems.join("; "));
+    if (problems.length > 0) return;
     if (value !== (task.epic ?? "")) onChange({ epic: value === "" ? null : value });
   };
 
@@ -97,13 +99,6 @@ function ChoiceSelect<T extends string>({ label, value, choices, labels, emptyLa
       </select>
     </label>
   );
-}
-
-function epicProblem(id: string, knownTasks: readonly Task[]): string | null {
-  const target = knownTasks.find((candidate) => candidate.id === id);
-  if (target === undefined) return `Задачи ${id} нет в беклоге`;
-  if (target.type !== "epic") return `${id} не является эпиком`;
-  return null;
 }
 
 function saveTags(value: string, task: Task, onChange: (changes: TaskChangesRequest) => void): void {

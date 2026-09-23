@@ -5,15 +5,22 @@ import type { Task } from "../../core/model/types";
 import { loadBacklog } from "../../core/store/load";
 import { describeTask, toJson } from "../describe";
 import { formatTaskDetails } from "../format";
-import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
+import { usageError, type CliCommand } from "../command";
+import { EXIT, withUsageErrors, type CliIo } from "../io";
 import { requireTask } from "../lookups";
 
-export async function runShow(args: string[], io: CliIo): Promise<number> {
+export const showCommand: CliCommand = {
+  name: "show",
+  usage: ["<ID> [--json]"],
+  run: runShow,
+};
+
+async function runShow(args: string[], io: CliIo): Promise<number> {
   const { values, positionals } = withUsageErrors(() =>
     parseArgs({ args, allowPositionals: true, options: { json: { type: "boolean", default: false } } }),
   );
   const [id, ...rest] = positionals;
-  if (id === undefined || rest.length > 0) throw new UsageError("Использование: backlog show <ID>");
+  if (id === undefined || rest.length > 0) throw usageError(showCommand);
 
   const loaded = await loadBacklog(io.backlogRoot);
   const task = requireTask(loaded, io, id);

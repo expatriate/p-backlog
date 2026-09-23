@@ -13,7 +13,7 @@ import { PROJECT_FILE, taskFileName } from "./paths";
 import { taskText } from "./task-text";
 import { invalid, type CreateTaskResult } from "./write-result";
 
-export type NewTaskInput = Pick<Task, "title"> &
+type NewTaskInput = Pick<Task, "title"> &
   OptionalFields<Pick<Task, "type" | "priority" | "tags" | "epic" | "blockedBy" | "related" | "source" | "anchor" | "body" | "category">>;
 
 export type CreateTaskRequest = {

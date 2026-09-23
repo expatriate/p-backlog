@@ -18,6 +18,10 @@ export function pluralCount(count: number, one: string, few: string, many: strin
   return `${count.toLocaleString("ru-RU")}${NBSP}${plural(count, one, few, many)}`;
 }
 
+export function projectLabel(projectId: string, label: string, withProject: boolean): string {
+  return withProject ? `${projectId} · ${label}` : label;
+}
+
 export function formatDays(days: number | null): string {
   if (days === null) return "—";
   if (days < 1) return "меньше дня";

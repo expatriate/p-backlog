@@ -5,26 +5,19 @@ import { EffectExplainer } from "./EffectExplainer";
 import { EffectChartPanel, EffectFigures, ProjectsPanel } from "./EffectPanels";
 import rowStyles from "./PanelRows.module.css";
 import { StatsTabState } from "./StatsTabState";
+import { UnavailableRepos } from "./UnavailableRepos";
 import styles from "./StatsPage.module.css";
 
 export function EffectTab() {
   const { projectId } = useParams();
   const effect = useEffectStats(projectId);
-  return (
-    <StatsTabState error={effect.error} data={effect.data} isFetching={effect.isFetching} onRetry={() => void effect.refetch()}>
-      {effect.data && <Effect report={effect.data} />}
-    </StatsTabState>
-  );
+  return <StatsTabState query={effect}>{(report) => <Effect report={report} />}</StatsTabState>;
 }
 
 function Effect({ report }: { report: EffectReport }) {
   return (
     <>
-      {report.unavailableRepos.map((repo) => (
-        <p key={repo} className={styles.warning} role="status">
-          Нет доступа к репозиторию: {repo}. Проверьте путь в repos файла project.md и что это git-репозиторий.
-        </p>
-      ))}
+      <UnavailableRepos repos={report.unavailableRepos} />
       <EffectFigures totals={report.totals} />
       <div className={styles.blocks}>
         <div className={rowStyles.wide}>

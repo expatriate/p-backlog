@@ -8,6 +8,7 @@ import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/tes
 import { CODE_CACHE_FILE, createCodeCacheFile } from "./code-cache";
 import { createCodeSource, type CodeSource } from "./code-source";
 import { runGit, type GitRunner } from "../git/run";
+import { countingGit } from "../git/testing/counting-git";
 
 const NOW = new Date("2026-09-18T12:00:00+03:00");
 const projectOf = (id: string, repos: string[]): Project => ({ id, name: `Проект ${id}`, prefix: "SPA", repos, active: true, extra: {}, body: "", path: `/backlog/${id}/project.md` });
@@ -20,12 +21,14 @@ describe("сбор данных git по проектам", () => {
     const head = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
     const source: CodeSource = createCodeSource({ home: "/home/backlog-test" });
 
-    const code = await source.collect([projectOf("spa", [repo, "/nope/repo"])], [{ projectId: "spa", hashes: [head, "deadbee"] }], NOW);
+    const projects = [projectOf("spa", [repo, "/nope/repo"])];
+    const code = await source.collect(projects, NOW);
+    const fixCommits = await source.fixCommits(projects, [{ projectId: "spa", hashes: [head, "deadbee"] }], NOW);
 
     expect(code.projects).toEqual([{ projectId: "spa", name: "Проект spa", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 1 }], units: [{ date: "2026-09-10T10:00:00+03:00", lines: 1 }] }] }]);
     expect(code.unavailableRepos).toEqual(["/nope/repo"]);
-    expect(code.fixCommits.get(fixKey("spa", head))?.byAgent).toBe(false);
-    expect(code.fixCommits.has(fixKey("spa", "deadbee"))).toBe(false);
+    expect(fixCommits.get(fixKey("spa", head))?.byAgent).toBe(false);
+    expect(fixCommits.has(fixKey("spa", "deadbee"))).toBe(false);
   });
 
   it("репозиторий с `~` раскрывается в домашний каталог перед обращением к git", async () => {
@@ -35,7 +38,7 @@ describe("сбор данных git по проектам", () => {
     gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
     const source: CodeSource = createCodeSource({ home });
 
-    const code = await source.collect([projectOf("spa", ["~/spa"])], [], NOW);
+    const code = await source.collect([projectOf("spa", ["~/spa"])], NOW);
 
     expect(code.projects).toEqual([{ projectId: "spa", name: "Проект spa", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 1 }], units: [{ date: "2026-09-10T10:00:00+03:00", lines: 1 }] }] }]);
     expect(code.unavailableRepos).toEqual([]);
@@ -44,7 +47,7 @@ describe("сбор данных git по проектам", () => {
   it("недоступный путь остаётся в списке таким, как записан в project.md", async () => {
     const source: CodeSource = createCodeSource({ home: "/home/backlog-test" });
 
-    const code = await source.collect([projectOf("spa", ["~/nope"])], [], NOW);
+    const code = await source.collect([projectOf("spa", ["~/nope"])], NOW);
 
     expect(code.unavailableRepos).toEqual(["~/nope"]);
   });
@@ -53,26 +56,26 @@ describe("сбор данных git по проектам", () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a\n" });
     gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
-    const onlyRevParse: GitRunner = (dir, args) => (args[0] === "rev-parse" ? runGit(dir, args) : Promise.resolve(null));
+    const onlyRefs: GitRunner = (dir, args, input) => (args[0] === "cat-file" ? runGit(dir, args, input) : Promise.resolve(null));
     let git: GitRunner = runGit;
-    const source = createCodeSource({ home: "/home/backlog-test", git: (dir, args) => git(dir, args) });
+    const source = createCodeSource({ home: "/home/backlog-test", git: (dir, args, input) => git(dir, args, input) });
     const projects = [projectOf("spa", [repo])];
 
-    const first = await source.collect(projects, [], NOW);
-    git = onlyRevParse;
+    const first = await source.collect(projects, NOW);
+    git = onlyRefs;
 
-    expect((await source.collect(projects, [], NOW)).projects).toEqual(first.projects);
+    expect((await source.collect(projects, NOW)).projects).toEqual(first.projects);
 
     await writeFiles(repo, { "src/a.ts": "a\nb\n" });
     gitCommitAll(repo, "second", "2026-09-12T10:00:00+03:00");
 
-    expect((await source.collect(projects, [], NOW)).unavailableRepos).toEqual([repo]);
+    expect((await source.collect(projects, NOW)).unavailableRepos).toEqual([repo]);
   });
 
   it("один и тот же недоступный путь у двух проектов — одна запись", async () => {
     const source: CodeSource = createCodeSource({ home: "/home/backlog-test" });
 
-    const code = await source.collect([projectOf("a", ["/nope/repo"]), projectOf("b", ["/nope/repo"])], [], NOW);
+    const code = await source.collect([projectOf("a", ["/nope/repo"]), projectOf("b", ["/nope/repo"])], NOW);
 
     expect(code.unavailableRepos).toEqual(["/nope/repo"]);
   });
@@ -85,18 +88,19 @@ describe("сбор данных git по проектам", () => {
     const cacheRoot = await makeTempDir();
     const projects = [projectOf("spa", [repo])];
     const requests = [{ projectId: "spa", hashes: [head, "deadbee"] }];
-    const first = await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }).collect(projects, requests, NOW);
+    const gathered = async (source: CodeSource) => ({ code: await source.collect(projects, NOW), fixCommits: await source.fixCommits(projects, requests, NOW) });
+    const first = await gathered(createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }));
 
-    const onlyRevParse: GitRunner = (dir, args) => (args[0] === "rev-parse" ? runGit(dir, args) : Promise.resolve(null));
-    const restarted = await createCodeSource({ home: "/h", git: onlyRevParse, store: createCodeCacheFile(cacheRoot) }).collect(projects, requests, NOW);
+    const onlyRefs: GitRunner = (dir, args, input) => (args[0] === "cat-file" ? runGit(dir, args, input) : Promise.resolve(null));
+    const restarted = await gathered(createCodeSource({ home: "/h", git: onlyRefs, store: createCodeCacheFile(cacheRoot) }));
 
-    expect(restarted.projects).toEqual(first.projects);
+    expect(restarted.code.projects).toEqual(first.code.projects);
     expect(restarted.fixCommits.get(fixKey("spa", head))).toEqual(first.fixCommits.get(fixKey("spa", head)));
     expect(JSON.parse(await readFile(join(cacheRoot, CODE_CACHE_FILE), "utf8")).fixes).not.toHaveProperty(`${repo} deadbee`);
 
     await writeFile(join(cacheRoot, CODE_CACHE_FILE), "{битый", "utf8");
-    const fromGit = await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }).collect(projects, requests, NOW);
-    expect(fromGit.projects).toEqual(first.projects);
+    const fromGit = await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }).collect(projects, NOW);
+    expect(fromGit).toEqual(first.code);
   });
 
   it("коммит исправления, подтянутый позже через fetch, находится без перезапуска", async () => {
@@ -111,10 +115,87 @@ describe("сбор данных git по проектам", () => {
     const source = createCodeSource({ home: "/h" });
     const request = [{ projectId: "spa", hashes: [hash] }];
 
-    expect((await source.collect([projectOf("spa", [repo])], request, NOW)).fixCommits.has(fixKey("spa", hash))).toBe(false);
+    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(fixKey("spa", hash))).toBe(false);
 
     execFileSync("git", ["-C", repo, "fetch", "-q", clone, "HEAD"]);
 
-    expect((await source.collect([projectOf("spa", [repo])], request, NOW)).fixCommits.has(fixKey("spa", hash))).toBe(true);
+    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(fixKey("spa", hash))).toBe(true);
+  });
+
+  it("хеши, которых нет в репозитории, проверяются одним процессом git, а не по процессу на хеш", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const counting = countingGit();
+    const source = createCodeSource({ home: "/h", git: counting.git });
+    const hashes = Array.from({ length: 30 }, (_, index) => `deadbe${index.toString(16).padStart(2, "0")}`);
+
+    await source.fixCommits([projectOf("spa", [repo])], [{ projectId: "spa", hashes }], NOW);
+
+    expect(counting.processes()).toBe(2);
+  });
+
+  it("сбой git при чтении коммита исправления не мешает найти его при следующем сборе", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const head = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const fixLogFails: GitRunner = (dir, args, input) => (args[0] === "log" && args[1] === "--no-walk=unsorted" ? Promise.resolve(null) : runGit(dir, args, input));
+    let git = fixLogFails;
+    const source = createCodeSource({ home: "/h", git: (dir, args, input) => git(dir, args, input) });
+    const request = [{ projectId: "spa", hashes: [head] }];
+
+    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(fixKey("spa", head))).toBe(false);
+    git = runGit;
+
+    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(fixKey("spa", head))).toBe(true);
+  });
+
+  it("сбой подсчёта строк коммита исправления не запоминает его с нулём строк", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    await writeFiles(repo, { "src/a.ts": "a\nb\n" });
+    gitCommitAll(repo, "fix", "2026-09-11T10:00:00+03:00");
+    const head = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const numstatFails: GitRunner = (dir, args, input) => (args.includes("--numstat") ? Promise.resolve(null) : runGit(dir, args, input));
+    let git = numstatFails;
+    const source = createCodeSource({ home: "/h", git: (dir, args, input) => git(dir, args, input) });
+    const request = [{ projectId: "spa", hashes: [head] }];
+
+    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(fixKey("spa", head))).toBe(false);
+    git = runGit;
+
+    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).get(fixKey("spa", head))?.lines).toBe(1);
+  });
+
+  it("исправление по коммиту старше окна кода, пока его запрашивают, не перечитывается из git", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "давнее исправление", "2026-05-01T10:00:00+03:00");
+    const head = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const counting = countingGit();
+    const source = createCodeSource({ home: "/h", git: counting.git });
+    const request = [{ projectId: "spa", hashes: [head] }];
+    await source.fixCommits([projectOf("spa", [repo])], request, NOW);
+    counting.reset();
+
+    const again = await source.fixCommits([projectOf("spa", [repo])], request, NOW);
+
+    expect(again.has(fixKey("spa", head))).toBe(true);
+    expect(counting.processes()).toBe(1);
+  });
+
+  it("ключ состояния — один процесс git на репозиторий", async () => {
+    const repos = [await makeGitRepo(await makeTempDir(), "a"), await makeGitRepo(await makeTempDir(), "b")];
+    for (const repo of repos) {
+      await writeFiles(repo, { "src/a.ts": "a\n" });
+      gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    }
+    const counting = countingGit();
+
+    await createCodeSource({ home: "/h", git: counting.git }).stateKey([projectOf("spa", repos)]);
+
+    expect(counting.processes()).toBe(2);
   });
 });

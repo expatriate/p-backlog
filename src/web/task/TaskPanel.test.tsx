@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { loadBacklog } from "../../core/store/load";
-import { updateTask } from "../../core/store/update";
+import { updateTask } from "../../core/store/testing/update-task";
 import { projectFile } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
@@ -237,6 +237,33 @@ describe("карточка задачи", () => {
     expect(epic.getAttribute("aria-invalid")).toBe("true");
     expect(epic.getAttribute("aria-describedby")).toBe(error.id);
     expect((await taskOnDisk(app.root, "SPA-2")).epic).toBeUndefined();
+  });
+
+  it.each([
+    { id: "SPA-2", epic: "SPA-2", message: "задача не может быть своим эпиком" },
+    { id: "SPA-3", epic: "SPA-5", message: "эпик не может входить в другой эпик" },
+  ])("$id с эпиком $epic отклоняется у поля, как на сервере", async ({ id, epic, message }) => {
+    const files = { ...FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "Другой эпик", type: "epic" }) };
+    const sentMethods: string[] = [];
+    const app = await renderApp(files, `/p/spa/t/${id}`, undefined, {
+      beforeRender: (backlog) => {
+        const request = backlog.request;
+        backlog.request = async (path, init) => {
+          sentMethods.push(init?.method ?? "GET");
+          return await request(path, init);
+        };
+      },
+    });
+    const panel = await screen.findByRole("complementary", { name: `Задача ${id}` });
+
+    const field = within(panel).getByRole("combobox", { name: "Эпик" });
+    await app.user.type(field, epic);
+    await app.user.tab();
+
+    const error = await within(panel).findByRole("alert");
+    expect(error.textContent).toBe(message);
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(sentMethods).not.toContain("PATCH");
   });
 });
 

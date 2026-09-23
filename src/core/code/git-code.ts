@@ -1,4 +1,5 @@
-import { FIELD, RECORD, type GitRunner } from "../git/run";
+import { FIELD, RECORD, resolveCommits, type GitRunner } from "../git/run";
+import { sum } from "../stats/numbers";
 import type { CommitUnit, FixCommit, RepoCode } from "../stats/types";
 import { isTestPath } from "./test-paths";
 
@@ -6,65 +7,51 @@ const LOCK_FILES = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"];
 const LOCK_EXCLUDES = LOCK_FILES.map((name) => `:!*${name}`);
 const NON_CODE_EXTENSIONS = [".md", ".mdx", ".svg"];
 const CHURN_EXCLUDES = [...LOCK_EXCLUDES, ...NON_CODE_EXTENSIONS.map((ext) => `:!*${ext}`)];
+const HEAD = "HEAD";
 const MAIN_REFS = ["origin/HEAD", "main", "master"];
 const AGENT_TRAILER = /^claude/i;
 const GREP_PREFIX = "HEAD:";
 
-export async function readHead(git: GitRunner, repo: string): Promise<string | null> {
-  const output = await git(repo, ["rev-parse", "--verify", "--quiet", "HEAD"]);
-  const head = output?.trim() ?? "";
-  return head === "" ? null : head;
+export type RepoRefs = { head: string | null; main: string | null };
+
+export async function readRefs(git: GitRunner, repo: string): Promise<RepoRefs> {
+  const commits = (await resolveCommits(git, repo, [HEAD, ...MAIN_REFS])) ?? new Map<string, string>();
+  const head = commits.get(HEAD) ?? null;
+  const main = MAIN_REFS.map((ref) => commits.get(ref)).find((commit) => commit !== undefined);
+  return { head, main: main ?? head };
 }
 
-export async function readRepoCode(git: GitRunner, repo: string, since: Date, mainCommit?: string | null): Promise<RepoCode | null> {
-  const resolvedMainCommit = mainCommit === undefined ? await readMainCommit(git, repo) : mainCommit;
+export async function readRepoCode(git: GitRunner, repo: string, since: Date, mainCommit: string | null): Promise<RepoCode | null> {
   const [log, grep, units] = await Promise.all([
     git(repo, ["log", `--since=${since.toISOString()}`, `--format=tformat:${RECORD}`, "--name-only", "-M", "--relative", "-z", "--", "."]),
     git(repo, ["grep", "-I", "-c", "-z", "", "HEAD", "--", ".", ...LOCK_EXCLUDES]),
-    readUnits(git, repo, since, resolvedMainCommit),
+    readUnits(git, repo, since, mainCommit),
   ]);
   if (log === null || grep === null) return null;
   return { commits: parseCommits(log), lines: parseLines(grep), units };
 }
 
-export async function readMainCommit(git: GitRunner, repo: string): Promise<string | null> {
-  for (const ref of MAIN_REFS) {
-    const output = await git(repo, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]);
-    if (output !== null) return output.trim();
-  }
-  const head = await git(repo, ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"]);
-  return head === null ? null : head.trim();
+export async function readFixCommits(git: GitRunner, repo: string, hashes: readonly string[]): Promise<Map<string, FixCommit> | null> {
+  const fullHashes = await resolveCommits(git, repo, hashes);
+  if (fullHashes === null) return null;
+  return fullHashes.size === 0 ? new Map() : readFixBatch(git, repo, fullHashes);
 }
 
-export async function readFixCommits(git: GitRunner, repo: string, hashes: readonly string[]): Promise<Map<string, FixCommit>> {
-  if (hashes.length === 0) return new Map();
-  const batch = await readFixBatch(git, repo, hashes);
-  if (batch !== null) return batch;
-  const known = await knownHashes(git, repo, hashes);
-  return known.length === 0 ? new Map() : ((await readFixBatch(git, repo, known)) ?? new Map());
-}
-
-async function knownHashes(git: GitRunner, repo: string, hashes: readonly string[]): Promise<string[]> {
-  const checked = await Promise.all(hashes.map(async (hash) => ((await git(repo, ["rev-parse", "--verify", "--quiet", `${hash}^{commit}`])) === null ? [] : [hash])));
-  return checked.flat();
-}
-
-async function readFixBatch(git: GitRunner, repo: string, hashes: readonly string[]): Promise<Map<string, FixCommit> | null> {
-  const commits = hashes.map((hash) => `${hash}^{commit}`);
+async function readFixBatch(git: GitRunner, repo: string, fullHashes: ReadonlyMap<string, string>): Promise<Map<string, FixCommit> | null> {
+  const commits = [...new Set(fullHashes.values())];
   const [headers, stats] = await Promise.all([
     git(repo, ["log", "--no-walk=unsorted", ...commits, `--format=tformat:${RECORD}%H${FIELD}%cI${FIELD}%(trailers:key=Co-authored-by,valueonly,separator=${FIELD})`, "--"]),
     git(repo, ["log", "--no-walk=unsorted", ...commits, `--format=tformat:${RECORD}%H`, "--numstat", "--diff-merges=first-parent", "--relative", "--", ".", ...CHURN_EXCLUDES]),
   ]);
-  if (headers === null) return null;
-  const changedLines = new Map(parseFixStats(stats ?? ""));
+  if (headers === null || stats === null) return null;
+  const changedLines = new Map(parseFixStats(stats));
   const byFullHash = new Map(parseFixHeaders(headers, changedLines));
-  return new Map(hashes.flatMap((hash) => matchHash(byFullHash, hash)));
-}
-
-function matchHash(commits: ReadonlyMap<string, FixCommit>, hash: string): [string, FixCommit][] {
-  const full = [...commits.keys()].find((candidate) => candidate.startsWith(hash));
-  const commit = full === undefined ? undefined : commits.get(full);
-  return commit === undefined ? [] : [[hash, commit]];
+  return new Map(
+    [...fullHashes].flatMap(([hash, full]): [string, FixCommit][] => {
+      const commit = byFullHash.get(full);
+      return commit === undefined ? [] : [[hash, commit]];
+    }),
+  );
 }
 
 function parseFixHeaders(output: string, changedLines: ReadonlyMap<string, { lines: number; testLines: number }>): [string, FixCommit][] {
@@ -115,11 +102,12 @@ function parseUnits(output: string): CommitUnit[] {
 }
 
 function numstatLines(rows: readonly string[]): number {
-  return rows.reduce((sum, row) => {
-    const [added = "", deleted = ""] = row.split("\t");
-    const changed = Number(added) + Number(deleted);
-    return row.trim() === "" || Number.isNaN(changed) ? sum : sum + changed;
-  }, 0);
+  return sum(rows.filter((row) => row.trim() !== "").map(numstatRowLines).filter((lines) => !Number.isNaN(lines)));
+}
+
+function numstatRowLines(row: string): number {
+  const [added = "", deleted = ""] = row.split("\t");
+  return Number(added) + Number(deleted);
 }
 
 function parseCommits(output: string): string[][] {

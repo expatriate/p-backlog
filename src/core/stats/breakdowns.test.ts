@@ -4,6 +4,7 @@ import { makeTask } from "../model/testing/make-task";
 import { ageBreakdown, closingBreakdown, folderOf, hotspots } from "./breakdowns";
 import type { TaskHistory } from "./history";
 import { makeHistory } from "./testing/make-history";
+import { period } from "./period";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 
@@ -81,7 +82,7 @@ describe("как закрываются", () => {
       ]),
     ];
 
-    const closing = closingBreakdown(histories, at(1).getTime(), at(30).getTime());
+    const closing = closingBreakdown(histories, period(at(1).getTime(), at(30).getTime()));
 
     expect(closing.byReason).toEqual({ done: 1, fixed: 1, obsolete: 1, duplicate: 1, cancelled: 1 });
     expect(closing.duplicateShare).toBeCloseTo(0.2);
@@ -90,6 +91,6 @@ describe("как закрываются", () => {
   });
 
   it("нет закрытий и созданных — доли пустые", () => {
-    expect(closingBreakdown([], 0, 1)).toMatchObject({ duplicateShare: null, withoutSourceShare: null, reopened: 0 });
+    expect(closingBreakdown([], period(0, 1))).toMatchObject({ duplicateShare: null, withoutSourceShare: null, reopened: 0 });
   });
 });

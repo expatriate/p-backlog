@@ -1,22 +1,22 @@
-import { parseArgs } from "node:util";
 import { staleLowTasks, STALE_LOW_DAYS } from "../../core/model/query";
 import { formatDayMonth } from "../../core/stats/format";
 import { loadBacklog } from "../../core/store/load";
-import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
+import type { CliCommand } from "../command";
+import { EXIT, parseOptions, type CliIo } from "../io";
+import { applyAll } from "../apply-all";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
-import { writeTask } from "../task-write";
+import { taskWriter } from "../task-write";
 
 const PRUNE_REASON = `Низкий приоритет, не брали в работу ${STALE_LOW_DAYS}+ дней (backlog prune)`;
 
-export async function runPrune(args: string[], io: CliIo): Promise<number> {
-  const { values, positionals } = withUsageErrors(() =>
-    parseArgs({
-      args,
-      allowPositionals: true,
-      options: { ...SCOPE_OPTIONS, apply: { type: "boolean", default: false } },
-    }),
-  );
-  if (positionals.length > 0) throw new UsageError(`Лишние аргументы: ${positionals.join(" ")}`);
+export const pruneCommand: CliCommand = {
+  name: "prune",
+  usage: [`[--project id | --all-projects] [--apply]   (задачи с низким приоритетом старше ${STALE_LOW_DAYS} дней)`],
+  run: runPrune,
+};
+
+async function runPrune(args: string[], io: CliIo): Promise<number> {
+  const values = parseOptions(args, { ...SCOPE_OPTIONS, apply: { type: "boolean", default: false } });
 
   const loaded = await loadBacklog(io.backlogRoot);
   const scope = resolveScope(loaded, io, values);
@@ -36,10 +36,11 @@ export async function runPrune(args: string[], io: CliIo): Promise<number> {
     return EXIT.ok;
   }
 
-  for (const task of stale) {
-    const written = await writeTask(io, task, { status: "cancelled" }, { resolution: "obsolete", reason: PRUNE_REASON });
+  const write = taskWriter(io, loaded.tasks);
+  return applyAll(stale, async (task) => {
+    const written = await write(task, { status: "cancelled" }, { resolution: "obsolete", reason: PRUNE_REASON });
     if (!written.ok) return written.exitCode;
     io.print(`${task.id}: отменена`);
-  }
-  return EXIT.ok;
+    return EXIT.ok;
+  });
 }

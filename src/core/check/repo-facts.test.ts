@@ -2,7 +2,8 @@ import { readFile, rename, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
-import { changedLines, collectRepoFacts } from "./repo-facts";
+import { countingGit } from "../git/testing/counting-git";
+import { collectRepoFacts, diffsSince } from "./repo-facts";
 
 describe("collectRepoFacts", () => {
   it("собирает коммиты после даты с файлами и переименованиями, незакоммиченные правки и существующие файлы", async () => {
@@ -18,7 +19,6 @@ describe("collectRepoFacts", () => {
 
     const facts = await collectRepoFacts(repo, { since: new Date("2026-09-11T00:00:00Z"), paths: ["src/a.ts", "src/old.ts", "src/new.ts"] });
 
-    expect(facts.isGit).toBe(true);
     expect(facts.commits.map(({ subject, date, files }) => ({ subject, date, files }))).toEqual([
       {
         subject: "Переименовать old",
@@ -52,7 +52,7 @@ describe("collectRepoFacts", () => {
 
     const facts = await collectRepoFacts(dir, { since: new Date("2026-09-11T00:00:00Z"), paths: ["src/a.ts", "src/b.ts"] });
 
-    expect(facts).toEqual({ isGit: false, commits: [], dirtyModifiedAt: new Map(), existing: new Set(["src/a.ts"]), texts: new Map([["src/a.ts", ""]]) });
+    expect(facts).toEqual({ commits: [], dirtyModifiedAt: new Map(), existing: new Set(["src/a.ts"]), texts: new Map([["src/a.ts", ""]]) });
   });
 
   it("не переписывает индекс git: сбор фактов не берёт index.lock, пока с репозиторием работает пользователь", async () => {
@@ -69,8 +69,9 @@ describe("collectRepoFacts", () => {
   });
 });
 
-describe("changedLines", () => {
+describe("diffsSince", () => {
   const lines = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, index) => `строка ${from + index}`);
+  const changedLines = async (repo: string, path: string, since: Date) => (await diffsSince(repo)(path, since))?.changed ?? null;
 
   it("отдаёт строки изменённых гунков: и закоммиченные, и незакоммиченные", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
@@ -102,5 +103,35 @@ describe("changedLines", () => {
     gitCommitAll(repo, "Начало", "2026-09-12T10:00:00+03:00");
 
     expect(await changedLines(repo, "src/upload.ts", new Date("2026-09-10T00:00:00+03:00"))).toBeNull();
+  });
+
+  it("правки в двух местах одного гунка — два диапазона, как без контекста", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/upload.ts": `${lines(1, 30).join("\n")}\n` });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFile(join(repo, "src/upload.ts"), `${["новая первая", ...lines(3, 12), "вставка", "ещё вставка", ...lines(13, 30)].join("\n")}\n`);
+    gitCommitAll(repo, "Правки рядом", "2026-09-12T10:00:00+03:00");
+
+    expect(await changedLines(repo, "src/upload.ts", new Date("2026-09-11T00:00:00+03:00"))).toEqual([
+      { from: 1, to: 1 },
+      { from: 12, to: 13 },
+    ]);
+  });
+
+  it("база и diff файла для одной отметки читаются из git один раз, текст и изменённые строки — из одного diff", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/upload.ts": "один\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFile(join(repo, "src/upload.ts"), "два\n");
+    gitCommitAll(repo, "Правка", "2026-09-12T10:00:00+03:00");
+    const counting = countingGit();
+    const diffOf = diffsSince(repo, counting.git);
+    const since = new Date("2026-09-11T00:00:00+03:00");
+
+    const [first, second] = await Promise.all([diffOf("src/upload.ts", since), diffOf("src/upload.ts", since)]);
+
+    expect(first).toEqual({ excerpt: expect.stringMatching(/-один\n\+два/), changed: [{ from: 1, to: 1 }] });
+    expect(second).toEqual(first);
+    expect(counting.processes()).toBe(2);
   });
 });

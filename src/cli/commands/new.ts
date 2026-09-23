@@ -1,4 +1,3 @@
-import { parseArgs } from "node:util";
 import { findSimilarTask } from "../../core/check/candidates";
 import { sourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW } from "../../core/journal/events";
@@ -6,33 +5,41 @@ import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project } from "../../cor
 import { findProjectForDir } from "../../core/store/resolve-project";
 import { createTask } from "../../core/store/create";
 import { loadBacklog } from "../../core/store/load";
-import { EXIT, parseChoice, splitList, UsageError, withUsageErrors, type CliIo } from "../io";
+import type { CliCommand } from "../command";
+import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo } from "../io";
 import { ensureProject } from "../lookups";
 import { readOrigin } from "../origin";
 
-export async function runNew(args: string[], io: CliIo): Promise<number> {
-  const { values, positionals } = withUsageErrors(() =>
-    parseArgs({
-      args,
-      allowPositionals: true,
-      options: {
-        title: { type: "string" },
-        type: { type: "string" },
-        priority: { type: "string" },
-        tags: { type: "string" },
-        category: { type: "string" },
-        found: { type: "string" },
-        source: { type: "string" },
-        epic: { type: "string" },
-        "blocked-by": { type: "string" },
-        related: { type: "string" },
-        project: { type: "string" },
-        json: { type: "boolean", default: false },
-        force: { type: "boolean", default: false },
-      },
-    }),
-  );
-  if (positionals.length > 0) throw new UsageError(`Лишние аргументы: ${positionals.join(" ")}`);
+export const newCommand: CliCommand = {
+  name: "new",
+  usage: [
+    [
+      `--title <заголовок> [--type ${TASK_TYPES.join("|")}] [--priority ${PRIORITIES.join("|")}] [--tags a,b]`,
+      `--category <категория> (для задач обязателен) [--found ${FOUND_HOW.join("|")}]`,
+      "[--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]",
+      "[--force — создать, даже если похожая открытая задача уже есть]",
+      "(описание задачи читается из stdin)",
+    ].join("\n"),
+  ],
+  run: runNew,
+};
+
+async function runNew(args: string[], io: CliIo): Promise<number> {
+  const values = parseOptions(args, {
+    title: { type: "string" },
+    type: { type: "string" },
+    priority: { type: "string" },
+    tags: { type: "string" },
+    category: { type: "string" },
+    found: { type: "string" },
+    source: { type: "string" },
+    epic: { type: "string" },
+    "blocked-by": { type: "string" },
+    related: { type: "string" },
+    project: { type: "string" },
+    json: { type: "boolean", default: false },
+    force: { type: "boolean", default: false },
+  });
   if (values.title === undefined) throw new UsageError("--title обязателен");
   const type = values.type === undefined ? undefined : parseChoice(values.type, TASK_TYPES, "--type");
   const priority = values.priority === undefined ? undefined : parseChoice(values.priority, PRIORITIES, "--priority");

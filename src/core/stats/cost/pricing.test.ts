@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { TokenCounts } from "../types";
-import { costOf, fastModel, priceOf } from "./pricing";
+import { costOf, fastModel } from "./pricing";
 
 const MILLION: TokenCounts = { input: 1_000_000, cacheWrite5m: 1_000_000, cacheWrite1h: 1_000_000, cacheRead: 1_000_000, output: 1_000_000 };
 const ZERO: TokenCounts = { input: 0, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 };
+
+function priceOf(model: string) {
+  const perMillion = (kind: keyof TokenCounts) => costOf(model, { ...ZERO, [kind]: 1_000_000 });
+  const input = perMillion("input");
+  return input === null ? null : { input, output: perMillion("output"), cacheRead: perMillion("cacheRead") };
+}
 
 describe("цены моделей", () => {
   it("claude-opus-5 — 5 за вход, 25 за выход, 0,5 за чтение кэша", () => {

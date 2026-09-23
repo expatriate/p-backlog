@@ -15,7 +15,7 @@ export const RESOLUTION_STATUS: Record<Resolution, "done" | "cancelled"> = {
 
 export type Closure = { resolution: Resolution; reason: string };
 
-export type EpicClosure = { epic: Task; closure: Closure };
+type EpicClosure = { epic: Task; closure: Closure };
 
 export type EpicClosingPlan = { close: EpicClosure[]; waiting: EpicClosure[] };
 
@@ -48,7 +48,7 @@ export function planEpicClosing(tasks: readonly Task[], parseErrors: readonly Pa
   };
 }
 
-export function completedEpics(tasks: readonly Task[]): EpicClosure[] {
+function completedEpics(tasks: readonly Task[]): EpicClosure[] {
   const index = buildIndex(tasks);
   return tasks.flatMap((epic) => {
     const children = completedEpicChildren(epic, index);

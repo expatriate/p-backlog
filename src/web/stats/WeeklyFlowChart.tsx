@@ -1,6 +1,7 @@
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import { pluralCount } from "../../core/stats/format";
 import type { WeekFlow } from "../../core/stats/types";
+import { sum } from "../../core/stats/numbers";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipWeek } from "./charts/chart-format";
 import { AXIS_PROPS, BAR_RADIUS, LINE_WIDTH, CHART_MARGIN, chartLabel, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
@@ -27,8 +28,8 @@ const weekTooltip = rowTooltip((week: WeekFlow) => ({
 }));
 
 export function WeeklyFlowChart({ weeks }: { weeks: WeekFlow[] }) {
-  const created = weeks.reduce((sum, week) => sum + week.created, 0);
-  const closed = weeks.reduce((sum, week) => sum + week.closed, 0);
+  const created = sum(weeks.map((week) => week.created));
+  const closed = sum(weeks.map((week) => week.closed));
   const openNow = weeks.at(-1)?.openAtEnd ?? 0;
   const summary = `${pluralCount(weeks.length, "неделя", "недели", "недель")}: создано ${created}, закрыто ${closed}, открыто сейчас ${openNow}`;
   return (

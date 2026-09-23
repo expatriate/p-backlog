@@ -2,7 +2,7 @@ import { compareIds } from "../../core/model/ids";
 import type { Task } from "../../core/model/types";
 import { toneOf, type EpicTones } from "../ui/epic-tone";
 
-export type EpicChoice = { id: string; title: string; tone: number | undefined; taskCount: number };
+type EpicChoice = { id: string; title: string; tone: number | undefined; taskCount: number };
 export type EpicChoices = { epics: EpicChoice[]; withoutEpicCount: number };
 
 export function epicChoices(tasks: readonly Task[], tones: EpicTones): EpicChoices {

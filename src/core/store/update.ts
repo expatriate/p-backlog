@@ -1,5 +1,5 @@
 import { dirname } from "node:path";
-import { buildIndex } from "../model/graph";
+import type { BacklogIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
 import { changeStatus, settleLifecycle, type Closure } from "../model/lifecycle";
 import { parseTaskFile } from "../model/task-file";
@@ -7,7 +7,6 @@ import type { OptionalFields, Task, TaskCategory } from "../model/types";
 import { changeEvents, type ChangeSource } from "../journal/events";
 import { contentVersion, readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { appendJournal } from "./journal";
-import { loadBacklog } from "./load";
 import { taskText } from "./task-text";
 import { invalid, type UpdateTaskFailure, type UpdateTaskResult } from "./write-result";
 
@@ -23,23 +22,15 @@ export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVers
 
 const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "related", "body", "source", "verified"] as const;
 
-export async function updateTask(root: string, request: UpdateTaskRequest): Promise<UpdateTaskResult> {
-  const { tasks } = await loadBacklog(root);
-  return updateTaskIn(tasks, request);
-}
-
-export async function updateTaskIn(
-  tasks: readonly Task[],
-  { id, changes, expectedVersion, now, closure, via }: UpdateTaskRequest,
-): Promise<UpdateTaskResult> {
-  const current = tasks.find((task) => task.id === id);
+export async function updateTaskInIndex(index: BacklogIndex, { id, changes, expectedVersion, now, closure, via }: UpdateTaskRequest): Promise<UpdateTaskResult> {
+  const current = index.byId.get(id);
   if (!current) return { ok: false, reason: "not-found" };
   if (expectedVersion !== undefined && expectedVersion !== current.version) return { ok: false, reason: "conflict", current };
 
   const normalized = taskText(applyChanges(current, changes, now, closure));
   if (!normalized.ok) return invalid([normalized.message]);
   const { text, task } = normalized.value;
-  const errors = integrityErrors(task, buildIndex(tasks));
+  const errors = integrityErrors(task, index);
   if (errors.length > 0) return invalid(errors);
 
   const changedOnDisk = expectedVersion === undefined ? null : await diskChange(current, expectedVersion);

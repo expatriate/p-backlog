@@ -2,7 +2,7 @@ import { relative, sep } from "node:path";
 import { watch } from "chokidar";
 import { errorText } from "../core/errors";
 
-export type ChangeListener = () => void;
+type ChangeListener = () => void;
 
 export type ChangeFeed = {
   subscribe: (listener: ChangeListener) => () => void;

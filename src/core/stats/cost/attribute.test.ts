@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { formatLocalIso } from "../../model/dates";
 import { attributeLine, newTranscriptState } from "./attribute";
 import { fastModel } from "./pricing";
 
@@ -80,17 +79,16 @@ describe("отнесение строк расшифровки к накладн
     expect(estimate).toMatchObject({ kind: "cli", model: "claude-opus-5", tokens: { cacheWrite5m: 10 } });
   });
 
-  it("оценка использует день и cwd строки tool_result, а не строки ответа модели", () => {
+  it("оценка использует время и cwd строки tool_result, а не строки ответа модели", () => {
     const state = newTranscriptState();
-    const toolResultTimestamp = "2026-09-10T12:00:00.000Z";
-    const expectedDay = formatLocalIso(new Date(toolResultTimestamp)).slice(0, 10);
+    const toolResultTimestamp = "2026-09-10T12:07:30.000Z";
 
     attributeLine(assistantLine("2026-08-01T10:00:00.000Z", "claude-sonnet-5", usage(5, 5), [bashToolUse("toolu_1", "backlog list")]), state);
     attributeLine({ type: "user", timestamp: toolResultTimestamp, cwd: "/Users/x/projects/other", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "toolu_1", content: "abc" }] } }, state);
 
     const [estimate] = attributeLine(assistantLine("2026-09-20T00:00:01.000Z", "claude-opus-5", usage(1, 1)), state);
 
-    expect(estimate).toMatchObject({ day: expectedDay, cwd: "/Users/x/projects/other" });
+    expect(estimate).toMatchObject({ slot: "2026-09-10T12:00:00.000Z", cwd: "/Users/x/projects/other" });
   });
 
   it("Bash без backlog в начале команды не учитывается", () => {

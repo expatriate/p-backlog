@@ -7,3 +7,7 @@ export function activeProjectIds(projects: readonly Project[]): Set<string> {
 export function tasksInScope(tasks: readonly Task[], projectId: string | undefined, activeIds: ReadonlySet<string>): Task[] {
   return tasks.filter((task) => (projectId === undefined ? activeIds.has(task.projectId) : task.projectId === projectId));
 }
+
+export function projectNameOf(projects: readonly Project[] | undefined, projectId: string): string {
+  return projects?.find((project) => project.id === projectId)?.name ?? projectId;
+}

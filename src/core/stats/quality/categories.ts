@@ -1,11 +1,11 @@
 import { categoryLabel } from "../../model/categories";
 import type { Task, TaskCategory } from "../../model/types";
 import { closingsOf, type TaskHistory } from "../history";
+import type { Period } from "../period";
 import { PRIORITY_WEIGHT } from "../weights";
 import type { CategoryRow } from "../types";
 
-export function categoryBreakdown(openTasks: readonly Task[], histories: readonly TaskHistory[], from: number, to: number): CategoryRow[] {
-  const inPeriod = (moment: number) => moment >= from && moment <= to;
+export function categoryBreakdown(openTasks: readonly Task[], histories: readonly TaskHistory[], period: Period): CategoryRow[] {
   const rows = new Map<TaskCategory | null, CategoryRow>();
   const row = (category: TaskCategory | undefined): CategoryRow => {
     const key = category ?? null;
@@ -21,8 +21,8 @@ export function categoryBreakdown(openTasks: readonly Task[], histories: readonl
     target.weight += PRIORITY_WEIGHT[task.priority];
   }
   for (const history of histories) {
-    if (inPeriod(history.createdAt)) row(history.category).created += 1;
-    row(history.category).closed += closingsOf(history).filter((closing) => inPeriod(closing.at)).length;
+    if (period.contains(history.createdAt)) row(history.category).created += 1;
+    row(history.category).closed += closingsOf(history).filter((closing) => period.contains(closing.at)).length;
   }
   return [...rows.values()]
     .filter((entry) => entry.open + entry.created + entry.closed > 0)

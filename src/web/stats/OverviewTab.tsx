@@ -17,11 +17,7 @@ import styles from "./StatsPage.module.css";
 export function OverviewTab() {
   const { projectId } = useParams();
   const stats = useStats(projectId);
-  return (
-    <StatsTabState error={stats.error} data={stats.data} isFetching={stats.isFetching} onRetry={() => void stats.refetch()}>
-      {stats.data && <Overview report={stats.data} listPath={listPath(projectId)} />}
-    </StatsTabState>
-  );
+  return <StatsTabState query={stats}>{(report) => <Overview report={report} listPath={listPath(projectId)} />}</StatsTabState>;
 }
 
 function Overview({ report, listPath }: { report: StatsReport; listPath: string }) {

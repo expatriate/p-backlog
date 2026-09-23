@@ -1,5 +1,6 @@
 import type { AgeBreakdown, AgeBucket } from "../../core/stats/types";
 import { PRIORITIES } from "../../core/model/types";
+import { sum } from "../../core/stats/numbers";
 import { PRIORITY_LABELS } from "../labels";
 import { cx } from "../ui/cx";
 import rowStyles from "./PanelRows.module.css";
@@ -18,7 +19,7 @@ function priorityBreakdown(byPriority: Record<(typeof PRIORITIES)[number], numbe
 }
 
 export function AgePanel({ age }: { age: AgeBreakdown }) {
-  const totals = age.buckets.map(({ bucket, byPriority }) => ({ bucket, total: PRIORITIES.reduce((sum, priority) => sum + byPriority[priority], 0), byPriority }));
+  const totals = age.buckets.map(({ bucket, byPriority }) => ({ bucket, total: sum(PRIORITIES.map((priority) => byPriority[priority])), byPriority }));
   const max = Math.max(1, ...totals.map(({ total }) => total));
   const summary = totals.map(({ bucket, total, byPriority }) => `${BUCKET_LABELS[bucket]}: ${total}${priorityBreakdown(byPriority)}`).join("; ");
 

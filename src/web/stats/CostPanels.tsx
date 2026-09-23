@@ -1,7 +1,8 @@
 import { COST_TOTALS_DAYS } from "../../core/stats/cost/cost-report";
 import { formatMoney } from "../../core/stats/format";
 import type { CostCommand, CostDay, CostModel, CostTotals } from "../../core/stats/types";
-import { costValue, formatMb, formatMs, sum } from "./cost-format";
+import { sum } from "../../core/stats/numbers";
+import { costValue, formatMb, formatMs } from "./cost-format";
 import { formatLines } from "./effect-format";
 import { Figure } from "./Figure";
 import rowStyles from "./PanelRows.module.css";

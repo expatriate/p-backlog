@@ -1,7 +1,10 @@
+import { appendFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
-import { EXIT } from "../io";
+import { EXIT, type CliIo } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
+import { pruneCommand } from "./prune";
 
 const LONG_AGO = new Date("2026-08-01T10:00:00Z");
 
@@ -24,5 +27,34 @@ describe("backlog prune", () => {
     expect(tasks.find((task) => task.id === "SPA-1")).toMatchObject({ status: "cancelled", resolution: "obsolete", reason: "Низкий приоритет, не брали в работу 30+ дней (backlog prune)" });
     expect(tasks.filter((task) => task.status === "backlog").map((task) => task.id)).toEqual(["SPA-2", "SPA-3"]);
     expect((await run(["prune"])).out).toBe("Застоявшихся задач нет");
+  });
+
+  it("--apply после конфликта на одной задаче отменяет остальные и возвращает код ошибки", async () => {
+    const { run, root, home, repo } = await makeCliSandbox();
+    for (const title of ["Первая", "Вторая", "Третья"]) await run(["new", "--category", "bug", "--title", title, "--priority", "low"], { now: LONG_AGO });
+    const err: string[] = [];
+    const io: CliIo = {
+      cwd: repo,
+      home,
+      backlogRoot: root,
+      env: {},
+      now: () => new Date("2026-09-17T14:50:00Z"),
+      readStdin: async () => "",
+      print: (line) => {
+        if (line === "SPA-1: отменена") appendFileSync(join(root, "spa", "SPA-2.md"), "Правка руками во время prune\n");
+      },
+      warn: (line) => err.push(line),
+    };
+
+    const code = await pruneCommand.run(["--apply"], io);
+
+    expect(code).toBe(EXIT.invalid);
+    expect(err).toEqual(["Файл задачи SPA-2 изменился во время записи, повторите команду"]);
+    const statuses = (await loadBacklog(root)).tasks.map((task) => [task.id, task.status]);
+    expect(statuses).toEqual([
+      ["SPA-1", "cancelled"],
+      ["SPA-2", "backlog"],
+      ["SPA-3", "cancelled"],
+    ]);
   });
 });

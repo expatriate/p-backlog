@@ -6,14 +6,20 @@ import { findRepo, hasCommit } from "../../core/check/project-repo";
 import { reasonHashes } from "../../core/stats/code/fixes";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { formatDay } from "../format";
+import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, UsageError, withUsageErrors, type CliIo } from "../io";
-import { requireTask } from "../lookups";
-import { writeTask } from "../task-write";
+import { projectOf, requireTask } from "../lookups";
+import { taskWriter } from "../task-write";
 
 const CLOSE_RESOLUTIONS = ["fixed", "obsolete", "duplicate"] as const;
-const USAGE = "Использование: backlog close <ID> --as fixed|obsolete|duplicate --reason <улика> [--duplicate-of <ID>]";
 
-export async function runClose(args: string[], io: CliIo): Promise<number> {
+export const closeCommand: CliCommand = {
+  name: "close",
+  usage: [`<ID> --as ${CLOSE_RESOLUTIONS.join("|")} --reason <улика> [--duplicate-of <ID>]`],
+  run: runClose,
+};
+
+async function runClose(args: string[], io: CliIo): Promise<number> {
   const { values, positionals } = withUsageErrors(() =>
     parseArgs({
       args,
@@ -22,7 +28,7 @@ export async function runClose(args: string[], io: CliIo): Promise<number> {
     }),
   );
   const [id, ...rest] = positionals;
-  if (id === undefined || rest.length > 0 || values.as === undefined) throw new UsageError(USAGE);
+  if (id === undefined || rest.length > 0 || values.as === undefined) throw usageError(closeCommand);
   const resolution = parseChoice(values.as, CLOSE_RESOLUTIONS, "--as");
   const reason = (values.reason ?? "").replace(/\s*\n\s*/g, " ").trim();
   if (reason === "") throw new UsageError("--reason обязателен: коммит, строка или факт, по которому задача закрыта");
@@ -61,7 +67,7 @@ export async function runClose(args: string[], io: CliIo): Promise<number> {
   }
 
   const status = RESOLUTION_STATUS[resolution];
-  const written = await writeTask(io, task, { status, related }, { resolution, reason });
+  const written = await taskWriter(io, loaded.tasks)(task, { status, related }, { resolution, reason });
   if (!written.ok) return written.exitCode;
   const deletesAt = deletionDate(written.task);
   io.print(`${id}: ${task.status} → ${status} (${resolution})${deletesAt === undefined ? "" : `. Удалится ${formatDay(deletesAt)}`}`);
@@ -76,7 +82,7 @@ function originalProblem(task: Task, original: Task): string | null {
 }
 
 async function fixCommitFound(loaded: LoadedBacklog, task: Task, reason: string, io: CliIo): Promise<boolean> {
-  const project = loaded.projects.find((candidate) => candidate.id === task.projectId);
+  const project = projectOf(loaded, task);
   const repo = project === undefined ? undefined : await findRepo(project, io.home);
   if (repo === undefined) return true;
   for (const sha of reasonHashes(reason)) if (await hasCommit(repo, sha)) return true;

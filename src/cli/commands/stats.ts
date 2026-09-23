@@ -1,4 +1,3 @@
-import { parseArgs } from "node:util";
 import { flowForecast } from "../../core/stats/flow/forecast";
 import { reportBase } from "../../core/stats/scope";
 import { statsReport } from "../../core/stats/report";
@@ -6,19 +5,19 @@ import { statsSignals } from "../../core/stats/signals/signals";
 import { readJournals } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
 import { readPort } from "../../server/port";
-import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
+import type { CliCommand } from "../command";
+import { EXIT, parseOptions, type CliIo } from "../io";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { statsSummary } from "../stats-summary";
 
-export async function runStats(args: string[], io: CliIo): Promise<number> {
-  const { values, positionals } = withUsageErrors(() =>
-    parseArgs({
-      args,
-      allowPositionals: true,
-      options: { ...SCOPE_OPTIONS, json: { type: "boolean", default: false } },
-    }),
-  );
-  if (positionals.length > 0) throw new UsageError(`Лишние аргументы: ${positionals.join(" ")}`);
+export const statsCommand: CliCommand = {
+  name: "stats",
+  usage: ["[--project id | --all-projects] [--json]"],
+  run: runStats,
+};
+
+async function runStats(args: string[], io: CliIo): Promise<number> {
+  const values = parseOptions(args, { ...SCOPE_OPTIONS, json: { type: "boolean", default: false } });
 
   const loaded = await loadBacklog(io.backlogRoot);
   const scope = resolveScope(loaded, io, values);
@@ -31,7 +30,7 @@ export async function runStats(args: string[], io: CliIo): Promise<number> {
   const base = reportBase(input);
   const totals = statsReport(input, base).totals;
   const forecast = flowForecast(base.histories, base.openTasks.length, io.now());
-  const signals = statsSignals(input);
+  const signals = statsSignals(input, base);
 
   if (values.json) {
     io.print(JSON.stringify({ totals, forecast, signals }, null, 2));

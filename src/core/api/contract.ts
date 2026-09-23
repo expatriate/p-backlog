@@ -1,18 +1,16 @@
 import { z } from "zod";
-import { ID_PATTERN } from "../model/ids";
-import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, type ParseError, type Project, type Task } from "../model/types";
+import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskIdSchema, type ParseError, type Project, type Task } from "../model/types";
 import type { MemorySample } from "../stats/types";
 
-const taskId = z.string().regex(ID_PATTERN, "некорректный ID");
-const idList = z.array(taskId);
+const idList = z.array(taskIdSchema);
 
-export const taskChangesSchema = z.strictObject({
+const taskChangesSchema = z.strictObject({
   title: z.string().optional(),
   type: z.enum(TASK_TYPES).optional(),
   status: z.enum(TASK_STATUSES).optional(),
   priority: z.enum(PRIORITIES).optional(),
   tags: z.array(z.string()).optional(),
-  epic: taskId.nullable().optional(),
+  epic: taskIdSchema.nullable().optional(),
   blockedBy: idList.optional(),
   related: idList.optional(),
   body: z.string().optional(),
@@ -35,6 +33,6 @@ export type ProjectView = Project & { codeGraph: boolean };
 export type ProjectDeletedResponse = { deleted: string };
 export type ErrorResponse = { errors: string[] };
 export type ConflictResponse = ErrorResponse & { current: Task };
-export type { CodeReport, CostReport, EffectReport, MemorySample, QualityReport, SignalsReport, StatsReport } from "../stats/types";
+export type { CodeReport, CostReport, EffectReport, QualityReport, SignalsReport, StatsReport } from "../stats/types";
 
 export type MemorySamplesResponse = { samples: MemorySample[] };

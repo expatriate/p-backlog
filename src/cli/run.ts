@@ -1,68 +1,46 @@
-import { TASK_CATEGORIES } from "../core/model/types";
-import { runCategory } from "./commands/category";
-import { runCheck } from "./commands/check";
-import { runEpic } from "./commands/epic";
-import { runClose } from "./commands/close";
-import { runHook } from "./commands/hook";
-import { runList } from "./commands/list";
-import { runNew } from "./commands/new";
-import { runPriority } from "./commands/priority";
-import { runShow } from "./commands/show";
-import { runStats } from "./commands/stats";
-import { runStatus } from "./commands/status";
-import { runTake } from "./commands/take";
-import { runProject } from "./commands/project";
-import { runPrune } from "./commands/prune";
-import { runVerify } from "./commands/verify";
+import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/stats/cost/hook-signature";
 import { errorText } from "../core/errors";
+import { usageText, type CliCommand } from "./command";
+import { categoryCommand } from "./commands/category";
+import { checkCommand } from "./commands/check";
+import { closeCommand } from "./commands/close";
+import { epicCommand } from "./commands/epic";
+import { hookCommand } from "./commands/hook";
+import { listCommand } from "./commands/list";
+import { newCommand } from "./commands/new";
+import { priorityCommand } from "./commands/priority";
+import { projectCommand } from "./commands/project";
+import { pruneCommand } from "./commands/prune";
+import { showCommand } from "./commands/show";
+import { statsCommand } from "./commands/stats";
+import { statusCommand } from "./commands/status";
+import { takeCommand } from "./commands/take";
+import { verifyCommand } from "./commands/verify";
 import { EXIT, UsageError, type CliIo } from "./io";
 
-const USAGE = `Использование:
-  backlog new --title <заголовок> [--type task|epic] [--priority low|medium|high|critical] [--tags a,b]
-              --category <категория> (для задач обязателен) [--found review|incidental]
-              [--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]
-              [--force — создать, даже если похожая открытая задача уже есть]
-              (описание задачи читается из stdin)
-  backlog list [--query текст] [--status s,…] [--tag t,…] [--project id | --all-projects] [--json]
-  backlog stats [--project id | --all-projects] [--json]
-  backlog show <ID> [--json]
-  backlog take <ID> [--force] [--json]
-  backlog take --next [--project id] [--json]
-  backlog take --path <файл|каталог> [--project id]   (все открытые задачи внутри пути)
-  backlog status <ID> <backlog|in-progress|blocked|done|cancelled>
-  backlog priority <ID> <low|medium|high|critical>
-  backlog category <ID> <${TASK_CATEGORIES.join("|")}|none>
-  backlog epic <ID> [<ID> …] --to <ID эпика|none>   (переносит задачи в эпик или вынимает из него)
-  backlog check [--changed] [--project id | --all-projects] [--json]
-  backlog close <ID> --as fixed|obsolete|duplicate --reason <улика> [--duplicate-of <ID>]
-  backlog prune [--project id | --all-projects] [--apply]   (задачи с низким приоритетом старше 30 дней)
-  backlog verify <ID> [<ID> …] [--source файл:строка — только для одной задачи]
-  backlog project list
-  backlog project status <id> active|inactive   (неактивные не входят в общую область)
-  backlog project delete <id> --confirm <id>    (удаляет каталог проекта со всеми задачами)
-  backlog hook stop   (для хука Stop в Claude Code, событие читается из stdin)`;
+export const CLI_COMMANDS: readonly CliCommand[] = [
+  newCommand,
+  listCommand,
+  statsCommand,
+  showCommand,
+  takeCommand,
+  statusCommand,
+  priorityCommand,
+  categoryCommand,
+  epicCommand,
+  checkCommand,
+  closeCommand,
+  pruneCommand,
+  verifyCommand,
+  projectCommand,
+  hookCommand,
+];
+
+const USAGE = usageText(CLI_COMMANDS);
 
 const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
 
-const COMMANDS = new Map<string, (args: string[], io: CliIo) => Promise<number>>([
-  ["new", runNew],
-  ["list", runList],
-  ["stats", runStats],
-  ["show", runShow],
-  ["take", runTake],
-  ["status", runStatus],
-  ["priority", runPriority],
-  ["category", runCategory],
-  ["epic", runEpic],
-  ["check", runCheck],
-  ["close", runClose],
-  ["verify", runVerify],
-  ["prune", runPrune],
-  ["project", runProject],
-  ["hook", runHook],
-]);
-
-const COMMAND_NAMES: readonly string[] = [...COMMANDS.keys()];
+const COMMANDS = new Map(CLI_COMMANDS.map((command) => [command.name, command.run]));
 
 export async function runCli(argv: readonly string[], io: CliIo): Promise<number> {
   const [name, ...args] = argv;
@@ -86,6 +64,6 @@ export async function runCli(argv: readonly string[], io: CliIo): Promise<number
 
 export function commandName(argv: readonly string[]): string {
   const [name, sub] = argv;
-  if (name === undefined || !COMMAND_NAMES.includes(name)) return "help";
-  return name === "hook" && sub !== undefined ? `hook ${sub}` : name;
+  if (name === undefined || !COMMANDS.has(name)) return "help";
+  return name === hookCommand.name && sub === HOOK_STOP_EVENT ? HOOK_STOP_COMMAND : name;
 }

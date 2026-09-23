@@ -5,7 +5,7 @@ import type { CodeGraph, GraphSymbol } from "../graph/code-graph";
 import type { Task } from "../model/types";
 import { sourceRange, type LineRange } from "./anchor";
 import { reviewMark, sourcePath, type Candidate, type SymbolOf } from "./candidates";
-import { changedLines } from "./repo-facts";
+import type { DiffSince } from "./repo-facts";
 
 export type SymbolLookup = (task: Task) => GraphSymbol | null;
 
@@ -24,12 +24,12 @@ export function symbolLookup(repo: string, graph: CodeGraph | null): SymbolLooku
 export function symbolNames(symbolOf: SymbolLookup): SymbolOf {
   return (task) => {
     const symbol = symbolOf(task);
-    return symbol === null || task.source === undefined ? null : `${sourcePath(task.source)}::${symbol.name}`;
+    return symbol?.qualifiedName ?? null;
   };
 }
 
-export async function filterBySymbol(candidates: readonly Candidate[], tasks: readonly Task[], repo: string, symbolOf: SymbolLookup): Promise<Candidate[]> {
-  const decided = await Promise.all(candidates.map((candidate) => decide(candidate, tasks, repo, symbolOf)));
+export async function filterBySymbol(candidates: readonly Candidate[], tasksById: ReadonlyMap<string, Task>, diffOf: DiffSince, symbolOf: SymbolLookup): Promise<Candidate[]> {
+  const decided = await Promise.all(candidates.map((candidate) => decide(candidate, tasksById, diffOf, symbolOf)));
   return decided.filter((candidate) => candidate !== null);
 }
 
@@ -41,16 +41,16 @@ function lookUp(repo: string, graph: CodeGraph, task: Task): GraphSymbol | null 
   return hash === null ? null : graph.symbolAt(path, range.from, hash);
 }
 
-async function decide(candidate: Candidate, tasks: readonly Task[], repo: string, symbolOf: SymbolLookup): Promise<Candidate | null> {
+async function decide(candidate: Candidate, tasksById: ReadonlyMap<string, Task>, diffOf: DiffSince, symbolOf: SymbolLookup): Promise<Candidate | null> {
   if (candidate.kind !== "source-changed") return candidate;
-  const task = tasks.find((item) => item.id === candidate.task.id);
+  const task = tasksById.get(candidate.task.id);
   if (task === undefined) return candidate;
   const symbol = symbolOf(task);
   if (symbol === null) return candidate;
-  const ranges = await changedLines(repo, candidate.path, new Date(reviewMark(task)));
-  if (ranges === null) return candidate;
+  const diff = await diffOf(candidate.path, new Date(reviewMark(task)));
+  if (diff === null) return candidate;
   const watched = watchedRange(symbol, sourceRange(task.source));
-  return ranges.some((range) => overlaps(range, watched)) ? { ...candidate, bySymbol: true } : null;
+  return diff.changed.some((range) => overlaps(range, watched)) ? { ...candidate, bySymbol: true } : null;
 }
 
 function watchedRange(symbol: GraphSymbol, declared: LineRange | null): LineRange {

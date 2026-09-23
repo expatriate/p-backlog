@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export type GraphFile = { path: string; hash: string; symbols: { name: string; kind: string; from: number; to: number }[] };
+export type GraphFile = { path: string; hash: string; symbols: { name: string; owner?: string; kind: string; from: number; to: number }[] };
 
 export async function makeGraph(
   repo: string,
@@ -22,7 +22,10 @@ export async function makeGraph(
   for (const file of files) {
     const absolute = join(repo, file.path);
     node.run("File", absolute, absolute, absolute, 1, 10_000, file.hash);
-    for (const symbol of file.symbols) node.run(symbol.kind, symbol.name, `${absolute}::${symbol.name}`, absolute, symbol.from, symbol.to, file.hash);
+    for (const symbol of file.symbols) {
+      const qualifiedName = `${absolute}::${symbol.owner === undefined ? "" : `${symbol.owner}.`}${symbol.name}`;
+      node.run(symbol.kind, symbol.name, qualifiedName, absolute, symbol.from, symbol.to, file.hash);
+    }
   }
   db.close();
 }

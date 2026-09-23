@@ -1,13 +1,19 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { formatLocalIso } from "../model/dates";
 import { createTask } from "./create";
 import { hasErrorCode } from "./fs-utils";
 import { readJournal } from "./journal";
 import { loadBacklog } from "./load";
-import { raiseIssuedUpTo, sweepClosed } from "./sweep";
+import { reserveIssuedUpTo } from "./projects";
+import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
+
+vi.mock("./projects", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./projects")>();
+  return { ...actual, reserveIssuedUpTo: vi.fn(actual.reserveIssuedUpTo) };
+});
 
 const NOW = new Date("2026-09-18T12:00:00Z");
 const EXPIRED = "closed: 2026-09-10T10:00:00+03:00\n";
@@ -240,29 +246,15 @@ describe("sweepClosed", () => {
     expect(journal.events).toMatchObject([{ kind: "deleted", task: "SPA-1", via: "sweep", snapshot: { status: "done", resolution: "fixed" } }]);
   });
 
-  it("резерв номера берёт project.md с диска: правки имени и repos не теряются, номер не уменьшается", async () => {
-    const root = await makeTempDir();
-    const path = join(root, "spa/project.md");
-    await writeFiles(root, { "spa/project.md": "---\nname: Переименован руками\nprefix: SPA\nrepos: [/new/repo]\nissuedUpTo: 9\n---\nЗаметки\n" });
-
-    expect(await raiseIssuedUpTo({ id: "spa", path }, 5)).toBe(true);
-    expect(await raiseIssuedUpTo({ id: "spa", path }, 12)).toBe(true);
-
-    const [project] = (await loadBacklog(root)).projects;
-    expect(project).toMatchObject({ name: "Переименован руками", repos: ["/new/repo"], issuedUpTo: 12, body: "Заметки\n" });
-  });
-
-  it("битый project.md на диске — резерв отказывает, и проход не удаляет задачи этого проекта", async () => {
+  it("номер не зарезервирован — проход не удаляет задачи этого проекта", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),
-      "spa/SPA-1.md": taskFile("SPA-1", "status: done\nclosed: 2026-09-01T10:00:00+03:00\nresolution: fixed\nreason: x\n"),
+      "spa/SPA-1.md": taskFile("SPA-1", `status: done\n${EXPIRED}resolution: fixed\nreason: x\n`),
     });
-    const initial = await loadBacklog(root);
-    await writeFiles(root, { "spa/project.md": "сломано" });
+    vi.mocked(reserveIssuedUpTo).mockResolvedValueOnce(false);
 
-    expect(await raiseIssuedUpTo(initial.projects[0] ?? { id: "spa", path: "" }, 1)).toBe(false);
     expect((await sweepClosed(root, NOW)).deleted).toEqual([]);
-    expect((await readFile(join(root, "spa/SPA-1.md"), "utf8")).length).toBeGreaterThan(0);
+    expect(await exists(join(root, "spa/SPA-1.md"))).toBe(true);
   });
 });

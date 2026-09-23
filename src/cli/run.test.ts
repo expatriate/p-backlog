@@ -1,4 +1,6 @@
-import { commandName, runCli } from "./run";
+import { readFile } from "node:fs/promises";
+import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/stats/cost/hook-signature";
+import { CLI_COMMANDS, commandName, runCli } from "./run";
 import { describe, expect, it } from "vitest";
 import { EXIT, type CliIo } from "./io";
 import { makeCliSandbox } from "./testing/cli-harness";
@@ -32,9 +34,22 @@ describe("runCli", () => {
   });
 });
 
+describe("README", () => {
+  it("таблица команд описывает каждую команду CLI со всеми её флагами", async () => {
+    const readme = await readFile(new URL("../../README.md", import.meta.url), "utf8");
+    const rows = readme.split("\n").filter((line) => line.startsWith("| `backlog "));
+    const gaps = CLI_COMMANDS.map(({ name, usage }) => {
+      const described = rows.filter((row) => row.startsWith(`| \`backlog ${name} `) || row.startsWith(`| \`backlog ${name}\``)).join("\n");
+      const flags = [...new Set(usage.join(" ").match(/--[a-z-]+/g))];
+      return { name, missing: described === "" ? ["вся команда"] : flags.filter((flag) => !described.includes(flag)) };
+    });
+    expect(gaps.filter(({ missing }) => missing.length > 0)).toEqual([]);
+  });
+});
+
 describe("commandName", () => {
-  it("для hook возвращает «hook» и второе слово", () => {
-    expect(commandName(["hook", "stop"])).toBe("hook stop");
+  it("для хука Stop возвращает команду, по которой статистика отделяет запуски хука", () => {
+    expect(commandName(["hook", HOOK_STOP_EVENT])).toBe(HOOK_STOP_COMMAND);
   });
 
   it("для пустых аргументов возвращает «help»", () => {

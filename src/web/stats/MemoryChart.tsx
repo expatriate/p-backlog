@@ -1,4 +1,5 @@
 import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
+import { MEMORY_HISTORY_PERIOD } from "../../core/api/memory";
 import type { MemorySample } from "../../core/stats/types";
 import { useMemorySamples } from "../app/queries";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
@@ -33,7 +34,7 @@ export function MemoryPanel() {
   return (
     <Panel title="Память сервера">
       <p className={styles.muted}>После перезапуска сервера история начинается заново</p>
-      <ChartFrame summary={`Сейчас ${formatMb(current)}, максимум за час ${formatMb(max)}`} legend={LEGEND}>
+      <ChartFrame summary={`Сейчас ${formatMb(current)}, максимум ${MEMORY_HISTORY_PERIOD} ${formatMb(max)}`} legend={LEGEND}>
         <AreaChart data={samples} margin={CHART_MARGIN} aria-label={chartLabel("Память сервера", "замерам")}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="at" tickFormatter={axisTime} {...DATE_AXIS_PROPS} />

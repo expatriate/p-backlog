@@ -3,10 +3,12 @@ import { formatLocalIso } from "../model/dates";
 import type { Task } from "../model/types";
 import { isClosed } from "../model/graph";
 import { taskHistories, type TaskHistory } from "./history";
+import { smallest, sum } from "./numbers";
+import type { ReportHead } from "./types";
 
 export type StatsInput = { tasks: readonly Task[]; journals: readonly ProjectJournal[]; now: Date; projectId?: string | undefined };
 
-export type StatsScope = {
+type StatsScope = {
   tasks: Task[];
   histories: TaskHistory[];
   journalStart: number | null;
@@ -14,21 +16,19 @@ export type StatsScope = {
   invalidJournalLines: number;
 };
 
-export function statsScope({ tasks, journals, projectId }: StatsInput): StatsScope {
+function statsScope({ tasks, journals, projectId }: StatsInput): StatsScope {
   const inScope = (candidate: string) => projectId === undefined || candidate === projectId;
   const scopedJournals = journals.filter((journal) => inScope(journal.projectId));
-  const moments = scopedJournals.flatMap((journal) => journal.events.map((event) => Date.parse(event.at)));
-  const journalStart = moments.length === 0 ? null : moments.reduce((min, moment) => Math.min(min, moment));
+  const scopedTasks = tasks.filter((task) => inScope(task.projectId));
+  const journalStart = smallest(scopedJournals.flatMap((journal) => journal.events.map((event) => Date.parse(event.at))));
   return {
-    tasks: tasks.filter((task) => inScope(task.projectId)),
-    histories: taskHistories(tasks, scopedJournals).filter((history) => inScope(history.projectId)),
+    tasks: scopedTasks,
+    histories: taskHistories(scopedTasks, scopedJournals).filter((history) => inScope(history.projectId)),
     journalStart,
     journalSince: journalStart === null ? null : formatLocalIso(new Date(journalStart)),
-    invalidJournalLines: scopedJournals.reduce((sum, journal) => sum + journal.invalidLines, 0),
+    invalidJournalLines: sum(scopedJournals.map((journal) => journal.invalidLines)),
   };
 }
-
-export type ReportHead = { taskCount: number; journalSince: string | null; invalidJournalLines: number };
 
 export type ReportBase = { scope: StatsScope; histories: TaskHistory[]; tasks: Task[]; openTasks: Task[]; head: ReportHead };
 

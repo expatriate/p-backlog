@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import type { FixCommit, RepoCode } from "../stats/types";
-import { readTextOrNull, writeFileAtomic } from "../store/fs-utils";
+import { readJsonFile, writeFileAtomic } from "../store/fs-utils";
 
 export const CODE_CACHE_FILE = ".code-cache.json";
 const CODE_CACHE_VERSION = 1;
@@ -32,14 +32,8 @@ export function createCodeCacheFile(root: string): CodeCacheStore {
   const path = join(root, CODE_CACHE_FILE);
   return {
     read: async () => {
-      const text = await readTextOrNull(path);
-      if (text === null) return emptyCodeCache();
-      try {
-        const parsed = snapshotSchema.safeParse(JSON.parse(text));
-        return parsed.success ? { repos: parsed.data.repos, fixes: parsed.data.fixes } : emptyCodeCache();
-      } catch {
-        return emptyCodeCache();
-      }
+      const snapshot = await readJsonFile(path, snapshotSchema);
+      return snapshot === null ? emptyCodeCache() : { repos: snapshot.repos, fixes: snapshot.fixes };
     },
     write: (snapshot) => writeFileAtomic(path, JSON.stringify({ version: CODE_CACHE_VERSION, ...snapshot })),
   };

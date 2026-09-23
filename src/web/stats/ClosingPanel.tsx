@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { formatShare } from "../../core/stats/format";
 import type { ClosingBreakdown, ClosingReason } from "../../core/stats/types";
+import { sum } from "../../core/stats/numbers";
 import { cx } from "../ui/cx";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
@@ -10,7 +11,7 @@ const REASONS: readonly ClosingReason[] = ["done", "fixed", "obsolete", "duplica
 const REASON_LABELS: Record<ClosingReason, string> = { done: "сделано", fixed: "исправлено", obsolete: "кода нет", duplicate: "дубль", cancelled: "отменено" };
 
 export function ClosingPanel({ closing }: { closing: ClosingBreakdown }) {
-  const total = REASONS.reduce((sum, reason) => sum + closing.byReason[reason], 0);
+  const total = sum(REASONS.map((reason) => closing.byReason[reason]));
   const summary = REASONS.map((reason) => `${REASON_LABELS[reason]}: ${closing.byReason[reason]}`).join("; ");
 
   return (

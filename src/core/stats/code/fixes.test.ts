@@ -4,6 +4,7 @@ import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
 import { fixRequests, reasonHashes } from "./fixes";
+import { period } from "../period";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 const iso = (day: number, hour = 12) => formatLocalIso(at(day, hour));
@@ -41,13 +42,13 @@ describe("запросы к коммитам исправлений", () => {
     };
     const histories = taskHistories(tasks, [{ projectId: "spa", events: [deleted], invalidLines: 0 }]);
 
-    expect(fixRequests(histories, FROM, TO)).toEqual([{ projectId: "spa", hashes: ["aaaaaaa", "bbbbbbb", "ccccccc", "ddddddd"] }]);
+    expect(fixRequests(histories, period(FROM, TO))).toEqual([{ projectId: "spa", hashes: ["aaaaaaa", "bbbbbbb", "ccccccc", "ddddddd"] }]);
   });
 
   it("закрытия вне периода не считаются", () => {
     const histories = taskHistories([fixed("SPA-1", 1, 5, "Исправлено в aaaaaaa")], []);
 
-    expect(fixRequests(histories, at(10).getTime(), TO)).toEqual([]);
+    expect(fixRequests(histories, period(at(10).getTime(), TO))).toEqual([]);
   });
 
   it("задача, переоткрытая после исправления, исправлением не считается", () => {
@@ -58,7 +59,7 @@ describe("запросы к коммитам исправлений", () => {
     ];
     const histories = taskHistories([task], [{ projectId: "spa", events, invalidLines: 0 }]);
 
-    expect(fixRequests(histories, FROM, TO)).toEqual([]);
+    expect(fixRequests(histories, period(FROM, TO))).toEqual([]);
   });
 
 });

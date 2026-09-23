@@ -8,16 +8,28 @@ import type { Project, Task } from "../../core/model/types";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { findGitRoot, findProjectForRepoRoot } from "../../core/store/resolve-project";
 import { formatTaskRef } from "../format";
+import { applyAll } from "../apply-all";
+import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
 import { requireProject, requireTask } from "../lookups";
-import { writeTask } from "../task-write";
+import { taskWriter, type TaskWrite } from "../task-write";
 import { printTask } from "./show";
 
-const USAGE = "Использование: backlog take <ID> | backlog take --next | backlog take --path <путь>";
+export const takeCommand: CliCommand = {
+  name: "take",
+  usage: [
+    "<ID> [--force] [--json]",
+    "--next [--project id] [--json]",
+    "--path <файл|каталог> [--project id] [--json]   (все открытые задачи внутри пути)",
+  ],
+  run: runTake,
+};
 
 type Refusal = { code: number; lines: string[] };
 
-export async function runTake(args: string[], io: CliIo): Promise<number> {
+type Selection = { ok: true; task: Task } | { ok: false; exitCode: number };
+
+async function runTake(args: string[], io: CliIo): Promise<number> {
   const { values, positionals } = withUsageErrors(() =>
     parseArgs({
       args,
@@ -34,15 +46,15 @@ export async function runTake(args: string[], io: CliIo): Promise<number> {
   const mode = takeMode(values, positionals);
   const loaded = await loadBacklog(io.backlogRoot);
   if (mode.kind === "path") return takeByPath(loaded, io, mode.path, values.project, { json: values.json });
-  const selected = mode.kind === "next" ? selectNext(loaded, io, values.project) : (requireTask(loaded, io, mode.id) ?? EXIT.notFound);
-  if (typeof selected === "number") return selected;
+  const selected = mode.kind === "next" ? selectNext(loaded, io, values.project) : selectById(loaded, io, mode.id);
+  if (!selected.ok) return selected.exitCode;
 
-  const refusal = takeRefusal(selected, buildIndex(loaded.tasks), { ignoreBlockers: values.force });
+  const refusal = takeRefusal(selected.task, buildIndex(loaded.tasks), { ignoreBlockers: values.force });
   if (refusal) {
     for (const line of refusal.lines) io.warn(line);
     return refusal.code;
   }
-  return takeOne(selected, io, { json: values.json });
+  return takeAll(loaded.tasks, [selected.task], io, { json: values.json });
 }
 
 type TakeMode = { kind: "path"; path: string } | { kind: "next" } | { kind: "id"; id: string };
@@ -53,7 +65,7 @@ function takeMode(values: { path?: string | undefined; next: boolean }, position
   if (values.path !== undefined) return { kind: "path", path: values.path };
   if (values.next) return { kind: "next" };
   const [id] = positionals;
-  if (id === undefined || positionals.length > 1) throw new UsageError(USAGE);
+  if (id === undefined || positionals.length > 1) throw usageError(takeCommand);
   return { kind: "id", id };
 }
 
@@ -73,12 +85,7 @@ async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projec
     io.warn(`Открытых задач по ${path} нет`);
     return EXIT.notFound;
   }
-  for (const [position, task] of takeable.entries()) {
-    if (position > 0) io.print("---");
-    const code = await takeOne(task, io, { json });
-    if (code !== EXIT.ok) return code;
-  }
-  return EXIT.ok;
+  return takeAll(loaded.tasks, takeable, io, { json });
 }
 
 function isOpenTaskAt(task: Task, path: string): boolean {
@@ -98,26 +105,35 @@ function repoRelativePath(io: CliIo, project: Project, path: string): string {
   return outsideRepo ? sourcePath(path) : fromRoot;
 }
 
-async function takeOne(task: Task, io: CliIo, { json }: { json: boolean }): Promise<number> {
-  if (task.status !== "in-progress") {
-    const written = await writeTask(io, task, { status: "in-progress" });
-    if (!written.ok) return written.exitCode;
-  }
-  const refreshed = await loadBacklog(io.backlogRoot);
-  const taken = refreshed.tasks.find((candidate) => candidate.id === task.id) ?? task;
-  await printTask(io, taken, refreshed.tasks, { json });
-  return EXIT.ok;
+async function takeAll(loadedTasks: readonly Task[], chosen: readonly Task[], io: CliIo, { json }: { json: boolean }): Promise<number> {
+  const write = taskWriter(io, loadedTasks);
+  let current = loadedTasks;
+  let printed = 0;
+  return applyAll(chosen, async (task) => {
+    const taken: TaskWrite = task.status === "in-progress" ? { ok: true, task } : await write(task, { status: "in-progress" });
+    if (!taken.ok) return taken.exitCode;
+    current = current.map((candidate) => (candidate.id === taken.task.id ? taken.task : candidate));
+    if (printed > 0) io.print("---");
+    printed++;
+    await printTask(io, taken.task, current, { json });
+    return EXIT.ok;
+  });
 }
 
-function selectNext(loaded: LoadedBacklog, io: CliIo, projectId: string | undefined): Task | number {
+function selectById(loaded: LoadedBacklog, io: CliIo, id: string): Selection {
+  const task = requireTask(loaded, io, id);
+  return task ? { ok: true, task } : { ok: false, exitCode: EXIT.notFound };
+}
+
+function selectNext(loaded: LoadedBacklog, io: CliIo, projectId: string | undefined): Selection {
   const project = requireProject(loaded, io, projectId);
-  if (!project) return EXIT.notFound;
+  if (!project) return { ok: false, exitCode: EXIT.notFound };
   const index = buildIndex(loaded.tasks);
   const task = pickNextTask(loaded.tasks, project.id, index);
-  if (task) return task;
+  if (task) return { ok: true, task };
   io.warn(`В проекте ${project.id} нет задач, которые можно взять в работу`);
   const blocked = loaded.tasks.some((candidate) => candidate.projectId === project.id && isTakeable(candidate) && openBlockers(candidate, index).length > 0);
-  return blocked ? EXIT.refused : EXIT.notFound;
+  return { ok: false, exitCode: blocked ? EXIT.refused : EXIT.notFound };
 }
 
 function isTakeable(task: Task): boolean {

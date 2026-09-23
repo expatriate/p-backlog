@@ -14,11 +14,11 @@ export function CostTab() {
   const cost = useCostStats(projectId);
 
   return (
-    <StatsRequestState error={cost.error} loaded={cost.data !== undefined} isFetching={cost.isFetching} onRetry={() => void cost.refetch()}>
-      {cost.data && (
+    <StatsRequestState query={cost}>
+      {(report) => (
         <>
-          <ScanNotice scan={cost.data.scan} />
-          <Cost report={cost.data} />
+          <ScanNotice scan={report.scan} />
+          <Cost report={report} />
           <p className={styles.note}>
             Токены из расшифровок Claude Code: ходы, запущенные Stop-хуком беклога, — точно; вывод команд backlog и скилла — оценка по длине текста. Деньги — по ценам Claude API, подписка может стоить
             иначе.

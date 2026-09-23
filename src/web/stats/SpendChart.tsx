@@ -1,12 +1,12 @@
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import { formatMoney, NBSP, pluralCount } from "../../core/stats/format";
 import type { CostDay } from "../../core/stats/types";
+import { sum } from "../../core/stats/numbers";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
 import { AXIS_PROPS, DASHED_LINE_WIDTH, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, chartLabel, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
-import { sum } from "./cost-format";
 import { formatLines } from "./effect-format";
 import { Panel } from "./Panel";
 
@@ -63,5 +63,5 @@ function spendSummary(days: CostDay[]): string {
 
 function totalMoney(days: CostDay[]): number | null {
   if (days.every((day) => day.cost === null)) return null;
-  return days.reduce((total, day) => total + (day.cost ?? 0), 0);
+  return sum(days.map((day) => day.cost ?? 0));
 }

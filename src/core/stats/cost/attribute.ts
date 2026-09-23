@@ -1,17 +1,19 @@
 import { z } from "zod";
-import { formatLocalDay } from "../../model/dates";
 import type { TokenCounts, TranscriptState, UsageBucket } from "../types";
+import { isBacklogHookFeedback } from "./hook-signature";
 import { fastModel } from "./pricing";
 
 export type TranscriptLine = unknown;
 
-type LineContext = { day: string; cwd: string };
+type LineContext = { slot: string; cwd: string };
 
 const FAST_SPEED = "fast";
 
 const CHARS_PER_TOKEN = 3;
 
 const PENDING_TOOL_LIMIT = 64;
+
+const ZONE_OFFSET_STEP_MS = 15 * 60 * 1000;
 
 const BACKLOG_COMMAND = /(?:^|&&|\|\||;|\||\n)\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*backlog(?=\s|$)/;
 
@@ -60,7 +62,7 @@ export function attributeLine(line: TranscriptLine, state: TranscriptState): Usa
   const parsed = lineSchema.safeParse(line);
   if (!parsed.success) return [];
   const { type, timestamp, cwd, isMeta, message } = parsed.data;
-  const context: LineContext = { day: typeof timestamp === "string" ? dayOf(timestamp) : "", cwd: cwd ?? "" };
+  const context: LineContext = { slot: typeof timestamp === "string" ? slotOf(timestamp) : "", cwd: cwd ?? "" };
 
   if (type === "assistant") return attributeAssistant(message, state, context);
   if (type === "user") return attributeUser(message, isMeta === true, state, context);
@@ -96,7 +98,7 @@ function attributeUser(rawMessage: unknown, isMeta: boolean, state: TranscriptSt
 
   if (isMeta) {
     const text = textOf(content);
-    if (text.startsWith("Stop hook feedback:") && text.includes("Беклог ")) {
+    if (isBacklogHookFeedback(text)) {
       state.hookOpen = true;
       return [{ ...context, model: state.lastModel ?? "unknown", kind: "hook", tokens: ZERO_TOKENS, hookTurns: 1 }];
     }
@@ -144,7 +146,7 @@ export function flushEstimates(state: TranscriptState): UsageBucket[] {
 function drainEstimates(state: TranscriptState, model: string): UsageBucket[] {
   const buckets = state.pendingEstimates.map(
     (estimate): UsageBucket => ({
-      day: estimate.day,
+      slot: estimate.slot,
       cwd: estimate.cwd,
       model,
       kind: estimate.kind,
@@ -178,7 +180,7 @@ function tokensFrom(usage: Usage): TokenCounts {
   return { input: usage.input_tokens ?? 0, cacheWrite5m, cacheWrite1h, cacheRead: usage.cache_read_input_tokens ?? 0, output: usage.output_tokens ?? 0 };
 }
 
-function dayOf(timestamp: string): string {
-  const date = new Date(timestamp);
-  return Number.isNaN(date.getTime()) ? "" : formatLocalDay(date);
+function slotOf(timestamp: string): string {
+  const moment = Date.parse(timestamp);
+  return Number.isNaN(moment) ? "" : new Date(moment - (moment % ZONE_OFFSET_STEP_MS)).toISOString();
 }

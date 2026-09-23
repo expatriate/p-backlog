@@ -1,3 +1,4 @@
+import { MEMORY_HISTORY_MS, MEMORY_SAMPLE_INTERVAL_MS, megabytesOf } from "../core/api/memory";
 import { formatLocalIso } from "../core/model/dates";
 import type { MemorySample } from "../core/stats/types";
 
@@ -10,10 +11,9 @@ export type MemorySampler = {
   samples: () => MemorySample[];
 };
 
-const DEFAULT_INTERVAL_MS = 5000;
-const DEFAULT_CAPACITY = 720;
+const DEFAULT_CAPACITY = MEMORY_HISTORY_MS / MEMORY_SAMPLE_INTERVAL_MS;
 
-export function createMemorySampler({ intervalMs = DEFAULT_INTERVAL_MS, capacity = DEFAULT_CAPACITY, now = () => new Date() }: MemorySamplerOptions = {}): MemorySampler {
+export function createMemorySampler({ intervalMs = MEMORY_SAMPLE_INTERVAL_MS, capacity = DEFAULT_CAPACITY, now = () => new Date() }: MemorySamplerOptions = {}): MemorySampler {
   let points: MemorySample[] = [];
   let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -35,8 +35,4 @@ export function createMemorySampler({ intervalMs = DEFAULT_INTERVAL_MS, capacity
     sample,
     samples: () => points,
   };
-}
-
-function megabytesOf(bytes: number): number {
-  return Math.round((bytes / 1024 / 1024) * 10) / 10;
 }

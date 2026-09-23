@@ -1,7 +1,7 @@
 import { errorText } from "../errors";
 import { Document, parse, visit } from "yaml";
 import type { z } from "zod";
-import { formatIssues } from "./zod-issues";
+import { parseInRussian } from "./zod-issues";
 import type { ParseResult } from "./types";
 
 const DELIMITER = "---";
@@ -24,13 +24,13 @@ export function parseFrontmatter<Shape extends z.core.$ZodShape>(
     return { ok: false, message: `ошибка YAML: ${errorText(error)}` };
   }
 
-  const parsed = schema.safeParse(raw);
-  if (!parsed.success) return { ok: false, message: formatIssues(parsed.error).join("; ") };
+  const parsed = parseInRussian(schema, raw);
+  if (!parsed.ok) return { ok: false, message: parsed.errors.join("; ") };
 
   const knownFields = Object.keys(schema.shape);
   const extra = Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([key]) => !knownFields.includes(key)));
   const body = lines.slice(closing + 1).join("\n").replace(/^\n+/, "");
-  return { ok: true, value: { data: parsed.data, extra, body } };
+  return { ok: true, value: { data: parsed.value, extra, body } };
 }
 
 export function stringifyFrontmatter(data: Record<string, unknown>, body: string): string {

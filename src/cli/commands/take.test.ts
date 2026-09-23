@@ -1,8 +1,8 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
-import { updateTask } from "../../core/store/update";
+import { updateTask } from "../../core/store/testing/update-task";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -85,6 +85,32 @@ describe("backlog take", () => {
     expect(result.err).toContain("SPA-3 заблокирована открытыми задачами");
     expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2"), await statusOf(root, "SPA-3"), await statusOf(root, "SPA-4")]).toEqual(["in-progress", "in-progress", "backlog", "backlog"]);
     expect(await run(["take", "--path", "src/server"])).toMatchObject({ code: EXIT.notFound, err: "Открытых задач по src/server нет" });
+  });
+
+  it("--path показывает связи с актуальными статусами задач, взятых той же командой", async () => {
+    const { run } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Вторая", "--source", "src/b.ts:1", "--related", "SPA-1"]);
+
+    const result = await run(["take", "--path", "src", "--json"]);
+
+    const [, second] = result.out.split("\n---\n").map((text) => JSON.parse(text) as { relatedTasks: { id: string; status: string }[] });
+    expect(second?.relatedTasks).toEqual([{ id: "SPA-1", title: "Первая", status: "in-progress" }]);
+  });
+
+  it("--path после неудачной записи одной задачи берёт остальные и отдаёт по блоку на каждую взятую", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Битая", "--source", "src/b.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Третья", "--source", "src/c.ts:1"]);
+    const broken = join(root, "spa", "SPA-2.md");
+    await writeFile(broken, (await readFile(broken, "utf8")).replace("\n---\n", "\nepic: SPA-99\n---\n"));
+
+    const result = await run(["take", "--path", "src", "--json"]);
+
+    expect(result.code).not.toBe(EXIT.ok);
+    expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2"), await statusOf(root, "SPA-3")]).toEqual(["in-progress", "backlog", "in-progress"]);
+    expect(result.out.split("\n---\n").map((text) => (JSON.parse(text) as { id: string }).id)).toEqual(["SPA-1", "SPA-3"]);
   });
 
   it("--path понимает путь от текущего каталога, а не только от корня репозитория", async () => {

@@ -2,12 +2,12 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import type { TranscriptState, UsageBucket } from "../stats/types";
-import { parseJson, readTextOrNull, writeFileAtomic } from "../store/fs-utils";
+import { readJsonFile, writeFileAtomic } from "../store/fs-utils";
 
 const USAGE_CACHE_FILE = ".usage-cache.json";
 
 export type UsageCacheEntry = { size: number; offset: number; fingerprint: string; state: TranscriptState; buckets: UsageBucket[] };
-export const USAGE_CACHE_VERSION = 4;
+export const USAGE_CACHE_VERSION = 5;
 export type UsageCache = { version: typeof USAGE_CACHE_VERSION; files: Record<string, UsageCacheEntry> };
 
 const tokenCountsSchema = z.object({
@@ -19,7 +19,7 @@ const tokenCountsSchema = z.object({
 });
 
 const usageBucketSchema = z.object({
-  day: z.string(),
+  slot: z.string(),
   cwd: z.string(),
   model: z.string(),
   kind: z.enum(["hook", "cli", "skill"]),
@@ -30,7 +30,7 @@ const usageBucketSchema = z.object({
 const pendingEstimateSchema = z.object({
   kind: z.enum(["cli", "skill"]),
   chars: z.number(),
-  day: z.string(),
+  slot: z.string(),
   cwd: z.string(),
 });
 
@@ -60,8 +60,7 @@ export function emptyUsageCache(): UsageCache {
 }
 
 export async function readUsageCache(root: string): Promise<UsageCache> {
-  const text = await readTextOrNull(join(root, USAGE_CACHE_FILE));
-  return (text === null ? null : parseJson(text, usageCacheSchema)) ?? emptyUsageCache();
+  return (await readJsonFile(join(root, USAGE_CACHE_FILE), usageCacheSchema)) ?? emptyUsageCache();
 }
 
 export async function writeUsageCache(root: string, cache: UsageCache): Promise<void> {

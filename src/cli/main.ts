@@ -1,3 +1,4 @@
+import { megabytesOf } from "../core/api/memory";
 import { errorText } from "../core/errors";
 import { homedir } from "node:os";
 import { formatLocalIso } from "../core/model/dates";
@@ -34,7 +35,7 @@ try {
     command: commandName(argv),
     cwd: process.cwd(),
     ms: Math.round(performance.now()),
-    rssMb: Math.round((process.resourceUsage().maxRSS / 1024) * 10) / 10,
+    rssMb: megabytesOf(process.resourceUsage().maxRSS * 1024),
     exitCode,
   });
 } catch (error) {

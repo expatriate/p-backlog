@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { open, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { attributeLine, flushEstimates, newTranscriptState } from "../stats/cost/attribute";
+import { sum } from "../stats/numbers";
 import type { TokenCounts, TranscriptState, UsageBucket } from "../stats/types";
 import { listDir } from "../store/fs-utils";
 import { USAGE_CACHE_VERSION, type UsageCache, type UsageCacheEntry } from "./usage-cache";
@@ -72,7 +73,7 @@ export async function scanTranscripts({ files, cache, byteBudget }: ScanTranscri
   return {
     cache: { version: USAGE_CACHE_VERSION, files: resultFiles },
     bytesRead: byteBudget - remainingBudget,
-    bytesLeft: Object.values(resultFiles).reduce((sum, entry) => sum + (entry.size - entry.offset), 0),
+    bytesLeft: sum(Object.values(resultFiles).map((entry) => entry.size - entry.offset)),
     filesDone: Object.values(resultFiles).filter((entry) => entry.offset === entry.size).length,
   };
 }
@@ -136,7 +137,7 @@ function addBucket(buckets: Map<string, UsageBucket>, addition: UsageBucket): vo
 }
 
 function bucketKey(bucket: UsageBucket): string {
-  return JSON.stringify([bucket.day, bucket.cwd, bucket.model, bucket.kind]);
+  return JSON.stringify([bucket.slot, bucket.cwd, bucket.model, bucket.kind]);
 }
 
 function combineBuckets(existing: UsageBucket, addition: UsageBucket): UsageBucket {

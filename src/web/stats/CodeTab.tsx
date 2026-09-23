@@ -4,27 +4,20 @@ import { useCodeStats } from "../app/queries";
 import { ChurnPanel, DensityPanel } from "./CodePanels";
 import rowStyles from "./PanelRows.module.css";
 import { StatsTabState } from "./StatsTabState";
+import { UnavailableRepos } from "./UnavailableRepos";
 import styles from "./StatsPage.module.css";
 import { CHURN_PERIOD } from "./periods";
 
 export function CodeTab() {
   const { projectId } = useParams();
   const code = useCodeStats(projectId);
-  return (
-    <StatsTabState error={code.error} data={code.data} isFetching={code.isFetching} onRetry={() => void code.refetch()}>
-      {code.data && <Code report={code.data} />}
-    </StatsTabState>
-  );
+  return <StatsTabState query={code}>{(report) => <Code report={report} />}</StatsTabState>;
 }
 
 function Code({ report }: { report: CodeReport }) {
   return (
     <>
-      {report.unavailableRepos.map((repo) => (
-        <p key={repo} className={styles.warning} role="status">
-          Нет доступа к репозиторию: {repo}. Проверьте путь в repos файла project.md и что это git-репозиторий.
-        </p>
-      ))}
+      <UnavailableRepos repos={report.unavailableRepos} />
       <div className={styles.blocks}>
         <div className={rowStyles.wide}>
           <ChurnPanel churn={report.churn} />

@@ -27,8 +27,8 @@ describe("openCodeGraph", () => {
   it("на строке внутри вложенного символа отдаёт его, а не объемлющий", async () => {
     const graph = openCodeGraph(await repoWithGraph());
 
-    expect(graph?.symbolAt("src/upload.ts", 22, FILE.hash)).toEqual({ name: "retry", from: 20, to: 25 });
-    expect(graph?.symbolAt("src/upload.ts", 12, FILE.hash)).toEqual({ name: "uploadFile", from: 10, to: 40 });
+    expect(graph?.symbolAt("src/upload.ts", 22, FILE.hash)).toMatchObject({ qualifiedName: expect.stringMatching(/::retry$/), from: 20, to: 25 });
+    expect(graph?.symbolAt("src/upload.ts", 12, FILE.hash)).toMatchObject({ qualifiedName: expect.stringMatching(/::uploadFile$/), from: 10, to: 40 });
     graph?.close();
   });
 

@@ -3,17 +3,26 @@ import { buildIndex } from "../../core/model/graph";
 import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
 import { loadBacklog } from "../../core/store/load";
 import { deleteProject, setProjectActive } from "../../core/store/projects";
+import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
 
-const USAGE = "Использование: backlog project list | backlog project status <id> active|inactive | backlog project delete <id> --confirm <id>";
+export const projectCommand: CliCommand = {
+  name: "project",
+  usage: [
+    "list",
+    "status <id> active|inactive   (неактивные не входят в общую область)",
+    "delete <id> --confirm <id>    (удаляет каталог проекта со всеми задачами)",
+  ],
+  run: runProject,
+};
 
-export async function runProject(args: string[], io: CliIo): Promise<number> {
+async function runProject(args: string[], io: CliIo): Promise<number> {
   const { values, positionals } = withUsageErrors(() => parseArgs({ args, allowPositionals: true, options: { confirm: { type: "string" } } }));
   const [action, ...rest] = positionals;
   if (action === "list") return listProjects(io);
   if (action === "status") return changeStatus(rest, io);
   if (action === "delete") return removeProject(rest, values.confirm, io);
-  throw new UsageError(USAGE);
+  throw usageError(projectCommand);
 }
 
 async function listProjects(io: CliIo): Promise<number> {
@@ -32,7 +41,7 @@ async function listProjects(io: CliIo): Promise<number> {
 
 async function changeStatus(positionals: string[], io: CliIo): Promise<number> {
   const [id, state, ...rest] = positionals;
-  if (id === undefined || (state !== "active" && state !== "inactive") || rest.length > 0) throw new UsageError(USAGE);
+  if (id === undefined || (state !== "active" && state !== "inactive") || rest.length > 0) throw usageError(projectCommand);
   const active = state === "active";
   const result = await setProjectActive(io.backlogRoot, id, active);
   if (!result.ok && result.reason === "invalid") {
@@ -49,7 +58,7 @@ async function changeStatus(positionals: string[], io: CliIo): Promise<number> {
 
 async function removeProject(positionals: string[], confirm: string | undefined, io: CliIo): Promise<number> {
   const [id, ...rest] = positionals;
-  if (id === undefined || rest.length > 0) throw new UsageError(USAGE);
+  if (id === undefined || rest.length > 0) throw usageError(projectCommand);
   if (confirm !== id) throw new UsageError(`Подтвердите удаление: backlog project delete ${id} --confirm ${id}`);
   const loaded = await loadBacklog(io.backlogRoot);
   const taskCount = loaded.tasks.filter((task) => task.projectId === id).length;

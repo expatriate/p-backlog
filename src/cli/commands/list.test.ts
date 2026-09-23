@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
-import { updateTask } from "../../core/store/update";
+import { updateTask } from "../../core/store/testing/update-task";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 

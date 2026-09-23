@@ -1,4 +1,3 @@
-import { smallest } from "../stats/numbers";
 import { errorText } from "../errors";
 import { basename, join } from "node:path";
 import { candidateEvents, candidateGoneEvents, episodeStates, type CheckMode } from "../journal/events";
@@ -11,16 +10,14 @@ import { loadBacklog, type LoadedBacklog } from "../store/load";
 import { appendJournal, readJournal } from "../store/journal";
 import { PROJECT_FILE } from "../store/paths";
 import { referenceCleanup } from "../store/references";
-import { updateTaskIn, type TaskChanges } from "../store/update";
+import { updateTaskInIndex, type TaskChanges } from "../store/update";
 import type { UpdateTaskFailure } from "../store/write-result";
 import { snippetOf } from "./anchor";
 import { findRepo } from "./project-repo";
 import { codeReview, duplicateCandidates, isReviewable, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
-import { collectRepoFacts, diffSince, type RepoFacts } from "./repo-facts";
+import { collectRepoFacts, diffsSince, type DiffSince, type RepoFacts } from "./repo-facts";
 import { filterBySymbol, symbolLookup, symbolNames } from "./symbol-filter";
 import { openCodeGraph } from "../graph/code-graph";
-
-export type { CheckMode };
 
 export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string };
 
@@ -32,9 +29,8 @@ const PROBLEM_LIMIT = 400;
 type ProjectReview = { candidates: Candidate[]; plans: AnchorPlan[] };
 type FixOutcome = { fixed: string[]; failed: string[] };
 
-export async function checkBacklog(root: string, request: CheckRequest): Promise<CheckReport> {
+export async function checkBacklog(root: string, loaded: LoadedBacklog, request: CheckRequest): Promise<CheckReport> {
   const inScope = (projectId: string) => request.projectIds.includes(projectId);
-  const loaded = await loadBacklog(root);
   const fixes: FixOutcome = request.mode === "full" ? await applyFixes(loaded, inScope, request.now) : { fixed: [], failed: [] };
   const current = fixes.fixed.length > 0 ? await loadBacklog(root) : loaded;
 
@@ -70,12 +66,13 @@ async function recordCandidates(root: string, tasks: readonly Task[], candidates
 async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, now: Date): Promise<FixOutcome> {
   const isGone = goneTaskCheck(loaded);
   const epicClosures = new Map(planEpicClosing(loaded.tasks, loaded.errors).close.map(({ epic, closure }) => [epic.id, closure]));
+  const index = buildIndex(loaded.tasks);
   const fixed: string[] = [];
   const failed: string[] = [];
   for (const task of loaded.tasks.filter((candidate) => inScope(candidate.projectId))) {
     const fix = planFix(task, isGone, epicClosures.get(task.id));
     if (fix === null) continue;
-    const result = await updateTaskIn(loaded.tasks, { id: task.id, changes: fix.changes, expectedVersion: task.version, now, closure: fix.closure, via: "check" });
+    const result = await updateTaskInIndex(index, { id: task.id, changes: fix.changes, expectedVersion: task.version, now, closure: fix.closure, via: "check" });
     if (result.ok) fixed.push(...fix.notes.map((note) => `${task.id}: ${note}`));
     else failed.push(`${task.id}: не удалось исправить — ${fixFailure(result)}`);
   }
@@ -127,29 +124,32 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
   if (tasks.length === 0) return { candidates: [], plans: [] };
   if (repo === undefined) return { candidates: mode === "full" ? duplicateCandidates(tasks) : [], plans: [] };
 
-  const since = new Date(smallest(tasks.map(reviewMark)) ?? Date.now());
+  const since = new Date(Math.min(...tasks.map(reviewMark)));
   const paths = [...new Set(tasks.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
   const facts = await collectRepoFacts(repo, { since, paths });
   const review = codeReview(tasks, facts);
+  const tasksById = new Map(tasks.map((task) => [task.id, task]));
+  const diffOf = diffsSince(repo);
   const graph = openCodeGraph(repo);
   try {
     const symbolOf = symbolLookup(repo, graph);
     const duplicates = mode === "full" ? duplicateCandidates(tasks, symbolNames(symbolOf)) : [];
-    const kept = await filterBySymbol(review.candidates, tasks, repo, symbolOf);
-    const code = await Promise.all(kept.map((candidate) => withContext(candidate, tasks, facts, repo)));
-    return { candidates: mode === "full" ? [...code, ...duplicates] : code, plans: review.plans };
+    const kept = await filterBySymbol(review.candidates, tasksById, diffOf, symbolOf);
+    const flagged = new Set(kept.map((candidate) => candidate.task.id));
+    const code = await Promise.all(kept.map((candidate) => withContext(candidate, tasksById, facts, diffOf)));
+    return { candidates: mode === "full" ? [...code, ...duplicates] : code, plans: review.plans.filter((plan) => !flagged.has(plan.id)) };
   } finally {
     graph?.close();
   }
 }
 
-async function withContext(candidate: Candidate, tasks: readonly Task[], facts: RepoFacts, repo: string): Promise<Candidate> {
+async function withContext(candidate: Candidate, tasksById: ReadonlyMap<string, Task>, facts: RepoFacts, diffOf: DiffSince): Promise<Candidate> {
   if (candidate.kind !== "source-changed") return candidate;
-  const task = tasks.find((item) => item.id === candidate.task.id);
+  const task = tasksById.get(candidate.task.id);
   if (task === undefined) return candidate;
   const text = facts.texts.get(candidate.path);
   const snippet = text === undefined || task.source === undefined ? undefined : snippetOf(text, task.source);
-  const diff = await diffSince(repo, candidate.path, new Date(reviewMark(task)));
+  const diff = (await diffOf(candidate.path, new Date(reviewMark(task))))?.excerpt;
   const problem = firstParagraph(task.body);
   return { ...candidate, ...(problem === undefined ? {} : { problem }), ...(snippet === undefined ? {} : { snippet }), ...(diff === undefined ? {} : { diff }) };
 }
@@ -161,11 +161,12 @@ function firstParagraph(body: string): string | undefined {
 }
 
 async function applyAnchorPlans(tasks: readonly Task[], plans: readonly AnchorPlan[], now: Date): Promise<string[]> {
+  const index = buildIndex(tasks);
   const notes: string[] = [];
   for (const plan of plans) {
-    const task = tasks.find((item) => item.id === plan.id);
+    const task = index.byId.get(plan.id);
     if (task === undefined) continue;
-    const result = await updateTaskIn(tasks, { id: plan.id, changes: plan.changes, expectedVersion: task.version, now, via: "check" });
+    const result = await updateTaskInIndex(index, { id: plan.id, changes: plan.changes, expectedVersion: task.version, now, via: "check" });
     if (result.ok && plan.note !== undefined) notes.push(plan.note);
   }
   return notes;

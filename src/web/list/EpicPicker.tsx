@@ -5,7 +5,7 @@ import { Popover, POPOVER_INITIAL_FOCUS, useClosePopover } from "../ui/Popover";
 import type { EpicChoices } from "./epic-choices";
 import styles from "./EpicPicker.module.css";
 
-export type EpicSelection = TaskFilter["epic"];
+type EpicSelection = TaskFilter["epic"];
 
 export type EpicPickerProps = { choices: EpicChoices; selected: EpicSelection; onSelect: (epic: EpicSelection) => void };
 

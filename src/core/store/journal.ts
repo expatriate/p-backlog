@@ -2,7 +2,7 @@ import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
 import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../journal/events";
 import { errorText } from "../errors";
-import { readJsonLines } from "./fs-utils";
+import { readJsonLines, toJsonLines } from "./fs-utils";
 
 export const JOURNAL_FILE = "journal.jsonl";
 
@@ -10,7 +10,7 @@ export async function appendJournal(projectDir: string, events: readonly Journal
   if (events.length === 0) return;
   const path = join(projectDir, JOURNAL_FILE);
   try {
-    await appendFile(path, events.map((event) => `${JSON.stringify(event)}\n`).join(""), "utf8");
+    await appendFile(path, toJsonLines(events), "utf8");
   } catch (error) {
     console.error(`Не удалось записать журнал ${path}: ${errorText(error)}`);
   }

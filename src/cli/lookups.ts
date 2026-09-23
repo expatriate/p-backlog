@@ -13,6 +13,10 @@ export function requireTask(loaded: LoadedBacklog, io: CliIo, id: string): Task 
   return undefined;
 }
 
+export function projectOf(loaded: LoadedBacklog, task: Task): Project | undefined {
+  return loaded.projects.find((project) => project.id === task.projectId);
+}
+
 export function requireProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Project | undefined {
   const project = findProject(loaded, io, explicitId);
   if (project) return project;

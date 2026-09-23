@@ -1,6 +1,7 @@
 import { Bar, CartesianGrid, ComposedChart, Tooltip, XAxis, YAxis } from "recharts";
 import { formatDecimal, pluralCount } from "../../core/stats/format";
 import type { DayFlow } from "../../core/stats/types";
+import { sum } from "../../core/stats/numbers";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
 import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, chartLabel, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
@@ -33,7 +34,7 @@ export function DailyIntakePanel({ days }: { days: DayFlow[] }) {
 }
 
 function intakeSummary(days: DayFlow[]): string {
-  const created = days.reduce((total, day) => total + day.created, 0);
+  const created = sum(days.map((day) => day.created));
   const period = pluralCount(days.length, "день", "дня", "дней");
   if (created === 0) return `${period}: задач не заводили`;
   return `${period}: заведено ${created}, в среднем ${formatDecimal(created / days.length)} в день`;

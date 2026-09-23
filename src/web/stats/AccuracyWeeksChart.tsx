@@ -1,6 +1,7 @@
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import { formatShare, pluralCount } from "../../core/stats/format";
 import type { AccuracyWeek } from "../../core/stats/types";
+import { sum } from "../../core/stats/numbers";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, tooltipWeek } from "./charts/chart-format";
 import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, chartLabel, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
@@ -24,7 +25,7 @@ const weekTooltip = rowTooltip((week: AccuracyWeek) => ({
 }));
 
 export function AccuracyWeeksChart({ weeks }: { weeks: AccuracyWeek[] }) {
-  const decided = weeks.reduce((sum, week) => sum + week.decided, 0);
+  const decided = sum(weeks.map((week) => week.decided));
   const withPrecision = weeks.filter((week) => week.precision !== null);
   const latest = withPrecision.at(-1);
   const summary =

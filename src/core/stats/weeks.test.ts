@@ -3,18 +3,18 @@ import type { JournalEvent } from "../journal/events";
 import { formatLocalIso } from "../model/dates";
 import { makeTask } from "../model/testing/make-task";
 import { taskHistories } from "./history";
-import { weekStarts, weeklyFlow } from "./weeks";
+import { weeklyFlow } from "./weeks";
 
 const at = (month: number, day: number, hour = 12) => new Date(2026, month, day, hour);
 const NOW = at(8, 18);
 
 describe("недели", () => {
   it("12 недель с понедельника, последняя — текущая", () => {
-    const starts = weekStarts(NOW, 12);
+    const starts = weeklyFlow([], NOW).map((week) => week.start);
 
     expect(starts).toHaveLength(12);
-    expect(starts.at(-1)).toEqual(new Date(2026, 8, 14));
-    expect(starts[0]).toEqual(new Date(2026, 5, 29));
+    expect(starts.at(-1)).toBe(formatLocalIso(new Date(2026, 8, 14)));
+    expect(starts[0]).toBe(formatLocalIso(new Date(2026, 5, 29)));
   });
 
   it("создано, закрыто и открыто на конец недели", () => {

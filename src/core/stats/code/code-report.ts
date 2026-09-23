@@ -1,11 +1,11 @@
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
-import type { CodeReport, CollectedCode } from "../types";
-import { periodStart } from "../weeks";
+import type { CodeReport, ScannedCode } from "../types";
+import { statsPeriod } from "../weeks";
 import { churn } from "./churn";
 import { density } from "./density";
 import { fixRequests, type FixRequest } from "./fixes";
 
-export type CodeInput = StatsInput & { code: CollectedCode };
+export type CodeInput = StatsInput & { code: ScannedCode };
 
 export function codeReport({ code, ...input }: CodeInput, base: ReportBase = reportBase(input)): CodeReport {
   const { projectId } = input;
@@ -20,5 +20,5 @@ export function codeReport({ code, ...input }: CodeInput, base: ReportBase = rep
 }
 
 export function codeFixRequests(input: StatsInput, base: ReportBase = reportBase(input)): FixRequest[] {
-  return fixRequests(base.histories, periodStart(input.now), input.now.getTime());
+  return fixRequests(base.histories, statsPeriod(input.now));
 }

@@ -1,12 +1,12 @@
 import { formatLocalDay } from "../../model/dates";
 import type { CliRun, CostCommand, CostDay, CostModel, CostReport, CostTotals, ScanProgress, TokenCounts, UsageBucket } from "../types";
+import { HOOK_STOP_COMMAND } from "./hook-signature";
 import { costOf } from "./pricing";
 import { dayRange } from "../days";
-import { groupBy } from "../numbers";
+import { groupBy, sum } from "../numbers";
 
-export const COST_REPORT_DAYS = 30;
+const COST_REPORT_DAYS = 30;
 export const COST_TOTALS_DAYS = 7;
-const HOOK_COMMAND = "hook stop";
 
 export type CostInput = {
   buckets: readonly UsageBucket[];
@@ -24,7 +24,7 @@ export function costReport({ buckets, runs, projectOf, projectId, now, scan }: C
   const scopedRuns = runs.filter((run) => inScope(run.cwd));
 
   const days = dayRange(now, COST_REPORT_DAYS);
-  const bucketsByDay = groupBy(scopedBuckets, (bucket) => bucket.day);
+  const bucketsByDay = groupBy(scopedBuckets, (bucket) => localDay(bucket.slot));
   const runsByDay = groupBy(scopedRuns, (run) => localDay(run.at));
   const inDays = <T>(byDay: ReadonlyMap<string, T[]>, window: readonly string[]) => window.flatMap((day) => byDay.get(day) ?? []);
   const totalsDays = days.slice(-COST_TOTALS_DAYS);
@@ -48,7 +48,8 @@ function memoizedByCwd(projectOf: (cwd: string) => string | null): (cwd: string)
 }
 
 function localDay(at: string): string {
-  return formatLocalDay(new Date(at));
+  const moment = Date.parse(at);
+  return Number.isNaN(moment) ? "" : formatLocalDay(new Date(moment));
 }
 
 function tokenSum(tokens: TokenCounts): number {
@@ -56,24 +57,20 @@ function tokenSum(tokens: TokenCounts): number {
 }
 
 function tokensTotalOf(buckets: readonly UsageBucket[]): number {
-  return buckets.reduce((sum, bucket) => sum + tokenSum(bucket.tokens), 0);
+  return sum(buckets.map((bucket) => tokenSum(bucket.tokens)));
 }
 
 function costOfBuckets(buckets: readonly UsageBucket[]): number | null {
   if (tokensTotalOf(buckets) === 0) return 0;
-  let sum = 0;
-  let knownTokens = 0;
-  for (const bucket of buckets) {
+  const priced = buckets.flatMap((bucket) => {
     const cost = costOf(bucket.model, bucket.tokens);
-    if (cost === null) continue;
-    sum += cost;
-    knownTokens += tokenSum(bucket.tokens);
-  }
-  return knownTokens === 0 ? null : sum;
+    return cost === null ? [] : [{ cost, tokens: tokenSum(bucket.tokens) }];
+  });
+  return sum(priced.map((entry) => entry.tokens)) === 0 ? null : sum(priced.map((entry) => entry.cost));
 }
 
 function sinceOf(buckets: readonly UsageBucket[]): string | null {
-  const days = buckets.map((bucket) => bucket.day).filter((day) => day !== "");
+  const days = buckets.map((bucket) => localDay(bucket.slot)).filter((day) => day !== "");
   return days.length === 0 ? null : days.reduce((earliest, day) => (day < earliest ? day : earliest));
 }
 
@@ -82,9 +79,9 @@ function totalsOf(buckets: readonly UsageBucket[], runs: readonly CliRun[]): Cos
     tokens: tokensTotalOf(buckets),
     cost: costOfBuckets(buckets),
     hasUnpricedTokens: buckets.some((bucket) => tokenSum(bucket.tokens) > 0 && costOf(bucket.model, bucket.tokens) === null),
-    hookTurns: buckets.reduce((sum, bucket) => sum + bucket.hookTurns, 0),
-    cliRuns: runs.filter((run) => run.command !== HOOK_COMMAND).length,
-    hookRuns: runs.filter((run) => run.command === HOOK_COMMAND).length,
+    hookTurns: sum(buckets.map((bucket) => bucket.hookTurns)),
+    cliRuns: runs.filter((run) => run.command !== HOOK_STOP_COMMAND).length,
+    hookRuns: runs.filter((run) => run.command === HOOK_STOP_COMMAND).length,
   };
 }
 
@@ -96,9 +93,9 @@ function dayRow(day: string, dayBuckets: readonly UsageBucket[], dayRuns: readon
     hookTokens: tokensTotalOf(hookBuckets),
     cliTokens: tokensTotalOf(cliBuckets),
     cost: costOfBuckets(dayBuckets),
-    hookTurns: dayBuckets.reduce((sum, bucket) => sum + bucket.hookTurns, 0),
-    cliRuns: dayRuns.filter((run) => run.command !== HOOK_COMMAND).length,
-    hookRuns: dayRuns.filter((run) => run.command === HOOK_COMMAND).length,
+    hookTurns: sum(dayBuckets.map((bucket) => bucket.hookTurns)),
+    cliRuns: dayRuns.filter((run) => run.command !== HOOK_STOP_COMMAND).length,
+    hookRuns: dayRuns.filter((run) => run.command === HOOK_STOP_COMMAND).length,
   };
 }
 
@@ -122,5 +119,5 @@ function commandsOf(runs: readonly CliRun[]): CostCommand[] {
 }
 
 function average(values: readonly number[]): number {
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+  return sum(values) / values.length;
 }

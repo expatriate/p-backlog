@@ -4,8 +4,8 @@ import { anchorOf, findMoved, hasLines, isAnchorFor, lineSuffix, SOURCE_LINES } 
 import type { Commit, RepoFacts } from "./repo-facts";
 import { similarTitles } from "./similar-titles";
 
-export type TaskRef = { id: string; title: string };
-export type CommitRef = { sha: string; subject: string };
+type TaskRef = { id: string; title: string };
+type CommitRef = { sha: string; subject: string };
 
 export type Candidate =
   | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string  | undefined}
@@ -39,8 +39,7 @@ export function reviewMark(task: Task): number {
 export function codeReview(tasks: readonly Task[], facts: RepoFacts): CodeReview {
   const reviewed = tasks.map((task) => ({ task, anchor: anchorState(task, facts) }));
   const candidates = reviewed.flatMap(({ task, anchor }) => codeCandidate(task, anchor, facts));
-  const flagged = new Set(candidates.map((candidate) => candidate.task.id));
-  const plans = reviewed.flatMap(({ task, anchor }) => anchorPlan(task, anchor, facts, flagged.has(task.id)));
+  const plans = reviewed.flatMap(({ task, anchor }) => anchorPlan(task, anchor, facts));
   return { candidates, plans };
 }
 
@@ -58,12 +57,12 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts): Candi
   return [{ kind: "source-changed", task: taskRef(task), path, commits: commits.slice(0, MAX_COMMITS).map(commitRef), uncommitted }];
 }
 
-function anchorPlan(task: Task, anchor: AnchorState, facts: RepoFacts, flagged: boolean): AnchorPlan[] {
+function anchorPlan(task: Task, anchor: AnchorState, facts: RepoFacts): AnchorPlan[] {
   if (task.source === undefined) return [];
   if (anchor.kind === "moved") {
     return [{ id: task.id, changes: { source: anchor.source, anchor: anchor.anchor }, note: `${task.id}: source сдвинулся ${lineSuffix(task.source)} → ${lineSuffix(anchor.source)}` }];
   }
-  if (anchor.kind !== "none" || flagged) return [];
+  if (anchor.kind === "same") return [];
   const text = facts.texts.get(sourcePath(task.source));
   const fresh = text === undefined ? null : anchorOf(text, task.source);
   return fresh === null || fresh === task.anchor ? [] : [{ id: task.id, changes: { anchor: fresh } }];

@@ -1,12 +1,14 @@
 import { STALE_LOW_DAYS, staleLowTasks } from "../../model/query";
-import { STALE_URGENT_DAYS } from "../breakdowns";
+import { STALE_URGENT_DAYS, urgentStaleCount } from "../breakdowns";
 import { DAY_MS } from "../../model/lifecycle";
 import { inWorkTasks } from "../flow/current";
-import { EVIDENCE_LABELS, formatDays, pluralCount } from "../format";
+import { EVIDENCE_LABELS, formatDays, plural, pluralCount } from "../format";
+import { sum } from "../numbers";
+import { period } from "../period";
 import { accuracy } from "../quality/accuracy";
-import { statsReport } from "../report";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
-import type { AccuracyRow, Signal, StatsReport } from "../types";
+import type { AccuracyRow, Signal, WeekFlow } from "../types";
+import { weeklyFlow } from "../weeks";
 
 const GROWTH_WEEKS = 3;
 const STUCK_IN_PROGRESS_DAYS = 7;
@@ -16,20 +18,26 @@ const NOISY_MAX_PERCENT = 20;
 const NOISY_WINDOW_DAYS = 14;
 
 export function statsSignals(input: StatsInput, base: ReportBase = reportBase(input)): Signal[] {
-  const overview = statsReport(input, base);
-  return [...debtGrowing(overview), ...urgentStale(overview), ...stuck(base, input.now), ...noisyChecks(base, input.now), ...staleLow(base, input.now)];
+  const { now } = input;
+  return [
+    ...debtGrowing(weeklyFlow(base.histories, now)),
+    ...urgentStale(urgentStaleCount(base.openTasks, now)),
+    ...stuck(base, now),
+    ...noisyChecks(base, now),
+    ...staleLow(base, now),
+  ];
 }
 
-function debtGrowing({ weeks }: StatsReport): Signal[] {
+function debtGrowing(weeks: readonly WeekFlow[]): Signal[] {
   const recent = weeks.slice(-GROWTH_WEEKS);
   if (recent.length < GROWTH_WEEKS || !recent.every((week) => week.created > week.closed)) return [];
-  const created = recent.reduce((sum, week) => sum + week.created, 0);
-  const closed = recent.reduce((sum, week) => sum + week.closed, 0);
-  return [{ kind: "debt-growing", text: `Долг растёт третью неделю подряд: за ${pluralCount(GROWTH_WEEKS, "неделю", "недели", "недель")} создано ${created}, закрыто ${closed}` }];
+  const created = sum(recent.map((week) => week.created));
+  const closed = sum(recent.map((week) => week.closed));
+  return [{ kind: "debt-growing", text: `Долг растёт ${pluralCount(GROWTH_WEEKS, "неделю", "недели", "недель")} подряд: создано ${created}, закрыто ${closed}` }];
 }
 
-function urgentStale({ age }: StatsReport): Signal[] {
-  return age.urgentStale === 0 ? [] : [{ kind: "urgent-stale", text: `Срочные задачи ждут дольше ${STALE_URGENT_DAYS} дней: ${age.urgentStale}` }];
+function urgentStale(count: number): Signal[] {
+  return count === 0 ? [] : [{ kind: "urgent-stale", text: `Срочные задачи ждут дольше ${genitiveDays(STALE_URGENT_DAYS)}: ${count}` }];
 }
 
 function stuck({ scope, tasks }: ReportBase, now: Date): Signal[] {
@@ -43,11 +51,11 @@ function stuck({ scope, tasks }: ReportBase, now: Date): Signal[] {
 
 function staleLow({ scope }: ReportBase, now: Date): Signal[] {
   const stale = staleLowTasks(scope.tasks, now);
-  return stale.length === 0 ? [] : [{ kind: "stale-low", text: `Задач с низким приоритетом старше ${STALE_LOW_DAYS} дней: ${stale.length} — разберите (backlog prune)` }];
+  return stale.length === 0 ? [] : [{ kind: "stale-low", text: `Задач с низким приоритетом старше ${genitiveDays(STALE_LOW_DAYS)}: ${stale.length} — разберите (backlog prune)` }];
 }
 
 function noisyChecks({ histories }: ReportBase, now: Date): Signal[] {
-  const recent = accuracy(histories, now.getTime() - NOISY_WINDOW_DAYS * DAY_MS, now.getTime());
+  const recent = accuracy(histories, period(now.getTime() - NOISY_WINDOW_DAYS * DAY_MS, now.getTime()));
   return recent.flatMap((row) => {
     const decided = row.closed + row.verified;
     if (!measuredByClosing(row.evidence) || decided < NOISY_MIN_DECIDED || row.precision === null) return [];
@@ -64,4 +72,8 @@ function noisyChecks({ histories }: ReportBase, now: Date): Signal[] {
 
 function measuredByClosing(evidence: AccuracyRow["evidence"]): boolean {
   return evidence !== "total" && evidence !== "no-source";
+}
+
+function genitiveDays(days: number): string {
+  return `${days} ${plural(days, "дня", "дней", "дней")}`;
 }

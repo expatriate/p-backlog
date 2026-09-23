@@ -27,7 +27,7 @@ export function normalizeText(text: string): string {
   return text.toLowerCase().replaceAll("ё", "е");
 }
 
-export function matchesQuery(task: Task, query: string): boolean {
+function matchesQuery(task: Task, query: string): boolean {
   const haystack = normalizeText(`${task.id}\n${task.title}\n${task.body}`);
   return normalizeText(query)
     .split(/\s+/)

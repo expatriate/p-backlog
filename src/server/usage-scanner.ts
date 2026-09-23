@@ -1,4 +1,5 @@
 import { errorText } from "../core/errors";
+import { sum } from "../core/stats/numbers";
 import type { ScanProgress } from "../core/stats/types";
 import { listTranscripts, scanTranscripts, type TranscriptFile } from "../core/usage/transcripts";
 import { emptyUsageCache, readUsageCache, writeUsageCache, type UsageCache } from "../core/usage/usage-cache";
@@ -81,6 +82,6 @@ function progressBefore(files: readonly TranscriptFile[], cache: UsageCache): Sc
     listed: true,
     filesTotal: files.length,
     filesDone: files.filter((file) => offsetOf(file) === file.size).length,
-    bytesLeft: files.reduce((sum, file) => sum + (file.size - offsetOf(file)), 0),
+    bytesLeft: sum(files.map((file) => file.size - offsetOf(file))),
   };
 }

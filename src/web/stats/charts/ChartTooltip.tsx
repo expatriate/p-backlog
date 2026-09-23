@@ -4,7 +4,7 @@ import { cx } from "../../ui/cx";
 import type { LegendShape } from "./ChartFrame";
 import styles from "./ChartFrame.module.css";
 
-export type TooltipRow = { label: string; value: string; shape?: LegendShape; color?: string };
+type TooltipRow = { label: string; value: string; shape?: LegendShape; color?: string };
 export type TooltipView = { title: string; rows: TooltipRow[] };
 
 export function rowTooltip<Row>(describe: (row: Row) => TooltipView) {

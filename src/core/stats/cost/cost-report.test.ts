@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../../model/dates";
 import type { CliRun, ScanProgress, TokenCounts, UsageBucket } from "../types";
+import { attributeLine, newTranscriptState } from "./attribute";
 import { costReport } from "./cost-report";
 
 const NOW = new Date(2026, 8, 19, 12);
@@ -9,6 +10,10 @@ const PROJECT_OF = (cwd: string): string | null => (cwd.includes("spa") ? "spa" 
 
 function dayAt(offset: number): string {
   return formatLocalIso(new Date(2026, 8, 19 - offset, 12)).slice(0, 10);
+}
+
+function slotAt(offset: number): string {
+  return new Date(2026, 8, 19 - offset, 10).toISOString();
 }
 
 function atAt(offset: number, hour = 10): string {
@@ -20,7 +25,7 @@ function tokens(overrides: Partial<TokenCounts> = {}): TokenCounts {
 }
 
 function bucket(overrides: Partial<UsageBucket> = {}): UsageBucket {
-  return { day: dayAt(0), cwd: "/Users/x/projects/spa", model: "claude-sonnet-5", kind: "hook", tokens: tokens({ input: 1000 }), hookTurns: 0, ...overrides };
+  return { slot: slotAt(0), cwd: "/Users/x/projects/spa", model: "claude-sonnet-5", kind: "hook", tokens: tokens({ input: 1000 }), hookTurns: 0, ...overrides };
 }
 
 function run(overrides: Partial<CliRun> = {}): CliRun {
@@ -30,11 +35,11 @@ function run(overrides: Partial<CliRun> = {}): CliRun {
 describe("отчёт о стоимости", () => {
   it("totals — только последние 7 дней, days — 30 дней с пустыми днями по нулям", () => {
     const buckets = [
-      bucket({ day: dayAt(0), tokens: tokens({ input: 1000, output: 200 }) }),
-      bucket({ day: dayAt(6), kind: "cli", tokens: tokens({ cacheWrite5m: 300 }) }),
-      bucket({ day: dayAt(10), tokens: tokens({ input: 5000 }) }),
-      bucket({ day: dayAt(29), tokens: tokens({ input: 7 }) }),
-      bucket({ day: dayAt(35), tokens: tokens({ input: 999 }) }),
+      bucket({ slot: slotAt(0), tokens: tokens({ input: 1000, output: 200 }) }),
+      bucket({ slot: slotAt(6), kind: "cli", tokens: tokens({ cacheWrite5m: 300 }) }),
+      bucket({ slot: slotAt(10), tokens: tokens({ input: 5000 }) }),
+      bucket({ slot: slotAt(29), tokens: tokens({ input: 7 }) }),
+      bucket({ slot: slotAt(35), tokens: tokens({ input: 999 }) }),
     ];
     const runs = [run({ at: atAt(0), command: "hook stop" }), run({ at: atAt(10), command: "list" })];
 
@@ -49,7 +54,7 @@ describe("отчёт о стоимости", () => {
   });
 
   it("день без данных — все поля нулевые, cost — 0, а не null", () => {
-    const report = costReport({ buckets: [bucket({ day: dayAt(0) })], runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
+    const report = costReport({ buckets: [bucket({ slot: slotAt(0) })], runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
 
     const empty = report.days.find((day) => day.day === dayAt(5));
     expect(empty).toEqual({ day: dayAt(5), hookTokens: 0, cliTokens: 0, cost: 0, hookTurns: 0, cliRuns: 0, hookRuns: 0 });
@@ -81,7 +86,7 @@ describe("отчёт о стоимости", () => {
   });
 
   it("модель без цены вне недели итогов не помечает недельную стоимость как неполную", () => {
-    const buckets = [bucket({ model: "claude-unknown-9", day: dayAt(20) }), bucket({ model: "claude-sonnet-5" })];
+    const buckets = [bucket({ model: "claude-unknown-9", slot: slotAt(20) }), bucket({ model: "claude-sonnet-5" })];
 
     const report = costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
 
@@ -97,8 +102,8 @@ describe("отчёт о стоимости", () => {
 
   it("models — по убыванию токенов за весь охваченный период", () => {
     const buckets = [
-      bucket({ model: "claude-haiku-4-5", day: dayAt(25), tokens: tokens({ input: 100 }) }),
-      bucket({ model: "claude-opus-5", day: dayAt(1), tokens: tokens({ input: 900 }) }),
+      bucket({ model: "claude-haiku-4-5", slot: slotAt(25), tokens: tokens({ input: 100 }) }),
+      bucket({ model: "claude-opus-5", slot: slotAt(1), tokens: tokens({ input: 900 }) }),
     ];
 
     const report = costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
@@ -125,7 +130,7 @@ describe("отчёт о стоимости", () => {
   });
 
   it("since — самый ранний день среди учтённого вклада в области", () => {
-    const buckets = [bucket({ day: dayAt(3) }), bucket({ day: dayAt(20) })];
+    const buckets = [bucket({ slot: slotAt(3) }), bucket({ slot: slotAt(20) })];
 
     expect(costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN }).since).toBe(dayAt(20));
     expect(costReport({ buckets: [], runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN }).since).toBeNull();
@@ -139,5 +144,26 @@ describe("отчёт о стоимости", () => {
     const buckets = [bucket({ model: "unknown", tokens: tokens(), hookTurns: 1 }), bucket({ model: "claude-sonnet-5" })];
 
     expect(costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN }).models.map((row) => row.model)).toEqual(["claude-sonnet-5"]);
+  });
+
+  it("день затрат берётся в поясе отчёта, а не в поясе, где просканирована расшифровка: токены и запуски хука одного момента — в одном дне", () => {
+    const moment = "2026-09-18T22:30:00.000Z";
+    const cwd = "/Users/x/projects/spa";
+    const previousZone = process.env.TZ;
+    try {
+      process.env.TZ = "Europe/Moscow";
+      const state = newTranscriptState();
+      const buckets = [
+        ...attributeLine({ type: "user", isMeta: true, timestamp: moment, cwd, message: { content: "Stop hook feedback:\nБеклог spa: менялся код задач — SPA-1" } }, state),
+        ...attributeLine({ type: "assistant", timestamp: moment, cwd, message: { id: "msg_1", model: "claude-sonnet-5", usage: { input_tokens: 700 } } }, state),
+      ];
+      process.env.TZ = "America/New_York";
+      const report = costReport({ buckets, runs: [run({ at: moment, command: "hook stop", cwd })], projectOf: PROJECT_OF, now: new Date("2026-09-19T16:00:00.000Z"), scan: SCAN });
+
+      expect(report.days.filter((day) => day.hookTurns + day.hookTokens + day.hookRuns > 0)).toEqual([expect.objectContaining({ day: "2026-09-18", hookTurns: 1, hookTokens: 700, hookRuns: 1 })]);
+    } finally {
+      if (previousZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousZone;
+    }
   });
 });

@@ -1,6 +1,6 @@
 import type { Task } from "../../model/types";
 import { folderOf } from "../breakdowns";
-import { countBy } from "../numbers";
+import { countBy, sum } from "../numbers";
 import type { CodeDensity, DensityRow, FolderDensity, ProjectCode, ProjectDensity } from "../types";
 
 const FOLDER_LIMIT = 8;
@@ -11,7 +11,7 @@ export function density(openTasks: readonly Task[], projects: readonly ProjectCo
   const projectRows = projects
     .filter((project) => project.repos.length > 0)
     .map((project): ProjectDensity => {
-      const lines = project.repos.flatMap((repo) => repo.lines).reduce((sum, file) => sum + file.lines, 0);
+      const lines = sum(project.repos.flatMap((repo) => repo.lines).map((file) => file.lines));
       return { projectId: project.projectId, name: project.name, ...densityRow(lines, openTasks.filter((task) => task.projectId === project.projectId).length) };
     })
     .sort((a, b) => byDensity(a, b) || a.projectId.localeCompare(b.projectId));

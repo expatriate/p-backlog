@@ -1,13 +1,14 @@
 import { formatLocalIso } from "../../model/dates";
 import { isClosed } from "../../model/graph";
 import type { TaskCategory } from "../../model/types";
-import { fixCommitEntry } from "../code/fixes";
+import { fixCommitEntry, type FixCommitEntry } from "../code/fixes";
 import { isFixedNow, type TaskHistory } from "../history";
-import { median, smallest } from "../numbers";
-import { statsScope, type StatsInput } from "../scope";
-import type { CollectedCode, CommitUnit, EffectProject, EffectReport, EffectTotals, EffectPeriod, FixCommit } from "../types";
+import { countBy, median, smallest, sum } from "../numbers";
+import { period, type Period } from "../period";
+import { reportBase, type ReportBase, type StatsInput } from "../scope";
+import type { CollectedCode, CommitUnit, EffectProject, EffectReport, EffectTotals, EffectPeriod, ProjectCode } from "../types";
 import { dayWindows } from "../days";
-import { periodStart, weekWindows } from "../weeks";
+import { statsPeriod, weekWindows } from "../weeks";
 
 export const MIN_FIXES_FOR_ESTIMATE = 5;
 
@@ -18,42 +19,35 @@ type FixSize = { lines: number; testLines: number };
 type FixSample = FixSize & { category: TaskCategory | undefined };
 type Estimate = (category: TaskCategory | undefined) => FixSize | null;
 
-export function effectReport({ code, ...input }: EffectInput): EffectReport {
+export function effectReport(
+  { code, ...input }: EffectInput,
+  base: ReportBase = reportBase(input),
+  wholeBacklog: ReportBase = input.projectId === undefined ? base : reportBase({ ...input, projectId: undefined }),
+): EffectReport {
   const { now, projectId } = input;
-  const scope = statsScope(input);
-  const histories = scope.histories.filter((history) => history.type === "task");
-  const from = periodStart(now);
-  const to = now.getTime();
-  const inPeriod = (moment: number) => moment >= from && moment <= to;
+  const { histories } = base;
+  const reportPeriod = statsPeriod(now);
   const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
-  const deferred = buildDeferred(histories.filter((history) => inPeriod(history.createdAt)), code);
-  const allHistories = statsScope({ ...input, projectId: undefined }).histories.filter((history) => history.type === "task");
-  const estimate = estimator(estimateSamples(allHistories, code));
+  const deferred = buildDeferred(histories.filter((history) => reportPeriod.contains(history.createdAt)), histories, code);
+  const estimate = estimator(estimateSamples(wholeBacklog.histories, code));
   const adoptionStart = (id: string) => {
     const firstCreated = smallest(histories.filter((history) => history.projectId === id).map((history) => history.createdAt));
-    return firstCreated === null ? from : Math.max(from, firstCreated);
+    return firstCreated === null ? reportPeriod.from : Math.max(reportPeriod.from, firstCreated);
   };
-  const unitsSince = (id: string, since: number) =>
+  const unitsOf = (project: ProjectCode) => project.repos.flatMap((repo) => repo.units);
+  const unitsForTotals = (id?: string) =>
     projects
-      .filter((project) => project.projectId === id)
-      .flatMap((project) => project.repos.flatMap((repo) => repo.units))
-      .filter((unit) => {
-        const moment = Date.parse(unit.date);
-        return moment >= since && moment <= to;
+      .filter((project) => id === undefined || project.projectId === id)
+      .flatMap((project) => {
+        const adopted = period(adoptionStart(project.projectId), reportPeriod.to);
+        return unitsOf(project).filter((unit) => adopted.contains(Date.parse(unit.date)));
       });
-  const unitsForTotals = (id?: string) => {
-    const ids = id === undefined ? projects.map((project) => project.projectId) : [id];
-    return ids.flatMap((projectIdOf) => unitsSince(projectIdOf, adoptionStart(projectIdOf)));
-  };
-  const periodUnits = projects.flatMap((project) => project.repos.flatMap((repo) => repo.units)).filter((unit) => inPeriod(Date.parse(unit.date)));
-  const totals = totalsOf(deferred, unitsForTotals(), estimate);
+  const periodUnits = projects.flatMap(unitsOf).filter((unit) => reportPeriod.contains(Date.parse(unit.date)));
   return {
-    taskCount: histories.length,
-    journalSince: scope.journalSince,
-    invalidJournalLines: scope.invalidJournalLines,
+    ...base.head,
     unavailableRepos: code.unavailableRepos,
-    totals,
-    weeks: bucketsOf(weekBuckets(now), deferred, periodUnits, estimate),
+    totals: totalsOf(deferred, unitsForTotals(), estimate),
+    weeks: bucketsOf(weekWindows(now), deferred, periodUnits, estimate),
     days: bucketsOf(dayWindows(now), deferred, periodUnits, estimate),
     projects: projects.map((project): EffectProject => {
       const own = totalsOf(deferred.filter((item) => item.history.projectId === project.projectId), unitsForTotals(project.projectId), estimate);
@@ -70,32 +64,28 @@ export function effectReport({ code, ...input }: EffectInput): EffectReport {
   };
 }
 
-function buildDeferred(candidates: readonly TaskHistory[], code: CollectedCode): Deferred[] {
-  const groups = new Map<string, { commit: FixCommit; histories: TaskHistory[] }>();
-  const open: TaskHistory[] = [];
-  for (const history of candidates) {
-    if (!isClosed(history.finalStatus)) {
-      open.push(history);
-      continue;
-    }
-    if (!isFixedNow(history)) continue;
-    const entry = fixCommitEntry(history, code.fixCommits);
-    if (entry === undefined) continue;
-    const group = groups.get(entry.key) ?? { commit: entry.commit, histories: [] };
-    group.histories.push(history);
-    groups.set(entry.key, group);
-  }
-  const fixed = [...groups.values()].flatMap(({ commit, histories }) =>
-    histories.map((history): Deferred => ({ history, fixedLines: commit.lines / histories.length, fixedTestLines: commit.testLines / histories.length, fixedAt: Date.parse(commit.date) })),
+function fixEntryOf(history: TaskHistory, code: CollectedCode): FixCommitEntry | undefined {
+  return isFixedNow(history) ? fixCommitEntry(history, code.fixCommits) : undefined;
+}
+
+function buildDeferred(candidates: readonly TaskHistory[], histories: readonly TaskHistory[], code: CollectedCode): Deferred[] {
+  const sharersByCommit = countBy(
+    histories.flatMap((history) => fixEntryOf(history, code)?.key ?? []),
+    (key) => key,
   );
-  return [...fixed, ...open.map((history): Deferred => ({ history, fixedLines: null, fixedTestLines: 0, fixedAt: null }))];
+  return candidates.flatMap((history): Deferred[] => {
+    if (!isClosed(history.finalStatus)) return [{ history, fixedLines: null, fixedTestLines: 0, fixedAt: null }];
+    const entry = fixEntryOf(history, code);
+    if (entry === undefined) return [];
+    const sharers = sharersByCommit.get(entry.key) ?? 1;
+    return [{ history, fixedLines: entry.commit.lines / sharers, fixedTestLines: entry.commit.testLines / sharers, fixedAt: Date.parse(entry.commit.date) }];
+  });
 }
 
 function estimateSamples(histories: readonly TaskHistory[], code: CollectedCode): FixSample[] {
   const seen = new Map<string, FixSample>();
   for (const history of histories) {
-    if (!isFixedNow(history)) continue;
-    const entry = fixCommitEntry(history, code.fixCommits);
+    const entry = fixEntryOf(history, code);
     if (entry === undefined || seen.has(entry.key)) continue;
     seen.set(entry.key, { category: history.category, lines: entry.commit.lines, testLines: entry.commit.testLines });
   }
@@ -113,8 +103,8 @@ function estimator(samples: readonly FixSample[]): Estimate {
 function sizeOf(samples: readonly FixSample[]): FixSize | null {
   const lines = samples.length < MIN_FIXES_FOR_ESTIMATE ? null : median(samples.map((sample) => sample.lines));
   if (lines === null) return null;
-  const totalLines = samples.reduce((sum, sample) => sum + sample.lines, 0);
-  const testShare = totalLines === 0 ? 0 : samples.reduce((sum, sample) => sum + sample.testLines, 0) / totalLines;
+  const totalLines = sum(samples.map((sample) => sample.lines));
+  const testShare = totalLines === 0 ? 0 : sum(samples.map((sample) => sample.testLines)) / totalLines;
   return { lines, testLines: lines * testShare };
 }
 
@@ -123,8 +113,8 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
   const open = deferred.filter((item) => item.fixedLines === null);
   const estimated = estimatedSizeOf(open, estimate);
   const estimatedLines = estimated?.lines ?? null;
-  const realLines = units.reduce((sum, unit) => sum + unit.lines, 0);
-  const fixedLines = fixed.reduce((sum, lines) => sum + lines, 0);
+  const realLines = sum(units.map((unit) => unit.lines));
+  const fixedLines = sum(fixed);
   const deferredLines = fixedLines + (estimatedLines ?? 0);
   const denominator = realLines + (estimatedLines ?? 0);
   return {
@@ -146,30 +136,20 @@ function estimatedSizeOf(open: readonly Deferred[], estimate: Estimate): FixSize
   return { lines: sum(sizes.map((size) => size.lines)), testLines: sum(sizes.map((size) => size.testLines)) };
 }
 
-function sum(values: readonly number[]): number {
-  return values.reduce((total, value) => total + value, 0);
-}
-
-type Bucket = { start: Date; inWindow: (moment: number) => boolean };
-
-function weekBuckets(now: Date): Bucket[] {
-  return weekWindows(now).map(({ start, inWeek }) => ({ start, inWindow: inWeek }));
-}
-
-function bucketsOf(buckets: readonly Bucket[], deferred: readonly Deferred[], periodUnits: readonly CommitUnit[], estimate: Estimate): EffectPeriod[] {
-  return buckets.map(({ start, inWindow: inWeek }) => {
-    const rawRealLines = periodUnits.filter((unit) => inWeek(Date.parse(unit.date))).reduce((sum, unit) => sum + unit.lines, 0);
-    const fixedInWeek = deferred.filter((item) => item.fixedAt !== null && inWeek(item.fixedAt));
-    const openInWeek = deferred.filter((item) => item.fixedLines === null && inWeek(item.history.createdAt));
-    const fixedLinesInWeek = fixedInWeek.reduce((sum, item) => sum + (item.fixedLines ?? 0), 0);
-    const estimatedInWeek = estimatedSizeOf(openInWeek, estimate);
-    const deferredLines = fixedLinesInWeek + (estimatedInWeek?.lines ?? 0);
+function bucketsOf(windows: readonly Period[], deferred: readonly Deferred[], periodUnits: readonly CommitUnit[], estimate: Estimate): EffectPeriod[] {
+  return windows.map((span) => {
+    const rawRealLines = sum(periodUnits.filter((unit) => span.contains(Date.parse(unit.date))).map((unit) => unit.lines));
+    const fixedInWindow = deferred.filter((item) => item.fixedAt !== null && span.contains(item.fixedAt));
+    const openInWindow = deferred.filter((item) => item.fixedLines === null && span.contains(item.history.createdAt));
+    const fixedLinesInWindow = sum(fixedInWindow.map((item) => item.fixedLines ?? 0));
+    const estimatedInWindow = estimatedSizeOf(openInWindow, estimate);
+    const deferredLines = fixedLinesInWindow + (estimatedInWindow?.lines ?? 0);
     return {
-      start: formatLocalIso(start),
-      onTopicLines: Math.max(0, rawRealLines - fixedLinesInWeek),
+      start: formatLocalIso(new Date(span.from)),
+      onTopicLines: Math.max(0, rawRealLines - fixedLinesInWindow),
       deferredLines,
-      deferredTestLines: sum(fixedInWeek.map((item) => item.fixedTestLines)) + (estimatedInWeek?.testLines ?? 0),
-      deferredTasks: fixedInWeek.length + openInWeek.length,
+      deferredTestLines: sum(fixedInWindow.map((item) => item.fixedTestLines)) + (estimatedInWindow?.testLines ?? 0),
+      deferredTasks: fixedInWindow.length + openInWindow.length,
     };
   });
 }

@@ -48,6 +48,34 @@ describe("список задач", () => {
     expect(app.route()).toBe("/?q=%D0%BE%D1%87%D0%B5%D1%80%D0%B5%D0%B4%D1%8C");
   });
 
+  it("ввод в середину запроса оставляет каретку на месте", async () => {
+    const app = await renderApp(FILES, `/?q=${encodeURIComponent("таймаут")}`);
+    await screen.findAllByRole("row");
+    const search = screen.getByRole<HTMLInputElement>("searchbox", { name: "Поиск задач" });
+
+    await app.user.type(search, "ы", { initialSelectionStart: 3, initialSelectionEnd: 3 });
+    await app.user.type(search, "ы", { skipClick: true });
+
+    expect(search.value).toBe("тайыымаут");
+    await waitFor(() => expect(app.route()).toBe(`/?q=${encodeURIComponent("тайыымаут")}`));
+  });
+
+  it("переход назад по истории, пока поле поиска в фокусе, показывает в поле запрос из адреса", async () => {
+    const app = await renderApp(FILES, `/?q=${encodeURIComponent("таймаут")}`);
+    await screen.findAllByRole("row");
+    await act(() => app.router.navigate(`/t/SPA-1?q=${encodeURIComponent("таймаут")}`));
+    const search = screen.getByRole<HTMLInputElement>("searchbox", { name: "Поиск задач" });
+    await app.user.clear(search);
+    await app.user.type(search, "очередь");
+    await waitFor(() => expect(app.route()).toBe(`/t/SPA-1?q=${encodeURIComponent("очередь")}`));
+
+    await act(() => app.router.navigate(-1));
+
+    await waitFor(async () => expect(await rowTitles()).toEqual(["Таймауты загрузки"]));
+    expect(document.activeElement).toBe(search);
+    expect(search.value).toBe("таймаут");
+  });
+
   it("чип статуса добавляет закрытые задачи, повторное нажатие убирает", async () => {
     const app = await renderApp(FILES);
     await screen.findAllByRole("row");
@@ -101,6 +129,7 @@ describe("список задач", () => {
     expect(await screen.findByText("Под фильтры ничего не подходит.")).toBeDefined();
     await app.user.click(screen.getByRole("button", { name: "Сбросить фильтры" }));
     await waitFor(async () => expect(await rowTitles()).toHaveLength(3));
+    expect(screen.getByRole<HTMLInputElement>("searchbox", { name: "Поиск задач" }).value).toBe("");
   });
 
   it("проект только с закрытыми задачами предлагает показать все статусы, а не сбросить фильтры", async () => {

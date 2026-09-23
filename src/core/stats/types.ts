@@ -34,10 +34,9 @@ export type ClosingBreakdown = {
   reopened: number;
 };
 
-export type StatsReport = {
-  taskCount: number;
-  journalSince: string | null;
-  invalidJournalLines: number;
+export type ReportHead = { taskCount: number; journalSince: string | null; invalidJournalLines: number };
+
+export type StatsReport = ReportHead & {
   totals: StatsTotals;
   weeks: WeekFlow[];
   days: DayFlow[];
@@ -54,16 +53,14 @@ export type CommitUnit = { date: string; lines: number };
 export type RepoCode = { commits: string[][]; lines: { path: string; lines: number }[]; units: CommitUnit[] };
 export type ProjectCode = { projectId: string; name: string; repos: RepoCode[] };
 export type FixCommit = { date: string; byAgent: boolean; lines: number; testLines: number };
-export type CollectedCode = { projects: ProjectCode[]; unavailableRepos: string[]; fixCommits: ReadonlyMap<string, FixCommit> };
+export type ScannedCode = { projects: ProjectCode[]; unavailableRepos: string[] };
+export type CollectedCode = ScannedCode & { fixCommits: ReadonlyMap<string, FixCommit> };
 export type ChurnRow = { label: string; commits: number; tasks: number; weight: number; score: number };
 export type DensityRow = { lines: number; open: number; perKloc: number | null };
 export type ProjectDensity = DensityRow & { projectId: string; name: string };
 export type FolderDensity = DensityRow & { label: string };
 export type CodeDensity = { projects: ProjectDensity[]; folders: FolderDensity[] };
-export type CodeReport = {
-  taskCount: number;
-  journalSince: string | null;
-  invalidJournalLines: number;
+export type CodeReport = ReportHead & {
   unavailableRepos: string[];
   churn: ChurnRow[];
   density: CodeDensity;
@@ -76,10 +73,7 @@ export type SymbolAccuracyRow = { by: "symbol" | "file"; candidates: number; clo
 export type CategoryRow = { category: TaskCategory | null; open: number; weight: number; created: number; closed: number };
 export type FoundRow = { found: FoundHow | null; created: number; open: number; fixed: number };
 export type BranchRow = { label: string; created: number; open: number };
-export type QualityReport = {
-  taskCount: number;
-  journalSince: string | null;
-  invalidJournalLines: number;
+export type QualityReport = ReportHead & {
   accuracy: AccuracyRow[];
   accuracyWeeks: AccuracyWeek[];
   symbolAccuracy: SymbolAccuracyRow[];
@@ -91,10 +85,7 @@ export type QualityReport = {
 export type EffectTotals = { realLines: number; fixedTasks: number; fixedLines: number; openTasks: number; estimatedLines: number | null; deferredLines: number; deferredTestLines: number; noiseShare: number | null };
 export type EffectPeriod = { start: string; onTopicLines: number; deferredLines: number; deferredTestLines: number; deferredTasks: number };
 export type EffectProject = { projectId: string; name: string; realLines: number; deferredTasks: number; fixedLines: number; estimatedLines: number | null; noiseShare: number | null };
-export type EffectReport = {
-  taskCount: number;
-  journalSince: string | null;
-  invalidJournalLines: number;
+export type EffectReport = ReportHead & {
   unavailableRepos: string[];
   totals: EffectTotals;
   weeks: EffectPeriod[];
@@ -102,19 +93,19 @@ export type EffectReport = {
   projects: EffectProject[];
 };
 
-export type SignalKind = "debt-growing" | "urgent-stale" | "stuck" | "noisy-check" | "low-changed" | "stale-low";
+type SignalKind = "debt-growing" | "urgent-stale" | "stuck" | "noisy-check" | "low-changed" | "stale-low";
 export type Signal = { kind: SignalKind; text: string };
 export type SignalsReport = { signals: Signal[] };
 
 export type TokenCounts = { input: number; cacheWrite5m: number; cacheWrite1h: number; cacheRead: number; output: number };
-export type UsageKind = "hook" | "cli" | "skill";
-export type UsageBucket = { day: string; cwd: string; model: string; kind: UsageKind; tokens: TokenCounts; hookTurns: number };
+type UsageKind = "hook" | "cli" | "skill";
+export type UsageBucket = { slot: string; cwd: string; model: string; kind: UsageKind; tokens: TokenCounts; hookTurns: number };
 export type TranscriptState = {
   hookOpen: boolean;
   lastModel: string | null;
   lastMessageId: string | null;
   pending: Record<string, "cli" | "skill">;
-  pendingEstimates: { kind: "cli" | "skill"; chars: number; day: string; cwd: string }[];
+  pendingEstimates: { kind: "cli" | "skill"; chars: number; slot: string; cwd: string }[];
 };
 
 export type CliRun = { at: string; command: string; cwd: string; ms: number; rssMb: number; exitCode: number };

@@ -30,14 +30,14 @@ export function normalizeTag(tag: string): string {
   return tag.trim().toLowerCase();
 }
 
-const taskId = z.string().regex(ID_PATTERN, "некорректный ID");
+export const taskIdSchema = z.string().regex(ID_PATTERN, "некорректный ID");
 const taskIdList = z
-  .array(taskId)
+  .array(taskIdSchema)
   .default([])
   .transform((ids) => [...new Set(ids)]);
 
 export const taskFrontmatterSchema = z.object({
-  id: taskId,
+  id: taskIdSchema,
   title: z.string().trim().min(1, "пустой заголовок"),
   type: z.enum(TASK_TYPES).default("task"),
   status: z.enum(TASK_STATUSES).default("backlog"),
@@ -47,7 +47,7 @@ export const taskFrontmatterSchema = z.object({
     .array(z.string())
     .default([])
     .transform((tags) => [...new Set(tags.map(normalizeTag).filter(Boolean))]),
-  epic: taskId.optional(),
+  epic: taskIdSchema.optional(),
   blockedBy: taskIdList,
   related: taskIdList,
   created: z.iso.datetime({ offset: true }),

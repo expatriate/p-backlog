@@ -61,6 +61,10 @@ describe("backlog new", () => {
     expect((await run(["new", "--title", "Эпик без категории", "--type", "epic"])).code).toBe(EXIT.ok);
     expect((await run(["new", "--category", "bug", "--title", "X", "--priority", "urgent"])).err).toContain("--priority");
     expect((await run(["new", "--category", "bug", "--title", "X", "--unknown"])).code).toBe(EXIT.invalid);
+    expect(await run(["new", "--category", "bug", "--title", "Заголовок", "без", "кавычек"])).toMatchObject({
+      code: EXIT.invalid,
+      err: "Лишние аргументы: без кавычек",
+    });
     expect(await run(["new", "--category", "bug", "--title", "X", "--epic", "SPA-40"])).toMatchObject({
       code: EXIT.invalid,
       err: expect.stringContaining("эпик SPA-40 не найден"),

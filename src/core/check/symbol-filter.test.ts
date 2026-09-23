@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
+import type { Task } from "../model/types";
 import { openCodeGraph } from "../graph/code-graph";
 import { makeGraph } from "../graph/testing/make-graph";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
@@ -10,6 +11,7 @@ import type { Candidate } from "./candidates";
 import { duplicateCandidates } from "./candidates";
 import { filterBySymbol, symbolLookup, symbolNames } from "./symbol-filter";
 import type { CodeGraph } from "../graph/code-graph";
+import { diffsSince } from "./repo-facts";
 
 const SYMBOLS = [
   { name: "uploadFile", kind: "Function", from: 1, to: 3 },
@@ -33,6 +35,7 @@ async function repoWithChange({ inSymbol }: { inSymbol: boolean }): Promise<stri
   return repo;
 }
 
+const byId = (...tasks: Task[]) => new Map(tasks.map((item) => [item.id, item]));
 const task = makeTask({ id: "SPA-1", source: "src/upload.ts:2", created: "2026-09-11T10:00:00+03:00" });
 const candidate: Candidate = { kind: "source-changed", task: { id: "SPA-1", title: task.title }, path: "src/upload.ts", commits: [], uncommitted: false };
 
@@ -41,7 +44,7 @@ describe("filterBySymbol", () => {
     const repo = await repoWithChange({ inSymbol: false });
     const graph = openCodeGraph(repo);
 
-    expect(await filterBySymbol([candidate], [task], repo, symbolLookup(repo, graph))).toEqual([]);
+    expect(await filterBySymbol([candidate], byId(task), diffsSince(repo), symbolLookup(repo, graph))).toEqual([]);
     graph?.close();
   });
 
@@ -49,14 +52,14 @@ describe("filterBySymbol", () => {
     const repo = await repoWithChange({ inSymbol: true });
     const graph = openCodeGraph(repo);
 
-    expect(await filterBySymbol([candidate], [task], repo, symbolLookup(repo, graph))).toEqual([{ ...candidate, bySymbol: true }]);
+    expect(await filterBySymbol([candidate], byId(task), diffsSince(repo), symbolLookup(repo, graph))).toEqual([{ ...candidate, bySymbol: true }]);
     graph?.close();
   });
 
   it("без графа кандидат остаётся в том же сценарии", async () => {
     const repo = await repoWithChange({ inSymbol: false });
 
-    expect(await filterBySymbol([candidate], [task], repo, symbolLookup(repo, null))).toEqual([candidate]);
+    expect(await filterBySymbol([candidate], byId(task), diffsSince(repo), symbolLookup(repo, null))).toEqual([candidate]);
   });
 
   it("файл изменился после сборки графа — кандидат остаётся", async () => {
@@ -64,7 +67,7 @@ describe("filterBySymbol", () => {
     const graph = openCodeGraph(repo);
     await writeFile(join(repo, "src/upload.ts"), body("v3", "v3"));
 
-    expect(await filterBySymbol([candidate], [task], repo, symbolLookup(repo, graph))).toEqual([candidate]);
+    expect(await filterBySymbol([candidate], byId(task), diffsSince(repo), symbolLookup(repo, graph))).toEqual([candidate]);
     graph?.close();
   });
 
@@ -74,14 +77,14 @@ describe("filterBySymbol", () => {
     const spanning = makeTask({ id: "SPA-9", source: "src/upload.ts:2-6", created: "2026-09-11T10:00:00+03:00" });
     const spanningCandidate: Candidate = { kind: "source-changed", task: { id: "SPA-9", title: spanning.title }, path: "src/upload.ts", commits: [], uncommitted: false };
 
-    expect(await filterBySymbol([spanningCandidate], [spanning], repo, symbolLookup(repo, graph))).toEqual([{ ...spanningCandidate, bySymbol: true }]);
+    expect(await filterBySymbol([spanningCandidate], byId(spanning), diffsSince(repo), symbolLookup(repo, graph))).toEqual([{ ...spanningCandidate, bySymbol: true }]);
     graph?.close();
   });
 
   it("путь репозитория с хвостовым слешем не выключает фильтр", async () => {
     const repo = await repoWithChange({ inSymbol: false });
 
-    expect(await filterBySymbol([candidate], [task], `${repo}/`, symbolLookup(`${repo}/`, openCodeGraph(`${repo}/`)))).toEqual([]);
+    expect(await filterBySymbol([candidate], byId(task), diffsSince(`${repo}/`), symbolLookup(`${repo}/`, openCodeGraph(`${repo}/`)))).toEqual([]);
   });
 
   it("кандидатов других видов не трогает", async () => {
@@ -89,7 +92,7 @@ describe("filterBySymbol", () => {
     const graph = openCodeGraph(repo);
     const missing: Candidate = { kind: "source-missing", task: { id: "SPA-2", title: "Задача SPA-2" }, path: "src/gone.ts" };
 
-    expect(await filterBySymbol([missing], [task], repo, symbolLookup(repo, graph))).toEqual([missing]);
+    expect(await filterBySymbol([missing], byId(task), diffsSince(repo), symbolLookup(repo, graph))).toEqual([missing]);
     graph?.close();
   });
 });
@@ -101,7 +104,7 @@ describe("symbolNames", () => {
     const counting: CodeGraph = {
       symbolAt: () => {
         asked++;
-        return { name: "uploadFile", from: 1, to: 3 };
+        return { qualifiedName: "src/upload.ts::uploadFile", from: 1, to: 3 };
       },
       close: () => undefined,
     };
@@ -111,5 +114,27 @@ describe("symbolNames", () => {
 
     expect(duplicates).toHaveLength(3);
     expect(asked).toBe(3);
+  });
+
+  it("одноимённые методы разных классов одного файла — разные символы, а не дубль", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    const text = ["class A {", "  render() {", "    return 1;", "  }", "}", "class B {", "  render() {", "    return 2;", "  }", "}", ""].join("\n");
+    await writeFiles(repo, { "src/view.ts": text });
+    const hash = createHash("sha256").update(text).digest("hex");
+    await makeGraph(repo, [
+      {
+        path: "src/view.ts",
+        hash,
+        symbols: [
+          { name: "render", owner: "A", kind: "Function", from: 2, to: 4 },
+          { name: "render", owner: "B", kind: "Function", from: 7, to: 9 },
+        ],
+      },
+    ]);
+    const graph = openCodeGraph(repo);
+    const tasks = [makeTask({ id: "SPA-1", title: "Отрисовка A", source: "src/view.ts:3" }), makeTask({ id: "SPA-2", title: "Счётчик B", source: "src/view.ts:8" })];
+
+    expect(duplicateCandidates(tasks, symbolNames(symbolLookup(repo, graph)))).toEqual([]);
+    graph?.close();
   });
 });

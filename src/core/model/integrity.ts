@@ -9,15 +9,7 @@ export function integrityErrors(candidate: Task, index: BacklogIndex): string[] 
   if (candidate.blockedBy.includes(candidate.id)) errors.push("задача не может блокировать саму себя");
   if (candidate.related.includes(candidate.id)) errors.push("задача не может быть связана сама с собой");
 
-  if (candidate.epic === candidate.id) {
-    errors.push("задача не может быть своим эпиком");
-  } else if (candidate.epic !== undefined) {
-    const epic = resolve(candidate.epic);
-    if (!epic) errors.push(`эпик ${candidate.epic} не найден`);
-    else if (epic.type !== "epic") errors.push(`${candidate.epic} не является эпиком`);
-  }
-
-  if (candidate.type === "epic" && candidate.epic !== undefined) errors.push("эпик не может входить в другой эпик");
+  errors.push(...epicProblems(candidate, resolve));
 
   const children = (index.childrenOf.get(candidate.id) ?? []).filter((task) => task.id !== candidate.id);
   if (candidate.type === "task" && children.length > 0) {
@@ -33,6 +25,20 @@ export function integrityErrors(candidate: Task, index: BacklogIndex): string[] 
   if (candidate.reason !== undefined && candidate.resolution === undefined) errors.push("reason задаётся только вместе с resolution");
 
   return errors;
+}
+
+export function epicProblems(candidate: Pick<Task, "id" | "type" | "epic">, resolve: (id: string) => Task | undefined): string[] {
+  if (candidate.epic === undefined) return [];
+  const problems: string[] = [];
+  if (candidate.epic === candidate.id) {
+    problems.push("задача не может быть своим эпиком");
+  } else {
+    const epic = resolve(candidate.epic);
+    if (!epic) problems.push(`эпик ${candidate.epic} не найден`);
+    else if (epic.type !== "epic") problems.push(`${candidate.epic} не является эпиком`);
+  }
+  if (candidate.type === "epic") problems.push("эпик не может входить в другой эпик");
+  return problems;
 }
 
 export function taskWarnings(task: Task, index: BacklogIndex): string[] {

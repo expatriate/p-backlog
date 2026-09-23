@@ -1,15 +1,15 @@
 import { dirname } from "node:path";
-import { isClosed } from "../model/graph";
+import { buildIndex, isClosed } from "../model/graph";
 import { parseId } from "../model/ids";
 import { isExpired, planEpicClosing } from "../model/lifecycle";
 import { deletedEvent } from "../journal/events";
-import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { Project, Task } from "../model/types";
-import { readTextOrNull, removeIfUnchanged, writeFileAtomic } from "./fs-utils";
+import { removeIfUnchanged } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { loadBacklog, type LoadedBacklog } from "./load";
+import { reserveIssuedUpTo } from "./projects";
 import { referenceCleanup } from "./references";
-import { updateTaskIn } from "./update";
+import { updateTaskInIndex } from "./update";
 import type { UpdateTaskFailure } from "./write-result";
 
 export type SweepReport = {
@@ -37,7 +37,7 @@ export async function sweepClosed(root: string, now: Date): Promise<SweepReport>
   const expired = tasks.filter((task) => isExpired(task, now) && !waitsForEpic(task));
   const reserved = await reserveNumbers(projects, expired);
   const removable = expired.filter((task) => reserved.has(task.projectId));
-  const updates = await updateRemainingTasks(tasks, removable, now);
+  const updates = await repairRemainingTasks(tasks, removable, now);
   const removal = await removeExpired(removable.filter((task) => !updates.stillReferenced.has(task.id)), now);
   return {
     closedEpics: epics.closed,
@@ -49,10 +49,11 @@ export async function sweepClosed(root: string, now: Date): Promise<SweepReport>
 
 async function closeCompletedEpics(loaded: LoadedBacklog, now: Date): Promise<EpicStep> {
   const plan = planEpicClosing(loaded.tasks, loaded.errors);
+  const index = buildIndex(loaded.tasks);
   const closed: string[] = [];
   const failures: SweepFailure[] = [];
   for (const { epic, closure } of plan.close) {
-    const result = await updateTaskIn(loaded.tasks, { id: epic.id, changes: { status: "done" }, expectedVersion: epic.version, now, closure, via: "sweep" });
+    const result = await updateTaskInIndex(index, { id: epic.id, changes: { status: "done" }, expectedVersion: epic.version, now, closure, via: "sweep" });
     if (result.ok) closed.push(epic.id);
     else failures.push(sweepFailure(epic.id, result));
   }
@@ -62,14 +63,15 @@ async function closeCompletedEpics(loaded: LoadedBacklog, now: Date): Promise<Ep
   return { closed, failures, leftOpen, blockingFiles };
 }
 
-async function updateRemainingTasks(tasks: readonly Task[], expired: readonly Task[], now: Date): Promise<UpdateStep> {
+async function repairRemainingTasks(tasks: readonly Task[], expired: readonly Task[], now: Date): Promise<UpdateStep> {
+  const index = buildIndex(tasks);
   const expiredIds = new Set(expired.map((task) => task.id));
   const failures: SweepFailure[] = [];
   const stillReferenced = new Set<string>();
   for (const task of tasks.filter((candidate) => !expiredIds.has(candidate.id))) {
     const cleanup = referenceCleanup(task, (id) => expiredIds.has(id));
     if (cleanup === null && !lacksClosedDate(task)) continue;
-    const result = await updateTaskIn(tasks, { id: task.id, changes: cleanup ?? {}, expectedVersion: task.version, now, via: "sweep" });
+    const result = await updateTaskInIndex(index, { id: task.id, changes: cleanup ?? {}, expectedVersion: task.version, now, via: "sweep" });
     if (result.ok) continue;
     failures.push(sweepFailure(task.id, result));
     for (const id of referencedIds(task)) if (expiredIds.has(id)) stillReferenced.add(id);
@@ -119,16 +121,7 @@ async function reserveNumbers(projects: readonly Project[], expired: readonly Ta
   const reserved = new Set<string>();
   for (const project of projects) {
     const numbers = expired.filter((task) => task.projectId === project.id).flatMap((task) => parseId(task.id)?.number ?? []);
-    if (numbers.length === 0 || (await raiseIssuedUpTo(project, Math.max(...numbers)))) reserved.add(project.id);
+    if (numbers.length === 0 || (await reserveIssuedUpTo(project, Math.max(...numbers)))) reserved.add(project.id);
   }
   return reserved;
-}
-
-export async function raiseIssuedUpTo(project: Pick<Project, "id" | "path">, number: number): Promise<boolean> {
-  const text = await readTextOrNull(project.path);
-  const current = text === null ? null : parseProjectFile(text, { id: project.id, path: project.path });
-  if (current === null || !current.ok) return false;
-  const issuedUpTo = Math.max(current.value.issuedUpTo ?? 0, number);
-  if (issuedUpTo !== current.value.issuedUpTo) await writeFileAtomic(project.path, serializeProject({ ...current.value, issuedUpTo }));
-  return true;
 }

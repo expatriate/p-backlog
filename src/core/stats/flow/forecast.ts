@@ -1,13 +1,13 @@
 import { formatLocalIso } from "../../model/dates";
-import { DAY_MS } from "../../model/lifecycle";
 import { closingsOf, type TaskHistory } from "../history";
 import type { FlowForecast } from "../types";
+import { DAYS_PER_WEEK, WEEK_MS } from "../weeks";
 
-export const FORECAST_WINDOW_WEEKS = 4;
+const FORECAST_WINDOW_WEEKS = 4;
 
-const WINDOW_MS = FORECAST_WINDOW_WEEKS * 7 * DAY_MS;
+const WINDOW_MS = FORECAST_WINDOW_WEEKS * WEEK_MS;
 
-export function inForecastWindow(now: Date): (moment: number) => boolean {
+function inForecastWindow(now: Date): (moment: number) => boolean {
   const nowMs = now.getTime();
   return (moment) => moment > nowMs - WINDOW_MS && moment <= nowMs;
 }
@@ -22,5 +22,5 @@ export function flowForecast(histories: readonly TaskHistory[], open: number, no
 }
 
 function weeksLater(now: Date, weeks: number): Date {
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7 * weeks, now.getHours(), now.getMinutes(), now.getSeconds());
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + DAYS_PER_WEEK * weeks, now.getHours(), now.getMinutes(), now.getSeconds());
 }

@@ -1,3 +1,4 @@
+import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 import { errorText } from "../core/errors";
 export type CliIo = {
   cwd: string;
@@ -20,6 +21,12 @@ export function withUsageErrors<T>(parse: () => T): T {
   } catch (error) {
     throw new UsageError(errorText(error));
   }
+}
+
+export function parseOptions<const T extends ParseArgsOptionsConfig>(args: string[], options: T) {
+  const { values, positionals } = withUsageErrors(() => parseArgs({ args, options, allowPositionals: true }));
+  if (positionals.length > 0) throw new UsageError(`Лишние аргументы: ${positionals.join(" ")}`);
+  return values;
 }
 
 export function splitList(value: string | undefined): string[] | undefined {

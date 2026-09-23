@@ -4,6 +4,7 @@ import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
 import { branchBreakdown, foundBreakdown } from "./origin";
+import { period } from "../period";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 const iso = (day: number, hour = 12) => formatLocalIso(at(day, hour));
@@ -35,7 +36,7 @@ describe("происхождение", () => {
   const histories = taskHistories(tasks, journal(events));
 
   it("как найдены: три строки всегда, открыто и исправлено из созданных в периоде", () => {
-    expect(foundBreakdown(histories, FROM, TO)).toEqual([
+    expect(foundBreakdown(histories, period(FROM, TO))).toEqual([
       { found: "review", created: 2, open: 1, fixed: 1 },
       { found: "incidental", created: 2, open: 1, fixed: 0 },
       { found: null, created: 1, open: 1, fixed: 0 },
@@ -43,11 +44,11 @@ describe("происхождение", () => {
   });
 
   it("ветки по убыванию созданных, подпись с проектом во всех проектах", () => {
-    expect(branchBreakdown(histories, FROM, TO, false)).toEqual([
+    expect(branchBreakdown(histories, period(FROM, TO), false)).toEqual([
       { label: "feat/a", created: 2, open: 1 },
       { label: "feat/b", created: 1, open: 0 },
     ]);
-    expect(branchBreakdown(histories, FROM, TO, true)[0]?.label).toBe("spa · feat/a");
+    expect(branchBreakdown(histories, period(FROM, TO), true)[0]?.label).toBe("spa · feat/a");
   });
 
   it("лимит 8 веток, ветка с двумя задачами первая, при равенстве — по подписи", () => {
@@ -61,7 +62,7 @@ describe("происхождение", () => {
     ];
     const manyBranches = taskHistories([...singleTasks, ...dupTasks], journal(branchEvents));
 
-    const rows = branchBreakdown(manyBranches, FROM, TO, false);
+    const rows = branchBreakdown(manyBranches, period(FROM, TO), false);
 
     expect(rows).toHaveLength(8);
     expect(rows[0]).toEqual({ label: "feat/dup", created: 2, open: 2 });
@@ -77,7 +78,7 @@ describe("происхождение", () => {
     ];
     const reopenedHistories = taskHistories([reopened], journal(reopenedEvents));
 
-    expect(foundBreakdown(reopenedHistories, FROM, TO)).toEqual([
+    expect(foundBreakdown(reopenedHistories, period(FROM, TO))).toEqual([
       { found: "review", created: 0, open: 0, fixed: 0 },
       { found: "incidental", created: 0, open: 0, fixed: 0 },
       { found: null, created: 1, open: 1, fixed: 0 },
