@@ -11,8 +11,8 @@ import { uiEn } from "./ui/messages.en";
 import { uiRu } from "./ui/messages.ru";
 import styles from "./i18n.module.css";
 
-const SETTINGS_ERROR_TEXT = "Сервер беклога не отвечает · Backlog server is not responding";
-const SETTINGS_RETRY_TEXT = "Повторить · Retry";
+const SETTINGS_ERROR_TEXT = `${appRu.bootSettingsError} · ${appEn.bootSettingsError}`;
+const SETTINGS_RETRY_TEXT = `${appRu.bootRetry} · ${appEn.bootRetry}`;
 
 export { useSetLanguage } from "./app/queries";
 

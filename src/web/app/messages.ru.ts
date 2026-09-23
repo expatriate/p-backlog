@@ -15,6 +15,8 @@ export const appRu = {
   ],
   scopeNote: (activeCount: number, totalCount: number): string =>
     `учтено ${activeCount} из${NBSP}${countRu(totalCount, "проекта", "проектов", "проектов")}`,
+  bootSettingsError: "Сервер беклога не отвечает",
+  bootRetry: "Повторить",
 };
 
 export type AppMessages = typeof appRu;

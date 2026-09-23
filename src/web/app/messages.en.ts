@@ -13,4 +13,6 @@ export const appEn: AppMessages = {
     command("launchctl kickstart -k gui/$(id -u)/local.p-backlog"),
   ],
   scopeNote: (activeCount, totalCount) => `${activeCount} of ${totalCount} ${pluralEn(totalCount, "project", "projects")} included`,
+  bootSettingsError: "Backlog server is not responding",
+  bootRetry: "Retry",
 };
