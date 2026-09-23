@@ -3,6 +3,7 @@ import { formatDecimal } from "../../core/i18n/format";
 import { countRu, NBSP, pluralRu } from "../../core/i18n/plural";
 import type { FoundHow } from "../../core/journal/events";
 import type { Priority } from "../../core/model/types";
+import { STALE_URGENT_DAYS } from "../../core/stats/breakdowns";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/stats/types";
 import { STATS_WEEKS } from "../../core/stats/weeks";
@@ -76,9 +77,9 @@ export const statsRu = {
   openAge: "Возраст открытых",
   ageBuckets: { week: "до 7 дней", month: "7–30 дней", quarter: "30–90 дней", older: "больше 90 дней" } satisfies Record<AgeBucket, string>,
   priorityCounts: { critical: "критичных", high: "высоких", medium: "средних", low: "низких" } satisfies Record<Priority, string>,
-  urgentStale: (n: number): string => `Критичные и высокие старше 7 дней: ${n}`,
+  urgentStale: (n: number): string => `Критичные и высокие старше ${STALE_URGENT_DAYS} дней: ${n}`,
   closing: "Как закрываются",
-  closingReasons: { done: "сделано", fixed: "исправлено", obsolete: "кода нет", duplicate: "дубль", cancelled: "отменено" } satisfies Record<ClosingReason, string>,
+  closingReasons: { done: "сделано", cancelled: "отменено" } satisfies Record<Extract<ClosingReason, "done" | "cancelled">, string>,
   noiseAndReopens: "Шум и возвраты",
   duplicatesAmongClosed: "Дубли среди закрытых",
   noSourceAmongCreated: "Без source среди созданных",

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { formatShare } from "../../core/stats/format";
 import type { ClosingBreakdown, ClosingReason } from "../../core/stats/types";
 import { sum } from "../../core/stats/numbers";
-import { useMessages } from "../i18n";
+import { useMessages, type WebMessages } from "../i18n";
 import { cx } from "../ui/cx";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
@@ -10,10 +10,15 @@ import styles from "./StatsPanels.module.css";
 
 const REASONS: readonly ClosingReason[] = ["done", "fixed", "obsolete", "duplicate", "cancelled"];
 
+function reasonLabel(reason: ClosingReason, { stats, core }: WebMessages): string {
+  return reason === "done" || reason === "cancelled" ? stats.closingReasons[reason] : core.resolutionLabel(reason);
+}
+
 export function ClosingPanel({ closing }: { closing: ClosingBreakdown }) {
-  const { stats } = useMessages();
+  const messages = useMessages();
+  const { stats } = messages;
   const total = sum(REASONS.map((reason) => closing.byReason[reason]));
-  const summary = REASONS.map((reason) => `${stats.closingReasons[reason]}: ${closing.byReason[reason]}`).join("; ");
+  const summary = REASONS.map((reason) => `${reasonLabel(reason, messages)}: ${closing.byReason[reason]}`).join("; ");
 
   return (
     <Panel title={stats.closing}>
@@ -25,7 +30,7 @@ export function ClosingPanel({ closing }: { closing: ClosingBreakdown }) {
       <ul className={rowStyles.rows}>
         {REASONS.map((reason) => (
           <li key={reason} className={rowStyles.row}>
-            <span className={cx(styles.legendItem, styles[reason])}>{stats.closingReasons[reason]}</span>
+            <span className={cx(styles.legendItem, styles[reason])}>{reasonLabel(reason, messages)}</span>
             <span className={rowStyles.rowValue}>{closing.byReason[reason]}</span>
           </li>
         ))}

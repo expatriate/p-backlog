@@ -1,6 +1,7 @@
 import { CHURN_DAYS } from "../../core/code/code-window";
 import { formatDecimal } from "../../core/i18n/format";
 import { countEn, NBSP, pluralEn } from "../../core/i18n/plural";
+import { STALE_URGENT_DAYS } from "../../core/stats/breakdowns";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import { STATS_WEEKS } from "../../core/stats/weeks";
 import type { ChartStep } from "./charts/chart-style";
@@ -68,9 +69,9 @@ export const statsEn: StatsMessages = {
   openAge: "Age of open tasks",
   ageBuckets: { week: "up to 7 days", month: "7–30 days", quarter: "30–90 days", older: "over 90 days" },
   priorityCounts: { critical: "critical", high: "high", medium: "medium", low: "low" },
-  urgentStale: (n) => `Critical and high older than 7 days: ${n}`,
+  urgentStale: (n) => `Critical and high older than ${STALE_URGENT_DAYS} days: ${n}`,
   closing: "How tasks close",
-  closingReasons: { done: "done", fixed: "fixed", obsolete: "code gone", duplicate: "duplicate", cancelled: "cancelled" },
+  closingReasons: { done: "done", cancelled: "cancelled" },
   noiseAndReopens: "Noise and reopens",
   duplicatesAmongClosed: "Duplicates among closed",
   noSourceAmongCreated: "No source among created",
