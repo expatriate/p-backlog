@@ -2,12 +2,14 @@ import { STALE_LOW_DAYS, staleLowTasks } from "../../model/query";
 import { STALE_URGENT_DAYS, urgentStaleCount } from "../breakdowns";
 import { DAY_MS } from "../../model/lifecycle";
 import { inWorkTasks } from "../flow/current";
-import { EVIDENCE_LABELS, formatDays, plural, pluralCount } from "../format";
+import { CHECK_METHOD_LABELS, EVIDENCE_LABELS, formatDays, plural, pluralCount } from "../format";
 import { sum } from "../numbers";
-import { period } from "../period";
-import { accuracy } from "../quality/accuracy";
+import { period, type Period } from "../period";
+import { accuracy, methodAccuracy } from "../quality/accuracy";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { AccuracyRow, Signal, WeekFlow } from "../types";
+
+type CheckGauge = { name: string; closed: number; verified: number; precision: number | null };
 import { weeklyFlow } from "../weeks";
 
 const GROWTH_WEEKS = 3;
@@ -55,19 +57,26 @@ function staleLow({ scope }: ReportBase, now: Date): Signal[] {
 }
 
 function noisyChecks({ histories }: ReportBase, now: Date): Signal[] {
-  const recent = accuracy(histories, period(now.getTime() - NOISY_WINDOW_DAYS * DAY_MS, now.getTime()));
-  return recent.flatMap((row) => {
-    const decided = row.closed + row.verified;
-    if (!measuredByClosing(row.evidence) || decided < NOISY_MIN_DECIDED || row.precision === null) return [];
-    const shownPercent = Math.round(row.precision * 100);
+  return checkGauges(histories, period(now.getTime() - NOISY_WINDOW_DAYS * DAY_MS, now.getTime())).flatMap((gauge) => {
+    const decided = gauge.closed + gauge.verified;
+    if (decided < NOISY_MIN_DECIDED || gauge.precision === null) return [];
+    const shownPercent = Math.round(gauge.precision * 100);
     if (shownPercent >= NOISY_MAX_PERCENT) return [];
     return [
       {
         kind: "noisy-check",
-        text: `Проверка «${EVIDENCE_LABELS[row.evidence]}» почти всегда ошибается: точность ${shownPercent}% на ${decided} решённых за ${pluralCount(NOISY_WINDOW_DAYS, "день", "дня", "дней")}`,
+        text: `Проверка ${gauge.name} почти всегда ошибается: точность ${shownPercent}% на ${decided} решённых за ${pluralCount(NOISY_WINDOW_DAYS, "день", "дня", "дней")}`,
       },
     ];
   });
+}
+
+function checkGauges(histories: ReportBase["histories"], window: Period): CheckGauge[] {
+  const byEvidence = accuracy(histories, window)
+    .filter((row) => measuredByClosing(row.evidence) && row.evidence !== "source-changed")
+    .map((row) => ({ ...row, name: `«${EVIDENCE_LABELS[row.evidence]}»` }));
+  const byMethod = methodAccuracy(histories, window).map((row) => ({ ...row, name: `«${EVIDENCE_LABELS["source-changed"]}» ${CHECK_METHOD_LABELS[row.by]}` }));
+  return [...byMethod, ...byEvidence];
 }
 
 function measuredByClosing(evidence: AccuracyRow["evidence"]): boolean {

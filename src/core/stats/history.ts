@@ -1,4 +1,4 @@
-import type { CandidateEvidence, ChangeSource, FoundHow, JournalEvent, ProjectJournal, TaskSnapshot } from "../journal/events";
+import { checkMethodOf, type CandidateEvidence, type ChangeSource, type CheckMethod, type FoundHow, type JournalEvent, type ProjectJournal, type TaskSnapshot } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
 
@@ -16,9 +16,11 @@ export type TaskHistory = {
   category?: TaskCategory | undefined;
   found?: FoundHow | undefined;
   branch?: string | undefined;
-  candidates: { at: number; evidence: CandidateEvidence; bySymbol?: boolean }[];
+  candidates: CandidateSeen[];
   verifications: number[];
 };
+
+type CandidateSeen = { at: number; evidence: CandidateEvidence; method: CheckMethod };
 
 type Known = {
   projectId: string;
@@ -26,7 +28,7 @@ type Known = {
   created?: Extract<JournalEvent, { kind: "created" }>;
   categoryEvents: { at: number; to?: TaskCategory | undefined }[];
   transitions: Transition[];
-  candidates: { at: number; evidence: CandidateEvidence; bySymbol?: boolean }[];
+  candidates: CandidateSeen[];
   verifications: number[];
 };
 
@@ -49,7 +51,7 @@ export function taskHistories(tasks: readonly Task[], journals: readonly Project
       if (event.kind === "status") {
         item.transitions.push({ at: Date.parse(event.at), from: event.from, to: event.to, resolution: event.resolution, via: event.via });
       }
-      if (event.kind === "candidate") item.candidates.push({ at: Date.parse(event.at), evidence: event.evidence, ...(event.bySymbol === true ? { bySymbol: true } : {}) });
+      if (event.kind === "candidate") item.candidates.push({ at: Date.parse(event.at), evidence: event.evidence, method: checkMethodOf(event) });
       if (event.kind === "verified") item.verifications.push(Date.parse(event.at));
     }
   }

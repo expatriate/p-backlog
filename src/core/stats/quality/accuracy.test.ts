@@ -3,7 +3,7 @@ import type { JournalEvent } from "../../journal/events";
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
-import { accuracy, accuracyWeeks, symbolAccuracy } from "./accuracy";
+import { accuracy, accuracyWeeks, methodAccuracy } from "./accuracy";
 import { period } from "../period";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
@@ -14,6 +14,7 @@ const journal = (events: JournalEvent[]) => [{ projectId: "spa", events, invalid
 
 const candidate = (task: string, day: number, evidence: "source-changed" | "source-missing" | "duplicate" | "no-source"): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence, mode: "changed" });
 const symbolCandidate = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", bySymbol: true });
+const anchorCandidate = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", byAnchor: true });
 const verified = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "cli", kind: "verified" });
 
 describe("точность проверки", () => {
@@ -75,11 +76,12 @@ describe("точность проверки", () => {
 });
 
 describe("точность по способу проверки", () => {
-  it("кандидаты, подтверждённые графом, считаются отдельно от проверенных по файлу", () => {
+  it("кандидаты по символу, по строкам source и по файлу считаются отдельно; события без пометки — по файлу", () => {
     const tasks = [
       makeTask({ id: "SPA-1", created: iso(1), status: "done", closed: iso(5), resolution: "fixed" }),
       makeTask({ id: "SPA-2", created: iso(1) }),
       makeTask({ id: "SPA-3", created: iso(1) }),
+      makeTask({ id: "SPA-4", created: iso(1), status: "done", closed: iso(7), resolution: "fixed" }),
     ];
     const events: JournalEvent[] = [
       symbolCandidate("SPA-1", 3),
@@ -88,10 +90,13 @@ describe("точность по способу проверки", () => {
       verified("SPA-2", 4),
       candidate("SPA-3", 3, "source-changed"),
       verified("SPA-3", 4),
+      anchorCandidate("SPA-4", 3),
+      { at: iso(6), task: "SPA-4", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" },
     ];
 
-    expect(symbolAccuracy(taskHistories(tasks, journal(events)), period(FROM, TO))).toEqual([
+    expect(methodAccuracy(taskHistories(tasks, journal(events)), period(FROM, TO))).toEqual([
       { by: "symbol", candidates: 2, closed: 1, verified: 1, open: 0, precision: 0.5 },
+      { by: "anchor", candidates: 1, closed: 1, verified: 0, open: 0, precision: 1 },
       { by: "file", candidates: 1, closed: 0, verified: 1, open: 0, precision: 0 },
     ]);
   });
@@ -100,6 +105,6 @@ describe("точность по способу проверки", () => {
     const tasks = [makeTask({ id: "SPA-1", created: iso(1) })];
     const events: JournalEvent[] = [candidate("SPA-1", 3, "duplicate"), verified("SPA-1", 4)];
 
-    expect(symbolAccuracy(taskHistories(tasks, journal(events)), period(FROM, TO))).toEqual([]);
+    expect(methodAccuracy(taskHistories(tasks, journal(events)), period(FROM, TO))).toEqual([]);
   });
 });

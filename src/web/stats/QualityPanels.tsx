@@ -1,6 +1,6 @@
 import { categoryLabel } from "../../core/model/categories";
-import { EVIDENCE_LABELS, formatShare } from "../../core/stats/format";
-import type { AccuracyRow, AccuracyWeek, BranchRow, CategoryRow, FoundRow, SymbolAccuracyRow } from "../../core/stats/types";
+import { CHECK_METHOD_LABELS, EVIDENCE_LABELS, formatShare } from "../../core/stats/format";
+import type { AccuracyRow, AccuracyWeek, BranchRow, CategoryRow, FoundRow, MethodAccuracyRow } from "../../core/stats/types";
 import { AccuracyWeeksChart } from "./AccuracyWeeksChart";
 import { FOUND_LABELS } from "../labels";
 import rowStyles from "./PanelRows.module.css";
@@ -8,9 +8,7 @@ import { Panel } from "./Panel";
 import { StatsTable } from "./StatsTable";
 import { STATS_PERIOD } from "./periods";
 
-const SYMBOL_LABELS = { symbol: "└ из них проверено по символу", file: "└ из них проверено по файлу" } as const;
-
-export function AccuracyPanel({ rows, weeks, symbolRows }: { rows: AccuracyRow[]; weeks: AccuracyWeek[]; symbolRows: SymbolAccuracyRow[] }) {
+export function AccuracyPanel({ rows, weeks, methodRows }: { rows: AccuracyRow[]; weeks: AccuracyWeek[]; methodRows: MethodAccuracyRow[] }) {
   return (
     <Panel title="Точность проверки">
       {rows.length === 0 ? (
@@ -25,9 +23,9 @@ export function AccuracyPanel({ rows, weeks, symbolRows }: { rows: AccuracyRow[]
             rows={rows.flatMap((row) => [
               { key: row.evidence, cells: [EVIDENCE_LABELS[row.evidence], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)] },
               ...(row.evidence === "source-changed"
-                ? symbolRows.map((split) => ({
+                ? methodRows.map((split) => ({
                     key: `by-${split.by}`,
-                    cells: [SYMBOL_LABELS[split.by], split.candidates, split.closed, split.verified, split.open, formatShare(split.precision)],
+                    cells: [`└ из них проверено ${CHECK_METHOD_LABELS[split.by]}`, split.candidates, split.closed, split.verified, split.open, formatShare(split.precision)],
                   }))
                 : []),
             ])}

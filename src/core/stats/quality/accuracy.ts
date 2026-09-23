@@ -1,9 +1,9 @@
-import { CANDIDATE_EVIDENCE, type CandidateEvidence } from "../../journal/events";
+import { CANDIDATE_EVIDENCE, CHECK_METHODS, type CandidateEvidence } from "../../journal/events";
 import { closingsOf, type TaskHistory } from "../history";
 import { formatLocalIso } from "../../model/dates";
 import type { Period } from "../period";
 import { weekWindows } from "../weeks";
-import type { AccuracyRow, AccuracyWeek, SymbolAccuracyRow } from "../types";
+import type { AccuracyRow, AccuracyWeek, MethodAccuracyRow } from "../types";
 
 type Outcome = "closed" | "verified" | "open";
 type Episode = { evidence: CandidateEvidence; outcome: Outcome };
@@ -36,13 +36,13 @@ export function accuracyWeeks(histories: readonly TaskHistory[], now: Date): Acc
   });
 }
 
-export function symbolAccuracy(histories: readonly TaskHistory[], period: Period): SymbolAccuracyRow[] {
+export function methodAccuracy(histories: readonly TaskHistory[], period: Period): MethodAccuracyRow[] {
   const episodes = histories.flatMap((history) =>
     history.candidates
       .filter((candidate) => candidate.evidence === "source-changed" && period.contains(candidate.at))
-      .map((candidate) => ({ by: candidate.bySymbol === true ? "symbol" : "file", outcome: outcomeAfter(history, candidate.at) }) as const),
+      .map((candidate) => ({ by: candidate.method, outcome: outcomeAfter(history, candidate.at) })),
   );
-  return (["symbol", "file"] as const).flatMap((by) => {
+  return CHECK_METHODS.flatMap((by) => {
     const own = episodes.filter((episode) => episode.by === by);
     return own.length === 0 ? [] : [{ by, ...outcomeCounts(own) }];
   });

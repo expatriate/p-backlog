@@ -16,7 +16,7 @@ function Quality({ report }: { report: QualityReport }) {
   return (
     <div className={styles.blocks}>
       <div className={rowStyles.wide}>
-        <AccuracyPanel rows={report.accuracy} weeks={report.accuracyWeeks} symbolRows={report.symbolAccuracy} />
+        <AccuracyPanel rows={report.accuracy} weeks={report.accuracyWeeks} methodRows={report.methodAccuracy} />
       </div>
       <div className={rowStyles.wide}>
         <CategoriesPanel rows={report.categories} />

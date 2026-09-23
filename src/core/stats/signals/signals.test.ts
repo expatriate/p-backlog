@@ -51,7 +51,7 @@ describe("тревоги", () => {
     ]);
 
     expect(statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check")).toEqual([
-      { kind: "noisy-check", text: `Проверка «код изменился» почти всегда ошибается: точность 10% на 10 решённых за 14${NBSP}дней` },
+      { kind: "noisy-check", text: `Проверка «код изменился» по файлу почти всегда ошибается: точность 10% на 10 решённых за 14${NBSP}дней` },
     ]);
   });
 
@@ -68,7 +68,25 @@ describe("тревоги", () => {
     };
 
     expect(noisy(19)).toEqual([]);
-    expect(noisy(18)).toEqual([{ kind: "noisy-check", text: `Проверка «код изменился» почти всегда ошибается: точность 19% на 97 решённых за 14${NBSP}дней` }]);
+    expect(noisy(18)).toEqual([{ kind: "noisy-check", text: `Проверка «код изменился» по файлу почти всегда ошибается: точность 19% на 97 решённых за 14${NBSP}дней` }]);
+  });
+
+  it("шумный способ проверки называется отдельно и не прячется за точным: по файлу — тревога, по строкам source — нет", () => {
+    const tasks = Array.from({ length: 20 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(8, 14) }));
+    const events: JournalEvent[] = tasks.flatMap((task, index): JournalEvent[] => {
+      const byAnchor = index % 2 === 0;
+      const fixed = byAnchor && index % 4 === 0;
+      return [
+        { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", ...(byAnchor ? { byAnchor: true } : {}) },
+        fixed
+          ? { at: iso(8, 16), task: task.id, via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" }
+          : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
+      ];
+    });
+
+    const noisy = statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check");
+
+    expect(noisy).toEqual([{ kind: "noisy-check", text: `Проверка «код изменился» по файлу почти всегда ошибается: точность 0% на 10 решённых за 14${NBSP}дней` }]);
   });
 
   it("старый всплеск кандидатов не держит тревогу: за две недели решений мало", () => {

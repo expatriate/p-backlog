@@ -23,7 +23,16 @@ const CHECK_MODES = ["full", "changed"] as const;
 
 export type CheckMode = (typeof CHECK_MODES)[number];
 
-export type CandidateSighting = { task: string; evidence: CandidateEvidence; bySymbol?: boolean };
+export const CHECK_METHODS = ["symbol", "anchor", "file"] as const;
+
+export type CheckMethod = (typeof CHECK_METHODS)[number];
+
+export type CandidateSighting = { task: string; evidence: CandidateEvidence; bySymbol?: boolean; byAnchor?: boolean };
+
+export function checkMethodOf({ bySymbol, byAnchor }: { bySymbol?: boolean | undefined; byAnchor?: boolean | undefined }): CheckMethod {
+  if (bySymbol === true) return "symbol";
+  return byAnchor === true ? "anchor" : "file";
+}
 
 const eventBase = { at: z.iso.datetime({ offset: true }), task: z.string().min(1), via: z.enum(CHANGE_SOURCES) };
 
@@ -45,7 +54,7 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
   z.object({ ...eventBase, kind: z.literal("deleted"), snapshot: taskFrontmatterSchema }),
   z.object({ ...eventBase, kind: z.literal("category"), from: z.enum(TASK_CATEGORIES).optional(), to: z.enum(TASK_CATEGORIES).optional() }),
   z.object({ ...eventBase, kind: z.literal("verified"), source: z.string().optional() }),
-  z.object({ ...eventBase, kind: z.literal("candidate"), evidence: z.enum(CANDIDATE_EVIDENCE), mode: z.enum(CHECK_MODES), bySymbol: z.boolean().optional() }),
+  z.object({ ...eventBase, kind: z.literal("candidate"), evidence: z.enum(CANDIDATE_EVIDENCE), mode: z.enum(CHECK_MODES), bySymbol: z.boolean().optional(), byAnchor: z.boolean().optional() }),
   z.object({ ...eventBase, kind: z.literal("candidate-gone"), evidence: z.enum(CANDIDATE_EVIDENCE) }),
 ]);
 
@@ -103,7 +112,7 @@ export function candidateEvents(sightings: readonly CandidateSighting[], states:
   const at = formatLocalIso(now);
   return dedupeSightings(sightings)
     .filter((sighting) => states.get(episodeKey(sighting.task, sighting.evidence)) !== "open")
-    .map((sighting) => ({ at, task: sighting.task, via: "check", kind: "candidate", evidence: sighting.evidence, mode, ...(sighting.bySymbol === true ? { bySymbol: true } : {}) }));
+    .map((sighting) => ({ at, task: sighting.task, via: "check", kind: "candidate", evidence: sighting.evidence, mode, ...methodFlags(sighting) }));
 }
 
 export function candidateGoneEvents(sightings: readonly CandidateSighting[], tasks: readonly string[], states: EpisodeStates, now: Date): JournalEvent[] {
@@ -141,4 +150,10 @@ function episodeKey(task: string, evidence: CandidateEvidence): string {
 function dedupeSightings(sightings: readonly CandidateSighting[]): CandidateSighting[] {
   const byKey = new Map(sightings.map((sighting) => [episodeKey(sighting.task, sighting.evidence), sighting]));
   return [...byKey.values()];
+}
+
+function methodFlags(sighting: CandidateSighting): { bySymbol?: true; byAnchor?: true } {
+  const method = checkMethodOf(sighting);
+  if (method === "symbol") return { bySymbol: true };
+  return method === "anchor" ? { byAnchor: true } : {};
 }

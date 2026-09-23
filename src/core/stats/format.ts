@@ -1,4 +1,4 @@
-import type { CandidateEvidence } from "../journal/events";
+import type { CandidateEvidence, CheckMethod } from "../journal/events";
 import type { FlowForecast } from "./types";
 
 export const NBSP = " ";
@@ -76,4 +76,10 @@ export const EVIDENCE_LABELS: Record<CandidateEvidence | "total", string> = {
   duplicate: "дубль",
   "no-source": "нет source",
   total: "Всего",
+};
+
+export const CHECK_METHOD_LABELS: Record<CheckMethod, string> = {
+  symbol: "по символу",
+  anchor: "по строкам source",
+  file: "по файлу",
 };

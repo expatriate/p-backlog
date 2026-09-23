@@ -9,7 +9,7 @@ type CommitRef = { sha: string; subject: string };
 
 export type Candidate =
   | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string  | undefined}
-  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string; bySymbol?: boolean }
+  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string; bySymbol?: boolean; byAnchor?: boolean }
   | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: "source" | "title" | "symbol" };
 
 export type AnchorPlan = { id: string; changes: { source?: string; anchor: string }; note?: string };
@@ -54,7 +54,8 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts): Candi
   const commits = commitsAfter(facts.commits, mark).filter((commit) => touches(commit, path));
   const uncommitted = [...facts.dirtyModifiedAt].some(([file, modifiedAt]) => isWithin(file, path) && modifiedAt > mark);
   if (anchor.kind === "none" && commits.length === 0 && !uncommitted) return [];
-  return [{ kind: "source-changed", task: taskRef(task), path, commits: commits.slice(0, MAX_COMMITS).map(commitRef), uncommitted }];
+  const byAnchor = anchor.kind === "changed" ? { byAnchor: true } : {};
+  return [{ kind: "source-changed", task: taskRef(task), path, commits: commits.slice(0, MAX_COMMITS).map(commitRef), uncommitted, ...byAnchor }];
 }
 
 function anchorPlan(task: Task, anchor: AnchorState, facts: RepoFacts): AnchorPlan[] {

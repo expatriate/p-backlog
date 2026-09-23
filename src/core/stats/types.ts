@@ -1,4 +1,4 @@
-import type { CandidateEvidence, FoundHow } from "../journal/events";
+import type { CandidateEvidence, CheckMethod, FoundHow } from "../journal/events";
 import type { Priority, TaskCategory } from "../model/types";
 
 export type ClosingReason = "done" | "fixed" | "obsolete" | "duplicate" | "cancelled";
@@ -69,14 +69,14 @@ export type CodeReport = ReportHead & {
 export type AccuracyWeek = { start: string; decided: number; precision: number | null };
 
 export type AccuracyRow = { evidence: CandidateEvidence | "total"; candidates: number; closed: number; verified: number; open: number; precision: number | null };
-export type SymbolAccuracyRow = { by: "symbol" | "file"; candidates: number; closed: number; verified: number; open: number; precision: number | null };
+export type MethodAccuracyRow = { by: CheckMethod; candidates: number; closed: number; verified: number; open: number; precision: number | null };
 export type CategoryRow = { category: TaskCategory | null; open: number; weight: number; created: number; closed: number };
 export type FoundRow = { found: FoundHow | null; created: number; open: number; fixed: number };
 export type BranchRow = { label: string; created: number; open: number };
 export type QualityReport = ReportHead & {
   accuracy: AccuracyRow[];
   accuracyWeeks: AccuracyWeek[];
-  symbolAccuracy: SymbolAccuracyRow[];
+  methodAccuracy: MethodAccuracyRow[];
   categories: CategoryRow[];
   found: FoundRow[];
   branches: BranchRow[];

@@ -80,6 +80,31 @@ describe("checkBacklog", () => {
     expect(tasks.find((item) => item.id === "SPA-2")?.anchor).toBe(anchorOf(code, "src/b.ts:3"));
   });
 
+  it("журнал помнит, как найден кандидат «код изменился»: по изменившимся строкам source или по файлу целиком", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    const code = ["const one = 1;", "const two = 2;", "const three = 3;", "const four = 4;", "const five = 5;", "const six = 6;"].join("\n");
+    await writeFiles(repo, { "src/a.ts": code, "src/b.ts": code });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3\nanchor: ${anchorOf(code, "src/a.ts:3")}\n`),
+      "spa/SPA-2.md": task("SPA-2", "source: src/b.ts\n"),
+    });
+    await writeFiles(repo, { "src/a.ts": code.replace("three", "THREE"), "src/b.ts": code.replace("six", "SIX") });
+    gitCommitAll(repo, "Правка", "2026-09-12T10:00:00+03:00");
+
+    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home });
+
+    const candidates = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate");
+    expect(candidates).toEqual([
+      expect.objectContaining({ task: "SPA-1", evidence: "source-changed", byAnchor: true }),
+      expect.objectContaining({ task: "SPA-2", evidence: "source-changed" }),
+    ]);
+    expect(candidates[1]).not.toHaveProperty("byAnchor");
+  });
+
   async function symbolFixture(taskFields: (before: string) => string, edit: (code: string) => string) {
     const home = await makeTempDir();
     const root = join(home, "backlog");
