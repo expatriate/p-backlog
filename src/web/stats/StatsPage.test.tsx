@@ -262,7 +262,7 @@ describe("вкладки статистики", () => {
     await app.user.click(within(tabs).getByRole("link", { name: "Качество" }));
 
     await waitFor(() => expect(app.route()).toBe("/stats/quality"));
-    expect(document.title).toBe("Качество · Статистика · Проекты — Беклог");
+    await waitFor(() => expect(document.title).toBe("Качество · Статистика · Проекты — Беклог"));
     expect(within(tabs).getByRole("link", { name: "Качество" }).getAttribute("aria-current")).toBe("page");
     expect(screen.queryByRole("link", { name: "Поток" })).toBeNull();
   });
@@ -318,7 +318,7 @@ describe("вкладка «Код»", () => {
 
     const churnPanel = await screen.findByRole("region", { name: "Долг в часто меняемом коде" });
     expect(app.route()).toBe("/p/spa/stats/code");
-    expect(document.title).toBe("Код · Статистика · spa — Беклог");
+    await waitFor(() => expect(document.title).toBe("Код · Статистика · spa — Беклог"));
     expect(within(churnPanel).getByText("src/upload")).toBeDefined();
     expect(within(churnPanel).getByText("1 коммит")).toBeDefined();
     expect(within(churnPanel).getByText("1 задача, вес 4")).toBeDefined();
@@ -355,7 +355,7 @@ describe("вкладка «Качество»", () => {
 
     const accuracyPanel = await screen.findByRole("region", { name: "Точность проверки" });
     await waitFor(() => expect(app.route()).toBe("/stats/quality"));
-    expect(document.title).toBe("Качество · Статистика · Проекты — Беклог");
+    await waitFor(() => expect(document.title).toBe("Качество · Статистика · Проекты — Беклог"));
     expect(cells(within(accuracyPanel).getByRole("row", { name: /код изменился/ }))).toEqual(["код изменился", "1", "0", "1", "0", "0%"]);
     const categoriesPanel = screen.getByRole("region", { name: "Категории" });
     expect(cells(within(categoriesPanel).getByRole("row", { name: /не указана/ }))).toEqual(["не указана", "3", "8", "4", "1"]);
@@ -382,7 +382,7 @@ describe("вкладка «Эффект»", () => {
 
     const kept = await screen.findByRole("group", { name: "Посторонних правок вынесено" });
     expect(app.route()).toBe("/p/spa/stats/effect");
-    expect(document.title).toBe("Эффект · Статистика · spa — Беклог");
+    await waitFor(() => expect(document.title).toBe("Эффект · Статистика · spa — Беклог"));
     expect(within(kept).getByText("0 строк")).toBeDefined();
     expect(within(kept).getByText("исправлено 0; оценка ожидающих появится после 5 исправлений · код 0, тесты 0")).toBeDefined();
     expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("2")).toBeDefined();
