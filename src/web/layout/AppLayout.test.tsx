@@ -35,7 +35,7 @@ describe("боковая панель", () => {
 
     expect(within(list).getAllByRole("link").map((link) => link.textContent)).toEqual(["spa", "ti"]);
     expect(ti.checked).toBe(false);
-    expect(screen.getByRole("link", { name: "Проекты" }).closest("div")?.textContent).toContain("1 задача");
+    await waitFor(() => expect(screen.getByRole("link", { name: "Проекты" }).closest("div")?.textContent).toContain("1 задача"));
   });
 
   it("галочка включает проект в область", async () => {
@@ -74,7 +74,7 @@ describe("боковая панель", () => {
     const { user, root } = await renderApp({ ...FILES, "spa/SPA-2.md": taskFile("SPA-2", "status: done\nclosed: 2026-09-20T10:00:00+03:00\n") });
 
     await user.click(await screen.findByRole("button", { name: "Удалить проект spa" }));
-    expect(screen.getByText(/^Задач: 2\./)).toBeDefined();
+    expect(await screen.findByText(/^Задач: 2\./)).toBeDefined();
 
     const confirm = screen.getByRole("button", { name: "Удалить" }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
