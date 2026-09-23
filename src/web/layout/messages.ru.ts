@@ -1,12 +1,9 @@
 import type { GraphState } from "../../core/check/graph-health";
-import type { Language } from "../../core/i18n/language";
 import { NBSP, pluralRu } from "../../core/i18n/plural";
 
 export type HintPart = { code: string } | { text: string };
 export type GraphTrouble = Exclude<GraphState, "fresh">;
 type GraphNote = { title: string; hint: HintPart[] };
-
-export const LANGUAGE_NAMES: Record<Language, string> = { ru: "Русский", en: "English" };
 
 const graphNotesRu: Record<GraphTrouble, GraphNote> = {
   none: { title: "Без графа кода", hint: [{ code: "code-review-graph build" }, { text: " — кандидаты проверки точнее" }] },

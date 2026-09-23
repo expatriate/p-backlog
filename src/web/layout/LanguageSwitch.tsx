@@ -1,8 +1,8 @@
 import { LANGUAGES } from "../../core/i18n/language";
+import { LANGUAGE_NAMES } from "../../core/i18n/messages.ru";
 import { requestErrorMessage } from "../app/RequestErrorText";
 import { useLanguage, useMessages, useSetLanguage } from "../i18n";
 import { cx } from "../ui/cx";
-import { LANGUAGE_NAMES } from "./messages.ru";
 import styles from "./LanguageSwitch.module.css";
 
 export function LanguageSwitch() {

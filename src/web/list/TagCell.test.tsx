@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { TestMessagesProvider } from "../i18n";
+import { TestMessagesProvider } from "../testing/messages-provider";
 import { TagCell } from "./TagCell";
 
 const CHIP_WIDTHS: Record<string, number> = { "#dev-env": 72, "#mock-backend": 110, "#upload": 64, "+3": 31 };

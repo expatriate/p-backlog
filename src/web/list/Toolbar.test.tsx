@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { TestMessagesProvider } from "../i18n";
+import { TestMessagesProvider } from "../testing/messages-provider";
 import type { EpicChoices } from "./epic-choices";
 import { DEFAULT_SORT, type ListParams } from "./list-params";
 import { Toolbar } from "./Toolbar";

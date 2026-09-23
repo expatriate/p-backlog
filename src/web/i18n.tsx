@@ -29,15 +29,15 @@ const CATALOGS = {
 
 export type WebMessages = (typeof CATALOGS)["ru"] & { core: CoreMessages };
 
-const LanguageContext = createContext<Language | null>(null);
-const MessagesContext = createContext<WebMessages | null>(null);
+export const LanguageContext = createContext<Language | null>(null);
+export const MessagesContext = createContext<WebMessages | null>(null);
 
 const MESSAGES: { [L in Language]: WebMessages } = {
   ru: { ...CATALOGS.ru, core: coreMessages("ru") },
   en: { ...CATALOGS.en, core: coreMessages("en") },
 };
 
-function messagesFor(language: Language): WebMessages {
+export function messagesFor(language: Language): WebMessages {
   return MESSAGES[language];
 }
 
@@ -52,14 +52,6 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   if (settings.isError) return <SettingsLoadError onRetry={() => void settings.refetch()} />;
   if (language === undefined) return null;
 
-  return (
-    <LanguageContext.Provider value={language}>
-      <MessagesContext.Provider value={messagesFor(language)}>{children}</MessagesContext.Provider>
-    </LanguageContext.Provider>
-  );
-}
-
-export function TestMessagesProvider({ language = "ru", children }: { language?: Language; children: ReactNode }) {
   return (
     <LanguageContext.Provider value={language}>
       <MessagesContext.Provider value={messagesFor(language)}>{children}</MessagesContext.Provider>
