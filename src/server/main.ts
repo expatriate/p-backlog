@@ -29,12 +29,13 @@ const settledStartupLanguage = await settledLanguage(root, process.env);
 const startupMessages = serverMessages(settledStartupLanguage.language);
 if (settledStartupLanguage.invalidSettingsFile) process.stderr.write(`${startupMessages.settingsFileInvalid(settingsFilePath(root))}\n`);
 
-const usage = createUsageScanner({ root, claudeProjectsDir: join(home, ".claude", "projects"), messages: startupMessages });
+const readMessages = () => serverLanguage(root).then(serverMessages);
+const usage = createUsageScanner({ root, claudeProjectsDir: join(home, ".claude", "projects"), messages: readMessages });
 const memory = createMemorySampler();
 
 const app = createApp({
   root,
-  changes: createChangeFeed(root, CHANGE_DEBOUNCE_MS, startupMessages),
+  changes: createChangeFeed(root, CHANGE_DEBOUNCE_MS, readMessages),
   allowedHosts: localHosts(port),
   home,
   usage,
@@ -56,7 +57,7 @@ startSweeper({
   intervalMs: SWEEP_INTERVAL_MS,
   log: (line) => process.stdout.write(`${line}\n`),
   warn: (line) => process.stderr.write(`${line}\n`),
-  messages: () => serverLanguage(root).then(serverMessages),
+  messages: readMessages,
 });
 
 const server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port }, () => {
