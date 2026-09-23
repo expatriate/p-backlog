@@ -8,11 +8,12 @@ import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
 import { projectOf, requireTask } from "../lookups";
+import { cliMessages } from "../messages";
 import { taskWriter, type TaskWriter } from "../task-write";
 
 export const verifyCommand: CliCommand = {
   name: "verify",
-  usage: ["<ID> [<ID> …] [--source файл:строка — только для одной задачи]"],
+  usage: (language) => [cliMessages(language).verifyUsage()],
   run: runVerify,
 };
 
@@ -22,10 +23,10 @@ async function runVerify(args: string[], io: CliIo): Promise<number> {
   const { values, positionals } = withUsageErrors(() =>
     parseArgs({ args, allowPositionals: true, options: { source: { type: "string" } } }),
   );
-  if (positionals.length === 0) throw usageError(verifyCommand);
+  if (positionals.length === 0) throw usageError(verifyCommand, io.language);
   const source = values.source?.trim();
-  if (source === "") throw new UsageError("--source не может быть пустым");
-  if (source !== undefined && positionals.length > 1) throw usageError(verifyCommand);
+  if (source === "") throw new UsageError(cliMessages(io.language).sourceEmpty);
+  if (source !== undefined && positionals.length > 1) throw usageError(verifyCommand, io.language);
 
   const loaded = await loadBacklog(io.backlogRoot);
   const verification: Verification = { loaded, source, write: taskWriter(io, loaded.tasks), io };
@@ -35,15 +36,16 @@ async function runVerify(args: string[], io: CliIo): Promise<number> {
 async function verifyOne(id: string, { loaded, source, write, io }: Verification): Promise<number> {
   const task = requireTask(loaded, io, id);
   if (!task) return EXIT.notFound;
+  const cli = cliMessages(io.language);
   if (isClosed(task.status)) {
-    io.warn(`${id} уже в статусе ${task.status}: подтверждать нечего`);
+    io.warn(cli.alreadyInStatusNothingToVerify(id, task.status));
     return EXIT.refused;
   }
 
   const anchor = await anchorFor(loaded, task, source ?? task.source, io);
   const written = await write(task, { verified: formatLocalIso(io.now()), source, anchor });
   if (!written.ok) return written.exitCode;
-  io.print(source === undefined ? `${id}: подтверждена` : `${id}: подтверждена, source → ${source}`);
+  io.print(source === undefined ? cli.verified(id) : cli.verifiedWithSource(id, source));
   return EXIT.ok;
 }
 

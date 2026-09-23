@@ -9,24 +9,18 @@ import { loadBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
 import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo } from "../io";
 import { ensureProject } from "../lookups";
+import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
 
 export const newCommand: CliCommand = {
   name: "new",
-  usage: [
-    [
-      `--title <заголовок> [--type ${TASK_TYPES.join("|")}] [--priority ${PRIORITIES.join("|")}] [--tags a,b]`,
-      `--category <категория> (для задач обязателен) [--found ${FOUND_HOW.join("|")}]`,
-      "[--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]",
-      "[--force — создать, даже если похожая открытая задача уже есть]",
-      "(описание задачи читается из stdin)",
-    ].join("\n"),
-  ],
+  usage: (language) => [cliMessages(language).newUsage(TASK_TYPES.join("|"), PRIORITIES.join("|"), FOUND_HOW.join("|"))],
   run: runNew,
 };
 
 async function runNew(args: string[], io: CliIo): Promise<number> {
-  const values = parseOptions(args, {
+  const cli = cliMessages(io.language);
+  const values = parseOptions(io.language, args, {
     title: { type: "string" },
     type: { type: "string" },
     priority: { type: "string" },
@@ -41,13 +35,13 @@ async function runNew(args: string[], io: CliIo): Promise<number> {
     json: { type: "boolean", default: false },
     force: { type: "boolean", default: false },
   });
-  if (values.title === undefined) throw new UsageError("--title обязателен");
-  const type = values.type === undefined ? undefined : parseChoice(values.type, TASK_TYPES, "--type");
-  const priority = values.priority === undefined ? undefined : parseChoice(values.priority, PRIORITIES, "--priority");
-  const category = values.category === undefined ? undefined : parseChoice(values.category, TASK_CATEGORIES, "--category");
-  if (category === undefined && type !== "epic") throw new UsageError("--category обязателен: bug или категория запаха из каталога code-smells");
-  const found = values.found === undefined ? "incidental" : parseChoice(values.found, FOUND_HOW, "--found");
-  if (category === "bug" && values.source === undefined) io.warn("У бага нет --source: без файла:строки проверка не увидит, что код задачи изменился");
+  if (values.title === undefined) throw new UsageError(cli.titleRequired);
+  const type = values.type === undefined ? undefined : parseChoice(io.language, values.type, TASK_TYPES, "--type");
+  const priority = values.priority === undefined ? undefined : parseChoice(io.language, values.priority, PRIORITIES, "--priority");
+  const category = values.category === undefined ? undefined : parseChoice(io.language, values.category, TASK_CATEGORIES, "--category");
+  if (category === undefined && type !== "epic") throw new UsageError(cli.categoryRequired);
+  const found = values.found === undefined ? "incidental" : parseChoice(io.language, values.found, FOUND_HOW, "--found");
+  if (category === "bug" && values.source === undefined) io.warn(cli.bugNeedsSourceWarning);
 
   const loaded = await loadBacklog(io.backlogRoot);
   const project = await ensureProject(loaded, io, values.project);
@@ -55,8 +49,8 @@ async function runNew(args: string[], io: CliIo): Promise<number> {
 
   const similar = values.force ? null : findSimilarTask({ title: values.title, source: values.source }, loaded.tasks.filter((task) => task.projectId === project.id));
   if (similar !== null) {
-    const why = similar.match === "source" ? "тот же source" : "похожий заголовок";
-    io.warn(`Похоже на ${similar.task.id} — «${similar.task.title}» (${why}). Если это другая задача — добавьте --force`);
+    const why = similar.match === "source" ? cli.sameSource : cli.similarTitle;
+    io.warn(cli.similarTaskWarning(similar.task.id, similar.task.title, why));
     return EXIT.refused;
   }
 

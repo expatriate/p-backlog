@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { writeSettings } from "../../core/store/settings";
 import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { updateTask } from "../../core/store/testing/update-task";
 import { EXIT } from "../io";
@@ -45,5 +46,16 @@ describe("backlog list", () => {
     expect(all.out).toContain("SPA-1");
     expect(all.out).not.toContain("TI-1");
     expect((await run(["list", "--project", "ti"], { cwd: home })).out).toContain("TI-1");
+  });
+
+  it("на языке en выводит английский текст без кириллицы", async () => {
+    const { run, root } = await makeCliSandbox();
+    await writeSettings(root, { language: "en" });
+    await run(["new", "--category", "bug", "--title", "Timeout"]);
+
+    const empty = await run(["list", "--query", "nothing like that"]);
+
+    expect(empty.out).toBe("No tasks found");
+    expect(empty.out).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

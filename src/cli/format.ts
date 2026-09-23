@@ -4,6 +4,7 @@ import { deletionDate } from "../core/model/lifecycle";
 import { PRIORITIES, TASK_STATUSES, type Task } from "../core/model/types";
 import type { CoreMessages } from "../core/messages";
 import type { TaskDescription } from "./describe";
+import type { CliMessages } from "./messages";
 
 const ID_COLUMN_WIDTH = 10;
 const STATUS_COLUMN_WIDTH = Math.max(...TASK_STATUSES.map((status) => status.length));
@@ -14,8 +15,8 @@ export function formatTaskRef(task: Task): string {
   return `${task.id} — ${task.title} (${task.status})`;
 }
 
-export function formatTaskLine(task: Task, index: BacklogIndex): string {
-  const blocked = isBlocked(task, index) ? " [заблокирована]" : "";
+export function formatTaskLine(cli: CliMessages, task: Task, index: BacklogIndex): string {
+  const blocked = isBlocked(task, index) ? cli.blockedSuffix : "";
   return [
     task.id.padEnd(ID_COLUMN_WIDTH),
     task.status.padEnd(STATUS_COLUMN_WIDTH),
@@ -25,27 +26,28 @@ export function formatTaskLine(task: Task, index: BacklogIndex): string {
   ].join("  ");
 }
 
-export function formatTaskDetails(messages: CoreMessages, description: TaskDescription, fileText: string): string {
+export function formatTaskDetails(messages: CoreMessages, cli: CliMessages, description: TaskDescription, fileText: string): string {
   const { task } = description;
+  const categoryTail = task.category === undefined ? "" : cli.categoryTail(messages.categoryLabel(task.category));
   const lines = [
     `${task.id} · ${task.title}`,
-    `Файл: ${task.path}`,
-    `Тип: ${task.type} · Статус: ${task.status} · Приоритет: ${task.priority} · Прогресс: ${formatProgress(description.progress)}${task.category === undefined ? "" : ` · Категория: ${messages.categoryLabel(task.category)}`}`,
+    cli.fileLine(task.path),
+    cli.summaryLine({ type: task.type, status: task.status, priority: task.priority, progress: formatProgress(description.progress), categoryTail }),
   ];
   const deletesAt = deletionDate(task);
-  if (deletesAt !== undefined) lines.push(`Закрыта: ${task.closed} · удалится ${formatDay(deletesAt)}`);
-  if (task.resolution !== undefined) lines.push(`Причина закрытия: ${task.resolution} — ${task.reason ?? ""}`);
-  if (task.verified !== undefined) lines.push(`Проверена: ${task.verified}`);
-  if (task.tags.length > 0) lines.push(`Теги: ${task.tags.join(", ")}`);
-  if (task.epic !== undefined) lines.push(`Эпик: ${description.epic ? formatTaskRef(description.epic) : `${task.epic} (не найден)`}`);
-  if (description.openBlockers.length > 0) lines.push(`Открытые блокеры: ${description.openBlockers.map(formatTaskRef).join("; ")}`);
+  if (deletesAt !== undefined) lines.push(cli.closedLine(task.closed ?? "", formatDay(deletesAt)));
+  if (task.resolution !== undefined) lines.push(cli.reasonLine(task.resolution, task.reason ?? ""));
+  if (task.verified !== undefined) lines.push(cli.verifiedLine(task.verified));
+  if (task.tags.length > 0) lines.push(cli.tagsLine(task.tags.join(", ")));
+  if (task.epic !== undefined) lines.push(cli.epicLine(description.epic ? formatTaskRef(description.epic) : cli.epicNotFound(task.epic)));
+  if (description.openBlockers.length > 0) lines.push(cli.openBlockersLine(description.openBlockers.map(formatTaskRef).join("; ")));
   if (description.inactiveBlockerIds.length > 0) {
-    lines.push(`Закрытые или ненайденные блокеры: ${description.inactiveBlockerIds.join(", ")}`);
+    lines.push(cli.inactiveBlockersLine(description.inactiveBlockerIds.join(", ")));
   }
-  if (description.blocks.length > 0) lines.push(`Блокирует: ${description.blocks.map(formatTaskRef).join("; ")}`);
-  if (description.related.length > 0) lines.push(`Связанные: ${description.related.map(formatTaskRef).join("; ")}`);
-  if (description.children.length > 0) lines.push(`Задачи эпика: ${description.children.map(formatTaskRef).join("; ")}`);
-  if (description.warnings.length > 0) lines.push(`Предупреждения: ${description.warnings.join("; ")}`);
+  if (description.blocks.length > 0) lines.push(cli.blocksLine(description.blocks.map(formatTaskRef).join("; ")));
+  if (description.related.length > 0) lines.push(cli.relatedLine(description.related.map(formatTaskRef).join("; ")));
+  if (description.children.length > 0) lines.push(cli.epicChildrenLine(description.children.map(formatTaskRef).join("; ")));
+  if (description.warnings.length > 0) lines.push(cli.warningsLine(description.warnings.join("; ")));
   return [...lines, "", fileText.trimEnd()].join("\n");
 }
 

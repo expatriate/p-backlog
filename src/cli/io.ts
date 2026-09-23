@@ -1,6 +1,7 @@
 import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 import { errorText } from "../core/errors";
 import type { Language } from "../core/i18n/language";
+import { cliMessages } from "./messages";
 export type CliEnv = {
   cwd: string;
   home: string;
@@ -26,9 +27,9 @@ export function withUsageErrors<T>(parse: () => T): T {
   }
 }
 
-export function parseOptions<const T extends ParseArgsOptionsConfig>(args: string[], options: T) {
+export function parseOptions<const T extends ParseArgsOptionsConfig>(language: Language, args: string[], options: T) {
   const { values, positionals } = withUsageErrors(() => parseArgs({ args, options, allowPositionals: true }));
-  if (positionals.length > 0) throw new UsageError(`Лишние аргументы: ${positionals.join(" ")}`);
+  if (positionals.length > 0) throw new UsageError(cliMessages(language).extraArguments(positionals));
   return values;
 }
 
@@ -39,8 +40,8 @@ export function splitList(value: string | undefined): string[] | undefined {
     .filter(Boolean);
 }
 
-export function parseChoice<T extends string>(value: string, allowed: readonly T[], label: string): T {
+export function parseChoice<T extends string>(language: Language, value: string, allowed: readonly T[], label: string): T {
   const match = allowed.find((candidate) => candidate === value);
-  if (match === undefined) throw new UsageError(`${label}: ожидается одно из ${allowed.join(", ")}, получено «${value}»`);
+  if (match === undefined) throw new UsageError(cliMessages(language).invalidChoice(label, allowed, value));
   return match;
 }

@@ -1,0 +1,152 @@
+import type { CliMessages } from "./messages.ru";
+
+export const cliEn: CliMessages = {
+  usageHeader: "Usage:",
+  extraArguments: (args) => `Extra arguments: ${args.join(" ")}`,
+  invalidChoice: (label, allowed, value) => `${label}: expected one of ${allowed.join(", ")}, got "${value}"`,
+  commandFailed: (name, reason) => `Command ${name} failed: ${reason}`,
+  runNotRecorded: (error) => `Could not record the run: ${error}`,
+
+  optionLabel: { status: "status", category: "category", priority: "priority", language: "language" },
+
+  taskNotFound: (id) => `Task ${id} not found`,
+  fileConflict: (id) => `Task file ${id} changed while writing, retry the command`,
+
+  statsTitle: (scopeName) => `${scopeName} · stats`,
+  statsOpenLine: ({ open, weight, net, created, closed }) => `Open: ${open} (weight ${weight}) · this week: ${net} (created ${created}, closed ${closed})`,
+  statsAgeLine: (ageMedian, leadMedian, tail) => `Age, median: ${ageMedian} · time to close, median: ${leadMedian}${tail}`,
+  statsP90Tail: (p90) => ` (90% — ${p90})`,
+  statsForecastLine: (forecast, tail) => `Forecast: ${forecast} (${tail})`,
+  noAlerts: "No alerts",
+  alertsHeader: "Alerts:",
+  moreAt: (url) => `More: ${url}`,
+  projectsFallbackName: "Projects",
+
+  blockedSuffix: " [blocked]",
+  fileLine: (path) => `File: ${path}`,
+  summaryLine: ({ type, status, priority, progress, categoryTail }) =>
+    `Type: ${type} · Status: ${status} · Priority: ${priority} · Progress: ${progress}${categoryTail}`,
+  categoryTail: (label) => ` · Category: ${label}`,
+  closedLine: (closed, deletesAt) => `Closed: ${closed} · will be deleted ${deletesAt}`,
+  reasonLine: (resolution, reason) => `Closed as: ${resolution} — ${reason}`,
+  verifiedLine: (verified) => `Verified: ${verified}`,
+  tagsLine: (tags) => `Tags: ${tags}`,
+  epicLine: (ref) => `Epic: ${ref}`,
+  epicNotFound: (epicId) => `${epicId} (not found)`,
+  openBlockersLine: (list) => `Open blockers: ${list}`,
+  inactiveBlockersLine: (list) => `Closed or missing blockers: ${list}`,
+  blocksLine: (list) => `Blocks: ${list}`,
+  relatedLine: (list) => `Related: ${list}`,
+  epicChildrenLine: (list) => `Epic tasks: ${list}`,
+  warningsLine: (list) => `Warnings: ${list}`,
+
+  stopReasonMore: (hidden) => ` and ${hidden} more`,
+  stopReasonBody: (items, more) =>
+    `code changed for tasks since the last check — ${items}${more}. Re-check them using the backlog skill, section "Re-check tasks".`,
+  candidateChanged: (path) => `changed ${path}`,
+  candidateMissing: (path) => `file ${path} missing`,
+  candidateRenamed: (path, to) => `${path} renamed to ${to}`,
+  candidateSimilarTo: (otherId) => `similar to ${otherId}`,
+
+  taskFileUnparsed: (id, problems) => `Task file ${id} could not be parsed: ${problems}`,
+  projectNotFoundForCwd: (cwd) => `No project found for ${cwd}. Pass --project <id> or add the path to repos of the right project.md`,
+  projectNotFound: (id) => `Project ${id} not found`,
+  notInGitRepo: (cwd) => `${cwd} is not inside a git repository: project not created. Pass --project <id> or run the command from a repository`,
+  projectCreated: (id, prefix) => `Created project ${id} (${prefix})`,
+
+  needProjectOrAllProjects: "Pass either --project or --all-projects",
+
+  candidateEvidenceSameLocation: "same place in the code",
+  candidateEvidenceSimilarTitles: "similar titles",
+  candidateEvidenceSameSymbol: "same symbol in the code",
+  candidateUncommitted: "has uncommitted changes",
+  candidateDescribeChanged: (path, details) => `code changed (${path}): ${details}`,
+  candidateDescribeMissing: (path) => `file ${path} is missing`,
+  candidateDescribeRenamed: (path, to) => `file ${path} is missing — renamed to ${to}`,
+  candidateDescribeDuplicate: (otherId, match) => `looks like a duplicate of ${otherId} (${match})`,
+
+  projectUsage: () => [
+    "list",
+    "status <id> active|inactive   (inactive projects are excluded from the combined scope)",
+    "delete <id> --confirm <id>    (deletes the project directory with all its tasks)",
+  ],
+  noProjects: "No projects",
+  projectListLine: ({ id, name, prefix, statusWord, open }) => `${id} · ${name} · ${prefix} · ${statusWord} · open ${open}`,
+  confirmProjectDelete: (id) => `Confirm the deletion: backlog project delete ${id} --confirm ${id}`,
+  projectDeleted: (id, taskCount) => `${id} deleted: tasks ${taskCount}`,
+  projectActive: "active",
+  projectInactive: "inactive",
+
+  checklistWarning: (count) => `Note: unchecked checklist items — ${count}`,
+
+  pruneUsage: (days) => `[--project id | --all-projects] [--apply]   (tasks with low priority older than ${days} days)`,
+  pruneReason: (days) => `Low priority, not taken up in ${days}+ days (backlog prune)`,
+  noStaleTasks: "No stale tasks",
+  staleTaskLine: (id, title, created) => `${id} — ${title} (created ${created})`,
+  undoPruneHint: "Undo: backlog prune --apply",
+  taskCancelled: (id) => `${id}: cancelled`,
+
+  verifyUsage: () => "<ID> [<ID> …] [--source file:line — only for a single task]",
+  sourceEmpty: "--source cannot be empty",
+  alreadyInStatusNothingToVerify: (id, status) => `${id} is already ${status}: nothing to confirm`,
+  verified: (id) => `${id}: confirmed`,
+  verifiedWithSource: (id, source) => `${id}: confirmed, source → ${source}`,
+
+  takeUsage: () => [
+    "<ID> [--force] [--json]",
+    "--next [--project id] [--json]",
+    "--path <file|directory> [--project id] [--json]   (all open tasks inside the path)",
+  ],
+  chooseOnlyOne: (chosen) => `Pass only one of: ${chosen}`,
+  noOpenTasksAt: (path) => `No open tasks at ${path}`,
+  epicTakeChildren: (id) => `${id} is an epic. Take one of its tasks instead:`,
+  noOpenChildren: "  no open tasks",
+  alreadyInStatus: (id, status) => `${id} is already ${status}`,
+  blockedByOpenTasks: (id) => `${id} is blocked by open tasks:`,
+  noTakeableInProject: (id) => `Project ${id} has no tasks that can be taken`,
+
+  hookUsage: (stopEvent) => `${stopEvent}   (for the Stop hook in Claude Code, reads the event from stdin)`,
+  sessionShownReadFailed: (error) => `Could not read the tasks already shown this session: ${error}`,
+  alertsComputeFailed: (error) => `Could not compute alerts: ${error}`,
+  alertsShownWriteFailed: (error) => `Could not save the shown alerts: ${error}`,
+
+  newUsage: (types, priorities, found) =>
+    [
+      `--title <title> [--type ${types}] [--priority ${priorities}] [--tags a,b]`,
+      `--category <category> (required for tasks) [--found ${found}]`,
+      "[--source file:line] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]",
+      "[--force — create anyway even if a similar open task already exists]",
+      "(task description is read from stdin)",
+    ].join("\n"),
+  titleRequired: "--title is required",
+  categoryRequired: "--category is required: bug, or a code-smells catalog category",
+  bugNeedsSourceWarning: "This bug has no --source: without file:line, the check cannot see that the task's code changed",
+  sameSource: "same source",
+  similarTitle: "similar title",
+  similarTaskWarning: (id, title, why) => `Looks like ${id} — "${title}" (${why}). If this is a different task, add --force`,
+
+  epicUsage: (noEpic) => `<ID> [<ID> …] --to <epic ID|${noEpic}>   (moves tasks into the epic or takes them out of it)`,
+  notAnEpic: (id) => `${id} is not an epic — tasks can only be moved into an epic`,
+  epicCannotContainEpic: (id) => `${id} is an epic, an epic cannot belong to another epic`,
+  epicCannotBeSelf: (id) => `${id} cannot be its own epic`,
+  noEpicWord: "no epic",
+
+  closeUsage: (resolutions) => `<ID> --as ${resolutions} --reason <evidence> [--duplicate-of <ID>]`,
+  reasonRequired: "--reason is required: the commit, line, or fact the task was closed by",
+  duplicateOfRule: "--duplicate-of is only set together with --as duplicate",
+  epicClosesOnItsOwn: (id) => `${id} is an epic: it closes on its own once all its tasks are closed (backlog check)`,
+  cannotDuplicateSelf: "a task cannot be a duplicate of itself",
+  fromAnotherProject: (id) => `${id} is from another project`,
+  originalAlreadyClosed: (id, taskId) => `${id} is already closed — close ${taskId} as fixed or obsolete instead`,
+  fixCommitRequired: 'Provide the fix commit: --reason "Fixed in <sha>: …" (the commit must be in the project repository)',
+  deletesAtTail: (date) => `. Will be deleted ${date}`,
+
+  listUsage: () => "[--query text] [--status s,…] [--tag t,…] [--project id | --all-projects] [--json]",
+  parseErrorLine: (path, problems) => `Parse error in ${path}: ${problems}`,
+  noTasksFound: "No tasks found",
+
+  fixedHeader: "Fixed:",
+  problemsHeader: "Problems:",
+  candidatesHeader: "Candidates for closing:",
+  backlogOk: "Backlog is clean",
+};

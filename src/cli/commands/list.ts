@@ -7,23 +7,25 @@ import { describeTask, toJson } from "../describe";
 import { formatTaskLine } from "../format";
 import type { CliCommand } from "../command";
 import { EXIT, parseChoice, parseOptions, splitList, type CliIo } from "../io";
+import { cliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 
 export const listCommand: CliCommand = {
   name: "list",
-  usage: ["[--query текст] [--status s,…] [--tag t,…] [--project id | --all-projects] [--json]"],
+  usage: (language) => [cliMessages(language).listUsage()],
   run: runList,
 };
 
 async function runList(args: string[], io: CliIo): Promise<number> {
-  const values = parseOptions(args, {
+  const cli = cliMessages(io.language);
+  const values = parseOptions(io.language, args, {
     query: { type: "string" },
     status: { type: "string" },
     tag: { type: "string" },
     ...SCOPE_OPTIONS,
     json: { type: "boolean", default: false },
   });
-  const statuses = splitList(values.status)?.map((status) => parseChoice(status, TASK_STATUSES, "--status")) ?? OPEN_STATUSES;
+  const statuses = splitList(values.status)?.map((status) => parseChoice(io.language, status, TASK_STATUSES, "--status")) ?? OPEN_STATUSES;
 
   const loaded = await loadBacklog(io.backlogRoot);
   const scope = resolveScope(loaded, io, values);
@@ -32,7 +34,7 @@ async function runList(args: string[], io: CliIo): Promise<number> {
   const messages = coreMessages(io.language);
 
   for (const error of loaded.errors) {
-    if (projectId === undefined || error.projectId === projectId) io.warn(`Ошибка разбора ${error.path}: ${messages.problems(error.problems)}`);
+    if (projectId === undefined || error.projectId === projectId) io.warn(cli.parseErrorLine(error.path, messages.problems(error.problems)));
   }
 
   const index = buildIndex(loaded.tasks);
@@ -45,6 +47,6 @@ async function runList(args: string[], io: CliIo): Promise<number> {
   const tasks = sortTasks(filtered, { key: "priority", direction: "desc" }, index);
 
   if (values.json) io.print(JSON.stringify(tasks.map((task) => toJson(describeTask(task, index, messages))), null, 2));
-  else io.print(tasks.length === 0 ? "Задач не найдено" : tasks.map((task) => formatTaskLine(task, index)).join("\n"));
+  else io.print(tasks.length === 0 ? cli.noTasksFound : tasks.map((task) => formatTaskLine(cli, task, index)).join("\n"));
   return EXIT.ok;
 }

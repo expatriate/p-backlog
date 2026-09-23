@@ -3,6 +3,7 @@ import { errorText } from "../core/errors";
 import { coreMessages } from "../core/messages";
 import { FileBusyError } from "../core/store/file-lock";
 import { resolveLanguage } from "../core/store/settings";
+import { cliMessages } from "./messages";
 import { usageText, type CliCommand } from "./command";
 import { categoryCommand } from "./commands/category";
 import { checkCommand } from "./commands/check";
@@ -41,8 +42,6 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
   configCommand,
 ];
 
-const USAGE = usageText(CLI_COMMANDS);
-
 const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
 
 const COMMANDS = new Map(CLI_COMMANDS.map((command) => [command.name, command.run]));
@@ -53,7 +52,7 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<numb
   const [name, ...args] = argv;
   const command = name === undefined ? undefined : COMMANDS.get(name);
   if (!command) {
-    io.warn(USAGE);
+    io.warn(usageText(CLI_COMMANDS, language));
     const askedForHelp = name === undefined || HELP_ARGUMENTS.has(name);
     return askedForHelp ? EXIT.ok : EXIT.invalid;
   }
@@ -65,7 +64,7 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<numb
       return EXIT.invalid;
     }
     const reason = error instanceof FileBusyError ? coreMessages(language).fileBusy(error.path, error.lock, error.seconds) : errorText(error);
-    io.warn(`Команда ${name} не выполнена: ${reason}`);
+    io.warn(cliMessages(language).commandFailed(name ?? "", reason));
     return EXIT.failed;
   }
 }

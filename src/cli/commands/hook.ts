@@ -17,18 +17,19 @@ import type { Signal } from "../../core/stats/types";
 import type { Project, Task } from "../../core/model/types";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, type CliIo } from "../io";
+import { cliMessages } from "../messages";
 import { stopReason } from "../stop-reason";
 
 const stopEventSchema = z.object({ cwd: z.string(), session_id: z.string().optional(), stop_hook_active: z.boolean().optional() });
 
 export const hookCommand: CliCommand = {
   name: "hook",
-  usage: [`${HOOK_STOP_EVENT}   (для хука Stop в Claude Code, событие читается из stdin)`],
+  usage: (language) => [cliMessages(language).hookUsage(HOOK_STOP_EVENT)],
   run: runHook,
 };
 
 async function runHook(args: string[], io: CliIo): Promise<number> {
-  if (args.length !== 1 || args[0] !== HOOK_STOP_EVENT) throw usageError(hookCommand);
+  if (args.length !== 1 || args[0] !== HOOK_STOP_EVENT) throw usageError(hookCommand, io.language);
   const event = parseJson(await io.readStdin(), stopEventSchema);
   if (event === null || event.stop_hook_active === true) return EXIT.ok;
 
@@ -45,8 +46,10 @@ async function runHook(args: string[], io: CliIo): Promise<number> {
 
   const signals = await freshSignals(project, loaded.tasks.filter((task) => task.projectId === project.id), lowChangedSignals(lowCount), io);
   const response = {
-    ...(blocking.length > 0 ? { decision: "block", reason: stopReason(project.id, blocking) } : {}),
-    ...(signals.fresh.length > 0 ? { systemMessage: hookMessage(project.id, signals.fresh.map((signal) => messages.signal(signal)).join("; ")) } : {}),
+    ...(blocking.length > 0 ? { decision: "block", reason: stopReason(io.language, project.id, blocking) } : {}),
+    ...(signals.fresh.length > 0
+      ? { systemMessage: hookMessage(io.language, project.id, signals.fresh.map((signal) => messages.signal(signal)).join("; ")) }
+      : {}),
   };
   if (Object.keys(response).length > 0) io.print(JSON.stringify(response));
   await signals.remember();
@@ -69,7 +72,7 @@ async function sessionMemory(project: Project, session: string | undefined, io: 
       },
     };
   } catch (error) {
-    io.warn(`Не удалось прочитать показанные задачи сессии: ${errorText(error)}`);
+    io.warn(cliMessages(io.language).sessionShownReadFailed(errorText(error)));
     return { told: new Set(), remember: () => Promise.resolve() };
   }
 }
@@ -90,7 +93,7 @@ async function freshSignals(project: Project, tasks: readonly Task[], extra: rea
     const fresh = signalsToShow([...statsSignals({ tasks, journals: [journal], now: io.now(), projectId: project.id }), ...extra], shown, today);
     return { fresh, remember: () => (fresh.length === 0 ? Promise.resolve() : rememberShown(projectDir, markShown(shown, fresh, today), io)) };
   } catch (error) {
-    io.warn(`Не удалось посчитать тревоги: ${errorText(error)}`);
+    io.warn(cliMessages(io.language).alertsComputeFailed(errorText(error)));
     return { fresh: [], remember: () => Promise.resolve() };
   }
 }
@@ -99,6 +102,6 @@ async function rememberShown(projectDir: string, shown: SignalsShown, io: CliIo)
   try {
     await writeSignalsShown(projectDir, shown);
   } catch (error) {
-    io.warn(`Не удалось сохранить показанные тревоги: ${errorText(error)}`);
+    io.warn(cliMessages(io.language).alertsShownWriteFailed(errorText(error)));
   }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { attributeLine, newTranscriptState } from "./attribute";
+import { isBacklogHookFeedback } from "./hook-signature";
 import { fastModel } from "./pricing";
 
 const CWD = "/Users/x/projects/spa";
@@ -165,5 +166,10 @@ describe("отнесение строк расшифровки к накладн
 
     expect(["BACKLOG_DIR=/tmp/x backlog list", "cd x; FOO=1 BAR=2 backlog show PB-1", "backlog", "git status && backlog check --json"].map(counted)).toEqual([true, true, true, true]);
     expect(["ls backlog/", "cat ~/backlog/p/PB-1.md", "backlog-web start", "echo backlogs"].map(counted)).toEqual([false, false, false, false]);
+  });
+
+  it("ход хука узнаётся и по английскому маркеру: смена языка не обнуляет затраты на хук", () => {
+    expect(isBacklogHookFeedback("Stop hook feedback:\nBacklog spa: code changed for tasks — SPA-1")).toBe(true);
+    expect(isBacklogHookFeedback("Stop hook feedback:\nБеклог spa: после последней проверки менялся код задач — SPA-1")).toBe(true);
   });
 });

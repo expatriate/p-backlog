@@ -9,17 +9,19 @@ import { formatDay } from "../format";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, UsageError, withUsageErrors, type CliIo } from "../io";
 import { projectOf, requireTask } from "../lookups";
+import { cliMessages, type CliMessages } from "../messages";
 import { taskWriter } from "../task-write";
 
 const CLOSE_RESOLUTIONS = ["fixed", "obsolete", "duplicate"] as const;
 
 export const closeCommand: CliCommand = {
   name: "close",
-  usage: [`<ID> --as ${CLOSE_RESOLUTIONS.join("|")} --reason <улика> [--duplicate-of <ID>]`],
+  usage: (language) => [cliMessages(language).closeUsage(CLOSE_RESOLUTIONS.join("|"))],
   run: runClose,
 };
 
 async function runClose(args: string[], io: CliIo): Promise<number> {
+  const cli = cliMessages(io.language);
   const { values, positionals } = withUsageErrors(() =>
     parseArgs({
       args,
@@ -28,24 +30,24 @@ async function runClose(args: string[], io: CliIo): Promise<number> {
     }),
   );
   const [id, ...rest] = positionals;
-  if (id === undefined || rest.length > 0 || values.as === undefined) throw usageError(closeCommand);
-  const resolution = parseChoice(values.as, CLOSE_RESOLUTIONS, "--as");
+  if (id === undefined || rest.length > 0 || values.as === undefined) throw usageError(closeCommand, io.language);
+  const resolution = parseChoice(io.language, values.as, CLOSE_RESOLUTIONS, "--as");
   const reason = (values.reason ?? "").replace(/\s*\n\s*/g, " ").trim();
-  if (reason === "") throw new UsageError("--reason обязателен: коммит, строка или факт, по которому задача закрыта");
+  if (reason === "") throw new UsageError(cli.reasonRequired);
   const duplicateOf = values["duplicate-of"];
   if ((resolution === "duplicate") !== (duplicateOf !== undefined)) {
-    throw new UsageError("--duplicate-of задаётся вместе с --as duplicate и только с ним");
+    throw new UsageError(cli.duplicateOfRule);
   }
 
   const loaded = await loadBacklog(io.backlogRoot);
   const task = requireTask(loaded, io, id);
   if (!task) return EXIT.notFound;
   if (task.type === "epic") {
-    io.warn(`${id} — эпик: он закроется сам, когда закроются все его задачи (backlog check)`);
+    io.warn(cli.epicClosesOnItsOwn(id));
     return EXIT.invalid;
   }
   if (isClosed(task.status)) {
-    io.warn(`${id} уже в статусе ${task.status}`);
+    io.warn(cli.alreadyInStatus(id, task.status));
     return EXIT.refused;
   }
 
@@ -53,7 +55,7 @@ async function runClose(args: string[], io: CliIo): Promise<number> {
   if (duplicateOf !== undefined) {
     const original = requireTask(loaded, io, duplicateOf);
     if (!original) return EXIT.notFound;
-    const problem = originalProblem(task, original);
+    const problem = originalProblem(cli, task, original);
     if (problem !== null) {
       io.warn(problem);
       return EXIT.invalid;
@@ -62,7 +64,7 @@ async function runClose(args: string[], io: CliIo): Promise<number> {
   }
 
   if (resolution === "fixed" && !(await fixCommitFound(loaded, task, reason, io))) {
-    io.warn('Укажите коммит исправления: --reason "Исправлено в <sha>: …" (коммит должен быть в репозитории проекта)');
+    io.warn(cli.fixCommitRequired);
     return EXIT.invalid;
   }
 
@@ -70,14 +72,14 @@ async function runClose(args: string[], io: CliIo): Promise<number> {
   const written = await taskWriter(io, loaded.tasks)(task, { status, related }, { resolution, reason });
   if (!written.ok) return written.exitCode;
   const deletesAt = deletionDate(written.task);
-  io.print(`${id}: ${task.status} → ${status} (${resolution})${deletesAt === undefined ? "" : `. Удалится ${formatDay(deletesAt)}`}`);
+  io.print(`${id}: ${task.status} → ${status} (${resolution})${deletesAt === undefined ? "" : cli.deletesAtTail(formatDay(deletesAt))}`);
   return EXIT.ok;
 }
 
-function originalProblem(task: Task, original: Task): string | null {
-  if (original.id === task.id) return "задача не может быть дублем самой себя";
-  if (original.projectId !== task.projectId) return `${original.id} из другого проекта`;
-  if (isClosed(original.status)) return `${original.id} уже закрыта — закройте ${task.id} как fixed или obsolete`;
+function originalProblem(cli: CliMessages, task: Task, original: Task): string | null {
+  if (original.id === task.id) return cli.cannotDuplicateSelf;
+  if (original.projectId !== task.projectId) return cli.fromAnotherProject(original.id);
+  if (isClosed(original.status)) return cli.originalAlreadyClosed(original.id, task.id);
   return null;
 }
 

@@ -5,12 +5,14 @@ import { createProject } from "../core/store/create";
 import type { LoadedBacklog } from "../core/store/load";
 import { findGitRoot, findProjectForDir } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
+import { cliMessages } from "./messages";
 
 export function requireTask(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
   const task = loaded.tasks.find((candidate) => candidate.id === id);
   if (task) return task;
   const broken = loaded.errors.find((error) => basename(error.path) === `${id}.md`);
-  io.warn(broken ? `Файл задачи ${id} не разобран: ${coreMessages(io.language).problems(broken.problems)}` : `Задача ${id} не найдена`);
+  const cli = cliMessages(io.language);
+  io.warn(broken ? cli.taskFileUnparsed(id, coreMessages(io.language).problems(broken.problems)) : cli.taskNotFound(id));
   return undefined;
 }
 
@@ -21,11 +23,8 @@ export function projectOf(loaded: LoadedBacklog, task: Task): Project | undefine
 export function requireProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Project | undefined {
   const project = findProject(loaded, io, explicitId);
   if (project) return project;
-  io.warn(
-    explicitId === undefined
-      ? `Проект для ${io.cwd} не найден. Укажите --project <id> или добавьте путь в repos нужного project.md`
-      : `Проект ${explicitId} не найден`,
-  );
+  const cli = cliMessages(io.language);
+  io.warn(explicitId === undefined ? cli.projectNotFoundForCwd(io.cwd) : cli.projectNotFound(explicitId));
   return undefined;
 }
 
@@ -35,11 +34,11 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
   if (existing) return existing;
   const gitRoot = findGitRoot(io.cwd);
   if (gitRoot === null) {
-    io.warn(`${io.cwd} не в git-репозитории: проект не создан. Укажите --project <id> или запустите команду из репозитория`);
+    io.warn(cliMessages(io.language).notInGitRepo(io.cwd));
     return undefined;
   }
   const created = await createProject(io.backlogRoot, gitRoot, loaded.projects);
-  io.warn(`Создан проект ${created.id} (${created.prefix})`);
+  io.warn(cliMessages(io.language).projectCreated(created.id, created.prefix));
   return created;
 }
 

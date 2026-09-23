@@ -1,22 +1,22 @@
+import { formatDayMonth } from "../../core/i18n/format";
 import { staleLowTasks, STALE_LOW_DAYS } from "../../core/model/query";
-import { formatDayMonth } from "../../core/stats/format";
 import { loadBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo } from "../io";
 import { applyAll } from "../apply-all";
+import { cliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { taskWriter } from "../task-write";
 
-const PRUNE_REASON = `Низкий приоритет, не брали в работу ${STALE_LOW_DAYS}+ дней (backlog prune)`;
-
 export const pruneCommand: CliCommand = {
   name: "prune",
-  usage: [`[--project id | --all-projects] [--apply]   (задачи с низким приоритетом старше ${STALE_LOW_DAYS} дней)`],
+  usage: (language) => [cliMessages(language).pruneUsage(STALE_LOW_DAYS)],
   run: runPrune,
 };
 
 async function runPrune(args: string[], io: CliIo): Promise<number> {
-  const values = parseOptions(args, { ...SCOPE_OPTIONS, apply: { type: "boolean", default: false } });
+  const cli = cliMessages(io.language);
+  const values = parseOptions(io.language, args, { ...SCOPE_OPTIONS, apply: { type: "boolean", default: false } });
 
   const loaded = await loadBacklog(io.backlogRoot);
   const scope = resolveScope(loaded, io, values);
@@ -27,20 +27,20 @@ async function runPrune(args: string[], io: CliIo): Promise<number> {
     io.now(),
   );
   if (stale.length === 0) {
-    io.print("Застоявшихся задач нет");
+    io.print(cli.noStaleTasks);
     return EXIT.ok;
   }
   if (!values.apply) {
-    for (const task of stale) io.print(`${task.id} — ${task.title} (создана ${formatDayMonth(new Date(task.created))})`);
-    io.print("Отменить: backlog prune --apply");
+    for (const task of stale) io.print(cli.staleTaskLine(task.id, task.title, formatDayMonth(io.language, new Date(task.created))));
+    io.print(cli.undoPruneHint);
     return EXIT.ok;
   }
 
   const write = taskWriter(io, loaded.tasks);
   return applyAll(stale, async (task) => {
-    const written = await write(task, { status: "cancelled" }, { resolution: "obsolete", reason: PRUNE_REASON });
+    const written = await write(task, { status: "cancelled" }, { resolution: "obsolete", reason: cli.pruneReason(STALE_LOW_DAYS) });
     if (!written.ok) return written.exitCode;
-    io.print(`${task.id}: отменена`);
+    io.print(cli.taskCancelled(task.id));
     return EXIT.ok;
   });
 }

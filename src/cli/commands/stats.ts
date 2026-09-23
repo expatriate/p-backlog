@@ -7,17 +7,18 @@ import { loadBacklog } from "../../core/store/load";
 import { readPort } from "../../server/port";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo } from "../io";
+import { cliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { statsSummary } from "../stats-summary";
 
 export const statsCommand: CliCommand = {
   name: "stats",
-  usage: ["[--project id | --all-projects] [--json]"],
+  usage: () => ["[--project id | --all-projects] [--json]"],
   run: runStats,
 };
 
 async function runStats(args: string[], io: CliIo): Promise<number> {
-  const values = parseOptions(args, { ...SCOPE_OPTIONS, json: { type: "boolean", default: false } });
+  const values = parseOptions(io.language, args, { ...SCOPE_OPTIONS, json: { type: "boolean", default: false } });
 
   const loaded = await loadBacklog(io.backlogRoot);
   const scope = resolveScope(loaded, io, values);
@@ -37,6 +38,15 @@ async function runStats(args: string[], io: CliIo): Promise<number> {
     return EXIT.ok;
   }
   const path = project === undefined ? "/stats" : `/p/${project.id}/stats`;
-  io.print(statsSummary({ language: io.language, scopeName: project?.name ?? "Проекты", totals, forecast, signals, url: `http://localhost:${readPort(io.env.PORT)}${path}` }));
+  io.print(
+    statsSummary({
+      language: io.language,
+      scopeName: project?.name ?? cliMessages(io.language).projectsFallbackName,
+      totals,
+      forecast,
+      signals,
+      url: `http://localhost:${readPort(io.env.PORT)}${path}`,
+    }),
+  );
   return EXIT.ok;
 }

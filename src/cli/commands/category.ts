@@ -5,21 +5,22 @@ import { loadBacklog } from "../../core/store/load";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, withUsageErrors, type CliIo } from "../io";
 import { requireTask } from "../lookups";
+import { cliMessages } from "../messages";
 import { taskWriter } from "../task-write";
 
 const NO_CATEGORY = "none";
 
 export const categoryCommand: CliCommand = {
   name: "category",
-  usage: [`<ID> <${TASK_CATEGORIES.join("|")}|${NO_CATEGORY}>`],
+  usage: () => [`<ID> <${TASK_CATEGORIES.join("|")}|${NO_CATEGORY}>`],
   run: runCategory,
 };
 
 async function runCategory(args: string[], io: CliIo): Promise<number> {
   const { positionals } = withUsageErrors(() => parseArgs({ args, allowPositionals: true, options: {} }));
   const [id, value, ...rest] = positionals;
-  if (id === undefined || value === undefined || rest.length > 0) throw usageError(categoryCommand);
-  const category = value === NO_CATEGORY ? null : parseChoice(value, TASK_CATEGORIES, "категория");
+  if (id === undefined || value === undefined || rest.length > 0) throw usageError(categoryCommand, io.language);
+  const category = value === NO_CATEGORY ? null : parseChoice(io.language, value, TASK_CATEGORIES, cliMessages(io.language).optionLabel.category);
 
   const loaded = await loadBacklog(io.backlogRoot);
   const task = requireTask(loaded, io, id);

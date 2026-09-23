@@ -9,10 +9,11 @@ import { formatTaskDetails } from "../format";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, withUsageErrors, type CliIo } from "../io";
 import { requireTask } from "../lookups";
+import { cliMessages } from "../messages";
 
 export const showCommand: CliCommand = {
   name: "show",
-  usage: ["<ID> [--json]"],
+  usage: () => ["<ID> [--json]"],
   run: runShow,
 };
 
@@ -21,7 +22,7 @@ async function runShow(args: string[], io: CliIo): Promise<number> {
     parseArgs({ args, allowPositionals: true, options: { json: { type: "boolean", default: false } } }),
   );
   const [id, ...rest] = positionals;
-  if (id === undefined || rest.length > 0) throw usageError(showCommand);
+  if (id === undefined || rest.length > 0) throw usageError(showCommand, io.language);
 
   const loaded = await loadBacklog(io.backlogRoot);
   const task = requireTask(loaded, io, id);
@@ -33,5 +34,7 @@ async function runShow(args: string[], io: CliIo): Promise<number> {
 export async function printTask(io: CliIo, task: Task, tasks: readonly Task[], { json }: { json: boolean }): Promise<void> {
   const messages = coreMessages(io.language);
   const description = describeTask(task, buildIndex(tasks), messages);
-  io.print(json ? JSON.stringify(toJson(description), null, 2) : formatTaskDetails(messages, description, await readFile(task.path, "utf8")));
+  io.print(
+    json ? JSON.stringify(toJson(description), null, 2) : formatTaskDetails(messages, cliMessages(io.language), description, await readFile(task.path, "utf8")),
+  );
 }

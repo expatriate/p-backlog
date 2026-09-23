@@ -5,6 +5,7 @@ import { NBSP } from "../../core/stats/format";
 import { readJournal } from "../../core/store/journal";
 import { SIGNALS_SHOWN_FILE } from "../../core/store/signals-shown";
 import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
+import { writeSettings } from "../../core/store/settings";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -141,5 +142,22 @@ describe("backlog hook stop", () => {
 
     expect(JSON.parse((await run(["hook", "stop"], { stdin })).out).decision).toBe("block");
     expect(JSON.parse((await run(["hook", "stop"], { stdin })).out).decision).toBe("block");
+  });
+
+  it("на языке en причина блокировки — на английском, с маркером Backlog", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    await writeSettings(root, { language: "en" });
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Start", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Timeout", "--source", "src/a.ts:1"]);
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Fix timeout", "2026-09-18T10:00:00Z");
+    const stdin = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    const blocked = await run(["hook", "stop"], { stdin });
+
+    const reason = (JSON.parse(blocked.out) as { reason: string }).reason;
+    expect(reason.startsWith("Backlog spa:")).toBe(true);
+    expect(reason).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
