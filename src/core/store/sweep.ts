@@ -26,6 +26,8 @@ type EpicStep = { closed: string[]; failures: SweepFailure[]; leftOpen: Readonly
 
 type RemovalStep = { deleted: string[]; failures: SweepFailure[] };
 
+type UpdateStep = { failures: SweepFailure[]; stillReferenced: ReadonlySet<string> };
+
 export async function sweepClosed(root: string, now: Date): Promise<SweepReport> {
   const initial = await loadBacklog(root);
   const epics = await closeCompletedEpics(initial, now);
@@ -35,13 +37,13 @@ export async function sweepClosed(root: string, now: Date): Promise<SweepReport>
   const expired = tasks.filter((task) => isExpired(task, now) && !waitsForEpic(task));
   const reserved = await reserveNumbers(projects, expired);
   const removable = expired.filter((task) => reserved.has(task.projectId));
-  const updateFailures = await updateRemainingTasks(tasks, removable, now);
-  const removal = await removeExpired(removable, now);
+  const updates = await updateRemainingTasks(tasks, removable, now);
+  const removal = await removeExpired(removable.filter((task) => !updates.stillReferenced.has(task.id)), now);
   return {
     closedEpics: epics.closed,
     blockingFiles: epics.blockingFiles,
     deleted: removal.deleted,
-    ...failureLists([...epics.failures, ...updateFailures, ...removal.failures]),
+    ...failureLists([...epics.failures, ...updates.failures, ...removal.failures]),
   };
 }
 
@@ -60,16 +62,23 @@ async function closeCompletedEpics(loaded: LoadedBacklog, now: Date): Promise<Ep
   return { closed, failures, leftOpen, blockingFiles };
 }
 
-async function updateRemainingTasks(tasks: readonly Task[], expired: readonly Task[], now: Date): Promise<SweepFailure[]> {
+async function updateRemainingTasks(tasks: readonly Task[], expired: readonly Task[], now: Date): Promise<UpdateStep> {
   const expiredIds = new Set(expired.map((task) => task.id));
   const failures: SweepFailure[] = [];
+  const stillReferenced = new Set<string>();
   for (const task of tasks.filter((candidate) => !expiredIds.has(candidate.id))) {
     const cleanup = referenceCleanup(task, (id) => expiredIds.has(id));
     if (cleanup === null && !lacksClosedDate(task)) continue;
     const result = await updateTaskIn(tasks, { id: task.id, changes: cleanup ?? {}, expectedVersion: task.version, now, via: "sweep" });
-    if (!result.ok) failures.push(sweepFailure(task.id, result));
+    if (result.ok) continue;
+    failures.push(sweepFailure(task.id, result));
+    for (const id of referencedIds(task)) if (expiredIds.has(id)) stillReferenced.add(id);
   }
-  return failures;
+  return { failures, stillReferenced };
+}
+
+function referencedIds(task: Task): string[] {
+  return [...(task.epic === undefined ? [] : [task.epic]), ...task.blockedBy, ...task.related];
 }
 
 async function removeExpired(expired: readonly Task[], now: Date): Promise<RemovalStep> {

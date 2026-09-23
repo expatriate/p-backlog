@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 export const PROJECT_FILE = "project.md";
 
@@ -14,4 +14,9 @@ export function resolveBacklogRoot(env: Record<string, string | undefined>, home
 
 export function taskFileName(id: string): string {
   return `${id}.md`;
+}
+
+export function projectDir(root: string, id: string): string | null {
+  const isPlainName = id !== "" && id !== "." && id !== ".." && basename(id) === id && !id.includes("\\");
+  return isPlainName ? join(root, id) : null;
 }

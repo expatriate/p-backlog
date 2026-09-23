@@ -1,5 +1,5 @@
-import { appendFile } from "node:fs/promises";
-import { join } from "node:path";
+import { appendFile, readFile } from "node:fs/promises";
+import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { CodeReport, ConflictResponse, ProjectView, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
 import { readJournal } from "../core/store/journal";
@@ -422,6 +422,18 @@ describe("PATCH и DELETE /api/projects/:id", () => {
 
     expect((await backlog.json("/api/projects/spa", "PATCH", { active: true })).status).toBe(404);
     expect((await backlog.json("/api/projects/spa", "DELETE", { confirm: "spa" })).status).toBe(404);
+  });
+
+  it("id проекта не выводит за каталог беклога", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const outside = await makeTempDir();
+    await writeFiles(outside, { "project.md": projectFile("OUT") });
+    const escapingId = relative(backlog.root, outside);
+
+    const url = `/api/projects/${encodeURIComponent(escapingId)}`;
+    expect((await backlog.json(url, "PATCH", { active: false })).status).toBe(404);
+    expect((await backlog.json(url, "DELETE", { confirm: escapingId })).status).toBe(404);
+    expect(await readFile(join(outside, "project.md"), "utf8")).toBe(projectFile("OUT"));
   });
 });
 

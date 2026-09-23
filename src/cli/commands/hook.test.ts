@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { NBSP } from "../../core/stats/format";
 import { readJournal } from "../../core/store/journal";
+import { SIGNALS_SHOWN_FILE } from "../../core/store/signals-shown";
 import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
@@ -52,7 +53,7 @@ describe("backlog hook stop", () => {
     expect(JSON.parse(first.out)).toEqual({ systemMessage: "Беклог spa: Срочные задачи ждут дольше 7 дней: 1" });
     expect(again.out).toBe("");
     expect(JSON.parse(nextDay.out)).toEqual({ systemMessage: "Беклог spa: Срочные задачи ждут дольше 7 дней: 1" });
-    expect(JSON.parse(await readFile(join(root, "spa", "signals-shown.json"), "utf8"))).toEqual({ "urgent-stale": "2026-09-18" });
+    expect(JSON.parse(await readFile(join(root, "spa", SIGNALS_SHOWN_FILE), "utf8"))).toEqual({ "urgent-stale": "2026-09-18" });
   });
 
   it("вместе с кандидатами — и блокировка, и сообщение", async () => {

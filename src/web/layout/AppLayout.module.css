@@ -54,14 +54,6 @@
   background: var(--accent);
 }
 
-.groupLabel {
-  margin-bottom: calc(-1 * var(--space-2));
-  padding: 0 var(--space-2);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-  color: var(--ink-subtle);
-}
-
 .projects {
   display: flex;
   flex-direction: column;
@@ -73,6 +65,7 @@
 
 .row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   padding: 6px var(--space-2);
@@ -166,11 +159,6 @@
   min-width: 0;
   color: inherit;
   text-decoration: none;
-}
-
-.inactive .projectName,
-.inactive .count {
-  color: var(--ink-subtle);
 }
 
 .project {

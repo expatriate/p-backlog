@@ -87,7 +87,6 @@ export function Popover({ trigger, triggerProps, triggerRef, panelClassName, chi
         id={triggerId}
         ref={button}
         aria-expanded={open}
-        aria-haspopup="dialog"
         aria-controls={open ? panelId : undefined}
         onClick={() => setOpen(!open)}
       >

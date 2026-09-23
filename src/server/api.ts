@@ -1,11 +1,10 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import { projectActiveSchema, projectDeleteSchema, updateTaskRequestSchema, type ProjectView } from "../core/api/contract";
 import { createCodeCacheFile } from "../core/code/code-cache";
 import { createCodeSource } from "../core/code/code-source";
+import { hasCodeGraph } from "../core/graph/code-graph";
 import type { Project, Task } from "../core/model/types";
 import { formatIssues } from "../core/model/zod-issues";
 import { formatLocalDay } from "../core/model/dates";
@@ -21,6 +20,7 @@ import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { readJournals } from "../core/store/journal";
 import { readRuns } from "../core/store/runs";
 import { deleteProject, setProjectActive } from "../core/store/projects";
+import { expandHome } from "../core/store/paths";
 import { findProjectForRepoRoot, findRepoRoot } from "../core/store/resolve-project";
 import { updateTask } from "../core/store/update";
 import type { UsageCache } from "../core/usage/usage-cache";
@@ -51,7 +51,7 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
   };
   changes.subscribe(forgetBacklog);
 
-  api.get("/projects", async (c) => c.json((await backlog()).projects.map((project): ProjectView => ({ ...project, codeGraph: hasCodeGraph(project) }))));
+  api.get("/projects", async (c) => c.json((await backlog()).projects.map((project): ProjectView => ({ ...project, codeGraph: project.repos.some((repo) => hasCodeGraph(expandHome(repo, home))) }))));
 
   api.get("/tasks", async (c) => {
     const { tasks, errors } = await backlog();
@@ -153,7 +153,9 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
     const id = c.req.param("id");
     const result = await setProjectActive(root, id, body.data.active);
     forgetBacklog();
-    return result.ok ? c.json(result.project) : c.json({ errors: [`Проект ${id} не найден`] }, 404);
+    if (result.ok) return c.json(result.project);
+    if (result.reason === "invalid") return c.json({ errors: [result.message] }, 422);
+    return c.json({ errors: [`Проект ${id} не найден`] }, 404);
   });
 
   api.delete("/projects/:id", async (c) => {
@@ -215,8 +217,4 @@ function repoRootOrNull(cwd: string): string | null {
   } catch {
     return null;
   }
-}
-
-function hasCodeGraph(project: Project): boolean {
-  return project.repos.some((repo) => existsSync(join(repo, ".code-review-graph", "graph.db")));
 }

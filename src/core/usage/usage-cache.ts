@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { TranscriptState, UsageBucket } from "../stats/types";
 import { parseJson, readTextOrNull, writeFileAtomic } from "../store/fs-utils";
 
-export const USAGE_CACHE_FILE = ".usage-cache.json";
+const USAGE_CACHE_FILE = ".usage-cache.json";
 
 export type UsageCacheEntry = { size: number; offset: number; fingerprint: string; state: TranscriptState; buckets: UsageBucket[] };
 export const USAGE_CACHE_VERSION = 4;

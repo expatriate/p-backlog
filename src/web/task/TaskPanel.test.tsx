@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { loadBacklog } from "../../core/store/load";
+import { updateTask } from "../../core/store/update";
 import { projectFile } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
@@ -254,6 +255,24 @@ describe("черновик описания при уходе с задачи", 
     await app.user.type(within(panel).getByRole("textbox", { name: "Описание задачи" }), " черновик");
     return panel;
   }
+
+  it("правка агента, пришедшая во время черновика, не затирается молча: сохранение сперва предупреждает", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await startDraft(app);
+    const agentBody = "Описание\n\nДописано агентом\n";
+    await updateTask(app.root, { id: "SPA-1", changes: { body: agentBody }, now: new Date(), via: "cli" });
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Статус" }), "in-progress");
+    expect(await within(panel).findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("Задача изменилась на диске"));
+
+    await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
+
+    await waitFor(() => expect(within(panel).getByRole("alert").textContent).toContain("Описание изменилось на диске"));
+    expect((await taskOnDisk(app.root, "SPA-1")).body).toBe(agentBody);
+
+    await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
+
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("черновик"));
+  });
 
   it("закрытие карточки спрашивает: отказ оставляет черновик, согласие закрывает", async () => {
     const confirm = stubConfirm(false);

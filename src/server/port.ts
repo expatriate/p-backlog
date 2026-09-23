@@ -1,4 +1,4 @@
-export const DEFAULT_PORT = 4317;
+const DEFAULT_PORT = 4317;
 
 export function readPort(value: string | undefined): number {
   const port = Number(value);

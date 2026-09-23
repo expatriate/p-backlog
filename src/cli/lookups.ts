@@ -2,7 +2,7 @@ import { basename } from "node:path";
 import type { Project, Task } from "../core/model/types";
 import { createProject } from "../core/store/create";
 import type { LoadedBacklog } from "../core/store/load";
-import { findProjectForDir, findRepoRoot } from "../core/store/resolve-project";
+import { findGitRoot, findProjectForDir } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
 
 export function requireTask(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
@@ -28,7 +28,12 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
   if (explicitId !== undefined) return requireProject(loaded, io, explicitId);
   const existing = findProject(loaded, io, undefined);
   if (existing) return existing;
-  const created = await createProject(io.backlogRoot, findRepoRoot(io.cwd), loaded.projects);
+  const gitRoot = findGitRoot(io.cwd);
+  if (gitRoot === null) {
+    io.warn(`${io.cwd} не в git-репозитории: проект не создан. Укажите --project <id> или запустите команду из репозитория`);
+    return undefined;
+  }
+  const created = await createProject(io.backlogRoot, gitRoot, loaded.projects);
   io.warn(`Создан проект ${created.id} (${created.prefix})`);
   return created;
 }

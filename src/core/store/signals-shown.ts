@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { SignalsShown } from "../stats/signals/shown";
 import { parseJson, readTextOrNull, writeFileAtomic } from "./fs-utils";
 
-export const SIGNALS_SHOWN_FILE = "signals-shown.json";
+export const SIGNALS_SHOWN_FILE = ".signals-shown.json";
 
 const shownSchema = z.record(z.string(), z.string());
 

@@ -36,11 +36,11 @@ async function moveOne(loaded: LoadedBacklog, id: string, epic: Task | null, io:
   if (!task) return EXIT.notFound;
   if (task.type === "epic") {
     io.warn(`${task.id} — эпик, эпик не может входить в другой эпик`);
-    return EXIT.refused;
+    return EXIT.invalid;
   }
   if (epic !== null && epic.id === task.id) {
     io.warn(`${task.id} не может быть своим эпиком`);
-    return EXIT.refused;
+    return EXIT.invalid;
   }
   const written = await writeTask(io, task, { epic: epic === null ? null : epic.id });
   if (!written.ok) return written.exitCode;

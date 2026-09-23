@@ -33,8 +33,7 @@
   background: var(--accent);
 }
 
-.lastDay .value,
-.urgent {
+.lastDay .value {
   color: var(--accent-ink);
 }
 

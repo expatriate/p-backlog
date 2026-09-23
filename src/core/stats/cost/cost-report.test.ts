@@ -40,7 +40,7 @@ describe("отчёт о стоимости", () => {
 
     const report = costReport({ buckets, runs, projectOf: PROJECT_OF, now: NOW, scan: SCAN });
 
-    expect(report.totals).toEqual({ tokens: 1500, cost: (1000 * 2 + 200 * 10 + 300 * 2 * 1.25) / 1_000_000, hookTurns: 0, cliRuns: 0, hookRuns: 1 });
+    expect(report.totals).toEqual({ tokens: 1500, cost: (1000 * 2 + 200 * 10 + 300 * 2 * 1.25) / 1_000_000, hasUnpricedTokens: false, hookTurns: 0, cliRuns: 0, hookRuns: 1 });
     expect(report.days).toHaveLength(30);
     expect(report.days[29]).toMatchObject({ day: dayAt(0), hookTokens: 1200, cliTokens: 0 });
     expect(report.days[23]).toMatchObject({ day: dayAt(6), hookTokens: 0, cliTokens: 300 });
@@ -73,11 +73,20 @@ describe("отчёт о стоимости", () => {
 
     const report = costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
 
-    expect(report.totals.cost).toBe((1000 * 2) / 1_000_000);
+    expect(report.totals).toMatchObject({ cost: (1000 * 2) / 1_000_000, hasUnpricedTokens: true });
     const unknown = report.models.find((model) => model.model === "claude-unknown-9");
     const known = report.models.find((model) => model.model === "claude-sonnet-5");
     expect(unknown).toMatchObject({ tokens: 1000, cost: null });
     expect(known).toMatchObject({ tokens: 1000, cost: (1000 * 2) / 1_000_000 });
+  });
+
+  it("модель без цены вне недели итогов не помечает недельную стоимость как неполную", () => {
+    const buckets = [bucket({ model: "claude-unknown-9", day: dayAt(20) }), bucket({ model: "claude-sonnet-5" })];
+
+    const report = costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
+
+    expect(report.totals.hasUnpricedTokens).toBe(false);
+    expect(report.models.map((model) => model.model)).toContain("claude-unknown-9");
   });
 
   it("период целиком без цены — cost периода null", () => {

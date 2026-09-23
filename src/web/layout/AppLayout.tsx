@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { listPath, statsPath } from "../app/paths";
 import { Link, matchPath, NavLink, Outlet, useLocation } from "react-router";
-import { buildIndex } from "../../core/model/graph";
 import type { ProjectView } from "../../core/api/contract";
+import type { Task } from "../../core/model/types";
 import { useProjects, useSignals, useTasks } from "../app/queries";
-import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
+import { OPEN_STATUSES } from "../../core/model/query";
+import { countBy } from "../../core/stats/numbers";
 import { activeProjectIds, tasksInScope } from "../app/scope";
 import { plural, pluralCount } from "../../core/stats/format";
 import { cx } from "../ui/cx";
@@ -19,17 +20,16 @@ export function AppLayout() {
   const { pathname, search } = useLocation();
 
   const allTasks = useMemo(() => tasks.data?.tasks ?? [], [tasks.data]);
-  const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const allProjects = useMemo(() => projects.data ?? [], [projects.data]);
   const activeIds = useMemo(() => activeProjectIds(allProjects), [allProjects]);
-  const openCount = (projectId?: string) => filterTasks(tasksInScope(allTasks, projectId, activeIds), { statuses: OPEN_STATUSES }, index).length;
+  const counts = useMemo(() => taskCounts(allTasks, activeIds), [allTasks, activeIds]);
   const projectId = matchPath("/p/:projectId/*", pathname)?.params.projectId;
   const signals = useSignals(projectId);
   const signalCount = signals.data?.signals.length ?? 0;
   const statsTab = (matchPath("/stats/*", pathname) ?? matchPath("/p/:projectId/stats/*", pathname))?.params["*"];
   const onStats = statsTab !== undefined;
   const scopePath = (id?: string) => (onStats ? `${statsPath(id)}${statsTab === "" ? "" : `/${statsTab}`}` : listPath(id));
-  const scopeTasks = openCount();
+  const scopeTasks = counts.scopeOpen;
   const withoutGraph = useMemo(() => allProjects.filter((project) => project.active && project.repos.length > 0 && !project.codeGraph), [allProjects]);
   const [listOpen, setListOpen] = useState(true);
 
@@ -83,7 +83,14 @@ export function AppLayout() {
           {listOpen ? (
             <ul className={styles.projects} id={PROJECT_LIST_ID} aria-label="Проекты">
               {allProjects.map((project) => (
-                <ProjectRow key={project.id} project={project} to={scopePath(project.id)} search={onStats ? "" : search} name={project.name} openTasks={openCount(project.id)} />
+                <ProjectRow
+                  key={project.id}
+                  project={project}
+                  to={scopePath(project.id)}
+                  search={onStats ? "" : search}
+                  openTasks={counts.openByProject.get(project.id) ?? 0}
+                  taskCount={counts.totalByProject.get(project.id) ?? 0}
+                />
               ))}
             </ul>
           ) : (
@@ -106,21 +113,32 @@ export function AppLayout() {
   );
 }
 
-type ProjectRowProps = { name: string; to: string; search: string; openTasks: number; project: ProjectView };
+type ProjectRowProps = { to: string; search: string; openTasks: number; taskCount: number; project: ProjectView };
 
-function ProjectRow({ name, to, search, openTasks, project }: ProjectRowProps) {
+function ProjectRow({ to, search, openTasks, taskCount, project }: ProjectRowProps) {
   return (
     <li className={cx(styles.row, !project.active && styles.muted)}>
       <ProjectCheckbox project={project} />
       <NavLink to={{ pathname: to, search }} aria-current="true" className={cx(styles.rowLink)}>
-        <span className={styles.projectName} title={name}>
-          {name}
+        <span className={styles.projectName} title={project.name}>
+          {project.name}
         </span>
       </NavLink>
       <span className={styles.count}>{openTasks}</span>
-      <ProjectDeleteButton project={project} openTasks={openTasks} />
+      <ProjectDeleteButton project={project} taskCount={taskCount} />
     </li>
   );
+}
+
+type TaskCounts = { scopeOpen: number; openByProject: ReadonlyMap<string, number>; totalByProject: ReadonlyMap<string, number> };
+
+function taskCounts(tasks: readonly Task[], activeIds: ReadonlySet<string>): TaskCounts {
+  const open = tasks.filter((task) => OPEN_STATUSES.includes(task.status));
+  return {
+    scopeOpen: tasksInScope(open, undefined, activeIds).length,
+    openByProject: countBy(open, (task) => task.projectId),
+    totalByProject: countBy(tasks, (task) => task.projectId),
+  };
 }
 
 function Chevron({ open }: { open: boolean }) {

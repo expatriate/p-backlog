@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { NBSP, plural, pluralCount } from "../../core/stats/format";
+import { NBSP, pluralCount } from "../../core/stats/format";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { EffectTotals } from "../../core/stats/types";
-import { codeAndTests, formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
+import { codeAndTests, formatApprox, formatLines, formatNoiseShare, isEstimated, linesText } from "./effect-format";
 import { Panel } from "./Panel";
 import styles from "./EffectExplainer.module.css";
 import { STATS_PERIOD_GENITIVE } from "./periods";
@@ -39,10 +39,6 @@ export function EffectExplainer({ totals }: { totals: EffectTotals }) {
 
 function Now({ children }: { children: ReactNode }) {
   return <span className={styles.now}>Сейчас: {children}</span>;
-}
-
-function linesText(lines: number, approx: boolean): string {
-  return `${formatApprox(lines, approx)}${NBSP}${plural(Math.round(lines), "строка", "строки", "строк")}`;
 }
 
 function pendingText(totals: EffectTotals): string {

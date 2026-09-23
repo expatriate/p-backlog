@@ -9,7 +9,7 @@ export const RUNS_FILE = ".runs.jsonl";
 
 export type { CliRun } from "../stats/types";
 
-export const RUNS_KEPT_DAYS = 30;
+const RUNS_KEPT_DAYS = 30;
 
 const cliRunSchema = z.object({
   at: z.iso.datetime({ offset: true }),

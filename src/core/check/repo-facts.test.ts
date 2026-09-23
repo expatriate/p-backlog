@@ -32,6 +32,20 @@ describe("collectRepoFacts", () => {
     expect(facts.existing).toEqual(new Set(["src/a.ts", "src/new.ts"]));
   });
 
+  it("репозиторий проекта — подкаталог git: пути коммитов и незакоммиченных правок от каталога проекта", async () => {
+    const mono = await makeGitRepo(await makeTempDir(), "mono");
+    await writeFiles(mono, { "app/src/a.ts": "export const a = 1;\n", "lib/b.ts": "export const b = 1;\n" });
+    gitCommitAll(mono, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(mono, { "app/src/a.ts": "export const a = 2;\n", "lib/b.ts": "export const b = 2;\n" });
+    gitCommitAll(mono, "Поправить a и b", "2026-09-12T10:00:00+03:00");
+    await writeFiles(mono, { "app/src/a.ts": "export const a = 3;\n", "lib/b.ts": "export const b = 3;\n" });
+
+    const facts = await collectRepoFacts(join(mono, "app"), { since: new Date("2026-09-11T00:00:00Z"), paths: ["src/a.ts"] });
+
+    expect(facts.commits.map(({ files }) => files)).toEqual([[{ path: "src/a.ts" }]]);
+    expect([...facts.dirtyModifiedAt.keys()]).toEqual(["src/a.ts"]);
+  });
+
   it("каталог без git: только существование файлов", async () => {
     const dir = await makeTempDir();
     await writeFiles(dir, { "src/a.ts": "" });

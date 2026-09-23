@@ -1,16 +1,19 @@
+import { realpathSync } from "node:fs";
+import { relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { sourcePath } from "../../core/check/candidates";
 import { buildIndex, epicChildren, isClosed, openBlockers, type BacklogIndex } from "../../core/model/graph";
 import { pickNextTask } from "../../core/model/query";
-import type { Task } from "../../core/model/types";
+import type { Project, Task } from "../../core/model/types";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
+import { findGitRoot, findProjectForRepoRoot } from "../../core/store/resolve-project";
 import { formatTaskRef } from "../format";
 import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
-
-const USAGE = "Использование: backlog take <ID> | backlog take --next | backlog take --path <путь>";
 import { requireProject, requireTask } from "../lookups";
 import { writeTask } from "../task-write";
 import { printTask } from "./show";
+
+const USAGE = "Использование: backlog take <ID> | backlog take --next | backlog take --path <путь>";
 
 type Refusal = { code: number; lines: string[] };
 
@@ -57,7 +60,7 @@ function takeMode(values: { path?: string | undefined; next: boolean }, position
 async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projectId: string | undefined, { json }: { json: boolean }): Promise<number> {
   const project = requireProject(loaded, io, projectId);
   if (!project) return EXIT.notFound;
-  const target = sourcePath(path);
+  const target = repoRelativePath(io, project, path);
   const index = buildIndex(loaded.tasks);
   const matching = loaded.tasks.filter((task) => task.projectId === project.id && isOpenTaskAt(task, target));
   const takeable = matching.filter((task) => {
@@ -67,7 +70,7 @@ async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projec
   });
   if (takeable.length === 0) {
     if (matching.length > 0) return EXIT.refused;
-    io.warn(`Открытых задач по ${target} нет`);
+    io.warn(`Открытых задач по ${path} нет`);
     return EXIT.notFound;
   }
   for (const [position, task] of takeable.entries()) {
@@ -84,7 +87,15 @@ function isOpenTaskAt(task: Task, path: string): boolean {
 }
 
 function isInside(file: string, path: string): boolean {
-  return file === path || file.startsWith(`${path}/`);
+  return path === "" || file === path || file.startsWith(`${path}/`);
+}
+
+function repoRelativePath(io: CliIo, project: Project, path: string): string {
+  const gitRoot = findGitRoot(io.cwd);
+  if (gitRoot === null || findProjectForRepoRoot([project], gitRoot, io.home) === undefined) return sourcePath(path);
+  const fromRoot = relative(gitRoot, resolve(realpathSync(io.cwd), sourcePath(path))).split(sep).join("/");
+  const outsideRepo = fromRoot === ".." || fromRoot.startsWith("../");
+  return outsideRepo ? sourcePath(path) : fromRoot;
 }
 
 async function takeOne(task: Task, io: CliIo, { json }: { json: boolean }): Promise<number> {

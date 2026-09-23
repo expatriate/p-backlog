@@ -2,7 +2,6 @@ import type { TokenCounts } from "../types";
 
 export type ModelPrice = { input: number; output: number; cacheRead: number };
 
-export const PRICES_AS_OF = "2026-06-24";
 
 const FAST_PRICED_MODEL = "claude-opus-5";
 const FAST_MODEL_SUFFIX = " (быстрый режим)";

@@ -36,7 +36,8 @@ export function TaskListPage() {
   const tones = useMemo(() => epicTones(allTasks), [allTasks]);
   const visibleTasks = useMemo(() => sortTasks(filterTasks(scopedTasks, params.filter, index), sort, index), [scopedTasks, index, params.filter, sort]);
   const epicFilterChoices = useMemo(() => epicChoices(scopedTasks, tones), [scopedTasks, tones]);
-  const autoClosedCount = filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, index).length;
+  const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, index).length, [scopedTasks, index]);
+  const tags = useMemo(() => collectTags(scopedTasks), [scopedTasks]);
 
   const projectName =
     projectId === undefined ? undefined : (projects.data?.find((project) => project.id === projectId)?.name ?? projectId);
@@ -58,7 +59,7 @@ export function TaskListPage() {
     <main id="content" tabIndex={-1} className={styles.page}>
       <div className={styles.list}>
         <h1 className={styles.heading}>{viewTitle}</h1>
-        <Toolbar params={params} onChange={setParams} tags={collectTags(scopedTasks)} epicChoices={epicFilterChoices} autoClosedCount={autoClosedCount} />
+        <Toolbar params={params} onChange={setParams} tags={tags} epicChoices={epicFilterChoices} autoClosedCount={autoClosedCount} />
 
         {parseErrors.length > 0 && (
           <div className={styles.warning} role="status">

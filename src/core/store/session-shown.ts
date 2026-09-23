@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { parseJson, readTextOrNull, writeFileAtomic } from "./fs-utils";
 
-export const SESSION_SHOWN_FILE = "candidates-shown.json";
+const SESSION_SHOWN_FILE = ".candidates-shown.json";
 
 export type SessionShown = { session: string; tasks: string[] };
 

@@ -11,7 +11,7 @@ export type ChangeFeed = {
 
 export type Debouncer = { schedule: () => void; cancel: () => void };
 
-export const CHANGE_DEBOUNCE_MS = 100;
+const CHANGE_DEBOUNCE_MS = 100;
 
 export function createDebouncer(delayMs: number, run: () => void): Debouncer {
   let timer: NodeJS.Timeout | undefined;

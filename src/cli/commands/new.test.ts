@@ -118,6 +118,15 @@ describe("backlog new", () => {
     expect(events[1]).not.toHaveProperty("origin");
   });
 
+  it("вне git проект не создаётся: иначе он поглотил бы все репозитории внутри каталога", async () => {
+    const { run, root, home } = await makeCliSandbox();
+
+    const result = await run(["new", "--category", "bug", "--title", "Первая"], { cwd: home });
+
+    expect(result.code).toBe(EXIT.notFound);
+    expect((await loadBacklog(root)).projects).toEqual([]);
+  });
+
   it("неизвестные категория и «как найдена» — код 1", async () => {
     const { run } = await makeCliSandbox();
 

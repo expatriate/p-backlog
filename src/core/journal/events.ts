@@ -3,7 +3,7 @@ import { formatLocalIso } from "../model/dates";
 import { isClosed } from "../model/graph";
 import { PRIORITIES, RESOLUTIONS, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskFrontmatterSchema, type Task } from "../model/types";
 
-export const CHANGE_SOURCES = ["cli", "web", "check", "sweep"] as const;
+const CHANGE_SOURCES = ["cli", "web", "check", "sweep"] as const;
 
 export type ChangeSource = (typeof CHANGE_SOURCES)[number];
 
@@ -19,7 +19,7 @@ export const CANDIDATE_EVIDENCE = ["source-changed", "source-missing", "duplicat
 
 export type CandidateEvidence = (typeof CANDIDATE_EVIDENCE)[number];
 
-export const CHECK_MODES = ["full", "changed"] as const;
+const CHECK_MODES = ["full", "changed"] as const;
 
 export type CheckMode = (typeof CHECK_MODES)[number];
 

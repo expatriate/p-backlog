@@ -174,4 +174,4 @@ description: Use when, while working on code, you notice a problem outside the c
 
 Сводка и тревоги — `backlog stats`.
 
-Сменить категорию — `backlog category <ID> <категория|none>`.
+Сменить категорию — `backlog category <ID> <категория|none>`. Сменить приоритет — `backlog priority <ID> <low|medium|high|critical>`.

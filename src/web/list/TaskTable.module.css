@@ -127,10 +127,6 @@
   font-weight: 600;
 }
 
-.progress {
-  width: 120px;
-}
-
 .date {
   color: var(--ink-subtle);
   font-variant-numeric: tabular-nums;

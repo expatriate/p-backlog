@@ -2,7 +2,6 @@ import { FIELD, RECORD, type GitRunner } from "../git/run";
 import type { CommitUnit, FixCommit, RepoCode } from "../stats/types";
 import { isTestPath } from "./test-paths";
 
-const LOG_RECORD_SEPARATOR = `${RECORD}\0\n`;
 const LOCK_FILES = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"];
 const LOCK_EXCLUDES = LOCK_FILES.map((name) => `:!*${name}`);
 const NON_CODE_EXTENSIONS = [".md", ".mdx", ".svg"];
@@ -125,8 +124,8 @@ function numstatLines(rows: readonly string[]): number {
 
 function parseCommits(output: string): string[][] {
   return output
-    .split(LOG_RECORD_SEPARATOR)
-    .map((record) => record.split("\0").filter((file) => file !== ""))
+    .split(RECORD)
+    .map((record) => record.split("\0").map((file) => file.replace(/^\n/, "")).filter((file) => file !== ""))
     .filter((files) => files.length > 0);
 }
 

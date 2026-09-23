@@ -18,14 +18,16 @@ export type RepoFacts = {
 const DIFF_LINE_LIMIT = 80;
 
 export async function collectRepoFacts(repo: string, { since, paths }: { since: Date; paths: readonly string[] }): Promise<RepoFacts> {
-  const [log, status, existing] = await Promise.all([
-    git(repo, ["log", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%s`, "--name-status", "-M"]),
+  const [log, status, prefix, existing] = await Promise.all([
+    git(repo, ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%s`, "--name-status", "-M"]),
     git(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
+    git(repo, ["rev-parse", "--show-prefix"]),
     existingPaths(repo, paths),
   ]);
   const texts = await fileTexts(repo, [...existing]);
-  if (log === null || status === null) return { isGit: false, commits: [], dirtyModifiedAt: new Map(), existing, texts };
-  return { isGit: true, commits: parseLog(log), dirtyModifiedAt: await modificationTimes(repo, parseStatus(status)), existing, texts };
+  if (log === null || status === null || prefix === null) return { isGit: false, commits: [], dirtyModifiedAt: new Map(), existing, texts };
+  const dirty = withinRepo(parseStatus(status), prefix.trim());
+  return { isGit: true, commits: parseLog(log), dirtyModifiedAt: await modificationTimes(repo, dirty), existing, texts };
 }
 
 export async function diffSince(repo: string, path: string, since: Date): Promise<string | undefined> {
@@ -86,6 +88,10 @@ function parseStatus(output: string): string[] {
     if (/^[RC]/.test(entry)) index++;
   }
   return paths;
+}
+
+function withinRepo(gitRootPaths: readonly string[], prefix: string): string[] {
+  return gitRootPaths.filter((path) => path.startsWith(prefix)).map((path) => path.slice(prefix.length));
 }
 
 async function modificationTimes(repo: string, paths: readonly string[]): Promise<Map<string, number>> {

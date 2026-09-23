@@ -6,6 +6,7 @@ import { runClose } from "./commands/close";
 import { runHook } from "./commands/hook";
 import { runList } from "./commands/list";
 import { runNew } from "./commands/new";
+import { runPriority } from "./commands/priority";
 import { runShow } from "./commands/show";
 import { runStats } from "./commands/stats";
 import { runStatus } from "./commands/status";
@@ -29,6 +30,7 @@ const USAGE = `Использование:
   backlog take --next [--project id] [--json]
   backlog take --path <файл|каталог> [--project id]   (все открытые задачи внутри пути)
   backlog status <ID> <backlog|in-progress|blocked|done|cancelled>
+  backlog priority <ID> <low|medium|high|critical>
   backlog category <ID> <${TASK_CATEGORIES.join("|")}|none>
   backlog epic <ID> [<ID> …] --to <ID эпика|none>   (переносит задачи в эпик или вынимает из него)
   backlog check [--changed] [--project id | --all-projects] [--json]
@@ -49,6 +51,7 @@ const COMMANDS = new Map<string, (args: string[], io: CliIo) => Promise<number>>
   ["show", runShow],
   ["take", runTake],
   ["status", runStatus],
+  ["priority", runPriority],
   ["category", runCategory],
   ["epic", runEpic],
   ["check", runCheck],
@@ -59,7 +62,7 @@ const COMMANDS = new Map<string, (args: string[], io: CliIo) => Promise<number>>
   ["hook", runHook],
 ]);
 
-export const COMMAND_NAMES: readonly string[] = [...COMMANDS.keys()];
+const COMMAND_NAMES: readonly string[] = [...COMMANDS.keys()];
 
 export async function runCli(argv: readonly string[], io: CliIo): Promise<number> {
   const [name, ...args] = argv;

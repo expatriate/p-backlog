@@ -1,12 +1,12 @@
 import { useId } from "react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
-import { NBSP, plural, pluralCount } from "../../core/stats/format";
+import { pluralCount } from "../../core/stats/format";
 import type { EffectPeriod, EffectTotals } from "../../core/stats/types";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay, tooltipWeek } from "./charts/chart-format";
 import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, chartLabel, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
-import { formatApprox, formatNoiseShare, isEstimated } from "./effect-format";
+import { formatApprox, formatNoiseShare, isEstimated, linesText } from "./effect-format";
 
 export type Grain = "week" | "day";
 
@@ -18,7 +18,7 @@ const LEGEND: LegendItem[] = [
   { label: "вынесено в беклог", shape: "hatch", color: DEFERRED },
 ];
 
-const tooltipOf = (grain: Grain) =>
+const periodTooltip = (grain: Grain) =>
   rowTooltip((period: EffectPeriod) => ({
     title: grain === "week" ? tooltipWeek(period.start) : tooltipDay(period.start),
     rows: [
@@ -30,10 +30,12 @@ const tooltipOf = (grain: Grain) =>
     ],
   }));
 
+const TOOLTIPS: Record<Grain, ReturnType<typeof periodTooltip>> = { week: periodTooltip("week"), day: periodTooltip("day") };
+
 export function EffectWeeksChart({ periods, totals, grain }: { periods: EffectPeriod[]; totals: EffectTotals; grain: Grain }) {
   const patternId = useId();
-  const deferredText = formatApprox(totals.deferredLines, isEstimated(totals.estimatedLines));
-  const summary = `С внедрения беклога: в пулреквестах ${pluralCount(totals.realLines, "строка", "строки", "строк")}, вынесено ${deferredText}${NBSP}${plural(totals.deferredLines, "строка", "строки", "строк")}, шум без беклога ${formatNoiseShare(totals.noiseShare)}`;
+  const deferred = linesText(totals.deferredLines, isEstimated(totals.estimatedLines));
+  const summary = `С внедрения беклога: в пулреквестах ${pluralCount(totals.realLines, "строка", "строки", "строк")}, вынесено ${deferred}, шум без беклога ${formatNoiseShare(totals.noiseShare)}`;
   return (
     <ChartFrame summary={summary} legend={LEGEND}>
       <BarChart data={periods} margin={CHART_MARGIN} aria-label={chartLabel("Эффективность", grain === "week" ? "неделям" : "дням")}>
@@ -46,7 +48,7 @@ export function EffectWeeksChart({ periods, totals, grain }: { periods: EffectPe
         <CartesianGrid vertical={false} />
         <XAxis dataKey="start" tickFormatter={axisDay} {...DATE_AXIS_PROPS} />
         <YAxis tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
-        <Tooltip content={tooltipOf(grain)} {...TOOLTIP_PROPS} />
+        <Tooltip content={TOOLTIPS[grain]} {...TOOLTIP_PROPS} />
         <Bar dataKey="onTopicLines" stackId="lines" fill={REAL} isAnimationActive={false} />
         <Bar dataKey="deferredLines" stackId="lines" fill={`url(#${patternId})`} radius={BAR_RADIUS} isAnimationActive={false} />
       </BarChart>

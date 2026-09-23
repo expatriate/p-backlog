@@ -29,16 +29,6 @@ export function DeletionBar({ task, now }: { task: Task; now: Date }) {
   );
 }
 
-export function DeletionLabel({ task, now }: { task: Task; now: Date }) {
-  const deletion = deletionFor(task, now);
-  if (deletion === undefined) return null;
-  return (
-    <span className={cx(styles.value, deletion.lastDay && styles.urgent)} title={deletion.title}>
-      {deletion.text}
-    </span>
-  );
-}
-
 function deletionFor(task: Task, now: Date): Deletion | undefined {
   const deletesAt = deletionDate(task);
   if (deletesAt === undefined) return undefined;

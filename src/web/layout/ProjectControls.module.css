@@ -33,3 +33,10 @@
   background: var(--surface-hover);
   color: var(--accent-ink);
 }
+
+.error {
+  flex-basis: 100%;
+  order: 1;
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+}

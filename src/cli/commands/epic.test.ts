@@ -30,7 +30,7 @@ describe("backlog epic", () => {
     expect((await run(["epic", "SPA-2", "--to", "SPA-2"])).code).toBe(EXIT.invalid);
     expect((await run(["epic", "SPA-2", "--to", "SPA-40"])).code).toBe(EXIT.notFound);
     expect((await run(["epic", "SPA-40", "--to", "SPA-1"])).code).toBe(EXIT.notFound);
-    expect(await run(["epic", "SPA-3", "--to", "SPA-1"])).toMatchObject({ code: EXIT.refused, err: "SPA-3 — эпик, эпик не может входить в другой эпик" });
+    expect(await run(["epic", "SPA-3", "--to", "SPA-1"])).toMatchObject({ code: EXIT.invalid, err: "SPA-3 — эпик, эпик не может входить в другой эпик" });
     expect((await run(["epic", "SPA-2"])).code).toBe(EXIT.invalid);
     expect((await run(["epic", "--to", "SPA-1"])).code).toBe(EXIT.invalid);
 

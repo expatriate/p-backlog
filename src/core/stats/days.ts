@@ -20,7 +20,7 @@ export function dailyIntake(histories: readonly TaskHistory[], now: Date): DayFl
 export function dayWindows(now: Date, count = STATS_DAYS): { start: Date; inWindow: (moment: number) => boolean }[] {
   return Array.from({ length: count }, (_, index) => {
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (count - 1 - index));
-    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1).getTime();
+    const end = index === count - 1 ? now.getTime() + 1 : new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1).getTime();
     return { start, inWindow: (moment: number) => moment >= start.getTime() && moment < end };
   });
 }

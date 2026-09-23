@@ -195,10 +195,29 @@ describe("sweepClosed", () => {
     expect(await sweepClosed(root, NOW)).toEqual({
       closedEpics: [],
       blockingFiles: [],
-      deleted: ["SPA-3"],
+      deleted: [],
       conflicts: [],
       invalid: [{ id: "SPA-1", errors: ["задача не может блокировать саму себя"] }],
     });
+  });
+
+  it("не удаляет просроченную задачу, пока ссылку на неё не удалось снять: иначе ссылка повиснет навсегда", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", `type: epic\nstatus: done\n${EXPIRED}`),
+      "spa/SPA-2.md": taskFile("SPA-2", "epic: SPA-1\nblockedBy: [SPA-2]\n"),
+      "spa/SPA-3.md": taskFile("SPA-3", `status: done\n${EXPIRED}`),
+    });
+
+    const first = await sweepClosed(root, NOW);
+    expect(first.deleted).toEqual(["SPA-3"]);
+    expect(await exists(join(root, "spa/SPA-1.md"))).toBe(true);
+
+    await writeFiles(root, { "spa/SPA-2.md": taskFile("SPA-2", "epic: SPA-1\n") });
+
+    expect((await sweepClosed(root, NOW)).deleted).toEqual(["SPA-1"]);
+    expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-2")?.epic).toBeUndefined();
   });
 
   it("неразобранный файл, когда закрывать нечего, в итог не попадает", async () => {

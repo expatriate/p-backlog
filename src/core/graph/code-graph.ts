@@ -1,4 +1,4 @@
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 
@@ -10,6 +10,10 @@ export type CodeGraph = {
 };
 
 const GRAPH_FILE = join(".code-review-graph", "graph.db");
+
+export function hasCodeGraph(repo: string): boolean {
+  return existsSync(join(repo, GRAPH_FILE));
+}
 const SUPPORTED_SCHEMA = "13";
 
 type SymbolRow = { name: string; line_start: number; line_end: number };

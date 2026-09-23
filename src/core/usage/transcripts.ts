@@ -32,9 +32,8 @@ export async function listTranscripts(claudeProjectsDir: string): Promise<Transc
         continue;
       }
       if (!entry.isDirectory()) continue;
-      const subagentsDir = join(entryPath, "subagents");
-      for (const subagentEntry of await listDir(subagentsDir)) {
-        if (subagentEntry.isFile() && subagentEntry.name.endsWith(".jsonl")) files.push(...(await withSize(join(subagentsDir, subagentEntry.name))));
+      for (const subagentEntry of await listDir(join(entryPath, "subagents"), { recursive: true })) {
+        if (subagentEntry.isFile() && subagentEntry.name.endsWith(".jsonl")) files.push(...(await withSize(join(subagentEntry.parentPath, subagentEntry.name))));
       }
     }
   }

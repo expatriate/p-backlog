@@ -40,6 +40,8 @@ npm run install-skill   # ~/.claude/skills/backlog → skill/backlog и хук S
 | `backlog take <ID> \| --next [--force] [--json]` | Берёт задачу в работу, проверяя блокеры |
 | `backlog take --path <файл\|каталог>` | Берёт в работу все открытые задачи внутри пути |
 | `backlog status <ID> <backlog\|in-progress\|blocked\|done\|cancelled>` | Меняет статус |
+| `backlog priority <ID> <low\|medium\|high\|critical>` | Меняет приоритет |
+| `backlog category <ID> <категория\|none>` | Меняет категорию или убирает её |
 | `backlog epic <ID> [<ID> …] --to <ID эпика\|none>` | Переносит задачи в эпик или вынимает из него |
 | `backlog check [--changed] [--project id \| --all-projects] [--json]` | Чинит висячие ссылки и завершённые эпики, находит задачи, которые пора перепроверить |
 | `backlog close <ID> --as fixed\|obsolete\|duplicate --reason <улика> [--duplicate-of ID]` | Закрывает задачу с причиной; `fixed` — только с хешем коммита из репозитория проекта |

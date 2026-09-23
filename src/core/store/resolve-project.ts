@@ -5,6 +5,10 @@ import type { Project } from "../model/types";
 import { expandHome } from "./paths";
 
 export function findRepoRoot(dir: string): string {
+  return findGitRoot(dir) ?? realpathSync(dir);
+}
+
+export function findGitRoot(dir: string): string | null {
   try {
     const topLevel = execFileSync("git", ["rev-parse", "--show-toplevel"], {
       cwd: dir,
@@ -13,7 +17,7 @@ export function findRepoRoot(dir: string): string {
     });
     return realpathSync(topLevel.trim());
   } catch {
-    return realpathSync(dir);
+    return null;
   }
 }
 

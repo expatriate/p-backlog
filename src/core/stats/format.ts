@@ -4,7 +4,7 @@ import type { FlowForecast } from "./types";
 export const NBSP = " ";
 
 export function plural(count: number, one: string, few: string, many: string): string {
-  if (!Number.isInteger(count)) return many;
+  if (!Number.isInteger(count)) return few;
   const n = Math.abs(count);
   const lastTwo = n % 100;
   if (lastTwo >= 11 && lastTwo <= 14) return many;
@@ -38,7 +38,11 @@ export function formatSigned(value: number): string {
 }
 
 export function formatDecimal(value: number): string {
-  return String(Math.round(value * 10) / 10).replace(".", ",");
+  return String(roundToTenth(value)).replace(".", ",");
+}
+
+function roundToTenth(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 export function formatMoney(value: number | null): string {
@@ -54,7 +58,7 @@ export function forecastText({ open, weeklyNet, weeks, until }: FlowForecast): s
   if (open === 0) return "Открытых задач нет";
   if (weeks !== null && until !== null) return `Долг разберётся примерно за ${weeks}${NBSP}нед. (к ${formatDayMonth(new Date(until))})`;
   if (weeklyNet === 0) return "Долг не уменьшается";
-  const growth = -weeklyNet;
+  const growth = roundToTenth(-weeklyNet);
   return `Долг растёт на ${formatDecimal(growth)}${NBSP}${plural(growth, "задача", "задачи", "задач")} в неделю`;
 }
 

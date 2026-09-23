@@ -27,7 +27,14 @@ function OpenDialog({ title, description, confirmWord, confirmWordLabel, confirm
   }, []);
 
   return (
-    <dialog ref={dialog} className={styles.dialog} aria-labelledby={titleId} onCancel={onCancel} onClose={onCancel}>
+    <dialog
+      ref={dialog}
+      className={styles.dialog}
+      aria-labelledby={titleId}
+      onCancel={onCancel}
+      onClose={onCancel}
+      onKeyDown={(event) => event.key === "Escape" && event.stopPropagation()}
+    >
       <h2 id={titleId} className={styles.title}>
         {title}
       </h2>

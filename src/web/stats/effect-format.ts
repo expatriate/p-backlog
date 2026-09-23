@@ -1,4 +1,4 @@
-import { formatShare, NBSP } from "../../core/stats/format";
+import { formatShare, NBSP, plural } from "../../core/stats/format";
 import type { EffectTotals } from "../../core/stats/types";
 
 export function isEstimated(estimatedLines: number | null): boolean {
@@ -11,6 +11,10 @@ export function formatLines(value: number): string {
 
 export function formatApprox(value: number, approx: boolean): string {
   return approx ? `≈${NBSP}${formatLines(value)}` : formatLines(value);
+}
+
+export function linesText(lines: number, approx: boolean): string {
+  return `${formatApprox(lines, approx)}${NBSP}${plural(Math.round(lines), "строка", "строки", "строк")}`;
 }
 
 export function formatNoiseShare(noiseShare: number | null): string {

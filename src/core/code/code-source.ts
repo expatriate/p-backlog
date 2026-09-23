@@ -7,7 +7,7 @@ import { runGit, type GitRunner } from "../git/run";
 import { fixKey, type FixRequest } from "../stats/code/fixes";
 import type { CollectedCode, FixCommit, ProjectCode, RepoCode } from "../stats/types";
 import { expandHome } from "../store/paths";
-import { emptyCodeCache, type CodeCacheStore } from "./code-cache";
+import { emptyCodeCache, type CodeCacheSnapshot, type CodeCacheStore } from "./code-cache";
 import { CHURN_DAYS } from "./code-window";
 import { readFixCommits, readHead, readMainCommit, readRepoCode } from "./git-code";
 
@@ -25,7 +25,7 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
   let restored: Promise<void> | null = null;
 
   const restore = (): Promise<void> => {
-    restored ??= (store?.read() ?? Promise.resolve(emptyCodeCache())).then((snapshot) => {
+    restored ??= readSnapshot(store).then((snapshot) => {
       for (const [repo, entry] of Object.entries(snapshot.repos)) if (!repoCache.has(repo)) repoCache.set(repo, entry);
       for (const [key, commit] of Object.entries(snapshot.fixes)) if (!fixCache.has(key)) fixCache.set(key, commit);
     });
@@ -133,4 +133,13 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
       return { projects: projectCodes, unavailableRepos, fixCommits };
     },
   };
+}
+
+async function readSnapshot(store: CodeCacheStore | undefined): Promise<CodeCacheSnapshot> {
+  try {
+    return (await store?.read()) ?? emptyCodeCache();
+  } catch (error) {
+    console.error(`Не удалось прочитать кэш git: ${errorText(error)}`);
+    return emptyCodeCache();
+  }
 }

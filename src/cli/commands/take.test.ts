@@ -1,3 +1,5 @@
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { updateTask } from "../../core/store/update";
@@ -83,6 +85,19 @@ describe("backlog take", () => {
     expect(result.err).toContain("SPA-3 заблокирована открытыми задачами");
     expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2"), await statusOf(root, "SPA-3"), await statusOf(root, "SPA-4")]).toEqual(["in-progress", "in-progress", "backlog", "backlog"]);
     expect(await run(["take", "--path", "src/server"])).toMatchObject({ code: EXIT.notFound, err: "Открытых задач по src/server нет" });
+  });
+
+  it("--path понимает путь от текущего каталога, а не только от корня репозитория", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "В stats", "--source", "src/web/stats/A.tsx:3"]);
+    await run(["new", "--category", "bug", "--title", "В list", "--source", "src/web/list/L.tsx:1"]);
+    await mkdir(join(repo, "src/web"), { recursive: true });
+
+    expect((await run(["take", "--path", "stats"], { cwd: join(repo, "src/web") })).code).toBe(EXIT.ok);
+    expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2")]).toEqual(["in-progress", "backlog"]);
+
+    expect((await run(["take", "--path", "."])).code).toBe(EXIT.ok);
+    expect(await statusOf(root, "SPA-2")).toBe("in-progress");
   });
 
   it("режимы не сочетаются, а «все заблокированы» отличается от «нет задач»", async () => {

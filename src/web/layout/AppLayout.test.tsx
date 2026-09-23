@@ -34,8 +34,9 @@ describe("боковая панель", () => {
 
   it("список проектов сворачивается", async () => {
     const { user } = await renderApp(FILES);
+    await screen.findByRole("checkbox", { name: "Учитывать ti в «Проекты»" });
 
-    await user.click(await screen.findByRole("button", { name: "Свернуть список проектов" }));
+    await user.click(screen.getByRole("button", { name: "Свернуть список проектов" }));
 
     expect(screen.queryByRole("list", { name: "Проекты" })).toBeNull();
     expect(screen.getByText("учтено 1 из 2 проектов")).toBeDefined();
@@ -45,10 +46,11 @@ describe("боковая панель", () => {
     expect(await screen.findByRole("list", { name: "Проекты" })).toBeDefined();
   });
 
-  it("удаление проекта просит ввести его id", async () => {
-    const { user, root } = await renderApp(FILES);
+  it("удаление проекта просит ввести его id и называет все задачи, включая закрытые", async () => {
+    const { user, root } = await renderApp({ ...FILES, "spa/SPA-2.md": taskFile("SPA-2", "status: done\nclosed: 2026-09-20T10:00:00+03:00\n") });
 
     await user.click(await screen.findByRole("button", { name: "Удалить проект spa" }));
+    expect(screen.getByText(/^Задач: 2\./)).toBeDefined();
 
     const confirm = screen.getByRole("button", { name: "Удалить" }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);

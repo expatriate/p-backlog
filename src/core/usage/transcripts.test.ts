@@ -46,17 +46,20 @@ async function byteSize(path: string): Promise<number> {
 }
 
 describe("список расшифровок", () => {
-  it("находит файлы сессий и подагентов", async () => {
+  it("находит файлы сессий и подагентов, включая вложенные подагенты workflow", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
       "proj1/session1.jsonl": jsonl([assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 1, output: 1 })]),
       "proj1/session2/subagents/agent-a.jsonl": jsonl([assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 1, output: 1 })]),
+      "proj1/session2/subagents/workflows/wf_1/agent-b.jsonl": jsonl([assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 1, output: 1 })]),
       "proj1/session2/other.txt": "не расшифровка",
     });
 
     const files = await listTranscripts(root);
 
-    expect(files.map((file) => file.path).sort()).toEqual([join(root, "proj1/session1.jsonl"), join(root, "proj1/session2/subagents/agent-a.jsonl")].sort());
+    expect(files.map((file) => file.path).sort()).toEqual(
+      [join(root, "proj1/session1.jsonl"), join(root, "proj1/session2/subagents/agent-a.jsonl"), join(root, "proj1/session2/subagents/workflows/wf_1/agent-b.jsonl")].sort(),
+    );
   });
 
   it("нет каталога расшифровок — пустой список", async () => {

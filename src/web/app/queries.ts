@@ -88,13 +88,14 @@ function invalidateScope(queryClient: ReturnType<typeof useQueryClient>): void {
   for (const queryKey of [PROJECTS_KEY, TASKS_KEY, STATS_KEY]) void queryClient.invalidateQueries({ queryKey });
 }
 
-export type UpdateTaskVariables = { id: string; version: string; changes: TaskChangesRequest };
+export type UpdateTaskVariables = { id: string; version: string; editedFrom?: string; changes: TaskChangesRequest };
 
 export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariables> {
   const { client } = useBacklogApi();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, version, changes }: UpdateTaskVariables) => client.updateTask(id, freshestVersion(queryClient, id) ?? version, changes),
+    mutationFn: ({ id, version, editedFrom, changes }: UpdateTaskVariables) =>
+      client.updateTask(id, editedFrom ?? freshestVersion(queryClient, id) ?? version, changes),
     onSuccess: (task) => putTask(queryClient, task),
     onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
   });

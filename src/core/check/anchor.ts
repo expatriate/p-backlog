@@ -64,7 +64,7 @@ export function snippetOf(text: string, source: string): string | undefined {
     .join("\n");
 }
 
-export function withLines(source: string, first: number, last?: number): string {
+function withLines(source: string, first: number, last?: number): string {
   return `${source.replace(SOURCE_LINES, "")}:${last === undefined ? first : `${first}-${last}`}`;
 }
 

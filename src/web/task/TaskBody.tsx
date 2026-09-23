@@ -21,7 +21,15 @@ const ChecklistContext = createContext<Checklist>({ items: [], onToggleLine: () 
 const MARKDOWN_COMPONENTS: Components = { table: MarkdownTable, li: MarkdownItem };
 
 export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onSave }: TaskBodyProps) {
-  const checklist = useMemo(() => ({ items: checklistItems(body), onToggleLine }), [body, onToggleLine]);
+  const items = useMemo(() => checklistItems(body), [body]);
+  const markdown = useMemo(
+    () => (
+      <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
+        {body}
+      </Markdown>
+    ),
+    [body],
+  );
 
   const save = async (text: string) => {
     try {
@@ -51,11 +59,7 @@ export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onS
   return (
     <div className={styles.body}>
       <div className={styles.markdown}>
-        <ChecklistContext value={checklist}>
-          <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
-            {body}
-          </Markdown>
-        </ChecklistContext>
+        <ChecklistContext value={{ items, onToggleLine }}>{markdown}</ChecklistContext>
       </div>
       <Button className={styles.edit} onClick={() => onDraftChange(body)}>
         Редактировать описание

@@ -2,12 +2,13 @@ import { dirname } from "node:path";
 import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
 import { changeStatus, settleLifecycle, type Closure } from "../model/lifecycle";
-import { parseTaskFile, serializeTask } from "../model/task-file";
+import { parseTaskFile } from "../model/task-file";
 import type { OptionalFields, Task, TaskCategory } from "../model/types";
 import { changeEvents, type ChangeSource } from "../journal/events";
 import { contentVersion, readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { loadBacklog } from "./load";
+import { taskText } from "./task-text";
 import { invalid, type UpdateTaskFailure, type UpdateTaskResult } from "./write-result";
 
 export type TaskChanges = OptionalFields<
@@ -35,17 +36,17 @@ export async function updateTaskIn(
   if (!current) return { ok: false, reason: "not-found" };
   if (expectedVersion !== undefined && expectedVersion !== current.version) return { ok: false, reason: "conflict", current };
 
-  const text = serializeTask(applyChanges(current, changes, now, closure));
-  const parsed = parseTaskFile(text, { projectId: current.projectId, path: current.path, version: contentVersion(text) });
-  if (!parsed.ok) return invalid([parsed.message]);
-  const errors = integrityErrors(parsed.value, buildIndex(tasks));
+  const normalized = taskText(applyChanges(current, changes, now, closure));
+  if (!normalized.ok) return invalid([normalized.message]);
+  const { text, task } = normalized.value;
+  const errors = integrityErrors(task, buildIndex(tasks));
   if (errors.length > 0) return invalid(errors);
 
   const changedOnDisk = expectedVersion === undefined ? null : await diskChange(current, expectedVersion);
   if (changedOnDisk !== null) return changedOnDisk;
   await writeFileAtomic(current.path, text);
-  await appendJournal(dirname(current.path), changeEvents(current, parsed.value, now, via));
-  return { ok: true, task: parsed.value };
+  await appendJournal(dirname(current.path), changeEvents(current, task, now, via));
+  return { ok: true, task };
 }
 
 async function diskChange(snapshot: Task, expectedVersion: string): Promise<UpdateTaskFailure | null> {

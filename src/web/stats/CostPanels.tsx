@@ -9,15 +9,14 @@ import { Panel } from "./Panel";
 import { StatsTable } from "./StatsTable";
 import totalsStyles from "./StatsPage.module.css";
 
-export function CostFigures({ totals, days, models }: { totals: CostTotals; days: CostDay[]; models: CostModel[] }) {
+export function CostFigures({ totals, days }: { totals: CostTotals; days: CostDay[] }) {
   const lastWeek = days.slice(-COST_TOTALS_DAYS);
   const hookTokens = sum(lastWeek.map((day) => day.hookTokens));
   const cliTokens = sum(lastWeek.map((day) => day.cliTokens));
-  const unknownPrice = models.some((model) => model.cost === null && model.tokens > 0);
   return (
     <div className={totalsStyles.totals}>
       <Figure label="Токены из-за беклога" value={formatLines(totals.tokens)} note={`ходы хука ${formatLines(hookTokens)}, вывод CLI и скилл ${formatLines(cliTokens)}`} />
-      <Figure label="По ценам API" value={costValue(totals.cost)} note={unknownPrice ? "без моделей с неизвестной ценой" : ""} />
+      <Figure label="По ценам API" value={costValue(totals.cost)} note={totals.hasUnpricedTokens ? "без моделей с неизвестной ценой" : ""} />
       <Figure label="Ходов из-за хука" value={formatLines(totals.hookTurns)} note={`запусков хука ${formatLines(totals.hookRuns)}`} />
       <Figure label="Вызовов CLI" value={formatLines(totals.cliRuns)} note="" />
     </div>

@@ -34,16 +34,27 @@ const TASK_LIST_ID = "task-ids";
 const EPIC_LIST_ID = "epic-ids";
 const LEAVE_WITH_DRAFT = "Уйти без сохранения описания?";
 
+type BodyDraft = { text: string; editedFrom: string };
+
 export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskPanelProps) {
   const updateTask = useUpdateTask();
-  const [bodyDraft, setBodyDraft] = useState<string | null>(null);
+  const [bodyDraft, setBodyDraft] = useState<BodyDraft | null>(null);
   const now = useNow();
   useLeaveGuard(bodyDraft !== null, LEAVE_WITH_DRAFT);
 
   const saveNote = useSaveNote(updateTask.isPending, updateTask.isSuccess, updateTask.submittedAt);
   const apply = (changes: TaskChangesRequest) => updateTask.mutate({ id: task.id, version: task.version, changes });
-  const applyAsync = (changes: TaskChangesRequest) => updateTask.mutateAsync({ id: task.id, version: task.version, changes });
+  const editBody = (text: string | null) => setBodyDraft(text === null ? null : { text, editedFrom: bodyDraft?.editedFrom ?? task.version });
+  const saveBody = async (draft: BodyDraft) => {
+    try {
+      await updateTask.mutateAsync({ id: task.id, version: task.version, editedFrom: draft.editedFrom, changes: { body: draft.text } });
+    } catch (error) {
+      if (error instanceof ApiError && error.current !== undefined) setBodyDraft({ ...draft, editedFrom: error.current.version });
+      throw error;
+    }
+  };
   const conflict = updateTask.error instanceof ApiError && updateTask.error.status === 409;
+  const draftConflict = conflict && bodyDraft !== null && updateTask.variables?.editedFrom !== undefined;
   const warnings = taskWarnings(task, index);
   const children = task.type === "epic" ? epicChildren(task, index) : [];
 
@@ -87,7 +98,9 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
 
       {conflict && (
         <p className={styles.conflict} role="alert">
-          Задача изменилась на диске, показана актуальная версия. Повторите правку.
+          {draftConflict
+            ? "Описание изменилось на диске, пока вы его правили. «Сохранить» перезапишет его вашим текстом, «Отмена» покажет актуальное."
+            : "Задача изменилась на диске, показана актуальная версия. Повторите правку."}
         </p>
       )}
       {!conflict && updateTask.error && (
@@ -105,11 +118,11 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
 
       <TaskBody
         body={task.body}
-        draft={bodyDraft}
+        draft={bodyDraft?.text ?? null}
         saving={updateTask.isPending}
-        onDraftChange={setBodyDraft}
+        onDraftChange={editBody}
         onToggleLine={(line) => apply({ body: toggleChecklistItem(task.body, line) })}
-        onSave={(body) => applyAsync({ body })}
+        onSave={(text) => saveBody({ text, editedFrom: bodyDraft?.editedFrom ?? task.version })}
       />
 
       <TaskRefs

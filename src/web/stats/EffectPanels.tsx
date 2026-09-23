@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { NBSP, plural } from "../../core/stats/format";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { EffectPeriod, EffectProject, EffectTotals } from "../../core/stats/types";
 import { EffectWeeksChart, type Grain } from "./EffectWeeksChart";
 import { ToggleChip } from "../ui/Chip";
-import { codeAndTests, formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
+import { codeAndTests, formatApprox, formatLines, formatNoiseShare, isEstimated, linesText } from "./effect-format";
 import rowStyles from "./PanelRows.module.css";
 import { Figure } from "./Figure";
 import { Panel } from "./Panel";
@@ -23,8 +22,8 @@ export function EffectFigures({ totals }: { totals: EffectTotals }) {
 }
 
 function keptOutValue(totals: EffectTotals): string {
-  if (totals.estimatedLines === null) return `${formatLines(totals.fixedLines)}${NBSP}${plural(totals.fixedLines, "строка", "строки", "строк")}`;
-  return `${formatApprox(totals.deferredLines, isEstimated(totals.estimatedLines))}${NBSP}${plural(totals.deferredLines, "строка", "строки", "строк")}`;
+  if (totals.estimatedLines === null) return linesText(totals.fixedLines, false);
+  return linesText(totals.deferredLines, isEstimated(totals.estimatedLines));
 }
 
 function keptOutNote(totals: EffectTotals): string {

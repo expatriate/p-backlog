@@ -6,11 +6,11 @@ import { integrityErrors } from "../model/integrity";
 import { derivePrefix, deriveProjectId, formatId, parseId } from "../model/ids";
 import { createdEvent, type ChangeSource, type Provenance } from "../journal/events";
 import { parseProjectFile, serializeProject } from "../model/project-file";
-import { parseTaskFile, serializeTask } from "../model/task-file";
 import type { OptionalFields, Project, Task } from "../model/types";
-import { contentVersion, hasErrorCode, listDir } from "./fs-utils";
+import { hasErrorCode, listDir } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { PROJECT_FILE, taskFileName } from "./paths";
+import { taskText } from "./task-text";
 import { invalid, type CreateTaskResult } from "./write-result";
 
 export type NewTaskInput = Pick<Task, "title"> &
@@ -34,15 +34,15 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt++) {
     const id = formatId(project.prefix, await nextTaskNumber(dir, project));
     const path = join(dir, taskFileName(id));
-    const text = serializeTask(draftTask(id, path, request));
-    const parsed = parseTaskFile(text, { projectId: project.id, path, version: contentVersion(text) });
-    if (!parsed.ok) return invalid([parsed.message]);
-    const errors = integrityErrors(parsed.value, index);
+    const normalized = taskText(draftTask(id, path, request));
+    if (!normalized.ok) return invalid([normalized.message]);
+    const { text, task } = normalized.value;
+    const errors = integrityErrors(task, index);
     if (errors.length > 0) return invalid(errors);
     try {
       await writeFile(path, text, { encoding: "utf8", flag: "wx" });
-      await appendJournal(dir, [createdEvent(parsed.value, request.now, request.via, request.provenance)]);
-      return { ok: true, task: parsed.value };
+      await appendJournal(dir, [createdEvent(task, request.now, request.via, request.provenance)]);
+      return { ok: true, task };
     } catch (error) {
       if (!hasErrorCode(error, "EEXIST")) throw error;
     }

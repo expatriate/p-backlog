@@ -35,6 +35,10 @@ async function changeStatus(positionals: string[], io: CliIo): Promise<number> {
   if (id === undefined || (state !== "active" && state !== "inactive") || rest.length > 0) throw new UsageError(USAGE);
   const active = state === "active";
   const result = await setProjectActive(io.backlogRoot, id, active);
+  if (!result.ok && result.reason === "invalid") {
+    io.warn(`${id}: ${result.message}`);
+    return EXIT.invalid;
+  }
   if (!result.ok) {
     io.warn(`Проект ${id} не найден`);
     return EXIT.notFound;

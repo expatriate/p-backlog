@@ -49,9 +49,9 @@ export async function removeIfUnchanged(path: string, version: string): Promise<
   return true;
 }
 
-export async function listDir(path: string): Promise<Dirent[]> {
+export async function listDir(path: string, { recursive = false }: { recursive?: boolean } = {}): Promise<Dirent[]> {
   try {
-    return await readdir(path, { withFileTypes: true });
+    return await readdir(path, { withFileTypes: true, recursive });
   } catch (error) {
     if (hasErrorCode(error, "ENOENT")) return [];
     throw error;

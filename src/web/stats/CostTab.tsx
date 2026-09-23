@@ -48,7 +48,7 @@ function scanNoticeText(scan: ScanProgress): string | null {
 function Cost({ report }: { report: CostReport }) {
   return (
     <>
-      <CostFigures totals={report.totals} days={report.days} models={report.models} />
+      <CostFigures totals={report.totals} days={report.days} />
       <div className={styles.blocks}>
         <div className={rowStyles.wide}>
           <SpendPanel days={report.days} />
