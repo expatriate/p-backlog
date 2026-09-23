@@ -36,8 +36,8 @@ describe("runCli", () => {
 });
 
 describe("README", () => {
-  it("таблица команд описывает каждую команду CLI", async () => {
-    const readme = await readFile(new URL("../../README.md", import.meta.url), "utf8");
+  it.each(["README.md", "README.ru.md"])("таблица команд в %s описывает каждую команду CLI", async (file) => {
+    const readme = await readFile(new URL(`../../${file}`, import.meta.url), "utf8");
     const rows = readme.split("\n").filter((line) => line.startsWith("| `backlog "));
     const missing = CLI_COMMANDS.filter(
       ({ name }) => !rows.some((row) => row.startsWith(`| \`backlog ${name} `) || row.startsWith(`| \`backlog ${name}\``)),
