@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../../core/store/testing/temp-dirs";
@@ -152,7 +152,7 @@ describe("вкладки статистики", () => {
 
     await app.user.click(within(tabs).getByRole("link", { name: "Качество" }));
 
-    expect(app.route()).toBe("/stats/quality");
+    await waitFor(() => expect(app.route()).toBe("/stats/quality"));
     expect(document.title).toBe("Качество · Статистика · Проекты — Беклог");
     expect(within(tabs).getByRole("link", { name: "Качество" }).getAttribute("aria-current")).toBe("true");
     expect(screen.queryByRole("link", { name: "Поток" })).toBeNull();
@@ -221,7 +221,7 @@ describe("вкладка «Качество»", () => {
     await app.user.click(await screen.findByRole("link", { name: "Качество" }));
 
     const accuracyPanel = await screen.findByRole("region", { name: "Точность проверки" });
-    expect(app.route()).toBe("/stats/quality");
+    await waitFor(() => expect(app.route()).toBe("/stats/quality"));
     expect(document.title).toBe("Качество · Статистика · Проекты — Беклог");
     expect(cells(within(accuracyPanel).getByRole("row", { name: /код изменился/ }))).toEqual(["код изменился", "1", "0", "1", "0", "0%"]);
     const categoriesPanel = screen.getByRole("region", { name: "Категории" });
@@ -305,7 +305,7 @@ describe("вкладка «Стоимость»", () => {
 
     await app.user.click(await screen.findByRole("link", { name: "Стоимость" }));
 
-    expect(app.route()).toBe("/p/spa/stats/cost");
+    await waitFor(() => expect(app.route()).toBe("/p/spa/stats/cost"));
     expect(document.title).toBe("Стоимость · Статистика · spa — Беклог");
 
     const cliCalls = await screen.findByRole("group", { name: "Вызовов CLI" });
