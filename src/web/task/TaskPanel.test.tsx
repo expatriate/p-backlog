@@ -635,3 +635,17 @@ describe("отклик на сохранение", () => {
     await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe("Сохранено"));
   });
 });
+
+describe("английский язык", () => {
+  it("поля и отклик на сохранение карточки переведены", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { language: "en" });
+    const panel = await screen.findByRole("complementary", { name: "Task SPA-1" });
+
+    expect(within(panel).getByRole("combobox", { name: "Status" })).toBeDefined();
+
+    const priority = within(panel).getByRole("combobox", { name: "Priority" });
+    await app.user.selectOptions(priority, "critical");
+
+    await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe("Saved"));
+  });
+});

@@ -11,3 +11,7 @@ export function formatDayMonth(language: Language, date: Date): string {
 export function formatDate(language: Language, iso: string): string {
   return new Date(iso).toLocaleDateString(localeOf(language), { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
+
+export function formatDateTime(language: Language, iso: string): string {
+  return new Date(iso).toLocaleString(localeOf(language), { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}

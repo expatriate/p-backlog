@@ -1,15 +1,15 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { Link } from "react-router";
 import type { TaskChangesRequest } from "../../core/api/contract";
+import { formatDateTime } from "../../core/i18n/format";
 import { toggleChecklistItem } from "../../core/model/checklist";
 import { dependentTasks, epicChildren, isClosed, relatedTasks, taskProgress, type BacklogIndex } from "../../core/model/graph";
 import { parseId } from "../../core/model/ids";
-import { coreMessages } from "../../core/messages";
 import { taskWarnings } from "../../core/model/integrity";
 import type { Task } from "../../core/model/types";
 import { ApiError } from "../api/client";
 import { useUpdateTask, type BodyEdit, type TaskChange } from "../app/queries";
-import { formatDateTime, RESOLUTION_LABELS } from "../labels";
+import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { Countdown } from "../ui/Countdown";
 import { ProgressBar } from "../ui/ProgressBar";
@@ -20,6 +20,7 @@ import { StatusBadge } from "../ui/StatusBadge";
 import { useNow } from "../ui/use-now";
 import { TaskBody } from "./TaskBody";
 import { TaskFields } from "./TaskFields";
+import type { TaskMessages } from "./messages.ru";
 import { TaskOptions, TaskRefs, type RefsSaveResult, type TaskHref } from "./TaskRefs";
 import styles from "./TaskPanel.module.css";
 
@@ -34,22 +35,23 @@ export type TaskPanelProps = {
 
 const TASK_LIST_ID = "task-ids";
 const EPIC_LIST_ID = "epic-ids";
-const LEAVE_WITH_DRAFT = "Уйти без сохранения описания?";
 
 type BodyDraft = { text: string; from: BodyEdit };
 
 export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskPanelProps) {
+  const language = useLanguage();
+  const { core, task: t } = useMessages();
   const updateTask = useUpdateTask();
   const [bodyDraft, setBodyDraft] = useState<BodyDraft | null>(null);
   const now = useNow();
-  useLeaveGuard(bodyDraft !== null, LEAVE_WITH_DRAFT);
+  useLeaveGuard(bodyDraft !== null, t.leaveWithDraft);
 
   const [bodySaving, setBodySaving] = useState(false);
   const [bodyError, setBodyError] = useState<Error | null>(null);
   const [saveError, setSaveError] = useState<Error | null>(null);
-  const cardAlerts = cardAlertTexts(bodyError, saveError, bodyDraft !== null);
+  const cardAlerts = cardAlertTexts(bodyError, saveError, bodyDraft !== null, t);
 
-  const saveNote = useSaveNote(updateTask.isPending, updateTask.isSuccess && cardAlerts.length === 0, updateTask.submittedAt);
+  const saveNote = useSaveNote(updateTask.isPending, updateTask.isSuccess && cardAlerts.length === 0, updateTask.submittedAt, t);
   const save = (change: TaskChange) => {
     setSaveError(null);
     void updateTask.mutateAsync({ id: task.id, change }).catch((error: unknown) => setSaveError(asError(error)));
@@ -89,12 +91,12 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
     }
   };
   const idPrefix = parseId(task.id)?.prefix ?? task.id;
-  const warnings = taskWarnings(task, index).map(coreMessages("ru").problem);
+  const warnings = taskWarnings(task, index).map(core.problem);
   const children = task.type === "epic" ? epicChildren(task, index) : [];
 
   return (
     <SidePanel
-      label={`Задача ${task.id}`}
+      label={t.cardLabel(task.id)}
       heading={
         <span className={styles.id} data-epic-tone={tone}>
           {task.id}
@@ -102,14 +104,16 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
       }
       onClose={onClose}
     >
-      <TitleField title={task.title} onSave={(title) => apply({ title })} />
+      <TitleField title={task.title} label={t.title} onSave={(title) => apply({ title })} />
 
       <TaskFields task={task} epicListId={EPIC_LIST_ID} knownTasks={tasks} onChange={apply} />
 
       <div className={styles.meta}>
         <StatusBadge status={task.status} />
         <ProgressBar progress={taskProgress(task, index)} />
-        <span>создана {formatDateTime(task.created)}</span>
+        <span>
+          {t.createdLabel} {formatDateTime(language, task.created)}
+        </span>
         {task.source && <span className={styles.source}>{task.source}</span>}
       </div>
 
@@ -120,12 +124,13 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
       {isClosed(task.status) && (
         <div className={styles.closure}>
           <p>
-            Закрыта{task.closed === undefined ? "" : ` ${formatDateTime(task.closed)}`}
-            {task.resolution !== undefined && ` · ${RESOLUTION_LABELS[task.resolution]} — ${task.reason ?? ""}`}
+            {t.closedLabel}
+            {task.closed === undefined ? "" : ` ${formatDateTime(language, task.closed)}`}
+            {task.resolution !== undefined && ` · ${core.resolutionLabel(task.resolution)} — ${task.reason ?? ""}`}
           </p>
           <Countdown task={task} now={now} />
           <Button className={styles.restore} onClick={() => apply({ status: "backlog" })}>
-            Вернуть в беклог
+            {t.restoreToBacklog}
           </Button>
         </div>
       )}
@@ -153,7 +158,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
       />
 
       <TaskRefs
-        label="Блокируется"
+        label={t.blockedByLabel}
         ids={task.blockedBy}
         tasks={tasks}
         listId={TASK_LIST_ID}
@@ -162,7 +167,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
         onChange={(update) => saveRefs((fresh) => ({ blockedBy: update(fresh.blockedBy) }))}
       />
       <TaskRefs
-        label="Связанные"
+        label={t.relatedLabel}
         ids={task.related}
         tasks={tasks}
         listId={TASK_LIST_ID}
@@ -171,13 +176,13 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
         onChange={(update) => saveRefs((fresh) => ({ related: update(fresh.related) }))}
       />
 
-      <ReadonlyRefs label="Блокирует" tasks={dependentTasks(task, index)} taskHref={taskHref} />
+      <ReadonlyRefs label={t.dependentsLabel} tasks={dependentTasks(task, index)} taskHref={taskHref} />
       <ReadonlyRefs
-        label="Ссылаются как на связанную"
+        label={t.referrersLabel}
         tasks={relatedTasks(task, index).filter((other) => !task.related.includes(other.id))}
         taskHref={taskHref}
       />
-      <ReadonlyRefs label="Задачи эпика" tasks={children} taskHref={taskHref} />
+      <ReadonlyRefs label={t.epicChildrenLabel} tasks={children} taskHref={taskHref} />
 
       <TaskOptions id={TASK_LIST_ID} tasks={tasks.filter((other) => other.id !== task.id)} />
       <TaskOptions id={EPIC_LIST_ID} tasks={tasks.filter((candidate) => candidate.type === "epic")} />
@@ -185,17 +190,14 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
   );
 }
 
-const DRAFT_CONFLICT = "Описание изменилось на диске, пока вы его правили. «Сохранить» перезапишет его вашим текстом, «Отмена» покажет актуальное.";
-const TASK_CONFLICT = "Задача изменилась на диске, показана актуальная версия. Повторите правку.";
-
-function cardAlertTexts(bodyError: Error | null, saveError: Error | null, draftOpen: boolean): string[] {
-  const bodyText = bodyError === null ? null : isConflict(bodyError) && draftOpen ? DRAFT_CONFLICT : errorText(bodyError);
-  const saveText = saveError === null ? null : errorText(saveError);
+function cardAlertTexts(bodyError: Error | null, saveError: Error | null, draftOpen: boolean, t: TaskMessages): string[] {
+  const bodyText = bodyError === null ? null : isConflict(bodyError) && draftOpen ? t.draftConflict : errorText(bodyError, t);
+  const saveText = saveError === null ? null : errorText(saveError, t);
   return [...new Set([bodyText, saveText].filter((text) => text !== null))];
 }
 
-function errorText(error: Error): string {
-  return isConflict(error) ? TASK_CONFLICT : error.message;
+function errorText(error: Error, t: TaskMessages): string {
+  return isConflict(error) ? t.taskConflict : error.message;
 }
 
 function isConflict(error: unknown): boolean {
@@ -208,7 +210,7 @@ function asError(error: unknown): Error {
 
 const SAVED_NOTE_MS = 2000;
 
-function useSaveNote(pending: boolean, success: boolean, submittedAt: number): string {
+function useSaveNote(pending: boolean, success: boolean, submittedAt: number, t: TaskMessages): string {
   const [fadedSave, setFadedSave] = useState<number | null>(null);
 
   useEffect(() => {
@@ -217,11 +219,11 @@ function useSaveNote(pending: boolean, success: boolean, submittedAt: number): s
     return () => clearTimeout(timer);
   }, [success, submittedAt]);
 
-  if (pending) return "Сохраняем…";
-  return success && fadedSave !== submittedAt ? "Сохранено" : "";
+  if (pending) return t.saving;
+  return success && fadedSave !== submittedAt ? t.saved : "";
 }
 
-function TitleField({ title: serverTitle, onSave }: { title: string; onSave: (title: string) => void }) {
+function TitleField({ title: serverTitle, label, onSave }: { title: string; label: string; onSave: (title: string) => void }) {
   const [title, setTitle, titleRef] = useDraft<HTMLTextAreaElement>(serverTitle);
 
   useLayoutEffect(() => {
@@ -246,7 +248,7 @@ function TitleField({ title: serverTitle, onSave }: { title: string; onSave: (ti
       className={styles.title}
       rows={1}
       value={title}
-      aria-label="Название задачи"
+      aria-label={label}
       onChange={(event) => setTitle(event.target.value)}
       onKeyDown={(event) => {
         if (event.key === "Enter") {

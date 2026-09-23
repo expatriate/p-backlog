@@ -1,9 +1,10 @@
 import { Children, createContext, isValidElement, useContext, useEffect, useMemo, useRef, type ComponentProps, type ReactNode } from "react";
 import Markdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { checklistItems, type ChecklistItem } from "../../core/model/checklist";
+import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
-import { checklistItems, type ChecklistItem } from "../../core/model/checklist";
 import styles from "./TaskBody.module.css";
 
 export type TaskBodyProps = {
@@ -24,6 +25,7 @@ const InsideCodeBlock = createContext(false);
 const MARKDOWN_COMPONENTS: Components = { table: MarkdownTable, li: MarkdownItem, pre: MarkdownPre, code: MarkdownCode };
 
 export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onSave }: TaskBodyProps) {
+  const { ui, task: t } = useMessages();
   const items = useMemo(() => checklistItems(body), [body]);
   const markdown = useMemo(
     () => (
@@ -53,20 +55,20 @@ export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onS
       await onSave(text);
       closeEditor();
     } catch {
-      // текст остаётся в поле: ошибку показывает карточка
+      // text stays in the field: the card shows the error
     }
   };
 
   if (draft !== null) {
     return (
       <div ref={editor} className={styles.editor}>
-        <textarea autoFocus value={draft} rows={16} aria-label="Описание задачи" onChange={(event) => onDraftChange(event.target.value)} />
+        <textarea autoFocus value={draft} rows={16} aria-label={t.description} onChange={(event) => onDraftChange(event.target.value)} />
         <div className={styles.editorActions}>
           <Button variant="primary" busy={saving} onClick={() => void save(draft)}>
-            {saving ? "Сохраняем…" : "Сохранить"}
+            {saving ? t.saving : t.save}
           </Button>
           <Button busy={saving} onClick={closeEditor}>
-            Отмена
+            {ui.cancel}
           </Button>
         </div>
       </div>
@@ -79,7 +81,7 @@ export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onS
         <ChecklistContext value={{ items, onToggleLine }}>{markdown}</ChecklistContext>
       </div>
       <Button ref={editButton} className={styles.edit} onClick={() => onDraftChange(body)}>
-        Редактировать описание
+        {t.editDescription}
       </Button>
     </div>
   );
@@ -117,7 +119,7 @@ function MarkdownItem({ node, children }: ComponentProps<"li"> & ExtraProps) {
   const line = (node?.position?.start.line ?? 0) - 1;
   const item = items.find((candidate) => candidate.line === line);
   if (!item) return <li>{children}</li>;
-  // remark-gfm сам вставляет в пункт свой disabled-чекбокс — убираем его, свой рисуем ниже
+  // remark-gfm inserts its own disabled checkbox into the item — strip it, we draw our own below
   const text = Children.toArray(children).filter((child) => !(isValidElement(child) && child.type === "input"));
   return (
     <li className={styles.checkItem}>

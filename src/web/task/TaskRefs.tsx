@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import { Link, type To } from "react-router";
 import { formatId, ID_PATTERN } from "../../core/model/ids";
 import type { Task } from "../../core/model/types";
+import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { CloseIcon } from "../ui/CloseIcon";
 import { StatusBadge } from "../ui/StatusBadge";
@@ -25,6 +26,7 @@ export type RefsSaveResult = { saved: true } | { saved: false; fieldError: strin
 type FieldNotice = { text: string; duplicateOf?: string };
 
 export function TaskRefs({ label, ids, tasks, listId, taskHref, idPrefix, onChange }: TaskRefsProps) {
+  const { task: t } = useMessages();
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState<FieldNotice | null>(null);
   const errorId = useId();
@@ -37,11 +39,11 @@ export function TaskRefs({ label, ids, tasks, listId, taskHref, idPrefix, onChan
   const add = () => {
     const id = normalizeTaskId(draft);
     if (!ID_PATTERN.test(id)) {
-      setNotice({ text: `Введите ID задачи, например ${formatId(idPrefix, 12)}` });
+      setNotice({ text: t.invalidRefId(formatId(idPrefix, 12)) });
       return;
     }
     if (ids.includes(id)) {
-      setNotice({ text: `${id} уже в списке`, duplicateOf: id });
+      setNotice({ text: t.duplicateRef(id), duplicateOf: id });
       setDraft("");
       return;
     }
@@ -65,10 +67,10 @@ export function TaskRefs({ label, ids, tasks, listId, taskHref, idPrefix, onChan
                   {task.title}
                 </Link>
               ) : (
-                <span className={styles.title}>не найдена</span>
+                <span className={styles.title}>{t.refNotFound}</span>
               )}
               {task && <StatusBadge status={task.status} />}
-              <button type="button" className={styles.remove} aria-label={`Убрать ${id}`} onClick={() => void onChange((current) => current.filter((value) => value !== id)).then(showRejection)}>
+              <button type="button" className={styles.remove} aria-label={t.removeRef(id)} onClick={() => void onChange((current) => current.filter((value) => value !== id)).then(showRejection)}>
                 <CloseIcon />
               </button>
             </li>
@@ -79,8 +81,8 @@ export function TaskRefs({ label, ids, tasks, listId, taskHref, idPrefix, onChan
         <input
           list={listId}
           value={draft}
-          placeholder="ID задачи"
-          aria-label={`Добавить в «${label}»`}
+          placeholder={t.addRefPlaceholder}
+          aria-label={t.addRefLabel(label)}
           aria-invalid={shownError !== null}
           aria-describedby={shownError === null ? undefined : errorId}
           onChange={(event) => {
@@ -94,7 +96,7 @@ export function TaskRefs({ label, ids, tasks, listId, taskHref, idPrefix, onChan
             }
           }}
         />
-        <Button onClick={add}>Добавить</Button>
+        <Button onClick={add}>{t.addRef}</Button>
       </div>
       {shownError !== null && (
         <span id={errorId} className={styles.fieldError} role="alert">
