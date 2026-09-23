@@ -1,5 +1,6 @@
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { SweepReport } from "../core/store/sweep";
+import { serverRu } from "./messages.ru";
 import { startSweeper } from "./sweeper";
 
 const EMPTY_REPORT: SweepReport = { closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] };
@@ -47,6 +48,25 @@ describe("startSweeper", () => {
     expect(warn).toHaveBeenCalledWith("Не удалось удалить закрытые задачи: EACCES");
     expect(log).not.toHaveBeenCalled();
     expect(sweep).toHaveBeenCalledTimes(2);
+  });
+
+  it("сбой чтения языка попадает в лог и не останавливает следующие проходы", async () => {
+    useFakeClock();
+    const sweep = vi.fn(async () => EMPTY_REPORT);
+    const messages = vi.fn().mockRejectedValueOnce(new Error("EACCES")).mockResolvedValue(serverRu);
+    const log = vi.fn();
+    const warn = vi.fn();
+
+    const stop = startSweeper({ sweep, intervalMs: 1000, log, warn, messages });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(warn).toHaveBeenCalledWith("Не удалось удалить закрытые задачи: EACCES");
+    expect(sweep).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    stop();
+
+    expect(sweep).toHaveBeenCalledTimes(1);
   });
 
   it("каждая непустая часть итога — отдельной строкой лога", async () => {

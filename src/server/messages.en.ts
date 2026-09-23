@@ -26,5 +26,6 @@ export const serverEn: ServerMessages = {
   listenFailed: (reason) => `p-backlog failed to start: ${reason}`,
   portBusy: (port) => `port ${port} is already in use`,
 
-  codeCacheError: (detail) => `Problem with the git cache: ${detail}`,
+  codeCacheReadFailed: (detail) => `Could not read the git cache: ${detail}`,
+  codeCacheWriteFailed: (detail) => `Could not save the git cache: ${detail}`,
 };

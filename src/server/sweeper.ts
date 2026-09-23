@@ -12,8 +12,9 @@ export type SweeperOptions = {
 
 export function startSweeper({ sweep, intervalMs, log, warn, messages = () => Promise.resolve(serverRu) }: SweeperOptions): () => void {
   const run = async () => {
-    const texts = await messages();
+    let texts = serverRu;
     try {
+      texts = await messages();
       logReport(await sweep(), texts, log);
     } catch (error) {
       warn(texts.sweepFailed(errorText(error)));

@@ -24,7 +24,8 @@ export const serverRu = {
   listenFailed: (reason: string): string => `p-backlog не запустился: ${reason}`,
   portBusy: (port: number): string => `порт ${port} уже занят`,
 
-  codeCacheError: (detail: string): string => `Проблема с кэшем git: ${detail}`,
+  codeCacheReadFailed: (detail: string): string => `Не удалось прочитать кэш git: ${detail}`,
+  codeCacheWriteFailed: (detail: string): string => `Не удалось сохранить кэш git: ${detail}`,
 };
 
 export type ServerMessages = typeof serverRu;

@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import { errorText } from "../core/errors";
 import { projectGraphHealth } from "../core/check/graph-health";
 import { createCodeCacheFile } from "../core/code/code-cache";
-import { createCodeSource } from "../core/code/code-source";
+import { createCodeSource, type CodeCacheErrorKind } from "../core/code/code-source";
 import { formatLocalDay } from "../core/model/dates";
 import type { Project, Task } from "../core/model/types";
 import { codeFixRequests, codeReport } from "../core/stats/code/code-report";
@@ -45,8 +45,12 @@ const REPORT_TTL_MS = 5 * 60 * 1000;
 export function createStatsApi({ root, now, home, usage, memory, backlog }: StatsApiOptions): StatsApi {
   const routes = new Hono();
   const reports = createReportCache({ ttlMs: REPORT_TTL_MS, now: () => now().getTime() });
-  const onCodeSourceError = (error: unknown) =>
-    void serverLanguage(root).then((language) => process.stderr.write(`${serverMessages(language).codeCacheError(errorText(error))}\n`));
+  const onCodeSourceError = (kind: CodeCacheErrorKind, error: unknown) =>
+    void serverLanguage(root).then((language) => {
+      const messages = serverMessages(language);
+      const text = kind === "read" ? messages.codeCacheReadFailed(errorText(error)) : messages.codeCacheWriteFailed(errorText(error));
+      process.stderr.write(`${text}\n`);
+    });
   const codeSource = createCodeSource({ home, store: createCodeCacheFile(root), onError: onCodeSourceError });
   const lookupRepoRoot = cachedRepoRoots();
 
