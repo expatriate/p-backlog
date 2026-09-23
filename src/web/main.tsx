@@ -8,7 +8,7 @@ import { MessagesProvider } from "./i18n";
 import "./styles/base.css";
 
 const root = document.getElementById("root");
-if (!root) throw new Error("нет корневого элемента");
+if (!root) throw new Error("root element is missing");
 
 const router = createBrowserRouter(routes);
 

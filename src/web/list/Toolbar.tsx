@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { normalizeText } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
-import { TYPE_LABELS } from "../labels";
 import { useMessages } from "../i18n";
 import { ToggleChip } from "../ui/Chip";
 import { toggledTags } from "./tag-filter";
@@ -20,7 +19,7 @@ export type ToolbarProps = {
 };
 
 export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }: ToolbarProps) {
-  const { list, core } = useMessages();
+  const { list, core, task } = useMessages();
   const { filter } = params;
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
   const setFilter = (patch: Partial<ListParams["filter"]>) => onChange({ ...params, filter: { ...filter, ...patch } });
@@ -68,7 +67,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
         <div className={styles.group} role="group" aria-label={list.type}>
           {TASK_TYPES.map((type) => (
             <ToggleChip key={type} pressed={filter.type === type} onToggle={() => setFilter({ type: filter.type === type ? undefined : type })}>
-              {TYPE_LABELS[type]}
+              {task.typeLabels[type]}
             </ToggleChip>
           ))}
           <ToggleChip pressed={filter.onlyUnblocked === true} onToggle={() => setFilter({ onlyUnblocked: filter.onlyUnblocked ? undefined : true })}>
