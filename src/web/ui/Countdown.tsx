@@ -1,13 +1,18 @@
+import type { Language } from "../../core/i18n/language";
+import { formatDayMonth } from "../../core/i18n/format";
 import { DAY_MS, deletionDate, RETENTION_DAYS } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
-import { formatDayMonth } from "../../core/stats/format";
+import { useLanguage, useMessages } from "../i18n";
 import { cx } from "./cx";
+import type { UiMessages } from "./messages.ru";
 import styles from "./Countdown.module.css";
 
 type Deletion = { text: string; title: string; fraction: number; lastDay: boolean };
 
 export function Countdown({ task, now }: { task: Task; now: Date }) {
-  const deletion = deletionFor(task, now);
+  const language = useLanguage();
+  const { ui } = useMessages();
+  const deletion = deletionFor(task, now, language, ui);
   if (deletion === undefined) return null;
   return (
     <span className={cx(styles.wrap, deletion.lastDay && styles.lastDay)} title={deletion.title}>
@@ -20,7 +25,9 @@ export function Countdown({ task, now }: { task: Task; now: Date }) {
 }
 
 export function DeletionBar({ task, now }: { task: Task; now: Date }) {
-  const deletion = deletionFor(task, now);
+  const language = useLanguage();
+  const { ui } = useMessages();
+  const deletion = deletionFor(task, now, language, ui);
   if (deletion === undefined) return null;
   return (
     <span className={cx(styles.bar, deletion.lastDay && styles.lastDay)} title={deletion.title} role="img" aria-label={`${deletion.text}, ${deletion.title}`}>
@@ -29,22 +36,18 @@ export function DeletionBar({ task, now }: { task: Task; now: Date }) {
   );
 }
 
-function deletionFor(task: Task, now: Date): Deletion | undefined {
+function deletionFor(task: Task, now: Date, language: Language, ui: UiMessages): Deletion | undefined {
   const deletesAt = deletionDate(task);
   if (deletesAt === undefined) return undefined;
+  const dayMonth = formatDayMonth(language, deletesAt);
   if (now.getTime() >= deletesAt.getTime()) {
-    return {
-      text: "удаление задержано",
-      title: `должна была удалиться ${formatDayMonth(deletesAt)}; проход удаления держит задачу, пока её эпик не закрыт или беклог не исправлен`,
-      fraction: 0,
-      lastDay: false,
-    };
+    return { text: ui.deletionDelayed, title: ui.deletionDelayedTitle(dayMonth), fraction: 0, lastDay: false };
   }
   const remainingMs = deletesAt.getTime() - now.getTime();
   const lastDay = remainingMs < DAY_MS;
   return {
-    text: lastDay ? "удалится сегодня" : `удалится через ${Math.ceil(remainingMs / DAY_MS)} дн.`,
-    title: `удалится ${formatDayMonth(deletesAt)}`,
+    text: lastDay ? ui.deletesToday : ui.deletesInDays(Math.ceil(remainingMs / DAY_MS)),
+    title: ui.deletesOn(dayMonth),
     fraction: Math.min(1, remainingMs / (RETENTION_DAYS * DAY_MS)),
     lastDay,
   };

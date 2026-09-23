@@ -3,6 +3,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { makeGraph } from "../../core/graph/testing/make-graph";
 import { loadBacklog } from "../../core/store/load";
+import { readSettings } from "../../core/store/settings";
 import { makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import type { TestApp } from "../../server/testing/test-app";
 import { renderApp } from "../testing/render-app";
@@ -90,6 +91,18 @@ describe("боковая панель", () => {
     await user.click(screen.getByRole("button", { name: "Отмена" }));
 
     expect(document.activeElement).toBe(remove);
+  });
+});
+
+describe("переключатель языка", () => {
+  it("переводит интерфейс и сохраняет выбор", async () => {
+    const { user, root } = await renderApp(FILES);
+
+    await user.click(await screen.findByRole("button", { name: "English" }));
+
+    expect(await screen.findByRole("link", { name: "Tasks" })).toBeDefined();
+    expect(document.documentElement.lang).toBe("en");
+    expect(await readSettings(root)).toEqual({ language: "en" });
   });
 });
 

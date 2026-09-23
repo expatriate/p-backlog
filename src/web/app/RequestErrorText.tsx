@@ -1,10 +1,12 @@
-import { ApiError, isServerUnreachable, unreachableMessage } from "../api/client";
+import { useMessages } from "../i18n";
+import { ApiError, isServerUnreachable } from "../api/client";
 
 export function RequestErrorText({ error }: { error: Error }) {
+  const { app } = useMessages();
   if (isServerUnreachable(error)) {
     return (
       <>
-        {unreachableMessage((command) => (
+        {app.unreachableMessage((command) => (
           <code key={command} className="inline-code">
             {command}
           </code>
@@ -12,5 +14,6 @@ export function RequestErrorText({ error }: { error: Error }) {
       </>
     );
   }
-  return <>{error instanceof ApiError && error.errors.length > 0 ? `Сервер вернул ошибку: ${error.message}` : error.message}</>;
+  if (error instanceof ApiError) return <>{error.errors.length > 0 ? app.serverErrorPrefixed(error.message) : app.serverStatusError(error.status)}</>;
+  return <>{error.message}</>;
 }

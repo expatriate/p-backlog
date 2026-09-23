@@ -1,31 +1,25 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { listPath, statsPath } from "../app/paths";
 import { Link, matchPath, NavLink, Outlet, useLocation } from "react-router";
 import type { ProjectView } from "../../core/api/contract";
-import type { GraphState } from "../../core/check/graph-health";
 import type { Task } from "../../core/model/types";
+import { useMessages } from "../i18n";
 import { useProjects, useSignals, useTasks } from "../app/queries";
 import { OPEN_STATUSES } from "../../core/model/query";
 import { countBy } from "../../core/stats/numbers";
 import { activeProjectIds, scopeNote, tasksInScope } from "../app/scope";
-import { countRu, pluralRu } from "../../core/i18n/plural";
-import { NBSP } from "../../core/stats/format";
 import { cx } from "../ui/cx";
+import type { GraphTrouble, HintPart } from "./messages.ru";
+import { LanguageSwitch } from "./LanguageSwitch";
 import { ProjectCheckbox, ProjectDeleteButton } from "./ProjectControls";
 import styles from "./AppLayout.module.css";
 
 const PROJECT_LIST_ID = "sidebar-projects";
 const UNKNOWN_COUNT = "—";
-
-type GraphTrouble = Exclude<GraphState, "fresh">;
-
-const GRAPH_NOTES: Record<GraphTrouble, { title: string; hint: ReactNode }> = {
-  none: { title: "Без графа кода", hint: <><code>code-review-graph build</code> — кандидаты проверки точнее</> },
-  stale: { title: "Граф кода устарел", hint: <><code>code-review-graph watch</code> или хук <code>update</code> — без них проверка не видит символов</> },
-  unreadable: { title: "Граф кода не читается", hint: <><code>code-review-graph build</code> заново — база другой версии или от другого пути</> },
-};
+const GRAPH_TROUBLES: readonly GraphTrouble[] = ["none", "stale", "unreadable"];
 
 export function AppLayout() {
+  const { app, layout, core } = useMessages();
   const projects = useProjects();
   const tasks = useTasks();
   const { pathname, search } = useLocation();
@@ -46,26 +40,26 @@ export function AppLayout() {
   return (
     <div className={styles.shell}>
       <a href="#content" className={cx("visually-hidden", styles.skipLink)}>
-        Перейти к содержимому
+        {layout.skipLink}
       </a>
-      <nav className={styles.sidebar} aria-label="Навигация">
+      <nav className={styles.sidebar} aria-label={layout.sidebarNav}>
         <Link to={listPath()} className={styles.brand}>
-          беклог
+          {layout.brand}
           <span className={styles.brandMark} aria-hidden="true" />
         </Link>
-        <ul className={styles.projects} aria-label="Разделы">
+        <ul className={styles.projects} aria-label={layout.sectionsLabel}>
           <li>
             <Link to={listPath(projectId)} className={navClass(!onStats)} aria-current={onStats ? undefined : "page"}>
-              <span className={styles.projectName}>Задачи</span>
+              <span className={styles.projectName}>{layout.tasksNav}</span>
             </Link>
           </li>
           <li>
             <Link to={statsPath(projectId)} className={navClass(onStats)} aria-current={statsCurrent(statsTab)}>
-              <span className={styles.projectName}>Статистика</span>
+              <span className={styles.projectName}>{layout.statsNav}</span>
               {signalCount > 0 && (
                 <>
                   <span className={cx(styles.count, styles.signalCount)} aria-hidden="true">{signalCount}</span>
-                  <span className="visually-hidden">, тревог: {signalCount}</span>
+                  <span className="visually-hidden">{layout.signalsHidden(signalCount)}</span>
                 </>
               )}
             </Link>
@@ -78,32 +72,32 @@ export function AppLayout() {
               className={styles.disclosure}
               aria-expanded={listOpen}
               aria-controls={listOpen ? PROJECT_LIST_ID : undefined}
-              aria-label={listOpen ? "Свернуть список проектов" : "Развернуть список проектов"}
+              aria-label={listOpen ? layout.collapseProjects : layout.expandProjects}
               onClick={() => setListOpen(!listOpen)}
             >
               <Chevron open={listOpen} />
             </button>
             <NavLink ref={scopeLink} to={{ pathname: scopePath(), search: onStats ? "" : search }} end aria-current="true" className={cx(styles.rowLink, styles.scopeName)}>
-              Проекты
+              {layout.projects}
             </NavLink>
             <span className={styles.count}>
               {counts === undefined ? (
                 UNKNOWN_COUNT
               ) : (
                 <>
-                  <span className={styles.number}>{counts.scopeOpen}</span> {pluralRu(counts.scopeOpen, "задача", "задачи", "задач")}
+                  <span className={styles.number}>{counts.scopeOpen}</span> {layout.taskWord(counts.scopeOpen)}
                 </>
               )}
             </span>
           </div>
           {projects.data !== undefined && (
             <p className={styles.scopeNote}>
-              {scopeNote(allProjects)}
-              {listOpen && `${NBSP}— с${NBSP}галочкой`}
+              {scopeNote(allProjects, app)}
+              {listOpen && layout.checkedSuffix}
             </p>
           )}
           {listOpen && (
-            <ul className={styles.projects} id={PROJECT_LIST_ID} aria-label="Проекты">
+            <ul className={styles.projects} id={PROJECT_LIST_ID} aria-label={layout.projects}>
               {allProjects.map((project) => (
                 <ProjectRow
                   key={project.id}
@@ -120,14 +114,20 @@ export function AppLayout() {
         </div>
         {graphTroubles.length > 0 && (
           <div className={styles.graphNotes}>
-            {graphTroubles.map(([state, count]) => (
-              <p key={state} className={styles.graphNote}>
-                {GRAPH_NOTES[state].title}: {countRu(count, "проект", "проекта", "проектов")}
-                <span>{GRAPH_NOTES[state].hint}</span>
-              </p>
-            ))}
+            {graphTroubles.map(([state, count]) => {
+              const note = layout.graphNotes[state];
+              return (
+                <p key={state} className={styles.graphNote}>
+                  {note.title}: {core.count(count, "project")}
+                  <span>
+                    <GraphHint parts={note.hint} />
+                  </span>
+                </p>
+              );
+            })}
           </div>
         )}
+        <LanguageSwitch />
       </nav>
       <Outlet />
     </div>
@@ -148,6 +148,16 @@ function ProjectRow({ to, search, openTasks, taskCount, project, onDeleted }: Pr
       <span className={styles.count}>{openTasks ?? UNKNOWN_COUNT}</span>
       <ProjectDeleteButton project={project} taskCount={taskCount} onDeleted={onDeleted} />
     </li>
+  );
+}
+
+function GraphHint({ parts }: { parts: readonly HintPart[] }) {
+  return (
+    <>
+      {parts.map((part, index) => (
+        <Fragment key={index}>{"code" in part ? <code>{part.code}</code> : part.text}</Fragment>
+      ))}
+    </>
   );
 }
 
@@ -181,7 +191,7 @@ function navClass(isActive: boolean): string {
 
 function graphTroubleCounts(projects: readonly ProjectView[]): [GraphTrouble, number][] {
   const watched = projects.filter((project) => project.active && project.repos.length > 0);
-  return (Object.keys(GRAPH_NOTES) as GraphTrouble[]).flatMap((state): [GraphTrouble, number][] => {
+  return GRAPH_TROUBLES.flatMap((state): [GraphTrouble, number][] => {
     const count = watched.filter((project) => project.codeGraph === state).length;
     return count === 0 ? [] : [[state, count]];
   });

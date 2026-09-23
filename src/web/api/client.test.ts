@@ -33,7 +33,7 @@ describe("ApiError", () => {
     expect(error.current?.id).toBe("SPA-1");
   });
 
-  it("обрыв соединения, шлюз 502–504 и ответ не в JSON — сервер недоступен, с командой запуска", async () => {
+  it("обрыв соединения, шлюз 502–504 и ответ не в JSON — сервер недоступен", async () => {
     const failures = [
       createApiClient(async () => Promise.reject(new TypeError("Failed to fetch"))),
       clientReturning(respond(502, "")),
@@ -45,14 +45,13 @@ describe("ApiError", () => {
     for (const client of failures) {
       const error = await client.tasks().catch((caught: unknown) => caught);
       expect(isServerUnreachable(error)).toBe(true);
-      expect((error as ApiError).message).toMatch(/^Сервер беклога не отвечает\. Запустите его: npm start/);
     }
   });
 
-  it("ошибка сервера без текста называет код и что делать, а не «не отвечает»", async () => {
+  it("ошибка сервера без текста несёт код статуса, а не «не отвечает»", async () => {
     const error = await clientReturning(respond(500, {})).tasks().catch((caught: unknown) => caught);
 
     expect(isServerUnreachable(error)).toBe(false);
-    expect((error as ApiError).message).toBe("Сервер вернул ошибку 500. Повторите; если не проходит — перезапустите сервер беклога.");
+    expect((error as ApiError).status).toBe(500);
   });
 });

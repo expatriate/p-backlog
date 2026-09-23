@@ -30,7 +30,7 @@ const ClosePopoverContext = createContext<(() => void) | null>(null);
 
 export function useClosePopover(): () => void {
   const closePopover = useContext(ClosePopoverContext);
-  if (closePopover === null) throw new Error("useClosePopover вызван вне Popover");
+  if (closePopover === null) throw new Error("useClosePopover called outside Popover");
   return closePopover;
 }
 

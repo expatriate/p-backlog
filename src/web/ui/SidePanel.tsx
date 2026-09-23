@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useMessages } from "../i18n";
 import { CloseIcon } from "./CloseIcon";
 import styles from "./SidePanel.module.css";
 
@@ -7,6 +8,7 @@ export type SidePanelProps = { label: string; heading: ReactNode; onClose: () =>
 const FORM_FIELDS = "input, textarea, select";
 
 export function SidePanel({ label, heading, onClose, children }: SidePanelProps) {
+  const { ui } = useMessages();
   const panel = useRef<HTMLElement>(null);
   const close = useRef(onClose);
 
@@ -55,7 +57,7 @@ export function SidePanel({ label, heading, onClose, children }: SidePanelProps)
     <aside ref={panel} className={styles.drawer} aria-label={label} tabIndex={-1}>
       <header className={styles.header}>
         {heading}
-        <button type="button" className={styles.close} aria-label="Закрыть" onClick={() => close.current()}>
+        <button type="button" className={styles.close} aria-label={ui.close} onClick={() => close.current()}>
           <CloseIcon />
         </button>
       </header>

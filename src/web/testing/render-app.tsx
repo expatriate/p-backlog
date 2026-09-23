@@ -6,6 +6,7 @@ import { makeTestApp, type TestApp, type TestAppOptions } from "../../server/tes
 import { routes } from "../app/App";
 import { BacklogApiProvider, type BacklogApi } from "../app/backlog-api";
 import { createApiClient } from "../api/client";
+import { MessagesProvider } from "../i18n";
 
 export type RenderedApp = TestApp & {
   user: ReturnType<typeof userEvent.setup>;
@@ -32,7 +33,9 @@ export async function renderApp(files: Record<string, string>, route = "/", appR
   render(
     <QueryClientProvider client={queryClient}>
       <BacklogApiProvider api={api}>
-        <RouterProvider router={router} />
+        <MessagesProvider>
+          <RouterProvider router={router} />
+        </MessagesProvider>
       </BacklogApiProvider>
     </QueryClientProvider>,
   );

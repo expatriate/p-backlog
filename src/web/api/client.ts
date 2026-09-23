@@ -7,11 +7,13 @@ import type {
   ProjectDeletedResponse,
   ProjectView,
   QualityReport,
+  SettingsResponse,
   SignalsReport,
   StatsReport,
   TaskChangesRequest,
   TasksResponse,
 } from "../../core/api/contract";
+import type { Language } from "../../core/i18n/language";
 import type { Project, Task } from "../../core/model/types";
 
 export type ApiFetch = (path: string, init?: RequestInit) => Promise<Response>;
@@ -22,7 +24,7 @@ export class ApiError extends Error {
     readonly errors: string[],
     readonly current?: Task,
   ) {
-    super(errors.length > 0 ? errors.join("; ") : fallbackMessage(status));
+    super(errors.length > 0 ? errors.join("; ") : `backlog api error, status ${status}`);
     this.name = "ApiError";
   }
 }
@@ -40,6 +42,8 @@ export type ApiClient = {
   signals: (projectId?: string) => Promise<SignalsReport>;
   costStats: (projectId?: string) => Promise<CostReport>;
   memorySamples: () => Promise<MemorySamplesResponse>;
+  settings: () => Promise<SettingsResponse>;
+  setLanguage: (language: Language) => Promise<SettingsResponse>;
 };
 
 const UNREACHABLE_STATUS = 0;
@@ -47,15 +51,6 @@ const GATEWAY_STATUSES = new Set([502, 503, 504]);
 
 export function isServerUnreachable(error: unknown): boolean {
   return error instanceof ApiError && error.status === UNREACHABLE_STATUS;
-}
-
-export function unreachableMessage<T>(command: (text: string) => T): Array<string | T> {
-  return [
-    "Сервер беклога не отвечает. Запустите его: ",
-    command("npm start"),
-    " в репозитории p-backlog или, если установлен LaunchAgent из README, ",
-    command("launchctl kickstart -k gui/$(id -u)/local.p-backlog"),
-  ];
 }
 
 export function createApiClient(apiFetch: ApiFetch): ApiClient {
@@ -86,16 +81,13 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
     signals: (projectId) => request<SignalsReport>(scopedPath("/api/stats/signals", projectId)),
     costStats: (projectId) => request<CostReport>(scopedPath("/api/stats/cost", projectId)),
     memorySamples: () => request<MemorySamplesResponse>("/api/stats/memory"),
+    settings: () => request<SettingsResponse>("/api/settings"),
+    setLanguage: (language) => request<SettingsResponse>("/api/settings", jsonInit("PATCH", { language })),
   };
 }
 
 function unreachable(): ApiError {
   return new ApiError(UNREACHABLE_STATUS, []);
-}
-
-function fallbackMessage(status: number): string {
-  if (status === UNREACHABLE_STATUS) return unreachableMessage((command) => command).join("");
-  return `Сервер вернул ошибку ${status}. Повторите; если не проходит — перезапустите сервер беклога.`;
 }
 
 function projectPath(id: string): string {

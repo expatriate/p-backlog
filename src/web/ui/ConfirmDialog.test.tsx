@@ -16,6 +16,7 @@ describe("подтверждение действия", () => {
         confirmWord="torg-io"
         confirmWordLabel="Введите id проекта: torg-io"
         confirmLabel="Удалить"
+        cancelLabel="Отмена"
         onConfirm={onConfirm}
         onCancel={() => undefined}
       />,
@@ -44,6 +45,7 @@ describe("подтверждение действия", () => {
         confirmWord="torg-io"
         confirmWordLabel="Введите id проекта: torg-io"
         confirmLabel="Удалить"
+        cancelLabel="Отмена"
         onConfirm={onConfirm}
         onCancel={onCancel}
       />,
@@ -82,6 +84,7 @@ function DialogOpener() {
         confirmWord="torg-io"
         confirmWordLabel="Введите id проекта: torg-io"
         confirmLabel="Удалить"
+        cancelLabel="Отмена"
         onConfirm={() => setOpen(false)}
         onCancel={() => setOpen(false)}
       />

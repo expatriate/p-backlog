@@ -18,6 +18,6 @@ export function BacklogApiProvider({ api, children }: { api: BacklogApi; childre
 
 export function useBacklogApi(): BacklogApi {
   const api = useContext(BacklogApiContext);
-  if (!api) throw new Error("BacklogApiProvider не подключён");
+  if (!api) throw new Error("BacklogApiProvider is not mounted");
   return api;
 }

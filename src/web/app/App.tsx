@@ -1,4 +1,5 @@
 import { Navigate, type RouteObject } from "react-router";
+import { useMessages } from "../i18n";
 import { AppLayout } from "../layout/AppLayout";
 import { TaskListPage } from "../list/TaskListPage";
 import styles from "./App.module.css";
@@ -36,10 +37,11 @@ function LiveApp() {
 }
 
 function CrashScreen() {
+  const { app } = useMessages();
   return (
     <main className={styles.crash} role="alert">
-      <h1>Интерфейс беклога сломался</h1>
-      <p>Обновите страницу. Если ошибка повторится, перезапустите сервер беклога.</p>
+      <h1>{app.crashTitle}</h1>
+      <p>{app.crashHint}</p>
     </main>
   );
 }

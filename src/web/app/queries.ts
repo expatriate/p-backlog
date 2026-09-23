@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryOptions } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { MemorySamplesResponse, ProjectView, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { MemorySamplesResponse, ProjectView, SettingsResponse, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import { MEMORY_SAMPLE_INTERVAL_MS } from "../../core/api/memory";
+import type { Language } from "../../core/i18n/language";
 import type { Project, Task } from "../../core/model/types";
 import { ApiError, type ApiClient } from "../api/client";
 import { useBacklogApi } from "./backlog-api";
@@ -9,8 +10,23 @@ import { useBacklogApi } from "./backlog-api";
 const PROJECTS_KEY = ["projects"];
 const TASKS_KEY = ["tasks"];
 const STATS_KEY = ["stats"];
+const SETTINGS_KEY = ["settings"];
 
 const STATS_STALE_MS = 60_000;
+
+export function useSettings() {
+  const { client } = useBacklogApi();
+  return useQuery<SettingsResponse>({ queryKey: SETTINGS_KEY, queryFn: client.settings });
+}
+
+export function useSetLanguage(): UseMutationResult<SettingsResponse, Error, Language> {
+  const { client } = useBacklogApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (language: Language) => client.setLanguage(language),
+    onSuccess: () => queryClient.invalidateQueries(),
+  });
+}
 
 export function useProjects() {
   const { client } = useBacklogApi();
@@ -101,7 +117,7 @@ export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariab
     scope: TASK_SAVES,
     mutationFn: ({ id, change, bodyEdit }: UpdateTaskVariables) => {
       const task = freshestTask(queryClient, id);
-      if (!task) throw new Error(`Задача ${id} не найдена`);
+      if (!task) throw new Error(`task ${id} not found`);
       const changes = change(task);
       return bodyEdit === undefined ? client.updateTask(id, task.version, changes) : saveEditedBody(client, id, changes, bodyEdit);
     },

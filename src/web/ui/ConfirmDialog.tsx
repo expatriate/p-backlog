@@ -9,6 +9,7 @@ export type ConfirmDialogProps = {
   confirmWord: string;
   confirmWordLabel: string;
   confirmLabel: string;
+  cancelLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -17,7 +18,7 @@ export function ConfirmDialog({ open, ...props }: ConfirmDialogProps) {
   return open ? <OpenDialog {...props} /> : null;
 }
 
-function OpenDialog({ title, description, confirmWord, confirmWordLabel, confirmLabel, onConfirm, onCancel }: Omit<ConfirmDialogProps, "open">) {
+function OpenDialog({ title, description, confirmWord, confirmWordLabel, confirmLabel, cancelLabel, onConfirm, onCancel }: Omit<ConfirmDialogProps, "open">) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const [typed, setTyped] = useState("");
@@ -50,7 +51,7 @@ function OpenDialog({ title, description, confirmWord, confirmWordLabel, confirm
         <input value={typed} autoComplete="off" onChange={(event) => setTyped(event.target.value)} />
       </label>
       <div className={styles.actions}>
-        <Button onClick={onCancel}>Отмена</Button>
+        <Button onClick={onCancel}>{cancelLabel}</Button>
         <Button variant="primary" disabled={typed !== confirmWord} onClick={onConfirm}>
           {confirmLabel}
         </Button>

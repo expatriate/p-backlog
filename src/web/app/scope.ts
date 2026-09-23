@@ -1,6 +1,5 @@
-import { countRu } from "../../core/i18n/plural";
 import type { Project, Task } from "../../core/model/types";
-import { NBSP } from "../../core/stats/format";
+import { appRu, type AppMessages } from "./messages.ru";
 
 export function activeProjectIds(projects: readonly Project[]): Set<string> {
   return new Set(projects.filter((project) => project.active).map((project) => project.id));
@@ -14,6 +13,6 @@ export function projectNameOf(projects: readonly Project[] | undefined, projectI
   return projects?.find((project) => project.id === projectId)?.name ?? projectId;
 }
 
-export function scopeNote(projects: readonly Project[]): string {
-  return `учтено ${activeProjectIds(projects).size} из${NBSP}${countRu(projects.length, "проекта", "проектов", "проектов")}`;
+export function scopeNote(projects: readonly Project[], messages: AppMessages = appRu): string {
+  return messages.scopeNote(activeProjectIds(projects).size, projects.length);
 }
