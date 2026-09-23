@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { categoryLabel } from "../../core/model/categories";
+import { coreMessages } from "../../core/messages";
 import { TASK_CATEGORIES } from "../../core/model/types";
 import { loadBacklog } from "../../core/store/load";
 import { usageError, type CliCommand } from "../command";
@@ -26,6 +26,7 @@ async function runCategory(args: string[], io: CliIo): Promise<number> {
   if (!task) return EXIT.notFound;
   const written = await taskWriter(io, loaded.tasks)(task, { category });
   if (!written.ok) return written.exitCode;
-  io.print(`${id}: ${categoryLabel(task.category)} → ${categoryLabel(written.task.category)}`);
+  const messages = coreMessages(io.language);
+  io.print(`${id}: ${messages.categoryLabel(task.category)} → ${messages.categoryLabel(written.task.category)}`);
   return EXIT.ok;
 }

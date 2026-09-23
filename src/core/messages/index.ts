@@ -2,6 +2,8 @@ import type { Language } from "../i18n/language";
 import { coreEn } from "./en";
 import { coreRu } from "./ru";
 
+export type CountUnit = "task" | "line" | "project" | "day" | "week" | "session";
+
 export type CoreMessages = typeof coreRu;
 
 export function coreMessages(language: Language): CoreMessages {

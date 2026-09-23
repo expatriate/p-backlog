@@ -1,6 +1,6 @@
 import { useId } from "react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
-import { pluralCount } from "../../core/stats/format";
+import { countRu } from "../../core/i18n/plural";
 import type { EffectPeriod, EffectTotals } from "../../core/stats/types";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay, tooltipWeek } from "./charts/chart-format";
@@ -22,7 +22,7 @@ const periodTooltip = (grain: Grain) =>
   rowTooltip((period: EffectPeriod) => ({
     title: grain === "week" ? tooltipWeek(period.start) : tooltipDay(period.start),
     rows: [
-      { label: "в пулреквестах", value: pluralCount(Math.round(period.onTopicLines), "строка", "строки", "строк"), shape: "bar", color: REAL },
+      { label: "в пулреквестах", value: countRu(Math.round(period.onTopicLines), "строка", "строки", "строк"), shape: "bar", color: REAL },
       { label: "вынесено в беклог", value: roughLines(period.deferredLines), shape: "hatch", color: DEFERRED },
       { label: "код", value: roughLines(period.deferredLines - period.deferredTestLines) },
       { label: "тесты", value: roughLines(period.deferredTestLines) },
@@ -35,7 +35,7 @@ const TOOLTIPS: Record<Grain, ReturnType<typeof periodTooltip>> = { week: period
 export function EffectWeeksChart({ periods, totals, grain }: { periods: EffectPeriod[]; totals: EffectTotals; grain: Grain }) {
   const patternId = useId();
   const deferred = linesText(totals.deferredLines, isEstimated(totals.estimatedLines));
-  const summary = `С внедрения беклога: в пулреквестах ${pluralCount(totals.realLines, "строка", "строки", "строк")}, вынесено ${deferred}, шум без беклога ${formatNoiseShare(totals.noiseShare)}`;
+  const summary = `С внедрения беклога: в пулреквестах ${countRu(totals.realLines, "строка", "строки", "строк")}, вынесено ${deferred}, шум без беклога ${formatNoiseShare(totals.noiseShare)}`;
   return (
     <ChartFrame summary={summary} legend={LEGEND}>
       <BarChart data={periods} margin={CHART_MARGIN} aria-label={chartLabel("Эффективность", grain === "week" ? "неделям" : "дням")}>

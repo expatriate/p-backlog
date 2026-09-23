@@ -1,4 +1,3 @@
-import { categoryLabel } from "../../model/categories";
 import type { Task, TaskCategory } from "../../model/types";
 import { closingsOf, type TaskHistory } from "../history";
 import type { Period } from "../period";
@@ -26,9 +25,11 @@ export function categoryBreakdown(openTasks: readonly Task[], histories: readonl
   }
   return [...rows.values()]
     .filter((entry) => entry.open + entry.created + entry.closed > 0)
-    .sort((a, b) => Number(a.category === null) - Number(b.category === null) || b.weight - a.weight || b.created - a.created || label(a).localeCompare(label(b)));
-}
-
-function label(row: CategoryRow): string {
-  return categoryLabel(row.category ?? undefined);
+    .sort(
+      (a, b) =>
+        Number(a.category === null) - Number(b.category === null) ||
+        b.weight - a.weight ||
+        b.created - a.created ||
+        (a.category ?? "").localeCompare(b.category ?? ""),
+    );
 }

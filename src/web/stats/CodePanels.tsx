@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { formatDecimal, NBSP, pluralCount } from "../../core/stats/format";
+import { formatDecimal, NBSP } from "../../core/stats/format";
+import { countRu } from "../../core/i18n/plural";
 import type { ChurnRow, CodeDensity, DensityRow } from "../../core/stats/types";
 import { Panel } from "./Panel";
 import rowStyles from "./PanelRows.module.css";
@@ -18,9 +19,9 @@ export function ChurnPanel({ churn }: { churn: ChurnRow[] }) {
           {churn.map((row) => (
             <li key={row.label} className={styles.churnRow}>
               <code className={rowStyles.rowLabel}>{row.label}</code>
-              <span className={rowStyles.rowValue}>{pluralCount(row.commits, "коммит", "коммита", "коммитов")}</span>
+              <span className={rowStyles.rowValue}>{countRu(row.commits, "коммит", "коммита", "коммитов")}</span>
               <span className={rowStyles.rowValue}>
-                {pluralCount(row.tasks, "задача", "задачи", "задач")}, вес {row.weight}
+                {countRu(row.tasks, "задача", "задачи", "задач")}, вес {row.weight}
               </span>
               <span className={rowStyles.track} aria-hidden="true">
                 <span className={rowStyles.fill} style={{ transform: `scaleX(${row.score / top})` }} />
@@ -59,8 +60,8 @@ function DensityRows({ rows }: { rows: { key: string; label: ReactNode; row: Den
       {rows.map(({ key, label, row }) => (
         <li key={key} className={styles.densityRow}>
           <span className={rowStyles.rowLabel}>{label}</span>
-          <span className={rowStyles.rowValue}>{pluralCount(row.lines, "строка", "строки", "строк")}</span>
-          <span className={rowStyles.rowValue}>{pluralCount(row.open, "задача", "задачи", "задач")}</span>
+          <span className={rowStyles.rowValue}>{countRu(row.lines, "строка", "строки", "строк")}</span>
+          <span className={rowStyles.rowValue}>{countRu(row.open, "задача", "задачи", "задач")}</span>
           <span className={rowStyles.rowValue}>{row.perKloc === null ? "—" : `${formatDecimal(row.perKloc)} на 1000${NBSP}строк`}</span>
         </li>
       ))}

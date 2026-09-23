@@ -1,6 +1,5 @@
 import { useId, useState } from "react";
 import type { TaskChangesRequest } from "../../core/api/contract";
-import { CATEGORY_LABELS, NO_CATEGORY_LABEL } from "../../core/model/categories";
 import { coreMessages } from "../../core/messages";
 import { epicProblems } from "../../core/model/integrity";
 import {
@@ -9,11 +8,16 @@ import {
   TASK_STATUSES,
   TASK_TYPES,
   type Task,
+  type TaskCategory,
 } from "../../core/model/types";
 import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
 import { useDraft } from "../ui/use-draft";
 import { normalizeTaskId } from "./normalize-task-id";
 import styles from "./TaskFields.module.css";
+
+const messages = coreMessages("ru");
+const CATEGORY_LABELS = Object.fromEntries(TASK_CATEGORIES.map((category) => [category, messages.categoryLabel(category)])) as Record<TaskCategory, string>;
+const NO_CATEGORY_LABEL = messages.categoryLabel(undefined);
 
 export type TaskFieldsProps = { task: Task; epicListId: string; knownTasks: readonly Task[]; onChange: (changes: TaskChangesRequest) => void };
 
@@ -27,7 +31,7 @@ export function TaskFields({ task, epicListId, knownTasks, onChange }: TaskField
     const value = normalizeTaskId(epic);
     const resolve = (id: string) => knownTasks.find((known) => known.id === id);
     const problems = value === "" ? [] : epicProblems({ ...task, epic: value }, resolve);
-    setEpicError(problems.length === 0 ? null : coreMessages("ru").problems(problems));
+    setEpicError(problems.length === 0 ? null : messages.problems(problems));
     if (problems.length > 0) return;
     if (value !== (task.epic ?? "")) onChange({ epic: value === "" ? null : value });
   };

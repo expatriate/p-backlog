@@ -1,21 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { forecastTail, forecastText, formatDays, formatDecimal, formatMoney, formatP90, formatShare, formatSigned, NBSP, plural } from "./format";
+import { formatDays, formatDecimal, formatMoney, formatP90, formatShare, formatSigned, NBSP } from "./format";
 
 describe("формат статистики", () => {
   it("дни: нет данных, меньше дня, округление", () => {
     expect(formatDays(null)).toBe("—");
     expect(formatDays(0.4)).toBe("меньше дня");
     expect(formatDays(2.6)).toBe(`3${NBSP}дн.`);
-  });
-
-  it("склонение по числу: 1 — one, 2–4 и дробные — few, 5–20 — many", () => {
-    expect(plural(1, "задача", "задачи", "задач")).toBe("задача");
-    expect(plural(2, "задача", "задачи", "задач")).toBe("задачи");
-    expect(plural(4, "задача", "задачи", "задач")).toBe("задачи");
-    expect(plural(5, "задача", "задачи", "задач")).toBe("задач");
-    expect(plural(11, "задача", "задачи", "задач")).toBe("задач");
-    expect(plural(21, "задача", "задачи", "задач")).toBe("задача");
-    expect(plural(0.8, "задача", "задачи", "задач")).toBe("задачи");
   });
 
   it("90-й процентиль: меньше суток — «быстрее суток», иначе «за N дн.»", () => {
@@ -41,24 +31,5 @@ describe("формат статистики", () => {
     expect(formatMoney(1234.56)).toBe(`$1${NBSP}234,56`);
     expect(formatMoney(0)).toBe("$0,00");
     expect(formatMoney(null)).toBe("—");
-  });
-});
-
-describe("тексты потока", () => {
-  const forecast = { closed: 0, created: 0, open: 3, weeklyNet: 0, weeks: null, until: null, windowWeeks: 4 };
-
-  it("прогноз по чистому темпу", () => {
-    expect(forecastText({ ...forecast, open: 0 })).toBe("Открытых задач нет");
-    expect(forecastText({ ...forecast, weeklyNet: 1, weeks: 3, until: new Date(2026, 9, 9, 12).toISOString() })).toBe(`Долг разберётся примерно за 3${NBSP}нед. (к 09.10)`);
-    expect(forecastText(forecast)).toBe("Долг не уменьшается");
-    expect(forecastText({ ...forecast, weeklyNet: -0.75 })).toBe(`Долг растёт на 0,8${NBSP}задачи в неделю`);
-    expect(forecastText({ ...forecast, weeklyNet: -0.96 })).toBe(`Долг растёт на 1${NBSP}задача в неделю`);
-    expect(forecastText({ ...forecast, weeklyNet: -2 })).toBe(`Долг растёт на 2${NBSP}задачи в неделю`);
-    expect(forecastText({ ...forecast, weeklyNet: -1 })).toBe(`Долг растёт на 1${NBSP}задача в неделю`);
-  });
-
-  it("хвост прогноза — один текст для CLI и веба, недели согласуются с числом", () => {
-    expect(forecastTail({ ...forecast, closed: 2, created: 20, windowWeeks: 4 })).toBe(`за 4${NBSP}недели: закрыто 2, создано 20`);
-    expect(forecastTail({ ...forecast, closed: 0, created: 1, windowWeeks: 1 })).toBe(`за 1${NBSP}неделю: закрыто 0, создано 1`);
   });
 });

@@ -31,6 +31,7 @@ async function runShow(args: string[], io: CliIo): Promise<number> {
 }
 
 export async function printTask(io: CliIo, task: Task, tasks: readonly Task[], { json }: { json: boolean }): Promise<void> {
-  const description = describeTask(task, buildIndex(tasks), coreMessages(io.language));
-  io.print(json ? JSON.stringify(toJson(description), null, 2) : formatTaskDetails(description, await readFile(task.path, "utf8")));
+  const messages = coreMessages(io.language);
+  const description = describeTask(task, buildIndex(tasks), messages);
+  io.print(json ? JSON.stringify(toJson(description), null, 2) : formatTaskDetails(messages, description, await readFile(task.path, "utf8")));
 }

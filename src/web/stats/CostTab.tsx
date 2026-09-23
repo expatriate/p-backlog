@@ -1,6 +1,6 @@
 import { useParams } from "react-router";
 import type { CostReport, ScanProgress } from "../../core/stats/types";
-import { pluralCount } from "../../core/stats/format";
+import { countRu } from "../../core/i18n/plural";
 import { useCostStats } from "../app/queries";
 import { CommandsPanel, CostFigures, ModelsPanel } from "./CostPanels";
 import rowStyles from "./PanelRows.module.css";
@@ -41,7 +41,7 @@ function ScanNotice({ scan }: { scan: ScanProgress }) {
 function scanNoticeText(scan: ScanProgress): string | null {
   if (!scan.listed) return "Считаем расход по расшифровкам Claude Code…";
   if (scan.filesTotal === 0) return "Расшифровки Claude Code не найдены.";
-  if (scan.bytesLeft > 0) return `Считаем расход по расшифровкам Claude Code: прочитано ${scan.filesDone} из ${pluralCount(scan.filesTotal, "файла", "файлов", "файлов")}`;
+  if (scan.bytesLeft > 0) return `Считаем расход по расшифровкам Claude Code: прочитано ${scan.filesDone} из ${countRu(scan.filesTotal, "файла", "файлов", "файлов")}`;
   return null;
 }
 

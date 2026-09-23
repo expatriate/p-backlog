@@ -4,7 +4,7 @@ import { activeProjectIds, projectNameOf, tasksInScope } from "../app/scope";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
-import { pluralCount } from "../../core/stats/format";
+import { countRu } from "../../core/i18n/plural";
 import type { Task } from "../../core/model/types";
 import { useProjects, useTasks } from "../app/queries";
 import { RequestErrorText } from "../app/RequestErrorText";
@@ -127,7 +127,7 @@ export function TaskListPage() {
                 }}
               />
             )}
-            {settled && <p>В списке {pluralCount(announcedCount, "задача", "задачи", "задач")}</p>}
+            {settled && <p>В списке {countRu(announcedCount, "задача", "задачи", "задач")}</p>}
           </div>
           {content === "table" && (
             <TaskTable
@@ -173,7 +173,7 @@ function EmptyList({
   filter: ListParams["filter"];
   onFilterChange: (filter: ListParams["filter"]) => void;
 }) {
-  const hiddenNote = `Ещё ${pluralCount(hiddenOpen, "открытая задача", "открытые задачи", "открытых задач")} — в проектах без галочки.`;
+  const hiddenNote = `Ещё ${countRu(hiddenOpen, "открытая задача", "открытые задачи", "открытых задач")} — в проектах без галочки.`;
   if (!hasTasks) {
     if (hiddenOpen > 0) return <p>В учтённых проектах задач нет. {hiddenNote}</p>;
     return (

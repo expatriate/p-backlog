@@ -1,5 +1,5 @@
 import type { GraphState } from "../check/graph-health";
-import type { CandidateEvidence, FoundHow, RecordedMatch, RecordedMethod } from "../journal/events";
+import type { CandidateEvidence, CheckMethod, FoundHow, RecordedMatch, RecordedMethod } from "../journal/events";
 import type { Priority, TaskCategory } from "../model/types";
 
 export type ClosingReason = "done" | "fixed" | "obsolete" | "duplicate" | "cancelled";
@@ -102,7 +102,17 @@ export type EffectReport = ReportHead & {
 };
 
 type SignalKind = "debt-growing" | "urgent-stale" | "stuck" | "noisy-check" | "low-changed" | "stale-low";
-export type Signal = { kind: SignalKind; text: string };
+
+type SignalParams = {
+  "debt-growing": { weeks: number; created: number; closed: number };
+  "urgent-stale": { days: number; count: number };
+  stuck: { count: number; id: string; days: number };
+  "noisy-check": { evidence: CandidateEvidence; method: CheckMethod | null; percent: number; decided: number; windowDays: number };
+  "low-changed": { count: number };
+  "stale-low": { days: number; count: number };
+};
+
+export type Signal = { [K in SignalKind]: { kind: K; params: SignalParams[K] } }[SignalKind];
 export type SignalsReport = { signals: Signal[] };
 
 export type TokenCounts = { input: number; cacheWrite5m: number; cacheWrite1h: number; cacheRead: number; output: number };

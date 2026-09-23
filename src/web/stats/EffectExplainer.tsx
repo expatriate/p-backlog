@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { NBSP, pluralCount } from "../../core/stats/format";
+import { NBSP } from "../../core/stats/format";
+import { countRu } from "../../core/i18n/plural";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { EffectTotals } from "../../core/stats/types";
 import { codeAndTests, formatApprox, formatLines, formatNoiseShare, isEstimated, linesText } from "./effect-format";
@@ -16,7 +17,7 @@ export function EffectExplainer({ totals }: { totals: EffectTotals }) {
           Исправленные — точно: строки коммита из причины закрытия, без lock-файлов, документации и картинок; коммит на несколько задач делится поровну. Не считаются задачи, закрытые без
           исправления, и исправленные без найденного коммита.
           <Now>
-            {pluralCount(totals.fixedTasks, "задача", "задачи", "задач")} — {linesText(totals.fixedLines, false)}
+            {countRu(totals.fixedTasks, "задача", "задачи", "задач")} — {linesText(totals.fixedLines, false)}
           </Now>
         </li>
         <li>
@@ -43,9 +44,9 @@ function Now({ children }: { children: ReactNode }) {
 
 function pendingText(totals: EffectTotals): string {
   if (totals.openTasks === 0) return "ожидающих нет";
-  if (totals.estimatedLines === null) return `${pluralCount(totals.openTasks, "задача", "задачи", "задач")}, оценка появится после ${MIN_FIXES_FOR_ESTIMATE} исправлений`;
+  if (totals.estimatedLines === null) return `${countRu(totals.openTasks, "задача", "задачи", "задач")}, оценка появится после ${MIN_FIXES_FOR_ESTIMATE} исправлений`;
   const perTask = totals.estimatedLines / totals.openTasks;
-  return `${pluralCount(totals.openTasks, "задача", "задачи", "задач")} ${linesText(totals.estimatedLines, true)}, в среднем ≈${NBSP}${formatLines(perTask)} на задачу`;
+  return `${countRu(totals.openTasks, "задача", "задачи", "задач")} ${linesText(totals.estimatedLines, true)}, в среднем ≈${NBSP}${formatLines(perTask)} на задачу`;
 }
 
 function noiseText(totals: EffectTotals): string {

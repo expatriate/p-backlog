@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { pluralEn, pluralRu } from "./plural";
+import { countEn, countRu, pluralEn, pluralRu } from "./plural";
+
+const NBSP = " ";
 
 describe("множественное число", () => {
   it("русский: 1, 2–4, 5–20, 21, дробные", () => {
@@ -7,5 +9,13 @@ describe("множественное число", () => {
   });
   it("английский: одна и остальные", () => {
     expect([1, 0, 2, 1.5].map((n) => pluralEn(n, "task", "tasks"))).toEqual(["task", "tasks", "tasks", "tasks"]);
+  });
+});
+
+describe("счёт с числом", () => {
+  it("число, неразрывный пробел, форма — по языку", () => {
+    expect(countRu(1234, "задача", "задачи", "задач")).toBe(`1${NBSP}234${NBSP}задачи`);
+    expect(countEn(1234, "task", "tasks")).toBe(`1,234${NBSP}tasks`);
+    expect(countEn(1, "task", "tasks")).toBe(`1${NBSP}task`);
   });
 });

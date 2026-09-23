@@ -11,3 +11,13 @@ export function pluralRu(n: number, one: string, few: string, many: string): str
 export function pluralEn(n: number, one: string, other: string): string {
   return n === 1 ? one : other;
 }
+
+const NBSP = " ";
+
+export function countRu(n: number, one: string, few: string, many: string): string {
+  return `${n.toLocaleString("ru-RU")}${NBSP}${pluralRu(n, one, few, many)}`;
+}
+
+export function countEn(n: number, one: string, other: string): string {
+  return `${n.toLocaleString("en-US")}${NBSP}${pluralEn(n, one, other)}`;
+}

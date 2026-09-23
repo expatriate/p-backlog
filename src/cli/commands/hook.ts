@@ -11,7 +11,6 @@ import { findProjectForDir } from "../../core/store/resolve-project";
 import { readSignalsShown, writeSignalsShown } from "../../core/store/signals-shown";
 import { readSessionShown, writeSessionShown } from "../../core/store/session-shown";
 import { HOOK_STOP_EVENT, hookMessage } from "../../core/stats/cost/hook-signature";
-import { pluralCount } from "../../core/stats/format";
 import { statsSignals } from "../../core/stats/signals/signals";
 import { markShown, signalsToShow, type SignalsShown } from "../../core/stats/signals/shown";
 import type { Signal } from "../../core/stats/types";
@@ -36,7 +35,8 @@ async function runHook(args: string[], io: CliIo): Promise<number> {
   const loaded = await loadBacklog(io.backlogRoot);
   const project = findProjectForDir(loaded.projects, event.cwd, io.home);
   if (!project) return EXIT.ok;
-  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home, messages: coreMessages(io.language) });
+  const messages = coreMessages(io.language);
+  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home, messages });
   const lowPriority = new Set(loaded.tasks.filter((task) => task.priority === "low").map((task) => task.id));
   const worthTelling = candidates.filter((candidate) => !lowPriority.has(candidate.task.id));
   const lowCount = candidates.length - worthTelling.length;
@@ -46,7 +46,7 @@ async function runHook(args: string[], io: CliIo): Promise<number> {
   const signals = await freshSignals(project, loaded.tasks.filter((task) => task.projectId === project.id), lowChangedSignals(lowCount), io);
   const response = {
     ...(blocking.length > 0 ? { decision: "block", reason: stopReason(project.id, blocking) } : {}),
-    ...(signals.fresh.length > 0 ? { systemMessage: hookMessage(project.id, signals.fresh.map((signal) => signal.text).join("; ")) } : {}),
+    ...(signals.fresh.length > 0 ? { systemMessage: hookMessage(project.id, signals.fresh.map((signal) => messages.signal(signal)).join("; ")) } : {}),
   };
   if (Object.keys(response).length > 0) io.print(JSON.stringify(response));
   await signals.remember();
@@ -78,7 +78,7 @@ type FreshSignals = { fresh: Signal[]; remember: () => Promise<void> };
 
 function lowChangedSignals(count: number): Signal[] {
   if (count === 0) return [];
-  return [{ kind: "low-changed", text: `Код менялся у ${pluralCount(count, "задачи", "задач", "задач")} с низким приоритетом — перепроверьте при случае («почисти беклог»)` }];
+  return [{ kind: "low-changed", params: { count } }];
 }
 
 async function freshSignals(project: Project, tasks: readonly Task[], extra: readonly Signal[], io: CliIo): Promise<FreshSignals> {

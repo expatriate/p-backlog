@@ -1,5 +1,6 @@
 import { Bar, CartesianGrid, ComposedChart, Tooltip, XAxis, YAxis } from "recharts";
-import { formatDecimal, pluralCount } from "../../core/stats/format";
+import { formatDecimal } from "../../core/stats/format";
+import { countRu } from "../../core/i18n/plural";
 import type { DayFlow } from "../../core/stats/types";
 import { sum } from "../../core/stats/numbers";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
@@ -14,7 +15,7 @@ const LEGEND: LegendItem[] = [{ label: "создано задач", shape: "bar"
 
 const dayTooltip = rowTooltip((day: DayFlow) => ({
   title: tooltipDay(day.day),
-  rows: [{ label: "создано", value: pluralCount(day.created, "задача", "задачи", "задач"), shape: "bar", color: CREATED }],
+  rows: [{ label: "создано", value: countRu(day.created, "задача", "задачи", "задач"), shape: "bar", color: CREATED }],
 }));
 
 export function DailyIntakePanel({ days }: { days: DayFlow[] }) {
@@ -35,7 +36,7 @@ export function DailyIntakePanel({ days }: { days: DayFlow[] }) {
 
 function intakeSummary(days: DayFlow[]): string {
   const created = sum(days.map((day) => day.created));
-  const period = pluralCount(days.length, "день", "дня", "дней");
+  const period = countRu(days.length, "день", "дня", "дней");
   if (created === 0) return `${period}: задач не создавали`;
   return `${period}: создано ${created}, в среднем ${formatDecimal(created / days.length)} в день`;
 }

@@ -1,9 +1,13 @@
 import { z } from "zod";
-import type { CandidateEvidence, CheckMethod } from "../journal/events";
-import { pluralEn } from "../i18n/plural";
+import type { GraphState } from "../check/graph-health";
+import { formatDayMonth } from "../i18n/format";
+import { countEn, pluralEn } from "../i18n/plural";
+import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
-import type { CoreMessages } from "./index";
+import { roundToTenth } from "../stats/format";
+import type { FlowForecast, Signal } from "../stats/types";
+import type { CoreMessages, CountUnit } from "./index";
 import { zodIssueText } from "./zod";
 
 const zodEn = z.locales.en().localeError;
@@ -42,6 +46,78 @@ const EVIDENCE_LABELS: Record<CandidateEvidence | "total", string> = {
 };
 
 const CHECK_METHOD_LABELS: Record<CheckMethod, string> = { symbol: "by symbol", anchor: "by source lines", file: "by file" };
+
+const DUPLICATE_MATCH_LABELS: Record<DuplicateMatch, string> = { source: "by code location", title: "by title", symbol: "by symbol" };
+
+const GRAPH_STATE_LABELS: Record<GraphState, string> = { none: "none", unreadable: "unreadable", stale: "stale", fresh: "fresh" };
+
+const COUNT_FORMS: Record<CountUnit, [string, string]> = {
+  task: ["task", "tasks"],
+  line: ["line", "lines"],
+  project: ["project", "projects"],
+  day: ["day", "days"],
+  week: ["week", "weeks"],
+  session: ["session", "sessions"],
+};
+
+function evidenceLabel(evidence: CandidateEvidence | "total"): string {
+  return EVIDENCE_LABELS[evidence];
+}
+
+function checkMethodLabel(method: CheckMethod): string {
+  return CHECK_METHOD_LABELS[method];
+}
+
+function duplicateMatchLabel(match: DuplicateMatch): string {
+  return DUPLICATE_MATCH_LABELS[match];
+}
+
+function graphStateLabel(state: GraphState): string {
+  return GRAPH_STATE_LABELS[state];
+}
+
+function count(n: number, unit: CountUnit): string {
+  const [one, other] = COUNT_FORMS[unit];
+  return countEn(n, one, other);
+}
+
+function daysText(days: number): string {
+  if (days < 1) return "less than a day";
+  const rounded = Math.round(days);
+  return `${rounded} ${pluralEn(rounded, "day", "days")}`;
+}
+
+function forecast({ open, weeklyNet, weeks, until }: FlowForecast): string {
+  if (open === 0) return "No open tasks";
+  if (weeks !== null && until !== null) return `Debt clears in about ${weeks} wk. (by ${formatDayMonth("en", new Date(until))})`;
+  if (weeklyNet === 0) return "Debt is not shrinking";
+  const growth = roundToTenth(-weeklyNet);
+  return `Debt grows by ${growth} ${pluralEn(growth, "task", "tasks")} a week`;
+}
+
+function forecastTail({ windowWeeks, closed, created }: FlowForecast): string {
+  return `over ${countEn(windowWeeks, "week", "weeks")}: closed ${closed}, created ${created}`;
+}
+
+function signal(s: Signal): string {
+  switch (s.kind) {
+    case "debt-growing":
+      return `Debt has grown for ${countEn(s.params.weeks, "week", "weeks")} straight: created ${s.params.created}, closed ${s.params.closed}`;
+    case "urgent-stale":
+      return `Urgent tasks have been waiting more than ${countEn(s.params.days, "day", "days")}: ${s.params.count}`;
+    case "stuck":
+      return `Stuck in progress: ${s.params.count}, longest ${s.params.id} — ${daysText(s.params.days)}`;
+    case "noisy-check": {
+      const { evidence, method, percent, decided, windowDays } = s.params;
+      const name = method === null ? `"${evidenceLabel(evidence)}"` : `"${evidenceLabel(evidence)}" ${checkMethodLabel(method)}`;
+      return `Check ${name} is almost always wrong: precision ${percent}% on ${decided} decided over ${countEn(windowDays, "day", "days")}`;
+    }
+    case "low-changed":
+      return `Code changed for ${countEn(s.params.count, "task", "tasks")} with low priority — re-check when convenient ("clean up the backlog")`;
+    case "stale-low":
+      return `Tasks with low priority older than ${countEn(s.params.days, "day", "days")}: ${s.params.count} — clean them up (backlog prune)`;
+  }
+}
 
 function schemaIssue(issue: SchemaIssue): string {
   switch (issue.kind) {
@@ -111,8 +187,15 @@ export const coreEn: CoreMessages = {
   statusLabel: (status) => STATUS_LABELS[status],
   priorityLabel: (priority) => PRIORITY_LABELS[priority],
   resolutionLabel: (resolution) => RESOLUTION_LABELS[resolution],
-  evidenceLabel: (evidence) => EVIDENCE_LABELS[evidence],
-  checkMethodLabel: (method) => CHECK_METHOD_LABELS[method],
+  evidenceLabel,
+  checkMethodLabel,
+  duplicateMatchLabel,
+  graphStateLabel,
+  count,
+  forecast,
+  forecastTail,
+  signal,
+  fastModelSuffix: " (fast mode)",
   epicDoneReason: (ids) => `all tasks of the epic are closed: ${ids.join(", ")}`,
   fileBusy: (path, lock, seconds) => `${path} has been locked by another process for more than ${seconds} s (${lock})`,
   referencesRemoved: (ids) => `removed references to missing tasks: ${ids.join(", ")}`,

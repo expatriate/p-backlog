@@ -1,10 +1,13 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { statsPath } from "../app/paths";
 import { Link, matchPath, Outlet, useLocation, useNavigation, useParams } from "react-router";
+import { coreMessages } from "../../core/messages";
 import { useProjects, useSignals } from "../app/queries";
 import { projectNameOf, scopeNote } from "../app/scope";
 import { cx } from "../ui/cx";
 import styles from "./StatsPage.module.css";
+
+const messages = coreMessages("ru");
 
 export type StatsOutletContext = { heading: RefObject<HTMLHeadingElement | null> };
 
@@ -50,7 +53,7 @@ export function StatsPage() {
           </strong>
           <ul>
             {signals.data?.signals.map((signal) => (
-              <li key={signal.text}>{signal.text}</li>
+              <li key={signal.kind}>{messages.signal(signal)}</li>
             ))}
           </ul>
         </div>

@@ -1,5 +1,5 @@
-import { categoryLabel } from "../../core/model/categories";
-import { CHECK_METHOD_LABELS, DUPLICATE_MATCH_LABELS, EVIDENCE_LABELS, formatShare, GRAPH_STATE_LABELS } from "../../core/stats/format";
+import { coreMessages } from "../../core/messages";
+import { formatShare } from "../../core/stats/format";
 import type { AccuracyRow, AccuracyWeek, BranchRow, CategoryRow, FoundRow, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow } from "../../core/stats/types";
 import { AccuracyWeeksChart } from "./AccuracyWeeksChart";
 import { FOUND_LABELS } from "../labels";
@@ -8,14 +8,16 @@ import { Panel } from "./Panel";
 import { StatsTable, type StatsTableRow } from "./StatsTable";
 import { STATS_PERIOD } from "./periods";
 
+const messages = coreMessages("ru");
+
 type SplitRow = { by: string } & OutcomeCounts;
 
 type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyWeek[]; methodRows: MethodAccuracyRow[]; matchRows: MatchAccuracyRow[] };
 
 export function AccuracyPanel({ rows, weeks, methodRows, matchRows }: AccuracyPanelProps) {
   const splitOf = (evidence: AccuracyRow["evidence"]): StatsTableRow[] => {
-    if (evidence === "source-changed") return methodRows.map((split) => splitRow(split, split.by === "unknown" ? "до записи способа" : `проверено ${CHECK_METHOD_LABELS[split.by]}`));
-    if (evidence === "duplicate") return matchRows.map((split) => splitRow(split, split.by === "unknown" ? "до записи признака" : `совпали ${DUPLICATE_MATCH_LABELS[split.by]}`));
+    if (evidence === "source-changed") return methodRows.map((split) => splitRow(split, split.by === "unknown" ? "до записи способа" : `проверено ${messages.checkMethodLabel(split.by)}`));
+    if (evidence === "duplicate") return matchRows.map((split) => splitRow(split, split.by === "unknown" ? "до записи признака" : `совпали ${messages.duplicateMatchLabel(split.by)}`));
     return [];
   };
   return (
@@ -33,7 +35,7 @@ export function AccuracyPanel({ rows, weeks, methodRows, matchRows }: AccuracyPa
               {
                 key: row.evidence,
                 tone: row.evidence === "total" ? "total" : undefined,
-                cells: [EVIDENCE_LABELS[row.evidence], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)],
+                cells: [messages.evidenceLabel(row.evidence), row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)],
               },
               ...splitOf(row.evidence).map((split) => ({ ...split, key: `${row.evidence}-${split.key}` })),
             ])}
@@ -84,7 +86,7 @@ export function GraphPanel({ graph }: { graph: GraphReport }) {
         <StatsTable
           label="Граф кода по проектам"
           head={["Проект", "Граф", "Задач со строками source", "Символ найден"]}
-          rows={projects.map((project) => ({ key: project.projectId, cells: [project.name, GRAPH_STATE_LABELS[project.state], project.pinned, resolvedCell(project)] }))}
+          rows={projects.map((project) => ({ key: project.projectId, cells: [project.name, messages.graphStateLabel(project.state), project.pinned, resolvedCell(project)] }))}
         />
       </div>
     </Panel>
@@ -105,7 +107,7 @@ export function CategoriesPanel({ rows }: { rows: CategoryRow[] }) {
         <StatsTable
           label="Категории"
           head={["Категория", "Открыто", "Вес", "Создано", "Закрыто"]}
-          rows={rows.map((row) => ({ key: row.category ?? "none", cells: [categoryLabel(row.category ?? undefined), row.open, row.weight, row.created, row.closed] }))}
+          rows={rows.map((row) => ({ key: row.category ?? "none", cells: [messages.categoryLabel(row.category ?? undefined), row.open, row.weight, row.created, row.closed] }))}
         />
       )}
     </Panel>

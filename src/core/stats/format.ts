@@ -1,23 +1,4 @@
-import type { GraphState } from "../check/graph-health";
-import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
-import type { FlowForecast } from "./types";
-
 export const NBSP = " ";
-
-export function plural(count: number, one: string, few: string, many: string): string {
-  if (!Number.isInteger(count)) return few;
-  const n = Math.abs(count);
-  const lastTwo = n % 100;
-  if (lastTwo >= 11 && lastTwo <= 14) return many;
-  const last = n % 10;
-  if (last === 1) return one;
-  if (last >= 2 && last <= 4) return few;
-  return many;
-}
-
-export function pluralCount(count: number, one: string, few: string, many: string): string {
-  return `${count.toLocaleString("ru-RU")}${NBSP}${plural(count, one, few, many)}`;
-}
 
 export function projectLabel(projectId: string, label: string, withProject: boolean): string {
   return withProject ? `${projectId} · ${label}` : label;
@@ -46,7 +27,7 @@ export function formatDecimal(value: number): string {
   return String(roundToTenth(value)).replace(".", ",");
 }
 
-function roundToTenth(value: number): number {
+export function roundToTenth(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
@@ -58,42 +39,3 @@ export function formatMoney(value: number | null): string {
 export function formatDayMonth(date: Date): string {
   return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
 }
-
-export function forecastText({ open, weeklyNet, weeks, until }: FlowForecast): string {
-  if (open === 0) return "Открытых задач нет";
-  if (weeks !== null && until !== null) return `Долг разберётся примерно за ${weeks}${NBSP}нед. (к ${formatDayMonth(new Date(until))})`;
-  if (weeklyNet === 0) return "Долг не уменьшается";
-  const growth = roundToTenth(-weeklyNet);
-  return `Долг растёт на ${formatDecimal(growth)}${NBSP}${plural(growth, "задача", "задачи", "задач")} в неделю`;
-}
-
-export function forecastTail({ windowWeeks, closed, created }: FlowForecast): string {
-  return `за ${pluralCount(windowWeeks, "неделю", "недели", "недель")}: закрыто ${closed}, создано ${created}`;
-}
-
-export const EVIDENCE_LABELS: Record<CandidateEvidence | "total", string> = {
-  "source-changed": "код изменился",
-  "source-missing": "файл пропал",
-  duplicate: "дубль",
-  "no-source": "нет source",
-  total: "Всего",
-};
-
-export const CHECK_METHOD_LABELS: Record<CheckMethod, string> = {
-  symbol: "по символу",
-  anchor: "по строкам source",
-  file: "по файлу",
-};
-
-export const DUPLICATE_MATCH_LABELS: Record<DuplicateMatch, string> = {
-  source: "по месту в коде",
-  title: "по заголовку",
-  symbol: "по символу",
-};
-
-export const GRAPH_STATE_LABELS: Record<GraphState, string> = {
-  none: "нет",
-  unreadable: "не читается",
-  stale: "устарел",
-  fresh: "свежий",
-};

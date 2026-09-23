@@ -1,10 +1,10 @@
+import { coreMessages } from "../../messages";
 import type { TokenCounts } from "../types";
 
 type ModelPrice = { input: number; output: number; cacheRead: number };
 
-
 const FAST_PRICED_MODEL = "claude-opus-5";
-const FAST_MODEL_SUFFIX = " (быстрый режим)";
+const FAST_MODEL_SUFFIX = coreMessages("ru").fastModelSuffix;
 const FAST_PRICE_FACTOR = 2;
 const CACHE_WRITE_5M_FACTOR = 1.25;
 const CACHE_WRITE_1H_FACTOR = 2;

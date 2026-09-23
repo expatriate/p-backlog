@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { markShown, signalsToShow } from "./shown";
 
-const debt = { kind: "debt-growing" as const, text: "Долг растёт" };
-const urgent = { kind: "urgent-stale" as const, text: "Срочные" };
+const debt = { kind: "debt-growing" as const, params: { weeks: 3, created: 3, closed: 0 } };
+const urgent = { kind: "urgent-stale" as const, params: { days: 7, count: 1 } };
 
 describe("показ тревог раз в день", () => {
   it("показываются только виды, не показанные сегодня; отметка ставит сегодняшнюю дату", () => {

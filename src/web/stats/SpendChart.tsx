@@ -1,5 +1,6 @@
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
-import { formatMoney, NBSP, pluralCount } from "../../core/stats/format";
+import { formatMoney, NBSP } from "../../core/stats/format";
+import { countRu } from "../../core/i18n/plural";
 import type { CostDay } from "../../core/stats/types";
 import { sum } from "../../core/stats/numbers";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
@@ -25,8 +26,8 @@ const LEGEND: LegendItem[] = [
 const dayTooltip = rowTooltip((day: CostDay) => ({
   title: tooltipDay(day.day),
   rows: [
-    { label: "ходы хука", value: pluralCount(day.hookTokens, "токен", "токена", "токенов"), shape: "bar", color: HOOK_TOKENS },
-    { label: "вывод CLI и скилл", value: pluralCount(day.cliTokens, "токен", "токена", "токенов"), shape: "bar", color: CLI_TOKENS },
+    { label: "ходы хука", value: countRu(day.hookTokens, "токен", "токена", "токенов"), shape: "bar", color: HOOK_TOKENS },
+    { label: "вывод CLI и скилл", value: countRu(day.cliTokens, "токен", "токена", "токенов"), shape: "bar", color: CLI_TOKENS },
     { label: "по ценам API", value: day.cost === null ? "—" : `≈${NBSP}${formatMoney(day.cost)}` },
     { label: "запуски хука", value: formatLines(day.hookRuns), shape: "line", color: HOOK_RUNS },
     { label: "другие команды", value: formatLines(day.cliRuns), shape: "dashed", color: OTHER_RUNS },
@@ -58,7 +59,7 @@ function spendSummary(days: CostDay[]): string {
   const cliTokens = sum(days.map((day) => day.cliTokens));
   const hookRuns = sum(days.map((day) => day.hookRuns));
   const cliRuns = sum(days.map((day) => day.cliRuns));
-  return `За ${pluralCount(days.length, "день", "дня", "дней")}: из-за хука ${pluralCount(hookTokens, "токен", "токена", "токенов")}, вывод CLI и скилл ${formatLines(cliTokens)}, ≈${NBSP}${formatMoney(totalMoney(days))}; запусков хука ${formatLines(hookRuns)}, других команд ${formatLines(cliRuns)}`;
+  return `За ${countRu(days.length, "день", "дня", "дней")}: из-за хука ${countRu(hookTokens, "токен", "токена", "токенов")}, вывод CLI и скилл ${formatLines(cliTokens)}, ≈${NBSP}${formatMoney(totalMoney(days))}; запусков хука ${formatLines(hookRuns)}, других команд ${formatLines(cliRuns)}`;
 }
 
 function totalMoney(days: CostDay[]): number | null {

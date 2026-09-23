@@ -1,8 +1,8 @@
-import { categoryLabel } from "../core/model/categories";
 import { formatLocalIso } from "../core/model/dates";
 import { isBlocked, taskProgress, type BacklogIndex } from "../core/model/graph";
 import { deletionDate } from "../core/model/lifecycle";
 import { PRIORITIES, TASK_STATUSES, type Task } from "../core/model/types";
+import type { CoreMessages } from "../core/messages";
 import type { TaskDescription } from "./describe";
 
 const ID_COLUMN_WIDTH = 10;
@@ -25,12 +25,12 @@ export function formatTaskLine(task: Task, index: BacklogIndex): string {
   ].join("  ");
 }
 
-export function formatTaskDetails(description: TaskDescription, fileText: string): string {
+export function formatTaskDetails(messages: CoreMessages, description: TaskDescription, fileText: string): string {
   const { task } = description;
   const lines = [
     `${task.id} · ${task.title}`,
     `Файл: ${task.path}`,
-    `Тип: ${task.type} · Статус: ${task.status} · Приоритет: ${task.priority} · Прогресс: ${formatProgress(description.progress)}${task.category === undefined ? "" : ` · Категория: ${categoryLabel(task.category)}`}`,
+    `Тип: ${task.type} · Статус: ${task.status} · Приоритет: ${task.priority} · Прогресс: ${formatProgress(description.progress)}${task.category === undefined ? "" : ` · Категория: ${messages.categoryLabel(task.category)}`}`,
   ];
   const deletesAt = deletionDate(task);
   if (deletesAt !== undefined) lines.push(`Закрыта: ${task.closed} · удалится ${formatDay(deletesAt)}`);

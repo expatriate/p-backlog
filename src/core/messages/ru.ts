@@ -1,7 +1,13 @@
 import { z } from "zod";
-import type { CandidateEvidence, CheckMethod } from "../journal/events";
+import type { GraphState } from "../check/graph-health";
+import { formatDayMonth } from "../i18n/format";
+import { countRu, pluralRu } from "../i18n/plural";
+import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
+import { formatDays, formatDecimal, NBSP, roundToTenth } from "../stats/format";
+import type { FlowForecast, Signal } from "../stats/types";
+import type { CountUnit } from "./index";
 import { zodIssueText } from "./zod";
 
 const zodRu = z.locales.ru().localeError;
@@ -40,6 +46,76 @@ const EVIDENCE_LABELS: Record<CandidateEvidence | "total", string> = {
 };
 
 const CHECK_METHOD_LABELS: Record<CheckMethod, string> = { symbol: "по символу", anchor: "по строкам source", file: "по файлу" };
+
+const DUPLICATE_MATCH_LABELS: Record<DuplicateMatch, string> = { source: "по месту в коде", title: "по заголовку", symbol: "по символу" };
+
+const GRAPH_STATE_LABELS: Record<GraphState, string> = { none: "нет", unreadable: "не читается", stale: "устарел", fresh: "свежий" };
+
+const COUNT_FORMS: Record<CountUnit, [string, string, string]> = {
+  task: ["задача", "задачи", "задач"],
+  line: ["строка", "строки", "строк"],
+  project: ["проект", "проекта", "проектов"],
+  day: ["день", "дня", "дней"],
+  week: ["неделя", "недели", "недель"],
+  session: ["сессия", "сессии", "сессий"],
+};
+
+function evidenceLabel(evidence: CandidateEvidence | "total"): string {
+  return EVIDENCE_LABELS[evidence];
+}
+
+function checkMethodLabel(method: CheckMethod): string {
+  return CHECK_METHOD_LABELS[method];
+}
+
+function duplicateMatchLabel(match: DuplicateMatch): string {
+  return DUPLICATE_MATCH_LABELS[match];
+}
+
+function graphStateLabel(state: GraphState): string {
+  return GRAPH_STATE_LABELS[state];
+}
+
+function count(n: number, unit: CountUnit): string {
+  const [one, few, many] = COUNT_FORMS[unit];
+  return countRu(n, one, few, many);
+}
+
+function genitiveDays(days: number): string {
+  return `${days} ${pluralRu(days, "дня", "дней", "дней")}`;
+}
+
+function forecast({ open, weeklyNet, weeks, until }: FlowForecast): string {
+  if (open === 0) return "Открытых задач нет";
+  if (weeks !== null && until !== null) return `Долг разберётся примерно за ${weeks}${NBSP}нед. (к ${formatDayMonth("ru", new Date(until))})`;
+  if (weeklyNet === 0) return "Долг не уменьшается";
+  const growth = roundToTenth(-weeklyNet);
+  return `Долг растёт на ${formatDecimal(growth)}${NBSP}${pluralRu(growth, "задача", "задачи", "задач")} в неделю`;
+}
+
+function forecastTail({ windowWeeks, closed, created }: FlowForecast): string {
+  return `за ${countRu(windowWeeks, "неделю", "недели", "недель")}: закрыто ${closed}, создано ${created}`;
+}
+
+function signal(s: Signal): string {
+  switch (s.kind) {
+    case "debt-growing":
+      return `Долг растёт ${countRu(s.params.weeks, "неделю", "недели", "недель")} подряд: создано ${s.params.created}, закрыто ${s.params.closed}`;
+    case "urgent-stale":
+      return `Срочные задачи ждут дольше ${genitiveDays(s.params.days)}: ${s.params.count}`;
+    case "stuck":
+      return `Застряли в работе: ${s.params.count}, дольше всех ${s.params.id} — ${formatDays(s.params.days)}`;
+    case "noisy-check": {
+      const { evidence, method, percent, decided, windowDays } = s.params;
+      const name = method === null ? `«${evidenceLabel(evidence)}»` : `«${evidenceLabel(evidence)}» ${checkMethodLabel(method)}`;
+      return `Проверка ${name} почти всегда ошибается: точность ${percent}% на ${decided} решённых за ${countRu(windowDays, "день", "дня", "дней")}`;
+    }
+    case "low-changed":
+      return `Код менялся у ${countRu(s.params.count, "задачи", "задач", "задач")} с низким приоритетом — перепроверьте при случае («почисти беклог»)`;
+    case "stale-low":
+      return `Задач с низким приоритетом старше ${genitiveDays(s.params.days)}: ${s.params.count} — разберите (backlog prune)`;
+  }
+}
 
 function schemaIssue(issue: SchemaIssue): string {
   switch (issue.kind) {
@@ -109,8 +185,15 @@ export const coreRu = {
   statusLabel: (status: TaskStatus): string => STATUS_LABELS[status],
   priorityLabel: (priority: Priority): string => PRIORITY_LABELS[priority],
   resolutionLabel: (resolution: Resolution): string => RESOLUTION_LABELS[resolution],
-  evidenceLabel: (evidence: CandidateEvidence | "total"): string => EVIDENCE_LABELS[evidence],
-  checkMethodLabel: (method: CheckMethod): string => CHECK_METHOD_LABELS[method],
+  evidenceLabel,
+  checkMethodLabel,
+  duplicateMatchLabel,
+  graphStateLabel,
+  count,
+  forecast,
+  forecastTail,
+  signal,
+  fastModelSuffix: " (быстрый режим)",
   epicDoneReason: (ids: readonly string[]): string => `все задачи эпика закрыты: ${ids.join(", ")}`,
   fileBusy: (path: string, lock: string, seconds: number): string => `${path} занят другим процессом дольше ${seconds} с (${lock})`,
   referencesRemoved: (ids: readonly string[]): string => `убраны ссылки на несуществующие задачи: ${ids.join(", ")}`,

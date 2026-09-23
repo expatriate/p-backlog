@@ -1,5 +1,6 @@
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
-import { formatShare, pluralCount } from "../../core/stats/format";
+import { formatShare } from "../../core/stats/format";
+import { countRu } from "../../core/i18n/plural";
 import type { AccuracyWeek } from "../../core/stats/types";
 import { sum } from "../../core/stats/numbers";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
@@ -30,8 +31,8 @@ export function AccuracyWeeksChart({ weeks }: { weeks: AccuracyWeek[] }) {
   const latest = withPrecision.at(-1);
   const summary =
     latest === undefined
-      ? `${pluralCount(weeks.length, "неделя", "недели", "недель")}: решённых кандидатов нет`
-      : `${pluralCount(weeks.length, "неделя", "недели", "недель")}: решено ${decided}, точность на последней неделе ${formatShare(latest.precision)}`;
+      ? `${countRu(weeks.length, "неделя", "недели", "недель")}: решённых кандидатов нет`
+      : `${countRu(weeks.length, "неделя", "недели", "недель")}: решено ${decided}, точность на последней неделе ${formatShare(latest.precision)}`;
 
   return (
     <ChartFrame summary={summary} legend={LEGEND}>

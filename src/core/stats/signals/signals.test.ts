@@ -3,7 +3,6 @@ import type { JournalEvent } from "../../journal/events";
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { statsSignals } from "./signals";
-import { NBSP } from "../format";
 
 const NOW = new Date(2026, 8, 18, 12);
 const iso = (month: number, day: number) => formatLocalIso(new Date(2026, month, day, 12));
@@ -20,9 +19,9 @@ describe("тревоги", () => {
     const events: JournalEvent[] = [{ at: iso(8, 3), task: "SPA-4", via: "cli", kind: "status", from: "backlog", to: "blocked" }];
 
     expect(statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).toEqual([
-      { kind: "debt-growing", text: `Долг растёт 3${NBSP}недели подряд: создано 3, закрыто 0` },
-      { kind: "urgent-stale", text: "Срочные задачи ждут дольше 7 дней: 1" },
-      { kind: "stuck", text: `Застряли в работе: 1, дольше всех SPA-4 — 15${NBSP}дн.` },
+      { kind: "debt-growing", params: { weeks: 3, created: 3, closed: 0 } },
+      { kind: "urgent-stale", params: { days: 7, count: 1 } },
+      { kind: "stuck", params: { count: 1, id: "SPA-4", days: 15 } },
     ]);
   });
 
@@ -51,7 +50,7 @@ describe("тревоги", () => {
     ]);
 
     expect(statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check")).toEqual([
-      { kind: "noisy-check", text: `Проверка «код изменился» по файлу почти всегда ошибается: точность 10% на 10 решённых за 14${NBSP}дней` },
+      { kind: "noisy-check", params: { evidence: "source-changed", method: "file", percent: 10, decided: 10, windowDays: 14 } },
     ]);
   });
 
@@ -68,7 +67,7 @@ describe("тревоги", () => {
     };
 
     expect(noisy(19)).toEqual([]);
-    expect(noisy(18)).toEqual([{ kind: "noisy-check", text: `Проверка «код изменился» по файлу почти всегда ошибается: точность 19% на 97 решённых за 14${NBSP}дней` }]);
+    expect(noisy(18)).toEqual([{ kind: "noisy-check", params: { evidence: "source-changed", method: "file", percent: 19, decided: 97, windowDays: 14 } }]);
   });
 
   it("шумный способ проверки называется отдельно и не прячется за точным: по файлу — тревога, по строкам source — нет", () => {
@@ -86,7 +85,7 @@ describe("тревоги", () => {
 
     const noisy = statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check");
 
-    expect(noisy).toEqual([{ kind: "noisy-check", text: `Проверка «код изменился» по файлу почти всегда ошибается: точность 0% на 10 решённых за 14${NBSP}дней` }]);
+    expect(noisy).toEqual([{ kind: "noisy-check", params: { evidence: "source-changed", method: "file", percent: 0, decided: 10, windowDays: 14 } }]);
   });
 
   it("по символу и по строкам source подтверждение — не ошибка: менялось само место проблемы, тревоги нет", () => {
@@ -139,7 +138,7 @@ describe("тревоги", () => {
     const tasks = [makeTask({ id: "SPA-1", created: iso(8, 9), status: "in-progress" })];
 
     expect(statsSignals({ tasks, journals: journal([]), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "stuck")).toEqual([
-      { kind: "stuck", text: `Застряли в работе: 1, дольше всех SPA-1 — 9${NBSP}дн.` },
+      { kind: "stuck", params: { count: 1, id: "SPA-1", days: 9 } },
     ]);
   });
 
@@ -152,7 +151,7 @@ describe("тревоги", () => {
 
     expect(statsSignals({ tasks, journals: journal([]), now: NOW, projectId: "spa" })).toContainEqual({
       kind: "stale-low",
-      text: "Задач с низким приоритетом старше 30 дней: 1 — разберите (backlog prune)",
+      params: { days: 30, count: 1 },
     });
   });
 });

@@ -361,7 +361,7 @@ describe("GET /api/stats/signals", () => {
 
     const report = (await (await backlog.request("/api/stats/signals?project=spa")).json()) as SignalsReport;
 
-    expect(report.signals).toContainEqual({ kind: "urgent-stale", text: "Срочные задачи ждут дольше 7 дней: 1" });
+    expect(report.signals).toContainEqual({ kind: "urgent-stale", params: { days: 7, count: 1 } });
     expect((await backlog.request("/api/stats/signals?project=nope")).status).toBe(404);
   });
 });

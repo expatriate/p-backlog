@@ -8,7 +8,8 @@ import { useProjects, useSignals, useTasks } from "../app/queries";
 import { OPEN_STATUSES } from "../../core/model/query";
 import { countBy } from "../../core/stats/numbers";
 import { activeProjectIds, scopeNote, tasksInScope } from "../app/scope";
-import { NBSP, plural, pluralCount } from "../../core/stats/format";
+import { countRu, pluralRu } from "../../core/i18n/plural";
+import { NBSP } from "../../core/stats/format";
 import { cx } from "../ui/cx";
 import { ProjectCheckbox, ProjectDeleteButton } from "./ProjectControls";
 import styles from "./AppLayout.module.css";
@@ -90,7 +91,7 @@ export function AppLayout() {
                 UNKNOWN_COUNT
               ) : (
                 <>
-                  <span className={styles.number}>{counts.scopeOpen}</span> {plural(counts.scopeOpen, "задача", "задачи", "задач")}
+                  <span className={styles.number}>{counts.scopeOpen}</span> {pluralRu(counts.scopeOpen, "задача", "задачи", "задач")}
                 </>
               )}
             </span>
@@ -121,7 +122,7 @@ export function AppLayout() {
           <div className={styles.graphNotes}>
             {graphTroubles.map(([state, count]) => (
               <p key={state} className={styles.graphNote}>
-                {GRAPH_NOTES[state].title}: {pluralCount(count, "проект", "проекта", "проектов")}
+                {GRAPH_NOTES[state].title}: {countRu(count, "проект", "проекта", "проектов")}
                 <span>{GRAPH_NOTES[state].hint}</span>
               </p>
             ))}

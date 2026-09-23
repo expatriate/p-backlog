@@ -1,5 +1,5 @@
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
-import { pluralCount } from "../../core/stats/format";
+import { countRu } from "../../core/i18n/plural";
 import type { WeekFlow } from "../../core/stats/types";
 import { sum } from "../../core/stats/numbers";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
@@ -31,7 +31,7 @@ export function WeeklyFlowChart({ weeks }: { weeks: WeekFlow[] }) {
   const created = sum(weeks.map((week) => week.created));
   const closed = sum(weeks.map((week) => week.closed));
   const openNow = weeks.at(-1)?.openAtEnd ?? 0;
-  const summary = `${pluralCount(weeks.length, "неделя", "недели", "недель")}: создано ${created}, закрыто ${closed}, открыто сейчас ${openNow}`;
+  const summary = `${countRu(weeks.length, "неделя", "недели", "недель")}: создано ${created}, закрыто ${closed}, открыто сейчас ${openNow}`;
   return (
     <ChartFrame summary={summary} legend={LEGEND}>
       <ComposedChart data={weeks} margin={CHART_MARGIN} aria-label={chartLabel("Долг по неделям", "неделям")}>
