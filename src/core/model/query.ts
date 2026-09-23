@@ -23,8 +23,11 @@ export type SortKey = (typeof SORT_KEYS)[number];
 export type SortDirection = "asc" | "desc";
 export type TaskSort = { key: SortKey; direction: SortDirection };
 
+const YO = "\u0451";
+const YE = "\u0435";
+
 export function normalizeText(text: string): string {
-  return text.toLowerCase().replaceAll("ё", "е");
+  return text.toLowerCase().replaceAll(YO, YE);
 }
 
 function matchesQuery(task: Task, query: string): boolean {

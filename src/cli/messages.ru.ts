@@ -9,6 +9,15 @@ export const cliRu = {
   optionLabel: { status: "статус", category: "категория", priority: "приоритет", language: "язык" },
   skillForeign: (target: string): string => `${target} — чужой каталог, скилл не переставлен`,
 
+  installSkillLinked: (target: string, source: string): string => `Скилл установлен: ${target} → ${source}`,
+  installSkillKept: (target: string): string => `Скилл уже установлен: ${target}`,
+  installSkillForeign: (target: string, source: string): string => `${target} уже существует и не ведёт в ${source}. Уберите его вручную и повторите.`,
+  installSkillLinkFailed: (target: string, detail: string): string => `Не удалось создать ссылку ${target} (${detail}).`,
+  installHookExists: (settingsPath: string): string => `Хук Stop уже есть в ${settingsPath}`,
+  installHookAdded: (settingsPath: string): string => `Хук Stop добавлен в ${settingsPath}`,
+  installSettingsUnreadable: (settingsPath: string, detail: string): string => `${settingsPath} не прочитать (${detail}), хук Stop не добавлен.`,
+  installSettingsInvalid: (settingsPath: string): string => `${settingsPath} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`,
+
   taskNotFound: (id: string): string => `Задача ${id} не найдена`,
   fileConflict: (id: string): string => `Файл задачи ${id} изменился во время записи, повторите команду`,
 

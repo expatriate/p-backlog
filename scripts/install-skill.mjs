@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { cliMessages } from "../src/cli/messages.ts";
 import { resolveBacklogRoot } from "../src/core/store/paths.ts";
 import { resolveLanguage } from "../src/core/store/settings.ts";
 import { defaultSkillsDir, linkSkillFor, skillSourceDir } from "../src/cli/skill-link.ts";
@@ -12,29 +13,30 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const home = homedir();
 const skillsDir = process.env.CLAUDE_SKILLS_DIR ?? defaultSkillsDir(home);
 const settingsPath = process.env.CLAUDE_SETTINGS_PATH ?? join(home, ".claude/settings.json");
+const backlogRoot = resolveBacklogRoot(process.env, home);
+const language = await resolveLanguage(backlogRoot, process.env);
+const cli = cliMessages(language);
 
 if (await linkSkill()) await addStopHook();
 
 async function linkSkill() {
   const target = join(skillsDir, "backlog");
-  const backlogRoot = resolveBacklogRoot(process.env, home);
-  const language = await resolveLanguage(backlogRoot, process.env);
   const source = skillSourceDir(repoRoot, language);
   try {
     const result = await linkSkillFor(language, { skillsDir, repoRoot });
     if (result === "linked") {
-      console.log(`Скилл установлен: ${target} → ${source}`);
+      console.log(cli.installSkillLinked(target, source));
       return true;
     }
     if (result === "kept") {
-      console.log(`Скилл уже установлен: ${target}`);
+      console.log(cli.installSkillKept(target));
       return true;
     }
-    console.error(`${target} уже существует и не ведёт в ${source}. Уберите его вручную и повторите.`);
+    console.error(cli.installSkillForeign(target, source));
     process.exitCode = 1;
     return false;
   } catch (error) {
-    console.error(`Не удалось создать ссылку ${target} (${error.code ?? error.message}).`);
+    console.error(cli.installSkillLinkFailed(target, error.code ?? error.message));
     process.exitCode = 1;
     return false;
   }
@@ -49,13 +51,13 @@ async function addStopHook() {
   if (!Array.isArray(settings.hooks.Stop)) settings.hooks.Stop = [];
   const installed = settings.hooks.Stop.some((group) => group.hooks?.some((hook) => hook.command === STOP_HOOK_COMMAND));
   if (installed) {
-    console.log(`Хук Stop уже есть в ${settingsPath}`);
+    console.log(cli.installHookExists(settingsPath));
     return;
   }
   settings.hooks.Stop.push({ hooks: [{ type: "command", command: STOP_HOOK_COMMAND }] });
   await mkdir(dirname(settingsPath), { recursive: true });
   await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
-  console.log(`Хук Stop добавлен в ${settingsPath}`);
+  console.log(cli.installHookAdded(settingsPath));
 }
 
 async function readSettings() {
@@ -63,7 +65,7 @@ async function readSettings() {
     return await readFile(settingsPath, "utf8");
   } catch (error) {
     if (error.code === "ENOENT") return "{}";
-    console.error(`${settingsPath} не прочитать (${error.code ?? error.message}), хук Stop не добавлен.`);
+    console.error(cli.installSettingsUnreadable(settingsPath, error.code ?? error.message));
     process.exitCode = 1;
     return null;
   }
@@ -77,7 +79,7 @@ function parseSettings(text) {
     settings = undefined;
   }
   if (typeof settings !== "object" || settings === null || Array.isArray(settings)) {
-    console.error(`${settingsPath} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`);
+    console.error(cli.installSettingsInvalid(settingsPath));
     process.exitCode = 1;
     return null;
   }

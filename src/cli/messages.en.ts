@@ -10,6 +10,15 @@ export const cliEn: CliMessages = {
   optionLabel: { status: "status", category: "category", priority: "priority", language: "language" },
   skillForeign: (target) => `${target} is a foreign directory, the skill link was not moved`,
 
+  installSkillLinked: (target, source) => `Skill installed: ${target} → ${source}`,
+  installSkillKept: (target) => `Skill already installed: ${target}`,
+  installSkillForeign: (target, source) => `${target} already exists and does not point to ${source}. Remove it manually and try again.`,
+  installSkillLinkFailed: (target, detail) => `Could not create the symlink ${target} (${detail}).`,
+  installHookExists: (settingsPath) => `Stop hook is already present in ${settingsPath}`,
+  installHookAdded: (settingsPath) => `Stop hook added to ${settingsPath}`,
+  installSettingsUnreadable: (settingsPath, detail) => `Could not read ${settingsPath} (${detail}), Stop hook not added.`,
+  installSettingsInvalid: (settingsPath) => `${settingsPath} is not a JSON object, Stop hook not added. Fix the file and try again.`,
+
   taskNotFound: (id) => `Task ${id} not found`,
   fileConflict: (id) => `Task file ${id} changed while writing, retry the command`,
 

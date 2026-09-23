@@ -189,6 +189,7 @@ function problems(list: readonly Problem[]): string {
 }
 
 export const coreRu = {
+  hookMark: "Беклог",
   problem,
   problems,
   schemaIssue,
