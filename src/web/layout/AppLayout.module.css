@@ -64,10 +64,11 @@
 }
 
 .row {
+  --row-gap: var(--space-2);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--row-gap);
   padding: 6px var(--space-2);
   border-radius: var(--radius-control);
   color: var(--ink-muted);
@@ -117,7 +118,6 @@
 }
 
 .graphNote code {
-  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 
@@ -227,8 +227,10 @@
   }
 
   .projects {
+    --project-error-indent: 0;
     flex-direction: row;
     flex-wrap: wrap;
+    align-items: flex-start;
     gap: var(--space-2);
   }
 }

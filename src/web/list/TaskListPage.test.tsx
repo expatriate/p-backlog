@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
+import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
 import type { TestApp } from "../../server/testing/test-app";
@@ -509,6 +509,18 @@ describe("список задач", () => {
     await renderApp({ ...FILES, "spa/SPA-9.md": "сломано" });
 
     expect(await screen.findByText(/Не удалось разобрать файлы/)).toBeDefined();
+  });
+
+  it("файл, сломанный после загрузки, объявляется через область статуса, существовавшую до ошибки", async () => {
+    const app = await renderApp(FILES);
+    await screen.findAllByRole("row");
+    const statusesBefore = screen.getAllByRole("status");
+
+    await writeFiles(app.root, { "spa/SPA-9.md": "сломано" });
+    await app.user.click(screen.getByRole("checkbox", { name: "Учитывать проект ti в области «Проекты»" }));
+
+    const announced = (await screen.findByText(/Не удалось разобрать файлы/)).closest("[role=status]");
+    expect(statusesBefore).toContain(announced);
   });
 
   it("эпик и его задачи отмечены тоном эпика, тоны раздаются по номеру", async () => {

@@ -59,6 +59,7 @@ function EpicOptions({ choices, selected, onSelect }: EpicPickerProps) {
     onSelect(epic);
     closePopover();
   };
+  const foreignEpic = typeof selected === "string" && !choices.epics.some((epic) => epic.id === selected) ? selected : undefined;
 
   return (
     <div className={styles.options} role="group" aria-label="Эпики">
@@ -68,8 +69,15 @@ function EpicOptions({ choices, selected, onSelect }: EpicPickerProps) {
       <EpicOption pressed={selected === null} onChoose={() => choose(null)}>
         Без эпика <span className={styles.count}>{choices.withoutEpicCount}</span>
       </EpicOption>
-      {choices.epics.length > 0 && (
+      {(choices.epics.length > 0 || foreignEpic !== undefined) && (
         <div className={styles.epics}>
+          {foreignEpic !== undefined && (
+            <EpicOption pressed onChoose={() => choose(foreignEpic)}>
+              <span className={styles.dot} aria-hidden="true" />
+              <span className={styles.id}>{foreignEpic}</span>
+              <span className={styles.title}>эпик не найден</span>
+            </EpicOption>
+          )}
           {choices.epics.map((epic) => (
             <EpicOption key={epic.id} pressed={selected === epic.id} tone={epic.tone} onChoose={() => choose(epic.id)}>
               <span className={styles.dot} aria-hidden="true" />

@@ -62,27 +62,31 @@ export function GraphPanel({ graph }: { graph: GraphReport }) {
   return (
     <Panel title="Граф кода">
       <p className={rowStyles.muted}>Граф убирает кандидата «код изменился», если правка задела другой символ того же файла, — агенту не нужно перечитывать задачу</p>
-      <h3 className={rowStyles.subTitle}>Отсеяно за {STATS_PERIOD}</h3>
-      {filter.filtered === 0 ? (
-        <p className={rowStyles.muted}>Граф не отсеял ни одного кандидата</p>
-      ) : (
+      <div>
+        <h3 className={rowStyles.subTitle}>Отсеяно за {STATS_PERIOD}</h3>
+        {filter.filtered === 0 ? (
+          <p className={rowStyles.muted}>Граф не отсеял ни одного кандидата</p>
+        ) : (
+          <StatsTable
+            label="Что стало с отсеянными кандидатами"
+            head={["Исход", "Кандидатов"]}
+            rows={[
+              { key: "filtered", cells: ["Отсеяно графом", filter.filtered] },
+              { key: "caught", cells: ["└ позже всё же стал кандидатом", filter.caught] },
+              { key: "missed", cells: ["└ закрыта без сигнала проверки — возможный промах", filter.missed] },
+              { key: "quiet", cells: ["└ без последствий", filter.quiet] },
+            ]}
+          />
+        )}
+      </div>
+      <div>
+        <h3 className={rowStyles.subTitle}>Проекты</h3>
         <StatsTable
-          label="Что стало с отсеянными кандидатами"
-          head={["Исход", "Кандидатов"]}
-          rows={[
-            { key: "filtered", cells: ["Отсеяно графом", filter.filtered] },
-            { key: "caught", cells: ["└ позже всё же стал кандидатом", filter.caught] },
-            { key: "missed", cells: ["└ закрыта без сигнала проверки — возможный промах", filter.missed] },
-            { key: "quiet", cells: ["└ без последствий", filter.quiet] },
-          ]}
+          label="Граф кода по проектам"
+          head={["Проект", "Граф", "Задач со строками source", "Символ найден"]}
+          rows={projects.map((project) => ({ key: project.projectId, cells: [project.name, GRAPH_STATE_LABELS[project.state], project.pinned, resolvedCell(project)] }))}
         />
-      )}
-      <h3 className={rowStyles.subTitle}>Проекты</h3>
-      <StatsTable
-        label="Граф кода по проектам"
-        head={["Проект", "Граф", "Задач со строками source", "Символ найден"]}
-        rows={projects.map((project) => ({ key: project.projectId, cells: [project.name, GRAPH_STATE_LABELS[project.state], project.pinned, resolvedCell(project)] }))}
-      />
+      </div>
     </Panel>
   );
 }
@@ -111,22 +115,26 @@ export function CategoriesPanel({ rows }: { rows: CategoryRow[] }) {
 export function OriginPanel({ found, branches }: { found: FoundRow[]; branches: BranchRow[] }) {
   return (
     <Panel title="Происхождение">
-      <h3 className={rowStyles.subTitle}>Как найдены</h3>
-      <StatsTable
-        label="Как найдены"
-        head={["Как найдена", "Создано", "Открыто", "Исправлено"]}
-        rows={found.map((row) => ({ key: row.found ?? "unknown", cells: [FOUND_LABELS[row.found ?? "unknown"], row.created, row.open, row.fixed] }))}
-      />
-      <h3 className={rowStyles.subTitle}>Ветки</h3>
-      {branches.length === 0 ? (
-        <p className={rowStyles.muted}>Ветки появятся у задач, заведённых через backlog new в репозитории</p>
-      ) : (
+      <div>
+        <h3 className={rowStyles.subTitle}>Как найдены</h3>
         <StatsTable
-          label="Ветки"
-          head={["Ветка", "Создано", "Открыто"]}
-          rows={branches.map((row) => ({ key: row.label, cells: [<code>{row.label}</code>, row.created, row.open] }))}
+          label="Как найдены"
+          head={["Как найдена", "Создано", "Открыто", "Исправлено"]}
+          rows={found.map((row) => ({ key: row.found ?? "unknown", cells: [FOUND_LABELS[row.found ?? "unknown"], row.created, row.open, row.fixed] }))}
         />
-      )}
+      </div>
+      <div>
+        <h3 className={rowStyles.subTitle}>Ветки</h3>
+        {branches.length === 0 ? (
+          <p className={rowStyles.muted}>Ветки появятся у задач, заведённых через backlog new в репозитории</p>
+        ) : (
+          <StatsTable
+            label="Ветки"
+            head={["Ветка", "Создано", "Открыто"]}
+            rows={branches.map((row) => ({ key: row.label, cells: [<code>{row.label}</code>, row.created, row.open] }))}
+          />
+        )}
+      </div>
     </Panel>
   );
 }

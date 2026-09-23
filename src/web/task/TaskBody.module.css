@@ -64,18 +64,11 @@
   text-decoration-color: currentColor;
 }
 
-.markdown :global(code) {
-  padding: 1px 4px;
-  border-radius: var(--radius-chip);
-  background: var(--surface-sunken);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-}
-
 .markdown :global(pre) {
   padding: var(--space-3);
   border-radius: var(--radius-control);
   background: var(--surface-sunken);
+  font-size: var(--text-sm);
   overflow-x: auto;
 }
 

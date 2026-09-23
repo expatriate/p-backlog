@@ -82,18 +82,20 @@ export function TaskListPage() {
           {missingTask && `Задачи ${taskId} нет — возможно, её удалили после закрытия.`}
         </p>
 
-        {parseErrors.length > 0 && (
-          <div className={styles.warning} role="status">
-            <strong>Не удалось разобрать файлы:</strong>
-            <ul>
-              {parseErrors.map((parseError) => (
-                <li key={parseError.path}>
-                  {parseError.path} — {parseError.message}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <div className={parseErrors.length > 0 ? styles.warning : "visually-hidden"} role="status">
+          {parseErrors.length > 0 && (
+            <>
+              <strong>Не удалось разобрать файлы:</strong>
+              <ul>
+                {parseErrors.map((parseError) => (
+                  <li key={parseError.path}>
+                    {parseError.path} — {parseError.message}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
 
         <div className={styles.tableWrap}>
           <div ref={status} tabIndex={-1} role="status" className={view.kind === "table" ? "visually-hidden" : styles.hint}>
@@ -175,7 +177,7 @@ function EmptyList({
     if (hiddenOpen > 0) return <p>В учтённых проектах задач нет. {hiddenNote}</p>;
     return (
       <p>
-        Задач пока нет. Беклог наполняет агент: он записывает задачи командой <code>backlog new</code>, пока работает над кодом.
+        Задач пока нет. Беклог наполняет агент: он записывает задачи командой <code className="inline-code">backlog new</code>, пока работает над кодом.
       </p>
     );
   }

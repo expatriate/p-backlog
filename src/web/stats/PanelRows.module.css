@@ -21,10 +21,6 @@
   font-size: var(--text-sm);
 }
 
-.subTitle:not(:first-child) {
-  margin-top: var(--space-3);
-}
-
 .subTitle + .rows {
   margin-top: 0;
 }
@@ -46,10 +42,6 @@
   min-width: 0;
   white-space: normal;
   overflow-wrap: anywhere;
-}
-
-.rowLabel code {
-  font-family: var(--font-mono);
 }
 
 .rowLabel a {

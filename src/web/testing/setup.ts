@@ -21,7 +21,7 @@ HTMLDialogElement.prototype.close ??= function close(this: HTMLDialogElement) {
   this.open = false;
   const opener = focusedBeforeModal.get(this);
   if (opener instanceof HTMLElement) opener.focus();
-  this.dispatchEvent(new Event("close"));
+  setTimeout(() => this.dispatchEvent(new Event("close")));
 };
 
 Element.prototype.scrollIntoView ??= () => undefined;

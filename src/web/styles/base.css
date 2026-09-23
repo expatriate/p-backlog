@@ -50,6 +50,17 @@ textarea {
   resize: vertical;
 }
 
+code {
+  font-family: var(--font-mono);
+}
+
+.inline-code {
+  padding: 1px 4px;
+  border-radius: var(--radius-chip);
+  background: var(--surface-sunken);
+  font-size: var(--text-sm);
+}
+
 ::placeholder {
   color: var(--ink-subtle);
 }

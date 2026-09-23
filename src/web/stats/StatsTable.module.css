@@ -49,7 +49,3 @@
 .table tbody .total > * {
   font-weight: 600;
 }
-
-.table code {
-  font-family: var(--font-mono);
-}

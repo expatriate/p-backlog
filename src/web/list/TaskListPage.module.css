@@ -35,14 +35,6 @@
   margin: 0 0 var(--space-3);
 }
 
-.hint code {
-  padding: 1px 4px;
-  border-radius: var(--radius-chip);
-  background: var(--surface-sunken);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-}
-
 .warning {
   margin: var(--space-3) var(--space-5) 0;
   padding: var(--space-3) var(--space-4);

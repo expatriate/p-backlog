@@ -41,6 +41,19 @@ describe("тулбар фильтров", () => {
     expect(screen.queryByRole("button", { name: /^Эпик:/ })).toBeNull();
   });
 
+  it("чужой эпик из адреса отмечен в меню отдельным пунктом, фокус открытого меню на нём", async () => {
+    const user = userEvent.setup();
+    const epicChoices: EpicChoices = { epics: [{ id: "SPA-1", title: "Эпик загрузки", tone: 1, taskCount: 2 }], withoutEpicCount: 0 };
+    render(<ToolbarHarness initial={{ statuses: ["backlog"], epic: "OF-1" }} epicChoices={epicChoices} />);
+
+    await user.click(screen.getByRole("button", { name: "Эпик: OF-1" }));
+
+    const foreign = within(screen.getByRole("group", { name: "Эпики" })).getByRole("button", { name: /OF-1/ });
+    expect(foreign.getAttribute("aria-pressed")).toBe("true");
+    expect(document.activeElement).toBe(foreign);
+    expect(screen.getByRole("button", { name: /SPA-1/ }).getAttribute("aria-pressed")).toBe("false");
+  });
+
   it("снятый чужой эпик не роняет фокус: он переходит на соседнюю кнопку «Теги», а без тегов — в поиск", async () => {
     const user = userEvent.setup();
     const { unmount } = render(<ToolbarHarness initial={{ statuses: ["backlog"], epic: "OF-1" }} tags={["ui"]} />);

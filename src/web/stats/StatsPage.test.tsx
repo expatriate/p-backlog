@@ -7,7 +7,6 @@ import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from 
 import { routes } from "../app/App";
 import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
-import type { TestApp } from "../../server/testing/test-app";
 import { renderApp } from "../testing/render-app";
 import { StatsPage } from "./StatsPage";
 import { NBSP } from "../../core/stats/format";
@@ -22,6 +21,35 @@ const FILES = {
   "torg-io/project.md": projectFile("TI"),
   "torg-io/TI-1.md": taskFixture("TI-1", { title: "Каталог", created: "2026-09-17T10:00:00+03:00" }),
 };
+
+type StatsAnswer = (real: () => Promise<Response>) => Promise<Response>;
+
+const passThrough: StatsAnswer = (real) => real();
+
+const failStats: StatsAnswer = () => Promise.resolve(new Response(JSON.stringify({ errors: ["сбой"] }), { status: 500 }));
+
+async function renderStatsWith(firstAnswer: StatsAnswer) {
+  let answer = firstAnswer;
+  const app = await renderApp(FILES, "/stats", routes, {
+    beforeRender: (backlog) => {
+      const request = backlog.request;
+      backlog.request = (path, init) => (path === "/api/stats" ? answer(() => request(path, init)) : request(path, init));
+    },
+  });
+  return { app, answerStatsWith: (next: StatsAnswer) => (answer = next) };
+}
+
+function holdFailure() {
+  let release = () => {};
+  const answer: StatsAnswer = (real) => new Promise<void>((resolve) => (release = resolve)).then(() => failStats(real));
+  return { answer, release: () => release() };
+}
+
+function refetchStats() {
+  freezeDate(new Date(Date.now() + 120_000).toISOString());
+  focusManager.setFocused(false);
+  focusManager.setFocused(undefined);
+}
 
 describe("страница статистики", () => {
   it("показывает заголовок, четыре числа, недели и подпись о журнале", async () => {
@@ -116,28 +144,20 @@ describe("страница статистики", () => {
   });
 
   it("ошибка первой загрузки: «Повторить» передаёт фокус области состояния, после загрузки — заголовку страницы", async () => {
-    const failed = () => Promise.resolve(new Response(JSON.stringify({ errors: ["сбой"] }), { status: 500 }));
-    let answerStats = failed;
-    let request: TestApp["request"] = () => failed();
-    const app = await renderApp(FILES, "/stats", routes, {
-      beforeRender: (backlog) => {
-        request = backlog.request;
-        backlog.request = (path, init) => (path === "/api/stats" ? answerStats() : request(path, init));
-      },
-    });
+    const { app, answerStatsWith } = await renderStatsWith(failStats);
     expect(await screen.findByText("Сервер вернул ошибку: сбой")).toBeDefined();
 
-    let release = () => {};
-    answerStats = () => new Promise<void>((resolve) => (release = resolve)).then(failed);
+    const held = holdFailure();
+    answerStatsWith(held.answer);
     await app.user.click(screen.getByRole("button", { name: "Повторить" }));
 
     await waitFor(() => expect(document.activeElement?.textContent).toBe("Считаем статистику…"));
     expect(document.activeElement?.getAttribute("role")).toBe("status");
 
-    release();
+    held.release();
     expect(await screen.findByRole("button", { name: "Повторить" })).toBeDefined();
 
-    answerStats = () => request("/api/stats");
+    answerStatsWith(passThrough);
     await app.user.click(screen.getByRole("button", { name: "Повторить" }));
 
     await screen.findByRole("group", { name: "За неделю" });
@@ -145,32 +165,37 @@ describe("страница статистики", () => {
   });
 
   it("ошибка обновления: «Повторить» держит фокус и подпись «Повторяем…», пока идёт повтор", async () => {
-    const failed = () => Promise.resolve(new Response(JSON.stringify({ errors: ["сбой"] }), { status: 500 }));
-    let answerStats = (real: () => Promise<Response>) => real();
-    const app = await renderApp(FILES, "/stats", routes, {
-      beforeRender: (backlog) => {
-        const request = backlog.request;
-        backlog.request = (path, init) => (path === "/api/stats" ? answerStats(() => request(path, init)) : request(path, init));
-      },
-    });
+    const { app, answerStatsWith } = await renderStatsWith(passThrough);
     await screen.findByRole("group", { name: "За неделю" });
 
-    answerStats = failed;
-    freezeDate(new Date(Date.now() + 120_000).toISOString());
-    focusManager.setFocused(false);
-    focusManager.setFocused(undefined);
+    answerStatsWith(failStats);
+    refetchStats();
     const retry = await screen.findByRole("button", { name: "Повторить" });
 
-    let release = () => {};
-    answerStats = () => new Promise<void>((resolve) => (release = resolve)).then(failed);
+    const held = holdFailure();
+    answerStatsWith(held.answer);
     await app.user.click(retry);
 
     const busy = await screen.findByRole("button", { name: "Повторяем…" });
     expect(busy.getAttribute("aria-busy")).toBe("true");
     expect(document.activeElement).toBe(busy);
 
-    release();
+    held.release();
     expect(await screen.findByRole("button", { name: "Повторить" })).toBe(document.activeElement);
+  });
+
+  it("ошибка обновления не прячет уже загруженные цифры: над ними ошибка и «Повторить»", async () => {
+    const { answerStatsWith } = await renderStatsWith(passThrough);
+    await screen.findByRole("group", { name: "За неделю" });
+
+    answerStatsWith(failStats);
+    refetchStats();
+
+    const retry = await screen.findByRole("button", { name: "Повторить" });
+    const week = screen.getByRole("group", { name: "За неделю" });
+    expect(within(week).getByText("+2")).toBeDefined();
+    expect(screen.getByText("Сервер вернул ошибку: сбой")).toBeDefined();
+    expect(retry.compareDocumentPosition(week) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("без задач — «Задач пока нет»", async () => {

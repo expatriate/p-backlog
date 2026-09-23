@@ -2,6 +2,7 @@ import { Children, createContext, isValidElement, useContext, useEffect, useMemo
 import Markdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "../ui/Button";
+import { cx } from "../ui/cx";
 import { checklistItems, type ChecklistItem } from "../../core/model/checklist";
 import styles from "./TaskBody.module.css";
 
@@ -18,7 +19,9 @@ type Checklist = { items: ChecklistItem[]; onToggleLine: (line: number) => void 
 
 const ChecklistContext = createContext<Checklist>({ items: [], onToggleLine: () => undefined });
 
-const MARKDOWN_COMPONENTS: Components = { table: MarkdownTable, li: MarkdownItem };
+const InsideCodeBlock = createContext(false);
+
+const MARKDOWN_COMPONENTS: Components = { table: MarkdownTable, li: MarkdownItem, pre: MarkdownPre, code: MarkdownCode };
 
 export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onSave }: TaskBodyProps) {
   const items = useMemo(() => checklistItems(body), [body]);
@@ -94,6 +97,19 @@ function MarkdownTable({ children }: { children?: ReactNode }) {
       <table>{children}</table>
     </div>
   );
+}
+
+function MarkdownPre({ children }: ComponentProps<"pre">) {
+  return (
+    <pre>
+      <InsideCodeBlock value={true}>{children}</InsideCodeBlock>
+    </pre>
+  );
+}
+
+function MarkdownCode({ className, children }: ComponentProps<"code">) {
+  const inBlock = useContext(InsideCodeBlock);
+  return <code className={cx(!inBlock && "inline-code", className)}>{children}</code>;
 }
 
 function MarkdownItem({ node, children }: ComponentProps<"li"> & ExtraProps) {

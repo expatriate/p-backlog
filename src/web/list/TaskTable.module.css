@@ -77,6 +77,7 @@
 }
 
 .newBadge {
+  display: inline-block;
   margin-right: var(--space-2);
   padding: 1px 6px;
   border-radius: var(--radius-chip);
@@ -88,6 +89,7 @@
 }
 
 .marker {
+  display: inline-block;
   margin-left: var(--space-2);
   padding: 1px 6px;
   border: 1px solid var(--line);
@@ -148,12 +150,6 @@
   }
 }
 
-@container (max-width: 480px) {
-  .title {
-    hyphens: auto;
-  }
-}
-
 .table th:first-child,
 .table td:first-child {
   padding-inline-start: var(--space-5);
@@ -172,5 +168,25 @@
 @container (max-width: 700px) {
   .table .statusCell {
     padding-inline-end: var(--space-5);
+  }
+}
+
+@container (max-width: 480px) {
+  .title {
+    hyphens: auto;
+    hyphenate-limit-chars: 12 5 5;
+  }
+
+  .marker {
+    white-space: normal;
+  }
+
+  .table th:first-child,
+  .table td:first-child {
+    padding-inline-start: var(--space-3);
+  }
+
+  .table .statusCell {
+    padding-inline-end: var(--space-3);
   }
 }

@@ -1,7 +1,0 @@
-.command {
-  padding: 1px 4px;
-  border-radius: var(--radius-chip);
-  background: var(--surface-sunken);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-}

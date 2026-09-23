@@ -47,7 +47,7 @@ export function StatsRequestState<T>({
         {message !== null && <p>{message}</p>}
         {canRetry && <RetryButton fetching={isFetching} onRetry={retry} />}
       </div>
-      {error === null && data !== undefined && emptyMessage === null && <div className={styles.content}>{children(data)}</div>}
+      {!notFound && data !== undefined && emptyMessage === null && <div className={styles.content}>{children(data)}</div>}
     </>
   );
 }
