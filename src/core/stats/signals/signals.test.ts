@@ -44,7 +44,7 @@ describe("тревоги", () => {
   it("шумная проверка: вид улики с 10 решёнными и точностью ниже 20%", () => {
     const tasks = Array.from({ length: 10 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(8, 14) }));
     const events: JournalEvent[] = tasks.flatMap((task, index) => [
-      { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed" },
+      { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", method: "file" },
       index === 0
         ? { at: iso(8, 16), task: task.id, via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" }
         : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
@@ -59,7 +59,7 @@ describe("тревоги", () => {
     const noisy = (closedCount: number) => {
       const tasks = Array.from({ length: 97 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(8, 14) }));
       const events: JournalEvent[] = tasks.flatMap((task, index) => [
-        { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed" },
+        { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", method: "file" },
         index < closedCount
           ? { at: iso(8, 16), task: task.id, via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" }
           : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
@@ -77,7 +77,7 @@ describe("тревоги", () => {
       const byAnchor = index % 2 === 0;
       const fixed = byAnchor && index % 4 === 0;
       return [
-        { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", ...(byAnchor ? { byAnchor: true } : {}) },
+        { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", method: byAnchor ? "anchor" : "file" },
         fixed
           ? { at: iso(8, 16), task: task.id, via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" }
           : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
@@ -92,7 +92,7 @@ describe("тревоги", () => {
   it("по символу и по строкам source подтверждение — не ошибка: менялось само место проблемы, тревоги нет", () => {
     const tasks = Array.from({ length: 20 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(8, 14) }));
     const events: JournalEvent[] = tasks.flatMap((task, index): JournalEvent[] => [
-      { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", ...(index % 2 === 0 ? { byAnchor: true } : { bySymbol: true }) },
+      { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", method: index % 2 === 0 ? "anchor" : "symbol" },
       { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
     ]);
 
@@ -101,10 +101,20 @@ describe("тревоги", () => {
     expect(noisy).toEqual([]);
   });
 
+  it("кандидаты до записи способа в тревогу не идут: неизвестно, были ли они найдены по файлу", () => {
+    const tasks = Array.from({ length: 12 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(8, 14) }));
+    const events: JournalEvent[] = tasks.flatMap((task): JournalEvent[] => [
+      { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed" },
+      { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
+    ]);
+
+    expect(statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check")).toEqual([]);
+  });
+
   it("старый всплеск кандидатов не держит тревогу: за две недели решений мало", () => {
     const old = Array.from({ length: 40 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(7, 1) }));
     const events: JournalEvent[] = old.flatMap((task) => [
-      { at: iso(7, 2), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed" },
+      { at: iso(7, 2), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", method: "file" },
       { at: iso(7, 3), task: task.id, via: "cli", kind: "verified" },
     ]);
 

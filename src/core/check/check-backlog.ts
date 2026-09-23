@@ -1,6 +1,6 @@
 import { errorText } from "../errors";
 import { basename, join } from "node:path";
-import { candidateEvents, candidateGoneEvents, episodeStates, type CandidateSighting, type CheckMode } from "../journal/events";
+import { candidateEvents, candidateGoneEvents, checkMethodOf, episodeStates, type CandidateSighting, type CheckMode } from "../journal/events";
 import { buildIndex } from "../model/graph";
 import { ID_PATTERN, parseId } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
@@ -57,7 +57,7 @@ async function recordCandidates(root: string, tasks: readonly Task[], candidates
       const sightings = found.map((candidate): CandidateSighting => ({
         task: candidate.task.id,
         evidence: candidate.kind,
-        ...(candidate.kind === "source-changed" ? { bySymbol: candidate.bySymbol, byAnchor: candidate.byAnchor } : {}),
+        ...(candidate.kind === "source-changed" ? { method: checkMethodOf(candidate) } : {}),
       }));
       const gone = mode === "full" ? candidateGoneEvents(sightings, reviewed, states, now) : [];
       await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone]);

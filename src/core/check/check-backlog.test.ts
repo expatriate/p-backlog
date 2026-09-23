@@ -99,10 +99,9 @@ describe("checkBacklog", () => {
 
     const candidates = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate");
     expect(candidates).toEqual([
-      expect.objectContaining({ task: "SPA-1", evidence: "source-changed", byAnchor: true }),
-      expect.objectContaining({ task: "SPA-2", evidence: "source-changed" }),
+      expect.objectContaining({ task: "SPA-1", evidence: "source-changed", method: "anchor" }),
+      expect.objectContaining({ task: "SPA-2", evidence: "source-changed", method: "file" }),
     ]);
-    expect(candidates[1]).not.toHaveProperty("byAnchor");
   });
 
   async function symbolFixture(taskFields: (before: string) => string, edit: (code: string) => string) {

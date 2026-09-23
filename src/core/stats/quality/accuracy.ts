@@ -1,4 +1,4 @@
-import { CANDIDATE_EVIDENCE, CHECK_METHODS, type CandidateEvidence } from "../../journal/events";
+import { CANDIDATE_EVIDENCE, RECORDED_METHODS, type CandidateEvidence } from "../../journal/events";
 import { closingsOf, type TaskHistory } from "../history";
 import { formatLocalIso } from "../../model/dates";
 import type { Period } from "../period";
@@ -42,7 +42,7 @@ export function methodAccuracy(histories: readonly TaskHistory[], period: Period
       .filter((candidate) => candidate.evidence === "source-changed" && period.contains(candidate.at))
       .map((candidate) => ({ by: candidate.method, outcome: outcomeAfter(history, candidate.at) })),
   );
-  return CHECK_METHODS.flatMap((by) => {
+  return RECORDED_METHODS.flatMap((by) => {
     const own = episodes.filter((episode) => episode.by === by);
     return own.length === 0 ? [] : [{ by, ...outcomeCounts(own) }];
   });

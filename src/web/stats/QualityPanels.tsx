@@ -25,7 +25,7 @@ export function AccuracyPanel({ rows, weeks, methodRows }: { rows: AccuracyRow[]
               ...(row.evidence === "source-changed"
                 ? methodRows.map((split) => ({
                     key: `by-${split.by}`,
-                    cells: [`└ из них проверено ${CHECK_METHOD_LABELS[split.by]}`, split.candidates, split.closed, split.verified, split.open, formatShare(split.precision)],
+                    cells: [`└ из них ${split.by === "unknown" ? "до записи способа" : `проверено ${CHECK_METHOD_LABELS[split.by]}`}`, split.candidates, split.closed, split.verified, split.open, formatShare(split.precision)],
                   }))
                 : []),
             ])}

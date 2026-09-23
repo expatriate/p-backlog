@@ -14,7 +14,8 @@ const journal = (events: JournalEvent[]) => [{ projectId: "spa", events, invalid
 
 const candidate = (task: string, day: number, evidence: "source-changed" | "source-missing" | "duplicate" | "no-source"): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence, mode: "changed" });
 const symbolCandidate = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", bySymbol: true });
-const anchorCandidate = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", byAnchor: true });
+const anchorCandidate = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", method: "anchor" });
+const fileCandidate = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", method: "file" });
 const verified = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "cli", kind: "verified" });
 
 describe("точность проверки", () => {
@@ -76,20 +77,23 @@ describe("точность проверки", () => {
 });
 
 describe("точность по способу проверки", () => {
-  it("кандидаты по символу, по строкам source и по файлу считаются отдельно; события без пометки — по файлу", () => {
+  it("кандидаты по символу, по строкам source и по файлу считаются отдельно; старые пометки bySymbol читаются, события без пометки — отдельной строкой", () => {
     const tasks = [
       makeTask({ id: "SPA-1", created: iso(1), status: "done", closed: iso(5), resolution: "fixed" }),
       makeTask({ id: "SPA-2", created: iso(1) }),
       makeTask({ id: "SPA-3", created: iso(1) }),
       makeTask({ id: "SPA-4", created: iso(1), status: "done", closed: iso(7), resolution: "fixed" }),
+      makeTask({ id: "SPA-5", created: iso(1) }),
     ];
     const events: JournalEvent[] = [
       symbolCandidate("SPA-1", 3),
       { at: iso(5), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" },
       symbolCandidate("SPA-2", 3),
       verified("SPA-2", 4),
-      candidate("SPA-3", 3, "source-changed"),
+      fileCandidate("SPA-3", 3),
       verified("SPA-3", 4),
+      candidate("SPA-5", 3, "source-changed"),
+      verified("SPA-5", 4),
       anchorCandidate("SPA-4", 3),
       { at: iso(6), task: "SPA-4", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" },
     ];
@@ -98,6 +102,7 @@ describe("точность по способу проверки", () => {
       { by: "symbol", candidates: 2, closed: 1, verified: 1, open: 0, precision: 0.5 },
       { by: "anchor", candidates: 1, closed: 1, verified: 0, open: 0, precision: 1 },
       { by: "file", candidates: 1, closed: 0, verified: 1, open: 0, precision: 0 },
+      { by: "unknown", candidates: 1, closed: 0, verified: 1, open: 0, precision: 0 },
     ]);
   });
 
