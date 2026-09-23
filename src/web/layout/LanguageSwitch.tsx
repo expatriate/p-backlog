@@ -1,5 +1,5 @@
 import { LANGUAGES } from "../../core/i18n/language";
-import { LANGUAGE_NAMES } from "../../core/i18n/messages.ru";
+import { coreMessages } from "../../core/messages";
 import { requestErrorMessage } from "../app/RequestErrorText";
 import { useLanguage, useMessages, useSetLanguage } from "../i18n";
 import { cx } from "../ui/cx";
@@ -18,7 +18,7 @@ export function LanguageSwitch() {
             key={candidate}
             type="button"
             lang={candidate}
-            title={LANGUAGE_NAMES[candidate]}
+            title={coreMessages(candidate).languageName}
             className={cx(styles.button, candidate === language && styles.pressed)}
             aria-pressed={candidate === language}
             disabled={setLanguage.isPending}

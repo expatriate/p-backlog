@@ -235,6 +235,7 @@ function fixFailureCause(p: Extract<CheckProblem, { kind: "fix-failed" }>): stri
 
 export const coreRu = {
   hookMark: "Беклог",
+  languageName: "Русский",
   problem,
   problems,
   schemaIssue,
