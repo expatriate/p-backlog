@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { NBSP } from "../../core/stats/format";
+import { NBSP } from "../../core/i18n/plural";
 import { readJournal } from "../../core/store/journal";
 import { SIGNALS_SHOWN_FILE } from "../../core/store/signals-shown";
 import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";

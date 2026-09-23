@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { GraphState } from "../check/graph-health";
 import { formatDayMonth } from "../i18n/format";
-import { countEn, pluralEn } from "../i18n/plural";
+import { countEn, NBSP, pluralEn } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
@@ -85,7 +85,7 @@ function days(value: number | null): string {
   if (value === null) return "—";
   if (value < 1) return "less than a day";
   const rounded = Math.round(value);
-  return `${rounded} ${pluralEn(rounded, "day", "days")}`;
+  return `${rounded}${NBSP}${pluralEn(rounded, "day", "days")}`;
 }
 
 function p90(value: number | null): string {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
-import { NBSP } from "../../core/stats/format";
+import { NBSP } from "../../core/i18n/plural";
 import { writeSettings } from "../../core/store/settings";
 
 describe("backlog stats", () => {
@@ -34,7 +34,7 @@ describe("backlog stats", () => {
 
     const result = await run(["stats"]);
 
-    expect(result.out).toContain("Age, median: 16 days · time to close, median: 3 days (90% — within 3 days)");
+    expect(result.out).toContain(`Age, median: 16${NBSP}days · time to close, median: 3${NBSP}days (90% — within 3${NBSP}days)`);
     expect(result.out).not.toMatch(/[А-Яа-яЁё]/);
   });
 

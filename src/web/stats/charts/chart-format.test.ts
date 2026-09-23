@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NBSP } from "../../../core/stats/format";
+import { NBSP } from "../../../core/i18n/plural";
 import { axisDay, axisTime, compactNumber, tooltipDay } from "./chart-format";
 
 describe("подписи графиков", () => {

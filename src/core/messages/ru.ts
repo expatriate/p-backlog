@@ -1,11 +1,11 @@
 import { z } from "zod";
 import type { GraphState } from "../check/graph-health";
 import { formatDayMonth, formatDecimal } from "../i18n/format";
-import { countRu, pluralRu } from "../i18n/plural";
+import { countRu, NBSP, pluralRu } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
-import { NBSP, roundToTenth } from "../stats/format";
+import { roundToTenth } from "../stats/format";
 import type { FlowForecast, Signal } from "../stats/types";
 import type { CountUnit } from "./index";
 import { zodIssueText } from "./zod";

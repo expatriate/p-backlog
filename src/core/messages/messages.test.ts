@@ -89,8 +89,8 @@ describe("сроки в днях", () => {
     expect(coreMessages("ru").days(2.6)).toBe(`3${NBSP}дн.`);
     expect(coreMessages("ru").p90(0.5)).toBe("быстрее суток");
     expect(coreMessages("ru").p90(2.6)).toBe(`за 3${NBSP}дн.`);
-    expect(coreMessages("en").days(1.2)).toBe("1 day");
+    expect(coreMessages("en").days(1.2)).toBe(`1${NBSP}day`);
     expect(coreMessages("en").p90(0.5)).toBe("within a day");
-    expect(coreMessages("en").p90(2.6)).toBe("within 3 days");
+    expect(coreMessages("en").p90(2.6)).toBe(`within 3${NBSP}days`);
   });
 });

@@ -1,5 +1,4 @@
-import { countRu } from "../../core/i18n/plural";
-import { NBSP } from "../../core/stats/format";
+import { countRu, NBSP } from "../../core/i18n/plural";
 
 export const appRu = {
   crashTitle: "Интерфейс беклога сломался",

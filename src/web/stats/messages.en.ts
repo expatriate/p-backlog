@@ -1,8 +1,7 @@
 import { CHURN_DAYS } from "../../core/code/code-window";
 import { formatDecimal } from "../../core/i18n/format";
-import { countEn, pluralEn } from "../../core/i18n/plural";
+import { countEn, NBSP, pluralEn } from "../../core/i18n/plural";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
-import { NBSP } from "../../core/stats/format";
 import { STATS_WEEKS } from "../../core/stats/weeks";
 import type { ChartStep } from "./charts/chart-style";
 import { formatApprox, formatLines, isEstimated } from "./effect-format";

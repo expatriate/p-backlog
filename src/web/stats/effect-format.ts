@@ -1,6 +1,7 @@
 import { formatNumber } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
-import { formatShare, NBSP } from "../../core/stats/format";
+import { NBSP } from "../../core/i18n/plural";
+import { formatShare } from "../../core/stats/format";
 
 export function isEstimated(estimatedLines: number | null): boolean {
   return typeof estimatedLines === "number" && estimatedLines > 0;

@@ -1,5 +1,3 @@
-export const NBSP = " ";
-
 export function projectLabel(projectId: string, label: string, withProject: boolean): string {
   return withProject ? `${projectId} · ${label}` : label;
 }

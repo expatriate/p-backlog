@@ -11,7 +11,7 @@ import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
 import { renderApp } from "../testing/render-app";
 import { StatsPage } from "./StatsPage";
-import { NBSP } from "../../core/stats/format";
+import { NBSP } from "../../core/i18n/plural";
 
 const MINUS = "\u2212";
 

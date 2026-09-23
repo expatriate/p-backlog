@@ -1,10 +1,9 @@
 import { CHURN_DAYS } from "../../core/code/code-window";
 import { formatDecimal } from "../../core/i18n/format";
-import { countRu, pluralRu } from "../../core/i18n/plural";
+import { countRu, NBSP, pluralRu } from "../../core/i18n/plural";
 import type { FoundHow } from "../../core/journal/events";
 import type { Priority } from "../../core/model/types";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
-import { NBSP } from "../../core/stats/format";
 import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/stats/types";
 import { STATS_WEEKS } from "../../core/stats/weeks";
 import type { ChartStep } from "./charts/chart-style";
