@@ -1,7 +1,6 @@
 import type { GraphState } from "../../core/check/graph-health";
 import type { Language } from "../../core/i18n/language";
-import { pluralRu } from "../../core/i18n/plural";
-import { NBSP } from "../../core/stats/format";
+import { NBSP, pluralRu } from "../../core/i18n/plural";
 
 export type HintPart = { code: string } | { text: string };
 export type GraphTrouble = Exclude<GraphState, "fresh">;
@@ -32,6 +31,7 @@ export const layoutRu = {
   taskWord: (n: number): string => pluralRu(n, "задача", "задачи", "задач"),
   checkedSuffix: `${NBSP}— с${NBSP}галочкой`,
   languageSwitchLabel: "Язык интерфейса",
+  languageSwitchFailed: "Не удалось изменить язык",
   graphNotes: graphNotesRu,
   checkboxLabel: (name: string): string => `Учитывать проект ${name} в области «Проекты»`,
   setActiveFailed: (active: boolean): string => `Не удалось ${active ? "учесть" : "исключить"} проект`,

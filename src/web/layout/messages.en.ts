@@ -1,5 +1,4 @@
-import { pluralEn } from "../../core/i18n/plural";
-import { NBSP } from "../../core/stats/format";
+import { NBSP, pluralEn } from "../../core/i18n/plural";
 import type { LayoutMessages } from "./messages.ru";
 
 const graphNotesEn: LayoutMessages["graphNotes"] = {
@@ -25,6 +24,7 @@ export const layoutEn: LayoutMessages = {
   taskWord: (n) => pluralEn(n, "task", "tasks"),
   checkedSuffix: `${NBSP}— checked`,
   languageSwitchLabel: "Interface language",
+  languageSwitchFailed: "Failed to change the language",
   graphNotes: graphNotesEn,
   checkboxLabel: (name) => `Include project ${name} in the “Projects” scope`,
   setActiveFailed: (active) => (active ? "Failed to include the project" : "Failed to exclude the project"),

@@ -1,12 +1,22 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-top: auto;
+}
+
 .switch {
   display: inline-flex;
-  align-self: flex-start;
   gap: 2px;
-  margin-top: auto;
   padding: 2px;
   border: 1px solid var(--line);
   border-radius: var(--radius-chip);
   background: var(--surface-sunken);
+}
+
+.switch:has(button:disabled) {
+  opacity: 0.6;
 }
 
 .button {
@@ -30,7 +40,18 @@
   outline-offset: 2px;
 }
 
+.button:disabled {
+  cursor: not-allowed;
+}
+
 .pressed {
   background: var(--surface-selected);
   color: var(--ink);
+}
+
+.error {
+  max-width: 220px;
+  text-wrap: pretty;
+  color: var(--danger-ink);
+  font-size: var(--text-sm);
 }
