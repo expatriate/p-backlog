@@ -13,7 +13,7 @@ describe("переключатель языка интерфейса", () => {
   it("сбой PATCH /api/settings показывает текст ошибки", async () => {
     const { user } = await renderApp({ "spa/project.md": projectFile("SPA") }, "/", undefined, { beforeRender: failLanguagePatch });
 
-    await user.click(await screen.findByRole("button", { name: "English" }));
+    await user.click(await screen.findByRole("button", { name: "EN" }));
 
     expect(await screen.findByText(/Не удалось изменить язык/)).toBeDefined();
   });

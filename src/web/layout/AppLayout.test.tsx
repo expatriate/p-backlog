@@ -112,7 +112,7 @@ describe("переключатель языка", () => {
   it("переводит интерфейс и сохраняет выбор", async () => {
     const { user, root } = await renderApp(FILES);
 
-    await user.click(await screen.findByRole("button", { name: "English" }));
+    await user.click(await screen.findByRole("button", { name: "EN" }));
 
     expect(await screen.findByRole("link", { name: "Tasks" })).toBeDefined();
     expect(document.documentElement.lang).toBe("en");

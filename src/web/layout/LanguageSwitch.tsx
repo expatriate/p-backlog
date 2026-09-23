@@ -17,9 +17,10 @@ export function LanguageSwitch() {
           <button
             key={candidate}
             type="button"
+            lang={candidate}
+            title={LANGUAGE_NAMES[candidate]}
             className={cx(styles.button, candidate === language && styles.pressed)}
             aria-pressed={candidate === language}
-            aria-label={LANGUAGE_NAMES[candidate]}
             disabled={setLanguage.isPending}
             onClick={() => setLanguage.mutate(candidate)}
           >
