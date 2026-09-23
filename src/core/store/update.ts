@@ -29,7 +29,7 @@ export async function updateTaskInIndex(index: BacklogIndex, { id, changes, expe
   if (expectedVersion !== undefined && expectedVersion !== current.version) return { ok: false, reason: "conflict", current };
 
   const normalized = taskText(applyChanges(current, changes, now, closure));
-  if (!normalized.ok) return invalid([normalized.message]);
+  if (!normalized.ok) return invalid(normalized.problems);
   const { text, task } = normalized.value;
   const errors = integrityErrors(task, index);
   if (errors.length > 0) return invalid(errors);

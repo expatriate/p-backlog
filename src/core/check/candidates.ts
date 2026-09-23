@@ -1,4 +1,5 @@
 import type { DuplicateMatch } from "../journal/events";
+import type { CoreMessages } from "../messages";
 import { isClosed } from "../model/graph";
 import type { Task } from "../model/types";
 import { anchorOf, findMoved, hasLines, isAnchorFor, lineSuffix, SOURCE_LINES } from "./anchor";
@@ -37,10 +38,10 @@ export function reviewMark(task: Task): number {
   return Math.max(Date.parse(task.created), verified);
 }
 
-export function codeReview(tasks: readonly Task[], facts: RepoFacts): CodeReview {
+export function codeReview(tasks: readonly Task[], facts: RepoFacts, messages: CoreMessages): CodeReview {
   const reviewed = tasks.map((task) => ({ task, anchor: anchorState(task, facts) }));
   const candidates = reviewed.flatMap(({ task, anchor }) => codeCandidate(task, anchor, facts));
-  const plans = reviewed.flatMap(({ task, anchor }) => anchorPlan(task, anchor, facts));
+  const plans = reviewed.flatMap(({ task, anchor }) => anchorPlan(task, anchor, facts, messages));
   return { candidates, plans };
 }
 
@@ -59,10 +60,10 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts): Candi
   return [{ kind: "source-changed", task: taskRef(task), path, commits: commits.slice(0, MAX_COMMITS).map(commitRef), uncommitted, ...byAnchor }];
 }
 
-function anchorPlan(task: Task, anchor: AnchorState, facts: RepoFacts): AnchorPlan[] {
+function anchorPlan(task: Task, anchor: AnchorState, facts: RepoFacts, messages: CoreMessages): AnchorPlan[] {
   if (task.source === undefined) return [];
   if (anchor.kind === "moved") {
-    return [{ id: task.id, changes: { source: anchor.source, anchor: anchor.anchor }, note: `${task.id}: source сдвинулся ${lineSuffix(task.source)} → ${lineSuffix(anchor.source)}` }];
+    return [{ id: task.id, changes: { source: anchor.source, anchor: anchor.anchor }, note: messages.sourceMoved(task.id, lineSuffix(task.source), lineSuffix(anchor.source)) }];
   }
   if (anchor.kind === "same") return [];
   const text = facts.texts.get(sourcePath(task.source));

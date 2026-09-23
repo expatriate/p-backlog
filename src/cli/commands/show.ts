@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { buildIndex } from "../../core/model/graph";
+import { coreMessages } from "../../core/messages";
 import type { Task } from "../../core/model/types";
 import { loadBacklog } from "../../core/store/load";
 import { describeTask, toJson } from "../describe";
@@ -30,6 +31,6 @@ async function runShow(args: string[], io: CliIo): Promise<number> {
 }
 
 export async function printTask(io: CliIo, task: Task, tasks: readonly Task[], { json }: { json: boolean }): Promise<void> {
-  const description = describeTask(task, buildIndex(tasks));
+  const description = describeTask(task, buildIndex(tasks), coreMessages(io.language));
   io.print(json ? JSON.stringify(toJson(description), null, 2) : formatTaskDetails(description, await readFile(task.path, "utf8")));
 }

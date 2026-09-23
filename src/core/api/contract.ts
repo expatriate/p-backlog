@@ -29,7 +29,8 @@ export const updateTaskRequestSchema = z.strictObject({
 
 export type TaskChangesRequest = z.infer<typeof taskChangesSchema>;
 
-export type TasksResponse = { tasks: Task[]; errors: ParseError[] };
+type ParseErrorView = Omit<ParseError, "problems"> & { message: string };
+export type TasksResponse = { tasks: Task[]; errors: ParseErrorView[] };
 export type ProjectView = Project & { codeGraph: GraphState };
 export type ProjectDeletedResponse = { deleted: string };
 export type ErrorResponse = { errors: string[] };

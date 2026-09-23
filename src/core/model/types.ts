@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ID_PATTERN, PREFIX_PATTERN } from "./ids";
+import { schemaCode, type Problem } from "./problems";
 
 export type OptionalFields<T> = { [K in keyof T]?: T[K] | undefined };
 
@@ -30,7 +31,7 @@ export function normalizeTag(tag: string): string {
   return tag.trim().toLowerCase();
 }
 
-export const taskIdSchema = z.string().regex(ID_PATTERN, "некорректный ID");
+export const taskIdSchema = z.string().regex(ID_PATTERN, schemaCode("bad-id"));
 const taskIdList = z
   .array(taskIdSchema)
   .default([])
@@ -38,7 +39,7 @@ const taskIdList = z
 
 export const taskFrontmatterSchema = z.object({
   id: taskIdSchema,
-  title: z.string().trim().min(1, "пустой заголовок"),
+  title: z.string().trim().min(1, schemaCode("empty-title")),
   type: z.enum(TASK_TYPES).default("task"),
   status: z.enum(TASK_STATUSES).default("backlog"),
   priority: z.enum(PRIORITIES).default("medium"),
@@ -60,8 +61,8 @@ export const taskFrontmatterSchema = z.object({
 });
 
 export const projectFrontmatterSchema = z.object({
-  name: z.string().trim().min(1, "пустое имя проекта"),
-  prefix: z.string().regex(PREFIX_PATTERN, "некорректный префикс"),
+  name: z.string().trim().min(1, schemaCode("empty-name")),
+  prefix: z.string().regex(PREFIX_PATTERN, schemaCode("bad-prefix")),
   repos: z.array(z.string()).default([]),
   issuedUpTo: z.number().int().nonnegative().optional(),
   active: z.boolean().default(true),
@@ -73,6 +74,6 @@ export type Task = z.output<typeof taskFrontmatterSchema> & FileExtras & { proje
 
 export type Project = z.output<typeof projectFrontmatterSchema> & FileExtras & { id: string };
 
-export type ParseError = { path: string; projectId: string; message: string };
+export type ParseError = { path: string; projectId: string; problems: Problem[] };
 
-export type ParseResult<T> = { ok: true; value: T } | { ok: false; message: string };
+export type ParseResult<T> = { ok: true; value: T } | { ok: false; problems: Problem[] };

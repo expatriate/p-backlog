@@ -1,4 +1,5 @@
 import { checkBacklog, type CheckReport } from "../../core/check/check-backlog";
+import { coreMessages } from "../../core/messages";
 import { loadBacklog } from "../../core/store/load";
 import { describeCandidate } from "../candidate-format";
 import type { CliCommand } from "../command";
@@ -23,7 +24,7 @@ async function runCheck(args: string[], io: CliIo): Promise<number> {
   if (scope === null) return EXIT.notFound;
   const { projectIds } = scope;
 
-  const report = await checkBacklog(io.backlogRoot, loaded, { projectIds, mode: values.changed ? "changed" : "full", now: io.now(), home: io.home });
+  const report = await checkBacklog(io.backlogRoot, loaded, { projectIds, mode: values.changed ? "changed" : "full", now: io.now(), home: io.home, messages: coreMessages(io.language) });
   io.print(values.json ? JSON.stringify(report, null, 2) : formatReport(report));
   return report.candidates.length > 0 || report.problems.length > 0 ? EXIT.needsReview : EXIT.ok;
 }

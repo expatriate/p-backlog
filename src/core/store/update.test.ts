@@ -112,7 +112,7 @@ describe("updateTask", () => {
     expect(await updateTask(root, { id: "SPA-2", changes: { blockedBy: ["SPA-3"] }, now: NOW, via: "cli" })).toEqual({
       ok: false,
       reason: "invalid",
-      errors: ["цикл блокеров: SPA-2 → SPA-3 → SPA-2"],
+      errors: [{ code: "blocker-cycle", cycle: ["SPA-2", "SPA-3", "SPA-2"] }],
     });
     expect(await updateTask(root, { id: "SPA-1", changes: { type: "task" }, now: NOW, via: "cli" })).toMatchObject({ ok: false, reason: "invalid" });
     expect(await version(root, "SPA-2")).toBe(before);

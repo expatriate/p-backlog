@@ -35,7 +35,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
     const id = formatId(project.prefix, await nextTaskNumber(dir, project));
     const path = join(dir, taskFileName(id));
     const normalized = taskText(draftTask(id, path, request));
-    if (!normalized.ok) return invalid([normalized.message]);
+    if (!normalized.ok) return invalid(normalized.problems);
     const { text, task } = normalized.value;
     const errors = integrityErrors(task, index);
     if (errors.length > 0) return invalid(errors);
@@ -47,7 +47,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
       if (!hasErrorCode(error, "EEXIST")) throw error;
     }
   }
-  return invalid([`не удалось выделить ID за ${MAX_ID_ATTEMPTS} попыток`]);
+  return invalid([{ code: "id-exhausted", attempts: MAX_ID_ATTEMPTS }]);
 }
 
 export async function createProject(root: string, repoRoot: string, existingProjects: readonly Project[]): Promise<Project> {
@@ -61,7 +61,7 @@ export async function createProject(root: string, repoRoot: string, existingProj
   const text = serializeProject({ name, prefix, repos: [repoRoot], active: true, extra: {}, body: "" });
   await createFileAtomic(path, text);
   const parsed = parseProjectFile(text, { id, path });
-  if (!parsed.ok) throw new Error(parsed.message);
+  if (!parsed.ok) throw new Error(`${path}: ${parsed.problems.map((problem) => problem.code).join(", ")}`);
   return parsed.value;
 }
 

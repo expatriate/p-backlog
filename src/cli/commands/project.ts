@@ -1,5 +1,6 @@
 import { parseArgs } from "node:util";
 import { buildIndex } from "../../core/model/graph";
+import { coreMessages } from "../../core/messages";
 import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
 import { loadBacklog } from "../../core/store/load";
 import { deleteProject, setProjectActive } from "../../core/store/projects";
@@ -45,7 +46,7 @@ async function changeStatus(positionals: string[], io: CliIo): Promise<number> {
   const active = state === "active";
   const result = await setProjectActive(io.backlogRoot, id, active);
   if (!result.ok && result.reason === "invalid") {
-    io.warn(`${id}: ${result.message}`);
+    io.warn(`${id}: ${coreMessages(io.language).problems(result.problems)}`);
     return EXIT.invalid;
   }
   if (!result.ok) {

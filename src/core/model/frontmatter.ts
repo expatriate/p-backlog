@@ -1,7 +1,7 @@
 import { errorText } from "../errors";
 import { Document, parse, visit } from "yaml";
 import type { z } from "zod";
-import { parseInRussian } from "./zod-issues";
+import { parseSchema } from "./zod-issues";
 import type { ParseResult } from "./types";
 
 const DELIMITER = "---";
@@ -13,19 +13,19 @@ export function parseFrontmatter<Shape extends z.core.$ZodShape>(
   schema: z.ZodObject<Shape>,
 ): ParseResult<FrontmatterParts<z.output<z.ZodObject<Shape>>>> {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
-  if (lines[0] !== DELIMITER) return { ok: false, message: "файл не начинается с frontmatter (---)" };
+  if (lines[0] !== DELIMITER) return { ok: false, problems: [{ code: "no-frontmatter" }] };
   const closing = lines.indexOf(DELIMITER, 1);
-  if (closing === -1) return { ok: false, message: "frontmatter не закрыт строкой ---" };
+  if (closing === -1) return { ok: false, problems: [{ code: "frontmatter-unclosed" }] };
 
   let raw: unknown;
   try {
     raw = parse(lines.slice(1, closing).join("\n"));
   } catch (error) {
-    return { ok: false, message: `ошибка YAML: ${errorText(error)}` };
+    return { ok: false, problems: [{ code: "yaml", detail: errorText(error) }] };
   }
 
-  const parsed = parseInRussian(schema, raw);
-  if (!parsed.ok) return { ok: false, message: parsed.errors.join("; ") };
+  const parsed = parseSchema(schema, raw);
+  if (!parsed.ok) return parsed;
 
   const knownFields = Object.keys(schema.shape);
   const extra = Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([key]) => !knownFields.includes(key)));

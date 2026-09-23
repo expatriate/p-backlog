@@ -1,5 +1,6 @@
 import { basename } from "node:path";
 import type { Project, Task } from "../core/model/types";
+import { coreMessages } from "../core/messages";
 import { createProject } from "../core/store/create";
 import type { LoadedBacklog } from "../core/store/load";
 import { findGitRoot, findProjectForDir } from "../core/store/resolve-project";
@@ -9,7 +10,7 @@ export function requireTask(loaded: LoadedBacklog, io: CliIo, id: string): Task 
   const task = loaded.tasks.find((candidate) => candidate.id === id);
   if (task) return task;
   const broken = loaded.errors.find((error) => basename(error.path) === `${id}.md`);
-  io.warn(broken ? `Файл задачи ${id} не разобран: ${broken.message}` : `Задача ${id} не найдена`);
+  io.warn(broken ? `Файл задачи ${id} не разобран: ${coreMessages(io.language).problems(broken.problems)}` : `Задача ${id} не найдена`);
   return undefined;
 }
 

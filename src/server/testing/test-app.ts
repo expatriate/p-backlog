@@ -1,5 +1,6 @@
 import type { Hono } from "hono";
 import { loadBacklog } from "../../core/store/load";
+import { writeSettings } from "../../core/store/settings";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { createApp } from "../app";
 import type { ChangeFeed } from "../change-feed";
@@ -25,6 +26,7 @@ export type TestApp = {
 export async function makeTestApp(files: Record<string, string>, options: TestAppOptions = {}): Promise<TestApp> {
   const root = await makeTempDir();
   await writeFiles(root, files);
+  await writeSettings(root, { language: "ru" });
 
   const listeners = new Set<() => void>();
   const changes: ChangeFeed = {

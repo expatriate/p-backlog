@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "./dates";
 import { changeStatus, deletionDate, isExpired, planEpicClosing, settleLifecycle } from "./lifecycle";
 import { makeTask } from "./testing/make-task";
-import type { Task } from "./types";
+import type { ParseError, Task } from "./types";
 
 const NOW = new Date("2026-09-18T12:00:00Z");
 const CLOSED_AT = "2026-09-10T09:00:00+03:00";
@@ -70,9 +70,9 @@ describe("завершённый эпик", () => {
   const done = makeTask({ id: "SPA-2", epic: "SPA-1", status: "done", closed: CLOSED_AT });
   const cancelled = makeTask({ id: "SPA-3", epic: "SPA-1", status: "cancelled", closed: CLOSED_AT });
 
-  it("открытый эпик, у которого все задачи закрыты, завершён; причина перечисляет задачи", () => {
+  it("открытый эпик, у которого все задачи закрыты, завершён; план перечисляет задачи", () => {
     expect(completedEpics([epic, done, cancelled])).toEqual([
-      { epic, closure: { resolution: "epic-done", reason: "все задачи эпика закрыты: SPA-2, SPA-3" } },
+      { epic, childIds: ["SPA-2", "SPA-3"] },
     ]);
   });
 
@@ -88,8 +88,8 @@ describe("завершённый эпик", () => {
   });
 
   it("эпики закрываются, только когда разобраны все файлы, иначе ждут: у неразобранного эпик неизвестен", () => {
-    const parseError = { path: "/backlog/spa/SPA-9.md", projectId: "spa", message: "файл не начинается с frontmatter" };
-    const completed = [{ epic, closure: { resolution: "epic-done", reason: "все задачи эпика закрыты: SPA-2, SPA-3" } }];
+    const parseError: ParseError = { path: "/backlog/spa/SPA-9.md", projectId: "spa", problems: [{ code: "no-frontmatter" }] };
+    const completed = [{ epic, childIds: ["SPA-2", "SPA-3"] }];
     expect(planEpicClosing([epic, done, cancelled], [])).toEqual({ close: completed, waiting: [] });
     expect(planEpicClosing([epic, done, cancelled], [parseError])).toEqual({ close: [], waiting: completed });
   });

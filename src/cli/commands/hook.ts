@@ -2,6 +2,7 @@ import { errorText } from "../../core/errors";
 import { dirname } from "node:path";
 import { z } from "zod";
 import { checkBacklog } from "../../core/check/check-backlog";
+import { coreMessages } from "../../core/messages";
 import { formatLocalDay } from "../../core/model/dates";
 import { readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
@@ -35,7 +36,7 @@ async function runHook(args: string[], io: CliIo): Promise<number> {
   const loaded = await loadBacklog(io.backlogRoot);
   const project = findProjectForDir(loaded.projects, event.cwd, io.home);
   if (!project) return EXIT.ok;
-  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home });
+  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home, messages: coreMessages(io.language) });
   const lowPriority = new Set(loaded.tasks.filter((task) => task.priority === "low").map((task) => task.id));
   const worthTelling = candidates.filter((candidate) => !lowPriority.has(candidate.task.id));
   const lowCount = candidates.length - worthTelling.length;

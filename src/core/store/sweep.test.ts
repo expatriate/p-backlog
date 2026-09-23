@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { coreMessages } from "../messages";
 import { formatLocalIso } from "../model/dates";
 import { createTask } from "./create";
 import { hasErrorCode } from "./fs-utils";
@@ -9,6 +10,8 @@ import { loadBacklog } from "./load";
 import { reserveIssuedUpTo } from "./projects";
 import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
+
+const RU = coreMessages("ru");
 
 vi.mock("./projects", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./projects")>();
@@ -44,7 +47,7 @@ describe("sweepClosed", () => {
     });
     const versionBefore = (await loadBacklog(root)).tasks.find((task) => task.id === "SPA-7")?.version;
 
-    const report = await sweepClosed(root, NOW);
+    const report = await sweepClosed(root, NOW, RU);
 
     expect(report).toEqual({ closedEpics: [], blockingFiles: [], deleted: ["SPA-1", "SPA-5"], conflicts: [], invalid: [] });
     expect(await exists(join(root, "spa/SPA-1.md"))).toBe(false);
@@ -67,7 +70,7 @@ describe("sweepClosed", () => {
       "spa/SPA-1.md": taskFile("SPA-1"),
       "spa/SPA-2.md": taskFile("SPA-2", `status: done\n${EXPIRED}`),
     });
-    await sweepClosed(root, NOW);
+    await sweepClosed(root, NOW, RU);
     const loaded = await loadBacklog(root);
     const project = loaded.projects[0];
     if (!project) throw new Error("нет проекта");
@@ -82,7 +85,7 @@ describe("sweepClosed", () => {
     const projectText = projectFile("SPA");
     await writeFiles(root, { "spa/project.md": projectText, "spa/SPA-1.md": taskFile("SPA-1", `status: done\n${FRESH}`) });
 
-    expect(await sweepClosed(root, NOW)).toEqual({ closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] });
+    expect(await sweepClosed(root, NOW, RU)).toEqual({ closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] });
     expect(await readFile(join(root, "spa/project.md"), "utf8")).toBe(projectText);
   });
 
@@ -90,7 +93,7 @@ describe("sweepClosed", () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1", "status: done\nblockedBy: [SPA-1]\n") });
 
-    expect(await sweepClosed(root, NOW)).toEqual({
+    expect(await sweepClosed(root, NOW, RU)).toEqual({
       closedEpics: [],
       blockingFiles: [],
       deleted: [],
@@ -107,7 +110,7 @@ describe("sweepClosed", () => {
       "spa/SPA-2.md": taskFile("SPA-2", `epic: SPA-1\nstatus: done\n${EXPIRED}`),
     });
 
-    const report = await sweepClosed(root, NOW);
+    const report = await sweepClosed(root, NOW, RU);
 
     expect(report).toEqual({ closedEpics: ["SPA-1"], blockingFiles: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
     expect(await exists(join(root, "spa/SPA-2.md"))).toBe(false);
@@ -132,7 +135,7 @@ describe("sweepClosed", () => {
       "spa/SPA-2.md": taskFile("SPA-2", `epic: SPA-1\nstatus: done\n${EXPIRED}`),
     });
 
-    const report = await sweepClosed(root, NOW);
+    const report = await sweepClosed(root, NOW, RU);
 
     expect(report).toEqual({
       closedEpics: [],
@@ -154,7 +157,7 @@ describe("sweepClosed", () => {
       "spa/SPA-3.md": taskFile("SPA-3", "epic: SPA-1\n"),
     });
 
-    const report = await sweepClosed(root, NOW);
+    const report = await sweepClosed(root, NOW, RU);
 
     expect(report).toEqual({ closedEpics: [], blockingFiles: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
     expect(await exists(join(root, "spa/SPA-2.md"))).toBe(false);
@@ -176,7 +179,7 @@ describe("sweepClosed", () => {
       "notes/todo.md": "заметки",
     });
 
-    const report = await sweepClosed(root, NOW);
+    const report = await sweepClosed(root, NOW, RU);
 
     expect(report).toEqual({
       closedEpics: ["TI-1"],
@@ -198,7 +201,7 @@ describe("sweepClosed", () => {
       "spa/SPA-3.md": taskFile("SPA-3", `status: done\n${EXPIRED}`),
     });
 
-    expect(await sweepClosed(root, NOW)).toEqual({
+    expect(await sweepClosed(root, NOW, RU)).toEqual({
       closedEpics: [],
       blockingFiles: [],
       deleted: [],
@@ -216,13 +219,13 @@ describe("sweepClosed", () => {
       "spa/SPA-3.md": taskFile("SPA-3", `status: done\n${EXPIRED}`),
     });
 
-    const first = await sweepClosed(root, NOW);
+    const first = await sweepClosed(root, NOW, RU);
     expect(first.deleted).toEqual(["SPA-3"]);
     expect(await exists(join(root, "spa/SPA-1.md"))).toBe(true);
 
     await writeFiles(root, { "spa/SPA-2.md": taskFile("SPA-2", "epic: SPA-1\n") });
 
-    expect((await sweepClosed(root, NOW)).deleted).toEqual(["SPA-1"]);
+    expect((await sweepClosed(root, NOW, RU)).deleted).toEqual(["SPA-1"]);
     expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-2")?.epic).toBeUndefined();
   });
 
@@ -230,7 +233,7 @@ describe("sweepClosed", () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/SPA-2.md": "сломано" });
 
-    expect(await sweepClosed(root, NOW)).toEqual({ closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] });
+    expect(await sweepClosed(root, NOW, RU)).toEqual({ closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] });
   });
 
   it("удаление пишет в журнал снимок задачи от имени прохода", async () => {
@@ -240,7 +243,7 @@ describe("sweepClosed", () => {
       "spa/SPA-1.md": taskFile("SPA-1", `status: done\nresolution: fixed\nreason: исправлено\n${EXPIRED}`),
     });
 
-    await sweepClosed(root, NOW);
+    await sweepClosed(root, NOW, RU);
 
     const journal = await readJournal(join(root, "spa"), "spa");
     expect(journal.events).toMatchObject([{ kind: "deleted", task: "SPA-1", via: "sweep", snapshot: { status: "done", resolution: "fixed" } }]);
@@ -254,7 +257,7 @@ describe("sweepClosed", () => {
     });
     vi.mocked(reserveIssuedUpTo).mockResolvedValueOnce(false);
 
-    expect((await sweepClosed(root, NOW)).deleted).toEqual([]);
+    expect((await sweepClosed(root, NOW, RU)).deleted).toEqual([]);
     expect(await exists(join(root, "spa/SPA-1.md"))).toBe(true);
   });
 });

@@ -1,6 +1,7 @@
 import { findSimilarTask } from "../../core/check/candidates";
 import { sourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW } from "../../core/journal/events";
+import { coreMessages } from "../../core/messages";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project } from "../../core/model/types";
 import { findProjectForDir } from "../../core/store/resolve-project";
 import { createTask } from "../../core/store/create";
@@ -80,7 +81,7 @@ async function runNew(args: string[], io: CliIo): Promise<number> {
     provenance: { found, origin: cwdBelongsTo(project, loaded.projects, io) ? await readOrigin(io.cwd) : undefined },
   });
   if (!result.ok) {
-    for (const error of result.errors) io.warn(error);
+    for (const error of result.errors) io.warn(coreMessages(io.language).problem(error));
     return EXIT.invalid;
   }
   io.print(values.json ? JSON.stringify(result.task, null, 2) : `${result.task.id} ${result.task.path}`);

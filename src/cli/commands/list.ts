@@ -1,4 +1,5 @@
 import { buildIndex } from "../../core/model/graph";
+import { coreMessages } from "../../core/messages";
 import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
 import { TASK_STATUSES } from "../../core/model/types";
 import { loadBacklog } from "../../core/store/load";
@@ -28,9 +29,10 @@ async function runList(args: string[], io: CliIo): Promise<number> {
   const scope = resolveScope(loaded, io, values);
   if (scope === null) return EXIT.notFound;
   const projectId = scope.project?.id;
+  const messages = coreMessages(io.language);
 
   for (const error of loaded.errors) {
-    if (projectId === undefined || error.projectId === projectId) io.warn(`Ошибка разбора ${error.path}: ${error.message}`);
+    if (projectId === undefined || error.projectId === projectId) io.warn(`Ошибка разбора ${error.path}: ${messages.problems(error.problems)}`);
   }
 
   const index = buildIndex(loaded.tasks);
@@ -42,7 +44,7 @@ async function runList(args: string[], io: CliIo): Promise<number> {
   );
   const tasks = sortTasks(filtered, { key: "priority", direction: "desc" }, index);
 
-  if (values.json) io.print(JSON.stringify(tasks.map((task) => toJson(describeTask(task, index))), null, 2));
+  if (values.json) io.print(JSON.stringify(tasks.map((task) => toJson(describeTask(task, index, messages))), null, 2));
   else io.print(tasks.length === 0 ? "Задач не найдено" : tasks.map((task) => formatTaskLine(task, index)).join("\n"));
   return EXIT.ok;
 }

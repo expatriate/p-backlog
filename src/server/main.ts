@@ -3,8 +3,10 @@ import { serve } from "@hono/node-server";
 import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { coreMessages } from "../core/messages";
 import { resolveBacklogRoot } from "../core/store/paths";
 import { trimRuns } from "../core/store/runs";
+import { resolveLanguage } from "../core/store/settings";
 import { sweepClosed, type SweepReport } from "../core/store/sweep";
 import { createApp } from "./app";
 import { createChangeFeed } from "./change-feed";
@@ -40,7 +42,7 @@ memory.start();
 
 const sweepAll = async (now: Date): Promise<SweepReport> => {
   await trimRuns(root, now).catch((error: unknown) => process.stderr.write(`Не удалось обрезать журнал запусков: ${errorText(error)}\n`));
-  return sweepClosed(root, now);
+  return sweepClosed(root, now, coreMessages(await resolveLanguage(root, process.env)));
 };
 
 startSweeper({

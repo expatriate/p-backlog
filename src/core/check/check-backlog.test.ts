@@ -2,12 +2,15 @@ import { createHash } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { coreMessages } from "../messages";
 import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
 import { makeGraph } from "../graph/testing/make-graph";
 import { anchorOf } from "./anchor";
 import { checkBacklog } from "./check-backlog";
+
+const RU = coreMessages("ru");
 
 const NOW = new Date("2026-09-18T12:00:00Z");
 
@@ -48,7 +51,7 @@ describe("checkBacklog", () => {
     await mkdir(join(root, "spa", "journal.jsonl"));
     const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home });
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
 
     expect(report.candidates.map((candidate) => candidate.task.id)).toContain("SPA-1");
     expect(errors).toHaveBeenCalledWith(expect.stringContaining("Не удалось записать кандидатов"));
@@ -70,7 +73,7 @@ describe("checkBacklog", () => {
     await writeFile(join(repo, "src/a.ts"), ["new1", "new2", code].join("\n"));
     gitCommitAll(repo, "Добавлены строки сверху", "2026-09-12T10:00:00+03:00");
 
-    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home });
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
 
     expect(report.candidates).toEqual([]);
     expect(report.fixed).toEqual(["SPA-1: source сдвинулся :3 → :5"]);
@@ -95,7 +98,7 @@ describe("checkBacklog", () => {
     await writeFiles(repo, { "src/a.ts": code.replace("three", "THREE"), "src/b.ts": code.replace("six", "SIX") });
     gitCommitAll(repo, "Правка", "2026-09-12T10:00:00+03:00");
 
-    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home });
+    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
 
     const candidates = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate");
     expect(candidates).toEqual([
@@ -130,7 +133,7 @@ describe("checkBacklog", () => {
   it("кандидата отбросил фильтр по символу — задача без якоря всё равно получает якорь", async () => {
     const { home, root, after, anchorOfSpa1 } = await symbolFixture(() => "source: src/upload.ts:2\n", editRetry);
 
-    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home });
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
 
     expect(report.candidates).toEqual([]);
     expect(await anchorOfSpa1()).toBe(anchorOf(after, "src/upload.ts:2"));
@@ -139,7 +142,7 @@ describe("checkBacklog", () => {
   it("отсеянный графом кандидат записан в журнал с символом и не открывает эпизод кандидата", async () => {
     const { home, root } = await symbolFixture(() => "source: src/upload.ts:2\n", editRetry);
 
-    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home });
+    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
 
     const events = (await readJournal(join(root, "spa"), "spa")).events;
     expect(events.filter((event) => event.kind === "candidate-filtered")).toEqual([expect.objectContaining({ task: "SPA-1", symbol: "uploadFile" })]);
@@ -149,7 +152,7 @@ describe("checkBacklog", () => {
   it("журнал помнит, по какому признаку найден дубль", async () => {
     const { home, root } = await setup();
 
-    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home });
+    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
     const duplicates = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate" && event.evidence === "duplicate");
     expect(duplicates).toEqual([expect.objectContaining({ task: "SPA-5", match: "title" })]);
@@ -159,7 +162,7 @@ describe("checkBacklog", () => {
     const commentAbove = (code: string) => code.replace("}\n\nexport function retry", "}\n// повтор\nexport function retry");
     const { home, root, after, anchorOfSpa1 } = await symbolFixture((before) => `source: src/upload.ts:5\nanchor: ${anchorOf(before, "src/upload.ts:5")}\n`, commentAbove);
 
-    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home });
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
 
     expect(report.candidates).toEqual([]);
     expect(await anchorOfSpa1()).toBe(anchorOf(after, "src/upload.ts:5"));
@@ -169,8 +172,8 @@ describe("checkBacklog", () => {
     const editUpload = (code: string) => code.replace('return "v1"', 'return "v2"');
     const { home, root, anchorOfSpa1 } = await symbolFixture(() => "source: src/upload.ts:2\n", editUpload);
 
-    const first = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home });
-    const second = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home });
+    const first = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
+    const second = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
 
     expect(first.candidates.map((candidate) => candidate.task.id)).toEqual(["SPA-1"]);
     expect(await anchorOfSpa1()).toBeUndefined();
@@ -180,7 +183,7 @@ describe("checkBacklog", () => {
   it("полный режим чинит данные, сообщает о проблемах и отдаёт кандидатов; при неразобранном файле эпики не закрывает", async () => {
     const { home, root } = await setup();
 
-    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home });
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
     expect(report.fixed).toEqual(["SPA-9: убраны ссылки на несуществующие задачи: SPA-99"]);
     expect(report.problems).toEqual([
@@ -219,7 +222,7 @@ describe("checkBacklog", () => {
       "spa/SPA-8.md": task("SPA-8", "epic: SPA-7\nstatus: done\nclosed: 2026-09-12T10:00:00+03:00\n"),
     });
 
-    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home });
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
     expect(report.fixed).toEqual(["SPA-7: эпик закрыт — все задачи эпика закрыты: SPA-8"]);
     const epic = (await loadBacklog(root)).tasks.find((loaded) => loaded.id === "SPA-7");
@@ -235,7 +238,7 @@ describe("checkBacklog", () => {
       "spa/SPA-8.md": task("SPA-8", "epic: SPA-7\nstatus: done\nclosed: 2026-09-12T10:00:00+03:00\n"),
     });
 
-    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home });
+    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
     const journal = await readJournal(join(root, "spa"), "spa");
     expect(journal.events).toMatchObject([{ kind: "status", task: "SPA-7", to: "done", resolution: "epic-done", via: "check" }]);
@@ -244,7 +247,7 @@ describe("checkBacklog", () => {
   it("узкий режим отдаёт только кандидатов по коду и ничего не пишет", async () => {
     const { home, root } = await setup();
 
-    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home });
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
 
     expect(report.fixed).toEqual([]);
     expect(report.problems).toEqual([]);
@@ -266,8 +269,8 @@ describe("checkBacklog", () => {
       "spa/SPA-2.md": task("SPA-2", "source: src/a.ts:1\n"),
     });
 
-    const first = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home });
-    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home });
+    const first = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
+    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
     expect(first.candidates).toMatchObject([{ kind: "duplicate", task: { id: "SPA-2" }, other: { id: "SPA-1" } }]);
     const candidates = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate");
@@ -284,7 +287,7 @@ describe("checkBacklog", () => {
       "spa/SPA-3.md": task("SPA-3", "source: src/a.ts:1\n"),
     });
 
-    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home });
+    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
     const candidates = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate");
     expect(candidates).toMatchObject([
@@ -303,7 +306,7 @@ describe("checkBacklog", () => {
       "docs/DOC-1.md": "сломано",
     });
 
-    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["ti"], mode: "full", now: NOW, home });
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["ti"], mode: "full", now: NOW, home, messages: RU });
 
     expect(report.problems).toEqual([expect.stringMatching(/^Проект ti: ни один путь из repos не существует/)]);
     expect(report.candidates).toEqual([]);
@@ -319,7 +322,7 @@ describe("checkBacklog", () => {
       "ti/TI-3.md": task("TI-3"),
     });
 
-    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home });
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
     expect(report.fixed).toEqual(["SPA-1: убраны ссылки на несуществующие задачи: SPA-99"]);
     expect(report.problems).toContainEqual(expect.stringMatching(/ti\/project\.md не разобран/));
@@ -339,13 +342,13 @@ describe("checkBacklog", () => {
       "notes/todo.md": "заметки",
     });
 
-    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home });
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
     expect(report.fixed).toEqual(["SPA-7: эпик закрыт — все задачи эпика закрыты: SPA-8"]);
     expect(report.problems).toEqual([expect.stringMatching(/^Проект spa: в repos нет путей/)]);
 
     await writeFiles(root, { "spa/SPA-9.md": "сломано" });
-    const blocked = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home });
+    const blocked = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
     expect(blocked.problems).toContainEqual(expect.stringMatching(/spa\/SPA-9\.md не разобран/));
   });

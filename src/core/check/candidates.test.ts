@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { coreMessages } from "../messages";
 import { makeTask } from "../model/testing/make-task";
 import { anchorOf } from "./anchor";
 import { codeReview, duplicateCandidates, isReviewable, sourcePath } from "./candidates";
 import type { Task } from "../model/types";
 import type { Commit, RepoFacts } from "./repo-facts";
 
+const RU = coreMessages("ru");
+
 const CREATED = "2026-09-11T10:00:00+03:00";
 
-const codeCandidates = (tasks: readonly Task[], repoFacts: RepoFacts) => codeReview(tasks, repoFacts).candidates;
+const codeCandidates = (tasks: readonly Task[], repoFacts: RepoFacts) => codeReview(tasks, repoFacts, RU).candidates;
 
 function commit(sha: string, date: string, files: Commit["files"]): Commit {
   return { sha, date, subject: `Коммит ${sha}`, files };
@@ -197,13 +200,13 @@ describe("якорь фрагмента в проверке", () => {
   const withText = (content: string) => facts({ commits: laterCommit, existing: new Set(["src/a.ts"]), texts: new Map([["src/a.ts", content]]) });
 
   it("фрагмент на месте — не кандидат, хотя файл менялся", () => {
-    expect(codeReview([anchored], withText(text.replace("alpha", "ALPHA")))).toEqual({ candidates: [], plans: [] });
+    expect(codeReview([anchored], withText(text.replace("alpha", "ALPHA")), RU)).toEqual({ candidates: [], plans: [] });
   });
 
   it("фрагмент сдвинулся — не кандидат, source и якорь переносятся", () => {
     const shiftedText = ["// a", "// b", text].join("\n");
 
-    expect(codeReview([anchored], withText(shiftedText))).toEqual({
+    expect(codeReview([anchored], withText(shiftedText), RU)).toEqual({
       candidates: [],
       plans: [{ id: "SPA-5", changes: { source: "src/a.ts:6", anchor: anchorOf(shiftedText, "src/a.ts:6") }, note: "SPA-5: source сдвинулся :4 → :6" }],
     });
@@ -220,7 +223,7 @@ describe("якорь фрагмента в проверке", () => {
     const plain = makeTask({ id: "SPA-6", title: "Без якоря", created: CREATED, verified, source: "src/a.ts:4" });
     const handEdited = makeTask({ id: "SPA-7", title: "Правка руками", created: CREATED, verified, source: "src/a.ts:6", anchor: anchored.anchor });
 
-    expect(codeReview([plain, handEdited], withText(text))).toEqual({
+    expect(codeReview([plain, handEdited], withText(text), RU)).toEqual({
       candidates: [],
       plans: [
         { id: "SPA-6", changes: { anchor: anchorOf(text, "src/a.ts:4") } },

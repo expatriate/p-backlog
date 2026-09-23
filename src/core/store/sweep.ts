@@ -1,8 +1,10 @@
 import { dirname } from "node:path";
 import { buildIndex, isClosed } from "../model/graph";
 import { parseId } from "../model/ids";
-import { isExpired, planEpicClosing } from "../model/lifecycle";
+import type { CoreMessages } from "../messages";
+import { epicDoneClosure, isExpired, planEpicClosing } from "../model/lifecycle";
 import { deletedEvent } from "../journal/events";
+import type { Problem } from "../model/problems";
 import type { Project, Task } from "../model/types";
 import { withFileLock } from "./file-lock";
 import { removeIfUnchanged } from "./fs-utils";
@@ -21,7 +23,7 @@ export type SweepReport = {
   invalid: { id: string; errors: string[] }[];
 };
 
-type SweepFailure = { id: string; reason: "conflict" } | { id: string; reason: "invalid"; errors: string[] };
+type SweepFailure = { id: string; reason: "conflict" } | { id: string; reason: "invalid"; errors: Problem[] };
 
 type EpicStep = { closed: string[]; failures: SweepFailure[]; leftOpen: ReadonlySet<string>; blockingFiles: string[] };
 
@@ -29,9 +31,9 @@ type RemovalStep = { deleted: string[]; failures: SweepFailure[] };
 
 type UpdateStep = { failures: SweepFailure[]; stillReferenced: ReadonlySet<string> };
 
-export async function sweepClosed(root: string, now: Date): Promise<SweepReport> {
+export async function sweepClosed(root: string, now: Date, messages: CoreMessages): Promise<SweepReport> {
   const initial = await loadBacklog(root);
-  const epics = await closeCompletedEpics(initial, now);
+  const epics = await closeCompletedEpics(initial, now, messages);
   const { projects, tasks } = epics.closed.length > 0 ? await loadBacklog(root) : initial;
 
   const waitsForEpic = (task: Task) => task.epic !== undefined && epics.leftOpen.has(task.epic);
@@ -44,16 +46,17 @@ export async function sweepClosed(root: string, now: Date): Promise<SweepReport>
     closedEpics: epics.closed,
     blockingFiles: epics.blockingFiles,
     deleted: removal.deleted,
-    ...failureLists([...epics.failures, ...updates.failures, ...removal.failures]),
+    ...failureLists([...epics.failures, ...updates.failures, ...removal.failures], messages),
   };
 }
 
-async function closeCompletedEpics(loaded: LoadedBacklog, now: Date): Promise<EpicStep> {
+async function closeCompletedEpics(loaded: LoadedBacklog, now: Date, messages: CoreMessages): Promise<EpicStep> {
   const plan = planEpicClosing(loaded.tasks, loaded.errors);
   const index = buildIndex(loaded.tasks);
   const closed: string[] = [];
   const failures: SweepFailure[] = [];
-  for (const { epic, closure } of plan.close) {
+  for (const { epic, childIds } of plan.close) {
+    const closure = epicDoneClosure(childIds, messages);
     const result = await updateTaskInIndex(index, { id: epic.id, changes: { status: "done" }, expectedVersion: epic.version, now, closure, via: "sweep" });
     if (result.ok) closed.push(epic.id);
     else failures.push(sweepFailure(epic.id, result));
@@ -106,11 +109,11 @@ function sweepFailure(id: string, failure: UpdateTaskFailure): SweepFailure {
   }
 }
 
-function failureLists(failures: readonly SweepFailure[]): Pick<SweepReport, "conflicts" | "invalid"> {
+function failureLists(failures: readonly SweepFailure[], messages: CoreMessages): Pick<SweepReport, "conflicts" | "invalid"> {
   const firstPerTask = failures.filter((failure, position) => failures.findIndex(({ id }) => id === failure.id) === position);
   return {
     conflicts: firstPerTask.filter((failure) => failure.reason === "conflict").map(({ id }) => id),
-    invalid: firstPerTask.flatMap((failure) => (failure.reason === "invalid" ? [{ id: failure.id, errors: failure.errors }] : [])),
+    invalid: firstPerTask.flatMap((failure) => (failure.reason === "invalid" ? [{ id: failure.id, errors: failure.errors.map(messages.problem) }] : [])),
   };
 }
 

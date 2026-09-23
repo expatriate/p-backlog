@@ -53,7 +53,7 @@ describe("createTask", () => {
 
     const result = await createTask(root, { project, input: { title: "X", epic: "SPA-99" }, existingTasks: loaded.tasks, now: NOW, via: "cli" });
 
-    expect(result).toEqual({ ok: false, reason: "invalid", errors: ["эпик SPA-99 не найден"] });
+    expect(result).toEqual({ ok: false, reason: "invalid", errors: [{ code: "epic-missing", epic: "SPA-99" }] });
     expect((await loadBacklog(root)).tasks).toEqual([]);
   });
 

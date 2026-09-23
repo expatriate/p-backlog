@@ -1,6 +1,7 @@
 import { access, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { FIELD, RECORD, runGit, type GitRunner } from "../git/run";
+import type { CoreMessages } from "../messages";
 import type { LineRange } from "./anchor";
 
 type FileChange = { path: string; renamedFrom?: string };
@@ -33,7 +34,7 @@ type FileDiff = { excerpt: string | undefined; changed: LineRange[] };
 
 export type DiffSince = (path: string, since: Date) => Promise<FileDiff | null>;
 
-export function diffsSince(repo: string, git: GitRunner = runGit): DiffSince {
+export function diffsSince(repo: string, messages: CoreMessages, git: GitRunner = runGit): DiffSince {
   const bases = new Map<number, Promise<string | null>>();
   const diffs = new Map<string, Promise<FileDiff | null>>();
   const baseBefore = (since: Date): Promise<string | null> =>
@@ -45,7 +46,7 @@ export function diffsSince(repo: string, git: GitRunner = runGit): DiffSince {
     remembered(diffs, `${since.getTime()} ${path}`, async () => {
       const base = await baseBefore(since);
       const diff = base === null ? null : await git(repo, ["diff", "--no-color", base, "--", path]);
-      return diff === null ? null : { excerpt: excerptOf(diff), changed: changedRanges(diff) };
+      return diff === null ? null : { excerpt: excerptOf(diff, messages), changed: changedRanges(diff) };
     });
 }
 
@@ -57,11 +58,11 @@ function remembered<K, V>(cache: Map<K, Promise<V>>, key: K, read: () => Promise
   return reading;
 }
 
-function excerptOf(diff: string): string | undefined {
+function excerptOf(diff: string, messages: CoreMessages): string | undefined {
   if (diff.trim() === "") return undefined;
   const lines = diff.trimEnd().split("\n");
   if (lines.length <= DIFF_LINE_LIMIT) return lines.join("\n");
-  return [...lines.slice(0, DIFF_LINE_LIMIT), `… ещё ${lines.length - DIFF_LINE_LIMIT} строк`].join("\n");
+  return [...lines.slice(0, DIFF_LINE_LIMIT), messages.moreDiffLines(lines.length - DIFF_LINE_LIMIT)].join("\n");
 }
 
 const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/;

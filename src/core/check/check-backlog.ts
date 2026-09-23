@@ -1,10 +1,11 @@
 import { errorText } from "../errors";
 import { basename, join } from "node:path";
 import { candidateEvents, candidateGoneEvents, checkMethodOf, episodeStates, filteredEvents, type CandidateSighting, type CheckMode, type FilteredSighting } from "../journal/events";
+import type { CoreMessages } from "../messages";
 import { buildIndex } from "../model/graph";
 import { ID_PATTERN, parseId } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
-import { planEpicClosing, type Closure } from "../model/lifecycle";
+import { epicDoneClosure, planEpicClosing, type Closure } from "../model/lifecycle";
 import type { ParseError, Project, Task } from "../model/types";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
 import { appendJournal, readJournal } from "../store/journal";
@@ -19,7 +20,7 @@ import { collectRepoFacts, diffsSince, type DiffSince, type RepoFacts } from "./
 import { filterBySymbol, symbolLookup, symbolNames } from "./symbol-filter";
 import { openCodeGraph } from "../graph/code-graph";
 
-export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string };
+export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string; messages: CoreMessages };
 
 export type CheckReport = { fixed: string[]; problems: string[]; candidates: Candidate[] };
 
@@ -31,16 +32,16 @@ type FixOutcome = { fixed: string[]; failed: string[] };
 
 export async function checkBacklog(root: string, loaded: LoadedBacklog, request: CheckRequest): Promise<CheckReport> {
   const inScope = (projectId: string) => request.projectIds.includes(projectId);
-  const fixes: FixOutcome = request.mode === "full" ? await applyFixes(loaded, inScope, request.now) : { fixed: [], failed: [] };
+  const fixes: FixOutcome = request.mode === "full" ? await applyFixes(loaded, inScope, request) : { fixed: [], failed: [] };
   const current = fixes.fixed.length > 0 ? await loadBacklog(root) : loaded;
 
   const projects = current.projects.filter((project) => inScope(project.id));
   const repos = new Map(await Promise.all(projects.map(async (project) => [project.id, await findRepo(project, request.home)] as const)));
-  const reviews = await Promise.all(projects.map((project) => projectReview(project, current.tasks, repos.get(project.id), request.mode)));
+  const reviews = await Promise.all(projects.map((project) => projectReview(project, current.tasks, repos.get(project.id), request)));
   const candidates = reviews.flatMap((review) => review.candidates);
   const moved = await applyAnchorPlans(current.tasks, reviews.flatMap((review) => review.plans), request.now);
   await recordCandidates(root, current.tasks, { candidates, filtered: reviews.flatMap((review) => review.filtered) }, request);
-  const problems = request.mode === "full" ? [...fixes.failed, ...findProblems(current, projects, repos, inScope)] : [];
+  const problems = request.mode === "full" ? [...fixes.failed, ...findProblems(current, projects, repos, inScope, request.messages)] : [];
   return { fixed: [...fixes.fixed, ...moved], problems, candidates };
 }
 
@@ -73,41 +74,41 @@ function sightingOf(candidate: Candidate): CandidateSighting {
   return sighting;
 }
 
-async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, now: Date): Promise<FixOutcome> {
+async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, { now, messages }: CheckRequest): Promise<FixOutcome> {
   const isGone = goneTaskCheck(loaded);
-  const epicClosures = new Map(planEpicClosing(loaded.tasks, loaded.errors).close.map(({ epic, closure }) => [epic.id, closure]));
+  const epicClosures = new Map(planEpicClosing(loaded.tasks, loaded.errors).close.map(({ epic, childIds }) => [epic.id, epicDoneClosure(childIds, messages)]));
   const index = buildIndex(loaded.tasks);
   const fixed: string[] = [];
   const failed: string[] = [];
   for (const task of loaded.tasks.filter((candidate) => inScope(candidate.projectId))) {
-    const fix = planFix(task, isGone, epicClosures.get(task.id));
+    const fix = planFix(task, isGone, epicClosures.get(task.id), messages);
     if (fix === null) continue;
     const result = await updateTaskInIndex(index, { id: task.id, changes: fix.changes, expectedVersion: task.version, now, closure: fix.closure, via: "check" });
     if (result.ok) fixed.push(...fix.notes.map((note) => `${task.id}: ${note}`));
-    else failed.push(`${task.id}: не удалось исправить — ${fixFailure(result)}`);
+    else failed.push(messages.fixFailed(task.id, fixFailure(result, messages)));
   }
   return { fixed, failed };
 }
 
-function fixFailure(failure: UpdateTaskFailure): string {
+function fixFailure(failure: UpdateTaskFailure, messages: CoreMessages): string {
   switch (failure.reason) {
     case "invalid":
-      return failure.errors.join("; ");
+      return messages.problems(failure.errors);
     case "conflict":
-      return "файл изменился во время проверки";
+      return messages.changedDuringCheck;
     case "not-found":
-      return "файл исчез во время проверки";
+      return messages.goneDuringCheck;
   }
 }
 
-function planFix(task: Task, isGone: (id: string) => boolean, epicClosure: Closure | undefined): Fix | null {
+function planFix(task: Task, isGone: (id: string) => boolean, epicClosure: Closure | undefined, messages: CoreMessages): Fix | null {
   const cleanup = referenceCleanup(task, isGone);
   if (cleanup === null && epicClosure === undefined) return null;
 
   const notes: string[] = [];
-  if (cleanup !== null) notes.push(`убраны ссылки на несуществующие задачи: ${goneReferences(task, isGone).join(", ")}`);
+  if (cleanup !== null) notes.push(messages.referencesRemoved(goneReferences(task, isGone)));
   if (epicClosure === undefined) return { changes: cleanup ?? {}, notes };
-  notes.push(`эпик закрыт — ${epicClosure.reason}`);
+  notes.push(messages.epicClosed(epicClosure.reason));
   return { changes: { ...cleanup, status: "done" }, closure: epicClosure, notes };
 }
 
@@ -129,7 +130,7 @@ function unparsedTaskIds(errors: readonly ParseError[]): string[] {
   return errors.map((error) => basename(error.path, ".md")).filter((name) => ID_PATTERN.test(name));
 }
 
-async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, mode: CheckMode): Promise<ProjectReview> {
+async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, { mode, messages }: CheckRequest): Promise<ProjectReview> {
   const tasks = allTasks.filter((task) => task.projectId === project.id && isReviewable(task));
   if (tasks.length === 0) return { candidates: [], filtered: [], plans: [] };
   if (repo === undefined) return { candidates: mode === "full" ? duplicateCandidates(tasks) : [], filtered: [], plans: [] };
@@ -137,9 +138,9 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
   const since = new Date(Math.min(...tasks.map(reviewMark)));
   const paths = [...new Set(tasks.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
   const facts = await collectRepoFacts(repo, { since, paths });
-  const review = codeReview(tasks, facts);
+  const review = codeReview(tasks, facts, messages);
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
-  const diffOf = diffsSince(repo);
+  const diffOf = diffsSince(repo, messages);
   const graph = openCodeGraph(repo);
   try {
     const symbolOf = symbolLookup(repo, graph);
@@ -187,32 +188,31 @@ function findProblems(
   projects: readonly Project[],
   repos: ReadonlyMap<string, string | undefined>,
   inScope: (projectId: string) => boolean,
+  messages: CoreMessages,
 ): string[] {
   const index = buildIndex(loaded.tasks);
   const integrity = loaded.tasks
     .filter((task) => inScope(task.projectId))
-    .flatMap((task) => integrityErrors(task, index).map((error) => `${task.id}: ${error}`));
-  const missingRepos = projects.filter((project) => repos.get(project.id) === undefined).map(missingRepoProblem);
-  return [...parseProblems(loaded, inScope), ...integrity, ...missingRepos];
+    .flatMap((task) => integrityErrors(task, index).map((error) => `${task.id}: ${messages.problem(error)}`));
+  const missingRepos = projects.filter((project) => repos.get(project.id) === undefined).map((project) => missingRepoProblem(project, messages));
+  return [...parseProblems(loaded, inScope, messages), ...integrity, ...missingRepos];
 }
 
-function parseProblems(loaded: LoadedBacklog, inScope: (projectId: string) => boolean): string[] {
+function parseProblems(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, messages: CoreMessages): string[] {
   const waitingEpicIds = planEpicClosing(loaded.tasks, loaded.errors)
     .waiting.filter(({ epic }) => inScope(epic.projectId))
     .map(({ epic }) => epic.id);
   const reported = loaded.errors
     .filter((error) => waitingEpicIds.length > 0 || inScope(error.projectId) || isProjectFileError(error))
-    .map((error) => `Файл ${error.path} не разобран: ${error.message}`);
+    .map((error) => messages.fileNotParsed(error.path, error.problems));
   if (waitingEpicIds.length === 0) return reported;
-  return [...reported, `Эпики ${waitingEpicIds.join(", ")} завершены, но не закроются, пока не исправлены неразобранные файлы`];
+  return [...reported, messages.epicsWaitForFiles(waitingEpicIds)];
 }
 
 function isProjectFileError(error: ParseError): boolean {
   return basename(error.path) === PROJECT_FILE;
 }
 
-function missingRepoProblem(project: Project): string {
-  return project.repos.length === 0
-    ? `Проект ${project.id}: в repos нет путей — код его задач не проверить`
-    : `Проект ${project.id}: ни один путь из repos не существует (${project.repos.join(", ")}) — код его задач не проверить`;
+function missingRepoProblem(project: Project, messages: CoreMessages): string {
+  return project.repos.length === 0 ? messages.projectWithoutRepos(project.id) : messages.projectReposMissing(project.id, project.repos);
 }

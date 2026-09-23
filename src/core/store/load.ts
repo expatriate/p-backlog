@@ -23,7 +23,7 @@ async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBac
   const projectText = await readTextOrNull(projectPath);
   if (projectText === null) return { projects: [], tasks: [], errors: [] };
   const project: ParseResult<Project> = parseProjectFile(projectText, { id: projectId, path: projectPath });
-  if (!project.ok) return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, message: project.message }] };
+  if (!project.ok) return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, problems: project.problems }] };
 
   const taskPaths = (await listDir(dir))
     .filter((entry) => entry.isFile() && isTaskFileName(entry.name))
@@ -32,7 +32,7 @@ async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBac
   return {
     projects: [project.value],
     tasks: loaded.flatMap(({ result }) => (result?.ok ? [result.value] : [])),
-    errors: loaded.flatMap(({ path, result }) => (result && !result.ok ? [{ path, projectId, message: result.message }] : [])),
+    errors: loaded.flatMap(({ path, result }) => (result && !result.ok ? [{ path, projectId, problems: result.problems }] : [])),
   };
 }
 
@@ -42,9 +42,9 @@ async function loadTaskFile(path: string, project: Project): Promise<ParseResult
   const parsed = parseTaskFile(text, { projectId: project.id, path, version: contentVersion(text) });
   if (!parsed.ok) return parsed;
   const stem = basename(path, ".md");
-  if (parsed.value.id !== stem) return { ok: false, message: `id ${parsed.value.id} не совпадает с именем файла ${stem}.md` };
+  if (parsed.value.id !== stem) return { ok: false, problems: [{ code: "id-mismatch", id: parsed.value.id, file: stem }] };
   if (parseId(stem)?.prefix !== project.prefix) {
-    return { ok: false, message: `префикс ${stem} не совпадает с префиксом проекта ${project.prefix}` };
+    return { ok: false, problems: [{ code: "prefix-mismatch", file: stem, prefix: project.prefix }] };
   }
   return parsed;
 }

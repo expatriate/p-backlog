@@ -1,48 +1,49 @@
 import { missingReferences, type BacklogIndex } from "./graph";
 import { RESOLUTION_STATUS } from "./lifecycle";
+import type { Problem } from "./problems";
 import type { Task } from "./types";
 
-export function integrityErrors(candidate: Task, index: BacklogIndex): string[] {
+export function integrityErrors(candidate: Task, index: BacklogIndex): Problem[] {
   const resolve = (id: string): Task | undefined => (id === candidate.id ? candidate : index.byId.get(id));
-  const errors: string[] = [];
+  const errors: Problem[] = [];
 
-  if (candidate.blockedBy.includes(candidate.id)) errors.push("задача не может блокировать саму себя");
-  if (candidate.related.includes(candidate.id)) errors.push("задача не может быть связана сама с собой");
+  if (candidate.blockedBy.includes(candidate.id)) errors.push({ code: "self-block" });
+  if (candidate.related.includes(candidate.id)) errors.push({ code: "self-related" });
 
   errors.push(...epicProblems(candidate, resolve));
 
   const children = (index.childrenOf.get(candidate.id) ?? []).filter((task) => task.id !== candidate.id);
   if (candidate.type === "task" && children.length > 0) {
-    errors.push(`на задачу ссылаются как на эпик: ${children.map((task) => task.id).join(", ")}`);
+    errors.push({ code: "referenced-as-epic", children: children.map((task) => task.id) });
   }
 
   const cycle = findBlockerCycle(candidate, resolve);
-  if (cycle) errors.push(`цикл блокеров: ${cycle.join(" → ")}`);
+  if (cycle) errors.push({ code: "blocker-cycle", cycle });
 
   if (candidate.resolution !== undefined && candidate.status !== RESOLUTION_STATUS[candidate.resolution]) {
-    errors.push(`resolution ${candidate.resolution} требует статус ${RESOLUTION_STATUS[candidate.resolution]}`);
+    errors.push({ code: "resolution-needs-status", resolution: candidate.resolution, status: RESOLUTION_STATUS[candidate.resolution] });
   }
-  if (candidate.reason !== undefined && candidate.resolution === undefined) errors.push("reason задаётся только вместе с resolution");
+  if (candidate.reason !== undefined && candidate.resolution === undefined) errors.push({ code: "reason-without-resolution" });
 
   return errors;
 }
 
-export function epicProblems(candidate: Pick<Task, "id" | "type" | "epic">, resolve: (id: string) => Task | undefined): string[] {
+export function epicProblems(candidate: Pick<Task, "id" | "type" | "epic">, resolve: (id: string) => Task | undefined): Problem[] {
   if (candidate.epic === undefined) return [];
-  const problems: string[] = [];
+  const problems: Problem[] = [];
   if (candidate.epic === candidate.id) {
-    problems.push("задача не может быть своим эпиком");
+    problems.push({ code: "epic-self" });
   } else {
     const epic = resolve(candidate.epic);
-    if (!epic) problems.push(`эпик ${candidate.epic} не найден`);
-    else if (epic.type !== "epic") problems.push(`${candidate.epic} не является эпиком`);
+    if (!epic) problems.push({ code: "epic-missing", epic: candidate.epic });
+    else if (epic.type !== "epic") problems.push({ code: "epic-not-epic", epic: candidate.epic });
   }
-  if (candidate.type === "epic") problems.push("эпик не может входить в другой эпик");
+  if (candidate.type === "epic") problems.push({ code: "epic-in-epic" });
   return problems;
 }
 
-export function taskWarnings(task: Task, index: BacklogIndex): string[] {
-  const missing = missingReferences(task, index).map((id) => `${id} не найдена`);
+export function taskWarnings(task: Task, index: BacklogIndex): Problem[] {
+  const missing = missingReferences(task, index).map((id): Problem => ({ code: "reference-missing", id }));
   return [...missing, ...integrityErrors(task, index)];
 }
 

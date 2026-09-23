@@ -1,3 +1,4 @@
+import type { CoreMessages } from "../messages";
 import { formatLocalIso } from "./dates";
 import { buildIndex, epicChildren, isClosed, type BacklogIndex } from "./graph";
 import type { ParseError, Resolution, Task, TaskStatus } from "./types";
@@ -15,9 +16,9 @@ export const RESOLUTION_STATUS: Record<Resolution, "done" | "cancelled"> = {
 
 export type Closure = { resolution: Resolution; reason: string };
 
-type EpicClosure = { epic: Task; closure: Closure };
+type CompletedEpic = { epic: Task; childIds: string[] };
 
-export type EpicClosingPlan = { close: EpicClosure[]; waiting: EpicClosure[] };
+export type EpicClosingPlan = { close: CompletedEpic[]; waiting: CompletedEpic[] };
 
 export function changeStatus(task: Task, status: TaskStatus, now: Date, closure?: Closure): Task {
   if (status === task.status) return task;
@@ -48,11 +49,11 @@ export function planEpicClosing(tasks: readonly Task[], parseErrors: readonly Pa
   };
 }
 
-function completedEpics(tasks: readonly Task[]): EpicClosure[] {
+function completedEpics(tasks: readonly Task[]): CompletedEpic[] {
   const index = buildIndex(tasks);
   return tasks.flatMap((epic) => {
-    const children = completedEpicChildren(epic, index);
-    return children === null ? [] : [{ epic, closure: epicDoneClosure(children) }];
+    const childIds = completedEpicChildren(epic, index);
+    return childIds === null ? [] : [{ epic, childIds }];
   });
 }
 
@@ -63,8 +64,8 @@ function completedEpicChildren(task: Task, index: BacklogIndex): string[] | null
   return complete ? children.map((child) => child.id) : null;
 }
 
-function epicDoneClosure(childIds: readonly string[]): Closure {
-  return { resolution: "epic-done", reason: `все задачи эпика закрыты: ${childIds.join(", ")}` };
+export function epicDoneClosure(childIds: readonly string[], messages: Pick<CoreMessages, "epicDoneReason">): Closure {
+  return { resolution: "epic-done", reason: messages.epicDoneReason(childIds) };
 }
 
 function closedAt(task: Task, status: TaskStatus, now: Date): string | undefined {

@@ -7,6 +7,17 @@ const RETRY_MS = 10;
 const WAIT_LIMIT_MS = 5_000;
 const ABANDONED_AFTER_MS = 30_000;
 
+export class FileBusyError extends Error {
+  constructor(
+    readonly path: string,
+    readonly lock: string,
+    readonly seconds: number,
+  ) {
+    super(`${path} is locked: ${lock}`);
+    this.name = "FileBusyError";
+  }
+}
+
 export async function withFileLock<T>(path: string, action: () => Promise<T>): Promise<T> {
   const lock = join(dirname(path), `.${basename(path)}.lock`);
   await acquire(lock, path);
@@ -25,7 +36,7 @@ async function acquire(lock: string, path: string): Promise<void> {
       await rm(lock, { force: true });
       continue;
     }
-    if (Date.now() > giveUpAt) throw new Error(`${path} занят другим процессом дольше ${WAIT_LIMIT_MS / 1000} с (${lock})`);
+    if (Date.now() > giveUpAt) throw new FileBusyError(path, lock, WAIT_LIMIT_MS / 1000);
     await sleep(RETRY_MS);
   }
 }

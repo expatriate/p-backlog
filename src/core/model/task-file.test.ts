@@ -66,16 +66,16 @@ describe("parseTaskFile", () => {
     expect(parseTaskFile(text, location).ok).toBe(false);
   });
 
-  it("называет поле в тексте ошибки", () => {
+  it("называет поле в ошибке", () => {
     const result = parseTaskFile("---\nid: SPA-1\ntitle: X\nstatus: later\ncreated: 2026-09-17T10:00:00Z\n---\n", location);
-    expect(result.ok ? "" : result.message).toContain("status");
+    expect(result.ok ? [] : result.problems).toMatchObject([{ code: "schema", path: "status" }]);
   });
 });
 
 describe("serializeTask", () => {
   it("пишет известные поля по порядку, затем неизвестные, и читается обратно без потерь", () => {
     const parsed = parseTaskFile(FILE, location);
-    if (!parsed.ok) throw new Error(parsed.message);
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.problems));
     const text = serializeTask(parsed.value);
     expect(text).toBe(`---
 id: SPA-12
@@ -125,14 +125,14 @@ links:
       "",
     ].join("\n");
     const parsed = parseTaskFile(text, location);
-    if (!parsed.ok) throw new Error(parsed.message);
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.problems));
     expect(parsed.value).toMatchObject({ closed: "2026-09-18T10:00:00+03:00", resolution: "duplicate", reason: "дубль SPA-2" });
     expect(serializeTask(parsed.value)).toBe(text);
   });
 
   it("не пишет пустое тело и отсутствующие необязательные поля", () => {
     const parsed = parseTaskFile("---\nid: SPA-1\ntitle: X\ncreated: 2026-09-17T10:00:00Z\n---\n", location);
-    if (!parsed.ok) throw new Error(parsed.message);
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.problems));
     expect(serializeTask(parsed.value)).toBe(
       "---\nid: SPA-1\ntitle: X\ntype: task\nstatus: backlog\npriority: medium\ntags: []\nblockedBy: []\nrelated: []\ncreated: 2026-09-17T10:00:00Z\n---\n",
     );

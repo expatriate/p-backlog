@@ -4,6 +4,7 @@ import type { TaskChangesRequest } from "../../core/api/contract";
 import { toggleChecklistItem } from "../../core/model/checklist";
 import { dependentTasks, epicChildren, isClosed, relatedTasks, taskProgress, type BacklogIndex } from "../../core/model/graph";
 import { parseId } from "../../core/model/ids";
+import { coreMessages } from "../../core/messages";
 import { taskWarnings } from "../../core/model/integrity";
 import type { Task } from "../../core/model/types";
 import { ApiError } from "../api/client";
@@ -88,7 +89,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
     }
   };
   const idPrefix = parseId(task.id)?.prefix ?? task.id;
-  const warnings = taskWarnings(task, index);
+  const warnings = taskWarnings(task, index).map(coreMessages("ru").problem);
   const children = task.type === "epic" ? epicChildren(task, index) : [];
 
   return (

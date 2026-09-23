@@ -1,5 +1,7 @@
 import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/stats/cost/hook-signature";
 import { errorText } from "../core/errors";
+import { coreMessages } from "../core/messages";
+import { FileBusyError } from "../core/store/file-lock";
 import { resolveLanguage } from "../core/store/settings";
 import { usageText, type CliCommand } from "./command";
 import { categoryCommand } from "./commands/category";
@@ -62,7 +64,8 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<numb
       io.warn(error.message);
       return EXIT.invalid;
     }
-    io.warn(`Команда ${name} не выполнена: ${errorText(error)}`);
+    const reason = error instanceof FileBusyError ? coreMessages(language).fileBusy(error.path, error.lock, error.seconds) : errorText(error);
+    io.warn(`Команда ${name} не выполнена: ${reason}`);
     return EXIT.failed;
   }
 }
