@@ -13,7 +13,7 @@
 
 ## Как начать
 
-1. **Установка**:
+1. **Установка** (нужен Node.js 22 или новее):
 
    ```bash
    npm install && npm run build && npm link && npm run install-skill

@@ -13,7 +13,7 @@ triages them in a local web app.
 
 ## Getting started
 
-1. **Install**:
+1. **Install** (needs Node.js 22 or newer):
 
    ```bash
    npm install && npm run build && npm link && npm run install-skill
