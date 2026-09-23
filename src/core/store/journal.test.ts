@@ -1,6 +1,6 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createdEvent } from "../journal/events";
 import { makeTask } from "../model/testing/make-task";
 import { appendJournal, JOURNAL_FILE, readJournal, readJournals } from "./journal";
@@ -45,6 +45,17 @@ describe("файл журнала", () => {
     await expect(appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")], (path, error) => failures.push([path, error]))).resolves.toBeUndefined();
 
     expect(failures).toHaveLength(1);
+  });
+
+  it("без onError ошибка записи видна в stderr с путём журнала", async () => {
+    const dir = await makeTempDir();
+    await mkdir(join(dir, JOURNAL_FILE));
+    const stderr = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")]);
+
+    expect(stderr.mock.calls.flat().join("\n")).toContain(join(dir, JOURNAL_FILE));
+    stderr.mockRestore();
   });
 
   it("читает журналы нескольких проектов", async () => {
