@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
+import { useMessages } from "../i18n";
 import styles from "./StatsTable.module.css";
 
 export type StatsTableRow = { key: string; cells: ReactNode[]; tone?: "child" | "total" | undefined };
 
 export function StatsTable({ label, head, rows }: { label: string; head: string[]; rows: StatsTableRow[] }) {
+  const { stats } = useMessages();
   return (
-    <div className={styles.scroll} tabIndex={0} role="region" aria-label={`Таблица «${label}»`}>
+    <div className={styles.scroll} tabIndex={0} role="region" aria-label={stats.tableLabel(label)}>
       <table className={styles.table}>
         <thead>
           <tr>

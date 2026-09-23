@@ -1,42 +1,42 @@
+import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Tooltip, XAxis, YAxis } from "recharts";
-import { formatDecimal } from "../../core/stats/format";
-import { countRu } from "../../core/i18n/plural";
+import type { Language } from "../../core/i18n/language";
+import type { CoreMessages } from "../../core/messages";
 import type { DayFlow } from "../../core/stats/types";
 import { sum } from "../../core/stats/numbers";
+import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
-import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, chartLabel, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
+import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
 
 const CREATED = "var(--chart-bar-warm)";
 
-const LEGEND: LegendItem[] = [{ label: "создано задач", shape: "bar", color: CREATED }];
-
-const dayTooltip = rowTooltip((day: DayFlow) => ({
-  title: tooltipDay(day.day),
-  rows: [{ label: "создано", value: countRu(day.created, "задача", "задачи", "задач"), shape: "bar", color: CREATED }],
-}));
+function dayTooltip(stats: StatsMessages, core: CoreMessages, language: Language) {
+  return rowTooltip((day: DayFlow) => ({
+    title: tooltipDay(language, day.day),
+    rows: [{ label: stats.flowCreated, value: core.count(day.created, "task"), shape: "bar", color: CREATED }],
+  }));
+}
 
 export function DailyIntakePanel({ days }: { days: DayFlow[] }) {
+  const { stats, core } = useMessages();
+  const language = useLanguage();
+  const tooltip = useMemo(() => dayTooltip(stats, core, language), [stats, core, language]);
+  const legend: LegendItem[] = [{ label: stats.createdTasks, shape: "bar", color: CREATED }];
   return (
-    <Panel title="Создано по дням">
-      <ChartFrame summary={intakeSummary(days)} legend={LEGEND}>
-        <ComposedChart data={days} margin={CHART_MARGIN} aria-label={chartLabel("Создано по дням", "дням")}>
+    <Panel title={stats.createdByDay}>
+      <ChartFrame summary={stats.intakeSummary(days.length, sum(days.map((day) => day.created)))} legend={legend}>
+        <ComposedChart data={days} margin={CHART_MARGIN} aria-label={stats.chartLabel(stats.createdByDay, "day")}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="day" tickFormatter={axisDay} {...DATE_AXIS_PROPS} />
-          <YAxis allowDecimals={false} tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
-          <Tooltip content={dayTooltip} {...TOOLTIP_PROPS} />
+          <XAxis dataKey="day" tickFormatter={(day: string) => axisDay(language, day)} {...DATE_AXIS_PROPS} />
+          <YAxis allowDecimals={false} tickFormatter={(value: number) => compactNumber(language, value)} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
+          <Tooltip content={tooltip} {...TOOLTIP_PROPS} />
           <Bar dataKey="created" fill={CREATED} radius={BAR_RADIUS} isAnimationActive={false} />
         </ComposedChart>
       </ChartFrame>
     </Panel>
   );
-}
-
-function intakeSummary(days: DayFlow[]): string {
-  const created = sum(days.map((day) => day.created));
-  const period = countRu(days.length, "день", "дня", "дней");
-  if (created === 0) return `${period}: задач не создавали`;
-  return `${period}: создано ${created}, в среднем ${formatDecimal(created / days.length)} в день`;
 }

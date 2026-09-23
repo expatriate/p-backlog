@@ -3,6 +3,7 @@ import { formatSigned } from "../../core/stats/format";
 import type { StatsReport, StatsTotals } from "../../core/stats/types";
 import { listPath } from "../app/paths";
 import { useStats } from "../app/queries";
+import { useMessages } from "../i18n";
 import { cx } from "../ui/cx";
 import { AgePanel } from "./AgePanel";
 import { ClosingPanel } from "./ClosingPanel";
@@ -22,11 +23,12 @@ export function OverviewTab() {
 }
 
 function Overview({ report, listPath }: { report: StatsReport; listPath: string }) {
+  const { stats } = useMessages();
   return (
     <>
       <Totals totals={report.totals} />
       <div className={styles.blocks}>
-        <Panel title="Долг по неделям">
+        <Panel title={stats.debtByWeek}>
           <WeeklyFlowChart weeks={report.weeks} />
         </Panel>
         <DailyIntakePanel days={report.days} />
@@ -39,26 +41,27 @@ function Overview({ report, listPath }: { report: StatsReport; listPath: string 
 }
 
 function Totals({ totals }: { totals: StatsTotals }) {
+  const { stats } = useMessages();
   const net = totals.createdLastWeek - totals.closedLastWeek;
   const previous = totals.previous;
   return (
     <div className={cx(styles.totals, styles.totalsPair)}>
       <Figure
-        label="Задачи сегодня"
+        label={stats.tasksToday}
         value={
           <>
             <span className={totals.createdToday > 0 ? styles.growth : undefined}>+{totals.createdToday}</span>{" "}
             <span className={totals.closedToday > 0 ? styles.decline : undefined}>−{totals.closedToday}</span>
           </>
         }
-        note="создано и закрыто"
+        note={stats.createdAndClosed}
       />
       <Figure
-        label="За неделю"
+        label={stats.thisWeek}
         value={formatSigned(net)}
         tone={netTone(net)}
-        note={`создано ${totals.createdLastWeek}, закрыто ${totals.closedLastWeek}`}
-        trend={trendOf(net, previous?.net ?? null, String)}
+        note={stats.weekNote(totals.createdLastWeek, totals.closedLastWeek)}
+        trend={trendOf(stats, net, previous?.net ?? null, String)}
       />
     </div>
   );

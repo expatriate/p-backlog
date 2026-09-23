@@ -7,7 +7,7 @@ import { readJsonFile, writeFileAtomic } from "../store/fs-utils";
 const USAGE_CACHE_FILE = ".usage-cache.json";
 
 export type UsageCacheEntry = { size: number; offset: number; fingerprint: string; state: TranscriptState; buckets: UsageBucket[] };
-export const USAGE_CACHE_VERSION = 5;
+export const USAGE_CACHE_VERSION = 6;
 export type UsageCache = { version: typeof USAGE_CACHE_VERSION; files: Record<string, UsageCacheEntry> };
 
 const tokenCountsSchema = z.object({

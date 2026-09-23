@@ -1,23 +1,9 @@
-import type { FoundHow } from "../core/journal/events";
 import type { SortDirection } from "../core/model/query";
-import type { Priority, TaskType } from "../core/model/types";
-
-export const PRIORITY_LABELS: Record<Priority, string> = {
-  low: "низкий",
-  medium: "средний",
-  high: "высокий",
-  critical: "критичный",
-};
+import type { TaskType } from "../core/model/types";
 
 export const TYPE_LABELS: Record<TaskType, string> = { task: "задача", epic: "эпик" };
 
 export const DIRECTION_MARKS: Record<SortDirection, string> = { asc: "↑", desc: "↓" };
-
-export const FOUND_LABELS: Record<FoundHow | "unknown", string> = { review: "на ревью", incidental: "попутно", unknown: "неизвестно" };
-
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" });
-}
 
 export function formatProgress(progress: number | null): string {
   return progress === null ? "—" : `${progress}%`;

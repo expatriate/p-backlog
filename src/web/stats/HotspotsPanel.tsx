@@ -1,18 +1,20 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { Hotspots } from "../../core/stats/types";
+import { useMessages } from "../i18n";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import styles from "./StatsPanels.module.css";
 
 export function HotspotsPanel({ hotspots, listPath }: { hotspots: Hotspots; listPath: string }) {
+  const { stats } = useMessages();
   return (
-    <Panel title="Где болит">
+    <Panel title={stats.hotspots}>
       <div className={styles.columns}>
-        <CountList title="Папки" empty="У открытых задач нет source" items={hotspots.folders.map(({ label, count }) => ({ key: label, label: <code>{label}</code>, count }))} />
+        <CountList title={stats.folders} empty={stats.noSourceFolders} items={hotspots.folders.map(({ label, count }) => ({ key: label, label: <code>{label}</code>, count }))} />
         <CountList
-          title="Теги"
-          empty="У открытых задач нет тегов"
+          title={stats.tags}
+          empty={stats.noTags}
           items={hotspots.tags.map(({ tag, count }) => ({
             key: tag,
             label: <Link to={{ pathname: listPath, search: `tag=${encodeURIComponent(tag)}` }}>#{tag}</Link>,

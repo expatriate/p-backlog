@@ -1,7 +1,7 @@
 import { formatLocalDay } from "../../model/dates";
 import type { CliRun, CostCommand, CostDay, CostModel, CostReport, CostTotals, ScanProgress, TokenCounts, UsageBucket } from "../types";
 import { HOOK_STOP_COMMAND } from "./hook-signature";
-import { costOf } from "./pricing";
+import { costOf, splitFastModel } from "./pricing";
 import { dayRange } from "../days";
 import { groupBy, sum } from "../numbers";
 
@@ -101,7 +101,7 @@ function dayRow(day: string, dayBuckets: readonly UsageBucket[], dayRuns: readon
 
 function modelsOf(buckets: readonly UsageBucket[]): CostModel[] {
   return [...groupBy(buckets, (bucket) => bucket.model).entries()]
-    .map(([model, modelBuckets]) => ({ model, tokens: tokensTotalOf(modelBuckets), cost: costOfBuckets(modelBuckets) }))
+    .map(([key, modelBuckets]) => ({ ...splitFastModel(key), tokens: tokensTotalOf(modelBuckets), cost: costOfBuckets(modelBuckets) }))
     .filter((row) => row.tokens > 0)
     .sort((a, b) => b.tokens - a.tokens);
 }

@@ -1,37 +1,34 @@
 import type { ReactNode } from "react";
-import { NBSP } from "../../core/stats/format";
-import { countRu } from "../../core/i18n/plural";
-import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
+import type { Language } from "../../core/i18n/language";
 import type { EffectTotals } from "../../core/stats/types";
-import { codeAndTests, formatApprox, formatLines, formatNoiseShare, isEstimated, linesText } from "./effect-format";
+import { useLanguage, useMessages } from "../i18n";
+import { formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
+import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
 import styles from "./EffectExplainer.module.css";
-import { STATS_PERIOD_GENITIVE } from "./periods";
 
 export function EffectExplainer({ totals }: { totals: EffectTotals }) {
+  const { stats } = useMessages();
+  const language = useLanguage();
   return (
-    <Panel title="Как считается выигрыш">
+    <Panel title={stats.explainerTitle}>
       <ol className={styles.steps}>
-        <li>Каждая задача, заведённая по ходу работы, — правка, которую без беклога агент сделал бы в текущем пулреквесте. Выигрыш — строки, которые туда не попали.</li>
+        <li>{stats.explainerTask}</li>
         <li>
-          Исправленные — точно: строки коммита из причины закрытия, без lock-файлов, документации и картинок; коммит на несколько задач делится поровну. Не считаются задачи, закрытые без
-          исправления, и исправленные без найденного коммита.
-          <Now>
-            {countRu(totals.fixedTasks, "задача", "задачи", "задач")} — {linesText(totals.fixedLines, false)}
-          </Now>
+          {stats.explainerFixed}
+          <Now>{stats.fixedNow(totals.fixedTasks, totals.fixedLines)}</Now>
         </li>
         <li>
-          Ожидающие — оценка: медиана исправлений той же категории (если их не меньше {MIN_FIXES_FOR_ESTIMATE}), иначе всех исправлений.
-          <Now>{pendingText(totals)}</Now>
+          {stats.explainerPending}
+          <Now>{pendingText(stats, totals)}</Now>
         </li>
         <li>
-          Код и тесты: тестовые файлы — *.test.*, *.spec.*, *_test.*, test_*.py и каталоги test, tests, __tests__, e2e, spec. Для ожидающих — доля тестов в тех же исправлениях.
-          <Now>{codeAndTests(totals)}</Now>
+          {stats.explainerTests}
+          <Now>{stats.codeAndTests(totals)}</Now>
         </li>
         <li>
-          Шум без беклога = вынесено ÷ (строк в пулреквестах + оценка ожидающих); исправления уже внутри пулреквестов и не удваиваются. Окно — с внедрения беклога в проекте, не раньше{" "}
-          {STATS_PERIOD_GENITIVE} назад.
-          <Now>{noiseText(totals)}</Now>
+          {stats.explainerNoise}
+          <Now>{noiseText(stats, language, totals)}</Now>
         </li>
       </ol>
     </Panel>
@@ -39,20 +36,24 @@ export function EffectExplainer({ totals }: { totals: EffectTotals }) {
 }
 
 function Now({ children }: { children: ReactNode }) {
-  return <span className={styles.now}>Сейчас: {children}</span>;
+  const { stats } = useMessages();
+  return (
+    <span className={styles.now}>
+      {stats.now} {children}
+    </span>
+  );
 }
 
-function pendingText(totals: EffectTotals): string {
-  if (totals.openTasks === 0) return "ожидающих нет";
-  if (totals.estimatedLines === null) return `${countRu(totals.openTasks, "задача", "задачи", "задач")}, оценка появится после ${MIN_FIXES_FOR_ESTIMATE} исправлений`;
-  const perTask = totals.estimatedLines / totals.openTasks;
-  return `${countRu(totals.openTasks, "задача", "задачи", "задач")} ${linesText(totals.estimatedLines, true)}, в среднем ≈${NBSP}${formatLines(perTask)} на задачу`;
+function pendingText(stats: StatsMessages, totals: EffectTotals): string {
+  if (totals.openTasks === 0) return stats.noPending;
+  if (totals.estimatedLines === null) return stats.pendingWithoutEstimate(totals.openTasks);
+  return stats.pendingEstimated(totals.openTasks, totals.estimatedLines, totals.estimatedLines / totals.openTasks);
 }
 
-function noiseText(totals: EffectTotals): string {
-  if (totals.estimatedLines === null && totals.openTasks > 0) return `оценка появится после ${MIN_FIXES_FOR_ESTIMATE} исправлений`;
-  if (totals.noiseShare === null) return "нет коммитов после внедрения";
+function noiseText(stats: StatsMessages, language: Language, totals: EffectTotals): string {
+  if (totals.estimatedLines === null && totals.openTasks > 0) return stats.estimateLater;
+  if (totals.noiseShare === null) return stats.noCommitsSinceAdoption;
   const estimated = totals.estimatedLines ?? 0;
   const approx = isEstimated(totals.estimatedLines);
-  return `${formatApprox(totals.deferredLines, approx)} ÷ (${formatLines(totals.realLines)} + ${formatApprox(estimated, approx)}) ${formatNoiseShare(totals.noiseShare)}`;
+  return `${formatApprox(language, totals.deferredLines, approx)} ÷ (${formatLines(language, totals.realLines)} + ${formatApprox(language, estimated, approx)}) ${formatNoiseShare(totals.noiseShare)}`;
 }

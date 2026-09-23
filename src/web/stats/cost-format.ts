@@ -1,14 +1,7 @@
-import { formatDecimal, formatMoney, NBSP } from "../../core/stats/format";
-import { formatLines } from "./effect-format";
+import { formatMoney } from "../../core/i18n/format";
+import type { Language } from "../../core/i18n/language";
+import { NBSP } from "../../core/stats/format";
 
-export function formatMb(value: number | null): string {
-  return value === null ? "—" : `${formatDecimal(value)}${NBSP}МБ`;
-}
-
-export function formatMs(value: number): string {
-  return `${formatLines(value)}${NBSP}мс`;
-}
-
-export function costValue(cost: number | null): string {
-  return cost === null ? "—" : `≈${NBSP}${formatMoney(cost)}`;
+export function costValue(language: Language, cost: number | null): string {
+  return cost === null ? "—" : `≈${NBSP}${formatMoney(language, cost)}`;
 }

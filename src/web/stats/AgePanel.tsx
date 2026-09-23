@@ -1,34 +1,33 @@
-import type { AgeBreakdown, AgeBucket } from "../../core/stats/types";
-import { PRIORITIES } from "../../core/model/types";
+import type { AgeBreakdown } from "../../core/stats/types";
+import { PRIORITIES, type Priority } from "../../core/model/types";
 import { sum } from "../../core/stats/numbers";
-import { PRIORITY_LABELS } from "../labels";
+import { useMessages } from "../i18n";
 import { cx } from "../ui/cx";
+import type { StatsMessages } from "./messages.ru";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import styles from "./StatsPanels.module.css";
 
-const BUCKET_LABELS: Record<AgeBucket, string> = { week: "до 7 дней", month: "7–30 дней", quarter: "30–90 дней", older: "больше 90 дней" };
-const PRIORITY_COUNT_LABELS: Record<(typeof PRIORITIES)[number], string> = { critical: "критичных", high: "высоких", medium: "средних", low: "низких" };
-
-function priorityBreakdown(byPriority: Record<(typeof PRIORITIES)[number], number>): string {
+function priorityBreakdown(stats: StatsMessages, byPriority: Record<Priority, number>): string {
   const parts = [...PRIORITIES]
     .reverse()
     .filter((priority) => byPriority[priority] > 0)
-    .map((priority) => `${PRIORITY_COUNT_LABELS[priority]} ${byPriority[priority]}`);
+    .map((priority) => `${stats.priorityCounts[priority]} ${byPriority[priority]}`);
   return parts.length === 0 ? "" : ` (${parts.join(", ")})`;
 }
 
 export function AgePanel({ age }: { age: AgeBreakdown }) {
+  const { stats, core } = useMessages();
   const totals = age.buckets.map(({ bucket, byPriority }) => ({ bucket, total: sum(PRIORITIES.map((priority) => byPriority[priority])), byPriority }));
   const max = Math.max(1, ...totals.map(({ total }) => total));
-  const summary = totals.map(({ bucket, total, byPriority }) => `${BUCKET_LABELS[bucket]}: ${total}${priorityBreakdown(byPriority)}`).join("; ");
+  const summary = totals.map(({ bucket, total, byPriority }) => `${stats.ageBuckets[bucket]}: ${total}${priorityBreakdown(stats, byPriority)}`).join("; ");
 
   return (
-    <Panel title="Возраст открытых">
+    <Panel title={stats.openAge}>
       <div role="img" aria-label={summary} className={styles.ageRows}>
         {totals.map(({ bucket, total, byPriority }) => (
           <div key={bucket} className={styles.ageRow} aria-hidden="true">
-            <span className={styles.ageLabel}>{BUCKET_LABELS[bucket]}</span>
+            <span className={styles.ageLabel}>{stats.ageBuckets[bucket]}</span>
             <span className={styles.ageTrack}>
               {PRIORITIES.map((priority) => (
                 <span key={priority} className={cx(styles.ageSegment, styles[priority])} style={{ width: `${(byPriority[priority] / max) * 100}%` }} />
@@ -41,11 +40,11 @@ export function AgePanel({ age }: { age: AgeBreakdown }) {
       <p className={styles.legend}>
         {[...PRIORITIES].reverse().map((priority) => (
           <span key={priority} className={cx(styles.legendItem, styles[priority])}>
-            {PRIORITY_LABELS[priority]}
+            {core.priorityLabel(priority)}
           </span>
         ))}
       </p>
-      <p className={cx(styles.alarm, age.urgentStale > 0 && styles.alarmOn)}>Критичные и высокие старше 7 дней: {age.urgentStale}</p>
+      <p className={cx(styles.alarm, age.urgentStale > 0 && styles.alarmOn)}>{stats.urgentStale(age.urgentStale)}</p>
     </Panel>
   );
 }

@@ -1,10 +1,9 @@
-import { coreMessages } from "../../messages";
 import type { TokenCounts } from "../types";
 
 type ModelPrice = { input: number; output: number; cacheRead: number };
 
 const FAST_PRICED_MODEL = "claude-opus-5";
-const FAST_MODEL_SUFFIX = coreMessages("ru").fastModelSuffix;
+const FAST_MODEL_MARKER = ":fast";
 const FAST_PRICE_FACTOR = 2;
 const CACHE_WRITE_5M_FACTOR = 1.25;
 const CACHE_WRITE_1H_FACTOR = 2;
@@ -33,12 +32,17 @@ function baseModelId(model: string): string {
 }
 
 export function fastModel(model: string): string {
-  return `${model}${FAST_MODEL_SUFFIX}`;
+  return `${model}${FAST_MODEL_MARKER}`;
 }
 
-function priceOf(model: string): ModelPrice | null {
-  const fast = model.endsWith(FAST_MODEL_SUFFIX);
-  const stripped = baseModelId(fast ? model.slice(0, -FAST_MODEL_SUFFIX.length) : model);
+export function splitFastModel(modelKey: string): { model: string; fast: boolean } {
+  const fast = modelKey.endsWith(FAST_MODEL_MARKER);
+  return { model: fast ? modelKey.slice(0, -FAST_MODEL_MARKER.length) : modelKey, fast };
+}
+
+function priceOf(modelKey: string): ModelPrice | null {
+  const { model, fast } = splitFastModel(modelKey);
+  const stripped = baseModelId(model);
   const key = PRICE_KEYS_BY_LENGTH_DESC.find((candidate) => stripped.startsWith(candidate));
   const price = key ? PRICE_TABLE[key] : undefined;
   if (!price) return null;

@@ -1,28 +1,19 @@
+import { formatNumber } from "../../core/i18n/format";
+import type { Language } from "../../core/i18n/language";
 import { formatShare, NBSP } from "../../core/stats/format";
-import { pluralRu } from "../../core/i18n/plural";
-import type { EffectTotals } from "../../core/stats/types";
 
 export function isEstimated(estimatedLines: number | null): boolean {
   return typeof estimatedLines === "number" && estimatedLines > 0;
 }
 
-export function formatLines(value: number): string {
-  return Math.round(value).toLocaleString("ru-RU");
+export function formatLines(language: Language, value: number): string {
+  return formatNumber(language, Math.round(value));
 }
 
-export function formatApprox(value: number, approx: boolean): string {
-  return approx ? `≈${NBSP}${formatLines(value)}` : formatLines(value);
-}
-
-export function linesText(lines: number, approx: boolean): string {
-  return `${formatApprox(lines, approx)}${NBSP}${pluralRu(Math.round(lines), "строка", "строки", "строк")}`;
+export function formatApprox(language: Language, value: number, approx: boolean): string {
+  return approx ? `≈${NBSP}${formatLines(language, value)}` : formatLines(language, value);
 }
 
 export function formatNoiseShare(noiseShare: number | null): string {
   return noiseShare === null ? "—" : `≈${NBSP}${formatShare(noiseShare)}`;
-}
-
-export function codeAndTests({ deferredLines, deferredTestLines, estimatedLines }: Pick<EffectTotals, "deferredLines" | "deferredTestLines" | "estimatedLines">): string {
-  const approx = isEstimated(estimatedLines);
-  return `код ${formatApprox(deferredLines - deferredTestLines, approx)}, тесты ${formatApprox(deferredTestLines, approx)}`;
 }

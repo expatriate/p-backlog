@@ -1,17 +1,19 @@
 import { useParams } from "react-router";
 import type { CostReport, ScanProgress } from "../../core/stats/types";
-import { countRu } from "../../core/i18n/plural";
 import { useCostStats } from "../app/queries";
+import { useMessages } from "../i18n";
 import { CommandsPanel, CostFigures, ModelsPanel } from "./CostPanels";
 import rowStyles from "./PanelRows.module.css";
 import { MemoryPanel } from "./MemoryChart";
 import { SpendPanel } from "./SpendChart";
 import styles from "./StatsPage.module.css";
+import type { StatsMessages } from "./messages.ru";
 import { StatsRequestState } from "./StatsTabState";
 
 export function CostTab() {
   const { projectId } = useParams();
   const cost = useCostStats(projectId);
+  const { stats } = useMessages();
 
   return (
     <StatsRequestState query={cost}>
@@ -19,10 +21,7 @@ export function CostTab() {
         <>
           <ScanNotice scan={report.scan} />
           <Cost report={report} />
-          <p className={styles.note}>
-            Токены из расшифровок Claude Code: ходы, запущенные Stop-хуком беклога, — точно; вывод команд backlog и скилла — оценка по длине текста. Деньги — по ценам Claude API, подписка может стоить
-            иначе.
-          </p>
+          <p className={styles.note}>{stats.costNote}</p>
         </>
       )}
     </StatsRequestState>
@@ -30,7 +29,8 @@ export function CostTab() {
 }
 
 function ScanNotice({ scan }: { scan: ScanProgress }) {
-  const text = scanNoticeText(scan);
+  const { stats } = useMessages();
+  const text = scanNoticeText(stats, scan);
   return (
     <p className={text === null ? "visually-hidden" : styles.warning} role="status">
       {text}
@@ -38,10 +38,10 @@ function ScanNotice({ scan }: { scan: ScanProgress }) {
   );
 }
 
-function scanNoticeText(scan: ScanProgress): string | null {
-  if (!scan.listed) return "Считаем расход по расшифровкам Claude Code…";
-  if (scan.filesTotal === 0) return "Расшифровки Claude Code не найдены.";
-  if (scan.bytesLeft > 0) return `Считаем расход по расшифровкам Claude Code: прочитано ${scan.filesDone} из ${countRu(scan.filesTotal, "файла", "файлов", "файлов")}`;
+function scanNoticeText(stats: StatsMessages, scan: ScanProgress): string | null {
+  if (!scan.listed) return stats.scanStarting;
+  if (scan.filesTotal === 0) return stats.noTranscripts;
+  if (scan.bytesLeft > 0) return stats.scanProgress(scan.filesDone, scan.filesTotal);
   return null;
 }
 

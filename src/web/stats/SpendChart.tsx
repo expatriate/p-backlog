@@ -1,14 +1,18 @@
+import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
-import { formatMoney, NBSP } from "../../core/stats/format";
-import { countRu } from "../../core/i18n/plural";
+import { formatMoney } from "../../core/i18n/format";
+import type { Language } from "../../core/i18n/language";
 import type { CostDay } from "../../core/stats/types";
 import { sum } from "../../core/stats/numbers";
+import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
-import { AXIS_PROPS, DASHED_LINE_WIDTH, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, chartLabel, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, DASHED_LINE_WIDTH, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
+import { costValue } from "./cost-format";
 import { formatLines } from "./effect-format";
+import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
@@ -16,34 +20,39 @@ const CLI_TOKENS = "var(--chart-bar-neutral)";
 const HOOK_RUNS = "var(--chart-line-green)";
 const OTHER_RUNS = "var(--chart-line-yellow)";
 
-const LEGEND: LegendItem[] = [
-  { label: "токены ходов хука", shape: "bar", color: HOOK_TOKENS },
-  { label: "токены вывода CLI и скилла", shape: "bar", color: CLI_TOKENS },
-  { label: "запуски хука", shape: "line", color: HOOK_RUNS },
-  { label: "другие команды", shape: "dashed", color: OTHER_RUNS },
-];
-
-const dayTooltip = rowTooltip((day: CostDay) => ({
-  title: tooltipDay(day.day),
-  rows: [
-    { label: "ходы хука", value: countRu(day.hookTokens, "токен", "токена", "токенов"), shape: "bar", color: HOOK_TOKENS },
-    { label: "вывод CLI и скилл", value: countRu(day.cliTokens, "токен", "токена", "токенов"), shape: "bar", color: CLI_TOKENS },
-    { label: "по ценам API", value: day.cost === null ? "—" : `≈${NBSP}${formatMoney(day.cost)}` },
-    { label: "запуски хука", value: formatLines(day.hookRuns), shape: "line", color: HOOK_RUNS },
-    { label: "другие команды", value: formatLines(day.cliRuns), shape: "dashed", color: OTHER_RUNS },
-  ],
-}));
+function dayTooltip(stats: StatsMessages, language: Language) {
+  return rowTooltip((day: CostDay) => ({
+    title: tooltipDay(language, day.day),
+    rows: [
+      { label: stats.hookTurnsTooltip, value: stats.tokens(day.hookTokens), shape: "bar", color: HOOK_TOKENS },
+      { label: stats.cliOutput, value: stats.tokens(day.cliTokens), shape: "bar", color: CLI_TOKENS },
+      { label: stats.apiPriceTooltip, value: costValue(language, day.cost) },
+      { label: stats.hookRuns, value: formatLines(language, day.hookRuns), shape: "line", color: HOOK_RUNS },
+      { label: stats.otherCommands, value: formatLines(language, day.cliRuns), shape: "dashed", color: OTHER_RUNS },
+    ],
+  }));
+}
 
 export function SpendPanel({ days }: { days: CostDay[] }) {
+  const { stats } = useMessages();
+  const language = useLanguage();
+  const tooltip = useMemo(() => dayTooltip(stats, language), [stats, language]);
+  const legend: LegendItem[] = [
+    { label: stats.hookTurnTokens, shape: "bar", color: HOOK_TOKENS },
+    { label: stats.cliOutputTokens, shape: "bar", color: CLI_TOKENS },
+    { label: stats.hookRuns, shape: "line", color: HOOK_RUNS },
+    { label: stats.otherCommands, shape: "dashed", color: OTHER_RUNS },
+  ];
+  const compact = (value: number) => compactNumber(language, value);
   return (
-    <Panel title="Расход по дням">
-      <ChartFrame summary={spendSummary(days)} legend={LEGEND}>
-        <ComposedChart data={days} margin={CHART_MARGIN} aria-label={chartLabel("Расход по дням", "дням")}>
+    <Panel title={stats.spendByDay}>
+      <ChartFrame summary={spendSummary(stats, language, days)} legend={legend}>
+        <ComposedChart data={days} margin={CHART_MARGIN} aria-label={stats.chartLabel(stats.spendByDay, "day")}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="day" tickFormatter={axisDay} {...DATE_AXIS_PROPS} />
-          <YAxis yAxisId="tokens" tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
-          <YAxis yAxisId="runs" orientation="right" allowDecimals={false} tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
-          <Tooltip content={dayTooltip} {...TOOLTIP_PROPS} />
+          <XAxis dataKey="day" tickFormatter={(day: string) => axisDay(language, day)} {...DATE_AXIS_PROPS} />
+          <YAxis yAxisId="tokens" tickFormatter={compact} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
+          <YAxis yAxisId="runs" orientation="right" allowDecimals={false} tickFormatter={compact} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
+          <Tooltip content={tooltip} {...TOOLTIP_PROPS} />
           <Bar yAxisId="tokens" dataKey="hookTokens" stackId="tokens" fill={HOOK_TOKENS} isAnimationActive={false} />
           <Bar yAxisId="tokens" dataKey="cliTokens" stackId="tokens" fill={CLI_TOKENS} radius={BAR_RADIUS} isAnimationActive={false} />
           <Line yAxisId="runs" dataKey="hookRuns" stroke={HOOK_RUNS} strokeWidth={LINE_WIDTH} dot={nonZeroDot(HOOK_RUNS)} isAnimationActive={false} />
@@ -54,12 +63,17 @@ export function SpendPanel({ days }: { days: CostDay[] }) {
   );
 }
 
-function spendSummary(days: CostDay[]): string {
-  const hookTokens = sum(days.map((day) => day.hookTokens));
-  const cliTokens = sum(days.map((day) => day.cliTokens));
-  const hookRuns = sum(days.map((day) => day.hookRuns));
-  const cliRuns = sum(days.map((day) => day.cliRuns));
-  return `За ${countRu(days.length, "день", "дня", "дней")}: из-за хука ${countRu(hookTokens, "токен", "токена", "токенов")}, вывод CLI и скилл ${formatLines(cliTokens)}, ≈${NBSP}${formatMoney(totalMoney(days))}; запусков хука ${formatLines(hookRuns)}, других команд ${formatLines(cliRuns)}`;
+function spendSummary(stats: StatsMessages, language: Language, days: CostDay[]): string {
+  const total = (pick: (day: CostDay) => number) => sum(days.map(pick));
+  const lines = (value: number) => formatLines(language, value);
+  return stats.spendSummary({
+    dayCount: days.length,
+    hookTokens: total((day) => day.hookTokens),
+    cliTokens: lines(total((day) => day.cliTokens)),
+    money: formatMoney(language, totalMoney(days)),
+    hookRuns: lines(total((day) => day.hookRuns)),
+    cliRuns: lines(total((day) => day.cliRuns)),
+  });
 }
 
 function totalMoney(days: CostDay[]): number | null {

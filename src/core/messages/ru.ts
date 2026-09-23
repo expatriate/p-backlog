@@ -1,11 +1,11 @@
 import { z } from "zod";
 import type { GraphState } from "../check/graph-health";
-import { formatDayMonth } from "../i18n/format";
+import { formatDayMonth, formatDecimal } from "../i18n/format";
 import { countRu, pluralRu } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
-import { formatDays, formatDecimal, NBSP, roundToTenth } from "../stats/format";
+import { NBSP, roundToTenth } from "../stats/format";
 import type { FlowForecast, Signal } from "../stats/types";
 import type { CountUnit } from "./index";
 import { zodIssueText } from "./zod";
@@ -85,12 +85,23 @@ function genitiveDays(days: number): string {
   return `${days} ${pluralRu(days, "дня", "дней", "дней")}`;
 }
 
+function days(value: number | null): string {
+  if (value === null) return "—";
+  if (value < 1) return "меньше дня";
+  return `${Math.round(value)}${NBSP}дн.`;
+}
+
+function p90(value: number | null): string {
+  if (value === null) return "—";
+  return value < 1 ? "быстрее суток" : `за ${days(value)}`;
+}
+
 function forecast({ open, weeklyNet, weeks, until }: FlowForecast): string {
   if (open === 0) return "Открытых задач нет";
   if (weeks !== null && until !== null) return `Долг разберётся примерно за ${weeks}${NBSP}нед. (к ${formatDayMonth("ru", new Date(until))})`;
   if (weeklyNet === 0) return "Долг не уменьшается";
   const growth = roundToTenth(-weeklyNet);
-  return `Долг растёт на ${formatDecimal(growth)}${NBSP}${pluralRu(growth, "задача", "задачи", "задач")} в неделю`;
+  return `Долг растёт на ${formatDecimal("ru", growth)}${NBSP}${pluralRu(growth, "задача", "задачи", "задач")} в неделю`;
 }
 
 function forecastTail({ windowWeeks, closed, created }: FlowForecast): string {
@@ -104,7 +115,7 @@ function signal(s: Signal): string {
     case "urgent-stale":
       return `Срочные задачи ждут дольше ${genitiveDays(s.params.days)}: ${s.params.count}`;
     case "stuck":
-      return `Застряли в работе: ${s.params.count}, дольше всех ${s.params.id} — ${formatDays(s.params.days)}`;
+      return `Застряли в работе: ${s.params.count}, дольше всех ${s.params.id} — ${days(s.params.days)}`;
     case "noisy-check": {
       const { evidence, method, percent, decided, windowDays } = s.params;
       const name = method === null ? `«${evidenceLabel(evidence)}»` : `«${evidenceLabel(evidence)}» ${checkMethodLabel(method)}`;
@@ -190,10 +201,11 @@ export const coreRu = {
   duplicateMatchLabel,
   graphStateLabel,
   count,
+  days,
+  p90,
   forecast,
   forecastTail,
   signal,
-  fastModelSuffix: " (быстрый режим)",
   epicDoneReason: (ids: readonly string[]): string => `все задачи эпика закрыты: ${ids.join(", ")}`,
   fileBusy: (path: string, lock: string, seconds: number): string => `${path} занят другим процессом дольше ${seconds} с (${lock})`,
   referencesRemoved: (ids: readonly string[]): string => `убраны ссылки на несуществующие задачи: ${ids.join(", ")}`,

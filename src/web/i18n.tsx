@@ -8,6 +8,8 @@ import { layoutEn } from "./layout/messages.en";
 import { layoutRu } from "./layout/messages.ru";
 import { listEn } from "./list/messages.en";
 import { listRu } from "./list/messages.ru";
+import { statsEn } from "./stats/messages.en";
+import { statsRu } from "./stats/messages.ru";
 import { taskEn } from "./task/messages.en";
 import { taskRu } from "./task/messages.ru";
 import { Button } from "./ui/Button";
@@ -21,8 +23,8 @@ const SETTINGS_RETRY_TEXT = `${appRu.bootRetry} · ${appEn.bootRetry}`;
 export { useSetLanguage } from "./app/queries";
 
 const CATALOGS = {
-  ru: { app: appRu, layout: layoutRu, list: listRu, task: taskRu, ui: uiRu },
-  en: { app: appEn, layout: layoutEn, list: listEn, task: taskEn, ui: uiEn },
+  ru: { app: appRu, layout: layoutRu, list: listRu, task: taskRu, stats: statsRu, ui: uiRu },
+  en: { app: appEn, layout: layoutEn, list: listEn, task: taskEn, stats: statsEn, ui: uiEn },
 };
 
 export type WebMessages = (typeof CATALOGS)["ru"] & { core: CoreMessages };

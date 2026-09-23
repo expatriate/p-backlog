@@ -3,6 +3,7 @@ import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { NBSP } from "../../core/stats/format";
+import { writeSettings } from "../../core/store/settings";
 
 describe("backlog stats", () => {
   it("сводка проекта с тревогами и ссылкой", async () => {
@@ -22,6 +23,19 @@ describe("backlog stats", () => {
       "- Срочные задачи ждут дольше 7 дней: 1",
       "Подробнее: http://localhost:4317/p/spa/stats",
     ]);
+  });
+
+  it("на языке en сроки, прогноз и тревоги без кириллицы", async () => {
+    const { run, root } = await makeCliSandbox();
+    await writeSettings(root, { language: "en" });
+    await run(["new", "--category", "bug", "--title", "Crash", "--priority", "critical"], { now: new Date("2026-09-01T10:00:00Z") });
+    await run(["new", "--category", "bug", "--title", "Fixed"], { now: new Date("2026-09-14T10:00:00Z") });
+    await run(["status", "SPA-2", "done"]);
+
+    const result = await run(["stats"]);
+
+    expect(result.out).toContain("Age, median: 16 days · time to close, median: 3 days (90% — within 3 days)");
+    expect(result.out).not.toMatch(/[А-Яа-яЁё]/);
   });
 
   it("все проекты без тревог и JSON", async () => {

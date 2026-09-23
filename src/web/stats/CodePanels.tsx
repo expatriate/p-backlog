@@ -1,28 +1,25 @@
 import type { ReactNode } from "react";
-import { formatDecimal, NBSP } from "../../core/stats/format";
-import { countRu } from "../../core/i18n/plural";
 import type { ChurnRow, CodeDensity, DensityRow } from "../../core/stats/types";
+import { useMessages } from "../i18n";
 import { Panel } from "./Panel";
 import rowStyles from "./PanelRows.module.css";
 import styles from "./CodePanels.module.css";
-import { CHURN_PERIOD } from "./periods";
 
 export function ChurnPanel({ churn }: { churn: ChurnRow[] }) {
+  const { stats } = useMessages();
   const top = churn[0]?.score ?? 1;
   return (
-    <Panel title="Долг в часто меняемом коде">
-      <p className={rowStyles.muted}>Место в списке — коммиты за {CHURN_PERIOD} × вес открытых задач папки</p>
+    <Panel title={stats.churnTitle}>
+      <p className={rowStyles.muted}>{stats.churnHint}</p>
       {churn.length === 0 ? (
-        <p className={rowStyles.muted}>Долг не лежит в коде, который меняли за {CHURN_PERIOD}</p>
+        <p className={rowStyles.muted}>{stats.churnEmpty}</p>
       ) : (
         <ul className={rowStyles.rows}>
           {churn.map((row) => (
             <li key={row.label} className={styles.churnRow}>
               <code className={rowStyles.rowLabel}>{row.label}</code>
-              <span className={rowStyles.rowValue}>{countRu(row.commits, "коммит", "коммита", "коммитов")}</span>
-              <span className={rowStyles.rowValue}>
-                {countRu(row.tasks, "задача", "задачи", "задач")}, вес {row.weight}
-              </span>
+              <span className={rowStyles.rowValue}>{stats.commits(row.commits)}</span>
+              <span className={rowStyles.rowValue}>{stats.churnTasks(row.tasks, row.weight)}</span>
               <span className={rowStyles.track} aria-hidden="true">
                 <span className={rowStyles.fill} style={{ transform: `scaleX(${row.score / top})` }} />
               </span>
@@ -35,16 +32,17 @@ export function ChurnPanel({ churn }: { churn: ChurnRow[] }) {
 }
 
 export function DensityPanel({ density }: { density: CodeDensity }) {
+  const { stats } = useMessages();
   return (
-    <Panel title="Плотность долга">
+    <Panel title={stats.densityTitle}>
       {density.projects.length === 0 ? (
-        <p className={rowStyles.muted}>Нет данных о коде: у проектов нет доступных репозиториев</p>
+        <p className={rowStyles.muted}>{stats.noCodeData}</p>
       ) : (
         <>
           <DensityRows rows={density.projects.map((row) => ({ key: row.projectId, label: row.name, row }))} />
           {density.folders.length > 0 && (
             <div>
-              <h3 className={rowStyles.subTitle}>Папки</h3>
+              <h3 className={rowStyles.subTitle}>{stats.folders}</h3>
               <DensityRows rows={density.folders.map((row) => ({ key: row.label, label: <code>{row.label}</code>, row }))} />
             </div>
           )}
@@ -55,17 +53,17 @@ export function DensityPanel({ density }: { density: CodeDensity }) {
 }
 
 function DensityRows({ rows }: { rows: { key: string; label: ReactNode; row: DensityRow }[] }) {
+  const { stats, core } = useMessages();
   return (
     <ul className={rowStyles.rows}>
       {rows.map(({ key, label, row }) => (
         <li key={key} className={styles.densityRow}>
           <span className={rowStyles.rowLabel}>{label}</span>
-          <span className={rowStyles.rowValue}>{countRu(row.lines, "строка", "строки", "строк")}</span>
-          <span className={rowStyles.rowValue}>{countRu(row.open, "задача", "задачи", "задач")}</span>
-          <span className={rowStyles.rowValue}>{row.perKloc === null ? "—" : `${formatDecimal(row.perKloc)} на 1000${NBSP}строк`}</span>
+          <span className={rowStyles.rowValue}>{core.count(row.lines, "line")}</span>
+          <span className={rowStyles.rowValue}>{core.count(row.open, "task")}</span>
+          <span className={rowStyles.rowValue}>{row.perKloc === null ? "—" : stats.perKloc(row.perKloc)}</span>
         </li>
       ))}
     </ul>
   );
 }
-

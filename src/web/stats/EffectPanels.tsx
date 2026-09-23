@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
+import type { Language } from "../../core/i18n/language";
 import type { EffectPeriod, EffectProject, EffectTotals } from "../../core/stats/types";
+import { useLanguage, useMessages } from "../i18n";
 import { EffectWeeksChart, type Grain } from "./EffectWeeksChart";
 import { ToggleChip } from "../ui/Chip";
-import { codeAndTests, formatApprox, formatLines, formatNoiseShare, isEstimated, linesText } from "./effect-format";
+import { formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
+import type { StatsMessages } from "./messages.ru";
 import rowStyles from "./PanelRows.module.css";
 import { Figure } from "./Figure";
 import { Panel } from "./Panel";
@@ -11,63 +13,69 @@ import { StatsTable } from "./StatsTable";
 import totalsStyles from "./StatsPage.module.css";
 
 export function EffectFigures({ totals }: { totals: EffectTotals }) {
+  const { stats } = useMessages();
+  const language = useLanguage();
   return (
     <div className={totalsStyles.totals}>
-      <Figure label="Посторонних правок вынесено" value={keptOutValue(totals)} note={`${keptOutNote(totals)} · ${codeAndTests(totals)}`} />
-      <Figure label="Шум без беклога" value={formatNoiseShare(totals.noiseShare)} note="доля посторонних правок в пулреквестах" />
-      <Figure label="Вынесено в беклог" value={String(totals.fixedTasks + totals.openTasks)} note={`исправлено ${totals.fixedTasks}, ожидают ${totals.openTasks}`} />
-      <Figure label="Строк в пулреквестах" value={formatLines(totals.realLines)} note="с внедрения беклога" />
+      <Figure label={stats.keptOut} value={keptOutValue(stats, totals)} note={`${keptOutNote(stats, language, totals)} · ${stats.codeAndTests(totals)}`} />
+      <Figure label={stats.noiseWithoutBacklog} value={formatNoiseShare(totals.noiseShare)} note={stats.noiseNote} />
+      <Figure label={stats.deferredToBacklog} value={String(totals.fixedTasks + totals.openTasks)} note={stats.deferredNote(totals.fixedTasks, totals.openTasks)} />
+      <Figure label={stats.pullRequestLines} value={formatLines(language, totals.realLines)} note={stats.sinceAdoption} />
     </div>
   );
 }
 
-function keptOutValue(totals: EffectTotals): string {
-  if (totals.estimatedLines === null) return linesText(totals.fixedLines, false);
-  return linesText(totals.deferredLines, isEstimated(totals.estimatedLines));
+function keptOutValue(stats: StatsMessages, totals: EffectTotals): string {
+  if (totals.estimatedLines === null) return stats.linesText(totals.fixedLines, false);
+  return stats.linesText(totals.deferredLines, isEstimated(totals.estimatedLines));
 }
 
-function keptOutNote(totals: EffectTotals): string {
-  if (totals.estimatedLines === null) return `исправлено ${formatLines(totals.fixedLines)}; оценка ожидающих появится после ${MIN_FIXES_FOR_ESTIMATE} исправлений`;
-  return `исправлено ${formatLines(totals.fixedLines)} + ожидают ${formatApprox(totals.estimatedLines, isEstimated(totals.estimatedLines))}`;
+function keptOutNote(stats: StatsMessages, language: Language, totals: EffectTotals): string {
+  const fixed = formatLines(language, totals.fixedLines);
+  if (totals.estimatedLines === null) return stats.keptOutPending(fixed);
+  return stats.keptOutEstimated(fixed, formatApprox(language, totals.estimatedLines, isEstimated(totals.estimatedLines)));
 }
 
 export function EffectChartPanel({ weeks, days, totals }: { weeks: EffectPeriod[]; days: EffectPeriod[]; totals: EffectTotals }) {
+  const { stats } = useMessages();
   const [grain, setGrain] = useState<Grain>("week");
   const toggle = (
-    <span role="group" aria-label="Масштаб графика" className={rowStyles.grain}>
+    <span role="group" aria-label={stats.chartScale} className={rowStyles.grain}>
       <ToggleChip pressed={grain === "week"} onToggle={() => setGrain("week")}>
-        неделя
+        {stats.grainWeek}
       </ToggleChip>
       <ToggleChip pressed={grain === "day"} onToggle={() => setGrain("day")}>
-        день
+        {stats.grainDay}
       </ToggleChip>
     </span>
   );
 
   return (
-    <Panel title="Эффективность" aside={toggle}>
+    <Panel title={stats.effectTitle} aside={toggle}>
       <EffectWeeksChart periods={grain === "week" ? weeks : days} totals={totals} grain={grain} />
     </Panel>
   );
 }
 
 export function ProjectsPanel({ projects }: { projects: EffectProject[] }) {
+  const { stats } = useMessages();
+  const language = useLanguage();
   return (
-    <Panel title="По проектам">
+    <Panel title={stats.byProject}>
       {projects.length === 0 ? (
-        <p className={rowStyles.muted}>Нет данных о коде: у проектов нет доступных репозиториев</p>
+        <p className={rowStyles.muted}>{stats.noCodeData}</p>
       ) : (
         <StatsTable
-          label="По проектам"
-          head={["Проект", "Вынесено задач", "Исправлено строк", "Оценка ожидающих", "Строк в пулреквестах", "Шум без беклога"]}
+          label={stats.byProject}
+          head={stats.projectsHead}
           rows={projects.map((project) => ({
             key: project.projectId,
             cells: [
               project.name,
               project.deferredTasks,
-              formatLines(project.fixedLines),
-              project.estimatedLines === null ? "—" : formatApprox(project.estimatedLines, isEstimated(project.estimatedLines)),
-              formatLines(project.realLines),
+              formatLines(language, project.fixedLines),
+              project.estimatedLines === null ? "—" : formatApprox(language, project.estimatedLines, isEstimated(project.estimatedLines)),
+              formatLines(language, project.realLines),
               formatNoiseShare(project.noiseShare),
             ],
           }))}

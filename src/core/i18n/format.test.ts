@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatDateTime, formatDayMonth, formatNumber } from "./format";
+import { formatDate, formatDateTime, formatDayMonth, formatDecimal, formatMoney, formatNumber } from "./format";
 
 describe("форматирование по языку", () => {
   it("день и месяц: русский порядок дд.мм, английский мм/дд", () => {
@@ -22,5 +22,18 @@ describe("форматирование по языку", () => {
   it("число: русский разделитель тысяч — неразрывный пробел и запятая, английский — запятая и точка", () => {
     expect(formatNumber("ru", 1234.5)).toBe("1 234,5");
     expect(formatNumber("en", 1234.5)).toBe("1,234.5");
+  });
+
+  it("число с одним знаком после запятой без «,0»: русская запятая, английская точка", () => {
+    expect(formatDecimal("ru", 2.44)).toBe("2,4");
+    expect(formatDecimal("ru", 4)).toBe("4");
+    expect(formatDecimal("en", 2.44)).toBe("2.4");
+  });
+
+  it("деньги: разделитель разрядов, две цифры после запятой, null — «—»", () => {
+    expect(formatMoney("ru", 1234.56)).toBe("$1 234,56");
+    expect(formatMoney("ru", 0)).toBe("$0,00");
+    expect(formatMoney("en", 1234.56)).toBe("$1,234.56");
+    expect(formatMoney("en", null)).toBe("—");
   });
 });

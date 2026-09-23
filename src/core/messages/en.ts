@@ -81,10 +81,16 @@ function count(n: number, unit: CountUnit): string {
   return countEn(n, one, other);
 }
 
-function daysText(days: number): string {
-  if (days < 1) return "less than a day";
-  const rounded = Math.round(days);
+function days(value: number | null): string {
+  if (value === null) return "—";
+  if (value < 1) return "less than a day";
+  const rounded = Math.round(value);
   return `${rounded} ${pluralEn(rounded, "day", "days")}`;
+}
+
+function p90(value: number | null): string {
+  if (value === null) return "—";
+  return value < 1 ? "within a day" : `within ${days(value)}`;
 }
 
 function forecast({ open, weeklyNet, weeks, until }: FlowForecast): string {
@@ -106,7 +112,7 @@ function signal(s: Signal): string {
     case "urgent-stale":
       return `Urgent tasks have been waiting more than ${countEn(s.params.days, "day", "days")}: ${s.params.count}`;
     case "stuck":
-      return `Stuck in progress: ${s.params.count}, longest ${s.params.id} — ${daysText(s.params.days)}`;
+      return `Stuck in progress: ${s.params.count}, longest ${s.params.id} — ${days(s.params.days)}`;
     case "noisy-check": {
       const { evidence, method, percent, decided, windowDays } = s.params;
       const name = method === null ? `"${evidenceLabel(evidence)}"` : `"${evidenceLabel(evidence)}" ${checkMethodLabel(method)}`;
@@ -192,10 +198,11 @@ export const coreEn: CoreMessages = {
   duplicateMatchLabel,
   graphStateLabel,
   count,
+  days,
+  p90,
   forecast,
   forecastTail,
   signal,
-  fastModelSuffix: " (fast mode)",
   epicDoneReason: (ids) => `all tasks of the epic are closed: ${ids.join(", ")}`,
   fileBusy: (path, lock, seconds) => `${path} has been locked by another process for more than ${seconds} s (${lock})`,
   referencesRemoved: (ids) => `removed references to missing tasks: ${ids.join(", ")}`,

@@ -1,6 +1,8 @@
 import { focusManager } from "@tanstack/react-query";
 import { screen, waitFor, within } from "@testing-library/react";
 import { execFileSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { RouteObject } from "react-router";
 import { describe, expect, it } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../../core/store/testing/temp-dirs";
@@ -56,7 +58,7 @@ describe("страница статистики", () => {
     await renderApp(FILES, "/stats");
 
     expect(await screen.findByRole("heading", { level: 1, name: "Статистика · Проекты" })).toBeDefined();
-    expect(document.title).toBe("Статистика · Проекты — Беклог");
+    await waitFor(() => expect(document.title).toBe("Статистика · Проекты — Беклог"));
     const week = await screen.findByRole("group", { name: "За неделю" });
     expect(within(week).getByText("+2")).toBeDefined();
     expect(within(week).getByText("создано 3, закрыто 1")).toBeDefined();
@@ -454,6 +456,44 @@ describe("вкладка «Стоимость»", () => {
     await renderApp({ "spa/project.md": projectFile("SPA") }, "/stats/cost", routes, { transcriptsDir: await makeTempDir() });
 
     expect(await screen.findByText("Расшифровки Claude Code не найдены.")).toBeDefined();
+  });
+});
+
+describe("английский язык", () => {
+  it("заголовок, вкладки, плитки и тревоги статистики — на английском", async () => {
+    await renderApp(FILES, "/stats", routes, { language: "en" });
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Statistics · Projects" })).toBeDefined();
+    await waitFor(() => expect(document.title).toBe("Statistics · Projects — Backlog"));
+    const tabs = screen.getByRole("navigation", { name: "Statistics sections" });
+    expect(within(tabs).getByRole("link", { name: "Overview" }).getAttribute("aria-current")).toBe("page");
+    const week = await screen.findByRole("group", { name: "This week" });
+    expect(within(week).getByText("created 3, closed 1")).toBeDefined();
+    const alerts = screen.getByRole("status", { name: "Alerts" });
+    expect(within(alerts).getByText("Urgent tasks have been waiting more than 7 days: 1")).toBeDefined();
+  });
+
+  it("быстрый режим хранится в кэше расхода без языка, а в таблице моделей подписан на английском", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    const transcriptsDir = await makeTempDir();
+    const at = "2026-09-18T09:00:00.000Z";
+    await writeFiles(transcriptsDir, {
+      "proj1/session.jsonl":
+        [
+          { type: "user", isMeta: true, timestamp: at, cwd: repo, message: { content: "Stop hook feedback:\nBacklog spa: test" } },
+          { type: "assistant", timestamp: at, cwd: repo, message: { model: "claude-opus-5", usage: { input_tokens: 1000, output_tokens: 200, speed: "fast" } } },
+        ]
+          .map((line) => JSON.stringify(line))
+          .join("\n") + "\n",
+    });
+
+    const app = await renderApp({ "spa/project.md": projectFile("SPA", [repo]) }, "/p/spa/stats/cost", routes, { transcriptsDir, language: "en" });
+
+    const models = await screen.findByRole("region", { name: "By model" });
+    expect(within(models).getByRole("rowheader", { name: "claude-opus-5 (fast mode)" })).toBeDefined();
+    const cache = await readFile(join(app.root, ".usage-cache.json"), "utf8");
+    expect(cache).toContain('"model":"claude-opus-5:fast"');
+    expect(cache).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
 

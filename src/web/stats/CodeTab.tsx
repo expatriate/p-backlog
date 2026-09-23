@@ -1,12 +1,12 @@
 import { useParams } from "react-router";
 import type { CodeReport } from "../../core/stats/types";
 import { useCodeStats } from "../app/queries";
+import { useMessages } from "../i18n";
 import { ChurnPanel, DensityPanel } from "./CodePanels";
 import rowStyles from "./PanelRows.module.css";
 import { StatsTabState } from "./StatsTabState";
 import { UnavailableRepos } from "./UnavailableRepos";
 import styles from "./StatsPage.module.css";
-import { CHURN_PERIOD } from "./periods";
 
 export function CodeTab() {
   const { projectId } = useParams();
@@ -15,6 +15,7 @@ export function CodeTab() {
 }
 
 function Code({ report }: { report: CodeReport }) {
+  const { stats } = useMessages();
   return (
     <>
       <UnavailableRepos repos={report.unavailableRepos} />
@@ -24,7 +25,7 @@ function Code({ report }: { report: CodeReport }) {
         </div>
         <DensityPanel density={report.density} />
       </div>
-      <p className={styles.note}>Изменения — коммиты за {CHURN_PERIOD}; строки — на последнем коммите.</p>
+      <p className={styles.note}>{stats.codeNote}</p>
     </>
   );
 }

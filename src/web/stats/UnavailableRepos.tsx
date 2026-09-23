@@ -1,9 +1,11 @@
+import { useMessages } from "../i18n";
 import styles from "./StatsPage.module.css";
 
 export function UnavailableRepos({ repos }: { repos: readonly string[] }) {
+  const { stats } = useMessages();
   return repos.map((repo) => (
     <p key={repo} className={styles.warning} role="status">
-      Нет доступа к репозиторию: {repo}. Проверьте путь в repos файла project.md и что это git-репозиторий.
+      {stats.unavailableRepo(repo)}
     </p>
   ));
 }
