@@ -89,6 +89,18 @@ describe("тревоги", () => {
     expect(noisy).toEqual([{ kind: "noisy-check", text: `Проверка «код изменился» по файлу почти всегда ошибается: точность 0% на 10 решённых за 14${NBSP}дней` }]);
   });
 
+  it("по символу и по строкам source подтверждение — не ошибка: менялось само место проблемы, тревоги нет", () => {
+    const tasks = Array.from({ length: 20 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(8, 14) }));
+    const events: JournalEvent[] = tasks.flatMap((task, index): JournalEvent[] => [
+      { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", ...(index % 2 === 0 ? { byAnchor: true } : { bySymbol: true }) },
+      { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
+    ]);
+
+    const noisy = statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check");
+
+    expect(noisy).toEqual([]);
+  });
+
   it("старый всплеск кандидатов не держит тревогу: за две недели решений мало", () => {
     const old = Array.from({ length: 40 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(7, 1) }));
     const events: JournalEvent[] = old.flatMap((task) => [

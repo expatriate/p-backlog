@@ -75,7 +75,9 @@ function checkGauges(histories: ReportBase["histories"], window: Period): CheckG
   const byEvidence = accuracy(histories, window)
     .filter((row) => measuredByClosing(row.evidence) && row.evidence !== "source-changed")
     .map((row) => ({ ...row, name: `«${EVIDENCE_LABELS[row.evidence]}»` }));
-  const byMethod = methodAccuracy(histories, window).map((row) => ({ ...row, name: `«${EVIDENCE_LABELS["source-changed"]}» ${CHECK_METHOD_LABELS[row.by]}` }));
+  const byMethod = methodAccuracy(histories, window)
+    .filter((row) => row.by === "file")
+    .map((row) => ({ ...row, name: `«${EVIDENCE_LABELS["source-changed"]}» ${CHECK_METHOD_LABELS[row.by]}` }));
   return [...byMethod, ...byEvidence];
 }
 
