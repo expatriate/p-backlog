@@ -1,4 +1,4 @@
-import { roundToTenth } from "../stats/format";
+import { roundToTenth } from "../numbers";
 import { localeOf, type Language } from "./language";
 
 export function formatNumber(language: Language, n: number): string {

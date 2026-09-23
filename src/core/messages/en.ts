@@ -7,7 +7,7 @@ import { countEn, NBSP, pluralEn } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
-import { roundToTenth } from "../stats/format";
+import { roundToTenth } from "../numbers";
 import type { FlowForecast, Signal } from "../stats/types";
 import type { CoreMessages, CountUnit } from "./index";
 import { zodIssueText } from "./zod";

@@ -9,7 +9,3 @@ export function formatShare(share: number | null): string {
 export function formatSigned(value: number): string {
   return value > 0 ? `+${value}` : String(value);
 }
-
-export function roundToTenth(value: number): number {
-  return Math.round(value * 10) / 10;
-}
