@@ -1,18 +1,17 @@
 import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
 import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../journal/events";
-import { errorText } from "../errors";
 import { readJsonLines, toJsonLines } from "./fs-utils";
 
 export const JOURNAL_FILE = "journal.jsonl";
 
-export async function appendJournal(projectDir: string, events: readonly JournalEvent[]): Promise<void> {
+export async function appendJournal(projectDir: string, events: readonly JournalEvent[], onError: (path: string, error: unknown) => void = () => {}): Promise<void> {
   if (events.length === 0) return;
   const path = join(projectDir, JOURNAL_FILE);
   try {
     await appendFile(path, toJsonLines(events), "utf8");
   } catch (error) {
-    console.error(`journal write failed (${path}): ${errorText(error)}`);
+    onError(path, error);
   }
 }
 

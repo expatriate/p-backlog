@@ -64,7 +64,9 @@ async function recordCandidates(root: string, tasks: readonly Task[], { candidat
       const states = episodeStates(journal.events);
       const sightings = found.map(sightingOf);
       const gone = mode === "full" ? candidateGoneEvents(sightings, reviewed, states, now) : [];
-      await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, now)]);
+      await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, now)], (path, error) => {
+        throw error;
+      });
     } catch (error) {
       console.error(messages.candidatesRecordFailed(projectId, errorText(error)));
     }

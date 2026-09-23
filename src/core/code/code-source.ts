@@ -1,4 +1,3 @@
-import { errorText } from "../errors";
 import { formatLocalDay } from "../model/dates";
 import { DAY_MS } from "../model/lifecycle";
 import type { Project } from "../model/types";
@@ -20,7 +19,7 @@ export type CodeSource = {
   stateKey: (projects: readonly Project[]) => Promise<string>;
 };
 
-export function createCodeSource({ home, git = runGit, store, onError = (kind, error) => console.error(`git cache ${kind} failed: ${errorText(error)}`) }: CodeSourceOptions): CodeSource {
+export function createCodeSource({ home, git = runGit, store, onError = () => {} }: CodeSourceOptions): CodeSource {
   const repoCache = new Map<string, { key: string; code: RepoCode }>();
   const fixCache = new Map<string, FixCommit>();
   let changed = false;
