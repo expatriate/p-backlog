@@ -11,11 +11,8 @@
   gap: var(--space-3);
 }
 
-.subTitle {
-  margin: var(--space-3) 0 var(--space-1);
-  color: var(--ink-subtle);
-  font-size: var(--text-sm);
-  font-weight: 500;
+.densityRow > :last-child {
+  color: var(--ink);
 }
 
 @container (max-width: 520px) {

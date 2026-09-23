@@ -43,7 +43,7 @@ export function DensityPanel({ density }: { density: CodeDensity }) {
           <DensityRows rows={density.projects.map((row) => ({ key: row.projectId, label: row.name, row }))} />
           {density.folders.length > 0 && (
             <>
-              <h3 className={styles.subTitle}>Папки</h3>
+              <h3 className={rowStyles.subTitle}>Папки</h3>
               <DensityRows rows={density.folders.map((row) => ({ key: row.label, label: <code>{row.label}</code>, row }))} />
             </>
           )}

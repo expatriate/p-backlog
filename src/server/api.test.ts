@@ -114,6 +114,16 @@ describe("PATCH /api/tasks/:id", () => {
     expect(((await cycle.json()) as ErrorResponse).errors[0]).toContain("цикл блокеров");
   });
 
+  it("ошибка разбора правки не показывает интерфейсу путь поля", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const version = await backlog.taskVersion("SPA-1");
+
+    const response = await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { blockedBy: ["SPA-2", "12", "x"] } });
+
+    expect(response.status).toBe(422);
+    expect(((await response.json()) as ErrorResponse).errors).toEqual(["некорректный ID"]);
+  });
+
   it("правка из интерфейса пишет в журнал событие с источником web", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
     const version = await backlog.taskVersion("SPA-1");

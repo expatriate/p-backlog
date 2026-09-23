@@ -3,6 +3,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { updateTask } from "../../core/store/testing/update-task";
 import { projectFile } from "../../core/store/testing/temp-dirs";
+import type { TestApp } from "../../server/testing/test-app";
 import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
 import { renderApp, type RenderedApp } from "../testing/render-app";
@@ -18,6 +19,25 @@ const FILES = {
   "spa/SPA-3.md": taskFixture("SPA-3", { title: "Эпик загрузки", type: "epic" }),
   "spa/SPA-4.md": taskFixture("SPA-4", { title: "Связана", related: "[SPA-1]" }),
 };
+
+function holdFirstPatch() {
+  let release: () => void = () => undefined;
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const sent: string[] = [];
+  const beforeRender = (backlog: TestApp) => {
+    const request = backlog.request;
+    backlog.request = async (path, init) => {
+      if (init?.method === "PATCH") {
+        sent.push(path);
+        if (sent.length === 1) await released;
+      }
+      return await request(path, init);
+    };
+  };
+  return { beforeRender, release: () => release(), sent };
+}
 
 async function taskOnDisk(root: string, id: string) {
   const task = (await loadBacklog(root)).tasks.find((candidate) => candidate.id === id);
@@ -267,6 +287,104 @@ describe("карточка задачи", () => {
   });
 });
 
+describe("связи и название: ошибки у поля", () => {
+  it("ID не по формату и повтор объясняются под полем «Добавить» и не уходят на сервер", async () => {
+    const patches = holdFirstPatch();
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });
+    const blockedBy = within(await screen.findByRole("complementary", { name: "Задача SPA-1" })).getByRole("region", { name: "Блокируется" });
+    const field = within(blockedBy).getByRole("combobox", { name: "Добавить в «Блокируется»" });
+
+    await app.user.type(field, "12{Enter}");
+
+    expect(within(blockedBy).getByRole("alert").textContent).toBe("Введите ID задачи, например SPA-12");
+    expect(field).toHaveProperty("value", "12");
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+
+    await app.user.clear(field);
+    await app.user.type(field, " spa-2 ");
+    await app.user.click(within(blockedBy).getByRole("button", { name: "Добавить" }));
+
+    expect(within(blockedBy).getByRole("alert").textContent).toBe("SPA-2 уже в списке");
+    expect(field).toHaveProperty("value", "");
+    expect(patches.sent).toEqual([]);
+  });
+
+  it("отказ сервера добавить связь показан у поля, введённый ID остаётся", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-2");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });
+    const blockedBy = within(panel).getByRole("region", { name: "Блокируется" });
+    const field = within(blockedBy).getByRole("combobox", { name: "Добавить в «Блокируется»" });
+
+    await app.user.type(field, "SPA-1{Enter}");
+
+    expect((await within(blockedBy).findByRole("alert")).textContent).toContain("цикл блокеров");
+    expect(field).toHaveProperty("value", "SPA-1");
+    expect(within(panel).getAllByRole("alert")).toHaveLength(1);
+  });
+
+  it("отказ сервера у поля связей переживает сохранение другого поля и уходит, когда ввод правят", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-2");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });
+    const blockedBy = within(panel).getByRole("region", { name: "Блокируется" });
+    const field = within(blockedBy).getByRole("combobox", { name: "Добавить в «Блокируется»" });
+
+    await app.user.type(field, "SPA-1{Enter}");
+    expect((await within(blockedBy).findByRole("alert")).textContent).toContain("цикл блокеров");
+
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "critical");
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-2")).priority).toBe("critical"));
+    expect(within(blockedBy).getByRole("alert").textContent).toContain("цикл блокеров");
+
+    await app.user.clear(field);
+    await app.user.type(field, "SPA-4");
+
+    expect(within(blockedBy).queryByRole("alert")).toBeNull();
+    expect(field.getAttribute("aria-invalid")).toBe("false");
+  });
+
+  it("сообщение о повторе уходит, когда этот ID убрали из списка", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const blockedBy = within(await screen.findByRole("complementary", { name: "Задача SPA-1" })).getByRole("region", { name: "Блокируется" });
+
+    await app.user.type(within(blockedBy).getByRole("combobox", { name: "Добавить в «Блокируется»" }), "SPA-2{Enter}");
+    expect(within(blockedBy).getByRole("alert").textContent).toBe("SPA-2 уже в списке");
+
+    await app.user.click(within(blockedBy).getByRole("button", { name: "Убрать SPA-2" }));
+
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).blockedBy).toEqual(["SPA-99"]));
+    await waitFor(() => expect(within(blockedBy).queryByRole("alert")).toBeNull());
+  });
+
+  it("стёртое название возвращается и не уходит на сервер", async () => {
+    const patches = holdFirstPatch();
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });
+    const title = within(await screen.findByRole("complementary", { name: "Задача SPA-1" })).getByRole("textbox", { name: "Название задачи" });
+
+    await app.user.clear(title);
+    await app.user.type(title, "   ");
+    await app.user.tab();
+
+    expect(title).toHaveProperty("value", "Таймауты загрузки");
+    expect(patches.sent).toEqual([]);
+  });
+});
+
+describe("сохранения карточки идут по очереди", () => {
+  it("второй пункт чеклиста, отмеченный до ответа на первый, не теряет первый", async () => {
+    const patches = holdFirstPatch();
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    await app.user.click(within(panel).getByRole("checkbox", { name: "первый шаг" }));
+    await app.user.click(within(panel).getByRole("checkbox", { name: "второй шаг" }));
+    patches.release();
+
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("- [ ] второй шаг"));
+    expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("- [x] первый шаг");
+    expect(within(panel).queryByRole("alert")).toBeNull();
+  });
+});
+
 describe("черновик описания при уходе с задачи", () => {
   const LEAVE = "Уйти без сохранения описания?";
 
@@ -299,6 +417,101 @@ describe("черновик описания при уходе с задачи", 
     await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
 
     await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("черновик"));
+  });
+
+  it("своя правка поля во время черновика не выдаётся за конфликт описания", async () => {
+    const patches = holdFirstPatch();
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });
+    const panel = await startDraft(app);
+
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "critical");
+
+    const save = within(panel).getByRole("button", { name: "Сохранить" });
+    expect(save.getAttribute("aria-busy")).not.toBe("true");
+    patches.release();
+    await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe("Сохранено"));
+    await app.user.click(save);
+
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("черновик"));
+    expect((await taskOnDisk(app.root, "SPA-1")).priority).toBe("critical");
+    expect(within(panel).queryByRole("alert")).toBeNull();
+  });
+
+  it("пока описание сохраняется, смена другого поля не открывает повторное «Сохранить»", async () => {
+    const patches = holdFirstPatch();
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });
+    const panel = await startDraft(app);
+
+    await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "critical");
+
+    expect(within(panel).getByRole("button", { name: "Сохраняем…" }).getAttribute("aria-busy")).toBe("true");
+    expect(within(panel).getByRole("button", { name: "Отмена" }).getAttribute("aria-disabled")).toBe("true");
+    patches.release();
+
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).priority).toBe("critical"));
+    expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("черновик");
+    expect(within(panel).queryByRole("alert")).toBeNull();
+  });
+
+  it("конфликт описания не теряется, если за его сохранением в очереди стоит правка поля", async () => {
+    const patches = holdFirstPatch();
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });
+    const panel = await startDraft(app);
+
+    await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
+    await updateTask(app.root, { id: "SPA-1", changes: { body: "Описание\n\nДописано агентом\n" }, now: new Date(), via: "cli" });
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "critical");
+    patches.release();
+
+    await waitFor(() => expect(patches.sent).toHaveLength(2));
+    await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe(""));
+    expect(within(panel).getAllByRole("alert").map((alert) => alert.textContent).join()).toContain("Описание изменилось на диске");
+  });
+
+  it("«Отмена» после конфликта описания снимает предупреждение: повторять нечего", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await startDraft(app);
+    await updateTask(app.root, { id: "SPA-1", changes: { body: "Описание\n\nДописано агентом\n" }, now: new Date(), via: "cli" });
+
+    await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(within(panel).getByRole("alert").textContent).toContain("Описание изменилось на диске"));
+    await app.user.click(within(panel).getByRole("button", { name: "Отмена" }));
+
+    expect(within(panel).queryByRole("alert")).toBeNull();
+  });
+
+  it("сохранение описания не забирает фокус из поля, куда человек перешёл, пока оно шло", async () => {
+    const patches = holdFirstPatch();
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });
+    const panel = await startDraft(app);
+    const title = within(panel).getByRole("textbox", { name: "Название задачи" });
+
+    await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
+    await app.user.click(title);
+    await app.user.type(title, " и ещё");
+    patches.release();
+
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("черновик"));
+    await waitFor(() => expect(within(panel).getByRole("button", { name: "Редактировать описание" })).toBeDefined());
+    expect(document.activeElement).toBe(title);
+    expect(patches.sent).toHaveLength(1);
+  });
+
+  it("фокус уходит в поле описания и возвращается на «Редактировать описание» после «Отмена» и «Сохранить»", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await startDraft(app);
+    expect(document.activeElement).toBe(within(panel).getByRole("textbox", { name: "Описание задачи" }));
+
+    await app.user.click(within(panel).getByRole("button", { name: "Отмена" }));
+    expect(document.activeElement).toBe(within(panel).getByRole("button", { name: "Редактировать описание" }));
+
+    await app.user.keyboard("{Enter}");
+    await app.user.keyboard(" ещё");
+    await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
+
+    await waitFor(() => expect(document.activeElement).toBe(within(panel).getByRole("button", { name: "Редактировать описание" })));
+    expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("ещё");
   });
 
   it("закрытие карточки спрашивает: отказ оставляет черновик, согласие закрывает", async () => {

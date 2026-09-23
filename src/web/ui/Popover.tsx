@@ -55,6 +55,7 @@ export function Popover({ trigger, triggerProps, triggerRef, panelClassName, chi
     const sideMargin = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4"));
     const overflow = menu.getBoundingClientRect().right - (document.documentElement.clientWidth - sideMargin);
     menu.style.transform = overflow > 0 ? `translateX(-${overflow}px)` : "";
+    menu.scrollIntoView({ block: "nearest" });
     menu.querySelector<HTMLElement>(`[${INITIAL_FOCUS_ATTRIBUTE}]`)?.focus({ preventScroll: true });
   }, [open]);
 
@@ -64,8 +65,17 @@ export function Popover({ trigger, triggerProps, triggerRef, panelClassName, chi
       if (event.target instanceof Node && anchor.current?.contains(event.target)) return;
       setOpen(false);
     };
+    const closeOnFocusOutside = (event: FocusEvent) => {
+      if (!(event.target instanceof Node) || !anchor.current) return;
+      if (anchor.current.contains(event.target) || event.target.contains(anchor.current)) return;
+      setOpen(false);
+    };
     document.addEventListener("pointerdown", closeOnOutsidePointer);
-    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("focusin", closeOnFocusOutside);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("focusin", closeOnFocusOutside);
+    };
   }, [open]);
 
   useEffect(() => {

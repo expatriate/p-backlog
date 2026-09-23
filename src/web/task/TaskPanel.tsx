@@ -3,10 +3,11 @@ import { Link } from "react-router";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { toggleChecklistItem } from "../../core/model/checklist";
 import { dependentTasks, epicChildren, isClosed, relatedTasks, taskProgress, type BacklogIndex } from "../../core/model/graph";
+import { parseId } from "../../core/model/ids";
 import { taskWarnings } from "../../core/model/integrity";
 import type { Task } from "../../core/model/types";
 import { ApiError } from "../api/client";
-import { useUpdateTask } from "../app/queries";
+import { useUpdateTask, type BodyEdit, type TaskChange } from "../app/queries";
 import { formatDateTime, RESOLUTION_LABELS } from "../labels";
 import { Button } from "../ui/Button";
 import { Countdown } from "../ui/Countdown";
@@ -18,7 +19,7 @@ import { StatusBadge } from "../ui/StatusBadge";
 import { useNow } from "../ui/use-now";
 import { TaskBody } from "./TaskBody";
 import { TaskFields } from "./TaskFields";
-import { TaskOptions, TaskRefs, type TaskHref } from "./TaskRefs";
+import { TaskOptions, TaskRefs, type RefsSaveResult, type TaskHref } from "./TaskRefs";
 import styles from "./TaskPanel.module.css";
 
 export type TaskPanelProps = {
@@ -34,7 +35,7 @@ const TASK_LIST_ID = "task-ids";
 const EPIC_LIST_ID = "epic-ids";
 const LEAVE_WITH_DRAFT = "Уйти без сохранения описания?";
 
-type BodyDraft = { text: string; editedFrom: string };
+type BodyDraft = { text: string; from: BodyEdit };
 
 export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskPanelProps) {
   const updateTask = useUpdateTask();
@@ -42,19 +43,51 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
   const now = useNow();
   useLeaveGuard(bodyDraft !== null, LEAVE_WITH_DRAFT);
 
-  const saveNote = useSaveNote(updateTask.isPending, updateTask.isSuccess, updateTask.submittedAt);
-  const apply = (changes: TaskChangesRequest) => updateTask.mutate({ id: task.id, version: task.version, changes });
-  const editBody = (text: string | null) => setBodyDraft(text === null ? null : { text, editedFrom: bodyDraft?.editedFrom ?? task.version });
-  const saveBody = async (draft: BodyDraft) => {
+  const [bodySaving, setBodySaving] = useState(false);
+  const [bodyError, setBodyError] = useState<Error | null>(null);
+  const [saveError, setSaveError] = useState<Error | null>(null);
+  const cardAlerts = cardAlertTexts(bodyError, saveError, bodyDraft !== null);
+
+  const saveNote = useSaveNote(updateTask.isPending, updateTask.isSuccess && cardAlerts.length === 0, updateTask.submittedAt);
+  const save = (change: TaskChange) => {
+    setSaveError(null);
+    void updateTask.mutateAsync({ id: task.id, change }).catch((error: unknown) => setSaveError(asError(error)));
+  };
+  const apply = (changes: TaskChangesRequest) => save(() => changes);
+  const saveRefs = async (change: TaskChange): Promise<RefsSaveResult> => {
+    setSaveError(null);
     try {
-      await updateTask.mutateAsync({ id: task.id, version: task.version, editedFrom: draft.editedFrom, changes: { body: draft.text } });
+      await updateTask.mutateAsync({ id: task.id, change });
+      return { saved: true };
     } catch (error) {
-      if (error instanceof ApiError && error.current !== undefined) setBodyDraft({ ...draft, editedFrom: error.current.version });
-      throw error;
+      if (!isConflict(error)) return { saved: false, fieldError: asError(error).message };
+      setSaveError(asError(error));
+      return { saved: false, fieldError: null };
     }
   };
-  const conflict = updateTask.error instanceof ApiError && updateTask.error.status === 409;
-  const draftConflict = conflict && bodyDraft !== null && updateTask.variables?.editedFrom !== undefined;
+  const bodyOrigin = bodyDraft?.from ?? { version: task.version, body: task.body };
+  const editBody = (text: string | null) => {
+    if (text === null) setBodyError(null);
+    setBodyDraft(text === null ? null : { text, from: bodyOrigin });
+  };
+  const saveBody = async (text: string) => {
+    setBodySaving(true);
+    setBodyError(null);
+    setSaveError(null);
+    try {
+      await updateTask.mutateAsync({ id: task.id, change: () => ({ body: text }), bodyEdit: bodyOrigin });
+    } catch (error) {
+      setBodyError(asError(error));
+      if (error instanceof ApiError && error.current !== undefined) {
+        const from = { version: error.current.version, body: error.current.body };
+        setBodyDraft((draft) => draft && { ...draft, from });
+      }
+      throw error;
+    } finally {
+      setBodySaving(false);
+    }
+  };
+  const idPrefix = parseId(task.id)?.prefix ?? task.id;
   const warnings = taskWarnings(task, index);
   const children = task.type === "epic" ? epicChildren(task, index) : [];
 
@@ -96,18 +129,11 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
         </div>
       )}
 
-      {conflict && (
-        <p className={styles.conflict} role="alert">
-          {draftConflict
-            ? "Описание изменилось на диске, пока вы его правили. «Сохранить» перезапишет его вашим текстом, «Отмена» покажет актуальное."
-            : "Задача изменилась на диске, показана актуальная версия. Повторите правку."}
+      {cardAlerts.map((text) => (
+        <p key={text} className={styles.conflict} role="alert">
+          {text}
         </p>
-      )}
-      {!conflict && updateTask.error && (
-        <p className={styles.conflict} role="alert">
-          {updateTask.error.message}
-        </p>
-      )}
+      ))}
       {warnings.length > 0 && (
         <ul className={styles.warnings}>
           {warnings.map((warning) => (
@@ -119,10 +145,10 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
       <TaskBody
         body={task.body}
         draft={bodyDraft?.text ?? null}
-        saving={updateTask.isPending}
+        saving={bodySaving}
         onDraftChange={editBody}
-        onToggleLine={(line) => apply({ body: toggleChecklistItem(task.body, line) })}
-        onSave={(text) => saveBody({ text, editedFrom: bodyDraft?.editedFrom ?? task.version })}
+        onToggleLine={(line) => save((fresh) => ({ body: toggleChecklistItem(fresh.body, line) }))}
+        onSave={saveBody}
       />
 
       <TaskRefs
@@ -131,7 +157,8 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
         tasks={tasks}
         listId={TASK_LIST_ID}
         taskHref={taskHref}
-        onChange={(blockedBy) => apply({ blockedBy })}
+        idPrefix={idPrefix}
+        onChange={(update) => saveRefs((fresh) => ({ blockedBy: update(fresh.blockedBy) }))}
       />
       <TaskRefs
         label="Связанные"
@@ -139,7 +166,8 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
         tasks={tasks}
         listId={TASK_LIST_ID}
         taskHref={taskHref}
-        onChange={(related) => apply({ related })}
+        idPrefix={idPrefix}
+        onChange={(update) => saveRefs((fresh) => ({ related: update(fresh.related) }))}
       />
 
       <ReadonlyRefs label="Блокирует" tasks={dependentTasks(task, index)} taskHref={taskHref} />
@@ -154,6 +182,27 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
       <TaskOptions id={EPIC_LIST_ID} tasks={tasks.filter((candidate) => candidate.type === "epic")} />
     </SidePanel>
   );
+}
+
+const DRAFT_CONFLICT = "Описание изменилось на диске, пока вы его правили. «Сохранить» перезапишет его вашим текстом, «Отмена» покажет актуальное.";
+const TASK_CONFLICT = "Задача изменилась на диске, показана актуальная версия. Повторите правку.";
+
+function cardAlertTexts(bodyError: Error | null, saveError: Error | null, draftOpen: boolean): string[] {
+  const bodyText = bodyError === null ? null : isConflict(bodyError) && draftOpen ? DRAFT_CONFLICT : errorText(bodyError);
+  const saveText = saveError === null ? null : errorText(saveError);
+  return [...new Set([bodyText, saveText].filter((text) => text !== null))];
+}
+
+function errorText(error: Error): string {
+  return isConflict(error) ? TASK_CONFLICT : error.message;
+}
+
+function isConflict(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409;
+}
+
+function asError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
 }
 
 const SAVED_NOTE_MS = 2000;
@@ -204,7 +253,11 @@ function TitleField({ title: serverTitle, onSave }: { title: string; onSave: (ti
           event.currentTarget.blur();
         }
       }}
-      onBlur={() => title !== serverTitle && onSave(title)}
+      onBlur={() => {
+        const next = title.trim();
+        if (next === "") setTitle(serverTitle);
+        else if (next !== serverTitle) onSave(next);
+      }}
     />
   );
 }
@@ -216,11 +269,12 @@ function ReadonlyRefs({ label, tasks, taskHref }: { label: string; tasks: readon
       <h2>{label}</h2>
       <ul>
         {tasks.map((task) => (
-          <li key={task.id}>
+          <li key={task.id} className={isClosed(task.status) ? styles.refClosed : undefined}>
             <span className={styles.id}>{task.id}</span>{" "}
             <Link to={taskHref(task.id)} className={styles.refLink}>
               {task.title}
-            </Link>
+            </Link>{" "}
+            <StatusBadge status={task.status} />
           </li>
         ))}
       </ul>

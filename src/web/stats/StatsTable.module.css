@@ -7,7 +7,7 @@
 }
 
 .scroll:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -40,6 +40,14 @@
 .table tbody th {
   color: var(--ink);
   font-weight: 400;
+}
+
+.table tbody .child > * {
+  color: var(--ink-subtle);
+}
+
+.table tbody .total > * {
+  font-weight: 600;
 }
 
 .table code {

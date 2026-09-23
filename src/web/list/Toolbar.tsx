@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { normalizeText } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
@@ -22,6 +22,11 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
   const { filter } = params;
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
   const setFilter = (patch: Partial<ListParams["filter"]>) => onChange({ ...params, filter: { ...filter, ...patch } });
+  const onlyPressedStatus = pressedStatuses.length === 1 ? pressedStatuses[0] : undefined;
+  const showEpicPicker = epicChoices.epics.length > 0 || filter.epic !== undefined;
+  const epicAndTags = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLInputElement>(null);
+  useFocusAfterEpicPickerLeaves(showEpicPicker, () => epicAndTags.current?.querySelector("button") ?? search.current);
   const toggleTag = (tag: string) => setFilter({ tags: toggledTags(filter.tags ?? [], tag) });
   const toggleAutoClosed = () => {
     if (filter.onlyAutoClosed) setFilter({ onlyAutoClosed: undefined });
@@ -31,7 +36,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
   return (
     <div className={styles.toolbar}>
       <div className={styles.line}>
-        <SearchField query={filter.query ?? ""} onChange={(query) => setFilter({ query: query || undefined })} />
+        <SearchField ref={search} query={filter.query ?? ""} onChange={(query) => setFilter({ query: query || undefined })} />
       </div>
 
       <div className={styles.line}>
@@ -40,6 +45,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
             <ToggleChip
               key={status}
               pressed={pressedStatuses.includes(status)}
+              locked={status === onlyPressedStatus}
               onToggle={() => setFilter({ statuses: allOrSome(toggle(pressedStatuses, status)) })}
             >
               {STATUS_LABELS[status]}
@@ -75,9 +81,9 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
         </div>
       </div>
 
-      {(epicChoices.epics.length > 0 || tags.length > 0) && (
-        <div className={styles.line} role="group" aria-label="Эпик и теги">
-          {epicChoices.epics.length > 0 && (
+      {(showEpicPicker || tags.length > 0) && (
+        <div ref={epicAndTags} className={styles.line} role="group" aria-label="Эпик и теги">
+          {showEpicPicker && (
             <EpicPicker choices={epicChoices} selected={filter.epic} onSelect={(epic) => setFilter({ epic })} />
           )}
           {tags.length > 0 && <TagPicker tags={tags} selected={filter.tags ?? []} onToggle={toggleTag} />}
@@ -89,7 +95,16 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
 
 type SearchEditing = { text: string; sent: ReadonlySet<string> };
 
-function SearchField({ query, onChange }: { query: string; onChange: (query: string) => void }) {
+function useFocusAfterEpicPickerLeaves(shown: boolean, nextTarget: () => HTMLElement | null): void {
+  const wasShown = useRef(shown);
+  useEffect(() => {
+    const left = wasShown.current && !shown;
+    wasShown.current = shown;
+    if (left && document.activeElement === document.body) nextTarget()?.focus();
+  });
+}
+
+function SearchField({ ref, query, onChange }: { ref: RefObject<HTMLInputElement | null>; query: string; onChange: (query: string) => void }) {
   const [editing, setEditing] = useState<SearchEditing>();
   const [seenQuery, setSeenQuery] = useState(query);
   if (query !== seenQuery) {
@@ -99,6 +114,7 @@ function SearchField({ query, onChange }: { query: string; onChange: (query: str
 
   return (
     <input
+      ref={ref}
       type="search"
       className={styles.search}
       value={editing?.text ?? query}

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link } from "react-router";
 import { isBlocked, type BacklogIndex } from "../../core/model/graph";
 import type { SortDirection, SortKey, TaskSort } from "../../core/model/query";
@@ -40,6 +41,10 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
 
 export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, dateColumn, tones, isNew, selectedTags, onToggleTag }: TaskTableProps) {
   const now = useNow();
+  const selectedRow = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    selectedRow.current?.scrollIntoView({ block: "nearest" });
+  }, [selectedId]);
   const sortableHeader = (key: SortKey, label: string, className?: string) => {
     const active = sort.key === key;
     return (
@@ -63,7 +68,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
           <th className={styles.tags} scope="col">
             Теги
           </th>
-          {sortableHeader("status", "Статус")}
+          {sortableHeader("status", "Статус", styles.statusCell)}
           {sortableHeader("priority", "Приоритет", styles.priorityCell)}
           {sortableHeader(dateColumn, DATE_COLUMN_LABELS[dateColumn], styles.date)}
         </tr>
@@ -72,10 +77,12 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
         {tasks.map((task) => {
           const blocked = isBlocked(task, index);
           const epic = task.epic === undefined ? undefined : index.byId.get(task.epic);
+          const selected = task.id === selectedId;
           return (
             <tr
               key={task.id}
-              className={cx(styles.row, task.id === selectedId && styles.selected)}
+              ref={selected ? selectedRow : undefined}
+              className={cx(styles.row, selected && styles.selected)}
               data-epic-tone={toneOf(task, tones)}
             >
               <td>
@@ -86,7 +93,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
               <td>
                 <DeletionBar task={task} now={now} />
                 {isNew(task) && <span className={styles.newBadge}>новая</span>}
-                <Link to={taskHref(task.id)} className={styles.title}>
+                <Link to={taskHref(task.id)} className={styles.title} aria-current={selected ? "true" : undefined}>
                   {task.title}
                 </Link>
                 {task.type === "epic" && <span className={cx(styles.marker, styles.epicMarker)}>эпик</span>}
@@ -110,7 +117,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
               <td className={styles.tags}>
                 <TagCell tags={task.tags} selected={selectedTags} onToggle={onToggleTag} />
               </td>
-              <td>
+              <td className={styles.statusCell}>
                 <StatusBadge status={task.status} />
               </td>
               <td className={cx(styles.priorityCell, PRIORITY_CLASS[task.priority])}>{PRIORITY_LABELS[task.priority]}</td>

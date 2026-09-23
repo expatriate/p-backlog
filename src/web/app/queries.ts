@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import type { MemorySamplesResponse, ProjectView, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import { MEMORY_SAMPLE_INTERVAL_MS } from "../../core/api/memory";
 import type { Project, Task } from "../../core/model/types";
-import type { ApiClient } from "../api/client";
+import { ApiError, type ApiClient } from "../api/client";
 import { useBacklogApi } from "./backlog-api";
 
 const PROJECTS_KEY = ["projects"];
@@ -88,17 +88,35 @@ function invalidateScope(queryClient: ReturnType<typeof useQueryClient>): void {
   for (const queryKey of [PROJECTS_KEY, TASKS_KEY, STATS_KEY]) void queryClient.invalidateQueries({ queryKey });
 }
 
-export type UpdateTaskVariables = { id: string; version: string; editedFrom?: string; changes: TaskChangesRequest };
+export type TaskChange = (task: Task) => TaskChangesRequest;
+export type BodyEdit = { version: string; body: string };
+export type UpdateTaskVariables = { id: string; change: TaskChange; bodyEdit?: BodyEdit };
+
+const TASK_SAVES = { id: "task-saves" };
 
 export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariables> {
   const { client } = useBacklogApi();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, version, editedFrom, changes }: UpdateTaskVariables) =>
-      client.updateTask(id, editedFrom ?? freshestVersion(queryClient, id) ?? version, changes),
+    scope: TASK_SAVES,
+    mutationFn: ({ id, change, bodyEdit }: UpdateTaskVariables) => {
+      const task = freshestTask(queryClient, id);
+      if (!task) throw new Error(`Задача ${id} не найдена`);
+      const changes = change(task);
+      return bodyEdit === undefined ? client.updateTask(id, task.version, changes) : saveEditedBody(client, id, changes, bodyEdit);
+    },
     onSuccess: (task) => putTask(queryClient, task),
     onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
   });
+}
+
+async function saveEditedBody(client: ApiClient, id: string, changes: TaskChangesRequest, edit: BodyEdit): Promise<Task> {
+  try {
+    return await client.updateTask(id, edit.version, changes);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.current?.body !== edit.body) throw error;
+    return await client.updateTask(id, error.current.version, changes);
+  }
 }
 
 export function useLiveUpdates(): void {
@@ -118,8 +136,8 @@ export function useLiveUpdates(): void {
   }, [openEvents, queryClient]);
 }
 
-function freshestVersion(queryClient: ReturnType<typeof useQueryClient>, id: string): string | undefined {
-  return queryClient.getQueryData<TasksResponse>(TASKS_KEY)?.tasks.find((task) => task.id === id)?.version;
+function freshestTask(queryClient: ReturnType<typeof useQueryClient>, id: string): Task | undefined {
+  return queryClient.getQueryData<TasksResponse>(TASKS_KEY)?.tasks.find((task) => task.id === id);
 }
 
 function putTask(queryClient: ReturnType<typeof useQueryClient>, task: Task): void {

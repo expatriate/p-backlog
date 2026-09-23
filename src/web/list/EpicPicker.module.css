@@ -36,7 +36,6 @@
   border: none;
   background: none;
   color: var(--ink-subtle);
-  font-size: var(--text-md);
   cursor: pointer;
 }
 
@@ -50,6 +49,10 @@
   gap: 2px;
   min-height: 0;
   overflow-y: auto;
+}
+
+.options :focus-visible {
+  outline-offset: -2px;
 }
 
 .option {

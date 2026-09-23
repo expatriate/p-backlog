@@ -1,4 +1,5 @@
 import type { Project, Task } from "../../core/model/types";
+import { NBSP, pluralCount } from "../../core/stats/format";
 
 export function activeProjectIds(projects: readonly Project[]): Set<string> {
   return new Set(projects.filter((project) => project.active).map((project) => project.id));
@@ -10,4 +11,8 @@ export function tasksInScope(tasks: readonly Task[], projectId: string | undefin
 
 export function projectNameOf(projects: readonly Project[] | undefined, projectId: string): string {
   return projects?.find((project) => project.id === projectId)?.name ?? projectId;
+}
+
+export function scopeNote(projects: readonly Project[]): string {
+  return `учтено ${activeProjectIds(projects).size} из${NBSP}${pluralCount(projects.length, "проекта", "проектов", "проектов")}`;
 }

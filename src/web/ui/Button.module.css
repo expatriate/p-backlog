@@ -8,7 +8,7 @@
     color var(--duration) var(--ease-out), scale var(--duration) var(--ease-out);
 }
 
-.button:active:not(:disabled) {
+.button:active:not(:disabled, [aria-disabled="true"]) {
   scale: 0.96;
 }
 
@@ -33,9 +33,14 @@
   background: var(--action-hover);
 }
 
-.button:disabled {
+.button:disabled,
+.button[aria-disabled="true"] {
   background: var(--surface-sunken);
   border-color: var(--line);
   color: var(--ink-subtle);
+  cursor: not-allowed;
+}
+
+.button[aria-busy="true"] {
   cursor: progress;
 }

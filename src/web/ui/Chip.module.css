@@ -1,25 +1,25 @@
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
   padding: 3px var(--space-2);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-chip);
   background: var(--surface);
   color: var(--ink-muted);
   font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   cursor: pointer;
   transition: background var(--duration) var(--ease-out), border-color var(--duration) var(--ease-out),
     color var(--duration) var(--ease-out), scale var(--duration) var(--ease-out);
 }
 
-.chip:not(.static):active {
+.chip:not(.static, [aria-disabled="true"]):active {
   scale: 0.96;
 }
 
-.chip:hover {
-  border-color: var(--line-strong);
+.chip:not(.static, [aria-disabled="true"]):hover {
+  border-color: var(--ink-subtle);
   color: var(--ink);
 }
 
@@ -30,11 +30,26 @@
   font-weight: 600;
 }
 
-.static {
-  cursor: default;
+.chip[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 
-.static:hover {
-  border-color: var(--line-strong);
-  color: var(--ink-muted);
+.label {
+  display: inline-grid;
+}
+
+.text {
+  grid-area: 1 / 1;
+}
+
+.label::after {
+  content: attr(data-bold-width);
+  grid-area: 1 / 1;
+  height: 0;
+  font-weight: 600;
+  visibility: hidden;
+}
+
+.static {
+  cursor: default;
 }

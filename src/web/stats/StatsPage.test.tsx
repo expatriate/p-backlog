@@ -1,10 +1,15 @@
+import { focusManager } from "@tanstack/react-query";
 import { screen, waitFor, within } from "@testing-library/react";
 import { execFileSync } from "node:child_process";
+import type { RouteObject } from "react-router";
 import { describe, expect, it } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { routes } from "../app/App";
 import { taskFixture } from "../testing/fixtures";
+import { freezeDate } from "../testing/freeze-date";
+import type { TestApp } from "../../server/testing/test-app";
 import { renderApp } from "../testing/render-app";
+import { StatsPage } from "./StatsPage";
 import { NBSP } from "../../core/stats/format";
 
 const MINUS = "\u2212";
@@ -104,6 +109,70 @@ describe("страница статистики", () => {
     expect(await screen.findByText("Не удалось разобрать строк журнала: 1. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.")).toBeDefined();
   });
 
+  it("в области «Проекты» под заголовком видно, сколько проектов учтено", async () => {
+    await renderApp({ ...FILES, "torg-io/project.md": projectFile("TI", [], { active: false }) }, "/stats");
+
+    expect(await within(await screen.findByRole("main")).findByText("учтено 1 из 2 проектов")).toBeDefined();
+  });
+
+  it("ошибка первой загрузки: «Повторить» передаёт фокус области состояния, после загрузки — заголовку страницы", async () => {
+    const failed = () => Promise.resolve(new Response(JSON.stringify({ errors: ["сбой"] }), { status: 500 }));
+    let answerStats = failed;
+    let request: TestApp["request"] = () => failed();
+    const app = await renderApp(FILES, "/stats", routes, {
+      beforeRender: (backlog) => {
+        request = backlog.request;
+        backlog.request = (path, init) => (path === "/api/stats" ? answerStats() : request(path, init));
+      },
+    });
+    expect(await screen.findByText("Сервер вернул ошибку: сбой")).toBeDefined();
+
+    let release = () => {};
+    answerStats = () => new Promise<void>((resolve) => (release = resolve)).then(failed);
+    await app.user.click(screen.getByRole("button", { name: "Повторить" }));
+
+    await waitFor(() => expect(document.activeElement?.textContent).toBe("Считаем статистику…"));
+    expect(document.activeElement?.getAttribute("role")).toBe("status");
+
+    release();
+    expect(await screen.findByRole("button", { name: "Повторить" })).toBeDefined();
+
+    answerStats = () => request("/api/stats");
+    await app.user.click(screen.getByRole("button", { name: "Повторить" }));
+
+    await screen.findByRole("group", { name: "За неделю" });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 })));
+  });
+
+  it("ошибка обновления: «Повторить» держит фокус и подпись «Повторяем…», пока идёт повтор", async () => {
+    const failed = () => Promise.resolve(new Response(JSON.stringify({ errors: ["сбой"] }), { status: 500 }));
+    let answerStats = (real: () => Promise<Response>) => real();
+    const app = await renderApp(FILES, "/stats", routes, {
+      beforeRender: (backlog) => {
+        const request = backlog.request;
+        backlog.request = (path, init) => (path === "/api/stats" ? answerStats(() => request(path, init)) : request(path, init));
+      },
+    });
+    await screen.findByRole("group", { name: "За неделю" });
+
+    answerStats = failed;
+    freezeDate(new Date(Date.now() + 120_000).toISOString());
+    focusManager.setFocused(false);
+    focusManager.setFocused(undefined);
+    const retry = await screen.findByRole("button", { name: "Повторить" });
+
+    let release = () => {};
+    answerStats = () => new Promise<void>((resolve) => (release = resolve)).then(failed);
+    await app.user.click(retry);
+
+    const busy = await screen.findByRole("button", { name: "Повторяем…" });
+    expect(busy.getAttribute("aria-busy")).toBe("true");
+    expect(document.activeElement).toBe(busy);
+
+    release();
+    expect(await screen.findByRole("button", { name: "Повторить" })).toBe(document.activeElement);
+  });
+
   it("без задач — «Задач пока нет»", async () => {
     await renderApp({ "spa/project.md": projectFile("SPA") }, "/stats");
 
@@ -148,14 +217,38 @@ describe("вкладки статистики", () => {
   it("«Обзор» активен по умолчанию, «Качество» меняет адрес и заголовок вкладки", async () => {
     const app = await renderApp(FILES, "/stats");
     const tabs = await screen.findByRole("navigation", { name: "Разделы статистики" });
-    expect(within(tabs).getByRole("link", { name: "Обзор" }).getAttribute("aria-current")).toBe("true");
+    expect(within(tabs).getByRole("link", { name: "Обзор" }).getAttribute("aria-current")).toBe("page");
 
     await app.user.click(within(tabs).getByRole("link", { name: "Качество" }));
 
     await waitFor(() => expect(app.route()).toBe("/stats/quality"));
     expect(document.title).toBe("Качество · Статистика · Проекты — Беклог");
-    expect(within(tabs).getByRole("link", { name: "Качество" }).getAttribute("aria-current")).toBe("true");
+    expect(within(tabs).getByRole("link", { name: "Качество" }).getAttribute("aria-current")).toBe("page");
     expect(screen.queryByRole("link", { name: "Поток" })).toBeNull();
+  });
+
+  it("пока грузится код вкладки, страница помечена занятой", async () => {
+    let release = () => {};
+    const chunk = new Promise<void>((resolve) => (release = resolve));
+    const slowTabRoutes: RouteObject[] = [
+      {
+        path: "stats",
+        Component: StatsPage,
+        children: [
+          { index: true, element: <p>обзор</p> },
+          { path: "code", lazy: async () => chunk.then(() => ({ element: <p>код</p> })) },
+        ],
+      },
+    ];
+    const app = await renderApp(FILES, "/stats", slowTabRoutes);
+    await screen.findByText("обзор");
+
+    await app.user.click(screen.getByRole("link", { name: "Код" }));
+
+    expect(screen.getByRole("main").getAttribute("aria-busy")).toBe("true");
+    release();
+    expect(await screen.findByText("код")).toBeDefined();
+    expect(screen.getByRole("main").getAttribute("aria-busy")).toBeNull();
   });
 
   it("старый адрес «Потока» открывает «Обзор»", async () => {

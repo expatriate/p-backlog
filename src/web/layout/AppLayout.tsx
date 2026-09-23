@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { listPath, statsPath } from "../app/paths";
 import { Link, matchPath, NavLink, Outlet, useLocation } from "react-router";
 import type { ProjectView } from "../../core/api/contract";
@@ -7,13 +7,14 @@ import type { Task } from "../../core/model/types";
 import { useProjects, useSignals, useTasks } from "../app/queries";
 import { OPEN_STATUSES } from "../../core/model/query";
 import { countBy } from "../../core/stats/numbers";
-import { activeProjectIds, tasksInScope } from "../app/scope";
-import { plural, pluralCount } from "../../core/stats/format";
+import { activeProjectIds, scopeNote, tasksInScope } from "../app/scope";
+import { NBSP, plural, pluralCount } from "../../core/stats/format";
 import { cx } from "../ui/cx";
 import { ProjectCheckbox, ProjectDeleteButton } from "./ProjectControls";
 import styles from "./AppLayout.module.css";
 
 const PROJECT_LIST_ID = "sidebar-projects";
+const UNKNOWN_COUNT = "—";
 
 type GraphTrouble = Exclude<GraphState, "fresh">;
 
@@ -28,19 +29,18 @@ export function AppLayout() {
   const tasks = useTasks();
   const { pathname, search } = useLocation();
 
-  const allTasks = useMemo(() => tasks.data?.tasks ?? [], [tasks.data]);
   const allProjects = useMemo(() => projects.data ?? [], [projects.data]);
   const activeIds = useMemo(() => activeProjectIds(allProjects), [allProjects]);
-  const counts = useMemo(() => taskCounts(allTasks, activeIds), [allTasks, activeIds]);
+  const counts = useMemo(() => (tasks.data === undefined ? undefined : taskCounts(tasks.data.tasks, activeIds)), [tasks.data, activeIds]);
   const projectId = matchPath("/p/:projectId/*", pathname)?.params.projectId;
   const signals = useSignals(projectId);
   const signalCount = signals.data?.signals.length ?? 0;
   const statsTab = (matchPath("/stats/*", pathname) ?? matchPath("/p/:projectId/stats/*", pathname))?.params["*"];
   const onStats = statsTab !== undefined;
   const scopePath = (id?: string) => (onStats ? `${statsPath(id)}${statsTab === "" ? "" : `/${statsTab}`}` : listPath(id));
-  const scopeTasks = counts.scopeOpen;
   const graphTroubles = useMemo(() => graphTroubleCounts(allProjects), [allProjects]);
   const [listOpen, setListOpen] = useState(true);
+  const scopeLink = useRef<HTMLAnchorElement>(null);
 
   return (
     <div className={styles.shell}>
@@ -59,7 +59,7 @@ export function AppLayout() {
             </Link>
           </li>
           <li>
-            <Link to={statsPath(projectId)} className={navClass(onStats)} aria-current={onStats ? "page" : undefined}>
+            <Link to={statsPath(projectId)} className={navClass(onStats)} aria-current={statsCurrent(statsTab)}>
               <span className={styles.projectName}>Статистика</span>
               {signalCount > 0 && (
                 <>
@@ -76,20 +76,32 @@ export function AppLayout() {
               type="button"
               className={styles.disclosure}
               aria-expanded={listOpen}
-              aria-controls={PROJECT_LIST_ID}
+              aria-controls={listOpen ? PROJECT_LIST_ID : undefined}
               aria-label={listOpen ? "Свернуть список проектов" : "Развернуть список проектов"}
               onClick={() => setListOpen(!listOpen)}
             >
               <Chevron open={listOpen} />
             </button>
-            <NavLink to={{ pathname: scopePath(), search: onStats ? "" : search }} end aria-current="true" className={cx(styles.rowLink, styles.scopeName)}>
+            <NavLink ref={scopeLink} to={{ pathname: scopePath(), search: onStats ? "" : search }} end aria-current="true" className={cx(styles.rowLink, styles.scopeName)}>
               Проекты
             </NavLink>
             <span className={styles.count}>
-              <span className={styles.number}>{scopeTasks}</span> {plural(scopeTasks, "задача", "задачи", "задач")}
+              {counts === undefined ? (
+                UNKNOWN_COUNT
+              ) : (
+                <>
+                  <span className={styles.number}>{counts.scopeOpen}</span> {plural(counts.scopeOpen, "задача", "задачи", "задач")}
+                </>
+              )}
             </span>
           </div>
-          {listOpen ? (
+          {projects.data !== undefined && (
+            <p className={styles.scopeNote}>
+              {scopeNote(allProjects)}
+              {listOpen && `${NBSP}— с${NBSP}галочкой`}
+            </p>
+          )}
+          {listOpen && (
             <ul className={styles.projects} id={PROJECT_LIST_ID} aria-label="Проекты">
               {allProjects.map((project) => (
                 <ProjectRow
@@ -97,15 +109,12 @@ export function AppLayout() {
                   project={project}
                   to={scopePath(project.id)}
                   search={onStats ? "" : search}
-                  openTasks={counts.openByProject.get(project.id) ?? 0}
-                  taskCount={counts.totalByProject.get(project.id) ?? 0}
+                  openTasks={counts === undefined ? undefined : (counts.openByProject.get(project.id) ?? 0)}
+                  taskCount={counts === undefined ? undefined : (counts.totalByProject.get(project.id) ?? 0)}
+                  onDeleted={() => scopeLink.current?.focus()}
                 />
               ))}
             </ul>
-          ) : (
-            <p className={styles.scopeNote} id={PROJECT_LIST_ID}>
-              учтено {activeIds.size} из {pluralCount(allProjects.length, "проекта", "проектов", "проектов")}
-            </p>
           )}
         </div>
         {graphTroubles.length > 0 && (
@@ -124,9 +133,9 @@ export function AppLayout() {
   );
 }
 
-type ProjectRowProps = { to: string; search: string; openTasks: number; taskCount: number; project: ProjectView };
+type ProjectRowProps = { to: string; search: string; openTasks: number | undefined; taskCount: number | undefined; project: ProjectView; onDeleted: () => void };
 
-function ProjectRow({ to, search, openTasks, taskCount, project }: ProjectRowProps) {
+function ProjectRow({ to, search, openTasks, taskCount, project, onDeleted }: ProjectRowProps) {
   return (
     <li className={cx(styles.row, !project.active && styles.muted)}>
       <ProjectCheckbox project={project} />
@@ -135,8 +144,8 @@ function ProjectRow({ to, search, openTasks, taskCount, project }: ProjectRowPro
           {project.name}
         </span>
       </NavLink>
-      <span className={styles.count}>{openTasks}</span>
-      <ProjectDeleteButton project={project} taskCount={taskCount} />
+      <span className={styles.count}>{openTasks ?? UNKNOWN_COUNT}</span>
+      <ProjectDeleteButton project={project} taskCount={taskCount} onDeleted={onDeleted} />
     </li>
   );
 }
@@ -158,6 +167,11 @@ function Chevron({ open }: { open: boolean }) {
       {open ? <path d="M4 6.5 8 10.5l4-4" /> : <path d="M6 4l4 4-4 4" />}
     </svg>
   );
+}
+
+function statsCurrent(statsTab: string | undefined): "page" | "true" | undefined {
+  if (statsTab === undefined) return undefined;
+  return statsTab === "" ? "page" : "true";
 }
 
 function navClass(isActive: boolean): string {

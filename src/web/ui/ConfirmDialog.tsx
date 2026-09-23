@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState, type SyntheticEvent } from "react";
 import { Button } from "./Button";
 import styles from "./ConfirmDialog.module.css";
 
@@ -22,8 +22,14 @@ function OpenDialog({ title, description, confirmWord, confirmWordLabel, confirm
   const titleId = useId();
   const [typed, setTyped] = useState("");
 
-  useEffect(() => {
-    dialog.current?.showModal();
+  const cancelIfStillClosed = (event: SyntheticEvent<HTMLDialogElement>) => {
+    if (!event.currentTarget.open) onCancel();
+  };
+
+  useLayoutEffect(() => {
+    const node = dialog.current;
+    node?.showModal();
+    return () => node?.close();
   }, []);
 
   return (
@@ -32,7 +38,7 @@ function OpenDialog({ title, description, confirmWord, confirmWordLabel, confirm
       className={styles.dialog}
       aria-labelledby={titleId}
       onCancel={onCancel}
-      onClose={onCancel}
+      onClose={cancelIfStillClosed}
       onKeyDown={(event) => event.key === "Escape" && event.stopPropagation()}
     >
       <h2 id={titleId} className={styles.title}>
@@ -41,7 +47,7 @@ function OpenDialog({ title, description, confirmWord, confirmWordLabel, confirm
       <p className={styles.description}>{description}</p>
       <label className={styles.field}>
         {confirmWordLabel}
-        <input className={styles.input} value={typed} autoComplete="off" onChange={(event) => setTyped(event.target.value)} />
+        <input value={typed} autoComplete="off" onChange={(event) => setTyped(event.target.value)} />
       </label>
       <div className={styles.actions}>
         <Button onClick={onCancel}>Отмена</Button>

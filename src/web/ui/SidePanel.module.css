@@ -1,35 +1,33 @@
 .drawer {
-  position: fixed;
-  inset-block: 0;
-  right: 0;
-  z-index: var(--z-panel);
+  --drawer-pad-block-start: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  width: min(var(--panel-width), 100vw);
-  padding: var(--space-4) var(--space-5) var(--space-6);
+  width: var(--panel-width);
+  min-height: 0;
+  padding: var(--drawer-pad-block-start) var(--space-5) var(--space-6);
   border-left: 1px solid var(--line);
   background: var(--surface-raised);
-  box-shadow: var(--shadow-panel);
   overflow-y: auto;
   overflow-wrap: anywhere;
-  animation: slide-in var(--duration) var(--ease-out);
 }
 
 .drawer:focus {
   outline: none;
 }
 
-@keyframes slide-in {
-  from {
-    transform: translateX(16px);
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
+@media (max-width: 1160px) {
   .drawer {
-    animation: none;
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: var(--z-panel);
+    width: min(var(--panel-width), 100%);
+    box-shadow: var(--shadow-panel), 0 0 0 100vmax var(--scrim);
+    overscroll-behavior: contain;
+  }
+
+  :global(html):has(.drawer) {
+    overflow: hidden;
   }
 }
 
@@ -41,11 +39,16 @@
 }
 
 .close {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
   border: none;
+  border-radius: var(--radius-chip);
   background: none;
   color: var(--ink-subtle);
-  font-size: var(--text-lg);
-  line-height: 1;
   cursor: pointer;
 }
 

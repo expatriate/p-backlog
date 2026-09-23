@@ -1,12 +1,16 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { listPath, taskPath } from "../app/paths";
 import { activeProjectIds, projectNameOf, tasksInScope } from "../app/scope";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { buildIndex } from "../../core/model/graph";
-import { filterTasks, sortTasks } from "../../core/model/query";
+import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
+import { pluralCount } from "../../core/stats/format";
 import type { Task } from "../../core/model/types";
 import { useProjects, useTasks } from "../app/queries";
+import { RequestErrorText } from "../app/RequestErrorText";
 import { Button } from "../ui/Button";
+import { RetryButton } from "../ui/RetryButton";
+import { useStatusFocus } from "../ui/use-status-focus";
 import { TaskPanel } from "../task/TaskPanel";
 import { epicTones, toneOf } from "../ui/epic-tone";
 import { epicChoices } from "./epic-choices";
@@ -17,11 +21,13 @@ import { toggledTags } from "./tag-filter";
 import { AUTO_CLOSED_VIEW, DEFAULT_FILTER, dateColumnFor, followDateColumn, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
+const COUNT_ANNOUNCE_DELAY_MS = 500;
+
 export function TaskListPage() {
   const { projectId, taskId } = useParams();
   const [search, setSearch] = useSearchParams();
   const navigate = useNavigate();
-  const { data, isPending, isError, refetch } = useTasks();
+  const { data, isPending, isFetching, error, refetch } = useTasks();
   const projects = useProjects();
   const { isNew, markSeen } = useSeenTasks();
 
@@ -38,34 +44,51 @@ export function TaskListPage() {
   const epicFilterChoices = useMemo(() => epicChoices(scopedTasks, tones), [scopedTasks, tones]);
   const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, index).length, [scopedTasks, index]);
   const tags = useMemo(() => collectTags(scopedTasks), [scopedTasks]);
+  const hiddenOpen = useMemo(
+    () => (projectId === undefined && projects.data !== undefined ? allTasks.filter((task) => !activeIds.has(task.projectId) && OPEN_STATUSES.includes(task.status)).length : 0),
+    [allTasks, activeIds, projectId, projects.data],
+  );
 
+  const selectedTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
+  const missingTask = taskId !== undefined && data !== undefined && selectedTask === undefined;
+  const unknownProject = projectId !== undefined && projects.data !== undefined && !projects.data.some((project) => project.id === projectId);
   const projectName = projectId === undefined ? undefined : projectNameOf(projects.data, projectId);
   const viewTitle = viewTitleFor(projectName, params.filter.onlyAutoClosed === true);
   useEffect(() => {
-    document.title = `${viewTitle} — Беклог`;
-  }, [viewTitle]);
+    document.title = selectedTask === undefined ? `${viewTitle} — Беклог` : `${selectedTask.id} · ${selectedTask.title} — Беклог`;
+  }, [viewTitle, selectedTask]);
 
   const setParams = (next: ListParams) => setSearch(writeListParams(next), { replace: true });
   const taskHref = (id: string) => ({ pathname: taskPath(projectId, id), search: searchKey });
-  const selectedTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
   useEffect(() => {
     if (selectedTask !== undefined) markSeen(selectedTask);
   }, [selectedTask, markSeen]);
-  const parseErrors = (data?.errors ?? []).filter((error) => projectId === undefined || error.projectId === projectId);
+  const parseErrors = (data?.errors ?? []).filter((parseError) => projectId === undefined || parseError.projectId === projectId);
+  const view = listViewOf(error, isPending, unknownProject, visibleTasks.length);
+  const shownCount = view.kind === "table" ? visibleTasks.length : null;
+  const announcedCount = useSettledValue(shownCount, COUNT_ANNOUNCE_DELAY_MS) ?? shownCount ?? 0;
+  const heading = useRef<HTMLHeadingElement>(null);
+  const { status, keepFocus } = useStatusFocus(view.kind === "table", heading);
 
   return (
     <main id="content" tabIndex={-1} className={styles.page}>
       <div className={styles.list}>
-        <h1 className={styles.heading}>{viewTitle}</h1>
+        <h1 ref={heading} tabIndex={-1} className={styles.heading}>
+          {viewTitle}
+        </h1>
         <Toolbar params={params} onChange={setParams} tags={tags} epicChoices={epicFilterChoices} autoClosedCount={autoClosedCount} />
+
+        <p className={missingTask ? styles.warning : "visually-hidden"} role="status">
+          {missingTask && `Задачи ${taskId} нет — возможно, её удалили после закрытия.`}
+        </p>
 
         {parseErrors.length > 0 && (
           <div className={styles.warning} role="status">
             <strong>Не удалось разобрать файлы:</strong>
             <ul>
-              {parseErrors.map((error) => (
-                <li key={error.path}>
-                  {error.path} — {error.message}
+              {parseErrors.map((parseError) => (
+                <li key={parseError.path}>
+                  {parseError.path} — {parseError.message}
                 </li>
               ))}
             </ul>
@@ -73,22 +96,37 @@ export function TaskListPage() {
         )}
 
         <div className={styles.tableWrap}>
-          {isError ? (
-            <div className={styles.hint} role="status">
-              <p>
-                Сервер беклога не отвечает. Запустите его: <code>npm start</code> в репозитории p-backlog или, если установлен LaunchAgent из README, <code>launchctl kickstart -k gui/$(id -u)/local.p-backlog</code>
-              </p>
-              <Button onClick={() => void refetch()}>Повторить</Button>
-            </div>
-          ) : isPending ? (
-            <p className={styles.hint}>Загружаем задачи…</p>
-          ) : visibleTasks.length === 0 ? (
-            <EmptyList
-              hasTasks={scopedTasks.length > 0}
-              filter={params.filter}
-              onFilterChange={(filter) => setParams({ ...params, filter })}
-            />
-          ) : (
+          <div ref={status} tabIndex={-1} role="status" className={view.kind === "table" ? "visually-hidden" : styles.hint}>
+            {view.kind === "error" && (
+              <>
+                <p>
+                  <RequestErrorText error={view.error} />
+                </p>
+                <RetryButton
+                  fetching={isFetching}
+                  onRetry={() => {
+                    keepFocus();
+                    void refetch();
+                  }}
+                />
+              </>
+            )}
+            {view.kind === "loading" && <p>Загружаем задачи…</p>}
+            {view.kind === "unknownProject" && <p>Проект не найден.</p>}
+            {view.kind === "empty" && (
+              <EmptyList
+                hasTasks={scopedTasks.length > 0}
+                hiddenOpen={hiddenOpen}
+                filter={params.filter}
+                onFilterChange={(filter) => {
+                  keepFocus();
+                  setParams({ ...params, filter });
+                }}
+              />
+            )}
+            {view.kind === "table" && <p>В списке {pluralCount(announcedCount, "задача", "задачи", "задач")}</p>}
+          </div>
+          {view.kind === "table" && (
             <TaskTable
               tasks={visibleTasks}
               index={index}
@@ -123,34 +161,56 @@ export function TaskListPage() {
 
 function EmptyList({
   hasTasks,
+  hiddenOpen,
   filter,
   onFilterChange,
 }: {
   hasTasks: boolean;
+  hiddenOpen: number;
   filter: ListParams["filter"];
   onFilterChange: (filter: ListParams["filter"]) => void;
 }) {
+  const hiddenNote = `Ещё ${pluralCount(hiddenOpen, "открытая задача", "открытые задачи", "открытых задач")} — в проектах без галочки.`;
   if (!hasTasks) {
+    if (hiddenOpen > 0) return <p>В учтённых проектах задач нет. {hiddenNote}</p>;
     return (
-      <p className={styles.hint}>
+      <p>
         Задач пока нет. Беклог наполняет агент: он записывает задачи командой <code>backlog new</code>, пока работает над кодом.
       </p>
     );
   }
   if (isDefaultFilter(filter)) {
     return (
-      <div className={styles.hint} role="status">
-        <p>Открытых задач нет.</p>
+      <>
+        <p>{hiddenOpen > 0 ? `В учтённых проектах открытых задач нет. ${hiddenNote}` : "Открытых задач нет."}</p>
         <Button onClick={() => onFilterChange({ statuses: undefined })}>Показать все статусы</Button>
-      </div>
+      </>
     );
   }
   return (
-    <div className={styles.hint} role="status">
+    <>
       <p>Под фильтры ничего не подходит.</p>
       <Button onClick={() => onFilterChange(DEFAULT_FILTER)}>Сбросить фильтры</Button>
-    </div>
+    </>
   );
+}
+
+type ListView = { kind: "error"; error: Error } | { kind: "loading" | "unknownProject" | "empty" | "table" };
+
+function listViewOf(error: Error | null, isPending: boolean, unknownProject: boolean, visibleCount: number): ListView {
+  if (error !== null) return { kind: "error", error };
+  if (isPending) return { kind: "loading" };
+  if (unknownProject) return { kind: "unknownProject" };
+  return { kind: visibleCount === 0 ? "empty" : "table" };
+}
+
+function useSettledValue<T>(value: T, delayMs: number): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return settled;
 }
 
 function viewTitleFor(projectName: string | undefined, onlyAutoClosed: boolean): string {

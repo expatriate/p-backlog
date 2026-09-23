@@ -3,6 +3,7 @@ import { formatSigned } from "../../core/stats/format";
 import type { StatsReport, StatsTotals } from "../../core/stats/types";
 import { listPath } from "../app/paths";
 import { useStats } from "../app/queries";
+import { cx } from "../ui/cx";
 import { AgePanel } from "./AgePanel";
 import { ClosingPanel } from "./ClosingPanel";
 import { Figure } from "./Figure";
@@ -41,15 +42,16 @@ function Totals({ totals }: { totals: StatsTotals }) {
   const net = totals.createdLastWeek - totals.closedLastWeek;
   const previous = totals.previous;
   return (
-    <div className={styles.totals}>
+    <div className={cx(styles.totals, styles.totalsPair)}>
       <Figure
         label="Задачи сегодня"
         value={
           <>
-            <span className={styles.growth}>+{totals.createdToday}</span> <span className={styles.decline}>−{totals.closedToday}</span>
+            <span className={totals.createdToday > 0 ? styles.growth : undefined}>+{totals.createdToday}</span>{" "}
+            <span className={totals.closedToday > 0 ? styles.decline : undefined}>−{totals.closedToday}</span>
           </>
         }
-        note="заведено и закрыто"
+        note="создано и закрыто"
       />
       <Figure
         label="За неделю"

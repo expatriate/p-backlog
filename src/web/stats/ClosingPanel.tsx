@@ -29,12 +29,14 @@ export function ClosingPanel({ closing }: { closing: ClosingBreakdown }) {
           </li>
         ))}
       </ul>
-      <p className={rowStyles.muted}>Шум и возвраты:</p>
-      <ul className={rowStyles.rows}>
-        <MetricRow label="Дубли среди закрытых" value={formatShare(closing.duplicateShare)} />
-        <MetricRow label="Без source среди созданных" value={formatShare(closing.withoutSourceShare)} />
-        <MetricRow label="Возвраты" value={closing.reopened} />
-      </ul>
+      <div>
+        <h3 className={rowStyles.subTitle}>Шум и возвраты</h3>
+        <ul className={rowStyles.rows}>
+          <MetricRow label="Дубли среди закрытых" value={formatShare(closing.duplicateShare)} />
+          <MetricRow label="Без source среди созданных" value={formatShare(closing.withoutSourceShare)} />
+          <MetricRow label="Возвраты" value={closing.reopened} />
+        </ul>
+      </div>
     </Panel>
   );
 }

@@ -7,6 +7,10 @@
   overflow: clip;
 }
 
+.cell :focus-visible {
+  outline-offset: -2px;
+}
+
 .more {
   padding: 3px var(--space-2);
   border: 1px solid var(--line);

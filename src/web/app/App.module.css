@@ -5,4 +5,5 @@
 
 .crash h1 {
   font-size: var(--text-lg);
+  font-weight: 600;
 }

@@ -21,7 +21,6 @@
   background: transparent;
   font-size: var(--text-lg);
   font-weight: 600;
-  line-height: 1.3;
   resize: none;
   overflow: hidden;
   flex-shrink: 0;
@@ -72,11 +71,10 @@
 .conflict {
   margin: 0;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--danger-line);
   border-radius: var(--radius-control);
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  font-size: var(--text-sm);
+  background: var(--danger-soft);
+  color: var(--danger-ink);
 }
 
 .warnings {
@@ -86,14 +84,13 @@
   border-radius: var(--radius-control);
   background: var(--warn-soft);
   color: var(--ink);
-  font-size: var(--text-sm);
 }
 
 .readonlyRefs h2 {
   margin: 0 0 var(--space-2);
-  color: var(--ink-subtle);
+  color: var(--ink);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .readonlyRefs ul {
@@ -111,14 +108,35 @@
   text-decoration: none;
 }
 
+.refClosed .refLink {
+  color: var(--ink-subtle);
+}
+
 .refLink:hover {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .saving {
-  min-height: 1.2em;
+  flex-shrink: 0;
+  min-height: 1lh;
   margin: 0;
   color: var(--ink-subtle);
   font-size: var(--text-sm);
+}
+
+.saving:not(:empty),
+.conflict {
+  position: sticky;
+  top: calc(var(--drawer-pad-block-start) * -1);
+  z-index: 1;
+}
+
+.saving:not(:empty) {
+  background: var(--surface-raised);
+  box-shadow: 0 var(--space-2) 0 var(--surface-raised), 0 calc(var(--space-2) + 1px) 0 var(--line);
+}
+
+:has(> .conflict) {
+  scroll-padding-top: calc(4lh + var(--space-4));
 }

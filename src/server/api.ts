@@ -5,7 +5,7 @@ import { projectActiveSchema, projectDeleteSchema, updateTaskRequestSchema, type
 import { projectGraphHealth, type GraphState } from "../core/check/graph-health";
 import { buildIndex, type BacklogIndex } from "../core/model/graph";
 import type { Project } from "../core/model/types";
-import { parseInRussian } from "../core/model/zod-issues";
+import { issueWithoutPath, parseInRussian } from "../core/model/zod-issues";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { deleteProject, setProjectActive } from "../core/store/projects";
 import { updateTaskInIndex } from "../core/store/update";
@@ -122,7 +122,7 @@ type ParsedBody<T> = { ok: true; data: T } | { ok: false; response: Response };
 async function readBody<T>(c: Context, schema: ZodType<T>): Promise<ParsedBody<T>> {
   const body = await readJson(c);
   if (body.ok === false) return { ok: false, response: c.json({ errors: ["Тело запроса не разобрано: ожидается JSON"] }, 400) };
-  const parsed = parseInRussian(schema, body.value);
+  const parsed = parseInRussian(schema, body.value, issueWithoutPath);
   return parsed.ok ? { ok: true, data: parsed.value } : { ok: false, response: c.json({ errors: parsed.errors }, 422) };
 }
 

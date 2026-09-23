@@ -1,8 +1,8 @@
 .page {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   min-height: 0;
-  overflow: hidden;
+  overflow: var(--main-overflow, hidden);
 }
 
 .list {
@@ -10,7 +10,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  overflow-y: auto;
+  overflow-y: var(--main-overflow, auto);
 }
 
 .heading {
@@ -50,7 +50,6 @@
   border-radius: var(--radius-control);
   background: var(--warn-soft);
   color: var(--ink);
-  font-size: var(--text-sm);
 }
 
 .warning ul {

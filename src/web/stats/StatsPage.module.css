@@ -1,7 +1,7 @@
 .page {
   container-type: inline-size;
   min-width: 0;
-  overflow-y: auto;
+  overflow-y: var(--main-overflow, auto);
 }
 
 .heading {
@@ -9,6 +9,13 @@
   padding: var(--space-4) var(--space-5) 0;
   font-size: var(--text-lg);
   font-weight: 600;
+  text-wrap: balance;
+}
+
+.scopeNote {
+  margin: var(--space-1) var(--space-5) 0;
+  color: var(--ink-subtle);
+  font-size: var(--text-sm);
 }
 
 .signals {
@@ -18,7 +25,6 @@
   border-radius: var(--radius-control);
   background: var(--warn-soft);
   color: var(--ink);
-  font-size: var(--text-sm);
 }
 
 .signalsTitle {
@@ -55,7 +61,11 @@
 .tabActive {
   border-bottom-color: var(--ink);
   color: var(--ink);
-  font-weight: 600;
+}
+
+.tabPending {
+  border-bottom-color: var(--line-strong);
+  cursor: progress;
 }
 
 .content {
@@ -87,7 +97,6 @@
   border-radius: var(--radius-control);
   background: var(--warn-soft);
   color: var(--ink);
-  font-size: var(--text-sm);
   text-wrap: pretty;
 }
 
@@ -95,6 +104,10 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
+}
+
+.totalsPair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .figure {
@@ -123,6 +136,7 @@
   font-size: var(--text-xl);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 .growth {
@@ -153,6 +167,12 @@
   }
 
   .blocks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container (max-width: 480px) {
+  .totals {
     grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "../../core/model/types";
-import { ApiError, createApiClient } from "./client";
+import { ApiError, createApiClient, isServerUnreachable } from "./client";
 
 function respond(status: number, body: unknown, contentType = "application/json"): Response {
   const text = typeof body === "string" ? body : JSON.stringify(body);
@@ -33,12 +33,26 @@ describe("ApiError", () => {
     expect(error.current?.id).toBe("SPA-1");
   });
 
-  it("не падает на ответе, который не является JSON", async () => {
-    const client = clientReturning(respond(500, "внутренняя ошибка", "text/plain"));
+  it("обрыв соединения, шлюз 502–504 и ответ не в JSON — сервер недоступен, с командой запуска", async () => {
+    const failures = [
+      createApiClient(async () => Promise.reject(new TypeError("Failed to fetch"))),
+      clientReturning(respond(502, "")),
+      clientReturning(respond(504, { errors: ["gateway"] })),
+      clientReturning(respond(500, "внутренняя ошибка", "text/plain")),
+      clientReturning(respond(200, "<!doctype html>", "text/html")),
+    ];
 
-    const error = (await client.tasks().catch((caught: unknown) => caught)) as ApiError;
+    for (const client of failures) {
+      const error = await client.tasks().catch((caught: unknown) => caught);
+      expect(isServerUnreachable(error)).toBe(true);
+      expect((error as ApiError).message).toMatch(/^Сервер беклога не отвечает\. Запустите его: npm start/);
+    }
+  });
 
-    expect(error).toBeInstanceOf(ApiError);
-    expect(error.errors).toEqual(["Ошибка 500"]);
+  it("ошибка сервера без текста называет код и что делать, а не «не отвечает»", async () => {
+    const error = await clientReturning(respond(500, {})).tasks().catch((caught: unknown) => caught);
+
+    expect(isServerUnreachable(error)).toBe(false);
+    expect((error as ApiError).message).toBe("Сервер вернул ошибку 500. Повторите; если не проходит — перезапустите сервер беклога.");
   });
 });

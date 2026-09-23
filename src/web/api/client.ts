@@ -3,7 +3,6 @@ import type {
   ConflictResponse,
   CostReport,
   EffectReport,
-  ErrorResponse,
   MemorySamplesResponse,
   ProjectDeletedResponse,
   ProjectView,
@@ -23,7 +22,7 @@ export class ApiError extends Error {
     readonly errors: string[],
     readonly current?: Task,
   ) {
-    super(errors.join("; "));
+    super(errors.length > 0 ? errors.join("; ") : fallbackMessage(status));
     this.name = "ApiError";
   }
 }
@@ -43,29 +42,60 @@ export type ApiClient = {
   memorySamples: () => Promise<MemorySamplesResponse>;
 };
 
+const UNREACHABLE_STATUS = 0;
+const GATEWAY_STATUSES = new Set([502, 503, 504]);
+
+export function isServerUnreachable(error: unknown): boolean {
+  return error instanceof ApiError && error.status === UNREACHABLE_STATUS;
+}
+
+export function unreachableMessage<T>(command: (text: string) => T): Array<string | T> {
+  return [
+    "Сервер беклога не отвечает. Запустите его: ",
+    command("npm start"),
+    " в репозитории p-backlog или, если установлен LaunchAgent из README, ",
+    command("launchctl kickstart -k gui/$(id -u)/local.p-backlog"),
+  ];
+}
+
 export function createApiClient(apiFetch: ApiFetch): ApiClient {
-  const read = async <T>(response: Response): Promise<T> => {
-    if (response.ok) return (await response.json()) as T;
-    const body = (await response.json().catch(() => ({ errors: [`Ошибка ${response.status}`] }))) as ErrorResponse &
-      Partial<ConflictResponse>;
-    throw new ApiError(response.status, body.errors ?? [`Ошибка ${response.status}`], body.current);
+  const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
+    const response = await apiFetch(path, init).catch(() => {
+      throw unreachable();
+    });
+    if (GATEWAY_STATUSES.has(response.status)) throw unreachable();
+    const body: unknown = await response.json().catch(() => {
+      throw unreachable();
+    });
+    if (response.ok) return body as T;
+    const { errors = [], current } = body as Partial<ConflictResponse>;
+    throw new ApiError(response.status, errors, current);
   };
   return {
-    projects: async () => read<ProjectView[]>(await apiFetch("/api/projects")),
-    setProjectActive: async (id, active) => read<Project>(await apiFetch(projectPath(id), jsonInit("PATCH", { active }))),
+    projects: () => request<ProjectView[]>("/api/projects"),
+    setProjectActive: (id, active) => request<Project>(projectPath(id), jsonInit("PATCH", { active })),
     deleteProject: async (id, confirm) => {
-      await read<ProjectDeletedResponse>(await apiFetch(projectPath(id), jsonInit("DELETE", { confirm })));
+      await request<ProjectDeletedResponse>(projectPath(id), jsonInit("DELETE", { confirm }));
     },
-    tasks: async () => read<TasksResponse>(await apiFetch("/api/tasks")),
-    updateTask: async (id, version, changes) => read<Task>(await apiFetch(`/api/tasks/${id}`, jsonInit("PATCH", { version, changes }))),
-    stats: async (projectId) => read<StatsReport>(await apiFetch(scopedPath("/api/stats", projectId))),
-    codeStats: async (projectId) => read<CodeReport>(await apiFetch(scopedPath("/api/stats/code", projectId))),
-    effectStats: async (projectId) => read<EffectReport>(await apiFetch(scopedPath("/api/stats/effect", projectId))),
-    qualityStats: async (projectId) => read<QualityReport>(await apiFetch(scopedPath("/api/stats/quality", projectId))),
-    signals: async (projectId) => read<SignalsReport>(await apiFetch(scopedPath("/api/stats/signals", projectId))),
-    costStats: async (projectId) => read<CostReport>(await apiFetch(scopedPath("/api/stats/cost", projectId))),
-    memorySamples: async () => read<MemorySamplesResponse>(await apiFetch("/api/stats/memory")),
+    tasks: () => request<TasksResponse>("/api/tasks"),
+    updateTask: (id, version, changes) => request<Task>(`/api/tasks/${id}`, jsonInit("PATCH", { version, changes })),
+    stats: (projectId) => request<StatsReport>(scopedPath("/api/stats", projectId)),
+    codeStats: (projectId) => request<CodeReport>(scopedPath("/api/stats/code", projectId)),
+    effectStats: (projectId) => request<EffectReport>(scopedPath("/api/stats/effect", projectId)),
+    qualityStats: (projectId) => request<QualityReport>(scopedPath("/api/stats/quality", projectId)),
+    signals: (projectId) => request<SignalsReport>(scopedPath("/api/stats/signals", projectId)),
+    costStats: (projectId) => request<CostReport>(scopedPath("/api/stats/cost", projectId)),
+    memorySamples: () => request<MemorySamplesResponse>("/api/stats/memory"),
   };
+}
+
+function unreachable(): ApiError {
+  return new ApiError(UNREACHABLE_STATUS, []);
+}
+
+function fallbackMessage(status: number): string {
+  if (status === UNREACHABLE_STATUS) return unreachableMessage((command) => command).join("");
+  return `Сервер вернул ошибку ${status}. Повторите; если не проходит — перезапустите сервер беклога.`;
 }
 
 function projectPath(id: string): string {

@@ -31,12 +31,14 @@
 
 .delete:hover {
   background: var(--surface-hover);
-  color: var(--accent-ink);
+  color: var(--danger-ink);
 }
 
 .error {
   flex-basis: 100%;
   order: 1;
-  color: var(--accent-ink);
+  padding-inline-start: calc(24px + var(--space-2));
+  text-wrap: pretty;
+  color: var(--danger-ink);
   font-size: var(--text-sm);
 }

@@ -1,6 +1,6 @@
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr));
   gap: var(--space-3);
 }
 
@@ -13,7 +13,12 @@
   color: var(--ink-subtle);
 }
 
+.grid :is(select, input),
+.tags input {
+  font-size: var(--text-base);
+}
+
 .fieldError {
-  color: var(--accent-ink);
+  color: var(--danger-ink);
   font-size: var(--text-sm);
 }

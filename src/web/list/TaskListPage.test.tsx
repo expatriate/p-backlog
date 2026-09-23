@@ -1,8 +1,10 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
+import type { TestApp } from "../../server/testing/test-app";
 import { renderApp } from "../testing/render-app";
 
 const FILES = {
@@ -13,6 +15,23 @@ const FILES = {
   "torg-io/project.md": projectFile("TI"),
   "torg-io/TI-1.md": taskFixture("TI-1", { title: "Каталог тормозит" }),
 };
+
+type TasksAnswer = "ok" | "unreachable" | "server-error" | "hang";
+
+function controlTasksRequest(initial: TasksAnswer) {
+  const control: { answer: TasksAnswer; gate?: Promise<void> } = { answer: initial };
+  const beforeRender = (app: TestApp) => {
+    const request = app.request;
+    app.request = async (path, init) => {
+      if (path === "/api/tasks") await control.gate;
+      if (path !== "/api/tasks" || control.answer === "ok") return request(path, init);
+      if (control.answer === "hang") return new Promise<Response>(() => {});
+      if (control.answer === "unreachable") throw new TypeError("Failed to fetch");
+      return new Response(JSON.stringify({ errors: ["EACCES: permission denied"] }), { status: 500, headers: { "content-type": "application/json" } });
+    };
+  };
+  return { control, beforeRender };
+}
 
 async function rowTitles(): Promise<string[]> {
   const rows = await screen.findAllByRole("row");
@@ -252,10 +271,174 @@ describe("список задач", () => {
 
     await app.user.click(link);
     await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    expect(link.getAttribute("aria-current")).toBe("true");
     await app.user.keyboard("{Escape}");
 
     await waitFor(() => expect(screen.queryByRole("complementary", { name: "Задача SPA-1" })).toBeNull());
     expect(document.activeElement?.textContent).toBe("Таймауты загрузки");
+  });
+
+  it("недоступный сервер и ошибка сервера описаны по-разному", async () => {
+    const { control, beforeRender } = controlTasksRequest("unreachable");
+    await renderApp(FILES, "/", undefined, { beforeRender });
+
+    expect(await screen.findByText(/^Сервер беклога не отвечает\. Запустите его:/)).toBeDefined();
+
+    control.answer = "server-error";
+    await userEvent.click(screen.getByRole("button", { name: "Повторить" }));
+
+    expect(await screen.findByText("Сервер вернул ошибку: EACCES: permission denied")).toBeDefined();
+    expect(screen.queryByText(/не отвечает/)).toBeNull();
+  });
+
+  it("«Повторить» после сбоя загруженного списка показывает, что повтор идёт, и не перезапускает его", async () => {
+    const { control, beforeRender } = controlTasksRequest("ok");
+    const app = await renderApp(FILES, "/", undefined, { beforeRender });
+    await screen.findAllByRole("row");
+
+    control.answer = "unreachable";
+    await app.user.click(screen.getByRole("checkbox", { name: "Учитывать проект ti в области «Проекты»" }));
+    const retry = await screen.findByRole("button", { name: "Повторить" });
+
+    control.answer = "hang";
+    await app.user.click(retry);
+
+    expect(retry.textContent).toBe("Повторяем…");
+    expect(retry.getAttribute("aria-disabled")).toBe("true");
+    expect(document.activeElement).toBe(retry);
+  });
+
+  it("«Повторить» после сбоя первой загрузки не роняет фокус: он на области состояния, после загрузки — на заголовке списка", async () => {
+    const { control, beforeRender } = controlTasksRequest("unreachable");
+    const app = await renderApp(FILES, "/", undefined, { beforeRender });
+    const retry = await screen.findByRole("button", { name: "Повторить" });
+
+    let release = () => {};
+    control.gate = new Promise((resolve) => (release = resolve));
+    retry.focus();
+    await app.user.keyboard("{Enter}");
+
+    await waitFor(() => expect(document.activeElement?.textContent).toBe("Загружаем задачи…"));
+    expect(document.activeElement?.getAttribute("role")).toBe("status");
+
+    control.answer = "ok";
+    release();
+
+    await screen.findAllByRole("row");
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 })));
+  });
+
+  it("«Сбросить фильтры» переводит фокус на заголовок списка, а не теряет его", async () => {
+    const app = await renderApp(FILES);
+    await screen.findAllByRole("row");
+    await app.user.type(screen.getByRole("searchbox", { name: "Поиск задач" }), "нет такого");
+    const reset = await screen.findByRole("button", { name: "Сбросить фильтры" });
+
+    reset.focus();
+    await app.user.keyboard("{Enter}");
+
+    await waitFor(async () => expect(await rowTitles()).toHaveLength(3));
+    expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 }));
+  });
+
+  it("число задач объявляется через постоянную область статуса", async () => {
+    const app = await renderApp(FILES);
+    await screen.findAllByRole("row");
+    const status = (await screen.findByText(/^В списке/)).closest("[role=status]");
+    await waitFor(() => expect(status?.textContent).toBe("В списке 3\u00a0задачи"));
+
+    await app.user.type(screen.getByRole("searchbox", { name: "Поиск задач" }), "очередь");
+
+    await waitFor(() => expect(status?.textContent).toBe("В списке 1\u00a0задача"));
+  });
+
+  it("задача из адреса, которой нет, отмечена, а список остаётся", async () => {
+    await renderApp(FILES, "/t/SPA-99");
+
+    expect(await screen.findByText("Задачи SPA-99 нет — возможно, её удалили после закрытия.")).toBeDefined();
+    expect(await rowTitles()).toHaveLength(3);
+  });
+
+  it("неизвестный проект из адреса — «Проект не найден», а не пустой беклог", async () => {
+    await renderApp(FILES, "/p/nope");
+
+    expect(await screen.findByText("Проект не найден.")).toBeDefined();
+    expect(screen.queryByText(/Беклог наполняет агент/)).toBeNull();
+  });
+
+  it("заголовок вкладки с открытой карточкой называет задачу", async () => {
+    await renderApp(FILES, "/t/SPA-1");
+
+    await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    expect(document.title).toBe("SPA-1 · Таймауты загрузки — Беклог");
+  });
+
+  it("карточка поверх страницы: под ней ничего не доступно с клавиатуры, после закрытия — снова доступно", async () => {
+    const overlayLayout = document.head.appendChild(document.createElement("style"));
+    overlayLayout.textContent = "aside { position: fixed; }";
+    onTestFinished(() => overlayLayout.remove());
+    const app = await renderApp(FILES);
+    const link = await screen.findByRole("link", { name: "Таймауты загрузки" });
+    const nav = screen.getByRole("navigation", { name: "Навигация" });
+
+    await app.user.click(link);
+    await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    expect(nav.closest("[inert]")).not.toBeNull();
+    expect(link.closest("[inert]")).not.toBeNull();
+
+    await app.user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Задача SPA-1" })).toBeNull());
+    expect(nav.closest("[inert]")).toBeNull();
+    expect(link.closest("[inert]")).toBeNull();
+    expect(document.activeElement).toBe(link);
+  });
+
+  it("карточка поверх страницы закрывается нажатием на затемнённый фон", async () => {
+    const overlayLayout = document.head.appendChild(document.createElement("style"));
+    overlayLayout.textContent = "aside { position: fixed; }";
+    onTestFinished(() => overlayLayout.remove());
+    const app = await renderApp(FILES, "/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    await app.user.click(within(panel).getByRole("combobox", { name: "Приоритет" }));
+    expect(app.route()).toBe("/t/SPA-1");
+
+    await app.user.pointer({ keys: "[MouseLeft]", target: screen.getByRole("main") });
+
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Задача SPA-1" })).toBeNull());
+    expect(app.route()).toBe("/");
+  });
+
+  it("окно сузилось, и карточка легла поверх страницы — фокус из ставшего недоступным списка переходит в карточку", async () => {
+    const app = await renderApp(FILES, "/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    await app.user.click(screen.getByRole("searchbox", { name: "Поиск задач" }));
+
+    const overlayLayout = document.head.appendChild(document.createElement("style"));
+    overlayLayout.textContent = "aside { position: fixed; }";
+    onTestFinished(() => overlayLayout.remove());
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expect(screen.getByRole("searchbox", { name: "Поиск задач" }).closest("[inert]")).not.toBeNull();
+    expect(document.activeElement).toBe(panel);
+  });
+
+  it("Esc в поле карточки, затем Esc — карточка закрыта, фокус на строке, с которой её открыли", async () => {
+    const app = await renderApp(FILES);
+    const link = await screen.findByRole("link", { name: "Таймауты загрузки" });
+
+    await app.user.click(link);
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    await app.user.click(within(panel).getByRole("combobox", { name: "Приоритет" }));
+    await app.user.keyboard("{Escape}");
+    await app.user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Задача SPA-1" })).toBeNull());
+    expect(document.activeElement).toBe(link);
   });
 
   it("по тегам не сортирует", async () => {
@@ -541,6 +724,29 @@ describe("шильдик «новая»", () => {
 });
 
 describe("область «Проекты»", () => {
+  it("пустой список называет открытые задачи в неучтённых проектах", async () => {
+    await renderApp({
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-2.md": taskFixture("SPA-2", { status: "done" }),
+      "torg-io/project.md": projectFile("TI", [], { active: false }),
+      "torg-io/TI-1.md": taskFile("TI-1"),
+      "torg-io/TI-2.md": taskFile("TI-2"),
+    });
+
+    expect(await screen.findByText("В учтённых проектах открытых задач нет. Ещё 2 открытые задачи — в проектах без галочки.")).toBeDefined();
+  });
+
+  it("если в учтённых проектах задач нет совсем, пустой список не говорит «задач пока нет»", async () => {
+    await renderApp({
+      "spa/project.md": projectFile("SPA"),
+      "torg-io/project.md": projectFile("TI", [], { active: false }),
+      "torg-io/TI-1.md": taskFile("TI-1"),
+    });
+
+    expect(await screen.findByText("В учтённых проектах задач нет. Ещё 1 открытая задача — в проектах без галочки.")).toBeDefined();
+    expect(screen.queryByText(/Задач пока нет/)).toBeNull();
+  });
+
   it("не показывает задачи неактивного проекта", async () => {
     await renderApp({
       "spa/project.md": projectFile("SPA"),

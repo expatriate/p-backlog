@@ -63,4 +63,38 @@ describe("Popover", () => {
     const field = screen.getByRole("textbox", { name: "Поле" });
     expect(document.activeElement).toBe(field);
   });
+
+  it("меню закрывается, когда фокус уходит за его пределы по Tab", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <Popover trigger="Меню">
+          <input aria-label="Поле" {...POPOVER_INITIAL_FOCUS} />
+        </Popover>
+        <button type="button">Дальше</button>
+      </>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Меню" }));
+    await user.tab();
+
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Дальше" }));
+    expect(screen.queryByRole("textbox", { name: "Поле" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Меню" }).getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("переход фокуса внутри меню его не закрывает", async () => {
+    const user = userEvent.setup();
+    render(
+      <Popover trigger="Меню">
+        <input aria-label="Поле" {...POPOVER_INITIAL_FOCUS} />
+        <button type="button">Пункт</button>
+      </Popover>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Меню" }));
+    await user.tab();
+
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Пункт" }));
+  });
 });

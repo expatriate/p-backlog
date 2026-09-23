@@ -117,7 +117,7 @@
 }
 
 .alarmOn {
-  color: var(--accent-ink);
+  color: var(--warn);
   font-weight: 600;
 }
 

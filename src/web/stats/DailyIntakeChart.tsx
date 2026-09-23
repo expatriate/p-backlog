@@ -10,18 +10,18 @@ import { Panel } from "./Panel";
 
 const CREATED = "var(--chart-bar-warm)";
 
-const LEGEND: LegendItem[] = [{ label: "заведено задач", shape: "bar", color: CREATED }];
+const LEGEND: LegendItem[] = [{ label: "создано задач", shape: "bar", color: CREATED }];
 
 const dayTooltip = rowTooltip((day: DayFlow) => ({
   title: tooltipDay(day.day),
-  rows: [{ label: "заведено", value: pluralCount(day.created, "задача", "задачи", "задач"), shape: "bar", color: CREATED }],
+  rows: [{ label: "создано", value: pluralCount(day.created, "задача", "задачи", "задач"), shape: "bar", color: CREATED }],
 }));
 
 export function DailyIntakePanel({ days }: { days: DayFlow[] }) {
   return (
-    <Panel title="Заведено по дням">
+    <Panel title="Создано по дням">
       <ChartFrame summary={intakeSummary(days)} legend={LEGEND}>
-        <ComposedChart data={days} margin={CHART_MARGIN} aria-label={chartLabel("Заведено по дням", "дням")}>
+        <ComposedChart data={days} margin={CHART_MARGIN} aria-label={chartLabel("Создано по дням", "дням")}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="day" tickFormatter={axisDay} {...DATE_AXIS_PROPS} />
           <YAxis allowDecimals={false} tickFormatter={compactNumber} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
@@ -36,6 +36,6 @@ export function DailyIntakePanel({ days }: { days: DayFlow[] }) {
 function intakeSummary(days: DayFlow[]): string {
   const created = sum(days.map((day) => day.created));
   const period = pluralCount(days.length, "день", "дня", "дней");
-  if (created === 0) return `${period}: задач не заводили`;
-  return `${period}: заведено ${created}, в среднем ${formatDecimal(created / days.length)} в день`;
+  if (created === 0) return `${period}: задач не создавали`;
+  return `${period}: создано ${created}, в среднем ${formatDecimal(created / days.length)} в день`;
 }

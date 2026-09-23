@@ -19,6 +19,7 @@ for (const width of [1280, 375]) {
     await expect(chart.locator(".recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value").first()).toBeVisible();
 
     const plot = chart.locator(".recharts-surface");
+    await plot.scrollIntoViewIfNeeded();
     const box = await plot.boundingBox();
     if (box === null) throw new Error("график не нарисован");
     await page.mouse.move(box.x + box.width - 70, box.y + box.height / 2);

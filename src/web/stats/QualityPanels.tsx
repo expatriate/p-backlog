@@ -29,8 +29,12 @@ export function AccuracyPanel({ rows, weeks, methodRows, matchRows }: AccuracyPa
           <StatsTable
             label="Точность проверки за период"
             head={["Улика", "Кандидатов", "Закрыто", "Подтверждено", "Без решения", "Точность"]}
-            rows={rows.flatMap((row) => [
-              { key: row.evidence, cells: [EVIDENCE_LABELS[row.evidence], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)] },
+            rows={rows.flatMap((row): StatsTableRow[] => [
+              {
+                key: row.evidence,
+                tone: row.evidence === "total" ? "total" : undefined,
+                cells: [EVIDENCE_LABELS[row.evidence], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)],
+              },
               ...splitOf(row.evidence).map((split) => ({ ...split, key: `${row.evidence}-${split.key}` })),
             ])}
           />
@@ -41,7 +45,7 @@ export function AccuracyPanel({ rows, weeks, methodRows, matchRows }: AccuracyPa
 }
 
 function splitRow(split: SplitRow, label: string): StatsTableRow {
-  return { key: split.by, cells: [`└ из них ${label}`, split.candidates, split.closed, split.verified, split.open, formatShare(split.precision)] };
+  return { key: split.by, tone: "child", cells: [`└ из них ${label}`, split.candidates, split.closed, split.verified, split.open, formatShare(split.precision)] };
 }
 
 export function GraphPanel({ graph }: { graph: GraphReport }) {

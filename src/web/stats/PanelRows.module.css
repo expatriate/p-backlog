@@ -6,9 +6,9 @@
 
 .subTitle {
   margin: 0 0 var(--space-2);
-  color: var(--ink-subtle);
+  color: var(--ink);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .rows {
