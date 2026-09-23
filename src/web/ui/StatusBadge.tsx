@@ -1,5 +1,5 @@
 import type { TaskStatus } from "../../core/model/types";
-import { STATUS_LABELS } from "../labels";
+import { useMessages } from "../i18n";
 import { cx } from "./cx";
 import styles from "./StatusBadge.module.css";
 
@@ -12,10 +12,11 @@ const MODIFIERS: Record<TaskStatus, string | undefined> = {
 };
 
 export function StatusBadge({ status }: { status: TaskStatus }) {
+  const { core } = useMessages();
   return (
     <span className={cx(styles.badge, MODIFIERS[status])}>
       <span className={styles.dot} />
-      {STATUS_LABELS[status]}
+      {core.statusLabel(status)}
     </span>
   );
 }

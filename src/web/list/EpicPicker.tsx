@@ -1,9 +1,11 @@
 import { useRef, type ReactNode } from "react";
 import type { TaskFilter } from "../../core/model/query";
+import { useMessages } from "../i18n";
 import { CloseIcon } from "../ui/CloseIcon";
 import { cx } from "../ui/cx";
 import { Popover, POPOVER_INITIAL_FOCUS, useClosePopover } from "../ui/Popover";
 import type { EpicChoices } from "./epic-choices";
+import type { ListMessages } from "./messages.ru";
 import styles from "./EpicPicker.module.css";
 
 type EpicSelection = TaskFilter["epic"];
@@ -11,6 +13,7 @@ type EpicSelection = TaskFilter["epic"];
 export type EpicPickerProps = { choices: EpicChoices; selected: EpicSelection; onSelect: (epic: EpicSelection) => void };
 
 export function EpicPicker({ choices, selected, onSelect }: EpicPickerProps) {
+  const { list } = useMessages();
   const trigger = useRef<HTMLButtonElement>(null);
   const chosen = choices.epics.find((epic) => epic.id === selected);
 
@@ -20,12 +23,12 @@ export function EpicPicker({ choices, selected, onSelect }: EpicPickerProps) {
         triggerRef={trigger}
         triggerProps={{
           className: styles.toggle,
-          "aria-label": chosen === undefined ? undefined : `Эпик: ${chosen.title}`,
-          title: chosen === undefined ? undefined : `${chosen.id} — ${chosen.title}`,
+          "aria-label": chosen === undefined ? undefined : list.epicPrefix(chosen.title),
+          title: chosen === undefined ? undefined : list.epicTitle(chosen.id, chosen.title),
         }}
         trigger={
           chosen === undefined ? (
-            `Эпик: ${selectionLabel(selected)}`
+            list.epicPrefix(selectionLabel(list, selected))
           ) : (
             <>
               <span className={styles.dot} data-epic-tone={chosen.tone} aria-hidden="true" />
@@ -40,7 +43,7 @@ export function EpicPicker({ choices, selected, onSelect }: EpicPickerProps) {
         <button
           type="button"
           className={styles.reset}
-          aria-label="Сбросить эпик"
+          aria-label={list.resetEpic}
           onClick={() => {
             onSelect(undefined);
             trigger.current?.focus();
@@ -54,6 +57,7 @@ export function EpicPicker({ choices, selected, onSelect }: EpicPickerProps) {
 }
 
 function EpicOptions({ choices, selected, onSelect }: EpicPickerProps) {
+  const { list } = useMessages();
   const closePopover = useClosePopover();
   const choose = (epic: EpicSelection) => {
     onSelect(epic);
@@ -62,12 +66,12 @@ function EpicOptions({ choices, selected, onSelect }: EpicPickerProps) {
   const foreignEpic = typeof selected === "string" && !choices.epics.some((epic) => epic.id === selected) ? selected : undefined;
 
   return (
-    <div className={styles.options} role="group" aria-label="Эпики">
+    <div className={styles.options} role="group" aria-label={list.epics}>
       <EpicOption pressed={selected === undefined} onChoose={() => choose(undefined)}>
-        Любой эпик
+        {list.anyEpic}
       </EpicOption>
       <EpicOption pressed={selected === null} onChoose={() => choose(null)}>
-        Без эпика <span className={styles.count}>{choices.withoutEpicCount}</span>
+        {list.noEpic} <span className={styles.count}>{choices.withoutEpicCount}</span>
       </EpicOption>
       {(choices.epics.length > 0 || foreignEpic !== undefined) && (
         <div className={styles.epics}>
@@ -75,7 +79,7 @@ function EpicOptions({ choices, selected, onSelect }: EpicPickerProps) {
             <EpicOption pressed onChoose={() => choose(foreignEpic)}>
               <span className={styles.dot} aria-hidden="true" />
               <span className={styles.id}>{foreignEpic}</span>
-              <span className={styles.title}>эпик не найден</span>
+              <span className={styles.title}>{list.epicNotFound}</span>
             </EpicOption>
           )}
           {choices.epics.map((epic) => (
@@ -107,8 +111,8 @@ function EpicOption({ pressed, tone, onChoose, children }: { pressed: boolean; t
   );
 }
 
-function selectionLabel(selected: EpicSelection): string {
-  if (selected === undefined) return "любой";
-  if (selected === null) return "без эпика";
+function selectionLabel(list: ListMessages, selected: EpicSelection): string {
+  if (selected === undefined) return list.anyEpicLabel;
+  if (selected === null) return list.noEpicLabel;
   return selected;
 }

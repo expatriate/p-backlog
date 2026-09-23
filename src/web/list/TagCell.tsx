@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { useMessages } from "../i18n";
 import { Chip, ToggleChip } from "../ui/Chip";
 import { fittingTagCount } from "./fit-tags";
 import styles from "./TagCell.module.css";
@@ -6,6 +7,7 @@ import styles from "./TagCell.module.css";
 export type TagCellProps = { tags: readonly string[]; selected: readonly string[]; onToggle: (tag: string) => void };
 
 export function TagCell({ tags, selected, onToggle }: TagCellProps) {
+  const { list } = useMessages();
   const cell = useRef<HTMLDivElement>(null);
   const tagRuler = useRef<HTMLSpanElement>(null);
   const moreRuler = useRef<HTMLSpanElement>(null);
@@ -43,11 +45,11 @@ export function TagCell({ tags, selected, onToggle }: TagCellProps) {
       ))}
       {expanded ? (
         <button type="button" className={styles.more} onClick={() => setExpanded(false)} aria-expanded={true}>
-          свернуть
+          {list.collapseTags}
         </button>
       ) : (
         hiddenCount > 0 && (
-          <button type="button" className={styles.more} onClick={() => setExpanded(true)} aria-expanded={false} aria-label={`Показать ещё ${hiddenCount}`} title={tags.join(", ")}>
+          <button type="button" className={styles.more} onClick={() => setExpanded(true)} aria-expanded={false} aria-label={list.showMoreTags(hiddenCount)} title={tags.join(", ")}>
             +{hiddenCount}
           </button>
         )

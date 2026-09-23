@@ -4,16 +4,18 @@ import { activeProjectIds, projectNameOf, tasksInScope } from "../app/scope";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
-import { countRu } from "../../core/i18n/plural";
+import { localeOf, type Language } from "../../core/i18n/language";
 import type { Task } from "../../core/model/types";
 import { useProjects, useTasks } from "../app/queries";
 import { RequestErrorText } from "../app/RequestErrorText";
+import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { RetryButton } from "../ui/RetryButton";
 import { useStatusFocus } from "../ui/use-status-focus";
 import { TaskPanel } from "../task/TaskPanel";
 import { epicTones, toneOf } from "../ui/epic-tone";
 import { epicChoices } from "./epic-choices";
+import type { ListMessages } from "./messages.ru";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
 import { useSeenTasks } from "./use-seen-tasks";
@@ -24,6 +26,8 @@ import styles from "./TaskListPage.module.css";
 const COUNT_ANNOUNCE_DELAY_MS = 500;
 
 export function TaskListPage() {
+  const { list } = useMessages();
+  const language = useLanguage();
   const { projectId, taskId } = useParams();
   const [search, setSearch] = useSearchParams();
   const navigate = useNavigate();
@@ -43,20 +47,21 @@ export function TaskListPage() {
   const visibleTasks = useMemo(() => sortTasks(filterTasks(scopedTasks, params.filter, index), sort, index), [scopedTasks, index, params.filter, sort]);
   const epicFilterChoices = useMemo(() => epicChoices(scopedTasks, tones), [scopedTasks, tones]);
   const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, index).length, [scopedTasks, index]);
-  const tags = useMemo(() => collectTags(scopedTasks), [scopedTasks]);
+  const tags = useMemo(() => collectTags(scopedTasks, language), [scopedTasks, language]);
   const hiddenOpen = useMemo(
     () => (projectId === undefined && projects.data !== undefined ? allTasks.filter((task) => !activeIds.has(task.projectId) && OPEN_STATUSES.includes(task.status)).length : 0),
     [allTasks, activeIds, projectId, projects.data],
   );
 
   const selectedTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
-  const missingTask = taskId !== undefined && data !== undefined && selectedTask === undefined;
+  const missingTaskId = taskId !== undefined && data !== undefined && selectedTask === undefined ? taskId : undefined;
+  const missingTask = missingTaskId !== undefined;
   const unknownProject = projectId !== undefined && projects.data !== undefined && !projects.data.some((project) => project.id === projectId);
   const projectName = projectId === undefined ? undefined : projectNameOf(projects.data, projectId);
-  const viewTitle = viewTitleFor(projectName, params.filter.onlyAutoClosed === true);
+  const viewTitle = viewTitleFor(list, projectName, params.filter.onlyAutoClosed === true);
   useEffect(() => {
-    document.title = selectedTask === undefined ? `${viewTitle} — Беклог` : `${selectedTask.id} · ${selectedTask.title} — Беклог`;
-  }, [viewTitle, selectedTask]);
+    document.title = selectedTask === undefined ? list.docTitle(viewTitle) : list.taskDocTitle(selectedTask.id, selectedTask.title);
+  }, [list, viewTitle, selectedTask]);
 
   const setParams = (next: ListParams) => setSearch(writeListParams(next), { replace: true });
   const taskHref = (id: string) => ({ pathname: taskPath(projectId, id), search: searchKey });
@@ -80,13 +85,13 @@ export function TaskListPage() {
         <Toolbar params={params} onChange={setParams} tags={tags} epicChoices={epicFilterChoices} autoClosedCount={autoClosedCount} />
 
         <p className={missingTask ? styles.warning : "visually-hidden"} role="status">
-          {missingTask && `Задачи ${taskId} нет — возможно, её удалили после закрытия.`}
+          {missingTaskId !== undefined && list.missingTask(missingTaskId)}
         </p>
 
         <div className={parseErrors.length > 0 ? styles.warning : "visually-hidden"} role="status">
           {parseErrors.length > 0 && (
             <>
-              <strong>Не удалось разобрать файлы:</strong>
+              <strong>{list.parseErrorsTitle}</strong>
               <ul>
                 {parseErrors.map((parseError) => (
                   <li key={parseError.path}>
@@ -114,10 +119,11 @@ export function TaskListPage() {
                 />
               </>
             )}
-            {content === "loading" && <p>Загружаем задачи…</p>}
-            {content === "unknownProject" && <p>Проект не найден.</p>}
+            {content === "loading" && <p>{list.loadingTasks}</p>}
+            {content === "unknownProject" && <p>{list.unknownProject}</p>}
             {content === "empty" && (
               <EmptyList
+                list={list}
                 hasTasks={scopedTasks.length > 0}
                 hiddenOpen={hiddenOpen}
                 filter={params.filter}
@@ -127,7 +133,7 @@ export function TaskListPage() {
                 }}
               />
             )}
-            {settled && <p>В списке {countRu(announcedCount, "задача", "задачи", "задач")}</p>}
+            {settled && <p>{list.taskCount(announcedCount)}</p>}
           </div>
           {content === "table" && (
             <TaskTable
@@ -163,37 +169,35 @@ export function TaskListPage() {
 }
 
 function EmptyList({
+  list,
   hasTasks,
   hiddenOpen,
   filter,
   onFilterChange,
 }: {
+  list: ListMessages;
   hasTasks: boolean;
   hiddenOpen: number;
   filter: ListParams["filter"];
   onFilterChange: (filter: ListParams["filter"]) => void;
 }) {
-  const hiddenNote = `Ещё ${countRu(hiddenOpen, "открытая задача", "открытые задачи", "открытых задач")} — в проектах без галочки.`;
+  const hiddenNote = list.hiddenOpenNote(hiddenOpen);
   if (!hasTasks) {
-    if (hiddenOpen > 0) return <p>В учтённых проектах задач нет. {hiddenNote}</p>;
-    return (
-      <p>
-        Задач пока нет. Беклог наполняет агент: он записывает задачи командой <code className="inline-code">backlog new</code>, пока работает над кодом.
-      </p>
-    );
+    if (hiddenOpen > 0) return <p>{list.noTasksInScope(hiddenNote)}</p>;
+    return <p>{list.noTasksYet((text) => <code key={text} className="inline-code">{text}</code>)}</p>;
   }
   if (isDefaultFilter(filter)) {
     return (
       <>
-        <p>{hiddenOpen > 0 ? `В учтённых проектах открытых задач нет. ${hiddenNote}` : "Открытых задач нет."}</p>
-        <Button onClick={() => onFilterChange({ statuses: undefined })}>Показать все статусы</Button>
+        <p>{hiddenOpen > 0 ? list.noOpenTasksInScope(hiddenNote) : list.noOpenTasks}</p>
+        <Button onClick={() => onFilterChange({ statuses: undefined })}>{list.showAllStatuses}</Button>
       </>
     );
   }
   return (
     <>
-      <p>Под фильтры ничего не подходит.</p>
-      <Button onClick={() => onFilterChange(DEFAULT_FILTER)}>Сбросить фильтры</Button>
+      <p>{list.noMatches}</p>
+      <Button onClick={() => onFilterChange(DEFAULT_FILTER)}>{list.resetFilters}</Button>
     </>
   );
 }
@@ -215,11 +219,11 @@ function useSettledValue<T>(value: T, delayMs: number): T {
   return settled;
 }
 
-function viewTitleFor(projectName: string | undefined, onlyAutoClosed: boolean): string {
-  if (onlyAutoClosed) return projectName === undefined ? "Закрыты агентом" : `Закрыты агентом · ${projectName}`;
-  return projectName ?? "Проекты";
+function viewTitleFor(list: ListMessages, projectName: string | undefined, onlyAutoClosed: boolean): string {
+  if (onlyAutoClosed) return projectName === undefined ? list.autoClosed : list.autoClosedInProject(projectName);
+  return projectName ?? list.projects;
 }
 
-function collectTags(tasks: readonly Task[]): string[] {
-  return [...new Set(tasks.flatMap((task) => task.tags))].sort((a, b) => a.localeCompare(b, "ru"));
+function collectTags(tasks: readonly Task[], language: Language): string[] {
+  return [...new Set(tasks.flatMap((task) => task.tags))].sort((a, b) => a.localeCompare(b, localeOf(language)));
 }

@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
+import { TestMessagesProvider } from "../i18n";
 import type { EpicChoices } from "./epic-choices";
 import { DEFAULT_SORT, type ListParams } from "./list-params";
 import { Toolbar } from "./Toolbar";
@@ -10,7 +11,11 @@ const NO_EPICS: EpicChoices = { epics: [], withoutEpicCount: 0 };
 
 function ToolbarHarness({ initial, tags = [], epicChoices = NO_EPICS }: { initial: ListParams["filter"]; tags?: string[]; epicChoices?: EpicChoices }) {
   const [params, setParams] = useState<ListParams>({ filter: initial, sort: DEFAULT_SORT });
-  return <Toolbar params={params} onChange={setParams} tags={tags} epicChoices={epicChoices} autoClosedCount={0} />;
+  return (
+    <TestMessagesProvider>
+      <Toolbar params={params} onChange={setParams} tags={tags} epicChoices={epicChoices} autoClosedCount={0} />
+    </TestMessagesProvider>
+  );
 }
 
 function statusChip(name: string): HTMLElement {

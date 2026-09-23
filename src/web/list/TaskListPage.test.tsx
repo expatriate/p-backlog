@@ -783,3 +783,12 @@ describe("область «Проекты»", () => {
     expect(screen.queryAllByRole("link", { name: /TI-1/ })).toHaveLength(0);
   });
 });
+
+describe("английский язык", () => {
+  it("заголовок вида и колонки таблицы переведены", async () => {
+    await renderApp(FILES, "/", undefined, { language: "en" });
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Projects" })).toBeDefined();
+    expect(await screen.findByRole("columnheader", { name: /Status/ })).toBeDefined();
+  });
+});

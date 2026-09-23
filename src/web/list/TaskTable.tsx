@@ -1,9 +1,12 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router";
 import { isBlocked, type BacklogIndex } from "../../core/model/graph";
+import { formatDate } from "../../core/i18n/format";
+import type { Language } from "../../core/i18n/language";
 import type { SortDirection, SortKey, TaskSort } from "../../core/model/query";
 import type { Priority, Task } from "../../core/model/types";
-import { DIRECTION_MARKS, PRIORITY_LABELS, RESOLUTION_LABELS, formatDate } from "../labels";
+import { DIRECTION_MARKS } from "../labels";
+import { useLanguage, useMessages } from "../i18n";
 import { DeletionBar } from "../ui/Countdown";
 import { StatusBadge } from "../ui/StatusBadge";
 import type { TaskHref } from "../task/TaskRefs";
@@ -28,8 +31,6 @@ export type TaskTableProps = {
   isNew: (task: Task) => boolean;
 };
 
-const DATE_COLUMN_LABELS: Record<DateColumn, string> = { created: "Создана", closed: "Закрыта" };
-
 const ARIA_SORT: Record<SortDirection, "ascending" | "descending"> = { asc: "ascending", desc: "descending" };
 
 const PRIORITY_CLASS: Record<Priority, string | undefined> = {
@@ -40,11 +41,14 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
 };
 
 export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, dateColumn, tones, isNew, selectedTags, onToggleTag }: TaskTableProps) {
+  const { list, core } = useMessages();
+  const language = useLanguage();
   const now = useNow();
   const selectedRow = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     selectedRow.current?.scrollIntoView({ block: "nearest" });
   }, [selectedId]);
+  const dateColumnLabels: Record<DateColumn, string> = { created: list.created, closed: list.closed };
   const sortableHeader = (key: SortKey, label: string, className?: string) => {
     const active = sort.key === key;
     return (
@@ -64,13 +68,13 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
       <thead>
         <tr>
           {sortableHeader("id", "ID")}
-          {sortableHeader("title", "Задача")}
+          {sortableHeader("title", list.task)}
           <th className={styles.tags} scope="col">
-            Теги
+            {list.tags}
           </th>
-          {sortableHeader("status", "Статус", styles.statusCell)}
-          {sortableHeader("priority", "Приоритет", styles.priorityCell)}
-          {sortableHeader(dateColumn, DATE_COLUMN_LABELS[dateColumn], styles.date)}
+          {sortableHeader("status", list.status, styles.statusCell)}
+          {sortableHeader("priority", list.priority, styles.priorityCell)}
+          {sortableHeader(dateColumn, dateColumnLabels[dateColumn], styles.date)}
         </tr>
       </thead>
       <tbody>
@@ -92,19 +96,19 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
               </td>
               <td>
                 <DeletionBar task={task} now={now} />
-                {isNew(task) && <span className={styles.newBadge}>новая</span>}
+                {isNew(task) && <span className={styles.newBadge}>{list.newBadge}</span>}
                 <Link to={taskHref(task.id)} className={styles.title} aria-current={selected ? "true" : undefined}>
                   {task.title}
                 </Link>
-                {task.type === "epic" && <span className={cx(styles.marker, styles.epicMarker)}>эпик</span>}
+                {task.type === "epic" && <span className={cx(styles.marker, styles.epicMarker)}>{list.epicBadge}</span>}
                 {blocked && task.status !== "blocked" && (
-                  <span className={styles.marker} title="Есть открытые блокеры">
-                    блокеры
+                  <span className={styles.marker} title={list.blockedTitle}>
+                    {list.blockedBadge}
                   </span>
                 )}
                 {task.resolution !== undefined && (
                   <span className={styles.marker} title={task.reason}>
-                    {RESOLUTION_LABELS[task.resolution]}
+                    {core.resolutionLabel(task.resolution)}
                     {task.reason !== undefined && <span className="visually-hidden">: {task.reason}</span>}
                   </span>
                 )}
@@ -120,8 +124,8 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
               <td className={styles.statusCell}>
                 <StatusBadge status={task.status} />
               </td>
-              <td className={cx(styles.priorityCell, PRIORITY_CLASS[task.priority])}>{PRIORITY_LABELS[task.priority]}</td>
-              <td className={styles.date}>{formatTaskDate(task, dateColumn)}</td>
+              <td className={cx(styles.priorityCell, PRIORITY_CLASS[task.priority])}>{core.priorityLabel(task.priority)}</td>
+              <td className={styles.date}>{formatTaskDate(task, dateColumn, language)}</td>
             </tr>
           );
         })}
@@ -130,7 +134,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
   );
 }
 
-function formatTaskDate(task: Task, column: DateColumn): string {
+function formatTaskDate(task: Task, column: DateColumn, language: Language): string {
   const iso = column === "closed" ? task.closed : task.created;
-  return iso === undefined ? "—" : formatDate(iso);
+  return iso === undefined ? "—" : formatDate(language, iso);
 }

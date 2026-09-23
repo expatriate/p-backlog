@@ -1,0 +1,62 @@
+import { countRu } from "../../core/i18n/plural";
+
+export const listRu = {
+  docTitle: (title: string): string => `${title} — Беклог`,
+  taskDocTitle: (id: string, title: string): string => `${id} · ${title} — Беклог`,
+  projects: "Проекты",
+  autoClosed: "Закрыты агентом",
+  autoClosedInProject: (projectName: string): string => `Закрыты агентом · ${projectName}`,
+  missingTask: (id: string): string => `Задачи ${id} нет — возможно, её удалили после закрытия.`,
+  parseErrorsTitle: "Не удалось разобрать файлы:",
+  loadingTasks: "Загружаем задачи…",
+  unknownProject: "Проект не найден.",
+  hiddenOpenNote: (n: number): string =>
+    `Ещё ${countRu(n, "открытая задача", "открытые задачи", "открытых задач")} — в проектах без галочки.`,
+  noTasksInScope: (note: string): string => `В учтённых проектах задач нет. ${note}`,
+  noTasksYet: <T,>(code: (text: string) => T): Array<string | T> => [
+    "Задач пока нет. Беклог наполняет агент: он записывает задачи командой ",
+    code("backlog new"),
+    ", пока работает над кодом.",
+  ],
+  noOpenTasksInScope: (note: string): string => `В учтённых проектах открытых задач нет. ${note}`,
+  noOpenTasks: "Открытых задач нет.",
+  showAllStatuses: "Показать все статусы",
+  noMatches: "Под фильтры ничего не подходит.",
+  resetFilters: "Сбросить фильтры",
+  taskCount: (n: number): string => `В списке ${countRu(n, "задача", "задачи", "задач")}`,
+
+  status: "Статус",
+  priority: "Приоритет",
+  type: "Тип",
+  tags: "Теги",
+  task: "Задача",
+  created: "Создана",
+  closed: "Закрыта",
+  epicAndTags: "Эпик и теги",
+  withoutBlockers: "без блокеров",
+  autoClosedChip: "закрыты агентом",
+  searchPlaceholder: "Поиск по названию, описанию и ID",
+  searchLabel: "Поиск задач",
+  tagsSummary: (total: number): string => `Теги (${total})`,
+  tagsSummarySelected: (total: number, selected: number): string => `Теги (${total}), выбрано ${selected}`,
+  findTag: "Найти тег",
+  newBadge: "новая",
+  epicBadge: "эпик",
+  blockedTitle: "Есть открытые блокеры",
+  blockedBadge: "блокеры",
+
+  epicPrefix: (label: string): string => `Эпик: ${label}`,
+  epicTitle: (id: string, title: string): string => `${id} — ${title}`,
+  resetEpic: "Сбросить эпик",
+  epics: "Эпики",
+  anyEpic: "Любой эпик",
+  noEpic: "Без эпика",
+  epicNotFound: "эпик не найден",
+  anyEpicLabel: "любой",
+  noEpicLabel: "без эпика",
+
+  collapseTags: "свернуть",
+  showMoreTags: (n: number): string => `Показать ещё ${n}`,
+};
+
+export type ListMessages = typeof listRu;

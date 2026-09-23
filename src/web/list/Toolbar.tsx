@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { normalizeText } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
-import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from "../labels";
+import { TYPE_LABELS } from "../labels";
+import { useMessages } from "../i18n";
 import { ToggleChip } from "../ui/Chip";
 import { toggledTags } from "./tag-filter";
 import { Popover, POPOVER_INITIAL_FOCUS } from "../ui/Popover";
@@ -19,6 +20,7 @@ export type ToolbarProps = {
 };
 
 export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }: ToolbarProps) {
+  const { list, core } = useMessages();
   const { filter } = params;
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
   const setFilter = (patch: Partial<ListParams["filter"]>) => onChange({ ...params, filter: { ...filter, ...patch } });
@@ -40,7 +42,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
       </div>
 
       <div className={styles.line}>
-        <div className={styles.group} role="group" aria-label="Статус">
+        <div className={styles.group} role="group" aria-label={list.status}>
           {TASK_STATUSES.map((status) => (
             <ToggleChip
               key={status}
@@ -48,41 +50,41 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
               locked={status === onlyPressedStatus}
               onToggle={() => setFilter({ statuses: allOrSome(toggle(pressedStatuses, status)) })}
             >
-              {STATUS_LABELS[status]}
+              {core.statusLabel(status)}
             </ToggleChip>
           ))}
         </div>
-        <div className={styles.group} role="group" aria-label="Приоритет">
+        <div className={styles.group} role="group" aria-label={list.priority}>
           {PRIORITIES.map((priority) => (
             <ToggleChip
               key={priority}
               pressed={filter.priorities?.includes(priority) ?? false}
               onToggle={() => setFilter({ priorities: emptyToUndefined(toggle(filter.priorities ?? [], priority)) })}
             >
-              {PRIORITY_LABELS[priority]}
+              {core.priorityLabel(priority)}
             </ToggleChip>
           ))}
         </div>
-        <div className={styles.group} role="group" aria-label="Тип">
+        <div className={styles.group} role="group" aria-label={list.type}>
           {TASK_TYPES.map((type) => (
             <ToggleChip key={type} pressed={filter.type === type} onToggle={() => setFilter({ type: filter.type === type ? undefined : type })}>
               {TYPE_LABELS[type]}
             </ToggleChip>
           ))}
           <ToggleChip pressed={filter.onlyUnblocked === true} onToggle={() => setFilter({ onlyUnblocked: filter.onlyUnblocked ? undefined : true })}>
-            без блокеров
+            {list.withoutBlockers}
           </ToggleChip>
           <ToggleChip
             pressed={filter.onlyAutoClosed === true}
             onToggle={toggleAutoClosed}
           >
-            закрыты агентом <span className={styles.count}>{autoClosedCount}</span>
+            {list.autoClosedChip} <span className={styles.count}>{autoClosedCount}</span>
           </ToggleChip>
         </div>
       </div>
 
       {(showEpicPicker || tags.length > 0) && (
-        <div ref={epicAndTags} className={styles.line} role="group" aria-label="Эпик и теги">
+        <div ref={epicAndTags} className={styles.line} role="group" aria-label={list.epicAndTags}>
           {showEpicPicker && (
             <EpicPicker choices={epicChoices} selected={filter.epic} onSelect={(epic) => setFilter({ epic })} />
           )}
@@ -105,6 +107,7 @@ function useFocusAfterEpicPickerLeaves(shown: boolean, nextTarget: () => HTMLEle
 }
 
 function SearchField({ ref, query, onChange }: { ref: RefObject<HTMLInputElement | null>; query: string; onChange: (query: string) => void }) {
+  const { list } = useMessages();
   const [editing, setEditing] = useState<SearchEditing>();
   const [seenQuery, setSeenQuery] = useState(query);
   if (query !== seenQuery) {
@@ -118,8 +121,8 @@ function SearchField({ ref, query, onChange }: { ref: RefObject<HTMLInputElement
       type="search"
       className={styles.search}
       value={editing?.text ?? query}
-      placeholder="Поиск по названию, описанию и ID"
-      aria-label="Поиск задач"
+      placeholder={list.searchPlaceholder}
+      aria-label={list.searchLabel}
       onFocus={() => setEditing({ text: query, sent: new Set() })}
       onBlur={() => setEditing(undefined)}
       onChange={(event) => {
@@ -132,9 +135,10 @@ function SearchField({ ref, query, onChange }: { ref: RefObject<HTMLInputElement
 }
 
 function TagPicker({ tags, selected, onToggle }: { tags: string[]; selected: readonly string[]; onToggle: (tag: string) => void }) {
+  const { list } = useMessages();
   const [query, setQuery] = useState("");
   const needle = normalizeText(query.trim());
-  const summary = selected.length === 0 ? `Теги (${tags.length})` : `Теги (${tags.length}), выбрано ${selected.length}`;
+  const summary = selected.length === 0 ? list.tagsSummary(tags.length) : list.tagsSummarySelected(tags.length, selected.length);
 
   return (
     <div className={styles.tagPicker}>
@@ -144,11 +148,11 @@ function TagPicker({ tags, selected, onToggle }: { tags: string[]; selected: rea
           {...POPOVER_INITIAL_FOCUS}
           className={styles.tagSearch}
           value={query}
-          placeholder="Найти тег"
-          aria-label="Найти тег"
+          placeholder={list.findTag}
+          aria-label={list.findTag}
           onChange={(event) => setQuery(event.target.value)}
         />
-        <div className={styles.tagOptions} role="group" aria-label="Теги">
+        <div className={styles.tagOptions} role="group" aria-label={list.tags}>
           {tags
             .filter((tag) => normalizeText(tag).includes(needle))
             .map((tag) => (
