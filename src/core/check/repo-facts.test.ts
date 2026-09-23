@@ -1,12 +1,9 @@
 import { readFile, rename, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { coreMessages } from "../messages";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { countingGit } from "../git/testing/counting-git";
 import { collectRepoFacts, diffsSince } from "./repo-facts";
-
-const RU = coreMessages("ru");
 
 describe("collectRepoFacts", () => {
   it("собирает коммиты после даты с файлами и переименованиями, незакоммиченные правки и существующие файлы", async () => {
@@ -74,7 +71,7 @@ describe("collectRepoFacts", () => {
 
 describe("diffsSince", () => {
   const lines = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, index) => `строка ${from + index}`);
-  const changedLines = async (repo: string, path: string, since: Date) => (await diffsSince(repo, RU)(path, since))?.changed ?? null;
+  const changedLines = async (repo: string, path: string, since: Date) => (await diffsSince(repo)(path, since))?.changed ?? null;
 
   it("отдаёт строки изменённых гунков: и закоммиченные, и незакоммиченные", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
@@ -128,12 +125,12 @@ describe("diffsSince", () => {
     await writeFile(join(repo, "src/upload.ts"), "два\n");
     gitCommitAll(repo, "Правка", "2026-09-12T10:00:00+03:00");
     const counting = countingGit();
-    const diffOf = diffsSince(repo, RU, counting.git);
+    const diffOf = diffsSince(repo, counting.git);
     const since = new Date("2026-09-11T00:00:00+03:00");
 
     const [first, second] = await Promise.all([diffOf("src/upload.ts", since), diffOf("src/upload.ts", since)]);
 
-    expect(first).toEqual({ excerpt: expect.stringMatching(/-один\n\+два/), changed: [{ from: 1, to: 1 }] });
+    expect(first).toEqual({ excerpt: { text: expect.stringMatching(/-один\n\+два/), omittedLines: 0 }, changed: [{ from: 1, to: 1 }] });
     expect(second).toEqual(first);
     expect(counting.processes()).toBe(2);
   });

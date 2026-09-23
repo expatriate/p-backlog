@@ -1,7 +1,7 @@
 import { dependentTasks, epicChildren, openBlockers, relatedTasks, taskProgress, type BacklogIndex } from "../core/model/graph";
 import { taskWarnings } from "../core/model/integrity";
-import type { CoreMessages } from "../core/messages";
 import { deletionDate } from "../core/model/lifecycle";
+import type { Problem } from "../core/model/problems";
 import type { Task } from "../core/model/types";
 
 export type TaskDescription = {
@@ -13,10 +13,10 @@ export type TaskDescription = {
   related: Task[];
   epic: Task | undefined;
   children: readonly Task[];
-  warnings: string[];
+  warnings: Problem[];
 };
 
-export function describeTask(task: Task, index: BacklogIndex, messages: CoreMessages): TaskDescription {
+export function describeTask(task: Task, index: BacklogIndex): TaskDescription {
   const open = openBlockers(task, index);
   return {
     task,
@@ -27,7 +27,7 @@ export function describeTask(task: Task, index: BacklogIndex, messages: CoreMess
     related: relatedTasks(task, index),
     epic: task.epic === undefined ? undefined : index.byId.get(task.epic),
     children: task.type === "epic" ? epicChildren(task, index) : [],
-    warnings: taskWarnings(task, index).map(messages.problem),
+    warnings: taskWarnings(task, index),
   };
 }
 

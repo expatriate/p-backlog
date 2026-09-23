@@ -47,7 +47,7 @@ export function formatTaskDetails(messages: CoreMessages, cli: CliMessages, desc
   if (description.blocks.length > 0) lines.push(cli.blocksLine(description.blocks.map(formatTaskRef).join("; ")));
   if (description.related.length > 0) lines.push(cli.relatedLine(description.related.map(formatTaskRef).join("; ")));
   if (description.children.length > 0) lines.push(cli.epicChildrenLine(description.children.map(formatTaskRef).join("; ")));
-  if (description.warnings.length > 0) lines.push(cli.warningsLine(description.warnings.join("; ")));
+  if (description.warnings.length > 0) lines.push(cli.warningsLine(description.warnings.map(messages.problem).join("; ")));
   return [...lines, "", fileText.trimEnd()].join("\n");
 }
 

@@ -33,9 +33,10 @@ async function runCheck(args: string[], io: CliIo): Promise<number> {
 
 function formatReport(language: Language, { fixed, problems, candidates }: CheckReport): string {
   const cli = cliMessages(language);
+  const core = coreMessages(language);
   const sections = [
-    section(cli.fixedHeader, fixed),
-    section(cli.problemsHeader, problems),
+    section(cli.fixedHeader, fixed.map(core.checkFix)),
+    section(cli.problemsHeader, problems.map(core.checkProblem)),
     section(cli.candidatesHeader, candidates.map((candidate) => describeCandidate(language, candidate))),
   ].filter((text) => text !== "");
   return sections.length === 0 ? cli.backlogOk : sections.join("\n");

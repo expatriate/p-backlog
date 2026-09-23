@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { writeSettings } from "../../core/store/settings";
 import { writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
@@ -21,6 +22,18 @@ describe("backlog show", () => {
     expect(result.out).toContain("- [ ] b");
     expect((await run(["show", "SPA-2"])).out).toContain("Блокирует: SPA-3 — Основная");
     expect(JSON.parse((await run(["show", "SPA-1", "--json"])).out)).toMatchObject({ progress: 0, children: [{ id: "SPA-3" }] });
+  });
+
+  it("--json от языка не зависит: предупреждения — данные, а не фразы", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Основная", "--blocked-by", "SPA-77"]);
+
+    const ru = (await run(["show", "SPA-1", "--json"])).out;
+    await writeSettings(root, { language: "en" });
+    const en = (await run(["show", "SPA-1", "--json"])).out;
+
+    expect(en).toBe(ru);
+    expect(JSON.parse(ru)).toMatchObject({ warnings: [{ code: "reference-missing", id: "SPA-77" }] });
   });
 
   it("показывает категорию в строке типа и статуса", async () => {

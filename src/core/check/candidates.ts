@@ -1,9 +1,10 @@
 import type { DuplicateMatch } from "../journal/events";
-import type { CoreMessages } from "../messages";
 import { isClosed } from "../model/graph";
 import type { Task } from "../model/types";
-import { anchorOf, findMoved, hasLines, isAnchorFor, lineSuffix, SOURCE_LINES } from "./anchor";
+import { anchorOf, findMoved, isAnchorFor } from "./anchor";
+import type { CheckFix } from "./findings";
 import type { Commit, RepoFacts } from "./repo-facts";
+import { hasLines, lineSuffix, SOURCE_LINES } from "./source-lines";
 import { similarTitles } from "./similar-titles";
 
 type TaskRef = { id: string; title: string };
@@ -11,10 +12,10 @@ type CommitRef = { sha: string; subject: string };
 
 export type Candidate =
   | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string  | undefined}
-  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string; bySymbol?: boolean; byAnchor?: boolean }
+  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string; diffOmittedLines?: number; bySymbol?: boolean; byAnchor?: boolean }
   | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: DuplicateMatch };
 
-export type AnchorPlan = { id: string; changes: { source?: string; anchor: string }; note?: string };
+export type AnchorPlan = { id: string; changes: { source?: string; anchor: string }; moved?: CheckFix };
 
 export type CodeReview = { candidates: Candidate[]; plans: AnchorPlan[] };
 
@@ -38,10 +39,10 @@ export function reviewMark(task: Task): number {
   return Math.max(Date.parse(task.created), verified);
 }
 
-export function codeReview(tasks: readonly Task[], facts: RepoFacts, messages: CoreMessages): CodeReview {
+export function codeReview(tasks: readonly Task[], facts: RepoFacts): CodeReview {
   const reviewed = tasks.map((task) => ({ task, anchor: anchorState(task, facts) }));
   const candidates = reviewed.flatMap(({ task, anchor }) => codeCandidate(task, anchor, facts));
-  const plans = reviewed.flatMap(({ task, anchor }) => anchorPlan(task, anchor, facts, messages));
+  const plans = reviewed.flatMap(({ task, anchor }) => anchorPlan(task, anchor, facts));
   return { candidates, plans };
 }
 
@@ -60,10 +61,11 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts): Candi
   return [{ kind: "source-changed", task: taskRef(task), path, commits: commits.slice(0, MAX_COMMITS).map(commitRef), uncommitted, ...byAnchor }];
 }
 
-function anchorPlan(task: Task, anchor: AnchorState, facts: RepoFacts, messages: CoreMessages): AnchorPlan[] {
+function anchorPlan(task: Task, anchor: AnchorState, facts: RepoFacts): AnchorPlan[] {
   if (task.source === undefined) return [];
   if (anchor.kind === "moved") {
-    return [{ id: task.id, changes: { source: anchor.source, anchor: anchor.anchor }, note: messages.sourceMoved(task.id, lineSuffix(task.source), lineSuffix(anchor.source)) }];
+    const moved: CheckFix = { kind: "source-moved", taskId: task.id, from: task.source, to: anchor.source };
+    return [{ id: task.id, changes: { source: anchor.source, anchor: anchor.anchor }, moved }];
   }
   if (anchor.kind === "same") return [];
   const text = facts.texts.get(sourcePath(task.source));

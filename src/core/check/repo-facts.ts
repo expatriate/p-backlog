@@ -1,7 +1,6 @@
 import { access, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { FIELD, RECORD, runGit, type GitRunner } from "../git/run";
-import type { CoreMessages } from "../messages";
 import type { LineRange } from "./anchor";
 
 type FileChange = { path: string; renamedFrom?: string };
@@ -30,11 +29,13 @@ export async function collectRepoFacts(repo: string, { since, paths }: { since: 
   return { commits: parseLog(log), dirtyModifiedAt: await modificationTimes(repo, dirty), existing, texts };
 }
 
-type FileDiff = { excerpt: string | undefined; changed: LineRange[] };
+export type DiffExcerpt = { text: string; omittedLines: number };
+
+type FileDiff = { excerpt: DiffExcerpt | undefined; changed: LineRange[] };
 
 export type DiffSince = (path: string, since: Date) => Promise<FileDiff | null>;
 
-export function diffsSince(repo: string, messages: CoreMessages, git: GitRunner = runGit): DiffSince {
+export function diffsSince(repo: string, git: GitRunner = runGit): DiffSince {
   const bases = new Map<number, Promise<string | null>>();
   const diffs = new Map<string, Promise<FileDiff | null>>();
   const baseBefore = (since: Date): Promise<string | null> =>
@@ -46,7 +47,7 @@ export function diffsSince(repo: string, messages: CoreMessages, git: GitRunner 
     remembered(diffs, `${since.getTime()} ${path}`, async () => {
       const base = await baseBefore(since);
       const diff = base === null ? null : await git(repo, ["diff", "--no-color", base, "--", path]);
-      return diff === null ? null : { excerpt: excerptOf(diff, messages), changed: changedRanges(diff) };
+      return diff === null ? null : { excerpt: excerptOf(diff), changed: changedRanges(diff) };
     });
 }
 
@@ -58,11 +59,10 @@ function remembered<K, V>(cache: Map<K, Promise<V>>, key: K, read: () => Promise
   return reading;
 }
 
-function excerptOf(diff: string, messages: CoreMessages): string | undefined {
+function excerptOf(diff: string): DiffExcerpt | undefined {
   if (diff.trim() === "") return undefined;
   const lines = diff.trimEnd().split("\n");
-  if (lines.length <= DIFF_LINE_LIMIT) return lines.join("\n");
-  return [...lines.slice(0, DIFF_LINE_LIMIT), messages.moreDiffLines(lines.length - DIFF_LINE_LIMIT)].join("\n");
+  return { text: lines.slice(0, DIFF_LINE_LIMIT).join("\n"), omittedLines: Math.max(0, lines.length - DIFF_LINE_LIMIT) };
 }
 
 const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/;

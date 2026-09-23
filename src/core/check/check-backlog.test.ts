@@ -76,7 +76,7 @@ describe("checkBacklog", () => {
     const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
 
     expect(report.candidates).toEqual([]);
-    expect(report.fixed).toEqual(["SPA-1: source сдвинулся :3 → :5"]);
+    expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-1: source сдвинулся :3 → :5"]);
     const tasks = (await loadBacklog(root)).tasks;
     const shifted = ["new1", "new2", code].join("\n");
     expect(tasks.find((item) => item.id === "SPA-1")).toMatchObject({ source: "src/a.ts:5", anchor: anchorOf(shifted, "src/a.ts:5") });
@@ -185,8 +185,8 @@ describe("checkBacklog", () => {
 
     const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
-    expect(report.fixed).toEqual(["SPA-9: убраны ссылки на несуществующие задачи: SPA-99"]);
-    expect(report.problems).toEqual([
+    expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-9: убраны ссылки на несуществующие задачи: SPA-99"]);
+    expect(report.problems.map(RU.checkProblem)).toEqual([
       expect.stringMatching(/SPA-10\.md не разобран: файл не начинается с frontmatter/),
       "Эпики SPA-7 завершены, но не закроются, пока не исправлены неразобранные файлы",
     ]);
@@ -224,7 +224,7 @@ describe("checkBacklog", () => {
 
     const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
-    expect(report.fixed).toEqual(["SPA-7: эпик закрыт — все задачи эпика закрыты: SPA-8"]);
+    expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-7: эпик закрыт — все задачи эпика закрыты: SPA-8"]);
     const epic = (await loadBacklog(root)).tasks.find((loaded) => loaded.id === "SPA-7");
     expect(epic).toMatchObject({ status: "done", resolution: "epic-done", reason: "все задачи эпика закрыты: SPA-8" });
   });
@@ -249,8 +249,8 @@ describe("checkBacklog", () => {
 
     const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
 
-    expect(report.fixed).toEqual([]);
-    expect(report.problems).toEqual([]);
+    expect(report.fixed.map(RU.checkFix)).toEqual([]);
+    expect(report.problems.map(RU.checkProblem)).toEqual([]);
     expect(report.candidates.map((candidate) => [candidate.kind, candidate.task.id])).toEqual([
       ["source-changed", "SPA-1"],
       ["source-missing", "SPA-2"],
@@ -308,7 +308,7 @@ describe("checkBacklog", () => {
 
     const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["ti"], mode: "full", now: NOW, home, messages: RU });
 
-    expect(report.problems).toEqual([expect.stringMatching(/^Проект ti: ни один путь из repos не существует/)]);
+    expect(report.problems.map(RU.checkProblem)).toEqual([expect.stringMatching(/^Проект ti: ни один путь из repos не существует/)]);
     expect(report.candidates).toEqual([]);
   });
 
@@ -324,8 +324,8 @@ describe("checkBacklog", () => {
 
     const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
-    expect(report.fixed).toEqual(["SPA-1: убраны ссылки на несуществующие задачи: SPA-99"]);
-    expect(report.problems).toContainEqual(expect.stringMatching(/ti\/project\.md не разобран/));
+    expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-1: убраны ссылки на несуществующие задачи: SPA-99"]);
+    expect(report.problems.map(RU.checkProblem)).toContainEqual(expect.stringMatching(/ti\/project\.md не разобран/));
     const spa1 = (await loadBacklog(root)).tasks.find((loaded) => loaded.id === "SPA-1");
     expect(spa1).toMatchObject({ blockedBy: [], related: ["TI-3", "XYZ-1"] });
   });
@@ -344,12 +344,12 @@ describe("checkBacklog", () => {
 
     const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
-    expect(report.fixed).toEqual(["SPA-7: эпик закрыт — все задачи эпика закрыты: SPA-8"]);
-    expect(report.problems).toEqual([expect.stringMatching(/^Проект spa: в repos нет путей/)]);
+    expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-7: эпик закрыт — все задачи эпика закрыты: SPA-8"]);
+    expect(report.problems.map(RU.checkProblem)).toEqual([expect.stringMatching(/^Проект spa: в repos нет путей/)]);
 
     await writeFiles(root, { "spa/SPA-9.md": "сломано" });
     const blocked = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
-    expect(blocked.problems).toContainEqual(expect.stringMatching(/spa\/SPA-9\.md не разобран/));
+    expect(blocked.problems.map(RU.checkProblem)).toContainEqual(expect.stringMatching(/spa\/SPA-9\.md не разобран/));
   });
 });

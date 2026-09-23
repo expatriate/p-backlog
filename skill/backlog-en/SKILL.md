@@ -125,12 +125,14 @@ When: the hook message "code changed for tasks since the last check", a request 
 "clean up the backlog".
 
 1. `backlog check --json` from the project's repository (from another directory — `--project <id>`).
-   Dangling references, completed epics, and shifted `source` ("source moved :26 → :31") — it already
-   fixed those itself; that's the `fixed` field, relay it to the user in one line.
+   Dangling references, completed epics, and shifted `source` — it already fixed those itself; that's the
+   `fixed` field, a list of `{ kind, taskId, … }`: `references-removed` — references to missing tasks `ids`
+   removed; `epic-closed` — the epic closed, all its tasks `childIds` are closed; `source-moved` — `source`
+   moved `from` → `to`. Relay it to the user in one line.
 2. A `source-changed` candidate already has `problem` in the JSON — the task description's first
    paragraph — `snippet` — the current code around `source` with line numbers — and `diff` — the file's
-   changes since the last check. That's usually enough: decide from them without calling `show`, `grep`,
-   or `git show`. Read the task (`backlog show <ID>`) and the whole file only when `snippet` and `diff`
+   changes since the last check (when cut short, `diffOmittedLines` says how many lines are not shown).
+   That's usually enough: decide from them without calling `show`, `grep`, or `git show`. Read the task (`backlog show <ID>`) and the whole file only when `snippet` and `diff`
    aren't enough to tell; for `duplicate` and `no-source` always read the task.
 3. Decide:
 
@@ -154,8 +156,10 @@ When: the hook message "code changed for tasks since the last check", a request 
    evidence: confirm the task and leave it open. A closed task is deleted along with its file after 7
    days.
 
-4. `problems`: the task file doesn't parse — fix the YAML by hand without changing `id`; list the rest for
-   the user.
+4. `problems` — a list of `{ kind, … }`. `file-not-parsed`: the file `path` doesn't parse, reasons in
+   `problems` — fix the YAML by hand without changing `id`. List the rest for the user: `task-invalid` (error
+   `problem` in task `taskId`), `fix-failed` (the fix wasn't written, reason `cause`), `epics-wait-for-files`,
+   `project-without-repos`, `project-repos-missing`.
 5. End your answer with a block the user can use to find what was closed:
    ```
    Closed in the backlog:

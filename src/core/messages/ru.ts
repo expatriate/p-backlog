@@ -1,5 +1,7 @@
 import { z } from "zod";
+import type { CheckFix, CheckProblem } from "../check/findings";
 import type { GraphState } from "../check/graph-health";
+import { lineSuffix } from "../check/source-lines";
 import { formatDayMonth, formatDecimal } from "../i18n/format";
 import { countRu, NBSP, pluralRu } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
@@ -188,6 +190,49 @@ function problems(list: readonly Problem[]): string {
   return [...new Set(list.map(problem))].join("; ");
 }
 
+function epicDoneReason(ids: readonly string[]): string {
+  return `все задачи эпика закрыты: ${ids.join(", ")}`;
+}
+
+function checkFix(fix: CheckFix): string {
+  switch (fix.kind) {
+    case "references-removed":
+      return `${fix.taskId}: убраны ссылки на несуществующие задачи: ${fix.ids.join(", ")}`;
+    case "epic-closed":
+      return `${fix.taskId}: эпик закрыт — ${epicDoneReason(fix.childIds)}`;
+    case "source-moved":
+      return `${fix.taskId}: source сдвинулся ${lineSuffix(fix.from)} → ${lineSuffix(fix.to)}`;
+  }
+}
+
+function checkProblem(p: CheckProblem): string {
+  switch (p.kind) {
+    case "fix-failed":
+      return `${p.taskId}: не удалось исправить — ${fixFailureCause(p)}`;
+    case "task-invalid":
+      return `${p.taskId}: ${problem(p.problem)}`;
+    case "file-not-parsed":
+      return `Файл ${p.path} не разобран: ${problems(p.problems)}`;
+    case "epics-wait-for-files":
+      return `Эпики ${p.epicIds.join(", ")} завершены, но не закроются, пока не исправлены неразобранные файлы`;
+    case "project-without-repos":
+      return `Проект ${p.projectId}: в repos нет путей — код его задач не проверить`;
+    case "project-repos-missing":
+      return `Проект ${p.projectId}: ни один путь из repos не существует (${p.repos.join(", ")}) — код его задач не проверить`;
+  }
+}
+
+function fixFailureCause(p: Extract<CheckProblem, { kind: "fix-failed" }>): string {
+  switch (p.cause) {
+    case "invalid":
+      return problems(p.problems);
+    case "changed-during-check":
+      return "файл изменился во время проверки";
+    case "gone-during-check":
+      return "файл исчез во время проверки";
+  }
+}
+
 export const coreRu = {
   hookMark: "Беклог",
   problem,
@@ -207,20 +252,10 @@ export const coreRu = {
   forecast,
   forecastTail,
   signal,
-  epicDoneReason: (ids: readonly string[]): string => `все задачи эпика закрыты: ${ids.join(", ")}`,
+  epicDoneReason,
   fileBusy: (path: string, lock: string, seconds: number): string => `${path} занят другим процессом дольше ${seconds} с (${lock})`,
-  referencesRemoved: (ids: readonly string[]): string => `убраны ссылки на несуществующие задачи: ${ids.join(", ")}`,
-  epicClosed: (reason: string): string => `эпик закрыт — ${reason}`,
-  fixFailed: (id: string, detail: string): string => `${id}: не удалось исправить — ${detail}`,
-  changedDuringCheck: "файл изменился во время проверки",
-  goneDuringCheck: "файл исчез во время проверки",
-  fileNotParsed: (path: string, list: readonly Problem[]): string => `Файл ${path} не разобран: ${problems(list)}`,
-  epicsWaitForFiles: (ids: readonly string[]): string => `Эпики ${ids.join(", ")} завершены, но не закроются, пока не исправлены неразобранные файлы`,
-  projectWithoutRepos: (projectId: string): string => `Проект ${projectId}: в repos нет путей — код его задач не проверить`,
-  projectReposMissing: (projectId: string, repos: readonly string[]): string =>
-    `Проект ${projectId}: ни один путь из repos не существует (${repos.join(", ")}) — код его задач не проверить`,
-  sourceMoved: (id: string, from: string, to: string): string => `${id}: source сдвинулся ${from} → ${to}`,
-  moreDiffLines: (count: number): string => `… ещё ${count} строк`,
+  checkFix,
+  checkProblem,
   candidatesRecordFailed: (projectId: string, detail: string): string => `Не удалось записать кандидатов в журнал ${projectId}: ${detail}`,
 };
 

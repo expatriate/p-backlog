@@ -1,5 +1,7 @@
 import { z } from "zod";
+import type { CheckFix, CheckProblem } from "../check/findings";
 import type { GraphState } from "../check/graph-health";
+import { lineSuffix } from "../check/source-lines";
 import { formatDayMonth } from "../i18n/format";
 import { countEn, NBSP, pluralEn } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
@@ -185,6 +187,49 @@ function problems(list: readonly Problem[]): string {
   return [...new Set(list.map(problem))].join("; ");
 }
 
+function epicDoneReason(ids: readonly string[]): string {
+  return `all tasks of the epic are closed: ${ids.join(", ")}`;
+}
+
+function checkFix(fix: CheckFix): string {
+  switch (fix.kind) {
+    case "references-removed":
+      return `${fix.taskId}: removed references to missing tasks: ${fix.ids.join(", ")}`;
+    case "epic-closed":
+      return `${fix.taskId}: epic closed — ${epicDoneReason(fix.childIds)}`;
+    case "source-moved":
+      return `${fix.taskId}: source moved ${lineSuffix(fix.from)} → ${lineSuffix(fix.to)}`;
+  }
+}
+
+function checkProblem(p: CheckProblem): string {
+  switch (p.kind) {
+    case "fix-failed":
+      return `${p.taskId}: could not fix — ${fixFailureCause(p)}`;
+    case "task-invalid":
+      return `${p.taskId}: ${problem(p.problem)}`;
+    case "file-not-parsed":
+      return `File ${p.path} could not be parsed: ${problems(p.problems)}`;
+    case "epics-wait-for-files":
+      return `Epics ${p.epicIds.join(", ")} are complete but will not close until the unparsed files are fixed`;
+    case "project-without-repos":
+      return `Project ${p.projectId}: repos has no paths — its tasks' code cannot be checked`;
+    case "project-repos-missing":
+      return `Project ${p.projectId}: none of the repos paths exist (${p.repos.join(", ")}) — its tasks' code cannot be checked`;
+  }
+}
+
+function fixFailureCause(p: Extract<CheckProblem, { kind: "fix-failed" }>): string {
+  switch (p.cause) {
+    case "invalid":
+      return problems(p.problems);
+    case "changed-during-check":
+      return "the file changed during the check";
+    case "gone-during-check":
+      return "the file disappeared during the check";
+  }
+}
+
 export const coreEn: CoreMessages = {
   hookMark: "Backlog",
   problem,
@@ -204,18 +249,9 @@ export const coreEn: CoreMessages = {
   forecast,
   forecastTail,
   signal,
-  epicDoneReason: (ids) => `all tasks of the epic are closed: ${ids.join(", ")}`,
+  epicDoneReason,
   fileBusy: (path, lock, seconds) => `${path} has been locked by another process for more than ${seconds} s (${lock})`,
-  referencesRemoved: (ids) => `removed references to missing tasks: ${ids.join(", ")}`,
-  epicClosed: (reason) => `epic closed — ${reason}`,
-  fixFailed: (id, detail) => `${id}: could not fix — ${detail}`,
-  changedDuringCheck: "the file changed during the check",
-  goneDuringCheck: "the file disappeared during the check",
-  fileNotParsed: (path, list) => `File ${path} could not be parsed: ${problems(list)}`,
-  epicsWaitForFiles: (ids) => `Epics ${ids.join(", ")} are complete but will not close until the unparsed files are fixed`,
-  projectWithoutRepos: (projectId) => `Project ${projectId}: repos has no paths — its tasks' code cannot be checked`,
-  projectReposMissing: (projectId, repos) => `Project ${projectId}: none of the repos paths exist (${repos.join(", ")}) — its tasks' code cannot be checked`,
-  sourceMoved: (id, from, to) => `${id}: source moved ${from} → ${to}`,
-  moreDiffLines: (count) => `… ${count} more ${pluralEn(count, "line", "lines")}`,
+  checkFix,
+  checkProblem,
   candidatesRecordFailed: (projectId, detail) => `Could not record candidates to the ${projectId} journal: ${detail}`,
 };

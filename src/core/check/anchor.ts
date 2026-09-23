@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
-
-export const SOURCE_LINES = /:(\d+)(?:-(\d+))?$/;
+import { SOURCE_LINES } from "./source-lines";
 
 type SourceSpan = { first: number; last: number; context: number };
 type Window = { from: number; to: number };
@@ -64,14 +63,6 @@ export function snippetOf(text: string, source: string): string | undefined {
 
 function withLines(source: string, first: number, last?: number): string {
   return `${source.replace(SOURCE_LINES, "")}:${last === undefined ? first : `${first}-${last}`}`;
-}
-
-export function lineSuffix(source: string): string {
-  return SOURCE_LINES.exec(source)?.[0] ?? "";
-}
-
-export function hasLines(source: string): boolean {
-  return SOURCE_LINES.test(source);
 }
 
 function sourceSpan(source: string): SourceSpan | null {

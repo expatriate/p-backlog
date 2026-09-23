@@ -46,7 +46,7 @@ async function runList(args: string[], io: CliIo): Promise<number> {
   );
   const tasks = sortTasks(filtered, { key: "priority", direction: "desc" }, index);
 
-  if (values.json) io.print(JSON.stringify(tasks.map((task) => toJson(describeTask(task, index, messages))), null, 2));
+  if (values.json) io.print(JSON.stringify(tasks.map((task) => toJson(describeTask(task, index))), null, 2));
   else io.print(tasks.length === 0 ? cli.noTasksFound : tasks.map((task) => formatTaskLine(cli, task, index)).join("\n"));
   return EXIT.ok;
 }

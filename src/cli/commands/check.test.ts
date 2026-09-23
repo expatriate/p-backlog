@@ -2,6 +2,8 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { CheckReport } from "../../core/check/check-backlog";
+import type { Language } from "../../core/i18n/language";
+import { writeSettings } from "../../core/store/settings";
 import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
@@ -33,6 +35,31 @@ describe("backlog check", () => {
     const report = JSON.parse((await run(["check", "--json"])).out) as CheckReport;
 
     expect(report).toMatchObject({ fixed: [], problems: [], candidates: [{ kind: "source-changed", task: { id: "SPA-1" }, path: "src/a.ts" }] });
+  });
+
+  it("--json от языка не зависит: исправления, проблемы и обрезанный diff — данные, а не фразы", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    await writeFile(join(repo, "src/a.ts"), Array.from({ length: 100 }, (_, index) => `line ${index}\n`).join(""));
+    gitCommitAll(repo, "Переписать", "2026-09-18T10:00:00Z");
+    const task = (id: string, fields: string) => `---\nid: ${id}\ntitle: ${id}\ncreated: 2026-09-17T10:00:00Z\n${fields}---\n`;
+    const checkJsonIn = async (language: Language) => {
+      await writeSettings(root, { language });
+      await writeFiles(root, { "spa/SPA-2.md": task("SPA-2", "blockedBy: [SPA-40]\n"), "spa/SPA-3.md": task("SPA-3", "blockedBy: [SPA-3]\n") });
+      return (await run(["check", "--json"])).out;
+    };
+
+    const ru = await checkJsonIn("ru");
+    const en = await checkJsonIn("en");
+
+    expect(en).toBe(ru);
+    expect(JSON.parse(ru)).toMatchObject({
+      fixed: [{ kind: "references-removed", taskId: "SPA-2", ids: ["SPA-40"] }],
+      problems: [{ kind: "task-invalid", taskId: "SPA-3", problem: { code: "self-block" } }],
+      candidates: [{ kind: "source-changed", task: { id: "SPA-1" }, diffOmittedLines: expect.any(Number) }],
+    });
   });
 
   it("чинит висячие ссылки и пишет, что исправил; без находок — код 0", async () => {
