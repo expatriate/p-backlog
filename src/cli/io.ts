@@ -6,6 +6,7 @@ export type CliEnv = {
   cwd: string;
   home: string;
   backlogRoot: string;
+  repoRoot: string;
   env: NodeJS.ProcessEnv;
   now: () => Date;
   readStdin: () => Promise<string>;

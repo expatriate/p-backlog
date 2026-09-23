@@ -8,6 +8,7 @@ export const cliEn: CliMessages = {
   runNotRecorded: (error) => `Could not record the run: ${error}`,
 
   optionLabel: { status: "status", category: "category", priority: "priority", language: "language" },
+  skillForeign: (target) => `${target} is a foreign directory, the skill link was not moved`,
 
   taskNotFound: (id) => `Task ${id} not found`,
   fileConflict: (id) => `Task file ${id} changed while writing, retry the command`,

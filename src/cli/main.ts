@@ -1,6 +1,8 @@
 import { megabytesOf } from "../core/api/memory";
 import { errorText } from "../core/errors";
 import { homedir } from "node:os";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { formatLocalIso } from "../core/model/dates";
 import { appendRun } from "../core/store/runs";
 import { resolveBacklogRoot } from "../core/store/paths";
@@ -17,12 +19,14 @@ async function readStdin(): Promise<string> {
 
 const home = homedir();
 const backlogRoot = resolveBacklogRoot(process.env, home);
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const argv = process.argv.slice(2);
 
 const exitCode = await runCli(argv, {
   cwd: process.cwd(),
   home,
   backlogRoot,
+  repoRoot,
   env: process.env,
   now: () => new Date(),
   readStdin,

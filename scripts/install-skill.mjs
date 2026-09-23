@@ -1,38 +1,43 @@
-import { lstat, mkdir, readFile, readlink, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveBacklogRoot } from "../src/core/store/paths.ts";
+import { resolveLanguage } from "../src/core/store/settings.ts";
+import { defaultSkillsDir, linkSkillFor, skillSourceDir } from "../src/cli/skill-link.ts";
 
 const STOP_HOOK_COMMAND = "command -v backlog >/dev/null && backlog hook stop || true";
 
-const source = resolve(dirname(fileURLToPath(import.meta.url)), "../skill/backlog");
-const skillsDir = process.env.CLAUDE_SKILLS_DIR ?? join(homedir(), ".claude/skills");
-const settingsPath = process.env.CLAUDE_SETTINGS_PATH ?? join(homedir(), ".claude/settings.json");
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const home = homedir();
+const skillsDir = process.env.CLAUDE_SKILLS_DIR ?? defaultSkillsDir(home);
+const settingsPath = process.env.CLAUDE_SETTINGS_PATH ?? join(home, ".claude/settings.json");
 
 if (await linkSkill()) await addStopHook();
 
 async function linkSkill() {
   const target = join(skillsDir, "backlog");
-  const existing = await lstat(target).catch(() => null);
-  if (existing === null) {
-    try {
-      await mkdir(skillsDir, { recursive: true });
-      await symlink(source, target, "dir");
-    } catch (error) {
-      console.error(`Не удалось создать ссылку ${target} (${error.code ?? error.message}).`);
-      process.exitCode = 1;
-      return false;
+  const backlogRoot = resolveBacklogRoot(process.env, home);
+  const language = await resolveLanguage(backlogRoot, process.env);
+  const source = skillSourceDir(repoRoot, language);
+  try {
+    const result = await linkSkillFor(language, { skillsDir, repoRoot });
+    if (result === "linked") {
+      console.log(`Скилл установлен: ${target} → ${source}`);
+      return true;
     }
-    console.log(`Скилл установлен: ${target} → ${source}`);
-    return true;
+    if (result === "kept") {
+      console.log(`Скилл уже установлен: ${target}`);
+      return true;
+    }
+    console.error(`${target} уже существует и не ведёт в ${source}. Уберите его вручную и повторите.`);
+    process.exitCode = 1;
+    return false;
+  } catch (error) {
+    console.error(`Не удалось создать ссылку ${target} (${error.code ?? error.message}).`);
+    process.exitCode = 1;
+    return false;
   }
-  if (existing.isSymbolicLink() && resolve(skillsDir, await readlink(target)) === source) {
-    console.log(`Скилл уже установлен: ${target}`);
-    return true;
-  }
-  console.error(`${target} уже существует и не ведёт в ${source}. Уберите его вручную и повторите.`);
-  process.exitCode = 1;
-  return false;
 }
 
 async function addStopHook() {

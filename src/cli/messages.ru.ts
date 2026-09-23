@@ -7,6 +7,7 @@ export const cliRu = {
   runNotRecorded: (error: string): string => `Не удалось записать запуск: ${error}`,
 
   optionLabel: { status: "статус", category: "категория", priority: "приоритет", language: "язык" },
+  skillForeign: (target: string): string => `${target} — чужой каталог, скилл не переставлен`,
 
   taskNotFound: (id: string): string => `Задача ${id} не найдена`,
   fileConflict: (id: string): string => `Файл задачи ${id} изменился во время записи, повторите команду`,

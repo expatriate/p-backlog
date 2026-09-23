@@ -9,6 +9,7 @@ type CliRun = { code: number; out: string; err: string };
 type CliRunOptions = { cwd?: string; stdin?: string; now?: Date; env?: NodeJS.ProcessEnv };
 
 const SANDBOX_NOW = new Date("2026-09-17T14:50:00Z");
+const REPO_ROOT = join(import.meta.dirname, "../../..");
 
 export type CliSandbox = {
   home: string;
@@ -29,6 +30,7 @@ export async function makeCliSandbox(): Promise<CliSandbox> {
       cwd: options.cwd ?? repo,
       home,
       backlogRoot: root,
+      repoRoot: REPO_ROOT,
       env: options.env ?? {},
       now: () => options.now ?? SANDBOX_NOW,
       readStdin: async () => options.stdin ?? "",
