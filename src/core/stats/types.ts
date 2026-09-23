@@ -1,4 +1,5 @@
-import type { CandidateEvidence, FoundHow, RecordedMethod } from "../journal/events";
+import type { GraphState } from "../check/graph-health";
+import type { CandidateEvidence, FoundHow, RecordedMatch, RecordedMethod } from "../journal/events";
 import type { Priority, TaskCategory } from "../model/types";
 
 export type ClosingReason = "done" | "fixed" | "obsolete" | "duplicate" | "cancelled";
@@ -68,8 +69,13 @@ export type CodeReport = ReportHead & {
 
 export type AccuracyWeek = { start: string; decided: number; precision: number | null };
 
-export type AccuracyRow = { evidence: CandidateEvidence | "total"; candidates: number; closed: number; verified: number; open: number; precision: number | null };
-export type MethodAccuracyRow = { by: RecordedMethod; candidates: number; closed: number; verified: number; open: number; precision: number | null };
+export type OutcomeCounts = { candidates: number; closed: number; verified: number; open: number; precision: number | null };
+export type AccuracyRow = { evidence: CandidateEvidence | "total" } & OutcomeCounts;
+export type MethodAccuracyRow = { by: RecordedMethod } & OutcomeCounts;
+export type MatchAccuracyRow = { by: RecordedMatch } & OutcomeCounts;
+export type GraphFilterEffect = { filtered: number; caught: number; missed: number; quiet: number };
+export type ProjectGraphRow = { projectId: string; name: string; state: GraphState; pinned: number; resolved: number };
+export type GraphReport = { projects: ProjectGraphRow[]; filter: GraphFilterEffect };
 export type CategoryRow = { category: TaskCategory | null; open: number; weight: number; created: number; closed: number };
 export type FoundRow = { found: FoundHow | null; created: number; open: number; fixed: number };
 export type BranchRow = { label: string; created: number; open: number };
@@ -77,6 +83,8 @@ export type QualityReport = ReportHead & {
   accuracy: AccuracyRow[];
   accuracyWeeks: AccuracyWeek[];
   methodAccuracy: MethodAccuracyRow[];
+  matchAccuracy: MatchAccuracyRow[];
+  graph: GraphReport;
   categories: CategoryRow[];
   found: FoundRow[];
   branches: BranchRow[];

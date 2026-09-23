@@ -1,4 +1,4 @@
-import { recordedMethodOf, type CandidateEvidence, type ChangeSource, type RecordedMethod, type FoundHow, type JournalEvent, type ProjectJournal, type TaskSnapshot } from "../journal/events";
+import { recordedMethodOf, type CandidateEvidence, type ChangeSource, type RecordedMatch, type RecordedMethod, type FoundHow, type JournalEvent, type ProjectJournal, type TaskSnapshot } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
 
@@ -18,9 +18,10 @@ export type TaskHistory = {
   branch?: string | undefined;
   candidates: CandidateSeen[];
   verifications: number[];
+  filtered: number[];
 };
 
-type CandidateSeen = { at: number; evidence: CandidateEvidence; method: RecordedMethod };
+export type CandidateSeen = { at: number; evidence: CandidateEvidence; method: RecordedMethod; match: RecordedMatch };
 
 type Known = {
   projectId: string;
@@ -30,6 +31,7 @@ type Known = {
   transitions: Transition[];
   candidates: CandidateSeen[];
   verifications: number[];
+  filtered: number[];
 };
 
 export function taskHistories(tasks: readonly Task[], journals: readonly ProjectJournal[]): TaskHistory[] {
@@ -37,7 +39,7 @@ export function taskHistories(tasks: readonly Task[], journals: readonly Project
   const entry = (id: string, projectId: string): Known => {
     const existing = known.get(id);
     if (existing) return existing;
-    const created: Known = { projectId, categoryEvents: [], transitions: [], candidates: [], verifications: [] };
+    const created: Known = { projectId, categoryEvents: [], transitions: [], candidates: [], verifications: [], filtered: [] };
     known.set(id, created);
     return created;
   };
@@ -51,7 +53,8 @@ export function taskHistories(tasks: readonly Task[], journals: readonly Project
       if (event.kind === "status") {
         item.transitions.push({ at: Date.parse(event.at), from: event.from, to: event.to, resolution: event.resolution, via: event.via });
       }
-      if (event.kind === "candidate") item.candidates.push({ at: Date.parse(event.at), evidence: event.evidence, method: recordedMethodOf(event) });
+      if (event.kind === "candidate") item.candidates.push({ at: Date.parse(event.at), evidence: event.evidence, method: recordedMethodOf(event), match: event.match ?? "unknown" });
+      if (event.kind === "candidate-filtered") item.filtered.push(Date.parse(event.at));
       if (event.kind === "verified") item.verifications.push(Date.parse(event.at));
     }
   }
@@ -82,7 +85,7 @@ export function reopeningsOf(history: TaskHistory): Transition[] {
   return history.transitions.filter((transition) => transition.from !== undefined && isClosed(transition.from) && !isClosed(transition.to));
 }
 
-function historyOf(id: string, { projectId, final, created, categoryEvents, transitions, candidates, verifications }: Known): TaskHistory[] {
+function historyOf(id: string, { projectId, final, created, categoryEvents, transitions, candidates, verifications, filtered }: Known): TaskHistory[] {
   const createdIso = final?.created ?? created?.at;
   const type = final?.type ?? created?.type;
   if (createdIso === undefined || type === undefined) return [];
@@ -102,6 +105,7 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, tran
       branch: created?.origin?.branch,
       candidates: [...candidates].sort((a, b) => a.at - b.at),
       verifications: [...verifications].sort((a, b) => a - b),
+      filtered: [...filtered].sort((a, b) => a - b),
     },
   ];
 }
@@ -130,5 +134,5 @@ function restoredTransitions(final: Task | TaskSnapshot | undefined, ordered: re
 }
 
 export function emptyHistory(): TaskHistory {
-  return { id: "", projectId: "", type: "task", createdAt: 0, finalStatus: "backlog", transitions: [], candidates: [], verifications: [] };
+  return { id: "", projectId: "", type: "task", createdAt: 0, finalStatus: "backlog", transitions: [], candidates: [], verifications: [], filtered: [] };
 }

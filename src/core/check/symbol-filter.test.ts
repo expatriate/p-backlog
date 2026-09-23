@@ -40,11 +40,11 @@ const task = makeTask({ id: "SPA-1", source: "src/upload.ts:2", created: "2026-0
 const candidate: Candidate = { kind: "source-changed", task: { id: "SPA-1", title: task.title }, path: "src/upload.ts", commits: [], uncommitted: false };
 
 describe("filterBySymbol", () => {
-  it("правка в другом символе того же файла убирает кандидата", async () => {
+  it("правка в другом символе того же файла убирает кандидата и называет символ, который его отсеял", async () => {
     const repo = await repoWithChange({ inSymbol: false });
     const graph = openCodeGraph(repo);
 
-    expect(await filterBySymbol([candidate], byId(task), diffsSince(repo), symbolLookup(repo, graph))).toEqual([]);
+    expect(await filterBySymbol([candidate], byId(task), diffsSince(repo), symbolLookup(repo, graph))).toEqual({ kept: [], filtered: [{ task: "SPA-1", symbol: "uploadFile" }] });
     graph?.close();
   });
 
@@ -52,14 +52,14 @@ describe("filterBySymbol", () => {
     const repo = await repoWithChange({ inSymbol: true });
     const graph = openCodeGraph(repo);
 
-    expect(await filterBySymbol([candidate], byId(task), diffsSince(repo), symbolLookup(repo, graph))).toEqual([{ ...candidate, bySymbol: true }]);
+    expect((await filterBySymbol([candidate], byId(task), diffsSince(repo), symbolLookup(repo, graph))).kept).toEqual([{ ...candidate, bySymbol: true }]);
     graph?.close();
   });
 
   it("без графа кандидат остаётся в том же сценарии", async () => {
     const repo = await repoWithChange({ inSymbol: false });
 
-    expect(await filterBySymbol([candidate], byId(task), diffsSince(repo), symbolLookup(repo, null))).toEqual([candidate]);
+    expect((await filterBySymbol([candidate], byId(task), diffsSince(repo), symbolLookup(repo, null))).kept).toEqual([candidate]);
   });
 
   it("файл изменился после сборки графа — кандидат остаётся", async () => {
@@ -67,7 +67,7 @@ describe("filterBySymbol", () => {
     const graph = openCodeGraph(repo);
     await writeFile(join(repo, "src/upload.ts"), body("v3", "v3"));
 
-    expect(await filterBySymbol([candidate], byId(task), diffsSince(repo), symbolLookup(repo, graph))).toEqual([candidate]);
+    expect((await filterBySymbol([candidate], byId(task), diffsSince(repo), symbolLookup(repo, graph))).kept).toEqual([candidate]);
     graph?.close();
   });
 
@@ -77,14 +77,14 @@ describe("filterBySymbol", () => {
     const spanning = makeTask({ id: "SPA-9", source: "src/upload.ts:2-6", created: "2026-09-11T10:00:00+03:00" });
     const spanningCandidate: Candidate = { kind: "source-changed", task: { id: "SPA-9", title: spanning.title }, path: "src/upload.ts", commits: [], uncommitted: false };
 
-    expect(await filterBySymbol([spanningCandidate], byId(spanning), diffsSince(repo), symbolLookup(repo, graph))).toEqual([{ ...spanningCandidate, bySymbol: true }]);
+    expect((await filterBySymbol([spanningCandidate], byId(spanning), diffsSince(repo), symbolLookup(repo, graph))).kept).toEqual([{ ...spanningCandidate, bySymbol: true }]);
     graph?.close();
   });
 
   it("путь репозитория с хвостовым слешем не выключает фильтр", async () => {
     const repo = await repoWithChange({ inSymbol: false });
 
-    expect(await filterBySymbol([candidate], byId(task), diffsSince(`${repo}/`), symbolLookup(`${repo}/`, openCodeGraph(`${repo}/`)))).toEqual([]);
+    expect((await filterBySymbol([candidate], byId(task), diffsSince(`${repo}/`), symbolLookup(`${repo}/`, openCodeGraph(`${repo}/`)))).kept).toEqual([]);
   });
 
   it("кандидатов других видов не трогает", async () => {
@@ -92,7 +92,7 @@ describe("filterBySymbol", () => {
     const graph = openCodeGraph(repo);
     const missing: Candidate = { kind: "source-missing", task: { id: "SPA-2", title: "Задача SPA-2" }, path: "src/gone.ts" };
 
-    expect(await filterBySymbol([missing], byId(task), diffsSince(repo), symbolLookup(repo, graph))).toEqual([missing]);
+    expect((await filterBySymbol([missing], byId(task), diffsSince(repo), symbolLookup(repo, graph))).kept).toEqual([missing]);
     graph?.close();
   });
 });
@@ -102,6 +102,7 @@ describe("symbolNames", () => {
     const repo = await repoWithChange({ inSymbol: false });
     let asked = 0;
     const counting: CodeGraph = {
+      fileState: () => "fresh",
       symbolAt: () => {
         asked++;
         return { qualifiedName: "src/upload.ts::uploadFile", from: 1, to: 3 };

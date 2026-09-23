@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { projectGraphHealth } from "../core/check/graph-health";
 import { createCodeCacheFile } from "../core/code/code-cache";
 import { createCodeSource } from "../core/code/code-source";
 import { formatLocalDay } from "../core/model/dates";
@@ -10,7 +11,7 @@ import { qualityReport } from "../core/stats/quality/quality-report";
 import { statsReport } from "../core/stats/report";
 import { reportBase, type ReportBase, type StatsInput } from "../core/stats/scope";
 import { statsSignals } from "../core/stats/signals/signals";
-import type { CodeReport, CostReport, EffectReport, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
+import type { CodeReport, CostReport, EffectReport, ProjectGraphRow, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
 import { readJournals } from "../core/store/journal";
 import type { LoadedBacklog } from "../core/store/load";
 import { cachedRepoRoots, findProjectForRepoRoot, type RepoRootLookup } from "../core/store/resolve-project";
@@ -82,6 +83,8 @@ export function createStatsApi({ root, now, home, usage, memory, backlog }: Stat
     return effectReport({ ...input, code: { ...code, fixCommits } }, base, backlogBase);
   };
 
+  const statsOfQuality: ScopedReport<QualityReport> = async (input, base, projects) => qualityReport(input, base, await projectGraphs(projects, input.tasks, home));
+
   const statsOfCost = async (projectId: string | undefined, projects: readonly Project[]): Promise<CostReport> => {
     usage.ensureStarted();
     const { cache, scan } = usage.snapshot();
@@ -99,7 +102,7 @@ export function createStatsApi({ root, now, home, usage, memory, backlog }: Stat
   routes.get("/stats", scopedStats("stats", (input, base) => statsReport(input, base)));
   routes.get("/stats/code", scopedStats("code", statsOfCode, codeState));
   routes.get("/stats/effect", scopedStats("effect", statsOfEffect, { ...codeState, wholeBacklog: true }));
-  routes.get("/stats/quality", scopedStats("quality", (input, base) => qualityReport(input, base)));
+  routes.get("/stats/quality", scopedStats("quality", statsOfQuality));
   routes.get("/stats/signals", scopedStats("signals", (input, base) => ({ signals: statsSignals(input, base) })));
   routes.get("/stats/cost", async (c) => {
     const scope = await statsScopeOf(c, { wholeBacklog: true });
@@ -108,6 +111,12 @@ export function createStatsApi({ root, now, home, usage, memory, backlog }: Stat
   routes.get("/stats/memory", (c) => c.json({ samples: memory.samples() }));
 
   return { routes, forget: () => reports.clear() };
+}
+
+async function projectGraphs(projects: readonly Project[], tasks: readonly Task[], home: string): Promise<ProjectGraphRow[]> {
+  return Promise.all(
+    projects.map(async (project) => ({ projectId: project.id, name: project.name, ...(await projectGraphHealth(project, tasks, home)) })),
+  );
 }
 
 function bucketsOf(cache: UsageCache) {

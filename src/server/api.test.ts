@@ -8,6 +8,7 @@ import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFil
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
 import { runGit } from "../core/git/run";
+import { makeGraph } from "../core/graph/testing/make-graph";
 import { makeTestApp, SAMPLE_FILES, TEST_NOW } from "./testing/test-app";
 
 describe("GET /api/projects и /api/tasks", () => {
@@ -28,11 +29,11 @@ describe("GET /api/projects и /api/tasks", () => {
 });
 
 describe("GET /api/projects: граф кода", () => {
-  it("проект знает, собран ли граф в его репозитории", async () => {
+  it("проект знает, в каком состоянии граф его репозитория", async () => {
     const home = await makeTempDir();
     const withGraph = await makeGitRepo(home, "projects/spa");
     const withoutGraph = await makeGitRepo(home, "projects/torg-io");
-    await writeFiles(withGraph, { ".code-review-graph/graph.db": "" });
+    await makeGraph(withGraph, []);
     const backlog = await makeTestApp({
       ...SAMPLE_FILES,
       "spa/project.md": projectFile("SPA", [withGraph]),
@@ -42,8 +43,8 @@ describe("GET /api/projects: граф кода", () => {
     const projects = (await (await backlog.request("/api/projects")).json()) as ProjectView[];
 
     expect(projects.map((project) => [project.id, project.codeGraph])).toEqual([
-      ["spa", true],
-      ["torg-io", false],
+      ["spa", "fresh"],
+      ["torg-io", "none"],
     ]);
   });
 });

@@ -1,14 +1,23 @@
 import { categoryLabel } from "../../core/model/categories";
-import { CHECK_METHOD_LABELS, EVIDENCE_LABELS, formatShare } from "../../core/stats/format";
-import type { AccuracyRow, AccuracyWeek, BranchRow, CategoryRow, FoundRow, MethodAccuracyRow } from "../../core/stats/types";
+import { CHECK_METHOD_LABELS, DUPLICATE_MATCH_LABELS, EVIDENCE_LABELS, formatShare, GRAPH_STATE_LABELS } from "../../core/stats/format";
+import type { AccuracyRow, AccuracyWeek, BranchRow, CategoryRow, FoundRow, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow } from "../../core/stats/types";
 import { AccuracyWeeksChart } from "./AccuracyWeeksChart";
 import { FOUND_LABELS } from "../labels";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
-import { StatsTable } from "./StatsTable";
+import { StatsTable, type StatsTableRow } from "./StatsTable";
 import { STATS_PERIOD } from "./periods";
 
-export function AccuracyPanel({ rows, weeks, methodRows }: { rows: AccuracyRow[]; weeks: AccuracyWeek[]; methodRows: MethodAccuracyRow[] }) {
+type SplitRow = { by: string } & OutcomeCounts;
+
+type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyWeek[]; methodRows: MethodAccuracyRow[]; matchRows: MatchAccuracyRow[] };
+
+export function AccuracyPanel({ rows, weeks, methodRows, matchRows }: AccuracyPanelProps) {
+  const splitOf = (evidence: AccuracyRow["evidence"]): StatsTableRow[] => {
+    if (evidence === "source-changed") return methodRows.map((split) => splitRow(split, split.by === "unknown" ? "до записи способа" : `проверено ${CHECK_METHOD_LABELS[split.by]}`));
+    if (evidence === "duplicate") return matchRows.map((split) => splitRow(split, split.by === "unknown" ? "до записи признака" : `совпали ${DUPLICATE_MATCH_LABELS[split.by]}`));
+    return [];
+  };
   return (
     <Panel title="Точность проверки">
       {rows.length === 0 ? (
@@ -22,18 +31,61 @@ export function AccuracyPanel({ rows, weeks, methodRows }: { rows: AccuracyRow[]
             head={["Улика", "Кандидатов", "Закрыто", "Подтверждено", "Без решения", "Точность"]}
             rows={rows.flatMap((row) => [
               { key: row.evidence, cells: [EVIDENCE_LABELS[row.evidence], row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)] },
-              ...(row.evidence === "source-changed"
-                ? methodRows.map((split) => ({
-                    key: `by-${split.by}`,
-                    cells: [`└ из них ${split.by === "unknown" ? "до записи способа" : `проверено ${CHECK_METHOD_LABELS[split.by]}`}`, split.candidates, split.closed, split.verified, split.open, formatShare(split.precision)],
-                  }))
-                : []),
+              ...splitOf(row.evidence).map((split) => ({ ...split, key: `${row.evidence}-${split.key}` })),
             ])}
           />
         </>
       )}
     </Panel>
   );
+}
+
+function splitRow(split: SplitRow, label: string): StatsTableRow {
+  return { key: split.by, cells: [`└ из них ${label}`, split.candidates, split.closed, split.verified, split.open, formatShare(split.precision)] };
+}
+
+export function GraphPanel({ graph }: { graph: GraphReport }) {
+  const { projects, filter } = graph;
+  if (filter.filtered === 0 && projects.every((project) => project.state === "none")) {
+    return (
+      <Panel title="Граф кода">
+        <p className={rowStyles.muted}>
+          Графа кода нет: проверка сравнивает строки source и файл целиком. <code>code-review-graph build</code> в репозитории проекта включит проверку по символу
+        </p>
+      </Panel>
+    );
+  }
+  return (
+    <Panel title="Граф кода">
+      <p className={rowStyles.muted}>Граф убирает кандидата «код изменился», если правка задела другой символ того же файла, — агенту не нужно перечитывать задачу</p>
+      <h3 className={rowStyles.subTitle}>Отсеяно за {STATS_PERIOD}</h3>
+      {filter.filtered === 0 ? (
+        <p className={rowStyles.muted}>Граф не отсеял ни одного кандидата</p>
+      ) : (
+        <StatsTable
+          label="Что стало с отсеянными кандидатами"
+          head={["Исход", "Кандидатов"]}
+          rows={[
+            { key: "filtered", cells: ["Отсеяно графом", filter.filtered] },
+            { key: "caught", cells: ["└ позже всё же стал кандидатом", filter.caught] },
+            { key: "missed", cells: ["└ закрыта без сигнала проверки — возможный промах", filter.missed] },
+            { key: "quiet", cells: ["└ без последствий", filter.quiet] },
+          ]}
+        />
+      )}
+      <h3 className={rowStyles.subTitle}>Проекты</h3>
+      <StatsTable
+        label="Граф кода по проектам"
+        head={["Проект", "Граф", "Задач со строками source", "Символ найден"]}
+        rows={projects.map((project) => ({ key: project.projectId, cells: [project.name, GRAPH_STATE_LABELS[project.state], project.pinned, resolvedCell(project)] }))}
+      />
+    </Panel>
+  );
+}
+
+function resolvedCell({ state, pinned, resolved }: ProjectGraphRow): string {
+  if (state === "none" || state === "unreadable") return "—";
+  return `${resolved} (${formatShare(pinned === 0 ? null : resolved / pinned)})`;
 }
 
 export function CategoriesPanel({ rows }: { rows: CategoryRow[] }) {

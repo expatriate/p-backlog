@@ -1,13 +1,12 @@
-import { CANDIDATE_EVIDENCE, RECORDED_METHODS, type CandidateEvidence } from "../../journal/events";
-import { closingsOf, type TaskHistory } from "../history";
+import { CANDIDATE_EVIDENCE, RECORDED_MATCHES, RECORDED_METHODS, type CandidateEvidence } from "../../journal/events";
+import { closingsOf, type CandidateSeen, type TaskHistory } from "../history";
 import { formatLocalIso } from "../../model/dates";
 import type { Period } from "../period";
 import { weekWindows } from "../weeks";
-import type { AccuracyRow, AccuracyWeek, MethodAccuracyRow } from "../types";
+import type { AccuracyRow, AccuracyWeek, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts } from "../types";
 
 type Outcome = "closed" | "verified" | "open";
 type Episode = { evidence: CandidateEvidence; outcome: Outcome };
-type OutcomeCounts = Omit<AccuracyRow, "evidence">;
 
 export function accuracy(histories: readonly TaskHistory[], period: Period): AccuracyRow[] {
   const episodes = histories.flatMap((history) =>
@@ -37,12 +36,22 @@ export function accuracyWeeks(histories: readonly TaskHistory[], now: Date): Acc
 }
 
 export function methodAccuracy(histories: readonly TaskHistory[], period: Period): MethodAccuracyRow[] {
+  return splitAccuracy(histories, period, { evidence: "source-changed", keys: RECORDED_METHODS, keyOf: (candidate) => candidate.method });
+}
+
+export function matchAccuracy(histories: readonly TaskHistory[], period: Period): MatchAccuracyRow[] {
+  return splitAccuracy(histories, period, { evidence: "duplicate", keys: RECORDED_MATCHES, keyOf: (candidate) => candidate.match });
+}
+
+type AccuracySplit<K extends string> = { evidence: CandidateEvidence; keys: readonly K[]; keyOf: (candidate: CandidateSeen) => K };
+
+function splitAccuracy<K extends string>(histories: readonly TaskHistory[], period: Period, { evidence, keys, keyOf }: AccuracySplit<K>): ({ by: K } & OutcomeCounts)[] {
   const episodes = histories.flatMap((history) =>
     history.candidates
-      .filter((candidate) => candidate.evidence === "source-changed" && period.contains(candidate.at))
-      .map((candidate) => ({ by: candidate.method, outcome: outcomeAfter(history, candidate.at) })),
+      .filter((candidate) => candidate.evidence === evidence && period.contains(candidate.at))
+      .map((candidate) => ({ by: keyOf(candidate), outcome: outcomeAfter(history, candidate.at) })),
   );
-  return RECORDED_METHODS.flatMap((by) => {
+  return keys.flatMap((by) => {
     const own = episodes.filter((episode) => episode.by === by);
     return own.length === 0 ? [] : [{ by, ...outcomeCounts(own) }];
   });

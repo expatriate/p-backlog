@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { listPath, statsPath } from "../app/paths";
 import { Link, matchPath, NavLink, Outlet, useLocation } from "react-router";
 import type { ProjectView } from "../../core/api/contract";
+import type { GraphState } from "../../core/check/graph-health";
 import type { Task } from "../../core/model/types";
 import { useProjects, useSignals, useTasks } from "../app/queries";
 import { OPEN_STATUSES } from "../../core/model/query";
@@ -13,6 +14,14 @@ import { ProjectCheckbox, ProjectDeleteButton } from "./ProjectControls";
 import styles from "./AppLayout.module.css";
 
 const PROJECT_LIST_ID = "sidebar-projects";
+
+type GraphTrouble = Exclude<GraphState, "fresh">;
+
+const GRAPH_NOTES: Record<GraphTrouble, { title: string; hint: ReactNode }> = {
+  none: { title: "Без графа кода", hint: <><code>code-review-graph build</code> — кандидаты проверки точнее</> },
+  stale: { title: "Граф кода устарел", hint: <><code>code-review-graph watch</code> или хук <code>update</code> — без них проверка не видит символов</> },
+  unreadable: { title: "Граф кода не читается", hint: <><code>code-review-graph build</code> заново — база другой версии или от другого пути</> },
+};
 
 export function AppLayout() {
   const projects = useProjects();
@@ -30,7 +39,7 @@ export function AppLayout() {
   const onStats = statsTab !== undefined;
   const scopePath = (id?: string) => (onStats ? `${statsPath(id)}${statsTab === "" ? "" : `/${statsTab}`}` : listPath(id));
   const scopeTasks = counts.scopeOpen;
-  const withoutGraph = useMemo(() => allProjects.filter((project) => project.active && project.repos.length > 0 && !project.codeGraph), [allProjects]);
+  const graphTroubles = useMemo(() => graphTroubleCounts(allProjects), [allProjects]);
   const [listOpen, setListOpen] = useState(true);
 
   return (
@@ -99,13 +108,15 @@ export function AppLayout() {
             </p>
           )}
         </div>
-        {withoutGraph.length > 0 && (
-          <p className={styles.graphNote}>
-            Без графа кода: {pluralCount(withoutGraph.length, "проект", "проекта", "проектов")}
-            <span>
-              <code>code-review-graph build</code> — кандидаты проверки точнее
-            </span>
-          </p>
+        {graphTroubles.length > 0 && (
+          <div className={styles.graphNotes}>
+            {graphTroubles.map(([state, count]) => (
+              <p key={state} className={styles.graphNote}>
+                {GRAPH_NOTES[state].title}: {pluralCount(count, "проект", "проекта", "проектов")}
+                <span>{GRAPH_NOTES[state].hint}</span>
+              </p>
+            ))}
+          </div>
         )}
       </nav>
       <Outlet />
@@ -151,4 +162,12 @@ function Chevron({ open }: { open: boolean }) {
 
 function navClass(isActive: boolean): string {
   return cx(styles.project, isActive && styles.projectActive);
+}
+
+function graphTroubleCounts(projects: readonly ProjectView[]): [GraphTrouble, number][] {
+  const watched = projects.filter((project) => project.active && project.repos.length > 0);
+  return (Object.keys(GRAPH_NOTES) as GraphTrouble[]).flatMap((state): [GraphTrouble, number][] => {
+    const count = watched.filter((project) => project.codeGraph === state).length;
+    return count === 0 ? [] : [[state, count]];
+  });
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { GraphState } from "../check/graph-health";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskIdSchema, type ParseError, type Project, type Task } from "../model/types";
 import type { MemorySample } from "../stats/types";
 
@@ -29,7 +30,7 @@ export const updateTaskRequestSchema = z.strictObject({
 export type TaskChangesRequest = z.infer<typeof taskChangesSchema>;
 
 export type TasksResponse = { tasks: Task[]; errors: ParseError[] };
-export type ProjectView = Project & { codeGraph: boolean };
+export type ProjectView = Project & { codeGraph: GraphState };
 export type ProjectDeletedResponse = { deleted: string };
 export type ErrorResponse = { errors: string[] };
 export type ConflictResponse = ErrorResponse & { current: Task };

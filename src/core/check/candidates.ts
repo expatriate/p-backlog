@@ -1,3 +1,4 @@
+import type { DuplicateMatch } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Task } from "../model/types";
 import { anchorOf, findMoved, hasLines, isAnchorFor, lineSuffix, SOURCE_LINES } from "./anchor";
@@ -10,7 +11,7 @@ type CommitRef = { sha: string; subject: string };
 export type Candidate =
   | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string  | undefined}
   | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string; bySymbol?: boolean; byAnchor?: boolean }
-  | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: "source" | "title" | "symbol" };
+  | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: DuplicateMatch };
 
 export type AnchorPlan = { id: string; changes: { source?: string; anchor: string }; note?: string };
 
@@ -101,7 +102,7 @@ export function duplicateCandidates(tasks: readonly Task[], symbolOf: SymbolOf =
   );
 }
 
-function duplicateMatch(task: Task, other: Task, symbolOf: SymbolOf): "source" | "title" | "symbol" | null {
+function duplicateMatch(task: Task, other: Task, symbolOf: SymbolOf): DuplicateMatch | null {
   if (linked(task, other) || bothConfirmedAfterCreation(task, other)) return null;
   if (task.source !== undefined && other.source !== undefined && samePlace(task.source, other.source)) return "source";
   const symbol = symbolOf(task);

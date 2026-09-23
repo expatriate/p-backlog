@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CodeGraph, GraphSymbol } from "../graph/code-graph";
+import type { FilteredSighting } from "../journal/events";
 import type { Task } from "../model/types";
 import { sourceRange, type LineRange } from "./anchor";
 import { reviewMark, sourcePath, type Candidate, type SymbolOf } from "./candidates";
@@ -28,9 +29,16 @@ export function symbolNames(symbolOf: SymbolLookup): SymbolOf {
   };
 }
 
-export async function filterBySymbol(candidates: readonly Candidate[], tasksById: ReadonlyMap<string, Task>, diffOf: DiffSince, symbolOf: SymbolLookup): Promise<Candidate[]> {
-  const decided = await Promise.all(candidates.map((candidate) => decide(candidate, tasksById, diffOf, symbolOf)));
-  return decided.filter((candidate) => candidate !== null);
+export type SymbolFilterResult = { kept: Candidate[]; filtered: FilteredSighting[] };
+
+type Decision = { kept: Candidate } | { filtered: FilteredSighting };
+
+export async function filterBySymbol(candidates: readonly Candidate[], tasksById: ReadonlyMap<string, Task>, diffOf: DiffSince, symbolOf: SymbolLookup): Promise<SymbolFilterResult> {
+  const decisions = await Promise.all(candidates.map((candidate) => decide(candidate, tasksById, diffOf, symbolOf)));
+  return {
+    kept: decisions.flatMap((decision) => ("kept" in decision ? [decision.kept] : [])),
+    filtered: decisions.flatMap((decision) => ("filtered" in decision ? [decision.filtered] : [])),
+  };
 }
 
 function lookUp(repo: string, graph: CodeGraph, task: Task): GraphSymbol | null {
@@ -41,16 +49,21 @@ function lookUp(repo: string, graph: CodeGraph, task: Task): GraphSymbol | null 
   return hash === null ? null : graph.symbolAt(path, range.from, hash);
 }
 
-async function decide(candidate: Candidate, tasksById: ReadonlyMap<string, Task>, diffOf: DiffSince, symbolOf: SymbolLookup): Promise<Candidate | null> {
-  if (candidate.kind !== "source-changed") return candidate;
+async function decide(candidate: Candidate, tasksById: ReadonlyMap<string, Task>, diffOf: DiffSince, symbolOf: SymbolLookup): Promise<Decision> {
+  if (candidate.kind !== "source-changed") return { kept: candidate };
   const task = tasksById.get(candidate.task.id);
-  if (task === undefined) return candidate;
+  if (task === undefined) return { kept: candidate };
   const symbol = symbolOf(task);
-  if (symbol === null) return candidate;
+  if (symbol === null) return { kept: candidate };
   const diff = await diffOf(candidate.path, new Date(reviewMark(task)));
-  if (diff === null) return candidate;
+  if (diff === null) return { kept: candidate };
   const watched = watchedRange(symbol, sourceRange(task.source));
-  return diff.changed.some((range) => overlaps(range, watched)) ? { ...candidate, bySymbol: true } : null;
+  if (diff.changed.some((range) => overlaps(range, watched))) return { kept: { ...candidate, bySymbol: true } };
+  return { filtered: { task: task.id, symbol: shortName(symbol.qualifiedName) } };
+}
+
+function shortName(qualifiedName: string): string {
+  return qualifiedName.slice(qualifiedName.lastIndexOf("::") + 2);
 }
 
 function watchedRange(symbol: GraphSymbol, declared: LineRange | null): LineRange {
@@ -58,7 +71,7 @@ function watchedRange(symbol: GraphSymbol, declared: LineRange | null): LineRang
   return { from: Math.min(symbol.from, declared.from), to: Math.max(symbol.to, declared.to) };
 }
 
-function fileHash(path: string): string | null {
+export function fileHash(path: string): string | null {
   try {
     return createHash("sha256").update(readFileSync(path)).digest("hex");
   } catch {

@@ -1,4 +1,5 @@
-import type { CandidateEvidence, CheckMethod } from "../journal/events";
+import type { GraphState } from "../check/graph-health";
+import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { FlowForecast } from "./types";
 
 export const NBSP = " ";
@@ -82,4 +83,17 @@ export const CHECK_METHOD_LABELS: Record<CheckMethod, string> = {
   symbol: "по символу",
   anchor: "по строкам source",
   file: "по файлу",
+};
+
+export const DUPLICATE_MATCH_LABELS: Record<DuplicateMatch, string> = {
+  source: "по месту в коде",
+  title: "по заголовку",
+  symbol: "по символу",
+};
+
+export const GRAPH_STATE_LABELS: Record<GraphState, string> = {
+  none: "нет",
+  unreadable: "не читается",
+  stale: "устарел",
+  fresh: "свежий",
 };

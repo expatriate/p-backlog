@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { makeGraph } from "../../core/graph/testing/make-graph";
 import { loadBacklog } from "../../core/store/load";
 import { makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { renderApp } from "../testing/render-app";
@@ -63,23 +65,32 @@ describe("боковая панель", () => {
 });
 
 describe("уведомление про граф кода", () => {
-  async function filesWithRepos({ graph }: { graph: boolean }) {
+  async function filesWithRepos(graph: "none" | "fresh" | "stale") {
     const home = await makeTempDir();
     const repo = await makeGitRepo(home, "projects/spa");
-    if (graph) await writeFiles(repo, { ".code-review-graph/graph.db": "" });
-    return { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": taskFile("SPA-1") };
+    await writeFiles(repo, { "src/a.ts": "const a = 1;\n" });
+    const builtFrom = graph === "stale" ? "const a = 0;\n" : "const a = 1;\n";
+    if (graph !== "none") await makeGraph(repo, [{ path: "src/a.ts", hash: createHash("sha256").update(builtFrom).digest("hex"), symbols: [] }]);
+    return { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": taskFile("SPA-1", "source: src/a.ts:1\n") };
   }
 
   it("строка появляется, когда у активного проекта нет графа", async () => {
-    await renderApp(await filesWithRepos({ graph: false }));
+    await renderApp(await filesWithRepos("none"));
 
     expect(await screen.findByText(/Без графа кода: 1 проект/)).toBeTruthy();
   });
 
-  it("строки нет, когда граф собран у всех проектов", async () => {
-    await renderApp(await filesWithRepos({ graph: true }));
+  it("граф, от которого ушли файлы задач, назван устаревшим, а не собранным", async () => {
+    await renderApp(await filesWithRepos("stale"));
+
+    expect(await screen.findByText(/Граф кода устарел: 1 проект/)).toBeTruthy();
+    expect(screen.queryByText(/Без графа кода/)).toBeNull();
+  });
+
+  it("строки нет, когда граф собран и свежий у всех проектов", async () => {
+    await renderApp(await filesWithRepos("fresh"));
 
     await screen.findByRole("list", { name: "Проекты" });
-    expect(screen.queryByText(/Без графа кода/)).toBeNull();
+    expect(screen.queryByText(/Без графа кода|Граф кода устарел/)).toBeNull();
   });
 });

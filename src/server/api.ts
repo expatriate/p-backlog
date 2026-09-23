@@ -2,22 +2,25 @@ import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import { projectActiveSchema, projectDeleteSchema, updateTaskRequestSchema, type ProjectView } from "../core/api/contract";
-import { hasCodeGraph } from "../core/graph/code-graph";
+import { projectGraphHealth, type GraphState } from "../core/check/graph-health";
 import { buildIndex, type BacklogIndex } from "../core/model/graph";
+import type { Project } from "../core/model/types";
 import { parseInRussian } from "../core/model/zod-issues";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { deleteProject, setProjectActive } from "../core/store/projects";
-import { expandHome } from "../core/store/paths";
 import { updateTaskInIndex } from "../core/store/update";
 import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
 import type { MemorySampler } from "./memory-sampler";
+import { createReportCache } from "./report-cache";
 import { createStatsApi } from "./stats-api";
 import type { UsageScanner } from "./usage-scanner";
 
 export type ApiOptions = { root: string; changes: ChangeFeed; now: () => Date; home: string; usage: UsageScanner; memory: MemorySampler };
 
 type BacklogSnapshot = LoadedBacklog & { index: BacklogIndex };
+
+const GRAPH_STATE_TTL_MS = 60 * 1000;
 
 export function createApi({ root, changes, now, home, usage, memory }: ApiOptions): Hono {
   const api = new Hono();
@@ -30,13 +33,21 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
     return snapshot;
   };
   const stats = createStatsApi({ root, now, home, usage, memory, backlog });
+  const graphStates = createReportCache({ ttlMs: GRAPH_STATE_TTL_MS, now: () => now().getTime() });
   const forgetBacklog = () => {
     snapshot = null;
     stats.forget();
   };
   changes.subscribe(forgetBacklog);
 
-  api.get("/projects", async (c) => c.json((await backlog()).projects.map((project): ProjectView => ({ ...project, codeGraph: project.repos.some((repo) => hasCodeGraph(expandHome(repo, home))) }))));
+  api.get("/projects", async (c) => {
+    const { projects, tasks } = await backlog();
+    const withGraph = async (project: Project): Promise<ProjectView> => {
+      const codeGraph = await graphStates.get<GraphState>(project.id, async () => (await projectGraphHealth(project, tasks, home)).state);
+      return { ...project, codeGraph };
+    };
+    return c.json(await Promise.all(projects.map(withGraph)));
+  });
 
   api.get("/tasks", async (c) => {
     const { tasks, errors } = await backlog();

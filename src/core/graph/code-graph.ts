@@ -4,7 +4,10 @@ import { DatabaseSync, type StatementSync } from "node:sqlite";
 
 export type GraphSymbol = { qualifiedName: string; from: number; to: number };
 
+type GraphFileState = "fresh" | "changed" | "absent";
+
 export type CodeGraph = {
+  fileState(path: string, fileHash: string): GraphFileState;
   symbolAt(path: string, line: number, fileHash: string): GraphSymbol | null;
   close(): void;
 };
@@ -41,15 +44,22 @@ function readMetadata(db: DatabaseSync): Map<string, string> {
 }
 
 function codeGraph(db: DatabaseSync, repo: string): CodeGraph {
-  const fresh = db.prepare("select 1 from nodes where kind = 'File' and file_path = ? and file_hash = ?");
+  const fileNode = db.prepare("select file_hash from nodes where kind = 'File' and file_path = ?");
   const enclosing = db.prepare(
     "select qualified_name, line_start, line_end from nodes where file_path = ? and kind != 'File' and line_start <= ? and line_end >= ? order by line_end - line_start asc limit 1",
   );
 
+  const fileState = (path: string, fileHash: string): GraphFileState => {
+    const row = ask(fileNode, (statement) => statement.get(join(repo, path)) as { file_hash: string | null } | undefined, undefined);
+    if (row === undefined) return "absent";
+    return row.file_hash === fileHash ? "fresh" : "changed";
+  };
+
   return {
+    fileState,
     symbolAt(path, line, fileHash) {
+      if (fileState(path, fileHash) !== "fresh") return null;
       const file = join(repo, path);
-      if (ask(fresh, (statement) => statement.get(file, fileHash), undefined) === undefined) return null;
       const row = ask(enclosing, (statement) => statement.get(file, line, line) as SymbolRow | undefined, undefined);
       return row === undefined ? null : { qualifiedName: row.qualified_name, from: row.line_start, to: row.line_end };
     },

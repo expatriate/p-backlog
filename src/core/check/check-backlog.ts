@@ -1,6 +1,6 @@
 import { errorText } from "../errors";
 import { basename, join } from "node:path";
-import { candidateEvents, candidateGoneEvents, checkMethodOf, episodeStates, type CandidateSighting, type CheckMode } from "../journal/events";
+import { candidateEvents, candidateGoneEvents, checkMethodOf, episodeStates, filteredEvents, type CandidateSighting, type CheckMode, type FilteredSighting } from "../journal/events";
 import { buildIndex } from "../model/graph";
 import { ID_PATTERN, parseId } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
@@ -26,7 +26,7 @@ export type CheckReport = { fixed: string[]; problems: string[]; candidates: Can
 type Fix = { changes: TaskChanges; closure?: Closure; notes: string[] };
 const PROBLEM_LIMIT = 400;
 
-type ProjectReview = { candidates: Candidate[]; plans: AnchorPlan[] };
+type ProjectReview = { candidates: Candidate[]; filtered: FilteredSighting[]; plans: AnchorPlan[] };
 type FixOutcome = { fixed: string[]; failed: string[] };
 
 export async function checkBacklog(root: string, loaded: LoadedBacklog, request: CheckRequest): Promise<CheckReport> {
@@ -39,32 +39,38 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const reviews = await Promise.all(projects.map((project) => projectReview(project, current.tasks, repos.get(project.id), request.mode)));
   const candidates = reviews.flatMap((review) => review.candidates);
   const moved = await applyAnchorPlans(current.tasks, reviews.flatMap((review) => review.plans), request.now);
-  await recordCandidates(root, current.tasks, candidates, request);
+  await recordCandidates(root, current.tasks, { candidates, filtered: reviews.flatMap((review) => review.filtered) }, request);
   const problems = request.mode === "full" ? [...fixes.failed, ...findProblems(current, projects, repos, inScope)] : [];
   return { fixed: [...fixes.fixed, ...moved], problems, candidates };
 }
 
-async function recordCandidates(root: string, tasks: readonly Task[], candidates: readonly Candidate[], { mode, now, projectIds }: CheckRequest): Promise<void> {
+type CheckFindings = { candidates: readonly Candidate[]; filtered: readonly FilteredSighting[] };
+
+async function recordCandidates(root: string, tasks: readonly Task[], { candidates, filtered }: CheckFindings, { mode, now, projectIds }: CheckRequest): Promise<void> {
   const projectOf = new Map(tasks.map((task) => [task.id, task.projectId]));
   for (const projectId of projectIds) {
     const dir = join(root, projectId);
     const found = candidates.filter((candidate) => projectOf.get(candidate.task.id) === projectId);
+    const filteredHere = filtered.filter((sighting) => projectOf.get(sighting.task) === projectId);
     const reviewed = tasks.filter((task) => task.projectId === projectId && isReviewable(task)).map((task) => task.id);
-    if (found.length === 0 && (mode !== "full" || reviewed.length === 0)) continue;
+    if (found.length === 0 && filteredHere.length === 0 && (mode !== "full" || reviewed.length === 0)) continue;
     try {
       const journal = await readJournal(dir, projectId);
       const states = episodeStates(journal.events);
-      const sightings = found.map((candidate): CandidateSighting => ({
-        task: candidate.task.id,
-        evidence: candidate.kind,
-        ...(candidate.kind === "source-changed" ? { method: checkMethodOf(candidate) } : {}),
-      }));
+      const sightings = found.map(sightingOf);
       const gone = mode === "full" ? candidateGoneEvents(sightings, reviewed, states, now) : [];
-      await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone]);
+      await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, now)]);
     } catch (error) {
       console.error(`Не удалось записать кандидатов в журнал ${projectId}: ${errorText(error)}`);
     }
   }
+}
+
+function sightingOf(candidate: Candidate): CandidateSighting {
+  const sighting = { task: candidate.task.id, evidence: candidate.kind };
+  if (candidate.kind === "source-changed") return { ...sighting, method: checkMethodOf(candidate) };
+  if (candidate.kind === "duplicate") return { ...sighting, match: candidate.match };
+  return sighting;
 }
 
 async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, now: Date): Promise<FixOutcome> {
@@ -125,8 +131,8 @@ function unparsedTaskIds(errors: readonly ParseError[]): string[] {
 
 async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, mode: CheckMode): Promise<ProjectReview> {
   const tasks = allTasks.filter((task) => task.projectId === project.id && isReviewable(task));
-  if (tasks.length === 0) return { candidates: [], plans: [] };
-  if (repo === undefined) return { candidates: mode === "full" ? duplicateCandidates(tasks) : [], plans: [] };
+  if (tasks.length === 0) return { candidates: [], filtered: [], plans: [] };
+  if (repo === undefined) return { candidates: mode === "full" ? duplicateCandidates(tasks) : [], filtered: [], plans: [] };
 
   const since = new Date(Math.min(...tasks.map(reviewMark)));
   const paths = [...new Set(tasks.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
@@ -138,10 +144,10 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
   try {
     const symbolOf = symbolLookup(repo, graph);
     const duplicates = mode === "full" ? duplicateCandidates(tasks, symbolNames(symbolOf)) : [];
-    const kept = await filterBySymbol(review.candidates, tasksById, diffOf, symbolOf);
+    const { kept, filtered } = await filterBySymbol(review.candidates, tasksById, diffOf, symbolOf);
     const flagged = new Set(kept.map((candidate) => candidate.task.id));
     const code = await Promise.all(kept.map((candidate) => withContext(candidate, tasksById, facts, diffOf)));
-    return { candidates: mode === "full" ? [...code, ...duplicates] : code, plans: review.plans.filter((plan) => !flagged.has(plan.id)) };
+    return { candidates: mode === "full" ? [...code, ...duplicates] : code, filtered, plans: review.plans.filter((plan) => !flagged.has(plan.id)) };
   } finally {
     graph?.close();
   }

@@ -136,6 +136,25 @@ describe("checkBacklog", () => {
     expect(await anchorOfSpa1()).toBe(anchorOf(after, "src/upload.ts:2"));
   });
 
+  it("отсеянный графом кандидат записан в журнал с символом и не открывает эпизод кандидата", async () => {
+    const { home, root } = await symbolFixture(() => "source: src/upload.ts:2\n", editRetry);
+
+    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home });
+
+    const events = (await readJournal(join(root, "spa"), "spa")).events;
+    expect(events.filter((event) => event.kind === "candidate-filtered")).toEqual([expect.objectContaining({ task: "SPA-1", symbol: "uploadFile" })]);
+    expect(events.filter((event) => event.kind === "candidate")).toEqual([]);
+  });
+
+  it("журнал помнит, по какому признаку найден дубль", async () => {
+    const { home, root } = await setup();
+
+    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home });
+
+    const duplicates = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate" && event.evidence === "duplicate");
+    expect(duplicates).toEqual([expect.objectContaining({ task: "SPA-5", match: "title" })]);
+  });
+
   it("кандидата отбросил фильтр по символу — изменившийся якорь обновляется, повторно кандидата нет", async () => {
     const commentAbove = (code: string) => code.replace("}\n\nexport function retry", "}\n// повтор\nexport function retry");
     const { home, root, after, anchorOfSpa1 } = await symbolFixture((before) => `source: src/upload.ts:5\nanchor: ${anchorOf(before, "src/upload.ts:5")}\n`, commentAbove);

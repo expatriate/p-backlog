@@ -31,7 +31,17 @@ export const RECORDED_METHODS = [...CHECK_METHODS, "unknown"] as const;
 
 export type RecordedMethod = (typeof RECORDED_METHODS)[number];
 
-export type CandidateSighting = { task: string; evidence: CandidateEvidence; method?: CheckMethod };
+const DUPLICATE_MATCHES = ["source", "title", "symbol"] as const;
+
+export type DuplicateMatch = (typeof DUPLICATE_MATCHES)[number];
+
+export const RECORDED_MATCHES = [...DUPLICATE_MATCHES, "unknown"] as const;
+
+export type RecordedMatch = (typeof RECORDED_MATCHES)[number];
+
+export type CandidateSighting = { task: string; evidence: CandidateEvidence; method?: CheckMethod; match?: DuplicateMatch };
+
+export type FilteredSighting = { task: string; symbol: string };
 
 type MethodMarks = { method?: CheckMethod | undefined; bySymbol?: boolean | undefined; byAnchor?: boolean | undefined };
 
@@ -69,8 +79,10 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
     method: z.enum(CHECK_METHODS).optional(),
     bySymbol: z.boolean().optional(),
     byAnchor: z.boolean().optional(),
+    match: z.enum(DUPLICATE_MATCHES).optional(),
   }),
   z.object({ ...eventBase, kind: z.literal("candidate-gone"), evidence: z.enum(CANDIDATE_EVIDENCE) }),
+  z.object({ ...eventBase, kind: z.literal("candidate-filtered"), symbol: z.string() }),
 ]);
 
 export type JournalEvent = z.output<typeof journalEventSchema>;
@@ -127,7 +139,21 @@ export function candidateEvents(sightings: readonly CandidateSighting[], states:
   const at = formatLocalIso(now);
   return dedupeSightings(sightings)
     .filter((sighting) => states.get(episodeKey(sighting.task, sighting.evidence)) !== "open")
-    .map((sighting) => ({ at, task: sighting.task, via: "check", kind: "candidate", evidence: sighting.evidence, mode, ...(sighting.method === undefined ? {} : { method: sighting.method }) }));
+    .map((sighting) => ({
+      at,
+      task: sighting.task,
+      via: "check",
+      kind: "candidate",
+      evidence: sighting.evidence,
+      mode,
+      ...(sighting.method === undefined ? {} : { method: sighting.method }),
+      ...(sighting.match === undefined ? {} : { match: sighting.match }),
+    }));
+}
+
+export function filteredEvents(filtered: readonly FilteredSighting[], now: Date): JournalEvent[] {
+  const at = formatLocalIso(now);
+  return filtered.map(({ task, symbol }) => ({ at, task, via: "check", kind: "candidate-filtered", symbol }));
 }
 
 export function candidateGoneEvents(sightings: readonly CandidateSighting[], tasks: readonly string[], states: EpisodeStates, now: Date): JournalEvent[] {
