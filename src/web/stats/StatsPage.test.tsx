@@ -439,7 +439,7 @@ describe("вкладка «Стоимость»", () => {
     await app.user.click(await screen.findByRole("link", { name: "Стоимость" }));
 
     await waitFor(() => expect(app.route()).toBe("/p/spa/stats/cost"));
-    expect(document.title).toBe("Стоимость · Статистика · spa — Беклог");
+    await waitFor(() => expect(document.title).toBe("Стоимость · Статистика · spa — Беклог"));
 
     const cliCalls = await screen.findByRole("group", { name: "Вызовов CLI" });
     expect(within(cliCalls).getByText("1")).toBeDefined();
