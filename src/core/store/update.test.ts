@@ -70,6 +70,22 @@ describe("updateTask", () => {
     expect(await readFile(join(root, "spa/SPA-2.md"), "utf8")).toBe(edited);
   });
 
+  it("две одновременные правки с одной версией: одна проходит, другая получает conflict, а не затирает первую", async () => {
+    const root = await setup();
+    const index = buildIndex((await loadBacklog(root)).tasks);
+    const expectedVersion = index.byId.get("SPA-2")?.version;
+
+    const results = await Promise.all([
+      updateTaskInIndex(index, { id: "SPA-2", changes: { status: "in-progress" }, expectedVersion, now: NOW, via: "web" }),
+      updateTaskInIndex(index, { id: "SPA-2", changes: { priority: "high" }, expectedVersion, now: NOW, via: "cli" }),
+    ]);
+
+    expect(results.map((result) => (result.ok ? "ok" : result.reason)).sort()).toEqual(["conflict", "ok"]);
+    const onDisk = (await loadBacklog(root)).tasks.find((task) => task.id === "SPA-2");
+    const winner = results.find((result) => result.ok);
+    expect(winner?.ok && onDisk?.version).toBe(winner?.ok && winner.task.version);
+  });
+
   it("файл пропал или перестал разбираться после загрузки снимка — not-found и conflict со снимком", async () => {
     const root = await setup();
     const { tasks } = await loadBacklog(root);

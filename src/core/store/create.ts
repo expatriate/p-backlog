@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { formatLocalIso } from "../model/dates";
 import { buildIndex } from "../model/graph";
@@ -7,7 +7,7 @@ import { derivePrefix, deriveProjectId, formatId, parseId } from "../model/ids";
 import { createdEvent, type ChangeSource, type Provenance } from "../journal/events";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { OptionalFields, Project, Task } from "../model/types";
-import { hasErrorCode, listDir } from "./fs-utils";
+import { createFileAtomic, hasErrorCode, listDir } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { PROJECT_FILE, taskFileName } from "./paths";
 import { taskText } from "./task-text";
@@ -40,7 +40,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
     const errors = integrityErrors(task, index);
     if (errors.length > 0) return invalid(errors);
     try {
-      await writeFile(path, text, { encoding: "utf8", flag: "wx" });
+      await createFileAtomic(path, text);
       await appendJournal(dir, [createdEvent(task, request.now, request.via, request.provenance)]);
       return { ok: true, task };
     } catch (error) {
@@ -59,7 +59,7 @@ export async function createProject(root: string, repoRoot: string, existingProj
   await mkdir(dir, { recursive: true });
   const path = join(dir, PROJECT_FILE);
   const text = serializeProject({ name, prefix, repos: [repoRoot], active: true, extra: {}, body: "" });
-  await writeFile(path, text, { encoding: "utf8", flag: "wx" });
+  await createFileAtomic(path, text);
   const parsed = parseProjectFile(text, { id, path });
   if (!parsed.ok) throw new Error(parsed.message);
   return parsed.value;

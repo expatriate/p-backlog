@@ -56,4 +56,13 @@ describe("журнал запусков CLI", () => {
     expect(await readRuns(root)).toEqual([RUN]);
     expect(await trimRuns(root, now)).toBe(0);
   });
+
+  it("запуск, дописанный во время обрезки, не теряется", async () => {
+    const root = await makeTempDir();
+    await appendRun(root, { ...RUN, at: "2026-08-01T10:00:00+03:00", command: "old" });
+
+    await Promise.all([trimRuns(root, new Date("2026-09-20T12:00:00+03:00")), appendRun(root, RUN)]);
+
+    expect(await readRuns(root)).toEqual([RUN]);
+  });
 });

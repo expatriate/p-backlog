@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { link, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import type { z } from "zod";
 
@@ -72,10 +72,18 @@ export async function listDir(path: string, { recursive = false }: { recursive?:
 }
 
 export async function writeFileAtomic(path: string, content: string): Promise<void> {
+  await viaTemporaryFile(path, content, (temporary) => rename(temporary, path));
+}
+
+export async function createFileAtomic(path: string, content: string): Promise<void> {
+  await viaTemporaryFile(path, content, (temporary) => link(temporary, path));
+}
+
+async function viaTemporaryFile(path: string, content: string, publish: (temporary: string) => Promise<void>): Promise<void> {
   const temporary = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
   try {
     await writeFile(temporary, content, "utf8");
-    await rename(temporary, path);
+    await publish(temporary);
   } finally {
     await rm(temporary, { force: true });
   }

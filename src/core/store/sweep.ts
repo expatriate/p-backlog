@@ -4,6 +4,7 @@ import { parseId } from "../model/ids";
 import { isExpired, planEpicClosing } from "../model/lifecycle";
 import { deletedEvent } from "../journal/events";
 import type { Project, Task } from "../model/types";
+import { withFileLock } from "./file-lock";
 import { removeIfUnchanged } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { loadBacklog, type LoadedBacklog } from "./load";
@@ -87,7 +88,7 @@ async function removeExpired(expired: readonly Task[], now: Date): Promise<Remov
   const deleted: string[] = [];
   const failures: SweepFailure[] = [];
   for (const task of expired) {
-    if (await removeIfUnchanged(task.path, task.version)) {
+    if (await withFileLock(task.path, () => removeIfUnchanged(task.path, task.version))) {
       deleted.push(task.id);
       await appendJournal(dirname(task.path), [deletedEvent(task, now, "sweep")]);
     } else failures.push({ id: task.id, reason: "conflict" });
