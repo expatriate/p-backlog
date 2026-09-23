@@ -32,8 +32,13 @@ export type WebMessages = (typeof CATALOGS)["ru"] & { core: CoreMessages };
 const LanguageContext = createContext<Language | null>(null);
 const MessagesContext = createContext<WebMessages | null>(null);
 
+const MESSAGES: { [L in Language]: WebMessages } = {
+  ru: { ...CATALOGS.ru, core: coreMessages("ru") },
+  en: { ...CATALOGS.en, core: coreMessages("en") },
+};
+
 function messagesFor(language: Language): WebMessages {
-  return { ...CATALOGS[language], core: coreMessages(language) };
+  return MESSAGES[language];
 }
 
 export function MessagesProvider({ children }: { children: ReactNode }) {
