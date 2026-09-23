@@ -137,6 +137,19 @@ describe("страница статистики", () => {
     expect(await screen.findByText("Не удалось разобрать строк журнала: 1. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.")).toBeDefined();
   });
 
+  it("битые строки журнала, появившиеся после загрузки, объявляются через область статуса, существовавшую до них", async () => {
+    const app = await renderApp(FILES, "/stats");
+    await screen.findByRole("group", { name: "За неделю" });
+    const statusesBefore = screen.getAllByRole("status");
+
+    await writeFiles(app.root, { "spa/journal.jsonl": "сломано\n" });
+    app.emitChange();
+    refetchStats();
+
+    const announced = (await screen.findByText(/Не удалось разобрать строк журнала: 1/)).closest("[role=status]");
+    expect(statusesBefore).toContain(announced);
+  });
+
   it("в области «Проекты» под заголовком видно, сколько проектов учтено", async () => {
     await renderApp({ ...FILES, "torg-io/project.md": projectFile("TI", [], { active: false }) }, "/stats");
 

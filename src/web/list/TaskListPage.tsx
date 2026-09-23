@@ -27,7 +27,7 @@ export function TaskListPage() {
   const { projectId, taskId } = useParams();
   const [search, setSearch] = useSearchParams();
   const navigate = useNavigate();
-  const { data, isPending, isFetching, error, refetch } = useTasks();
+  const { data, isFetching, error, refetch } = useTasks();
   const projects = useProjects();
   const { isNew, markSeen } = useSeenTasks();
 
@@ -64,11 +64,12 @@ export function TaskListPage() {
     if (selectedTask !== undefined) markSeen(selectedTask);
   }, [selectedTask, markSeen]);
   const parseErrors = (data?.errors ?? []).filter((parseError) => projectId === undefined || parseError.projectId === projectId);
-  const view = listViewOf(error, isPending, unknownProject, visibleTasks.length);
-  const shownCount = view.kind === "table" ? visibleTasks.length : null;
+  const content = listContentOf({ hasData: data !== undefined, failed: error !== null, unknownProject, visibleCount: visibleTasks.length });
+  const settled = content === "table" && error === null;
+  const shownCount = settled ? visibleTasks.length : null;
   const announcedCount = useSettledValue(shownCount, COUNT_ANNOUNCE_DELAY_MS) ?? shownCount ?? 0;
   const heading = useRef<HTMLHeadingElement>(null);
-  const { status, keepFocus } = useStatusFocus(view.kind === "table", heading);
+  const { status, keepFocus } = useStatusFocus(settled, heading);
 
   return (
     <main id="content" tabIndex={-1} className={styles.page}>
@@ -98,11 +99,11 @@ export function TaskListPage() {
         </div>
 
         <div className={styles.tableWrap}>
-          <div ref={status} tabIndex={-1} role="status" className={view.kind === "table" ? "visually-hidden" : styles.hint}>
-            {view.kind === "error" && (
+          <div ref={status} tabIndex={-1} role="status" className={settled ? "visually-hidden" : styles.hint}>
+            {error !== null && (
               <>
                 <p>
-                  <RequestErrorText error={view.error} />
+                  <RequestErrorText error={error} />
                 </p>
                 <RetryButton
                   fetching={isFetching}
@@ -113,9 +114,9 @@ export function TaskListPage() {
                 />
               </>
             )}
-            {view.kind === "loading" && <p>Загружаем задачи…</p>}
-            {view.kind === "unknownProject" && <p>Проект не найден.</p>}
-            {view.kind === "empty" && (
+            {content === "loading" && <p>Загружаем задачи…</p>}
+            {content === "unknownProject" && <p>Проект не найден.</p>}
+            {content === "empty" && (
               <EmptyList
                 hasTasks={scopedTasks.length > 0}
                 hiddenOpen={hiddenOpen}
@@ -126,9 +127,9 @@ export function TaskListPage() {
                 }}
               />
             )}
-            {view.kind === "table" && <p>В списке {pluralCount(announcedCount, "задача", "задачи", "задач")}</p>}
+            {settled && <p>В списке {pluralCount(announcedCount, "задача", "задачи", "задач")}</p>}
           </div>
-          {view.kind === "table" && (
+          {content === "table" && (
             <TaskTable
               tasks={visibleTasks}
               index={index}
@@ -197,13 +198,12 @@ function EmptyList({
   );
 }
 
-type ListView = { kind: "error"; error: Error } | { kind: "loading" | "unknownProject" | "empty" | "table" };
+type ListContent = "failed" | "loading" | "unknownProject" | "empty" | "table";
 
-function listViewOf(error: Error | null, isPending: boolean, unknownProject: boolean, visibleCount: number): ListView {
-  if (error !== null) return { kind: "error", error };
-  if (isPending) return { kind: "loading" };
-  if (unknownProject) return { kind: "unknownProject" };
-  return { kind: visibleCount === 0 ? "empty" : "table" };
+function listContentOf({ hasData, failed, unknownProject, visibleCount }: { hasData: boolean; failed: boolean; unknownProject: boolean; visibleCount: number }): ListContent {
+  if (!hasData) return failed ? "failed" : "loading";
+  if (unknownProject) return "unknownProject";
+  return visibleCount === 0 ? "empty" : "table";
 }
 
 function useSettledValue<T>(value: T, delayMs: number): T {

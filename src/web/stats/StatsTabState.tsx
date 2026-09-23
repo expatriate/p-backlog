@@ -53,20 +53,22 @@ export function StatsRequestState<T>({
 }
 
 export function StatsTabState<T extends ReportHead>({ query, children }: { query: ReportQuery<T>; children: (report: T) => ReactNode }) {
+  const invalidLines = query.data?.invalidJournalLines ?? 0;
   return (
-    <StatsRequestState query={query} emptyMessage={query.data?.taskCount === 0 ? "Задач пока нет." : null}>
-      {(report) => (
-        <>
-          {report.invalidJournalLines > 0 && (
-            <p className={styles.warning} role="status">
-              Не удалось разобрать строк журнала: {report.invalidJournalLines}. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.
-            </p>
-          )}
-          {children(report)}
-          <p className={styles.note}>{journalNote(report.journalSince)}</p>
-        </>
-      )}
-    </StatsRequestState>
+    <>
+      <p className={invalidLines > 0 ? styles.warning : "visually-hidden"} role="status">
+        {invalidLines > 0 &&
+          `Не удалось разобрать строк журнала: ${invalidLines}. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.`}
+      </p>
+      <StatsRequestState query={query} emptyMessage={query.data?.taskCount === 0 ? "Задач пока нет." : null}>
+        {(report) => (
+          <>
+            {children(report)}
+            <p className={styles.note}>{journalNote(report.journalSince)}</p>
+          </>
+        )}
+      </StatsRequestState>
+    </>
   );
 }
 

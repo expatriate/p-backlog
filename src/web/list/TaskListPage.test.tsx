@@ -308,6 +308,18 @@ describe("список задач", () => {
     expect(document.activeElement).toBe(retry);
   });
 
+  it("ошибка обновления не прячет уже загруженные строки: ошибка и «Повторить» над таблицей", async () => {
+    const { control, beforeRender } = controlTasksRequest("ok");
+    const app = await renderApp(FILES, "/", undefined, { beforeRender });
+    await screen.findAllByRole("row");
+
+    control.answer = "unreachable";
+    await app.user.click(screen.getByRole("checkbox", { name: "Учитывать проект ti в области «Проекты»" }));
+
+    expect(await screen.findByRole("button", { name: "Повторить" })).toBeDefined();
+    expect(screen.getByRole("row", { name: /SPA-1/ })).toBeDefined();
+  });
+
   it("«Повторить» после сбоя первой загрузки не роняет фокус: он на области состояния, после загрузки — на заголовке списка", async () => {
     const { control, beforeRender } = controlTasksRequest("unreachable");
     const app = await renderApp(FILES, "/", undefined, { beforeRender });
