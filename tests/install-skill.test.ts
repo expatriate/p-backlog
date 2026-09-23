@@ -35,14 +35,14 @@ describe("install-skill", () => {
     expect(other.run().status).toBe(1);
   });
 
-  it("по английской локали ставит английский вариант, смена локали переставляет ссылку", async () => {
+  it("по английской локали ставит английский вариант и запоминает его, смена локали больше не перебивает", async () => {
     const { skillsDir, run, runWithLocale } = await sandbox("en_US.UTF-8");
 
     expect(run().status).toBe(0);
     expect(await realpath(join(skillsDir, "backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
 
     expect(runWithLocale("ru_RU.UTF-8").status).toBe(0);
-    expect(await realpath(join(skillsDir, "backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog")));
+    expect(await realpath(join(skillsDir, "backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
   });
 
   it("добавляет хук Stop один раз и сохраняет остальные настройки", async () => {

@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cliMessages } from "../src/cli/messages.ts";
 import { resolveBacklogRoot } from "../src/core/store/paths.ts";
-import { resolveLanguage } from "../src/core/store/settings.ts";
+import { settledLanguage } from "../src/core/store/settings.ts";
 import { defaultSkillsDir, linkSkillFor, skillSourceDir } from "../src/cli/skill-link.ts";
 
 const STOP_HOOK_COMMAND = "command -v backlog >/dev/null && backlog hook stop || true";
@@ -14,7 +14,7 @@ const home = homedir();
 const skillsDir = process.env.CLAUDE_SKILLS_DIR ?? defaultSkillsDir(home);
 const settingsPath = process.env.CLAUDE_SETTINGS_PATH ?? join(home, ".claude/settings.json");
 const backlogRoot = resolveBacklogRoot(process.env, home);
-const language = await resolveLanguage(backlogRoot, process.env);
+const language = await settledLanguage(backlogRoot, process.env);
 const cli = cliMessages(language);
 
 if (await linkSkill()) await addStopHook();

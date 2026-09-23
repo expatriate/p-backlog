@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { formatLocalIso } from "../core/model/dates";
 import { appendRun } from "../core/store/runs";
 import { resolveBacklogRoot } from "../core/store/paths";
-import { resolveLanguage } from "../core/store/settings";
+import { settledLanguage } from "../core/store/settings";
 import { cliMessages } from "./messages";
 import { commandName, runCli } from "./run";
 
@@ -45,6 +45,6 @@ try {
     exitCode,
   });
 } catch (error) {
-  const language = await resolveLanguage(backlogRoot, process.env);
+  const language = await settledLanguage(backlogRoot, process.env);
   process.stderr.write(`${cliMessages(language).runNotRecorded(errorText(error))}\n`);
 }
