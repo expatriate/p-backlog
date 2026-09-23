@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import type { Language } from "../../core/i18n/language";
 import { loadBacklog } from "../../core/store/load";
 import { writeSettings } from "../../core/store/settings";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
@@ -10,7 +11,7 @@ import { createUsageScanner, type UsageScanner } from "../usage-scanner";
 const TEST_HOST = "localhost:4317";
 export const TEST_NOW = new Date("2026-09-18T12:00:00Z");
 
-export type TestAppOptions = { staticDir?: string; transcriptsDir?: string };
+export type TestAppOptions = { staticDir?: string; transcriptsDir?: string; language?: Language };
 
 export type TestApp = {
   root: string;
@@ -26,7 +27,7 @@ export type TestApp = {
 export async function makeTestApp(files: Record<string, string>, options: TestAppOptions = {}): Promise<TestApp> {
   const root = await makeTempDir();
   await writeFiles(root, files);
-  await writeSettings(root, { language: "ru" });
+  await writeSettings(root, { language: options.language ?? "ru" });
 
   const listeners = new Set<() => void>();
   const changes: ChangeFeed = {

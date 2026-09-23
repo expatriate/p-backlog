@@ -208,5 +208,6 @@ export const coreRu = {
     `Проект ${projectId}: ни один путь из repos не существует (${repos.join(", ")}) — код его задач не проверить`,
   sourceMoved: (id: string, from: string, to: string): string => `${id}: source сдвинулся ${from} → ${to}`,
   moreDiffLines: (count: number): string => `… ещё ${count} строк`,
+  candidatesRecordFailed: (projectId: string, detail: string): string => `Не удалось записать кандидатов в журнал ${projectId}: ${detail}`,
 };
 

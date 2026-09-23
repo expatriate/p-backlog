@@ -47,7 +47,7 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
 
 type CheckFindings = { candidates: readonly Candidate[]; filtered: readonly FilteredSighting[] };
 
-async function recordCandidates(root: string, tasks: readonly Task[], { candidates, filtered }: CheckFindings, { mode, now, projectIds }: CheckRequest): Promise<void> {
+async function recordCandidates(root: string, tasks: readonly Task[], { candidates, filtered }: CheckFindings, { mode, now, projectIds, messages }: CheckRequest): Promise<void> {
   const projectOf = new Map(tasks.map((task) => [task.id, task.projectId]));
   for (const projectId of projectIds) {
     const dir = join(root, projectId);
@@ -62,7 +62,7 @@ async function recordCandidates(root: string, tasks: readonly Task[], { candidat
       const gone = mode === "full" ? candidateGoneEvents(sightings, reviewed, states, now) : [];
       await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, now)]);
     } catch (error) {
-      console.error(`Не удалось записать кандидатов в журнал ${projectId}: ${errorText(error)}`);
+      console.error(messages.candidatesRecordFailed(projectId, errorText(error)));
     }
   }
 }

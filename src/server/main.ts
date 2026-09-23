@@ -6,11 +6,11 @@ import { join } from "node:path";
 import { coreMessages } from "../core/messages";
 import { resolveBacklogRoot } from "../core/store/paths";
 import { trimRuns } from "../core/store/runs";
-import { resolveLanguage } from "../core/store/settings";
 import { sweepClosed, type SweepReport } from "../core/store/sweep";
 import { createApp } from "./app";
-import { createChangeFeed } from "./change-feed";
+import { CHANGE_DEBOUNCE_MS, createChangeFeed } from "./change-feed";
 import { localHosts } from "./guards";
+import { serverLanguage, serverMessages } from "./messages";
 import { createMemorySampler } from "./memory-sampler";
 import { listenFailure, readPort } from "./port";
 import { startSweeper } from "./sweeper";
@@ -24,12 +24,14 @@ const port = readPort(process.env.PORT);
 
 await mkdir(root, { recursive: true });
 
-const usage = createUsageScanner({ root, claudeProjectsDir: join(home, ".claude", "projects") });
+const startupMessages = serverMessages(await serverLanguage(root));
+
+const usage = createUsageScanner({ root, claudeProjectsDir: join(home, ".claude", "projects"), messages: startupMessages });
 const memory = createMemorySampler();
 
 const app = createApp({
   root,
-  changes: createChangeFeed(root),
+  changes: createChangeFeed(root, CHANGE_DEBOUNCE_MS, startupMessages),
   allowedHosts: localHosts(port),
   home,
   usage,
@@ -41,8 +43,9 @@ usage.start();
 memory.start();
 
 const sweepAll = async (now: Date): Promise<SweepReport> => {
-  await trimRuns(root, now).catch((error: unknown) => process.stderr.write(`Не удалось обрезать журнал запусков: ${errorText(error)}\n`));
-  return sweepClosed(root, now, coreMessages(await resolveLanguage(root, process.env)));
+  const language = await serverLanguage(root);
+  await trimRuns(root, now).catch((error: unknown) => process.stderr.write(`${serverMessages(language).runsTrimFailed(errorText(error))}\n`));
+  return sweepClosed(root, now, coreMessages(language));
 };
 
 startSweeper({
@@ -50,13 +53,14 @@ startSweeper({
   intervalMs: SWEEP_INTERVAL_MS,
   log: (line) => process.stdout.write(`${line}\n`),
   warn: (line) => process.stderr.write(`${line}\n`),
+  messages: () => serverLanguage(root).then(serverMessages),
 });
 
 const server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port }, () => {
-  process.stdout.write(`p-backlog: http://localhost:${port}\nКаталог беклога: ${root}\n`);
+  process.stdout.write(startupMessages.serverStarted(port, root));
 });
 
 server.on("error", (error: NodeJS.ErrnoException) => {
-  process.stderr.write(`${listenFailure(error, port)}\n`);
+  process.stderr.write(`${listenFailure(error, port, startupMessages)}\n`);
   process.exit(1);
 });

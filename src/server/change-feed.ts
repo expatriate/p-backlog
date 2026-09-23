@@ -1,6 +1,7 @@
 import { relative, sep } from "node:path";
 import { watch } from "chokidar";
 import { errorText } from "../core/errors";
+import { serverRu, type ServerMessages } from "./messages.ru";
 
 type ChangeListener = () => void;
 
@@ -11,7 +12,7 @@ export type ChangeFeed = {
 
 export type Debouncer = { schedule: () => void; cancel: () => void };
 
-const CHANGE_DEBOUNCE_MS = 100;
+export const CHANGE_DEBOUNCE_MS = 100;
 
 export function createDebouncer(delayMs: number, run: () => void): Debouncer {
   let timer: NodeJS.Timeout | undefined;
@@ -30,7 +31,7 @@ export function isHiddenPath(root: string, path: string): boolean {
     .some((segment) => segment.startsWith("."));
 }
 
-export function createChangeFeed(root: string, debounceMs = CHANGE_DEBOUNCE_MS): ChangeFeed {
+export function createChangeFeed(root: string, debounceMs = CHANGE_DEBOUNCE_MS, messages: ServerMessages = serverRu): ChangeFeed {
   const listeners = new Set<ChangeListener>();
   const debouncer = createDebouncer(debounceMs, () => {
     for (const listener of listeners) listener();
@@ -38,7 +39,7 @@ export function createChangeFeed(root: string, debounceMs = CHANGE_DEBOUNCE_MS):
 
   const watcher = watch(root, { ignoreInitial: true, ignored: (path) => isHiddenPath(root, path) });
   watcher.on("all", () => debouncer.schedule());
-  watcher.on("error", (error) => process.stderr.write(`Наблюдатель за каталогом ${root}: ${errorText(error)}\n`));
+  watcher.on("error", (error) => process.stderr.write(`${messages.watcherError(root, errorText(error))}\n`));
 
   return {
     subscribe: (listener) => {

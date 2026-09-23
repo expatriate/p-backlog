@@ -10,7 +10,7 @@ import { emptyCodeCache, type CodeCacheSnapshot, type CodeCacheStore } from "./c
 import { CHURN_DAYS } from "./code-window";
 import { readFixCommits, readRefs, readRepoCode, type RepoRefs } from "./git-code";
 
-export type CodeSourceOptions = { home: string; git?: GitRunner; store?: CodeCacheStore };
+export type CodeSourceOptions = { home: string; git?: GitRunner; store?: CodeCacheStore; onError?: (error: unknown) => void };
 
 export type CodeSource = {
   collect: (projects: readonly Project[], now: Date) => Promise<ScannedCode>;
@@ -18,14 +18,14 @@ export type CodeSource = {
   stateKey: (projects: readonly Project[]) => Promise<string>;
 };
 
-export function createCodeSource({ home, git = runGit, store }: CodeSourceOptions): CodeSource {
+export function createCodeSource({ home, git = runGit, store, onError = (error) => console.error(`git cache error: ${errorText(error)}`) }: CodeSourceOptions): CodeSource {
   const repoCache = new Map<string, { key: string; code: RepoCode }>();
   const fixCache = new Map<string, FixCommit>();
   let changed = false;
   let restored: Promise<void> | null = null;
 
   const restore = (): Promise<void> => {
-    restored ??= readSnapshot(store).then((snapshot) => {
+    restored ??= readSnapshot(store, onError).then((snapshot) => {
       for (const [repo, entry] of Object.entries(snapshot.repos)) if (!repoCache.has(repo)) repoCache.set(repo, entry);
       for (const [key, commit] of Object.entries(snapshot.fixes)) if (!fixCache.has(key)) fixCache.set(key, commit);
     });
@@ -44,9 +44,7 @@ export function createCodeSource({ home, git = runGit, store }: CodeSourceOption
   const persist = async (): Promise<void> => {
     if (store === undefined || !changed) return;
     changed = false;
-    await store.write({ repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache) }).catch((error: unknown) => {
-      console.error(`Не удалось сохранить кэш git: ${errorText(error)}`);
-    });
+    await store.write({ repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache) }).catch(onError);
   };
 
   const inFlight = new Map<string, Promise<ReadRepo | null>>();
@@ -167,11 +165,11 @@ function repoKey(refs: RepoRefs, now: Date): string {
   return `${refsKey(refs)} ${formatLocalDay(now)}`;
 }
 
-async function readSnapshot(store: CodeCacheStore | undefined): Promise<CodeCacheSnapshot> {
+async function readSnapshot(store: CodeCacheStore | undefined, onError: (error: unknown) => void): Promise<CodeCacheSnapshot> {
   try {
     return (await store?.read()) ?? emptyCodeCache();
   } catch (error) {
-    console.error(`Не удалось прочитать кэш git: ${errorText(error)}`);
+    onError(error);
     return emptyCodeCache();
   }
 }

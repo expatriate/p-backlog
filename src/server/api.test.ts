@@ -505,6 +505,26 @@ describe("тело запроса", () => {
   });
 });
 
+describe("язык", () => {
+  it("PATCH /api/settings меняет язык ошибок API и сохраняется", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    expect((await backlog.json("/api/settings", "PATCH", { language: "en" })).status).toBe(200);
+    const version = await backlog.taskVersion("SPA-1");
+    const response = await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { blockedBy: ["SPA-1"] } });
+    expect(((await response.json()) as ErrorResponse).errors).toEqual(["a task cannot block itself"]);
+    expect(await (await backlog.request("/api/settings")).json()).toEqual({ language: "en" });
+  });
+
+  it("неизвестный язык — 422, настройка не меняется", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+
+    const response = await backlog.json("/api/settings", "PATCH", { language: "fr" });
+
+    expect(response.status).toBe(422);
+    expect(await (await backlog.request("/api/settings")).json()).toEqual({ language: "ru" });
+  });
+});
+
 describe("неожиданная ошибка сервера", () => {
   it("отдаётся тем же JSON, что и остальные ошибки API", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);

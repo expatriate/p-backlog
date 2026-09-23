@@ -12,7 +12,7 @@ export async function appendJournal(projectDir: string, events: readonly Journal
   try {
     await appendFile(path, toJsonLines(events), "utf8");
   } catch (error) {
-    console.error(`Не удалось записать журнал ${path}: ${errorText(error)}`);
+    console.error(`journal write failed (${path}): ${errorText(error)}`);
   }
 }
 

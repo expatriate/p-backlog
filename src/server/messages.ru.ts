@@ -1,0 +1,30 @@
+export const serverRu = {
+  taskNotFound: (id: string): string => `Задача ${id} не найдена`,
+  taskChangedOnDisk: "Задача изменилась на диске",
+  projectNotFound: (id: string): string => `Проект ${id} не найден`,
+  confirmMismatch: "Подтверждение не совпадает с id проекта",
+  bodyNotParsed: "Тело запроса не разобрано: ожидается JSON",
+  unknownRoute: (path: string): string => `Неизвестный адрес API: ${path}`,
+  hostRejected: (host: string): string => `Запросы с хоста ${host} не принимаются`,
+  jsonContentTypeExpected: "Ожидается Content-Type: application/json",
+
+  runsTrimFailed: (detail: string): string => `Не удалось обрезать журнал запусков: ${detail}`,
+  serverStarted: (port: number, root: string): string => `p-backlog: http://localhost:${port}\nКаталог беклога: ${root}\n`,
+
+  sweepFailed: (detail: string): string => `Не удалось удалить закрытые задачи: ${detail}`,
+  closedEpics: (ids: string): string => `Закрыты завершённые эпики: ${ids}`,
+  epicsBlockedByFiles: (paths: string): string => `Эпики не закрываются, пока не разобраны файлы: ${paths}`,
+  deletedClosedTasks: (ids: string): string => `Удалены закрытые задачи: ${ids}`,
+  conflictedDuringSweep: (ids: string): string => `Задачи менялись во время прохода, повторю при следующем: ${ids}`,
+  invalidAfterSweep: (detail: string): string => `Не удалось обновить задачи, исправьте файлы: ${detail}`,
+
+  transcriptsScanFailed: (detail: string): string => `Не удалось прочитать расшифровки Claude Code: ${detail}`,
+  watcherError: (root: string, detail: string): string => `Наблюдатель за каталогом ${root}: ${detail}`,
+
+  listenFailed: (reason: string): string => `p-backlog не запустился: ${reason}`,
+  portBusy: (port: number): string => `порт ${port} уже занят`,
+
+  codeCacheError: (detail: string): string => `Проблема с кэшем git: ${detail}`,
+};
+
+export type ServerMessages = typeof serverRu;

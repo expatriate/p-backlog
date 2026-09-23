@@ -209,4 +209,5 @@ export const coreEn: CoreMessages = {
   projectReposMissing: (projectId, repos) => `Project ${projectId}: none of the repos paths exist (${repos.join(", ")}) — its tasks' code cannot be checked`,
   sourceMoved: (id, from, to) => `${id}: source moved ${from} → ${to}`,
   moreDiffLines: (count) => `… ${count} more ${pluralEn(count, "line", "lines")}`,
+  candidatesRecordFailed: (projectId, detail) => `Could not record candidates to the ${projectId} journal: ${detail}`,
 };

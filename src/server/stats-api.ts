@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { errorText } from "../core/errors";
 import { projectGraphHealth } from "../core/check/graph-health";
 import { createCodeCacheFile } from "../core/code/code-cache";
 import { createCodeSource } from "../core/code/code-source";
@@ -17,6 +18,7 @@ import type { LoadedBacklog } from "../core/store/load";
 import { cachedRepoRoots, findProjectForRepoRoot, type RepoRootLookup } from "../core/store/resolve-project";
 import { readRuns } from "../core/store/runs";
 import type { UsageCache } from "../core/usage/usage-cache";
+import { serverLanguage, serverMessages } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createReportCache } from "./report-cache";
 import type { UsageScanner } from "./usage-scanner";
@@ -43,14 +45,16 @@ const REPORT_TTL_MS = 5 * 60 * 1000;
 export function createStatsApi({ root, now, home, usage, memory, backlog }: StatsApiOptions): StatsApi {
   const routes = new Hono();
   const reports = createReportCache({ ttlMs: REPORT_TTL_MS, now: () => now().getTime() });
-  const codeSource = createCodeSource({ home, store: createCodeCacheFile(root) });
+  const onCodeSourceError = (error: unknown) =>
+    void serverLanguage(root).then((language) => process.stderr.write(`${serverMessages(language).codeCacheError(errorText(error))}\n`));
+  const codeSource = createCodeSource({ home, store: createCodeCacheFile(root), onError: onCodeSourceError });
   const lookupRepoRoot = cachedRepoRoots();
 
   const statsScopeOf = async (c: Context, { wholeBacklog }: { wholeBacklog: boolean }): Promise<StatsScope | Response> => {
     const projectId = c.req.query("project") || undefined;
     const { projects, tasks } = await backlog();
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
-      return c.json({ errors: [`Проект ${projectId} не найден`] }, 404);
+      return c.json({ errors: [serverMessages(await serverLanguage(root)).projectNotFound(projectId)] }, 404);
     }
     const included = (project: Project) => (projectId === undefined ? project.active : wholeBacklog || project.id === projectId);
     const scoped = projects.filter(included);
