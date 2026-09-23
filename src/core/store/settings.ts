@@ -2,29 +2,47 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { LANGUAGES, languageFromLocale, type Language } from "../i18n/language";
-import { listDir, readJsonFile, writeJsonFile } from "./fs-utils";
+import { listDir, parseJson, readTextOrNull, writeJsonFile } from "./fs-utils";
 
 const SETTINGS_FILE = ".settings.json";
 const settingsSchema = z.object({ language: z.enum(LANGUAGES) });
 export type Settings = z.infer<typeof settingsSchema>;
 
-export function readSettings(root: string): Promise<Settings | null> {
-  return readJsonFile(join(root, SETTINGS_FILE), settingsSchema);
+export function settingsFilePath(root: string): string {
+  return join(root, SETTINGS_FILE);
+}
+
+type SettingsFile = { found: false } | { found: true; valid: false } | { found: true; valid: true; settings: Settings };
+
+async function readSettingsFile(root: string): Promise<SettingsFile> {
+  const text = await readTextOrNull(settingsFilePath(root));
+  if (text === null) return { found: false };
+  const settings = parseJson(text, settingsSchema);
+  return settings === null ? { found: true, valid: false } : { found: true, valid: true, settings };
+}
+
+export async function readSettings(root: string): Promise<Settings | null> {
+  const file = await readSettingsFile(root);
+  return file.found && file.valid ? file.settings : null;
 }
 
 export async function writeSettings(root: string, settings: Settings): Promise<void> {
   await mkdir(root, { recursive: true });
-  await writeJsonFile(join(root, SETTINGS_FILE), settings);
+  await writeJsonFile(settingsFilePath(root), settings);
 }
 
-export async function settledLanguage(root: string, env: NodeJS.ProcessEnv): Promise<Language> {
-  const stored = await readSettings(root);
-  if (stored !== null) return stored.language;
-  const language = (await hasProjects(root))
-    ? "ru"
-    : languageFromLocale(env.LC_ALL || env.LANG || Intl.DateTimeFormat().resolvedOptions().locale);
-  await writeSettings(root, { language }).catch(() => {});
-  return language;
+export type SettledLanguage = { language: Language; invalidSettingsFile: boolean };
+
+export async function settledLanguage(root: string, env: NodeJS.ProcessEnv): Promise<SettledLanguage> {
+  const file = await readSettingsFile(root);
+  if (file.found && file.valid) return { language: file.settings.language, invalidSettingsFile: false };
+  const locale = () => languageFromLocale(env.LC_ALL || env.LANG || Intl.DateTimeFormat().resolvedOptions().locale);
+  if (!file.found) {
+    const language = (await hasProjects(root)) ? "ru" : locale();
+    await writeSettings(root, { language }).catch(() => {});
+    return { language, invalidSettingsFile: false };
+  }
+  return { language: locale(), invalidSettingsFile: true };
 }
 
 async function hasProjects(root: string): Promise<boolean> {

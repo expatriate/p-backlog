@@ -5,6 +5,7 @@ export const cliRu = {
     `${label}: ожидается одно из ${allowed.join(", ")}, получено «${value}»`,
   commandFailed: (name: string, reason: string): string => `Команда ${name} не выполнена: ${reason}`,
   runNotRecorded: (error: string): string => `Не удалось записать запуск: ${error}`,
+  settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 
   optionLabel: { status: "статус", category: "категория", priority: "приоритет", language: "язык" },
   skillForeign: (target: string): string => `${target} — чужой каталог, скилл не переставлен`,

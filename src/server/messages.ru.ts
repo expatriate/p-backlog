@@ -10,6 +10,7 @@ export const serverRu = {
 
   runsTrimFailed: (detail: string): string => `Не удалось обрезать журнал запусков: ${detail}`,
   serverStarted: (port: number, root: string): string => `p-backlog: http://localhost:${port}\nКаталог беклога: ${root}\n`,
+  settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 
   sweepFailed: (detail: string): string => `Не удалось удалить закрытые задачи: ${detail}`,
   closedEpics: (ids: string): string => `Закрыты завершённые эпики: ${ids}`,

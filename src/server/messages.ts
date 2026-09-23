@@ -10,5 +10,5 @@ export function serverMessages(language: Language): ServerMessages {
 }
 
 export function serverLanguage(root: string): Promise<Language> {
-  return settledLanguage(root, process.env);
+  return settledLanguage(root, process.env).then((settled) => settled.language);
 }

@@ -45,6 +45,6 @@ try {
     exitCode,
   });
 } catch (error) {
-  const language = await settledLanguage(backlogRoot, process.env);
+  const { language } = await settledLanguage(backlogRoot, process.env);
   process.stderr.write(`${cliMessages(language).runNotRecorded(errorText(error))}\n`);
 }

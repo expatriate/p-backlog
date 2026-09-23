@@ -14,7 +14,7 @@ const home = homedir();
 const skillsDir = process.env.CLAUDE_SKILLS_DIR ?? defaultSkillsDir(home);
 const settingsPath = process.env.CLAUDE_SETTINGS_PATH ?? join(home, ".claude/settings.json");
 const backlogRoot = resolveBacklogRoot(process.env, home);
-const language = await settledLanguage(backlogRoot, process.env);
+const { language } = await settledLanguage(backlogRoot, process.env);
 const cli = cliMessages(language);
 
 if (await linkSkill()) await addStopHook();

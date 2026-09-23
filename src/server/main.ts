@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { coreMessages } from "../core/messages";
 import { resolveBacklogRoot } from "../core/store/paths";
 import { trimRuns } from "../core/store/runs";
+import { settingsFilePath, settledLanguage } from "../core/store/settings";
 import { sweepClosed, type SweepReport } from "../core/store/sweep";
 import { createApp } from "./app";
 import { CHANGE_DEBOUNCE_MS, createChangeFeed } from "./change-feed";
@@ -24,7 +25,9 @@ const port = readPort(process.env.PORT);
 
 await mkdir(root, { recursive: true });
 
-const startupMessages = serverMessages(await serverLanguage(root));
+const settledStartupLanguage = await settledLanguage(root, process.env);
+const startupMessages = serverMessages(settledStartupLanguage.language);
+if (settledStartupLanguage.invalidSettingsFile) process.stderr.write(`${startupMessages.settingsFileInvalid(settingsFilePath(root))}\n`);
 
 const usage = createUsageScanner({ root, claudeProjectsDir: join(home, ".claude", "projects"), messages: startupMessages });
 const memory = createMemorySampler();
