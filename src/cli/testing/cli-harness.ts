@@ -1,5 +1,6 @@
 import { join } from "node:path";
-import type { CliIo } from "../io";
+import { writeSettings } from "../../core/store/settings";
+import type { CliEnv } from "../io";
 import { runCli } from "../run";
 import { makeGitRepo, makeTempDir } from "../../core/store/testing/temp-dirs";
 
@@ -20,10 +21,11 @@ export async function makeCliSandbox(): Promise<CliSandbox> {
   const home = await makeTempDir();
   const root = join(home, "backlog");
   const repo = await makeGitRepo(home, "projects/spa");
+  await writeSettings(root, { language: "ru" });
   const run = async (argv: string[], options: CliRunOptions = {}): Promise<CliRun> => {
     const out: string[] = [];
     const err: string[] = [];
-    const io: CliIo = {
+    const io: CliEnv = {
       cwd: options.cwd ?? repo,
       home,
       backlogRoot: root,

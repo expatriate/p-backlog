@@ -1,9 +1,11 @@
 import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/stats/cost/hook-signature";
 import { errorText } from "../core/errors";
+import { resolveLanguage } from "../core/store/settings";
 import { usageText, type CliCommand } from "./command";
 import { categoryCommand } from "./commands/category";
 import { checkCommand } from "./commands/check";
 import { closeCommand } from "./commands/close";
+import { configCommand } from "./commands/config";
 import { epicCommand } from "./commands/epic";
 import { hookCommand } from "./commands/hook";
 import { listCommand } from "./commands/list";
@@ -16,7 +18,7 @@ import { statsCommand } from "./commands/stats";
 import { statusCommand } from "./commands/status";
 import { takeCommand } from "./commands/take";
 import { verifyCommand } from "./commands/verify";
-import { EXIT, UsageError, type CliIo } from "./io";
+import { EXIT, UsageError, type CliEnv } from "./io";
 
 export const CLI_COMMANDS: readonly CliCommand[] = [
   newCommand,
@@ -34,6 +36,7 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
   verifyCommand,
   projectCommand,
   hookCommand,
+  configCommand,
 ];
 
 const USAGE = usageText(CLI_COMMANDS);
@@ -42,7 +45,9 @@ const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
 
 const COMMANDS = new Map(CLI_COMMANDS.map((command) => [command.name, command.run]));
 
-export async function runCli(argv: readonly string[], io: CliIo): Promise<number> {
+export async function runCli(argv: readonly string[], env: CliEnv): Promise<number> {
+  const language = await resolveLanguage(env.backlogRoot, env.env);
+  const io = { ...env, language };
   const [name, ...args] = argv;
   const command = name === undefined ? undefined : COMMANDS.get(name);
   if (!command) {

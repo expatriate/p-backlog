@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/stats/cost/hook-signature";
 import { CLI_COMMANDS, commandName, runCli } from "./run";
 import { describe, expect, it } from "vitest";
-import { EXIT, type CliIo } from "./io";
+import { EXIT, type CliEnv } from "./io";
 import { makeCliSandbox } from "./testing/cli-harness";
 
 describe("runCli", () => {
@@ -16,7 +16,7 @@ describe("runCli", () => {
   it("неожиданная ошибка команды не уходит стеком: текст в stderr и отдельный код", async () => {
     const { root, repo } = await makeCliSandbox();
     const warnings: string[] = [];
-    const io: CliIo = {
+    const io: CliEnv = {
       cwd: repo,
       home: root,
       backlogRoot: root,

@@ -1,6 +1,7 @@
 import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 import { errorText } from "../core/errors";
-export type CliIo = {
+import type { Language } from "../core/i18n/language";
+export type CliEnv = {
   cwd: string;
   home: string;
   backlogRoot: string;
@@ -10,6 +11,8 @@ export type CliIo = {
   print: (line: string) => void;
   warn: (line: string) => void;
 };
+
+export type CliIo = CliEnv & { language: Language };
 
 export const EXIT = { ok: 0, invalid: 1, notFound: 2, refused: 3, failed: 4, needsReview: 5 } as const;
 

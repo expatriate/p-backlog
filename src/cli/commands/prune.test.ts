@@ -44,6 +44,7 @@ describe("backlog prune", () => {
         if (line === "SPA-1: отменена") appendFileSync(join(root, "spa", "SPA-2.md"), "Правка руками во время prune\n");
       },
       warn: (line) => err.push(line),
+      language: "ru",
     };
 
     const code = await pruneCommand.run(["--apply"], io);

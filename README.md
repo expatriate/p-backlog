@@ -50,6 +50,7 @@ npm run install-skill   # ~/.claude/skills/backlog → skill/backlog и хук S
 | `backlog stats [--project id \| --all-projects] [--json]` | Сводка статистики и тревоги |
 | `backlog project list \| status <id> active\|inactive \| delete <id> --confirm <id>` | Активность проектов и удаление проекта вместе с задачами |
 | `backlog hook stop` | Хук Stop для Claude Code: просит агента перепроверить задачи, чей код изменился |
+| `backlog config language [ru\|en]` | Без значения — печатает текущий язык беклога; со значением — меняет его |
 
 Коды выхода: `0` — успех, `1` — ошибка аргументов или правил, `2` — не найдено, `3` — отказ (задача
 закрыта, заблокирована или все подходящие заблокированы), `4` — команда не выполнилась, `5` — у `check`
