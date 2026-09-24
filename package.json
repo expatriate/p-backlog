@@ -1,11 +1,28 @@
 {
   "name": "p-backlog",
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "description": "Personal developer backlog for Claude Code: tasks as Markdown files, CLI, Stop hook and a local web UI",
+  "keywords": [
+    "backlog",
+    "claude-code",
+    "cli",
+    "task-management",
+    "markdown"
+  ],
+  "license": "MIT",
   "type": "module",
-  "private": true,
   "engines": {
     "node": ">=22"
   },
+  "files": [
+    "dist/cli.js",
+    "dist/server.js",
+    "dist/web",
+    "skill",
+    "README.md",
+    "README.ru.md",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "test": "vitest run",
     "lint": "eslint . && knip && node scripts/check-cyrillic.mjs",
@@ -15,28 +32,23 @@
     "start": "npm run build && node dist/server.js",
     "dev": "concurrently -k -n server,web \"tsx watch src/server/main.ts\" \"vite\"",
     "test:e2e": "playwright test",
+    "test:package": "vitest run --config vitest.package.config.ts",
+    "prepack": "npm run build",
     "prepare": "npm run build",
     "test:coverage": "vitest run --coverage",
     "knip": "knip"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
-    "@tanstack/react-query": "^5.103.1",
     "chokidar": "^5.0.0",
     "hono": "^4.13.8",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "react-is": "^19.3.0",
-    "react-markdown": "^10.1.0",
-    "react-router": "^8.4.0",
-    "recharts": "^3.10.1",
-    "remark-gfm": "^4.0.1",
     "yaml": "^2.9.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
+    "@tanstack/react-query": "^5.103.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
@@ -52,6 +64,13 @@
     "globals": "^17.12.0",
     "jsdom": "^30.1.0",
     "knip": "^6.37.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-is": "^19.3.0",
+    "react-markdown": "^10.1.0",
+    "react-router": "^8.4.0",
+    "recharts": "^3.10.1",
+    "remark-gfm": "^4.0.1",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.70.0",
