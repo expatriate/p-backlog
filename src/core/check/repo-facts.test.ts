@@ -138,6 +138,18 @@ describe("diffsSince", () => {
     expect(await changedLines(repo, "src/upload.ts", new Date("2026-09-11T00:00:00+03:00"))).toEqual([{ from: 10, to: 10 }]);
   });
 
+  it("пустые строки контекста считаются и при diff.suppressBlankEmpty в настройках git", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    const withBlanks = (tenth: string) => `${[...lines(1, 7), "", "", tenth, ...lines(11, 30)].join("\n")}\n`;
+    await writeFiles(repo, { "src/upload.ts": withBlanks("строка 10") });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFile(join(repo, "src/upload.ts"), withBlanks("правка"));
+    gitCommitAll(repo, "Правка десятой строки", "2026-09-12T10:00:00+03:00");
+    execFileSync("git", ["config", "diff.suppressBlankEmpty", "true"], { cwd: repo });
+
+    expect(await changedLines(repo, "src/upload.ts", new Date("2026-09-11T00:00:00+03:00"))).toEqual([{ from: 10, to: 10 }]);
+  });
+
   it("база diff — коммит основной линии на момент отметки, а не более свежий по дате коммит слитой позже ветки", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "v1\n" });

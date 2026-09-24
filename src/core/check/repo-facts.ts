@@ -69,7 +69,7 @@ export function diffsSince(repo: string, git: GitRunner = runGit): DiffSince {
   return (path, since) =>
     remembered(diffs, `${since.getTime()} ${path}`, async () => {
       const base = await baseBefore(since);
-      const diff = base === null ? null : await git(repo, ["diff", "--no-color", "--no-ext-diff", "--no-textconv", base, "--", path]);
+      const diff = base === null ? null : await git(repo, ["-c", "diff.suppressBlankEmpty=false", "diff", "--no-color", "--no-ext-diff", "--no-textconv", base, "--", path]);
       if (diff === null) return null;
       const hunks = parseHunks(diff);
       return { excerpt: excerptOf(diff), changed: changedRanges(hunks ?? []), hunks };
