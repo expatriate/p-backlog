@@ -10,7 +10,7 @@ description: Use when, while working on code, you notice a problem outside the c
 и находит проект по текущему репозиторию. Файлы задач вручную не создавай и не переименовывай.
 
 Если `backlog` не найден (`command not found`) — файлы сам не пиши. Скажи пользователю: «CLI backlog
-не установлен: в репозитории p-backlog выполните `npm install && npm run build && npm link`».
+не установлен: выполните `npm i -g p-backlog`».
 
 ## Записать задачу
 

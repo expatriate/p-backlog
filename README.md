@@ -16,8 +16,12 @@ triages them in a local web app.
 1. **Install** (needs Node.js 22 or newer):
 
    ```bash
-   npm install && npm run build && npm link && npm run install-skill
+   npm i -g p-backlog
+   backlog setup --service
    ```
+
+   `npm i -g p-backlog` installs the CLI globally; `backlog setup --service` installs the skill and the
+   Stop hook for Claude Code and starts the web app as an autostart service.
 
 2. **Language** — defaults to Russian if a backlog already exists, otherwise to the system locale.
    Change it any time:
@@ -35,28 +39,16 @@ triages them in a local web app.
 
    `backlog new` creates the project for the current repository itself if it doesn't exist yet.
 
-4. **Web app**:
+4. **Web app** — already running at `http://localhost:4317`; check with:
 
    ```bash
-   npm start   # builds and serves on http://localhost:4317
+   backlog service status
    ```
-
-   To have the server start automatically on login (macOS), install the LaunchAgent from the
-   `scripts/local.p-backlog.plist` template — see the "Web app" section below for the command.
 
 5. **The Stop hook and alerts** — after each of the agent's turns in a repository, the Stop hook checks
    whether the code behind that project's open tasks changed, and if so asks the agent to re-check them.
    It also surfaces alerts — signals about the backlog's health (growing debt, stuck tasks, stale
    low-priority tasks, and so on); `backlog stats` shows the same summary.
-
-## Install
-
-```bash
-npm install
-npm run build
-npm link                # global backlog command
-npm run install-skill   # ~/.claude/skills/backlog → skill/backlog and the Stop hook in ~/.claude/settings.json
-```
 
 ## Where tasks live
 
@@ -94,7 +86,7 @@ If there's no project yet, `backlog new` creates it.
 | `backlog config language [ru\|en]` | With no value, prints the current backlog language; with a value, changes it |
 | `backlog setup [--service]` | Install the skill and the Stop hook; with `--service`, also the autostart service |
 | `backlog serve [--port N]` | Runs the web server in the current process, on `PORT` or 4317 by default |
-| `backlog service install \| uninstall \| status` | Autostarts the web server at login: launchd on macOS, systemd --user on Linux; `status` shows whether it is installed and responding |
+| `backlog service install \| uninstall \| status` | Autostarts the web server at login: launchd on macOS, systemd --user on Linux, a Startup-folder script on Windows; `status` shows whether it is installed and responding |
 
 Exit codes: `0` success, `1` argument or rule error, `2` not found, `3` refused (the task is closed,
 blocked, or every matching task is blocked), `4` the command failed, `5` `check` found something to
@@ -123,27 +115,49 @@ requires typing the project id to confirm.
 ## Web app
 
 ```bash
-npm start           # builds and serves on http://localhost:4317
-npm run dev         # server and Vite with hot reload
+backlog serve             # runs the web server in the current process, on PORT or 4317 by default
+backlog serve --port 5000
 ```
 
 The server listens on `127.0.0.1` only and reflects directory changes immediately: a task created by the
 agent shows up in an open tab without a reload.
 
-To keep the server running permanently and have it start itself (macOS), install the LaunchAgent from the
-template:
+To have it start automatically on login instead, install it as a service (macOS, Linux, and Windows are
+supported):
 
 ```bash
-npm run build
-sed -e "s|NODE_PATH|$(command -v node)|" -e "s|REPO_PATH|$PWD|g" -e "s|HOME_PATH|$HOME|g" \
-  scripts/local.p-backlog.plist > ~/Library/LaunchAgents/local.p-backlog.plist
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.p-backlog.plist
-launchctl kickstart -k gui/$(id -u)/local.p-backlog   # restart after npm run build
+backlog service install     # macOS: launchd, Linux: systemd --user, Windows: script in the Startup folder
+backlog service status      # is it installed, is the server responding
+backlog service uninstall
 ```
 
-The server log is at `~/Library/Logs/p-backlog.log`.
+Logs:
+
+- macOS — `~/Library/Logs/p-backlog.log`
+- Linux — `journalctl --user -u p-backlog`
+- Windows — `%LOCALAPPDATA%\p-backlog\p-backlog.log`
+
+## Migrating from a clone
+
+If you installed p-backlog by cloning the repository, switch to the package:
+
+```bash
+npm i -g p-backlog       # or, from the clone: npm link
+backlog setup --service
+```
+
+`setup` relinks the skill from the clone to the installed package and doesn't add a second copy of the
+Stop hook; with `--service`, `install` overwrites the autostart service in place, so it also replaces a
+`local.p-backlog` LaunchAgent set up by hand from the old plist template.
 
 ## Development
+
+```bash
+npm install
+npm run build
+npm link                # global backlog command
+npm run install-skill   # ~/.claude/skills/backlog → skill/backlog and the Stop hook in ~/.claude/settings.json
+```
 
 ```bash
 npm test            # unit, server, and UI tests
@@ -152,4 +166,12 @@ npm run lint
 
 npx playwright install chromium   # once, before the first e2e run
 npm run test:e2e                  # Playwright: live list update
+
+npm run test:package              # the tarball install path end to end on this OS (slow)
+```
+
+To try a build the way a published package would install, without publishing it:
+
+```bash
+npm pack && npm i -g ./p-backlog-0.2.0.tgz
 ```

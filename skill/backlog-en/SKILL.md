@@ -11,8 +11,7 @@ Tasks are markdown files at `~/backlog/<project>/<ID>.md` (the directory can be 
 repository. Never create or rename task files by hand.
 
 If `backlog` is not found (`command not found`) — do not write task files yourself. Tell the user: "The
-`backlog` CLI is not installed: run `npm install && npm run build && npm link` in this repository
-(p-backlog)."
+`backlog` CLI is not installed: run `npm i -g p-backlog`."
 
 ## Log a task
 

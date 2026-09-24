@@ -16,8 +16,12 @@
 1. **Установка** (нужен Node.js 22 или новее):
 
    ```bash
-   npm install && npm run build && npm link && npm run install-skill
+   npm i -g p-backlog
+   backlog setup --service
    ```
+
+   `npm i -g p-backlog` ставит CLI глобально; `backlog setup --service` ставит скилл и хук Stop для Claude
+   Code и запускает веб как службу автозапуска.
 
 2. **Язык** — по умолчанию русский, если беклог уже есть, иначе язык берётся из локали системы. Сменить
    можно в любой момент:
@@ -35,28 +39,16 @@
 
    Проект для текущего репозитория `backlog new` создаст сам, если его ещё нет.
 
-4. **Веб-приложение**:
+4. **Веб-приложение** — уже работает на `http://localhost:4317`; проверить можно так:
 
    ```bash
-   npm start   # сборка и сервер на http://localhost:4317
+   backlog service status
    ```
-
-   Чтобы сервер поднимался сам при входе в систему (macOS), установите LaunchAgent из шаблона
-   `scripts/local.p-backlog.plist` — команда в разделе «Веб-приложение» ниже.
 
 5. **Хук Stop и тревоги** — после каждого ответа агента в репозитории хук Stop проверяет, не изменился ли
    код у открытых задач этого проекта, и просит агента перепроверить их, если да. Он же показывает
    тревоги — сигналы о состоянии беклога (растущий долг, зависшие задачи, старые задачи с низким
    приоритетом и т. п.); их сводку показывает и `backlog stats`.
-
-## Установка
-
-```bash
-npm install
-npm run build
-npm link            # глобальная команда backlog
-npm run install-skill   # ~/.claude/skills/backlog → skill/backlog и хук Stop в ~/.claude/settings.json
-```
 
 ## Где лежат задачи
 
@@ -93,7 +85,7 @@ npm run install-skill   # ~/.claude/skills/backlog → skill/backlog и хук S
 | `backlog config language [ru\|en]` | Без значения — печатает текущий язык беклога; со значением — меняет его |
 | `backlog setup [--service]` | Поставить скилл и Stop-хук; с `--service` — ещё и службу автозапуска |
 | `backlog serve [--port N]` | Запускает веб-сервер в текущем процессе, порт — из `PORT`, иначе 4317 |
-| `backlog service install \| uninstall \| status` | Автозапуск веб-сервера при входе: launchd на macOS, systemd --user на Linux; `status` — установлена ли служба и отвечает ли сервер |
+| `backlog service install \| uninstall \| status` | Автозапуск веб-сервера при входе: launchd на macOS, systemd --user на Linux, скрипт в папке «Автозагрузка» на Windows; `status` — установлена ли служба и отвечает ли сервер |
 
 Коды выхода: `0` — успех, `1` — ошибка аргументов или правил, `2` — не найдено, `3` — отказ (задача
 закрыта, заблокирована или все подходящие заблокированы), `4` — команда не выполнилась, `5` — у `check`
@@ -118,26 +110,49 @@ npm run install-skill   # ~/.claude/skills/backlog → skill/backlog и хук S
 ## Веб-приложение
 
 ```bash
-npm start           # сборка и сервер на http://localhost:4317
-npm run dev         # сервер и Vite с горячей перезагрузкой
+backlog serve             # запускает веб-сервер в текущем процессе, порт — из PORT, иначе 4317
+backlog serve --port 5000
 ```
 
 Сервер слушает только `127.0.0.1` и показывает изменения каталога сразу: задача, созданная агентом,
 появляется в открытой вкладке без перезагрузки.
 
-Чтобы сервер работал постоянно и поднимался сам (macOS), установите LaunchAgent из шаблона:
+Чтобы сервер поднимался сам при входе в систему, установите его как службу (поддерживаются macOS, Linux
+и Windows):
 
 ```bash
-npm run build
-sed -e "s|NODE_PATH|$(command -v node)|" -e "s|REPO_PATH|$PWD|g" -e "s|HOME_PATH|$HOME|g" \
-  scripts/local.p-backlog.plist > ~/Library/LaunchAgents/local.p-backlog.plist
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.p-backlog.plist
-launchctl kickstart -k gui/$(id -u)/local.p-backlog   # перезапуск после npm run build
+backlog service install     # macOS: launchd, Linux: systemd --user, Windows: скрипт в папке «Автозагрузка»
+backlog service status      # установлена ли служба, отвечает ли сервер
+backlog service uninstall
 ```
 
-Журнал сервера — `~/Library/Logs/p-backlog.log`.
+Логи:
+
+- macOS — `~/Library/Logs/p-backlog.log`
+- Linux — `journalctl --user -u p-backlog`
+- Windows — `%LOCALAPPDATA%\p-backlog\p-backlog.log`
+
+## Переход с установки из клона
+
+Если p-backlog был установлен из клона репозитория, переходите на пакет:
+
+```bash
+npm i -g p-backlog       # или, из клона: npm link
+backlog setup --service
+```
+
+`setup` переставит ссылку скилла с клона на установленный пакет и не задублирует хук Stop; с
+`--service` `install` перезаписывает службу автозапуска на месте, поэтому заодно заменяет и
+LaunchAgent `local.p-backlog`, настроенный вручную по старому шаблону plist.
 
 ## Разработка
+
+```bash
+npm install
+npm run build
+npm link            # глобальная команда backlog
+npm run install-skill   # ~/.claude/skills/backlog → skill/backlog и хук Stop в ~/.claude/settings.json
+```
 
 ```bash
 npm test            # модульные, серверные и интерфейсные тесты
@@ -146,4 +161,12 @@ npm run lint
 
 npx playwright install chromium   # один раз, перед первым запуском e2e
 npm run test:e2e                  # Playwright: живое обновление списка
+
+npm run test:package              # весь путь установки из tarball на этой ОС (медленный)
+```
+
+Чтобы попробовать сборку так, будто это опубликованный пакет, без публикации:
+
+```bash
+npm pack && npm i -g ./p-backlog-0.2.0.tgz
 ```
