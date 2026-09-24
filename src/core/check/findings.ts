@@ -12,4 +12,6 @@ export type CheckProblem =
   | { kind: "file-not-parsed"; path: string; problems: Problem[] }
   | { kind: "epics-wait-for-files"; epicIds: string[] }
   | { kind: "project-without-repos"; projectId: string }
-  | { kind: "project-repos-missing"; projectId: string; repos: string[] };
+  | { kind: "project-repos-missing"; projectId: string; repos: string[] }
+  | { kind: "project-repo-not-git"; projectId: string; repo: string }
+  | { kind: "project-history-unreadable"; projectId: string; repo: string };

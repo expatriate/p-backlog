@@ -219,6 +219,10 @@ function checkProblem(p: CheckProblem): string {
       return `Проект ${p.projectId}: в repos нет путей — код его задач не проверить`;
     case "project-repos-missing":
       return `Проект ${p.projectId}: ни один путь из repos не существует (${p.repos.join(", ")}) — код его задач не проверить`;
+    case "project-repo-not-git":
+      return `Проект ${p.projectId}: ${p.repo} — не git-репозиторий, коммиты и правки кода его задач не проверяются`;
+    case "project-history-unreadable":
+      return `Проект ${p.projectId}: не удалось прочитать историю git в ${p.repo} — коммиты и правки кода его задач не проверены`;
   }
 }
 

@@ -18,8 +18,10 @@ describe("collectRepoFacts", () => {
     gitCommitAll(repo, "Переименовать old", "2026-09-13T10:00:00+03:00");
     await writeFile(join(repo, "src/a.ts"), "export const a = 3;\n");
 
-    const facts = await collectRepoFacts(repo, { since: new Date("2026-09-11T00:00:00Z"), paths: ["src/a.ts", "src/old.ts", "src/new.ts"] });
+    const facts = await collectRepoFacts(repo, { since: new Date("2026-09-11T00:00:00Z"), paths: ["src/a.ts", "src/old.ts", "src/new.ts", "src/загрузка.ts"] });
 
+    expect(facts.history).toBe("read");
+    expect(facts.renames.map(({ subject, files }) => ({ subject, files }))).toEqual([{ subject: "Переименовать old", files: [{ path: "src/new.ts", renamedFrom: "src/old.ts" }] }]);
     expect(facts.commits.map(({ subject, date, files }) => ({ subject, date, files }))).toEqual([
       {
         subject: "Переименовать old",
@@ -30,7 +32,7 @@ describe("collectRepoFacts", () => {
     ]);
     expect(facts.commits[0]?.sha).toMatch(/^[0-9a-f]{7,}$/);
     expect([...facts.dirtyModifiedAt.keys()]).toEqual(["src/a.ts"]);
-    expect(facts.existing).toEqual(new Set(["src/a.ts", "src/new.ts"]));
+    expect(facts.existing).toEqual(new Set(["src/a.ts", "src/new.ts", "src/загрузка.ts"]));
   });
 
   it("репозиторий проекта — подкаталог git: пути коммитов и незакоммиченных правок от каталога проекта", async () => {
@@ -47,13 +49,26 @@ describe("collectRepoFacts", () => {
     expect([...facts.dirtyModifiedAt.keys()]).toEqual(["src/a.ts"]);
   });
 
+  it("путь задачи вне репозитория не ломает чтение истории остальных задач", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "export const a = 1;\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFile(join(repo, "src/a.ts"), "export const a = 2;\n");
+    gitCommitAll(repo, "Поправить a", "2026-09-12T10:00:00+03:00");
+
+    const facts = await collectRepoFacts(repo, { since: new Date("2026-09-11T00:00:00Z"), paths: ["../outside.ts", "", "src/a.ts"] });
+
+    expect(facts.history).toBe("read");
+    expect(facts.commits.map(({ files }) => files)).toEqual([[{ path: "src/a.ts" }]]);
+  });
+
   it("каталог без git: только существование файлов", async () => {
     const dir = await makeTempDir();
     await writeFiles(dir, { "src/a.ts": "" });
 
     const facts = await collectRepoFacts(dir, { since: new Date("2026-09-11T00:00:00Z"), paths: ["src/a.ts", "src/b.ts"] });
 
-    expect(facts).toEqual({ commits: [], dirtyModifiedAt: new Map(), existing: new Set(["src/a.ts"]), texts: new Map([["src/a.ts", ""]]) });
+    expect(facts).toEqual({ history: "not-a-repo", commits: [], renames: [], dirtyModifiedAt: new Map(), existing: new Set(["src/a.ts"]), texts: new Map([["src/a.ts", ""]]) });
   });
 
   it("не переписывает индекс git: сбор фактов не берёт index.lock, пока с репозиторием работает пользователь", async () => {

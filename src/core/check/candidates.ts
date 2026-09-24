@@ -51,7 +51,7 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts): Candi
   const path = sourcePath(task.source);
   const mark = reviewMark(task);
   if (!facts.existing.has(path)) {
-    return [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.commits, mark) }];
+    return [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.renames, mark) }];
   }
   if (anchor.kind === "same" || anchor.kind === "moved") return [];
   const { commits, uncommitted } = changesSince(facts, path, mark);

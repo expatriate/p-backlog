@@ -1,5 +1,5 @@
 import { access, readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join, normalize, sep } from "node:path";
 import { FIELD, RECORD, runGit, type GitRunner } from "../git/run";
 import type { LineRange } from "./anchor";
 import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
@@ -8,8 +8,12 @@ type FileChange = { path: string; renamedFrom?: string };
 
 export type Commit = { sha: string; date: string; subject: string; files: FileChange[] };
 
+export type GitHistory = "read" | "not-a-repo" | "unreadable";
+
 export type RepoFacts = {
+  history: GitHistory;
   commits: Commit[];
+  renames: Commit[];
   dirtyModifiedAt: ReadonlyMap<string, number>;
   existing: ReadonlySet<string>;
   texts: ReadonlyMap<string, string>;
@@ -18,16 +22,34 @@ export type RepoFacts = {
 const DIFF_LINE_LIMIT = 80;
 
 export async function collectRepoFacts(repo: string, { since, paths }: { since: Date; paths: readonly string[] }): Promise<RepoFacts> {
-  const [log, status, prefix, existing] = await Promise.all([
-    runGit(repo, ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%s`, "--name-status", "-M", "--diff-merges=first-parent"]),
-    runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
-    runGit(repo, ["rev-parse", "--show-prefix"]),
-    existingPaths(repo, paths),
-  ]);
+  const [prefix, existing] = await Promise.all([runGit(repo, ["rev-parse", "--show-prefix"]), existingPaths(repo, paths)]);
   const texts = await fileTexts(repo, [...existing]);
-  if (log === null || status === null || prefix === null) return { commits: [], dirtyModifiedAt: new Map(), existing, texts };
+  const withoutHistory = (history: GitHistory): RepoFacts => ({ history, commits: [], renames: [], dirtyModifiedAt: new Map(), existing, texts });
+  if (prefix === null) return withoutHistory("not-a-repo");
+  const missing = paths.filter((path) => !existing.has(path));
+  const [log, renames, status] = await Promise.all([
+    pathLog(repo, since, paths),
+    missing.length === 0 ? "" : runGit(repo, [...logArgs(since), "--diff-filter=R"]),
+    runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
+  ]);
+  if (log === null || renames === null || status === null) return withoutHistory("unreadable");
   const dirty = withinRepo(parseStatus(status), prefix.trim());
-  return { commits: parseLog(log), dirtyModifiedAt: await modificationTimes(repo, dirty), existing, texts };
+  return { history: "read", commits: parseLog(log), renames: parseLog(renames), dirtyModifiedAt: await modificationTimes(repo, dirty), existing, texts };
+}
+
+function logArgs(since: Date): string[] {
+  return ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%s`, "--name-status", "-M", "--diff-merges=first-parent"];
+}
+
+async function pathLog(repo: string, since: Date, paths: readonly string[]): Promise<string | null> {
+  const inside = paths.filter(isInsideRepo);
+  if (inside.length === 0) return "";
+  return runGit(repo, [...logArgs(since), "--", ...inside.map((path) => `:(literal)${path}`)]);
+}
+
+function isInsideRepo(path: string): boolean {
+  const normalized = normalize(path);
+  return normalized !== "." && !isAbsolute(normalized) && normalized !== ".." && !normalized.startsWith(`..${sep}`);
 }
 
 export type DiffExcerpt = { text: string; omittedLines: number };

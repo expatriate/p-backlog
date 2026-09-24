@@ -14,7 +14,7 @@ function commit(sha: string, date: string, files: Commit["files"]): Commit {
 }
 
 function facts(overrides: Partial<RepoFacts>): RepoFacts {
-  return { commits: [], dirtyModifiedAt: new Map(), existing: new Set(), texts: new Map(), ...overrides };
+  return { history: "read", commits: [], renames: [], dirtyModifiedAt: new Map(), existing: new Set(), texts: new Map(), ...overrides };
 }
 
 describe("isReviewable и sourcePath", () => {
@@ -88,7 +88,7 @@ describe("codeCandidates", () => {
     ];
     const verified = { ...task, verified: "2026-09-12T10:00:00+03:00" };
 
-    expect(codeCandidates([verified], facts({ commits }))).toEqual([
+    expect(codeCandidates([verified], facts({ renames: commits }))).toEqual([
       { kind: "source-missing", task: { id: "SPA-1", title: "Таймаут" }, path: "src/a.ts", renamedTo: "src/c.ts" },
     ]);
     expect(codeCandidates([task], facts({}))).toEqual([{ kind: "source-missing", task: { id: "SPA-1", title: "Таймаут" }, path: "src/a.ts" }]);

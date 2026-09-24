@@ -216,6 +216,10 @@ function checkProblem(p: CheckProblem): string {
       return `Project ${p.projectId}: repos has no paths — its tasks' code cannot be checked`;
     case "project-repos-missing":
       return `Project ${p.projectId}: none of the repos paths exist (${p.repos.join(", ")}) — its tasks' code cannot be checked`;
+    case "project-repo-not-git":
+      return `Project ${p.projectId}: ${p.repo} is not a git repository — commits and code edits of its tasks are not checked`;
+    case "project-history-unreadable":
+      return `Project ${p.projectId}: could not read the git history in ${p.repo} — commits and code edits of its tasks were not checked`;
   }
 }
 

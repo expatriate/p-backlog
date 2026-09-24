@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -374,6 +375,33 @@ describe("checkBacklog", () => {
       { task: "SPA-2", evidence: "duplicate" },
       { task: "SPA-3", evidence: "duplicate" },
     ]);
+  });
+
+  it("полная проверка сообщает, что каталог проекта — не git-репозиторий или история git не читается", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const plain = join(home, "projects/plain");
+    await writeFiles(plain, { "src/a.ts": "a\n" });
+    const broken = await makeGitRepo(home, "projects/broken");
+    await writeFiles(broken, { "src/b.ts": "b\n" });
+    gitCommitAll(broken, "Начало", "2026-09-10T10:00:00+03:00");
+    const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: broken, encoding: "utf8" }).trim();
+    await rm(join(broken, ".git/objects", head.slice(0, 2), head.slice(2)));
+    await writeFiles(root, {
+      "pl/project.md": projectFile("PL", [plain]),
+      "pl/PL-1.md": task("PL-1", "source: src/a.ts:1\n"),
+      "br/project.md": projectFile("BR", [broken]),
+      "br/BR-1.md": task("BR-1", "source: src/b.ts:1\n"),
+    });
+
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["pl", "br"], mode: "full", now: NOW, home, messages: RU });
+
+    expect(report.problems).toEqual(
+      expect.arrayContaining([
+        { kind: "project-repo-not-git", projectId: "pl", repo: plain },
+        { kind: "project-history-unreadable", projectId: "br", repo: broken },
+      ]),
+    );
   });
 
   it("сообщает о проекте без репозитория и проверяет только выбранные проекты", async () => {

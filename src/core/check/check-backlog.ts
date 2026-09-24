@@ -18,7 +18,7 @@ import type { CheckFix, CheckProblem } from "./findings";
 import { findRepo } from "./project-repo";
 import { codeReview, duplicateCandidates, isReviewable, relocationPlan, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
 import { currentSources, type CurrentSources } from "./current-source";
-import { collectRepoFacts, diffsSince, type DiffExcerpt, type DiffSince, type RepoFacts } from "./repo-facts";
+import { collectRepoFacts, diffsSince, type DiffExcerpt, type DiffSince, type GitHistory, type RepoFacts } from "./repo-facts";
 import { filterBySymbol, symbolLookup, symbolNames } from "./symbol-filter";
 import { openCodeGraph } from "../graph/code-graph";
 
@@ -32,7 +32,7 @@ type Fix = { changes: TaskChanges; closure?: Closure; done: CheckFix[] };
 type EpicClosing = { closure: Closure; childIds: string[] };
 const PROBLEM_LIMIT = 400;
 
-type ProjectReview = { candidates: Candidate[]; filtered: FilteredSighting[]; plans: AnchorPlan[] };
+type ProjectReview = { candidates: Candidate[]; filtered: FilteredSighting[]; plans: AnchorPlan[]; problems: CheckProblem[] };
 type FixOutcome = { fixed: CheckFix[]; failed: CheckProblem[] };
 
 export async function checkBacklog(root: string, loaded: LoadedBacklog, request: CheckRequest): Promise<CheckReport> {
@@ -46,7 +46,8 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const candidates = reviews.flatMap((review) => review.candidates);
   const moved = await applyAnchorPlans(current.tasks, reviews.flatMap((review) => review.plans), request.now);
   await recordCandidates(root, current.tasks, { candidates, filtered: reviews.flatMap((review) => review.filtered) }, request);
-  const problems = request.mode === "full" ? [...fixes.failed, ...findProblems(current, projects, repos, inScope)] : [];
+  const reviewProblems = reviews.flatMap((review) => review.problems);
+  const problems = request.mode === "full" ? [...fixes.failed, ...findProblems(current, projects, repos, inScope), ...reviewProblems] : [];
   return { fixed: [...fixes.fixed, ...moved], problems, candidates };
 }
 
@@ -141,8 +142,8 @@ function unparsedTaskIds(errors: readonly ParseError[]): string[] {
 
 async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, { mode }: CheckRequest): Promise<ProjectReview> {
   const tasks = allTasks.filter((task) => task.projectId === project.id && isReviewable(task));
-  if (tasks.length === 0) return { candidates: [], filtered: [], plans: [] };
-  if (repo === undefined) return { candidates: mode === "full" ? duplicateCandidates(tasks) : [], filtered: [], plans: [] };
+  if (tasks.length === 0) return { candidates: [], filtered: [], plans: [], problems: [] };
+  if (repo === undefined) return { candidates: mode === "full" ? duplicateCandidates(tasks) : [], filtered: [], plans: [], problems: [] };
 
   const since = new Date(Math.min(...tasks.map(reviewMark)));
   const paths = [...new Set(tasks.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
@@ -160,9 +161,20 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
     const { kept, filtered } = await filterBySymbol(review.candidates, { tasksById, located, diffOf, symbolAt });
     const code = await Promise.all(kept.map((candidate) => withContext(candidate, tasksById, located, facts, diffOf)));
     const plans = settledPlans(review.plans, { kept, filtered, tasksById, located, facts });
-    return { candidates: mode === "full" ? [...code, ...duplicates] : code, filtered, plans };
+    return { candidates: mode === "full" ? [...code, ...duplicates] : code, filtered, plans, problems: historyProblems(project, repo, facts.history) };
   } finally {
     graph?.close();
+  }
+}
+
+function historyProblems(project: Project, repo: string, history: GitHistory): CheckProblem[] {
+  switch (history) {
+    case "read":
+      return [];
+    case "not-a-repo":
+      return [{ kind: "project-repo-not-git", projectId: project.id, repo }];
+    case "unreadable":
+      return [{ kind: "project-history-unreadable", projectId: project.id, repo }];
   }
 }
 
