@@ -1,8 +1,9 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, win32 } from "node:path";
 import { fileExists, numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
 
 const SCRIPT_NAME = "p-backlog.vbs";
+const COMMAND_LINE_ARGUMENT = /"[^"]*"|\S+/g;
 
 function vbsString(value: string): string {
   return `"${value.replaceAll('"', '""')}"`;
@@ -39,8 +40,21 @@ export function startupScript(context: ServiceContext): string {
 async function stopRunningServer(context: ServiceContext): Promise<void> {
   const file = pidFilePath(context);
   const pid = await numberRecordedIn(file, /^(\d+)$/);
-  if (pid !== null) context.stopProcess(pid);
+  if (pid !== null && (await runsOurServer(context, pid))) context.stopProcess(pid);
   await rm(file, { force: true });
+}
+
+async function runsOurServer(context: ServiceContext, pid: number): Promise<boolean> {
+  const query = `(Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}').CommandLine`;
+  const { code, output } = await context.exec("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", query]);
+  return code === 0 && isServerCommandLine(output);
+}
+
+function isServerCommandLine(commandLine: string): boolean {
+  const args = (commandLine.match(COMMAND_LINE_ARGUMENT) ?? []).map((arg) => arg.replaceAll('"', ""));
+  if (args.length !== 3) return false;
+  const [program = "", script = "", command] = args;
+  return /^node(\.exe)?$/i.test(win32.basename(program)) && win32.basename(script).toLowerCase() === "cli.js" && command === "serve";
 }
 
 export function startupFolderManager(context: ServiceContext): ServiceManager {

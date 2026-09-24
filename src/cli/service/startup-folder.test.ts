@@ -30,6 +30,23 @@ function contextFor(roots: Roots, exec: CliEnv["exec"] = fakeExec().exec, stopPr
 const scriptPath = (appData: string) => join(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "p-backlog.vbs");
 const logPath = (localAppData: string) => join(localAppData, "p-backlog", "p-backlog.log");
 const pidFilePath = (localAppData: string) => join(localAppData, "p-backlog", "server.pid");
+const ourServerCommandLine = '"C:\\node\\node.exe" "C:\\p-backlog\\dist\\cli.js" serve';
+
+async function writePidFile(roots: Roots, pid: string): Promise<void> {
+  await mkdir(join(roots.localAppData, "p-backlog"), { recursive: true });
+  await writeFile(pidFilePath(roots.localAppData), pid);
+}
+
+function execAnswering(commandLine: string): CliEnv["exec"] {
+  return fakeExec((command) => ({ code: 0, output: command.startsWith("powershell.exe") && command.includes("ProcessId=4242") ? commandLine : "" })).exec;
+}
+
+function recordInto(stopped: number[]): CliEnv["stopProcess"] {
+  return (pid) => {
+    stopped.push(pid);
+    return true;
+  };
+}
 
 describe("startupScript", () => {
   it("создаёт WScript.Shell, задаёт окружение и без окна запускает serve с логом в LOCALAPPDATA", async () => {
@@ -86,15 +103,11 @@ describe("startupFolderManager", () => {
     expect(decoded).toContain('env("HOME") = "C:\\Users\\Дмитрий"');
   });
 
-  it("install при наличии server.pid останавливает прежний процесс и убирает файл PID", async () => {
+  it("install останавливает прежний сервер из server.pid и убирает файл PID", async () => {
     const roots = await tempRoots();
-    await mkdir(join(roots.localAppData, "p-backlog"), { recursive: true });
-    await writeFile(pidFilePath(roots.localAppData), "4242");
+    await writePidFile(roots, "4242");
     const stopped: number[] = [];
-    const context = contextFor(roots, fakeExec().exec, (pid) => {
-      stopped.push(pid);
-      return true;
-    });
+    const context = contextFor(roots, execAnswering(ourServerCommandLine), recordInto(stopped));
 
     await startupFolderManager(context).install();
 
@@ -102,11 +115,26 @@ describe("startupFolderManager", () => {
     await expect(access(pidFilePath(roots.localAppData))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it.each([
+    ["PID занят чужим процессом", execAnswering('"C:\\Program Files\\Notepad++\\notepad++.exe" C:\\notes\\draft.txt')],
+    ["node с чужим скриптом", execAnswering('"C:\\node\\node.exe" C:\\work\\build.js serve')],
+    ["процесса с этим PID уже нет", execAnswering("")],
+    ["командную строку процесса не узнать", fakeExec(() => ({ code: 1, output: "Get-CimInstance: Access denied" })).exec],
+  ])("install не останавливает процесс из server.pid, если это не наш сервер: %s", async (_case, exec) => {
+    const roots = await tempRoots();
+    await writePidFile(roots, "4242");
+    const stopped: number[] = [];
+
+    await startupFolderManager(contextFor(roots, exec, recordInto(stopped))).install();
+
+    expect(stopped).toEqual([]);
+    await expect(access(pidFilePath(roots.localAppData))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("install при мёртвом процессе в server.pid всё равно убирает файл PID", async () => {
     const roots = await tempRoots();
-    await mkdir(join(roots.localAppData, "p-backlog"), { recursive: true });
-    await writeFile(pidFilePath(roots.localAppData), "4242");
-    const context = contextFor(roots, fakeExec().exec, () => false);
+    await writePidFile(roots, "4242");
+    const context = contextFor(roots, execAnswering(ourServerCommandLine), () => false);
 
     await startupFolderManager(context).install();
 
@@ -139,19 +167,15 @@ describe("startupFolderManager", () => {
   it("uninstall останавливает сервер по PID, удаляет скрипт и оставляет лог", async () => {
     const roots = await tempRoots();
     await startupFolderManager(contextFor(roots)).install();
-    await mkdir(join(roots.localAppData, "p-backlog"), { recursive: true });
-    await writeFile(pidFilePath(roots.localAppData), "777");
+    await writePidFile(roots, "4242");
     await writeFile(logPath(roots.localAppData), "лог за прошлый запуск\n");
     const stopped: number[] = [];
-    const context = contextFor(roots, fakeExec().exec, (pid) => {
-      stopped.push(pid);
-      return true;
-    });
+    const context = contextFor(roots, execAnswering(ourServerCommandLine), recordInto(stopped));
 
     const outcome = await startupFolderManager(context).uninstall();
 
     expect(outcome).toBe("done");
-    expect(stopped).toEqual([777]);
+    expect(stopped).toEqual([4242]);
     await expect(access(scriptPath(roots.appData))).rejects.toMatchObject({ code: "ENOENT" });
     await expect(readFile(logPath(roots.localAppData), "utf8")).resolves.toBe("лог за прошлый запуск\n");
   });

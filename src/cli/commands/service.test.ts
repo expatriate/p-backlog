@@ -62,7 +62,7 @@ describe("backlog service", () => {
     expect(result.err).toBe("wscript.exe завершился с кодом 5: Не удалось запустить сценарий");
   });
 
-  it("install на Windows останавливает прежний процесс по PID из server.pid", async () => {
+  it("install на Windows останавливает прежний сервер по PID из server.pid", async () => {
     const { home, run } = await makeCliSandbox();
     await mkdir(join(home, "AppData/Local/p-backlog"), { recursive: true });
     await writeFile(vbsPidFile(home), "4242");
@@ -72,7 +72,9 @@ describe("backlog service", () => {
       return true;
     };
 
-    await run(["service", "install"], { platform: "win32", stopProcess });
+    const exec = fakeExec((command) => ({ code: 0, output: command.startsWith("powershell.exe") ? '"C:\\node\\node.exe" "C:\\p-backlog\\dist\\cli.js" serve' : "" })).exec;
+
+    await run(["service", "install"], { platform: "win32", stopProcess, exec });
 
     expect(stopped).toEqual([4242]);
   });
