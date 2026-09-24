@@ -52,7 +52,7 @@ export function startupFolderManager(context: ServiceContext): ServiceManager {
       await stopRunningServer(context);
       await mkdir(dirname(file), { recursive: true });
       await mkdir(appDataDir(context), { recursive: true });
-      await writeFile(file, `﻿${startupScript(context)}`, "utf16le");
+      await writeFile(file, `\ufeff${startupScript(context)}`, "utf16le");
       const { code, output } = await context.exec("wscript.exe", [file]);
       return code === 0 ? "done" : { failed: "wscript.exe", code, output };
     },
