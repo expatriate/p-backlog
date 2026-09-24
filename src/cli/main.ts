@@ -34,6 +34,14 @@ const exitCode = await runCli(argv, {
   nodePath: process.execPath,
   cliPath,
   exec: execProgram,
+  stopProcess: (pid) => {
+    try {
+      process.kill(pid);
+      return true;
+    } catch {
+      return false;
+    }
+  },
   env: process.env,
   now: () => new Date(),
   readStdin,

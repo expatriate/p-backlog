@@ -10,6 +10,7 @@ export type ServiceContext = {
   cliPath: string;
   exec: CliEnv["exec"];
   uid: number;
+  stopProcess: CliEnv["stopProcess"];
 };
 
 export type ServiceFailure = { failed: string; code: number; output: string };

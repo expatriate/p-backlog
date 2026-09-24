@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { EXIT, type CliIo } from "../io";
-import { makeCliSandbox } from "../testing/cli-harness";
+import { baseCliEnv, makeCliSandbox } from "../testing/cli-harness";
 import { pruneCommand } from "./prune";
 
 const LONG_AGO = new Date("2026-08-01T10:00:00Z");
@@ -34,18 +34,8 @@ describe("backlog prune", () => {
     for (const title of ["Первая", "Вторая", "Третья"]) await run(["new", "--category", "bug", "--title", title, "--priority", "low"], { now: LONG_AGO });
     const err: string[] = [];
     const io: CliIo = {
-      cwd: repo,
-      home,
-      backlogRoot: root,
-      repoRoot: root,
-      platform: "darwin",
-      uid: 501,
-      nodePath: "node",
-      cliPath: "cli.js",
-      exec: async () => ({ code: 0, output: "" }),
-      env: {},
+      ...baseCliEnv({ cwd: repo, home, backlogRoot: root, repoRoot: root }),
       now: () => new Date("2026-09-17T14:50:00Z"),
-      readStdin: async () => "",
       print: (line) => {
         if (line === "SPA-1: отменена") appendFileSync(join(root, "spa", "SPA-2.md"), "Правка руками во время prune\n");
       },

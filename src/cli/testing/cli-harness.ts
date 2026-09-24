@@ -13,6 +13,7 @@ type CliRunOptions = {
   env?: NodeJS.ProcessEnv;
   platform?: NodeJS.Platform;
   exec?: CliEnv["exec"];
+  stopProcess?: CliEnv["stopProcess"];
 };
 
 const SANDBOX_NOW = new Date("2026-09-17T14:50:00Z");
@@ -28,6 +29,23 @@ export function fakeExec(reply: (command: string) => ExecResult | Promise<ExecRe
     return reply(command);
   };
   return { exec, calls };
+}
+
+export function baseCliEnv(overrides: Pick<CliEnv, "cwd" | "home" | "backlogRoot" | "repoRoot"> & Partial<CliEnv>): CliEnv {
+  return {
+    platform: "darwin",
+    uid: 501,
+    nodePath: "node",
+    cliPath: "cli.js",
+    exec: fakeExec().exec,
+    stopProcess: () => true,
+    env: {},
+    now: () => new Date(),
+    readStdin: async () => "",
+    print: () => undefined,
+    warn: () => undefined,
+    ...overrides,
+  };
 }
 
 export type CliSandbox = {
@@ -55,6 +73,7 @@ export async function makeCliSandbox(): Promise<CliSandbox> {
       nodePath: "/opt/node/bin/node",
       cliPath: join(REPO_ROOT, "dist/cli.js"),
       exec: options.exec ?? fakeExec().exec,
+      stopProcess: options.stopProcess ?? (() => true),
       env: options.env ?? {},
       now: () => options.now ?? SANDBOX_NOW,
       readStdin: async () => options.stdin ?? "",

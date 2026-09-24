@@ -14,6 +14,7 @@ export type CliEnv = {
   nodePath: string;
   cliPath: string;
   exec: (file: string, args: readonly string[]) => Promise<ExecResult>;
+  stopProcess: (pid: number) => boolean;
   env: NodeJS.ProcessEnv;
   now: () => Date;
   readStdin: () => Promise<string>;

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { makeTempDir } from "../../core/store/testing/temp-dirs";
 import { startServer } from "../../server/start";
 import { EXIT, type CliIo } from "../io";
+import { baseCliEnv } from "../testing/cli-harness";
 import { serveCommand } from "./serve";
 
 describe("backlog serve", () => {
@@ -12,20 +13,9 @@ describe("backlog serve", () => {
     try {
       const warnings: string[] = [];
       const io: CliIo = {
-        cwd: home,
-        home,
-        backlogRoot: join(home, "backlog-2"),
-        repoRoot: home,
-        platform: "darwin",
-        uid: 501,
-        nodePath: "node",
-        cliPath: "cli.js",
-        exec: async () => ({ code: 0, output: "" }),
+        ...baseCliEnv({ cwd: home, home, backlogRoot: join(home, "backlog-2"), repoRoot: home }),
         env: { PORT: String(blocker.port) },
         language: "ru",
-        now: () => new Date(),
-        readStdin: async () => "",
-        print: () => undefined,
         warn: (line) => warnings.push(line),
       };
 

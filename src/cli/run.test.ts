@@ -3,7 +3,7 @@ import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/stats/cost/hook-sign
 import { CLI_COMMANDS, commandName, runCli } from "./run";
 import { describe, expect, it } from "vitest";
 import { EXIT, type CliEnv } from "./io";
-import { makeCliSandbox } from "./testing/cli-harness";
+import { baseCliEnv, makeCliSandbox } from "./testing/cli-harness";
 
 describe("runCli", () => {
   it("без команды печатает справку, с неизвестной командой — код 1", async () => {
@@ -17,19 +17,9 @@ describe("runCli", () => {
     const { root, repo } = await makeCliSandbox();
     const warnings: string[] = [];
     const io: CliEnv = {
-      cwd: repo,
-      home: root,
-      backlogRoot: root,
-      repoRoot: root,
-      platform: "darwin",
-      uid: 501,
-      nodePath: "node",
-      cliPath: "cli.js",
-      exec: async () => ({ code: 0, output: "" }),
-      env: {},
+      ...baseCliEnv({ cwd: repo, home: root, backlogRoot: root, repoRoot: root }),
       now: () => new Date("2026-09-18T12:00:00Z"),
       readStdin: () => Promise.reject(new Error("не прочитать stdin")),
-      print: () => undefined,
       warn: (line) => warnings.push(line),
     };
 

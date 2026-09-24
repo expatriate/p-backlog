@@ -44,6 +44,7 @@ async function withServiceManager(io: CliIo, action: ServiceAction): Promise<num
     cliPath: io.cliPath,
     exec: io.exec,
     uid: io.uid,
+    stopProcess: io.stopProcess,
   });
   if (manager === null) {
     io.warn(cliMessages(io.language).serviceUnsupported);

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -7,6 +7,8 @@ import { EXIT } from "../io";
 import { fakeExec, makeCliSandbox } from "../testing/cli-harness";
 
 const plistPath = (home: string) => join(home, "Library/LaunchAgents/local.p-backlog.plist");
+const vbsPath = (home: string) => join(home, "AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup/p-backlog.vbs");
+const vbsPidFile = (home: string) => join(home, "AppData/Local/p-backlog/server.pid");
 
 async function closedPort(): Promise<number> {
   const probe = createServer();
@@ -37,6 +39,42 @@ describe("backlog service", () => {
 
     expect(result.code).toBe(EXIT.failed);
     expect(result.err).toBe("launchctl bootstrap завершился с кодом 5: Input/output error");
+  });
+
+  it("install на Windows пишет p-backlog.vbs в «Автозагрузку» и печатает, где он и где логи", async () => {
+    const { home, run } = await makeCliSandbox();
+
+    const result = await run(["service", "install"], { platform: "win32" });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(result.out).toContain(`Служба установлена: ${vbsPath(home)}`);
+    expect(result.out).toContain(`Логи: ${join(home, "AppData/Local/p-backlog/p-backlog.log")}`);
+    await expect(readFile(vbsPath(home), "utf8")).resolves.toContain("serve >>");
+  });
+
+  it("отказ wscript.exe печатает его код и вывод и возвращает код failed", async () => {
+    const { run } = await makeCliSandbox();
+    const exec = fakeExec(() => ({ code: 5, output: "Не удалось запустить сценарий" })).exec;
+
+    const result = await run(["service", "install"], { platform: "win32", exec });
+
+    expect(result.code).toBe(EXIT.failed);
+    expect(result.err).toBe("wscript.exe завершился с кодом 5: Не удалось запустить сценарий");
+  });
+
+  it("install на Windows останавливает прежний процесс по PID из server.pid", async () => {
+    const { home, run } = await makeCliSandbox();
+    await mkdir(join(home, "AppData/Local/p-backlog"), { recursive: true });
+    await writeFile(vbsPidFile(home), "4242");
+    const stopped: number[] = [];
+    const stopProcess = (pid: number): boolean => {
+      stopped.push(pid);
+      return true;
+    };
+
+    await run(["service", "install"], { platform: "win32", stopProcess });
+
+    expect(stopped).toEqual([4242]);
   });
 
   it("на Linux без systemd отказывает и советует backlog serve", async () => {
