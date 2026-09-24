@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { describe, expect, it } from "vitest";
 import { startServer } from "../../server/start";
 import { EXIT } from "../io";
@@ -27,7 +27,7 @@ describe("backlog service", () => {
 
     expect(result.code).toBe(EXIT.ok);
     expect(result.out).toContain(`Служба установлена: ${plistPath(home)}`);
-    expect(result.out).toContain(`Логи: ${join(home, "Library/Logs/p-backlog.log")}`);
+    expect(result.out).toContain(`Логи: ${posix.join(home, "Library/Logs/p-backlog.log")}`);
     await expect(readFile(plistPath(home), "utf8")).resolves.toContain("<string>serve</string>");
   });
 
