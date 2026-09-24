@@ -38,6 +38,7 @@ describe("backlog prune", () => {
       home,
       backlogRoot: root,
       repoRoot: root,
+      platform: "darwin",
       env: {},
       now: () => new Date("2026-09-17T14:50:00Z"),
       readStdin: async () => "",

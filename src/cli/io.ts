@@ -7,6 +7,7 @@ export type CliEnv = {
   home: string;
   backlogRoot: string;
   repoRoot: string;
+  platform: NodeJS.Platform;
   env: NodeJS.ProcessEnv;
   now: () => Date;
   readStdin: () => Promise<string>;

@@ -27,6 +27,7 @@ const exitCode = await runCli(argv, {
   home,
   backlogRoot,
   repoRoot,
+  platform: process.platform,
   env: process.env,
   now: () => new Date(),
   readStdin,

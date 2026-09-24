@@ -11,7 +11,7 @@
     "lint": "eslint . && knip && node scripts/check-cyrillic.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "build": "vite build && node scripts/build-node.mjs",
-    "install-skill": "tsx scripts/install-skill.mjs",
+    "install-skill": "node dist/cli.js setup",
     "start": "npm run build && node dist/server.js",
     "dev": "concurrently -k -n server,web \"tsx watch src/server/main.ts\" \"vite\"",
     "test:e2e": "playwright test",

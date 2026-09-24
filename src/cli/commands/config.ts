@@ -32,7 +32,7 @@ async function runLanguage(positionals: string[], io: CliIo): Promise<number> {
   await writeSettings(io.backlogRoot, { language });
   io.print(`${io.language} → ${language}`);
   const skillsDir = claudeSkillsDir(io.env, io.home);
-  const result = await linkSkillFor(language, { skillsDir, repoRoot: io.repoRoot, platform: process.platform });
+  const result = await linkSkillFor(language, { skillsDir, repoRoot: io.repoRoot, platform: io.platform });
   if (result === "foreign") io.warn(cliMessages(language).skillForeign(join(skillsDir, "backlog")));
   return EXIT.ok;
 }

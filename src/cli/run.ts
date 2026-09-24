@@ -16,6 +16,7 @@ import { newCommand } from "./commands/new";
 import { priorityCommand } from "./commands/priority";
 import { projectCommand } from "./commands/project";
 import { pruneCommand } from "./commands/prune";
+import { setupCommand } from "./commands/setup";
 import { showCommand } from "./commands/show";
 import { statsCommand } from "./commands/stats";
 import { statusCommand } from "./commands/status";
@@ -40,6 +41,7 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
   projectCommand,
   hookCommand,
   configCommand,
+  setupCommand,
 ];
 
 const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);

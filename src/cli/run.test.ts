@@ -21,6 +21,7 @@ describe("runCli", () => {
       home: root,
       backlogRoot: root,
       repoRoot: root,
+      platform: "darwin",
       env: {},
       now: () => new Date("2026-09-18T12:00:00Z"),
       readStdin: () => Promise.reject(new Error("не прочитать stdin")),

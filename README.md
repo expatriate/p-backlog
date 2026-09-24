@@ -92,6 +92,7 @@ If there's no project yet, `backlog new` creates it.
 | `backlog project list \| status <id> active\|inactive \| delete <id> --confirm <id>` | Project activity and deleting a project with its tasks |
 | `backlog hook stop` | The Stop hook for Claude Code: asks the agent to re-check tasks whose code changed |
 | `backlog config language [ru\|en]` | With no value, prints the current backlog language; with a value, changes it |
+| `backlog setup` | Install the skill and the Stop hook |
 
 Exit codes: `0` success, `1` argument or rule error, `2` not found, `3` refused (the task is closed,
 blocked, or every matching task is blocked), `4` the command failed, `5` `check` found something to
