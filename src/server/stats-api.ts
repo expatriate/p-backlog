@@ -60,7 +60,7 @@ export function createStatsApi({ root, now, home, usage, memory, backlog }: Stat
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
       return c.json({ errors: [serverMessages(await serverLanguage(root)).projectNotFound(projectId)] }, 404);
     }
-    const included = (project: Project) => (projectId === undefined ? project.active : wholeBacklog || project.id === projectId);
+    const included = (project: Project) => project.id === projectId || ((projectId === undefined || wholeBacklog) && project.active);
     const scoped = projects.filter(included);
     const scopedIds = new Set(scoped.map((project) => project.id));
     const inScope = (task: { projectId: string }) => scopedIds.has(task.projectId);

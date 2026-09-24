@@ -26,7 +26,7 @@ function dayTooltip(stats: StatsMessages, language: Language) {
     rows: [
       { label: stats.hookTurnsTooltip, value: stats.tokens(day.hookTokens), shape: "bar", color: HOOK_TOKENS },
       { label: stats.cliOutput, value: stats.tokens(day.cliTokens), shape: "bar", color: CLI_TOKENS },
-      { label: stats.apiPriceTooltip, value: costValue(language, day.cost) },
+      { label: stats.apiPriceTooltip, value: day.hasUnpricedTokens && day.cost !== null ? `${costValue(language, day.cost)} (${stats.unpricedNote})` : costValue(language, day.cost) },
       { label: stats.hookRuns, value: formatLines(language, day.hookRuns), shape: "line", color: HOOK_RUNS },
       { label: stats.otherCommands, value: formatLines(language, day.cliRuns), shape: "dashed", color: OTHER_RUNS },
     ],

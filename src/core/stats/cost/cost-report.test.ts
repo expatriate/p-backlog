@@ -57,7 +57,7 @@ describe("отчёт о стоимости", () => {
     const report = costReport({ buckets: [bucket({ slot: slotAt(0) })], runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
 
     const empty = report.days.find((day) => day.day === dayAt(5));
-    expect(empty).toEqual({ day: dayAt(5), hookTokens: 0, cliTokens: 0, cost: 0, hookTurns: 0, cliRuns: 0, hookRuns: 0 });
+    expect(empty).toEqual({ day: dayAt(5), hookTokens: 0, cliTokens: 0, cost: 0, hasUnpricedTokens: false, hookTurns: 0, cliRuns: 0, hookRuns: 0 });
   });
 
   it("область проекта отсекает чужие вклад и запуски, во «Всех проектах» — всё", () => {
@@ -83,6 +83,8 @@ describe("отчёт о стоимости", () => {
     const known = report.models.find((model) => model.model === "claude-sonnet-5");
     expect(unknown).toMatchObject({ tokens: 1000, cost: null });
     expect(known).toMatchObject({ tokens: 1000, cost: (1000 * 2) / 1_000_000 });
+    expect(report.days.find((day) => day.day === dayAt(0))).toMatchObject({ cost: (1000 * 2) / 1_000_000, hasUnpricedTokens: true });
+    expect(report.days.find((day) => day.day === dayAt(1))).toMatchObject({ hasUnpricedTokens: false });
   });
 
   it("новая модель с id известной как префиксом считается моделью без цены", () => {

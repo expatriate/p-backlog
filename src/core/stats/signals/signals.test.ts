@@ -13,7 +13,7 @@ describe("тревоги", () => {
     const tasks = [
       makeTask({ id: "SPA-1", created: iso(8, 2), priority: "critical" }),
       makeTask({ id: "SPA-2", created: iso(8, 9) }),
-      makeTask({ id: "SPA-3", created: iso(8, 16), status: "in-progress" }),
+      makeTask({ id: "SPA-3", created: iso(7, 26) }),
       makeTask({ id: "SPA-4", created: iso(7, 20), status: "blocked" }),
     ];
     const events: JournalEvent[] = [{ at: iso(8, 3), task: "SPA-4", via: "cli", kind: "status", from: "backlog", to: "blocked" }];
@@ -23,6 +23,17 @@ describe("тревоги", () => {
       { kind: "urgent-stale", params: { days: 7, count: 1 } },
       { kind: "stuck", params: { count: 1, id: "SPA-4", days: 15 } },
     ]);
+  });
+
+  it("рост долга считается по полным неделям: задача, созданная в понедельник утром, его не создаёт", () => {
+    const mondayMorning = new Date(2026, 8, 21, 9);
+    const tasks = [
+      makeTask({ id: "SPA-1", created: iso(8, 9) }),
+      makeTask({ id: "SPA-2", created: iso(8, 16) }),
+      makeTask({ id: "SPA-3", created: formatLocalIso(new Date(2026, 8, 21, 8)) }),
+    ];
+
+    expect(statsSignals({ tasks, journals: journal([]), now: mondayMorning, projectId: "spa" })).toEqual([]);
   });
 
   it("на пороге тревог нет: неделя без роста, срочное ровно 6 дней, в работе 7 дней, блокировка 14 дней", () => {

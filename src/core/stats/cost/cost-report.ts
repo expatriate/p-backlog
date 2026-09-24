@@ -69,6 +69,10 @@ function costOfBuckets(buckets: readonly UsageBucket[]): number | null {
   return sum(priced.map((entry) => entry.tokens)) === 0 ? null : sum(priced.map((entry) => entry.cost));
 }
 
+function hasUnpricedTokens(buckets: readonly UsageBucket[]): boolean {
+  return buckets.some((bucket) => tokenSum(bucket.tokens) > 0 && costOf(bucket.model, bucket.tokens) === null);
+}
+
 function sinceOf(buckets: readonly UsageBucket[]): string | null {
   const days = buckets.map((bucket) => localDay(bucket.slot)).filter((day) => day !== "");
   return days.length === 0 ? null : days.reduce((earliest, day) => (day < earliest ? day : earliest));
@@ -78,7 +82,7 @@ function totalsOf(buckets: readonly UsageBucket[], runs: readonly CliRun[]): Cos
   return {
     tokens: tokensTotalOf(buckets),
     cost: costOfBuckets(buckets),
-    hasUnpricedTokens: buckets.some((bucket) => tokenSum(bucket.tokens) > 0 && costOf(bucket.model, bucket.tokens) === null),
+    hasUnpricedTokens: hasUnpricedTokens(buckets),
     hookTurns: sum(buckets.map((bucket) => bucket.hookTurns)),
     cliRuns: runs.filter((run) => run.command !== HOOK_STOP_COMMAND).length,
     hookRuns: runs.filter((run) => run.command === HOOK_STOP_COMMAND).length,
@@ -93,6 +97,7 @@ function dayRow(day: string, dayBuckets: readonly UsageBucket[], dayRuns: readon
     hookTokens: tokensTotalOf(hookBuckets),
     cliTokens: tokensTotalOf(cliBuckets),
     cost: costOfBuckets(dayBuckets),
+    hasUnpricedTokens: hasUnpricedTokens(dayBuckets),
     hookTurns: sum(dayBuckets.map((bucket) => bucket.hookTurns)),
     cliRuns: dayRuns.filter((run) => run.command !== HOOK_STOP_COMMAND).length,
     hookRuns: dayRuns.filter((run) => run.command === HOOK_STOP_COMMAND).length,

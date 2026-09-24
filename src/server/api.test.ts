@@ -306,6 +306,27 @@ describe("GET /api/stats/code", () => {
   });
 });
 
+async function spaWithFixedNeighbour({ neighbourActive }: { neighbourActive: boolean }): Promise<Record<string, string>> {
+  const home = await makeTempDir();
+  const spaRepo = await makeGitRepo(home, "spa");
+  await writeFiles(spaRepo, { "src/a.ts": "a\n" });
+  gitCommitAll(spaRepo, "init", "2026-09-17T09:00:00+03:00");
+  const tiRepo = await makeGitRepo(home, "ti");
+  const tiFixes: Record<string, string> = {};
+  for (const index of [1, 2, 3, 4, 5]) {
+    await writeFiles(tiRepo, { "src/b.ts": `${"x\n".repeat(index * 3)}` });
+    gitCommitAll(tiRepo, `fix ${index}`, "2026-09-17T11:00:00+03:00");
+    const sha = (await runGit(tiRepo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    tiFixes[`ti/TI-${index}.md`] = taskFile(`TI-${index}`, `status: done\nclosed: 2026-09-17T12:00:00+03:00\nresolution: fixed\nreason: Исправлено в ${sha}\n`);
+  }
+  return {
+    "spa/project.md": projectFile("SPA", [spaRepo]),
+    "spa/SPA-1.md": taskFile("SPA-1", "source: src/a.ts:1\n"),
+    "ti/project.md": projectFile("TI", [tiRepo], { active: neighbourActive }),
+    ...tiFixes,
+  };
+}
+
 describe("GET /api/stats/effect", () => {
   it("отчёт эффекта по проекту с репозиторием, неизвестный проект — 404", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
@@ -324,28 +345,20 @@ describe("GET /api/stats/effect", () => {
   });
 
   it("оценка ожидающих в проекте опирается на исправления соседних проектов", async () => {
-    const home = await makeTempDir();
-    const spaRepo = await makeGitRepo(home, "spa");
-    await writeFiles(spaRepo, { "src/a.ts": "a\n" });
-    gitCommitAll(spaRepo, "init", "2026-09-17T09:00:00+03:00");
-    const tiRepo = await makeGitRepo(home, "ti");
-    const tiFixes: Record<string, string> = {};
-    for (const index of [1, 2, 3, 4, 5]) {
-      await writeFiles(tiRepo, { "src/b.ts": `${"x\n".repeat(index * 3)}` });
-      gitCommitAll(tiRepo, `fix ${index}`, "2026-09-17T11:00:00+03:00");
-      const sha = (await runGit(tiRepo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
-      tiFixes[`ti/TI-${index}.md`] = taskFile(`TI-${index}`, `status: done\nclosed: 2026-09-17T12:00:00+03:00\nresolution: fixed\nreason: Исправлено в ${sha}\n`);
-    }
-    const backlog = await makeTestApp({
-      "spa/project.md": projectFile("SPA", [spaRepo]),
-      "spa/SPA-1.md": taskFile("SPA-1", "source: src/a.ts:1\n"),
-      "ti/project.md": projectFile("TI", [tiRepo]),
-      ...tiFixes,
-    });
+    const backlog = await makeTestApp(await spaWithFixedNeighbour({ neighbourActive: true }));
 
     const report = (await (await backlog.request("/api/stats/effect?project=spa")).json()) as EffectReport;
 
     expect(report.totals).toMatchObject({ openTasks: 1, estimatedLines: 3 });
+  });
+
+  it("оценка проекта одинакова на его странице и во «Всех проектах»: неактивные проекты в выборку не входят", async () => {
+    const backlog = await makeTestApp(await spaWithFixedNeighbour({ neighbourActive: false }));
+
+    const own = (await (await backlog.request("/api/stats/effect?project=spa")).json()) as EffectReport;
+    const all = (await (await backlog.request("/api/stats/effect")).json()) as EffectReport;
+
+    expect(all.projects.find((project) => project.projectId === "spa")?.estimatedLines).toBe(own.totals.estimatedLines);
   });
 });
 

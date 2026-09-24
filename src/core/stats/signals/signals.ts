@@ -31,7 +31,7 @@ export function statsSignals(input: StatsInput, base: ReportBase = reportBase(in
 }
 
 function debtGrowing(weeks: readonly WeekFlow[]): Signal[] {
-  const recent = weeks.slice(-GROWTH_WEEKS);
+  const recent = weeks.slice(0, -1).slice(-GROWTH_WEEKS);
   if (recent.length < GROWTH_WEEKS || !recent.every((week) => week.created > week.closed)) return [];
   const created = sum(recent.map((week) => week.created));
   const closed = sum(recent.map((week) => week.closed));
