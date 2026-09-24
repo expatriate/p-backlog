@@ -55,15 +55,15 @@ describe("чтение git для вкладки «Код»", () => {
     expect(code?.lines.every(({ path }) => path.startsWith("src/"))).toBe(true);
   });
 
-  it("путь, который git экранирует без -z, не теряется в строках и коммитах", async () => {
+  it.skipIf(process.platform === "win32")("путь с кавычкой не теряется в строках и коммитах (кавычка недопустима в именах файлов Windows)", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
-    await writeFiles(repo, { "src/файл.ts": "x\n" });
+    await writeFiles(repo, { 'src/we"ird.ts': "x\n" });
     gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
 
     const code = await readCode(runGit, repo, new Date("2026-09-05T00:00:00+03:00"));
 
-    expect(code?.commits).toEqual([["src/файл.ts"]]);
-    expect(code?.lines).toEqual([{ path: "src/файл.ts", lines: 1 }]);
+    expect(code?.commits).toEqual([['src/we"ird.ts']]);
+    expect(code?.lines).toEqual([{ path: 'src/we"ird.ts', lines: 1 }]);
   });
 
   it("не git — HEAD нет и данных нет", async () => {
