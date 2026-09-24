@@ -7,6 +7,7 @@ import { formatLocalIso } from "../core/model/dates";
 import { appendRun } from "../core/store/runs";
 import { resolveBacklogRoot } from "../core/store/paths";
 import { settledLanguage } from "../core/store/settings";
+import { execProgram } from "./exec";
 import { cliMessages } from "./messages";
 import { commandName, runCli } from "./run";
 
@@ -19,7 +20,8 @@ async function readStdin(): Promise<string> {
 
 const home = homedir();
 const backlogRoot = resolveBacklogRoot(process.env, home);
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const cliPath = fileURLToPath(import.meta.url);
+const repoRoot = resolve(dirname(cliPath), "..");
 const argv = process.argv.slice(2);
 
 const exitCode = await runCli(argv, {
@@ -28,6 +30,10 @@ const exitCode = await runCli(argv, {
   backlogRoot,
   repoRoot,
   platform: process.platform,
+  uid: process.getuid?.() ?? 0,
+  nodePath: process.execPath,
+  cliPath,
+  exec: execProgram,
   env: process.env,
   now: () => new Date(),
   readStdin,

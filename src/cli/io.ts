@@ -2,12 +2,18 @@ import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 import { errorText } from "../core/errors";
 import type { Language } from "../core/i18n/language";
 import { cliMessages } from "./messages";
+export type ExecResult = { code: number; output: string };
+
 export type CliEnv = {
   cwd: string;
   home: string;
   backlogRoot: string;
   repoRoot: string;
   platform: NodeJS.Platform;
+  uid: number;
+  nodePath: string;
+  cliPath: string;
+  exec: (file: string, args: readonly string[]) => Promise<ExecResult>;
   env: NodeJS.ProcessEnv;
   now: () => Date;
   readStdin: () => Promise<string>;

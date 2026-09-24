@@ -20,6 +20,15 @@ export const cliEn: CliMessages = {
   installSettingsUnreadable: (settingsPath, detail) => `Could not read ${settingsPath} (${detail}), Stop hook not added.`,
   installSettingsInvalid: (settingsPath) => `${settingsPath} is not a JSON object, Stop hook not added. Fix the file and try again.`,
 
+  serviceInstalled: (file) => `Service installed: ${file}`,
+  serviceLogs: (path) => `Logs: ${path}`,
+  serviceUninstalled: "Service removed",
+  serviceNotInstalled: "Service is not installed",
+  serviceUnsupported: "Autostart is not supported on this system — run the web UI with backlog serve",
+  serviceCommandFailed: (command, code, output) => `${command} exited with code ${code}: ${output}`,
+  serviceStatus: (registered, responding, port) =>
+    `Service: ${registered ? "installed" : "not installed"} · server on port ${port}: ${responding ? "responding" : "not responding"}`,
+
   taskNotFound: (id) => `Task ${id} not found`,
   fileConflict: (id) => `Task file ${id} changed while writing, retry the command`,
 

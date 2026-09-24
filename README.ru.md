@@ -91,8 +91,9 @@ npm run install-skill   # ~/.claude/skills/backlog → skill/backlog и хук S
 | `backlog project list \| status <id> active\|inactive \| delete <id> --confirm <id>` | Активность проектов и удаление проекта вместе с задачами |
 | `backlog hook stop` | Хук Stop для Claude Code: просит агента перепроверить задачи, чей код изменился |
 | `backlog config language [ru\|en]` | Без значения — печатает текущий язык беклога; со значением — меняет его |
-| `backlog setup` | Поставить скилл и Stop-хук |
+| `backlog setup [--service]` | Поставить скилл и Stop-хук; с `--service` — ещё и службу автозапуска |
 | `backlog serve [--port N]` | Запускает веб-сервер в текущем процессе, порт — из `PORT`, иначе 4317 |
+| `backlog service install \| uninstall \| status` | Автозапуск веб-сервера при входе: launchd на macOS, systemd --user на Linux; `status` — установлена ли служба и отвечает ли сервер |
 
 Коды выхода: `0` — успех, `1` — ошибка аргументов или правил, `2` — не найдено, `3` — отказ (задача
 закрыта, заблокирована или все подходящие заблокированы), `4` — команда не выполнилась, `5` — у `check`

@@ -5,20 +5,22 @@ import { EXIT, parseOptions, type CliIo } from "../io";
 import { cliMessages } from "../messages";
 import { linkSkillFor, skillSourceDir } from "../skill-link";
 import { addStopHook, type StopHookResult } from "../stop-hook";
+import { installService } from "./service";
 
 export const setupCommand: CliCommand = {
   name: "setup",
-  usage: () => [""],
+  usage: () => ["[--service]"],
   run: runSetup,
 };
 
 async function runSetup(args: string[], io: CliIo): Promise<number> {
-  parseOptions(io.language, args, {});
-  return (await runSetupSteps(io)) ? EXIT.ok : EXIT.failed;
+  const { service } = parseOptions(io.language, args, { service: { type: "boolean" } });
+  const setupDone = await runSetupSteps(io);
+  const serviceCode = service ? await installService(io) : EXIT.ok;
+  return setupDone ? serviceCode : EXIT.failed;
 }
 
-/** @public — consumed by the `--service` step Task 4 adds to this command. */
-export async function runSetupSteps(io: CliIo): Promise<boolean> {
+async function runSetupSteps(io: CliIo): Promise<boolean> {
   const messages = cliMessages(io.language);
   const skillsDir = claudeSkillsDir(io.env, io.home);
   const target = join(skillsDir, "backlog");

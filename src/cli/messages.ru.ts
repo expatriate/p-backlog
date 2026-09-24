@@ -19,6 +19,15 @@ export const cliRu = {
   installSettingsUnreadable: (settingsPath: string, detail: string): string => `${settingsPath} не прочитать (${detail}), хук Stop не добавлен.`,
   installSettingsInvalid: (settingsPath: string): string => `${settingsPath} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`,
 
+  serviceInstalled: (file: string): string => `Служба установлена: ${file}`,
+  serviceLogs: (path: string): string => `Логи: ${path}`,
+  serviceUninstalled: "Служба удалена",
+  serviceNotInstalled: "Служба не установлена",
+  serviceUnsupported: "Автозапуск на этой системе не поддерживается — запускайте веб командой backlog serve",
+  serviceCommandFailed: (command: string, code: number, output: string): string => `${command} завершился с кодом ${code}: ${output}`,
+  serviceStatus: (registered: boolean, responding: boolean, port: number): string =>
+    `Служба: ${registered ? "установлена" : "не установлена"} · сервер на порту ${port}: ${responding ? "отвечает" : "не отвечает"}`,
+
   taskNotFound: (id: string): string => `Задача ${id} не найдена`,
   fileConflict: (id: string): string => `Файл задачи ${id} изменился во время записи, повторите команду`,
 

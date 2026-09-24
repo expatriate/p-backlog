@@ -1,15 +1,34 @@
 import { join } from "node:path";
 import { writeSettings } from "../../core/store/settings";
-import type { CliEnv } from "../io";
+import type { CliEnv, ExecResult } from "../io";
 import { runCli } from "../run";
 import { makeGitRepo, makeTempDir } from "../../core/store/testing/temp-dirs";
 
 type CliRun = { code: number; out: string; err: string };
 
-type CliRunOptions = { cwd?: string; stdin?: string; now?: Date; env?: NodeJS.ProcessEnv; platform?: NodeJS.Platform };
+type CliRunOptions = {
+  cwd?: string;
+  stdin?: string;
+  now?: Date;
+  env?: NodeJS.ProcessEnv;
+  platform?: NodeJS.Platform;
+  exec?: CliEnv["exec"];
+};
 
 const SANDBOX_NOW = new Date("2026-09-17T14:50:00Z");
 const REPO_ROOT = join(import.meta.dirname, "../../..");
+
+export type FakeExec = { exec: CliEnv["exec"]; calls: string[] };
+
+export function fakeExec(reply: (command: string) => ExecResult | Promise<ExecResult> = () => ({ code: 0, output: "" })): FakeExec {
+  const calls: string[] = [];
+  const exec: CliEnv["exec"] = async (file, args) => {
+    const command = [file, ...args].join(" ");
+    calls.push(command);
+    return reply(command);
+  };
+  return { exec, calls };
+}
 
 export type CliSandbox = {
   home: string;
@@ -32,6 +51,10 @@ export async function makeCliSandbox(): Promise<CliSandbox> {
       backlogRoot: root,
       repoRoot: REPO_ROOT,
       platform: options.platform ?? "darwin",
+      uid: 501,
+      nodePath: "/opt/node/bin/node",
+      cliPath: join(REPO_ROOT, "dist/cli.js"),
+      exec: options.exec ?? fakeExec().exec,
       env: options.env ?? {},
       now: () => options.now ?? SANDBOX_NOW,
       readStdin: async () => options.stdin ?? "",
