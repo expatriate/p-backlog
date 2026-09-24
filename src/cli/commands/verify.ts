@@ -49,7 +49,7 @@ async function verifyOne(id: string, { loaded, source, write, io }: Verification
   return EXIT.ok;
 }
 
-async function anchorFor(loaded: LoadedBacklog, task: Task, source: string | undefined, io: CliIo): Promise<string | undefined> {
+async function anchorFor(loaded: LoadedBacklog, task: Task, source: string | undefined, io: CliIo): Promise<string | null | undefined> {
   const project = projectOf(loaded, task);
   return project === undefined || source === undefined ? undefined : sourceAnchor(project, source, io.home);
 }

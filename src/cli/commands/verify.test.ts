@@ -83,6 +83,21 @@ describe("backlog verify", () => {
     expect((await run(["verify", "SPA-1", "SPA-2", "--source", "src/a.ts:1"])).code).toBe(EXIT.invalid);
   });
 
+  it("verify задачи, чья строка ушла за конец файла, снимает якорь, и задача перестаёт быть кандидатом", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    const lines = Array.from({ length: 10 }, (_, index) => `line ${index + 1}`);
+    await writeFiles(repo, { "src/a.ts": lines.join("\n") });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:8"]);
+    await writeFile(join(repo, "src/a.ts"), lines.slice(0, 3).join("\n"));
+    gitCommitAll(repo, "Укоротить файл", "2026-09-17T15:00:00Z");
+
+    await run(["verify", "SPA-1"], { now: new Date("2026-09-17T16:00:00Z") });
+
+    expect((await loadBacklog(root)).tasks[0]?.anchor).toBeUndefined();
+    expect((await run(["check", "--changed"], { now: new Date("2026-09-17T17:00:00Z") })).out).toBe("Беклог в порядке");
+  });
+
   it("verify при недоступном файле кода сохраняет прежний якорь", async () => {
     const { run, repo, root } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n" });

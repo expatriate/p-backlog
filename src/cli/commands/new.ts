@@ -63,7 +63,7 @@ async function runNew(args: string[], io: CliIo): Promise<number> {
       category,
       tags: splitList(values.tags),
       source: values.source,
-      anchor: values.source === undefined ? undefined : await sourceAnchor(project, values.source, io.home),
+      anchor: values.source === undefined ? undefined : ((await sourceAnchor(project, values.source, io.home)) ?? undefined),
       epic: values.epic,
       blockedBy: splitList(values["blocked-by"]),
       related: splitList(values.related),
