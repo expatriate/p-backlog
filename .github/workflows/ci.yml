@@ -41,4 +41,4 @@ jobs:
         shell: bash
       - name: Verify systemd unit with systemd-analyze
         if: matrix.os == 'ubuntu-latest'
-        run: systemd-analyze verify --user "$(npx tsx scripts/verify-systemd-unit.ts)"
+        run: bash scripts/ci-failure-tail.sh systemd-analyze verify --user "$(npx tsx scripts/verify-systemd-unit.ts)"
