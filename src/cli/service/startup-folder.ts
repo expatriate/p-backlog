@@ -1,6 +1,6 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { fileExists, portRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
+import { fileExists, numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
 
 const SCRIPT_NAME = "p-backlog.vbs";
 
@@ -38,7 +38,7 @@ export function startupScript(context: ServiceContext): string {
 
 async function stopRunningServer(context: ServiceContext): Promise<void> {
   const file = pidFilePath(context);
-  const pid = await portRecordedIn(file, /^(\d+)$/);
+  const pid = await numberRecordedIn(file, /^(\d+)$/);
   if (pid !== null) context.stopProcess(pid);
   await rm(file, { force: true });
 }
@@ -65,6 +65,6 @@ export function startupFolderManager(context: ServiceContext): ServiceManager {
     async registered() {
       return fileExists(file);
     },
-    installedPort: () => portRecordedIn(file, /env\("PORT"\) = "(\d+)"/, "utf16le"),
+    installedPort: () => numberRecordedIn(file, /env\("PORT"\) = "(\d+)"/, "utf16le"),
   };
 }

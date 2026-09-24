@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { fileExists, portRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
+import { fileExists, numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
 
 const LABEL = "local.p-backlog";
 const BOOTSTRAP_RETRY_ATTEMPTS = 5;
@@ -84,6 +84,6 @@ export function launchdManager(context: ServiceContext, delay: (ms: number) => P
     async registered() {
       return (await fileExists(file)) && (await context.exec("launchctl", ["print", `${domain}/${LABEL}`])).code === 0;
     },
-    installedPort: () => portRecordedIn(file, /<key>PORT<\/key>\s*<string>(\d+)<\/string>/),
+    installedPort: () => numberRecordedIn(file, /<key>PORT<\/key>\s*<string>(\d+)<\/string>/),
   };
 }

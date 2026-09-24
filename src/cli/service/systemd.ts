@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { CliEnv } from "../io";
-import { fileExists, portRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager, type ServiceOutcome } from "./service";
+import { fileExists, numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager, type ServiceOutcome } from "./service";
 
 const UNIT = "p-backlog.service";
 
@@ -62,6 +62,6 @@ export function systemdManager(context: ServiceContext): ServiceManager {
     async registered() {
       return (await fileExists(file)) && (await context.exec("systemctl", ["--user", "is-enabled", UNIT])).code === 0;
     },
-    installedPort: () => portRecordedIn(file, /^Environment="PORT=(\d+)"$/m),
+    installedPort: () => numberRecordedIn(file, /^Environment="PORT=(\d+)"$/m),
   };
 }
