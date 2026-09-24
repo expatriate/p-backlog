@@ -30,7 +30,7 @@ WantedBy=default.target
 }
 
 export async function systemdAvailable(exec: CliEnv["exec"]): Promise<boolean> {
-  return (await exec("systemctl", ["--user", "--version"])).code === 0;
+  return (await exec("systemctl", ["--user", "show-environment"])).code === 0;
 }
 
 async function systemctlSteps(exec: CliEnv["exec"], steps: readonly (readonly string[])[]): Promise<ServiceOutcome> {

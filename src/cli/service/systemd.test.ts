@@ -99,7 +99,18 @@ describe("systemdManager", () => {
 describe("serviceManagerFor", () => {
   it("на Linux без systemctl служба не поддерживается", async () => {
     const home = await makeTempDir();
-    const fake = fakeExec((command) => (command === "systemctl --user --version" ? { code: 127, output: "" } : { code: 0, output: "" }));
+    const fake = fakeExec((command) => (command === "systemctl --user show-environment" ? { code: 127, output: "" } : { code: 0, output: "" }));
+
+    expect(await serviceManagerFor("linux", contextFor(home, fake.exec))).toBeNull();
+  });
+
+  it("на Linux без пользовательской шины systemd (WSL, контейнер) служба не поддерживается, хотя systemctl --version отвечает", async () => {
+    const home = await makeTempDir();
+    const fake = fakeExec((command) => {
+      if (command === "systemctl --user --version") return { code: 0, output: "systemd 255" };
+      if (command === "systemctl --user show-environment") return { code: 1, output: "Failed to connect to bus: No such file or directory" };
+      return { code: 0, output: "" };
+    });
 
     expect(await serviceManagerFor("linux", contextFor(home, fake.exec))).toBeNull();
   });
