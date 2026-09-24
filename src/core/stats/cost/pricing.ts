@@ -1,4 +1,4 @@
-import type { TokenCounts } from "../types";
+import type { TokenCounts } from "./token-counts";
 
 type ModelPrice = { input: number; output: number; cacheRead: number };
 

@@ -1,6 +1,6 @@
 import { FOUND_HOW, type FoundHow } from "../../journal/events";
 import { isClosed } from "../../model/graph";
-import { projectLabel } from "../format";
+import type { ProjectLabel } from "../format";
 import { isFixedNow, type TaskHistory } from "../history";
 import type { Period } from "../period";
 import type { BranchRow, FoundRow } from "../types";
@@ -21,11 +21,11 @@ export function foundBreakdown(histories: readonly TaskHistory[], period: Period
   });
 }
 
-export function branchBreakdown(histories: readonly TaskHistory[], period: Period, withProject: boolean): BranchRow[] {
+export function branchBreakdown(histories: readonly TaskHistory[], period: Period, projectLabel: ProjectLabel): BranchRow[] {
   const rows = new Map<string, BranchRow>();
   for (const history of createdIn(histories, period)) {
     if (history.branch === undefined) continue;
-    const label = projectLabel(history.projectId, history.branch, withProject);
+    const label = projectLabel(history.projectId, history.branch);
     const current = rows.get(label) ?? { label, created: 0, open: 0 };
     rows.set(label, { label, created: current.created + 1, open: current.open + (isOpenNow(history) ? 1 : 0) });
   }

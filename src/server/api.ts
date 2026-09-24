@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import type { Language } from "../core/i18n/language";
-import { projectActiveSchema, projectDeleteSchema, settingsSchema, updateTaskRequestSchema, type ProjectView, type SettingsResponse } from "../core/api/contract";
+import { projectActiveSchema, projectDeleteSchema, settingsRequestSchema, updateTaskRequestSchema, type ProjectView, type SettingsResponse } from "../core/api/contract";
 import { projectGraphHealth, type GraphState } from "../core/check/graph-health";
 import { buildIndex, type BacklogIndex } from "../core/model/graph";
 import type { Project } from "../core/model/types";
@@ -65,7 +65,7 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
   api.get("/settings", async (c) => c.json<SettingsResponse>({ language: await readLanguage() }));
 
   api.patch("/settings", async (c) => {
-    const body = await readBody(c, settingsSchema, readLanguage);
+    const body = await readBody(c, settingsRequestSchema, readLanguage);
     if (!body.ok) return body.response;
 
     await writeSettings(root, body.data);

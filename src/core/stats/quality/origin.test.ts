@@ -4,6 +4,7 @@ import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
 import { branchBreakdown, foundBreakdown } from "./origin";
+import { labelWithProject, plainLabel } from "../format";
 import { period } from "../period";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
@@ -44,11 +45,11 @@ describe("происхождение", () => {
   });
 
   it("ветки по убыванию созданных, подпись с проектом во всех проектах", () => {
-    expect(branchBreakdown(histories, period(FROM, TO), false)).toEqual([
+    expect(branchBreakdown(histories, period(FROM, TO), plainLabel)).toEqual([
       { label: "feat/a", created: 2, open: 1 },
       { label: "feat/b", created: 1, open: 0 },
     ]);
-    expect(branchBreakdown(histories, period(FROM, TO), true)[0]?.label).toBe("spa · feat/a");
+    expect(branchBreakdown(histories, period(FROM, TO), labelWithProject)[0]?.label).toBe("spa · feat/a");
   });
 
   it("лимит 8 веток, ветка с двумя задачами первая, при равенстве — по подписи", () => {
@@ -62,7 +63,7 @@ describe("происхождение", () => {
     ];
     const manyBranches = taskHistories([...singleTasks, ...dupTasks], journal(branchEvents));
 
-    const rows = branchBreakdown(manyBranches, period(FROM, TO), false);
+    const rows = branchBreakdown(manyBranches, period(FROM, TO), plainLabel);
 
     expect(rows).toHaveLength(8);
     expect(rows[0]).toEqual({ label: "feat/dup", created: 2, open: 2 });

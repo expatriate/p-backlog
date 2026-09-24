@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Tooltip, XAxis, YAxis } from "recharts";
 import type { Language } from "../../core/i18n/language";
 import type { CoreMessages } from "../../core/messages";
-import type { DayFlow } from "../../core/stats/types";
+import type { DayFlow } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";

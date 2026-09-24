@@ -1,5 +1,5 @@
 import { useParams } from "react-router";
-import type { QualityReport } from "../../core/stats/types";
+import type { QualityReport } from "../../core/api/contract";
 import { useQualityStats } from "../app/queries";
 import { AccuracyPanel, CategoriesPanel, GraphPanel, OriginPanel } from "./QualityPanels";
 import rowStyles from "./PanelRows.module.css";

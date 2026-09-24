@@ -5,7 +5,14 @@ import { listTranscripts, scanTranscripts, type TranscriptFile } from "../core/u
 import { emptyUsageCache, readUsageCache, writeUsageCache, type UsageCache } from "../core/usage/usage-cache";
 import { serverRu, type ServerMessages } from "./messages.ru";
 
-export type UsageScannerOptions = { root: string; claudeProjectsDir: string; byteBudget?: number; intervalMs?: number; messages?: () => Promise<ServerMessages> };
+export type UsageScannerOptions = {
+  root: string;
+  claudeProjectsDir: string;
+  byteBudget?: number;
+  intervalMs?: number;
+  messages?: () => Promise<ServerMessages>;
+  now?: () => Date;
+};
 
 export type UsageScanner = {
   start: () => void;
@@ -26,6 +33,7 @@ export function createUsageScanner({
   byteBudget = DEFAULT_BYTE_BUDGET,
   intervalMs = DEFAULT_INTERVAL_MS,
   messages = () => Promise.resolve(serverRu),
+  now = () => new Date(),
 }: UsageScannerOptions): UsageScanner {
   let cache: UsageCache | null = null;
   let scan: ScanProgress = NOT_LISTED;
@@ -38,7 +46,7 @@ export function createUsageScanner({
     const current = cache ?? (await readUsageCache(root));
     const files = await listTranscripts(claudeProjectsDir);
     scan = progressBefore(files, current);
-    const result = await scanTranscripts({ files, cache: current, byteBudget });
+    const result = await scanTranscripts({ files, cache: current, byteBudget, now: now() });
     cache = result.cache;
     scan = { listed: true, filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft };
     budgetExhausted = result.bytesRead >= byteBudget;

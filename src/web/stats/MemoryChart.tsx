@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import type { Language } from "../../core/i18n/language";
-import type { MemorySample } from "../../core/stats/types";
+import type { MemorySample } from "../../core/api/contract";
 import { useMemorySamples } from "../app/queries";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";

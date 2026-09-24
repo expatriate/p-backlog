@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { TokenCounts } from "../types";
+import type { TokenCounts } from "./token-counts";
 import { costOf, fastModel } from "./pricing";
 
 const MILLION: TokenCounts = { input: 1_000_000, cacheWrite5m: 1_000_000, cacheWrite1h: 1_000_000, cacheRead: 1_000_000, output: 1_000_000 };

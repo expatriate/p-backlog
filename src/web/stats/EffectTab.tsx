@@ -1,5 +1,5 @@
 import { useParams } from "react-router";
-import type { EffectReport } from "../../core/stats/types";
+import type { EffectReport } from "../../core/api/contract";
 import { useEffectStats } from "../app/queries";
 import { EffectExplainer } from "./EffectExplainer";
 import { EffectChartPanel, EffectFigures, ProjectsPanel } from "./EffectPanels";

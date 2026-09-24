@@ -2,7 +2,7 @@ import { useId, useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import type { Language } from "../../core/i18n/language";
 import type { CoreMessages } from "../../core/messages";
-import type { EffectPeriod, EffectTotals } from "../../core/stats/types";
+import type { EffectPeriod, EffectTotals } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";

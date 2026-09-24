@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import type { Hotspots } from "../../core/stats/types";
+import type { Hotspots } from "../../core/api/contract";
 import { useMessages } from "../i18n";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";

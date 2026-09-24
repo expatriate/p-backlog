@@ -1,5 +1,11 @@
-export function projectLabel(projectId: string, label: string, withProject: boolean): string {
-  return withProject ? `${projectId} · ${label}` : label;
+export type ProjectLabel = (projectId: string, label: string) => string;
+
+export const plainLabel: ProjectLabel = (_projectId, label) => label;
+
+export const labelWithProject: ProjectLabel = (projectId, label) => `${projectId} · ${label}`;
+
+export function scopeLabel(scopeProjectId: string | undefined): ProjectLabel {
+  return scopeProjectId === undefined ? labelWithProject : plainLabel;
 }
 
 export function formatShare(share: number | null): string {

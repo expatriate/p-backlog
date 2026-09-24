@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { ChurnRow, CodeDensity, DensityRow } from "../../core/stats/types";
+import type { ChurnRow, CodeDensity, DensityRow } from "../../core/api/contract";
 import { useMessages } from "../i18n";
 import { Panel } from "./Panel";
 import rowStyles from "./PanelRows.module.css";

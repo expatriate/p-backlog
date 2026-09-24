@@ -1,5 +1,5 @@
 import { formatShare } from "../../core/stats/format";
-import type { AccuracyRow, AccuracyWeek, BranchRow, CategoryRow, FoundRow, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow } from "../../core/stats/types";
+import type { AccuracyRow, AccuracyWeek, BranchRow, CategoryRow, FoundRow, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow } from "../../core/api/contract";
 import { useMessages } from "../i18n";
 import { AccuracyWeeksChart } from "./AccuracyWeeksChart";
 import type { StatsMessages } from "./messages.ru";

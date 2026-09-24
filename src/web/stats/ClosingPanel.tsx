@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { formatShare } from "../../core/stats/format";
-import type { ClosingBreakdown, ClosingReason } from "../../core/stats/types";
+import type { ClosingBreakdown, ClosingReason } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useMessages, type WebMessages } from "../i18n";
 import { cx } from "../ui/cx";

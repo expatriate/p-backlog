@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../model/dates";
 import { makeTask } from "../model/testing/make-task";
 import { ageBreakdown, closingBreakdown, folderOf, hotspots } from "./breakdowns";
+import { labelWithProject, plainLabel } from "./format";
 import type { TaskHistory } from "./history";
 import { makeHistory } from "./testing/make-history";
 import { period } from "./period";
@@ -24,7 +25,7 @@ describe("где болит", () => {
       makeTask({ id: "SPA-4", tags: [] }),
     ];
 
-    expect(hotspots(tasks, false)).toEqual({
+    expect(hotspots(tasks, plainLabel)).toEqual({
       folders: [
         { label: "src/a", count: 2 },
         { label: "README.md", count: 1 },
@@ -35,7 +36,7 @@ describe("где болит", () => {
         { tag: "tests", count: 1 },
       ],
     });
-    expect(hotspots(tasks, true).folders[0]).toEqual({ label: "spa · src/a", count: 2 });
+    expect(hotspots(tasks, labelWithProject).folders[0]).toEqual({ label: "spa · src/a", count: 2 });
   });
 });
 

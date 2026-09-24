@@ -127,6 +127,18 @@ describe("отнесение строк расшифровки к накладн
     expect(state.pending).toEqual({ toolu_7: "cli" });
   });
 
+  it("usage, выросший в следующей строке того же message.id, учитывается по итоговому значению", () => {
+    const state = newTranscriptState();
+    attributeLine(hookFeedbackLine("2026-09-19T09:00:00.000Z"), state);
+
+    const early = attributeLine(assistantLine("2026-09-19T09:00:01.000Z", "claude-opus-5", usage(100, 1), [], "msg_1"), state);
+    const final = attributeLine(assistantLine("2026-09-19T09:00:02.000Z", "claude-opus-5", usage(100, 20), [], "msg_1"), state);
+
+    const counted = [...early, ...final].filter((bucket) => bucket.kind === "hook");
+    expect(counted.reduce((sum, bucket) => sum + bucket.tokens.output, 0)).toBe(20);
+    expect(counted.reduce((sum, bucket) => sum + bucket.tokens.input, 0)).toBe(100);
+  });
+
   it("ответ модели <synthetic> не учитывается и не запоминается как последняя модель", () => {
     const state = newTranscriptState();
     attributeLine(hookFeedbackLine("2026-09-19T09:00:00.000Z"), state);
@@ -166,6 +178,17 @@ describe("отнесение строк расшифровки к накладн
 
     expect(["BACKLOG_DIR=/tmp/x backlog list", "cd x; FOO=1 BAR=2 backlog show PB-1", "backlog", "git status && backlog check --json"].map(counted)).toEqual([true, true, true, true]);
     expect(["ls backlog/", "cat ~/backlog/p/PB-1.md", "backlog-web start", "echo backlogs"].map(counted)).toEqual([false, false, false, false]);
+  });
+
+  it("команда backlog узнаётся в подоболочке, подстановке и через npx, но не внутри heredoc и строк", () => {
+    const counted = (command: string) => {
+      const state = newTranscriptState();
+      attributeLine(assistantLine("2026-09-19T10:00:00.000Z", "claude-sonnet-5", usage(5, 5), [bashToolUse("toolu_1", command)]), state);
+      return state.pending.toolu_1 === "cli";
+    };
+
+    expect(["(cd x; backlog list)", "echo $(backlog list --json)", "npx p-backlog stats", "npx -y p-backlog list", "backlog new --title x <<'EOF'\nтело\nEOF"].map(counted)).toEqual([true, true, true, true, true]);
+    expect(["cat <<'EOF' > notes.md\nbacklog list\nEOF", 'git commit -m "fix\n\nbacklog list"', "echo 'a; backlog list'"].map(counted)).toEqual([false, false, false]);
   });
 
   it("ход хука узнаётся и по английскому маркеру: смена языка не обнуляет затраты на хук", () => {

@@ -1,6 +1,6 @@
 import { formatMoney } from "../../core/i18n/format";
 import { COST_TOTALS_DAYS } from "../../core/stats/cost/cost-report";
-import type { CostCommand, CostDay, CostModel, CostTotals } from "../../core/stats/types";
+import type { CostCommand, CostDay, CostModel, CostTotals } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { costValue } from "./cost-format";

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import type { Language } from "../../core/i18n/language";
-import type { WeekFlow } from "../../core/stats/types";
+import type { WeekFlow } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";

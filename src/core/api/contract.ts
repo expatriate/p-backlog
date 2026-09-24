@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { GraphState } from "../check/graph-health";
-import { LANGUAGES, type Language } from "../i18n/language";
+import type { Language } from "../i18n/language";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskIdSchema, type ParseError, type Project, type Task } from "../model/types";
+import { settingsSchema } from "../model/settings";
 import type { MemorySample } from "../stats/types";
 
 const idList = z.array(taskIdSchema);
@@ -23,7 +24,7 @@ export const projectActiveSchema = z.strictObject({ active: z.boolean() });
 
 export const projectDeleteSchema = z.strictObject({ confirm: z.string() });
 
-export const settingsSchema = z.strictObject({ language: z.enum(LANGUAGES) });
+export const settingsRequestSchema = z.strictObject(settingsSchema.shape);
 
 export const updateTaskRequestSchema = z.strictObject({
   version: z.string().min(1),
@@ -38,7 +39,7 @@ export type ProjectView = Project & { codeGraph: GraphState };
 export type ProjectDeletedResponse = { deleted: string };
 export type ErrorResponse = { errors: string[] };
 export type ConflictResponse = ErrorResponse & { current: Task };
-export type { CodeReport, CostReport, EffectReport, QualityReport, SignalsReport, StatsReport } from "../stats/types";
+export type * from "../stats/types";
 
 export type MemorySamplesResponse = { samples: MemorySample[] };
 export type SettingsResponse = { language: Language };

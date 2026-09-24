@@ -115,19 +115,6 @@ type SignalParams = {
 export type Signal = { [K in SignalKind]: { kind: K; params: SignalParams[K] } }[SignalKind];
 export type SignalsReport = { signals: Signal[] };
 
-export type TokenCounts = { input: number; cacheWrite5m: number; cacheWrite1h: number; cacheRead: number; output: number };
-type UsageKind = "hook" | "cli" | "skill";
-export type UsageBucket = { slot: string; cwd: string; model: string; kind: UsageKind; tokens: TokenCounts; hookTurns: number };
-export type TranscriptState = {
-  hookOpen: boolean;
-  lastModel: string | null;
-  lastMessageId: string | null;
-  pending: Record<string, "cli" | "skill">;
-  pendingEstimates: { kind: "cli" | "skill"; chars: number; slot: string; cwd: string }[];
-};
-
-export type CliRun = { at: string; command: string; cwd: string; ms: number; rssMb: number; exitCode: number };
-
 export type ScanProgress = { listed: boolean; filesTotal: number; filesDone: number; bytesLeft: number };
 export type CostTotals = { tokens: number; cost: number | null; hasUnpricedTokens: boolean; hookTurns: number; cliRuns: number; hookRuns: number };
 export type CostDay = { day: string; hookTokens: number; cliTokens: number; cost: number | null; hasUnpricedTokens: boolean; hookTurns: number; cliRuns: number; hookRuns: number };

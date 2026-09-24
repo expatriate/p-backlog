@@ -1,7 +1,7 @@
 import { PRIORITIES, type Priority, type Task } from "../model/types";
 import { closingsOf, reopeningsOf, type TaskHistory, type Transition } from "./history";
 import type { AgeBreakdown, AgeBucket, ClosingBreakdown, ClosingReason, Hotspots } from "./types";
-import { projectLabel } from "./format";
+import type { ProjectLabel } from "./format";
 import { countBy, daysBetween } from "./numbers";
 import type { Period } from "./period";
 import { DAYS_PER_WEEK } from "./weeks";
@@ -21,11 +21,11 @@ export function folderOf(source: string): string {
   return slash === -1 ? path : path.slice(0, slash);
 }
 
-export function hotspots(openTasks: readonly Task[], withProject: boolean): Hotspots {
+export function hotspots(openTasks: readonly Task[], projectLabel: ProjectLabel): Hotspots {
   const folders = openTasks.flatMap((task) => {
     if (task.source === undefined) return [];
     const folder = folderOf(task.source);
-    return [projectLabel(task.projectId, folder, withProject)];
+    return [projectLabel(task.projectId, folder)];
   });
   return {
     folders: topCounts(folders).map(([label, count]) => ({ label, count })),

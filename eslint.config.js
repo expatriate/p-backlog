@@ -15,7 +15,10 @@ export default tseslint.config(
   {
     files: ["src/web/**/*.ts", "src/web/**/*.tsx"],
     plugins: { "react-hooks": reactHooks },
-    rules: reactHooks.configs["recommended-latest"].rules,
+    rules: {
+      ...reactHooks.configs["recommended-latest"].rules,
+      "no-restricted-imports": ["error", { patterns: [{ group: ["**/core/stats/types"], message: "Import report types from core/api/contract." }] }],
+    },
     languageOptions: { globals: globals.browser },
   },
 );

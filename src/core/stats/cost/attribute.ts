@@ -1,9 +1,9 @@
 import { z } from "zod";
-import type { TokenCounts, TranscriptState, UsageBucket } from "../types";
+import { addTokens, tokensGrowth, totalTokens, ZERO_TOKENS, type TokenCounts } from "./token-counts";
+import type { TranscriptState, UsageBucket } from "./usage-state";
 import { isBacklogHookFeedback } from "./hook-signature";
 import { fastModel } from "./pricing";
-
-export type TranscriptLine = unknown;
+import { invokesBacklog } from "./shell-commands";
 
 type LineContext = { slot: string; cwd: string };
 
@@ -14,10 +14,6 @@ const CHARS_PER_TOKEN = 3;
 const PENDING_TOOL_LIMIT = 64;
 
 const ZONE_OFFSET_STEP_MS = 15 * 60 * 1000;
-
-const BACKLOG_COMMAND = /(?:^|&&|\|\||;|\||\n)\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*backlog(?=\s|$)/;
-
-const ZERO_TOKENS: TokenCounts = { input: 0, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 };
 
 const usageSchema = z
   .object({
@@ -55,10 +51,10 @@ const lineSchema = z
   .passthrough();
 
 export function newTranscriptState(): TranscriptState {
-  return { hookOpen: false, lastModel: null, lastMessageId: null, pending: {}, pendingEstimates: [] };
+  return { hookOpen: false, lastModel: null, lastMessageId: null, lastMessageTokens: null, pending: {}, pendingEstimates: [] };
 }
 
-export function attributeLine(line: TranscriptLine, state: TranscriptState): UsageBucket[] {
+export function attributeLine(line: unknown, state: TranscriptState): UsageBucket[] {
   const parsed = lineSchema.safeParse(line);
   if (!parsed.success) return [];
   const { type, timestamp, cwd, isMeta, message } = parsed.data;
@@ -75,13 +71,21 @@ function attributeAssistant(rawMessage: unknown, state: TranscriptState, context
   const { id, model, usage, content } = message.data;
   const buckets: UsageBucket[] = [];
   const repeatOfCountedMessage = id !== undefined && id === state.lastMessageId;
-  if (model && model !== "<synthetic>" && usage && !repeatOfCountedMessage) {
+  if (model && model !== "<synthetic>" && usage) {
     const pricedModel = usage.speed === FAST_SPEED ? fastModel(model) : model;
-    state.lastModel = pricedModel;
-    state.lastMessageId = id ?? null;
     const tokens = tokensFrom(usage);
-    if (state.hookOpen) buckets.push({ ...context, model: pricedModel, kind: "hook", tokens, hookTurns: 0 });
-    buckets.push(...drainEstimates(state, pricedModel));
+    if (repeatOfCountedMessage) {
+      const counted = state.lastMessageTokens ?? tokens;
+      const growth = tokensGrowth(counted, tokens);
+      state.lastMessageTokens = addTokens(counted, growth);
+      if (state.hookOpen && totalTokens(growth) > 0) buckets.push({ ...context, model: pricedModel, kind: "hook", tokens: growth, hookTurns: 0 });
+    } else {
+      state.lastModel = pricedModel;
+      state.lastMessageId = id ?? null;
+      state.lastMessageTokens = tokens;
+      if (state.hookOpen) buckets.push({ ...context, model: pricedModel, kind: "hook", tokens, hookTurns: 0 });
+      buckets.push(...drainEstimates(state, pricedModel));
+    }
   }
   if (content) for (const block of content) registerToolUseBlock(block, state);
   return buckets;
@@ -128,7 +132,7 @@ function registerToolUseBlock(raw: unknown, state: TranscriptState): void {
   if (!block.success) return;
   if (block.data.name === "Bash") {
     const input = bashInputSchema.safeParse(block.data.input);
-    if (!input.success || !BACKLOG_COMMAND.test(input.data.command)) return;
+    if (!input.success || !invokesBacklog(input.data.command)) return;
     state.pending[block.data.id] = "cli";
     forgetOldestPending(state);
   }

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../../model/dates";
-import type { CliRun, ScanProgress, TokenCounts, UsageBucket } from "../types";
+import type { CliRun } from "../../store/runs";
+import type { ScanProgress } from "../types";
+import type { TokenCounts } from "./token-counts";
+import type { UsageBucket } from "./usage-state";
 import { attributeLine, newTranscriptState } from "./attribute";
 import { costReport } from "./cost-report";
 

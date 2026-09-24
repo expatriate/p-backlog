@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { useOutletContext } from "react-router";
 import { formatDate } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
-import type { ReportHead } from "../../core/stats/types";
+import type { ReportHead } from "../../core/api/contract";
 import { ApiError } from "../api/client";
 import { RequestErrorText } from "../app/RequestErrorText";
 import { useLanguage, useMessages } from "../i18n";

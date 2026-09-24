@@ -2,13 +2,10 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { DAY_MS } from "../model/lifecycle";
-import type { CliRun } from "../stats/types";
 import { withFileLock } from "./file-lock";
 import { readJsonLines, toJsonLines, writeFileAtomic } from "./fs-utils";
 
 export const RUNS_FILE = ".runs.jsonl";
-
-export type { CliRun } from "../stats/types";
 
 const RUNS_KEPT_DAYS = 30;
 
@@ -20,6 +17,8 @@ const cliRunSchema = z.object({
   rssMb: z.number(),
   exitCode: z.number(),
 });
+
+export type CliRun = z.infer<typeof cliRunSchema>;
 
 export async function appendRun(root: string, run: CliRun): Promise<void> {
   await mkdir(root, { recursive: true });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Language } from "../../core/i18n/language";
-import type { EffectPeriod, EffectProject, EffectTotals } from "../../core/stats/types";
+import type { EffectPeriod, EffectProject, EffectTotals } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
 import { EffectWeeksChart, type Grain } from "./EffectWeeksChart";
 import { ToggleChip } from "../ui/Chip";

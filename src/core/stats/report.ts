@@ -1,5 +1,6 @@
 import type { Task } from "../model/types";
 import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
+import { scopeLabel } from "./format";
 import { closingsOf, isOpenAt, type TaskHistory } from "./history";
 import { daysBetween, median, nearestRank, sum, TAIL_FRACTION } from "./numbers";
 import type { Period } from "./period";
@@ -22,7 +23,7 @@ export function statsReport(input: StatsInput, base: ReportBase = reportBase(inp
     totals: totals(openTasks, histories, now, period, base.scope.journalStart),
     weeks: weeklyFlow(histories, now),
     days: dailyIntake(histories, now),
-    hotspots: hotspots(openTasks, projectId === undefined),
+    hotspots: hotspots(openTasks, scopeLabel(projectId)),
     age: ageBreakdown(openTasks, now),
     closing: closingBreakdown(histories, period),
   };

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Language } from "../../core/i18n/language";
-import type { EffectTotals } from "../../core/stats/types";
+import type { EffectTotals } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
 import { formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";

@@ -1,5 +1,5 @@
 import { useParams } from "react-router";
-import type { CostReport, ScanProgress } from "../../core/stats/types";
+import type { CostReport, ScanProgress } from "../../core/api/contract";
 import { useCostStats } from "../app/queries";
 import { useMessages } from "../i18n";
 import { CommandsPanel, CostFigures, ModelsPanel } from "./CostPanels";

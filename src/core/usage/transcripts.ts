@@ -3,7 +3,10 @@ import { open, stat, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 import { attributeLine, flushEstimates, newTranscriptState } from "../stats/cost/attribute";
 import { sum } from "../stats/numbers";
-import type { TokenCounts, TranscriptState, UsageBucket } from "../stats/types";
+import { DAY_MS } from "../model/lifecycle";
+import { COST_REPORT_DAYS } from "../stats/cost/cost-report";
+import { addTokens } from "../stats/cost/token-counts";
+import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
 import { listDir } from "../store/fs-utils";
 import { USAGE_CACHE_VERSION, type UsageCache, type UsageCacheEntry } from "./usage-cache";
 
@@ -13,12 +16,14 @@ export type ScanTranscriptsInput = {
   files: readonly TranscriptFile[];
   cache: UsageCache;
   byteBudget: number;
+  now: Date;
 };
 
 export type ScanTranscriptsResult = { cache: UsageCache; bytesRead: number; bytesLeft: number; filesDone: number };
 
 const NEWLINE = 0x0a;
 const FINGERPRINT_BYTES = 256;
+const ABANDONED_LINE_MS = 10 * 60 * 1000;
 const EMPTY_FINGERPRINT = createHash("sha1").digest("hex");
 const COUNTED_LINE_MARKERS = ['"type":"assistant"', '"type":"user"'];
 
@@ -51,11 +56,13 @@ async function listedFile(path: string): Promise<TranscriptFile[]> {
   }
 }
 
+type ChunkLimits = { longestReadableLine: number; now: Date };
+
 type ScanStart = { offset: number; state: TranscriptState; buckets: UsageBucket[] };
 
-export async function scanTranscripts({ files, cache, byteBudget }: ScanTranscriptsInput): Promise<ScanTranscriptsResult> {
+export async function scanTranscripts({ files, cache, byteBudget, now }: ScanTranscriptsInput): Promise<ScanTranscriptsResult> {
   let remainingBudget = byteBudget;
-  const resultFiles: Record<string, UsageCacheEntry> = {};
+  const listedFiles: Record<string, UsageCacheEntry> = {};
 
   for (const file of files) {
     const previous = cache.files[file.path];
@@ -63,40 +70,48 @@ export async function scanTranscripts({ files, cache, byteBudget }: ScanTranscri
     const start: ScanStart = resumable ? { offset: previous.offset, state: structuredClone(previous.state), buckets: previous.buckets } : { offset: 0, state: newTranscriptState(), buckets: [] };
 
     const chunkSize = Math.min(file.size - start.offset, remainingBudget);
-    const scanned = await scanChunk(file, start, chunkSize, byteBudget);
+    const scanned = await scanChunk(file, start, chunkSize, { longestReadableLine: byteBudget, now });
     const unmoved = resumable && scanned.offset === previous.offset;
-    resultFiles[file.path] = { ...scanned, mtimeMs: file.mtimeMs, fingerprint: unmoved ? previous.fingerprint : await fingerprintOf(file.path, scanned.offset) };
+    listedFiles[file.path] = { ...scanned, mtimeMs: file.mtimeMs, fingerprint: unmoved ? previous.fingerprint : await fingerprintOf(file.path, scanned.offset) };
     if (chunkSize > 0) remainingBudget -= chunkSize;
     await yieldToEventLoop();
   }
 
   return {
-    cache: { version: USAGE_CACHE_VERSION, files: resultFiles },
+    cache: { version: USAGE_CACHE_VERSION, files: { ...deletedStillReported(cache, listedFiles, now), ...listedFiles } },
     bytesRead: byteBudget - remainingBudget,
-    bytesLeft: sum(Object.values(resultFiles).map((entry) => entry.size - entry.offset)),
-    filesDone: Object.values(resultFiles).filter((entry) => entry.offset === entry.size).length,
+    bytesLeft: sum(Object.values(listedFiles).map((entry) => entry.size - entry.offset)),
+    filesDone: Object.values(listedFiles).filter((entry) => entry.offset === entry.size).length,
   };
 }
 
-async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: number, longestReadableLine: number): Promise<Omit<UsageCacheEntry, "fingerprint">> {
+function deletedStillReported(cache: UsageCache, listedFiles: Readonly<Record<string, UsageCacheEntry>>, now: Date): Record<string, UsageCacheEntry> {
+  const reportStart = now.getTime() - COST_REPORT_DAYS * DAY_MS;
+  return Object.fromEntries(
+    Object.entries(cache.files).filter(([path, entry]) => !(path in listedFiles) && entry.buckets.some((bucket) => Date.parse(bucket.slot) >= reportStart)),
+  );
+}
+
+async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: number, { longestReadableLine, now }: ChunkLimits): Promise<Omit<UsageCacheEntry, "fingerprint">> {
   if (chunkSize <= 0) return { size: file.size, offset: start.offset, state: start.state, buckets: start.buckets };
 
   const chunk = await readChunk(file.path, start.offset, chunkSize);
-  const lastNewline = chunk.lastIndexOf(NEWLINE);
-  if (lastNewline === -1) {
+  const tailAbandoned = start.offset + chunk.length === file.size && now.getTime() - file.mtimeMs >= ABANDONED_LINE_MS;
+  const readableLength = tailAbandoned ? chunk.length : chunk.lastIndexOf(NEWLINE) + 1;
+  if (readableLength === 0) {
     const lineTooLong = chunk.length >= longestReadableLine;
     return { size: file.size, offset: start.offset + (lineTooLong ? chunk.length : 0), state: start.state, buckets: start.buckets };
   }
 
   const bucketsByKey = new Map(start.buckets.map((bucket) => [bucketKey(bucket), bucket]));
-  for (const line of chunk.subarray(0, lastNewline).toString("utf8").split("\n")) {
+  for (const line of chunk.subarray(0, readableLength).toString("utf8").split("\n")) {
     if (!COUNTED_LINE_MARKERS.some((marker) => line.includes(marker))) continue;
     const parsed = parseLineOrNull(line);
     if (parsed === null) continue;
     for (const addition of attributeLine(parsed, start.state)) addBucket(bucketsByKey, addition);
   }
 
-  const offset = start.offset + lastNewline + 1;
+  const offset = start.offset + readableLength;
   if (offset === file.size) for (const addition of flushEstimates(start.state)) addBucket(bucketsByKey, addition);
   return { size: file.size, offset, state: start.state, buckets: [...bucketsByKey.values()] };
 }
@@ -159,9 +174,5 @@ function bucketKey(bucket: UsageBucket): string {
 }
 
 function combineBuckets(existing: UsageBucket, addition: UsageBucket): UsageBucket {
-  return { ...existing, tokens: combineTokens(existing.tokens, addition.tokens), hookTurns: existing.hookTurns + addition.hookTurns };
-}
-
-function combineTokens(a: TokenCounts, b: TokenCounts): TokenCounts {
-  return { input: a.input + b.input, cacheWrite5m: a.cacheWrite5m + b.cacheWrite5m, cacheWrite1h: a.cacheWrite1h + b.cacheWrite1h, cacheRead: a.cacheRead + b.cacheRead, output: a.output + b.output };
+  return { ...existing, tokens: addTokens(existing.tokens, addition.tokens), hookTurns: existing.hookTurns + addition.hookTurns };
 }

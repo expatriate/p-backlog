@@ -1,4 +1,4 @@
-import type { AgeBreakdown } from "../../core/stats/types";
+import type { AgeBreakdown } from "../../core/api/contract";
 import { PRIORITIES, type Priority } from "../../core/model/types";
 import { sum } from "../../core/stats/numbers";
 import { useMessages } from "../i18n";

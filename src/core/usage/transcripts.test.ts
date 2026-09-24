@@ -7,6 +7,7 @@ import { emptyUsageCache, readUsageCache, writeUsageCache } from "./usage-cache"
 
 const CWD = "/Users/x/projects/spa";
 const BIG_BUDGET = 10_000_000;
+const NOW = new Date("2026-09-19T12:00:00Z");
 
 function usage(input: number, output: number) {
   return { input_tokens: input, output_tokens: output, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
@@ -81,7 +82,7 @@ describe("чтение расшифровок по частям", () => {
     const path = join(root, "session.jsonl");
     const first = await transcriptFile(path, jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
 
-    const pass1 = await scanTranscripts({ files: [first], cache: emptyUsageCache(), byteBudget: BIG_BUDGET });
+    const pass1 = await scanTranscripts({ files: [first], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
     expect(totalTokens(pass1.cache.files)).toBe(120);
     expect(pass1.filesDone).toBe(1);
     expect(pass1.bytesLeft).toBe(0);
@@ -89,7 +90,7 @@ describe("чтение расшифровок по частям", () => {
     await appendFile(path, jsonl([assistantLine("2026-09-19T09:05:00.000Z", "claude-sonnet-5", { input: 50, output: 10 })]));
     const second = await listed(path);
 
-    const pass2 = await scanTranscripts({ files: [second], cache: pass1.cache, byteBudget: BIG_BUDGET });
+    const pass2 = await scanTranscripts({ files: [second], cache: pass1.cache, byteBudget: BIG_BUDGET, now: NOW });
 
     expect(totalTokens(pass2.cache.files)).toBe(180);
     expect(pass2.filesDone).toBe(1);
@@ -103,7 +104,7 @@ describe("чтение расшифровок по частям", () => {
     const incompleteTail = JSON.stringify(assistantLine("2026-09-19T09:05:00.000Z", "claude-sonnet-5", { input: 999, output: 999 })).slice(0, -5);
     const file = await transcriptFile(path, complete + incompleteTail);
 
-    const pass1 = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET });
+    const pass1 = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
 
     expect(totalTokens(pass1.cache.files)).toBe(120);
     expect(pass1.filesDone).toBe(0);
@@ -113,11 +114,29 @@ describe("чтение расшифровок по частям", () => {
     await writeFile(path, complete + finishedLine + "\n", "utf8");
     const finished = await listed(path);
 
-    const pass2 = await scanTranscripts({ files: [finished], cache: pass1.cache, byteBudget: BIG_BUDGET });
+    const pass2 = await scanTranscripts({ files: [finished], cache: pass1.cache, byteBudget: BIG_BUDGET, now: NOW });
 
     expect(totalTokens(pass2.cache.files)).toBe(130);
     expect(pass2.filesDone).toBe(1);
     expect(pass2.bytesLeft).toBe(0);
+  });
+
+  it("давно не менявшийся файл без перевода строки в конце дочитывается: хвост разбирается как последняя строка", async () => {
+    const root = await makeTempDir();
+    const path = join(root, "session.jsonl");
+    const complete = jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]);
+    const tailWithoutNewline = JSON.stringify(assistantLine("2026-09-19T09:05:00.000Z", "claude-sonnet-5", { input: 5, output: 5 }));
+    await writeFile(path, complete + tailWithoutNewline, "utf8");
+    const writtenAt = new Date("2026-09-19T09:05:00Z");
+    await utimes(path, writtenAt, writtenAt);
+    const file = await listed(path);
+
+    const whileWriting = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: new Date("2026-09-19T09:06:00Z") });
+    const longAfter = await scanTranscripts({ files: [file], cache: whileWriting.cache, byteBudget: BIG_BUDGET, now: new Date("2026-09-19T12:00:00Z") });
+
+    expect(whileWriting).toMatchObject({ filesDone: 0, bytesLeft: Buffer.byteLength(tailWithoutNewline, "utf8") });
+    expect(longAfter).toMatchObject({ filesDone: 1, bytesLeft: 0 });
+    expect(totalTokens(longAfter.cache.files)).toBe(130);
   });
 
   it("файл стал меньше — читается заново с нуля, старый вклад не остаётся", async () => {
@@ -127,12 +146,12 @@ describe("чтение расшифровок по частям", () => {
       path,
       jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 }), assistantLine("2026-09-19T09:01:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]),
     );
-    const pass1 = await scanTranscripts({ files: [original], cache: emptyUsageCache(), byteBudget: BIG_BUDGET });
+    const pass1 = await scanTranscripts({ files: [original], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
     expect(totalTokens(pass1.cache.files)).toBe(240);
 
     const rewritten = await transcriptFile(path, jsonl([hookFeedbackLine("2026-09-19T09:59:00.000Z"), assistantLine("2026-09-19T10:00:00.000Z", "claude-opus-5", { input: 7, output: 3 })]));
 
-    const pass2 = await scanTranscripts({ files: [rewritten], cache: pass1.cache, byteBudget: BIG_BUDGET });
+    const pass2 = await scanTranscripts({ files: [rewritten], cache: pass1.cache, byteBudget: BIG_BUDGET, now: NOW });
 
     expect(totalTokens(pass2.cache.files)).toBe(10);
     expect(pass2.filesDone).toBe(1);
@@ -147,14 +166,14 @@ describe("чтение расшифровок по частям", () => {
     const budgetForFirstReplyOnly = serializedLines.slice(0, 2).reduce((sum, line) => sum + Buffer.byteLength(line, "utf8"), 0);
     const file = await transcriptFile(path, serializedLines.join(""));
 
-    const pass1 = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: budgetForFirstReplyOnly });
+    const pass1 = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: budgetForFirstReplyOnly, now: NOW });
 
     expect(pass1.filesDone).toBe(0);
     expect(pass1.bytesLeft).toBeGreaterThan(0);
     expect(totalTokens(pass1.cache.files)).toBe(100);
 
     const stillFile = await listed(path);
-    const pass2 = await scanTranscripts({ files: [stillFile], cache: pass1.cache, byteBudget: BIG_BUDGET });
+    const pass2 = await scanTranscripts({ files: [stillFile], cache: pass1.cache, byteBudget: BIG_BUDGET, now: NOW });
 
     expect(pass2.filesDone).toBe(1);
     expect(pass2.bytesLeft).toBe(0);
@@ -169,7 +188,7 @@ describe("чтение расшифровок по частям", () => {
     ];
     const file = await transcriptFile(join(root, "session.jsonl"), jsonl(lines));
 
-    const { cache } = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET });
+    const { cache } = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
 
     expect(Object.values(cache.files)[0]?.buckets).toContainEqual(expect.objectContaining({ kind: "cli", model: "claude-opus-5", tokens: expect.objectContaining({ cacheWrite5m: 10 }) }));
   });
@@ -181,7 +200,7 @@ describe("чтение расшифровок по частям", () => {
     const file = await transcriptFile(join(root, "session.jsonl"), text);
 
     let cache = emptyUsageCache();
-    for (let pass = 0; pass < 10; pass++) cache = (await scanTranscripts({ files: [file], cache, byteBudget: 200 })).cache;
+    for (let pass = 0; pass < 10; pass++) cache = (await scanTranscripts({ files: [file], cache, byteBudget: 200, now: NOW })).cache;
 
     expect(Object.values(cache.files)[0]?.offset).toBe(file.size);
   });
@@ -190,13 +209,13 @@ describe("чтение расшифровок по частям", () => {
     const root = await makeTempDir();
     const path = join(root, "session.jsonl");
     const original = await transcriptFile(path, jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-opus-5", { input: 100, output: 20 })]));
-    const pass1 = await scanTranscripts({ files: [original], cache: emptyUsageCache(), byteBudget: BIG_BUDGET });
+    const pass1 = await scanTranscripts({ files: [original], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
 
     await writeFile(path, jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-opus-5", { input: 300, output: 40 })]), "utf8");
     await utimes(path, new Date(), new Date(original.mtimeMs + 1000));
     const sameSize = await listed(path);
     expect(sameSize.size).toBe(original.size);
-    const pass2 = await scanTranscripts({ files: [sameSize], cache: pass1.cache, byteBudget: BIG_BUDGET });
+    const pass2 = await scanTranscripts({ files: [sameSize], cache: pass1.cache, byteBudget: BIG_BUDGET, now: NOW });
 
     expect(totalTokens(pass2.cache.files)).toBe(340);
   });
@@ -207,7 +226,7 @@ describe("чтение расшифровок по частям", () => {
     const file = await transcriptFile(path, jsonl([assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
     await unreadable(path);
 
-    const pass = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: 0 });
+    const pass = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: 0, now: NOW });
 
     expect(pass).toMatchObject({ bytesRead: 0, bytesLeft: file.size, filesDone: 0 });
   });
@@ -216,20 +235,33 @@ describe("чтение расшифровок по частям", () => {
     const root = await makeTempDir();
     const path = join(root, "session.jsonl");
     const file = await transcriptFile(path, jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
-    const pass1 = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET });
+    const pass1 = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
     await unreadable(path);
 
-    const pass2 = await scanTranscripts({ files: [await listed(path)], cache: pass1.cache, byteBudget: BIG_BUDGET });
+    const pass2 = await scanTranscripts({ files: [await listed(path)], cache: pass1.cache, byteBudget: BIG_BUDGET, now: NOW });
 
     expect(totalTokens(pass2.cache.files)).toBe(120);
     expect(pass2.filesDone).toBe(1);
+  });
+
+  it("удалённая расшифровка сохраняет вклад, пока он попадает в окно отчёта о расходах", async () => {
+    const root = await makeTempDir();
+    const file = await transcriptFile(join(root, "session.jsonl"), jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
+    const pass1 = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: new Date("2026-09-19T12:00:00Z") });
+
+    const soonAfter = await scanTranscripts({ files: [], cache: pass1.cache, byteBudget: BIG_BUDGET, now: new Date("2026-10-10T12:00:00Z") });
+    const monthsAfter = await scanTranscripts({ files: [], cache: soonAfter.cache, byteBudget: BIG_BUDGET, now: new Date("2026-11-19T12:00:00Z") });
+
+    expect(totalTokens(soonAfter.cache.files)).toBe(120);
+    expect(soonAfter).toMatchObject({ filesDone: 0, bytesLeft: 0 });
+    expect(monthsAfter.cache.files).toEqual({});
   });
 
   it("кэш на диске после записи читается обратно", async () => {
     const root = await makeTempDir();
     const path = join(root, "session.jsonl");
     const file = await transcriptFile(path, jsonl([assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
-    const { cache } = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET });
+    const { cache } = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
 
     await writeUsageCache(root, cache);
     const reloaded = await readUsageCache(root);
@@ -247,7 +279,7 @@ describe("чтение расшифровок по частям", () => {
       assistantLine("2026-09-19T09:00:02.000Z", "claude-opus-5", { input: 1, output: 1 }),
     ];
     const file = await transcriptFile(path, jsonl(lines));
-    const { cache } = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET });
+    const { cache } = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
 
     await writeUsageCache(root, cache);
     const raw = await readFile(join(root, ".usage-cache.json"), "utf8");

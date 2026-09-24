@@ -1,12 +1,10 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { z } from "zod";
-import { LANGUAGES, languageFromLocale, type Language } from "../i18n/language";
+import { languageFromLocale, type Language } from "../i18n/language";
+import { settingsSchema, type Settings } from "../model/settings";
 import { listDir, parseJson, readTextOrNull, writeJsonFile } from "./fs-utils";
 
 const SETTINGS_FILE = ".settings.json";
-const settingsSchema = z.object({ language: z.enum(LANGUAGES) });
-export type Settings = z.infer<typeof settingsSchema>;
 
 export function settingsFilePath(root: string): string {
   return join(root, SETTINGS_FILE);

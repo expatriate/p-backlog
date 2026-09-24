@@ -5,7 +5,7 @@ import type { FoundHow } from "../../core/journal/events";
 import type { Priority } from "../../core/model/types";
 import { STALE_URGENT_DAYS } from "../../core/stats/breakdowns";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
-import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/stats/types";
+import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/api/contract";
 import { STATS_WEEKS } from "../../core/stats/weeks";
 import type { ChartStep } from "./charts/chart-style";
 import { formatApprox, formatLines, isEstimated } from "./effect-format";

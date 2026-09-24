@@ -1,46 +1,12 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import type { TranscriptState, UsageBucket } from "../stats/types";
+import { transcriptStateSchema, usageBucketSchema } from "../stats/cost/usage-state";
 import { readJsonFile, writeFileAtomic } from "../store/fs-utils";
 
 const USAGE_CACHE_FILE = ".usage-cache.json";
 
-export type UsageCacheEntry = { size: number; mtimeMs?: number | undefined; offset: number; fingerprint: string; state: TranscriptState; buckets: UsageBucket[] };
 export const USAGE_CACHE_VERSION = 6;
-export type UsageCache = { version: typeof USAGE_CACHE_VERSION; files: Record<string, UsageCacheEntry> };
-
-const tokenCountsSchema = z.object({
-  input: z.number(),
-  cacheWrite5m: z.number(),
-  cacheWrite1h: z.number(),
-  cacheRead: z.number(),
-  output: z.number(),
-});
-
-const usageBucketSchema = z.object({
-  slot: z.string(),
-  cwd: z.string(),
-  model: z.string(),
-  kind: z.enum(["hook", "cli", "skill"]),
-  tokens: tokenCountsSchema,
-  hookTurns: z.number(),
-});
-
-const pendingEstimateSchema = z.object({
-  kind: z.enum(["cli", "skill"]),
-  chars: z.number(),
-  slot: z.string(),
-  cwd: z.string(),
-});
-
-const transcriptStateSchema = z.object({
-  hookOpen: z.boolean(),
-  lastModel: z.string().nullable(),
-  lastMessageId: z.string().nullable(),
-  pending: z.record(z.string(), z.enum(["cli", "skill"])),
-  pendingEstimates: z.array(pendingEstimateSchema),
-});
 
 const usageCacheEntrySchema = z.object({
   size: z.number(),
@@ -55,6 +21,9 @@ const usageCacheSchema = z.object({
   version: z.literal(USAGE_CACHE_VERSION),
   files: z.record(z.string(), usageCacheEntrySchema),
 });
+
+export type UsageCacheEntry = z.infer<typeof usageCacheEntrySchema>;
+export type UsageCache = z.infer<typeof usageCacheSchema>;
 
 export function emptyUsageCache(): UsageCache {
   return { version: USAGE_CACHE_VERSION, files: {} };

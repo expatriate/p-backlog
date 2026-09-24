@@ -1,20 +1,20 @@
 import type { Task } from "../../model/types";
 import { folderOf } from "../breakdowns";
-import { projectLabel } from "../format";
+import type { ProjectLabel } from "../format";
 import { countBy } from "../numbers";
 import { PRIORITY_WEIGHT } from "../weights";
 import type { ChurnRow, ProjectCode } from "../types";
 
 const CHURN_LIMIT = 8;
 
-export function churn(openTasks: readonly Task[], projects: readonly ProjectCode[], withProject: boolean): ChurnRow[] {
+export function churn(openTasks: readonly Task[], projects: readonly ProjectCode[], projectLabel: ProjectLabel): ChurnRow[] {
   return projects
     .flatMap((project) => {
       const commits = folderCommits(project);
       const debt = folderDebt(openTasks.filter((task) => task.projectId === project.projectId));
       return [...debt.entries()].map(([folder, { tasks, weight }]) => {
         const folderChanges = commits.get(folder) ?? 0;
-        return { label: projectLabel(project.projectId, folder, withProject), commits: folderChanges, tasks, weight, score: folderChanges * weight };
+        return { label: projectLabel(project.projectId, folder), commits: folderChanges, tasks, weight, score: folderChanges * weight };
       });
     })
     .filter((row) => row.score > 0)

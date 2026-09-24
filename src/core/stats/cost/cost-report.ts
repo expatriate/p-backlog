@@ -1,11 +1,14 @@
 import { formatLocalDay } from "../../model/dates";
-import type { CliRun, CostCommand, CostDay, CostModel, CostReport, CostTotals, ScanProgress, TokenCounts, UsageBucket } from "../types";
+import type { CliRun } from "../../store/runs";
+import type { CostCommand, CostDay, CostModel, CostReport, CostTotals, ScanProgress } from "../types";
+import { totalTokens } from "./token-counts";
+import type { UsageBucket } from "./usage-state";
 import { HOOK_STOP_COMMAND } from "./hook-signature";
 import { costOf, splitFastModel } from "./pricing";
 import { dayRange } from "../days";
 import { groupBy, sum } from "../numbers";
 
-const COST_REPORT_DAYS = 30;
+export const COST_REPORT_DAYS = 30;
 export const COST_TOTALS_DAYS = 7;
 
 export type CostInput = {
@@ -52,25 +55,21 @@ function localDay(at: string): string {
   return Number.isNaN(moment) ? "" : formatLocalDay(new Date(moment));
 }
 
-function tokenSum(tokens: TokenCounts): number {
-  return tokens.input + tokens.cacheWrite5m + tokens.cacheWrite1h + tokens.cacheRead + tokens.output;
-}
-
 function tokensTotalOf(buckets: readonly UsageBucket[]): number {
-  return sum(buckets.map((bucket) => tokenSum(bucket.tokens)));
+  return sum(buckets.map((bucket) => totalTokens(bucket.tokens)));
 }
 
 function costOfBuckets(buckets: readonly UsageBucket[]): number | null {
   if (tokensTotalOf(buckets) === 0) return 0;
   const priced = buckets.flatMap((bucket) => {
     const cost = costOf(bucket.model, bucket.tokens);
-    return cost === null ? [] : [{ cost, tokens: tokenSum(bucket.tokens) }];
+    return cost === null ? [] : [{ cost, tokens: totalTokens(bucket.tokens) }];
   });
   return sum(priced.map((entry) => entry.tokens)) === 0 ? null : sum(priced.map((entry) => entry.cost));
 }
 
 function hasUnpricedTokens(buckets: readonly UsageBucket[]): boolean {
-  return buckets.some((bucket) => tokenSum(bucket.tokens) > 0 && costOf(bucket.model, bucket.tokens) === null);
+  return buckets.some((bucket) => totalTokens(bucket.tokens) > 0 && costOf(bucket.model, bucket.tokens) === null);
 }
 
 function sinceOf(buckets: readonly UsageBucket[]): string | null {
@@ -84,9 +83,13 @@ function totalsOf(buckets: readonly UsageBucket[], runs: readonly CliRun[]): Cos
     cost: costOfBuckets(buckets),
     hasUnpricedTokens: hasUnpricedTokens(buckets),
     hookTurns: sum(buckets.map((bucket) => bucket.hookTurns)),
-    cliRuns: runs.filter((run) => run.command !== HOOK_STOP_COMMAND).length,
-    hookRuns: runs.filter((run) => run.command === HOOK_STOP_COMMAND).length,
+    ...runCounts(runs),
   };
+}
+
+function runCounts(runs: readonly CliRun[]): { cliRuns: number; hookRuns: number } {
+  const hookRuns = runs.filter((run) => run.command === HOOK_STOP_COMMAND).length;
+  return { cliRuns: runs.length - hookRuns, hookRuns };
 }
 
 function dayRow(day: string, dayBuckets: readonly UsageBucket[], dayRuns: readonly CliRun[]): CostDay {
@@ -99,8 +102,7 @@ function dayRow(day: string, dayBuckets: readonly UsageBucket[], dayRuns: readon
     cost: costOfBuckets(dayBuckets),
     hasUnpricedTokens: hasUnpricedTokens(dayBuckets),
     hookTurns: sum(dayBuckets.map((bucket) => bucket.hookTurns)),
-    cliRuns: dayRuns.filter((run) => run.command !== HOOK_STOP_COMMAND).length,
-    hookRuns: dayRuns.filter((run) => run.command === HOOK_STOP_COMMAND).length,
+    ...runCounts(dayRuns),
   };
 }
 

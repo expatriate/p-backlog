@@ -2,6 +2,7 @@ import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { CodeReport, ScannedCode } from "../types";
 import { statsPeriod } from "../weeks";
 import { churn } from "./churn";
+import { scopeLabel } from "../format";
 import { density } from "./density";
 import { fixRequests, type FixRequest } from "./fixes";
 
@@ -14,7 +15,7 @@ export function codeReport({ code, ...input }: CodeInput, base: ReportBase = rep
   return {
     ...base.head,
     unavailableRepos: code.unavailableRepos,
-    churn: churn(openTasks, projects, projectId === undefined),
+    churn: churn(openTasks, projects, scopeLabel(projectId)),
     density: density(openTasks, projects, projectId),
   };
 }

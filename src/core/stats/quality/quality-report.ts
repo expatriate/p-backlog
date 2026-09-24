@@ -5,6 +5,7 @@ import { accuracy, accuracyWeeks, matchAccuracy, methodAccuracy } from "./accura
 import { categoryBreakdown } from "./categories";
 import { graphFilterEffect } from "./graph-filter";
 import { branchBreakdown, foundBreakdown } from "./origin";
+import { scopeLabel } from "../format";
 
 export function qualityReport(input: StatsInput, base: ReportBase = reportBase(input), graphs: ProjectGraphRow[] = []): QualityReport {
   const { now, projectId } = input;
@@ -19,6 +20,6 @@ export function qualityReport(input: StatsInput, base: ReportBase = reportBase(i
     graph: { projects: graphs, filter: graphFilterEffect(histories, period) },
     categories: categoryBreakdown(openTasks, histories, period),
     found: foundBreakdown(histories, period),
-    branches: branchBreakdown(histories, period, projectId === undefined),
+    branches: branchBreakdown(histories, period, scopeLabel(projectId)),
   };
 }

@@ -1,5 +1,5 @@
 import { useParams } from "react-router";
-import type { CodeReport } from "../../core/stats/types";
+import type { CodeReport } from "../../core/api/contract";
 import { useCodeStats } from "../app/queries";
 import { useMessages } from "../i18n";
 import { ChurnPanel, DensityPanel } from "./CodePanels";
