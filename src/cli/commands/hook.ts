@@ -9,7 +9,7 @@ import { loadBacklog } from "../../core/store/load";
 import { parseJson } from "../../core/store/fs-utils";
 import { findProjectForDir } from "../../core/store/resolve-project";
 import { readSignalsShown, writeSignalsShown } from "../../core/store/signals-shown";
-import { readSessionShown, writeSessionShown } from "../../core/store/session-shown";
+import { readSessionShown, rememberSessionShown } from "../../core/store/session-shown";
 import { HOOK_STOP_EVENT, hookMessage } from "../../core/stats/cost/hook-signature";
 import { statsSignals } from "../../core/stats/signals/signals";
 import { markShown, signalsToShow, type SignalsShown } from "../../core/stats/signals/shown";
@@ -63,12 +63,10 @@ async function sessionMemory(project: Project, session: string | undefined, io: 
   if (session === undefined) return { told: new Set(), remember: () => Promise.resolve() };
   const projectDir = dirname(project.path);
   try {
-    const shown = await readSessionShown(projectDir, session);
     return {
-      told: new Set(shown.tasks),
+      told: new Set(await readSessionShown(projectDir, session)),
       remember: async (ids) => {
-        if (ids.length === 0) return;
-        await writeSessionShown(projectDir, { session, tasks: [...new Set([...shown.tasks, ...ids])] });
+        if (ids.length > 0) await rememberSessionShown(projectDir, session, ids, io.now());
       },
     };
   } catch (error) {

@@ -146,6 +146,38 @@ describe("backlog hook stop", () => {
     expect(JSON.parse(nextSession.out).decision).toBe("block");
   });
 
+  it("параллельные сессии помнят сказанное независимо друг от друга", async () => {
+    const { run, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Правка", "2026-09-18T10:00:00Z");
+    const event = (session: string) => JSON.stringify({ session_id: session, cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    await run(["hook", "stop"], { stdin: event("s1") });
+    await run(["hook", "stop"], { stdin: event("s2") });
+
+    expect((await run(["hook", "stop"], { stdin: event("s1") })).out).toBe("");
+    expect((await run(["hook", "stop"], { stdin: event("s2") })).out).toBe("");
+  });
+
+  it("файл памяти сессий не копит сессии старше недели", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Правка", "2026-09-18T10:00:00Z");
+    const event = (session: string) => JSON.stringify({ session_id: session, cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    await run(["hook", "stop"], { stdin: event("old"), now: new Date(2026, 8, 18, 10) });
+    await run(["hook", "stop"], { stdin: event("new"), now: new Date(2026, 8, 26, 10) });
+
+    const stored = JSON.parse(await readFile(join(root, "spa/.candidates-shown.json"), "utf8")) as Record<string, unknown>;
+    expect(Object.keys(stored)).toEqual(["new"]);
+  });
+
   it("без session_id в событии глушения нет", async () => {
     const { run, repo } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n" });
