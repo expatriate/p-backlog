@@ -1,6 +1,8 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
+const FIXTURE_TIME_ZONE = { TZ: "Europe/Moscow" };
+
 export default defineConfig({
   test: {
     coverage: {
@@ -15,6 +17,7 @@ export default defineConfig({
           name: "node",
           include: ["src/core/**/*.test.ts", "src/cli/**/*.test.ts", "src/server/**/*.test.ts", "tests/**/*.test.ts"],
           environment: "node",
+          env: FIXTURE_TIME_ZONE,
         },
       },
       {
@@ -23,6 +26,7 @@ export default defineConfig({
           name: "web",
           include: ["src/web/**/*.test.ts", "src/web/**/*.test.tsx"],
           environment: "jsdom",
+          env: FIXTURE_TIME_ZONE,
           setupFiles: ["src/web/testing/setup.ts"],
         },
       },
