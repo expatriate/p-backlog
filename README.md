@@ -4,14 +4,28 @@
 
 **[Русская версия](README.ru.md)**
 
-A task backlog that lives as markdown files: an AI agent creates them while working on code, and a human
-triages them in a local web app.
+**Keep pull requests clean. Never lose an audit finding.**
 
-- **`backlog` CLI** — creates tasks, takes them into progress, changes their status.
-- **`backlog` skill** for Claude Code — tells the agent when and how to call the CLI.
-- **Web app** — project list, search, filters, epics, links, progress; doesn't create tasks.
-- **Backlog hygiene** — the agent re-checks tasks whose code changed and closes the ones no longer needed;
-  closed tasks are deleted after 7 days.
+A personal backlog for Claude Code that lives next to your code as Markdown files. When the agent notices a problem
+outside the task at hand, it doesn't slip a fix into your pull request — it files a task with the file, the line and
+what will break. Findings from audits and code reviews become tasks too, instead of getting lost in chat history.
+
+- **Clean pull requests.** Out-of-scope fixes go to the backlog, not into the diff you review. The Effect tab in
+  statistics shows how many lines stayed out of your pull requests.
+- **Nothing gets lost.** Every finding from an audit or a review is a task with its source (`file:line`), what it
+  risks and a checklist.
+- **Context kept, tokens saved.** A task stores the context the agent needs to pick it up later. On a re-check the
+  agent gets the task's summary, the current code around its line and the diff since the last check — usually
+  enough to decide without re-reading the codebase.
+- **Stays current by itself.** A Stop hook asks the agent to re-check tasks whose code changed. The agent closes
+  fixed ones with the commit as evidence; line numbers follow the code as it moves. Closed tasks are cleaned up
+  after 7 days.
+- **Local and autonomous.** Plain files in `~/backlog`, no account, no cloud. The agent drives it through the skill,
+  so you don't have to touch the CLI — though you can.
+- **Charts when you want them.** Start the local web app to browse and triage tasks and follow the metrics: debt by
+  week, where it hurts in the code, how accurate the checks are, what the hook costs in tokens.
+
+It consists of the `backlog` CLI, the `backlog` skill and a Stop hook for Claude Code, and an optional web app.
 
 ## Screenshots
 
