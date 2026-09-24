@@ -1,5 +1,7 @@
 # p-backlog
 
+[![npm](https://img.shields.io/npm/v/p-backlog)](https://www.npmjs.com/package/p-backlog) [![downloads](https://img.shields.io/npm/dm/p-backlog)](https://www.npmjs.com/package/p-backlog) [![CI](https://github.com/expatriate/p-backlog/actions/workflows/ci.yml/badge.svg)](https://github.com/expatriate/p-backlog/actions/workflows/ci.yml) [![node](https://img.shields.io/node/v/p-backlog)](https://nodejs.org) [![license](https://img.shields.io/npm/l/p-backlog)](LICENSE)
+
 **[English version](README.md)**
 
 Беклог задач, который живёт markdown-файлами: их создаёт ИИ-агент во время работы над кодом, а человек
