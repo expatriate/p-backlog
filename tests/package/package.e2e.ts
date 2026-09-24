@@ -30,6 +30,10 @@ afterAll(async () => {
   await rm(work, { recursive: true, force: true });
 });
 
+function quoteForWindowsShell(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 async function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = createServer();
@@ -56,7 +60,10 @@ describe("путь нового пользователя из tarball", () => {
       LC_ALL: "en_US.UTF-8",
       PATH: `${join(prefix, isWindows ? "" : "bin")}${isWindows ? ";" : ":"}${process.env.PATH ?? ""}`,
     };
-    const run = (args: string[], input?: string) => execFileSync(backlogBin, args, { env, input, encoding: "utf8" });
+    const run = (args: string[], options: { input?: string; cwd?: string } = {}) =>
+      isWindows
+        ? execFileSync(quoteForWindowsShell(backlogBin), args.map(quoteForWindowsShell), { ...options, env, encoding: "utf8", shell: true })
+        : execFileSync(backlogBin, args, { ...options, env, encoding: "utf8" });
 
     run(["setup"]);
     const skillLink = join(claudeConfigDir, "skills", "backlog");
@@ -69,7 +76,7 @@ describe("путь нового пользователя из tarball", () => {
     const hookCommand = installedHook.command as string;
 
     const repo = await makeGitRepo(home, "demo-app");
-    const created = execFileSync(backlogBin, ["new", "--category", "bug", "--title", "First task"], { cwd: repo, env, input: "Body\n", encoding: "utf8" });
+    const created = run(["new", "--category", "bug", "--title", "First task"], { cwd: repo, input: "Body\n" });
     expect(created).toMatch(/^[A-Z]+-\d+ /);
 
     const hookOutput = execFileSync(isWindows ? "powershell" : "sh", isWindows ? ["-NoProfile", "-Command", hookCommand] : ["-c", hookCommand], {
@@ -81,7 +88,9 @@ describe("путь нового пользователя из tarball", () => {
     if (hookOutput.trim().length > 0) expect(() => JSON.parse(hookOutput)).not.toThrow();
 
     const port = await freePort();
-    const server = spawn(backlogBin, ["serve", "--port", String(port)], { env });
+    const server = isWindows
+      ? spawn(process.execPath, [join(packageDir, "dist", "cli.js"), "serve", "--port", String(port)], { env })
+      : spawn(backlogBin, ["serve", "--port", String(port)], { env });
     try {
       const deadline = Date.now() + 20_000;
       let settingsResponse: { language: string } | undefined;

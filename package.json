@@ -33,7 +33,6 @@
     "dev": "concurrently -k -n server,web \"tsx watch src/server/main.ts\" \"vite\"",
     "test:e2e": "playwright test",
     "test:package": "vitest run --config vitest.package.config.ts",
-    "prepack": "npm run build",
     "prepare": "npm run build",
     "test:coverage": "vitest run --coverage",
     "knip": "knip"
