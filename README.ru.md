@@ -145,6 +145,42 @@ backlog setup --service
 `--service` `install` перезаписывает службу автозапуска на месте, поэтому заодно заменяет и
 LaunchAgent `local.p-backlog`, настроенный вручную по старому шаблону plist.
 
+## Обновление
+
+```bash
+npm update -g p-backlog
+backlog service install
+```
+
+Запущенная служба продолжает работать со старым `cli.js`, пока её не переустановят, — веб-ресурсы на
+диске уже новые, но именно `backlog service install` переключает службу на новый код.
+
+После обновления самого Node (например, через Homebrew) тоже запустите `backlog service install` —
+служба хранит путь к бинарнику Node, с которым была установлена.
+
+## Удаление
+
+```bash
+backlog service uninstall
+npm uninstall -g p-backlog
+```
+
+Перед удалением пакета выполните `backlog service uninstall` — иначе `KeepAlive` у launchd (или
+`Restart=on-failure` у systemd) продолжит перезапускать несуществующий `cli.js`. Затем вручную уберите
+ссылку на скилл и хук Stop:
+
+```bash
+rm ~/.claude/skills/backlog   # или $CLAUDE_SKILLS_DIR / $CLAUDE_CONFIG_DIR/skills, если заданы
+```
+
+и удалите запись хука `Stop` из `~/.claude/settings.json` (или `$CLAUDE_SETTINGS_PATH`) — на
+macOS/Linux это команда `command -v backlog >/dev/null && backlog hook stop || true`, на Windows —
+команда PowerShell, начинающаяся с `if (Get-Command backlog.cmd ...)`.
+
+На Windows скрипт в папке «Автозагрузка» не перезапускает сервер после падения — в отличие от `KeepAlive`
+у launchd или `Restart=on-failure` у systemd; после сбоя запустите `backlog service install` заново или
+`backlog serve`.
+
 ## Разработка
 
 ```bash

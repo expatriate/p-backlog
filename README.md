@@ -150,6 +150,42 @@ backlog setup --service
 Stop hook; with `--service`, `install` overwrites the autostart service in place, so it also replaces a
 `local.p-backlog` LaunchAgent set up by hand from the old plist template.
 
+## Updating
+
+```bash
+npm update -g p-backlog
+backlog service install
+```
+
+The running service keeps executing the old `cli.js` until reinstalled — the web assets on disk are
+already new, but `backlog service install` is what points the service at the new code.
+
+After upgrading Node itself (for example via Homebrew), run `backlog service install` again too: the
+service stores the path to the Node binary it was installed with.
+
+## Uninstalling
+
+```bash
+backlog service uninstall
+npm uninstall -g p-backlog
+```
+
+Run `backlog service uninstall` before removing the package — otherwise launchd's `KeepAlive` (or systemd's
+`Restart=on-failure`) keeps relaunching a `cli.js` that no longer exists. Then remove the skill link and
+the Stop hook by hand:
+
+```bash
+rm ~/.claude/skills/backlog   # or $CLAUDE_SKILLS_DIR / $CLAUDE_CONFIG_DIR/skills, if set
+```
+
+and delete the `Stop` hook entry from `~/.claude/settings.json` (or `$CLAUDE_SETTINGS_PATH`) — on
+macOS/Linux it's the command `command -v backlog >/dev/null && backlog hook stop || true`, on Windows a
+PowerShell command starting with `if (Get-Command backlog.cmd ...)`.
+
+On Windows, the Startup-folder script does not restart a crashed server the way launchd `KeepAlive` or
+systemd `Restart=on-failure` do — after a crash, run `backlog service install` again or start it with
+`backlog serve`.
+
 ## Development
 
 ```bash
