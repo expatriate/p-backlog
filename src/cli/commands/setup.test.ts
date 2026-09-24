@@ -6,7 +6,7 @@ import { makeCliSandbox } from "../testing/cli-harness";
 
 const repoRoot = join(import.meta.dirname, "../../..");
 const STOP_HOOK_COMMAND = "command -v backlog >/dev/null && backlog hook stop || true";
-const POWERSHELL_COMMAND = "if (Get-Command backlog -ErrorAction SilentlyContinue) { $input | backlog hook stop }";
+const POWERSHELL_COMMAND = "if (Get-Command backlog.cmd -ErrorAction SilentlyContinue) { backlog.cmd hook stop }";
 
 function claudeEnv(home: string): { CLAUDE_SKILLS_DIR: string; CLAUDE_SETTINGS_PATH: string } {
   return { CLAUDE_SKILLS_DIR: join(home, "skills"), CLAUDE_SETTINGS_PATH: join(home, "claude/settings.json") };

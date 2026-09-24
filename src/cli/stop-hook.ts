@@ -5,7 +5,7 @@ import { errorText } from "../core/errors";
 import { hasErrorCode, parseJson } from "../core/store/fs-utils";
 
 const POSIX_COMMAND = "command -v backlog >/dev/null && backlog hook stop || true";
-const POWERSHELL_COMMAND = "if (Get-Command backlog -ErrorAction SilentlyContinue) { $input | backlog hook stop }";
+const POWERSHELL_COMMAND = "if (Get-Command backlog.cmd -ErrorAction SilentlyContinue) { backlog.cmd hook stop }";
 
 type StopHook = { type: "command"; command: string; shell?: "powershell" };
 

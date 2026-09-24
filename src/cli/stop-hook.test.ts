@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isOurStopHook, stopHookFor } from "./stop-hook";
 
 const POSIX_COMMAND = "command -v backlog >/dev/null && backlog hook stop || true";
-const POWERSHELL_COMMAND = "if (Get-Command backlog -ErrorAction SilentlyContinue) { $input | backlog hook stop }";
+const POWERSHELL_COMMAND = "if (Get-Command backlog.cmd -ErrorAction SilentlyContinue) { backlog.cmd hook stop }";
 
 describe("stopHookFor", () => {
   it("на Windows отдаёт хук для PowerShell, на остальных платформах — для POSIX-шелла", () => {
