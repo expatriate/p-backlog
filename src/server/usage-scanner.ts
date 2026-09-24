@@ -9,7 +9,7 @@ export type UsageScannerOptions = { root: string; claudeProjectsDir: string; byt
 
 export type UsageScanner = {
   start: () => void;
-  stop: () => void;
+  stop: () => Promise<void>;
   scanOnce: () => Promise<void>;
   ensureStarted: () => void;
   snapshot: () => { cache: UsageCache; scan: ScanProgress };
@@ -71,6 +71,7 @@ export function createUsageScanner({
       running = false;
       if (timer !== null) clearTimeout(timer);
       timer = null;
+      return inFlight ?? Promise.resolve();
     },
     scanOnce,
     ensureStarted: () => {

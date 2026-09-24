@@ -33,10 +33,9 @@ export async function startServer({ root, port, home, env, pidFile }: StartServe
   const usage = createUsageScanner({ root, claudeProjectsDir: claudeProjectsDir(env, home), messages: readMessages });
   const memory = createMemorySampler();
   const changes = createChangeFeed(root, CHANGE_DEBOUNCE_MS, readMessages);
-  // port 0 asks the OS for a free port; it's known only once listen() reports it below
-  const allowedHosts = new Set<string>();
+  const hostsForActualPort = new Set<string>();
 
-  const app = createApp({ root, changes, allowedHosts, home, usage, memory, staticDir: join(import.meta.dirname, "web") });
+  const app = createApp({ root, changes, allowedHosts: hostsForActualPort, home, usage, memory, staticDir: join(import.meta.dirname, "web") });
 
   usage.start();
   memory.start();
@@ -56,41 +55,58 @@ export async function startServer({ root, port, home, env, pidFile }: StartServe
   });
 
   const stopBackground = async (): Promise<void> => {
-    usage.stop();
+    await usage.stop();
     memory.stop();
     await stopSweeper();
   };
 
   return new Promise<RunningServer>((resolve, reject) => {
+    let listening = false;
+    let decided = false;
+
     const closeServer = (): Promise<void> => new Promise((resolveClose, rejectClose) => server.close((error) => (error ? rejectClose(error) : resolveClose())));
+
+    const teardown = async (): Promise<void> => {
+      await stopBackground();
+      await changes.close();
+      if (pidFile !== undefined) await rm(pidFile, { force: true });
+      if (listening) await closeServer();
+    };
 
     const finish = async (actualPort: number): Promise<void> => {
       if (pidFile !== undefined) await writeFile(pidFile, String(process.pid));
-      resolve({
-        port: actualPort,
-        close: async () => {
-          await stopBackground();
-          await changes.close();
-          if (pidFile !== undefined) await rm(pidFile, { force: true });
-          await closeServer();
-        },
-      });
+      if (decided) return;
+      decided = true;
+      resolve({ port: actualPort, close: teardown });
     };
 
-    const abort = async (error: unknown): Promise<void> => {
-      await stopBackground();
-      await changes.close();
+    const failStartup = async (error: unknown): Promise<void> => {
+      decided = true;
+      await teardown();
       reject(error);
     };
 
+    const reportErrorAfterStartup = (error: unknown): void => {
+      process.stderr.write(`${errorText(error)}\n`);
+    };
+
+    const onPidFileError = (error: unknown): void => {
+      if (decided) reportErrorAfterStartup(error);
+      else void failStartup(error);
+    };
+
+    const onSocketError = (error: NodeJS.ErrnoException): void => {
+      if (decided) reportErrorAfterStartup(error);
+      else void failStartup(new Error(listenFailure(error, port, startupMessages)));
+    };
+
     const server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port }, (info) => {
-      for (const host of localHosts(info.port)) allowedHosts.add(host);
+      listening = true;
+      for (const host of localHosts(info.port)) hostsForActualPort.add(host);
       process.stdout.write(startupMessages.serverStarted(info.port, root));
-      void finish(info.port).catch(abort);
+      void finish(info.port).catch(onPidFileError);
     });
 
-    server.on("error", (error: NodeJS.ErrnoException) => {
-      void abort(new Error(listenFailure(error, port, startupMessages)));
-    });
+    server.on("error", onSocketError);
   });
 }

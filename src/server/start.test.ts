@@ -35,4 +35,17 @@ describe("startServer", () => {
       await first.close();
     }
   });
+
+  it("сбой после listen (не записался PID-файл) закрывает порт — он снова свободен", async () => {
+    const home = await makeTempDir();
+    const probe = await startServer({ root: join(home, "backlog-probe"), port: 0, home, env: {} });
+    const port = probe.port;
+    await probe.close();
+
+    const pidFile = join(home, "no-such-dir", "server.pid");
+    await expect(startServer({ root: join(home, "backlog"), port, home, env: {}, pidFile })).rejects.toThrow();
+
+    const after = await startServer({ root: join(home, "backlog-after"), port, home, env: {} });
+    await after.close();
+  });
 });

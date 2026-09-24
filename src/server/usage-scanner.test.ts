@@ -2,7 +2,7 @@ import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
-import { emptyUsageCache } from "../core/usage/usage-cache";
+import { emptyUsageCache, readUsageCache } from "../core/usage/usage-cache";
 import { CATCH_UP_DELAY_MS, createUsageScanner } from "./usage-scanner";
 
 describe("createUsageScanner", () => {
@@ -31,6 +31,20 @@ describe("createUsageScanner", () => {
 
     expect(second).toBe(first);
     await first;
+  });
+
+  it("stop дожидается уже начатого прохода — к моменту, когда он разрешится, кеш уже записан", async () => {
+    const root = await makeTempDir();
+    const transcriptsDir = await makeTempDir();
+    const line = JSON.stringify({ type: "assistant", timestamp: "2026-09-19T09:00:00.000Z", cwd: "/x", message: { model: "claude-opus-5", usage: { input_tokens: 1, output_tokens: 1 } } });
+    await writeFiles(transcriptsDir, { "proj/a.jsonl": `${line}\n` });
+    const scanner = createUsageScanner({ root, claudeProjectsDir: transcriptsDir });
+
+    void scanner.scanOnce();
+    await scanner.stop();
+
+    const cache = await readUsageCache(root);
+    expect(Object.keys(cache.files)).toContain(join(transcriptsDir, "proj/a.jsonl"));
   });
 
   it("проход с исчерпанным лимитом байт оставляет остаток, следующие дочитывают до конца", async () => {
