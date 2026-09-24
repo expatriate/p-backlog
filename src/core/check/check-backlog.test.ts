@@ -325,7 +325,7 @@ describe("checkBacklog", () => {
     const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
     expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-1: убраны ссылки на несуществующие задачи: SPA-99"]);
-    expect(report.problems.map(RU.checkProblem)).toContainEqual(expect.stringMatching(/ti\/project\.md не разобран/));
+    expect(report.problems.map(RU.checkProblem)).toContainEqual(expect.stringContaining(`${join("ti", "project.md")} не разобран`));
     const spa1 = (await loadBacklog(root)).tasks.find((loaded) => loaded.id === "SPA-1");
     expect(spa1).toMatchObject({ blockedBy: [], related: ["TI-3", "XYZ-1"] });
   });
@@ -350,6 +350,6 @@ describe("checkBacklog", () => {
     await writeFiles(root, { "spa/SPA-9.md": "сломано" });
     const blocked = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
 
-    expect(blocked.problems.map(RU.checkProblem)).toContainEqual(expect.stringMatching(/spa\/SPA-9\.md не разобран/));
+    expect(blocked.problems.map(RU.checkProblem)).toContainEqual(expect.stringContaining(`${join("spa", "SPA-9.md")} не разобран`));
   });
 });

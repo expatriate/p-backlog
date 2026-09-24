@@ -51,10 +51,10 @@ describe("loadBacklog", () => {
     const loaded = await loadBacklog(root);
     expect(loaded.tasks.map((task) => task.id)).toEqual(["SPA-1"]);
     expect(loaded.errors.map((error) => [error.projectId, error.path.slice(root.length + 1)])).toEqual([
-      ["broken", "broken/project.md"],
-      ["spa", "spa/SPA-2.md"],
-      ["spa", "spa/SPA-3.md"],
-      ["spa", "spa/TI-1.md"],
+      ["broken", join("broken", "project.md")],
+      ["spa", join("spa", "SPA-2.md")],
+      ["spa", join("spa", "SPA-3.md")],
+      ["spa", join("spa", "TI-1.md")],
     ]);
   });
 });

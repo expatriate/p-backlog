@@ -17,7 +17,7 @@ describe("check-cyrillic", () => {
     const result = run(root);
 
     expect(result.status).toBe(1);
-    expect(result.stdout).toContain("src/x.ts:1");
+    expect(result.stdout).toContain(`${join("src", "x.ts")}:1`);
   });
 
   it("та же кириллица в messages.ru.ts и в тесте — код 0", async () => {

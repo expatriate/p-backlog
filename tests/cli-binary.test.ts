@@ -15,7 +15,7 @@ describe("собранный бинарник backlog", () => {
     const home = await makeTempDir();
     const repo = await makeGitRepo(home, "demo-app");
     const env = { ...process.env, ...ISOLATED_GIT_ENV, HOME: home, BACKLOG_DIR: join(home, "store"), LC_ALL: "ru_RU.UTF-8" };
-    const run = (args: string[], input?: string) => spawnSync(cli, args, { cwd: repo, env, input, encoding: "utf8" });
+    const run = (args: string[], input?: string) => spawnSync(process.execPath, [cli, ...args], { cwd: repo, env, input, encoding: "utf8" });
 
     const created = run(["new", "--category", "bug", "--title", "Проверка бинарника"], "- [ ] шаг\n");
     expect(created.status).toBe(0);
