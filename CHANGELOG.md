@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- npm keywords match the GitHub topics, so the package is easier to find in npm search. No code changes.
+
 ## 0.2.0
 
 - Two interface languages: Russian and English (`backlog config language`, RU/EN switch in the web UI).
