@@ -186,14 +186,25 @@ describe("checkBacklog", () => {
     expect(await spa1()).toMatchObject({ source: "src/code.ts:8", anchor: anchorBefore });
   });
 
-  it("строки выше задачи и правка в соседней функции — кандидата нет, source переезжает на новое место задачи", async () => {
-    const { after, spa1, check } = await shiftedFixture(() => "source: src/code.ts:8\n", editAlpha);
+  it("строки выше задачи и правка рядом с ней, но вне её функции — кандидата нет, source переезжает на новое место задачи", async () => {
+    const commentAboveBeta = (code: string) => code.replace("}\n\nexport function beta", "}\n// beta\nexport function beta");
+    const { after, spa1, check } = await shiftedFixture((before) => `source: src/code.ts:8\nanchor: ${anchorOf(before, "src/code.ts:8")}\n`, commentAboveBeta);
 
     const report = await check();
 
     expect(report.candidates).toEqual([]);
     expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-1: source сдвинулся :8 → :12"]);
     expect(await spa1()).toMatchObject({ source: "src/code.ts:12", anchor: anchorOf(after, "src/code.ts:12") });
+  });
+
+  it("задача без якоря, записанная по грязному файлу, — строку не переводим: кандидат остаётся, source не переезжает", async () => {
+    const { spa1, check } = await shiftedFixture(() => "source: src/code.ts:12\n", editBeta);
+
+    const report = await check();
+
+    expect(report.candidates.map((candidate) => candidate.task.id)).toEqual(["SPA-1"]);
+    expect(report.fixed).toEqual([]);
+    expect((await spa1())?.source).toBe("src/code.ts:12");
   });
 
   it("якорь не совпадает с файлом на момент отметки — перевести строки нельзя: кандидат остаётся, якорь не трогается", async () => {

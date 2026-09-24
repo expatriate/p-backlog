@@ -22,6 +22,7 @@ async function currentSource(task: Task, facts: RepoFacts, diffOf: DiffSince): P
   if (commits.length === 0 && !uncommitted) return source;
   const hunks = (await diffOf(path, new Date(mark)))?.hunks ?? null;
   if (hunks === null) return null;
-  if (task.anchor !== undefined && anchorOf(baseText(hunks, text), source) !== task.anchor) return null;
-  return relocatedSource(source, (line) => currentLine(hunks, line));
+  const current = relocatedSource(source, (line) => currentLine(hunks, line));
+  if (task.anchor === undefined) return current === source ? source : null;
+  return anchorOf(baseText(hunks, text), source) === task.anchor ? current : null;
 }
