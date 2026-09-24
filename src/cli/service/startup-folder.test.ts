@@ -60,7 +60,7 @@ describe("startupScript", () => {
 });
 
 describe("startupFolderManager", () => {
-  it("install пишет скрипт в «Автозагрузку» и запускает его через wscript.exe", async () => {
+  it("install пишет скрипт в «Автозагрузку» в UTF-16LE с BOM и запускает его через wscript.exe", async () => {
     const roots = await tempRoots();
     const fake = fakeExec();
     const context = contextFor(roots, fake.exec);
@@ -69,7 +69,22 @@ describe("startupFolderManager", () => {
 
     expect(outcome).toBe("done");
     expect(fake.calls).toEqual([`wscript.exe ${scriptPath(roots.appData)}`]);
-    await expect(readFile(scriptPath(roots.appData), "utf8")).resolves.toBe(startupScript(context));
+    const bytes = await readFile(scriptPath(roots.appData));
+    expect(bytes.subarray(0, 2)).toEqual(Buffer.from([0xff, 0xfe]));
+    expect(bytes.toString("utf16le").slice(1)).toBe(startupScript(context));
+  });
+
+  it("кириллица в путях переживает запись в UTF-16LE: WSH прочитает её обратно, а не как UTF-8 мойбейк", async () => {
+    const roots = await tempRoots();
+    const context = { ...contextFor(roots), home: "C:\\Users\\Дмитрий", backlogRoot: "C:\\Users\\Дмитрий\\backlog" };
+
+    await startupFolderManager(context).install();
+
+    const bytes = await readFile(scriptPath(roots.appData));
+    expect(bytes.subarray(0, 2)).toEqual(Buffer.from([0xff, 0xfe]));
+    const decoded = bytes.toString("utf16le").slice(1);
+    expect(decoded).toContain('env("BACKLOG_DIR") = "C:\\Users\\Дмитрий\\backlog"');
+    expect(decoded).toContain('env("HOME") = "C:\\Users\\Дмитрий"');
   });
 
   it("install при наличии server.pid останавливает прежний процесс и убирает файл PID", async () => {

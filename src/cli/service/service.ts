@@ -37,8 +37,8 @@ export async function fileExists(path: string): Promise<boolean> {
   );
 }
 
-export async function portRecordedIn(file: string, pattern: RegExp): Promise<number | null> {
-  const text = await readFile(file, "utf8").catch((error: NodeJS.ErrnoException) => {
+export async function portRecordedIn(file: string, pattern: RegExp, encoding: BufferEncoding = "utf8"): Promise<number | null> {
+  const text = await readFile(file, encoding).catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT") return "";
     throw error;
   });
