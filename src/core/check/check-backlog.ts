@@ -3,11 +3,11 @@ import { basename, join } from "node:path";
 import { CANDIDATE_EVIDENCE, candidateEvents, candidateGoneEvents, episodeStates, filteredEvents, type CandidateEvidence, type CandidateSighting, type CheckMode, type FilteredSighting } from "../journal/events";
 import type { CoreMessages } from "../messages";
 import { buildIndex } from "../model/graph";
-import { ID_PATTERN, parseId } from "../model/ids";
+import { parseId } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
 import { epicDoneClosure, planEpicClosing, type Closure } from "../model/lifecycle";
 import type { ParseError, Project, Task } from "../model/types";
-import { loadBacklog, type LoadedBacklog } from "../store/load";
+import { loadBacklog, unparsedTasks, type LoadedBacklog } from "../store/load";
 import { appendJournal, readJournal } from "../store/journal";
 import { PROJECT_FILE } from "../store/paths";
 import { referenceCleanup } from "../store/references";
@@ -130,16 +130,12 @@ function goneReferences(task: Task, isGone: (id: string) => boolean): string[] {
 }
 
 function goneTaskCheck(loaded: LoadedBacklog): (id: string) => boolean {
-  const known = new Set([...loaded.tasks.map((task) => task.id), ...unparsedTaskIds(loaded.errors)]);
+  const known = new Set([...loaded.tasks.map((task) => task.id), ...unparsedTasks(loaded.errors).map((task) => task.id)]);
   const loadedPrefixes = new Set(loaded.projects.map((project) => project.prefix));
   return (id) => {
     const prefix = parseId(id)?.prefix;
     return prefix !== undefined && loadedPrefixes.has(prefix) && !known.has(id);
   };
-}
-
-function unparsedTaskIds(errors: readonly ParseError[]): string[] {
-  return errors.map((error) => basename(error.path, ".md")).filter((name) => ID_PATTERN.test(name));
 }
 
 async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, { mode }: CheckRequest): Promise<ProjectReview> {

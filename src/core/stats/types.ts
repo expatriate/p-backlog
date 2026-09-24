@@ -35,7 +35,7 @@ export type ClosingBreakdown = {
   reopened: number;
 };
 
-export type ReportHead = { taskCount: number; journalSince: string | null; invalidJournalLines: number };
+export type ReportHead = { taskCount: number; journalSince: string | null; invalidJournalLines: number; unparsedTasks: number };
 
 export type StatsReport = ReportHead & {
   totals: StatsTotals;

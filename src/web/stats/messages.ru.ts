@@ -36,6 +36,8 @@ export const statsRu = {
 
   invalidJournalLines: (n: number): string =>
     `Не удалось разобрать строк журнала: ${n}. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.`,
+  unparsedTasks: (n: number): string =>
+    `Не удалось разобрать файлов задач: ${n}. Для них в статистике — последний статус из журнала; исправьте файлы, команда backlog check покажет ошибки.`,
   noTasks: "Задач пока нет.",
   projectNotFound: "Проект не найден.",
   loading: "Считаем статистику…",

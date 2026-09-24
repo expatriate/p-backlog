@@ -14,7 +14,7 @@ import { reportBase, type ReportBase, type StatsInput } from "../core/stats/scop
 import { statsSignals } from "../core/stats/signals/signals";
 import type { CodeReport, CostReport, EffectReport, ProjectGraphRow, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
 import { readJournals } from "../core/store/journal";
-import type { LoadedBacklog } from "../core/store/load";
+import { unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/store/load";
 import { cachedRepoRoots, findProjectForRepoRoot, type RepoRootLookup } from "../core/store/resolve-project";
 import { readRuns } from "../core/store/runs";
 import type { UsageCache } from "../core/usage/usage-cache";
@@ -29,12 +29,12 @@ type StatsApiOptions = {
   home: string;
   usage: UsageScanner;
   memory: MemorySampler;
-  backlog: () => Promise<Pick<LoadedBacklog, "projects" | "tasks">>;
+  backlog: () => Promise<Pick<LoadedBacklog, "projects" | "tasks" | "errors">>;
 };
 
 type StatsApi = { routes: Hono; forget: () => void };
 
-type StatsScope = { projectId: string | undefined; projects: Project[]; tasks: Task[] };
+type StatsScope = { projectId: string | undefined; projects: Project[]; tasks: Task[]; unparsedTasks: UnparsedTask[] };
 
 type ScopedReport<R> = (input: StatsInput, base: ReportBase, projects: readonly Project[]) => R | Promise<R>;
 
@@ -56,14 +56,15 @@ export function createStatsApi({ root, now, home, usage, memory, backlog }: Stat
 
   const statsScopeOf = async (c: Context, { wholeBacklog }: { wholeBacklog: boolean }): Promise<StatsScope | Response> => {
     const projectId = c.req.query("project") || undefined;
-    const { projects, tasks } = await backlog();
+    const { projects, tasks, errors } = await backlog();
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
       return c.json({ errors: [serverMessages(await serverLanguage(root)).projectNotFound(projectId)] }, 404);
     }
     const included = (project: Project) => (projectId === undefined ? project.active : wholeBacklog || project.id === projectId);
     const scoped = projects.filter(included);
     const scopedIds = new Set(scoped.map((project) => project.id));
-    return { projectId, projects: scoped, tasks: tasks.filter((task) => scopedIds.has(task.projectId)) };
+    const inScope = (task: { projectId: string }) => scopedIds.has(task.projectId);
+    return { projectId, projects: scoped, tasks: tasks.filter(inScope), unparsedTasks: unparsedTasks(errors).filter(inScope) };
   };
 
   const scopedStats =
@@ -75,7 +76,7 @@ export function createStatsApi({ root, now, home, usage, memory, backlog }: Stat
       const key = [name, scope.projectId ?? "*", formatLocalDay(moment), sourceKey === undefined ? "" : await sourceKey(scope.projects)].join("|");
       const result = await reports.get(key, async () => {
         const journals = await readJournals(root, scope.projects.map((project) => project.id));
-        const input: StatsInput = { tasks: scope.tasks, journals, now: moment, projectId: scope.projectId };
+        const input: StatsInput = { tasks: scope.tasks, journals, now: moment, projectId: scope.projectId, unparsedTasks: scope.unparsedTasks };
         return report(input, reportBase(input), scope.projects);
       });
       return c.json(result);

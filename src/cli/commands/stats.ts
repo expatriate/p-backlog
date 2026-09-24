@@ -3,7 +3,7 @@ import { reportBase } from "../../core/stats/scope";
 import { statsReport } from "../../core/stats/report";
 import { statsSignals } from "../../core/stats/signals/signals";
 import { readJournals } from "../../core/store/journal";
-import { loadBacklog } from "../../core/store/load";
+import { loadBacklog, unparsedTasks } from "../../core/store/load";
 import { readPort } from "../../server/port";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo } from "../io";
@@ -27,7 +27,8 @@ async function runStats(args: string[], io: CliIo): Promise<number> {
 
   const journals = await readJournals(io.backlogRoot, scope.activeIds);
   const inScope = new Set(scope.activeIds);
-  const input = { tasks: loaded.tasks.filter((task) => inScope.has(task.projectId)), journals, now: io.now(), projectId: project?.id };
+  const scoped = (task: { projectId: string }) => inScope.has(task.projectId);
+  const input = { tasks: loaded.tasks.filter(scoped), journals, now: io.now(), projectId: project?.id, unparsedTasks: unparsedTasks(loaded.errors).filter(scoped) };
   const base = reportBase(input);
   const totals = statsReport(input, base).totals;
   const forecast = flowForecast(base.histories, base.openTasks.length, io.now());

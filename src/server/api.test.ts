@@ -216,6 +216,16 @@ describe("GET /api/stats", () => {
     expect(spa.weeks).toHaveLength(12);
   });
 
+  it("неразобранный файл задачи попадает в шапку отчёта своего проекта", async () => {
+    const backlog = await makeTestApp({ ...SAMPLE_FILES, "spa/SPA-9.md": "---\nid: [\n---\n" });
+
+    const spa = (await (await backlog.request("/api/stats?project=spa")).json()) as StatsReport;
+    const all = (await (await backlog.request("/api/stats")).json()) as StatsReport;
+
+    expect(spa.unparsedTasks).toBe(1);
+    expect(all.unparsedTasks).toBe(1);
+  });
+
   it("пустой project — как без параметра, все проекты", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
 

@@ -8,6 +8,15 @@ import { PROJECT_FILE } from "./paths";
 
 export type LoadedBacklog = { projects: Project[]; tasks: Task[]; errors: ParseError[] };
 
+export type UnparsedTask = { projectId: string; id: string };
+
+export function unparsedTasks(errors: readonly ParseError[]): UnparsedTask[] {
+  return errors.flatMap(({ path, projectId }) => {
+    const id = basename(path, ".md");
+    return ID_PATTERN.test(id) ? [{ projectId, id }] : [];
+  });
+}
+
 export async function loadBacklog(root: string): Promise<LoadedBacklog> {
   const projectDirs = (await listDir(root)).filter((entry) => entry.isDirectory() && !entry.name.startsWith("."));
   const parts = await Promise.all(projectDirs.map((entry) => loadProjectDir(join(root, entry.name), entry.name)));

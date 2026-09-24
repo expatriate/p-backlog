@@ -84,6 +84,26 @@ describe("отчёт статистики", () => {
     expect(report.closing.byReason.fixed).toBe(1);
   });
 
+  it("задача с неразобранным файлом не считается закрытой и отмечается в шапке отчёта", () => {
+    const events: JournalEvent[] = [
+      { at: formatLocalIso(at(16)), task: "SPA-7", via: "cli", kind: "created", type: "task", priority: "medium", tags: [] },
+      { at: formatLocalIso(at(17)), task: "SPA-7", via: "cli", kind: "status", from: "backlog", to: "in-progress" },
+    ];
+
+    const report = statsReport({
+      tasks: [],
+      journals: [{ projectId: "spa", events, invalidLines: 0 }],
+      now: at(17, 18),
+      projectId: "spa",
+      unparsedTasks: [{ projectId: "spa", id: "SPA-7" }, { projectId: "ti", id: "TI-3" }],
+    });
+
+    expect(report.unparsedTasks).toBe(1);
+    expect(report.totals).toMatchObject({ closedToday: 0, closedLastWeek: 0 });
+    expect(report.closing.byReason.cancelled).toBe(0);
+    expect(report.weeks.at(-1)).toMatchObject({ closed: 0, openAtEnd: 1 });
+  });
+
   it("пустая область — ноль задач и пустые медианы", () => {
     const report = statsReport({ tasks: [], journals: [], now: NOW });
 

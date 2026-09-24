@@ -2,6 +2,8 @@ import { recordedMethodOf, type CandidateEvidence, type ChangeSource, type Recor
 import { isClosed } from "../model/graph";
 import type { Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
 
+const CREATED_STATUS: TaskStatus = "backlog";
+
 export type Transition = { at: number; from?: TaskStatus | undefined; to: TaskStatus; resolution?: Resolution | undefined; via: ChangeSource | "unknown" };
 
 export type TaskHistory = {
@@ -34,7 +36,7 @@ type Known = {
   filtered: number[];
 };
 
-export function taskHistories(tasks: readonly Task[], journals: readonly ProjectJournal[]): TaskHistory[] {
+export function taskHistories(tasks: readonly Task[], journals: readonly ProjectJournal[], unparsedIds: ReadonlySet<string> = new Set()): TaskHistory[] {
   const known = new Map<string, Known>();
   const entry = (id: string, projectId: string): Known => {
     const existing = known.get(id);
@@ -58,7 +60,7 @@ export function taskHistories(tasks: readonly Task[], journals: readonly Project
       if (event.kind === "verified") item.verifications.push(Date.parse(event.at));
     }
   }
-  return [...known.entries()].flatMap(([id, item]) => historyOf(id, item));
+  return [...known.entries()].flatMap(([id, item]) => historyOf(id, item, unparsedIds.has(id)));
 }
 
 export function isOpenAt(history: TaskHistory, moment: number): boolean {
@@ -85,11 +87,12 @@ export function reopeningsOf(history: TaskHistory): Transition[] {
   return history.transitions.filter((transition) => transition.from !== undefined && isClosed(transition.from) && !isClosed(transition.to));
 }
 
-function historyOf(id: string, { projectId, final, created, categoryEvents, transitions, candidates, verifications, filtered }: Known): TaskHistory[] {
+function historyOf(id: string, { projectId, final, created, categoryEvents, transitions, candidates, verifications, filtered }: Known, unparsed: boolean): TaskHistory[] {
   const createdIso = final?.created ?? created?.at;
   const type = final?.type ?? created?.type;
   if (createdIso === undefined || type === undefined) return [];
   const ordered = [...transitions].sort((a, b) => a.at - b.at);
+  const fateUnknown = final === undefined && unparsed;
   return [
     {
       id,
@@ -98,8 +101,8 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, tran
       createdAt: Date.parse(createdIso),
       source: final?.source ?? created?.source,
       reason: final?.reason,
-      finalStatus: final?.status ?? "cancelled",
-      transitions: [...ordered, ...restoredTransitions(final, ordered, Date.parse(createdIso))],
+      finalStatus: final?.status ?? (fateUnknown ? (ordered.at(-1)?.to ?? CREATED_STATUS) : "cancelled"),
+      transitions: fateUnknown ? ordered : [...ordered, ...restoredTransitions(final, ordered, Date.parse(createdIso))],
       category: categoryOf(final, created, categoryEvents),
       found: created?.found,
       branch: created?.origin?.branch,

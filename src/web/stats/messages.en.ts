@@ -29,6 +29,7 @@ export const statsEn: StatsMessages = {
   tabs: { overview: "Overview", code: "Code", quality: "Quality", effect: "Effect", cost: "Cost" },
 
   invalidJournalLines: (n) => `Could not parse journal lines: ${n}. They are left out of the statistics — check the line format in the project's journal.jsonl.`,
+  unparsedTasks: (n) => `Could not parse task files: ${n}. The statistics use their last status from the journal; fix the files — backlog check shows the errors.`,
   noTasks: "No tasks yet.",
   projectNotFound: "Project not found.",
   loading: "Calculating statistics…",

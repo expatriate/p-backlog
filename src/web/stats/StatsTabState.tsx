@@ -60,10 +60,12 @@ export function StatsTabState<T extends ReportHead>({ query, children }: { query
   const { stats } = useMessages();
   const language = useLanguage();
   const invalidLines = query.data?.invalidJournalLines ?? 0;
+  const unparsedTasks = query.data?.unparsedTasks ?? 0;
+  const warnings = [invalidLines > 0 ? stats.invalidJournalLines(invalidLines) : null, unparsedTasks > 0 ? stats.unparsedTasks(unparsedTasks) : null].filter((text) => text !== null);
   return (
     <>
-      <p className={invalidLines > 0 ? styles.warning : "visually-hidden"} role="status">
-        {invalidLines > 0 && stats.invalidJournalLines(invalidLines)}
+      <p className={warnings.length > 0 ? styles.warning : "visually-hidden"} role="status">
+        {warnings.join(" ")}
       </p>
       <StatsRequestState query={query} emptyMessage={query.data?.taskCount === 0 ? stats.noTasks : null}>
         {(report) => (
