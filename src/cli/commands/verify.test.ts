@@ -86,16 +86,36 @@ describe("backlog verify", () => {
   it("verify задачи, чья строка ушла за конец файла, снимает якорь, и задача перестаёт быть кандидатом", async () => {
     const { run, repo, root } = await makeCliSandbox();
     const lines = Array.from({ length: 10 }, (_, index) => `line ${index + 1}`);
-    await writeFiles(repo, { "src/a.ts": lines.join("\n") });
+    await writeFiles(repo, { "src/a.ts": `${lines.join("\n")}\n` });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
     await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:8"]);
-    await writeFile(join(repo, "src/a.ts"), lines.slice(0, 3).join("\n"));
+    await writeFile(join(repo, "src/a.ts"), `${lines.slice(0, 3).join("\n")}\n`);
     gitCommitAll(repo, "Укоротить файл", "2026-09-17T15:00:00Z");
 
     await run(["verify", "SPA-1"], { now: new Date("2026-09-17T16:00:00Z") });
 
     expect((await loadBacklog(root)).tasks[0]?.anchor).toBeUndefined();
     expect((await run(["check", "--changed"], { now: new Date("2026-09-17T17:00:00Z") })).out).toBe("Беклог в порядке");
+  });
+
+  it("verify без --source после сдвига строк переносит source на новое место задачи, а не якорит соседнюю функцию", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    const before = ['import { a } from "a";', "", "export function alpha() {", '  return "alpha";', "}", "", "export function beta() {", '  return "v1";', "}", ""].join("\n");
+    await writeFiles(repo, { "src/code.ts": before });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Бета", "--source", "src/code.ts:8"]);
+    const imports = ['import { b } from "b";', 'import { c } from "c";', 'import { d } from "d";', 'import { e } from "e";'];
+    const after = [...imports, before.replace('return "v1"', 'return "v2"')].join("\n");
+    await writeFile(join(repo, "src/code.ts"), after);
+    gitCommitAll(repo, "Импорты и правка beta", "2026-09-17T15:00:00Z");
+
+    const checked = JSON.parse((await run(["check", "--json"])).out) as { candidates: { source?: string }[] };
+    const result = await run(["verify", "SPA-1"], { now: new Date("2026-09-17T16:00:00Z") });
+
+    expect(checked.candidates).toEqual([expect.objectContaining({ source: "src/code.ts:12" })]);
+    expect(result.out).toBe("SPA-1: подтверждена, source → src/code.ts:12");
+    expect((await loadBacklog(root)).tasks[0]).toMatchObject({ source: "src/code.ts:12", anchor: expect.stringMatching(/@10-13$/) });
+    expect(after.split("\n").slice(9, 13)).toEqual(["", "export function beta() {", '  return "v2";', "}"]);
   });
 
   it("verify при недоступном файле кода сохраняет прежний якорь", async () => {

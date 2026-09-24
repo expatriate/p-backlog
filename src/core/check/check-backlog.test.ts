@@ -174,7 +174,6 @@ describe("checkBacklog", () => {
   }
 
   const editBeta = (code: string) => code.replace('return "v1"', 'return "v2"');
-  const editAlpha = (code: string) => code.replace('return "alpha"', 'return "ALPHA"');
 
   it("строки выше задачи и правка в её функции — кандидат остаётся, якорь не переезжает на соседнюю функцию", async () => {
     const { spa1, check } = await shiftedFixture((before) => `source: src/code.ts:8\nanchor: ${anchorOf(before, "src/code.ts:8")}\n`, editBeta);
@@ -182,7 +181,9 @@ describe("checkBacklog", () => {
 
     const report = await check();
 
-    expect(report.candidates).toEqual([expect.objectContaining({ task: expect.objectContaining({ id: "SPA-1" }), method: "symbol", snippet: expect.stringContaining('   12│   return "v2";') })]);
+    expect(report.candidates).toEqual([
+      expect.objectContaining({ task: expect.objectContaining({ id: "SPA-1" }), method: "symbol", source: "src/code.ts:12", snippet: expect.stringContaining('   12│   return "v2";') }),
+    ]);
     expect(await spa1()).toMatchObject({ source: "src/code.ts:8", anchor: anchorBefore });
   });
 

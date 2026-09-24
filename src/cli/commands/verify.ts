@@ -1,8 +1,7 @@
 import { parseArgs } from "node:util";
-import { sourceAnchor } from "../../core/check/project-repo";
+import { relocatedSource, sourceAnchor } from "../../core/check/project-repo";
 import { formatLocalIso } from "../../core/model/dates";
 import { isClosed } from "../../core/model/graph";
-import type { Task } from "../../core/model/types";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
@@ -42,14 +41,12 @@ async function verifyOne(id: string, { loaded, source, write, io }: Verification
     return EXIT.refused;
   }
 
-  const anchor = await anchorFor(loaded, task, source ?? task.source, io);
-  const written = await write(task, { verified: formatLocalIso(io.now()), source, anchor });
-  if (!written.ok) return written.exitCode;
-  io.print(source === undefined ? cli.verified(id) : cli.verifiedWithSource(id, source));
-  return EXIT.ok;
-}
-
-async function anchorFor(loaded: LoadedBacklog, task: Task, source: string | undefined, io: CliIo): Promise<string | null | undefined> {
   const project = projectOf(loaded, task);
-  return project === undefined || source === undefined ? undefined : sourceAnchor(project, source, io.home);
+  const target = source ?? (project === undefined ? undefined : await relocatedSource(project, task, io.home));
+  const anchored = target ?? task.source;
+  const anchor = project === undefined || anchored === undefined ? undefined : await sourceAnchor(project, anchored, io.home);
+  const written = await write(task, { verified: formatLocalIso(io.now()), source: target, anchor });
+  if (!written.ok) return written.exitCode;
+  io.print(target === undefined ? cli.verified(id) : cli.verifiedWithSource(id, target));
+  return EXIT.ok;
 }

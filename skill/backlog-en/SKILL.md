@@ -133,6 +133,9 @@ When: the hook message "code changed for tasks since the last check", a request 
    changes since the last check (when cut short, `diffOmittedLines` says how many lines are not shown).
    That's usually enough: decide from them without calling `show`, `grep`, or `git show`. Read the task (`backlog show <ID>`) and the whole file only when `snippet` and `diff`
    aren't enough to tell; for `duplicate` and `no-source` always read the task.
+   If the candidate has a `source` field, the task's lines have shifted: that is its place in the current
+   file, and `snippet` is shown around it. When the problem is still there — `backlog verify <ID> --source
+   <that source>`.
 3. Decide:
 
    | What the code shows | Command |

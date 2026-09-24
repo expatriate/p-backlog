@@ -207,11 +207,13 @@ async function withContext(candidate: Candidate, tasksById: ReadonlyMap<string, 
   const task = tasksById.get(candidate.task.id);
   if (task === undefined) return candidate;
   const text = facts.texts.get(candidate.path);
-  const source = located.get(task.id) ?? task.source;
+  const current = located.get(task.id) ?? undefined;
+  const source = current ?? task.source;
   const snippet = text === undefined || source === undefined ? undefined : snippetOf(text, source);
   const excerpt = (await diffOf(candidate.path, new Date(reviewMark(task))))?.excerpt;
   const problem = firstParagraph(task.body);
-  return { ...candidate, ...(problem === undefined ? {} : { problem }), ...(snippet === undefined ? {} : { snippet }), ...diffFields(excerpt) };
+  const moved = current === undefined || current === task.source ? {} : { source: current };
+  return { ...candidate, ...moved, ...(problem === undefined ? {} : { problem }), ...(snippet === undefined ? {} : { snippet }), ...diffFields(excerpt) };
 }
 
 function diffFields(excerpt: DiffExcerpt | undefined): { diff?: string; diffOmittedLines?: number } {

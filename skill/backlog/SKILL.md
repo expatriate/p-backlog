@@ -124,6 +124,8 @@ description: Use when, while working on code, you notice a problem outside the c
    обрезанного `diffOmittedLines` — сколько строк не показано). Обычно этого хватает: реши по ним, не вызывая
    `show`, `grep` и `git show`. Читай задачу (`backlog show <ID>`) и код целиком,
    только если по `snippet` и `diff` не понять; у `duplicate` и `no-source` читай задачи всегда.
+   Если у кандидата есть поле `source` — строки задачи сдвинулись, это её место в текущем файле, и `snippet`
+   показан по нему. Подтверждаешь проблему — `backlog verify <ID> --source <этот source>`.
 3. Реши:
 
    | Что видно в коде | Команда |
