@@ -64,10 +64,8 @@ export async function scanTranscripts({ files, cache, byteBudget }: ScanTranscri
     const scanned = await scanChunk(file, start, chunkSize, byteBudget);
     const unmoved = resumable && scanned.offset === previous.offset;
     resultFiles[file.path] = { ...scanned, fingerprint: unmoved ? previous.fingerprint : await fingerprintOf(file.path, scanned.offset) };
-    if (chunkSize > 0) {
-      remainingBudget -= chunkSize;
-      await yieldToEventLoop();
-    }
+    if (chunkSize > 0) remainingBudget -= chunkSize;
+    await yieldToEventLoop();
   }
 
   return {

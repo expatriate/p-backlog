@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
@@ -47,5 +47,25 @@ describe("startServer", () => {
 
     const after = await startServer({ root: join(home, "backlog-after"), port, home, env: {} });
     await after.close();
+  });
+
+  it("провалившийся listen не оставляет фоновый скан — кеш не пишется в обречённый root", async () => {
+    const home = await makeTempDir();
+    const claudeConfigDir = join(home, ".claude");
+    const transcriptsDir = join(claudeConfigDir, "projects", "demo");
+    await mkdir(transcriptsDir, { recursive: true });
+    const line = JSON.stringify({ type: "assistant", timestamp: "2026-09-19T09:00:00.000Z", cwd: "/x", message: { model: "claude-opus-5", usage: { input_tokens: 1, output_tokens: 1 } } });
+    await writeFile(join(transcriptsDir, "a.jsonl"), `${line}\n`);
+
+    const first = await startServer({ root: join(home, "backlog-1"), port: 0, home, env: {} });
+    try {
+      const doomedRoot = join(home, "backlog-2");
+      await expect(startServer({ root: doomedRoot, port: first.port, home, env: { CLAUDE_CONFIG_DIR: claudeConfigDir } })).rejects.toThrow();
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await expect(access(join(doomedRoot, ".usage-cache.json"))).rejects.toThrow();
+    } finally {
+      await first.close();
+    }
   });
 });

@@ -37,22 +37,25 @@ export async function startServer({ root, port, home, env, pidFile }: StartServe
 
   const app = createApp({ root, changes, allowedHosts: hostsForActualPort, home, usage, memory, staticDir: join(import.meta.dirname, "web") });
 
-  usage.start();
-  memory.start();
-
   const sweepAll = async (now: Date): Promise<SweepReport> => {
     const language = await serverLanguage(root);
     await trimRuns(root, now).catch((error: unknown) => process.stderr.write(`${serverMessages(language).runsTrimFailed(errorText(error))}\n`));
     return sweepClosed(root, now, coreMessages(language));
   };
 
-  const stopSweeper = startSweeper({
-    sweep: () => sweepAll(new Date()),
-    intervalMs: SWEEP_INTERVAL_MS,
-    log: (line) => process.stdout.write(`${line}\n`),
-    warn: (line) => process.stderr.write(`${line}\n`),
-    messages: readMessages,
-  });
+  let stopSweeper: () => Promise<void> = () => Promise.resolve();
+
+  const startBackground = (): void => {
+    usage.start();
+    memory.start();
+    stopSweeper = startSweeper({
+      sweep: () => sweepAll(new Date()),
+      intervalMs: SWEEP_INTERVAL_MS,
+      log: (line) => process.stdout.write(`${line}\n`),
+      warn: (line) => process.stderr.write(`${line}\n`),
+      messages: readMessages,
+    });
+  };
 
   const stopBackground = async (): Promise<void> => {
     await usage.stop();
@@ -103,6 +106,7 @@ export async function startServer({ root, port, home, env, pidFile }: StartServe
     const server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port }, (info) => {
       listening = true;
       for (const host of localHosts(info.port)) hostsForActualPort.add(host);
+      startBackground();
       process.stdout.write(startupMessages.serverStarted(info.port, root));
       void finish(info.port).catch(onPidFileError);
     });
