@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.4
+
+- A clearer description on npm and GitHub, and a rewritten README introduction: out-of-scope fixes stay out of pull requests, audit findings don't get lost, tasks keep the context the agent needs. No code changes.
+
 ## 0.2.3
 
 - README: screenshots of the task list, a task card and statistics (English UI in README.md, Russian UI in README.ru.md), generated from fictional demo data with `npm run screenshots`. No code changes.
