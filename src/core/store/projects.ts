@@ -1,8 +1,8 @@
-import { rm } from "node:fs/promises";
+import { access, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { Problem } from "../model/problems";
-import type { Project } from "../model/types";
+import type { ParseResult, Project } from "../model/types";
 import { withFileLock } from "./file-lock";
 import { readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { PROJECT_FILE, projectDir } from "./paths";
@@ -29,18 +29,21 @@ export async function reserveIssuedUpTo(project: Pick<Project, "id" | "path">, n
   return edited.ok;
 }
 
-export async function issuedUpToOnDisk({ id, path }: Pick<Project, "id" | "path">): Promise<number> {
-  const text = await readTextOrNull(path);
-  const parsed = text === null ? null : parseProjectFile(text, { id, path });
+export async function issuedUpToOnDisk(project: Pick<Project, "id" | "path">): Promise<number> {
+  const parsed = await readProjectFile(project);
   return parsed?.ok === true ? (parsed.value.issuedUpTo ?? 0) : 0;
 }
 
+export async function readProjectFile({ id, path }: Pick<Project, "id" | "path">): Promise<ParseResult<Project> | null> {
+  const text = await readTextOrNull(path);
+  return text === null ? null : parseProjectFile(text, { id, path });
+}
+
 async function editProjectFile({ id, path }: Pick<Project, "id" | "path">, edit: (project: Project) => Project): Promise<ProjectWriteResult> {
-  if ((await readTextOrNull(path)) === null) return NOT_FOUND;
+  if (!(await access(path).then(() => true, () => false))) return NOT_FOUND;
   return withFileLock(path, async () => {
-    const text = await readTextOrNull(path);
-    if (text === null) return NOT_FOUND;
-    const parsed = parseProjectFile(text, { id, path });
+    const parsed = await readProjectFile({ id, path });
+    if (parsed === null) return NOT_FOUND;
     if (!parsed.ok) return { ok: false, reason: "invalid", problems: parsed.problems };
     const project = edit(parsed.value);
     if (project !== parsed.value) await writeFileAtomic(path, serializeProject(project));

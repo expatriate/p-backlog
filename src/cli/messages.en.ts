@@ -129,6 +129,7 @@ export const cliEn: CliMessages = {
 
   hookUsage: (stopEvent) => `${stopEvent}   (for the Stop hook in Claude Code, reads the event from stdin)`,
   sessionShownReadFailed: (error) => `Could not read the tasks already shown this session: ${error}`,
+  sessionShownWriteFailed: (error) => `Could not remember the tasks shown this session: ${error}`,
   alertsComputeFailed: (error) => `Could not compute alerts: ${error}`,
   alertsShownWriteFailed: (error) => `Could not save the shown alerts: ${error}`,
 

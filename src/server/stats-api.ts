@@ -15,7 +15,7 @@ import { statsSignals } from "../core/stats/signals/signals";
 import type { CodeReport, CostReport, EffectReport, ProjectGraphRow, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
 import { readJournals } from "../core/store/journal";
 import { unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/store/load";
-import { cachedRepoRoots, findProjectForRepoRoot, type RepoRootLookup } from "../core/store/resolve-project";
+import { cachedRepoRoots, findProjectForRoots, type GitRoots, type RepoRootLookup } from "../core/store/resolve-project";
 import { readRuns } from "../core/store/runs";
 import type { UsageCache } from "../core/usage/usage-cache";
 import { serverLanguage, serverMessages } from "./messages";
@@ -99,10 +99,10 @@ export function createStatsApi({ root, now, home, usage, memory, backlog }: Stat
     const { cache, scan } = usage.snapshot();
     const buckets = bucketsOf(cache);
     const runs = await readRuns(root);
-    const repoRoots = projectId === undefined ? new Map<string, string | null>() : await resolveRepoRoots(lookupRepoRoot, [...buckets, ...runs].map((entry) => entry.cwd));
+    const repoRoots = projectId === undefined ? new Map<string, GitRoots | null>() : await resolveRepoRoots(lookupRepoRoot, [...buckets, ...runs].map((entry) => entry.cwd));
     const projectOf = (cwd: string) => {
-      const repoRoot = repoRoots.get(cwd) ?? null;
-      return repoRoot === null ? null : (findProjectForRepoRoot(projects, repoRoot, home)?.id ?? null);
+      const roots = repoRoots.get(cwd) ?? null;
+      return roots === null ? null : (findProjectForRoots(projects, roots, home)?.id ?? null);
     };
     return costReport({ buckets, runs, projectOf, projectId, now: now(), scan });
   };
@@ -132,7 +132,7 @@ function bucketsOf(cache: UsageCache) {
   return Object.values(cache.files).flatMap((entry) => entry.buckets);
 }
 
-async function resolveRepoRoots(lookupRepoRoot: RepoRootLookup, cwds: readonly string[]): Promise<Map<string, string | null>> {
+async function resolveRepoRoots(lookupRepoRoot: RepoRootLookup, cwds: readonly string[]): Promise<Map<string, GitRoots | null>> {
   const unique = [...new Set(cwds)];
   return new Map(await Promise.all(unique.map(async (cwd) => [cwd, await lookupRepoRoot(cwd)] as const)));
 }

@@ -153,6 +153,7 @@ export const cliRu = {
 
   hookUsage: (stopEvent: string): string => `${stopEvent}   (для хука Stop в Claude Code, событие читается из stdin)`,
   sessionShownReadFailed: (error: string): string => `Не удалось прочитать показанные задачи сессии: ${error}`,
+  sessionShownWriteFailed: (error: string): string => `Не удалось запомнить показанные задачи сессии: ${error}`,
   alertsComputeFailed: (error: string): string => `Не удалось посчитать тревоги: ${error}`,
   alertsShownWriteFailed: (error: string): string => `Не удалось сохранить показанные тревоги: ${error}`,
 

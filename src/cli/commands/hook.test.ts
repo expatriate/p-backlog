@@ -32,15 +32,15 @@ describe("backlog hook stop", () => {
     expect(journal.events).toContainEqual(expect.objectContaining({ kind: "candidate", mode: "changed", via: "check" }));
   });
 
-  it("в git worktree вне основного репозитория проверяет задачи проекта основного", async () => {
+  it("в git worktree вне основного репозитория видит правку, закоммиченную в этом worktree", async () => {
     const { run, repo, home } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n" });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
     await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
-    await writeFile(join(repo, "src/a.ts"), "2\n");
-    gitCommitAll(repo, "Поправить таймаут", "2026-09-18T10:00:00Z");
     const worktree = join(home, "projects/spa-feature");
     gitAddWorktree(repo, worktree, "feature");
+    await writeFile(join(worktree, "src/a.ts"), "2\n");
+    gitCommitAll(worktree, "Поправить таймаут", "2026-09-18T10:00:00Z");
 
     const result = await run(["hook", "stop"], { stdin: JSON.stringify({ session_id: "s", cwd: worktree, hook_event_name: "Stop", stop_hook_active: false }) });
 
@@ -85,6 +85,22 @@ describe("backlog hook stop", () => {
 
     expect(result.decision).toBe("block");
     expect(result.systemMessage).toBe("Беклог spa: Срочные задачи ждут дольше 7 дней: 1");
+  });
+
+  it("занятая память сессии не отменяет блокировку: код 0, решение напечатано, предупреждение в stderr", { timeout: 20_000 }, async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Правка", "2026-09-18T10:00:00Z");
+    await writeFile(join(root, "spa", "..candidates-shown.json.lock"), "другой хук");
+
+    const result = await run(["hook", "stop"], { stdin: JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false }) });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(JSON.parse(result.out)).toMatchObject({ decision: "block" });
+    expect(result.err).toContain("Не удалось запомнить показанные задачи сессии");
   });
 
   it("нечитаемый журнал не роняет хук: тревог нет, предупреждение в stderr", async () => {

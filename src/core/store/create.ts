@@ -10,7 +10,7 @@ import type { OptionalFields, Project, Task } from "../model/types";
 import { createFileAtomic, hasErrorCode, listDir, readTextOrNull } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { PROJECT_FILE, taskFileName } from "./paths";
-import { issuedUpToOnDisk } from "./projects";
+import { issuedUpToOnDisk, readProjectFile } from "./projects";
 import { taskText } from "./task-text";
 import { invalid, type CreateTaskResult } from "./write-result";
 
@@ -55,7 +55,7 @@ export async function createProject(root: string, repoRoot: string, existingProj
   const name = basename(repoRoot);
   const entries = await listDir(root);
   const id = deriveProjectId(name, new Set(entries.map((entry) => entry.name)));
-  const prefixesOnDisk = await Promise.all(entries.filter((entry) => entry.isDirectory()).map((entry) => taskPrefixes(join(root, entry.name))));
+  const prefixesOnDisk = await Promise.all(entries.filter((entry) => entry.isDirectory()).map((entry) => takenPrefixes(join(root, entry.name))));
   const prefix = derivePrefix(name, new Set([...existingProjects.map((project) => project.prefix), ...prefixesOnDisk.flat()]));
   const dir = join(root, id);
   await mkdir(dir, { recursive: true });
@@ -74,8 +74,7 @@ export async function createProject(root: string, repoRoot: string, existingProj
 }
 
 async function projectOfRepo(id: string, path: string, repoRoot: string): Promise<Project | null> {
-  const text = await readTextOrNull(path);
-  const parsed = text === null ? null : parseProjectFile(text, { id, path });
+  const parsed = await readProjectFile({ id, path });
   return parsed?.ok === true && parsed.value.repos.includes(repoRoot) ? parsed.value : null;
 }
 
@@ -91,8 +90,11 @@ async function maxTaskNumber(dir: string, prefix: string): Promise<number> {
   return Math.max(0, ...numbers);
 }
 
-async function taskPrefixes(dir: string): Promise<string[]> {
-  return (await taskFileIds(dir)).map((parsed) => parsed.prefix);
+const PREFIX_LINE = /^prefix:\s*["']?([A-Z][A-Z0-9]*)/m;
+
+async function takenPrefixes(dir: string): Promise<string[]> {
+  const declared = PREFIX_LINE.exec((await readTextOrNull(join(dir, PROJECT_FILE))) ?? "")?.[1];
+  return [...(declared === undefined ? [] : [declared]), ...(await taskFileIds(dir)).map((parsed) => parsed.prefix)];
 }
 
 async function taskFileIds(dir: string): Promise<ParsedId[]> {

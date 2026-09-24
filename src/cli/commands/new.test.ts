@@ -143,6 +143,21 @@ describe("backlog new", () => {
     expect(await readdir(root)).not.toContain("spa-2");
   });
 
+  it("якорь --source из git worktree считается по файлу этого worktree, а не основного checkout", async () => {
+    const { run, root, repo, home } = await makeCliSandbox();
+    await writeFiles(repo, { "a.ts": "x" });
+    gitCommitAll(repo, "начало", "2026-09-17T10:00:00+03:00");
+    await run(["new", "--category", "bug", "--title", "Первая", "--source", "a.ts:1"]);
+    const worktree = join(home, "projects/spa-feature");
+    gitAddWorktree(repo, worktree, "feature");
+    await writeFiles(worktree, { "a.ts": "x\ny\nz\n" });
+    gitCommitAll(worktree, "ветка", "2026-09-17T11:00:00+03:00");
+
+    await run(["new", "--category", "bug", "--title", "Только в ветке", "--source", "a.ts:3"], { cwd: worktree });
+
+    expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-2")?.anchor).toBeDefined();
+  });
+
   it("из git worktree вне основного репозитория пишет в проект основного, а не создаёт новый", async () => {
     const { run, root, repo, home } = await makeCliSandbox();
     await writeFiles(repo, { "a.ts": "x" });
@@ -155,6 +170,16 @@ describe("backlog new", () => {
 
     expect(result).toEqual({ code: EXIT.ok, out: `SPA-2 ${join(root, "spa/SPA-2.md")}`, err: "" });
     expect((await loadBacklog(root)).projects.map((project) => project.id)).toEqual(["spa"]);
+  });
+
+  it("битый project.md чужого репозитория не мешает завести проект, а его префикс не повторяется", async () => {
+    const { run, root } = await makeCliSandbox();
+    await writeFiles(root, { "other/project.md": "---\nname: other\nprefix: SPA\nrepos: [/work/other\n---\n" });
+
+    const result = await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
+
+    expect(result.code).toBe(EXIT.ok);
+    expect((await loadBacklog(root)).projects).toEqual([expect.objectContaining({ id: "spa", prefix: "SPA2" })]);
   });
 
   it("неизвестные категория и «как найдена» — код 1", async () => {

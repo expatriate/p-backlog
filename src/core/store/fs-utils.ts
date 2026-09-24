@@ -108,8 +108,12 @@ export async function removeTemporariesBefore(dir: string, cutoff: Date): Promis
   }
 }
 
+export function temporaryPathFor(path: string): string {
+  return join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
+}
+
 async function viaTemporaryFile(path: string, content: string, publish: (temporary: string) => Promise<void>): Promise<void> {
-  const temporary = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
+  const temporary = temporaryPathFor(path);
   try {
     await writeFile(temporary, content, "utf8");
     await publish(temporary);

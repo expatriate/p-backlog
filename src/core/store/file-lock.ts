@@ -19,26 +19,39 @@ export class FileBusyError extends Error {
   }
 }
 
+type HeldLock = { path: string; lock: string; token: string };
+
 export async function withFileLock<T>(path: string, action: () => Promise<T>): Promise<T> {
-  const lock = join(dirname(path), `.${basename(path)}.lock`);
-  const token = `${process.pid} ${randomUUID()}`;
-  await acquire(lock, path, token);
+  const held = await acquire(path);
   try {
     return await action();
   } finally {
-    await releaseOwn(lock, token);
+    await release(held);
   }
 }
 
-export async function withFileLocks<T>(paths: readonly string[], action: () => Promise<T>): Promise<T> {
-  const [first, ...rest] = [...paths].sort();
-  return first === undefined ? action() : withFileLock(first, () => withFileLocks(rest, action));
+export async function withAvailableLocks<T>(paths: readonly string[], action: (locked: ReadonlySet<string>) => Promise<T>): Promise<T> {
+  const held: HeldLock[] = [];
+  try {
+    for (const path of [...paths].sort()) {
+      try {
+        held.push(await acquire(path));
+      } catch (error) {
+        if (!(error instanceof FileBusyError)) throw error;
+      }
+    }
+    return await action(new Set(held.map(({ path }) => path)));
+  } finally {
+    for (const lock of held) await release(lock);
+  }
 }
 
-async function acquire(lock: string, path: string, token: string): Promise<void> {
+async function acquire(path: string): Promise<HeldLock> {
+  const lock = join(dirname(path), `.${basename(path)}.lock`);
+  const token = `${process.pid} ${randomUUID()}`;
   const giveUpAt = Date.now() + WAIT_LIMIT_MS;
   for (;;) {
-    if (await tryCreate(lock, token)) return;
+    if (await tryCreate(lock, token)) return { path, lock, token };
     const abandoned = await abandonedToken(lock);
     if (abandoned !== null && (await breakAbandoned(lock, abandoned))) continue;
     if (Date.now() > giveUpAt) throw new FileBusyError(path, lock, WAIT_LIMIT_MS / 1000);
@@ -80,6 +93,6 @@ async function breakAbandoned(lock: string, abandoned: string): Promise<boolean>
   }
 }
 
-async function releaseOwn(lock: string, token: string): Promise<void> {
+async function release({ lock, token }: HeldLock): Promise<void> {
   if ((await readTextOrNull(lock)) === token) await rm(lock, { force: true });
 }

@@ -37,7 +37,7 @@ async function runHook(args: string[], io: CliIo): Promise<number> {
   const project = findProjectForDir(loaded.projects, event.cwd, io.home);
   if (!project) return EXIT.ok;
   const messages = coreMessages(io.language);
-  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home, messages });
+  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home, messages, workingDir: event.cwd });
   const lowPriority = new Set(loaded.tasks.filter((task) => task.priority === "low").map((task) => task.id));
   const worthTelling = candidates.filter((candidate) => !lowPriority.has(candidate.task.id));
   const lowCount = candidates.length - worthTelling.length;
@@ -66,7 +66,7 @@ async function sessionMemory(project: Project, session: string | undefined, io: 
     return {
       told: new Set(await readSessionShown(projectDir, session)),
       remember: async (ids) => {
-        if (ids.length > 0) await rememberSessionShown(projectDir, session, ids, io.now());
+        if (ids.length > 0) await rememberSessionShown(projectDir, session, ids, io.now()).catch((error: unknown) => io.warn(cliMessages(io.language).sessionShownWriteFailed(errorText(error))));
       },
     };
   } catch (error) {

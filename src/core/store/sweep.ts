@@ -1,18 +1,18 @@
 import { dirname, join } from "node:path";
-import { buildIndex, isClosed } from "../model/graph";
+import { buildIndex, isClosed, type BacklogIndex } from "../model/graph";
 import { parseId } from "../model/ids";
 import type { CoreMessages } from "../messages";
 import { DAY_MS, epicDoneClosure, isExpired, planEpicClosing } from "../model/lifecycle";
 import { deletedEvent } from "../journal/events";
 import type { Problem } from "../model/problems";
 import type { Project, Task } from "../model/types";
-import { FileBusyError, withFileLocks } from "./file-lock";
+import { FileBusyError, withAvailableLocks } from "./file-lock";
 import { contentVersion, listDir, readTextOrNull, removeIfUnchanged, removeTemporariesBefore } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { loadBacklog, type LoadedBacklog } from "./load";
 import { reserveIssuedUpTo } from "./projects";
 import { referenceCleanup } from "./references";
-import { updateTaskInIndex } from "./update";
+import { updateTaskInIndex, type TaskChanges } from "./update";
 import type { UpdateTaskFailure } from "./write-result";
 
 export type SweepReport = {
@@ -57,23 +57,18 @@ async function removeAbandonedTemporaries(root: string, now: Date): Promise<void
 }
 
 async function removeWithReferences(tasks: readonly Task[], removable: readonly Task[], now: Date): Promise<RemovalStep> {
-  const busy = (task: Task): SweepFailure => ({ id: task.id, reason: "conflict" });
-  try {
-    return await withFileLocks(
-      removable.map((task) => task.path),
-      async () => {
-        const unchanged = await unchangedOnDisk(removable);
-        const updates = await repairRemainingTasks(tasks, removable, unchanged, now);
-        const removal = await removeLocked(unchanged.filter((task) => !updates.stillReferenced.has(task.id)), now);
-        const changed = removable.filter((task) => !unchanged.includes(task)).map(busy);
-        return { deleted: removal.deleted, failures: [...updates.failures, ...changed, ...removal.failures] };
-      },
-    );
-  } catch (error) {
-    if (!(error instanceof FileBusyError)) throw error;
-    const updates = await repairRemainingTasks(tasks, removable, [], now);
-    return { deleted: [], failures: [...updates.failures, ...removable.map(busy)] };
-  }
+  const conflict = (task: Task): SweepFailure => ({ id: task.id, reason: "conflict" });
+  return withAvailableLocks(
+    removable.map((task) => task.path),
+    async (lockedPaths) => {
+      const locked = removable.filter((task) => lockedPaths.has(task.path));
+      const unchanged = await unchangedOnDisk(locked);
+      const updates = await repairRemainingTasks(tasks, { skipped: removable, removed: unchanged }, now);
+      const removal = await removeLocked(unchanged.filter((task) => !updates.stillReferenced.has(task.id)), now);
+      const untouched = removable.filter((task) => !unchanged.includes(task)).map(conflict);
+      return { deleted: removal.deleted, failures: [...updates.failures, ...untouched, ...removal.failures] };
+    },
+  );
 }
 
 async function unchangedOnDisk(tasks: readonly Task[]): Promise<Task[]> {
@@ -103,21 +98,33 @@ async function closeCompletedEpics(loaded: LoadedBacklog, now: Date, messages: C
   return { closed, failures, leftOpen, blockingFiles };
 }
 
-async function repairRemainingTasks(tasks: readonly Task[], locked: readonly Task[], expired: readonly Task[], now: Date): Promise<UpdateStep> {
+type Removal = { skipped: readonly Task[]; removed: readonly Task[] };
+
+async function repairRemainingTasks(tasks: readonly Task[], { skipped, removed }: Removal, now: Date): Promise<UpdateStep> {
   const index = buildIndex(tasks);
-  const lockedIds = new Set(locked.map((task) => task.id));
-  const expiredIds = new Set(expired.map((task) => task.id));
+  const skippedIds = new Set(skipped.map((task) => task.id));
+  const removedIds = new Set(removed.map((task) => task.id));
   const failures: SweepFailure[] = [];
   const stillReferenced = new Set<string>();
-  for (const task of tasks.filter((candidate) => !lockedIds.has(candidate.id))) {
-    const cleanup = referenceCleanup(task, (id) => expiredIds.has(id));
+  for (const task of tasks.filter((candidate) => !skippedIds.has(candidate.id))) {
+    const cleanup = referenceCleanup(task, (id) => removedIds.has(id));
     if (cleanup === null && !lacksClosedDate(task)) continue;
-    const result = await updateTaskInIndex(index, { id: task.id, changes: cleanup ?? {}, expectedVersion: task.version, now, via: "sweep" });
-    if (result.ok) continue;
-    failures.push(sweepFailure(task.id, result));
-    for (const id of referencedIds(task)) if (expiredIds.has(id)) stillReferenced.add(id);
+    const failure = await repairFailure(index, task, cleanup ?? {}, now);
+    if (failure === null) continue;
+    failures.push(failure);
+    for (const id of referencedIds(task)) if (removedIds.has(id)) stillReferenced.add(id);
   }
   return { failures, stillReferenced };
+}
+
+async function repairFailure(index: BacklogIndex, task: Task, changes: TaskChanges, now: Date): Promise<SweepFailure | null> {
+  try {
+    const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now, via: "sweep" });
+    return result.ok ? null : sweepFailure(task.id, result);
+  } catch (error) {
+    if (error instanceof FileBusyError) return { id: task.id, reason: "conflict" };
+    throw error;
+  }
 }
 
 function referencedIds(task: Task): string[] {

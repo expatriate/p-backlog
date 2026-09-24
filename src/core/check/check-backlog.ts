@@ -24,7 +24,7 @@ import { openCodeGraph } from "../graph/code-graph";
 
 type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed">;
 
-export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string; messages: CheckTexts };
+export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string; messages: CheckTexts; workingDir?: string | undefined };
 
 export type CheckReport = { fixed: CheckFix[]; problems: CheckProblem[]; candidates: Candidate[] };
 
@@ -41,7 +41,7 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const current = fixes.fixed.length > 0 ? await loadBacklog(root) : loaded;
 
   const projects = current.projects.filter((project) => inScope(project.id));
-  const repos = new Map(await Promise.all(projects.map(async (project) => [project.id, await findRepo(project, request.home)] as const)));
+  const repos = new Map(await Promise.all(projects.map(async (project) => [project.id, await findRepo(project, request.home, request.workingDir)] as const)));
   const reviews = await Promise.all(projects.map((project) => projectReview(project, current.tasks, repos.get(project.id), request)));
   const candidates = reviews.flatMap((review) => review.candidates);
   const moved = await applyAnchorPlans(current.tasks, reviews.flatMap((review) => review.plans), request.now);

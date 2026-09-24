@@ -42,9 +42,9 @@ async function verifyOne(id: string, { loaded, source, write, io }: Verification
   }
 
   const project = projectOf(loaded, task);
-  const target = source ?? (project === undefined ? undefined : await relocatedSource(project, task, io.home));
+  const target = source ?? (project === undefined ? undefined : await relocatedSource(project, task, io.home, io.cwd));
   const anchored = target ?? task.source;
-  const anchor = project === undefined || anchored === undefined ? undefined : await sourceAnchor(project, anchored, io.home);
+  const anchor = project === undefined || anchored === undefined ? undefined : await sourceAnchor(project, anchored, io.home, io.cwd);
   const written = await write(task, { verified: formatLocalIso(io.now()), source: target, anchor });
   if (!written.ok) return written.exitCode;
   io.print(target === undefined ? cli.verified(id) : cli.verifiedWithSource(id, target));

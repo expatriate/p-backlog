@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { coreMessages } from "../messages";
 import { formatLocalIso } from "../model/dates";
 import { createTask } from "./create";
-import { hasErrorCode } from "./fs-utils";
+import { hasErrorCode, temporaryPathFor } from "./fs-utils";
 import { readJournal } from "./journal";
 import { loadBacklog } from "./load";
 import { reserveIssuedUpTo } from "./projects";
@@ -252,8 +252,8 @@ describe("sweepClosed", () => {
 
   it("убирает временные файлы, брошенные упавшей записью больше суток назад, свежие не трогает", async () => {
     const root = await makeTempDir();
-    const abandoned = join(root, "spa/.SPA-1.md.0b6f2a52-6c1e-4f7e-9d3a-2b1c4d5e6f70.tmp");
-    const inFlight = join(root, "spa/.SPA-1.md.1c7a3b63-7d2f-4a8e-8e4b-3c2d5e6f7a81.tmp");
+    const abandoned = temporaryPathFor(join(root, "spa/SPA-1.md"));
+    const inFlight = temporaryPathFor(join(root, "spa/SPA-1.md"));
     await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1") });
     await writeFile(abandoned, "x");
     await writeFile(inFlight, "x");
@@ -266,6 +266,22 @@ describe("sweepClosed", () => {
     expect(await exists(abandoned)).toBe(false);
     expect(await exists(inFlight)).toBe(true);
     expect(await exists(join(root, "spa/SPA-1.md"))).toBe(true);
+  });
+
+  it("занятая задача не мешает удалить остальные просроченные, а ссылки на неё остаются", { timeout: 20_000 }, async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", `status: done\n${EXPIRED}`),
+      "spa/SPA-2.md": taskFile("SPA-2", `status: done\n${EXPIRED}`),
+      "spa/SPA-3.md": taskFile("SPA-3", "related: [SPA-1, SPA-2]\n"),
+      "spa/.SPA-1.md.lock": "другой процесс",
+    });
+
+    const report = await sweepClosed(root, NOW, RU);
+
+    expect(report).toMatchObject({ deleted: ["SPA-2"], conflicts: ["SPA-1"] });
+    expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-3")?.related).toEqual(["SPA-1"]);
   });
 
   it("неразобранный файл, когда закрывать нечего, в итог не попадает", async () => {
