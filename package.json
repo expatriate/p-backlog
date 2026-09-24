@@ -3,11 +3,21 @@
   "version": "0.2.0",
   "description": "Personal developer backlog for Claude Code: tasks as Markdown files, CLI, Stop hook and a local web UI",
   "keywords": [
-    "backlog",
     "claude-code",
-    "cli",
+    "claude",
+    "anthropic",
+    "ai-agents",
+    "coding-agent",
+    "agent-skills",
+    "backlog",
     "task-management",
-    "markdown"
+    "tech-debt",
+    "todo",
+    "developer-tools",
+    "productivity",
+    "cli",
+    "markdown",
+    "local-first"
   ],
   "homepage": "https://github.com/expatriate/p-backlog#readme",
   "repository": {
