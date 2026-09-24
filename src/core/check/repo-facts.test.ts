@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFile, rename, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { countingGit } from "../git/testing/counting-git";
 import { collectRepoFacts, diffsSince } from "./repo-facts";
 
@@ -108,6 +108,19 @@ describe("diffsSince", () => {
     execFileSync("git", ["config", "diff.shout.textconv", "sed 1d"], { cwd: repo });
 
     expect(await changedLines(repo, "src/upload.ts", new Date("2026-09-11T00:00:00+03:00"))).toEqual([{ from: 10, to: 10 }]);
+  });
+
+  it("база diff — коммит основной линии на момент отметки, а не более свежий по дате коммит слитой позже ветки", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "v1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "fix", { create: true });
+    await writeFile(join(repo, "src/a.ts"), "v2\n");
+    gitCommitAll(repo, "Починить a", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "master");
+    gitMergeNoFastForward(repo, "fix", "2026-09-12T10:00:00+03:00");
+
+    expect(await changedLines(repo, "src/a.ts", new Date("2026-09-11T10:00:00+03:00"))).toEqual([{ from: 1, to: 1 }]);
   });
 
   it("без коммитов до отметки возвращает null", async () => {

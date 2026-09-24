@@ -41,7 +41,7 @@ export function diffsSince(repo: string, git: GitRunner = runGit): DiffSince {
   const diffs = new Map<string, Promise<FileDiff | null>>();
   const baseBefore = (since: Date): Promise<string | null> =>
     remembered(bases, since.getTime(), async () => {
-      const base = (await git(repo, ["rev-list", "-1", `--before=${since.toISOString()}`, "HEAD"]))?.trim() ?? "";
+      const base = (await git(repo, ["rev-list", "-1", "--first-parent", `--before=${since.toISOString()}`, "HEAD"]))?.trim() ?? "";
       return base === "" ? null : base;
     });
   return (path, since) =>
