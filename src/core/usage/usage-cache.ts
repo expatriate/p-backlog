@@ -6,7 +6,7 @@ import { readJsonFile, writeFileAtomic } from "../store/fs-utils";
 
 const USAGE_CACHE_FILE = ".usage-cache.json";
 
-export type UsageCacheEntry = { size: number; offset: number; fingerprint: string; state: TranscriptState; buckets: UsageBucket[] };
+export type UsageCacheEntry = { size: number; mtimeMs?: number | undefined; offset: number; fingerprint: string; state: TranscriptState; buckets: UsageBucket[] };
 export const USAGE_CACHE_VERSION = 6;
 export type UsageCache = { version: typeof USAGE_CACHE_VERSION; files: Record<string, UsageCacheEntry> };
 
@@ -44,6 +44,7 @@ const transcriptStateSchema = z.object({
 
 const usageCacheEntrySchema = z.object({
   size: z.number(),
+  mtimeMs: z.number().optional(),
   offset: z.number(),
   fingerprint: z.string(),
   state: transcriptStateSchema,
