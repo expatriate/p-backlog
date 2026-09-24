@@ -85,6 +85,14 @@ describe("отчёт о стоимости", () => {
     expect(known).toMatchObject({ tokens: 1000, cost: (1000 * 2) / 1_000_000 });
   });
 
+  it("новая модель с id известной как префиксом считается моделью без цены", () => {
+    const buckets = [bucket({ model: "claude-sonnet-5-1", tokens: tokens({ input: 1000 }) })];
+
+    const report = costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
+
+    expect(report.totals).toMatchObject({ cost: null, hasUnpricedTokens: true });
+  });
+
   it("модель без цены вне недели итогов не помечает недельную стоимость как неполную", () => {
     const buckets = [bucket({ model: "claude-unknown-9", slot: slotAt(20) }), bucket({ model: "claude-sonnet-5" })];
 

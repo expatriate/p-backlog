@@ -12,30 +12,40 @@ function priceOf(model: string) {
 }
 
 describe("цены моделей", () => {
-  it("claude-opus-5 — 5 за вход, 25 за выход, 0,5 за чтение кэша", () => {
-    expect(priceOf("claude-opus-5")).toEqual({ input: 5, output: 25, cacheRead: 0.5 });
+  it.each([
+    ["claude-fable-5-1", { input: 10, output: 50, cacheRead: 0.25 }],
+    ["claude-fable-5", { input: 10, output: 50, cacheRead: 1 }],
+    ["claude-mythos-5", { input: 10, output: 50, cacheRead: 1 }],
+    ["claude-opus-5-5", { input: 4, output: 20, cacheRead: 0.2 }],
+    ["claude-opus-5", { input: 5, output: 25, cacheRead: 0.5 }],
+    ["claude-opus-4-8", { input: 5, output: 25, cacheRead: 0.5 }],
+    ["claude-opus-4-7", { input: 5, output: 25, cacheRead: 0.5 }],
+    ["claude-opus-4-6", { input: 5, output: 25, cacheRead: 0.5 }],
+    ["claude-sonnet-5", { input: 2, output: 10, cacheRead: 0.2 }],
+    ["claude-sonnet-4-6", { input: 3, output: 15, cacheRead: 0.3 }],
+    ["claude-haiku-4-5", { input: 1, output: 5, cacheRead: 0.1 }],
+  ])("%s — цена по справочнику", (model, price) => {
+    expect(priceOf(model)).toEqual(price);
   });
 
-  it("claude-opus-5 в быстром режиме — вдвое дороже входа, выхода и чтения кэша", () => {
-    expect(priceOf(fastModel("claude-opus-5"))).toEqual({ input: 10, output: 50, cacheRead: 1 });
+  it("быстрый режим — по своей цене у claude-opus-5 и claude-opus-5-5", () => {
+    expect(priceOf(fastModel("claude-opus-5"))).toMatchObject({ input: 10, output: 50 });
+    expect(priceOf(fastModel("claude-opus-5-5"))).toMatchObject({ input: 8, output: 40 });
   });
 
-  it("быстрый режим не действует на другие модели", () => {
-    expect(priceOf(fastModel("claude-sonnet-5"))).toEqual({ input: 2, output: 10, cacheRead: 0.2 });
+  it("быстрый режим модели без известной быстрой цены — цена неизвестна", () => {
+    expect(priceOf(fastModel("claude-opus-4-8"))).toBeNull();
   });
 
-  it("датированный id ищется по префиксу, модель вне таблицы — null", () => {
-    expect(priceOf("claude-opus-5-20250601")).toEqual({ input: 5, output: 25, cacheRead: 0.5 });
+  it("новая модель с id старой как префиксом не получает цену старой", () => {
+    expect(priceOf("claude-sonnet-5-1")).toBeNull();
+    expect(priceOf("claude-opus-5-6")).toBeNull();
     expect(priceOf("claude-opus-4-5-20251101")).toBeNull();
   });
 
-  it("суффикс [1m] отбрасывается", () => {
+  it("дата в конце id и суффикс [1m] отбрасываются", () => {
+    expect(priceOf("claude-opus-5-5-20260901")).toEqual({ input: 4, output: 20, cacheRead: 0.2 });
     expect(priceOf("claude-sonnet-5[1m]")).toEqual({ input: 2, output: 10, cacheRead: 0.2 });
-  });
-
-  it("более длинный id той же линейки не путается с более коротким", () => {
-    expect(priceOf("claude-fable-5-1")).toEqual({ input: 10, output: 50, cacheRead: 0.25 });
-    expect(priceOf("claude-fable-5")).toEqual({ input: 10, output: 50, cacheRead: 1 });
   });
 
   it("<synthetic> — цена неизвестна", () => {
