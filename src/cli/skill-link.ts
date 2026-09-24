@@ -18,8 +18,12 @@ export function skillSourceDir(repoRoot: string, language: Language): string {
 async function isPBacklogSkill(path: string): Promise<boolean> {
   if (!SKILL_VARIANTS.has(basename(path)) || basename(dirname(path)) !== "skill") return false;
   const manifest = await readTextOrNull(join(dirname(dirname(path)), "package.json"));
-  if (manifest === null) return false;
-  return parseJson(manifest, packageManifestSchema)?.name === "p-backlog";
+  if (manifest !== null) return parseJson(manifest, packageManifestSchema)?.name === "p-backlog";
+  return !(await pathExists(path));
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  return (await lstat(path).catch(() => null)) !== null;
 }
 
 export async function linkSkillFor(language: Language, { skillsDir, repoRoot, platform }: SkillLinkOptions): Promise<SkillLinkResult> {
