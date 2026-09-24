@@ -1,5 +1,13 @@
 import react from "@vitejs/plugin-react";
+import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
+
+// Node 22 omits node:sqlite from builtinModules, so vitest would hand it to Vite to bundle for jsdom.
+const nodeBuiltinsStayExternal: Plugin = {
+  name: "node-builtins-stay-external",
+  enforce: "pre",
+  resolveId: (id) => (id.startsWith("node:") ? { id, external: true } : null),
+};
 
 const FIXTURE_TIME_ZONE = { TZ: "Europe/Moscow" };
 
@@ -21,7 +29,7 @@ export default defineConfig({
         },
       },
       {
-        plugins: [react()],
+        plugins: [react(), nodeBuiltinsStayExternal],
         test: {
           name: "web",
           include: ["src/web/**/*.test.ts", "src/web/**/*.test.tsx"],
