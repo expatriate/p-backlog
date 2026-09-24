@@ -28,6 +28,12 @@ export async function reserveIssuedUpTo(project: Pick<Project, "id" | "path">, n
   return edited.ok;
 }
 
+export async function issuedUpToOnDisk({ id, path }: Pick<Project, "id" | "path">): Promise<number> {
+  const text = await readTextOrNull(path);
+  const parsed = text === null ? null : parseProjectFile(text, { id, path });
+  return parsed?.ok === true ? (parsed.value.issuedUpTo ?? 0) : 0;
+}
+
 async function editProjectFile({ id, path }: Pick<Project, "id" | "path">, edit: (project: Project) => Project): Promise<ProjectWriteResult> {
   const text = await readTextOrNull(path);
   if (text === null) return NOT_FOUND;

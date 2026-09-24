@@ -1,9 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { coreMessages } from "../messages";
 import { createProject, createTask } from "./create";
 import { readJournal } from "./journal";
 import { loadBacklog } from "./load";
+import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 
 const NOW = new Date("2026-09-17T14:50:00Z");
@@ -44,6 +46,22 @@ describe("createTask", () => {
     const result = await createTask(root, { project, input: { title: "После удаления" }, existingTasks: loaded.tasks, now: NOW, via: "cli" });
 
     expect(result.ok && result.task.id).toBe("SPA-8");
+  });
+
+  it("не выдаёт номер задачи, которую sweep удалил после загрузки снимка", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1"),
+      "spa/SPA-2.md": taskFile("SPA-2", "status: done\nclosed: 2026-09-01T10:00:00+03:00\n"),
+    });
+    const { loaded, project } = await loadProject(root, "spa");
+    const sweep = await sweepClosed(root, NOW, coreMessages("ru"));
+
+    const result = await createTask(root, { project, input: { title: "После sweep" }, existingTasks: loaded.tasks, now: NOW, via: "cli" });
+
+    expect(sweep.deleted).toEqual(["SPA-2"]);
+    expect(result.ok && result.task.id).toBe("SPA-3");
   });
 
   it("отклоняет задачу, нарушающую правила, и не создаёт файл", async () => {

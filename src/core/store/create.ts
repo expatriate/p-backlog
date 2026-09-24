@@ -10,6 +10,7 @@ import type { OptionalFields, Project, Task } from "../model/types";
 import { createFileAtomic, hasErrorCode, listDir } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { PROJECT_FILE, taskFileName } from "./paths";
+import { issuedUpToOnDisk } from "./projects";
 import { taskText } from "./task-text";
 import { invalid, type CreateTaskResult } from "./write-result";
 
@@ -66,7 +67,10 @@ export async function createProject(root: string, repoRoot: string, existingProj
 }
 
 async function nextTaskNumber(dir: string, project: Project): Promise<number> {
-  return Math.max(await maxTaskNumber(dir, project.prefix), project.issuedUpTo ?? 0) + 1;
+  // Sweep reserves a number in project.md before deleting its file, so the directory must be listed first.
+  const onDisk = await maxTaskNumber(dir, project.prefix);
+  const reserved = await issuedUpToOnDisk(project);
+  return Math.max(onDisk, reserved, project.issuedUpTo ?? 0) + 1;
 }
 
 async function maxTaskNumber(dir: string, prefix: string): Promise<number> {
