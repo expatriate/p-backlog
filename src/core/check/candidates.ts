@@ -54,8 +54,7 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts): Candi
     return [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.commits, mark) }];
   }
   if (anchor.kind === "same" || anchor.kind === "moved") return [];
-  const commits = commitsAfter(facts.commits, mark).filter((commit) => touches(commit, path));
-  const uncommitted = [...facts.dirtyModifiedAt].some(([file, modifiedAt]) => isWithin(file, path) && modifiedAt > mark);
+  const { commits, uncommitted } = changesSince(facts, path, mark);
   if (anchor.kind === "none" && commits.length === 0 && !uncommitted) return [];
   const byAnchor = anchor.kind === "changed" ? { byAnchor: true } : {};
   return [{ kind: "source-changed", task: taskRef(task), path, commits: commits.slice(0, MAX_COMMITS).map(commitRef), uncommitted, ...byAnchor }];
@@ -71,6 +70,20 @@ function anchorPlan(task: Task, anchor: AnchorState, facts: RepoFacts): AnchorPl
   const text = facts.texts.get(sourcePath(task.source));
   const fresh = text === undefined ? null : anchorOf(text, task.source);
   return fresh === null || fresh === task.anchor ? [] : [{ id: task.id, changes: { anchor: fresh } }];
+}
+
+export function relocationPlan(task: Task, current: string, facts: RepoFacts): AnchorPlan | null {
+  if (task.source === undefined || current === task.source) return null;
+  const text = facts.texts.get(sourcePath(current));
+  const anchor = text === undefined ? null : anchorOf(text, current);
+  if (anchor === null) return null;
+  return { id: task.id, changes: { source: current, anchor }, moved: { kind: "source-moved", taskId: task.id, from: task.source, to: current } };
+}
+
+export function changesSince(facts: RepoFacts, path: string, mark: number): { commits: Commit[]; uncommitted: boolean } {
+  const commits = commitsAfter(facts.commits, mark).filter((commit) => touches(commit, path));
+  const uncommitted = [...facts.dirtyModifiedAt].some(([file, modifiedAt]) => isWithin(file, path) && modifiedAt > mark);
+  return { commits, uncommitted };
 }
 
 function anchorState(task: Task, facts: RepoFacts): AnchorState {

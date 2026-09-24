@@ -2,6 +2,7 @@ import { access, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { FIELD, RECORD, runGit, type GitRunner } from "../git/run";
 import type { LineRange } from "./anchor";
+import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
 
 type FileChange = { path: string; renamedFrom?: string };
 
@@ -31,7 +32,7 @@ export async function collectRepoFacts(repo: string, { since, paths }: { since: 
 
 export type DiffExcerpt = { text: string; omittedLines: number };
 
-type FileDiff = { excerpt: DiffExcerpt | undefined; changed: LineRange[] };
+type FileDiff = { excerpt: DiffExcerpt | undefined; changed: LineRange[]; hunks: Hunk[] | null };
 
 export type DiffSince = (path: string, since: Date) => Promise<FileDiff | null>;
 
@@ -47,7 +48,9 @@ export function diffsSince(repo: string, git: GitRunner = runGit): DiffSince {
     remembered(diffs, `${since.getTime()} ${path}`, async () => {
       const base = await baseBefore(since);
       const diff = base === null ? null : await git(repo, ["diff", "--no-color", base, "--", path]);
-      return diff === null ? null : { excerpt: excerptOf(diff), changed: changedRanges(diff) };
+      if (diff === null) return null;
+      const hunks = parseHunks(diff);
+      return { excerpt: excerptOf(diff), changed: changedRanges(hunks ?? []), hunks };
     });
 }
 
@@ -63,42 +66,6 @@ function excerptOf(diff: string): DiffExcerpt | undefined {
   if (diff.trim() === "") return undefined;
   const lines = diff.trimEnd().split("\n");
   return { text: lines.slice(0, DIFF_LINE_LIMIT).join("\n"), omittedLines: Math.max(0, lines.length - DIFF_LINE_LIMIT) };
-}
-
-const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
-const CHANGE_LINE = /^[-+\\]/;
-
-type ChangeRun = { range: LineRange; added: boolean };
-
-function changedRanges(diff: string): LineRange[] {
-  const ranges: LineRange[] = [];
-  let nextLine: number | null = null;
-  let run: ChangeRun | null = null;
-  for (const line of diff.split("\n")) {
-    if (run !== null && !CHANGE_LINE.test(line)) {
-      ranges.push(run.range);
-      run = null;
-    }
-    const hunk = HUNK_HEADER.exec(line);
-    if (hunk !== null || line.startsWith("diff ")) {
-      nextLine = hunk === null ? null : Number(hunk[1]);
-    } else if (nextLine === null) {
-      continue;
-    } else if (line.startsWith("+")) {
-      run = withAddedLine(run, nextLine);
-      nextLine++;
-    } else if (line.startsWith("-")) {
-      run ??= { range: { from: nextLine - 1, to: nextLine }, added: false };
-    } else if (line.startsWith(" ")) {
-      nextLine++;
-    }
-  }
-  if (run !== null) ranges.push(run.range);
-  return ranges;
-}
-
-function withAddedLine(run: ChangeRun | null, line: number): ChangeRun {
-  return { range: { from: run?.added === true ? run.range.from : line, to: line }, added: true };
 }
 
 async function fileTexts(repo: string, paths: readonly string[]): Promise<Map<string, string>> {

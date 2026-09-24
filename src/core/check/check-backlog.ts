@@ -16,7 +16,8 @@ import type { UpdateTaskFailure } from "../store/write-result";
 import { snippetOf } from "./anchor";
 import type { CheckFix, CheckProblem } from "./findings";
 import { findRepo } from "./project-repo";
-import { codeReview, duplicateCandidates, isReviewable, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
+import { codeReview, duplicateCandidates, isReviewable, relocationPlan, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
+import { currentSources, type CurrentSources } from "./current-source";
 import { collectRepoFacts, diffsSince, type DiffExcerpt, type DiffSince, type RepoFacts } from "./repo-facts";
 import { filterBySymbol, symbolLookup, symbolNames } from "./symbol-filter";
 import { openCodeGraph } from "../graph/code-graph";
@@ -151,23 +152,42 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
   const diffOf = diffsSince(repo);
   const graph = openCodeGraph(repo);
   try {
-    const symbolOf = symbolLookup(repo, graph);
-    const duplicates = mode === "full" ? duplicateCandidates(tasks, symbolNames(symbolOf)) : [];
-    const { kept, filtered } = await filterBySymbol(review.candidates, tasksById, diffOf, symbolOf);
-    const flagged = new Set(kept.map((candidate) => candidate.task.id));
-    const code = await Promise.all(kept.map((candidate) => withContext(candidate, tasksById, facts, diffOf)));
-    return { candidates: mode === "full" ? [...code, ...duplicates] : code, filtered, plans: review.plans.filter((plan) => !flagged.has(plan.id)) };
+    const symbolAt = symbolLookup(repo, graph);
+    const changedIds = new Set(review.candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? [candidate.task.id] : [])));
+    const locating = mode === "full" && graph !== null ? tasks : tasks.filter((task) => changedIds.has(task.id));
+    const located = await currentSources(locating, facts, diffOf);
+    const duplicates = mode === "full" ? duplicateCandidates(tasks, symbolNames(symbolAt, located)) : [];
+    const { kept, filtered } = await filterBySymbol(review.candidates, { tasksById, located, diffOf, symbolAt });
+    const code = await Promise.all(kept.map((candidate) => withContext(candidate, tasksById, located, facts, diffOf)));
+    const plans = settledPlans(review.plans, { kept, filtered, tasksById, located, facts });
+    return { candidates: mode === "full" ? [...code, ...duplicates] : code, filtered, plans };
   } finally {
     graph?.close();
   }
 }
 
-async function withContext(candidate: Candidate, tasksById: ReadonlyMap<string, Task>, facts: RepoFacts, diffOf: DiffSince): Promise<Candidate> {
+type PlanInputs = { kept: readonly Candidate[]; filtered: readonly FilteredSighting[]; tasksById: ReadonlyMap<string, Task>; located: CurrentSources; facts: RepoFacts };
+
+function settledPlans(plans: readonly AnchorPlan[], { kept, filtered, tasksById, located, facts }: PlanInputs): AnchorPlan[] {
+  const flagged = new Set(kept.map((candidate) => candidate.task.id));
+  const relocations = new Map(
+    filtered.flatMap(({ task: id }): [string, AnchorPlan][] => {
+      const task = tasksById.get(id);
+      const current = located.get(id);
+      const plan = task === undefined || current === null || current === undefined ? null : relocationPlan(task, current, facts);
+      return plan === null ? [] : [[id, plan]];
+    }),
+  );
+  return [...plans.filter((plan) => !flagged.has(plan.id) && !relocations.has(plan.id)), ...relocations.values()];
+}
+
+async function withContext(candidate: Candidate, tasksById: ReadonlyMap<string, Task>, located: CurrentSources, facts: RepoFacts, diffOf: DiffSince): Promise<Candidate> {
   if (candidate.kind !== "source-changed") return candidate;
   const task = tasksById.get(candidate.task.id);
   if (task === undefined) return candidate;
   const text = facts.texts.get(candidate.path);
-  const snippet = text === undefined || task.source === undefined ? undefined : snippetOf(text, task.source);
+  const source = located.get(task.id) ?? task.source;
+  const snippet = text === undefined || source === undefined ? undefined : snippetOf(text, source);
   const excerpt = (await diffOf(candidate.path, new Date(reviewMark(task))))?.excerpt;
   const problem = firstParagraph(task.body);
   return { ...candidate, ...(problem === undefined ? {} : { problem }), ...(snippet === undefined ? {} : { snippet }), ...diffFields(excerpt) };

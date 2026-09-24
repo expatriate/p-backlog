@@ -49,6 +49,11 @@ export function findMoved(text: string, source: string, anchor: string): string 
   return withLines(source, span.first + shift, span.context === 0 ? span.last + shift : undefined);
 }
 
+export function relocatedSource(source: string, lineAt: (line: number) => number): string | null {
+  const span = sourceSpan(source);
+  return span === null ? null : withLines(source, lineAt(span.first), span.context === 0 ? lineAt(span.last) : undefined);
+}
+
 export function snippetOf(text: string, source: string): string | undefined {
   const span = sourceSpan(source);
   const lines = fileLines(text);

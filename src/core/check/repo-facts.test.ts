@@ -130,7 +130,7 @@ describe("diffsSince", () => {
 
     const [first, second] = await Promise.all([diffOf("src/upload.ts", since), diffOf("src/upload.ts", since)]);
 
-    expect(first).toEqual({ excerpt: { text: expect.stringMatching(/-один\n\+два/), omittedLines: 0 }, changed: [{ from: 1, to: 1 }] });
+    expect(first).toMatchObject({ excerpt: { text: expect.stringMatching(/-один\n\+два/), omittedLines: 0 }, changed: [{ from: 1, to: 1 }] });
     expect(second).toEqual(first);
     expect(counting.processes()).toBe(2);
   });

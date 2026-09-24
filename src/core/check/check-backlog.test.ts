@@ -149,6 +149,66 @@ describe("checkBacklog", () => {
     expect(events.filter((event) => event.kind === "candidate")).toEqual([]);
   });
 
+  async function shiftedFixture(taskFields: (before: string) => string, edit: (code: string) => string) {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    const before = ['import { a } from "a";', "", "export function alpha() {", '  return "alpha";', "}", "", "export function beta() {", '  return "v1";', "}", "", "export function gamma() {", '  return "gamma";', "}", ""].join("\n");
+    const imports = ['import { b } from "b";', 'import { c } from "c";', 'import { d } from "d";', 'import { e } from "e";'];
+    const after = [...imports, edit(before)].join("\n");
+    await writeFiles(repo, { "src/code.ts": before });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", taskFields(before)) });
+    await writeFile(join(repo, "src/code.ts"), after);
+    gitCommitAll(repo, "Импорты и правка", "2026-09-12T10:00:00+03:00");
+    const symbols = [
+      { name: "alpha", kind: "Function", from: 7, to: 9 },
+      { name: "beta", kind: "Function", from: 11, to: 13 },
+      { name: "gamma", kind: "Function", from: 15, to: 17 },
+    ];
+    await makeGraph(repo, [{ path: "src/code.ts", hash: createHash("sha256").update(after).digest("hex"), symbols }]);
+    const spa1 = async () => (await loadBacklog(root)).tasks.find((item) => item.id === "SPA-1");
+    const check = async () => checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
+    return { after, spa1, check };
+  }
+
+  const editBeta = (code: string) => code.replace('return "v1"', 'return "v2"');
+  const editAlpha = (code: string) => code.replace('return "alpha"', 'return "ALPHA"');
+
+  it("строки выше задачи и правка в её функции — кандидат остаётся, якорь не переезжает на соседнюю функцию", async () => {
+    const { spa1, check } = await shiftedFixture((before) => `source: src/code.ts:8\nanchor: ${anchorOf(before, "src/code.ts:8")}\n`, editBeta);
+    const anchorBefore = (await spa1())?.anchor;
+
+    const report = await check();
+
+    expect(report.candidates).toEqual([expect.objectContaining({ task: expect.objectContaining({ id: "SPA-1" }), bySymbol: true, snippet: expect.stringContaining('   12│   return "v2";') })]);
+    expect(await spa1()).toMatchObject({ source: "src/code.ts:8", anchor: anchorBefore });
+  });
+
+  it("строки выше задачи и правка в соседней функции — кандидата нет, source переезжает на новое место задачи", async () => {
+    const { after, spa1, check } = await shiftedFixture(() => "source: src/code.ts:8\n", editAlpha);
+
+    const report = await check();
+
+    expect(report.candidates).toEqual([]);
+    expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-1: source сдвинулся :8 → :12"]);
+    expect(await spa1()).toMatchObject({ source: "src/code.ts:12", anchor: anchorOf(after, "src/code.ts:12") });
+  });
+
+  it("якорь не совпадает с файлом на момент отметки — перевести строки нельзя: кандидат остаётся, якорь не трогается", async () => {
+    const shiftedSource = (before: string) => {
+      const moved = ['import { b } from "b";', 'import { c } from "c";', 'import { d } from "d";', 'import { e } from "e";', before].join("\n");
+      return `source: src/code.ts:12\nanchor: ${anchorOf(moved, "src/code.ts:12")}\n`;
+    };
+    const { spa1, check } = await shiftedFixture(shiftedSource, editBeta);
+    const anchorBefore = (await spa1())?.anchor;
+
+    const report = await check();
+
+    expect(report.candidates.map((candidate) => candidate.task.id)).toEqual(["SPA-1"]);
+    expect((await spa1())?.anchor).toBe(anchorBefore);
+  });
+
   it("журнал помнит, по какому признаку найден дубль", async () => {
     const { home, root } = await setup();
 

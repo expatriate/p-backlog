@@ -4,7 +4,7 @@ import type { Project, Task } from "../model/types";
 import { sourceRange } from "./anchor";
 import { isReviewable, sourcePath } from "./candidates";
 import { findRepo } from "./project-repo";
-import { fileHash, symbolLookup } from "./symbol-filter";
+import { fileHash, symbolLookup, symbolOfSource } from "./symbol-filter";
 
 export type GraphState = "none" | "unreadable" | "stale" | "fresh";
 
@@ -21,8 +21,8 @@ export function graphHealth(repo: string | undefined, tasks: readonly Task[]): G
   const graph = openCodeGraph(repo);
   if (graph === null) return unusable("unreadable");
   try {
-    const symbolOf = symbolLookup(repo, graph);
-    const resolved = pinned.filter((task) => symbolOf(task) !== null).length;
+    const symbolAt = symbolLookup(repo, graph);
+    const resolved = pinned.filter((task) => symbolOfSource(symbolAt, task.source) !== null).length;
     return { state: isStale(repo, graph, pinned) ? "stale" : "fresh", pinned: pinned.length, resolved };
   } finally {
     graph.close();
