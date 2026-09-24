@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- README: npm, CI, Node and license badges; a section on using p-backlog together with code-review-graph (re-check by symbol). No code changes.
+
 ## 0.2.1
 
 - npm keywords match the GitHub topics, so the package is easier to find in npm search. No code changes.
