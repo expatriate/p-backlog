@@ -7,9 +7,12 @@ import { formatLocalIso } from "../core/model/dates";
 import { appendRun } from "../core/store/runs";
 import { resolveBacklogRoot } from "../core/store/paths";
 import { settledLanguage } from "../core/store/settings";
+import { suppressSqliteExperimentalWarning } from "../core/sqlite-warning";
 import { execProgram } from "./exec";
 import { cliMessages } from "./messages";
 import { commandName, runCli } from "./run";
+
+suppressSqliteExperimentalWarning();
 
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return "";

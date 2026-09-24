@@ -1,6 +1,6 @@
 import { existsSync, realpathSync } from "node:fs";
 import { join } from "node:path";
-import { DatabaseSync, type StatementSync } from "node:sqlite";
+import type { DatabaseSync, StatementSync } from "node:sqlite";
 
 export type GraphSymbol = { qualifiedName: string; from: number; to: number };
 
@@ -24,7 +24,8 @@ type SymbolRow = { qualified_name: string; line_start: number; line_end: number 
 export function openCodeGraph(repo: string): CodeGraph | null {
   let db: DatabaseSync | null = null;
   try {
-    db = new DatabaseSync(join(repo, GRAPH_FILE), { readOnly: true });
+    const { DatabaseSync: SqliteDatabase } = process.getBuiltinModule("node:sqlite");
+    db = new SqliteDatabase(join(repo, GRAPH_FILE), { readOnly: true });
     const meta = readMetadata(db);
     const root = meta.get("repo_root");
     if (meta.get("schema_version") !== SUPPORTED_SCHEMA || root === undefined || realpathSync(root) !== realpathSync(repo)) {

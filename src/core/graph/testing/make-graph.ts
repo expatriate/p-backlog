@@ -1,6 +1,5 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 
 export type GraphFile = { path: string; hash: string; symbols: { name: string; owner?: string; kind: string; from: number; to: number }[] };
 
@@ -10,6 +9,7 @@ export async function makeGraph(
   { schemaVersion = 13, repoRoot = repo }: { schemaVersion?: number; repoRoot?: string } = {},
 ): Promise<void> {
   await mkdir(join(repo, ".code-review-graph"), { recursive: true });
+  const { DatabaseSync } = process.getBuiltinModule("node:sqlite");
   const db = new DatabaseSync(join(repo, ".code-review-graph", "graph.db"));
   db.exec(
     "create table metadata (key text primary key, value text);" +

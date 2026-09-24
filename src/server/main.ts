@@ -1,8 +1,11 @@
 import { errorText } from "../core/errors";
 import { homedir } from "node:os";
 import { resolveBacklogRoot } from "../core/store/paths";
+import { suppressSqliteExperimentalWarning } from "../core/sqlite-warning";
 import { readPort } from "./port";
 import { startServer } from "./start";
+
+suppressSqliteExperimentalWarning();
 
 const home = homedir();
 
