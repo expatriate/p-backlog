@@ -15,7 +15,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: bash scripts/ci-summary-on-failure.sh npx vitest run
+      - run: bash scripts/ci-failure-tail.sh npx vitest run
         shell: bash
       - run: npm run build
       - run: npx playwright install --with-deps chromium
@@ -35,9 +35,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: bash scripts/ci-summary-on-failure.sh npx vitest run
+      - run: bash scripts/ci-failure-tail.sh npx vitest run
         shell: bash
-      - run: bash scripts/ci-summary-on-failure.sh npm run test:package
+      - run: bash scripts/ci-failure-tail.sh npm run test:package
         shell: bash
       - name: Verify systemd unit with systemd-analyze
         if: matrix.os == 'ubuntu-latest'
