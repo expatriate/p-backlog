@@ -35,6 +35,10 @@ export function gitCheckout(repo: string, branch: string, { create = false }: { 
   execFileSync("git", ["checkout", "-q", ...(create ? ["-b"] : []), branch], { cwd: repo, env: { ...process.env, ...ISOLATED_GIT_ENV } });
 }
 
+export function gitAddWorktree(repo: string, path: string, branch: string): void {
+  execFileSync("git", ["worktree", "add", "-q", "-b", branch, path], { cwd: repo, env: { ...process.env, ...ISOLATED_GIT_ENV } });
+}
+
 export async function writeFiles(root: string, files: Record<string, string>): Promise<void> {
   for (const [relativePath, content] of Object.entries(files)) {
     const path = join(root, relativePath);

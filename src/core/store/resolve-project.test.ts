@@ -2,24 +2,33 @@ import { mkdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Project } from "../model/types";
-import { cachedRepoRoots, findProjectForDir, findRepoRoot } from "./resolve-project";
-import { makeGitRepo, makeTempDir } from "./testing/temp-dirs";
+import { cachedRepoRoots, findGitRoots, findProjectForDir } from "./resolve-project";
+import { gitAddWorktree, gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "./testing/temp-dirs";
 
 function project(id: string, repos: string[]): Project {
   return { id, name: id, prefix: id.toUpperCase(), repos, active: true, extra: {}, body: "", path: `/backlog/${id}/project.md` };
 }
 
-describe("findRepoRoot", () => {
+async function repoWithOutsideWorktree() {
+  const home = await makeTempDir();
+  const repo = await makeGitRepo(home, "projects/spa");
+  await writeFiles(repo, { "src/a.ts": "x\n" });
+  gitCommitAll(repo, "начало", "2026-09-17T10:00:00+03:00");
+  const worktree = join(home, "projects/spa-feature");
+  gitAddWorktree(repo, worktree, "feature");
+  return { home, repo, worktree };
+}
+
+describe("findGitRoots", () => {
   it("возвращает корень git-репозитория для вложенной директории", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     const nested = join(repo, "src/components");
     await mkdir(nested, { recursive: true });
-    expect(findRepoRoot(nested)).toBe(repo);
+    expect(findGitRoots(nested)).toEqual({ worktree: repo, main: repo });
   });
 
-  it("возвращает саму директорию вне git", async () => {
-    const dir = await makeTempDir();
-    expect(findRepoRoot(dir)).toBe(dir);
+  it("вне git — null", async () => {
+    expect(findGitRoots(await makeTempDir())).toBeNull();
   });
 });
 
@@ -41,6 +50,12 @@ describe("findProjectForDir", () => {
     const home = await makeTempDir();
     const repo = await makeGitRepo(home, "mono/packages/web");
     expect(findProjectForDir([project("mono", [join(home, "mono")])], repo, home)?.id).toBe("mono");
+  });
+
+  it("из git worktree вне основного репозитория находит проект основного репозитория", async () => {
+    const { home, repo, worktree } = await repoWithOutsideWorktree();
+
+    expect(findProjectForDir([project("spa", [repo])], join(worktree, "src"), home)?.id).toBe("spa");
   });
 
   it("не путает соседние каталоги с общим префиксом имени", async () => {
@@ -83,6 +98,12 @@ describe("cachedRepoRoots", () => {
     expect(await rootOf(nested)).toBe(repo);
     expect(await rootOf(plain)).toBe(plain);
     expect(await rootOf(join(home, "нет"))).toBeNull();
+  });
+
+  it("для git worktree вне основного репозитория отдаёт корень основного", async () => {
+    const { repo, worktree } = await repoWithOutsideWorktree();
+
+    expect(await cachedRepoRoots()(join(worktree, "src"))).toBe(repo);
   });
 
   it("каталог, которого не было, находится после истечения срока кэша, а не остаётся null навсегда", async () => {

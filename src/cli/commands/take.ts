@@ -6,7 +6,7 @@ import { buildIndex, epicChildren, isClosed, openBlockers, type BacklogIndex } f
 import { pickNextTask } from "../../core/model/query";
 import type { Project, Task } from "../../core/model/types";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
-import { findGitRoot, findProjectForRepoRoot } from "../../core/store/resolve-project";
+import { findGitRoots, findProjectForDir } from "../../core/store/resolve-project";
 import { formatTaskRef } from "../format";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
@@ -95,9 +95,9 @@ function isInside(file: string, path: string): boolean {
 }
 
 function repoRelativePath(io: CliIo, project: Project, path: string): string {
-  const gitRoot = findGitRoot(io.cwd);
-  if (gitRoot === null || findProjectForRepoRoot([project], gitRoot, io.home) === undefined) return sourcePath(path);
-  const fromRoot = relative(gitRoot, resolve(realpathSync(io.cwd), sourcePath(path))).split(sep).join("/");
+  const roots = findGitRoots(io.cwd);
+  if (roots === null || findProjectForDir([project], io.cwd, io.home) === undefined) return sourcePath(path);
+  const fromRoot = relative(roots.worktree, resolve(realpathSync(io.cwd), sourcePath(path))).split(sep).join("/");
   const outsideRepo = fromRoot === ".." || fromRoot.startsWith("../");
   return outsideRepo ? sourcePath(path) : fromRoot;
 }

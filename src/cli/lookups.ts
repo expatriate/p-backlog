@@ -4,7 +4,7 @@ import { coreMessages } from "../core/messages";
 import { createProject } from "../core/store/create";
 import type { LoadedBacklog } from "../core/store/load";
 import { PROJECT_FILE } from "../core/store/paths";
-import { findGitRoot, findProjectForDir } from "../core/store/resolve-project";
+import { findGitRoots, findProjectForDir } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
 import { cliMessages } from "./messages";
 
@@ -33,8 +33,8 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
   if (explicitId !== undefined) return requireProject(loaded, io, explicitId);
   const existing = findProject(loaded, io, undefined);
   if (existing) return existing;
-  const gitRoot = findGitRoot(io.cwd);
-  if (gitRoot === null) {
+  const gitRoots = findGitRoots(io.cwd);
+  if (gitRoots === null) {
     io.warn(cliMessages(io.language).notInGitRepo(io.cwd));
     return undefined;
   }
@@ -44,7 +44,7 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
     for (const error of brokenProjectFiles) io.warn(cliMessages(io.language).projectNotCreatedFileUnparsed(error.path, core.problems(error.problems)));
     return undefined;
   }
-  const created = await createProject(io.backlogRoot, gitRoot, loaded.projects);
+  const created = await createProject(io.backlogRoot, gitRoots.main, loaded.projects);
   io.warn(cliMessages(io.language).projectCreated(created.id, created.prefix));
   return created;
 }

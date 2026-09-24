@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { NBSP } from "../../core/i18n/plural";
 import { readJournal } from "../../core/store/journal";
 import { SIGNALS_SHOWN_FILE } from "../../core/store/signals-shown";
-import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitAddWorktree, gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { writeSettings } from "../../core/store/settings";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
@@ -30,6 +30,21 @@ describe("backlog hook stop", () => {
 
     const journal = await readJournal(join(root, "spa"), "spa");
     expect(journal.events).toContainEqual(expect.objectContaining({ kind: "candidate", mode: "changed", via: "check" }));
+  });
+
+  it("в git worktree вне основного репозитория проверяет задачи проекта основного", async () => {
+    const { run, repo, home } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Поправить таймаут", "2026-09-18T10:00:00Z");
+    const worktree = join(home, "projects/spa-feature");
+    gitAddWorktree(repo, worktree, "feature");
+
+    const result = await run(["hook", "stop"], { stdin: JSON.stringify({ session_id: "s", cwd: worktree, hook_event_name: "Stop", stop_hook_active: false }) });
+
+    expect(JSON.parse(result.out)).toMatchObject({ decision: "block", reason: expect.stringContaining("SPA-1") });
   });
 
   it("молчит, если событие не разобрать, у каталога нет проекта или кандидатов нет", async () => {

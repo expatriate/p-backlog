@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
-import { gitCommitAll, makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitAddWorktree, gitCommitAll, makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -141,6 +141,20 @@ describe("backlog new", () => {
     expect(result.code).toBe(EXIT.notFound);
     expect(result.err).toContain(join(root, "spa/project.md"));
     expect(await readdir(root)).not.toContain("spa-2");
+  });
+
+  it("из git worktree вне основного репозитория пишет в проект основного, а не создаёт новый", async () => {
+    const { run, root, repo, home } = await makeCliSandbox();
+    await writeFiles(repo, { "a.ts": "x" });
+    gitCommitAll(repo, "начало", "2026-09-17T10:00:00+03:00");
+    await run(["new", "--category", "bug", "--title", "Первая", "--source", "a.ts:1"]);
+    const worktree = join(home, "projects/spa-feature");
+    gitAddWorktree(repo, worktree, "feature");
+
+    const result = await run(["new", "--category", "bug", "--title", "Из worktree", "--source", "a.ts:1", "--force"], { cwd: worktree });
+
+    expect(result).toEqual({ code: EXIT.ok, out: `SPA-2 ${join(root, "spa/SPA-2.md")}`, err: "" });
+    expect((await loadBacklog(root)).projects.map((project) => project.id)).toEqual(["spa"]);
   });
 
   it("неизвестные категория и «как найдена» — код 1", async () => {
