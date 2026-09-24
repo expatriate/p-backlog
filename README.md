@@ -114,6 +114,33 @@ requires typing the project id to confirm.
   the backlog still has unprocessed files) — the countdown then shows "deletion delayed" instead.
   Deleted task numbers are never reused.
 
+## Works well with code-review-graph
+
+[code-review-graph](https://github.com/tirth8205/code-review-graph) builds a local graph of your code (functions,
+classes, their lines) in `.code-review-graph/graph.db` at the repository root. p-backlog doesn't need it, but uses
+it when it's there — read-only:
+
+- **Re-check by symbol.** A task's `source` (`file:line`) is matched to the function or class that contains it. The
+  Stop hook and `backlog check` then flag the task only when that symbol changed, not when any line of the file
+  moved — fewer needless re-checks. Without the graph the check falls back to the task's source lines, then to the
+  whole file.
+- **Duplicates by symbol.** Two tasks pointing into the same function are offered as possible duplicates.
+- **Graph state in the web UI.** The sidebar warns when a project has no graph, when it's stale, or when it can't be
+  read (built by a different version or for a different path), with the command that fixes it.
+- **Check precision.** The Quality tab in statistics shows how often each check method (by symbol, by source lines,
+  by file) was right.
+
+Setup, once per repository (Python tool; `pipx install code-review-graph` works too):
+
+```bash
+uv tool install code-review-graph
+code-review-graph build                       # in the repository root
+code-review-graph install --platform claude-code  # optional: its MCP server and instructions for Claude Code
+```
+
+Keep the graph fresh with `code-review-graph watch`, or run `code-review-graph update` after changes. Tested with
+code-review-graph 2.3.
+
 ## Web app
 
 ```bash
