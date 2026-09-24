@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { Project } from "../model/types";
 import { fixKey } from "../stats/code/fixes";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
-import { CODE_CACHE_FILE, createCodeCacheFile } from "./code-cache";
+import { CODE_CACHE_FILE, createCodeCacheFile, type CodeCacheStore } from "./code-cache";
 import { createCodeSource, type CodeSource } from "./code-source";
 import { runGit, type GitRunner } from "../git/run";
 import { countingGit } from "../git/testing/counting-git";
@@ -101,6 +101,24 @@ describe("сбор данных git по проектам", () => {
     await writeFile(join(cacheRoot, CODE_CACHE_FILE), "{битый", "utf8");
     const fromGit = await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }).collect(projects, NOW);
     expect(fromGit).toEqual(first.code);
+  });
+
+  it("неудавшаяся запись кэша повторяется при следующем сборе, даже если новых данных нет", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const cacheRoot = await makeTempDir();
+    const file = createCodeCacheFile(cacheRoot);
+    let writes = 0;
+    const flaky: CodeCacheStore = { read: file.read, write: (snapshot) => (writes++ === 0 ? Promise.reject(new Error("диск занят")) : file.write(snapshot)) };
+    const projects = [projectOf("spa", [repo])];
+    const source = createCodeSource({ home: "/h", store: flaky });
+
+    const first = await source.collect(projects, NOW);
+    await source.collect(projects, NOW);
+
+    const onlyRefs: GitRunner = (dir, args, input) => (args[0] === "cat-file" ? runGit(dir, args, input) : Promise.resolve(null));
+    expect(await createCodeSource({ home: "/h", git: onlyRefs, store: createCodeCacheFile(cacheRoot) }).collect(projects, NOW)).toEqual(first);
   });
 
   it("коммит исправления, подтянутый позже через fetch, находится без перезапуска", async () => {

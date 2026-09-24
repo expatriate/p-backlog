@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { coreMessages } from "../messages";
@@ -182,7 +182,7 @@ describe("checkBacklog", () => {
 
     const report = await check();
 
-    expect(report.candidates).toEqual([expect.objectContaining({ task: expect.objectContaining({ id: "SPA-1" }), bySymbol: true, snippet: expect.stringContaining('   12│   return "v2";') })]);
+    expect(report.candidates).toEqual([expect.objectContaining({ task: expect.objectContaining({ id: "SPA-1" }), method: "symbol", snippet: expect.stringContaining('   12│   return "v2";') })]);
     expect(await spa1()).toMatchObject({ source: "src/code.ts:8", anchor: anchorBefore });
   });
 
@@ -278,6 +278,7 @@ describe("checkBacklog", () => {
         path: "src/upload.ts",
         commits: [{ sha: expect.stringMatching(/^[0-9a-f]{7,}$/), subject: "Таймаут от размера файла" }],
         uncommitted: false,
+        method: "file",
         diff: expect.stringMatching(/-v1\n\+v2/),
       },
       { kind: "source-missing", task: { id: "SPA-2", title: "Задача SPA-2" }, path: "src/legacy.ts" },
@@ -325,7 +326,7 @@ describe("checkBacklog", () => {
     expect(journal.events).toMatchObject([{ kind: "status", task: "SPA-7", to: "done", resolution: "epic-done", via: "check" }]);
   });
 
-  it("узкий режим отдаёт только кандидатов по коду и ничего не пишет", async () => {
+  it("узкий режим отдаёт только кандидатов по коду и не чинит ссылки и эпики", async () => {
     const { home, root } = await setup();
 
     const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
@@ -356,6 +357,20 @@ describe("checkBacklog", () => {
     expect(first.candidates).toMatchObject([{ kind: "duplicate", task: { id: "SPA-2" }, other: { id: "SPA-1" } }]);
     const candidates = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate");
     expect(candidates).toMatchObject([{ task: "SPA-2", evidence: "duplicate", mode: "full", via: "check" }]);
+  });
+
+  it("пока репозиторий недоступен, эпизоды кандидатов по коду не закрываются и потом не открываются заново", async () => {
+    const { home, root, repo } = await setup();
+    const full = async () => checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
+
+    await full();
+    await rename(repo, `${repo}-away`);
+    await full();
+    await rename(`${repo}-away`, repo);
+    await full();
+
+    const events = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.task === "SPA-1" && event.kind !== "candidate-filtered");
+    expect(events.map((event) => event.kind)).toEqual(["candidate"]);
   });
 
   it("три задачи с одним source — по одному кандидату duplicate на задачу, без повторов", async () => {

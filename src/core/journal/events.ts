@@ -45,7 +45,7 @@ export type FilteredSighting = { task: string; symbol: string };
 
 type MethodMarks = { method?: CheckMethod | undefined; bySymbol?: boolean | undefined; byAnchor?: boolean | undefined };
 
-export function checkMethodOf({ bySymbol, byAnchor }: Omit<MethodMarks, "method">): CheckMethod {
+function checkMethodOf({ bySymbol, byAnchor }: Omit<MethodMarks, "method">): CheckMethod {
   if (bySymbol === true) return "symbol";
   return byAnchor === true ? "anchor" : "file";
 }
@@ -156,11 +156,17 @@ export function filteredEvents(filtered: readonly FilteredSighting[], now: Date)
   return filtered.map(({ task, symbol }) => ({ at, task, via: "check", kind: "candidate-filtered", symbol }));
 }
 
-export function candidateGoneEvents(sightings: readonly CandidateSighting[], tasks: readonly string[], states: EpisodeStates, now: Date): JournalEvent[] {
+export function candidateGoneEvents(
+  sightings: readonly CandidateSighting[],
+  tasks: readonly string[],
+  states: EpisodeStates,
+  now: Date,
+  checked: readonly CandidateEvidence[] = CANDIDATE_EVIDENCE,
+): JournalEvent[] {
   const at = formatLocalIso(now);
   const seen = new Set(sightings.map((sighting) => episodeKey(sighting.task, sighting.evidence)));
   return tasks.flatMap((task) =>
-    CANDIDATE_EVIDENCE.flatMap((evidence): JournalEvent[] => {
+    checked.flatMap((evidence): JournalEvent[] => {
       const key = episodeKey(task, evidence);
       return seen.has(key) || states.get(key) !== "open" ? [] : [{ at, task, via: "check", kind: "candidate-gone", evidence }];
     }),

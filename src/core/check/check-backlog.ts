@@ -1,6 +1,6 @@
 import { errorText } from "../errors";
 import { basename, join } from "node:path";
-import { candidateEvents, candidateGoneEvents, checkMethodOf, episodeStates, filteredEvents, type CandidateSighting, type CheckMode, type FilteredSighting } from "../journal/events";
+import { CANDIDATE_EVIDENCE, candidateEvents, candidateGoneEvents, episodeStates, filteredEvents, type CandidateEvidence, type CandidateSighting, type CheckMode, type FilteredSighting } from "../journal/events";
 import type { CoreMessages } from "../messages";
 import { buildIndex } from "../model/graph";
 import { ID_PATTERN, parseId } from "../model/ids";
@@ -16,10 +16,10 @@ import type { UpdateTaskFailure } from "../store/write-result";
 import { snippetOf } from "./anchor";
 import type { CheckFix, CheckProblem } from "./findings";
 import { findRepo } from "./project-repo";
-import { codeReview, duplicateCandidates, isReviewable, relocationPlan, reviewMark, sourcePath, type AnchorPlan, type Candidate } from "./candidates";
+import { codeReview, duplicateCandidates, isReviewable, relocationPlan, reviewMark, sourcePaths, type AnchorPlan, type Candidate } from "./candidates";
 import { currentSources, type CurrentSources } from "./current-source";
 import { collectRepoFacts, diffsSince, type DiffExcerpt, type DiffSince, type GitHistory, type RepoFacts } from "./repo-facts";
-import { filterBySymbol, symbolLookup, symbolNames } from "./symbol-filter";
+import { fileHashes, filterBySymbol, symbolLookup, symbolNames } from "./symbol-filter";
 import { openCodeGraph } from "../graph/code-graph";
 
 type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed">;
@@ -32,7 +32,7 @@ type Fix = { changes: TaskChanges; closure?: Closure; done: CheckFix[] };
 type EpicClosing = { closure: Closure; childIds: string[] };
 const PROBLEM_LIMIT = 400;
 
-type ProjectReview = { candidates: Candidate[]; filtered: FilteredSighting[]; plans: AnchorPlan[]; problems: CheckProblem[] };
+type ProjectReview = { projectId: string; candidates: Candidate[]; filtered: FilteredSighting[]; plans: AnchorPlan[]; problems: CheckProblem[]; unchecked: CandidateEvidence[] };
 type FixOutcome = { fixed: CheckFix[]; failed: CheckProblem[] };
 
 export async function checkBacklog(root: string, loaded: LoadedBacklog, request: CheckRequest): Promise<CheckReport> {
@@ -45,15 +45,16 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const reviews = await Promise.all(projects.map((project) => projectReview(project, current.tasks, repos.get(project.id), request)));
   const candidates = reviews.flatMap((review) => review.candidates);
   const moved = await applyAnchorPlans(current.tasks, reviews.flatMap((review) => review.plans), request.now);
-  await recordCandidates(root, current.tasks, { candidates, filtered: reviews.flatMap((review) => review.filtered) }, request);
+  const unchecked = new Map(reviews.map((review) => [review.projectId, review.unchecked]));
+  await recordCandidates(root, current.tasks, { candidates, filtered: reviews.flatMap((review) => review.filtered), unchecked }, request);
   const reviewProblems = reviews.flatMap((review) => review.problems);
   const problems = request.mode === "full" ? [...fixes.failed, ...findProblems(current, projects, repos, inScope), ...reviewProblems] : [];
   return { fixed: [...fixes.fixed, ...moved], problems, candidates };
 }
 
-type CheckFindings = { candidates: readonly Candidate[]; filtered: readonly FilteredSighting[] };
+type CheckFindings = { candidates: readonly Candidate[]; filtered: readonly FilteredSighting[]; unchecked: ReadonlyMap<string, readonly CandidateEvidence[]> };
 
-async function recordCandidates(root: string, tasks: readonly Task[], { candidates, filtered }: CheckFindings, { mode, now, projectIds, messages }: CheckRequest): Promise<void> {
+async function recordCandidates(root: string, tasks: readonly Task[], { candidates, filtered, unchecked }: CheckFindings, { mode, now, projectIds, messages }: CheckRequest): Promise<void> {
   const projectOf = new Map(tasks.map((task) => [task.id, task.projectId]));
   for (const projectId of projectIds) {
     const dir = join(root, projectId);
@@ -65,7 +66,8 @@ async function recordCandidates(root: string, tasks: readonly Task[], { candidat
       const journal = await readJournal(dir, projectId);
       const states = episodeStates(journal.events);
       const sightings = found.map(sightingOf);
-      const gone = mode === "full" ? candidateGoneEvents(sightings, reviewed, states, now) : [];
+      const checked = CANDIDATE_EVIDENCE.filter((evidence) => !(unchecked.get(projectId) ?? []).includes(evidence));
+      const gone = mode === "full" ? candidateGoneEvents(sightings, reviewed, states, now, checked) : [];
       await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, now)], (path, error) => {
         throw error;
       });
@@ -77,7 +79,7 @@ async function recordCandidates(root: string, tasks: readonly Task[], { candidat
 
 function sightingOf(candidate: Candidate): CandidateSighting {
   const sighting = { task: candidate.task.id, evidence: candidate.kind };
-  if (candidate.kind === "source-changed") return { ...sighting, method: checkMethodOf(candidate) };
+  if (candidate.kind === "source-changed") return { ...sighting, method: candidate.method };
   if (candidate.kind === "duplicate") return { ...sighting, match: candidate.match };
   return sighting;
 }
@@ -142,18 +144,18 @@ function unparsedTaskIds(errors: readonly ParseError[]): string[] {
 
 async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, { mode }: CheckRequest): Promise<ProjectReview> {
   const tasks = allTasks.filter((task) => task.projectId === project.id && isReviewable(task));
-  if (tasks.length === 0) return { candidates: [], filtered: [], plans: [], problems: [] };
-  if (repo === undefined) return { candidates: mode === "full" ? duplicateCandidates(tasks) : [], filtered: [], plans: [], problems: [] };
+  const nothing = { projectId: project.id, candidates: [], filtered: [], plans: [], problems: [], unchecked: [] };
+  if (tasks.length === 0) return nothing;
+  if (repo === undefined) return { ...nothing, candidates: mode === "full" ? duplicateCandidates(tasks) : [], unchecked: ["source-changed", "source-missing"] };
 
   const since = new Date(Math.min(...tasks.map(reviewMark)));
-  const paths = [...new Set(tasks.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
-  const facts = await collectRepoFacts(repo, { since, paths });
+  const facts = await collectRepoFacts(repo, { since, paths: sourcePaths(tasks) });
   const review = codeReview(tasks, facts);
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
   const diffOf = diffsSince(repo);
   const graph = openCodeGraph(repo);
   try {
-    const symbolAt = symbolLookup(repo, graph);
+    const symbolAt = symbolLookup(graph, fileHashes(repo));
     const changedIds = new Set(review.candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? [candidate.task.id] : [])));
     const locating = mode === "full" && graph !== null ? tasks : tasks.filter((task) => changedIds.has(task.id));
     const located = await currentSources(locating, facts, diffOf);
@@ -161,7 +163,14 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
     const { kept, filtered } = await filterBySymbol(review.candidates, { tasksById, located, diffOf, symbolAt });
     const code = await Promise.all(kept.map((candidate) => withContext(candidate, tasksById, located, facts, diffOf)));
     const plans = settledPlans(review.plans, { kept, filtered, tasksById, located, facts });
-    return { candidates: mode === "full" ? [...code, ...duplicates] : code, filtered, plans, problems: historyProblems(project, repo, facts.history) };
+    return {
+      projectId: project.id,
+      candidates: mode === "full" ? [...code, ...duplicates] : code,
+      filtered,
+      plans,
+      problems: historyProblems(project, repo, facts.history),
+      unchecked: facts.history === "read" ? [] : ["source-changed"],
+    };
   } finally {
     graph?.close();
   }

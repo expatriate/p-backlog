@@ -1,10 +1,9 @@
-import { join } from "node:path";
 import { hasCodeGraph, openCodeGraph, type CodeGraph } from "../graph/code-graph";
 import type { Project, Task } from "../model/types";
 import { sourceRange } from "./anchor";
-import { isReviewable, sourcePath } from "./candidates";
+import { isReviewable, sourcePaths } from "./candidates";
 import { findRepo } from "./project-repo";
-import { fileHash, symbolLookup, symbolOfSource } from "./symbol-filter";
+import { fileHashes, symbolLookup, symbolOfSource, type FileHashes } from "./symbol-filter";
 
 export type GraphState = "none" | "unreadable" | "stale" | "fresh";
 
@@ -21,18 +20,18 @@ export function graphHealth(repo: string | undefined, tasks: readonly Task[]): G
   const graph = openCodeGraph(repo);
   if (graph === null) return unusable("unreadable");
   try {
-    const symbolAt = symbolLookup(repo, graph);
+    const hashOf = fileHashes(repo);
+    const symbolAt = symbolLookup(graph, hashOf);
     const resolved = pinned.filter((task) => symbolOfSource(symbolAt, task.source) !== null).length;
-    return { state: isStale(repo, graph, pinned) ? "stale" : "fresh", pinned: pinned.length, resolved };
+    return { state: isStale(graph, pinned, hashOf) ? "stale" : "fresh", pinned: pinned.length, resolved };
   } finally {
     graph.close();
   }
 }
 
-function isStale(repo: string, graph: CodeGraph, pinned: readonly Task[]): boolean {
-  const paths = [...new Set(pinned.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
-  const states = paths.map((path) => {
-    const hash = fileHash(join(repo, path));
+function isStale(graph: CodeGraph, pinned: readonly Task[], hashOf: FileHashes): boolean {
+  const states = sourcePaths(pinned).map((path) => {
+    const hash = hashOf(path);
     return hash === null ? "absent" : graph.fileState(path, hash);
   });
   const count = (state: string) => states.filter((candidate) => candidate === state).length;

@@ -2,7 +2,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync, StatementSync } from "node:sqlite";
 
-export type GraphSymbol = { qualifiedName: string; from: number; to: number };
+export type GraphSymbol = { qualifiedName: string; kind: string; from: number; to: number };
 
 type GraphFileState = "fresh" | "changed" | "absent";
 
@@ -19,7 +19,7 @@ export function hasCodeGraph(repo: string): boolean {
 }
 const SUPPORTED_SCHEMA = "13";
 
-type SymbolRow = { qualified_name: string; line_start: number; line_end: number };
+type SymbolRow = { qualified_name: string; kind: string; line_start: number; line_end: number };
 
 export function openCodeGraph(repo: string): CodeGraph | null {
   let db: DatabaseSync | null = null;
@@ -47,7 +47,7 @@ function readMetadata(db: DatabaseSync): Map<string, string> {
 function codeGraph(db: DatabaseSync, repo: string): CodeGraph {
   const fileNode = db.prepare("select file_hash from nodes where kind = 'File' and file_path = ?");
   const enclosing = db.prepare(
-    "select qualified_name, line_start, line_end from nodes where file_path = ? and kind != 'File' and line_start <= ? and line_end >= ? order by line_end - line_start asc limit 1",
+    "select qualified_name, kind, line_start, line_end from nodes where file_path = ? and kind != 'File' and line_start <= ? and line_end >= ? order by line_end - line_start asc limit 1",
   );
 
   const fileState = (path: string, fileHash: string): GraphFileState => {
@@ -62,7 +62,7 @@ function codeGraph(db: DatabaseSync, repo: string): CodeGraph {
       if (fileState(path, fileHash) !== "fresh") return null;
       const file = join(repo, path);
       const row = ask(enclosing, (statement) => statement.get(file, line, line) as SymbolRow | undefined, undefined);
-      return row === undefined ? null : { qualifiedName: row.qualified_name, from: row.line_start, to: row.line_end };
+      return row === undefined ? null : { qualifiedName: row.qualified_name, kind: row.kind, from: row.line_start, to: row.line_end };
     },
     close() {
       closeQuietly(db);

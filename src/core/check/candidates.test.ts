@@ -63,6 +63,7 @@ describe("codeCandidates", () => {
           { sha: "b2", subject: "Коммит b2" },
         ],
         uncommitted: false,
+        method: "file",
       },
     ]);
   });
@@ -113,6 +114,7 @@ describe("codeCandidates", () => {
           { sha: "a1", subject: "Коммит a1" },
         ],
         uncommitted: false,
+        method: "file",
       },
     ]);
 

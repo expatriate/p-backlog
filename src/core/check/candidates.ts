@@ -1,18 +1,18 @@
-import type { DuplicateMatch } from "../journal/events";
+import type { CheckMethod, DuplicateMatch } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Task } from "../model/types";
 import { anchorOf, findMoved, isAnchorFor } from "./anchor";
 import type { CheckFix } from "./findings";
 import type { Commit, RepoFacts } from "./repo-facts";
 import { hasLines, lineSuffix, SOURCE_LINES } from "./source-lines";
-import { similarTitles } from "./similar-titles";
+import { similarStems, similarTitles, titleStems } from "./similar-titles";
 
 type TaskRef = { id: string; title: string };
 type CommitRef = { sha: string; subject: string };
 
 export type Candidate =
   | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string  | undefined}
-  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string; diffOmittedLines?: number; bySymbol?: boolean; byAnchor?: boolean }
+  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; problem?: string; snippet?: string; diff?: string; diffOmittedLines?: number; method: CheckMethod }
   | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: DuplicateMatch };
 
 export type AnchorPlan = { id: string; changes: { source?: string; anchor: string }; moved?: CheckFix };
@@ -32,6 +32,10 @@ export function sourcePath(source: string): string {
     .replace(SOURCE_LINES, "")
     .replace(/^\.\//, "")
     .replace(/\/+$/, "");
+}
+
+export function sourcePaths(tasks: readonly Task[]): string[] {
+  return [...new Set(tasks.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
 }
 
 export function reviewMark(task: Task): number {
@@ -56,8 +60,8 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts): Candi
   if (anchor.kind === "same" || anchor.kind === "moved") return [];
   const { commits, uncommitted } = changesSince(facts, path, mark);
   if (anchor.kind === "none" && commits.length === 0 && !uncommitted) return [];
-  const byAnchor = anchor.kind === "changed" ? { byAnchor: true } : {};
-  return [{ kind: "source-changed", task: taskRef(task), path, commits: commits.slice(0, MAX_COMMITS).map(commitRef), uncommitted, ...byAnchor }];
+  const method: CheckMethod = anchor.kind === "changed" ? "anchor" : "file";
+  return [{ kind: "source-changed", task: taskRef(task), path, commits: commits.slice(0, MAX_COMMITS).map(commitRef), uncommitted, method }];
 }
 
 function anchorPlan(task: Task, anchor: AnchorState, facts: RepoFacts): AnchorPlan[] {
@@ -110,20 +114,22 @@ export function findSimilarTask(draft: { title: string; source?: string | undefi
 export type SymbolOf = (task: Task) => string | null;
 
 export function duplicateCandidates(tasks: readonly Task[], symbolOf: SymbolOf = () => null): Candidate[] {
+  const stems = new Map(tasks.map((task) => [task.id, titleStems(task.title)]));
+  const stemsOf = (task: Task) => stems.get(task.id) ?? titleStems(task.title);
   return tasks.flatMap((task, index) =>
     tasks.slice(0, index).flatMap((older): Candidate[] => {
-      const match = duplicateMatch(task, older, symbolOf);
+      const match = duplicateMatch(task, older, symbolOf, stemsOf);
       return match === null ? [] : [{ kind: "duplicate", task: taskRef(task), other: taskRef(older), match }];
     }),
   );
 }
 
-function duplicateMatch(task: Task, other: Task, symbolOf: SymbolOf): DuplicateMatch | null {
+function duplicateMatch(task: Task, other: Task, symbolOf: SymbolOf, stemsOf: (task: Task) => ReadonlySet<string>): DuplicateMatch | null {
   if (linked(task, other) || bothConfirmedAfterCreation(task, other)) return null;
   if (task.source !== undefined && other.source !== undefined && samePlace(task.source, other.source)) return "source";
   const symbol = symbolOf(task);
   if (symbol !== null && symbol === symbolOf(other)) return "symbol";
-  return similarTitles(task.title, other.title) ? "title" : null;
+  return similarStems(stemsOf(task), stemsOf(other)) ? "title" : null;
 }
 
 function samePlace(a: string, b: string): boolean {

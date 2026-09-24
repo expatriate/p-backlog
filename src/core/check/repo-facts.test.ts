@@ -49,6 +49,19 @@ describe("collectRepoFacts", () => {
     expect([...facts.dirtyModifiedAt.keys()]).toEqual(["src/a.ts"]);
   });
 
+  it("путь с кавычкой и табуляцией приходит из истории как есть, а не в C-кавычках", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    const odd = 'src/"quoted"\tname.ts';
+    await writeFiles(repo, { [odd]: "a\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFile(join(repo, odd), "b\n");
+    gitCommitAll(repo, "Правка", "2026-09-12T10:00:00+03:00");
+
+    const facts = await collectRepoFacts(repo, { since: new Date("2026-09-11T00:00:00Z"), paths: [odd] });
+
+    expect(facts.commits.map(({ files }) => files)).toEqual([[{ path: odd }]]);
+  });
+
   it("путь задачи вне репозитория не ломает чтение истории остальных задач", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "export const a = 1;\n" });

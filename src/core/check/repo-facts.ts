@@ -38,7 +38,7 @@ export async function collectRepoFacts(repo: string, { since, paths }: { since: 
 }
 
 function logArgs(since: Date): string[] {
-  return ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%s`, "--name-status", "-M", "--diff-merges=first-parent"];
+  return ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%s`, "--name-status", "-M", "--diff-merges=first-parent", "-z"];
 }
 
 async function pathLog(repo: string, since: Date, paths: readonly string[]): Promise<string | null> {
@@ -100,15 +100,27 @@ function parseLog(output: string): Commit[] {
     .split(RECORD)
     .filter((record) => record.trim() !== "")
     .map((record) => {
-      const [header = "", ...lines] = record.split("\n");
-      const [sha = "", date = "", subject = ""] = header.split(FIELD);
-      return { sha, date, subject, files: lines.filter((line) => line.includes("\t")).map(parseNameStatus) };
+      const headerEnd = record.includes("\0") ? record.indexOf("\0") : record.length;
+      const [sha = "", date = "", subject = ""] = record.slice(0, headerEnd).trim().split(FIELD);
+      return { sha, date, subject, files: parseNameStatus(record.slice(headerEnd + 1).replace(/^\n/, "").split("\0")) };
     });
 }
 
-function parseNameStatus(line: string): FileChange {
-  const [status = "", first = "", second] = line.split("\t");
-  return /^[RC]/.test(status) && second !== undefined ? { path: second, renamedFrom: first } : { path: first };
+function parseNameStatus(tokens: readonly string[]): FileChange[] {
+  const files: FileChange[] = [];
+  for (let index = 0; index < tokens.length; ) {
+    const status = tokens[index] ?? "";
+    const first = tokens[index + 1] ?? "";
+    if (status === "" || first === "") break;
+    if (/^[RC]/.test(status)) {
+      files.push({ path: tokens[index + 2] ?? first, renamedFrom: first });
+      index += 3;
+    } else {
+      files.push({ path: first });
+      index += 2;
+    }
+  }
+  return files;
 }
 
 function parseStatus(output: string): string[] {
@@ -118,7 +130,7 @@ function parseStatus(output: string): string[] {
     const entry = entries[index] ?? "";
     if (entry.length < 4) continue;
     paths.push(entry.slice(3));
-    if (/^[RC]/.test(entry)) index++;
+    if (/^(?:[RC].|.[RC])/.test(entry)) index++;
   }
   return paths;
 }

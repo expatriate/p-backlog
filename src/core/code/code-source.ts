@@ -42,10 +42,19 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     }
   };
 
-  const persist = async (): Promise<void> => {
-    if (store === undefined || !changed) return;
+  let writing: Promise<void> = Promise.resolve();
+
+  const persist = (): Promise<void> => {
+    if (store === undefined || !changed) return writing;
     changed = false;
-    await store.write({ repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache) }).catch((error: unknown) => onError("write", error));
+    const snapshot: CodeCacheSnapshot = { repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache) };
+    writing = writing.then(() =>
+      store.write(snapshot).catch((error: unknown) => {
+        changed = true;
+        onError("write", error);
+      }),
+    );
+    return writing;
   };
 
   const inFlight = new Map<string, Promise<ReadRepo | null>>();

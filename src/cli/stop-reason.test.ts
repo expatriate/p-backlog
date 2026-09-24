@@ -4,7 +4,7 @@ import { attributeLine, newTranscriptState } from "../core/stats/cost/attribute"
 import { STOP_REASON_LIMIT, stopReason } from "./stop-reason";
 
 function changed(id: string, path: string): Candidate {
-  return { kind: "source-changed", task: { id, title: id }, path, commits: [], uncommitted: true };
+  return { kind: "source-changed", task: { id, title: id }, path, commits: [], uncommitted: true, method: "file" };
 }
 
 describe("stopReason", () => {

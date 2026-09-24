@@ -11,26 +11,36 @@ import type { DiffSince } from "./repo-facts";
 
 export type SymbolLookup = (path: string, line: number) => GraphSymbol | null;
 
-export function symbolLookup(repo: string, graph: CodeGraph | null): SymbolLookup {
-  if (graph === null) return () => null;
+export type FileHashes = (path: string) => string | null;
+
+export function fileHashes(repo: string): FileHashes {
   const hashes = new Map<string, string | null>();
+  return (path) => {
+    if (!hashes.has(path)) hashes.set(path, fileHash(join(repo, path)));
+    return hashes.get(path) ?? null;
+  };
+}
+
+export function symbolLookup(graph: CodeGraph | null, hashOf: FileHashes): SymbolLookup {
+  if (graph === null) return () => null;
   const known = new Map<string, GraphSymbol | null>();
   return (path, line) => {
     const key = `${line}:${path}`;
     const cached = known.get(key);
     if (cached !== undefined) return cached;
-    if (!hashes.has(path)) hashes.set(path, fileHash(join(repo, path)));
-    const hash = hashes.get(path) ?? null;
+    const hash = hashOf(path);
     const symbol = hash === null ? null : graph.symbolAt(path, line, hash);
     known.set(key, symbol);
     return symbol;
   };
 }
 
+const CALLABLE_KINDS = new Set(["Function", "Test"]);
+
 export function symbolNames(symbolAt: SymbolLookup, located: CurrentSources): SymbolOf {
   return (task) => {
     const found = symbolOfSource(symbolAt, located.get(task.id));
-    return found?.symbol.qualifiedName ?? null;
+    return found !== null && CALLABLE_KINDS.has(found.symbol.kind) ? found.symbol.qualifiedName : null;
   };
 }
 
@@ -64,7 +74,7 @@ async function decide(candidate: Candidate, { tasksById, located, diffOf, symbol
   const diff = await diffOf(candidate.path, new Date(reviewMark(task)));
   if (diff === null) return { kept: candidate };
   const watched = watchedRange(found.symbol, found.declared);
-  if (diff.changed.some((range) => overlaps(range, watched))) return { kept: { ...candidate, bySymbol: true } };
+  if (diff.changed.some((range) => overlaps(range, watched))) return { kept: { ...candidate, method: "symbol" } };
   return { filtered: { task: task.id, symbol: shortName(found.symbol.qualifiedName) } };
 }
 
@@ -76,7 +86,7 @@ function watchedRange(symbol: GraphSymbol, declared: LineRange): LineRange {
   return { from: Math.min(symbol.from, declared.from), to: Math.max(symbol.to, declared.to) };
 }
 
-export function fileHash(path: string): string | null {
+function fileHash(path: string): string | null {
   try {
     return createHash("sha256").update(readFileSync(path)).digest("hex");
   } catch {
