@@ -83,8 +83,10 @@ describe("filterBySymbol", () => {
 
   it("путь репозитория с хвостовым слешем не выключает фильтр", async () => {
     const repo = await repoWithChange({ inSymbol: false });
+    const graph = openCodeGraph(`${repo}/`);
 
-    expect((await filterBySymbol([candidate], byId(task), diffsSince(`${repo}/`), symbolLookup(`${repo}/`, openCodeGraph(`${repo}/`)))).kept).toEqual([]);
+    expect((await filterBySymbol([candidate], byId(task), diffsSince(`${repo}/`), symbolLookup(`${repo}/`, graph))).kept).toEqual([]);
+    graph?.close();
   });
 
   it("кандидатов других видов не трогает", async () => {
