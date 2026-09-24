@@ -1,8 +1,12 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileExists, portRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
 
 const LABEL = "local.p-backlog";
+const BOOTSTRAP_RETRY_ATTEMPTS = 5;
+const BOOTSTRAP_RETRY_DELAY_MS = 300;
+const NOT_LOADED_CODES = new Set([3, 113]);
 
 const XML_ENTITIES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" };
 
@@ -50,10 +54,11 @@ ${entries}
 `;
 }
 
-export function launchdManager(context: ServiceContext): ServiceManager {
+export function launchdManager(context: ServiceContext, delay: (ms: number) => Promise<void> = sleep): ServiceManager {
   const file = join(context.home, "Library/LaunchAgents", `${LABEL}.plist`);
   const domain = `gui/${context.uid}`;
   const bootout = () => context.exec("launchctl", ["bootout", `${domain}/${LABEL}`]);
+  const bootstrap = () => context.exec("launchctl", ["bootstrap", domain, file]);
   return {
     file,
     logs: logPath(context.home),
@@ -62,12 +67,17 @@ export function launchdManager(context: ServiceContext): ServiceManager {
       await mkdir(dirname(file), { recursive: true });
       await mkdir(dirname(logPath(context.home)), { recursive: true });
       await writeFile(file, launchdPlist(context));
-      const { code, output } = await context.exec("launchctl", ["bootstrap", domain, file]);
-      return code === 0 ? "done" : { failed: "launchctl bootstrap", code, output };
+      let result = await bootstrap();
+      for (let attempt = 1; result.code === 5 && attempt < BOOTSTRAP_RETRY_ATTEMPTS; attempt++) {
+        await delay(BOOTSTRAP_RETRY_DELAY_MS);
+        result = await bootstrap();
+      }
+      return result.code === 0 ? "done" : { failed: "launchctl bootstrap", code: result.code, output: result.output };
     },
     async uninstall() {
       if (!(await fileExists(file))) return "absent";
-      await bootout();
+      const { code, output } = await bootout();
+      if (code !== 0 && !NOT_LOADED_CODES.has(code)) return { failed: "launchctl bootout", code, output };
       await rm(file, { force: true });
       return "done";
     },
