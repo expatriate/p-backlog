@@ -1,11 +1,11 @@
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtemp, readFile, realpath, rm } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { stopHookFor } from "../../src/cli/stop-hook";
-import { ISOLATED_GIT_ENV, makeGitRepo, makeTempDir } from "../../src/core/store/testing/temp-dirs";
+import { gitCommitAll, ISOLATED_GIT_ENV, makeGitRepo, makeTempDir, writeFiles } from "../../src/core/store/testing/temp-dirs";
 
 const repoRoot = join(import.meta.dirname, "../..");
 const isWindows = process.platform === "win32";
@@ -76,8 +76,11 @@ describe("путь нового пользователя из tarball", () => {
     const hookCommand = installedHook.command as string;
 
     const repo = await makeGitRepo(home, "demo-app");
-    const created = run(["new", "--category", "bug", "--title", "First task"], { cwd: repo, input: "Body\n" });
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "init", new Date().toISOString());
+    const created = run(["new", "--category", "bug", "--title", "First task", "--source", "src/a.ts:1"], { cwd: repo, input: "Body\n" });
     expect(created).toMatch(/^[A-Z]+-\d+ /);
+    await writeFile(join(repo, "src", "a.ts"), "2\n");
 
     const hookOutput = execFileSync(isWindows ? "powershell" : "sh", isWindows ? ["-NoProfile", "-Command", hookCommand] : ["-c", hookCommand], {
       cwd: repo,
@@ -85,7 +88,7 @@ describe("путь нового пользователя из tarball", () => {
       input: JSON.stringify({ cwd: repo, session_id: "s1" }),
       encoding: "utf8",
     });
-    if (hookOutput.trim().length > 0) expect(() => JSON.parse(hookOutput)).not.toThrow();
+    expect(JSON.parse(hookOutput)).toMatchObject({ decision: "block" });
 
     const port = await freePort();
     const server = isWindows
