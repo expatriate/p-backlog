@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
 import { link, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import type { z } from "zod";
 
 export function contentVersion(text: string): string {
@@ -71,8 +72,24 @@ export async function listDir(path: string, { recursive = false }: { recursive?:
   }
 }
 
+const REPLACE_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320, 640];
+const REPLACE_BLOCKED_CODES = ["EPERM", "EACCES", "EBUSY"];
+
 export async function writeFileAtomic(path: string, content: string): Promise<void> {
-  await viaTemporaryFile(path, content, (temporary) => rename(temporary, path));
+  await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path));
+}
+
+// Windows refuses to rename over a file while another handle (a watcher's read, antivirus) keeps it open.
+async function replaceFile(temporary: string, path: string): Promise<void> {
+  for (const delayMs of process.platform === "win32" ? REPLACE_RETRY_DELAYS_MS : []) {
+    try {
+      return await rename(temporary, path);
+    } catch (error) {
+      if (!REPLACE_BLOCKED_CODES.some((code) => hasErrorCode(error, code))) throw error;
+      await sleep(delayMs);
+    }
+  }
+  await rename(temporary, path);
 }
 
 export async function createFileAtomic(path: string, content: string): Promise<void> {
