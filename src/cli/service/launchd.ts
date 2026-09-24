@@ -1,5 +1,5 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, posix } from "node:path";
 import { fileExists, portRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
 
 const LABEL = "local.p-backlog";
@@ -11,7 +11,7 @@ function xml(text: string): string {
 }
 
 function logPath(home: string): string {
-  return join(home, "Library/Logs/p-backlog.log");
+  return posix.join(home, "Library/Logs/p-backlog.log");
 }
 
 export function launchdPlist(context: ServiceContext): string {

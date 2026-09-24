@@ -1,5 +1,5 @@
 import { access, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeTempDir } from "../../core/store/testing/temp-dirs";
 import type { CliEnv } from "../io";
@@ -12,7 +12,7 @@ function contextFor(home: string, exec: CliEnv["exec"] = fakeExec().exec): Servi
   return {
     home,
     env: { PATH: "/usr/local/bin:/usr/bin" },
-    backlogRoot: join(home, "backlog"),
+    backlogRoot: posix.join(home, "backlog"),
     port: 4400,
     nodePath: "/opt/node/bin/node",
     cliPath: "/opt/p-backlog/dist/cli.js",
