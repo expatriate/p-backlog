@@ -19,7 +19,7 @@ beforeAll(async () => {
   work = await realpath(await mkdtemp(join(tmpdir(), "backlog-package-test-")));
   const npmEnv = { ...process.env, HOME: join(work, "npm-home"), USERPROFILE: join(work, "npm-home"), npm_config_cache: join(work, "npm-cache") };
   const packed = execFileSync("npm", ["pack", "--pack-destination", work, "--json"], { cwd: repoRoot, encoding: "utf8", shell: isWindows, env: npmEnv });
-  const tarball = join(work, JSON.parse(packed.slice(packed.indexOf("[")))[0].filename);
+  const tarball = join(work, JSON.parse(packed.slice(packed.search(/^\[\r?$/m)))[0].filename);
   prefix = join(work, "prefix");
   execFileSync("npm", ["install", "-g", "--prefix", prefix, tarball], { encoding: "utf8", shell: isWindows, env: npmEnv });
   backlogBin = isWindows ? join(prefix, "backlog.cmd") : join(prefix, "bin", "backlog");
@@ -75,7 +75,7 @@ describe("путь нового пользователя из tarball", () => {
     expect(installedHook).toEqual(stopHookFor(process.platform));
     const hookCommand = installedHook.command as string;
 
-    const repo = await makeGitRepo(home, "demo-app");
+    const repo = await makeGitRepo(join(home, "проекты"), "demo-app");
     await writeFiles(repo, { "src/a.ts": "1\n" });
     gitCommitAll(repo, "init", new Date().toISOString());
     const created = run(["new", "--category", "bug", "--title", "First task", "--source", "src/a.ts:1"], { cwd: repo, input: "Body\n" });
