@@ -26,6 +26,15 @@ export function gitCommitAll(repo: string, message: string, isoDate: string): vo
   execFileSync("git", [...identity, "commit", "-q", "-m", message], { cwd: repo, env });
 }
 
+export function gitMergeNoFastForward(repo: string, branch: string, isoDate: string): void {
+  const env = { ...process.env, ...ISOLATED_GIT_ENV, GIT_AUTHOR_DATE: isoDate, GIT_COMMITTER_DATE: isoDate };
+  execFileSync("git", ["-c", "user.name=backlog-test", "-c", "user.email=test@backlog.local", "merge", "-q", "--no-ff", "-m", `Слить ${branch}`, branch], { cwd: repo, env });
+}
+
+export function gitCheckout(repo: string, branch: string, { create = false }: { create?: boolean } = {}): void {
+  execFileSync("git", ["checkout", "-q", ...(create ? ["-b"] : []), branch], { cwd: repo, env: { ...process.env, ...ISOLATED_GIT_ENV } });
+}
+
 export async function writeFiles(root: string, files: Record<string, string>): Promise<void> {
   for (const [relativePath, content] of Object.entries(files)) {
     const path = join(root, relativePath);

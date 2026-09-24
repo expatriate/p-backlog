@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { coreMessages } from "../messages";
 import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
-import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
 import { makeGraph } from "../graph/testing/make-graph";
 import { anchorOf } from "./anchor";
 import { checkBacklog } from "./check-backlog";
@@ -207,6 +207,26 @@ describe("checkBacklog", () => {
 
     expect(report.candidates.map((candidate) => candidate.task.id)).toEqual(["SPA-1"]);
     expect((await spa1())?.anchor).toBe(anchorBefore);
+  });
+
+  it("правка, сделанная на ветке до создания задачи и слитая merge-коммитом после, делает задачу кандидатом", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a1\n", "src/b.ts": "b1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "fix", { create: true });
+    await writeFile(join(repo, "src/a.ts"), "a2\n");
+    gitCommitAll(repo, "Починить a", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "master");
+    await writeFile(join(repo, "src/b.ts"), "b2\n");
+    gitCommitAll(repo, "Поправить b", "2026-09-10T12:00:00+03:00");
+    gitMergeNoFastForward(repo, "fix", "2026-09-12T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\n") });
+
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
+
+    expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), commits: [expect.objectContaining({ subject: "Слить fix" })] })]);
   });
 
   it("журнал помнит, по какому признаку найден дубль", async () => {

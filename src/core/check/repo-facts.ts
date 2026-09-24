@@ -19,7 +19,7 @@ const DIFF_LINE_LIMIT = 80;
 
 export async function collectRepoFacts(repo: string, { since, paths }: { since: Date; paths: readonly string[] }): Promise<RepoFacts> {
   const [log, status, prefix, existing] = await Promise.all([
-    runGit(repo, ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%s`, "--name-status", "-M"]),
+    runGit(repo, ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%s`, "--name-status", "-M", "--diff-merges=first-parent"]),
     runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
     runGit(repo, ["rev-parse", "--show-prefix"]),
     existingPaths(repo, paths),
