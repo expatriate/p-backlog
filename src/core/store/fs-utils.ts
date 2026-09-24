@@ -81,8 +81,8 @@ export async function writeFileAtomic(path: string, content: string): Promise<vo
 
 // Windows refuses to rename over a file while another handle (a watcher's read, antivirus) keeps it open.
 async function replaceFile(temporary: string, path: string): Promise<void> {
-  const retryDelaysMs = process.platform === "win32" ? REPLACE_RETRY_DELAYS_MS : [];
-  for (const delayMs of retryDelaysMs) {
+  if (process.platform !== "win32") return rename(temporary, path);
+  for (const delayMs of REPLACE_RETRY_DELAYS_MS) {
     try {
       return await rename(temporary, path);
     } catch (error) {
