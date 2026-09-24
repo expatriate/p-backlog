@@ -9,6 +9,14 @@
     "task-management",
     "markdown"
   ],
+  "homepage": "https://github.com/expatriate/p-backlog#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/expatriate/p-backlog.git"
+  },
+  "bugs": {
+    "url": "https://github.com/expatriate/p-backlog/issues"
+  },
   "license": "Apache-2.0",
   "type": "module",
   "engines": {
