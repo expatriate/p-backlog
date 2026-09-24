@@ -10,7 +10,8 @@ export type SweeperOptions = {
   messages?: () => Promise<ServerMessages>;
 };
 
-export function startSweeper({ sweep, intervalMs, log, warn, messages = () => Promise.resolve(serverRu) }: SweeperOptions): () => void {
+export function startSweeper({ sweep, intervalMs, log, warn, messages = () => Promise.resolve(serverRu) }: SweeperOptions): () => Promise<void> {
+  let current = Promise.resolve();
   const run = async () => {
     let texts = serverRu;
     try {
@@ -20,9 +21,15 @@ export function startSweeper({ sweep, intervalMs, log, warn, messages = () => Pr
       warn(texts.sweepFailed(errorText(error)));
     }
   };
-  void run();
-  const timer = setInterval(() => void run(), intervalMs);
-  return () => clearInterval(timer);
+  const trigger = () => {
+    current = run();
+  };
+  trigger();
+  const timer = setInterval(trigger, intervalMs);
+  return () => {
+    clearInterval(timer);
+    return current;
+  };
 }
 
 function logReport({ closedEpics, blockingFiles, deleted, conflicts, invalid }: SweepReport, messages: ServerMessages, log: (line: string) => void): void {

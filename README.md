@@ -93,6 +93,7 @@ If there's no project yet, `backlog new` creates it.
 | `backlog hook stop` | The Stop hook for Claude Code: asks the agent to re-check tasks whose code changed |
 | `backlog config language [ru\|en]` | With no value, prints the current backlog language; with a value, changes it |
 | `backlog setup` | Install the skill and the Stop hook |
+| `backlog serve [--port N]` | Runs the web server in the current process, on `PORT` or 4317 by default |
 
 Exit codes: `0` success, `1` argument or rule error, `2` not found, `3` refused (the task is closed,
 blocked, or every matching task is blocked), `4` the command failed, `5` `check` found something to
