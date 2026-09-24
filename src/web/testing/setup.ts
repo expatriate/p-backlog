@@ -1,4 +1,4 @@
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
 class ResizeObserverStub {
@@ -8,6 +8,9 @@ class ResizeObserverStub {
 }
 
 vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+
+// Lazy routes are compiled on first use, which takes over a second on Windows CI runners.
+configure({ asyncUtilTimeout: 5_000 });
 
 const focusedBeforeModal = new WeakMap<HTMLDialogElement, Element | null>();
 

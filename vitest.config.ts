@@ -36,6 +36,7 @@ export default defineConfig({
           environment: "jsdom",
           env: FIXTURE_TIME_ZONE,
           setupFiles: ["src/web/testing/setup.ts"],
+          testTimeout: 20_000,
         },
       },
     ],
