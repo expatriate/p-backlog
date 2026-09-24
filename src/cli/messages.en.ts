@@ -73,6 +73,8 @@ export const cliEn: CliMessages = {
   projectNotFound: (id) => `Project ${id} not found`,
   notInGitRepo: (cwd) => `${cwd} is not inside a git repository: project not created. Pass --project <id> or run the command from a repository`,
   projectCreated: (id, prefix) => `Created project ${id} (${prefix})`,
+  projectNotCreatedFileUnparsed: (path, problems) =>
+    `Project not created: ${path} could not be parsed (${problems}). Fix the file, otherwise a new project could repeat its prefix and task numbers`,
 
   needProjectOrAllProjects: "Pass either --project or --all-projects",
 

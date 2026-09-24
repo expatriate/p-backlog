@@ -248,7 +248,15 @@ function findProblems(
     .filter((task) => inScope(task.projectId))
     .flatMap((task) => integrityErrors(task, index).map((problem): CheckProblem => ({ kind: "task-invalid", taskId: task.id, problem })));
   const missingRepos = projects.filter((project) => repos.get(project.id) === undefined).map(missingRepoProblem);
-  return [...parseProblems(loaded, inScope), ...integrity, ...missingRepos];
+  return [...parseProblems(loaded, inScope), ...integrity, ...missingRepos, ...sharedPrefixes(loaded.projects, inScope)];
+}
+
+function sharedPrefixes(projects: readonly Project[], inScope: (projectId: string) => boolean): CheckProblem[] {
+  const idsByPrefix = new Map<string, string[]>();
+  for (const project of projects) idsByPrefix.set(project.prefix, [...(idsByPrefix.get(project.prefix) ?? []), project.id]);
+  return [...idsByPrefix]
+    .filter(([, projectIds]) => projectIds.length > 1 && projectIds.some(inScope))
+    .map(([prefix, projectIds]): CheckProblem => ({ kind: "prefix-shared", prefix, projectIds }));
 }
 
 function parseProblems(loaded: LoadedBacklog, inScope: (projectId: string) => boolean): CheckProblem[] {

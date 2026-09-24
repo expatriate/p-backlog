@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
@@ -129,6 +129,18 @@ describe("backlog new", () => {
 
     expect(result.code).toBe(EXIT.notFound);
     expect((await loadBacklog(root)).projects).toEqual([]);
+  });
+
+  it("пока project.md не разбирается, новый проект не создаётся: иначе его префикс и номера повторились бы", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
+    await writeFiles(root, { "spa/project.md": "---\nname: spa\nprefix: SPA\nrepos: [\n---\n" });
+
+    const result = await run(["new", "--category", "bug", "--title", "Вторая", "--source", "src/b.ts:1"]);
+
+    expect(result.code).toBe(EXIT.notFound);
+    expect(result.err).toContain(join(root, "spa/project.md"));
+    expect(await readdir(root)).not.toContain("spa-2");
   });
 
   it("неизвестные категория и «как найдена» — код 1", async () => {

@@ -122,6 +122,15 @@ describe("createProject", () => {
     expect(reloaded.projects.map((candidate) => candidate.id)).toEqual(["spa", "spa-2"]);
   });
 
+  it("не берёт префикс, который заняли файлы задач проекта с неразобранным project.md", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/project.md": "сломано", "spa/SPA-1.md": taskFile("SPA-1") });
+
+    const project = await createProject(root, "/work/spa", []);
+
+    expect(project.prefix).not.toBe("SPA");
+  });
+
   it("создаёт корневой каталог, если его нет", async () => {
     const root = join(await makeTempDir(), "backlog");
     const project = await createProject(root, "/work/partner-workspace", []);

@@ -3,6 +3,7 @@ import type { Project, Task } from "../core/model/types";
 import { coreMessages } from "../core/messages";
 import { createProject } from "../core/store/create";
 import type { LoadedBacklog } from "../core/store/load";
+import { PROJECT_FILE } from "../core/store/paths";
 import { findGitRoot, findProjectForDir } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
 import { cliMessages } from "./messages";
@@ -35,6 +36,12 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
   const gitRoot = findGitRoot(io.cwd);
   if (gitRoot === null) {
     io.warn(cliMessages(io.language).notInGitRepo(io.cwd));
+    return undefined;
+  }
+  const brokenProjectFiles = loaded.errors.filter((error) => basename(error.path) === PROJECT_FILE);
+  if (brokenProjectFiles.length > 0) {
+    const core = coreMessages(io.language);
+    for (const error of brokenProjectFiles) io.warn(cliMessages(io.language).projectNotCreatedFileUnparsed(error.path, core.problems(error.problems)));
     return undefined;
   }
   const created = await createProject(io.backlogRoot, gitRoot, loaded.projects);

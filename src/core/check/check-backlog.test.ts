@@ -453,6 +453,16 @@ describe("checkBacklog", () => {
     expect(spa1).toMatchObject({ blockedBy: [], related: ["TI-3", "XYZ-1"] });
   });
 
+  it("сообщает о проектах с одним префиксом: их ID задач пересекаются", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa-2/project.md": projectFile("SPA"), "ti/project.md": projectFile("TI") });
+
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
+
+    expect(report.problems).toContainEqual({ kind: "prefix-shared", prefix: "SPA", projectIds: ["spa", "spa-2"] });
+  });
+
   it("посторонний каталог и чужие ошибки не мешают закрыть эпик, свой неразобранный файл мешает", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");

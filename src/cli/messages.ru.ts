@@ -85,6 +85,8 @@ export const cliRu = {
   projectNotFound: (id: string): string => `Проект ${id} не найден`,
   notInGitRepo: (cwd: string): string => `${cwd} не в git-репозитории: проект не создан. Укажите --project <id> или запустите команду из репозитория`,
   projectCreated: (id: string, prefix: string): string => `Создан проект ${id} (${prefix})`,
+  projectNotCreatedFileUnparsed: (path: string, problems: string): string =>
+    `Проект не создан: ${path} не разобран (${problems}). Исправьте файл — иначе новый проект может повторить его префикс и номера задач`,
 
   needProjectOrAllProjects: "Укажите либо --project, либо --all-projects",
 

@@ -223,6 +223,8 @@ function checkProblem(p: CheckProblem): string {
       return `Проект ${p.projectId}: ${p.repo} — не git-репозиторий, коммиты и правки кода его задач не проверяются`;
     case "project-history-unreadable":
       return `Проект ${p.projectId}: не удалось прочитать историю git в ${p.repo} — коммиты и правки кода его задач не проверены`;
+    case "prefix-shared":
+      return `У проектов ${p.projectIds.join(", ")} один префикс ${p.prefix} — ID их задач пересекаются. Смените prefix в project.md одного из них`;
   }
 }
 

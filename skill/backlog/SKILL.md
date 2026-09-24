@@ -147,7 +147,8 @@ description: Use when, while working on code, you notice a problem outside the c
 4. `problems` — список `{ kind, … }`. `file-not-parsed`: файл `path` не разбирается, причины в `problems` —
    поправь YAML руками, не меняя `id`. Остальное перечисли пользователю: `task-invalid` (ошибка `problem`
    в задаче `taskId`), `fix-failed` (исправление не записалось, причина `cause`), `epics-wait-for-files`,
-   `project-without-repos`, `project-repos-missing`, `project-repo-not-git`, `project-history-unreadable`.
+   `project-without-repos`, `project-repos-missing`, `project-repo-not-git`, `project-history-unreadable`,
+   `prefix-shared` (у проектов `projectIds` один префикс — ID задач пересекаются).
 5. В конце ответа — блок, по которому пользователь найдёт закрытое:
    ```
    Закрыто в беклоге:

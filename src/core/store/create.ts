@@ -3,7 +3,7 @@ import { basename, join } from "node:path";
 import { formatLocalIso } from "../model/dates";
 import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
-import { derivePrefix, deriveProjectId, formatId, parseId } from "../model/ids";
+import { derivePrefix, deriveProjectId, formatId, parseId, type ParsedId } from "../model/ids";
 import { createdEvent, type ChangeSource, type Provenance } from "../journal/events";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { OptionalFields, Project, Task } from "../model/types";
@@ -53,9 +53,10 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
 
 export async function createProject(root: string, repoRoot: string, existingProjects: readonly Project[]): Promise<Project> {
   const name = basename(repoRoot);
-  const takenIds = new Set((await listDir(root)).map((entry) => entry.name));
-  const id = deriveProjectId(name, takenIds);
-  const prefix = derivePrefix(name, new Set(existingProjects.map((project) => project.prefix)));
+  const entries = await listDir(root);
+  const id = deriveProjectId(name, new Set(entries.map((entry) => entry.name)));
+  const prefixesOnDisk = await Promise.all(entries.filter((entry) => entry.isDirectory()).map((entry) => taskPrefixes(join(root, entry.name))));
+  const prefix = derivePrefix(name, new Set([...existingProjects.map((project) => project.prefix), ...prefixesOnDisk.flat()]));
   const dir = join(root, id);
   await mkdir(dir, { recursive: true });
   const path = join(dir, PROJECT_FILE);
@@ -74,11 +75,16 @@ async function nextTaskNumber(dir: string, project: Project): Promise<number> {
 }
 
 async function maxTaskNumber(dir: string, prefix: string): Promise<number> {
-  const numbers = (await listDir(dir)).flatMap((entry) => {
-    const parsed = parseId(entry.name.replace(/\.md$/, ""));
-    return parsed?.prefix === prefix ? [parsed.number] : [];
-  });
+  const numbers = (await taskFileIds(dir)).flatMap((parsed) => (parsed.prefix === prefix ? [parsed.number] : []));
   return Math.max(0, ...numbers);
+}
+
+async function taskPrefixes(dir: string): Promise<string[]> {
+  return (await taskFileIds(dir)).map((parsed) => parsed.prefix);
+}
+
+async function taskFileIds(dir: string): Promise<ParsedId[]> {
+  return (await listDir(dir)).flatMap((entry) => parseId(entry.name.replace(/\.md$/, "")) ?? []);
 }
 
 function draftTask(id: string, path: string, { project, input, now }: CreateTaskRequest): Task {

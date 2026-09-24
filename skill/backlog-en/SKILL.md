@@ -158,7 +158,8 @@ When: the hook message "code changed for tasks since the last check", a request 
 4. `problems` — a list of `{ kind, … }`. `file-not-parsed`: the file `path` doesn't parse, reasons in
    `problems` — fix the YAML by hand without changing `id`. List the rest for the user: `task-invalid` (error
    `problem` in task `taskId`), `fix-failed` (the fix wasn't written, reason `cause`), `epics-wait-for-files`,
-   `project-without-repos`, `project-repos-missing`, `project-repo-not-git`, `project-history-unreadable`.
+   `project-without-repos`, `project-repos-missing`, `project-repo-not-git`, `project-history-unreadable`,
+   `prefix-shared` (projects `projectIds` share one prefix — their task IDs collide).
 5. End your answer with a block the user can use to find what was closed:
    ```
    Closed in the backlog:

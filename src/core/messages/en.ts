@@ -220,6 +220,8 @@ function checkProblem(p: CheckProblem): string {
       return `Project ${p.projectId}: ${p.repo} is not a git repository — commits and code edits of its tasks are not checked`;
     case "project-history-unreadable":
       return `Project ${p.projectId}: could not read the git history in ${p.repo} — commits and code edits of its tasks were not checked`;
+    case "prefix-shared":
+      return `Projects ${p.projectIds.join(", ")} share the prefix ${p.prefix} — their task IDs collide. Change prefix in project.md of one of them`;
   }
 }
 
