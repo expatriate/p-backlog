@@ -13,7 +13,7 @@ triages them in a local web app.
 
 ## Getting started
 
-1. **Install** (needs Node.js 22 or newer):
+1. **Install** (needs Node.js 22.13 or newer):
 
    ```bash
    npm i -g p-backlog
