@@ -49,7 +49,7 @@ describe("backlog service", () => {
     expect(result.code).toBe(EXIT.ok);
     expect(result.out).toContain(`Служба установлена: ${vbsPath(home)}`);
     expect(result.out).toContain(`Логи: ${join(home, "AppData/Local/p-backlog/p-backlog.log")}`);
-    await expect(readFile(vbsPath(home), "utf8")).resolves.toContain("serve >>");
+    await expect(readFile(vbsPath(home), "utf16le")).resolves.toContain("serve >>");
   });
 
   it("отказ wscript.exe печатает его код и вывод и возвращает код failed", async () => {
