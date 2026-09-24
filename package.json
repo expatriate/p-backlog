@@ -1,6 +1,6 @@
 {
   "name": "p-backlog",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Personal developer backlog for Claude Code: tasks as Markdown files, CLI, Stop hook and a local web UI",
   "keywords": [
     "claude-code",

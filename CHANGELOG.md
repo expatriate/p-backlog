@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.2.2
+## 0.2.3
+
+- README: screenshots of the task list, a task card and statistics (English UI in README.md, Russian UI in README.ru.md), generated from fictional demo data with `npm run screenshots`. No code changes.
+
+## 0.2.2 (not published to npm; its changes ship in 0.2.3)
 
 - README: npm, CI, Node and license badges; a section on using p-backlog together with code-review-graph (re-check by symbol). No code changes.
 
