@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFile, rename, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -95,6 +96,18 @@ describe("diffsSince", () => {
     gitCommitAll(repo, "Убрать три строки", "2026-09-12T10:00:00+03:00");
 
     expect(await changedLines(repo, "src/upload.ts", new Date("2026-09-11T00:00:00+03:00"))).toEqual([{ from: 9, to: 10 }]);
+  });
+
+  it("внешний diff-инструмент и textconv из настроек git не подменяют разбор гунков", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/upload.ts": `${lines(1, 30).join("\n")}\n`, ".gitattributes": "*.ts diff=shout\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFile(join(repo, "src/upload.ts"), `${[...lines(1, 9), "правка", ...lines(11, 30)].join("\n")}\n`);
+    gitCommitAll(repo, "Правка десятой строки", "2026-09-12T10:00:00+03:00");
+    execFileSync("git", ["config", "diff.external", "echo"], { cwd: repo });
+    execFileSync("git", ["config", "diff.shout.textconv", "sed 1d"], { cwd: repo });
+
+    expect(await changedLines(repo, "src/upload.ts", new Date("2026-09-11T00:00:00+03:00"))).toEqual([{ from: 10, to: 10 }]);
   });
 
   it("без коммитов до отметки возвращает null", async () => {
