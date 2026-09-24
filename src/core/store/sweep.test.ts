@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { coreMessages } from "../messages";
@@ -227,6 +227,45 @@ describe("sweepClosed", () => {
 
     expect((await sweepClosed(root, NOW, RU)).deleted).toEqual(["SPA-1"]);
     expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-2")?.epic).toBeUndefined();
+  });
+
+  it("задачу переоткрыли во время прохода — она не удаляется, и ссылки на неё остаются", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", `status: done\n${EXPIRED}`),
+      "spa/SPA-2.md": taskFile("SPA-2", "blockedBy: [SPA-1]\n"),
+    });
+    const actual = vi.mocked(reserveIssuedUpTo).getMockImplementation();
+    vi.mocked(reserveIssuedUpTo).mockImplementationOnce(async (project, number) => {
+      await writeFiles(root, { "spa/SPA-1.md": taskFile("SPA-1", "status: in-progress\n") });
+      return actual ? actual(project, number) : false;
+    });
+
+    const report = await sweepClosed(root, NOW, RU);
+
+    expect(report).toMatchObject({ deleted: [], conflicts: ["SPA-1"] });
+    const { tasks } = await loadBacklog(root);
+    expect(tasks.find((task) => task.id === "SPA-2")?.blockedBy).toEqual(["SPA-1"]);
+    expect(tasks.find((task) => task.id === "SPA-1")?.status).toBe("in-progress");
+  });
+
+  it("убирает временные файлы, брошенные упавшей записью больше суток назад, свежие не трогает", async () => {
+    const root = await makeTempDir();
+    const abandoned = join(root, "spa/.SPA-1.md.0b6f2a52-6c1e-4f7e-9d3a-2b1c4d5e6f70.tmp");
+    const inFlight = join(root, "spa/.SPA-1.md.1c7a3b63-7d2f-4a8e-8e4b-3c2d5e6f7a81.tmp");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1") });
+    await writeFile(abandoned, "x");
+    await writeFile(inFlight, "x");
+    const twoDaysAgo = new Date(NOW.getTime() - 2 * 24 * 60 * 60 * 1000);
+    await utimes(abandoned, twoDaysAgo, twoDaysAgo);
+    await utimes(inFlight, NOW, NOW);
+
+    await sweepClosed(root, NOW, RU);
+
+    expect(await exists(abandoned)).toBe(false);
+    expect(await exists(inFlight)).toBe(true);
+    expect(await exists(join(root, "spa/SPA-1.md"))).toBe(true);
   });
 
   it("неразобранный файл, когда закрывать нечего, в итог не попадает", async () => {

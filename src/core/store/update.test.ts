@@ -62,7 +62,7 @@ describe("updateTask", () => {
     const { tasks } = await loadBacklog(root);
     const edited = taskFile("SPA-2", "epic: SPA-1\nstatus: in-progress\n");
     await writeFiles(root, { "spa/SPA-2.md": edited });
-    const snapshotVersion = tasks.find((task) => task.id === "SPA-2")?.version;
+    const snapshotVersion = tasks.find((task) => task.id === "SPA-2")?.version ?? "";
 
     const result = await updateTaskInIndex(buildIndex(tasks), { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: snapshotVersion, now: NOW, via: "cli" });
 
@@ -73,7 +73,7 @@ describe("updateTask", () => {
   it("две одновременные правки с одной версией: одна проходит, другая получает conflict, а не затирает первую", async () => {
     const root = await setup();
     const index = buildIndex((await loadBacklog(root)).tasks);
-    const expectedVersion = index.byId.get("SPA-2")?.version;
+    const expectedVersion = index.byId.get("SPA-2")?.version ?? "";
 
     const results = await Promise.all([
       updateTaskInIndex(index, { id: "SPA-2", changes: { status: "in-progress" }, expectedVersion, now: NOW, via: "web" }),
@@ -90,7 +90,7 @@ describe("updateTask", () => {
     const root = await setup();
     const { tasks } = await loadBacklog(root);
     const index = buildIndex(tasks);
-    const version = (id: string) => index.byId.get(id)?.version;
+    const version = (id: string) => index.byId.get(id)?.version ?? "";
     await rm(join(root, "spa/SPA-3.md"));
     await writeFiles(root, { "spa/SPA-2.md": "сломано" });
 

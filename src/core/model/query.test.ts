@@ -83,7 +83,15 @@ describe("sortTasks", () => {
     ["id", "asc", ["SPA-1", "SPA-2", "SPA-3"]],
     ["id", "desc", ["SPA-3", "SPA-2", "SPA-1"]],
   ] as const)("%s %s", (key, direction, expected) => {
-    expect(ids(sortTasks(tasks, { key, direction }, index))).toEqual(expected);
+    expect(ids(sortTasks(tasks, { key, direction }, index, "ru"))).toEqual(expected);
+  });
+
+  it("заголовки сортируются по правилам языка беклога: в русском кириллица раньше латиницы, в английском наоборот", () => {
+    const mixed = [makeTask({ id: "SPA-1", title: "Zeta" }), makeTask({ id: "SPA-2", title: "Альфа" })];
+    const byTitle = (language: "ru" | "en") => ids(sortTasks(mixed, { key: "title", direction: "asc" }, buildIndex(mixed), language));
+
+    expect(byTitle("ru")).toEqual(["SPA-2", "SPA-1"]);
+    expect(byTitle("en")).toEqual(["SPA-1", "SPA-2"]);
   });
 });
 
@@ -95,8 +103,8 @@ describe("sortTasks по дате закрытия", () => {
       makeTask({ id: "SPA-3", status: "cancelled", closed: "2026-09-14T10:00:00+03:00" }),
     ];
     const index = buildIndex(tasks);
-    expect(ids(sortTasks(tasks, { key: "closed", direction: "desc" }, index))).toEqual(["SPA-3", "SPA-1", "SPA-2"]);
-    expect(ids(sortTasks(tasks, { key: "closed", direction: "asc" }, index))).toEqual(["SPA-1", "SPA-3", "SPA-2"]);
+    expect(ids(sortTasks(tasks, { key: "closed", direction: "desc" }, index, "ru"))).toEqual(["SPA-3", "SPA-1", "SPA-2"]);
+    expect(ids(sortTasks(tasks, { key: "closed", direction: "asc" }, index, "ru"))).toEqual(["SPA-1", "SPA-3", "SPA-2"]);
   });
 });
 

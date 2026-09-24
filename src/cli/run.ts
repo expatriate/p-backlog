@@ -2,7 +2,7 @@ import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/stats/cost/hook-sign
 import { errorText } from "../core/errors";
 import { coreMessages } from "../core/messages";
 import { FileBusyError } from "../core/store/file-lock";
-import { settingsFilePath, settledLanguage } from "../core/store/settings";
+import { settingsFilePath, settleLanguage } from "../core/store/settings";
 import { cliMessages } from "./messages";
 import { usageText, type CliCommand } from "./command";
 import { categoryCommand } from "./commands/category";
@@ -53,7 +53,7 @@ const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
 const COMMANDS = new Map(CLI_COMMANDS.map((command) => [command.name, command.run]));
 
 export async function runCli(argv: readonly string[], env: CliEnv): Promise<number> {
-  const settled = await settledLanguage(env.backlogRoot, env.env);
+  const settled = await settleLanguage(env.backlogRoot, env.env);
   const { language } = settled;
   const io = { ...env, language };
   if (settled.invalidSettingsFile) io.warn(cliMessages(language).settingsFileInvalid(settingsFilePath(env.backlogRoot)));

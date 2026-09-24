@@ -34,6 +34,17 @@ describe("проекты", () => {
     expect(project).toMatchObject({ name: "Переименован руками", repos: ["/new/repo"], issuedUpTo: 12, body: "Заметки\n" });
   });
 
+  it("одновременные резерв номера и смена активности не теряют друг друга", async () => {
+    const root = await makeTempDir();
+    const path = join(root, "spa/project.md");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA") });
+
+    for (let number = 1; number <= 20; number++) {
+      await Promise.all([reserveIssuedUpTo({ id: "spa", path }, number), setProjectActive(root, "spa", number % 2 === 0)]);
+      expect((await loadBacklog(root)).projects[0]).toMatchObject({ issuedUpTo: number, active: number % 2 === 0 });
+    }
+  });
+
   it("битый или пропавший project.md — номер не зарезервирован", async () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": "сломано" });

@@ -23,6 +23,7 @@ export function zodIssueText(localeError: LocaleError, { issue, receivedType }: 
   return typeof text === "string" ? text : (text?.message ?? issue.message);
 }
 
+// zod locales name the received type from the input value (constructor.name for objects); only the type name is stored, so a stand-in value carries it.
 function witnessOf(type: string): unknown {
   return type in TYPE_WITNESSES ? TYPE_WITNESSES[type] : Object.create({ constructor: { name: type } });
 }

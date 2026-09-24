@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { claudeProjectsDir } from "../core/claude-dir";
 import { coreMessages } from "../core/messages";
 import { trimRuns } from "../core/store/runs";
-import { settingsFilePath, settledLanguage } from "../core/store/settings";
+import { settingsFilePath, settleLanguage } from "../core/store/settings";
 import { sweepClosed, type SweepReport } from "../core/store/sweep";
 import { createApp } from "./app";
 import { CHANGE_DEBOUNCE_MS, createChangeFeed } from "./change-feed";
@@ -25,7 +25,7 @@ export type StartServerOptions = { root: string; port: number; home: string; env
 export async function startServer({ root, port, home, env, pidFile }: StartServerOptions): Promise<RunningServer> {
   await mkdir(root, { recursive: true });
 
-  const settled = await settledLanguage(root, env);
+  const settled = await settleLanguage(root, env);
   const startupMessages = serverMessages(settled.language);
   if (settled.invalidSettingsFile) process.stderr.write(`${startupMessages.settingsFileInvalid(settingsFilePath(root))}\n`);
 

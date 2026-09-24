@@ -7,7 +7,7 @@ import { derivePrefix, deriveProjectId, formatId, parseId, type ParsedId } from 
 import { createdEvent, type ChangeSource, type Provenance } from "../journal/events";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { OptionalFields, Project, Task } from "../model/types";
-import { createFileAtomic, hasErrorCode, listDir } from "./fs-utils";
+import { createFileAtomic, hasErrorCode, listDir, readTextOrNull } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { PROJECT_FILE, taskFileName } from "./paths";
 import { issuedUpToOnDisk } from "./projects";
@@ -61,10 +61,22 @@ export async function createProject(root: string, repoRoot: string, existingProj
   await mkdir(dir, { recursive: true });
   const path = join(dir, PROJECT_FILE);
   const text = serializeProject({ name, prefix, repos: [repoRoot], active: true, extra: {}, body: "" });
-  await createFileAtomic(path, text);
+  try {
+    await createFileAtomic(path, text);
+  } catch (error) {
+    const concurrent = hasErrorCode(error, "EEXIST") ? await projectOfRepo(id, path, repoRoot) : null;
+    if (concurrent === null) throw error;
+    return concurrent;
+  }
   const parsed = parseProjectFile(text, { id, path });
   if (!parsed.ok) throw new Error(`${path}: ${parsed.problems.map((problem) => problem.code).join(", ")}`);
   return parsed.value;
+}
+
+async function projectOfRepo(id: string, path: string, repoRoot: string): Promise<Project | null> {
+  const text = await readTextOrNull(path);
+  const parsed = text === null ? null : parseProjectFile(text, { id, path });
+  return parsed?.ok === true && parsed.value.repos.includes(repoRoot) ? parsed.value : null;
 }
 
 async function nextTaskNumber(dir: string, project: Project): Promise<number> {

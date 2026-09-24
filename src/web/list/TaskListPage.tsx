@@ -44,7 +44,7 @@ export function TaskListPage() {
   const scopedTasks = useMemo(() => tasksInScope(allTasks, projectId, activeIds), [allTasks, projectId, activeIds]);
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const tones = useMemo(() => epicTones(allTasks), [allTasks]);
-  const visibleTasks = useMemo(() => sortTasks(filterTasks(scopedTasks, params.filter, index), sort, index), [scopedTasks, index, params.filter, sort]);
+  const visibleTasks = useMemo(() => sortTasks(filterTasks(scopedTasks, params.filter, index), sort, index, language), [scopedTasks, index, params.filter, sort, language]);
   const epicFilterChoices = useMemo(() => epicChoices(scopedTasks, tones), [scopedTasks, tones]);
   const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, index).length, [scopedTasks, index]);
   const tags = useMemo(() => collectTags(scopedTasks, language), [scopedTasks, language]);

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { link, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { link, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { z } from "zod";
@@ -22,7 +22,7 @@ export async function readTextOrNull(path: string): Promise<string | null> {
   }
 }
 
-export type JsonLines<T> = { values: T[]; invalidLines: number };
+type JsonLines<T> = { values: T[]; invalidLines: number };
 
 export async function readJsonLines<T>(path: string, schema: z.ZodType<T>): Promise<JsonLines<T>> {
   const text = (await readTextOrNull(path)) ?? "";
@@ -95,6 +95,17 @@ async function replaceFile(temporary: string, path: string): Promise<void> {
 
 export async function createFileAtomic(path: string, content: string): Promise<void> {
   await viaTemporaryFile(path, content, (temporary) => link(temporary, path));
+}
+
+const TEMPORARY_FILE = /^\..+\.[0-9a-f-]{36}\.tmp$/;
+
+export async function removeTemporariesBefore(dir: string, cutoff: Date): Promise<void> {
+  for (const entry of await listDir(dir)) {
+    if (!entry.isFile() || !TEMPORARY_FILE.test(entry.name)) continue;
+    const path = join(dir, entry.name);
+    const modified = await stat(path).then(({ mtimeMs }) => mtimeMs, () => null);
+    if (modified !== null && modified < cutoff.getTime()) await rm(path, { force: true });
+  }
 }
 
 async function viaTemporaryFile(path: string, content: string, publish: (temporary: string) => Promise<void>): Promise<void> {

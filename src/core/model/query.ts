@@ -1,5 +1,6 @@
 import { isBlocked, taskProgress, type BacklogIndex } from "./graph";
 import { DAY_MS } from "./lifecycle";
+import { localeOf, type Language } from "../i18n/language";
 import { compareIds } from "./ids";
 import { normalizeTag, PRIORITIES, type Priority, type Task, type TaskStatus, type TaskType } from "./types";
 
@@ -54,7 +55,7 @@ export function filterTasks(tasks: readonly Task[], filter: TaskFilter, index: B
   );
 }
 
-export function sortTasks(tasks: readonly Task[], sort: TaskSort, index: BacklogIndex): Task[] {
+export function sortTasks(tasks: readonly Task[], sort: TaskSort, index: BacklogIndex, language: Language): Task[] {
   const sign = sort.direction === "asc" ? 1 : -1;
   const progress = new Map(tasks.map((task) => [task.id, taskProgress(task, index)]));
   const compare = (a: Task, b: Task): number => {
@@ -66,7 +67,7 @@ export function sortTasks(tasks: readonly Task[], sort: TaskSort, index: Backlog
       case "status":
         return sign * (STATUS_SORT_ORDER.indexOf(a.status) - STATUS_SORT_ORDER.indexOf(b.status));
       case "title":
-        return sign * a.title.localeCompare(b.title, "ru");
+        return sign * a.title.localeCompare(b.title, localeOf(language));
       case "progress":
         return compareNullsLast(progress.get(a.id) ?? null, progress.get(b.id) ?? null, sign);
       case "id":

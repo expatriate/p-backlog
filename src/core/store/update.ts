@@ -19,14 +19,14 @@ export type TaskChanges = OptionalFields<
   anchor?: string | null | undefined;
 };
 
-export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion?: string | undefined; now: Date; closure?: Closure | undefined; via: ChangeSource };
+export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion: string; now: Date; closure?: Closure | undefined; via: ChangeSource };
 
 const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "related", "body", "source", "verified"] as const;
 
 export async function updateTaskInIndex(index: BacklogIndex, { id, changes, expectedVersion, now, closure, via }: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const current = index.byId.get(id);
   if (!current) return { ok: false, reason: "not-found" };
-  if (expectedVersion !== undefined && expectedVersion !== current.version) return { ok: false, reason: "conflict", current };
+  if (expectedVersion !== current.version) return { ok: false, reason: "conflict", current };
 
   const normalized = taskText(applyChanges(current, changes, now, closure));
   if (!normalized.ok) return invalid(normalized.problems);
@@ -35,7 +35,7 @@ export async function updateTaskInIndex(index: BacklogIndex, { id, changes, expe
   if (errors.length > 0) return invalid(errors);
 
   return withFileLock(current.path, async () => {
-    const changedOnDisk = expectedVersion === undefined ? null : await diskChange(current, expectedVersion);
+    const changedOnDisk = await diskChange(current, expectedVersion);
     if (changedOnDisk !== null) return changedOnDisk;
     await writeFileAtomic(current.path, text);
     await appendJournal(dirname(current.path), changeEvents(current, task, now, via));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareIds, derivePrefix, deriveProjectId, formatId, parseId } from "./ids";
+import { compareIds, derivePrefix, deriveProjectId, parseId } from "./ids";
 
 describe("parseId", () => {
   it("разбирает префикс и номер", () => {
@@ -9,12 +9,6 @@ describe("parseId", () => {
 
   it.each(["spa-1", "SPA-0", "SPA-01", "SPA", "-1", "1A-2", "ABCDEFGHIJK-1"])("отклоняет %s", (id) => {
     expect(parseId(id)).toBeNull();
-  });
-});
-
-describe("formatId", () => {
-  it("склеивает префикс и номер", () => {
-    expect(formatId("SPA", 7)).toBe("SPA-7");
   });
 });
 

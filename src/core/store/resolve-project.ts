@@ -45,7 +45,7 @@ function parseRoots(dir: string, output: string | null): GitRoots | null {
 
 export function findProjectForDir(projects: readonly Project[], dir: string, home: string): Project | undefined {
   const roots = findGitRoots(dir);
-  if (roots === null) return findProjectForRepoRoot(projects, realpathSync(dir), home);
+  if (roots === null) return findProjectForRepoRoot(projects, realpathSync.native(dir), home);
   return findProjectForRepoRoot(projects, roots.worktree, home) ?? findProjectForRepoRoot(projects, roots.main, home);
 }
 
@@ -66,7 +66,7 @@ function isSameOrInside(path: string, container: string): boolean {
 
 function realpathOrNull(path: string): string | null {
   try {
-    return realpathSync(path);
+    return realpathSync.native(path);
   } catch {
     return null;
   }

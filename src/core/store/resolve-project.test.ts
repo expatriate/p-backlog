@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -56,6 +57,15 @@ describe("findProjectForDir", () => {
     const { home, repo, worktree } = await repoWithOutsideWorktree();
 
     expect(findProjectForDir([project("spa", [repo])], join(worktree, "src"), home)?.id).toBe("spa");
+  });
+
+  it("на файловой системе без учёта регистра находит проект, если путь в repos записан в другом регистре", async ({ skip }) => {
+    const home = await makeTempDir();
+    const repo = await makeGitRepo(home, "CaseRepo");
+    const differentCase = join(home, "caserepo");
+    if (!existsSync(differentCase)) skip();
+
+    expect(findProjectForDir([project("case", [differentCase])], repo, home)?.id).toBe("case");
   });
 
   it("не путает соседние каталоги с общим префиксом имени", async () => {

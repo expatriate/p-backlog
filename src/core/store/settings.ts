@@ -21,11 +21,6 @@ async function readSettingsFile(root: string): Promise<SettingsFile> {
   return settings === null ? { found: true, valid: false } : { found: true, valid: true, settings };
 }
 
-export async function readSettings(root: string): Promise<Settings | null> {
-  const file = await readSettingsFile(root);
-  return file.found && file.valid ? file.settings : null;
-}
-
 export async function writeSettings(root: string, settings: Settings): Promise<void> {
   await mkdir(root, { recursive: true });
   await writeJsonFile(settingsFilePath(root), settings);
@@ -33,7 +28,7 @@ export async function writeSettings(root: string, settings: Settings): Promise<v
 
 export type SettledLanguage = { language: Language; invalidSettingsFile: boolean };
 
-export async function settledLanguage(root: string, env: NodeJS.ProcessEnv): Promise<SettledLanguage> {
+export async function settleLanguage(root: string, env: NodeJS.ProcessEnv): Promise<SettledLanguage> {
   const file = await readSettingsFile(root);
   if (file.found && file.valid) return { language: file.settings.language, invalidSettingsFile: false };
   const locale = () => languageFromLocale(env.LC_ALL || env.LANG || Intl.DateTimeFormat().resolvedOptions().locale);

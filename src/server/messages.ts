@@ -1,5 +1,5 @@
 import type { Language } from "../core/i18n/language";
-import { settledLanguage } from "../core/store/settings";
+import { settleLanguage } from "../core/store/settings";
 import { serverEn } from "./messages.en";
 import { serverRu, type ServerMessages } from "./messages.ru";
 
@@ -10,5 +10,5 @@ export function serverMessages(language: Language): ServerMessages {
 }
 
 export function serverLanguage(root: string): Promise<Language> {
-  return settledLanguage(root, process.env).then((settled) => settled.language);
+  return settleLanguage(root, process.env).then((settled) => settled.language);
 }

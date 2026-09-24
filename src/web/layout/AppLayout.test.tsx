@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { makeGraph } from "../../core/graph/testing/make-graph";
 import { loadBacklog } from "../../core/store/load";
-import { readSettings } from "../../core/store/settings";
+import { settingsFilePath } from "../../core/store/settings";
 import { makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import type { TestApp } from "../../server/testing/test-app";
 import { renderApp } from "../testing/render-app";
@@ -116,7 +117,7 @@ describe("переключатель языка", () => {
 
     expect(await screen.findByRole("link", { name: "Tasks" })).toBeDefined();
     expect(document.documentElement.lang).toBe("en");
-    expect(await readSettings(root)).toEqual({ language: "en" });
+    expect(JSON.parse(await readFile(settingsFilePath(root), "utf8"))).toEqual({ language: "en" });
   });
 });
 

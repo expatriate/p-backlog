@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { Problem } from "../model/problems";
 import type { Project } from "../model/types";
+import { withFileLock } from "./file-lock";
 import { readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { PROJECT_FILE, projectDir } from "./paths";
 
@@ -35,13 +36,16 @@ export async function issuedUpToOnDisk({ id, path }: Pick<Project, "id" | "path"
 }
 
 async function editProjectFile({ id, path }: Pick<Project, "id" | "path">, edit: (project: Project) => Project): Promise<ProjectWriteResult> {
-  const text = await readTextOrNull(path);
-  if (text === null) return NOT_FOUND;
-  const parsed = parseProjectFile(text, { id, path });
-  if (!parsed.ok) return { ok: false, reason: "invalid", problems: parsed.problems };
-  const project = edit(parsed.value);
-  if (project !== parsed.value) await writeFileAtomic(path, serializeProject(project));
-  return { ok: true, project };
+  if ((await readTextOrNull(path)) === null) return NOT_FOUND;
+  return withFileLock(path, async () => {
+    const text = await readTextOrNull(path);
+    if (text === null) return NOT_FOUND;
+    const parsed = parseProjectFile(text, { id, path });
+    if (!parsed.ok) return { ok: false, reason: "invalid", problems: parsed.problems };
+    const project = edit(parsed.value);
+    if (project !== parsed.value) await writeFileAtomic(path, serializeProject(project));
+    return { ok: true, project };
+  });
 }
 
 export async function deleteProject(root: string, id: string): Promise<ProjectDeleteResult> {

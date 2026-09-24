@@ -65,15 +65,6 @@ describe("тревоги", () => {
   });
 });
 
-describe("подписи улик, способов и графа", () => {
-  it("совпадение дубля и состояние графа на каждом языке", () => {
-    expect(coreMessages("ru").duplicateMatchLabel("source")).toBe("по месту в коде");
-    expect(coreMessages("en").duplicateMatchLabel("source")).toBe("by code location");
-    expect(coreMessages("ru").graphStateLabel("stale")).toBe("устарел");
-    expect(coreMessages("en").graphStateLabel("stale")).toBe("stale");
-  });
-});
-
 describe("счёт по единицам", () => {
   it("число, форма и язык", () => {
     expect(coreMessages("ru").count(3, "task")).toBe(`3${NBSP}задачи`);

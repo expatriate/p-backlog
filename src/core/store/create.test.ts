@@ -131,6 +131,15 @@ describe("createProject", () => {
     expect(project.prefix).not.toBe("SPA");
   });
 
+  it("два одновременных создания проекта для одного репозитория получают один и тот же проект", async () => {
+    const root = await makeTempDir();
+
+    const [first, second] = await Promise.all([createProject(root, "/work/spa", []), createProject(root, "/work/spa", [])]);
+
+    expect(first).toEqual(second);
+    expect((await loadBacklog(root)).projects.map((project) => project.id)).toEqual(["spa"]);
+  });
+
   it("создаёт корневой каталог, если его нет", async () => {
     const root = join(await makeTempDir(), "backlog");
     const project = await createProject(root, "/work/partner-workspace", []);
