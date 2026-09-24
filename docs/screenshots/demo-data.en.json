@@ -1,0 +1,144 @@
+{
+  "fixReason": "Fixed in {commit}.",
+  "tasks": {
+    "search-epic": { "title": "Search relaunch", "body": "New ranking, a proper empty state and a query parser that can be tested." },
+    "search-ranking": { "title": "Search ranks out-of-stock products first" },
+    "search-empty": { "title": "Empty search results page offers no suggestions" },
+    "search-query": { "title": "Query parser is one 180-line function" },
+    "unused-helpers": { "title": "Unused currency helpers left in lib", "reason": "The helpers were deleted in {commit} together with the old formatter; nothing references them any more." },
+    "hydrate-warning": { "title": "Hydration warning on the home page" },
+    "coupon-rounding": { "title": "Coupon discount rounded per line instead of per order" },
+    "routes-constants": { "title": "Route paths are string literals in twelve components" },
+    "wishlist-names": {
+      "title": "Unclear names in the wishlist reducer: data2, tmpList, flag",
+      "body": "Three variables in `reducer.ts` say nothing about what they hold. `data2` is the server copy, `tmpList` the optimistic one, `flag` marks a pending sync."
+    },
+    "image-lazy": { "title": "Product images below the fold load eagerly" },
+    "flags-global": {
+      "title": "Feature flags read from window.__FLAGS__ all over the app",
+      "body": "31 components read the global directly, so a flag can't be overridden in tests or stories. Route every read through `useFlag()`."
+    },
+    "plural-concat": { "title": "Cart summary builds plurals by string concatenation" },
+    "checkout-epic": {
+      "title": "Checkout rewrite",
+      "body": "Move checkout to one state machine, fix the redirect bugs and cut `useCheckout` into pieces that can be tested on their own."
+    },
+    "steps-switch": { "title": "Checkout step logic is a switch on the step name" },
+    "cart-drilling": { "title": "CartPage passes six props through three levels", "reason": "CartPage was rewritten on the cart context in {commit}; the props are gone." },
+    "use-checkout": {
+      "title": "useCheckout mixes state, validation and API calls in 600 lines",
+      "body": "The hook owns the form state, runs field validation and talks to three endpoints. Every checkout bug lands here, and the file has no tests.\n\nSplit into `useCheckoutState`, `validateCheckout` and `checkoutApi`."
+    },
+    "reviews-xss": { "title": "Review text rendered as HTML without sanitising" },
+    "price-format-dup": {
+      "title": "Price formatting duplicated in CartSummary and OrderReview",
+      "body": "Both components format money by hand with slightly different rounding. Use `formatPrice` from `lib/format`."
+    },
+    "analytics-switch": {
+      "title": "Analytics payloads built by a switch on event name strings",
+      "body": "A 14-branch `switch` in `track.ts` builds each payload; a typo in an event name silently sends an empty payload."
+    },
+    "skeleton-flicker": { "title": "Loading skeleton flickers on fast responses" },
+    "footer-links": { "title": "Footer links duplicated in two components" },
+    "address-validate": {
+      "title": "Address step validates fields only on submit",
+      "body": "Postcode and phone errors appear only after pressing Continue, and then all at once. Validate on blur, like the payment step does."
+    },
+    "vat-magic": {
+      "title": "VAT rate 0.2 hard-coded in three places",
+      "body": "`tax.ts`, `CartSummary.tsx` and the order e-mail template each multiply by `0.2`. The rate for Ireland is already wrong."
+    },
+    "session-quota": {
+      "title": "Storage wrapper swallows quota errors in Safari private mode",
+      "body": "`storage.set` catches `QuotaExceededError` and returns silently, so the checkout draft is never saved.",
+      "reason": "Fixed in {commit}: quota errors are reported and the draft falls back to memory storage."
+    },
+    "carousel-keyboard": {
+      "title": "Image carousel can't be operated from the keyboard",
+      "body": "Arrow buttons are `div`s without a role; Tab skips the whole carousel. Found during the accessibility review."
+    },
+    "holder-name": {
+      "title": "3-D Secure redirect clears the card holder name",
+      "body": "After the bank's 3-D Secure page redirects back, the payment form mounts again and the card holder field is empty. The card number comes back from the provider token, so people don't notice until the payment is declined.\n\nThe `key` on `PaymentStep` changes after the redirect, so all local state is lost.\n\n- [x] Reproduce with the 3-D Secure test card\n- [x] Find where the state is lost\n- [ ] Keep the draft in session storage until the payment is confirmed\n- [ ] Add an end-to-end test for the redirect round trip"
+    },
+    "grid-rerender": {
+      "title": "ProductGrid re-renders on every filter keystroke",
+      "body": "Typing in the price filter re-renders all 120 cards; each keystroke takes 90 ms on a mid-range phone. The filter object is rebuilt on every render."
+    },
+    "idempotency": {
+      "title": "placeOrder retries without an idempotency key",
+      "body": "The client retries `POST /orders` on a timeout, and the API has no way to tell a retry from a new order."
+    },
+    "double-email": {
+      "title": "Order confirmation e-mail is sent twice on slow networks",
+      "body": "Customers on slow connections get two confirmation e-mails, and in two cases two orders. Waits for the idempotency key."
+    },
+    "grid-dup": { "title": "Product list is slow while typing a price", "reason": "Same problem as {original}: the grid re-renders on each keystroke." },
+    "cart-badge": {
+      "title": "Cart badge shows a stale count after switching tabs",
+      "body": "The badge reads the count once on mount and ignores `storage` events from other tabs."
+    },
+    "search-debounce": {
+      "title": "Search suggestions send a request per typed character",
+      "body": "No debounce in `Suggestions.tsx`: typing a ten-letter word sends ten requests, and late answers overwrite fresh ones."
+    },
+
+    "webhook-sig": { "title": "Webhook signature checked after the payload is parsed" },
+    "invoice-numbering": { "title": "Invoice numbers can repeat across two workers" },
+    "long-params": { "title": "createInvoice takes eleven positional parameters" },
+    "cron-tz": { "title": "Nightly billing job runs in server local time" },
+    "dead-flag": { "title": "Dead feature flag ENABLE_V1_TAXES", "reason": "The flag was removed in {commit} along with the v1 tax code." },
+    "money-float": {
+      "title": "Amounts passed around as floats instead of integer cents",
+      "body": "`Amount` wraps a `number` of currency units, so 0.1 + 0.2 shows up on invoices as 0.30000000000000004 before rounding."
+    },
+    "refund-mutate": { "title": "Refund handler mutates the incoming event" },
+    "paypal-dead": { "title": "Legacy PayPal adapter is still bundled", "reason": "The adapter was deleted in {commit}; nothing references it any more." },
+    "usage-epic": { "title": "Usage-based plans", "body": "Bill by metered usage instead of seats: reliable metering first, then plan limits." },
+    "metering-idem": {
+      "title": "Metering events accepted twice when the client retries",
+      "body": "`POST /events` has no idempotency key, so a retried batch is counted twice and the customer is overcharged."
+    },
+    "plan-limits": {
+      "title": "Plan limits hard-coded in PlanService",
+      "body": "Limits for the three plans are numbers inside `if` branches. They have to come from the plan catalog before usage billing starts."
+    },
+    "csv-export": { "title": "CSV export breaks on commas in company names" },
+    "retry-dup": {
+      "title": "Webhook retry policy copied into three handlers",
+      "body": "Backoff, maximum attempts and dead-letter handling are written out in `stripe.ts`, `refund.ts` and `dispute.ts`."
+    },
+    "shared-address": {
+      "title": "Customer and Account share one mutable address object",
+      "body": "Editing the billing address on the account silently changes the shipping address on the customer."
+    },
+    "tax-chain": {
+      "title": "Tax lookup reaches through order.customer.account.region",
+      "body": "`rates.ts` walks four objects to find the region; any missing link throws deep inside the tax calculation."
+    },
+    "pdf-blocking": {
+      "title": "Invoice PDF rendering blocks the event loop",
+      "body": "Rendering a 40-page invoice takes 1.8 s of synchronous work, and every other request waits. Move rendering to a worker."
+    },
+    "fx-rounding": {
+      "title": "Currency conversion rounds differently from shop-web",
+      "body": "The API rounds half-even, the shop rounds half-up, so the invoice total differs from the checkout total by a cent."
+    },
+
+    "focus-ring": { "title": "Focus ring invisible on the primary button" },
+    "modal-trap": { "title": "Modal doesn't trap focus" },
+    "iconbutton-copy": {
+      "title": "IconButton copies all Button variants",
+      "body": "Six variants and their hover states are duplicated instead of composing `Button`."
+    },
+    "raw-hex": {
+      "title": "Components use raw hex colors instead of tokens",
+      "body": "40 components still use hex values, so the dark theme needs overrides in each of them."
+    },
+    "spacing-dup": { "title": "Spacing scale has two 12px steps" },
+    "tooltip-scroll": {
+      "title": "Tooltip closes on scroll inside a modal",
+      "body": "The tooltip listens to scroll on `window`, and scrolling a modal body counts as scrolling the page."
+    }
+  }
+}

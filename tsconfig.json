@@ -16,5 +16,5 @@
     "noEmit": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["src", "tests", "scripts/verify-systemd-unit.ts", "vitest.config.ts", "vitest.package.config.ts", "vite.config.ts"]
+  "include": ["src", "tests", "scripts/verify-systemd-unit.ts", "scripts/screenshots", "vitest.config.ts", "vitest.package.config.ts", "vite.config.ts"]
 }

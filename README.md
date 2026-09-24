@@ -13,6 +13,23 @@ triages them in a local web app.
 - **Backlog hygiene** — the agent re-checks tasks whose code changed and closes the ones no longer needed;
   closed tasks are deleted after 7 days.
 
+## Screenshots
+
+![Task list across three projects: the sidebar with project checkboxes and task counts, status, priority and type filters, and open tasks with tags, status, priority and creation date](https://raw.githubusercontent.com/expatriate/p-backlog/main/docs/screenshots/en/tasks.png)
+
+![Task card of a bug in progress: status, priority, category and epic fields, the source file:line, a description with a half-done checklist, the task that blocked it and a related task](https://raw.githubusercontent.com/expatriate/p-backlog/main/docs/screenshots/en/task.png)
+
+<details>
+<summary>Statistics: overview, effect, code</summary>
+
+![Statistics overview: alerts about stale urgent and low-priority tasks, tasks created and closed today and this week, debt by week and tasks created by day](https://raw.githubusercontent.com/expatriate/p-backlog/main/docs/screenshots/en/stats.png)
+
+![Effect tab: lines deferred to the backlog next to lines in pull requests, week by week, with the share of unrelated edits kept out of pull requests](https://raw.githubusercontent.com/expatriate/p-backlog/main/docs/screenshots/en/effect.png)
+
+![Code tab of one project: open debt in frequently changed folders ranked by commits times task weight, and debt density per 1000 lines](https://raw.githubusercontent.com/expatriate/p-backlog/main/docs/screenshots/en/code.png)
+
+</details>
+
 ## Getting started
 
 1. **Install** (needs Node.js 22.13 or newer):
@@ -238,6 +255,7 @@ npx playwright install chromium   # once, before the first e2e run
 npm run test:e2e                  # Playwright: live list update
 
 npm run test:package              # the tarball install path end to end on this OS (slow)
+npm run screenshots               # README screenshots on demo data, into docs/screenshots
 ```
 
 To try a build the way a published package would install, without publishing it:
