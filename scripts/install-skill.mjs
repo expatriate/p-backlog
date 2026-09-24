@@ -3,16 +3,17 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cliMessages } from "../src/cli/messages.ts";
+import { claudeSettingsPath, claudeSkillsDir } from "../src/core/claude-dir.ts";
 import { resolveBacklogRoot } from "../src/core/store/paths.ts";
 import { settledLanguage } from "../src/core/store/settings.ts";
-import { defaultSkillsDir, linkSkillFor, skillSourceDir } from "../src/cli/skill-link.ts";
+import { linkSkillFor, skillSourceDir } from "../src/cli/skill-link.ts";
 
 const STOP_HOOK_COMMAND = "command -v backlog >/dev/null && backlog hook stop || true";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const home = homedir();
-const skillsDir = process.env.CLAUDE_SKILLS_DIR ?? defaultSkillsDir(home);
-const settingsPath = process.env.CLAUDE_SETTINGS_PATH ?? join(home, ".claude/settings.json");
+const skillsDir = claudeSkillsDir(process.env, home);
+const settingsPath = claudeSettingsPath(process.env, home);
 const backlogRoot = resolveBacklogRoot(process.env, home);
 const { language } = await settledLanguage(backlogRoot, process.env);
 const cli = cliMessages(language);
@@ -23,7 +24,7 @@ async function linkSkill() {
   const target = join(skillsDir, "backlog");
   const source = skillSourceDir(repoRoot, language);
   try {
-    const result = await linkSkillFor(language, { skillsDir, repoRoot });
+    const result = await linkSkillFor(language, { skillsDir, repoRoot, platform: process.platform });
     if (result === "linked") {
       console.log(cli.installSkillLinked(target, source));
       return true;

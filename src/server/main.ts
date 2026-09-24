@@ -3,6 +3,7 @@ import { serve } from "@hono/node-server";
 import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { claudeProjectsDir } from "../core/claude-dir";
 import { coreMessages } from "../core/messages";
 import { resolveBacklogRoot } from "../core/store/paths";
 import { trimRuns } from "../core/store/runs";
@@ -30,7 +31,7 @@ const startupMessages = serverMessages(settledStartupLanguage.language);
 if (settledStartupLanguage.invalidSettingsFile) process.stderr.write(`${startupMessages.settingsFileInvalid(settingsFilePath(root))}\n`);
 
 const readMessages = () => serverLanguage(root).then(serverMessages);
-const usage = createUsageScanner({ root, claudeProjectsDir: join(home, ".claude", "projects"), messages: readMessages });
+const usage = createUsageScanner({ root, claudeProjectsDir: claudeProjectsDir(process.env, home), messages: readMessages });
 const memory = createMemorySampler();
 
 const app = createApp({
