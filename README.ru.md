@@ -155,6 +155,11 @@ npm run install-skill   # ~/.claude/skills/backlog → skill/backlog и хук S
 ```
 
 ```bash
+npm start           # сборка и сервер на http://localhost:4317
+npm run dev         # сервер и Vite с горячей перезагрузкой
+```
+
+```bash
 npm test            # модульные, серверные и интерфейсные тесты
 npm run typecheck
 npm run lint

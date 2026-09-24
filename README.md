@@ -160,6 +160,11 @@ npm run install-skill   # ~/.claude/skills/backlog → skill/backlog and the Sto
 ```
 
 ```bash
+npm start           # builds and serves on http://localhost:4317
+npm run dev         # server and Vite with hot reload
+```
+
+```bash
 npm test            # unit, server, and UI tests
 npm run typecheck
 npm run lint
