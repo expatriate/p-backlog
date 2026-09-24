@@ -75,8 +75,8 @@ export async function listDir(path: string, { recursive = false }: { recursive?:
 const REPLACE_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320, 640];
 const REPLACE_BLOCKED_CODES = ["EPERM", "EACCES", "EBUSY"];
 
-export async function writeFileAtomic(path: string, content: string): Promise<void> {
-  await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path));
+export async function writeFileAtomic(path: string, content: string, mode?: number): Promise<void> {
+  await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path), mode);
 }
 
 // Windows refuses to rename over a file while another handle (a watcher's read, antivirus) keeps it open.
@@ -112,10 +112,10 @@ export function temporaryPathFor(path: string): string {
   return join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
 }
 
-async function viaTemporaryFile(path: string, content: string, publish: (temporary: string) => Promise<void>): Promise<void> {
+async function viaTemporaryFile(path: string, content: string, publish: (temporary: string) => Promise<void>, mode?: number): Promise<void> {
   const temporary = temporaryPathFor(path);
   try {
-    await writeFile(temporary, content, "utf8");
+    await writeFile(temporary, content, { encoding: "utf8", mode });
     await publish(temporary);
   } finally {
     await rm(temporary, { force: true });

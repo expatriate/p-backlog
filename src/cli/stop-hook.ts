@@ -1,8 +1,8 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
 import { errorText } from "../core/errors";
-import { hasErrorCode, parseJson } from "../core/store/fs-utils";
+import { hasErrorCode, writeFileAtomic } from "../core/store/fs-utils";
 
 const POSIX_COMMAND = "command -v backlog >/dev/null && backlog hook stop || true";
 const POWERSHELL_COMMAND = "if (Get-Command backlog.cmd -ErrorAction SilentlyContinue) { backlog.cmd hook stop }";
@@ -15,6 +15,8 @@ const stopHookGroupSchema = z.object({ hooks: z.array(z.unknown()).optional() })
 const settingsSchema = z
   .object({ hooks: z.object({ Stop: z.array(stopHookGroupSchema).optional() }).passthrough().optional() })
   .passthrough();
+
+type Settings = z.infer<typeof settingsSchema>;
 
 export function stopHookFor(platform: NodeJS.Platform): StopHook {
   return platform === "win32" ? { type: "command", shell: "powershell", command: POWERSHELL_COMMAND } : { type: "command", command: POSIX_COMMAND };
@@ -29,16 +31,37 @@ export function isOurStopHook(hook: unknown): boolean {
 export async function addStopHook(settingsPath: string, platform: NodeJS.Platform): Promise<StopHookResult> {
   const text = await readSettingsText(settingsPath);
   if (typeof text !== "string") return text;
-  const settings = parseJson(text, settingsSchema);
+  const settings = parseSettingsInPlace(text);
   if (settings === null) return { failed: "invalid" };
   const hooks = (settings.hooks ??= {});
   const stopGroups = (hooks.Stop ??= []);
   const installed = stopGroups.some((group) => group.hooks?.some(isOurStopHook) ?? false);
   if (installed) return "exists";
   stopGroups.push({ hooks: [stopHookFor(platform)] });
-  await mkdir(dirname(settingsPath), { recursive: true });
-  await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
+  const target = await realFileOf(settingsPath);
+  await mkdir(dirname(target), { recursive: true });
+  const mode = await stat(target).then(({ mode }) => mode & 0o777, () => undefined);
+  await writeFileAtomic(target, `${JSON.stringify(settings, null, 2)}\n`, mode);
   return "added";
+}
+
+function parseSettingsInPlace(text: string): Settings | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  return settingsSchema.safeParse(value).success ? (value as Settings) : null;
+}
+
+async function realFileOf(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch (error) {
+    if (hasErrorCode(error, "ENOENT")) return path;
+    throw error;
+  }
 }
 
 async function readSettingsText(settingsPath: string): Promise<string | { failed: "unreadable"; code: string }> {

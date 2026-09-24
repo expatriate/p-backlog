@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, readFile, realpath, stat, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { EXIT } from "../io";
@@ -82,6 +82,34 @@ describe("backlog setup", () => {
       model: "opus",
       hooks: { Stop: [foreignHook, { hooks: [{ type: "command", command: STOP_HOOK_COMMAND }] }] },
     });
+  });
+
+  it("сохраняет порядок ключей настроек: в dotfiles не появляется лишний diff", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    await mkdir(dirname(env.CLAUDE_SETTINGS_PATH), { recursive: true });
+    await writeFile(env.CLAUDE_SETTINGS_PATH, JSON.stringify({ model: "opus", permissions: { allow: [] }, hooks: {}, env: { A: "1" } }));
+
+    expect((await run(["setup"], { env })).code).toBe(EXIT.ok);
+
+    expect(Object.keys(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8")))).toEqual(["model", "permissions", "hooks", "env"]);
+  });
+
+  it("настройки-ссылка из dotfiles остаётся ссылкой, хук пишется в её цель с прежними правами", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    const dotfile = join(home, "dotfiles/claude-settings.json");
+    await mkdir(dirname(dotfile), { recursive: true });
+    await writeFile(dotfile, JSON.stringify({ model: "opus" }));
+    await chmod(dotfile, 0o600);
+    await mkdir(dirname(env.CLAUDE_SETTINGS_PATH), { recursive: true });
+    await symlink(dotfile, env.CLAUDE_SETTINGS_PATH);
+
+    expect((await run(["setup"], { env })).code).toBe(EXIT.ok);
+
+    expect((await lstat(env.CLAUDE_SETTINGS_PATH)).isSymbolicLink()).toBe(true);
+    expect(JSON.parse(await readFile(dotfile, "utf8")).hooks.Stop).toHaveLength(1);
+    expect((await stat(dotfile)).mode & 0o777).toBe(0o600);
   });
 
   it("не трогает настройки, которые не разобрать", async () => {
