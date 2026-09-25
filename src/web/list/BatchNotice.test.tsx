@@ -112,18 +112,24 @@ describe("уведомление об итоге массового действ
     expect(noticeWith("Возвращено 2 из 2")?.contains(document.activeElement)).toBe(true);
   });
 
-  it("приоритет и эпик — «Изменено», с числом в нужной форме", async () => {
+  it("приоритет и эпик — «Изменено», с числом в нужной форме, и «Отменить» возвращает прежние значения", async () => {
     const app = await renderApp(FILES);
     await select(app, "SPA-3");
     const panel = screen.getByRole("region", { name: "Действия с выбранными" });
     await app.user.click(within(panel).getByRole("button", { name: "Приоритет" }));
     await app.user.click(within(panel).getByRole("button", { name: "критичный" }));
-    await findNotice("Изменена 1 из 1");
+    await app.user.click(within(await findNotice("Изменена 1 из 1")).getByRole("button", { name: "Отменить" }));
+    await findNotice("Возвращена 1 из 1");
+    expect((await taskOnDisk(app.root, "SPA-3")).priority).toBe("low");
 
     await select(app, "SPA-1", "SPA-3");
     await app.user.click(within(screen.getByRole("region", { name: "Действия с выбранными" })).getByRole("button", { name: "Эпик" }));
     await app.user.click(screen.getByRole("button", { name: "Вынуть из эпика" }));
-    await findNotice("Изменено 2 из 2");
+    const epicNotice = await findNotice("Изменено 2 из 2");
+    expect((await taskOnDisk(app.root, "SPA-1")).epic).toBeUndefined();
+    await app.user.click(within(epicNotice).getByRole("button", { name: "Отменить" }));
+    await findNotice("Возвращено 2 из 2");
+    expect((await taskOnDisk(app.root, "SPA-1")).epic).toBe("SPA-10");
   });
 
   it("неудавшаяся отмена видна и не переезжает в следующее уведомление", async () => {
@@ -175,7 +181,7 @@ describe("уведомление об итоге массового действ
     await app.user.click(screen.getByRole("button", { name: "Close 3" }));
 
     const notice = await findNotice("Closed 2 of 3");
-    expect(within(notice).getByRole("link", { name: "SPA-7 changed on disk" })).toBeDefined();
+    within(notice).getByRole("link", { name: "SPA-7 changed on disk" });
     await app.user.click(within(notice).getByRole("button", { name: "Undo" }));
     await findNotice("Restored 2 of 2");
   });

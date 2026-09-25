@@ -179,6 +179,37 @@ describe("applyBatch", () => {
     expect(t2Reloaded?.reason).toBeUndefined();
   });
 
+  it("restore возвращает приоритет и эпик и пишет журнал via web", async () => {
+    const { root, epic, t1, t2 } = await setup();
+    const undo = async (action: { kind: "priority"; priority: "critical" } | { kind: "epic"; epic: null }) => {
+      const before = await freshIndex(root);
+      const done = (await applyBatch(before, { tasks: [t1, t2].map((task) => ({ id: task.id, version: versionOf(before, task.id) })), action, now: NOW })).filter(isDone);
+      const changed = await freshIndex(root);
+      await applyBatch(changed, {
+        tasks: done.map((outcome) => ({ id: outcome.id, version: outcome.task.version })),
+        action: { kind: "restore", changes: Object.fromEntries(done.map((outcome) => [outcome.id, outcome.previous])) },
+        now: NOW,
+      });
+      return { changed, restored: await freshIndex(root) };
+    };
+
+    const priority = await undo({ kind: "priority", priority: "critical" });
+    expect(priority.changed.byId.get(t1.id)?.priority).toBe("critical");
+    expect([t1, t2].map((task) => priority.restored.byId.get(task.id)?.priority)).toEqual(["medium", "medium"]);
+
+    const epicMove = await undo({ kind: "epic", epic: null });
+    expect(epicMove.changed.byId.get(t1.id)?.epic).toBeUndefined();
+    expect(epicMove.restored.byId.get(t1.id)?.epic).toBe(epic.id);
+    expect(epicMove.restored.byId.get(t2.id)?.epic).toBeUndefined();
+
+    const journal = await readJournal(join(root, "spa"), "spa");
+    const restoredPriorities = journal.events.filter((event) => event.kind === "priority" && event.to === "medium");
+    expect(restoredPriorities.map((event) => [event.task, event.via])).toEqual([
+      [t1.id, "web"],
+      [t2.id, "web"],
+    ]);
+  });
+
   it("restore не закрывает открытую задачу ни с резолюцией, ни без неё", async () => {
     const { root, t2, t3 } = await setup();
     const index = await freshIndex(root);
