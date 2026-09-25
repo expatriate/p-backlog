@@ -9,16 +9,27 @@ const PACKAGE_OPTION = "--package=";
 const BACKLOG_BIN = "backlog";
 const BACKLOG_PACKAGE = "p-backlog";
 const SHELL_KEYWORDS = new Set(["if", "then", "else", "elif", "do", "while", "until", "!", "{"]);
-const WRAPPERS = new Set(["time", "sudo", "env", "timeout", "xargs", "nice", "nohup", "exec"]);
+const WRAPPERS = new Set(["time", "sudo", "env", "timeout", "xargs", "nice", "nohup", "exec", "command"]);
+const WRAPPER_VALUE_OPTIONS: Readonly<Record<string, readonly string[]>> = {
+  sudo: ["-u", "-g", "-C", "-D", "-h", "-p", "-r", "-t", "-U"],
+  env: ["-u", "-C", "-S"],
+  timeout: ["-s", "-k"],
+  xargs: ["-I", "-n", "-L", "-P", "-s", "-d", "-E", "-a"],
+  nice: ["-n"],
+};
+const COMMAND_LOOKUP_OPTIONS = ["-v", "-V"];
 const PACKAGE_RUNNERS = new Set(["npx", "bunx", "pnpx"]);
-const RUNNER_SUBCOMMANDS: Readonly<Record<string, readonly string[]>> = { pnpm: ["dlx"], yarn: ["dlx"], npm: ["exec", "x"], bun: ["x"] };
+const RUNNER_SUBCOMMANDS: Readonly<Record<string, readonly string[]>> = { pnpm: ["dlx", "exec"], yarn: ["dlx", "exec"], npm: ["exec", "x"], bun: ["x"] };
+const BIN_RUNNERS = new Set(["yarn"]);
+const ARITHMETIC_START = "$((";
+const ARITHMETIC_END = "))";
 
 export function invokesBacklog(script: string): boolean {
   return simpleCommands(script).some((command) => {
     const [program, ...args] = programWords(command.split(/\s+/));
     if (program === undefined) return false;
     const name = executableName(program);
-    if (name === BACKLOG_BIN) return true;
+    if (name === BACKLOG_BIN || (BIN_RUNNERS.has(name) && args[0] === BACKLOG_BIN)) return true;
     const runnerArgs = packageRunnerArguments(name, args);
     return runnerArgs !== null && runsBacklogPackage(runnerArgs);
   });
@@ -26,10 +37,16 @@ export function invokesBacklog(script: string): boolean {
 
 function programWords(words: readonly string[]): string[] {
   let rest = dropWhile(words, (word) => word === "" || ENV_ASSIGNMENT.test(word) || SHELL_KEYWORDS.has(word));
-  while (rest[0] !== undefined && WRAPPERS.has(rest[0])) {
-    rest = dropWhile(rest.slice(1), isWrapperArgument);
-  }
+  while (rest[0] !== undefined && WRAPPERS.has(rest[0])) rest = afterWrapper(rest[0], rest.slice(1));
   return rest;
+}
+
+function afterWrapper(wrapper: string, words: readonly string[]): string[] {
+  if (wrapper === "command" && COMMAND_LOOKUP_OPTIONS.includes(words[0] ?? "")) return [];
+  const valued = WRAPPER_VALUE_OPTIONS[wrapper] ?? [];
+  let index = 0;
+  while (index < words.length && isWrapperArgument(words[index] ?? "")) index += valued.includes(words[index] ?? "") ? 2 : 1;
+  return words.slice(index);
 }
 
 function isWrapperArgument(word: string): boolean {
@@ -52,7 +69,7 @@ function packageRunnerArguments(name: string, args: readonly string[]): readonly
 }
 
 function runsBacklogPackage(args: readonly string[]): boolean {
-  const isBacklogPackage = (spec: string | undefined) => spec === BACKLOG_PACKAGE || spec?.startsWith(`${BACKLOG_PACKAGE}@`) === true;
+  const isBacklogPackage = (spec: string | undefined) => spec === BACKLOG_PACKAGE || spec === BACKLOG_BIN || spec?.startsWith(`${BACKLOG_PACKAGE}@`) === true;
   for (let index = 0; index < args.length; index++) {
     const arg = args[index] ?? "";
     if (arg.startsWith(PACKAGE_OPTION)) {
@@ -104,7 +121,14 @@ function simpleCommands(script: string): string[] {
       continue;
     }
     if (char === "\\") {
+      const escaped = script.charAt(position + 1);
+      if (escaped !== "\n") current += escaped;
       position += 2;
+      continue;
+    }
+    if (script.startsWith(ARITHMETIC_START, position)) {
+      const end = script.indexOf(ARITHMETIC_END, position + ARITHMETIC_START.length);
+      position = end === -1 ? script.length : end + ARITHMETIC_END.length;
       continue;
     }
     if (char === "#" && /(^|\s)$/.test(current)) {

@@ -214,6 +214,18 @@ describe("отнесение строк расшифровки к накладн
       "pnpm dlx p-backlog list",
       "bunx p-backlog list",
       'echo "$(backlog list --json)"',
+      "echo $((1 << 3))\nbacklog list",
+      "n=$((1<<10))\nbacklog stats",
+      "command backlog list",
+      "\\backlog list",
+      "sudo -u user backlog list",
+      "xargs -I % backlog show %",
+      "env -u VAR backlog list",
+      "timeout -s KILL 30 backlog check",
+      "npx backlog list",
+      "npm exec backlog list",
+      "pnpm exec backlog list",
+      "yarn backlog list",
     ];
     const notInvoking = [
       "command -v backlog",
