@@ -18,16 +18,14 @@ test("масштаб «неделя / день» переключается на
   await page.setViewportSize({ width: 320, height: 900 });
 
   await page.goto("/stats");
-  const flow = page.getByRole("region", { name: "Долг по неделям" });
-  await flow.getByRole("group", { name: "Масштаб графика «Долг по неделям»" }).getByRole("button", { name: "день" }).click();
+  await page.getByRole("group", { name: "Масштаб графика «Долг»" }).getByRole("button", { name: "день" }).click();
   const daily = page.getByRole("region", { name: "Долг по дням" });
   await expect(daily.getByRole("figure", { name: /^30\s+дней: создано [1-9]/ })).toBeVisible();
   await expect(daily.locator(".recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value").first()).toBeVisible();
   expect(await horizontalOverflow(page)).toBe(0);
 
   await page.goto("/stats/cost");
-  const spend = page.getByRole("region", { name: "Расход по дням" });
-  await spend.getByRole("button", { name: "неделя" }).click();
+  await page.getByRole("group", { name: "Масштаб графика «Расход»" }).getByRole("button", { name: "неделя" }).click();
   await expect(page.getByRole("region", { name: "Расход по неделям" }).getByRole("figure", { name: /^За 12\s+недель: / })).toBeVisible();
   expect(await horizontalOverflow(page)).toBe(0);
 

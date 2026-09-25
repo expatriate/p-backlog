@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Every statistics chart (debt, created, check precision, effect, usage) has its own "week / day" toggle: 12 weeks or
+  30 days; the choice is remembered per chart. Cost history is now kept for 12 weeks, so weekly usage fills in as data
+  accumulates (Claude Code deletes transcripts after 30 days by default).
 - Codex and Cursor share one skill link in `~/.agents/skills` (Cursor reads it too); `setup` removes the older
   `~/.cursor/skills` / `~/.codex/skills` links it made, and `setup --remove-manual --agent cursor` keeps the shared
   link while Codex still uses it. Before, Cursor listed the skill up to three times.

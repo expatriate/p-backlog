@@ -1,12 +1,13 @@
 import { formatLocalDay, formatLocalIso } from "../../model/dates";
 import type { CliRun } from "../../store/runs";
-import type { CostCommand, CostDay, CostModel, CostReport, CostTotals, CostWeek, ScanProgress } from "../types";
+import type { CostCommand, CostDay, CostModel, CostPeriod, CostReport, CostTotals, ScanProgress } from "../types";
 import { totalTokens } from "./token-counts";
 import { COST_REPORT_DAYS, type UsageBucket } from "./usage-state";
 import { HOOK_STOP_COMMAND } from "./hook-signature";
 import { costOf, splitFastModel } from "./pricing";
 import { dayRange } from "../days";
-import { weekWindows } from "../weeks";
+import { DAYS_PER_WEEK, weekWindows } from "../weeks";
+import type { Period } from "../period";
 import { groupBy, sum } from "../numbers";
 
 export const COST_TOTALS_DAYS = 7;
@@ -37,13 +38,10 @@ export function costReport({ buckets, runs, projectOf, projectId, now, scan }: C
     since: sinceOf(scopedBuckets),
     totals: totalsOf(inDays(bucketsByDay, totalsDays), inDays(runsByDay, totalsDays)),
     days: days.map((day) => dayRow(day, bucketsByDay.get(day) ?? [], runsByDay.get(day) ?? [])),
-    weeks: weekWindows(now).map((week) =>
-      weekRow(
-        formatLocalIso(new Date(week.from)),
-        scopedBuckets.filter((bucket) => week.contains(Date.parse(bucket.slot))),
-        scopedRuns.filter((run) => week.contains(Date.parse(run.at))),
-      ),
-    ),
+    weeks: weekWindows(now).map((week) => {
+      const weekDays = daysOf(week);
+      return periodRow(formatLocalIso(new Date(week.from)), inDays(bucketsByDay, weekDays), inDays(runsByDay, weekDays));
+    }),
     models: modelsOf(scopedBuckets),
     commands: commandsOf(inDays(runsByDay, days)),
   };
@@ -55,6 +53,11 @@ function memoizedByCwd(projectOf: (cwd: string) => string | null): (cwd: string)
     if (!known.has(cwd)) known.set(cwd, projectOf(cwd));
     return known.get(cwd) ?? null;
   };
+}
+
+function daysOf(week: Period): string[] {
+  const monday = new Date(week.from);
+  return dayRange(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + DAYS_PER_WEEK - 1), DAYS_PER_WEEK);
 }
 
 function localDay(at: string): string {
@@ -99,7 +102,7 @@ function runCounts(runs: readonly CliRun[]): { cliRuns: number; hookRuns: number
   return { cliRuns: runs.length - hookRuns, hookRuns };
 }
 
-type CostRowNumbers = Omit<CostDay, "day">;
+type CostRowNumbers = Omit<CostPeriod, "start">;
 
 function costRowNumbers(buckets: readonly UsageBucket[], runs: readonly CliRun[]): CostRowNumbers {
   const hookBuckets = buckets.filter((bucket) => bucket.kind === "hook");
@@ -118,8 +121,8 @@ function dayRow(day: string, dayBuckets: readonly UsageBucket[], dayRuns: readon
   return { day, ...costRowNumbers(dayBuckets, dayRuns) };
 }
 
-function weekRow(start: string, weekBuckets: readonly UsageBucket[], weekRuns: readonly CliRun[]): CostWeek {
-  return { start, ...costRowNumbers(weekBuckets, weekRuns) };
+function periodRow(start: string, periodBuckets: readonly UsageBucket[], periodRuns: readonly CliRun[]): CostPeriod {
+  return { start, ...costRowNumbers(periodBuckets, periodRuns) };
 }
 
 function modelsOf(buckets: readonly UsageBucket[]): CostModel[] {

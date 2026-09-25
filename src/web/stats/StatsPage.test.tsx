@@ -396,7 +396,7 @@ describe("вкладка «Эффект»", () => {
     expect(screen.getByRole("figure", { name: /С внедрения беклога: в пулреквестах 2/ })).toBeDefined();
     expect(screen.getByRole("region", { name: "По проектам" })).toBeDefined();
 
-    const grain = screen.getByRole("group", { name: "Масштаб графика «Эффективность»" });
+    const grain = screen.getByRole("group", { name: "Масштаб графика «Эффект»" });
     expect(within(grain).getByRole("button", { name: "неделя" }).getAttribute("aria-pressed")).toBe("true");
 
     await app.user.click(within(grain).getByRole("button", { name: "день" }));
@@ -467,41 +467,32 @@ describe("вкладка «Стоимость»", () => {
 });
 
 describe("масштаб графиков", () => {
-  const pick = async (app: RenderedApp, panel: HTMLElement, grain: "неделя" | "день") =>
-    app.user.click(within(within(panel).getByRole("group", { name: /^Масштаб графика «/ })).getByRole("button", { name: grain }));
+  const pick = async (app: RenderedApp, chart: string, grain: "неделя" | "день") =>
+    app.user.click(within(screen.getByRole("group", { name: `Масштаб графика «${chart}»` })).getByRole("button", { name: grain }));
   const pressed = (panel: HTMLElement, grain: "неделя" | "день") => within(panel).getByRole("button", { name: grain }).getAttribute("aria-pressed");
 
-  it("«день» на графике долга показывает дневной ряд, не трогает график «Создано» и переживает возврат на вкладку", async () => {
+  it("долг и «Создано» переключаются независимо, у каждого свой ряд, и выбор переживает возврат на вкладку", async () => {
     const app = await renderApp(FILES, "/stats");
     const flow = await screen.findByRole("region", { name: "Долг по неделям" });
     const intake = screen.getByRole("region", { name: "Создано по дням" });
-    const intakeFigure = within(intake).getByRole("figure", { name: new RegExp(`^30${NBSP}дней: создано 4, в среднем`) });
 
-    await pick(app, flow, "день");
+    await pick(app, "Долг", "день");
+    await pick(app, "Создано", "неделя");
 
     expect(screen.getByRole("region", { name: "Долг по дням" })).toBe(flow);
     expect(within(flow).getByRole("figure", { name: `30${NBSP}дней: создано 4, закрыто 1, открыто сейчас 3` })).toBeDefined();
     expect(within(flow).getByText("открыто на конец дня")).toBeDefined();
-    expect(screen.getByRole("region", { name: "Создано по дням" })).toBe(intake);
-    expect(within(intake).getByRole("figure")).toBe(intakeFigure);
-    expect(pressed(intake, "день")).toBe("true");
+    expect(pressed(flow, "день")).toBe("true");
+    expect(screen.getByRole("region", { name: "Создано по неделям" })).toBe(intake);
+    expect(within(intake).getByRole("figure", { name: new RegExp(`^12${NBSP}недель: создано 4, в среднем .+ в неделю$`) })).toBeDefined();
+    expect(pressed(intake, "неделя")).toBe("true");
 
     await app.user.click(screen.getByRole("link", { name: "Качество" }));
     await screen.findByRole("region", { name: "Точность проверки" });
     await app.user.click(screen.getByRole("link", { name: "Обзор" }));
 
-    const remounted = await screen.findByRole("region", { name: "Долг по дням" });
-    expect(pressed(remounted, "день")).toBe("true");
-  });
-
-  it("«неделя» на графике «Создано» считает по неделям", async () => {
-    const app = await renderApp(FILES, "/stats");
-    const intake = await screen.findByRole("region", { name: "Создано по дням" });
-
-    await pick(app, intake, "неделя");
-
-    expect(screen.getByRole("region", { name: "Создано по неделям" })).toBe(intake);
-    expect(within(intake).getByRole("figure", { name: new RegExp(`^12${NBSP}недель: создано 4, в среднем .+ в неделю$`) })).toBeDefined();
+    expect(pressed(await screen.findByRole("region", { name: "Долг по дням" }), "день")).toBe("true");
+    expect(pressed(screen.getByRole("region", { name: "Создано по неделям" }), "неделя")).toBe("true");
   });
 
   it("мусор в сохранённом масштабе — график в своём масштабе по умолчанию", async () => {
@@ -526,9 +517,9 @@ describe("масштаб графиков", () => {
       "/stats/quality",
     );
     const accuracy = await screen.findByRole("region", { name: "Точность проверки" });
-    expect(within(accuracy).getByRole("figure", { name: `12${NBSP}недель: решено 1, точность на последней неделе 0%` })).toBeDefined();
+    expect(within(accuracy).getByRole("figure", { name: `12${NBSP}недель: решено 1, точность на последней неделе с решениями 0%` })).toBeDefined();
 
-    await pick(app, accuracy, "день");
+    await pick(app, "Точность проверки", "день");
 
     expect(within(accuracy).getByRole("figure", { name: `30${NBSP}дней: решено 1, точность в последний день с решениями 0%` })).toBeDefined();
   });
@@ -541,7 +532,7 @@ describe("масштаб графиков", () => {
     const spend = await screen.findByRole("region", { name: "Расход по дням" });
     expect(within(spend).getByRole("figure", { name: new RegExp(`^За 30${NBSP}дней: .*; запусков хука 1, других команд 0$`) })).toBeDefined();
 
-    await pick(app, spend, "неделя");
+    await pick(app, "Расход", "неделя");
 
     expect(screen.getByRole("region", { name: "Расход по неделям" })).toBe(spend);
     expect(within(spend).getByRole("figure", { name: new RegExp(`^За 12${NBSP}недель: .*; запусков хука 2, других команд 0$`) })).toBeDefined();

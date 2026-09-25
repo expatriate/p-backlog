@@ -10,7 +10,7 @@ import { Figure } from "./Figure";
 import { Panel } from "./Panel";
 import { StatsTable } from "./StatsTable";
 import totalsStyles from "./StatsPage.module.css";
-import { useChartGrain } from "./use-chart-grain";
+import { useGrainSeries } from "./use-grain-series";
 
 export function EffectFigures({ totals }: { totals: EffectTotals }) {
   const { stats } = useMessages();
@@ -38,10 +38,10 @@ function keptOutNote(stats: StatsMessages, language: Language, totals: EffectTot
 
 export function EffectChartPanel({ weeks, days, totals }: { weeks: EffectPeriod[]; days: EffectPeriod[]; totals: EffectTotals }) {
   const { stats } = useMessages();
-  const [grain, setGrain] = useChartGrain("effect", "week");
+  const { grain, periods, setGrain } = useGrainSeries("effect", "week", { week: weeks, day: days });
   return (
-    <Panel title={stats.effectTitle} aside={<GrainToggle chart={stats.effectTitle} grain={grain} onChange={setGrain} />}>
-      <EffectChart periods={grain === "week" ? weeks : days} totals={totals} grain={grain} />
+    <Panel title={stats.effectTitle} aside={<GrainToggle chart="effect" grain={grain} onChange={setGrain} />}>
+      <EffectChart periods={periods} totals={totals} grain={grain} />
     </Panel>
   );
 }

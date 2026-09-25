@@ -1,4 +1,5 @@
 export type Grain = "week" | "day";
+export type ChartId = "flow" | "intake" | "accuracy" | "effect" | "spend";
 export type ChartStep = Grain | "sample";
 
 export const CHART_MARGIN = { top: 8, right: 4, bottom: 0, left: 4 };

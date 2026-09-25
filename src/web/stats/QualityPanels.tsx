@@ -7,7 +7,7 @@ import type { StatsMessages } from "./messages.ru";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import { StatsTable, type StatsTableRow } from "./StatsTable";
-import { useChartGrain } from "./use-chart-grain";
+import { useGrainSeries } from "./use-grain-series";
 
 type SplitRow = { by: string } & OutcomeCounts;
 
@@ -15,7 +15,7 @@ type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyPeriod[]; days: 
 
 export function AccuracyPanel({ rows, weeks, days, methodRows, matchRows }: AccuracyPanelProps) {
   const { stats, core } = useMessages();
-  const [grain, setGrain] = useChartGrain("accuracy", "week");
+  const { grain, periods, setGrain } = useGrainSeries("accuracy", "week", { week: weeks, day: days });
   const splitOf = (evidence: AccuracyRow["evidence"]): StatsTableRow[] => {
     if (evidence === "source-changed")
       return methodRows.map((split) => splitRow(stats, split, split.by === "unknown" ? stats.beforeMethodRecorded : stats.checkedBy(core.checkMethodLabel(split.by))));
@@ -24,13 +24,13 @@ export function AccuracyPanel({ rows, weeks, days, methodRows, matchRows }: Accu
     return [];
   };
   return (
-    <Panel title={stats.accuracyTitle} aside={rows.length === 0 ? undefined : <GrainToggle chart={stats.accuracyTitle} grain={grain} onChange={setGrain} />}>
+    <Panel title={stats.accuracyTitle} aside={rows.length === 0 ? undefined : <GrainToggle chart="accuracy" grain={grain} onChange={setGrain} />}>
       {rows.length === 0 ? (
         <p className={rowStyles.muted}>{stats.noCandidates}</p>
       ) : (
         <>
           <p className={rowStyles.muted}>{stats.accuracyHint}</p>
-          <AccuracyChart periods={grain === "week" ? weeks : days} grain={grain} />
+          <AccuracyChart periods={periods} grain={grain} />
           <StatsTable
             label={stats.accuracyTable}
             head={stats.accuracyHead}

@@ -15,7 +15,7 @@ const ESTIMATE_LATER = `the estimate appears after ${MIN_FIXES_FOR_ESTIMATE} fix
 
 const PERIOD_FORMS: Record<Grain, [string, string]> = { week: ["week", "weeks"], day: ["day", "days"] };
 const PER_PERIOD: Record<Grain, string> = { week: "a week", day: "a day" };
-const LAST_PERIOD: Record<Grain, string> = { week: "in the last week", day: "on the last day with decisions" };
+const LAST_PERIOD: Record<Grain, string> = { week: "in the latest week with decisions", day: "on the last day with decisions" };
 
 const periods = (grain: Grain, n: number): string => countEn(n, ...PERIOD_FORMS[grain]);
 const tasks = (n: number): string => countEn(n, "task", "tasks");
@@ -105,7 +105,7 @@ export const statsEn: StatsMessages = {
   matchedBy: (match) => `matched ${match}`,
   decidedCandidates: "candidates decided",
   precision: "precision",
-  accuracySummary: (grain, periodCount, decided, latestPrecision) =>
+  accuracySummary: ({ grain, periodCount, decided, latestPrecision }) =>
     latestPrecision === null
       ? `${periods(grain, periodCount)}: no decided candidates`
       : `${periods(grain, periodCount)}: decided ${decided}, precision ${LAST_PERIOD[grain]} ${latestPrecision}`,
@@ -155,6 +155,7 @@ export const statsEn: StatsMessages = {
   pullRequestLines: "Lines in pull requests",
   sinceAdoption: "since the backlog was adopted",
   chartScale: (chart) => `Scale of the "${chart}" chart`,
+  chartNames: { flow: "Debt", intake: "Created", accuracy: "Check precision", effect: "Effect", spend: "Usage" },
   grainWeek: "week",
   grainDay: "day",
   effectTitle: "Effectiveness",

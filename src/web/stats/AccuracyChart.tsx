@@ -35,7 +35,7 @@ export function AccuracyChart({ periods, grain }: { periods: AccuracyPeriod[]; g
   ];
   const decided = sum(periods.map((period) => period.decided));
   const latest = periods.filter((period) => period.precision !== null).at(-1);
-  const summary = stats.accuracySummary(grain, periods.length, decided, latest === undefined ? null : formatShare(latest.precision));
+  const summary = stats.accuracySummary({ grain, periodCount: periods.length, decided, latestPrecision: latest === undefined ? null : formatShare(latest.precision) });
 
   return (
     <ChartFrame summary={summary} legend={legend}>

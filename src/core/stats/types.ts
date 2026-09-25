@@ -118,9 +118,9 @@ export type SignalsReport = { signals: Signal[] };
 export type ScanProgress = { listed: boolean; filesTotal: number; filesDone: number; bytesLeft: number };
 export type CostTotals = { tokens: number; cost: number | null; hasUnpricedTokens: boolean; hookTurns: number; cliRuns: number; hookRuns: number };
 export type CostDay = { day: string; hookTokens: number; cliTokens: number; cost: number | null; hasUnpricedTokens: boolean; hookTurns: number; cliRuns: number; hookRuns: number };
-export type CostWeek = { start: string; hookTokens: number; cliTokens: number; cost: number | null; hasUnpricedTokens: boolean; hookTurns: number; cliRuns: number; hookRuns: number };
+export type CostPeriod = { start: string; hookTokens: number; cliTokens: number; cost: number | null; hasUnpricedTokens: boolean; hookTurns: number; cliRuns: number; hookRuns: number };
 export type CostModel = { model: string; fast: boolean; tokens: number; cost: number | null };
 export type CostCommand = { command: string; runs: number; avgMs: number; avgRssMb: number; maxRssMb: number };
-export type CostReport = { scan: ScanProgress; since: string | null; totals: CostTotals; days: CostDay[]; weeks: CostWeek[]; models: CostModel[]; commands: CostCommand[] };
+export type CostReport = { scan: ScanProgress; since: string | null; totals: CostTotals; days: CostDay[]; weeks: CostPeriod[]; models: CostModel[]; commands: CostCommand[] };
 
 export type MemorySample = { at: string; rssMb: number; heapUsedMb: number };

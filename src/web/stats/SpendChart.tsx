@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import { formatMoney } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
-import type { CostDay, CostWeek } from "../../core/api/contract";
+import type { CostDay, CostPeriod } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
@@ -15,17 +15,15 @@ import { formatLines } from "./effect-format";
 import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
-import { useChartGrain } from "./use-chart-grain";
+import { useGrainSeries } from "./use-grain-series";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
 const CLI_TOKENS = "var(--chart-bar-neutral)";
 const HOOK_RUNS = "var(--chart-line-green)";
 const OTHER_RUNS = "var(--chart-line-yellow)";
 
-type SpendPeriod = CostWeek;
-
 function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
-  return rowTooltip((period: SpendPeriod) => ({
+  return rowTooltip((period: CostPeriod) => ({
     title: stats.periodOf(grain, tooltipDay(language, period.start)),
     rows: [
       { label: stats.hookTurnsTooltip, value: stats.tokens(period.hookTokens), shape: "bar", color: HOOK_TOKENS },
@@ -37,16 +35,16 @@ function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
   }));
 }
 
-function dayPeriod({ day, ...numbers }: CostDay): SpendPeriod {
+function dayPeriod({ day, ...numbers }: CostDay): CostPeriod {
   return { start: day, ...numbers };
 }
 
-export function SpendPanel({ weeks, days }: { weeks: CostWeek[]; days: CostDay[] }) {
+export function SpendPanel({ weeks, days }: { weeks: CostPeriod[]; days: CostDay[] }) {
   const { stats } = useMessages();
   const language = useLanguage();
-  const [grain, setGrain] = useChartGrain("spend", "day");
+  const dayPeriods = useMemo(() => days.map(dayPeriod), [days]);
+  const { grain, periods, setGrain } = useGrainSeries("spend", "day", { week: weeks, day: dayPeriods });
   const tooltip = useMemo(() => periodTooltip(stats, language, grain), [stats, language, grain]);
-  const periods = useMemo(() => (grain === "week" ? weeks : days.map(dayPeriod)), [grain, weeks, days]);
   const title = stats.spendBy[grain];
   const legend: LegendItem[] = [
     { label: stats.hookTurnTokens, shape: "bar", color: HOOK_TOKENS },
@@ -56,7 +54,7 @@ export function SpendPanel({ weeks, days }: { weeks: CostWeek[]; days: CostDay[]
   ];
   const compact = (value: number) => compactNumber(language, value);
   return (
-    <Panel title={title} aside={<GrainToggle chart={title} grain={grain} onChange={setGrain} />}>
+    <Panel title={title} aside={<GrainToggle chart="spend" grain={grain} onChange={setGrain} />}>
       <ChartFrame summary={spendSummary(stats, language, grain, periods)} legend={legend}>
         <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />
@@ -74,8 +72,8 @@ export function SpendPanel({ weeks, days }: { weeks: CostWeek[]; days: CostDay[]
   );
 }
 
-function spendSummary(stats: StatsMessages, language: Language, grain: Grain, periods: SpendPeriod[]): string {
-  const total = (pick: (period: SpendPeriod) => number) => sum(periods.map(pick));
+function spendSummary(stats: StatsMessages, language: Language, grain: Grain, periods: CostPeriod[]): string {
+  const total = (pick: (period: CostPeriod) => number) => sum(periods.map(pick));
   const lines = (value: number) => formatLines(language, value);
   return stats.spendSummary({
     grain,
@@ -88,7 +86,7 @@ function spendSummary(stats: StatsMessages, language: Language, grain: Grain, pe
   });
 }
 
-function totalMoney(periods: SpendPeriod[]): number | null {
+function totalMoney(periods: CostPeriod[]): number | null {
   if (periods.every((period) => period.cost === null)) return null;
   return sum(periods.map((period) => period.cost ?? 0));
 }

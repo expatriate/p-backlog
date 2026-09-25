@@ -12,7 +12,7 @@ import { nonZeroDot } from "./charts/value-dot";
 import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
-import { useChartGrain } from "./use-chart-grain";
+import { useGrainSeries } from "./use-grain-series";
 
 const CREATED = "var(--chart-bar-neutral)";
 const CLOSED = "var(--chart-bar-green)";
@@ -32,14 +32,13 @@ function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
 export function FlowPanel({ weeks, days }: { weeks: FlowPeriod[]; days: FlowPeriod[] }) {
   const { stats } = useMessages();
   const language = useLanguage();
-  const [grain, setGrain] = useChartGrain("flow", "week");
+  const { grain, periods, setGrain } = useGrainSeries("flow", "week", { week: weeks, day: days });
   const tooltip = useMemo(() => periodTooltip(stats, language, grain), [stats, language, grain]);
   const legend: LegendItem[] = [
     { label: stats.flowCreated, shape: "bar", color: CREATED },
     { label: stats.flowClosed, shape: "bar", color: CLOSED },
     { label: stats.flowOpenAtEnd[grain], shape: "line", color: OPEN },
   ];
-  const periods = grain === "week" ? weeks : days;
   const title = stats.debtBy[grain];
   const summary = stats.flowSummary({
     grain,
@@ -50,7 +49,7 @@ export function FlowPanel({ weeks, days }: { weeks: FlowPeriod[]; days: FlowPeri
   });
   const compact = (value: number) => compactNumber(language, value);
   return (
-    <Panel title={title} aside={<GrainToggle chart={title} grain={grain} onChange={setGrain} />}>
+    <Panel title={title} aside={<GrainToggle chart="flow" grain={grain} onChange={setGrain} />}>
       <ChartFrame summary={summary} legend={legend}>
         <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />

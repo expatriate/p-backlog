@@ -7,7 +7,7 @@ import { STALE_URGENT_DAYS } from "../../core/stats/breakdowns";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/api/contract";
 import { STATS_WEEKS } from "../../core/stats/weeks";
-import type { ChartStep, Grain } from "./charts/chart-style";
+import type { ChartId, ChartStep, Grain } from "./charts/chart-style";
 import { formatApprox, formatLines, isEstimated } from "./effect-format";
 
 const CHURN_PERIOD = countRu(CHURN_DAYS, "день", "дня", "дней");
@@ -17,12 +17,13 @@ const CHART_STEPS: Record<ChartStep, string> = { day: "дням", week: "нед�
 const ESTIMATE_LATER = `оценка появится после ${MIN_FIXES_FOR_ESTIMATE} исправлений`;
 
 type FlowSummary = { grain: Grain; periodCount: number; created: number; closed: number; openNow: number };
+type AccuracySummary = { grain: Grain; periodCount: number; decided: number; latestPrecision: string | null };
 type SpendSummary = { grain: Grain; periodCount: number; hookTokens: number; cliTokens: string; money: string; hookRuns: string; cliRuns: string };
 
 const PERIOD_FORMS: Record<Grain, [string, string, string]> = { week: ["неделя", "недели", "недель"], day: ["день", "дня", "дней"] };
 const OVER_PERIOD_FORMS: Record<Grain, [string, string, string]> = { week: ["неделю", "недели", "недель"], day: ["день", "дня", "дней"] };
 const PER_PERIOD: Record<Grain, string> = { week: "в неделю", day: "в день" };
-const LAST_PERIOD: Record<Grain, string> = { week: "на последней неделе", day: "в последний день с решениями" };
+const LAST_PERIOD: Record<Grain, string> = { week: "на последней неделе с решениями", day: "в последний день с решениями" };
 
 const periods = (grain: Grain, n: number): string => countRu(n, ...PERIOD_FORMS[grain]);
 const tasks = (n: number): string => countRu(n, "задача", "задачи", "задач");
@@ -115,7 +116,7 @@ export const statsRu = {
   matchedBy: (match: string): string => `совпали ${match}`,
   decidedCandidates: "решено кандидатов",
   precision: "точность",
-  accuracySummary: (grain: Grain, periodCount: number, decided: number, latestPrecision: string | null): string =>
+  accuracySummary: ({ grain, periodCount, decided, latestPrecision }: AccuracySummary): string =>
     latestPrecision === null
       ? `${periods(grain, periodCount)}: решённых кандидатов нет`
       : `${periods(grain, periodCount)}: решено ${decided}, точность ${LAST_PERIOD[grain]} ${latestPrecision}`,
@@ -165,6 +166,7 @@ export const statsRu = {
   pullRequestLines: "Строк в пулреквестах",
   sinceAdoption: "с внедрения беклога",
   chartScale: (chart: string): string => `Масштаб графика «${chart}»`,
+  chartNames: { flow: "Долг", intake: "Создано", accuracy: "Точность проверки", effect: "Эффект", spend: "Расход" } satisfies Record<ChartId, string>,
   grainWeek: "неделя",
   grainDay: "день",
   effectTitle: "Эффективность",

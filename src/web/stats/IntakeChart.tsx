@@ -12,7 +12,7 @@ import { rowTooltip } from "./charts/ChartTooltip";
 import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
-import { useChartGrain } from "./use-chart-grain";
+import { useGrainSeries } from "./use-grain-series";
 
 const CREATED = "var(--chart-bar-warm)";
 
@@ -26,13 +26,12 @@ function periodTooltip(stats: StatsMessages, core: CoreMessages, language: Langu
 export function IntakePanel({ weeks, days }: { weeks: FlowPeriod[]; days: FlowPeriod[] }) {
   const { stats, core } = useMessages();
   const language = useLanguage();
-  const [grain, setGrain] = useChartGrain("intake", "day");
+  const { grain, periods, setGrain } = useGrainSeries("intake", "day", { week: weeks, day: days });
   const tooltip = useMemo(() => periodTooltip(stats, core, language, grain), [stats, core, language, grain]);
   const legend: LegendItem[] = [{ label: stats.createdTasks, shape: "bar", color: CREATED }];
-  const periods = grain === "week" ? weeks : days;
   const title = stats.createdBy[grain];
   return (
-    <Panel title={title} aside={<GrainToggle chart={title} grain={grain} onChange={setGrain} />}>
+    <Panel title={title} aside={<GrainToggle chart="intake" grain={grain} onChange={setGrain} />}>
       <ChartFrame summary={stats.intakeSummary(grain, periods.length, sum(periods.map((period) => period.created)))} legend={legend}>
         <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />

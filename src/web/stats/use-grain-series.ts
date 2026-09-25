@@ -1,18 +1,18 @@
 import { useState } from "react";
-import type { Grain } from "./charts/chart-style";
+import type { ChartId, Grain } from "./charts/chart-style";
 
-type ChartId = "flow" | "intake" | "accuracy" | "effect" | "spend";
+type GrainSeries<T> = { grain: Grain; periods: T[]; setGrain: (grain: Grain) => void };
 
 const STORAGE_PREFIX = "p-backlog.stats.grain.";
 
-export function useChartGrain(chart: ChartId, defaultGrain: Grain): [Grain, (grain: Grain) => void] {
+export function useGrainSeries<T>(chart: ChartId, defaultGrain: Grain, series: Record<Grain, T[]>): GrainSeries<T> {
   const key = `${STORAGE_PREFIX}${chart}`;
-  const [grain, setGrain] = useState(() => readGrain(key) ?? defaultGrain);
-  const choose = (next: Grain) => {
-    setGrain(next);
+  const [grain, setStoredGrain] = useState(() => readGrain(key) ?? defaultGrain);
+  const setGrain = (next: Grain) => {
+    setStoredGrain(next);
     writeGrain(key, next);
   };
-  return [grain, choose];
+  return { grain, periods: series[grain], setGrain };
 }
 
 function readGrain(key: string): Grain | undefined {

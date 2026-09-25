@@ -167,6 +167,21 @@ describe("отчёт о стоимости", () => {
     expect(week?.cost).toBe(weekDays.reduce((total, day) => total + (day.cost ?? 0), 0));
   });
 
+  it("неделя целиком без цены — cost недели null, а неделя с хотя бы одной ценой считает только оценённое", () => {
+    const buckets = [
+      bucket({ slot: slotAt(9), model: "claude-unknown-9", tokens: tokens({ input: 1000 }) }),
+      bucket({ slot: slotAt(2), model: "claude-sonnet-5", tokens: tokens({ input: 1000 }) }),
+      bucket({ slot: slotAt(3), model: "claude-unknown-9", tokens: tokens({ input: 5000 }) }),
+    ];
+
+    const report = costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
+
+    const weekOf = (monday: Date) => report.weeks.find((week) => week.start === formatLocalIso(monday));
+    expect(weekOf(new Date(2026, 8, 7))).toMatchObject({ cost: null, hasUnpricedTokens: true });
+    expect(weekOf(new Date(2026, 8, 14))).toMatchObject({ cost: (1000 * 2) / 1_000_000, hasUnpricedTokens: true });
+    expect(weekOf(new Date(2026, 7, 31))).toMatchObject({ cost: 0, hasUnpricedTokens: false });
+  });
+
   it("день старше 30 дней, но в пределах 12 недель, входит в недели, а не в days", () => {
     const buckets = [bucket({ slot: slotAt(40), tokens: tokens({ input: 1000 }) })];
     const runs = [run({ at: atAt(40) })];
