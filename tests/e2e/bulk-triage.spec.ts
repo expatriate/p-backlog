@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
+import { collectCspViolations } from "./csp-violations";
 
 const TASK_COUNT = 30;
 const projectDir = join(E2E_BACKLOG_DIR, "triage");
@@ -13,14 +14,6 @@ async function writeBacklog(): Promise<void> {
   for (let n = 1; n <= TASK_COUNT; n++) {
     await writeFile(taskFile(n), `---\nid: TRI-${n}\ntitle: Разбор ${n}\ncreated: 2026-09-17T10:00:00+03:00\n---\n\nОписание.\n`, "utf8");
   }
-}
-
-function collectCspViolations(page: Page): string[] {
-  const violations: string[] = [];
-  page.on("console", (message) => {
-    if (message.text().includes("Content Security Policy")) violations.push(message.text());
-  });
-  return violations;
 }
 
 async function closureOnDisk(n: number): Promise<string> {
@@ -37,7 +30,7 @@ const horizontalOverflow = (page: Page) => page.evaluate(() => document.document
 test.beforeEach(writeBacklog);
 
 test("три задачи закрываются с причиной и возвращаются кнопкой «Отменить»", async ({ page }) => {
-  const violations = collectCspViolations(page);
+  const violations = await collectCspViolations(page);
   await page.goto("/p/triage");
   await select(page, 1, 2, 3);
 
@@ -60,7 +53,7 @@ test("три задачи закрываются с причиной и возв
 });
 
 test("на 320 px панель и уведомление не дают горизонтальной прокрутки и не закрывают фокус", async ({ page }) => {
-  const violations = collectCspViolations(page);
+  const violations = await collectCspViolations(page);
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto("/p/triage");
   await select(page, 1);
