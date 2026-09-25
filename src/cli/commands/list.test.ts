@@ -6,6 +6,15 @@ import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
 describe("backlog list", () => {
+  it.each(["", ","])("пустой --status «%s» отклоняет, а не показывает пустой список", async (status) => {
+    const { run } = await makeCliSandbox();
+
+    const result = await run(["list", "--status", status]);
+
+    expect(result.code).toBe(EXIT.invalid);
+    expect(result.err).toContain("--status");
+  });
+
   it("по умолчанию показывает открытые задачи текущего проекта по приоритету", async () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Низкий", "--priority", "low", "--tags", "ui"]);

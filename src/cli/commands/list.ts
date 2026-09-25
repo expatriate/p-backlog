@@ -6,7 +6,7 @@ import { loadBacklog } from "../../core/store/load";
 import { describeTask, toJson } from "../describe";
 import { formatTaskLine } from "../format";
 import type { CliCommand } from "../command";
-import { EXIT, parseChoice, parseOptions, splitList, type CliIo } from "../io";
+import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo } from "../io";
 import { cliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 
@@ -25,7 +25,9 @@ async function runList(args: string[], io: CliIo): Promise<number> {
     ...SCOPE_OPTIONS,
     json: { type: "boolean", default: false },
   });
-  const statuses = splitList(values.status)?.map((status) => parseChoice(io.language, status, TASK_STATUSES, "--status")) ?? OPEN_STATUSES;
+  const requestedStatuses = splitList(values.status);
+  if (requestedStatuses?.length === 0) throw new UsageError(cli.invalidChoice("--status", TASK_STATUSES, values.status ?? ""));
+  const statuses = requestedStatuses?.map((status) => parseChoice(io.language, status, TASK_STATUSES, "--status")) ?? OPEN_STATUSES;
 
   const loaded = await loadBacklog(io.backlogRoot);
   const scope = resolveScope(loaded, io, values);

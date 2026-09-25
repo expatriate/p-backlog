@@ -8,6 +8,7 @@ export const cliRu = {
   },
   invalidChoice: (label: string, allowed: readonly string[], value: string): string =>
     `${label}: ожидается одно из ${allowed.join(", ")}, получено «${value}»`,
+  invalidPort: (value: string): string => `--port: ожидается число от 1 до 65535, получено «${value}»`,
   commandFailed: (name: string, reason: string): string => `Команда ${name} не выполнена: ${reason}`,
   runNotRecorded: (error: string): string => `Не удалось записать запуск: ${error}`,
   settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,

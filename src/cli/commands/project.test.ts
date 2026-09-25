@@ -4,6 +4,16 @@ import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
 describe("backlog project", () => {
+  it.each([
+    [["list", "garbage"]],
+    [["list", "--confirm", "x"]],
+    [["status", "spa", "active", "--confirm", "spa"]],
+  ])("лишние аргументы %j отклоняет кодом 1", async (argv) => {
+    const { run } = await makeCliSandbox();
+
+    expect((await run(["project", ...argv])).code).toBe(EXIT.invalid);
+  });
+
   it("list печатает статус и число открытых, status переключает активность", async () => {
     const { run, home } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Задача"]);

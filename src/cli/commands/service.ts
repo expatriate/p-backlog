@@ -48,7 +48,7 @@ async function withServiceManager(io: CliIo, action: ServiceAction): Promise<num
   });
   if (manager === null) {
     io.warn(cliMessages(io.language).serviceUnsupported);
-    return EXIT.refused;
+    return EXIT.failed;
   }
   return action(manager, io);
 }

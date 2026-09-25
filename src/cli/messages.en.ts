@@ -9,6 +9,7 @@ export const cliEn: CliMessages = {
     takesNoValue: (option) => `Option ${option} does not take a value`,
   },
   invalidChoice: (label, allowed, value) => `${label}: expected one of ${allowed.join(", ")}, got "${value}"`,
+  invalidPort: (value) => `--port: expected a number from 1 to 65535, got "${value}"`,
   commandFailed: (name, reason) => `Command ${name} failed: ${reason}`,
   runNotRecorded: (error) => `Could not record the run: ${error}`,
   settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,

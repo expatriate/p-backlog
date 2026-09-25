@@ -79,13 +79,13 @@ describe("backlog service", () => {
     expect(stopped).toEqual([4242]);
   });
 
-  it("на Linux без systemd отказывает и советует backlog serve", async () => {
+  it("на Linux без systemd не выполняется (код 4) и советует backlog serve", async () => {
     const { run } = await makeCliSandbox();
     const exec = fakeExec(() => ({ code: 127, output: "" })).exec;
 
     const result = await run(["service", "install"], { platform: "linux", exec });
 
-    expect(result.code).toBe(EXIT.refused);
+    expect(result.code).toBe(EXIT.failed);
     expect(result.err).toContain("не поддерживается");
     expect(result.err).toContain("backlog serve");
   });

@@ -3,10 +3,19 @@ import { describe, expect, it } from "vitest";
 import { makeTempDir } from "../../core/store/testing/temp-dirs";
 import { startServer } from "../../server/start";
 import { EXIT, type CliIo } from "../io";
-import { baseCliEnv } from "../testing/cli-harness";
+import { baseCliEnv, makeCliSandbox } from "../testing/cli-harness";
 import { serveCommand } from "./serve";
 
 describe("backlog serve", () => {
+  it.each(["abc", "0", "99999"])("--port %s отклоняет кодом 1, а не запускает сервер на 4317", async (port) => {
+    const { run } = await makeCliSandbox();
+
+    const result = await run(["serve", "--port", port]);
+
+    expect(result.code).toBe(EXIT.invalid);
+    expect(result.err).toContain(port);
+  });
+
   it("занятый порт печатает причину и возвращает код failed", async () => {
     const home = await makeTempDir();
     const blocker = await startServer({ root: join(home, "backlog-1"), port: 0, home, env: {} });

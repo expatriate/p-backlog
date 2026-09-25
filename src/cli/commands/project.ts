@@ -17,9 +17,10 @@ export const projectCommand: CliCommand = {
 async function runProject(args: string[], io: CliIo): Promise<number> {
   const { values, positionals } = withUsageErrors(() => parseArgs({ args, allowPositionals: true, options: { confirm: { type: "string" } } }));
   const [action, ...rest] = positionals;
-  if (action === "list") return listProjects(io);
-  if (action === "status") return changeStatus(rest, io);
   if (action === "delete") return removeProject(rest, values.confirm, io);
+  if (values.confirm !== undefined) throw usageError(projectCommand, io.language);
+  if (action === "list" && rest.length === 0) return listProjects(io);
+  if (action === "status") return changeStatus(rest, io);
   throw usageError(projectCommand, io.language);
 }
 
