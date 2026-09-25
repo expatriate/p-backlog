@@ -24,14 +24,14 @@ async function readStdin(): Promise<string> {
 const home = homedir();
 const backlogRoot = resolveBacklogRoot(process.env, home);
 const cliPath = fileURLToPath(import.meta.url);
-const repoRoot = resolve(dirname(cliPath), "..");
+const packageRoot = resolve(dirname(cliPath), "..");
 const argv = process.argv.slice(2);
 
 const exitCode = await runCli(argv, {
   cwd: process.cwd(),
   home,
   backlogRoot,
-  repoRoot,
+  packageRoot,
   platform: process.platform,
   uid: process.getuid?.() ?? 0,
   nodePath: process.execPath,

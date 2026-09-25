@@ -18,10 +18,12 @@ let work: string;
 beforeAll(async () => {
   work = await realpath(await mkdtemp(join(tmpdir(), "backlog-package-test-")));
   const npmEnv = { ...process.env, HOME: join(work, "npm-home"), USERPROFILE: join(work, "npm-home"), npm_config_cache: join(work, "npm-cache") };
-  const packed = execFileSync("npm", ["pack", "--pack-destination", work, "--json"], { cwd: repoRoot, encoding: "utf8", shell: isWindows, env: npmEnv });
+  const npm = (args: string[], options: { cwd?: string } = {}) =>
+    execFileSync("npm", isWindows ? args.map(quoteForWindowsShell) : args, { ...options, encoding: "utf8", shell: isWindows, env: npmEnv });
+  const packed = npm(["pack", "--pack-destination", work, "--json"], { cwd: repoRoot });
   const tarball = join(work, JSON.parse(packed.slice(packed.search(/^\[\r?$/m)))[0].filename);
   prefix = join(work, "prefix");
-  execFileSync("npm", ["install", "-g", "--prefix", prefix, tarball], { encoding: "utf8", shell: isWindows, env: npmEnv });
+  npm(["install", "-g", "--prefix", prefix, tarball]);
   backlogBin = isWindows ? join(prefix, "backlog.cmd") : join(prefix, "bin", "backlog");
   packageDir = isWindows ? join(prefix, "node_modules", "p-backlog") : join(prefix, "lib", "node_modules", "p-backlog");
 }, 300_000);
@@ -82,13 +84,16 @@ describe("путь нового пользователя из tarball", () => {
     expect(created).toMatch(/^[A-Z]+-\d+ /);
     await writeFile(join(repo, "src", "a.ts"), "2\n");
 
-    const hookOutput = execFileSync(isWindows ? "powershell" : "sh", isWindows ? ["-NoProfile", "-Command", hookCommand] : ["-c", hookCommand], {
-      cwd: repo,
-      env,
-      input: JSON.stringify({ cwd: repo, session_id: "s1" }),
-      encoding: "utf8",
-    });
-    expect(JSON.parse(hookOutput)).toMatchObject({ decision: "block" });
+    const runHook = (session: string) =>
+      JSON.parse(
+        execFileSync(isWindows ? "powershell" : "sh", isWindows ? ["-NoProfile", "-Command", hookCommand] : ["-c", hookCommand], {
+          cwd: repo,
+          env,
+          input: JSON.stringify({ cwd: repo, session_id: session }),
+          encoding: "utf8",
+        }),
+      );
+    expect(runHook("s1")).toMatchObject({ decision: "block" });
 
     const port = await freePort();
     const server = isWindows
@@ -111,5 +116,8 @@ describe("путь нового пользователя из tarball", () => {
     } finally {
       server.kill();
     }
+
+    run(["config", "language", "ru"]);
+    expect(runHook("s2").reason).toContain("после последней проверки менялся код задач");
   }, 300_000);
 });

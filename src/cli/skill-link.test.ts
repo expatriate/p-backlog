@@ -16,14 +16,14 @@ describe("ссылка на скилл backlog", () => {
     await mkdir(skillsDir, { recursive: true });
     await symlink(join(oldCopy, "skill/backlog"), join(skillsDir, "backlog"), "dir");
 
-    expect(await linkSkillFor("ru", { skillsDir, repoRoot: current, platform: process.platform })).toBe("linked");
+    expect(await linkSkillFor("ru", { skillsDir, packageRoot: current, platform: process.platform })).toBe("linked");
     expect(await realpath(join(skillsDir, "backlog"))).toBe(await realpath(join(current, "skill/backlog")));
 
     const stranger = join(dir, "stranger/skill/backlog");
     await writeFiles(join(dir, "stranger"), { "package.json": JSON.stringify({ name: "other" }), "skill/backlog/SKILL.md": "x" });
     await unlink(join(skillsDir, "backlog"));
     await symlink(stranger, join(skillsDir, "backlog"), "dir");
-    expect(await linkSkillFor("ru", { skillsDir, repoRoot: current, platform: process.platform })).toBe("foreign");
+    expect(await linkSkillFor("ru", { skillsDir, packageRoot: current, platform: process.platform })).toBe("foreign");
   });
 
   it("ссылку на удалённую копию p-backlog (клон стёрт целиком, package.json не прочитать) считает своей и переставляет", async () => {
@@ -34,7 +34,7 @@ describe("ссылка на скилл backlog", () => {
     await mkdir(skillsDir, { recursive: true });
     await symlink(join(dir, "deleted-clone/skill/backlog"), join(skillsDir, "backlog"), "dir");
 
-    expect(await linkSkillFor("ru", { skillsDir, repoRoot: current, platform: process.platform })).toBe("linked");
+    expect(await linkSkillFor("ru", { skillsDir, packageRoot: current, platform: process.platform })).toBe("linked");
     expect(await realpath(join(skillsDir, "backlog"))).toBe(await realpath(join(current, "skill/backlog")));
   });
 });

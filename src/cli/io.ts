@@ -8,7 +8,7 @@ export type CliEnv = {
   cwd: string;
   home: string;
   backlogRoot: string;
-  repoRoot: string;
+  packageRoot: string;
   platform: NodeJS.Platform;
   uid: number;
   nodePath: string;

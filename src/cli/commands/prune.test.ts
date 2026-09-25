@@ -34,7 +34,7 @@ describe("backlog prune", () => {
     for (const title of ["Первая", "Вторая", "Третья"]) await run(["new", "--category", "bug", "--title", title, "--priority", "low"], { now: LONG_AGO });
     const err: string[] = [];
     const io: CliIo = {
-      ...baseCliEnv({ cwd: repo, home, backlogRoot: root, repoRoot: root }),
+      ...baseCliEnv({ cwd: repo, home, backlogRoot: root, packageRoot: root }),
       now: () => new Date("2026-09-17T14:50:00Z"),
       print: (line) => {
         if (line === "SPA-1: отменена") appendFileSync(join(root, "spa", "SPA-2.md"), "Правка руками во время prune\n");

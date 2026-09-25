@@ -238,9 +238,18 @@ the Stop hook by hand:
 rm ~/.claude/skills/backlog   # or $CLAUDE_SKILLS_DIR / $CLAUDE_CONFIG_DIR/skills, if set
 ```
 
-and delete the `Stop` hook entry from `~/.claude/settings.json` (or `$CLAUDE_SETTINGS_PATH`) — on
-macOS/Linux it's the command `command -v backlog >/dev/null && backlog hook stop || true`, on Windows a
-PowerShell command starting with `if (Get-Command backlog.cmd ...)`.
+and delete the `Stop` hook entry from `~/.claude/settings.json` (or `$CLAUDE_SETTINGS_PATH`). On macOS/Linux
+it is
+
+```json
+{ "type": "command", "command": "command -v backlog >/dev/null && backlog hook stop || true" }
+```
+
+and on Windows
+
+```json
+{ "type": "command", "shell": "powershell", "command": "if (Get-Command backlog.cmd -ErrorAction SilentlyContinue) { backlog.cmd hook stop }" }
+```
 
 On Windows, the Startup-folder script does not restart a crashed server the way launchd `KeepAlive` or
 systemd `Restart=on-failure` do — after a crash, run `backlog service install` again or start it with

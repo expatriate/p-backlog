@@ -1,9 +1,10 @@
 import { join } from "node:path";
+import { errorCodeOrText } from "../../core/errors";
 import { claudeSettingsPath, claudeSkillsDir } from "../../core/claude-dir";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo } from "../io";
 import { cliMessages } from "../messages";
-import { linkSkillFor, skillSourceDir } from "../skill-link";
+import { linkSkillFor, skillSourceDir, type SkillLinkResult } from "../skill-link";
 import { addStopHook, type StopHookResult } from "../stop-hook";
 import { installService } from "./service";
 
@@ -24,12 +25,12 @@ async function runSetupSteps(io: CliIo): Promise<boolean> {
   const messages = cliMessages(io.language);
   const skillsDir = claudeSkillsDir(io.env, io.home);
   const target = join(skillsDir, "backlog");
-  const source = skillSourceDir(io.repoRoot, io.language);
-  const link = await linkSkillFor(io.language, { skillsDir, repoRoot: io.repoRoot, platform: io.platform }).catch((error: NodeJS.ErrnoException) => ({
-    error,
-  }));
-  if (typeof link === "object") {
-    io.warn(messages.installSkillLinkFailed(target, link.error.code ?? link.error.message));
+  const source = skillSourceDir(io.packageRoot, io.language);
+  let link: SkillLinkResult;
+  try {
+    link = await linkSkillFor(io.language, { skillsDir, packageRoot: io.packageRoot, platform: io.platform });
+  } catch (error) {
+    io.warn(messages.installSkillLinkFailed(target, errorCodeOrText(error)));
     return false;
   }
   if (link === "foreign") {

@@ -1,7 +1,7 @@
 import { mkdir, readFile, realpath, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
-import { errorText } from "../core/errors";
+import { errorCodeOrText } from "../core/errors";
 import { hasErrorCode, writeFileAtomic } from "../core/store/fs-utils";
 
 const POSIX_COMMAND = "command -v backlog >/dev/null && backlog hook stop || true";
@@ -69,11 +69,6 @@ async function readSettingsText(settingsPath: string): Promise<string | { failed
     return await readFile(settingsPath, "utf8");
   } catch (error) {
     if (hasErrorCode(error, "ENOENT")) return "{}";
-    return { failed: "unreadable", code: errorCodeOf(error) };
+    return { failed: "unreadable", code: errorCodeOrText(error) };
   }
-}
-
-function errorCodeOf(error: unknown): string {
-  const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
-  return typeof code === "string" ? code : errorText(error);
 }

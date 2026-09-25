@@ -13,7 +13,7 @@ describe("backlog serve", () => {
     try {
       const warnings: string[] = [];
       const io: CliIo = {
-        ...baseCliEnv({ cwd: home, home, backlogRoot: join(home, "backlog-2"), repoRoot: home }),
+        ...baseCliEnv({ cwd: home, home, backlogRoot: join(home, "backlog-2"), packageRoot: home }),
         env: { PORT: String(blocker.port) },
         language: "ru",
         warn: (line) => warnings.push(line),

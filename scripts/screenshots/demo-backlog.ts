@@ -126,7 +126,7 @@ export async function buildDemoBacklog(scenario: Scenario, texts: Texts, languag
       cwd,
       home: paths.home,
       backlogRoot: paths.backlogRoot,
-      repoRoot,
+      packageRoot: repoRoot,
       platform: process.platform,
       uid: process.getuid?.() ?? 0,
       nodePath: process.execPath,

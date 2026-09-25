@@ -31,7 +31,7 @@ export function fakeExec(reply: (command: string) => ExecResult | Promise<ExecRe
   return { exec, calls };
 }
 
-export function baseCliEnv(overrides: Pick<CliEnv, "cwd" | "home" | "backlogRoot" | "repoRoot"> & Partial<CliEnv>): CliEnv {
+export function baseCliEnv(overrides: Pick<CliEnv, "cwd" | "home" | "backlogRoot" | "packageRoot"> & Partial<CliEnv>): CliEnv {
   return {
     platform: "darwin",
     uid: 501,
@@ -67,7 +67,7 @@ export async function makeCliSandbox(): Promise<CliSandbox> {
       cwd: options.cwd ?? repo,
       home,
       backlogRoot: root,
-      repoRoot: REPO_ROOT,
+      packageRoot: REPO_ROOT,
       platform: options.platform ?? "darwin",
       uid: 501,
       nodePath: "/opt/node/bin/node",

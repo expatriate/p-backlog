@@ -34,7 +34,6 @@
   },
   "files": [
     "dist/cli.js",
-    "dist/server.js",
     "dist/web",
     "skill",
     "README.md",

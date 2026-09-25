@@ -6,13 +6,13 @@ import { parseJson, readTextOrNull } from "../core/store/fs-utils";
 
 export type SkillLinkResult = "linked" | "kept" | "foreign";
 
-export type SkillLinkOptions = { skillsDir: string; repoRoot: string; platform: NodeJS.Platform };
+export type SkillLinkOptions = { skillsDir: string; packageRoot: string; platform: NodeJS.Platform };
 
 const SKILL_VARIANTS = new Set(["backlog", "backlog-en"]);
 const packageManifestSchema = z.object({ name: z.string() });
 
-export function skillSourceDir(repoRoot: string, language: Language): string {
-  return join(repoRoot, "skill", language === "ru" ? "backlog" : "backlog-en");
+export function skillSourceDir(packageRoot: string, language: Language): string {
+  return join(packageRoot, "skill", language === "ru" ? "backlog" : "backlog-en");
 }
 
 async function isPBacklogSkill(path: string): Promise<boolean> {
@@ -26,9 +26,9 @@ async function pathExists(path: string): Promise<boolean> {
   return (await lstat(path).catch(() => null)) !== null;
 }
 
-export async function linkSkillFor(language: Language, { skillsDir, repoRoot, platform }: SkillLinkOptions): Promise<SkillLinkResult> {
+export async function linkSkillFor(language: Language, { skillsDir, packageRoot, platform }: SkillLinkOptions): Promise<SkillLinkResult> {
   const target = join(skillsDir, "backlog");
-  const source = skillSourceDir(repoRoot, language);
+  const source = skillSourceDir(packageRoot, language);
   const existing = await lstat(target).catch(() => null);
   if (existing !== null && !existing.isSymbolicLink()) return "foreign";
   if (existing !== null) {
