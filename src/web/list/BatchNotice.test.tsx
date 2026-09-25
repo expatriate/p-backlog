@@ -177,7 +177,7 @@ describe("уведомление об итоге массового действ
 
   it("сбой второй части отмены: итог возвращённых и повтор отмены для остальных", { timeout: 20_000 }, async () => {
     let failing = true;
-    const { beforeRender } = recordBatches((body, attempt) => failing && body.action.kind === "restore" && attempt === 4);
+    const { sent, beforeRender } = recordBatches((body, attempt) => failing && body.action.kind === "restore" && attempt === 4);
     const app = await renderManyAndRaisePriority(beforeRender);
     await app.user.click(within(await findNotice("Изменено 520 из 520")).getByRole("button", { name: "Отменить" }));
 
@@ -185,9 +185,11 @@ describe("уведомление об итоге массового действ
     expect(within(notice).getByRole("alert").textContent).toContain("Не удалось отменить");
     expect((await taskOnDisk(app.root, "SPA-520")).priority).toBe("critical");
     failing = false;
+    const sentBeforeRetry = sent.length;
     await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
 
     await findNotice("Возвращено 520 из 520");
+    expect(sent.slice(sentBeforeRetry).map((request) => request.tasks.length)).toEqual([20]);
     expect((await taskOnDisk(app.root, "SPA-520")).priority).toBe("low");
     expect(screen.queryByRole("alert")).toBeNull();
   });
