@@ -1,5 +1,5 @@
-import { lstat, mkdir, realpath } from "node:fs/promises";
-import { join } from "node:path";
+import { lstat, mkdir, realpath, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
@@ -37,5 +37,30 @@ describe("backlog config language", () => {
     expect(result.code).toBe(EXIT.ok);
     expect(result.err).toContain("foreign directory");
     expect((await lstat(join(skillsDir, "backlog"))).isSymbolicLink()).toBe(false);
+  });
+
+  it("переставляет скилл и у Codex, и у Cursor", async () => {
+    const { home, run } = await makeCliSandbox();
+    await mkdir(join(home, ".codex"), { recursive: true });
+    await mkdir(join(home, ".cursor"), { recursive: true });
+
+    expect((await run(["config", "language", "en"])).code).toBe(EXIT.ok);
+
+    for (const dir of [".claude", ".codex", ".cursor"]) {
+      expect(await realpath(join(home, dir, "skills/backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
+    }
+  });
+
+  it("при включённом плагине скилл Claude Code не трогает и подсказывает плагин нужного языка", async () => {
+    const { home, run } = await makeCliSandbox();
+    const settingsPath = join(home, ".claude/settings.json");
+    await mkdir(dirname(settingsPath), { recursive: true });
+    await writeFile(settingsPath, JSON.stringify({ enabledPlugins: { "p-backlog-ru@p-backlog": true } }));
+
+    const result = await run(["config", "language", "en"]);
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(result.out).toContain("/plugin install p-backlog@p-backlog");
+    await expect(lstat(join(home, ".claude/skills/backlog"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

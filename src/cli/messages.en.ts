@@ -26,6 +26,19 @@ export const cliEn: CliMessages = {
   installSettingsUnreadable: (settingsPath, detail) => `Could not read ${settingsPath} (${detail}), Stop hook not added.`,
   installSettingsInvalid: (settingsPath) => `${settingsPath} is not a JSON object, Stop hook not added. Fix the file and try again.`,
   agentNotFound: (dir) => `not found (${dir})`,
+  pluginManages: (plugin) => `the ${plugin} plugin provides the skill and the hook. Remove the manual ones with: backlog setup --remove-manual`,
+  pluginLanguageHint: (installed, wanted) => `the skill comes from the ${installed} plugin; for this language switch plugins: /plugin uninstall ${installed}, then /plugin install ${wanted}`,
+  manualSkillRemoval: {
+    removed: (target) => `skill link removed: ${target}`,
+    absent: (target) => `no skill link: ${target}`,
+    foreign: (target) => `${target} is not a p-backlog link, left as is`,
+  },
+  manualHookRemoval: {
+    removed: (path) => `Stop hook removed from ${path}`,
+    absent: (path) => `no p-backlog Stop hook in ${path}`,
+  },
+  hookConfigUnreadable: (path, detail) => `Could not read ${path} (${detail}), the hook was not removed.`,
+  hookConfigInvalid: (path) => `${path} is not a JSON object, the hook was not removed. Fix the file and try again.`,
 
   serviceInstalled: (file) => `Service installed: ${file}`,
   serviceLogs: (path) => `Logs: ${path}`,

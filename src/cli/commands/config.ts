@@ -1,7 +1,8 @@
 import { join } from "node:path";
-import { claudeSkillsDir } from "../../core/claude-dir";
-import { LANGUAGES } from "../../core/i18n/language";
+import { LANGUAGES, type Language } from "../../core/i18n/language";
 import { writeSettings } from "../../core/store/settings";
+import { AGENT_LABELS, agentSkillsDir, detectAgents, type Agent } from "../agents/agent";
+import { agentPlugin, pluginToSwitchTo } from "../agents/claude-plugin";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, parseCommandArgs, type CliIo } from "../io";
 import { cliMessages } from "../messages";
@@ -30,8 +31,21 @@ async function runLanguage(positionals: string[], io: CliIo): Promise<number> {
   const language = parseChoice(io.language, value, LANGUAGES, cliMessages(io.language).optionLabel.language);
   await writeSettings(io.backlogRoot, { language });
   io.print(`${io.language} → ${language}`);
-  const skillsDir = claudeSkillsDir(io.env, io.home);
-  const result = await linkSkillFor(language, { skillsDir, packageRoot: io.packageRoot, platform: io.platform });
-  if (result === "foreign") io.warn(cliMessages(language).skillForeign(join(skillsDir, "backlog")));
+  const { found } = await detectAgents(io.env, io.home);
+  for (const agent of found) await relinkSkill(agent, language, io);
   return EXIT.ok;
+}
+
+async function relinkSkill(agent: Agent, language: Language, io: CliIo): Promise<void> {
+  const messages = cliMessages(language);
+  const label = AGENT_LABELS[agent];
+  const plugin = await agentPlugin(agent, io.env, io.home);
+  if (plugin !== null) {
+    const wanted = pluginToSwitchTo(plugin, language);
+    if (wanted !== null) io.print(`${label}: ${messages.pluginLanguageHint(plugin, wanted)}`);
+    return;
+  }
+  const skillsDir = agentSkillsDir(agent, io.env, io.home);
+  const result = await linkSkillFor(language, { skillsDir, packageRoot: io.packageRoot, platform: io.platform });
+  if (result === "foreign") io.warn(`${label}: ${messages.skillForeign(join(skillsDir, "backlog"))}`);
 }

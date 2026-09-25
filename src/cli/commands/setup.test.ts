@@ -181,4 +181,40 @@ describe("backlog setup", () => {
     expect(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8")).hooks.Stop).toHaveLength(1);
     expect(result.err).toMatch(/^Cursor: /m);
   });
+
+  it("при включённом плагине не ставит Claude Code скилл и хук и подсказывает, как убрать ручные", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    const settings = { enabledPlugins: { "p-backlog-ru@p-backlog": true } };
+    await mkdir(dirname(env.CLAUDE_SETTINGS_PATH), { recursive: true });
+    await writeFile(env.CLAUDE_SETTINGS_PATH, JSON.stringify(settings));
+
+    const result = await run(["setup"], { env });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(result.out).toContain("Claude Code: скилл и хук подключает плагин p-backlog-ru@p-backlog");
+    expect(result.out).toContain("backlog setup --remove-manual");
+    expect(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8"))).toEqual(settings);
+    await expect(lstat(join(env.CLAUDE_SKILLS_DIR, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("--remove-manual снимает только наши скиллы и хуки у всех агентов", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    const foreignHook = { hooks: [{ type: "command", command: "say готово" }] };
+    await mkdir(dirname(env.CLAUDE_SETTINGS_PATH), { recursive: true });
+    await writeFile(env.CLAUDE_SETTINGS_PATH, JSON.stringify({ hooks: { Stop: [foreignHook] } }));
+    await mkdir(join(home, ".codex"), { recursive: true });
+    await mkdir(join(home, ".cursor/skills/backlog"), { recursive: true });
+    await run(["setup"], { env });
+
+    const result = await run(["setup", "--remove-manual"], { env });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8"))).toEqual({ hooks: { Stop: [foreignHook] } });
+    await expect(lstat(join(env.CLAUDE_SKILLS_DIR, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(lstat(join(home, ".codex/skills/backlog"))).rejects.toMatchObject({ code: "ENOENT" });
+    expect(JSON.parse(await readFile(join(home, ".codex/hooks.json"), "utf8"))).toEqual({ hooks: {} });
+    expect((await lstat(join(home, ".cursor/skills/backlog"))).isDirectory()).toBe(true);
+  });
 });

@@ -25,6 +25,20 @@ export const cliRu = {
   installSettingsUnreadable: (settingsPath: string, detail: string): string => `${settingsPath} не прочитать (${detail}), хук Stop не добавлен.`,
   installSettingsInvalid: (settingsPath: string): string => `${settingsPath} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`,
   agentNotFound: (dir: string): string => `не найден (${dir})`,
+  pluginManages: (plugin: string): string => `скилл и хук подключает плагин ${plugin}. Ручные можно убрать: backlog setup --remove-manual`,
+  pluginLanguageHint: (installed: string, wanted: string): string =>
+    `скилл даёт плагин ${installed}; для этого языка поставьте другой: /plugin uninstall ${installed}, затем /plugin install ${wanted}`,
+  manualSkillRemoval: {
+    removed: (target: string): string => `ссылка на скилл снята: ${target}`,
+    absent: (target: string): string => `ссылки на скилл нет: ${target}`,
+    foreign: (target: string): string => `${target} — не ссылка p-backlog, не тронут`,
+  },
+  manualHookRemoval: {
+    removed: (path: string): string => `хук Stop снят из ${path}`,
+    absent: (path: string): string => `хука Stop p-backlog в ${path} нет`,
+  },
+  hookConfigUnreadable: (path: string, detail: string): string => `Не удалось прочитать ${path} (${detail}), хук не снят.`,
+  hookConfigInvalid: (path: string): string => `${path} — не объект JSON, хук не снят. Исправьте файл и повторите.`,
 
   serviceInstalled: (file: string): string => `Служба установлена: ${file}`,
   serviceLogs: (path: string): string => `Логи: ${path}`,
