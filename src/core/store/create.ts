@@ -57,7 +57,8 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
 export async function createProject(root: string, repoRoot: string, existingProjects: readonly Project[]): Promise<Project> {
   const name = basename(repoRoot);
   const entries = await listDir(root);
-  const id = deriveProjectId(name, new Set(entries.map((entry) => entry.name)));
+  const joinable = await Promise.all(entries.map((entry) => entry.isDirectory() && isJoinableProjectDir(join(root, entry.name), repoRoot)));
+  const id = deriveProjectId(name, new Set(entries.filter((_, index) => !joinable[index]).map((entry) => entry.name)));
   const prefixesOnDisk = await Promise.all(entries.filter((entry) => entry.isDirectory()).map((entry) => takenPrefixes(join(root, entry.name))));
   const prefix = derivePrefix(name, new Set([...existingProjects.map((project) => project.prefix), ...prefixesOnDisk.flat()]));
   const dir = join(root, id);
@@ -74,6 +75,12 @@ export async function createProject(root: string, repoRoot: string, existingProj
   const parsed = parseProjectFile(text, { id, path });
   if (!parsed.ok) throw new Error(`${path}: ${parsed.problems.map((problem) => problem.code).join(", ")}`);
   return parsed.value;
+}
+
+async function isJoinableProjectDir(dir: string, repoRoot: string): Promise<boolean> {
+  const path = join(dir, PROJECT_FILE);
+  if ((await readTextOrNull(path)) !== null) return (await projectOfRepo(basename(dir), path, repoRoot)) !== null;
+  return (await listDir(dir)).every((entry) => !entry.name.endsWith(".md"));
 }
 
 async function projectOfRepo(id: string, path: string, repoRoot: string): Promise<Project | null> {

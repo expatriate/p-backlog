@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { coreMessages } from "../messages";
@@ -129,6 +129,15 @@ describe("createProject", () => {
     const project = await createProject(root, "/work/spa", []);
 
     expect(project.prefix).not.toBe("SPA");
+  });
+
+  it("каталог, который параллельное создание уже завело, но ещё не записало project.md, занимается, а не обходится как spa-2", async () => {
+    const root = await makeTempDir();
+    await mkdir(join(root, "spa"), { recursive: true });
+
+    const project = await createProject(root, "/work/spa", []);
+
+    expect(project.id).toBe("spa");
   });
 
   it("два одновременных создания проекта для одного репозитория получают один и тот же проект", async () => {
