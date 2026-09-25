@@ -59,11 +59,9 @@ export type BatchRequest = z.infer<typeof batchRequestSchema>;
 export type BatchAction = BatchRequest["action"];
 export type BatchPrevious = z.infer<typeof batchPreviousSchema>;
 export type BatchSkipReason = "changed" | "not-found" | "already-closed" | "invalid";
-/** @public */
 export type BatchOutcome =
   | { id: string; outcome: "done"; version: string; previous: BatchPrevious }
   | { id: string; outcome: "skipped"; reason: BatchSkipReason; message: string };
-/** @public */
 export type BatchResponse = { results: BatchOutcome[] };
 
 type ParseErrorView = Omit<ParseError, "problems"> & { message: string };

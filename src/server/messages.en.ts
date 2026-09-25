@@ -6,6 +6,12 @@ export const serverEn: ServerMessages = {
   projectNotFound: (id) => `Project ${id} not found`,
   confirmMismatch: "Confirmation does not match the project id",
   bodyNotParsed: "Request body could not be parsed: JSON expected",
+  batchSkipped: {
+    changed: (id) => `${id} changed on disk`,
+    "not-found": (id) => `${id} not found`,
+    "already-closed": (id) => `${id} is already closed`,
+    invalid: (id) => `${id}: the action doesn't apply to it`,
+  },
   unknownRoute: (path) => `Unknown API route: ${path}`,
   hostRejected: (host) => `Requests from host ${host} are not accepted`,
   jsonContentTypeExpected: "Content-Type: application/json is expected",

@@ -1,7 +1,7 @@
 import { appendFile, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { CodeReport, ConflictResponse, ProjectView, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
+import type { BatchResponse, CodeReport, ConflictResponse, ProjectView, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
 import { FileBusyError } from "../core/store/file-lock";
 import { readJournal } from "../core/store/journal";
 import { loadBacklog } from "../core/store/load";
@@ -158,6 +158,122 @@ describe("PATCH /api/tasks/:id", () => {
     const response = await backlog.json("/api/tasks/SPA-1", "PATCH", { version: await backlog.taskVersion("SPA-1"), changes: { category: "spaghetti" } });
 
     expect(response.status).toBe(422);
+  });
+});
+
+describe("POST /api/tasks/batch", () => {
+  it("закрывает несколько задач: done с новой версией, файлы на диске закрыты", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const v1 = await backlog.taskVersion("SPA-1");
+    const v2 = await backlog.taskVersion("TI-1");
+
+    const response = await backlog.json("/api/tasks/batch", "POST", {
+      tasks: [
+        { id: "SPA-1", version: v1 },
+        { id: "TI-1", version: v2 },
+      ],
+      action: { kind: "close", reason: "Неактуально" },
+    });
+
+    expect(response.status).toBe(200);
+    const { results } = (await response.json()) as BatchResponse;
+    expect(results).toEqual([
+      { id: "SPA-1", outcome: "done", version: expect.any(String), previous: expect.objectContaining({ status: "backlog" }) },
+      { id: "TI-1", outcome: "done", version: expect.any(String), previous: expect.objectContaining({ status: "backlog" }) },
+    ]);
+    const spa1 = results.find((result) => result.id === "SPA-1");
+    if (spa1?.outcome === "done") expect(spa1.version).not.toBe(v1);
+
+    const { tasks } = (await (await backlog.request("/api/tasks")).json()) as TasksResponse;
+    expect(tasks.find((task) => task.id === "SPA-1")).toMatchObject({ status: "cancelled", resolution: "obsolete", reason: "Неактуально" });
+    expect(tasks.find((task) => task.id === "TI-1")).toMatchObject({ status: "cancelled", resolution: "obsolete", reason: "Неактуально" });
+  });
+
+  it("устаревшая версия — skipped changed, текст на языке настройки", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES, { language: "en" });
+    const version = await backlog.taskVersion("SPA-1");
+    await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { priority: "low" } });
+
+    const response = await backlog.json("/api/tasks/batch", "POST", {
+      tasks: [{ id: "SPA-1", version }],
+      action: { kind: "priority", priority: "high" },
+    });
+
+    expect(response.status).toBe(200);
+    const { results } = (await response.json()) as BatchResponse;
+    expect(results).toEqual([{ id: "SPA-1", outcome: "skipped", reason: "changed", message: "SPA-1 changed on disk" }]);
+  });
+
+  it("недопустимое действие — skipped invalid, с текстом причины", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const version = await backlog.taskVersion("SPA-3");
+
+    const response = await backlog.json("/api/tasks/batch", "POST", {
+      tasks: [{ id: "SPA-3", version }],
+      action: { kind: "epic", epic: "SPA-3" },
+    });
+
+    const { results } = (await response.json()) as BatchResponse;
+    expect(results).toEqual([{ id: "SPA-3", outcome: "skipped", reason: "invalid", message: "SPA-3: действие к ней не подходит" }]);
+  });
+
+  it("restore возвращает задачу к прежним значениям, проверено на диске", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const version = await backlog.taskVersion("SPA-1");
+
+    const closeResponse = await backlog.json("/api/tasks/batch", "POST", {
+      tasks: [{ id: "SPA-1", version }],
+      action: { kind: "close", reason: "Неактуально" },
+    });
+    const closed = ((await closeResponse.json()) as BatchResponse).results[0];
+    if (closed?.outcome !== "done") throw new Error("ожидался done");
+
+    const restoreResponse = await backlog.json("/api/tasks/batch", "POST", {
+      tasks: [{ id: "SPA-1", version: closed.version }],
+      action: { kind: "restore", changes: { "SPA-1": closed.previous } },
+    });
+
+    expect(restoreResponse.status).toBe(200);
+    const restored = ((await restoreResponse.json()) as BatchResponse).results[0];
+    expect(restored).toMatchObject({ id: "SPA-1", outcome: "done" });
+
+    const { tasks } = (await (await backlog.request("/api/tasks")).json()) as TasksResponse;
+    const restoredOnDisk = tasks.find((task) => task.id === "SPA-1");
+    expect(restoredOnDisk).toMatchObject({ status: "backlog", priority: "high" });
+    expect(restoredOnDisk?.resolution).toBeUndefined();
+    expect(restoredOnDisk?.reason).toBeUndefined();
+  });
+
+  it("чужой Host → 403", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+
+    const response = await backlog.app.request("http://example.com/api/tasks/batch", {
+      method: "POST",
+      headers: { host: "example.com", "content-type": "application/json" },
+      body: JSON.stringify({ tasks: [{ id: "SPA-1", version: "v" }], action: { kind: "priority", priority: "high" } }),
+    });
+
+    expect(response.status).toBe(403);
+  });
+
+  it("тело без tasks, больше 500 задач и пустая причина закрытия не проходят схему", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const version = await backlog.taskVersion("SPA-1");
+
+    const noTasks = await backlog.json("/api/tasks/batch", "POST", { action: { kind: "priority", priority: "high" } });
+    expect(noTasks.status).toBe(422);
+
+    const tooMany = await backlog.json("/api/tasks/batch", "POST", {
+      tasks: Array.from({ length: 501 }, (_, index) => ({ id: `SPA-${index + 1}`, version: "v" })),
+      action: { kind: "priority", priority: "high" },
+    });
+    expect(tooMany.status).toBe(422);
+
+    const emptyReason = await backlog.json("/api/tasks/batch", "POST", {
+      tasks: [{ id: "SPA-1", version }],
+      action: { kind: "close", reason: "  \n " },
+    });
+    expect(emptyReason.status).toBe(422);
   });
 });
 

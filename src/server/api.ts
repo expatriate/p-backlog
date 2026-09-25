@@ -2,19 +2,20 @@ import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import type { Language } from "../core/i18n/language";
-import { projectActiveSchema, projectDeleteSchema, settingsRequestSchema, updateTaskRequestSchema, type ProjectView, type SettingsResponse } from "../core/api/contract";
+import { batchRequestSchema, projectActiveSchema, projectDeleteSchema, settingsRequestSchema, updateTaskRequestSchema, type BatchOutcome, type BatchResponse, type ProjectView, type SettingsResponse } from "../core/api/contract";
 import { projectGraphHealth, type GraphState } from "../core/check/graph-health";
 import { buildIndex, type BacklogIndex } from "../core/model/graph";
 import type { Project } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { parseWithLocale } from "../core/model/zod-issues";
+import { applyBatch, type CoreBatchOutcome } from "../core/store/batch";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { writeSettings } from "../core/store/settings";
 import { deleteProject, setProjectActive } from "../core/store/projects";
 import { updateTaskInIndex } from "../core/store/update";
 import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
-import { serverMessages } from "./messages";
+import { serverMessages, type ServerMessages } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createReportCache } from "./report-cache";
 import { createStatsApi } from "./stats-api";
@@ -87,6 +88,18 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     return invalidResponse(c, result, coreMessages(body.language));
   });
 
+  api.post("/tasks/batch", async (c) => {
+    const body = await readBody(c, batchRequestSchema, readLanguage);
+    if (!body.ok) return body.response;
+
+    const { index } = await backlog();
+    const outcomes = await applyBatch(index, { ...body.data, now: now() });
+    forgetBacklog();
+    const messages = serverMessages(body.language);
+    const core = coreMessages(body.language);
+    return c.json<BatchResponse>({ results: outcomes.map((outcome) => viewOf(outcome, messages, core)) });
+  });
+
   api.patch("/projects/:id", async (c) => {
     const body = await readBody(c, projectActiveSchema, readLanguage);
     if (!body.ok) return body.response;
@@ -130,6 +143,12 @@ async function loadSnapshot(root: string): Promise<BacklogSnapshot> {
 
 function invalidResponse(c: Context, result: Invalid, messages: CoreMessages) {
   return c.json({ errors: result.errors.map(messages.problem) }, 422);
+}
+
+function viewOf(outcome: CoreBatchOutcome, messages: ServerMessages, core: CoreMessages): BatchOutcome {
+  if (outcome.outcome === "done") return { id: outcome.id, outcome: "done", version: outcome.task.version, previous: outcome.previous };
+  const message = outcome.reason === "invalid" && outcome.problems ? core.problems(outcome.problems) : messages.batchSkipped[outcome.reason](outcome.id);
+  return { id: outcome.id, outcome: "skipped", reason: outcome.reason, message };
 }
 
 type ParsedBody<T> = { ok: true; data: T; language: Language } | { ok: false; response: Response };

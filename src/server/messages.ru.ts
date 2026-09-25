@@ -4,6 +4,12 @@ export const serverRu = {
   projectNotFound: (id: string): string => `Проект ${id} не найден`,
   confirmMismatch: "Подтверждение не совпадает с id проекта",
   bodyNotParsed: "Тело запроса не разобрано: ожидается JSON",
+  batchSkipped: {
+    changed: (id: string): string => `${id} изменилась на диске`,
+    "not-found": (id: string): string => `${id} не найдена`,
+    "already-closed": (id: string): string => `${id} уже закрыта`,
+    invalid: (id: string): string => `${id}: действие к ней не подходит`,
+  },
   unknownRoute: (path: string): string => `Неизвестный адрес API: ${path}`,
   hostRejected: (host: string): string => `Запросы с хоста ${host} не принимаются`,
   jsonContentTypeExpected: "Ожидается Content-Type: application/json",
