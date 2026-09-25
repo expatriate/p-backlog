@@ -100,7 +100,7 @@
 | Агент | Как находится | Скилл | Хук Stop |
 |---|---|---|---|
 | Claude Code | всегда | `~/.claude/skills/backlog` | `~/.claude/settings.json` |
-| Codex CLI | `$CODEX_HOME` или `~/.codex` | `<каталог codex>/skills/backlog` | `<каталог codex>/hooks.json` |
+| Codex CLI | `$CODEX_HOME` или `~/.codex` | `~/.agents/skills/backlog` | `<каталог codex>/hooks.json` |
 | Cursor | `~/.cursor` | `~/.cursor/skills/backlog` | `~/.cursor/hooks.json` |
 
 Скилл — ссылка на скилл пакета на выбранном языке; `backlog config language` переставляет её у всех агентов.

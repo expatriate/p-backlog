@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { errorCodeOrText } from "../../core/errors";
-import { AGENT_LABELS, AGENTS, agentSkillsDir, detectAgents, type Agent } from "../agents/agent";
+import { AGENT_LABELS, AGENTS, agentSkillsDir, detectAgents, legacySkillsDirs, type Agent } from "../agents/agent";
 import { agentHookConfigPath, installAgentHook, removeAgentHook } from "../agents/agent-hooks";
 import { agentPlugin } from "../agents/claude-plugin";
 import type { HookInstallResult, HookRemoveResult } from "../agents/grouped-stop-hooks";
@@ -95,6 +95,9 @@ async function removeManualSetup(agent: Agent, io: CliIo): Promise<boolean> {
   const messages = cliMessages(io.language);
   const skillsDir = agentSkillsDir(agent, io.env, io.home);
   voice.print(messages.manualSkillRemoval[await unlinkOurSkill(skillsDir)](join(skillsDir, "backlog")));
+  for (const legacyDir of legacySkillsDirs(agent, io.env, io.home)) {
+    if ((await unlinkOurSkill(legacyDir)) === "removed") voice.print(messages.manualSkillRemoval.removed(join(legacyDir, "backlog")));
+  }
   return reportHookRemoval(await removeAgentHook(agent, io), agentHookConfigPath(agent, io.env, io.home), io, voice);
 }
 

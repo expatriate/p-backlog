@@ -46,7 +46,7 @@ describe("backlog config language", () => {
 
     expect((await run(["config", "language", "en"])).code).toBe(EXIT.ok);
 
-    for (const dir of [".claude", ".codex", ".cursor"]) {
+    for (const dir of [".claude", ".agents", ".cursor"]) {
       expect(await realpath(join(home, dir, "skills/backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
     }
   });

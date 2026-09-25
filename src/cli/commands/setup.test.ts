@@ -149,7 +149,7 @@ describe("backlog setup", () => {
     const result = await run(["setup"], { env });
 
     expect(result.code).toBe(EXIT.ok);
-    expect(await realpath(join(home, ".codex/skills/backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog")));
+    expect(await realpath(join(home, ".agents/skills/backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog")));
     expect(JSON.parse(await readFile(join(home, ".codex/hooks.json"), "utf8")).hooks.Stop[0].hooks[0]).toMatchObject({ command: CODEX_COMMAND });
     expect(result.out).toMatch(/^Claude Code: /m);
     expect(result.out).toMatch(/^Codex: /m);
@@ -213,8 +213,21 @@ describe("backlog setup", () => {
     expect(result.code).toBe(EXIT.ok);
     expect(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8"))).toEqual({ hooks: { Stop: [foreignHook] } });
     await expect(lstat(join(env.CLAUDE_SKILLS_DIR, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });
-    await expect(lstat(join(home, ".codex/skills/backlog"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(lstat(join(home, ".agents/skills/backlog"))).rejects.toMatchObject({ code: "ENOENT" });
     expect(JSON.parse(await readFile(join(home, ".codex/hooks.json"), "utf8"))).toEqual({ hooks: {} });
     expect((await lstat(join(home, ".cursor/skills/backlog"))).isDirectory()).toBe(true);
+  });
+
+  it("--remove-manual снимает и прежнюю ссылку Codex из <каталог codex>/skills", async () => {
+    const { home, run } = await makeCliSandbox();
+    const legacyLink = join(home, ".codex/skills/backlog");
+    await mkdir(dirname(legacyLink), { recursive: true });
+    await symlink(join(repoRoot, "skill/backlog"), legacyLink, "dir");
+
+    const result = await run(["setup", "--remove-manual", "--agent", "codex"]);
+
+    expect(result.code).toBe(EXIT.ok);
+    await expect(lstat(legacyLink)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(result.out).toContain(`ссылка на скилл снята: ${legacyLink}`);
   });
 });

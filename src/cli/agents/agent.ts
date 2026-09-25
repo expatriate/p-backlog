@@ -17,7 +17,13 @@ export function agentHomeDir(agent: Agent, env: NodeJS.ProcessEnv, home: string)
 }
 
 export function agentSkillsDir(agent: Agent, env: NodeJS.ProcessEnv, home: string): string {
-  return agent === "claude" ? claudeSkillsDir(env, home) : join(agentHomeDir(agent, env, home), "skills");
+  if (agent === "claude") return claudeSkillsDir(env, home);
+  if (agent === "codex") return join(home, ".agents", "skills");
+  return join(agentHomeDir(agent, env, home), "skills");
+}
+
+export function legacySkillsDirs(agent: Agent, env: NodeJS.ProcessEnv, home: string): string[] {
+  return agent === "codex" ? [join(agentHomeDir(agent, env, home), "skills")] : [];
 }
 
 export async function detectAgents(env: NodeJS.ProcessEnv, home: string): Promise<AgentDetection> {

@@ -101,7 +101,7 @@ limits it to one:
 | Agent | Found by | Skill | Stop hook |
 |---|---|---|---|
 | Claude Code | always | `~/.claude/skills/backlog` | `~/.claude/settings.json` |
-| Codex CLI | `$CODEX_HOME` or `~/.codex` | `<codex home>/skills/backlog` | `<codex home>/hooks.json` |
+| Codex CLI | `$CODEX_HOME` or `~/.codex` | `~/.agents/skills/backlog` | `<codex home>/hooks.json` |
 | Cursor | `~/.cursor` | `~/.cursor/skills/backlog` | `~/.cursor/hooks.json` |
 
 The skill is a link to the package's skill in the configured language; `backlog config language` switches it for
