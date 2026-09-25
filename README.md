@@ -105,8 +105,9 @@ limits it to one:
 | Cursor | `~/.cursor` | `~/.cursor/skills/backlog` | `~/.cursor/hooks.json` |
 
 The skill is a link to the package's skill in the configured language; `backlog config language` switches it for
-every agent. Other hooks in those files stay as they are, and running `setup` again adds nothing twice. In Cursor the
-re-check request arrives as a follow-up message. Token and cost statistics cover Claude Code only.
+every agent. Other hooks in those files stay as they are, and running `setup` again adds nothing twice. Codex asks
+you to review and approve the new hook once: open `/hooks` in Codex. In Cursor the re-check request arrives as a
+follow-up message. Token and cost statistics cover Claude Code only.
 
 If the Claude Code plugin is enabled, `setup` leaves Claude Code alone; `backlog setup --remove-manual` removes the
 skill links and Stop hooks that `setup` installed earlier (for all agents, or for `--agent`).

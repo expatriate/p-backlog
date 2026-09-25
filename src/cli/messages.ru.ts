@@ -22,6 +22,7 @@ export const cliRu = {
   installSkillLinkFailed: (target: string, detail: string): string => `Не удалось создать ссылку ${target} (${detail}).`,
   installHookExists: (settingsPath: string): string => `Хук Stop уже есть в ${settingsPath}`,
   installHookAdded: (settingsPath: string): string => `Хук Stop добавлен в ${settingsPath}`,
+  codexHookApproval: "одобрите хук в Codex: /hooks",
   installSettingsUnreadable: (settingsPath: string, detail: string): string => `${settingsPath} не прочитать (${detail}), хук Stop не добавлен.`,
   installSettingsInvalid: (settingsPath: string): string => `${settingsPath} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`,
   agentNotFound: (dir: string): string => `не найден (${dir})`,

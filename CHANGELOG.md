@@ -8,7 +8,8 @@ Claude Code plugin and other agents:
   `/plugin install p-backlog@p-backlog` (English skill) or `p-backlog-ru@p-backlog` (Russian). The plugin brings the
   skill and the Stop hook; the CLI still comes from npm.
 - `backlog setup` connects Codex CLI and Cursor too: it finds them by `$CODEX_HOME`/`~/.codex` and `~/.cursor`, links
-  the skill and adds the Stop hook to their `hooks.json`; `--agent claude|codex|cursor` limits it to one agent.
+  the skill and adds the Stop hook to their `hooks.json`; `--agent claude|codex|cursor` limits it to one agent. Codex
+  runs the new hook only after you approve it once in `/hooks`; `setup` reminds you.
 - `backlog hook stop --agent codex|cursor` reads their Stop events; Cursor gets the re-check request as a follow-up
   message.
 - With the plugin enabled, `setup` leaves Claude Code alone; `backlog setup --remove-manual` removes the skill links

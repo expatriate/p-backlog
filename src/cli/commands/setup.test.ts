@@ -157,6 +157,17 @@ describe("backlog setup", () => {
     await expect(lstat(join(home, ".cursor"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it("новый хук Codex просит одобрить в /hooks, уже стоящий — нет", async () => {
+    const { home, run } = await makeCliSandbox();
+    await mkdir(join(home, ".codex"), { recursive: true });
+
+    const first = await run(["setup", "--agent", "codex"]);
+    const again = await run(["setup", "--agent", "codex"]);
+
+    expect(first.out).toContain("Codex: одобрите хук в Codex: /hooks");
+    expect(again.out).not.toContain("одобрите");
+  });
+
   it("--agent сужает установку до одного агента", async () => {
     const { home, run } = await makeCliSandbox();
     const env = claudeEnv(home);

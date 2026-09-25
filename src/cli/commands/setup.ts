@@ -49,7 +49,10 @@ async function setUpAgent(agent: Agent, io: CliIo): Promise<boolean> {
     return true;
   }
   if (!(await linkAgentSkill(agent, io, voice))) return false;
-  return reportHook(await installAgentHook(agent, io), agentHookConfigPath(agent, io.env, io.home), io, voice);
+  const hook = await installAgentHook(agent, io);
+  const reported = reportHook(hook, agentHookConfigPath(agent, io.env, io.home), io, voice);
+  if (agent === "codex" && hook === "added") voice.print(cliMessages(io.language).codexHookApproval);
+  return reported;
 }
 
 async function linkAgentSkill(agent: Agent, io: CliIo, voice: AgentVoice): Promise<boolean> {
