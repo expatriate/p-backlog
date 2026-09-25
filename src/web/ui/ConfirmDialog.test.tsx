@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 describe("подтверждение действия", () => {
-  it("кнопка включается только при точном совпадении", async () => {
+  it("кнопка и Enter подтверждают только при точном совпадении", async () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn();
     render(
@@ -25,13 +25,15 @@ describe("подтверждение действия", () => {
     const confirm = screen.getByRole("button", { name: "Удалить" }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
 
-    await user.type(screen.getByRole("textbox"), "torg-i");
+    await user.type(screen.getByRole("textbox"), "torg-i{Enter}");
     expect(confirm.disabled).toBe(true);
+    expect(onConfirm).not.toHaveBeenCalled();
 
-    await user.type(screen.getByRole("textbox"), "o");
+    await user.type(screen.getByRole("textbox"), "o{Enter}");
+    expect(onConfirm).toHaveBeenCalledWith("torg-io");
+
     await user.click(confirm);
-
-    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledTimes(2);
   });
 
   it("Esc закрывает без действия", () => {
