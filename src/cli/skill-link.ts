@@ -6,6 +6,8 @@ import { parseJson, readTextOrNull } from "../core/store/fs-utils";
 
 export type SkillLinkResult = "linked" | "kept" | "foreign";
 
+export type SkillUnlinkResult = "removed" | "absent" | "foreign";
+
 export type SkillLinkOptions = { skillsDir: string; packageRoot: string; platform: NodeJS.Platform };
 
 const SKILL_VARIANTS = new Set(["backlog", "backlog-en"]);
@@ -40,4 +42,13 @@ export async function linkSkillFor(language: Language, { skillsDir, packageRoot,
   await mkdir(skillsDir, { recursive: true });
   await symlink(source, target, platform === "win32" ? "junction" : "dir");
   return "linked";
+}
+
+export async function unlinkOurSkill(skillsDir: string): Promise<SkillUnlinkResult> {
+  const target = join(skillsDir, "backlog");
+  const existing = await lstat(target).catch(() => null);
+  if (existing === null) return "absent";
+  if (!existing.isSymbolicLink() || !(await isPBacklogSkill(resolve(skillsDir, await readlink(target))))) return "foreign";
+  await unlink(target);
+  return "removed";
 }

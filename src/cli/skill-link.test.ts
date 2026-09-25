@@ -1,8 +1,10 @@
-import { mkdir, realpath, symlink, unlink } from "node:fs/promises";
+import { lstat, mkdir, realpath, symlink, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
-import { linkSkillFor } from "./skill-link";
+import { linkSkillFor, unlinkOurSkill } from "./skill-link";
+
+const repoRoot = join(import.meta.dirname, "../..");
 
 describe("ссылка на скилл backlog", () => {
   it("ссылку на скилл другой копии p-backlog переставляет на текущую, каталог не-p-backlog не трогает", async () => {
@@ -36,5 +38,21 @@ describe("ссылка на скилл backlog", () => {
 
     expect(await linkSkillFor("ru", { skillsDir, packageRoot: current, platform: process.platform })).toBe("linked");
     expect(await realpath(join(skillsDir, "backlog"))).toBe(await realpath(join(current, "skill/backlog")));
+  });
+});
+
+describe("unlinkOurSkill", () => {
+  it("снимает свою ссылку, чужой каталог не трогает", async () => {
+    const home = await makeTempDir();
+    const ours = join(home, "ours");
+    await linkSkillFor("ru", { skillsDir: ours, packageRoot: repoRoot, platform: process.platform });
+    const theirs = join(home, "theirs");
+    await mkdir(join(theirs, "backlog"), { recursive: true });
+
+    expect(await unlinkOurSkill(ours)).toBe("removed");
+    expect(await lstat(join(ours, "backlog")).catch(() => null)).toBeNull();
+    expect(await unlinkOurSkill(ours)).toBe("absent");
+    expect(await unlinkOurSkill(theirs)).toBe("foreign");
+    expect((await lstat(join(theirs, "backlog"))).isDirectory()).toBe(true);
   });
 });

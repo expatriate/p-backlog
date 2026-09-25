@@ -4,8 +4,9 @@ import { claudeSettingsPath, claudeSkillsDir } from "../../core/claude-dir";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo } from "../io";
 import { cliMessages } from "../messages";
+import type { HookInstallResult } from "../agents/grouped-stop-hooks";
 import { linkSkillFor, skillSourceDir, type SkillLinkResult } from "../skill-link";
-import { addStopHook, type StopHookResult } from "../stop-hook";
+import { addStopHook } from "../stop-hook";
 import { installService } from "./service";
 
 export const setupCommand: CliCommand = {
@@ -42,7 +43,7 @@ async function runSetupSteps(io: CliIo): Promise<boolean> {
   return reportHook(await addStopHook(settingsPath, io.platform), settingsPath, io);
 }
 
-function reportHook(result: StopHookResult, settingsPath: string, io: CliIo): boolean {
+function reportHook(result: HookInstallResult, settingsPath: string, io: CliIo): boolean {
   const messages = cliMessages(io.language);
   if (result === "added") {
     io.print(messages.installHookAdded(settingsPath));
