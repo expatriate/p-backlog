@@ -298,6 +298,25 @@ describe("backlog hook stop", () => {
     expect([a.code, b.code]).toEqual([EXIT.ok, EXIT.ok]);
   });
 
+  it("два хода одной сессии с одинаковым последним ответом: второй ход тоже говорит о новой правке", async () => {
+    const { run, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n", "src/b.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Утечка", "--source", "src/b.ts:1"]);
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Поправить таймаут", "2026-09-18T10:00:00Z");
+    const event = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false, last_assistant_message: "Готово." });
+
+    const first = await run(["hook", "stop"], { stdin: event, now: new Date("2026-09-18T11:00:00Z") });
+    await writeFile(join(repo, "src/b.ts"), "2\n");
+    gitCommitAll(repo, "Поправить утечку", "2026-09-18T11:01:00Z");
+    const second = await run(["hook", "stop"], { stdin: event, now: new Date("2026-09-18T11:05:00Z") });
+
+    expect(JSON.parse(first.out).reason).toContain("SPA-1");
+    expect(JSON.parse(second.out).reason).toContain("SPA-2");
+  });
+
   it("неизвестный агент — ошибка использования с именем агента", async () => {
     const { run } = await makeCliSandbox();
 

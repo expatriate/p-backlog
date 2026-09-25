@@ -12,4 +12,13 @@ describe("claimHookTurn", () => {
     expect(claims.filter(Boolean)).toHaveLength(1);
     expect(await claimHookTurn(root, "claude:s:t2", now)).toBe(true);
   });
+
+  it("тот же ключ через минуту снова свободен: одинаковый текст ответа в разных ходах не глушит хук", async () => {
+    const root = await makeTempDir();
+
+    await claimHookTurn(root, "claude:s:same", new Date("2026-09-25T10:00:00Z"));
+
+    expect(await claimHookTurn(root, "claude:s:same", new Date("2026-09-25T10:00:30Z"))).toBe(false);
+    expect(await claimHookTurn(root, "claude:s:same", new Date("2026-09-25T10:01:30Z"))).toBe(true);
+  });
 });
