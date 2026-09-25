@@ -190,7 +190,7 @@ export const statsRu = {
   noTranscripts: "Расшифровки Claude Code не найдены.",
   scanProgress: (done: number, total: number): string => `Считаем расход по расшифровкам Claude Code: прочитано ${done} из ${countRu(total, "файла", "файлов", "файлов")}`,
   costNote:
-    "Токены из расшифровок Claude Code: ходы, запущенные Stop-хуком беклога, — точно; вывод команд backlog и скилла — оценка по длине текста. Деньги — по ценам Claude API, подписка может стоить иначе.",
+    "Токены из расшифровок Claude Code: ходы, запущенные Stop-хуком беклога, — точно; вывод команд backlog и скилла — оценка по длине текста. Деньги — по ценам Claude API, подписка может стоить иначе. Расходы других агентов (Codex, Cursor) не учитываются.",
   backlogTokens: "Токены из-за беклога",
   backlogTokensNote: (hook: string, cli: string): string => `ходы хука ${hook}, вывод CLI и скилл ${cli}`,
   apiPrice: "По ценам API",

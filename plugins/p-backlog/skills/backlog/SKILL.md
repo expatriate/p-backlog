@@ -120,8 +120,8 @@ array) — fix them together, closing each one.
 
 ## Re-check tasks
 
-When: the hook message "code changed for tasks since the last check", a request to "check the backlog", or
-"clean up the backlog".
+When: the hook message "code changed for tasks since the last check" (in Cursor it arrives as a follow-up
+message), a request to "check the backlog", or "clean up the backlog".
 
 1. `backlog check --json` from the project's repository (from another directory — `--project <id>`).
    Dangling references, completed epics, and shifted `source` — it already fixed those itself; that's the

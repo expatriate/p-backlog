@@ -45,24 +45,34 @@
 
 ## Как начать
 
-1. **Установка** (нужен Node.js 22.13 или новее):
+1. **Установка CLI** (нужен Node.js 22.13 или новее):
 
    ```bash
    npm i -g p-backlog
-   backlog setup --service
    ```
 
-   `npm i -g p-backlog` ставит CLI глобально; `backlog setup --service` ставит скилл и хук Stop для Claude
-   Code и запускает веб как службу автозапуска.
+2. **Подключите агента.**
 
-2. **Язык** — по умолчанию русский, если беклог уже есть, иначе язык берётся из локали системы. Сменить
+   - **Claude Code — плагин (рекомендуется).** В Claude Code выполните:
+
+     ```
+     /plugin marketplace add expatriate/p-backlog
+     /plugin install p-backlog-ru@p-backlog
+     ```
+
+     `p-backlog@p-backlog` ставит английский скилл. Плагин приносит скилл и хук Stop и обновляется командой
+     `/plugin marketplace update p-backlog`; сам CLI по-прежнему ставится из npm.
+   - **Без плагина, а также для Codex и Cursor:** `backlog setup` ставит ссылку на скилл и хук Stop каждому
+     найденному агенту — см. [Другие агенты](#другие-агенты).
+
+3. **Язык** — по умолчанию русский, если беклог уже есть, иначе язык берётся из локали системы. Сменить
    можно в любой момент:
 
    ```bash
    backlog config language en   # или ru
    ```
 
-3. **Первый проект и первая задача** — откройте Claude Code в своём репозитории и попросите «запиши в
+4. **Первый проект и первая задача** — откройте Claude Code в своём репозитории и попросите «запиши в
    беклог …», либо создайте задачу сами:
 
    ```bash
@@ -71,16 +81,34 @@
 
    Проект для текущего репозитория `backlog new` создаст сам, если его ещё нет.
 
-4. **Веб-приложение** — уже работает на `http://localhost:4317`; проверить можно так:
+5. **Веб-приложение** — `backlog service install` запускает его на `http://localhost:4317` и при входе в систему;
+   проверить можно так:
 
    ```bash
    backlog service status
    ```
 
-5. **Хук Stop и тревоги** — после каждого ответа агента в репозитории хук Stop проверяет, не изменился ли
+6. **Хук Stop и тревоги** — после каждого ответа агента в репозитории хук Stop проверяет, не изменился ли
    код у открытых задач этого проекта, и просит агента перепроверить их, если да. Он же показывает
    тревоги — сигналы о состоянии беклога (растущий долг, зависшие задачи, старые задачи с низким
    приоритетом и т. п.); их сводку показывает и `backlog stats`.
+
+## Другие агенты
+
+`backlog setup` находит установленных агентов и подключает каждого; `--agent claude|codex|cursor` сужает до одного:
+
+| Агент | Как находится | Скилл | Хук Stop |
+|---|---|---|---|
+| Claude Code | всегда | `~/.claude/skills/backlog` | `~/.claude/settings.json` |
+| Codex CLI | `$CODEX_HOME` или `~/.codex` | `<каталог codex>/skills/backlog` | `<каталог codex>/hooks.json` |
+| Cursor | `~/.cursor` | `~/.cursor/skills/backlog` | `~/.cursor/hooks.json` |
+
+Скилл — ссылка на скилл пакета на выбранном языке; `backlog config language` переставляет её у всех агентов.
+Чужие хуки в этих файлах остаются на месте, повторный `setup` ничего не дублирует. В Cursor просьба перепроверить
+задачи приходит следующим сообщением. Статистика токенов и расходов считает только Claude Code.
+
+Если включён плагин для Claude Code, `setup` Claude Code не трогает; `backlog setup --remove-manual` снимает ссылки на
+скилл и хуки Stop, которые `setup` ставил раньше (у всех агентов или у `--agent`).
 
 ## Где лежат задачи
 
@@ -223,29 +251,17 @@ backlog service install
 ## Удаление
 
 ```bash
+backlog setup --remove-manual
 backlog service uninstall
 npm uninstall -g p-backlog
 ```
 
 Перед удалением пакета выполните `backlog service uninstall` — иначе `KeepAlive` у launchd (или
-`Restart=on-failure` у systemd) продолжит перезапускать несуществующий `cli.js`. Затем вручную уберите
-ссылку на скилл и хук Stop:
+`Restart=on-failure` у systemd) продолжит перезапускать несуществующий `cli.js`. Перед этим снимите ссылки
+на скилл и хуки Stop у всех агентов (плагин удаляется через `/plugin uninstall`):
 
 ```bash
-rm ~/.claude/skills/backlog   # или $CLAUDE_SKILLS_DIR / $CLAUDE_CONFIG_DIR/skills, если заданы
-```
-
-и удалите запись хука `Stop` из `~/.claude/settings.json` (или `$CLAUDE_SETTINGS_PATH`). На macOS/Linux
-это
-
-```json
-{ "type": "command", "command": "command -v backlog >/dev/null && backlog hook stop || true" }
-```
-
-а на Windows
-
-```json
-{ "type": "command", "shell": "powershell", "command": "if (Get-Command backlog.cmd -ErrorAction SilentlyContinue) { backlog.cmd hook stop }" }
+backlog setup --remove-manual
 ```
 
 На Windows скрипт в папке «Автозагрузка» не перезапускает сервер после падения — в отличие от `KeepAlive`
@@ -259,6 +275,7 @@ npm install
 npm run build
 npm link            # глобальная команда backlog
 npm run install-skill   # ~/.claude/skills/backlog → skill/backlog и хук Stop в ~/.claude/settings.json
+npm run plugins         # после правки скилла или версии: пересобрать plugins/
 ```
 
 ```bash

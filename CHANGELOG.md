@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+Claude Code plugin and other agents:
+
+- The repository is a Claude Code plugin marketplace: `/plugin marketplace add expatriate/p-backlog`, then
+  `/plugin install p-backlog@p-backlog` (English skill) or `p-backlog-ru@p-backlog` (Russian). The plugin brings the
+  skill and the Stop hook; the CLI still comes from npm.
+- `backlog setup` connects Codex CLI and Cursor too: it finds them by `$CODEX_HOME`/`~/.codex` and `~/.cursor`, links
+  the skill and adds the Stop hook to their `hooks.json`; `--agent claude|codex|cursor` limits it to one agent.
+- `backlog hook stop --agent codex|cursor` reads their Stop events; Cursor gets the re-check request as a follow-up
+  message.
+- With the plugin enabled, `setup` leaves Claude Code alone; `backlog setup --remove-manual` removes the skill links
+  and Stop hooks installed earlier. Two Stop hooks in one turn (plugin and manual) answer once.
+- `backlog config language` switches the skill for every agent and, with the plugin, tells which plugin to install.
+- Cost statistics note that Codex and Cursor usage is not counted.
+
 ## 0.4.0
 
 Bulk triage in the web UI:

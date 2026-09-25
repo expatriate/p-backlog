@@ -179,7 +179,7 @@ export const statsEn: StatsMessages = {
   noTranscripts: "No Claude Code transcripts found.",
   scanProgress: (done, total) => `Counting usage from Claude Code transcripts: read ${done} of ${countEn(total, "file", "files")}`,
   costNote:
-    "Tokens come from Claude Code transcripts: turns started by the backlog Stop hook are exact; output of backlog commands and the skill is estimated by text length. Money is at Claude API prices, a subscription may cost differently.",
+    "Tokens come from Claude Code transcripts: turns started by the backlog Stop hook are exact; output of backlog commands and the skill is estimated by text length. Money is at Claude API prices, a subscription may cost differently. Costs of other agents (Codex, Cursor) are not counted.",
   backlogTokens: "Tokens due to the backlog",
   backlogTokensNote: (hook, cli) => `hook turns ${hook}, CLI output and skill ${cli}`,
   apiPrice: "At API prices",

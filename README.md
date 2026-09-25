@@ -46,24 +46,34 @@ It consists of the `backlog` CLI, the `backlog` skill and a Stop hook for Claude
 
 ## Getting started
 
-1. **Install** (needs Node.js 22.13 or newer):
+1. **Install the CLI** (needs Node.js 22.13 or newer):
 
    ```bash
    npm i -g p-backlog
-   backlog setup --service
    ```
 
-   `npm i -g p-backlog` installs the CLI globally; `backlog setup --service` installs the skill and the
-   Stop hook for Claude Code and starts the web app as an autostart service.
+2. **Connect your agent.**
 
-2. **Language** — defaults to Russian if a backlog already exists, otherwise to the system locale.
+   - **Claude Code — the plugin (recommended).** In Claude Code run:
+
+     ```
+     /plugin marketplace add expatriate/p-backlog
+     /plugin install p-backlog@p-backlog
+     ```
+
+     `p-backlog-ru@p-backlog` installs the Russian skill instead. The plugin brings the skill and the Stop hook
+     and updates with `/plugin marketplace update p-backlog`; the CLI itself still comes from npm.
+   - **Without the plugin, and for Codex and Cursor:** `backlog setup` links the skill and adds the Stop hook
+     for every agent it finds — see [Other agents](#other-agents).
+
+3. **Language** — defaults to Russian if a backlog already exists, otherwise to the system locale.
    Change it any time:
 
    ```bash
    backlog config language en   # or ru
    ```
 
-3. **First project and task** — open Claude Code in your repository and ask it to log something to the
+4. **First project and task** — open Claude Code in your repository and ask it to log something to the
    backlog, or create a task yourself:
 
    ```bash
@@ -72,16 +82,34 @@ It consists of the `backlog` CLI, the `backlog` skill and a Stop hook for Claude
 
    `backlog new` creates the project for the current repository itself if it doesn't exist yet.
 
-4. **Web app** — already running at `http://localhost:4317`; check with:
+5. **Web app** — `backlog service install` runs it at `http://localhost:4317` and starts it on login; check with:
 
    ```bash
    backlog service status
    ```
 
-5. **The Stop hook and alerts** — after each of the agent's turns in a repository, the Stop hook checks
+6. **The Stop hook and alerts** — after each of the agent's turns in a repository, the Stop hook checks
    whether the code behind that project's open tasks changed, and if so asks the agent to re-check them.
    It also surfaces alerts — signals about the backlog's health (growing debt, stuck tasks, stale
    low-priority tasks, and so on); `backlog stats` shows the same summary.
+
+## Other agents
+
+`backlog setup` finds the agents installed on this machine and connects each of them; `--agent claude|codex|cursor`
+limits it to one:
+
+| Agent | Found by | Skill | Stop hook |
+|---|---|---|---|
+| Claude Code | always | `~/.claude/skills/backlog` | `~/.claude/settings.json` |
+| Codex CLI | `$CODEX_HOME` or `~/.codex` | `<codex home>/skills/backlog` | `<codex home>/hooks.json` |
+| Cursor | `~/.cursor` | `~/.cursor/skills/backlog` | `~/.cursor/hooks.json` |
+
+The skill is a link to the package's skill in the configured language; `backlog config language` switches it for
+every agent. Other hooks in those files stay as they are, and running `setup` again adds nothing twice. In Cursor the
+re-check request arrives as a follow-up message. Token and cost statistics cover Claude Code only.
+
+If the Claude Code plugin is enabled, `setup` leaves Claude Code alone; `backlog setup --remove-manual` removes the
+skill links and Stop hooks that `setup` installed earlier (for all agents, or for `--agent`).
 
 ## Where tasks live
 
@@ -229,29 +257,17 @@ service stores the path to the Node binary it was installed with.
 ## Uninstalling
 
 ```bash
+backlog setup --remove-manual
 backlog service uninstall
 npm uninstall -g p-backlog
 ```
 
 Run `backlog service uninstall` before removing the package — otherwise launchd's `KeepAlive` (or systemd's
-`Restart=on-failure`) keeps relaunching a `cli.js` that no longer exists. Then remove the skill link and
-the Stop hook by hand:
+`Restart=on-failure`) keeps relaunching a `cli.js` that no longer exists. Before that, remove the skill links
+and Stop hooks from every agent (a plugin is removed with `/plugin uninstall`):
 
 ```bash
-rm ~/.claude/skills/backlog   # or $CLAUDE_SKILLS_DIR / $CLAUDE_CONFIG_DIR/skills, if set
-```
-
-and delete the `Stop` hook entry from `~/.claude/settings.json` (or `$CLAUDE_SETTINGS_PATH`). On macOS/Linux
-it is
-
-```json
-{ "type": "command", "command": "command -v backlog >/dev/null && backlog hook stop || true" }
-```
-
-and on Windows
-
-```json
-{ "type": "command", "shell": "powershell", "command": "if (Get-Command backlog.cmd -ErrorAction SilentlyContinue) { backlog.cmd hook stop }" }
+backlog setup --remove-manual
 ```
 
 On Windows, the Startup-folder script does not restart a crashed server the way launchd `KeepAlive` or
@@ -265,6 +281,7 @@ npm install
 npm run build
 npm link                # global backlog command
 npm run install-skill   # ~/.claude/skills/backlog → skill/backlog and the Stop hook in ~/.claude/settings.json
+npm run plugins         # after changing the skill or the version: regenerate plugins/
 ```
 
 ```bash
