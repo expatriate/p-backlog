@@ -16,6 +16,7 @@ import type { UpdateTaskFailure } from "../store/write-result";
 import { snippetOf } from "./anchor";
 import type { CheckFix, CheckProblem } from "./findings";
 import { projectCheckout } from "./project-repo";
+import { mergesKnownAtCreation } from "./branch-merges";
 import { findGitRoots } from "../store/resolve-project";
 import { codeReview, duplicateCandidates, isReviewable, relocationPlan, reviewMark, sourcePaths, type AnchorPlan, type Candidate } from "./candidates";
 import { currentSources, type CurrentSources } from "./current-source";
@@ -45,7 +46,7 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const workingRoots = request.workingDir === undefined ? null : findGitRoots(request.workingDir);
   const checkouts = new Map(await Promise.all(projects.map(async (project) => [project.id, await projectCheckout(project, request.home, workingRoots)] as const)));
   const repos = new Map([...checkouts].map(([projectId, checkout]) => [projectId, checkout?.path]));
-  const reviews = await Promise.all(projects.map((project) => projectReview(project, current.tasks, repos.get(project.id), request)));
+  const reviews = await Promise.all(projects.map(async (project) => projectReview(project, current.tasks, repos.get(project.id), await creationOrigins(root, project.id), request)));
   const candidates = reviews.flatMap((review) => review.candidates);
   const anchorPlans = reviews.filter((review) => checkouts.get(review.projectId)?.linkedWorktree !== true).flatMap((review) => review.plans);
   const moved = await applyAnchorPlans(current.tasks, anchorPlans, request.now);
@@ -142,7 +143,12 @@ function goneTaskCheck(loaded: LoadedBacklog): (id: string) => boolean {
   };
 }
 
-async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, { mode }: CheckRequest): Promise<ProjectReview> {
+async function creationOrigins(root: string, projectId: string): Promise<Map<string, string>> {
+  const journal = await readJournal(join(root, projectId), projectId).catch(() => null);
+  return new Map((journal?.events ?? []).flatMap((event) => (event.kind === "created" && event.origin !== undefined ? [[event.task, event.origin.commit] as const] : [])));
+}
+
+async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, origins: ReadonlyMap<string, string>, { mode }: CheckRequest): Promise<ProjectReview> {
   const tasks = allTasks.filter((task) => task.projectId === project.id && isReviewable(task));
   const nothing = { projectId: project.id, candidates: [], filtered: [], plans: [], problems: [], unchecked: [] };
   if (tasks.length === 0) return nothing;
@@ -150,7 +156,7 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
 
   const since = new Date(Math.min(...tasks.map(reviewMark)));
   const facts = await collectRepoFacts(repo, { since, paths: sourcePaths(tasks) });
-  const review = codeReview(tasks, facts);
+  const review = codeReview(tasks, facts, await mergesKnownAtCreation(repo, tasks, facts, origins));
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
   const diffOf = diffsSince(repo);
   const graph = openCodeGraph(repo);

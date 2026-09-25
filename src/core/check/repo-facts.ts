@@ -6,7 +6,7 @@ import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
 
 type FileChange = { path: string; renamedFrom?: string };
 
-export type Commit = { sha: string; date: string; subject: string; files: FileChange[] };
+export type Commit = { sha: string; date: string; parents: string[]; subject: string; files: FileChange[] };
 
 export type GitHistory = "read" | "not-a-repo" | "unreadable";
 
@@ -38,7 +38,7 @@ export async function collectRepoFacts(repo: string, { since, paths }: { since: 
 }
 
 function logArgs(since: Date): string[] {
-  return ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%s`, "--name-status", "-M", "--diff-merges=first-parent", "-z"];
+  return ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%p${FIELD}%s`, "--name-status", "-M", "--diff-merges=first-parent", "-z"];
 }
 
 async function pathLog(repo: string, since: Date, paths: readonly string[]): Promise<string | null> {
@@ -101,8 +101,8 @@ function parseLog(output: string): Commit[] {
     .filter((record) => record.trim() !== "")
     .map((record) => {
       const headerEnd = record.includes("\0") ? record.indexOf("\0") : record.length;
-      const [sha = "", date = "", subject = ""] = record.slice(0, headerEnd).trim().split(FIELD);
-      return { sha, date, subject, files: parseNameStatus(record.slice(headerEnd + 1).replace(/^\n/, "").split("\0")) };
+      const [sha = "", date = "", parents = "", subject = ""] = record.slice(0, headerEnd).trim().split(FIELD);
+      return { sha, date, parents: parents.split(" ").filter((parent) => parent !== ""), subject, files: parseNameStatus(record.slice(headerEnd + 1).replace(/^\n/, "").split("\0")) };
     });
 }
 

@@ -19,6 +19,8 @@ export type AnchorPlan = { id: string; changes: { source?: string; anchor: strin
 
 export type CodeReview = { candidates: Candidate[]; plans: AnchorPlan[] };
 
+export type KnownMerges = ReadonlyMap<string, ReadonlySet<string>>;
+
 type AnchorState = { kind: "none" } | { kind: "same" } | { kind: "moved"; source: string; anchor: string } | { kind: "changed" };
 
 const MAX_COMMITS = 3;
@@ -43,14 +45,14 @@ export function reviewMark(task: Task): number {
   return Math.max(Date.parse(task.created), verified);
 }
 
-export function codeReview(tasks: readonly Task[], facts: RepoFacts): CodeReview {
+export function codeReview(tasks: readonly Task[], facts: RepoFacts, knownMerges: KnownMerges = new Map()): CodeReview {
   const reviewed = tasks.map((task) => ({ task, anchor: anchorState(task, facts) }));
-  const candidates = reviewed.flatMap(({ task, anchor }) => codeCandidate(task, anchor, facts));
+  const candidates = reviewed.flatMap(({ task, anchor }) => codeCandidate(task, anchor, facts, knownMerges.get(task.id)));
   const plans = reviewed.flatMap(({ task, anchor }) => anchorPlan(task, anchor, facts));
   return { candidates, plans };
 }
 
-function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts): Candidate[] {
+function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts, knownMerges: ReadonlySet<string> = new Set()): Candidate[] {
   if (task.source === undefined) return [];
   const path = sourcePath(task.source);
   const mark = reviewMark(task);
@@ -58,7 +60,8 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts): Candi
     return [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.renames, mark) }];
   }
   if (anchor.kind === "same" || anchor.kind === "moved") return [];
-  const { commits, uncommitted } = changesSince(facts, path, mark);
+  const { commits: changed, uncommitted } = changesSince(facts, path, mark);
+  const commits = changed.filter((commit) => !knownMerges.has(commit.sha));
   if (anchor.kind === "none" && commits.length === 0 && !uncommitted) return [];
   const method: CheckMethod = anchor.kind === "changed" ? "anchor" : "file";
   return [{ kind: "source-changed", task: taskRef(task), path, commits: commits.slice(0, MAX_COMMITS).map(commitRef), uncommitted, method }];
@@ -154,11 +157,11 @@ function followRenames(path: string, commits: readonly Commit[], mark: number): 
   return current === path ? undefined : current;
 }
 
-function commitsAfter(commits: readonly Commit[], mark: number): Commit[] {
+export function commitsAfter(commits: readonly Commit[], mark: number): Commit[] {
   return commits.filter((commit) => Date.parse(commit.date) > mark);
 }
 
-function touches(commit: Commit, path: string): boolean {
+export function touches(commit: Commit, path: string): boolean {
   return commit.files.some((file) => isWithin(file.path, path) || (file.renamedFrom !== undefined && isWithin(file.renamedFrom, path)));
 }
 

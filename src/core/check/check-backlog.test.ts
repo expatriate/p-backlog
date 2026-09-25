@@ -242,6 +242,41 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), commits: [expect.objectContaining({ subject: "Слить fix" })] })]);
   });
 
+  async function taskCreatedOnBranch({ branchEditAfterCreation }: { branchEditAfterCreation: boolean }) {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a1\n", "src/b.ts": "b1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFile(join(repo, "src/a.ts"), "a2\n");
+    gitCommitAll(repo, "Фича правит a", "2026-09-10T10:00:00+03:00");
+    const origin = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
+    const created = { at: "2026-09-11T10:00:00+03:00", task: "SPA-1", via: "cli", kind: "created", type: "task", priority: "medium", tags: [], source: "src/a.ts", origin: { branch: "feat", commit: origin } };
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\n"), "spa/journal.jsonl": `${JSON.stringify(created)}\n` });
+    if (branchEditAfterCreation) {
+      await writeFile(join(repo, "src/a.ts"), "a3\n");
+      gitCommitAll(repo, "Фича снова правит a", "2026-09-11T12:00:00+03:00");
+    }
+    gitCheckout(repo, "master");
+    await writeFile(join(repo, "src/b.ts"), "b2\n");
+    gitCommitAll(repo, "main правит b", "2026-09-10T12:00:00+03:00");
+    gitMergeNoFastForward(repo, "feat", "2026-09-12T10:00:00+03:00");
+    return checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
+  }
+
+  it("задача, заведённая на ветке после её правки, не становится кандидатом из-за merge-коммита этой ветки", async () => {
+    const report = await taskCreatedOnBranch({ branchEditAfterCreation: false });
+
+    expect(report.candidates).toEqual([]);
+  });
+
+  it("правка ветки после создания задачи, пришедшая merge-коммитом, делает задачу кандидатом", async () => {
+    const report = await taskCreatedOnBranch({ branchEditAfterCreation: true });
+
+    expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", commits: expect.arrayContaining([expect.objectContaining({ subject: "Слить feat" })]) })]);
+  });
+
   it("журнал помнит, по какому признаку найден дубль", async () => {
     const { home, root } = await setup();
 

@@ -10,7 +10,7 @@ const CREATED = "2026-09-11T10:00:00+03:00";
 const codeCandidates = (tasks: readonly Task[], repoFacts: RepoFacts) => codeReview(tasks, repoFacts).candidates;
 
 function commit(sha: string, date: string, files: Commit["files"]): Commit {
-  return { sha, date, subject: `Коммит ${sha}`, files };
+  return { sha, date, parents: [], subject: `Коммит ${sha}`, files };
 }
 
 function facts(overrides: Partial<RepoFacts>): RepoFacts {
