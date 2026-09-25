@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 CLI contract changes (scripts that parse output or exit codes may need updating):
 
@@ -25,6 +25,26 @@ Other changes:
 - The server stops cleanly on SIGTERM, SIGINT and SIGHUP: it finishes edits already in progress, closes open browser tabs' event streams and removes its PID file, instead of being killed mid-write.
 - The web UI cannot be embedded in another site's frame (`X-Frame-Options: DENY`, CSP `frame-ancestors 'none'`). The CSP loads scripts, styles and images only from the server itself (images also from `data:`), so an external image in a task description is not shown: text written by an agent cannot make the browser contact a third-party host.
 - A file locked by another process for more than 5 seconds is reported by the API as `503` with an explanation instead of `500`.
+
+Fixes:
+
+- Re-check: the symbol filter looks the task's symbol up at the task's current line, so a candidate is no longer
+  dropped (and the anchor re-attached to a neighbouring function) when lines above the task moved.
+- Re-check: edits that arrive with a merge commit are seen; the diff base follows the first parent; a user's external
+  diff tool or `diff.suppressBlankEmpty` no longer breaks hunk parsing; `git log` is limited to the tasks' paths, and a
+  git failure is reported instead of silently producing no candidates.
+- Re-check: `verify` clears the anchor when the task's line is past the end of the file, and moves `source` to the
+  task's current place when the lines shifted.
+- Task numbers of deleted tasks are never reused, even when `backlog new` races with the cleanup.
+- An unparseable `project.md` no longer makes `backlog new` create a second project with the same prefix.
+- Git worktrees belong to the main repository's project; the hook and checks see commits made in the worktree.
+- The Stop hook remembers what it already told each session separately, so parallel sessions don't repeat each other.
+- Statistics: a task whose file can't be parsed keeps its last status instead of an invented "cancelled"; the open
+  count, forecast and debt curve use one history; model prices are matched by exact id (`claude-opus-5-5` added);
+  fixes are dated by when they landed on the main branch.
+- Web UI: a focused field no longer overwrites an edit made by the agent meanwhile (a conflict is shown instead); a
+  failed background refresh no longer wipes the page and the description draft; errors are shown in the interface
+  language; all tabs share one live-update connection, so many open tabs no longer stall.
 
 ## 0.2.4
 
