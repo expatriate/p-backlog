@@ -18,10 +18,11 @@ import type { CheckFix, CheckProblem } from "./findings";
 import { projectCheckout } from "./project-repo";
 import { mergesKnownAtCreation } from "./branch-merges";
 import { findGitRoots } from "../store/resolve-project";
-import { codeReview, duplicateCandidates, isReviewable, relocationPlan, reviewMark, sourcePaths, type AnchorPlan, type Candidate } from "./candidates";
-import { currentSources, type CurrentSources } from "./current-source";
-import { collectRepoFacts, diffsSince, type DiffExcerpt, type DiffSince, type GitHistory, type RepoFacts } from "./repo-facts";
-import { fileHashes, filterBySymbol, symbolLookup, symbolNames } from "./symbol-filter";
+import { codeReview, duplicateCandidates, isReviewable, relocationPlan, reviewMark, type AnchorPlan, type Candidate } from "./candidates";
+import { currentSources } from "./current-source";
+import { collectRepoFacts, diffsSince, type DiffExcerpt, type GitHistory, type RepoFacts } from "./repo-facts";
+import { fileHashes, filterBySymbol, symbolLookup, symbolNames, type SymbolFilterContext, type SymbolFilterResult } from "./symbol-filter";
+import { sourcePath } from "./source-lines";
 import { openCodeGraph } from "../graph/code-graph";
 
 type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed">;
@@ -29,6 +30,13 @@ type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed"
 export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string; messages: CheckTexts; workingDir?: string | undefined };
 
 export type CheckReport = { fixed: CheckFix[]; problems: CheckProblem[]; candidates: Candidate[] };
+
+type CheckCoverage = { repairs: boolean; reportsProblems: boolean; findsDuplicates: boolean; locatesAllSources: boolean; endsGoneEpisodes: boolean };
+
+const COVERAGE: Record<CheckMode, CheckCoverage> = {
+  full: { repairs: true, reportsProblems: true, findsDuplicates: true, locatesAllSources: true, endsGoneEpisodes: true },
+  changed: { repairs: false, reportsProblems: false, findsDuplicates: false, locatesAllSources: false, endsGoneEpisodes: false },
+};
 
 type Fix = { changes: TaskChanges; closure?: Closure; done: CheckFix[] };
 type EpicClosing = { closure: Closure; childIds: string[] };
@@ -39,7 +47,8 @@ type FixOutcome = { fixed: CheckFix[]; failed: CheckProblem[] };
 
 export async function checkBacklog(root: string, loaded: LoadedBacklog, request: CheckRequest): Promise<CheckReport> {
   const inScope = (projectId: string) => request.projectIds.includes(projectId);
-  const fixes: FixOutcome = request.mode === "full" ? await applyFixes(loaded, inScope, request) : { fixed: [], failed: [] };
+  const coverage = COVERAGE[request.mode];
+  const fixes: FixOutcome = coverage.repairs ? await applyFixes(loaded, inScope, request) : { fixed: [], failed: [] };
   const current = fixes.fixed.length > 0 ? await loadBacklog(root) : loaded;
 
   const projects = current.projects.filter((project) => inScope(project.id));
@@ -53,7 +62,7 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const unchecked = new Map(reviews.map((review) => [review.projectId, review.unchecked]));
   await recordCandidates(root, current.tasks, { candidates, filtered: reviews.flatMap((review) => review.filtered), unchecked }, request);
   const reviewProblems = reviews.flatMap((review) => review.problems);
-  const problems = request.mode === "full" ? [...fixes.failed, ...findProblems(current, projects, repos, inScope), ...reviewProblems] : [];
+  const problems = coverage.reportsProblems ? [...fixes.failed, ...findProblems(current, projects, repos, inScope), ...reviewProblems] : [];
   return { fixed: [...fixes.fixed, ...moved], problems, candidates };
 }
 
@@ -66,13 +75,14 @@ async function recordCandidates(root: string, tasks: readonly Task[], { candidat
     const found = candidates.filter((candidate) => projectOf.get(candidate.task.id) === projectId);
     const filteredHere = filtered.filter((sighting) => projectOf.get(sighting.task) === projectId);
     const reviewed = tasks.filter((task) => task.projectId === projectId && isReviewable(task)).map((task) => task.id);
-    if (found.length === 0 && filteredHere.length === 0 && (mode !== "full" || reviewed.length === 0)) continue;
+    const endsGone = COVERAGE[mode].endsGoneEpisodes;
+    if (found.length === 0 && filteredHere.length === 0 && (!endsGone || reviewed.length === 0)) continue;
     try {
       const journal = await readJournal(dir, projectId);
       const states = episodeStates(journal.events);
       const sightings = found.map(sightingOf);
       const checked = CANDIDATE_EVIDENCE.filter((evidence) => !(unchecked.get(projectId) ?? []).includes(evidence));
-      const gone = mode === "full" ? candidateGoneEvents(sightings, reviewed, states, now, checked) : [];
+      const gone = endsGone ? candidateGoneEvents(sightings, reviewed, states, now, checked) : [];
       await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, now)], (path, error) => {
         throw error;
       });
@@ -149,13 +159,14 @@ async function creationOrigins(root: string, projectId: string): Promise<Map<str
 }
 
 async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, origins: ReadonlyMap<string, string>, { mode }: CheckRequest): Promise<ProjectReview> {
+  const coverage = COVERAGE[mode];
   const tasks = allTasks.filter((task) => task.projectId === project.id && isReviewable(task));
   const nothing = { projectId: project.id, candidates: [], filtered: [], plans: [], problems: [], unchecked: [] };
   if (tasks.length === 0) return nothing;
-  if (repo === undefined) return { ...nothing, candidates: mode === "full" ? duplicateCandidates(tasks) : [], unchecked: ["source-changed", "source-missing"] };
+  if (repo === undefined) return { ...nothing, candidates: coverage.findsDuplicates ? duplicateCandidates(tasks) : [], unchecked: ["source-changed", "source-missing"] };
 
-  const since = new Date(Math.min(...tasks.map(reviewMark)));
-  const facts = await collectRepoFacts(repo, { since, paths: sourcePaths(tasks) });
+  const pathMarks = earliestMarks(tasks);
+  const facts = await collectRepoFacts(repo, { since: new Date(Math.min(...tasks.map(reviewMark))), paths: [...pathMarks.keys()], pathMarks });
   const review = codeReview(tasks, facts, await mergesKnownAtCreation(repo, tasks, facts, origins));
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
   const diffOf = diffsSince(repo);
@@ -163,15 +174,16 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
   try {
     const symbolAt = symbolLookup(graph, fileHashes(repo));
     const changedIds = new Set(review.candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? [candidate.task.id] : [])));
-    const locating = mode === "full" && graph !== null ? tasks : tasks.filter((task) => changedIds.has(task.id));
+    const locating = coverage.locatesAllSources && graph !== null ? tasks : tasks.filter((task) => changedIds.has(task.id));
     const located = await currentSources(locating, facts, diffOf);
-    const duplicates = mode === "full" ? duplicateCandidates(tasks, symbolNames(symbolAt, located)) : [];
-    const { kept, filtered } = await filterBySymbol(review.candidates, { tasksById, located, diffOf, symbolAt });
-    const code = await Promise.all(kept.map((candidate) => withContext(candidate, tasksById, located, facts, diffOf)));
-    const plans = settledPlans(review.plans, { kept, filtered, tasksById, located, facts });
+    const duplicates = coverage.findsDuplicates ? duplicateCandidates(tasks, symbolNames(symbolAt, located)) : [];
+    const context: ProjectContext = { tasksById, located, facts, diffOf, symbolAt };
+    const { kept, filtered } = await filterBySymbol(review.candidates, context);
+    const code = await Promise.all(kept.map((candidate) => withContext(candidate, context)));
+    const plans = settledPlans(review.plans, { kept, filtered }, context);
     return {
       projectId: project.id,
-      candidates: mode === "full" ? [...code, ...duplicates] : code,
+      candidates: [...code, ...duplicates],
       filtered,
       plans,
       problems: historyProblems(project, repo, facts.history),
@@ -193,9 +205,19 @@ function historyProblems(project: Project, repo: string, history: GitHistory): C
   }
 }
 
-type PlanInputs = { kept: readonly Candidate[]; filtered: readonly FilteredSighting[]; tasksById: ReadonlyMap<string, Task>; located: CurrentSources; facts: RepoFacts };
+function earliestMarks(tasks: readonly Task[]): Map<string, number> {
+  const marks = new Map<string, number>();
+  for (const task of tasks) {
+    if (task.source === undefined) continue;
+    const path = sourcePath(task.source);
+    marks.set(path, Math.min(marks.get(path) ?? Number.POSITIVE_INFINITY, reviewMark(task)));
+  }
+  return marks;
+}
 
-function settledPlans(plans: readonly AnchorPlan[], { kept, filtered, tasksById, located, facts }: PlanInputs): AnchorPlan[] {
+type ProjectContext = SymbolFilterContext & { facts: RepoFacts };
+
+function settledPlans(plans: readonly AnchorPlan[], { kept, filtered }: SymbolFilterResult, { tasksById, located, facts }: ProjectContext): AnchorPlan[] {
   const flagged = new Set(kept.map((candidate) => candidate.task.id));
   const relocations = new Map(
     filtered.flatMap(({ task: id }): [string, AnchorPlan][] => {
@@ -208,7 +230,7 @@ function settledPlans(plans: readonly AnchorPlan[], { kept, filtered, tasksById,
   return [...plans.filter((plan) => !flagged.has(plan.id) && !relocations.has(plan.id)), ...relocations.values()];
 }
 
-async function withContext(candidate: Candidate, tasksById: ReadonlyMap<string, Task>, located: CurrentSources, facts: RepoFacts, diffOf: DiffSince): Promise<Candidate> {
+async function withContext(candidate: Candidate, { tasksById, located, facts, diffOf }: ProjectContext): Promise<Candidate> {
   if (candidate.kind !== "source-changed") return candidate;
   const task = tasksById.get(candidate.task.id);
   if (task === undefined) return candidate;

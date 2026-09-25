@@ -5,7 +5,7 @@ import type { Project, Task } from "../model/types";
 import { expandHome } from "../store/paths";
 import { findGitRoots, realpathOrNull, type GitRoots } from "../store/resolve-project";
 import { anchorOf } from "./anchor";
-import { sourcePath } from "./candidates";
+import { sourcePath } from "./source-lines";
 import { currentSourceIn } from "./current-source";
 
 export async function sourceAnchor(project: Project, source: string, home: string, workingDir?: string): Promise<string | null | undefined> {

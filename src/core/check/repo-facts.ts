@@ -3,6 +3,7 @@ import { isAbsolute, join, normalize, sep } from "node:path";
 import { FIELD, RECORD, runGit, type GitRunner } from "../git/run";
 import type { LineRange } from "./anchor";
 import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
+import { remembered } from "../remembered";
 
 type FileChange = { path: string; renamedFrom?: string };
 
@@ -21,7 +22,9 @@ export type RepoFacts = {
 
 const DIFF_LINE_LIMIT = 80;
 
-export async function collectRepoFacts(repo: string, { since, paths }: { since: Date; paths: readonly string[] }): Promise<RepoFacts> {
+type FactsRequest = { since: Date; paths: readonly string[]; pathMarks?: ReadonlyMap<string, number> };
+
+export async function collectRepoFacts(repo: string, { since, paths, pathMarks = new Map() }: FactsRequest): Promise<RepoFacts> {
   const [prefix, existing] = await Promise.all([runGit(repo, ["rev-parse", "--show-prefix"]), existingPaths(repo, paths)]);
   const texts = await fileTexts(repo, [...existing]);
   const withoutHistory = (history: GitHistory): RepoFacts => ({ history, commits: [], renames: [], dirtyModifiedAt: new Map(), existing, texts });
@@ -29,12 +32,17 @@ export async function collectRepoFacts(repo: string, { since, paths }: { since: 
   const missing = paths.filter((path) => !existing.has(path));
   const [log, renames, status] = await Promise.all([
     pathLog(repo, since, paths),
-    missing.length === 0 ? "" : runGit(repo, [...logArgs(since), "--diff-filter=R"]),
+    missing.length === 0 ? "" : runGit(repo, [...logArgs(earliest(missing, pathMarks) ?? since), "--diff-filter=R"]),
     runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
   ]);
   if (log === null || renames === null || status === null) return withoutHistory("unreadable");
   const dirty = withinRepo(parseStatus(status), prefix.trim());
   return { history: "read", commits: parseLog(log), renames: parseLog(renames), dirtyModifiedAt: await modificationTimes(repo, dirty), existing, texts };
+}
+
+function earliest(paths: readonly string[], marks: ReadonlyMap<string, number>): Date | null {
+  const known = paths.flatMap((path) => marks.get(path) ?? []);
+  return known.length === paths.length ? new Date(Math.min(...known)) : null;
 }
 
 function logArgs(since: Date): string[] {
@@ -74,14 +82,6 @@ export function diffsSince(repo: string, git: GitRunner = runGit): DiffSince {
       const hunks = parseHunks(diff);
       return { excerpt: excerptOf(diff), changed: changedRanges(hunks ?? []), hunks };
     });
-}
-
-function remembered<K, V>(cache: Map<K, Promise<V>>, key: K, read: () => Promise<V>): Promise<V> {
-  const known = cache.get(key);
-  if (known !== undefined) return known;
-  const reading = read();
-  cache.set(key, reading);
-  return reading;
 }
 
 function excerptOf(diff: string): DiffExcerpt | undefined {

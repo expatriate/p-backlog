@@ -5,6 +5,7 @@ import { runGit, type GitRunner } from "../git/run";
 import { fixKey, type FixRequest } from "../stats/code/fixes";
 import type { FixCommit, ProjectCode, RepoCode, ScannedCode } from "../stats/types";
 import { expandHome } from "../store/paths";
+import { remembered } from "../remembered";
 import { emptyCodeCache, type CodeCacheSnapshot, type CodeCacheStore } from "./code-cache";
 import { CHURN_DAYS } from "./code-window";
 import { readFixCommits, readRefs, readRepoCode, type RepoRefs } from "./git-code";
@@ -92,11 +93,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
 
   const fixReposOf = async (projects: readonly Project[], now: Date): Promise<Map<string, { repo: string; key: string }[]>> => {
     const refsOf = new Map<string, Promise<RepoRefs>>();
-    const refsOnce = (repo: string): Promise<RepoRefs> => {
-      const known = refsOf.get(repo) ?? readRefs(git, repo);
-      refsOf.set(repo, known);
-      return known;
-    };
+    const refsOnce = (repo: string): Promise<RepoRefs> => remembered(refsOf, repo, () => readRefs(git, repo));
     const entries = await Promise.all(
       projects.map(async (project) => {
         const repos = await Promise.all(

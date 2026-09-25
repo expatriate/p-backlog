@@ -1,6 +1,7 @@
 import { runGit, type GitRunner } from "../git/run";
 import type { Task } from "../model/types";
-import { commitsAfter, reviewMark, sourcePath, touches, type KnownMerges } from "./candidates";
+import { commitsAfter, reviewMark, touches, type KnownMerges } from "./candidates";
+import { sourcePath } from "./source-lines";
 import type { Commit, RepoFacts } from "./repo-facts";
 
 const MERGE_PARENTS = 2;

@@ -1,9 +1,9 @@
 import type { Task } from "../model/types";
 import { anchorOf, relocatedSource } from "./anchor";
-import { changesSince, reviewMark, sourcePath } from "./candidates";
+import { changesSince, reviewMark } from "./candidates";
 import { baseText, currentLine } from "./diff-hunks";
 import { collectRepoFacts, diffsSince, type DiffSince, type RepoFacts } from "./repo-facts";
-import { hasLines } from "./source-lines";
+import { hasLines, sourcePath } from "./source-lines";
 
 export type CurrentSources = ReadonlyMap<string, string | null>;
 

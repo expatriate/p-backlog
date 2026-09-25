@@ -4,7 +4,7 @@ import type { Task } from "../model/types";
 import { anchorOf, findMoved, isAnchorFor } from "./anchor";
 import type { CheckFix } from "./findings";
 import type { Commit, RepoFacts } from "./repo-facts";
-import { hasLines, lineSuffix, SOURCE_LINES } from "./source-lines";
+import { hasLines, lineSuffix, sourcePath } from "./source-lines";
 import { similarStems, similarTitles, titleStems } from "./similar-titles";
 
 type TaskRef = { id: string; title: string };
@@ -27,13 +27,6 @@ const MAX_COMMITS = 3;
 
 export function isReviewable(task: Task): boolean {
   return task.type === "task" && (task.status === "backlog" || task.status === "blocked");
-}
-
-export function sourcePath(source: string): string {
-  return source
-    .replace(SOURCE_LINES, "")
-    .replace(/^\.\//, "")
-    .replace(/\/+$/, "");
 }
 
 export function sourcePaths(tasks: readonly Task[]): string[] {
@@ -117,22 +110,23 @@ export function findSimilarTask(draft: { title: string; source?: string | undefi
 export type SymbolOf = (task: Task) => string | null;
 
 export function duplicateCandidates(tasks: readonly Task[], symbolOf: SymbolOf = () => null): Candidate[] {
-  const stems = new Map(tasks.map((task) => [task.id, titleStems(task.title)]));
-  const stemsOf = (task: Task) => stems.get(task.id) ?? titleStems(task.title);
-  return tasks.flatMap((task, index) =>
-    tasks.slice(0, index).flatMap((older): Candidate[] => {
-      const match = duplicateMatch(task, older, symbolOf, stemsOf);
-      return match === null ? [] : [{ kind: "duplicate", task: taskRef(task), other: taskRef(older), match }];
+  const titled = tasks.map((task) => ({ task, stems: titleStems(task.title) }));
+  return titled.flatMap((current, index) =>
+    titled.slice(0, index).flatMap((older): Candidate[] => {
+      const match = duplicateMatch(current, older, symbolOf);
+      return match === null ? [] : [{ kind: "duplicate", task: taskRef(current.task), other: taskRef(older.task), match }];
     }),
   );
 }
 
-function duplicateMatch(task: Task, other: Task, symbolOf: SymbolOf, stemsOf: (task: Task) => ReadonlySet<string>): DuplicateMatch | null {
-  if (linked(task, other) || bothConfirmedAfterCreation(task, other)) return null;
-  if (task.source !== undefined && other.source !== undefined && samePlace(task.source, other.source)) return "source";
+type TitledTask = { task: Task; stems: ReadonlySet<string> };
+
+function duplicateMatch({ task, stems }: TitledTask, other: TitledTask, symbolOf: SymbolOf): DuplicateMatch | null {
+  if (linked(task, other.task) || bothConfirmedAfterCreation(task, other.task)) return null;
+  if (task.source !== undefined && other.task.source !== undefined && samePlace(task.source, other.task.source)) return "source";
   const symbol = symbolOf(task);
-  if (symbol !== null && symbol === symbolOf(other)) return "symbol";
-  return similarStems(stemsOf(task), stemsOf(other)) ? "title" : null;
+  if (symbol !== null && symbol === symbolOf(other.task)) return "symbol";
+  return similarStems(stems, other.stems) ? "title" : null;
 }
 
 function samePlace(a: string, b: string): boolean {
