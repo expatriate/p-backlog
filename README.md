@@ -143,9 +143,10 @@ If there's no project yet, `backlog new` creates it.
 | `backlog prune [--project id \| --all-projects] [--apply]` | Low-priority tasks older than 30 days; `--apply` cancels them |
 | `backlog stats [--project id \| --all-projects] [--json]` | Statistics summary and alerts |
 | `backlog project list \| status <id> active\|inactive \| delete <id> --confirm <id>` | Project activity and deleting a project with its tasks |
-| `backlog hook stop` | The Stop hook for Claude Code: asks the agent to re-check tasks whose code changed |
+| `backlog hook stop [--agent claude\|codex\|cursor]` | The Stop hook of Claude Code, Codex, or Cursor: asks the agent to re-check tasks whose code changed |
 | `backlog config language [ru\|en]` | With no value, prints the current backlog language; with a value, changes it |
-| `backlog setup [--service]` | Install the skill and the Stop hook; with `--service`, also the autostart service |
+| `backlog setup [--agent claude\|codex\|cursor] [--service]` | Skill and Stop hook for the agents found — Claude Code, Codex, Cursor (see [Other agents](#other-agents)); `--service` also the autostart service |
+| `backlog setup --remove-manual [--agent claude\|codex\|cursor]` | Removes the skill links and Stop hooks that `setup` installed |
 | `backlog serve [--port N]` | Runs the web server in the current process, on `PORT` or 4317 by default |
 | `backlog service install \| uninstall \| status` | Autostarts the web server at login: launchd on macOS, systemd --user on Linux, a Startup-folder script on Windows; `status` shows whether it is installed and responding |
 

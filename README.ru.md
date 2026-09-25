@@ -141,9 +141,10 @@
 | `backlog prune [--project id \| --all-projects] [--apply]` | Задачи с низким приоритетом старше 30 дней; `--apply` отменяет их |
 | `backlog stats [--project id \| --all-projects] [--json]` | Сводка статистики и тревоги |
 | `backlog project list \| status <id> active\|inactive \| delete <id> --confirm <id>` | Активность проектов и удаление проекта вместе с задачами |
-| `backlog hook stop` | Хук Stop для Claude Code: просит агента перепроверить задачи, чей код изменился |
+| `backlog hook stop [--agent claude\|codex\|cursor]` | Хук Stop для Claude Code, Codex или Cursor: просит агента перепроверить задачи, чей код изменился |
 | `backlog config language [ru\|en]` | Без значения — печатает текущий язык беклога; со значением — меняет его |
-| `backlog setup [--service]` | Поставить скилл и Stop-хук; с `--service` — ещё и службу автозапуска |
+| `backlog setup [--agent claude\|codex\|cursor] [--service]` | Скилл и Stop-хук найденным агентам — Claude Code, Codex, Cursor (см. [Другие агенты](#другие-агенты)); с `--service` — ещё и служба автозапуска |
+| `backlog setup --remove-manual [--agent claude\|codex\|cursor]` | Снимает ссылки на скилл и хуки Stop, которые поставил `setup` |
 | `backlog serve [--port N]` | Запускает веб-сервер в текущем процессе, порт — из `PORT`, иначе 4317 |
 | `backlog service install \| uninstall \| status` | Автозапуск веб-сервера при входе: launchd на macOS, systemd --user на Linux, скрипт в папке «Автозагрузка» на Windows; `status` — установлена ли служба и отвечает ли сервер |
 
