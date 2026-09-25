@@ -1,10 +1,12 @@
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { coreMessages } from "../messages";
 import { formatLocalIso } from "../model/dates";
 import { buildIndex } from "../model/graph";
 import { JOURNAL_FILE, readJournal } from "./journal";
 import { loadBacklog } from "./load";
+import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 import { updateTask } from "./testing/update-task";
 import { updateTaskInIndex, type TaskChanges } from "./update";
@@ -263,5 +265,52 @@ describe("журнал правок", () => {
       expect.objectContaining({ kind: "verified", source: "src/a.ts:9" }),
     ]);
     expect(events[0]).not.toHaveProperty("source");
+  });
+});
+
+describe("эпик, закрытый автоматически", () => {
+  async function epicWithOneTask(epicFields: string) {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", `type: epic\n${epicFields}`),
+      "spa/SPA-2.md": taskFile("SPA-2", "epic: SPA-1\nstatus: in-progress\n"),
+    });
+    return root;
+  }
+
+  async function taskById(root: string, id: string) {
+    return (await loadBacklog(root)).tasks.find((task) => task.id === id);
+  }
+
+  it("снова открывается прежним статусом, когда его задачу открыли, и журнал пишет, кто это сделал", async () => {
+    const root = await epicWithOneTask("status: in-progress\n");
+    await updateTask(root, { id: "SPA-2", changes: { status: "done" }, now: NOW, via: "cli", closure: { resolution: "fixed", reason: "готово" } });
+    await sweepClosed(root, NOW, coreMessages("ru"));
+    expect(await taskById(root, "SPA-1")).toMatchObject({ status: "done", resolution: "epic-done" });
+
+    await updateTask(root, { id: "SPA-2", changes: { status: "backlog" }, now: NOW, via: "web", undo: true });
+
+    const epic = await taskById(root, "SPA-1");
+    expect([epic?.status, epic?.resolution, epic?.reason, epic?.closed]).toEqual(["in-progress", undefined, undefined, undefined]);
+    const events = (await readJournal(join(root, "spa"), "spa")).events;
+    expect(events.at(-1)).toEqual({ at: formatLocalIso(NOW), task: "SPA-1", via: "web", kind: "status", from: "done", to: "in-progress" });
+  });
+
+  it("закрытый вручную остаётся закрытым", async () => {
+    const root = await epicWithOneTask(`status: done\nclosed: ${formatLocalIso(NOW)}\nresolution: fixed\nreason: сделано\n`);
+
+    await updateTask(root, { id: "SPA-2", changes: { status: "backlog" }, now: NOW, via: "cli" });
+
+    expect(await taskById(root, "SPA-1")).toMatchObject({ status: "done", resolution: "fixed" });
+  });
+
+  it("открывается, когда в него перенесли открытую задачу", async () => {
+    const root = await epicWithOneTask(`status: done\nclosed: ${formatLocalIso(NOW)}\nresolution: epic-done\nreason: готово\n`);
+    await writeFiles(root, { "spa/SPA-2.md": taskFile("SPA-2") });
+
+    await updateTask(root, { id: "SPA-2", changes: { epic: "SPA-1" }, now: NOW, via: "cli" });
+
+    expect((await taskById(root, "SPA-1"))?.status).toBe("backlog");
   });
 });

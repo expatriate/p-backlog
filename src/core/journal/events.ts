@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { formatLocalIso } from "../model/dates";
 import { isClosed } from "../model/graph";
-import { PRIORITIES, RESOLUTIONS, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskFrontmatterSchema, type Task } from "../model/types";
+import { PRIORITIES, RESOLUTIONS, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskFrontmatterSchema, type Task, type TaskStatus } from "../model/types";
 
 const CHANGE_SOURCES = ["cli", "web", "check", "sweep"] as const;
 
@@ -163,6 +163,11 @@ export function changeEvents(before: Task, after: Task, now: Date, via: ChangeSo
     events.push({ at, task: after.id, via, kind: "verified", source: before.source === after.source ? undefined : after.source });
   }
   return events;
+}
+
+export function statusBeforeAutoClose(journal: readonly JournalEvent[], epicId: string): TaskStatus {
+  const autoClose = journal.findLast((event) => event.task === epicId && event.kind === "status" && event.resolution === "epic-done");
+  return autoClose?.kind === "status" && !isClosed(autoClose.from) ? autoClose.from : "backlog";
 }
 
 export function deletedEvent(task: Task, now: Date, via: ChangeSource): JournalEvent {

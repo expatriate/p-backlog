@@ -13,6 +13,7 @@ import { appendJournal } from "./journal";
 import { PROJECT_FILE, taskFileName } from "./paths";
 import { issuedUpToOnDisk, readProjectFile } from "./projects";
 import { taskText } from "./task-text";
+import { reopenEpicOfOpenedTask } from "./update";
 import { invalid, type CreateTaskResult } from "./write-result";
 
 type NewTaskInput = Pick<Task, "title"> &
@@ -44,6 +45,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
     try {
       await createFileAtomic(path, text);
       await appendJournal(dir, [createdEvent(task, request.now, request.via, request.provenance)]);
+      await reopenEpicOfOpenedTask(index, { before: undefined, after: task, now: request.now, via: request.via });
       return { ok: true, task };
     } catch (error) {
       if (!hasErrorCode(error, "EEXIST")) throw error;

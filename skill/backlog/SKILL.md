@@ -77,7 +77,7 @@ description: Use when, while working on code, you notice a problem outside the c
 
 Несколько задач про одно — собрать их в эпик: создать эпик (`backlog new --type epic --title …`) и перенести
 задачи `backlog epic <ID> [<ID> …] --to <ID эпика>`; `--to none` вынимает задачу из эпика. Эпик закрывается
-сам, когда закрыты все его задачи.
+сам, когда закрыты все его задачи, и снова открывается, когда какую-то из них открыли.
 
 ## Взять задачу в работу
 
@@ -118,7 +118,8 @@ description: Use when, while working on code, you notice a problem outside the c
 1. `backlog check --json` из репозитория проекта (из другого каталога — `--project <id>`). Висячие ссылки,
    завершённые эпики и сдвинутые `source` он уже исправил сам — это поле `fixed`, список `{ kind, taskId, … }`:
    `references-removed` — убраны ссылки на несуществующие задачи `ids`; `epic-closed` — эпик закрыт, все его
-   задачи `childIds` закрыты; `source-moved` — `source` сдвинулся `from` → `to`. Перескажи его пользователю
+   задачи `childIds` закрыты; `epic-reopened` — автоматически закрытый эпик снова открыт, его задачи
+   `childIds` снова открыты; `source-moved` — `source` сдвинулся `from` → `to`. Перескажи его пользователю
    одной строкой. Код выхода 5 — не сбой: есть кандидаты или проблемы задач, которые надо разобрать; 0 —
    разбирать нечего.
 2. У кандидата `source-changed` в JSON уже есть `problem` — первый абзац описания задачи, `snippet` —

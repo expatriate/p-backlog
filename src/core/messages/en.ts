@@ -201,6 +201,8 @@ function checkFix(fix: CheckFix): string {
       return `${fix.taskId}: removed references to missing tasks: ${fix.ids.join(", ")}`;
     case "epic-closed":
       return `${fix.taskId}: epic closed — ${epicDoneReason(fix.childIds)}`;
+    case "epic-reopened":
+      return `${fix.taskId}: epic reopened — it has open tasks: ${fix.childIds.join(", ")}`;
     case "source-moved":
       return `${fix.taskId}: source moved ${lineSuffix(fix.from)} → ${lineSuffix(fix.to)}`;
   }

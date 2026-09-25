@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { buildIndex, isClosed, type BacklogIndex } from "../model/graph";
 import { parseId } from "../model/ids";
 import type { CoreMessages } from "../messages";
-import { DAY_MS, epicDoneClosure, isExpired, planEpicClosing } from "../model/lifecycle";
+import { DAY_MS, epicDoneClosure, isExpired, planEpicClosing, planEpicReopening } from "../model/lifecycle";
 import { deletedEvent } from "../journal/events";
 import type { Problem } from "../model/problems";
 import type { Project, Task } from "../model/types";
@@ -12,11 +12,12 @@ import { appendJournal } from "./journal";
 import { loadBacklog, type LoadedBacklog } from "./load";
 import { reserveIssuedUpTo } from "./projects";
 import { referenceCleanup } from "./references";
-import { updateTaskInIndex, type TaskChanges } from "./update";
+import { statusToReopen, updateTaskInIndex, type TaskChanges } from "./update";
 import type { UpdateTaskFailure } from "./write-result";
 
 export type SweepReport = {
   closedEpics: string[];
+  reopenedEpics: string[];
   blockingFiles: string[];
   deleted: string[];
   conflicts: string[];
@@ -27,26 +28,31 @@ type SweepFailure = { id: string; reason: "conflict" } | { id: string; reason: "
 
 type EpicStep = { closed: string[]; failures: SweepFailure[]; leftOpen: ReadonlySet<string>; blockingFiles: string[] };
 
+type ReopenStep = { reopened: string[]; failures: SweepFailure[] };
+
 type RemovalStep = { deleted: string[]; failures: SweepFailure[] };
 
 type UpdateStep = { failures: SweepFailure[]; stillReferenced: ReadonlySet<string> };
 
 export async function sweepClosed(root: string, now: Date, messages: CoreMessages): Promise<SweepReport> {
   const initial = await loadBacklog(root);
+  const reopening = await reopenEpicsWithOpenTasks(initial, now);
   const epics = await closeCompletedEpics(initial, now, messages);
-  const { projects, tasks } = epics.closed.length > 0 ? await loadBacklog(root) : initial;
+  const { projects, tasks } = epics.closed.length > 0 || reopening.reopened.length > 0 ? await loadBacklog(root) : initial;
 
   const waitsForEpic = (task: Task) => task.epic !== undefined && epics.leftOpen.has(task.epic);
-  const expired = tasks.filter((task) => isExpired(task, now) && !waitsForEpic(task));
+  const stillHoldsOpenTasks = new Set(planEpicReopening(tasks).map(({ epic }) => epic.id));
+  const expired = tasks.filter((task) => isExpired(task, now) && !waitsForEpic(task) && !stillHoldsOpenTasks.has(task.id));
   const reserved = await reserveNumbers(projects, expired);
   const removable = expired.filter((task) => reserved.has(task.projectId));
   const removal = await removeWithReferences(tasks, removable, now);
   await removeAbandonedTemporaries(root, now);
   return {
     closedEpics: epics.closed,
+    reopenedEpics: reopening.reopened,
     blockingFiles: epics.blockingFiles,
     deleted: removal.deleted,
-    ...failureLists([...epics.failures, ...removal.failures], messages),
+    ...failureLists([...reopening.failures, ...epics.failures, ...removal.failures], messages),
   };
 }
 
@@ -79,6 +85,18 @@ async function unchangedOnDisk(tasks: readonly Task[]): Promise<Task[]> {
     }),
   );
   return tasks.filter((_, position) => checked[position]);
+}
+
+async function reopenEpicsWithOpenTasks(loaded: LoadedBacklog, now: Date): Promise<ReopenStep> {
+  const index = buildIndex(loaded.tasks);
+  const reopened: string[] = [];
+  const failures: SweepFailure[] = [];
+  for (const { epic } of planEpicReopening(loaded.tasks)) {
+    const failure = await repairFailure(index, epic, { status: await statusToReopen(epic) }, now);
+    if (failure === null) reopened.push(epic.id);
+    else failures.push(failure);
+  }
+  return { reopened, failures };
 }
 
 async function closeCompletedEpics(loaded: LoadedBacklog, now: Date, messages: CoreMessages): Promise<EpicStep> {

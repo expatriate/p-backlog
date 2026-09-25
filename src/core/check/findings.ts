@@ -3,6 +3,7 @@ import type { Problem } from "../model/problems";
 export type CheckFix =
   | { kind: "references-removed"; taskId: string; ids: string[] }
   | { kind: "epic-closed"; taskId: string; childIds: string[] }
+  | { kind: "epic-reopened"; taskId: string; childIds: string[] }
   | { kind: "source-moved"; taskId: string; from: string; to: string };
 
 export type CheckProblem =

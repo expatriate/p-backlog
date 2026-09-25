@@ -204,6 +204,8 @@ function checkFix(fix: CheckFix): string {
       return `${fix.taskId}: убраны ссылки на несуществующие задачи: ${fix.ids.join(", ")}`;
     case "epic-closed":
       return `${fix.taskId}: эпик закрыт — ${epicDoneReason(fix.childIds)}`;
+    case "epic-reopened":
+      return `${fix.taskId}: эпик снова открыт — в нём открытые задачи: ${fix.childIds.join(", ")}`;
     case "source-moved":
       return `${fix.taskId}: source сдвинулся ${lineSuffix(fix.from)} → ${lineSuffix(fix.to)}`;
   }

@@ -16,9 +16,9 @@ export const RESOLUTION_STATUS: Record<Resolution, "done" | "cancelled"> = {
 
 export type Closure = { resolution: Resolution; reason: string };
 
-type CompletedEpic = { epic: Task; childIds: string[] };
+export type EpicWithChildren = { epic: Task; childIds: string[] };
 
-export type EpicClosingPlan = { close: CompletedEpic[]; waiting: CompletedEpic[] };
+export type EpicClosingPlan = { close: EpicWithChildren[]; waiting: EpicWithChildren[] };
 
 export function changeStatus(task: Task, status: TaskStatus, now: Date, closure?: Closure): Task {
   if (status === task.status) return task;
@@ -49,7 +49,7 @@ export function planEpicClosing(tasks: readonly Task[], parseErrors: readonly Pa
   };
 }
 
-function completedEpics(tasks: readonly Task[]): CompletedEpic[] {
+function completedEpics(tasks: readonly Task[]): EpicWithChildren[] {
   const index = buildIndex(tasks);
   return tasks.flatMap((epic) => {
     const childIds = completedEpicChildren(epic, index);
@@ -62,6 +62,19 @@ function completedEpicChildren(task: Task, index: BacklogIndex): string[] | null
   const children = epicChildren(task, index);
   const complete = children.length > 0 && children.every((child) => isClosed(child.status));
   return complete ? children.map((child) => child.id) : null;
+}
+
+export function isAutoClosedEpic(task: Task): boolean {
+  return task.type === "epic" && isClosed(task.status) && task.resolution === "epic-done";
+}
+
+export function planEpicReopening(tasks: readonly Task[]): EpicWithChildren[] {
+  const index = buildIndex(tasks);
+  return tasks.flatMap((epic) => {
+    if (!isAutoClosedEpic(epic)) return [];
+    const openChildIds = epicChildren(epic, index).flatMap((child) => (isClosed(child.status) ? [] : [child.id]));
+    return openChildIds.length === 0 ? [] : [{ epic, childIds: openChildIds }];
+  });
 }
 
 export function epicDoneClosure(childIds: readonly string[], messages: Pick<CoreMessages, "epicDoneReason">): Closure {

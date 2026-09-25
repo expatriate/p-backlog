@@ -373,6 +373,42 @@ describe("checkBacklog", () => {
     expect(journal.events).toMatchObject([{ kind: "status", task: "SPA-7", to: "done", resolution: "epic-done", via: "check" }]);
   });
 
+  it("эпик, закрытый проверкой, снова открывается прежним статусом, когда его задачу открыли правкой файла", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-7.md": task("SPA-7", "type: epic\nstatus: in-progress\n"),
+      "spa/SPA-8.md": task("SPA-8", "epic: SPA-7\nstatus: done\nclosed: 2026-09-12T10:00:00+03:00\n"),
+    });
+    const check = async () => checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
+    await check();
+    await writeFiles(root, { "spa/SPA-8.md": task("SPA-8", "epic: SPA-7\n") });
+
+    const report = await check();
+
+    expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-7: эпик снова открыт — в нём открытые задачи: SPA-8"]);
+    const epic = (await loadBacklog(root)).tasks.find((loaded) => loaded.id === "SPA-7");
+    expect([epic?.status, epic?.resolution, epic?.reason, epic?.closed]).toEqual(["in-progress", undefined, undefined, undefined]);
+    const journal = await readJournal(join(root, "spa"), "spa");
+    expect(journal.events.at(-1)).toMatchObject({ kind: "status", task: "SPA-7", from: "done", to: "in-progress", via: "check" });
+  });
+
+  it("эпик, закрытый вручную, остаётся закрытым с открытой задачей", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-7.md": task("SPA-7", "type: epic\nstatus: cancelled\nclosed: 2026-09-12T10:00:00+03:00\nresolution: obsolete\nreason: передумали\n"),
+      "spa/SPA-8.md": task("SPA-8", "epic: SPA-7\n"),
+    });
+
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
+
+    expect(report.fixed).toEqual([]);
+    expect((await loadBacklog(root)).tasks.find((loaded) => loaded.id === "SPA-7")?.status).toBe("cancelled");
+  });
+
   it("узкий режим отдаёт только кандидатов по коду и не чинит ссылки и эпики", async () => {
     const { home, root } = await setup();
 

@@ -21,6 +21,7 @@ export const serverRu = {
 
   sweepFailed: (detail: string): string => `Не удалось удалить закрытые задачи: ${detail}`,
   closedEpics: (ids: string): string => `Закрыты завершённые эпики: ${ids}`,
+  reopenedEpics: (ids: string): string => `Снова открыты эпики, в которых открыли задачу: ${ids}`,
   epicsBlockedByFiles: (paths: string): string => `Эпики не закрываются, пока не разобраны файлы: ${paths}`,
   deletedClosedTasks: (ids: string): string => `Удалены закрытые задачи: ${ids}`,
   conflictedDuringSweep: (ids: string): string => `Задачи менялись во время прохода, повторю при следующем: ${ids}`,

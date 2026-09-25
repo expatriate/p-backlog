@@ -23,6 +23,7 @@ export const serverEn: ServerMessages = {
 
   sweepFailed: (detail) => `Could not delete closed tasks: ${detail}`,
   closedEpics: (ids) => `Closed completed epics: ${ids}`,
+  reopenedEpics: (ids) => `Reopened epics that got an open task again: ${ids}`,
   epicsBlockedByFiles: (paths) => `Epics will not close until these files are fixed: ${paths}`,
   deletedClosedTasks: (ids) => `Deleted closed tasks: ${ids}`,
   conflictedDuringSweep: (ids) => `Tasks changed during the sweep, will retry next time: ${ids}`,

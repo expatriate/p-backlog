@@ -50,7 +50,7 @@ describe("sweepClosed", () => {
 
     const report = await sweepClosed(root, NOW, RU);
 
-    expect(report).toEqual({ closedEpics: [], blockingFiles: [], deleted: ["SPA-1", "SPA-5"], conflicts: [], invalid: [] });
+    expect(report).toEqual({ reopenedEpics: [], closedEpics: [], blockingFiles: [], deleted: ["SPA-1", "SPA-5"], conflicts: [], invalid: [] });
     expect(await exists(join(root, "spa/SPA-1.md"))).toBe(false);
     expect(await exists(join(root, "spa/SPA-5.md"))).toBe(false);
     const { projects, tasks, errors } = await loadBacklog(root);
@@ -86,7 +86,7 @@ describe("sweepClosed", () => {
     const projectText = projectFile("SPA");
     await writeFiles(root, { "spa/project.md": projectText, "spa/SPA-1.md": taskFile("SPA-1", `status: done\n${FRESH}`) });
 
-    expect(await sweepClosed(root, NOW, RU)).toEqual({ closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] });
+    expect(await sweepClosed(root, NOW, RU)).toEqual({ reopenedEpics: [], closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] });
     expect(await readFile(join(root, "spa/project.md"), "utf8")).toBe(projectText);
   });
 
@@ -96,6 +96,7 @@ describe("sweepClosed", () => {
 
     expect(await sweepClosed(root, NOW, RU)).toEqual({
       closedEpics: [],
+      reopenedEpics: [],
       blockingFiles: [],
       deleted: [],
       conflicts: [],
@@ -113,7 +114,7 @@ describe("sweepClosed", () => {
 
     const report = await sweepClosed(root, NOW, RU);
 
-    expect(report).toEqual({ closedEpics: ["SPA-1"], blockingFiles: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
+    expect(report).toEqual({ reopenedEpics: [], closedEpics: ["SPA-1"], blockingFiles: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
     expect(await exists(join(root, "spa/SPA-2.md"))).toBe(false);
     const { tasks, errors } = await loadBacklog(root);
     expect(errors).toEqual([]);
@@ -140,6 +141,7 @@ describe("sweepClosed", () => {
 
     expect(report).toEqual({
       closedEpics: [],
+      reopenedEpics: [],
       blockingFiles: [],
       deleted: [],
       conflicts: [],
@@ -160,7 +162,7 @@ describe("sweepClosed", () => {
 
     const report = await sweepClosed(root, NOW, RU);
 
-    expect(report).toEqual({ closedEpics: [], blockingFiles: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
+    expect(report).toEqual({ reopenedEpics: [], closedEpics: [], blockingFiles: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
     expect(await exists(join(root, "spa/SPA-2.md"))).toBe(false);
     const byId = new Map((await loadBacklog(root)).tasks.map((task) => [task.id, task]));
     expect(byId.get("SPA-1")?.status).toBe("backlog");
@@ -184,6 +186,7 @@ describe("sweepClosed", () => {
 
     expect(report).toEqual({
       closedEpics: ["TI-1"],
+      reopenedEpics: [],
       blockingFiles: [join(root, "spa/SPA-3.md")],
       deleted: [],
       conflicts: [],
@@ -204,11 +207,30 @@ describe("sweepClosed", () => {
 
     expect(await sweepClosed(root, NOW, RU)).toEqual({
       closedEpics: [],
+      reopenedEpics: [],
       blockingFiles: [],
       deleted: [],
       conflicts: [],
       invalid: [{ id: "SPA-1", errors: ["задача не может блокировать саму себя"] }],
     });
+  });
+
+  it("просроченный эпик, закрытый автоматически, с открытой задачей снова открывается, а не удаляется", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", `type: epic\nstatus: done\n${EXPIRED}resolution: epic-done\nreason: готово\n`),
+      "spa/SPA-2.md": taskFile("SPA-2", "epic: SPA-1\n"),
+    });
+
+    const report = await sweepClosed(root, NOW, RU);
+
+    expect(report).toEqual({ closedEpics: [], reopenedEpics: ["SPA-1"], blockingFiles: [], deleted: [], conflicts: [], invalid: [] });
+    const byId = new Map((await loadBacklog(root)).tasks.map((task) => [task.id, task]));
+    const epic = byId.get("SPA-1");
+    expect([epic?.status, epic?.resolution, epic?.closed]).toEqual(["backlog", undefined, undefined]);
+    expect(byId.get("SPA-2")?.epic).toBe("SPA-1");
+    expect((await readJournal(join(root, "spa"), "spa")).events).toMatchObject([{ kind: "status", task: "SPA-1", from: "done", to: "backlog", via: "sweep" }]);
   });
 
   it("не удаляет просроченную задачу, пока ссылку на неё не удалось снять: иначе ссылка повиснет навсегда", async () => {
@@ -289,7 +311,7 @@ describe("sweepClosed", () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/SPA-2.md": "сломано" });
 
-    expect(await sweepClosed(root, NOW, RU)).toEqual({ closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] });
+    expect(await sweepClosed(root, NOW, RU)).toEqual({ reopenedEpics: [], closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] });
   });
 
   it("удаление пишет в журнал снимок задачи от имени прохода", async () => {

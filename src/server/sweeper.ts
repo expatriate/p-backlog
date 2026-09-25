@@ -32,8 +32,9 @@ export function startSweeper({ sweep, intervalMs, log, warn, messages }: Sweeper
   };
 }
 
-function logReport({ closedEpics, blockingFiles, deleted, conflicts, invalid }: SweepReport, messages: ServerMessages, log: (line: string) => void): void {
+function logReport({ closedEpics, reopenedEpics, blockingFiles, deleted, conflicts, invalid }: SweepReport, messages: ServerMessages, log: (line: string) => void): void {
   if (closedEpics.length > 0) log(messages.closedEpics(closedEpics.join(", ")));
+  if (reopenedEpics.length > 0) log(messages.reopenedEpics(reopenedEpics.join(", ")));
   if (blockingFiles.length > 0) log(messages.epicsBlockedByFiles(blockingFiles.join(", ")));
   if (deleted.length > 0) log(messages.deletedClosedTasks(deleted.join(", ")));
   if (conflicts.length > 0) log(messages.conflictedDuringSweep(conflicts.join(", ")));

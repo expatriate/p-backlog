@@ -84,7 +84,7 @@ this same task.
 
 Several tasks about the same thing — gather them into an epic: create the epic (`backlog new --type epic
 --title …`) and move the tasks with `backlog epic <ID> [<ID> …] --to <epic ID>`; `--to none` takes a task
-out of its epic. An epic closes on its own once all its tasks are closed.
+out of its epic. An epic closes on its own once all its tasks are closed, and reopens when one of them is open again.
 
 ## Take a task
 
@@ -126,7 +126,8 @@ When: the hook message "code changed for tasks since the last check", a request 
 1. `backlog check --json` from the project's repository (from another directory — `--project <id>`).
    Dangling references, completed epics, and shifted `source` — it already fixed those itself; that's the
    `fixed` field, a list of `{ kind, taskId, … }`: `references-removed` — references to missing tasks `ids`
-   removed; `epic-closed` — the epic closed, all its tasks `childIds` are closed; `source-moved` — `source`
+   removed; `epic-closed` — the epic closed, all its tasks `childIds` are closed; `epic-reopened` — the
+   auto-closed epic reopened, its tasks `childIds` are open again; `source-moved` — `source`
    moved `from` → `to`. Relay it to the user in one line. Exit code 5 is not a failure: there are candidates or
    task problems to work through; 0 means there is nothing to work through.
 2. A `source-changed` candidate already has `problem` in the JSON — the task description's first

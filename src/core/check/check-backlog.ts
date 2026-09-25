@@ -5,13 +5,13 @@ import type { CoreMessages } from "../messages";
 import { buildIndex } from "../model/graph";
 import { parseId } from "../model/ids";
 import { integrityErrors } from "../model/integrity";
-import { epicDoneClosure, planEpicClosing, type Closure } from "../model/lifecycle";
-import type { ParseError, Project, Task } from "../model/types";
+import { epicDoneClosure, planEpicClosing, planEpicReopening, type Closure } from "../model/lifecycle";
+import type { ParseError, Project, Task, TaskStatus } from "../model/types";
 import { loadBacklog, unparsedTasks, type LoadedBacklog } from "../store/load";
 import { appendJournal, readJournal } from "../store/journal";
 import { PROJECT_FILE } from "../store/paths";
 import { referenceCleanup } from "../store/references";
-import { updateTaskInIndex, type TaskChanges } from "../store/update";
+import { statusToReopen, updateTaskInIndex, type TaskChanges } from "../store/update";
 import type { UpdateTaskFailure } from "../store/write-result";
 import { snippetOf } from "./anchor";
 import type { CheckFix, CheckProblem } from "./findings";
@@ -39,8 +39,8 @@ const COVERAGE: Record<CheckMode, CheckCoverage> = {
   changed: { repairs: false, reportsProblems: false, findsDuplicates: false, locatesAllSources: false, endsGoneEpisodes: false },
 };
 
-type Fix = { changes: TaskChanges; closure?: Closure; done: CheckFix[] };
-type EpicClosing = { closure: Closure; childIds: string[] };
+type Fix = { changes: TaskChanges; closure?: Closure | undefined; done: CheckFix[] };
+type EpicStatusFix = { status: TaskStatus; closure?: Closure | undefined; done: CheckFix };
 const PROBLEM_LIMIT = 400;
 
 type ProjectReview = {
@@ -112,14 +112,12 @@ function sightingOf(candidate: Candidate): CandidateSighting {
 
 async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, { now, messages }: CheckRequest): Promise<FixOutcome> {
   const isGone = goneTaskCheck(loaded);
-  const epicClosures = new Map(
-    planEpicClosing(loaded.tasks, loaded.errors).close.map(({ epic, childIds }): [string, EpicClosing] => [epic.id, { closure: epicDoneClosure(childIds, messages), childIds }]),
-  );
+  const epicFixes = await epicStatusFixes(loaded, inScope, messages);
   const index = buildIndex(loaded.tasks);
   const fixed: CheckFix[] = [];
   const failed: CheckProblem[] = [];
   for (const task of loaded.tasks.filter((candidate) => inScope(candidate.projectId))) {
-    const fix = planFix(task, isGone, epicClosures.get(task.id));
+    const fix = planFix(task, isGone, epicFixes.get(task.id));
     if (fix === null) continue;
     const result = await updateTaskInIndex(index, { id: task.id, changes: fix.changes, expectedVersion: task.version, now, closure: fix.closure, via: "check" });
     if (result.ok) fixed.push(...fix.done);
@@ -139,15 +137,26 @@ function fixFailure(taskId: string, failure: UpdateTaskFailure): CheckProblem {
   }
 }
 
-function planFix(task: Task, isGone: (id: string) => boolean, epicClosing: EpicClosing | undefined): Fix | null {
+async function epicStatusFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, messages: CheckTexts): Promise<Map<string, EpicStatusFix>> {
+  const closing = planEpicClosing(loaded.tasks, loaded.errors).close.map(({ epic, childIds }): [string, EpicStatusFix] => [
+    epic.id,
+    { status: "done", closure: epicDoneClosure(childIds, messages), done: { kind: "epic-closed", taskId: epic.id, childIds } },
+  ]);
+  const reopenable = planEpicReopening(loaded.tasks).filter(({ epic }) => inScope(epic.projectId));
+  const reopening = await Promise.all(
+    reopenable.map(async ({ epic, childIds }): Promise<[string, EpicStatusFix]> => [epic.id, { status: await statusToReopen(epic), done: { kind: "epic-reopened", taskId: epic.id, childIds } }]),
+  );
+  return new Map([...closing, ...reopening]);
+}
+
+function planFix(task: Task, isGone: (id: string) => boolean, epicFix: EpicStatusFix | undefined): Fix | null {
   const cleanup = referenceCleanup(task, isGone);
-  if (cleanup === null && epicClosing === undefined) return null;
+  if (cleanup === null && epicFix === undefined) return null;
 
   const done: CheckFix[] = [];
   if (cleanup !== null) done.push({ kind: "references-removed", taskId: task.id, ids: goneReferences(task, isGone) });
-  if (epicClosing === undefined) return { changes: cleanup ?? {}, done };
-  done.push({ kind: "epic-closed", taskId: task.id, childIds: epicClosing.childIds });
-  return { changes: { ...cleanup, status: "done" }, closure: epicClosing.closure, done };
+  if (epicFix === undefined) return { changes: cleanup ?? {}, done };
+  return { changes: { ...cleanup, status: epicFix.status }, closure: epicFix.closure, done: [...done, epicFix.done] };
 }
 
 function goneReferences(task: Task, isGone: (id: string) => boolean): string[] {
