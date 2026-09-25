@@ -114,12 +114,9 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
   api.get("/events", (c) =>
     streamSSE(c, async (stream) => {
       const unsubscribe = changes.subscribe(() => void stream.writeSSE({ event: "change", data: "" }));
-      await new Promise<void>((resolve) => {
-        stream.onAbort(() => {
-          unsubscribe();
-          resolve();
-        });
-      });
+      const clientGone = new Promise<void>((resolve) => stream.onAbort(resolve));
+      await Promise.race([clientGone, changes.closed]);
+      unsubscribe();
     }),
   );
 

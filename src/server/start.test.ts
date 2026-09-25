@@ -26,6 +26,20 @@ describe("startServer", () => {
     await expect(readFile(pidFile, "utf8")).rejects.toThrow();
   });
 
+  it("закрывается при открытом потоке /api/events и удаляет PID-файл", async () => {
+    const home = await makeTempDir();
+    const pidFile = join(home, "server.pid");
+    const server = await startServer({ root: join(home, "backlog"), port: 0, home, env: {}, pidFile });
+    const events = await fetch(`http://127.0.0.1:${server.port}/api/events`);
+    expect(events.status).toBe(200);
+
+    const outcome = await Promise.race([server.close().then(() => "closed"), new Promise((resolve) => setTimeout(resolve, 3000, "hung"))]);
+
+    expect(outcome).toBe("closed");
+    await expect(access(pidFile)).rejects.toThrow();
+    await events.body?.cancel().catch(() => undefined);
+  });
+
   it("занятый порт отклоняет промис ошибкой с номером порта", async () => {
     const home = await makeTempDir();
     const first = await startServer({ root: join(home, "backlog-1"), port: 0, home, env: {} });

@@ -30,12 +30,18 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
   await writeSettings(root, { language: options.language ?? "ru" });
 
   const listeners = new Set<() => void>();
+  let markClosed = (): void => undefined;
+  const closed = new Promise<void>((resolve) => (markClosed = resolve));
   const changes: ChangeFeed = {
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    close: async () => listeners.clear(),
+    closed,
+    close: async () => {
+      listeners.clear();
+      markClosed();
+    },
   };
 
   const usage = createUsageScanner({ root, claudeProjectsDir: options.transcriptsDir ?? (await makeTempDir()) });

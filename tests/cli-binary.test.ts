@@ -1,4 +1,7 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
+import { access } from "node:fs/promises";
+import { createServer } from "node:net";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ISOLATED_GIT_ENV, makeGitRepo, makeTempDir } from "../src/core/store/testing/temp-dirs";
@@ -28,4 +31,36 @@ describe("собранный бинарник backlog", () => {
     expect(run(["take", "DA-404"]).status).toBe(2);
     expect(run(["status", "DA-1", "done"]).stderr).toContain("не отмечено пунктов чеклиста — 1");
   });
+
+  it.skipIf(process.platform === "win32")("serve по SIGTERM закрывается при открытом /api/events и удаляет PID-файл", async () => {
+    const home = await makeTempDir();
+    const pidFile = join(home, "server.pid");
+    const port = await freePort();
+    const server = spawn(process.execPath, [cli, "serve", "--port", String(port)], {
+      env: { ...process.env, HOME: home, BACKLOG_DIR: join(home, "store"), P_BACKLOG_PID_FILE: pidFile },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    try {
+      await once(server.stdout, "data");
+      const events = await fetch(`http://127.0.0.1:${port}/api/events`);
+      expect(events.status).toBe(200);
+
+      server.kill("SIGTERM");
+      const [code] = (await Promise.race([once(server, "exit"), new Promise((resolve) => setTimeout(resolve, 5000, ["hung"]))])) as unknown[];
+
+      expect(code).toBe(0);
+      await expect(access(pidFile)).rejects.toThrow();
+    } finally {
+      server.kill("SIGKILL");
+    }
+  });
 });
+
+async function freePort(): Promise<number> {
+  const probe = createServer().listen(0, "127.0.0.1");
+  await once(probe, "listening");
+  const address = probe.address();
+  probe.close();
+  if (address === null || typeof address === "string") throw new Error("нет порта");
+  return address.port;
+}

@@ -22,6 +22,8 @@ export const PID_FILE_ENV = "P_BACKLOG_PID_FILE";
 
 export type RunningServer = { port: number; close: () => Promise<void> };
 
+const STOP_SIGNALS: readonly NodeJS.Signals[] = ["SIGTERM", "SIGINT"];
+
 export type StartServerOptions = { root: string; port: number; home: string; env: NodeJS.ProcessEnv; pidFile?: string | undefined };
 
 export async function startServer({ root, port, home, env, pidFile }: StartServerOptions): Promise<RunningServer> {
@@ -114,5 +116,15 @@ export async function startServer({ root, port, home, env, pidFile }: StartServe
     });
 
     server.on("error", onSocketError);
+  });
+}
+
+export function closeOnStopSignal(server: RunningServer): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const stop = (): void => {
+      for (const signal of STOP_SIGNALS) process.off(signal, stop);
+      server.close().then(resolve, reject);
+    };
+    for (const signal of STOP_SIGNALS) process.once(signal, stop);
   });
 }

@@ -7,6 +7,7 @@ type ChangeListener = () => void;
 
 export type ChangeFeed = {
   subscribe: (listener: ChangeListener) => () => void;
+  closed: Promise<void>;
   close: () => Promise<void>;
 };
 
@@ -33,6 +34,8 @@ export function isHiddenPath(root: string, path: string): boolean {
 
 export function createChangeFeed(root: string, debounceMs = CHANGE_DEBOUNCE_MS, messages: () => Promise<ServerMessages> = () => Promise.resolve(serverRu)): ChangeFeed {
   const listeners = new Set<ChangeListener>();
+  let markClosed = (): void => undefined;
+  const closed = new Promise<void>((resolve) => (markClosed = resolve));
   const debouncer = createDebouncer(debounceMs, () => {
     for (const listener of listeners) listener();
   });
@@ -48,9 +51,11 @@ export function createChangeFeed(root: string, debounceMs = CHANGE_DEBOUNCE_MS, 
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    closed,
     close: async () => {
       debouncer.cancel();
       listeners.clear();
+      markClosed();
       await watcher.close();
     },
   };
