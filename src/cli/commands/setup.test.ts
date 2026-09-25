@@ -95,7 +95,7 @@ describe("backlog setup", () => {
     expect(Object.keys(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8")))).toEqual(["model", "permissions", "hooks", "env"]);
   });
 
-  it("настройки-ссылка из dotfiles остаётся ссылкой, хук пишется в её цель с прежними правами", async () => {
+  it.skipIf(process.platform === "win32")("настройки-ссылка из dotfiles остаётся ссылкой, хук пишется в её цель с прежними правами (на Windows нет POSIX-прав, а ссылки требуют привилегий)", async () => {
     const { home, run } = await makeCliSandbox();
     const env = claudeEnv(home);
     const dotfile = join(home, "dotfiles/claude-settings.json");

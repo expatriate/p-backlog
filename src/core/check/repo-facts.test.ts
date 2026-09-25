@@ -51,7 +51,7 @@ describe("collectRepoFacts", () => {
     expect([...facts.dirtyModifiedAt.keys()]).toEqual(["src/a.ts"]);
   });
 
-  it("путь с кавычкой и табуляцией приходит из истории как есть, а не в C-кавычках", async () => {
+  it.skipIf(process.platform === "win32")("путь с кавычкой и табуляцией приходит из истории как есть, а не в C-кавычках (кавычка и табуляция недопустимы в именах файлов Windows)", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     const odd = 'src/"quoted"\tname.ts';
     await writeFiles(repo, { [odd]: "a\n" });

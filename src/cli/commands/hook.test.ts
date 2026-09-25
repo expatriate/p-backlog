@@ -40,7 +40,7 @@ describe("backlog hook stop", () => {
     expect(result).toMatchObject({ code: EXIT.ok, out: "", err: "" });
   });
 
-  it("сбой чтения беклога не валит хук: предупреждение в stderr и код 0, чтобы Windows не показывал ошибку хука", async () => {
+  it.skipIf(process.platform === "win32")("сбой чтения беклога не валит хук: предупреждение в stderr и код 0, чтобы Windows не показывал ошибку хука (на Windows chmod не запрещает чтение)", async () => {
     const { run, repo, root } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Таймаут"]);
     await chmod(join(root, "spa"), 0o000);

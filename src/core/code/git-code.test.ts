@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeNoFastForward, gitMergeSquash, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { readFixCommits, readRefs, readRepoCode } from "./git-code";
 import { runGit, type GitRunner } from "../git/run";
 import { countingGit } from "../git/testing/counting-git";
@@ -59,7 +59,7 @@ describe("когда исправление попало в основную в�
 
   it("коммит ветки, слитой squash-коммитом с его заголовком в сообщении, — в дату squash-коммита", async () => {
     const { repo, fix } = await fixOnBranch();
-    execFileSync("git", ["merge", "--squash", "-q", "fix"], { cwd: repo });
+    gitMergeSquash(repo, "fix");
     gitCommitAll(repo, "Таймаут загрузки (#12)\n\n* fix: таймаут загрузки", MERGE_DATE);
 
     expect(await landedAt(repo, fix)).toBe(Date.parse(MERGE_DATE));
@@ -67,7 +67,7 @@ describe("когда исправление попало в основную в�
 
   it("коммит ветки, слитой squash-коммитом GitHub из одного коммита с суффиксом (#N), — в дату squash-коммита", async () => {
     const { repo, fix } = await fixOnBranch();
-    execFileSync("git", ["merge", "--squash", "-q", "fix"], { cwd: repo });
+    gitMergeSquash(repo, "fix");
     gitCommitAll(repo, "fix: таймаут загрузки (#12)", MERGE_DATE);
 
     expect(await landedAt(repo, fix)).toBe(Date.parse(MERGE_DATE));

@@ -31,6 +31,10 @@ export function gitMergeNoFastForward(repo: string, branch: string, isoDate: str
   execFileSync("git", ["-c", "user.name=backlog-test", "-c", "user.email=test@backlog.local", "merge", "-q", "--no-ff", "-m", `Слить ${branch}`, branch], { cwd: repo, env });
 }
 
+export function gitMergeSquash(repo: string, branch: string): void {
+  execFileSync("git", ["-c", "user.name=backlog-test", "-c", "user.email=test@backlog.local", "merge", "--squash", "-q", branch], { cwd: repo, env: { ...process.env, ...ISOLATED_GIT_ENV } });
+}
+
 export function gitCheckout(repo: string, branch: string, { create = false }: { create?: boolean } = {}): void {
   execFileSync("git", ["checkout", "-q", ...(create ? ["-b"] : []), branch], { cwd: repo, env: { ...process.env, ...ISOLATED_GIT_ENV } });
 }
