@@ -46,6 +46,8 @@ export const cliRu = {
     `Возраст, медиана: ${ageMedian} · до закрытия, медиана: ${leadMedian}${tail}`,
   statsP90Tail: (p90: string): string => ` (90% — ${p90})`,
   statsForecastLine: (forecast: string, tail: string): string => `Прогноз: ${forecast} (${tail})`,
+  statsUnparsedTasks: (n: number): string => `Не разобрано файлов задач: ${n} — в статистике их последний статус из журнала; ошибки покажет backlog check`,
+  statsInvalidJournalLines: (n: number): string => `Не разобрано строк журнала: ${n} — они не входят в статистику`,
   noAlerts: "Тревог нет",
   alertsHeader: "Тревоги:",
   moreAt: (url: string): string => `Подробнее: ${url}`,

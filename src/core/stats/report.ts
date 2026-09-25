@@ -32,7 +32,7 @@ export function statsReport(input: StatsInput, base: ReportBase = reportBase(inp
 function totals(openTasks: readonly Task[], histories: readonly TaskHistory[], now: Date, period: Period, journalStart: number | null): StatsTotals {
   const nowMs = now.getTime();
   const inLastWeek = (moment: number) => moment > nowMs - WEEK_MS && moment <= nowMs;
-  const ages = openTasks.map((task) => daysBetween(Date.parse(task.created), nowMs));
+  const ages = histories.filter((history) => isOpenAt(history, nowMs)).map((history) => daysBetween(history.createdAt, nowMs));
   const leadTimes = histories.flatMap((history) =>
     closingsOf(history)
       .filter((closing) => period.contains(closing.at))
@@ -40,7 +40,7 @@ function totals(openTasks: readonly Task[], histories: readonly TaskHistory[], n
   );
   const today = formatLocalDay(now);
   return {
-    open: openTasks.length,
+    open: ages.length,
     createdToday: histories.filter((history) => formatLocalDay(new Date(history.createdAt)) === today).length,
     closedToday: histories.flatMap(closingsOf).filter((closing) => formatLocalDay(new Date(closing.at)) === today).length,
     openWeight: sum(openTasks.map((task) => PRIORITY_WEIGHT[task.priority])),

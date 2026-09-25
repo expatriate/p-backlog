@@ -22,11 +22,6 @@ export function findGitRoots(dir: string): GitRoots | null {
   return canonicalRoots(parsed.topLevel, main);
 }
 
-export function checkoutOf(repo: string, workingDir: string): string | null {
-  const roots = findGitRoots(workingDir);
-  return roots !== null && roots.main === realpathOrNull(repo) ? roots.worktree : null;
-}
-
 export function cachedRepoRoots({ ttlMs = REPO_ROOT_TTL_MS, now = Date.now }: { ttlMs?: number; now?: () => number } = {}): RepoRootLookup {
   const known = new Map<string, { roots: Promise<GitRoots | null>; checkedAt: number }>();
   return (dir) => {
@@ -90,7 +85,7 @@ function isSameOrInside(path: string, container: string): boolean {
   return relation === "" || (!isAbsolute(relation) && relation.split(sep)[0] !== "..");
 }
 
-function realpathOrNull(path: string): string | null {
+export function realpathOrNull(path: string): string | null {
   try {
     return realpathSync.native(path);
   } catch {

@@ -1,12 +1,11 @@
 import { createHash } from "node:crypto";
 import { open, stat, type FileHandle } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { attributeLine, flushEstimates, newTranscriptState } from "../stats/cost/attribute";
 import { sum } from "../stats/numbers";
 import { DAY_MS } from "../model/lifecycle";
-import { COST_REPORT_DAYS } from "../stats/cost/cost-report";
 import { addTokens } from "../stats/cost/token-counts";
-import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
+import { COST_REPORT_DAYS, type TranscriptState, type UsageBucket } from "../stats/cost/usage-state";
 import { listDir } from "../store/fs-utils";
 import { USAGE_CACHE_VERSION, type UsageCache, type UsageCacheEntry } from "./usage-cache";
 
@@ -87,8 +86,9 @@ export async function scanTranscripts({ files, cache, byteBudget, now }: ScanTra
 
 function deletedStillReported(cache: UsageCache, listedFiles: Readonly<Record<string, UsageCacheEntry>>, now: Date): Record<string, UsageCacheEntry> {
   const reportStart = now.getTime() - COST_REPORT_DAYS * DAY_MS;
+  const listedSessions = new Set(Object.keys(listedFiles).map((path) => basename(path)));
   return Object.fromEntries(
-    Object.entries(cache.files).filter(([path, entry]) => !(path in listedFiles) && entry.buckets.some((bucket) => Date.parse(bucket.slot) >= reportStart)),
+    Object.entries(cache.files).filter(([path, entry]) => !listedSessions.has(basename(path)) && entry.buckets.some((bucket) => Date.parse(bucket.slot) >= reportStart)),
   );
 }
 

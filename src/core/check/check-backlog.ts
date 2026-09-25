@@ -15,7 +15,8 @@ import { updateTaskInIndex, type TaskChanges } from "../store/update";
 import type { UpdateTaskFailure } from "../store/write-result";
 import { snippetOf } from "./anchor";
 import type { CheckFix, CheckProblem } from "./findings";
-import { findRepo } from "./project-repo";
+import { projectCheckout } from "./project-repo";
+import { findGitRoots } from "../store/resolve-project";
 import { codeReview, duplicateCandidates, isReviewable, relocationPlan, reviewMark, sourcePaths, type AnchorPlan, type Candidate } from "./candidates";
 import { currentSources, type CurrentSources } from "./current-source";
 import { collectRepoFacts, diffsSince, type DiffExcerpt, type DiffSince, type GitHistory, type RepoFacts } from "./repo-facts";
@@ -41,10 +42,13 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const current = fixes.fixed.length > 0 ? await loadBacklog(root) : loaded;
 
   const projects = current.projects.filter((project) => inScope(project.id));
-  const repos = new Map(await Promise.all(projects.map(async (project) => [project.id, await findRepo(project, request.home, request.workingDir)] as const)));
+  const workingRoots = request.workingDir === undefined ? null : findGitRoots(request.workingDir);
+  const checkouts = new Map(await Promise.all(projects.map(async (project) => [project.id, await projectCheckout(project, request.home, workingRoots)] as const)));
+  const repos = new Map([...checkouts].map(([projectId, checkout]) => [projectId, checkout?.path]));
   const reviews = await Promise.all(projects.map((project) => projectReview(project, current.tasks, repos.get(project.id), request)));
   const candidates = reviews.flatMap((review) => review.candidates);
-  const moved = await applyAnchorPlans(current.tasks, reviews.flatMap((review) => review.plans), request.now);
+  const anchorPlans = reviews.filter((review) => checkouts.get(review.projectId)?.linkedWorktree !== true).flatMap((review) => review.plans);
+  const moved = await applyAnchorPlans(current.tasks, anchorPlans, request.now);
   const unchecked = new Map(reviews.map((review) => [review.projectId, review.unchecked]));
   await recordCandidates(root, current.tasks, { candidates, filtered: reviews.flatMap((review) => review.filtered), unchecked }, request);
   const reviewProblems = reviews.flatMap((review) => review.problems);

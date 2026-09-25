@@ -2,13 +2,12 @@ import { formatLocalDay } from "../../model/dates";
 import type { CliRun } from "../../store/runs";
 import type { CostCommand, CostDay, CostModel, CostReport, CostTotals, ScanProgress } from "../types";
 import { totalTokens } from "./token-counts";
-import type { UsageBucket } from "./usage-state";
+import { COST_REPORT_DAYS, type UsageBucket } from "./usage-state";
 import { HOOK_STOP_COMMAND } from "./hook-signature";
 import { costOf, splitFastModel } from "./pricing";
 import { dayRange } from "../days";
 import { groupBy, sum } from "../numbers";
 
-export const COST_REPORT_DAYS = 30;
 export const COST_TOTALS_DAYS = 7;
 
 export type CostInput = {

@@ -44,6 +44,8 @@ export const cliEn: CliMessages = {
   statsAgeLine: (ageMedian, leadMedian, tail) => `Age, median: ${ageMedian} · time to close, median: ${leadMedian}${tail}`,
   statsP90Tail: (p90) => ` (90% — ${p90})`,
   statsForecastLine: (forecast, tail) => `Forecast: ${forecast} (${tail})`,
+  statsUnparsedTasks: (n) => `Unparsed task files: ${n} — the statistics use their last status from the journal; backlog check shows the errors`,
+  statsInvalidJournalLines: (n) => `Unparsed journal lines: ${n} — they are left out of the statistics`,
   noAlerts: "No alerts",
   alertsHeader: "Alerts:",
   moreAt: (url) => `More: ${url}`,

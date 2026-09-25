@@ -1,3 +1,5 @@
+import { appendFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
@@ -18,7 +20,7 @@ describe("backlog stats", () => {
       "spa · статистика",
       "Открыто: 2 (вес 10) · за неделю: +1 (создано 1, закрыто 0)",
       `Возраст, медиана: 8${NBSP}дн. · до закрытия, медиана: —`,
-      `Прогноз: Долг растёт на 0,7${NBSP}задачи в неделю (за 3${NBSP}недели: закрыто 0, создано 2)`,
+      `Прогноз: Долг растёт на 0,9${NBSP}задачи в неделю (за 3${NBSP}недели: закрыто 0, создано 2)`,
       "Тревоги:",
       "- Срочные задачи ждут дольше 7 дней: 1",
       "Подробнее: http://localhost:4317/p/spa/stats",
@@ -57,6 +59,22 @@ describe("backlog stats", () => {
     expect((await run(["service", "install"], { env: { PORT: "5000" } })).code).toBe(EXIT.ok);
 
     expect((await run(["stats"])).out).toContain("Подробнее: http://localhost:5000/p/spa/stats");
+  });
+
+  it("неразобранные файлы задач и строки журнала видны и в тексте, и в JSON", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Сломается"]);
+    await run(["new", "--category", "bug", "--title", "Целая"]);
+    await writeFiles(root, { "spa/SPA-1.md": "---\nid: SPA-1\ntitle: [\n---\n" });
+    await appendFile(join(root, "spa", "journal.jsonl"), "не json\n", "utf8");
+
+    const text = await run(["stats"]);
+    const json = JSON.parse((await run(["stats", "--json"])).out) as { totals: { open: number }; unparsedTasks: number; invalidJournalLines: number };
+
+    expect(text.out).toContain("Открыто: 2");
+    expect(text.out).toContain("Не разобрано файлов задач: 1");
+    expect(text.out).toContain("Не разобрано строк журнала: 1");
+    expect(json).toMatchObject({ totals: { open: 2 }, unparsedTasks: 1, invalidJournalLines: 1 });
   });
 
   it("ошибки области", async () => {

@@ -56,7 +56,11 @@ async function brokenProjectFilesOf(loaded: LoadedBacklog, roots: GitRoots, home
   const ownId = deriveProjectId(basename(roots.main), new Set());
   const broken = loaded.errors.filter((error) => basename(error.path) === PROJECT_FILE);
   const texts = await Promise.all(broken.map(async (error) => (await readTextOrNull(error.path)) ?? ""));
-  return broken.filter((error, position) => basename(dirname(error.path)) === ownId || repoPaths.some((path) => texts[position]?.includes(path)));
+  return broken.filter((error, position) => basename(dirname(error.path)) === ownId || repoPaths.some((path) => mentionsPath(texts[position] ?? "", path)));
+}
+
+function mentionsPath(text: string, path: string): boolean {
+  return text.split(/[\s"',[\]]+/).some((word) => word.replace(/[\\/]+$/, "") === path);
 }
 
 function homeRelative(path: string, home: string): string {

@@ -220,7 +220,7 @@ describe("чтение расшифровок по частям", () => {
     expect(totalTokens(pass2.cache.files)).toBe(340);
   });
 
-  it("файл, до которого не дошёл бюджет прохода, не открывается", async () => {
+  it.skipIf(process.platform === "win32")("файл, до которого не дошёл бюджет прохода, не открывается (на Windows chmod не запрещает чтение)", async () => {
     const root = await makeTempDir();
     const path = join(root, "session.jsonl");
     const file = await transcriptFile(path, jsonl([assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
@@ -231,7 +231,7 @@ describe("чтение расшифровок по частям", () => {
     expect(pass).toMatchObject({ bytesRead: 0, bytesLeft: file.size, filesDone: 0 });
   });
 
-  it("дочитанный неизменный файл не открывается на следующих проходах, вклад сохраняется", async () => {
+  it.skipIf(process.platform === "win32")("дочитанный неизменный файл не открывается на следующих проходах, вклад сохраняется (на Windows chmod не запрещает чтение)", async () => {
     const root = await makeTempDir();
     const path = join(root, "session.jsonl");
     const file = await transcriptFile(path, jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
@@ -255,6 +255,17 @@ describe("чтение расшифровок по частям", () => {
     expect(totalTokens(soonAfter.cache.files)).toBe(120);
     expect(soonAfter).toMatchObject({ filesDone: 0, bytesLeft: 0 });
     expect(monthsAfter.cache.files).toEqual({});
+  });
+
+  it("та же расшифровка под другим путём (симлинк ~/.claude, другой CLAUDE_CONFIG_DIR) не считается второй раз", async () => {
+    const root = await makeTempDir();
+    const lines = jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]);
+    await writeFiles(root, { "old/proj1/session.jsonl": lines, "new/proj1/session.jsonl": lines });
+    const pass1 = await scanTranscripts({ files: [await listed(join(root, "old/proj1/session.jsonl"))], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
+
+    const pass2 = await scanTranscripts({ files: [await listed(join(root, "new/proj1/session.jsonl"))], cache: pass1.cache, byteBudget: BIG_BUDGET, now: NOW });
+
+    expect(totalTokens(pass2.cache.files)).toBe(120);
   });
 
   it("кэш на диске после записи читается обратно", async () => {

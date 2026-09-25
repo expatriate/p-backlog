@@ -30,12 +30,12 @@ async function runStats(args: string[], io: CliIo): Promise<number> {
   const scoped = (task: { projectId: string }) => inScope.has(task.projectId);
   const input = { tasks: loaded.tasks.filter(scoped), journals, now: io.now(), projectId: project?.id, unparsedTasks: unparsedTasks(loaded.errors).filter(scoped) };
   const base = reportBase(input);
-  const totals = statsReport(input, base).totals;
-  const forecast = flowForecast(base.histories, base.openTasks.length, io.now());
+  const { totals } = statsReport(input, base);
+  const forecast = flowForecast(base.histories, totals.open, io.now());
   const signals = statsSignals(input, base);
 
   if (values.json) {
-    io.print(JSON.stringify({ totals, forecast, signals }, null, 2));
+    io.print(JSON.stringify({ totals, forecast, signals, unparsedTasks: base.head.unparsedTasks, invalidJournalLines: base.head.invalidJournalLines }, null, 2));
     return EXIT.ok;
   }
   const path = project === undefined ? "/stats" : `/p/${project.id}/stats`;
@@ -43,6 +43,7 @@ async function runStats(args: string[], io: CliIo): Promise<number> {
     statsSummary({
       language: io.language,
       scopeName: project?.name ?? cliMessages(io.language).projectsFallbackName,
+      head: base.head,
       totals,
       forecast,
       signals,

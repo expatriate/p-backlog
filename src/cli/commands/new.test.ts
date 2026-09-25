@@ -183,6 +183,24 @@ describe("backlog new", () => {
     expect((await loadBacklog(root)).projects).toEqual([expect.objectContaining({ id: "spa", prefix: "SPA2" })]);
   });
 
+  it("битый project.md соседа, чей путь продолжает путь этого репозитория, не мешает завести проект", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await writeFiles(root, { "other/project.md": `---\nname: other\nprefix: OT\nrepos: [${repo}-backlog\n---\n` });
+
+    const result = await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
+
+    expect(result.code).toBe(EXIT.ok);
+  });
+
+  it("битый project.md со своим путём среди repos останавливает создание проекта", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await writeFiles(root, { "other/project.md": `---\nname: other\nprefix: OT\nrepos: [/work/x, ${repo}/]\n  bad\n---\n` });
+
+    const result = await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
+
+    expect(result.code).toBe(EXIT.notFound);
+  });
+
   it("неизвестные категория и «как найдена» — код 1", async () => {
     const { run } = await makeCliSandbox();
 

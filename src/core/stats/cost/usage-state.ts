@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { tokenCountsSchema } from "./token-counts";
 
+export const COST_REPORT_DAYS = 30;
+
 const estimatedKindSchema = z.enum(["cli", "skill"]);
 
 export const usageBucketSchema = z.object({

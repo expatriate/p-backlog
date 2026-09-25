@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { runGit } from "../git/run";
 import type { Project, Task } from "../model/types";
 import { expandHome } from "../store/paths";
-import { checkoutOf } from "../store/resolve-project";
+import { findGitRoots, realpathOrNull, type GitRoots } from "../store/resolve-project";
 import { anchorOf } from "./anchor";
 import { sourcePath } from "./candidates";
 import { currentSourceIn } from "./current-source";
@@ -21,10 +21,17 @@ export async function relocatedSource(project: Project, task: Task, home: string
   return current === null || current === task.source ? undefined : current;
 }
 
+export type ProjectCheckout = { path: string; linkedWorktree: boolean };
+
 export async function findRepo(project: Project, home: string, workingDir?: string): Promise<string | undefined> {
+  return (await projectCheckout(project, home, workingDir === undefined ? null : findGitRoots(workingDir)))?.path;
+}
+
+export async function projectCheckout(project: Project, home: string, workingRoots: GitRoots | null): Promise<ProjectCheckout | undefined> {
   const repo = await firstExistingRepo(project, home);
-  if (repo === undefined || workingDir === undefined) return repo;
-  return checkoutOf(repo, workingDir) ?? repo;
+  if (repo === undefined) return undefined;
+  if (workingRoots === null || workingRoots.main !== realpathOrNull(repo)) return { path: repo, linkedWorktree: false };
+  return { path: workingRoots.worktree, linkedWorktree: workingRoots.worktree !== workingRoots.main };
 }
 
 async function firstExistingRepo(project: Project, home: string): Promise<string | undefined> {

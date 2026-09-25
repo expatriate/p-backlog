@@ -191,6 +191,41 @@ describe("отнесение строк расшифровки к накладн
     expect(["cat <<'EOF' > notes.md\nbacklog list\nEOF", 'git commit -m "fix\n\nbacklog list"', "echo 'a; backlog list'"].map(counted)).toEqual([false, false, false]);
   });
 
+  it("команда backlog узнаётся за ключевыми словами оболочки, обёртками, путём к бинарнику и раннерами пакетов", () => {
+    const counted = (command: string) => {
+      const state = newTranscriptState();
+      attributeLine(assistantLine("2026-09-19T10:00:00.000Z", "claude-sonnet-5", usage(5, 5), [bashToolUse("toolu_1", command)]), state);
+      return state.pending.toolu_1 === "cli";
+    };
+    const invoking = [
+      "for id in PB-1 PB-2; do backlog show $id; done",
+      "if backlog list; then echo ok; fi",
+      "! backlog check",
+      "time backlog list",
+      "env FOO=1 backlog list",
+      "timeout 30 backlog check",
+      "xargs -n 1 backlog show < ids",
+      "sudo -E backlog list",
+      "./node_modules/.bin/backlog list",
+      "backlog.cmd list",
+      "npx p-backlog@latest stats",
+      "npx --package=p-backlog backlog list",
+      "npx -p p-backlog backlog list",
+      "pnpm dlx p-backlog list",
+      "bunx p-backlog list",
+      'echo "$(backlog list --json)"',
+    ];
+    const notInvoking = [
+      "command -v backlog",
+      "npx eslint p-backlog",
+      "git commit -m \"$(cat <<'EOF'\nfix: one \" quote\nbacklog list now\nEOF\n)\"",
+      "echo x # ; backlog list",
+    ];
+
+    expect(invoking.filter((command) => !counted(command))).toEqual([]);
+    expect(notInvoking.filter(counted)).toEqual([]);
+  });
+
   it("ход хука узнаётся и по английскому маркеру: смена языка не обнуляет затраты на хук", () => {
     expect(isBacklogHookFeedback("Stop hook feedback:\nBacklog spa: code changed for tasks — SPA-1")).toBe(true);
     expect(isBacklogHookFeedback("Stop hook feedback:\nБеклог spa: после последней проверки менялся код задач — SPA-1")).toBe(true);

@@ -32,7 +32,7 @@ describe("прогноз", () => {
     const growing = flowForecast(taskHistories([open("SPA-1", iso(11)), open("SPA-2", iso(12))], []), 2, NOW);
 
     expect(flat).toMatchObject({ weeklyNet: 0, weeks: null, until: null });
-    expect(growing).toMatchObject({ closed: 0, created: 2, weeklyNet: -1, windowWeeks: 2, weeks: null, until: null });
+    expect(growing).toMatchObject({ closed: 0, created: 2, weeklyNet: -2, windowWeeks: 2, weeks: null, until: null });
   });
 
   it("открытых задач нет — без недель", () => {
@@ -63,6 +63,14 @@ describe("прогноз", () => {
     const forecast = flowForecast(taskHistories(tasks, []), 4, NOW);
 
     expect(forecast).toMatchObject({ created: 4, weeklyNet: -4, windowWeeks: 1 });
+  });
+
+  it("сразу за недельной границей скорость делится на настоящий возраст беклога, а не на лишнюю неделю", () => {
+    const tasks = ["SPA-1", "SPA-2", "SPA-3", "SPA-4", "SPA-5", "SPA-6", "SPA-7", "SPA-8"].map((id) => open(id, iso(10)));
+
+    const forecast = flowForecast(taskHistories(tasks, []), 8, NOW);
+
+    expect(forecast).toMatchObject({ created: 8, weeklyNet: -7, windowWeeks: 2 });
   });
 
   it("границы окна: −28 дней исключены, «сейчас» включено", () => {

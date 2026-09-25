@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import type { CheckReport } from "../../core/check/check-backlog";
 import type { Language } from "../../core/i18n/language";
 import { writeSettings } from "../../core/store/settings";
-import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitAddWorktree, gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
+import { loadBacklog } from "../../core/store/load";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -19,6 +20,24 @@ async function sandboxWithChangedSource() {
 }
 
 describe("backlog check", () => {
+  it("проверка из git worktree не переносит source задачи на строки ветки: главный якорь — основной checkout", async () => {
+    const { run, repo, root, home } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "const a = 1;\nconst timeout = 30;\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:2"]);
+    const worktree = join(home, "projects/spa-feature");
+    gitAddWorktree(repo, worktree, "feature");
+    await writeFile(join(worktree, "src/a.ts"), "import x from 'x';\n\nconst a = 1;\nconst timeout = 30;\n");
+    gitCommitAll(worktree, "Импорт", "2026-09-18T10:00:00Z");
+
+    const fromWorktree = JSON.parse((await run(["check", "--json"], { cwd: worktree })).out) as CheckReport;
+    const fromMain = JSON.parse((await run(["check", "--json"])).out) as CheckReport;
+
+    expect(fromWorktree.candidates).toEqual([]);
+    expect([...fromWorktree.fixed, ...fromMain.fixed]).toEqual([]);
+    expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-1")?.source).toBe("src/a.ts:2");
+  });
+
   it("перечисляет кандидатов с уликами и завершается кодом 5", async () => {
     const { run } = await sandboxWithChangedSource();
 
