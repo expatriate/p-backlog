@@ -160,7 +160,7 @@ export function TaskListPage() {
           tasks={allTasks}
           index={index}
           taskHref={taskHref}
-          onClose={() => navigate({ pathname: listPath(projectId), search: searchKey })}
+          onClose={() => void navigate({ pathname: listPath(projectId), search: searchKey })}
           tone={toneOf(selectedTask, tones)}
         />
       )}

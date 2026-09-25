@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { once } from "node:events";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -10,7 +11,7 @@ import { localeOf } from "../../src/core/i18n/language";
 
 export type Shot = { name: string; path: string; viewport?: { width: number; height: number } };
 
-type DemoServer = { origin: string; stop: () => void };
+type DemoServer = { origin: string; stop: () => Promise<void> };
 
 const DESKTOP = { width: 1280, height: 800 };
 const SERVER_START_TIMEOUT_MS = 20_000;
@@ -25,13 +26,16 @@ export async function startDemoServer(repoRoot: string, home: string, backlogRoo
     env: { PATH: process.env.PATH, HOME: home, BACKLOG_DIR: backlogRoot, CLAUDE_CONFIG_DIR: join(home, ".claude"), PORT: String(port) },
     stdio: ["ignore", "ignore", "inherit"],
   });
-  const stop = () => {
+  const stop = async (): Promise<void> => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    const exited = once(child, "exit");
     child.kill();
+    await exited;
   };
   const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
   while (!(await responds(origin))) {
     if (Date.now() > deadline || child.exitCode !== null) {
-      stop();
+      await stop();
       throw new Error(`The demo server did not start on ${origin}`);
     }
     await sleep(200);

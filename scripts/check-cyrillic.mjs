@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, sep } from "node:path";
 
 const DEFAULT_ROOTS = ["src", "scripts"];
-const CHECKED_EXTENSIONS = new Set(["ts", "tsx", "html", "mjs", "js"]);
+const CHECKED_EXTENSIONS = new Set(["ts", "tsx", "html", "mjs", "js", "css", "json"]);
 const CORE_RU_CATALOG_SEGMENTS = ["src", "core", "messages", "ru.ts"];
 const CYRILLIC = /\p{Script=Cyrillic}/u;
 

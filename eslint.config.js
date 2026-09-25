@@ -9,6 +9,11 @@ export default tseslint.config(
   ...tseslint.configs.strict,
   { languageOptions: { globals: globals.node } },
   {
+    files: ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts"],
+    languageOptions: { parserOptions: { projectService: true } },
+    rules: { "@typescript-eslint/no-floating-promises": "error", "@typescript-eslint/no-misused-promises": "error" },
+  },
+  {
     files: ["src/core/model/**/*.ts", "src/core/journal/**/*.ts", "src/core/stats/**/*.ts"],
     rules: { "no-restricted-imports": ["error", { patterns: ["node:*"] }] },
   },

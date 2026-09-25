@@ -34,6 +34,6 @@ for (const language of LANGUAGES) {
     const files = await captureShots(server.origin, language, shots, join(DATA_DIR, language));
     console.log(files.join("\n"));
   } finally {
-    server.stop();
+    await server.stop();
   }
 }

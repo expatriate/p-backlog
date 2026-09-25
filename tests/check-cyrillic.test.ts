@@ -20,6 +20,17 @@ describe("check-cyrillic", () => {
     expect(result.stdout).toContain(`${join("src", "x.ts")}:1`);
   });
 
+  it("кириллица в стилях и JSON тоже ловится", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "src/x.module.css": '.a::after { content: "привет"; }\n', "src/x.json": '{ "a": "привет" }\n' });
+
+    const result = run(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(`${join("src", "x.module.css")}:1`);
+    expect(result.stdout).toContain(`${join("src", "x.json")}:1`);
+  });
+
   it("та же кириллица в messages.ru.ts и в тесте — код 0", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
