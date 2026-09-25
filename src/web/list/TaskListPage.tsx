@@ -113,8 +113,9 @@ export function TaskListPage() {
           )}
         </div>
         <div ref={footer} className={styles.footer}>
-          <BatchNotice result={batchResult} onResult={showBatchResult} taskHref={taskHref} />
+          <BatchNotice key={`notice-${projectId ?? ""}`} result={batchResult} onResult={showBatchResult} taskHref={taskHref} />
           <BulkActions
+            key={`actions-${projectId ?? ""}`}
             selection={selection}
             tasks={view.allTasks}
             tones={view.tones}

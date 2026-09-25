@@ -6,6 +6,7 @@ import { requestErrorMessage } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import type { TaskHref } from "../task/TaskRefs";
+import footer from "./FooterPanel.module.css";
 import styles from "./BatchNotice.module.css";
 
 const NOTICE_LIFETIME_MS = 15_000;
@@ -32,6 +33,8 @@ export function BatchNotice({ result, onResult, taskHref }: BatchNoticeProps) {
   const { list, app } = useMessages();
   const undo = useBatchTasks();
   const [focusInside, setFocusInside] = useState(false);
+  const [shown, setShown] = useState({ result, count: 0 });
+  if (shown.result !== result) setShown({ result, count: shown.count + 1 });
   const summary = useRef<HTMLParagraphElement>(null);
   const undoButton = useRef<HTMLButtonElement>(null);
 
@@ -68,10 +71,10 @@ export function BatchNotice({ result, onResult, taskHref }: BatchNoticeProps) {
   };
 
   return (
-    <div role="status" className={result === null ? undefined : styles.notice} onFocus={() => setFocusInside(true)} onBlur={leave}>
+    <div role="status" className={result === null ? undefined : footer.panel} onFocus={() => setFocusInside(true)} onBlur={leave}>
       {result !== null && (
         <>
-          <p ref={summary} tabIndex={-1} className={styles.summary}>
+          <p key={shown.count} ref={summary} tabIndex={-1} className={footer.headline}>
             {list.batchSummary[result.request.action.kind](done.length, result.request.tasks.length)}
           </p>
           {skipped.length > 0 && (
@@ -89,13 +92,13 @@ export function BatchNotice({ result, onResult, taskHref }: BatchNoticeProps) {
             </Button>
           )}
           {undo.error === null && result.failure !== undefined && (
-            <p className={styles.error} role="alert">
+            <p className={footer.error} role="alert">
               {result.request.action.kind === "restore" ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)}:{" "}
               {requestErrorMessage(app, result.failure.error)}
             </p>
           )}
           {undo.error !== null && !(undo.error instanceof PartialBatchError) && (
-            <p className={styles.error} role="alert">
+            <p className={footer.error} role="alert">
               {list.undoFailed}: {requestErrorMessage(app, undo.error)}
             </p>
           )}

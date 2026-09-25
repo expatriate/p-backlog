@@ -114,6 +114,16 @@ describe("новые поля и события", () => {
     expect(candidateEvents([sighting], episodeStates([first, closed, reopened]), NOW, "full")).toHaveLength(1);
   });
 
+  it("отменённое закрытие не завершает эпизод: кандидат после отмены не пишется заново", () => {
+    const sighting = { task: "SPA-1", evidence: "source-missing" as const };
+    const [first] = candidateEvents([sighting], episodeStates([]), NOW, "full");
+    if (!first) throw new Error("нет события");
+    const closed = { at: first.at, task: "SPA-1", via: "web" as const, kind: "status" as const, from: "backlog" as const, to: "cancelled" as const };
+    const undone = { at: first.at, task: "SPA-1", via: "web" as const, kind: "status" as const, from: "cancelled" as const, to: "backlog" as const, undo: true as const };
+
+    expect(candidateEvents([sighting], episodeStates([first, closed, undone]), NOW, "full")).toEqual([]);
+  });
+
   it("новые события проходят схему", () => {
     const at = "2026-09-18T12:00:00+03:00";
     for (const event of [

@@ -217,12 +217,26 @@ export type EpisodeStates = ReadonlyMap<string, EpisodeState>;
 
 export function episodeStates(journal: readonly JournalEvent[]): EpisodeStates {
   const states = new Map<string, EpisodeState>();
+  const beforeClosing = new Map<string, Array<[string, EpisodeState | undefined]>>();
   for (const event of journal) {
     if (event.kind === "candidate") states.set(episodeKey(event.task, event.evidence), "open");
     else if (event.kind === "candidate-gone") states.set(episodeKey(event.task, event.evidence), "ended");
-    else if (endsEpisodes(event)) for (const evidence of CANDIDATE_EVIDENCE) states.set(episodeKey(event.task, evidence), "ended");
+    else if (undoesClosing(event)) {
+      for (const [key, state] of beforeClosing.get(event.task) ?? []) {
+        if (state === undefined) states.delete(key);
+        else states.set(key, state);
+      }
+    } else if (endsEpisodes(event)) {
+      const keys = CANDIDATE_EVIDENCE.map((evidence) => episodeKey(event.task, evidence));
+      if (event.kind === "status") beforeClosing.set(event.task, keys.map((key) => [key, states.get(key)]));
+      for (const key of keys) states.set(key, "ended");
+    }
   }
   return states;
+}
+
+function undoesClosing(event: JournalEvent): boolean {
+  return event.kind === "status" && event.undo === true && isClosed(event.from) && !isClosed(event.to);
 }
 
 function endsEpisodes(event: JournalEvent): boolean {

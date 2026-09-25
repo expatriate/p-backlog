@@ -14,6 +14,7 @@ import { epicChoices, type EpicChoice } from "./epic-choices";
 import { EpicLabel } from "./EpicLabel";
 import { partialBatchResult, type BatchResult } from "./BatchNotice";
 import type { TaskSelection } from "./use-task-selection";
+import footer from "./FooterPanel.module.css";
 import styles from "./BulkActions.module.css";
 
 export type BulkActionsProps = {
@@ -47,14 +48,14 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
   };
 
   return (
-    <section className={shown ? styles.panel : undefined} aria-label={shown ? list.selectionActions : undefined}>
-      <p className={styles.count} role="status">
+    <section className={shown ? footer.panel : undefined} aria-label={shown ? list.selectionActions : undefined}>
+      <p className={footer.headline} role="status">
         {shown && list.selectedCount(chosen.length)}
         {shown && selection.hiddenCount > 0 && <span className={styles.hidden}> {list.hiddenByFilter(selection.hiddenCount)}</span>}
       </p>
       {shown && <SelectionActions chosen={chosen} tasks={tasks} tones={tones} busy={isPending} onRun={run} onClear={selection.clear} />}
       {shown && batch.error !== null && (
-        <p className={styles.error} role="alert">
+        <p className={footer.error} role="alert">
           {list.bulkFailed}: {requestErrorMessage(app, batch.error)}
         </p>
       )}

@@ -49,7 +49,7 @@ test("три задачи закрываются с причиной и возв
   await expect(page.getByRole("status").filter({ hasText: "Возвращено 3 из 3" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Разбор 1", exact: true })).toBeVisible();
   expect(await Promise.all([1, 2, 3].map(closureOnDisk))).toEqual(Array(3).fill("backlog -"));
-  expect(violations).toEqual([]);
+  expect(await violations.settled()).toEqual([]);
 });
 
 test("на 320 px панель и уведомление не дают горизонтальной прокрутки и не закрывают фокус", async ({ page }) => {
@@ -83,5 +83,5 @@ test("на 320 px панель и уведомление не дают гори�
   await panel.getByRole("button", { name: "критичный" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Изменена 1 из 1" })).toBeVisible();
   expect(await horizontalOverflow(page)).toBe(0);
-  expect(violations).toEqual([]);
+  expect(await violations.settled()).toEqual([]);
 });

@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { BatchRequest } from "../../core/api/contract";
 import { loadBacklog } from "../../core/store/load";
@@ -21,16 +21,21 @@ const FILES = {
 
 function holdBatches(answer: "ok" | "server-error") {
   const { promise: released, resolve: release }: PromiseWithResolvers<void> = Promise.withResolvers();
+  const { promise: answered, resolve: markAnswered }: PromiseWithResolvers<void> = Promise.withResolvers();
   const beforeRender = (app: TestApp) => {
     const request = app.request;
     app.request = async (path, init) => {
       if (path !== "/api/tasks/batch") return request(path, init);
       await released;
-      if (answer === "ok") return request(path, init);
-      return new Response(JSON.stringify({ errors: ["EACCES: permission denied"] }), { status: 500, headers: { "content-type": "application/json" } });
+      const response =
+        answer === "ok"
+          ? await request(path, init)
+          : new Response(JSON.stringify({ errors: ["EACCES: permission denied"] }), { status: 500, headers: { "content-type": "application/json" } });
+      markAnswered();
+      return response;
     };
   };
-  return { release, beforeRender };
+  return { release, answered, beforeRender };
 }
 
 function recordBatches() {
@@ -201,6 +206,24 @@ describe("панель массовых действий", () => {
     expect(within(panel()).queryByRole("group", { name: "Эпик" })).toBeNull();
     release();
     await waitFor(() => expect(screen.queryByRole("region", { name: "Действия с выбранными" })).toBeNull());
+  });
+
+  it("итог действия, завершившегося после перехода в другой проект, не показывается там и не снимает там выбор", async () => {
+    const { release, answered, beforeRender } = holdBatches("ok");
+    const app = await renderApp(FILES, "/p/spa", undefined, { beforeRender });
+    await select(app, "SPA-3");
+    await app.user.click(within(panel()).getByRole("button", { name: "Приоритет" }));
+    await app.user.click(within(panel()).getByRole("button", { name: "критичный" }));
+
+    await act(() => app.router.navigate("/p/torg-io"));
+    await select(app, "TI-1");
+    release();
+    await answered;
+    await act(async () => {});
+
+    expect((await taskOnDisk(app.root, "SPA-3")).priority).toBe("critical");
+    expect(screen.queryByText("Изменена 1 из 1")).toBeNull();
+    expect(within(panel()).getByRole("status").textContent).toBe("Выбрано 1");
   });
 
   it("ошибка запроса не переживает снятие выбора", async () => {

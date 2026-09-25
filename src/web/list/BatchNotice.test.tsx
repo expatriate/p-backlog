@@ -203,8 +203,8 @@ describe("уведомление об итоге массового действ
     await select(app, "SPA-3");
     await closeSelected(app, "тоже");
 
-    await findNotice("Закрыта 1 из 1");
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await findNotice("Закрыта 1 из 1");
   });
 
   it("живёт 15 секунд, пока фокус не в нём", async () => {

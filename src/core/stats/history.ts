@@ -124,8 +124,8 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, prio
 function withoutUndoneClosings(ordered: readonly Transition[]): Transition[] {
   const kept: Transition[] = [];
   for (const transition of ordered) {
-    const undone = kept.at(-1);
-    if (transition.undo === true && undone !== undefined && isClosing(undone) && transition.from === undone.to) kept.pop();
+    const lastKept = kept.at(-1);
+    if (transition.undo === true && lastKept !== undefined && isClosing(lastKept) && transition.from === lastKept.to) kept.pop();
     else kept.push(transition);
   }
   return kept;

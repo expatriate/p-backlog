@@ -1,20 +1,3 @@
-.notice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-3) var(--space-5);
-  border-top: 1px solid var(--line);
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-panel);
-}
-
-.summary {
-  margin: 0;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
 .skipped {
   display: flex;
   flex-wrap: wrap;
@@ -35,16 +18,4 @@
 
 .skipped a:hover {
   text-decoration-color: var(--ink);
-}
-
-.error {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--danger-ink);
-}
-
-@container (max-width: 480px) {
-  .notice {
-    padding-inline: var(--space-3);
-  }
 }

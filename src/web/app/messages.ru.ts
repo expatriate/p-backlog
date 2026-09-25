@@ -14,6 +14,7 @@ export const appRu = {
   ],
   scopeNote: (activeCount: number, totalCount: number): string =>
     `учтено ${activeCount} из${NBSP}${countRu(totalCount, "проекта", "проектов", "проектов")}`,
+  bootLoadError: "Не удалось загрузить интерфейс — обновите страницу",
   bootSettingsError: "Сервер беклога не отвечает",
   bootRetry: "Повторить",
 };

@@ -20,5 +20,5 @@ test("политика безопасности не блокирует ни о�
     await page.waitForLoadState("networkidle");
   }
 
-  expect(violations).toEqual([]);
+  expect(await violations.settled()).toEqual([]);
 });
