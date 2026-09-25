@@ -1,5 +1,5 @@
 import { formatShare } from "../../core/stats/format";
-import type { AccuracyRow, AccuracyWeek, BranchRow, CategoryRow, FoundRow, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow } from "../../core/api/contract";
+import type { AccuracyPeriod, AccuracyRow, BranchRow, CategoryRow, FoundRow, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow } from "../../core/api/contract";
 import { useMessages } from "../i18n";
 import { AccuracyWeeksChart } from "./AccuracyWeeksChart";
 import type { StatsMessages } from "./messages.ru";
@@ -9,7 +9,7 @@ import { StatsTable, type StatsTableRow } from "./StatsTable";
 
 type SplitRow = { by: string } & OutcomeCounts;
 
-type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyWeek[]; methodRows: MethodAccuracyRow[]; matchRows: MatchAccuracyRow[] };
+type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyPeriod[]; methodRows: MethodAccuracyRow[]; matchRows: MatchAccuracyRow[] };
 
 export function AccuracyPanel({ rows, weeks, methodRows, matchRows }: AccuracyPanelProps) {
   const { stats, core } = useMessages();

@@ -7,7 +7,7 @@ import type { Period } from "./period";
 import { reportBase, type ReportBase, type StatsInput } from "./scope";
 import { PRIORITY_WEIGHT } from "./weights";
 import type { PreviousTotals, StatsReport, StatsTotals } from "./types";
-import { dailyIntake } from "./days";
+import { dailyFlow } from "./days";
 import { formatLocalDay } from "../model/dates";
 import { statsPeriod, WEEK_MS, weeklyFlow } from "./weeks";
 
@@ -22,7 +22,7 @@ export function statsReport(input: StatsInput, base: ReportBase = reportBase(inp
     ...base.head,
     totals: totals(histories, now, period, base.scope.journalStart),
     weeks: weeklyFlow(histories, now),
-    days: dailyIntake(histories, now),
+    days: dailyFlow(histories, now),
     hotspots: hotspots(openTasks, scopeLabel(projectId)),
     age: ageBreakdown(openTasks, now),
     closing: closingBreakdown(histories, period),

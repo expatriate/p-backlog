@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Tooltip, XAxis, YAxis } from "recharts";
 import type { Language } from "../../core/i18n/language";
 import type { CoreMessages } from "../../core/messages";
-import type { DayFlow } from "../../core/api/contract";
+import type { FlowPeriod } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
@@ -15,13 +15,13 @@ import { Panel } from "./Panel";
 const CREATED = "var(--chart-bar-warm)";
 
 function dayTooltip(stats: StatsMessages, core: CoreMessages, language: Language) {
-  return rowTooltip((day: DayFlow) => ({
-    title: tooltipDay(language, day.day),
+  return rowTooltip((day: FlowPeriod) => ({
+    title: tooltipDay(language, day.start),
     rows: [{ label: stats.flowCreated, value: core.count(day.created, "task"), shape: "bar", color: CREATED }],
   }));
 }
 
-export function DailyIntakePanel({ days }: { days: DayFlow[] }) {
+export function DailyIntakePanel({ days }: { days: FlowPeriod[] }) {
   const { stats, core } = useMessages();
   const language = useLanguage();
   const tooltip = useMemo(() => dayTooltip(stats, core, language), [stats, core, language]);
@@ -31,7 +31,7 @@ export function DailyIntakePanel({ days }: { days: DayFlow[] }) {
       <ChartFrame summary={stats.intakeSummary(days.length, sum(days.map((day) => day.created)))} legend={legend}>
         <ComposedChart data={days} margin={CHART_MARGIN} aria-label={stats.chartLabel(stats.createdByDay, "day")}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="day" tickFormatter={(day: string) => axisDay(language, day)} {...DATE_AXIS_PROPS} />
+          <XAxis dataKey="start" tickFormatter={(day: string) => axisDay(language, day)} {...DATE_AXIS_PROPS} />
           <YAxis allowDecimals={false} tickFormatter={(value: number) => compactNumber(language, value)} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
           <Tooltip content={tooltip} {...TOOLTIP_PROPS} />
           <Bar dataKey="created" fill={CREATED} radius={BAR_RADIUS} isAnimationActive={false} />

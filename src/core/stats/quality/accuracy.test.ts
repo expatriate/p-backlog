@@ -3,7 +3,7 @@ import type { JournalEvent } from "../../journal/events";
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
-import { accuracy, accuracyWeeks, methodAccuracy } from "./accuracy";
+import { accuracy, accuracyDays, accuracyWeeks, methodAccuracy } from "./accuracy";
 import { period } from "../period";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
@@ -73,6 +73,30 @@ describe("точность проверки", () => {
     expect(weeks).toHaveLength(12);
     expect(weeks.at(-1)).toMatchObject({ decided: 2, precision: 0.5 });
     expect(weeks.at(-2)).toMatchObject({ decided: 0, precision: null });
+  });
+
+  it("по дням: решённые кандидаты попадают в свой день с верной точностью", () => {
+    const tasks = [
+      makeTask({ id: "SPA-1", created: iso(1), status: "done", closed: iso(17, 15), resolution: "fixed" }),
+      makeTask({ id: "SPA-2", created: iso(1) }),
+      makeTask({ id: "SPA-3", created: iso(1) }),
+    ];
+    const events: JournalEvent[] = [
+      { at: iso(17, 9), task: "SPA-1", via: "check", kind: "candidate", evidence: "source-changed", mode: "changed" },
+      { at: iso(17, 15), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" },
+      { at: iso(17, 9), task: "SPA-2", via: "check", kind: "candidate", evidence: "source-changed", mode: "changed" },
+      { at: iso(17, 15), task: "SPA-2", via: "cli", kind: "verified" },
+      { at: iso(17, 9), task: "SPA-3", via: "check", kind: "candidate", evidence: "no-source", mode: "changed" },
+      { at: iso(17, 15), task: "SPA-3", via: "cli", kind: "verified" },
+    ];
+
+    const days = accuracyDays(taskHistories(tasks, journal(events)), at(18));
+    const dayStart = (day: number) => formatLocalIso(new Date(2026, 8, day));
+
+    expect(days).toHaveLength(30);
+    expect(days.at(-1)).toMatchObject({ start: dayStart(18), decided: 0, precision: null });
+    expect(days.at(-2)).toMatchObject({ start: dayStart(17), decided: 2, precision: 0.5 });
+    expect(days.at(-3)).toMatchObject({ start: dayStart(16), decided: 0, precision: null });
   });
 });
 

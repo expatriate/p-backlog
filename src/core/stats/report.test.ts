@@ -154,7 +154,7 @@ describe("отчёт статистики", () => {
 describe("заведённые задачи по дням", () => {
   const dayTasks = [
     makeTask({ id: "SPA-1", created: formatLocalIso(at(18, 9)) }),
-    makeTask({ id: "SPA-2", created: formatLocalIso(at(18, 23)) }),
+    makeTask({ id: "SPA-2", created: formatLocalIso(at(18, 11)) }),
     makeTask({ id: "SPA-3", created: formatLocalIso(at(17)) }),
     makeTask({ id: "SPA-4", created: formatLocalIso(at(18)), type: "epic" }),
     makeTask({ id: "TI-1", projectId: "ti", created: formatLocalIso(at(18)) }),
@@ -168,9 +168,9 @@ describe("заведённые задачи по дням", () => {
     const report = statsReport({ tasks: dayTasks, journals: empty, now: NOW, projectId: "spa" });
 
     expect(report.days).toHaveLength(30);
-    expect(report.days.at(-1)).toEqual({ day: "2026-09-18", created: 2 });
-    expect(report.days.at(-2)).toEqual({ day: "2026-09-17", created: 1 });
-    expect(report.days.at(-3)).toEqual({ day: "2026-09-16", created: 0 });
+    expect(report.days.at(-1)).toEqual({ start: formatLocalIso(new Date(2026, 8, 18)), created: 2, closed: 0, openAtEnd: 3 });
+    expect(report.days.at(-2)).toEqual({ start: formatLocalIso(new Date(2026, 8, 17)), created: 1, closed: 0, openAtEnd: 1 });
+    expect(report.days.at(-3)).toEqual({ start: formatLocalIso(new Date(2026, 8, 16)), created: 0, closed: 0, openAtEnd: 0 });
   });
 
   it("задачи за сегодня: заведено и закрыто, только по выбранной области", () => {

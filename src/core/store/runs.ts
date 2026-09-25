@@ -1,14 +1,14 @@
 import { appendFile, mkdir, open } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { DAY_MS } from "../model/lifecycle";
+import { DAY_MS, STATS_HISTORY_DAYS } from "../model/lifecycle";
 import { withFileLock } from "./file-lock";
 import { hasErrorCode } from "../errors";
 import { parseJson, readJsonLines, toJsonLines, writeFileAtomic } from "./fs-utils";
 
 export const RUNS_FILE = ".runs.jsonl";
 
-const RUNS_KEPT_DAYS = 30;
+const RUNS_KEPT_DAYS = STATS_HISTORY_DAYS;
 const STALE_RUN_SLACK_DAYS = 1;
 const FIRST_LINE_BYTES = 4096;
 

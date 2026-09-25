@@ -1,11 +1,12 @@
-import { formatLocalDay } from "../../model/dates";
+import { formatLocalDay, formatLocalIso } from "../../model/dates";
 import type { CliRun } from "../../store/runs";
-import type { CostCommand, CostDay, CostModel, CostReport, CostTotals, ScanProgress } from "../types";
+import type { CostCommand, CostDay, CostModel, CostReport, CostTotals, CostWeek, ScanProgress } from "../types";
 import { totalTokens } from "./token-counts";
 import { COST_REPORT_DAYS, type UsageBucket } from "./usage-state";
 import { HOOK_STOP_COMMAND } from "./hook-signature";
 import { costOf, splitFastModel } from "./pricing";
 import { dayRange } from "../days";
+import { weekWindows } from "../weeks";
 import { groupBy, sum } from "../numbers";
 
 export const COST_TOTALS_DAYS = 7;
@@ -36,6 +37,13 @@ export function costReport({ buckets, runs, projectOf, projectId, now, scan }: C
     since: sinceOf(scopedBuckets),
     totals: totalsOf(inDays(bucketsByDay, totalsDays), inDays(runsByDay, totalsDays)),
     days: days.map((day) => dayRow(day, bucketsByDay.get(day) ?? [], runsByDay.get(day) ?? [])),
+    weeks: weekWindows(now).map((week) =>
+      weekRow(
+        formatLocalIso(new Date(week.from)),
+        scopedBuckets.filter((bucket) => week.contains(Date.parse(bucket.slot))),
+        scopedRuns.filter((run) => week.contains(Date.parse(run.at))),
+      ),
+    ),
     models: modelsOf(scopedBuckets),
     commands: commandsOf(inDays(runsByDay, days)),
   };
@@ -91,18 +99,27 @@ function runCounts(runs: readonly CliRun[]): { cliRuns: number; hookRuns: number
   return { cliRuns: runs.length - hookRuns, hookRuns };
 }
 
-function dayRow(day: string, dayBuckets: readonly UsageBucket[], dayRuns: readonly CliRun[]): CostDay {
-  const hookBuckets = dayBuckets.filter((bucket) => bucket.kind === "hook");
-  const cliBuckets = dayBuckets.filter((bucket) => bucket.kind === "cli" || bucket.kind === "skill");
+type CostRowNumbers = Omit<CostDay, "day">;
+
+function costRowNumbers(buckets: readonly UsageBucket[], runs: readonly CliRun[]): CostRowNumbers {
+  const hookBuckets = buckets.filter((bucket) => bucket.kind === "hook");
+  const cliBuckets = buckets.filter((bucket) => bucket.kind === "cli" || bucket.kind === "skill");
   return {
-    day,
     hookTokens: tokensTotalOf(hookBuckets),
     cliTokens: tokensTotalOf(cliBuckets),
-    cost: costOfBuckets(dayBuckets),
-    hasUnpricedTokens: hasUnpricedTokens(dayBuckets),
-    hookTurns: sum(dayBuckets.map((bucket) => bucket.hookTurns)),
-    ...runCounts(dayRuns),
+    cost: costOfBuckets(buckets),
+    hasUnpricedTokens: hasUnpricedTokens(buckets),
+    hookTurns: sum(buckets.map((bucket) => bucket.hookTurns)),
+    ...runCounts(runs),
   };
+}
+
+function dayRow(day: string, dayBuckets: readonly UsageBucket[], dayRuns: readonly CliRun[]): CostDay {
+  return { day, ...costRowNumbers(dayBuckets, dayRuns) };
+}
+
+function weekRow(start: string, weekBuckets: readonly UsageBucket[], weekRuns: readonly CliRun[]): CostWeek {
+  return { start, ...costRowNumbers(weekBuckets, weekRuns) };
 }
 
 function modelsOf(buckets: readonly UsageBucket[]): CostModel[] {

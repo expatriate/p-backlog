@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import type { Language } from "../../core/i18n/language";
-import type { WeekFlow } from "../../core/api/contract";
+import type { FlowPeriod } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
@@ -16,7 +16,7 @@ const CLOSED = "var(--chart-bar-green)";
 const OPEN = "var(--chart-line-bright)";
 
 function weekTooltip(stats: StatsMessages, language: Language) {
-  return rowTooltip((week: WeekFlow) => ({
+  return rowTooltip((week: FlowPeriod) => ({
     title: stats.weekOf(tooltipDay(language, week.start)),
     rows: [
       { label: stats.flowCreated, value: String(week.created), shape: "bar", color: CREATED },
@@ -26,7 +26,7 @@ function weekTooltip(stats: StatsMessages, language: Language) {
   }));
 }
 
-export function WeeklyFlowChart({ weeks }: { weeks: WeekFlow[] }) {
+export function WeeklyFlowChart({ weeks }: { weeks: FlowPeriod[] }) {
   const { stats } = useMessages();
   const language = useLanguage();
   const tooltip = useMemo(() => weekTooltip(stats, language), [stats, language]);

@@ -45,9 +45,9 @@ describe("журнал запусков CLI", () => {
     await expect(appendRun(root, RUN)).rejects.toThrow();
   });
 
-  it("обрезка оставляет запуски последних 30 дней, файл без старых строк не переписывает", async () => {
+  it("обрезка оставляет запуски последних 84 дней (12 недель), файл без старых строк не переписывает", async () => {
     const root = await makeTempDir();
-    const old = { ...RUN, at: "2026-08-01T10:00:00+03:00", command: "old" };
+    const old = { ...RUN, at: "2026-05-01T10:00:00+03:00", command: "old" };
     await appendRun(root, old);
     await appendRun(root, RUN);
     const now = new Date("2026-09-20T12:00:00+03:00");
@@ -57,18 +57,28 @@ describe("журнал запусков CLI", () => {
     expect(await trimRuns(root, now)).toBe(0);
   });
 
+  it("запуск 60 дней от роду переживает обрезку — это ещё внутри окна недель", async () => {
+    const root = await makeTempDir();
+    const recentEnough = { ...RUN, at: "2026-07-22T12:00:00+03:00", command: "sixty-days" };
+    await appendRun(root, recentEnough);
+    const now = new Date("2026-09-20T12:00:00+03:00");
+
+    expect(await trimRuns(root, now)).toBe(0);
+    expect(await readRuns(root)).toEqual([recentEnough]);
+  });
+
   it("запуск, дописанный во время обрезки, не теряется", async () => {
     const root = await makeTempDir();
-    await appendRun(root, { ...RUN, at: "2026-08-01T10:00:00+03:00", command: "old" });
+    await appendRun(root, { ...RUN, at: "2026-05-01T10:00:00+03:00", command: "old" });
 
     await Promise.all([trimRuns(root, new Date("2026-09-20T12:00:00+03:00")), appendRun(root, RUN)]);
 
     expect(await readRuns(root)).toEqual([RUN]);
   });
 
-  it("без сервера журнал не растёт: CLI обрезает его, когда старейший запуск вышел за 30 дней с запасом в сутки", async () => {
+  it("без сервера журнал не растёт: CLI обрезает его, когда старейший запуск вышел за 84 дня с запасом в сутки", async () => {
     const root = await makeTempDir();
-    await appendRun(root, { ...RUN, at: "2026-08-20T15:00:00+03:00", command: "old" });
+    await appendRun(root, { ...RUN, at: "2026-06-27T15:00:00+03:00", command: "old" });
     await appendRun(root, RUN);
 
     expect(await trimRunsWhenStale(root, new Date("2026-09-20T12:00:00+03:00"))).toBe(0);

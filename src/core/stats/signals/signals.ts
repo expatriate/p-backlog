@@ -7,7 +7,7 @@ import { period, type Period } from "../period";
 import type { CandidateEvidence, CheckMethod } from "../../journal/events";
 import { accuracy, methodAccuracy } from "../quality/accuracy";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
-import type { AccuracyRow, Signal, WeekFlow } from "../types";
+import type { AccuracyRow, FlowPeriod, Signal } from "../types";
 import { weeklyFlow } from "../weeks";
 
 type CheckGauge = { evidence: CandidateEvidence; method: CheckMethod | null; closed: number; verified: number; precision: number | null };
@@ -30,7 +30,7 @@ export function statsSignals(input: StatsInput, base: ReportBase = reportBase(in
   ];
 }
 
-function debtGrowing(weeks: readonly WeekFlow[]): Signal[] {
+function debtGrowing(weeks: readonly FlowPeriod[]): Signal[] {
   const recent = weeks.slice(0, -1).slice(-GROWTH_WEEKS);
   if (recent.length < GROWTH_WEEKS || !recent.every((week) => week.created > week.closed)) return [];
   const created = sum(recent.map((week) => week.created));

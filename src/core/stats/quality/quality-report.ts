@@ -1,7 +1,7 @@
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { ProjectGraphRow, QualityReport } from "../types";
 import { statsPeriod } from "../weeks";
-import { accuracy, accuracyWeeks, matchAccuracy, methodAccuracy } from "./accuracy";
+import { accuracy, accuracyDays, accuracyWeeks, matchAccuracy, methodAccuracy } from "./accuracy";
 import { categoryBreakdown } from "./categories";
 import { graphFilterEffect } from "./graph-filter";
 import { branchBreakdown, foundBreakdown } from "./origin";
@@ -15,6 +15,7 @@ export function qualityReport(input: StatsInput, base: ReportBase = reportBase(i
     ...base.head,
     accuracy: accuracy(histories, period),
     accuracyWeeks: accuracyWeeks(histories, now),
+    accuracyDays: accuracyDays(histories, now),
     methodAccuracy: methodAccuracy(histories, period),
     matchAccuracy: matchAccuracy(histories, period),
     graph: { projects: graphs, filter: graphFilterEffect(histories, period) },

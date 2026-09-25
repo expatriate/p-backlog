@@ -1,9 +1,10 @@
 import { CANDIDATE_EVIDENCE, RECORDED_MATCHES, RECORDED_METHODS, type CandidateEvidence } from "../../journal/events";
 import { closingsOf, type CandidateSeen, type TaskHistory } from "../history";
 import { formatLocalIso } from "../../model/dates";
+import { dayWindows } from "../days";
 import type { Period } from "../period";
 import { weekWindows } from "../weeks";
-import type { AccuracyRow, AccuracyWeek, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts } from "../types";
+import type { AccuracyPeriod, AccuracyRow, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts } from "../types";
 
 type Outcome = "closed" | "verified" | "open";
 type Episode = { evidence: CandidateEvidence; outcome: Outcome };
@@ -22,17 +23,25 @@ export function accuracy(histories: readonly TaskHistory[], period: Period): Acc
   return [...byEvidence, { evidence: "total", ...outcomeCounts(episodes) }];
 }
 
-export function accuracyWeeks(histories: readonly TaskHistory[], now: Date): AccuracyWeek[] {
-  return weekWindows(now).map((week) => {
+function accuracyOver(periods: readonly Period[], histories: readonly TaskHistory[]): AccuracyPeriod[] {
+  return periods.map((span) => {
     const decided = histories.flatMap((history) =>
       history.candidates
-        .filter((candidate) => week.contains(candidate.at) && candidate.evidence !== "no-source")
+        .filter((candidate) => span.contains(candidate.at) && candidate.evidence !== "no-source")
         .map((candidate) => outcomeAfter(history, candidate.at))
         .filter((outcome) => outcome !== "open"),
     );
     const closed = decided.filter((outcome) => outcome === "closed").length;
-    return { start: formatLocalIso(new Date(week.from)), decided: decided.length, precision: decided.length === 0 ? null : closed / decided.length };
+    return { start: formatLocalIso(new Date(span.from)), decided: decided.length, precision: decided.length === 0 ? null : closed / decided.length };
   });
+}
+
+export function accuracyWeeks(histories: readonly TaskHistory[], now: Date): AccuracyPeriod[] {
+  return accuracyOver(weekWindows(now), histories);
+}
+
+export function accuracyDays(histories: readonly TaskHistory[], now: Date): AccuracyPeriod[] {
+  return accuracyOver(dayWindows(now), histories);
 }
 
 export function methodAccuracy(histories: readonly TaskHistory[], period: Period): MethodAccuracyRow[] {

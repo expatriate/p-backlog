@@ -7,6 +7,14 @@ export const RETENTION_DAYS = 7;
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
+export const DAYS_PER_WEEK = 7;
+
+export const WEEK_MS = DAYS_PER_WEEK * DAY_MS;
+
+export const STATS_WEEKS = 12;
+
+export const STATS_HISTORY_DAYS = STATS_WEEKS * DAYS_PER_WEEK;
+
 export const RESOLUTION_STATUS: Record<Resolution, "done" | "cancelled"> = {
   fixed: "done",
   obsolete: "cancelled",

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import type { Language } from "../../core/i18n/language";
 import { formatShare } from "../../core/stats/format";
-import type { AccuracyWeek } from "../../core/api/contract";
+import type { AccuracyPeriod } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
@@ -16,7 +16,7 @@ const DECIDED = "var(--chart-bar-neutral)";
 const PRECISION = "var(--chart-line-green)";
 
 function weekTooltip(stats: StatsMessages, language: Language) {
-  return rowTooltip((week: AccuracyWeek) => ({
+  return rowTooltip((week: AccuracyPeriod) => ({
     title: stats.weekOf(tooltipDay(language, week.start)),
     rows: [
       { label: stats.decidedCandidates, value: String(week.decided), shape: "bar", color: DECIDED },
@@ -25,7 +25,7 @@ function weekTooltip(stats: StatsMessages, language: Language) {
   }));
 }
 
-export function AccuracyWeeksChart({ weeks }: { weeks: AccuracyWeek[] }) {
+export function AccuracyWeeksChart({ weeks }: { weeks: AccuracyPeriod[] }) {
   const { stats } = useMessages();
   const language = useLanguage();
   const tooltip = useMemo(() => weekTooltip(stats, language), [stats, language]);

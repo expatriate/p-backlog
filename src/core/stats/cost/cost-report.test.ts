@@ -142,6 +142,42 @@ describe("отчёт о стоимости", () => {
     ]);
   });
 
+  it("недели: значения недели равны сумме дней этой недели", () => {
+    const buckets = [
+      bucket({ slot: slotAt(6), tokens: tokens({ input: 400, output: 100 }) }),
+      bucket({ slot: slotAt(9), kind: "cli", tokens: tokens({ input: 300 }) }),
+      bucket({ slot: slotAt(12), model: "claude-unknown-9", tokens: tokens({ input: 200 }) }),
+    ];
+    const runs = [run({ at: atAt(6) }), run({ at: atAt(9), command: "hook stop" }), run({ at: atAt(12) })];
+
+    const report = costReport({ buckets, runs, projectOf: PROJECT_OF, now: NOW, scan: SCAN });
+
+    const weekOffsets = [6, 7, 8, 9, 10, 11, 12];
+    const weekDays = weekOffsets.flatMap((offset) => report.days.filter((day) => day.day === dayAt(offset)));
+    const week = report.weeks.find((candidate) => candidate.start === formatLocalIso(new Date(2026, 8, 7)));
+
+    expect(weekDays).toHaveLength(7);
+    expect(week).toBeDefined();
+    expect(week?.hookTokens).toBe(weekDays.reduce((total, day) => total + day.hookTokens, 0));
+    expect(week?.cliTokens).toBe(weekDays.reduce((total, day) => total + day.cliTokens, 0));
+    expect(week?.hookTurns).toBe(weekDays.reduce((total, day) => total + day.hookTurns, 0));
+    expect(week?.cliRuns).toBe(weekDays.reduce((total, day) => total + day.cliRuns, 0));
+    expect(week?.hookRuns).toBe(weekDays.reduce((total, day) => total + day.hookRuns, 0));
+    expect(week?.hasUnpricedTokens).toBe(weekDays.some((day) => day.hasUnpricedTokens));
+    expect(week?.cost).toBe(weekDays.reduce((total, day) => total + (day.cost ?? 0), 0));
+  });
+
+  it("день старше 30 дней, но в пределах 12 недель, входит в недели, а не в days", () => {
+    const buckets = [bucket({ slot: slotAt(40), tokens: tokens({ input: 1000 }) })];
+    const runs = [run({ at: atAt(40) })];
+
+    const report = costReport({ buckets, runs, projectOf: PROJECT_OF, now: NOW, scan: SCAN });
+
+    expect(report.days.some((day) => day.day === dayAt(40))).toBe(false);
+    const totalWeekTokens = report.weeks.reduce((total, week) => total + week.hookTokens, 0);
+    expect(totalWeekTokens).toBe(1000);
+  });
+
   it("since — самый ранний день среди учтённого вклада в области", () => {
     const buckets = [bucket({ slot: slotAt(3) }), bucket({ slot: slotAt(20) })];
 

@@ -244,17 +244,19 @@ describe("чтение расшифровок по частям", () => {
     expect(pass2.filesDone).toBe(1);
   });
 
-  it("удалённая расшифровка сохраняет вклад, пока он попадает в окно отчёта о расходах", async () => {
+  it("удалённая расшифровка сохраняет вклад, пока он попадает в окно из 12 недель истории", async () => {
     const root = await makeTempDir();
     const file = await transcriptFile(join(root, "session.jsonl"), jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
     const pass1 = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: new Date("2026-09-19T12:00:00Z") });
 
     const soonAfter = await scanTranscripts({ files: [], cache: pass1.cache, byteBudget: BIG_BUDGET, now: new Date("2026-10-10T12:00:00Z") });
-    const monthsAfter = await scanTranscripts({ files: [], cache: soonAfter.cache, byteBudget: BIG_BUDGET, now: new Date("2026-11-19T12:00:00Z") });
+    const sixtyDaysAfter = await scanTranscripts({ files: [], cache: soonAfter.cache, byteBudget: BIG_BUDGET, now: new Date("2026-11-18T12:00:00Z") });
+    const beyondTwelveWeeks = await scanTranscripts({ files: [], cache: sixtyDaysAfter.cache, byteBudget: BIG_BUDGET, now: new Date("2026-12-18T12:00:00Z") });
 
     expect(totalTokens(soonAfter.cache.files)).toBe(120);
     expect(soonAfter).toMatchObject({ filesDone: 0, bytesLeft: 0 });
-    expect(monthsAfter.cache.files).toEqual({});
+    expect(totalTokens(sixtyDaysAfter.cache.files)).toBe(120);
+    expect(beyondTwelveWeeks.cache.files).toEqual({});
   });
 
   it("та же расшифровка под другим путём (симлинк ~/.claude, другой CLAUDE_CONFIG_DIR) не считается второй раз", async () => {
