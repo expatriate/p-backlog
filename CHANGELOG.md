@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.0
+
+Bulk triage in the web UI:
+
+- Select tasks with checkboxes (row checkboxes, "select all visible", Shift+click or Shift+Space for a range, Space on a
+  row's link) and act on all of them at once: close as obsolete with a shared reason, change priority, or move to an epic /
+  out of an epic. Alt+A (⌥A on macOS) jumps to the actions.
+- After an action a notice shows the result ("Closed 11 of 12", skipped tasks as links with the reason) and an **Undo**
+  button that restores status, priority and epic for tasks nobody changed since. An undone close does not count in the
+  statistics.
+- The server applies a batch task by task under the same file locks and version checks as single edits
+  (`POST /api/tasks/batch`); a task locked by another process or changed on disk is skipped, the rest are applied.
+  Selections over 500 tasks are sent in parts.
+
+Other changes:
+
+- An epic closed automatically because all its tasks were done reopens when one of its tasks is open again (edit, undo,
+  a new task in it, `check`, cleanup). `check --json` reports it as the `epic-reopened` fix. A manually closed epic stays
+  closed.
+- An epic from another project is rejected on every write path (web, CLI, bulk action), with a hint to clear the epic.
+- The web UI refetches the task list once after your own edit instead of twice; `/api/projects` now returns
+  `{ projects, revision }` — reload browser tabs opened before the update.
+- The web UI runs without `eval` (zod in jitless mode), so it has no Content Security Policy violations.
+
 ## 0.3.0
 
 CLI contract changes (scripts that parse output or exit codes may need updating):
