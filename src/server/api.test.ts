@@ -115,6 +115,17 @@ describe("PATCH /api/tasks/:id", () => {
     expect(((await cycle.json()) as ErrorResponse).errors[0]).toContain("цикл блокеров");
   });
 
+  it("не назначает эпик из другого проекта", async () => {
+    const backlog = await makeTestApp({ ...SAMPLE_FILES, "torg-io/TI-2.md": taskFile("TI-2", "type: epic\n") });
+    const version = await backlog.taskVersion("SPA-1");
+
+    const response = await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { epic: "TI-2" } });
+
+    expect(response.status).toBe(422);
+    expect(((await response.json()) as ErrorResponse).errors).toEqual(["эпик TI-2 из другого проекта"]);
+    expect((await loadBacklog(backlog.root)).tasks.find((task) => task.id === "SPA-1")?.epic).toBeUndefined();
+  });
+
   it("ошибка разбора правки не показывает интерфейсу путь поля", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
     const version = await backlog.taskVersion("SPA-1");

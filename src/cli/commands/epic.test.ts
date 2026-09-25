@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
+import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -35,5 +36,29 @@ describe("backlog epic", () => {
     expect((await run(["epic", "--to", "SPA-1"])).code).toBe(EXIT.invalid);
 
     expect((await loadBacklog(root)).tasks.every((task) => task.epic === undefined)).toBe(true);
+  });
+
+  it("отказывает на эпике другого проекта", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Задача"]);
+    await writeFiles(root, { "ti/project.md": projectFile("TI"), "ti/TI-1.md": taskFile("TI-1", "type: epic\n") });
+
+    expect(await run(["epic", "SPA-1", "--to", "TI-1"])).toMatchObject({ code: EXIT.invalid, err: expect.stringContaining("эпик TI-1 из другого проекта") });
+    expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-1")?.epic).toBeUndefined();
+  });
+
+  it("эпик другого проекта, записанный раньше, не мешает загрузке, виден в check и снимается через --to none", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": taskFile("SPA-1", "epic: TI-1\n"),
+      "ti/project.md": projectFile("TI"),
+      "ti/TI-1.md": taskFile("TI-1", "type: epic\n"),
+    });
+
+    expect((await loadBacklog(root)).errors).toEqual([]);
+    expect(await run(["check"])).toMatchObject({ code: EXIT.needsReview, out: "Проблемы:\n  SPA-1: эпик TI-1 из другого проекта" });
+
+    expect(await run(["epic", "SPA-1", "--to", "none"])).toMatchObject({ code: EXIT.ok, out: "SPA-1: TI-1 → без эпика" });
   });
 });

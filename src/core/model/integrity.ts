@@ -28,7 +28,7 @@ export function integrityErrors(candidate: Task, index: BacklogIndex): Problem[]
   return errors;
 }
 
-export function epicProblems(candidate: Pick<Task, "id" | "type" | "epic">, resolve: (id: string) => Task | undefined): Problem[] {
+export function epicProblems(candidate: Pick<Task, "id" | "type" | "epic" | "projectId">, resolve: (id: string) => Task | undefined): Problem[] {
   if (candidate.epic === undefined) return [];
   const problems: Problem[] = [];
   if (candidate.epic === candidate.id) {
@@ -37,6 +37,7 @@ export function epicProblems(candidate: Pick<Task, "id" | "type" | "epic">, reso
     const epic = resolve(candidate.epic);
     if (!epic) problems.push({ code: "epic-missing", epic: candidate.epic });
     else if (epic.type !== "epic") problems.push({ code: "epic-not-epic", epic: candidate.epic });
+    else if (epic.projectId !== candidate.projectId) problems.push({ code: "epic-foreign-project", epic: candidate.epic });
   }
   if (candidate.type === "epic") problems.push({ code: "epic-in-epic" });
   return problems;

@@ -167,6 +167,8 @@ function problem(p: Problem): string {
       return `эпик ${p.epic} не найден`;
     case "epic-not-epic":
       return `${p.epic} не является эпиком`;
+    case "epic-foreign-project":
+      return `эпик ${p.epic} из другого проекта`;
     case "epic-in-epic":
       return "эпик не может входить в другой эпик";
     case "reference-missing":

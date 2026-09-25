@@ -126,7 +126,7 @@ describe("applyBatch", () => {
 
     const outcomes = await applyBatch(index, { tasks: [{ id: t2.id, version: before.version }], action: { kind: "epic", epic: otherEpic.id }, now: NOW });
 
-    expect(outcomes).toEqual([{ id: t2.id, outcome: "skipped", reason: "invalid" }]);
+    expect(outcomes).toEqual([{ id: t2.id, outcome: "skipped", reason: "invalid", problems: [{ code: "epic-foreign-project", epic: otherEpic.id }] }]);
     const after = (await loadBacklog(root)).tasks.find((task) => task.id === t2.id);
     expect(after?.epic).toBe(before.epic);
     expect(after?.version).toBe(before.version);

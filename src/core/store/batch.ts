@@ -24,7 +24,7 @@ export async function applyBatch(index: BacklogIndex, { tasks, action, now }: Ba
 async function applyOne(index: BacklogIndex, { id, version }: { id: string; version: string }, action: BatchAction, now: Date): Promise<CoreBatchOutcome> {
   const current = index.byId.get(id);
   if (!current) return { id, outcome: "skipped", reason: "not-found" };
-  const plan = planFor(current, action, index);
+  const plan = planFor(current, action);
   if ("skip" in plan) return { id, outcome: "skipped", reason: plan.skip };
   const result = await updateUnlessBusy(index, { id, changes: plan.changes, closure: plan.closure, expectedVersion: version, now, via: "web", undo: action.kind === "restore" });
   if (result === "busy") return { id, outcome: "skipped", reason: "busy" };
@@ -43,25 +43,21 @@ async function updateUnlessBusy(index: BacklogIndex, request: UpdateTaskRequest)
   }
 }
 
-function planFor(current: Task, action: BatchAction, index: BacklogIndex): Plan {
+function planFor(current: Task, action: BatchAction): Plan {
   switch (action.kind) {
     case "close":
       return isClosed(current.status) ? { skip: "already-closed" } : { changes: { status: "cancelled" }, closure: { resolution: "obsolete", reason: action.reason } };
     case "priority":
       return { changes: { priority: action.priority } };
     case "epic":
-      return epicPlan(current, action.epic, index);
+      return epicPlan(current, action.epic);
     case "restore":
       return restorePlan(current, action.changes[current.id]);
   }
 }
 
-function epicPlan(current: Task, epic: string | null, index: BacklogIndex): Plan {
-  if (current.type === "epic") return { skip: "invalid" };
-  if (epic === null) return { changes: { epic: null } };
-  const target = index.byId.get(epic);
-  if (!target || target.type !== "epic" || target.projectId !== current.projectId) return { skip: "invalid" };
-  return { changes: { epic } };
+function epicPlan(current: Task, epic: string | null): Plan {
+  return current.type === "epic" ? { skip: "invalid" } : { changes: { epic } };
 }
 
 function restorePlan(current: Task, previous: BatchPrevious | undefined): Plan {

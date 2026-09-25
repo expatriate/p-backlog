@@ -17,6 +17,7 @@ export type Problem =
   | { code: "epic-self" }
   | { code: "epic-missing"; epic: string }
   | { code: "epic-not-epic"; epic: string }
+  | { code: "epic-foreign-project"; epic: string }
   | { code: "epic-in-epic" }
   | { code: "reference-missing"; id: string }
   | { code: "no-frontmatter" }
