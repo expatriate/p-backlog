@@ -19,7 +19,7 @@ async function sandboxWithChangedSource() {
 }
 
 describe("backlog check", () => {
-  it("перечисляет кандидатов с уликами и завершается кодом 1", async () => {
+  it("перечисляет кандидатов с уликами и завершается кодом 5", async () => {
     const { run } = await sandboxWithChangedSource();
 
     const result = await run(["check"]);
@@ -27,6 +27,16 @@ describe("backlog check", () => {
     expect(result.code).toBe(EXIT.needsReview);
     expect(result.out).toMatch(/^Кандидаты на закрытие:\n {2}SPA-1 — Таймаут: код менялся \(src\/a\.ts\): [0-9a-f]{7,} Поправить таймаут$/);
     expect((await run(["check", "--changed"])).code).toBe(EXIT.needsReview);
+  });
+
+  it("проблема настройки проекта видна в отчёте, но перепроверять нечего — код 0", async () => {
+    const { run, root } = await makeCliSandbox();
+    await writeFiles(root, { "docs/project.md": "---\nname: docs\nprefix: DOC\nrepos: []\n---\n" });
+
+    const result = await run(["check", "--project", "docs", "--json"]);
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(JSON.parse(result.out).problems).toEqual([{ kind: "project-without-repos", projectId: "docs" }]);
   });
 
   it("--json отдаёт отчёт целиком", async () => {

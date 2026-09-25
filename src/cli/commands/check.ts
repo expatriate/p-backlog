@@ -1,4 +1,5 @@
 import { checkBacklog, type CheckReport } from "../../core/check/check-backlog";
+import type { CheckProblem } from "../../core/check/findings";
 import { coreMessages } from "../../core/messages";
 import type { Language } from "../../core/i18n/language";
 import { loadBacklog } from "../../core/store/load";
@@ -28,7 +29,13 @@ async function runCheck(args: string[], io: CliIo): Promise<number> {
 
   const report = await checkBacklog(io.backlogRoot, loaded, { projectIds, mode: values.changed ? "changed" : "full", now: io.now(), home: io.home, messages: coreMessages(io.language), workingDir: io.cwd });
   io.print(values.json ? JSON.stringify(report, null, 2) : formatReport(io.language, report));
-  return report.candidates.length > 0 || report.problems.length > 0 ? EXIT.needsReview : EXIT.ok;
+  return needsReview(report) ? EXIT.needsReview : EXIT.ok;
+}
+
+const TASK_PROBLEMS: ReadonlySet<CheckProblem["kind"]> = new Set(["task-invalid", "fix-failed", "file-not-parsed"]);
+
+function needsReview({ candidates, problems }: CheckReport): boolean {
+  return candidates.length > 0 || problems.some((problem) => TASK_PROBLEMS.has(problem.kind));
 }
 
 function formatReport(language: Language, { fixed, problems, candidates }: CheckReport): string {

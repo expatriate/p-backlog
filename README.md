@@ -122,8 +122,8 @@ If there's no project yet, `backlog new` creates it.
 | `backlog service install \| uninstall \| status` | Autostarts the web server at login: launchd on macOS, systemd --user on Linux, a Startup-folder script on Windows; `status` shows whether it is installed and responding |
 
 Exit codes: `0` success, `1` argument or rule error, `2` not found, `3` refused (the task is closed,
-blocked, or every matching task is blocked), `4` the command failed, `5` `check` found something to
-re-check.
+blocked, or every matching task is blocked), `4` the command failed, `5` `check` found candidates or task problems to
+work through.
 
 A project that's no longer maintained is marked inactive: its tasks drop out of the combined "Projects"
 scope's list and statistics, but the project's own page works as usual. Checks (`backlog check`), the Stop

@@ -127,12 +127,13 @@ When: the hook message "code changed for tasks since the last check", a request 
    Dangling references, completed epics, and shifted `source` — it already fixed those itself; that's the
    `fixed` field, a list of `{ kind, taskId, … }`: `references-removed` — references to missing tasks `ids`
    removed; `epic-closed` — the epic closed, all its tasks `childIds` are closed; `source-moved` — `source`
-   moved `from` → `to`. Relay it to the user in one line.
+   moved `from` → `to`. Relay it to the user in one line. Exit code 5 is not a failure: there are candidates or
+   task problems to work through; 0 means there is nothing to work through.
 2. A `source-changed` candidate already has `problem` in the JSON — the task description's first
    paragraph — `snippet` — the current code around `source` with line numbers — and `diff` — the file's
    changes since the last check (when cut short, `diffOmittedLines` says how many lines are not shown).
    That's usually enough: decide from them without calling `show`, `grep`, or `git show`. Read the task (`backlog show <ID>`) and the whole file only when `snippet` and `diff`
-   aren't enough to tell; for `duplicate` and `no-source` always read the task.
+   aren't enough to tell; for `duplicate` and `source-missing` always read the task.
    If the candidate has a `source` field, the task's lines have shifted: that is its place in the current
    file, and `snippet` is shown around it. When the problem is still there — `backlog verify <ID> --source
    <that source>`.
