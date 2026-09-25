@@ -118,9 +118,9 @@ export function TaskListPage() {
             selection={selection}
             tasks={view.allTasks}
             tones={view.tones}
-            onDone={(response, request) => {
+            onDone={(result) => {
               selection.clear();
-              showBatchResult({ request, response });
+              showBatchResult(result);
             }}
           />
         </div>

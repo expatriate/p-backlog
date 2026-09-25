@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FocusEvent } from "react";
 import { Link } from "react-router";
 import type { BatchOutcome, BatchRequest, BatchResponse } from "../../core/api/contract";
-import { useBatchTasks } from "../app/queries";
+import { PartialBatchError, useBatchTasks } from "../app/queries";
 import { requestErrorMessage } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
@@ -10,7 +10,7 @@ import styles from "./BatchNotice.module.css";
 
 const NOTICE_LIFETIME_MS = 15_000;
 
-export type BatchResult = { request: BatchRequest; response: BatchResponse };
+export type BatchResult = { request: BatchRequest; response: BatchResponse; failure?: { error: Error; rest: BatchRequest } };
 
 type DoneOutcome = Extract<BatchOutcome, { outcome: "done" }>;
 type SkippedOutcome = Extract<BatchOutcome, { outcome: "skipped" }>;
@@ -52,12 +52,19 @@ export function BatchNotice({ result, onResult, taskHref }: BatchNoticeProps) {
 
   const done = result?.response.results.filter((outcome): outcome is DoneOutcome => outcome.outcome === "done") ?? [];
   const skipped = result?.response.results.filter((outcome): outcome is SkippedOutcome => outcome.outcome === "skipped") ?? [];
-  const undoable = result !== null && result.request.action.kind !== "restore" && done.length > 0;
+  const undoRequest = result === null ? undefined : nextUndoRequest(result, done);
 
   const runUndo = () => {
-    if (isPending) return;
-    const request = restoreRequestFor(done);
-    undo.mutate(request, { onSuccess: (response) => onResult({ request, response }) });
+    if (isPending || result === null || undoRequest === undefined) return;
+    const base: BatchResult = result.request.action.kind === "restore" ? result : { request: undoRequest, response: { results: [] } };
+    const settle = (response: BatchResponse, failure?: BatchResult["failure"]) =>
+      onResult({ request: base.request, response: { results: [...base.response.results, ...response.results] }, ...(failure && { failure }) });
+    undo.mutate(undoRequest, {
+      onSuccess: (response) => settle(response),
+      onError: (error) => {
+        if (error instanceof PartialBatchError) settle(error.done, { error: error.failure, rest: error.rest });
+      },
+    });
   };
 
   return (
@@ -65,7 +72,7 @@ export function BatchNotice({ result, onResult, taskHref }: BatchNoticeProps) {
       {result !== null && (
         <>
           <p ref={summary} tabIndex={-1} className={styles.summary}>
-            {list.batchSummary[result.request.action.kind](done.length, result.response.results.length)}
+            {list.batchSummary[result.request.action.kind](done.length, result.request.tasks.length)}
           </p>
           {skipped.length > 0 && (
             <ul className={styles.skipped}>
@@ -76,12 +83,18 @@ export function BatchNotice({ result, onResult, taskHref }: BatchNoticeProps) {
               ))}
             </ul>
           )}
-          {undoable && (
+          {undoRequest !== undefined && (
             <Button ref={undoButton} busy={isPending} onClick={runUndo}>
               {list.undo}
             </Button>
           )}
-          {undo.error !== null && (
+          {undo.error === null && result.failure !== undefined && (
+            <p className={styles.error} role="alert">
+              {result.request.action.kind === "restore" ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)}:{" "}
+              {requestErrorMessage(app, result.failure.error)}
+            </p>
+          )}
+          {undo.error !== null && !(undo.error instanceof PartialBatchError) && (
             <p className={styles.error} role="alert">
               {list.undoFailed}: {requestErrorMessage(app, undo.error)}
             </p>
@@ -90,6 +103,15 @@ export function BatchNotice({ result, onResult, taskHref }: BatchNoticeProps) {
       )}
     </div>
   );
+}
+
+export function partialBatchResult(request: BatchRequest, error: Error): BatchResult | null {
+  return error instanceof PartialBatchError ? { request, response: error.done, failure: { error: error.failure, rest: error.rest } } : null;
+}
+
+function nextUndoRequest(result: BatchResult, done: readonly DoneOutcome[]): BatchRequest | undefined {
+  if (result.request.action.kind === "restore") return result.failure?.rest;
+  return done.length > 0 ? restoreRequestFor(done) : undefined;
 }
 
 function restoreRequestFor(done: readonly DoneOutcome[]): BatchRequest {

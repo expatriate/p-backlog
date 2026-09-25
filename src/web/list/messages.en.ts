@@ -79,6 +79,7 @@ export const listEn: ListMessages = {
     epic: changedSummary,
     restore: (done, total) => `Restored ${done} of ${total}`,
   },
+  notChanged: (n) => `${countEn(n, "task", "tasks")} not changed`,
   undo: "Undo",
   undoFailed: "Couldn't undo",
 

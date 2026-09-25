@@ -15,7 +15,9 @@ const FILES = {
   "spa/SPA-10.md": taskFixture("SPA-10", { title: "Загрузка файлов", type: "epic" }),
 };
 
-function recordBatches(failRestore = false) {
+type FailWhen = (body: BatchRequest, attempt: number) => boolean;
+
+function recordBatches(failWhen: FailWhen = () => false) {
   const sent: BatchRequest[] = [];
   const beforeRender = (app: TestApp) => {
     const request = app.request;
@@ -23,7 +25,7 @@ function recordBatches(failRestore = false) {
       if (path !== "/api/tasks/batch") return request(path, init);
       const body = JSON.parse(String(init?.body)) as BatchRequest;
       sent.push(body);
-      if (failRestore && body.action.kind === "restore") {
+      if (failWhen(body, sent.length)) {
         return new Response(JSON.stringify({ errors: ["EACCES: permission denied"] }), { status: 500, headers: { "content-type": "application/json" } });
       }
       return request(path, init);
@@ -53,6 +55,18 @@ async function closeSelected(app: RenderedApp, reason: string) {
   const dialog = screen.getByRole("dialog");
   await app.user.type(within(dialog).getByRole("textbox", { name: "Причина" }), reason);
   await app.user.click(within(dialog).getByRole("button", { name: /^Закрыть \d+$/ }));
+}
+
+async function renderManyAndRaisePriority(beforeRender: (app: TestApp) => void) {
+  const many = Object.fromEntries(Array.from({ length: 520 }, (_, index) => [`spa/SPA-${index + 1}.md`, taskFixture(`SPA-${index + 1}`, { priority: "low" })]));
+  const app = await renderApp({ "spa/project.md": projectFile("SPA"), ...many }, "/", undefined, { beforeRender });
+  await screen.findAllByRole("row");
+  await app.user.click(screen.getByRole("checkbox", { name: "Выбрать все видимые" }));
+  await app.user.type(screen.getByRole("searchbox", { name: "Поиск задач" }), "SPA-520");
+  const panel = screen.getByRole("region", { name: "Действия с выбранными" });
+  await app.user.click(within(panel).getByRole("button", { name: "Приоритет" }));
+  await app.user.click(within(panel).getByRole("button", { name: "критичный" }));
+  return app;
 }
 
 async function findNotice(summary: string) {
@@ -133,15 +147,8 @@ describe("уведомление об итоге массового действ
   });
 
   it("больше 500 выбранных уходят частями по 500, итог и отмена — общие на все", { timeout: 20_000 }, async () => {
-    const many = Object.fromEntries(Array.from({ length: 520 }, (_, index) => [`spa/SPA-${index + 1}.md`, taskFixture(`SPA-${index + 1}`, { priority: "low" })]));
     const { sent, beforeRender } = recordBatches();
-    const app = await renderApp({ "spa/project.md": projectFile("SPA"), ...many }, "/", undefined, { beforeRender });
-    await screen.findAllByRole("row");
-    await app.user.click(screen.getByRole("checkbox", { name: "Выбрать все видимые" }));
-    await app.user.type(screen.getByRole("searchbox", { name: "Поиск задач" }), "SPA-520");
-    const panel = screen.getByRole("region", { name: "Действия с выбранными" });
-    await app.user.click(within(panel).getByRole("button", { name: "Приоритет" }));
-    await app.user.click(within(panel).getByRole("button", { name: "критичный" }));
+    const app = await renderManyAndRaisePriority(beforeRender);
 
     const notice = await findNotice("Изменено 520 из 520");
     expect(sent.map((request) => request.tasks.length)).toEqual([500, 20]);
@@ -155,8 +162,38 @@ describe("уведомление об итоге массового действ
     expect((await taskOnDisk(app.root, "SPA-520")).priority).toBe("low");
   });
 
+  it("сбой второй части: итог и отмена сделанной части остаются, ошибка видна", { timeout: 20_000 }, async () => {
+    const { sent, beforeRender } = recordBatches((_, attempt) => attempt === 2);
+    const app = await renderManyAndRaisePriority(beforeRender);
+
+    const notice = await findNotice("Изменено 500 из 520");
+    expect(within(notice).getByRole("alert").textContent).toContain("Не изменено 20 задач");
+    await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
+
+    await findNotice("Возвращено 500 из 500");
+    expect(sent[2]?.tasks.length).toBe(500);
+    expect((await taskOnDisk(app.root, "SPA-1")).priority).toBe("low");
+  });
+
+  it("сбой второй части отмены: итог возвращённых и повтор отмены для остальных", { timeout: 20_000 }, async () => {
+    let failing = true;
+    const { beforeRender } = recordBatches((body, attempt) => failing && body.action.kind === "restore" && attempt === 4);
+    const app = await renderManyAndRaisePriority(beforeRender);
+    await app.user.click(within(await findNotice("Изменено 520 из 520")).getByRole("button", { name: "Отменить" }));
+
+    const notice = await findNotice("Возвращено 500 из 520");
+    expect(within(notice).getByRole("alert").textContent).toContain("Не удалось отменить");
+    expect((await taskOnDisk(app.root, "SPA-520")).priority).toBe("critical");
+    failing = false;
+    await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
+
+    await findNotice("Возвращено 520 из 520");
+    expect((await taskOnDisk(app.root, "SPA-520")).priority).toBe("low");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("неудавшаяся отмена видна и не переезжает в следующее уведомление", async () => {
-    const { beforeRender } = recordBatches(true);
+    const { beforeRender } = recordBatches((body) => body.action.kind === "restore");
     const app = await renderApp(FILES, "/", undefined, { beforeRender });
     await select(app, "SPA-1");
     await closeSelected(app, "дубль");

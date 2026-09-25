@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import type { BatchAction, BatchRequest, BatchResponse } from "../../core/api/contract";
+import type { BatchAction, BatchRequest } from "../../core/api/contract";
 import { compareIds } from "../../core/model/ids";
 import { PRIORITIES, type Priority, type Task } from "../../core/model/types";
 import { useBatchTasks } from "../app/queries";
@@ -12,6 +12,7 @@ import { MenuOption, MenuOptions } from "../ui/Menu";
 import { Popover, useClosePopover } from "../ui/Popover";
 import { epicChoices, type EpicChoice } from "./epic-choices";
 import { EpicLabel } from "./EpicLabel";
+import { partialBatchResult, type BatchResult } from "./BatchNotice";
 import type { TaskSelection } from "./use-task-selection";
 import styles from "./BulkActions.module.css";
 
@@ -19,7 +20,7 @@ export type BulkActionsProps = {
   selection: Pick<TaskSelection, "selected" | "hiddenCount" | "clear">;
   tasks: readonly Task[];
   tones: EpicTones;
-  onDone: (response: BatchResponse, request: BatchRequest) => void;
+  onDone: (result: BatchResult) => void;
 };
 
 export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProps) {
@@ -36,7 +37,13 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
   const run = (action: BatchAction) => {
     if (isPending) return;
     const request: BatchRequest = { tasks: chosen.map(({ id, version }) => ({ id, version })), action };
-    batch.mutate(request, { onSuccess: (response) => onDone(response, request) });
+    batch.mutate(request, {
+      onSuccess: (response) => onDone({ request, response }),
+      onError: (error) => {
+        const partial = partialBatchResult(request, error);
+        if (partial) onDone(partial);
+      },
+    });
   };
 
   return (

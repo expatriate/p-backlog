@@ -79,6 +79,7 @@ export const listRu = {
     epic: changedSummary,
     restore: (done: number, total: number): string => `${pluralRu(done, "Возвращена", "Возвращено", "Возвращено")} ${done} из ${total}`,
   },
+  notChanged: (n: number): string => `${pluralRu(n, "Не изменена", "Не изменены", "Не изменено")} ${n} ${pluralRu(n, "задача", "задачи", "задач")}`,
   undo: "Отменить",
   undoFailed: "Не удалось отменить",
 
