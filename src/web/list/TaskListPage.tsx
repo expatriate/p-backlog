@@ -10,9 +10,11 @@ import { useSettledValue } from "../ui/use-settled-value";
 import { useStatusFocus } from "../ui/use-status-focus";
 import { TaskPanel } from "../task/TaskPanel";
 import type { ListMessages } from "./messages.ru";
+import { BatchNotice, useBatchResult } from "./BatchNotice";
 import { BulkActions } from "./BulkActions";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
+import { useScrollSpaceFor } from "./use-scroll-space";
 import { useSeenTasks } from "./use-seen-tasks";
 import { useSelectedTask } from "./use-selected-task";
 import { useTaskSelection } from "./use-task-selection";
@@ -37,6 +39,9 @@ export function TaskListPage() {
   const visibleIds = useMemo(() => view.visibleTasks.map((task) => task.id), [view.visibleTasks]);
   const loadedIds = useMemo(() => new Set(view.allTasks.map((task) => task.id)), [view.allTasks]);
   const selection = useTaskSelection(visibleIds, projectId ?? "", loadedIds);
+  const [batchResult, showBatchResult] = useBatchResult(projectId ?? "");
+  const footer = useRef<HTMLDivElement>(null);
+  useScrollSpaceFor(footer);
 
   const viewTitle = viewTitleFor(list, view.projectName, params.filter.onlyAutoClosed === true);
   useEffect(() => {
@@ -107,7 +112,18 @@ export function TaskListPage() {
             />
           )}
         </div>
-        <BulkActions selection={selection} tasks={view.allTasks} tones={view.tones} onDone={selection.clear} />
+        <div ref={footer} className={styles.footer}>
+          <BatchNotice result={batchResult} onResult={showBatchResult} taskHref={taskHref} />
+          <BulkActions
+            selection={selection}
+            tasks={view.allTasks}
+            tones={view.tones}
+            onDone={(response, request) => {
+              selection.clear();
+              showBatchResult({ request, response });
+            }}
+          />
+        </div>
       </div>
 
       {selectedTask && (

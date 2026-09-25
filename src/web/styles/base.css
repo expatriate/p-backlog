@@ -13,7 +13,7 @@ body,
 }
 
 html {
-  scroll-padding-bottom: var(--bulk-panel-height, 0px);
+  scroll-padding-bottom: var(--list-footer-height, 0px);
 }
 
 body {

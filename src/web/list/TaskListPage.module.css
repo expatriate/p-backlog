@@ -11,7 +11,7 @@
   flex-direction: column;
   min-width: 0;
   overflow-y: var(--main-overflow, auto);
-  scroll-padding-bottom: var(--bulk-panel-height, 0px);
+  scroll-padding-bottom: var(--list-footer-height, 0px);
 }
 
 .heading {
@@ -48,4 +48,11 @@
 .warning ul {
   margin: var(--space-2) 0 0;
   padding-left: var(--space-4);
+}
+
+.footer {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-dropdown);
+  margin-top: auto;
 }

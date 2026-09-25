@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import type { BatchAction, BatchRequest, BatchResponse } from "../../core/api/contract";
 import { compareIds } from "../../core/model/ids";
 import { PRIORITIES, type Priority, type Task } from "../../core/model/types";
@@ -15,8 +15,6 @@ import { EpicLabel } from "./EpicLabel";
 import type { TaskSelection } from "./use-task-selection";
 import styles from "./BulkActions.module.css";
 
-const PANEL_HEIGHT_PROPERTY = "--bulk-panel-height";
-
 export type BulkActionsProps = {
   selection: Pick<TaskSelection, "selected" | "hiddenCount" | "clear">;
   tasks: readonly Task[];
@@ -27,8 +25,6 @@ export type BulkActionsProps = {
 export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProps) {
   const { list, app } = useMessages();
   const batch = useBatchTasks();
-  const panel = useRef<HTMLElement>(null);
-  useScrollSpaceFor(panel);
   const chosen = useMemo(() => tasks.filter((task) => selection.selected.has(task.id)).sort((a, b) => compareIds(a.id, b.id)), [tasks, selection.selected]);
   const shown = chosen.length > 0;
 
@@ -44,7 +40,7 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
   };
 
   return (
-    <section ref={panel} className={shown ? styles.panel : undefined} aria-label={shown ? list.selectionActions : undefined}>
+    <section className={shown ? styles.panel : undefined} aria-label={shown ? list.selectionActions : undefined}>
       <p className={styles.count} role="status">
         {shown && list.selectedCount(chosen.length)}
         {shown && selection.hiddenCount > 0 && <span className={styles.hidden}> {list.hiddenByFilter(selection.hiddenCount)}</span>}
@@ -57,24 +53,6 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
       )}
     </section>
   );
-}
-
-function useScrollSpaceFor(panel: RefObject<HTMLElement | null>) {
-  useLayoutEffect(() => reserveScrollSpace(panel.current));
-  useEffect(() => {
-    const element = panel.current;
-    if (!element) return;
-    const observer = new ResizeObserver(() => reserveScrollSpace(element));
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-      document.documentElement.style.removeProperty(PANEL_HEIGHT_PROPERTY);
-    };
-  }, [panel]);
-}
-
-function reserveScrollSpace(panel: HTMLElement | null) {
-  if (panel) document.documentElement.style.setProperty(PANEL_HEIGHT_PROPERTY, `${panel.offsetHeight}px`);
 }
 
 type SelectionActionsProps = {

@@ -1,5 +1,7 @@
 import { countRu, pluralRu } from "../../core/i18n/plural";
 
+const changedSummary = (done: number, total: number): string => `${pluralRu(done, "Изменена", "Изменено", "Изменено")} ${done} из ${total}`;
+
 export const listRu = {
   docTitle: (title: string): string => `${title} — Беклог`,
   taskDocTitle: (id: string, title: string): string => `${id} · ${title} — Беклог`,
@@ -71,6 +73,14 @@ export const listRu = {
   mixedProjects: "Задачи из разных проектов",
   clearSelection: "Снять выбор",
   bulkFailed: "Не удалось изменить задачи",
+  batchSummary: {
+    close: (done: number, total: number): string => `${pluralRu(done, "Закрыта", "Закрыто", "Закрыто")} ${done} из ${total}`,
+    priority: changedSummary,
+    epic: changedSummary,
+    restore: (done: number, total: number): string => `${pluralRu(done, "Возвращена", "Возвращено", "Возвращено")} ${done} из ${total}`,
+  },
+  undo: "Отменить",
+  undoFailed: "Не удалось отменить",
 
   collapseTags: "свернуть",
   showMoreTags: (n: number): string => `Показать ещё ${n}`,

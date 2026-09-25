@@ -1,6 +1,8 @@
 import { countEn, pluralEn } from "../../core/i18n/plural";
 import type { ListMessages } from "./messages.ru";
 
+const changedSummary = (done: number, total: number): string => `Changed ${done} of ${total}`;
+
 export const listEn: ListMessages = {
   docTitle: (title) => `${title} — Backlog`,
   taskDocTitle: (id, title) => `${id} · ${title} — Backlog`,
@@ -71,6 +73,14 @@ export const listEn: ListMessages = {
   mixedProjects: "Tasks from different projects",
   clearSelection: "Clear selection",
   bulkFailed: "Couldn't change the tasks",
+  batchSummary: {
+    close: (done, total) => `Closed ${done} of ${total}`,
+    priority: changedSummary,
+    epic: changedSummary,
+    restore: (done, total) => `Restored ${done} of ${total}`,
+  },
+  undo: "Undo",
+  undoFailed: "Couldn't undo",
 
   collapseTags: "collapse",
   showMoreTags: (n) => `Show ${n} more`,
