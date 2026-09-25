@@ -1,3 +1,5 @@
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { loadBacklog } from "../../core/store/load";
@@ -540,6 +542,18 @@ describe("черновик описания при уходе с задачи", 
     await waitFor(() => expect(patches.sent).toHaveLength(2));
     await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe(""));
     expect(within(panel).getAllByRole("alert").map((alert) => alert.textContent).join()).toContain("Описание изменилось на диске");
+  });
+
+  it("задача исчезла с диска во время черновика — карточка остаётся с черновиком и предупреждением", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await startDraft(app);
+
+    await rm(join(app.root, "spa/SPA-1.md"));
+    app.emitChange();
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Таймауты загрузки" })).toBeNull());
+
+    expect(within(panel).getByRole("alert").textContent).toBe("Задачи SPA-1 больше нет в беклоге: её удалили или перенесли.");
+    expect(within(panel).getByRole("textbox", { name: "Описание задачи" })).toHaveProperty("value", expect.stringContaining("черновик"));
   });
 
   it("«Отмена» после конфликта описания снимает предупреждение: повторять нечего", async () => {

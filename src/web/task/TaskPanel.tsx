@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { formatDateTime } from "../../core/i18n/format";
@@ -10,7 +10,7 @@ import type { Task } from "../../core/model/types";
 import { ApiError } from "../api/client";
 import type { AppMessages } from "../app/messages.ru";
 import { TaskGoneError, useUpdateTask, type BodyEdit, type TaskChange } from "../app/queries";
-import { requestErrorMessage } from "../app/RequestErrorText";
+import { requestErrorMessage } from "../app/RequestFailure";
 import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { Countdown } from "../ui/Countdown";
@@ -33,6 +33,7 @@ export type TaskPanelProps = {
   taskHref: TaskHref;
   onClose: () => void;
   tone: number | undefined;
+  gone: boolean;
 };
 
 const TASK_LIST_ID = "task-ids";
@@ -40,7 +41,7 @@ const EPIC_LIST_ID = "epic-ids";
 
 type BodyDraft = { text: string; from: BodyEdit };
 
-export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskPanelProps) {
+export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }: TaskPanelProps) {
   const language = useLanguage();
   const { app, core, task: t } = useMessages();
   const updateTask = useUpdateTask();
@@ -53,7 +54,13 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
   const [saveError, setSaveError] = useState<Error | null>(null);
   const [conflictField, setConflictField] = useState<string | null>(null);
   const errorText = (error: Error) => saveErrorText(error, app, t);
-  const cardAlerts = cardAlertTexts({ bodyError, saveError, conflictField, draftOpen: bodyDraft !== null }, t, errorText);
+  const bodyAlert = bodyError === null ? null : isConflict(bodyError) && bodyDraft !== null ? t.draftConflict : errorText(bodyError);
+  const cardAlerts = distinctTexts([
+    gone ? t.taskGone(task.id) : null,
+    bodyAlert,
+    saveError === null ? null : errorText(saveError),
+    conflictField === null ? null : t.fieldConflict(conflictField),
+  ]);
 
   const saveNote = useSaveNote(updateTask.isPending, updateTask.isSuccess && cardAlerts.length === 0, updateTask.submittedAt, t);
   const save = (change: TaskChange) => {
@@ -95,6 +102,15 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
       setBodySaving(false);
     }
   };
+  const refOptions = useMemo(
+    () => (
+      <>
+        <TaskOptions id={TASK_LIST_ID} tasks={tasks.filter((other) => other.id !== task.id)} />
+        <TaskOptions id={EPIC_LIST_ID} tasks={tasks.filter((candidate) => candidate.type === "epic")} />
+      </>
+    ),
+    [tasks, task.id],
+  );
   const idPrefix = parseId(task.id)?.prefix ?? task.id;
   const warnings = taskWarnings(task, index).map(core.problem);
   const children = task.type === "epic" ? epicChildren(task, index) : [];
@@ -189,19 +205,13 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
       />
       <ReadonlyRefs label={t.epicChildrenLabel} tasks={children} taskHref={taskHref} />
 
-      <TaskOptions id={TASK_LIST_ID} tasks={tasks.filter((other) => other.id !== task.id)} />
-      <TaskOptions id={EPIC_LIST_ID} tasks={tasks.filter((candidate) => candidate.type === "epic")} />
+      {refOptions}
     </SidePanel>
   );
 }
 
-type CardAlerts = { bodyError: Error | null; saveError: Error | null; conflictField: string | null; draftOpen: boolean };
-
-function cardAlertTexts({ bodyError, saveError, conflictField, draftOpen }: CardAlerts, t: TaskMessages, errorText: (error: Error) => string): string[] {
-  const bodyText = bodyError === null ? null : isConflict(bodyError) && draftOpen ? t.draftConflict : errorText(bodyError);
-  const saveText = saveError === null ? null : errorText(saveError);
-  const fieldText = conflictField === null ? null : t.fieldConflict(conflictField);
-  return [...new Set([bodyText, saveText, fieldText].filter((text) => text !== null))];
+function distinctTexts(texts: (string | null)[]): string[] {
+  return [...new Set(texts.filter((text) => text !== null))];
 }
 
 function saveErrorText(error: Error, app: AppMessages, t: TaskMessages): string {
@@ -270,10 +280,8 @@ function TitleField({ title: serverTitle, label, onSave, onConflict }: TitleFiel
       }}
       onBlur={() => {
         const next = title.value.trim();
-        if (next === "") return title.reset();
-        const outcome = title.commit(next);
-        if (outcome === "save") onSave(next);
-        if (outcome === "conflict") onConflict(label);
+        if (next === "") title.reset();
+        else title.commit(next, { save: () => onSave(next), conflict: () => onConflict(label) });
       }}
     />
   );

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryOptions } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient, type UseMutationResult, type UseQueryOptions } from "@tanstack/react-query";
 import { useEffect } from "react";
 import type { MemorySamplesResponse, ProjectView, SettingsResponse, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import { MEMORY_SAMPLE_INTERVAL_MS } from "../../core/api/memory";
@@ -13,6 +13,7 @@ const STATS_KEY = ["stats"];
 const SETTINGS_KEY = ["settings"];
 
 const STATS_STALE_MS = 60_000;
+const COST_SCAN_POLL_MS = 10_000;
 
 export function useSettings() {
   const { client } = useBacklogApi();
@@ -66,7 +67,7 @@ export function useCostStats(projectId: string | undefined) {
     staleTime: 0,
     refetchInterval: (query) => {
       const scan = query.state.data?.scan;
-      return scan !== undefined && (!scan.listed || scan.bytesLeft > 0) ? 10_000 : false;
+      return scan !== undefined && (!scan.listed || scan.bytesLeft > 0) ? COST_SCAN_POLL_MS : false;
     },
   });
 }
@@ -88,7 +89,7 @@ export function useSetProjectActive(): UseMutationResult<Project, Error, SetProj
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, active }: SetProjectActiveVariables) => client.setProjectActive(id, active),
-    onSuccess: () => invalidateScope(queryClient),
+    onSuccess: () => invalidateFileData(queryClient),
   });
 }
 
@@ -99,11 +100,11 @@ export function useDeleteProject(): UseMutationResult<void, Error, DeleteProject
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, confirm }: DeleteProjectVariables) => client.deleteProject(id, confirm),
-    onSuccess: () => invalidateScope(queryClient),
+    onSuccess: () => invalidateFileData(queryClient),
   });
 }
 
-function invalidateScope(queryClient: ReturnType<typeof useQueryClient>): void {
+function invalidateFileData(queryClient: QueryClient): void {
   for (const queryKey of [PROJECTS_KEY, TASKS_KEY, STATS_KEY]) void queryClient.invalidateQueries({ queryKey });
 }
 
@@ -151,22 +152,18 @@ export function useLiveUpdates(): void {
   useEffect(() => {
     const stream = openEvents();
     if (!stream) return;
-    const refresh = () => {
-      void queryClient.invalidateQueries({ queryKey: TASKS_KEY });
-      void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
-      void queryClient.invalidateQueries({ queryKey: STATS_KEY });
-    };
+    const refresh = () => invalidateFileData(queryClient);
     stream.addEventListener("change", refresh);
     stream.addEventListener("open", refresh);
     return () => stream.close();
   }, [openEvents, queryClient]);
 }
 
-function freshestTask(queryClient: ReturnType<typeof useQueryClient>, id: string): Task | undefined {
+function freshestTask(queryClient: QueryClient, id: string): Task | undefined {
   return queryClient.getQueryData<TasksResponse>(TASKS_KEY)?.tasks.find((task) => task.id === id);
 }
 
-function putTask(queryClient: ReturnType<typeof useQueryClient>, task: Task): void {
+function putTask(queryClient: QueryClient, task: Task): void {
   queryClient.setQueryData<TasksResponse>(TASKS_KEY, (current) =>
     current === undefined
       ? current

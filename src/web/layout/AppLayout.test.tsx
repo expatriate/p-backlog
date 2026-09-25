@@ -88,6 +88,21 @@ describe("боковая панель", () => {
     expect(document.activeElement).toBe(screen.getByRole("link", { name: "Проекты" }));
   });
 
+  it.each([
+    { from: "/stats/code", deleted: "spa", to: "/stats/code" },
+    { from: "/p/torg-io", deleted: "spa", to: "/p/torg-io" },
+    { from: "/p/spa/stats/code", deleted: "spa", to: "/stats/code" },
+  ])("удаление $deleted со страницы $from оставляет на $to", async ({ from, deleted, to }) => {
+    const app = await renderApp(FILES, from);
+
+    await app.user.click(await screen.findByRole("button", { name: `Удалить проект ${deleted}` }));
+    await app.user.type(screen.getByRole("textbox"), deleted);
+    await app.user.click(screen.getByRole("button", { name: "Удалить" }));
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: `Удалить проект ${deleted}` })).toBeNull());
+    expect(app.route()).toBe(to);
+  });
+
   it("пока задачи не загружены, диалог удаления не называет число задач, а счётчики — «—»", async () => {
     const { user } = await renderApp(FILES, "/", undefined, { beforeRender: failTasksRequest });
 

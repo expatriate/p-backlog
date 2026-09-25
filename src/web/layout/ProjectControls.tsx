@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { useNavigate } from "react-router";
 import type { Project } from "../../core/model/types";
-import { listPath } from "../app/paths";
 import { useDeleteProject, useSetProjectActive } from "../app/queries";
-import { requestErrorMessage } from "../app/RequestErrorText";
+import { requestErrorMessage } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import styles from "./ProjectControls.module.css";
@@ -34,7 +32,6 @@ export function ProjectDeleteButton({ project, taskCount, onDeleted }: ProjectDe
   const [confirming, setConfirming] = useState(false);
   const deleteButton = useFocusAfterDialogCloses<HTMLButtonElement>(confirming);
   const deleteProject = useDeleteProject();
-  const navigate = useNavigate();
 
   return (
     <>
@@ -55,12 +52,7 @@ export function ProjectDeleteButton({ project, taskCount, onDeleted }: ProjectDe
         onCancel={() => setConfirming(false)}
         onConfirm={() => {
           setConfirming(false);
-          deleteProject.mutate({ id: project.id, confirm: project.id }, {
-            onSuccess: () => {
-              void navigate(listPath());
-              onDeleted();
-            },
-          });
+          deleteProject.mutate({ id: project.id, confirm: project.id }, { onSuccess: onDeleted });
         }}
       />
     </>

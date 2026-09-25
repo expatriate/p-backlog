@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-type DraftCommit = "save" | "keep" | "conflict";
+type CommitHandlers = { save: () => void; conflict: () => void };
 
-export type Draft = {
+type Draft = {
   value: string;
   set: (next: string) => void;
-  commit: (canonical: string) => DraftCommit;
+  commit: (canonical: string, handlers: CommitHandlers) => void;
   reset: () => void;
 };
 
@@ -22,21 +22,18 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
     setState((current) => (editing ? { ...current, serverMoved: serverValue !== current.base } : synced(serverValue)));
   }, [serverValue]);
 
-  const commit = (canonical: string): DraftCommit => {
+  const commit = (canonical: string, { save, conflict }: CommitHandlers) => {
     if (canonical === serverValue) {
       setState({ text: state.text, base: serverValue, serverMoved: false });
-      return "keep";
-    }
-    if (!state.serverMoved) {
+    } else if (!state.serverMoved) {
       setState({ text: state.text, base: canonical, serverMoved: false });
-      return "save";
-    }
-    if (canonical === state.base) {
+      save();
+    } else if (canonical === state.base) {
       setState(synced(serverValue));
-      return "keep";
+    } else {
+      setState({ text: state.text, base: serverValue, serverMoved: false });
+      conflict();
     }
-    setState({ text: state.text, base: serverValue, serverMoved: false });
-    return "conflict";
   };
 
   const draft: Draft = {

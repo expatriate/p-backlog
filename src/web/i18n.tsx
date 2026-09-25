@@ -3,7 +3,6 @@ import type { Language } from "../core/i18n/language";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { appEn } from "./app/messages.en";
 import { appRu } from "./app/messages.ru";
-import { useSettings } from "./app/queries";
 import { layoutEn } from "./layout/messages.en";
 import { layoutRu } from "./layout/messages.ru";
 import { listEn } from "./list/messages.en";
@@ -12,15 +11,8 @@ import { statsEn } from "./stats/messages.en";
 import { statsRu } from "./stats/messages.ru";
 import { taskEn } from "./task/messages.en";
 import { taskRu } from "./task/messages.ru";
-import { Button } from "./ui/Button";
 import { uiEn } from "./ui/messages.en";
 import { uiRu } from "./ui/messages.ru";
-import styles from "./i18n.module.css";
-
-const SETTINGS_ERROR_TEXT = `${appRu.bootSettingsError} · ${appEn.bootSettingsError}`;
-const SETTINGS_RETRY_TEXT = `${appRu.bootRetry} · ${appEn.bootRetry}`;
-
-export { useSetLanguage } from "./app/queries";
 
 const CATALOGS = {
   ru: { app: appRu, layout: layoutRu, list: listRu, task: taskRu, stats: statsRu, ui: uiRu },
@@ -29,42 +21,23 @@ const CATALOGS = {
 
 export type WebMessages = (typeof CATALOGS)["ru"] & { core: CoreMessages };
 
-export const LanguageContext = createContext<Language | null>(null);
-export const MessagesContext = createContext<WebMessages | null>(null);
+const LanguageContext = createContext<Language | null>(null);
+const MessagesContext = createContext<WebMessages | null>(null);
 
 const MESSAGES: { [L in Language]: WebMessages } = {
   ru: { ...CATALOGS.ru, core: coreMessages("ru") },
   en: { ...CATALOGS.en, core: coreMessages("en") },
 };
 
-export function messagesFor(language: Language): WebMessages {
-  return MESSAGES[language];
-}
-
-export function MessagesProvider({ children }: { children: ReactNode }) {
-  const settings = useSettings();
-  const language = settings.data?.language;
-
+export function MessagesProvider({ language, children }: { language: Language; children: ReactNode }) {
   useEffect(() => {
-    if (language !== undefined) document.documentElement.lang = language;
+    document.documentElement.lang = language;
   }, [language]);
-
-  if (settings.data === undefined && settings.isError) return <SettingsLoadError onRetry={() => void settings.refetch()} />;
-  if (language === undefined) return null;
 
   return (
     <LanguageContext.Provider value={language}>
-      <MessagesContext.Provider value={messagesFor(language)}>{children}</MessagesContext.Provider>
+      <MessagesContext.Provider value={MESSAGES[language]}>{children}</MessagesContext.Provider>
     </LanguageContext.Provider>
-  );
-}
-
-function SettingsLoadError({ onRetry }: { onRetry: () => void }) {
-  return (
-    <div className={styles.settingsError} role="alert">
-      <p>{SETTINGS_ERROR_TEXT}</p>
-      <Button onClick={onRetry}>{SETTINGS_RETRY_TEXT}</Button>
-    </div>
   );
 }
 

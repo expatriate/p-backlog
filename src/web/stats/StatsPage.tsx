@@ -5,18 +5,10 @@ import { useProjects, useSignals } from "../app/queries";
 import { projectNameOf, scopeNote } from "../app/scope";
 import { useMessages } from "../i18n";
 import { cx } from "../ui/cx";
-import type { StatsMessages } from "./messages.ru";
+import { STATS_TABS } from "./stats-tabs";
 import styles from "./StatsPage.module.css";
 
 export type StatsOutletContext = { heading: RefObject<HTMLHeadingElement | null> };
-
-const STATS_TABS = [
-  { key: "overview", segment: "" },
-  { key: "code", segment: "code" },
-  { key: "quality", segment: "quality" },
-  { key: "effect", segment: "effect" },
-  { key: "cost", segment: "cost" },
-] as const satisfies readonly { key: keyof StatsMessages["tabs"]; segment: string }[];
 
 export function StatsPage() {
   const { projectId } = useParams();

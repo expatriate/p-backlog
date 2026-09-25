@@ -1,7 +1,8 @@
 import { LANGUAGES } from "../../core/i18n/language";
 import { coreMessages } from "../../core/messages";
-import { requestErrorMessage } from "../app/RequestErrorText";
-import { useLanguage, useMessages, useSetLanguage } from "../i18n";
+import { requestErrorMessage } from "../app/RequestFailure";
+import { useSetLanguage } from "../app/queries";
+import { useLanguage, useMessages } from "../i18n";
 import { cx } from "../ui/cx";
 import styles from "./LanguageSwitch.module.css";
 

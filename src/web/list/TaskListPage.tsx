@@ -7,10 +7,9 @@ import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
 import { localeOf, type Language } from "../../core/i18n/language";
 import type { Task } from "../../core/model/types";
 import { useProjects, useTasks } from "../app/queries";
-import { RequestErrorText } from "../app/RequestErrorText";
+import { RequestFailure } from "../app/RequestFailure";
 import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
-import { RetryButton } from "../ui/RetryButton";
 import { useStatusFocus } from "../ui/use-status-focus";
 import { TaskPanel } from "../task/TaskPanel";
 import { epicTones, toneOf } from "../ui/epic-tone";
@@ -33,7 +32,7 @@ export function TaskListPage() {
   const navigate = useNavigate();
   const { data, isFetching, error, refetch } = useTasks();
   const projects = useProjects();
-  const { isNew, markSeen } = useSeenTasks();
+  const { isNew, markSeen } = useSeenTasks(data?.tasks);
 
   const searchKey = search.toString();
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
@@ -53,7 +52,8 @@ export function TaskListPage() {
     [allTasks, activeIds, projectId, projects.data],
   );
 
-  const selectedTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
+  const liveTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
+  const selectedTask = useLastFound(liveTask, taskId);
   const missingTaskId = taskId !== undefined && data !== undefined && selectedTask === undefined ? taskId : undefined;
   const missingTask = missingTaskId !== undefined;
   const unknownProject = projectId !== undefined && projects.data !== undefined && !projects.data.some((project) => project.id === projectId);
@@ -106,18 +106,14 @@ export function TaskListPage() {
         <div className={styles.tableWrap}>
           <div ref={status} tabIndex={-1} role="status" className={settled ? "visually-hidden" : styles.hint}>
             {error !== null && (
-              <>
-                <p>
-                  <RequestErrorText error={error} />
-                </p>
-                <RetryButton
-                  fetching={isFetching}
-                  onRetry={() => {
-                    keepFocus();
-                    void refetch();
-                  }}
-                />
-              </>
+              <RequestFailure
+                error={error}
+                fetching={isFetching}
+                onRetry={() => {
+                  keepFocus();
+                  void refetch();
+                }}
+              />
             )}
             {content === "loading" && <p>{list.loadingTasks}</p>}
             {content === "unknownProject" && <p>{list.unknownProject}</p>}
@@ -162,6 +158,7 @@ export function TaskListPage() {
           taskHref={taskHref}
           onClose={() => void navigate({ pathname: listPath(projectId), search: searchKey })}
           tone={toneOf(selectedTask, tones)}
+          gone={liveTask === undefined}
         />
       )}
     </main>
@@ -208,6 +205,12 @@ function listContentOf({ hasData, failed, unknownProject, visibleCount }: { hasD
   if (!hasData) return failed ? "failed" : "loading";
   if (unknownProject) return "unknownProject";
   return visibleCount === 0 ? "empty" : "table";
+}
+
+function useLastFound(task: Task | undefined, taskId: string | undefined): Task | undefined {
+  const [lastFound, setLastFound] = useState(task);
+  if (task !== undefined && task !== lastFound) setLastFound(task);
+  return task ?? (lastFound?.id === taskId ? lastFound : undefined);
 }
 
 function useSettledValue<T>(value: T, delayMs: number): T {

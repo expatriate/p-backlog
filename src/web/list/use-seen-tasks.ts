@@ -13,13 +13,20 @@ export type SeenTasks = { isNew: (task: Task) => boolean; markSeen: (task: Task)
 
 const listeners = new Set<() => void>();
 
-export function useSeenTasks(): SeenTasks {
+export function useSeenTasks(tasks: readonly Task[] | undefined): SeenTasks {
   const stored = useSyncExternalStore(subscribe, readStored);
   const record = useMemo(() => parseRecord(stored), [stored]);
 
   useEffect(() => {
     if (record === undefined) writeRecord({ since: Date.now(), ids: [] });
   }, [record]);
+
+  useEffect(() => {
+    if (record === undefined || tasks === undefined) return;
+    const existingIds = new Set(tasks.map((task) => task.id));
+    const ids = record.ids.filter((id) => existingIds.has(id));
+    if (ids.length < record.ids.length) writeRecord({ ...record, ids });
+  }, [record, tasks]);
 
   return useMemo(() => {
     const seen = new Set(record?.ids);

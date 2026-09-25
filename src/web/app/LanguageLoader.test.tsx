@@ -1,9 +1,9 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { projectFile } from "../core/store/testing/temp-dirs";
-import { taskFixture } from "./testing/fixtures";
-import type { TestApp } from "../server/testing/test-app";
-import { renderApp } from "./testing/render-app";
+import { projectFile } from "../../core/store/testing/temp-dirs";
+import { taskFixture } from "../testing/fixtures";
+import type { TestApp } from "../../server/testing/test-app";
+import { renderApp } from "../testing/render-app";
 
 function failSettingsOnce(app: TestApp): void {
   const request = app.request;

@@ -10,7 +10,7 @@ import { AXIS_PROPS, DASHED_LINE_WIDTH, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, D
 import { rowTooltip } from "./charts/ChartTooltip";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
-import styles from "./MemoryChart.module.css";
+import rowStyles from "./PanelRows.module.css";
 
 const RSS = "var(--chart-line-bright)";
 const HEAP = "var(--chart-line-blue)";
@@ -39,7 +39,7 @@ export function MemoryPanel() {
   const max = samples.length === 0 ? null : Math.max(...samples.map((sample) => sample.rssMb));
   return (
     <Panel title={stats.serverMemory}>
-      <p className={styles.muted}>{stats.memoryRestartNote}</p>
+      <p className={rowStyles.muted}>{stats.memoryRestartNote}</p>
       <ChartFrame summary={stats.memorySummary(stats.megabytes(current), stats.megabytes(max))} legend={legend}>
         <AreaChart data={samples} margin={CHART_MARGIN} aria-label={stats.chartLabel(stats.serverMemory, "sample")}>
           <CartesianGrid vertical={false} />

@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { routes } from "./app/App";
 import { BacklogApiProvider, browserApi } from "./app/backlog-api";
-import { MessagesProvider } from "./i18n";
+import { LanguageLoader } from "./app/LanguageLoader";
 import "./styles/base.css";
 
 const root = document.getElementById("root");
@@ -16,9 +16,9 @@ createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={new QueryClient()}>
       <BacklogApiProvider api={browserApi}>
-        <MessagesProvider>
+        <LanguageLoader>
           <RouterProvider router={router} />
-        </MessagesProvider>
+        </LanguageLoader>
       </BacklogApiProvider>
     </QueryClientProvider>
   </StrictMode>,

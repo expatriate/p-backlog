@@ -5,9 +5,8 @@ import { formatDate } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { ReportHead } from "../../core/api/contract";
 import { ApiError } from "../api/client";
-import { RequestErrorText } from "../app/RequestErrorText";
+import { RequestFailure } from "../app/RequestFailure";
 import { useLanguage, useMessages } from "../i18n";
-import { RetryButton } from "../ui/RetryButton";
 import { useStatusFocus } from "../ui/use-status-focus";
 import { cx } from "../ui/cx";
 import type { StatsMessages } from "./messages.ru";
@@ -29,10 +28,10 @@ export function StatsRequestState<T>({
   const { error, data, isFetching } = query;
   const loaded = data !== undefined;
   const notFound = error instanceof ApiError && error.status === 404;
-  const canRetry = error !== null && !notFound;
+  const failure = notFound ? null : error;
   const isLoading = error === null && !loaded;
   const message = statusMessage(stats, error, notFound, loaded, emptyMessage);
-  const { status, keepFocus } = useStatusFocus(message === null, useOutletContext<StatsOutletContext | undefined>()?.heading);
+  const { status, keepFocus } = useStatusFocus(message === null && failure === null, useOutletContext<StatsOutletContext | undefined>()?.heading);
 
   const retry = () => {
     keepFocus();
@@ -46,10 +45,10 @@ export function StatsRequestState<T>({
         tabIndex={-1}
         role="status"
         aria-live="polite"
-        className={message === null ? "visually-hidden" : cx(styles.hint, isLoading && styles.hintLoading)}
+        className={message === null && failure === null ? "visually-hidden" : cx(styles.hint, isLoading && styles.hintLoading)}
       >
         {message !== null && <p>{message}</p>}
-        {canRetry && <RetryButton fetching={isFetching} onRetry={retry} />}
+        {failure !== null && <RequestFailure error={failure} fetching={isFetching} onRetry={retry} />}
       </div>
       {!notFound && data !== undefined && emptyMessage === null && <div className={styles.content}>{children(data)}</div>}
     </>
@@ -79,8 +78,9 @@ export function StatsTabState<T extends ReportHead>({ query, children }: { query
   );
 }
 
-function statusMessage(stats: StatsMessages, error: Error | null, notFound: boolean, loaded: boolean, emptyMessage: string | null): ReactNode {
-  if (error !== null) return notFound ? stats.projectNotFound : <RequestErrorText error={error} />;
+function statusMessage(stats: StatsMessages, error: Error | null, notFound: boolean, loaded: boolean, emptyMessage: string | null): string | null {
+  if (notFound) return stats.projectNotFound;
+  if (error !== null) return null;
   if (!loaded) return stats.loading;
   return emptyMessage;
 }

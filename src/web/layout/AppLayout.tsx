@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useRef, useState } from "react";
 import { listPath, statsPath } from "../app/paths";
-import { Link, matchPath, NavLink, Outlet, useLocation } from "react-router";
+import { Link, matchPath, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import type { ProjectView } from "../../core/api/contract";
 import type { Task } from "../../core/model/types";
 import { useMessages } from "../i18n";
@@ -36,6 +36,7 @@ export function AppLayout() {
   const graphTroubles = useMemo(() => graphTroubleCounts(allProjects), [allProjects]);
   const [listOpen, setListOpen] = useState(true);
   const scopeLink = useRef<HTMLAnchorElement>(null);
+  const navigate = useNavigate();
 
   return (
     <div className={styles.shell}>
@@ -106,7 +107,10 @@ export function AppLayout() {
                   search={onStats ? "" : search}
                   openTasks={counts === undefined ? undefined : (counts.openByProject.get(project.id) ?? 0)}
                   taskCount={counts === undefined ? undefined : (counts.totalByProject.get(project.id) ?? 0)}
-                  onDeleted={() => scopeLink.current?.focus()}
+                  onDeleted={() => {
+                    if (project.id === projectId) void navigate(scopePath());
+                    scopeLink.current?.focus();
+                  }}
                 />
               ))}
             </ul>

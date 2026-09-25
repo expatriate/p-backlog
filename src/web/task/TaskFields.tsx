@@ -3,7 +3,7 @@ import type { TaskChangesRequest } from "../../core/api/contract";
 import { epicProblems } from "../../core/model/integrity";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, type Task } from "../../core/model/types";
 import { useMessages } from "../i18n";
-import { useDraft, type Draft } from "../ui/use-draft";
+import { useDraft } from "../ui/use-draft";
 import { normalizeTaskId } from "./normalize-task-id";
 import styles from "./TaskFields.module.css";
 
@@ -22,24 +22,18 @@ export function TaskFields({ task, epicListId, knownTasks, onChange, onConflict 
   const [epicError, setEpicError] = useState<string | null>(null);
   const epicErrorId = useId();
 
-  const commit = (draft: Draft, canonical: string, field: string, save: () => void) => {
-    const outcome = draft.commit(canonical);
-    if (outcome === "save") save();
-    if (outcome === "conflict") onConflict(field);
-  };
-
   const saveEpic = () => {
     const value = normalizeTaskId(epic.value);
     const resolve = (id: string) => knownTasks.find((known) => known.id === id);
     const problems = value === "" ? [] : epicProblems({ ...task, epic: value }, resolve);
     setEpicError(problems.length === 0 ? null : core.problems(problems));
     if (problems.length > 0) return;
-    commit(epic, value, t.epicField, () => onChange({ epic: value === "" ? null : value }));
+    epic.commit(value, { save: () => onChange({ epic: value === "" ? null : value }), conflict: () => onConflict(t.epicField) });
   };
 
   const saveTags = () => {
     const next = parseTags(tags.value);
-    commit(tags, next.join(", "), t.tagsField, () => onChange({ tags: next }));
+    tags.commit(next.join(", "), { save: () => onChange({ tags: next }), conflict: () => onConflict(t.tagsField) });
   };
 
   return (
