@@ -47,7 +47,8 @@ export type ApiClient = {
 };
 
 const UNREACHABLE_STATUS = 0;
-const GATEWAY_STATUSES = new Set([502, 503, 504]);
+const GATEWAY_STATUSES = new Set([502, 504]);
+const SERVICE_UNAVAILABLE_STATUS = 503;
 
 export function isServerUnreachable(error: unknown): boolean {
   return error instanceof ApiError && error.status === UNREACHABLE_STATUS;
@@ -64,6 +65,7 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
     });
     if (response.ok) return body as T;
     const { errors = [], current } = body as Partial<ConflictResponse>;
+    if (response.status === SERVICE_UNAVAILABLE_STATUS && errors.length === 0) throw unreachable();
     throw new ApiError(response.status, errors, current);
   };
   return {

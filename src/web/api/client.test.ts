@@ -37,6 +37,8 @@ describe("ApiError", () => {
     const failures = [
       createApiClient(async () => Promise.reject(new TypeError("Failed to fetch"))),
       clientReturning(respond(502, "")),
+      clientReturning(respond(503, "")),
+      clientReturning(respond(503, {})),
       clientReturning(respond(504, { errors: ["gateway"] })),
       clientReturning(respond(500, "внутренняя ошибка", "text/plain")),
       clientReturning(respond(200, "<!doctype html>", "text/html")),
@@ -53,5 +55,13 @@ describe("ApiError", () => {
 
     expect(isServerUnreachable(error)).toBe(false);
     expect((error as ApiError).status).toBe(500);
+  });
+
+  it("503 с текстом ошибки — занятый файл, а не «сервер не отвечает»", async () => {
+    const busy = "Файл SPA-1.md занят другим процессом";
+    const error = await clientReturning(respond(503, { errors: [busy] })).tasks().catch((caught: unknown) => caught);
+
+    expect(isServerUnreachable(error)).toBe(false);
+    expect(error).toMatchObject({ status: 503, errors: [busy] });
   });
 });
