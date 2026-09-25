@@ -56,3 +56,15 @@
   z-index: var(--z-dropdown);
   margin-top: auto;
 }
+
+.keysHint {
+  margin: var(--space-3) var(--space-5) var(--space-1);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+@media (hover: none) {
+  .keysHint {
+    display: none;
+  }
+}

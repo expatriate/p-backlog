@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import type { TasksResponse } from "../../core/api/contract";
 import { listPath, taskPath } from "../app/paths";
@@ -41,6 +41,7 @@ export function TaskListPage() {
   const selection = useTaskSelection(visibleIds, projectId ?? "", loadedIds);
   const [batchResult, showBatchResult] = useBatchResult(projectId ?? "");
   const footer = useRef<HTMLDivElement>(null);
+  const keysHintId = useId();
   useScrollSpaceFor(footer);
 
   const viewTitle = viewTitleFor(list, view.projectName, params.filter.onlyAutoClosed === true);
@@ -69,6 +70,12 @@ export function TaskListPage() {
         </p>
 
         <ParseErrorsNote list={list} parseErrors={view.parseErrors} />
+
+        {view.content === "table" && (
+          <p id={keysHintId} className={styles.keysHint}>
+            {list.selectionKeysHint}
+          </p>
+        )}
 
         <div className={styles.tableWrap}>
           <ListStatus
@@ -109,6 +116,7 @@ export function TaskListPage() {
               selectedTags={params.filter.tags ?? []}
               onToggleTag={(tag) => setParams({ ...params, filter: { ...params.filter, tags: toggledTags(params.filter.tags ?? [], tag) } })}
               selection={selection}
+              describedBy={keysHintId}
             />
           )}
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 import type { BatchAction, BatchRequest } from "../../core/api/contract";
 import { compareIds } from "../../core/model/ids";
 import { PRIORITIES, type Priority, type Task } from "../../core/model/types";
@@ -24,8 +24,11 @@ export type BulkActionsProps = {
   onDone: (result: BatchResult) => void;
 };
 
+const TO_ACTIONS_KEYS = "Alt+A";
+
 export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProps) {
   const { list, app } = useMessages();
+  const firstAction = useRef<HTMLButtonElement>(null);
   const batch = useBatchTasks();
   const chosen = useMemo(() => tasks.filter((task) => selection.selected.has(task.id)).sort((a, b) => compareIds(a.id, b.id)), [tasks, selection.selected]);
   const shown = chosen.length > 0;
@@ -34,6 +37,16 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
   useEffect(() => {
     if (!shown && !isPending) reset();
   }, [shown, isPending, reset]);
+  useEffect(() => {
+    if (!shown) return;
+    const jumpToActions = (event: KeyboardEvent) => {
+      if (!isToActionsKeys(event) || isTextEntry(event.target)) return;
+      event.preventDefault();
+      firstAction.current?.focus();
+    };
+    document.addEventListener("keydown", jumpToActions);
+    return () => document.removeEventListener("keydown", jumpToActions);
+  }, [shown]);
 
   const run = (action: BatchAction) => {
     if (isPending) return;
@@ -53,7 +66,8 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
         {shown && list.selectedCount(chosen.length)}
         {shown && selection.hiddenCount > 0 && <span className={styles.hidden}> {list.hiddenByFilter(selection.hiddenCount)}</span>}
       </p>
-      {shown && <SelectionActions chosen={chosen} tasks={tasks} tones={tones} busy={isPending} onRun={run} onClear={selection.clear} />}
+      {shown && <SelectionActions firstAction={firstAction} chosen={chosen} tasks={tasks} tones={tones} busy={isPending} onRun={run} onClear={selection.clear} />}
+      {shown && <p className={styles.hint}>{list.toActionsHint(TO_ACTIONS_KEYS)}</p>}
       {shown && batch.error !== null && (
         <p className={footer.error} role="alert">
           {list.bulkFailed}: {requestErrorMessage(app, batch.error)}
@@ -64,6 +78,7 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
 }
 
 type SelectionActionsProps = {
+  firstAction: RefObject<HTMLButtonElement | null>;
   chosen: readonly Task[];
   tasks: readonly Task[];
   tones: EpicTones;
@@ -72,13 +87,13 @@ type SelectionActionsProps = {
   onClear: () => void;
 };
 
-function SelectionActions({ chosen, tasks, tones, busy, onRun, onClear }: SelectionActionsProps) {
+function SelectionActions({ firstAction, chosen, tasks, tones, busy, onRun, onClear }: SelectionActionsProps) {
   const { list, ui, core } = useMessages();
   const [closing, setClosing] = useState(false);
 
   return (
     <div className={styles.actions}>
-      <Button busy={busy} onClick={() => setClosing(true)}>
+      <Button ref={firstAction} busy={busy} aria-keyshortcuts={TO_ACTIONS_KEYS} onClick={() => setClosing(true)}>
         {list.closeAsObsolete}
       </Button>
       <Popover trigger={list.priority} placement="above" width="content" busy={busy}>
@@ -170,4 +185,12 @@ function AssignEpicOptions({ epics, onChoose }: { epics: EpicChoice[]; onChoose:
       ))}
     </MenuOptions>
   );
+}
+
+function isToActionsKeys(event: KeyboardEvent): boolean {
+  return event.altKey && event.code === "KeyA" && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+}
+
+function isTextEntry(target: EventTarget | null): boolean {
+  return target instanceof Element && target.matches("input:not([type=checkbox]), textarea, select, [contenteditable]");
 }

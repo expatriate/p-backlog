@@ -59,6 +59,8 @@ export const listRu = {
 
   selectTask: (id: string): string => `Выбрать ${id}`,
   selectAllVisible: "Выбрать все видимые",
+  selectionKeysHint: "Пробел на задаче — выбрать её, Shift+Пробел — выбрать диапазон",
+  toActionsHint: (keys: string): string => `${keys} — к действиям`,
 
   selectionActions: "Действия с выбранными",
   selectedCount: (n: number): string => `Выбрано ${n}`,

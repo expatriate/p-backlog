@@ -75,6 +75,25 @@ describe("панель массовых действий", () => {
     await waitFor(() => expect(within(panel()).getByRole("status").textContent).toBe("Выбрано 3 (1 скрыта фильтром)"));
   });
 
+  it("с клавиатуры: Пробел на строке выбирает, Alt+A из таблицы ведёт к первому действию, в поле поиска не срабатывает", async () => {
+    const app = await renderApp(FILES);
+    await screen.findAllByRole("row");
+    const table = screen.getByRole("table");
+    expect(document.getElementById(table.getAttribute("aria-describedby") ?? "")?.textContent).toBe("Пробел на задаче — выбрать её, Shift+Пробел — выбрать диапазон");
+
+    screen.getByRole("link", { name: "Разобрать очередь" }).focus();
+    await app.user.keyboard(" ");
+    expect(within(panel()).getByText("Alt+A — к действиям")).toBeTruthy();
+
+    await app.user.keyboard("{Alt>}a{/Alt}");
+    expect(document.activeElement).toBe(within(panel()).getByRole("button", { name: "Закрыть как неактуальные" }));
+
+    const search = screen.getByRole("searchbox", { name: "Поиск задач" });
+    search.focus();
+    await app.user.keyboard("{Alt>}a{/Alt}");
+    expect(document.activeElement).toBe(search);
+  });
+
   it("«Закрыть как неактуальные» требует причину и закрывает выбранные с их версиями", async () => {
     const { sent, beforeRender } = recordBatches();
     const app = await renderApp(FILES, "/", undefined, { beforeRender });

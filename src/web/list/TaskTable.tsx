@@ -31,6 +31,7 @@ export type TaskTableProps = {
   tones: EpicTones;
   isNew: (task: Task) => boolean;
   selection: Pick<TaskSelection, "selected" | "allVisibleState" | "toggle" | "setAllVisible">;
+  describedBy?: string | undefined;
 };
 
 const ARIA_SORT: Record<SortDirection, "ascending" | "descending"> = { asc: "ascending", desc: "descending" };
@@ -42,7 +43,7 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
   critical: styles.critical,
 };
 
-export function TaskTable({ tasks, index, openedId, sort, onSort, taskHref, dateColumn, tones, isNew, selectedTags, onToggleTag, selection }: TaskTableProps) {
+export function TaskTable({ tasks, index, openedId, sort, onSort, taskHref, dateColumn, tones, isNew, selectedTags, onToggleTag, selection, describedBy }: TaskTableProps) {
   const { list, core } = useMessages();
   const language = useLanguage();
   const now = useNow();
@@ -66,7 +67,7 @@ export function TaskTable({ tasks, index, openedId, sort, onSort, taskHref, date
   };
 
   return (
-    <table className={styles.table}>
+    <table className={styles.table} aria-describedby={describedBy}>
       <thead>
         <tr>
           <th className={styles.pick} scope="col">

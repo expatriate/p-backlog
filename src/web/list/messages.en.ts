@@ -58,6 +58,8 @@ export const listEn: ListMessages = {
   noEpicLabel: "no epic",
 
   selectTask: (id) => `Select ${id}`,
+  selectionKeysHint: "Space on a task selects it, Shift+Space selects a range",
+  toActionsHint: (keys) => `${keys} — to the actions`,
   selectAllVisible: "Select all visible",
 
   selectionActions: "Actions on selected",
