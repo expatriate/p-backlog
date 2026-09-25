@@ -19,6 +19,9 @@ export type PopoverProps = {
   triggerProps?: Pick<ComponentProps<"button">, "aria-label" | "title" | "className">;
   triggerRef?: RefObject<HTMLButtonElement | null>;
   panelClassName?: string | undefined;
+  placement?: "below" | "above";
+  width?: "wide" | "content";
+  busy?: boolean;
   children: ReactNode;
 };
 
@@ -34,7 +37,7 @@ export function useClosePopover(): () => void {
   return closePopover;
 }
 
-export function Popover({ trigger, triggerProps, triggerRef, panelClassName, children }: PopoverProps) {
+export function Popover({ trigger, triggerProps, triggerRef, panelClassName, placement = "below", width = "wide", busy = false, children }: PopoverProps) {
   const [open, setOpen] = useState(false);
   const triggerId = useId();
   const panelId = useId();
@@ -96,6 +99,7 @@ export function Popover({ trigger, triggerProps, triggerRef, panelClassName, chi
         {...triggerProps}
         id={triggerId}
         ref={button}
+        busy={busy}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         onClick={() => setOpen(!open)}
@@ -103,7 +107,7 @@ export function Popover({ trigger, triggerProps, triggerRef, panelClassName, chi
         {trigger}
       </Button>
       {open && (
-        <div ref={panel} id={panelId} role="group" aria-labelledby={triggerId} className={cx(styles.panel, panelClassName)}>
+        <div ref={panel} id={panelId} role="group" aria-labelledby={triggerId} className={cx(styles.panel, placement === "above" && styles.above, width === "content" && styles.fitContent, panelClassName)}>
           <ClosePopoverContext value={closePopover}>{children}</ClosePopoverContext>
         </div>
       )}

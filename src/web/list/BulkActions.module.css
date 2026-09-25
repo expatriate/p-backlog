@@ -32,13 +32,6 @@
   min-width: 0;
 }
 
-.menu.menu {
-  top: auto;
-  bottom: calc(100% + var(--space-1));
-  width: max-content;
-  max-width: calc(100vw - 2 * var(--space-4));
-}
-
 .unavailable {
   display: inline-flex;
   align-items: center;

@@ -12,6 +12,10 @@ body,
   height: 100%;
 }
 
+html {
+  scroll-padding-bottom: var(--bulk-panel-height, 0px);
+}
+
 body {
   margin: 0;
   background: var(--surface);

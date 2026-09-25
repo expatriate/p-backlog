@@ -19,6 +19,20 @@ const FILES = {
   "torg-io/TI-5.md": taskFixture("TI-5", { title: "Каталог", type: "epic" }),
 };
 
+function holdBatches(answer: "ok" | "server-error") {
+  const { promise: released, resolve: release }: PromiseWithResolvers<void> = Promise.withResolvers();
+  const beforeRender = (app: TestApp) => {
+    const request = app.request;
+    app.request = async (path, init) => {
+      if (path !== "/api/tasks/batch") return request(path, init);
+      await released;
+      if (answer === "ok") return request(path, init);
+      return new Response(JSON.stringify({ errors: ["EACCES: permission denied"] }), { status: 500, headers: { "content-type": "application/json" } });
+    };
+  };
+  return { release, beforeRender };
+}
+
 function recordBatches() {
   const sent: BatchRequest[] = [];
   const beforeRender = (app: TestApp) => {
@@ -53,8 +67,7 @@ describe("панель массовых действий", () => {
     await select(app, "SPA-1", "SPA-3", "TI-1");
     await app.user.type(screen.getByRole("searchbox", { name: "Поиск задач" }), "SPA");
 
-    await waitFor(() => expect(panel().textContent).toContain("Выбрано 3"));
-    expect(panel().textContent).toContain("(1 скрыта фильтром)");
+    await waitFor(() => expect(within(panel()).getByRole("status").textContent).toBe("Выбрано 3 (1 скрыта фильтром)"));
   });
 
   it("«Закрыть как неактуальные» требует причину и закрывает выбранные с их версиями", async () => {
@@ -155,6 +168,7 @@ describe("панель массовых действий", () => {
     await app.user.click(within(panel()).getByRole("button", { name: "Приоритет" }));
     await app.user.click(within(panel()).getByRole("button", { name: "критичный" }));
     await waitFor(() => expect(sent.map((request) => request.tasks.map((task) => task.id))).toEqual([["SPA-3"]]));
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Действия с выбранными" })).toBeNull());
   });
 
   it("по-английски", async () => {
@@ -171,5 +185,50 @@ describe("панель массовых действий", () => {
     );
     await app.user.click(within(actions).getByRole("button", { name: "Close as obsolete" }));
     expect(within(screen.getByRole("dialog", { name: /^Close 3\stasks as obsolete\?$/ })).getByRole("button", { name: "Close 3" })).toBeDefined();
+  });
+
+  it("пока запрос в пути, меню приоритета и эпика не открываются", async () => {
+    const { release, beforeRender } = holdBatches("ok");
+    const app = await renderApp(FILES, "/", undefined, { beforeRender });
+    await select(app, "SPA-1", "SPA-3");
+
+    await app.user.click(within(panel()).getByRole("button", { name: "Приоритет" }));
+    await app.user.click(within(panel()).getByRole("button", { name: "критичный" }));
+    const epic = within(panel()).getByRole("button", { name: "Эпик" });
+    await app.user.click(epic);
+
+    expect(epic.getAttribute("aria-disabled")).toBe("true");
+    expect(within(panel()).queryByRole("group", { name: "Эпик" })).toBeNull();
+    release();
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Действия с выбранными" })).toBeNull());
+  });
+
+  it("ошибка запроса не переживает снятие выбора", async () => {
+    const { release, beforeRender } = holdBatches("server-error");
+    release();
+    const app = await renderApp(FILES, "/", undefined, { beforeRender });
+    await select(app, "SPA-1");
+    await app.user.click(within(panel()).getByRole("button", { name: "Приоритет" }));
+    await app.user.click(within(panel()).getByRole("button", { name: "критичный" }));
+    expect(await within(panel()).findByRole("alert")).toBeDefined();
+
+    await app.user.click(within(panel()).getByRole("button", { name: "Снять выбор" }));
+    await select(app, "SPA-3");
+
+    expect(within(panel()).queryByRole("alert")).toBeNull();
+  });
+
+  it("открытый диалог закрытия не возвращается сам, когда выбор опустел и появился снова", async () => {
+    const app = await renderApp(FILES);
+    await select(app, "SPA-3");
+    await app.user.click(within(panel()).getByRole("button", { name: "Закрыть как неактуальные" }));
+    expect(screen.getByRole("dialog")).toBeDefined();
+
+    await rm(join(app.root, "spa/SPA-3.md"));
+    app.emitChange();
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Действия с выбранными" })).toBeNull());
+    await select(app, "SPA-1");
+
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

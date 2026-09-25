@@ -4,7 +4,8 @@ import { useMessages } from "../i18n";
 import { CloseIcon } from "../ui/CloseIcon";
 import { MenuOption, MenuOptions } from "../ui/Menu";
 import { Popover, useClosePopover } from "../ui/Popover";
-import type { EpicChoice, EpicChoices } from "./epic-choices";
+import type { EpicChoices } from "./epic-choices";
+import { EpicCount, EpicDot, EpicLabel } from "./EpicLabel";
 import type { ListMessages } from "./messages.ru";
 import styles from "./EpicPicker.module.css";
 
@@ -31,7 +32,7 @@ export function EpicPicker({ choices, selected, onSelect }: EpicPickerProps) {
             list.epicPrefix(selectionLabel(list, selected))
           ) : (
             <>
-              <span className={styles.dot} data-epic-tone={chosen.tone} aria-hidden="true" />
+              <EpicDot tone={chosen.tone} />
               <span className={styles.chosenTitle}>{chosen.title}</span>
             </>
           )
@@ -71,36 +72,23 @@ function EpicOptions({ choices, selected, onSelect }: EpicPickerProps) {
         {list.anyEpic}
       </MenuOption>
       <MenuOption pressed={selected === null} onChoose={() => choose(null)}>
-        {list.noEpic} <span className={styles.count}>{choices.withoutEpicCount}</span>
+        {list.noEpic} <EpicCount count={choices.withoutEpicCount} />
       </MenuOption>
       {(choices.epics.length > 0 || foreignEpic !== undefined) && (
         <div className={styles.epics}>
           {foreignEpic !== undefined && (
             <MenuOption pressed onChoose={() => choose(foreignEpic)}>
-              <span className={styles.dot} aria-hidden="true" />
-              <span className={styles.id}>{foreignEpic}</span>
-              <span className={styles.title}>{list.epicNotFound}</span>
+              <EpicLabel id={foreignEpic} title={list.epicNotFound} />
             </MenuOption>
           )}
           {choices.epics.map((epic) => (
             <MenuOption key={epic.id} pressed={selected === epic.id} tone={epic.tone} onChoose={() => choose(epic.id)}>
-              <EpicChoiceLabel epic={epic} />
+              <EpicLabel id={epic.id} title={epic.title} count={epic.taskCount} />
             </MenuOption>
           ))}
         </div>
       )}
     </MenuOptions>
-  );
-}
-
-export function EpicChoiceLabel({ epic }: { epic: EpicChoice }) {
-  return (
-    <>
-      <span className={styles.dot} aria-hidden="true" />
-      <span className={styles.id}>{epic.id}</span>
-      <span className={styles.title}>{epic.title}</span>
-      <span className={styles.count}>{epic.taskCount}</span>
-    </>
   );
 }
 

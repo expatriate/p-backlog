@@ -11,6 +11,7 @@
   flex-direction: column;
   min-width: 0;
   overflow-y: var(--main-overflow, auto);
+  scroll-padding-bottom: var(--bulk-panel-height, 0px);
 }
 
 .heading {

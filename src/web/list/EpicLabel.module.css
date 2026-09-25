@@ -1,0 +1,25 @@
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone-line, var(--ink-subtle));
+}
+
+.id {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--ink-subtle);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+}
+
+.count {
+  margin-left: auto;
+  color: var(--ink-subtle);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}

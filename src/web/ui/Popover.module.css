@@ -21,3 +21,13 @@
   background: var(--surface-raised);
   box-shadow: var(--shadow-panel);
 }
+
+.above {
+  top: auto;
+  bottom: calc(100% + var(--space-1));
+}
+
+.fitContent {
+  width: max-content;
+  max-width: calc(100vw - 2 * var(--space-4));
+}
