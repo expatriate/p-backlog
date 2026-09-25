@@ -7,7 +7,7 @@ import { STALE_URGENT_DAYS } from "../../core/stats/breakdowns";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/api/contract";
 import { STATS_WEEKS } from "../../core/stats/weeks";
-import type { ChartStep } from "./charts/chart-style";
+import type { ChartStep, Grain } from "./charts/chart-style";
 import { formatApprox, formatLines, isEstimated } from "./effect-format";
 
 const CHURN_PERIOD = countRu(CHURN_DAYS, "день", "дня", "дней");
@@ -16,10 +16,15 @@ const STATS_PERIOD_GENITIVE = countRu(STATS_WEEKS, "недели", "недель
 const CHART_STEPS: Record<ChartStep, string> = { day: "дням", week: "неделям", sample: "замерам" };
 const ESTIMATE_LATER = `оценка появится после ${MIN_FIXES_FOR_ESTIMATE} исправлений`;
 
-type FlowSummary = { weekCount: number; created: number; closed: number; openNow: number };
-type SpendSummary = { dayCount: number; hookTokens: number; cliTokens: string; money: string; hookRuns: string; cliRuns: string };
+type FlowSummary = { grain: Grain; periodCount: number; created: number; closed: number; openNow: number };
+type SpendSummary = { grain: Grain; periodCount: number; hookTokens: number; cliTokens: string; money: string; hookRuns: string; cliRuns: string };
 
-const weeks = (n: number): string => countRu(n, "неделя", "недели", "недель");
+const PERIOD_FORMS: Record<Grain, [string, string, string]> = { week: ["неделя", "недели", "недель"], day: ["день", "дня", "дней"] };
+const OVER_PERIOD_FORMS: Record<Grain, [string, string, string]> = { week: ["неделю", "недели", "недель"], day: ["день", "дня", "дней"] };
+const PER_PERIOD: Record<Grain, string> = { week: "в неделю", day: "в день" };
+const LAST_PERIOD: Record<Grain, string> = { week: "на последней неделе", day: "в последний день с решениями" };
+
+const periods = (grain: Grain, n: number): string => countRu(n, ...PERIOD_FORMS[grain]);
 const tasks = (n: number): string => countRu(n, "задача", "задачи", "задач");
 const tokens = (n: number): string => countRu(n, "токен", "токена", "токенов");
 
@@ -52,7 +57,7 @@ export const statsRu = {
   projects: "Проекты",
 
   chartLabel: (name: string, step: ChartStep): string => `${name}. Стрелки влево и вправо — по ${CHART_STEPS[step]}`,
-  weekOf: (day: string): string => `неделя с ${day}`,
+  periodOf: (grain: Grain, day: string): string => (grain === "week" ? `неделя с ${day}` : day),
   weekTrend: (arrow: string, size: string): string => `${arrow}${NBSP}${size}${NBSP}за${NBSP}неделю`,
   weekTrendSpeech: (size: string, better: boolean): string => `на ${size} ${better ? "меньше" : "больше"}, чем неделю назад — ${better ? "лучше" : "хуже"}`,
 
@@ -60,19 +65,19 @@ export const statsRu = {
   createdAndClosed: "создано и закрыто",
   thisWeek: "За неделю",
   weekNote: (created: number, closed: number): string => `создано ${created}, закрыто ${closed}`,
-  debtByWeek: "Долг по неделям",
+  debtBy: { week: "Долг по неделям", day: "Долг по дням" } satisfies Record<Grain, string>,
   flowCreated: "создано",
   flowClosed: "закрыто",
   flowOpen: "открыто",
-  flowOpenAtWeekEnd: "открыто на конец недели",
-  flowSummary: ({ weekCount, created, closed, openNow }: FlowSummary): string =>
-    `${weeks(weekCount)}: создано ${created}, закрыто ${closed}, открыто сейчас ${openNow}`,
-  createdByDay: "Создано по дням",
+  flowOpenAtEnd: { week: "открыто на конец недели", day: "открыто на конец дня" } satisfies Record<Grain, string>,
+  flowSummary: ({ grain, periodCount, created, closed, openNow }: FlowSummary): string =>
+    `${periods(grain, periodCount)}: создано ${created}, закрыто ${closed}, открыто сейчас ${openNow}`,
+  createdBy: { week: "Создано по неделям", day: "Создано по дням" } satisfies Record<Grain, string>,
   createdTasks: "создано задач",
-  intakeSummary: (dayCount: number, created: number): string => {
-    const period = countRu(dayCount, "день", "дня", "дней");
+  intakeSummary: (grain: Grain, periodCount: number, created: number): string => {
+    const period = periods(grain, periodCount);
     if (created === 0) return `${period}: задач не создавали`;
-    return `${period}: создано ${created}, в среднем ${formatDecimal("ru", created / dayCount)} в день`;
+    return `${period}: создано ${created}, в среднем ${formatDecimal("ru", created / periodCount)} ${PER_PERIOD[grain]}`;
   },
   hotspots: "Где болит",
   noSourceFolders: "У открытых задач нет source",
@@ -110,8 +115,10 @@ export const statsRu = {
   matchedBy: (match: string): string => `совпали ${match}`,
   decidedCandidates: "решено кандидатов",
   precision: "точность",
-  accuracySummary: (weekCount: number, decided: number, latestPrecision: string | null): string =>
-    latestPrecision === null ? `${weeks(weekCount)}: решённых кандидатов нет` : `${weeks(weekCount)}: решено ${decided}, точность на последней неделе ${latestPrecision}`,
+  accuracySummary: (grain: Grain, periodCount: number, decided: number, latestPrecision: string | null): string =>
+    latestPrecision === null
+      ? `${periods(grain, periodCount)}: решённых кандидатов нет`
+      : `${periods(grain, periodCount)}: решено ${decided}, точность ${LAST_PERIOD[grain]} ${latestPrecision}`,
   graphTitle: "Граф кода",
   graphMissing: <T,>(code: (text: string) => T): Array<string | T> => [
     "Графа кода нет: проверка сравнивает строки source и файл целиком. ",
@@ -157,7 +164,7 @@ export const statsRu = {
   deferredNote: (fixed: number, pending: number): string => `исправлено ${fixed}, ожидают ${pending}`,
   pullRequestLines: "Строк в пулреквестах",
   sinceAdoption: "с внедрения беклога",
-  chartScale: "Масштаб графика",
+  chartScale: (chart: string): string => `Масштаб графика «${chart}»`,
   grainWeek: "неделя",
   grainDay: "день",
   effectTitle: "Эффективность",
@@ -207,7 +214,7 @@ export const statsRu = {
   commandsHead: ["Команда", "Запусков", "Среднее время", "Средняя память", "Пиковая память"],
   megabytes: (value: number | null): string => (value === null ? "—" : `${formatDecimal("ru", value)}${NBSP}МБ`),
   milliseconds: (value: number): string => `${formatLines("ru", value)}${NBSP}мс`,
-  spendByDay: "Расход по дням",
+  spendBy: { week: "Расход по неделям", day: "Расход по дням" } satisfies Record<Grain, string>,
   hookTurnTokens: "токены ходов хука",
   cliOutputTokens: "токены вывода CLI и скилла",
   hookRuns: "запуски хука",
@@ -216,8 +223,8 @@ export const statsRu = {
   cliOutput: "вывод CLI и скилл",
   apiPriceTooltip: "по ценам API",
   tokens,
-  spendSummary: ({ dayCount, hookTokens, cliTokens, money, hookRuns, cliRuns }: SpendSummary): string =>
-    `За ${countRu(dayCount, "день", "дня", "дней")}: из-за хука ${tokens(hookTokens)}, вывод CLI и скилл ${cliTokens}, ≈${NBSP}${money}; запусков хука ${hookRuns}, других команд ${cliRuns}`,
+  spendSummary: ({ grain, periodCount, hookTokens, cliTokens, money, hookRuns, cliRuns }: SpendSummary): string =>
+    `За ${countRu(periodCount, ...OVER_PERIOD_FORMS[grain])}: из-за хука ${tokens(hookTokens)}, вывод CLI и скилл ${cliTokens}, ≈${NBSP}${money}; запусков хука ${hookRuns}, других команд ${cliRuns}`,
   serverMemory: "Память сервера",
   memoryRestartNote: "После перезапуска сервера история начинается заново",
   memorySummary: (current: string, max: string): string => `Сейчас ${current}, максимум за час ${max}`,

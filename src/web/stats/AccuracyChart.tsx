@@ -7,7 +7,7 @@ import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, tooltipDay } from "./charts/chart-format";
-import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
 import type { StatsMessages } from "./messages.ru";
@@ -15,31 +15,31 @@ import type { StatsMessages } from "./messages.ru";
 const DECIDED = "var(--chart-bar-neutral)";
 const PRECISION = "var(--chart-line-green)";
 
-function weekTooltip(stats: StatsMessages, language: Language) {
-  return rowTooltip((week: AccuracyPeriod) => ({
-    title: stats.weekOf(tooltipDay(language, week.start)),
+function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
+  return rowTooltip((period: AccuracyPeriod) => ({
+    title: stats.periodOf(grain, tooltipDay(language, period.start)),
     rows: [
-      { label: stats.decidedCandidates, value: String(week.decided), shape: "bar", color: DECIDED },
-      { label: stats.precision, value: formatShare(week.precision), shape: "line", color: PRECISION },
+      { label: stats.decidedCandidates, value: String(period.decided), shape: "bar", color: DECIDED },
+      { label: stats.precision, value: formatShare(period.precision), shape: "line", color: PRECISION },
     ],
   }));
 }
 
-export function AccuracyWeeksChart({ weeks }: { weeks: AccuracyPeriod[] }) {
+export function AccuracyChart({ periods, grain }: { periods: AccuracyPeriod[]; grain: Grain }) {
   const { stats } = useMessages();
   const language = useLanguage();
-  const tooltip = useMemo(() => weekTooltip(stats, language), [stats, language]);
+  const tooltip = useMemo(() => periodTooltip(stats, language, grain), [stats, language, grain]);
   const legend: LegendItem[] = [
     { label: stats.decidedCandidates, shape: "bar", color: DECIDED },
     { label: stats.precision, shape: "line", color: PRECISION },
   ];
-  const decided = sum(weeks.map((week) => week.decided));
-  const latest = weeks.filter((week) => week.precision !== null).at(-1);
-  const summary = stats.accuracySummary(weeks.length, decided, latest === undefined ? null : formatShare(latest.precision));
+  const decided = sum(periods.map((period) => period.decided));
+  const latest = periods.filter((period) => period.precision !== null).at(-1);
+  const summary = stats.accuracySummary(grain, periods.length, decided, latest === undefined ? null : formatShare(latest.precision));
 
   return (
     <ChartFrame summary={summary} legend={legend}>
-      <ComposedChart data={weeks} margin={CHART_MARGIN} aria-label={stats.chartLabel(stats.accuracyTitle, "week")}>
+      <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(stats.accuracyTitle, grain)}>
         <CartesianGrid vertical={false} />
         <XAxis dataKey="start" tickFormatter={(day: string) => axisDay(language, day)} {...DATE_AXIS_PROPS} />
         <YAxis yAxisId="decided" width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />

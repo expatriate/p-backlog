@@ -2,41 +2,52 @@ import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import { formatMoney } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
-import type { CostDay } from "../../core/api/contract";
+import type { CostDay, CostWeek } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
-import { AXIS_PROPS, DASHED_LINE_WIDTH, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, DASHED_LINE_WIDTH, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
 import { costValue } from "./cost-format";
 import { formatLines } from "./effect-format";
+import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
+import { useChartGrain } from "./use-chart-grain";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
 const CLI_TOKENS = "var(--chart-bar-neutral)";
 const HOOK_RUNS = "var(--chart-line-green)";
 const OTHER_RUNS = "var(--chart-line-yellow)";
 
-function dayTooltip(stats: StatsMessages, language: Language) {
-  return rowTooltip((day: CostDay) => ({
-    title: tooltipDay(language, day.day),
+type SpendPeriod = CostWeek;
+
+function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
+  return rowTooltip((period: SpendPeriod) => ({
+    title: stats.periodOf(grain, tooltipDay(language, period.start)),
     rows: [
-      { label: stats.hookTurnsTooltip, value: stats.tokens(day.hookTokens), shape: "bar", color: HOOK_TOKENS },
-      { label: stats.cliOutput, value: stats.tokens(day.cliTokens), shape: "bar", color: CLI_TOKENS },
-      { label: stats.apiPriceTooltip, value: day.hasUnpricedTokens && day.cost !== null ? `${costValue(language, day.cost)} (${stats.unpricedNote})` : costValue(language, day.cost) },
-      { label: stats.hookRuns, value: formatLines(language, day.hookRuns), shape: "line", color: HOOK_RUNS },
-      { label: stats.otherCommands, value: formatLines(language, day.cliRuns), shape: "dashed", color: OTHER_RUNS },
+      { label: stats.hookTurnsTooltip, value: stats.tokens(period.hookTokens), shape: "bar", color: HOOK_TOKENS },
+      { label: stats.cliOutput, value: stats.tokens(period.cliTokens), shape: "bar", color: CLI_TOKENS },
+      { label: stats.apiPriceTooltip, value: period.hasUnpricedTokens && period.cost !== null ? `${costValue(language, period.cost)} (${stats.unpricedNote})` : costValue(language, period.cost) },
+      { label: stats.hookRuns, value: formatLines(language, period.hookRuns), shape: "line", color: HOOK_RUNS },
+      { label: stats.otherCommands, value: formatLines(language, period.cliRuns), shape: "dashed", color: OTHER_RUNS },
     ],
   }));
 }
 
-export function SpendPanel({ days }: { days: CostDay[] }) {
+function dayPeriod({ day, ...numbers }: CostDay): SpendPeriod {
+  return { start: day, ...numbers };
+}
+
+export function SpendPanel({ weeks, days }: { weeks: CostWeek[]; days: CostDay[] }) {
   const { stats } = useMessages();
   const language = useLanguage();
-  const tooltip = useMemo(() => dayTooltip(stats, language), [stats, language]);
+  const [grain, setGrain] = useChartGrain("spend", "day");
+  const tooltip = useMemo(() => periodTooltip(stats, language, grain), [stats, language, grain]);
+  const periods = useMemo(() => (grain === "week" ? weeks : days.map(dayPeriod)), [grain, weeks, days]);
+  const title = stats.spendBy[grain];
   const legend: LegendItem[] = [
     { label: stats.hookTurnTokens, shape: "bar", color: HOOK_TOKENS },
     { label: stats.cliOutputTokens, shape: "bar", color: CLI_TOKENS },
@@ -45,11 +56,11 @@ export function SpendPanel({ days }: { days: CostDay[] }) {
   ];
   const compact = (value: number) => compactNumber(language, value);
   return (
-    <Panel title={stats.spendByDay}>
-      <ChartFrame summary={spendSummary(stats, language, days)} legend={legend}>
-        <ComposedChart data={days} margin={CHART_MARGIN} aria-label={stats.chartLabel(stats.spendByDay, "day")}>
+    <Panel title={title} aside={<GrainToggle chart={title} grain={grain} onChange={setGrain} />}>
+      <ChartFrame summary={spendSummary(stats, language, grain, periods)} legend={legend}>
+        <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="day" tickFormatter={(day: string) => axisDay(language, day)} {...DATE_AXIS_PROPS} />
+          <XAxis dataKey="start" tickFormatter={(day: string) => axisDay(language, day)} {...DATE_AXIS_PROPS} />
           <YAxis yAxisId="tokens" tickFormatter={compact} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
           <YAxis yAxisId="runs" orientation="right" allowDecimals={false} tickFormatter={compact} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
           <Tooltip content={tooltip} {...TOOLTIP_PROPS} />
@@ -63,20 +74,21 @@ export function SpendPanel({ days }: { days: CostDay[] }) {
   );
 }
 
-function spendSummary(stats: StatsMessages, language: Language, days: CostDay[]): string {
-  const total = (pick: (day: CostDay) => number) => sum(days.map(pick));
+function spendSummary(stats: StatsMessages, language: Language, grain: Grain, periods: SpendPeriod[]): string {
+  const total = (pick: (period: SpendPeriod) => number) => sum(periods.map(pick));
   const lines = (value: number) => formatLines(language, value);
   return stats.spendSummary({
-    dayCount: days.length,
-    hookTokens: total((day) => day.hookTokens),
-    cliTokens: lines(total((day) => day.cliTokens)),
-    money: formatMoney(language, totalMoney(days)),
-    hookRuns: lines(total((day) => day.hookRuns)),
-    cliRuns: lines(total((day) => day.cliRuns)),
+    grain,
+    periodCount: periods.length,
+    hookTokens: total((period) => period.hookTokens),
+    cliTokens: lines(total((period) => period.cliTokens)),
+    money: formatMoney(language, totalMoney(periods)),
+    hookRuns: lines(total((period) => period.hookRuns)),
+    cliRuns: lines(total((period) => period.cliRuns)),
   });
 }
 
-function totalMoney(days: CostDay[]): number | null {
-  if (days.every((day) => day.cost === null)) return null;
-  return sum(days.map((day) => day.cost ?? 0));
+function totalMoney(periods: SpendPeriod[]): number | null {
+  if (periods.every((period) => period.cost === null)) return null;
+  return sum(periods.map((period) => period.cost ?? 0));
 }

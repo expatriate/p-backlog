@@ -1,9 +1,8 @@
-import { useState } from "react";
 import type { Language } from "../../core/i18n/language";
 import type { EffectPeriod, EffectProject, EffectTotals } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
-import { EffectWeeksChart, type Grain } from "./EffectWeeksChart";
-import { ToggleChip } from "../ui/Chip";
+import { EffectChart } from "./EffectChart";
+import { GrainToggle } from "./GrainToggle";
 import { formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 import rowStyles from "./PanelRows.module.css";
@@ -11,6 +10,7 @@ import { Figure } from "./Figure";
 import { Panel } from "./Panel";
 import { StatsTable } from "./StatsTable";
 import totalsStyles from "./StatsPage.module.css";
+import { useChartGrain } from "./use-chart-grain";
 
 export function EffectFigures({ totals }: { totals: EffectTotals }) {
   const { stats } = useMessages();
@@ -38,21 +38,10 @@ function keptOutNote(stats: StatsMessages, language: Language, totals: EffectTot
 
 export function EffectChartPanel({ weeks, days, totals }: { weeks: EffectPeriod[]; days: EffectPeriod[]; totals: EffectTotals }) {
   const { stats } = useMessages();
-  const [grain, setGrain] = useState<Grain>("week");
-  const toggle = (
-    <span role="group" aria-label={stats.chartScale} className={rowStyles.grain}>
-      <ToggleChip pressed={grain === "week"} onToggle={() => setGrain("week")}>
-        {stats.grainWeek}
-      </ToggleChip>
-      <ToggleChip pressed={grain === "day"} onToggle={() => setGrain("day")}>
-        {stats.grainDay}
-      </ToggleChip>
-    </span>
-  );
-
+  const [grain, setGrain] = useChartGrain("effect", "week");
   return (
-    <Panel title={stats.effectTitle} aside={toggle}>
-      <EffectWeeksChart periods={grain === "week" ? weeks : days} totals={totals} grain={grain} />
+    <Panel title={stats.effectTitle} aside={<GrainToggle chart={stats.effectTitle} grain={grain} onChange={setGrain} />}>
+      <EffectChart periods={grain === "week" ? weeks : days} totals={totals} grain={grain} />
     </Panel>
   );
 }

@@ -1,18 +1,21 @@
 import { formatShare } from "../../core/stats/format";
 import type { AccuracyPeriod, AccuracyRow, BranchRow, CategoryRow, FoundRow, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow } from "../../core/api/contract";
 import { useMessages } from "../i18n";
-import { AccuracyWeeksChart } from "./AccuracyWeeksChart";
+import { AccuracyChart } from "./AccuracyChart";
+import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import { StatsTable, type StatsTableRow } from "./StatsTable";
+import { useChartGrain } from "./use-chart-grain";
 
 type SplitRow = { by: string } & OutcomeCounts;
 
-type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyPeriod[]; methodRows: MethodAccuracyRow[]; matchRows: MatchAccuracyRow[] };
+type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyPeriod[]; days: AccuracyPeriod[]; methodRows: MethodAccuracyRow[]; matchRows: MatchAccuracyRow[] };
 
-export function AccuracyPanel({ rows, weeks, methodRows, matchRows }: AccuracyPanelProps) {
+export function AccuracyPanel({ rows, weeks, days, methodRows, matchRows }: AccuracyPanelProps) {
   const { stats, core } = useMessages();
+  const [grain, setGrain] = useChartGrain("accuracy", "week");
   const splitOf = (evidence: AccuracyRow["evidence"]): StatsTableRow[] => {
     if (evidence === "source-changed")
       return methodRows.map((split) => splitRow(stats, split, split.by === "unknown" ? stats.beforeMethodRecorded : stats.checkedBy(core.checkMethodLabel(split.by))));
@@ -21,13 +24,13 @@ export function AccuracyPanel({ rows, weeks, methodRows, matchRows }: AccuracyPa
     return [];
   };
   return (
-    <Panel title={stats.accuracyTitle}>
+    <Panel title={stats.accuracyTitle} aside={rows.length === 0 ? undefined : <GrainToggle chart={stats.accuracyTitle} grain={grain} onChange={setGrain} />}>
       {rows.length === 0 ? (
         <p className={rowStyles.muted}>{stats.noCandidates}</p>
       ) : (
         <>
           <p className={rowStyles.muted}>{stats.accuracyHint}</p>
-          <AccuracyWeeksChart weeks={weeks} />
+          <AccuracyChart periods={grain === "week" ? weeks : days} grain={grain} />
           <StatsTable
             label={stats.accuracyTable}
             head={stats.accuracyHead}

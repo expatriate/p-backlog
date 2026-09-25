@@ -4,7 +4,7 @@ import { countEn, NBSP, pluralEn } from "../../core/i18n/plural";
 import { STALE_URGENT_DAYS } from "../../core/stats/breakdowns";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import { STATS_WEEKS } from "../../core/stats/weeks";
-import type { ChartStep } from "./charts/chart-style";
+import type { ChartStep, Grain } from "./charts/chart-style";
 import { formatApprox, formatLines, isEstimated } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 
@@ -13,7 +13,11 @@ const STATS_PERIOD = countEn(STATS_WEEKS, "week", "weeks");
 const CHART_STEPS: Record<ChartStep, string> = { day: "day", week: "week", sample: "sample" };
 const ESTIMATE_LATER = `the estimate appears after ${MIN_FIXES_FOR_ESTIMATE} fixes`;
 
-const weeks = (n: number): string => countEn(n, "week", "weeks");
+const PERIOD_FORMS: Record<Grain, [string, string]> = { week: ["week", "weeks"], day: ["day", "days"] };
+const PER_PERIOD: Record<Grain, string> = { week: "a week", day: "a day" };
+const LAST_PERIOD: Record<Grain, string> = { week: "in the last week", day: "on the last day with decisions" };
+
+const periods = (grain: Grain, n: number): string => countEn(n, ...PERIOD_FORMS[grain]);
 const tasks = (n: number): string => countEn(n, "task", "tasks");
 const tokens = (n: number): string => countEn(n, "token", "tokens");
 
@@ -44,7 +48,7 @@ export const statsEn: StatsMessages = {
   projects: "Projects",
 
   chartLabel: (name, step) => `${name}. Left and right arrows move by ${CHART_STEPS[step]}`,
-  weekOf: (day) => `week of ${day}`,
+  periodOf: (grain, day) => (grain === "week" ? `week of ${day}` : day),
   weekTrend: (arrow, size) => `${arrow}${NBSP}${size}${NBSP}vs${NBSP}last${NBSP}week`,
   weekTrendSpeech: (size, better) => `${size} ${better ? "less" : "more"} than a week ago — ${better ? "better" : "worse"}`,
 
@@ -52,18 +56,18 @@ export const statsEn: StatsMessages = {
   createdAndClosed: "created and closed",
   thisWeek: "This week",
   weekNote: (created, closed) => `created ${created}, closed ${closed}`,
-  debtByWeek: "Debt by week",
+  debtBy: { week: "Debt by week", day: "Debt by day" },
   flowCreated: "created",
   flowClosed: "closed",
   flowOpen: "open",
-  flowOpenAtWeekEnd: "open at week end",
-  flowSummary: ({ weekCount, created, closed, openNow }) => `${weeks(weekCount)}: created ${created}, closed ${closed}, open now ${openNow}`,
-  createdByDay: "Created by day",
+  flowOpenAtEnd: { week: "open at week end", day: "open at day end" },
+  flowSummary: ({ grain, periodCount, created, closed, openNow }) => `${periods(grain, periodCount)}: created ${created}, closed ${closed}, open now ${openNow}`,
+  createdBy: { week: "Created by week", day: "Created by day" },
   createdTasks: "tasks created",
-  intakeSummary: (dayCount, created) => {
-    const period = countEn(dayCount, "day", "days");
+  intakeSummary: (grain, periodCount, created) => {
+    const period = periods(grain, periodCount);
     if (created === 0) return `${period}: no tasks created`;
-    return `${period}: created ${created}, on average ${formatDecimal("en", created / dayCount)} a day`;
+    return `${period}: created ${created}, on average ${formatDecimal("en", created / periodCount)} ${PER_PERIOD[grain]}`;
   },
   hotspots: "Where it hurts",
   noSourceFolders: "Open tasks have no source",
@@ -101,8 +105,10 @@ export const statsEn: StatsMessages = {
   matchedBy: (match) => `matched ${match}`,
   decidedCandidates: "candidates decided",
   precision: "precision",
-  accuracySummary: (weekCount, decided, latestPrecision) =>
-    latestPrecision === null ? `${weeks(weekCount)}: no decided candidates` : `${weeks(weekCount)}: decided ${decided}, precision in the last week ${latestPrecision}`,
+  accuracySummary: (grain, periodCount, decided, latestPrecision) =>
+    latestPrecision === null
+      ? `${periods(grain, periodCount)}: no decided candidates`
+      : `${periods(grain, periodCount)}: decided ${decided}, precision ${LAST_PERIOD[grain]} ${latestPrecision}`,
   graphTitle: "Code graph",
   graphMissing: (code) => [
     "No code graph: the check compares source lines and the whole file. ",
@@ -148,7 +154,7 @@ export const statsEn: StatsMessages = {
   deferredNote: (fixed, pending) => `fixed ${fixed}, pending ${pending}`,
   pullRequestLines: "Lines in pull requests",
   sinceAdoption: "since the backlog was adopted",
-  chartScale: "Chart scale",
+  chartScale: (chart) => `Scale of the "${chart}" chart`,
   grainWeek: "week",
   grainDay: "day",
   effectTitle: "Effectiveness",
@@ -196,7 +202,7 @@ export const statsEn: StatsMessages = {
   commandsHead: ["Command", "Runs", "Average time", "Average memory", "Peak memory"],
   megabytes: (value) => (value === null ? "—" : `${formatDecimal("en", value)}${NBSP}MB`),
   milliseconds: (value) => `${formatLines("en", value)}${NBSP}ms`,
-  spendByDay: "Usage by day",
+  spendBy: { week: "Usage by week", day: "Usage by day" },
   hookTurnTokens: "hook turn tokens",
   cliOutputTokens: "CLI output and skill tokens",
   hookRuns: "hook runs",
@@ -205,8 +211,8 @@ export const statsEn: StatsMessages = {
   cliOutput: "CLI output and skill",
   apiPriceTooltip: "at API prices",
   tokens,
-  spendSummary: ({ dayCount, hookTokens, cliTokens, money, hookRuns, cliRuns }) =>
-    `Over ${countEn(dayCount, "day", "days")}: due to the hook ${tokens(hookTokens)}, CLI output and skill ${cliTokens}, ≈${NBSP}${money}; hook runs ${hookRuns}, other commands ${cliRuns}`,
+  spendSummary: ({ grain, periodCount, hookTokens, cliTokens, money, hookRuns, cliRuns }) =>
+    `Over ${periods(grain, periodCount)}: due to the hook ${tokens(hookTokens)}, CLI output and skill ${cliTokens}, ≈${NBSP}${money}; hook runs ${hookRuns}, other commands ${cliRuns}`,
   serverMemory: "Server memory",
   memoryRestartNote: "The history starts over after the server restarts",
   memorySummary: (current, max) => `Now ${current}, peak over the last hour ${max}`,

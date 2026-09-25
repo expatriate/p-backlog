@@ -1,4 +1,5 @@
-export type ChartStep = "day" | "week" | "sample";
+export type Grain = "week" | "day";
+export type ChartStep = Grain | "sample";
 
 export const CHART_MARGIN = { top: 8, right: 4, bottom: 0, left: 4 };
 export const AXIS_PROPS = { tickLine: false, axisLine: false } as const;

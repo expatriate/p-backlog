@@ -10,10 +10,9 @@ import { ClosingPanel } from "./ClosingPanel";
 import { Figure } from "./Figure";
 import { trendOf } from "./trend";
 import { HotspotsPanel } from "./HotspotsPanel";
-import { Panel } from "./Panel";
 import { StatsTabState } from "./StatsTabState";
-import { DailyIntakePanel } from "./DailyIntakeChart";
-import { WeeklyFlowChart } from "./WeeklyFlowChart";
+import { FlowPanel } from "./FlowChart";
+import { IntakePanel } from "./IntakeChart";
 import styles from "./StatsPage.module.css";
 
 export function OverviewTab() {
@@ -23,15 +22,12 @@ export function OverviewTab() {
 }
 
 function Overview({ report, listPath }: { report: StatsReport; listPath: string }) {
-  const { stats } = useMessages();
   return (
     <>
       <Totals totals={report.totals} />
       <div className={styles.blocks}>
-        <Panel title={stats.debtByWeek}>
-          <WeeklyFlowChart weeks={report.weeks} />
-        </Panel>
-        <DailyIntakePanel days={report.days} />
+        <FlowPanel weeks={report.weeks} days={report.days} />
+        <IntakePanel weeks={report.weeks} days={report.days} />
         <HotspotsPanel hotspots={report.hotspots} listPath={listPath} />
         <AgePanel age={report.age} />
         <ClosingPanel closing={report.closing} />

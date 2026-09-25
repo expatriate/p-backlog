@@ -6,12 +6,10 @@ import type { EffectPeriod, EffectTotals } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
-import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { formatApprox, formatNoiseShare, isEstimated } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
-
-export type Grain = "week" | "day";
 
 const REAL = "var(--chart-bar-neutral)";
 const DEFERRED = "var(--accent-ink)";
@@ -19,7 +17,7 @@ const DEFERRED = "var(--accent-ink)";
 function periodTooltip(stats: StatsMessages, core: CoreMessages, language: Language, grain: Grain) {
   const roughLines = (lines: number) => formatApprox(language, lines, Math.round(lines) > 0);
   return rowTooltip((period: EffectPeriod) => ({
-    title: grain === "week" ? stats.weekOf(tooltipDay(language, period.start)) : tooltipDay(language, period.start),
+    title: stats.periodOf(grain, tooltipDay(language, period.start)),
     rows: [
       { label: stats.inPullRequests, value: core.count(Math.round(period.onTopicLines), "line"), shape: "bar", color: REAL },
       { label: stats.deferredSeries, value: roughLines(period.deferredLines), shape: "hatch", color: DEFERRED },
@@ -30,7 +28,7 @@ function periodTooltip(stats: StatsMessages, core: CoreMessages, language: Langu
   }));
 }
 
-export function EffectWeeksChart({ periods, totals, grain }: { periods: EffectPeriod[]; totals: EffectTotals; grain: Grain }) {
+export function EffectChart({ periods, totals, grain }: { periods: EffectPeriod[]; totals: EffectTotals; grain: Grain }) {
   const { stats, core } = useMessages();
   const language = useLanguage();
   const tooltip = useMemo(() => periodTooltip(stats, core, language, grain), [stats, core, language, grain]);

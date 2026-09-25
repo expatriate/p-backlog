@@ -51,7 +51,7 @@ function Cost({ report }: { report: CostReport }) {
       <CostFigures totals={report.totals} days={report.days} />
       <div className={styles.blocks}>
         <div className={rowStyles.wide}>
-          <SpendPanel days={report.days} />
+          <SpendPanel weeks={report.weeks} days={report.days} />
         </div>
         <ModelsPanel models={report.models} />
         <MemoryPanel />

@@ -9,7 +9,7 @@ import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from 
 import { routes } from "../app/App";
 import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
-import { renderApp } from "../testing/render-app";
+import { renderApp, type RenderedApp } from "../testing/render-app";
 import { StatsPage } from "./StatsPage";
 import { NBSP } from "../../core/i18n/plural";
 
@@ -396,7 +396,7 @@ describe("вкладка «Эффект»", () => {
     expect(screen.getByRole("figure", { name: /С внедрения беклога: в пулреквестах 2/ })).toBeDefined();
     expect(screen.getByRole("region", { name: "По проектам" })).toBeDefined();
 
-    const grain = screen.getByRole("group", { name: "Масштаб графика" });
+    const grain = screen.getByRole("group", { name: "Масштаб графика «Эффективность»" });
     expect(within(grain).getByRole("button", { name: "неделя" }).getAttribute("aria-pressed")).toBe("true");
 
     await app.user.click(within(grain).getByRole("button", { name: "день" }));
@@ -463,6 +463,88 @@ describe("вкладка «Стоимость»", () => {
     await renderApp({ "spa/project.md": projectFile("SPA") }, "/stats/cost", routes, { transcriptsDir: await makeTempDir() });
 
     expect(await screen.findByText("Расшифровки Claude Code не найдены.")).toBeDefined();
+  });
+});
+
+describe("масштаб графиков", () => {
+  const pick = async (app: RenderedApp, panel: HTMLElement, grain: "неделя" | "день") =>
+    app.user.click(within(within(panel).getByRole("group", { name: /^Масштаб графика «/ })).getByRole("button", { name: grain }));
+  const pressed = (panel: HTMLElement, grain: "неделя" | "день") => within(panel).getByRole("button", { name: grain }).getAttribute("aria-pressed");
+
+  it("«день» на графике долга показывает дневной ряд, не трогает график «Создано» и переживает возврат на вкладку", async () => {
+    const app = await renderApp(FILES, "/stats");
+    const flow = await screen.findByRole("region", { name: "Долг по неделям" });
+    const intake = screen.getByRole("region", { name: "Создано по дням" });
+    const intakeFigure = within(intake).getByRole("figure", { name: new RegExp(`^30${NBSP}дней: создано 4, в среднем`) });
+
+    await pick(app, flow, "день");
+
+    expect(screen.getByRole("region", { name: "Долг по дням" })).toBe(flow);
+    expect(within(flow).getByRole("figure", { name: `30${NBSP}дней: создано 4, закрыто 1, открыто сейчас 3` })).toBeDefined();
+    expect(within(flow).getByText("открыто на конец дня")).toBeDefined();
+    expect(screen.getByRole("region", { name: "Создано по дням" })).toBe(intake);
+    expect(within(intake).getByRole("figure")).toBe(intakeFigure);
+    expect(pressed(intake, "день")).toBe("true");
+
+    await app.user.click(screen.getByRole("link", { name: "Качество" }));
+    await screen.findByRole("region", { name: "Точность проверки" });
+    await app.user.click(screen.getByRole("link", { name: "Обзор" }));
+
+    const remounted = await screen.findByRole("region", { name: "Долг по дням" });
+    expect(pressed(remounted, "день")).toBe("true");
+  });
+
+  it("«неделя» на графике «Создано» считает по неделям", async () => {
+    const app = await renderApp(FILES, "/stats");
+    const intake = await screen.findByRole("region", { name: "Создано по дням" });
+
+    await pick(app, intake, "неделя");
+
+    expect(screen.getByRole("region", { name: "Создано по неделям" })).toBe(intake);
+    expect(within(intake).getByRole("figure", { name: new RegExp(`^12${NBSP}недель: создано 4, в среднем .+ в неделю$`) })).toBeDefined();
+  });
+
+  it("мусор в сохранённом масштабе — график в своём масштабе по умолчанию", async () => {
+    localStorage.setItem("p-backlog.stats.grain.flow", "month");
+    await renderApp(FILES, "/stats");
+
+    const flow = await screen.findByRole("region", { name: "Долг по неделям" });
+    expect(pressed(flow, "неделя")).toBe("true");
+    expect(within(flow).getByRole("figure", { name: new RegExp(`^12${NBSP}недель:`) })).toBeDefined();
+  });
+
+  it("точность проверки по дням берёт дневной ряд", async () => {
+    const event = (fields: Record<string, unknown>) => JSON.stringify({ via: "check", ...fields });
+    const app = await renderApp(
+      {
+        ...FILES,
+        "spa/journal.jsonl": [
+          event({ at: "2026-09-16T10:00:00+03:00", task: "SPA-1", kind: "candidate", evidence: "source-changed", mode: "changed" }),
+          event({ at: "2026-09-17T10:00:00+03:00", task: "SPA-1", kind: "verified", via: "cli" }),
+        ].join("\n"),
+      },
+      "/stats/quality",
+    );
+    const accuracy = await screen.findByRole("region", { name: "Точность проверки" });
+    expect(within(accuracy).getByRole("figure", { name: `12${NBSP}недель: решено 1, точность на последней неделе 0%` })).toBeDefined();
+
+    await pick(app, accuracy, "день");
+
+    expect(within(accuracy).getByRole("figure", { name: `30${NBSP}дней: решено 1, точность в последний день с решениями 0%` })).toBeDefined();
+  });
+
+  it("расход по неделям суммирует 12 недель, а не 30 дней", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    const hookRun = (at: string) => JSON.stringify({ at, command: "hook stop", cwd: repo, ms: 120, rssMb: 90, exitCode: 0 });
+    const runs = [hookRun("2026-08-01T09:30:00+03:00"), hookRun("2026-09-18T09:30:00+03:00")].join("\n") + "\n";
+    const app = await renderApp({ "spa/project.md": projectFile("SPA", [repo]), ".runs.jsonl": runs }, "/p/spa/stats/cost", routes, { transcriptsDir: await makeTempDir() });
+    const spend = await screen.findByRole("region", { name: "Расход по дням" });
+    expect(within(spend).getByRole("figure", { name: new RegExp(`^За 30${NBSP}дней: .*; запусков хука 1, других команд 0$`) })).toBeDefined();
+
+    await pick(app, spend, "неделя");
+
+    expect(screen.getByRole("region", { name: "Расход по неделям" })).toBe(spend);
+    expect(within(spend).getByRole("figure", { name: new RegExp(`^За 12${NBSP}недель: .*; запусков хука 2, других команд 0$`) })).toBeDefined();
   });
 });
 
