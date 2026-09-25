@@ -1,5 +1,6 @@
 import { formatLocalIso } from "../../model/dates";
 import { isClosed } from "../../model/graph";
+import { UNKNOWN, type Recorded } from "../../journal/events";
 import type { TaskCategory } from "../../model/types";
 import { fixCommitEntry, type FixCommitEntry } from "../code/fixes";
 import { isFixedNow, type TaskHistory } from "../history";
@@ -16,8 +17,8 @@ export type EffectInput = StatsInput & { code: CollectedCode };
 
 type Deferred = { history: TaskHistory; fixedLines: number | null; fixedTestLines: number; fixedAt: number | null };
 type FixSize = { lines: number; testLines: number };
-type FixSample = FixSize & { category: TaskCategory | undefined };
-type Estimate = (category: TaskCategory | undefined) => FixSize | null;
+type FixSample = FixSize & { category: Recorded<TaskCategory> | undefined };
+type Estimate = (category: Recorded<TaskCategory> | undefined) => FixSize | null;
 
 export function effectReport(
   { code, ...input }: EffectInput,
@@ -95,7 +96,7 @@ function estimateSamples(histories: readonly TaskHistory[], code: CollectedCode)
 function estimator(samples: readonly FixSample[]): Estimate {
   const overall = sizeOf(samples);
   return (category) => {
-    if (category === undefined) return overall;
+    if (category === undefined || category === UNKNOWN) return overall;
     return sizeOf(samples.filter((sample) => sample.category === category)) ?? overall;
   };
 }

@@ -1,4 +1,4 @@
-import { recordedMethodOf, type CandidateEvidence, type ChangeSource, type RecordedMatch, type RecordedMethod, type FoundHow, type JournalEvent, type ProjectJournal, type TaskSnapshot } from "../journal/events";
+import { recordedMethodOf, type Recorded, type CandidateEvidence, type ChangeSource, type RecordedMatch, type RecordedMethod, type FoundHow, type JournalEvent, type ProjectJournal, type TaskSnapshot } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
 
@@ -15,8 +15,8 @@ export type TaskHistory = {
   reason?: string | undefined;
   finalStatus: TaskStatus;
   transitions: Transition[];
-  category?: TaskCategory | undefined;
-  found?: FoundHow | undefined;
+  category?: Recorded<TaskCategory> | undefined;
+  found?: Recorded<FoundHow> | undefined;
   branch?: string | undefined;
   candidates: CandidateSeen[];
   verifications: number[];
@@ -25,11 +25,13 @@ export type TaskHistory = {
 
 export type CandidateSeen = { at: number; evidence: CandidateEvidence; method: RecordedMethod; match: RecordedMatch };
 
+type CategoryEvent = { at: number; to?: Recorded<TaskCategory> | undefined };
+
 type Known = {
   projectId: string;
   final?: Task | TaskSnapshot;
   created?: Extract<JournalEvent, { kind: "created" }>;
-  categoryEvents: { at: number; to?: TaskCategory | undefined }[];
+  categoryEvents: CategoryEvent[];
   transitions: Transition[];
   candidates: CandidateSeen[];
   verifications: number[];
@@ -116,8 +118,8 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, tran
 function categoryOf(
   final: Task | TaskSnapshot | undefined,
   created: Extract<JournalEvent, { kind: "created" }> | undefined,
-  categoryEvents: readonly { at: number; to?: TaskCategory | undefined }[],
-): TaskCategory | undefined {
+  categoryEvents: readonly CategoryEvent[],
+): Recorded<TaskCategory> | undefined {
   if (final !== undefined) return final.category;
   const lastCategoryEvent = [...categoryEvents].sort((a, b) => a.at - b.at).at(-1);
   return lastCategoryEvent !== undefined ? lastCategoryEvent.to : created?.category;

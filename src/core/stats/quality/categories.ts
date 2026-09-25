@@ -1,3 +1,4 @@
+import { UNKNOWN } from "../../journal/events";
 import type { Task, TaskCategory } from "../../model/types";
 import { closingsOf, type TaskHistory } from "../history";
 import type { Period } from "../period";
@@ -20,6 +21,7 @@ export function categoryBreakdown(openTasks: readonly Task[], histories: readonl
     target.weight += PRIORITY_WEIGHT[task.priority];
   }
   for (const history of histories) {
+    if (history.category === UNKNOWN) continue;
     if (period.contains(history.createdAt)) row(history.category).created += 1;
     row(history.category).closed += closingsOf(history).filter((closing) => period.contains(closing.at)).length;
   }

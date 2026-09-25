@@ -13,6 +13,16 @@ const TO = at(18).getTime();
 const journal = (events: JournalEvent[]) => [{ projectId: "spa", events, invalidLines: 0 }];
 
 describe("категории", () => {
+  it("смена на неизвестную категорию не превращает удалённую задачу в «без категории»", () => {
+    const events: JournalEvent[] = [
+      { at: iso(2), task: "SPA-7", via: "cli", kind: "created", type: "task", priority: "medium", tags: [], category: "bug" },
+      { at: iso(3), task: "SPA-7", via: "cli", kind: "category", from: "bug", to: "unknown" },
+      { at: iso(4), task: "SPA-7", via: "cli", kind: "status", from: "backlog", to: "done" },
+    ];
+
+    expect(categoryBreakdown([], taskHistories([], journal(events)), period(FROM, TO))).toEqual([]);
+  });
+
   it("открыто, вес, создано и закрыто по категориям; удалённая по снимку; «не указана» последней; нулевые не выводятся", () => {
     const tasks = [
       makeTask({ id: "SPA-1", created: iso(2), category: "bloaters", priority: "high" }),

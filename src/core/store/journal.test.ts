@@ -31,6 +31,32 @@ describe("файл журнала", () => {
     expect(journal.invalidLines).toBe(2);
   });
 
+  it("неизвестное значение перечисления не выбрасывает строку, а без статуса строку не понять — она пропускается", async () => {
+    const dir = await makeTempDir();
+    const at = "2026-09-18T12:00:00+03:00";
+    const snapshot = { id: "SPA-2", title: "Удалена", type: "task", status: "done", priority: "urgent", category: "old-name", tags: [], blockedBy: [], related: [], created: at, resolution: "wontfix" };
+    const lines = [
+      { at, task: "SPA-1", via: "api", kind: "created", type: "task", priority: "urgent", tags: [], category: "old-name", found: "pairing" },
+      { at, task: "SPA-1", via: "bot", kind: "status", from: "backlog", to: "done", resolution: "wontfix" },
+      { at, task: "SPA-1", via: "cli", kind: "category", from: "bug", to: "old-name" },
+      { at, task: "SPA-1", via: "check", kind: "candidate", evidence: "source-changed", mode: "deep", method: "ast", match: "fuzzy" },
+      { at, task: "SPA-2", via: "cli", kind: "deleted", snapshot },
+      { at, task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "someday" },
+    ];
+    await writeFiles(dir, { [JOURNAL_FILE]: lines.map((line) => JSON.stringify(line)).join("\n") });
+
+    const journal = await readJournal(dir, "spa");
+
+    expect(journal.invalidLines).toBe(1);
+    expect(journal.events).toEqual([
+      expect.objectContaining({ kind: "created", via: "unknown", priority: "unknown", category: "unknown", found: "unknown" }),
+      expect.objectContaining({ kind: "status", via: "unknown", from: "backlog", to: "done", resolution: undefined }),
+      expect.objectContaining({ kind: "category", from: "bug", to: "unknown" }),
+      expect.objectContaining({ kind: "candidate", evidence: "source-changed", mode: "unknown", method: undefined, match: undefined }),
+      expect.objectContaining({ kind: "deleted", snapshot: expect.objectContaining({ status: "done", priority: "unknown", category: "unknown", resolution: undefined }) }),
+    ]);
+  });
+
   it("нет файла — пустой журнал", async () => {
     const dir = await makeTempDir();
 

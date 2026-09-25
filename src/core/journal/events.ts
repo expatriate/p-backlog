@@ -7,6 +7,18 @@ const CHANGE_SOURCES = ["cli", "web", "check", "sweep"] as const;
 
 export type ChangeSource = (typeof CHANGE_SOURCES)[number];
 
+export const UNKNOWN = "unknown";
+
+export type Recorded<T extends string> = T | typeof UNKNOWN;
+
+function recordedEnum<const T extends readonly [string, ...string[]]>(values: T) {
+  return z.enum([...values, UNKNOWN]).catch(UNKNOWN);
+}
+
+function optionalOrUnknown<const T extends readonly [string, ...string[]]>(values: T) {
+  return z.enum(values).optional().catch(undefined);
+}
+
 export const FOUND_HOW = ["review", "incidental"] as const;
 
 export type FoundHow = (typeof FOUND_HOW)[number];
@@ -55,31 +67,37 @@ export function recordedMethodOf({ method, bySymbol, byAnchor }: MethodMarks): R
   return bySymbol === true || byAnchor === true ? checkMethodOf({ bySymbol, byAnchor }) : "unknown";
 }
 
-const eventBase = { at: z.iso.datetime({ offset: true }), task: z.string().min(1), via: z.enum(CHANGE_SOURCES) };
+const eventBase = { at: z.iso.datetime({ offset: true }), task: z.string().min(1), via: recordedEnum(CHANGE_SOURCES) };
+
+const taskSnapshotSchema = taskFrontmatterSchema.extend({
+  priority: recordedEnum(PRIORITIES),
+  category: recordedEnum(TASK_CATEGORIES).optional(),
+  resolution: optionalOrUnknown(RESOLUTIONS),
+});
 
 export const journalEventSchema = z.discriminatedUnion("kind", [
   z.object({
     ...eventBase,
     kind: z.literal("created"),
     type: z.enum(TASK_TYPES),
-    priority: z.enum(PRIORITIES),
+    priority: recordedEnum(PRIORITIES),
     tags: z.array(z.string()),
     source: z.string().optional(),
     epic: z.string().optional(),
-    category: z.enum(TASK_CATEGORIES).optional(),
-    found: z.enum(FOUND_HOW).optional(),
+    category: recordedEnum(TASK_CATEGORIES).optional(),
+    found: recordedEnum(FOUND_HOW).optional(),
     origin: z.object({ branch: z.string().optional(), commit: z.string().min(1) }).optional(),
   }),
-  z.object({ ...eventBase, kind: z.literal("status"), from: z.enum(TASK_STATUSES), to: z.enum(TASK_STATUSES), resolution: z.enum(RESOLUTIONS).optional() }),
-  z.object({ ...eventBase, kind: z.literal("priority"), from: z.enum(PRIORITIES), to: z.enum(PRIORITIES) }),
-  z.object({ ...eventBase, kind: z.literal("deleted"), snapshot: taskFrontmatterSchema }),
-  z.object({ ...eventBase, kind: z.literal("category"), from: z.enum(TASK_CATEGORIES).optional(), to: z.enum(TASK_CATEGORIES).optional() }),
+  z.object({ ...eventBase, kind: z.literal("status"), from: z.enum(TASK_STATUSES), to: z.enum(TASK_STATUSES), resolution: optionalOrUnknown(RESOLUTIONS) }),
+  z.object({ ...eventBase, kind: z.literal("priority"), from: recordedEnum(PRIORITIES), to: recordedEnum(PRIORITIES) }),
+  z.object({ ...eventBase, kind: z.literal("deleted"), snapshot: taskSnapshotSchema }),
+  z.object({ ...eventBase, kind: z.literal("category"), from: recordedEnum(TASK_CATEGORIES).optional(), to: recordedEnum(TASK_CATEGORIES).optional() }),
   z.object({ ...eventBase, kind: z.literal("verified"), source: z.string().optional() }),
-  z.object({ ...eventBase, kind: z.literal("candidate"), evidence: z.enum(CANDIDATE_EVIDENCE), mode: z.enum(CHECK_MODES),
-    method: z.enum(CHECK_METHODS).optional(),
+  z.object({ ...eventBase, kind: z.literal("candidate"), evidence: z.enum(CANDIDATE_EVIDENCE), mode: recordedEnum(CHECK_MODES),
+    method: optionalOrUnknown(CHECK_METHODS),
     bySymbol: z.boolean().optional(),
     byAnchor: z.boolean().optional(),
-    match: z.enum(DUPLICATE_MATCHES).optional(),
+    match: optionalOrUnknown(DUPLICATE_MATCHES),
   }),
   z.object({ ...eventBase, kind: z.literal("candidate-gone"), evidence: z.enum(CANDIDATE_EVIDENCE) }),
   z.object({ ...eventBase, kind: z.literal("candidate-filtered"), symbol: z.string() }),
@@ -87,9 +105,9 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
 
 export type JournalEvent = z.output<typeof journalEventSchema>;
 
-export type TaskSnapshot = z.output<typeof taskFrontmatterSchema>;
+export type TaskSnapshot = z.output<typeof taskSnapshotSchema>;
 
-const SNAPSHOT_FIELDS = Object.keys(taskFrontmatterSchema.shape) as (keyof TaskSnapshot)[];
+const SNAPSHOT_FIELDS = Object.keys(taskSnapshotSchema.shape) as (keyof TaskSnapshot)[];
 
 export type ProjectJournal = { projectId: string; events: JournalEvent[]; invalidLines: number };
 
