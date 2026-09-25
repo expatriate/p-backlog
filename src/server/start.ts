@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import type { Hono } from "hono";
 import { mkdir, rm, writeFile } from "node:fs/promises";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { claudeProjectsDir } from "../core/claude-dir";
 import { errorText } from "../core/errors";
@@ -18,7 +19,7 @@ import { startSweeper } from "./sweeper";
 import { createUsageScanner, type UsageScanner } from "./usage-scanner";
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
-const STOP_SIGNALS: readonly NodeJS.Signals[] = ["SIGTERM", "SIGINT"];
+const STOP_SIGNALS: readonly NodeJS.Signals[] = ["SIGTERM", "SIGINT", "SIGHUP"];
 
 export const BUNDLED_WEB_DIR = join(import.meta.dirname, "web");
 
@@ -99,7 +100,13 @@ function listen(app: Hono, port: number): Promise<Listening> {
       resolve({ server, port: info.port });
     });
     server.once("error", reject);
+    server.on("request", (_request: IncomingMessage, response: ServerResponse) => response.on("finish", () => dropIdleWhenClosing(server)));
   });
+}
+
+function dropIdleWhenClosing(server: HttpServer): void {
+  if (server.listening || !("closeIdleConnections" in server)) return;
+  setImmediate(() => server.closeIdleConnections());
 }
 
 function closeServer(server: HttpServer): Promise<void> {

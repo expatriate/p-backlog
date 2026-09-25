@@ -1,8 +1,8 @@
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { localeLanguage, settingsFilePath } from "../core/store/settings";
-import { makeTempDir } from "../core/store/testing/temp-dirs";
+import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import { startServer } from "./start";
 
 describe("startServer", () => {
@@ -54,6 +54,31 @@ describe("startServer", () => {
     expect(outcome).toBe("closed");
     await expect(access(pidFile)).rejects.toThrow();
     await events.body?.cancel().catch(() => undefined);
+  });
+
+  it("дожидается правки, пришедшей до остановки, и не ждёт таймаута keep-alive после её ответа", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1") });
+    const server = await startServer({ root, port: 0, home, env: {} });
+    const origin = `http://127.0.0.1:${server.port}`;
+    const { tasks } = (await (await fetch(`${origin}/api/tasks`)).json()) as { tasks: { id: string; version: string }[] };
+    const lock = join(root, "spa", ".SPA-1.md.lock");
+    await writeFile(lock, "другой процесс");
+    const patch = fetch(`${origin}/api/tasks/SPA-1`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ version: tasks[0]?.version, changes: { status: "done" } }),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const startedAt = Date.now();
+    const closed = server.close().then(() => Date.now() - startedAt);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await rm(lock);
+
+    expect((await patch).status).toBe(200);
+    expect(await closed).toBeLessThan(2000);
   });
 
   it("занятый порт отклоняет промис ошибкой с номером порта", async () => {

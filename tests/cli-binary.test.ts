@@ -42,6 +42,7 @@ describe("собранный бинарник backlog", () => {
     });
     try {
       await once(server.stdout, "data");
+      await access(pidFile);
       const events = await fetch(`http://127.0.0.1:${port}/api/events`);
       expect(events.status).toBe(200);
 

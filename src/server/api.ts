@@ -111,17 +111,14 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     return result.ok ? c.json({ deleted: id }) : c.json({ errors: [messages.projectNotFound(id)] }, 404);
   });
 
-  api.get("/events", (c) => {
-    const response = streamSSE(c, async (stream) => {
+  api.get("/events", (c) =>
+    streamSSE(c, async (stream) => {
       const unsubscribe = changes.subscribe(() => void stream.writeSSE({ event: "change", data: "" }));
       const clientGone = new Promise<void>((resolve) => stream.onAbort(resolve));
       await Promise.race([clientGone, changes.closed]);
       unsubscribe();
-    });
-    // Node keeps a finished keep-alive socket open until its timeout, and server.close() waits for it.
-    response.headers.set("Connection", "close");
-    return response;
-  });
+    }),
+  );
 
   return api;
 }
