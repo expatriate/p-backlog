@@ -149,14 +149,19 @@ describe("сбор данных git по проектам", () => {
     gitCommitAll(repo, "fix: b", "2026-09-11T10:00:00+03:00");
     const hash = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
     gitCheckout(repo, "master");
-    const source = createCodeSource({ home: "/h" });
+    const counting = countingGit();
+    const source = createCodeSource({ home: "/h", git: counting.git });
     const request = [{ projectId: "spa", hashes: [hash] }];
     const landedAt = async () => (await source.fixCommits([projectOf("spa", [repo])], request, NOW)).get(fixKey("spa", hash))?.landedAt;
 
     const beforeMerge = await landedAt();
+    const processesBeforeMerge = counting.processes();
+    await landedAt();
+    const processesWhileMainUnchanged = counting.processes() - processesBeforeMerge;
     gitMergeNoFastForward(repo, "fix", "2026-09-15T10:00:00+03:00");
 
     expect(beforeMerge).toBeUndefined();
+    expect(processesWhileMainUnchanged).toBeLessThan(processesBeforeMerge);
     expect(Date.parse((await landedAt()) ?? "")).toBe(Date.parse("2026-09-15T10:00:00+03:00"));
   });
 

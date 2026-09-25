@@ -11,6 +11,7 @@ const HEAD = "HEAD";
 const MAIN_REFS = ["origin/HEAD", "main", "master"];
 const AGENT_TRAILER = /^claude/i;
 const GREP_PREFIX = "HEAD:";
+const RENAME_ARROW = " => ";
 
 export type RepoRefs = { head: string | null; main: string | null };
 
@@ -31,13 +32,19 @@ export async function readRepoCode(git: GitRunner, repo: string, since: Date, ma
   return { commits: parseCommits(log), lines: parseLines(grep), units };
 }
 
-export async function readFixCommits(git: GitRunner, repo: string, hashes: readonly string[], mainCommit: string | null): Promise<Map<string, FixCommit> | null> {
+export type FixCommitsRequest = { hashes: readonly string[]; mainCommit: string | null };
+
+export async function readFixCommits(git: GitRunner, repo: string, { hashes, mainCommit }: FixCommitsRequest): Promise<Map<string, FixCommit> | null> {
   const fullHashes = await resolveCommits(git, repo, hashes);
   if (fullHashes === null) return null;
   return fullHashes.size === 0 ? new Map() : readFixBatch(git, repo, fullHashes, mainCommit);
 }
 
 type FixHeader = { full: string; date: string; subject: string; byAgent: boolean };
+
+type FixChanges = { lines: number; testLines: number; paths: string[] };
+
+type LandingQuestion = { fix: FixHeader; paths: readonly string[]; mainCommit: string };
 
 async function readFixBatch(git: GitRunner, repo: string, fullHashes: ReadonlyMap<string, string>, mainCommit: string | null): Promise<Map<string, FixCommit> | null> {
   const commits = [...new Set(fullHashes.values())];
@@ -50,9 +57,9 @@ async function readFixBatch(git: GitRunner, repo: string, fullHashes: ReadonlyMa
   const byFullHash = new Map(
     await Promise.all(
       parseFixHeaders(headers).map(async (header): Promise<[string, FixCommit]> => {
-        const landedAt = mainCommit === null ? undefined : await landingDate(git, repo, header, mainCommit);
-        const changed = changedLines.get(header.full) ?? { lines: 0, testLines: 0 };
-        return [header.full, { date: header.date, byAgent: header.byAgent, ...changed, ...(landedAt === undefined ? {} : { landedAt }) }];
+        const { lines, testLines, paths } = changedLines.get(header.full) ?? { lines: 0, testLines: 0, paths: [] };
+        const landedAt = mainCommit === null ? undefined : await landingDate(git, repo, { fix: header, paths, mainCommit });
+        return [header.full, { date: header.date, byAgent: header.byAgent, lines, testLines, ...(landedAt === undefined ? {} : { landedAt }) }];
       }),
     ),
   );
@@ -71,29 +78,31 @@ function parseFixHeaders(output: string): FixHeader[] {
   });
 }
 
-async function landingDate(git: GitRunner, repo: string, fix: FixHeader, mainCommit: string): Promise<string | undefined> {
+async function landingDate(git: GitRunner, repo: string, { fix, paths, mainCommit }: LandingQuestion): Promise<string | undefined> {
   if (fix.full === mainCommit) return fix.date;
   const descendants = await git(repo, ["log", "--first-parent", "--ancestry-path", `--format=tformat:%P${FIELD}%cI`, `${fix.full}..${mainCommit}`, "--"]);
   const [parents = "", mergedAt = ""] = lastLine(descendants).split(FIELD);
   if (mergedAt !== "") return parents.split(" ")[0] === fix.full ? fix.date : mergedAt;
-  if (fix.subject === "") return undefined;
-  const squashes = await git(repo, ["log", mainCommit, "--first-parent", `--since=${fix.date}`, "--extended-regexp", `--grep=${subjectLinePattern(fix.subject)}`, "--format=tformat:%cI", "--"]);
+  if (fix.subject === "" || paths.length === 0) return undefined;
+  const pathspecs = paths.map((path) => `:(literal)${path}`);
+  const squashes = await git(repo, ["log", mainCommit, "--first-parent", `--since=${fix.date}`, "--extended-regexp", `--grep=${subjectLinePattern(fix.subject)}`, "--format=tformat:%cI", "--", ...pathspecs]);
   return lastLine(squashes) || undefined;
 }
 
 function subjectLinePattern(subject: string): string {
   const escaped = subject.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return `^[[:space:]]*([*-][[:space:]]+)?${escaped}[[:space:]]*$`;
+  return `^[[:space:]]*([*-][[:space:]]+)?${escaped}([[:space:]]*\\(#[0-9]+\\))?[[:space:]]*$`;
 }
 
 function lastLine(output: string | null): string {
   return output?.trim().split("\n").at(-1) ?? "";
 }
 
-function parseFixStats(output: string): [string, { lines: number; testLines: number }][] {
-  return records(output).map((record): [string, { lines: number; testLines: number }] => {
+function parseFixStats(output: string): [string, FixChanges][] {
+  return records(output).map((record): [string, FixChanges] => {
     const [full = "", ...rows] = record.split("\n");
-    return [full.trim(), { lines: numstatLines(rows), testLines: numstatLines(rows.filter((row) => isTestPath(row.split("\t")[2] ?? ""))) }];
+    const paths = rows.map((row) => row.split("\t")[2] ?? "").filter((path) => path !== "" && !path.includes(RENAME_ARROW));
+    return [full.trim(), { lines: numstatLines(rows), testLines: numstatLines(rows.filter((row) => isTestPath(row.split("\t")[2] ?? ""))), paths }];
   });
 }
 

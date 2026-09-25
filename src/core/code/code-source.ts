@@ -81,12 +81,20 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     return { key, code };
   };
 
+  const unsettledCheckedAt = new Map<string, string | null>();
+
+  const needsReading = (key: string, main: string | null): boolean => {
+    const cached = fixCache.get(key);
+    return cached === undefined || (cached.landedAt === undefined && unsettledCheckedAt.get(key) !== main);
+  };
+
   const fixCommitsOf = async (repo: string, main: string | null, hashes: readonly string[]): Promise<void> => {
-    const unsettled = hashes.filter((hash) => fixCache.get(`${repo} ${hash}`)?.landedAt === undefined);
+    const unsettled = hashes.filter((hash) => needsReading(`${repo} ${hash}`, main));
     if (unsettled.length === 0) return;
-    const found = await readFixCommits(git, repo, unsettled, main);
+    const found = await readFixCommits(git, repo, { hashes: unsettled, mainCommit: main });
     for (const [hash, commit] of found ?? []) {
       const key = `${repo} ${hash}`;
+      if (commit.landedAt === undefined) unsettledCheckedAt.set(key, main);
       if (fixCache.has(key) && commit.landedAt === undefined) continue;
       fixCache.set(key, commit);
       changed = true;
