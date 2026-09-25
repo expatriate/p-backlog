@@ -6,6 +6,8 @@ import { formatLocalIso } from "../model/dates";
 import { buildIndex } from "../model/graph";
 import { JOURNAL_FILE, readJournal } from "./journal";
 import { loadBacklog } from "./load";
+import { closingsOf, reopeningsOf, taskHistories } from "../stats/history";
+import { createTask } from "./create";
 import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 import { updateTask } from "./testing/update-task";
@@ -289,12 +291,61 @@ describe("эпик, закрытый автоматически", () => {
     await sweepClosed(root, NOW, coreMessages("ru"));
     expect(await taskById(root, "SPA-1")).toMatchObject({ status: "done", resolution: "epic-done" });
 
-    await updateTask(root, { id: "SPA-2", changes: { status: "backlog" }, now: NOW, via: "web", undo: true });
+    await updateTask(root, { id: "SPA-2", changes: { status: "backlog" }, now: NOW, via: "web" });
 
     const epic = await taskById(root, "SPA-1");
     expect([epic?.status, epic?.resolution, epic?.reason, epic?.closed]).toEqual(["in-progress", undefined, undefined, undefined]);
     const events = (await readJournal(join(root, "spa"), "spa")).events;
     expect(events.at(-1)).toEqual({ at: formatLocalIso(NOW), task: "SPA-1", via: "web", kind: "status", from: "done", to: "in-progress" });
+  });
+
+  it("отмена массового закрытия не оставляет в статистике ни закрытия, ни переоткрытия — ни у задачи, ни у эпика", async () => {
+    const root = await epicWithOneTask("status: in-progress\n");
+    await updateTask(root, { id: "SPA-2", changes: { status: "cancelled" }, now: NOW, via: "web", closure: { resolution: "obsolete", reason: "дубль" } });
+    await sweepClosed(root, NOW, coreMessages("ru"));
+
+    await updateTask(root, { id: "SPA-2", changes: { status: "in-progress" }, now: NOW, via: "web", undo: true });
+
+    const { tasks } = await loadBacklog(root);
+    const histories = taskHistories(tasks, [await readJournal(join(root, "spa"), "spa")]);
+    expect(histories.map((history) => [history.id, closingsOf(history).length, reopeningsOf(history).length])).toEqual([
+      ["SPA-1", 0, 0],
+      ["SPA-2", 0, 0],
+    ]);
+  });
+
+  it("открывается, когда в нём создали задачу", async () => {
+    const root = await epicWithOneTask(`status: done\nclosed: ${formatLocalIso(NOW)}\nresolution: epic-done\nreason: готово\n`);
+    await writeFiles(root, { "spa/SPA-2.md": taskFile("SPA-2") });
+    const { projects, tasks } = await loadBacklog(root);
+    const [project] = projects;
+    if (!project) throw new Error("нет проекта");
+
+    await createTask(root, { project, input: { title: "Ещё одна", epic: "SPA-1" }, existingTasks: tasks, now: NOW, via: "cli" });
+
+    expect((await taskById(root, "SPA-1"))?.status).toBe("backlog");
+  });
+
+  it("сбой записи эпика не отменяет сохранённую правку задачи и созданную задачу: он уходит в stderr", async () => {
+    const root = await epicWithOneTask(`status: done\nclosed: ${formatLocalIso(NOW)}\nresolution: epic-done\nreason: готово\n`);
+    await writeFiles(root, { "spa/SPA-2.md": taskFile("SPA-2", "epic: SPA-1\nstatus: done\n") });
+    await mkdir(join(root, "spa", JOURNAL_FILE));
+    const stderr = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    onTestFinished(() => void stderr.mockRestore());
+
+    const reopened = await updateTask(root, { id: "SPA-2", changes: { status: "backlog" }, now: NOW, via: "web" });
+    const { projects, tasks } = await loadBacklog(root);
+    const [project] = projects;
+    if (!project) throw new Error("нет проекта");
+    const created = await createTask(root, { project, input: { title: "Ещё одна", epic: "SPA-1" }, existingTasks: tasks, now: NOW, via: "cli" });
+
+    expect([reopened.ok, created.ok]).toEqual([true, true]);
+    expect((await loadBacklog(root)).tasks.map((task) => [task.id, task.status])).toEqual([
+      ["SPA-1", "done"],
+      ["SPA-2", "backlog"],
+      ["SPA-3", "backlog"],
+    ]);
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining("EISDIR"));
   });
 
   it("закрытый вручную остаётся закрытым", async () => {

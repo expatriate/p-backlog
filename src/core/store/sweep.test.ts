@@ -233,6 +233,21 @@ describe("sweepClosed", () => {
     expect((await readJournal(join(root, "spa"), "spa")).events).toMatchObject([{ kind: "status", task: "SPA-1", from: "done", to: "backlog", via: "sweep" }]);
   });
 
+  it("просроченный эпик, который не удалось снова открыть, не удаляется, пока в нём открытые задачи", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", `type: epic\nblockedBy: [SPA-1]\nstatus: done\n${EXPIRED}resolution: epic-done\nreason: готово\n`),
+      "spa/SPA-2.md": taskFile("SPA-2", "epic: SPA-1\n"),
+    });
+
+    const report = await sweepClosed(root, NOW, RU);
+
+    expect(report).toMatchObject({ reopenedEpics: [], deleted: [], invalid: [{ id: "SPA-1", errors: ["задача не может блокировать саму себя"] }] });
+    expect(await exists(join(root, "spa/SPA-1.md"))).toBe(true);
+    expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-2")?.epic).toBe("SPA-1");
+  });
+
   it("не удаляет просроченную задачу, пока ссылку на неё не удалось снять: иначе ссылка повиснет навсегда", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
