@@ -16,5 +16,16 @@
     "noEmit": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["src", "tests", "scripts/verify-systemd-unit.ts", "scripts/screenshots", "vitest.config.ts", "vitest.package.config.ts", "vite.config.ts", "playwright.config.ts"]
+  "include": [
+    "src",
+    "tests",
+    "scripts/verify-systemd-unit.ts",
+    "scripts/screenshots",
+    "scripts/plugins",
+    "scripts/build-plugins.ts",
+    "vitest.config.ts",
+    "vitest.package.config.ts",
+    "vite.config.ts",
+    "playwright.config.ts"
+  ]
 }

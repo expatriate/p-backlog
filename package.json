@@ -50,6 +50,7 @@
     "dev": "concurrently -k -n server,web \"tsx watch src/server/main.ts\" \"vite\"",
     "test:e2e": "playwright test",
     "screenshots": "npm run build && tsx scripts/screenshots/make.ts",
+    "plugins": "tsx scripts/build-plugins.ts",
     "test:package": "vitest run --config vitest.package.config.ts",
     "prepare": "npm run build",
     "test:coverage": "vitest run --coverage",

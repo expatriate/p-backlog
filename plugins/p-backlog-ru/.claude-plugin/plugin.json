@@ -1,0 +1,18 @@
+{
+  "name": "p-backlog-ru",
+  "description": "p-backlog with the Russian-language skill. Needs the CLI: npm i -g p-backlog.",
+  "version": "0.4.0",
+  "author": {
+    "name": "expatriate"
+  },
+  "homepage": "https://github.com/expatriate/p-backlog#readme",
+  "repository": "https://github.com/expatriate/p-backlog",
+  "license": "Apache-2.0",
+  "keywords": [
+    "backlog",
+    "tech-debt",
+    "code-review",
+    "tasks",
+    "stop-hook"
+  ]
+}
