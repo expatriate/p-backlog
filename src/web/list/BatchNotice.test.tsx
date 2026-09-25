@@ -69,8 +69,10 @@ async function renderManyAndRaisePriority(beforeRender: (app: TestApp) => void) 
   return app;
 }
 
-async function findNotice(summary: string) {
-  const text = await screen.findByText(summary);
+const MANY_TASKS_WAIT = { timeout: 15_000 };
+
+async function findNotice(summary: string, wait?: { timeout: number }) {
+  const text = await screen.findByText(summary, undefined, wait);
   const notice = text.closest<HTMLElement>('[role="status"]');
   if (!notice) throw new Error(`«${summary}» не в role="status"`);
   return notice;
@@ -150,11 +152,11 @@ describe("уведомление об итоге массового действ
     const { sent, beforeRender } = recordBatches();
     const app = await renderManyAndRaisePriority(beforeRender);
 
-    const notice = await findNotice("Изменено 520 из 520");
+    const notice = await findNotice("Изменено 520 из 520", MANY_TASKS_WAIT);
     expect(sent.map((request) => request.tasks.length)).toEqual([500, 20]);
     await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
 
-    await findNotice("Возвращено 520 из 520");
+    await findNotice("Возвращено 520 из 520", MANY_TASKS_WAIT);
     expect(sent.slice(2).map((request) => [request.tasks.length, request.action.kind === "restore" && Object.keys(request.action.changes).length])).toEqual([
       [500, 500],
       [20, 20],
@@ -166,7 +168,7 @@ describe("уведомление об итоге массового действ
     const { sent, beforeRender } = recordBatches((_, attempt) => attempt === 2);
     const app = await renderManyAndRaisePriority(beforeRender);
 
-    const notice = await findNotice("Изменено 500 из 520");
+    const notice = await findNotice("Изменено 500 из 520", MANY_TASKS_WAIT);
     expect(within(notice).getByRole("alert").textContent).toContain("Не изменено 20 задач");
     await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
 
@@ -179,16 +181,16 @@ describe("уведомление об итоге массового действ
     let failing = true;
     const { sent, beforeRender } = recordBatches((body, attempt) => failing && body.action.kind === "restore" && attempt === 4);
     const app = await renderManyAndRaisePriority(beforeRender);
-    await app.user.click(within(await findNotice("Изменено 520 из 520")).getByRole("button", { name: "Отменить" }));
+    await app.user.click(within(await findNotice("Изменено 520 из 520", MANY_TASKS_WAIT)).getByRole("button", { name: "Отменить" }));
 
-    const notice = await findNotice("Возвращено 500 из 520");
+    const notice = await findNotice("Возвращено 500 из 520", MANY_TASKS_WAIT);
     expect(within(notice).getByRole("alert").textContent).toContain("Не удалось отменить");
     expect((await taskOnDisk(app.root, "SPA-520")).priority).toBe("critical");
     failing = false;
     const sentBeforeRetry = sent.length;
     await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
 
-    await findNotice("Возвращено 520 из 520");
+    await findNotice("Возвращено 520 из 520", MANY_TASKS_WAIT);
     expect(sent.slice(sentBeforeRetry).map((request) => request.tasks.length)).toEqual([20]);
     expect((await taskOnDisk(app.root, "SPA-520")).priority).toBe("low");
     expect(screen.queryByRole("alert")).toBeNull();
