@@ -142,6 +142,7 @@ export const cliEn: CliMessages = {
   sessionShownWriteFailed: (error) => `Could not remember the tasks shown this session: ${error}`,
   alertsComputeFailed: (error) => `Could not compute alerts: ${error}`,
   alertsShownWriteFailed: (error) => `Could not save the shown alerts: ${error}`,
+  hookTurnClaimFailed: (error) => `Could not record the turn for the double-hook guard: ${error}`,
 
   newUsage: (types, priorities, found) =>
     [

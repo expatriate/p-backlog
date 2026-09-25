@@ -3,6 +3,8 @@ import { dirname } from "node:path";
 import { checkBacklog } from "../../core/check/check-backlog";
 import { coreMessages } from "../../core/messages";
 import { formatLocalDay } from "../../core/model/dates";
+import { FileBusyError } from "../../core/store/file-lock";
+import { claimHookTurn } from "../../core/store/hook-turns";
 import { readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
 import { findProjectForDir } from "../../core/store/resolve-project";
@@ -14,7 +16,7 @@ import { markShown, signalsToShow, type SignalsShown } from "../../core/stats/si
 import type { Signal } from "../../core/stats/types";
 import type { Project, Task } from "../../core/model/types";
 import { AGENTS, type Agent } from "../agents/agent";
-import { carriesSystemMessage, formatStopAnswer, parseStopEvent } from "../agents/stop-event";
+import { carriesSystemMessage, formatStopAnswer, parseStopEvent, type StopEvent } from "../agents/stop-event";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, parseCommandArgs, type CliIo } from "../io";
 import { cliMessages } from "../messages";
@@ -39,6 +41,7 @@ async function runHook(args: string[], io: CliIo): Promise<number> {
   const loaded = await loadBacklog(io.backlogRoot);
   const project = findProjectForDir(loaded.projects, event.cwd, io.home);
   if (!project) return EXIT.ok;
+  if (!(await isFirstHookOfTurn(agent, event, io))) return EXIT.ok;
   const messages = coreMessages(io.language);
   const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home, messages, workingDir: event.cwd });
   const lowPriority = new Set(loaded.tasks.filter((task) => task.priority === "low").map((task) => task.id));
@@ -58,6 +61,17 @@ async function runHook(args: string[], io: CliIo): Promise<number> {
   await signals.remember();
   await session.remember(blocking.map((candidate) => candidate.task.id));
   return EXIT.ok;
+}
+
+async function isFirstHookOfTurn(agent: Agent, event: StopEvent, io: CliIo): Promise<boolean> {
+  if (event.session === undefined || event.turn === undefined) return true;
+  try {
+    return await claimHookTurn(io.backlogRoot, `${agent}:${event.session}:${event.turn}`, io.now());
+  } catch (error) {
+    if (error instanceof FileBusyError) return false;
+    io.warn(cliMessages(io.language).hookTurnClaimFailed(errorText(error)));
+    return true;
+  }
 }
 
 type SessionMemory = { told: ReadonlySet<string>; remember: (ids: readonly string[]) => Promise<void> };

@@ -168,6 +168,7 @@ export const cliRu = {
   sessionShownWriteFailed: (error: string): string => `Не удалось запомнить показанные задачи сессии: ${error}`,
   alertsComputeFailed: (error: string): string => `Не удалось посчитать тревоги: ${error}`,
   alertsShownWriteFailed: (error: string): string => `Не удалось сохранить показанные тревоги: ${error}`,
+  hookTurnClaimFailed: (error: string): string => `Не удалось отметить ход в защите от двойного хука: ${error}`,
 
   newUsage: (types: string, priorities: string, found: string): string =>
     [

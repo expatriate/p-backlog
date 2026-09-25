@@ -288,6 +288,16 @@ describe("backlog hook stop", () => {
     expect(await run(["hook", "stop", "--agent", "cursor"], { stdin: JSON.stringify({ conversation_id: "c" }) })).toMatchObject({ code: EXIT.ok, out: "", err: "" });
   });
 
+  it("плагин и ручной хук в одном ходе: отвечает только один", async () => {
+    const { run, repo } = await changedTaskSandbox();
+    const event = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false, last_assistant_message: "Готово." });
+
+    const [a, b] = await Promise.all([run(["hook", "stop"], { stdin: event }), run(["hook", "stop"], { stdin: event })]);
+
+    expect([a.out, b.out].filter((out) => out !== "")).toHaveLength(1);
+    expect([a.code, b.code]).toEqual([EXIT.ok, EXIT.ok]);
+  });
+
   it("неизвестный агент — ошибка использования с именем агента", async () => {
     const { run } = await makeCliSandbox();
 
