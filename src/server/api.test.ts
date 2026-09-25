@@ -460,6 +460,18 @@ describe("статика", () => {
     expect(page.status).toBe(200);
     expect(await page.text()).toContain("Беклог");
   });
+
+  it("запрещает встраивать страницу в чужой iframe и угадывать тип содержимого", async () => {
+    const staticDir = await makeTempDir();
+    await writeFiles(staticDir, { "index.html": "<!doctype html><title>Беклог</title>" });
+    const backlog = await makeTestApp(SAMPLE_FILES, { staticDir });
+
+    for (const response of [await backlog.request("/p/spa"), await backlog.request("/api/tasks")]) {
+      expect(response.headers.get("x-frame-options")).toBe("DENY");
+      expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    }
+  });
 });
 
 describe("неактивные проекты", () => {
