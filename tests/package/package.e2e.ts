@@ -1,5 +1,5 @@
-import { execFileSync, spawn } from "node:child_process";
-import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { execFileSync, execSync, spawn } from "node:child_process";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -59,6 +59,7 @@ describe("путь нового пользователя из tarball", () => {
       USERPROFILE: home,
       BACKLOG_DIR: join(home, "store"),
       CLAUDE_CONFIG_DIR: claudeConfigDir,
+      CODEX_HOME: join(home, ".codex"),
       LC_ALL: "en_US.UTF-8",
       PATH: `${join(prefix, isWindows ? "" : "bin")}${isWindows ? ";" : ":"}${process.env.PATH ?? ""}`,
     };
@@ -119,5 +120,52 @@ describe("путь нового пользователя из tarball", () => {
 
     run(["config", "language", "ru"]);
     expect(runHook("s2").reason).toContain("после последней проверки менялся код задач");
+  }, 300_000);
+
+  it("setup подключает Codex и Cursor, их хуки отвечают на настоящее событие через оболочку платформы", async () => {
+    const home = await makeTempDir();
+    const codexHome = join(home, ".codex");
+    const cursorHome = join(home, ".cursor");
+    await mkdir(codexHome, { recursive: true });
+    await mkdir(cursorHome, { recursive: true });
+    const env = {
+      ...process.env,
+      ...ISOLATED_GIT_ENV,
+      HOME: home,
+      USERPROFILE: home,
+      BACKLOG_DIR: join(home, "store"),
+      CLAUDE_CONFIG_DIR: join(home, ".claude"),
+      CODEX_HOME: codexHome,
+      LC_ALL: "en_US.UTF-8",
+      PATH: `${join(prefix, isWindows ? "" : "bin")}${isWindows ? ";" : ":"}${process.env.PATH ?? ""}`,
+    };
+    const run = (args: string[], options: { input?: string; cwd?: string } = {}) =>
+      isWindows
+        ? execFileSync(quoteForWindowsShell(backlogBin), args.map(quoteForWindowsShell), { ...options, env, encoding: "utf8", shell: true })
+        : execFileSync(backlogBin, args, { ...options, env, encoding: "utf8" });
+
+    run(["setup"]);
+    for (const agentHome of [codexHome, cursorHome]) {
+      expect(await realpath(join(agentHome, "skills", "backlog"))).toBe(await realpath(join(packageDir, "skill", "backlog-en")));
+    }
+    const codexHook = JSON.parse(await readFile(join(codexHome, "hooks.json"), "utf8")).hooks.Stop[0].hooks[0];
+    const cursorHook = JSON.parse(await readFile(join(cursorHome, "hooks.json"), "utf8")).hooks.stop[0];
+
+    const repo = await makeGitRepo(join(home, "projects"), "demo-app");
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "init", new Date().toISOString());
+    run(["new", "--category", "bug", "--title", "First task", "--source", "src/a.ts:1"], { cwd: repo, input: "Body\n" });
+    await writeFile(join(repo, "src", "a.ts"), "2\n");
+
+    const runInShell = (command: string, cwd: string, event: object) => JSON.parse(execSync(command, { cwd, env, input: JSON.stringify(event), encoding: "utf8" }));
+    const codexCommand = isWindows ? codexHook.commandWindows : codexHook.command;
+
+    expect(runInShell(codexCommand, repo, { session_id: "codex-1", turn_id: "t1", cwd: repo, hook_event_name: "Stop", stop_hook_active: false })).toMatchObject({
+      decision: "block",
+      reason: expect.stringContaining("src/a.ts"),
+    });
+    expect(runInShell(cursorHook.command, cursorHome, { conversation_id: "cursor-1", generation_id: "g1", workspace_roots: [repo], status: "completed", loop_count: 0 })).toEqual({
+      followup_message: expect.stringContaining("src/a.ts"),
+    });
   }, 300_000);
 });
