@@ -1,4 +1,6 @@
 import type {
+  BatchRequest,
+  BatchResponse,
   CodeReport,
   ConflictResponse,
   CostReport,
@@ -35,6 +37,7 @@ export type ApiClient = {
   deleteProject: (id: string, confirm: string) => Promise<void>;
   tasks: () => Promise<TasksResponse>;
   updateTask: (id: string, version: string, changes: TaskChangesRequest) => Promise<Task>;
+  batchTasks: (request: BatchRequest) => Promise<BatchResponse>;
   stats: (projectId?: string) => Promise<StatsReport>;
   codeStats: (projectId?: string) => Promise<CodeReport>;
   effectStats: (projectId?: string) => Promise<EffectReport>;
@@ -76,6 +79,7 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
     },
     tasks: () => request<TasksResponse>("/api/tasks"),
     updateTask: (id, version, changes) => request<Task>(`/api/tasks/${id}`, jsonInit("PATCH", { version, changes })),
+    batchTasks: (batch) => request<BatchResponse>("/api/tasks/batch", jsonInit("POST", batch)),
     stats: (projectId) => request<StatsReport>(scopedPath("/api/stats", projectId)),
     codeStats: (projectId) => request<CodeReport>(scopedPath("/api/stats/code", projectId)),
     effectStats: (projectId) => request<EffectReport>(scopedPath("/api/stats/effect", projectId)),

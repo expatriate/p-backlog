@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { BatchRequest, BatchResponse } from "../../core/api/contract";
 import type { Task } from "../../core/model/types";
-import { ApiError, createApiClient, isServerUnreachable } from "./client";
+import { ApiError, createApiClient, isServerUnreachable, type ApiFetch } from "./client";
 
 function respond(status: number, body: unknown, contentType = "application/json"): Response {
   const text = typeof body === "string" ? body : JSON.stringify(body);
@@ -12,6 +13,24 @@ function clientReturning(response: Response) {
 }
 
 const task = { id: "SPA-1", title: "Задача" } as Task;
+
+describe("batchTasks", () => {
+  it("отправляет POST /api/tasks/batch с телом запроса и возвращает разобранный ответ", async () => {
+    const outcome: BatchResponse = { results: [{ id: "SPA-3", outcome: "done", version: "2", previous: { status: "backlog", priority: "medium", epic: null, resolution: null, reason: null } }] };
+    const apiFetch = vi.fn<ApiFetch>(async () => respond(200, outcome));
+    const client = createApiClient(apiFetch);
+    const batch: BatchRequest = { tasks: [{ id: "SPA-3", version: "1" }], action: { kind: "close", reason: "неактуально" } };
+
+    const result = await client.batchTasks(batch);
+
+    expect(result).toEqual(outcome);
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+    const [path, init] = apiFetch.mock.calls[0] ?? [];
+    expect(path).toBe("/api/tasks/batch");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init?.body as string)).toEqual(batch);
+  });
+});
 
 describe("ApiError", () => {
   it("несёт статус и сообщения сервера", async () => {

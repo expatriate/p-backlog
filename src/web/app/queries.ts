@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient, type UseMutationResult, type UseQueryOptions } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { MemorySamplesResponse, ProjectView, SettingsResponse, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import type { BatchRequest, BatchResponse, MemorySamplesResponse, ProjectView, SettingsResponse, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import { MEMORY_SAMPLE_INTERVAL_MS } from "../../core/api/memory";
 import type { Language } from "../../core/i18n/language";
 import type { Project, Task } from "../../core/model/types";
@@ -134,6 +134,16 @@ export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariab
     },
     onSuccess: (task) => putTask(queryClient, task),
     onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
+  });
+}
+
+export function useBatchTasks(): UseMutationResult<BatchResponse, Error, BatchRequest> {
+  const { client } = useBacklogApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    scope: TASK_SAVES,
+    mutationFn: (request: BatchRequest) => client.batchTasks(request),
+    onSuccess: () => invalidateFileData(queryClient),
   });
 }
 
