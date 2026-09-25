@@ -1,30 +1,25 @@
-import { useEffect, useLayoutEffect, useMemo, useState, type RefObject } from "react";
+import { useLayoutEffect, useMemo, type RefObject } from "react";
 import { Link } from "react-router";
-import type { TaskChangesRequest } from "../../core/api/contract";
 import { formatDateTime } from "../../core/i18n/format";
 import { toggleChecklistItem } from "../../core/model/checklist";
 import { dependentTasks, epicChildren, isClosed, relatedTasks, taskProgress, type BacklogIndex } from "../../core/model/graph";
 import { parseId } from "../../core/model/ids";
 import { taskWarnings } from "../../core/model/integrity";
 import type { Task } from "../../core/model/types";
-import { ApiError } from "../api/client";
-import type { AppMessages } from "../app/messages.ru";
-import { TaskGoneError, useUpdateTask, type BodyEdit, type TaskChange } from "../app/queries";
-import { requestErrorMessage } from "../app/RequestFailure";
 import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { Countdown } from "../ui/Countdown";
 import { ProgressBar } from "../ui/ProgressBar";
-import { useDraft, type Draft } from "../ui/use-draft";
+import type { Draft } from "../ui/use-draft";
 import { useLeaveGuard } from "../ui/use-leave-guard";
 import { SidePanel } from "../ui/SidePanel";
 import { StatusBadge } from "../ui/StatusBadge";
 import { useNow } from "../ui/use-now";
 import { TaskBody } from "./TaskBody";
-import { canonicalTags, TaskFields } from "./TaskFields";
-import { normalizeTaskId } from "./normalize-task-id";
-import type { TaskMessages } from "./messages.ru";
-import { TaskOptions, TaskRefs, type RefsSaveResult, type TaskHref } from "./TaskRefs";
+import { TaskFields } from "./TaskFields";
+import { TaskOptions, TaskRefs, type TaskHref } from "./TaskRefs";
+import { useFieldDrafts } from "./use-field-drafts";
+import { useSaveNote, useTaskSaving } from "./use-task-saving";
 import styles from "./TaskPanel.module.css";
 
 export type TaskPanelProps = {
@@ -40,82 +35,14 @@ export type TaskPanelProps = {
 const TASK_LIST_ID = "task-ids";
 const EPIC_LIST_ID = "epic-ids";
 
-type BodyDraft = { text: string; from: BodyEdit };
-
 export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }: TaskPanelProps) {
-  const language = useLanguage();
-  const { app, core, task: t } = useMessages();
-  const updateTask = useUpdateTask();
-  const [bodyDraft, setBodyDraft] = useState<BodyDraft | null>(null);
-  const now = useNow();
-  const [title, titleRef] = useDraft<HTMLTextAreaElement>(task.title, trimTitle);
-  const [tags, tagsRef] = useDraft(task.tags.join(", "), canonicalTags);
-  const [epic, epicRef] = useDraft(task.epic ?? "", normalizeTaskId);
-  const fieldDrafts = [
-    { draft: title, label: t.title },
-    { draft: tags, label: t.tagsField },
-    { draft: epic, label: t.epicField },
-  ];
-  const fieldsUnsaved = fieldDrafts.some(({ draft }) => draft.unsaved);
-  useLeaveGuard(bodyDraft !== null || fieldsUnsaved, bodyDraft !== null ? t.leaveWithDraft : t.leaveWithFieldEdits);
-
-  const [bodySaving, setBodySaving] = useState(false);
-  const [bodyError, setBodyError] = useState<Error | null>(null);
-  const [saveError, setSaveError] = useState<Error | null>(null);
-  const errorText = (error: Error) => saveErrorText(error, app, t);
-  const bodyAlert = bodyError === null ? null : isConflict(bodyError) && bodyDraft !== null ? t.draftConflict : errorText(bodyError);
-  const cardAlerts = distinctTexts([
-    gone ? t.taskGone(task.id) : null,
-    bodyAlert,
-    saveError === null ? null : errorText(saveError),
-    ...fieldDrafts.filter(({ draft }) => draft.conflicted).map(({ label }) => t.fieldConflict(label)),
-  ]);
-
-  const saveNote = useSaveNote(updateTask.isPending, updateTask.isSuccess && cardAlerts.length === 0, updateTask.submittedAt, t);
-  const save = async (change: TaskChange): Promise<boolean> => {
-    setSaveError(null);
-    try {
-      await updateTask.mutateAsync({ id: task.id, change });
-      return true;
-    } catch (error) {
-      setSaveError(asError(error));
-      return false;
-    }
-  };
-  const apply = (changes: TaskChangesRequest) => save(() => changes);
-  const saveRefs = async (change: TaskChange): Promise<RefsSaveResult> => {
-    setSaveError(null);
-    try {
-      await updateTask.mutateAsync({ id: task.id, change });
-      return { saved: true };
-    } catch (error) {
-      if (!isConflict(error)) return { saved: false, fieldError: errorText(asError(error)) };
-      setSaveError(asError(error));
-      return { saved: false, fieldError: null };
-    }
-  };
-  const bodyOrigin = bodyDraft?.from ?? { version: task.version, body: task.body };
-  const editBody = (text: string | null) => {
-    if (text === null) setBodyError(null);
-    setBodyDraft(text === null ? null : { text, from: bodyOrigin });
-  };
-  const saveBody = async (text: string) => {
-    setBodySaving(true);
-    setBodyError(null);
-    setSaveError(null);
-    try {
-      await updateTask.mutateAsync({ id: task.id, change: () => ({ body: text }), bodyEdit: bodyOrigin });
-    } catch (error) {
-      setBodyError(asError(error));
-      if (error instanceof ApiError && error.current !== undefined) {
-        const from = { version: error.current.version, body: error.current.body };
-        setBodyDraft((draft) => draft && { ...draft, from });
-      }
-      throw error;
-    } finally {
-      setBodySaving(false);
-    }
-  };
+  const { core, task: t } = useMessages();
+  const saver = useTaskSaving(task);
+  const fields = useFieldDrafts(task);
+  const bodyEditing = saver.body.draft !== null;
+  useLeaveGuard(bodyEditing || fields.unsaved, bodyEditing ? t.leaveWithDraft : t.leaveWithFieldEdits);
+  const cardAlerts = distinctTexts([gone ? t.taskGone(task.id) : null, ...saver.alerts, ...fields.conflictAlerts]);
+  const saveNote = useSaveNote(saver.lastSave, cardAlerts.length === 0, t);
   const refOptions = useMemo(
     () => (
       <>
@@ -139,36 +66,17 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
       }
       onClose={onClose}
     >
-      <TitleField draft={title} titleRef={titleRef} label={t.title} onSave={(next) => apply({ title: next })} />
+      <TitleField draft={fields.title} titleRef={fields.titleRef} label={t.title} onSave={(next) => saver.apply({ title: next })} />
 
-      <TaskFields task={task} epicListId={EPIC_LIST_ID} knownTasks={tasks} onChange={apply} tags={tags} tagsRef={tagsRef} epic={epic} epicRef={epicRef} />
+      <TaskFields task={task} epicListId={EPIC_LIST_ID} knownTasks={tasks} onChange={saver.apply} tags={fields.tags} tagsRef={fields.tagsRef} epic={fields.epic} epicRef={fields.epicRef} />
 
-      <div className={styles.meta}>
-        <StatusBadge status={task.status} />
-        <ProgressBar progress={taskProgress(task, index)} />
-        <span>
-          {t.createdLabel} {formatDateTime(language, task.created)}
-        </span>
-        {task.source && <span className={styles.source}>{task.source}</span>}
-      </div>
+      <TaskMeta task={task} index={index} />
 
       <p className={styles.saving} role="status">
         {saveNote}
       </p>
 
-      {isClosed(task.status) && (
-        <div className={styles.closure}>
-          <p>
-            {t.closedLabel}
-            {task.closed === undefined ? "" : ` ${formatDateTime(language, task.closed)}`}
-            {task.resolution !== undefined && ` · ${core.resolutionLabel(task.resolution)} — ${task.reason ?? ""}`}
-          </p>
-          <Countdown task={task} now={now} />
-          <Button className={styles.restore} onClick={() => void apply({ status: "backlog" })}>
-            {t.restoreToBacklog}
-          </Button>
-        </div>
-      )}
+      {isClosed(task.status) && <ClosureNote task={task} onRestore={() => void saver.apply({ status: "backlog" })} />}
 
       {cardAlerts.map((text) => (
         <p key={text} className={styles.conflict} role="alert">
@@ -185,11 +93,11 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
 
       <TaskBody
         body={task.body}
-        draft={bodyDraft?.text ?? null}
-        saving={bodySaving}
-        onDraftChange={editBody}
-        onToggleLine={(line) => void save((fresh) => ({ body: toggleChecklistItem(fresh.body, line) }))}
-        onSave={saveBody}
+        draft={saver.body.draft}
+        saving={saver.body.saving}
+        onDraftChange={saver.body.edit}
+        onToggleLine={(line) => void saver.save((fresh) => ({ body: toggleChecklistItem(fresh.body, line) }))}
+        onSave={saver.body.save}
       />
 
       <TaskRefs
@@ -199,7 +107,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
         listId={TASK_LIST_ID}
         taskHref={taskHref}
         idPrefix={idPrefix}
-        onChange={(update) => saveRefs((fresh) => ({ blockedBy: update(fresh.blockedBy) }))}
+        onChange={(update) => saver.saveRefs((fresh) => ({ blockedBy: update(fresh.blockedBy) }))}
       />
       <TaskRefs
         label={t.relatedLabel}
@@ -208,7 +116,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
         listId={TASK_LIST_ID}
         taskHref={taskHref}
         idPrefix={idPrefix}
-        onChange={(update) => saveRefs((fresh) => ({ related: update(fresh.related) }))}
+        onChange={(update) => saver.saveRefs((fresh) => ({ related: update(fresh.related) }))}
       />
 
       <ReadonlyRefs label={t.dependentsLabel} tasks={dependentTasks(task, index)} taskHref={taskHref} />
@@ -228,41 +136,43 @@ function distinctTexts(texts: (string | null)[]): string[] {
   return [...new Set(texts.filter((text) => text !== null))];
 }
 
-function saveErrorText(error: Error, app: AppMessages, t: TaskMessages): string {
-  if (isConflict(error)) return t.taskConflict;
-  if (error instanceof TaskGoneError) return t.taskGone(error.taskId);
-  return requestErrorMessage(app, error);
+function TaskMeta({ task, index }: { task: Task; index: BacklogIndex }) {
+  const language = useLanguage();
+  const { task: t } = useMessages();
+  return (
+    <div className={styles.meta}>
+      <StatusBadge status={task.status} />
+      <ProgressBar progress={taskProgress(task, index)} />
+      <span>
+        {t.createdLabel} {formatDateTime(language, task.created)}
+      </span>
+      {task.source && <span className={styles.source}>{task.source}</span>}
+    </div>
+  );
 }
 
-function isConflict(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 409;
+function ClosureNote({ task, onRestore }: { task: Task; onRestore: () => void }) {
+  const language = useLanguage();
+  const { core, task: t } = useMessages();
+  const now = useNow();
+  return (
+    <div className={styles.closure}>
+      <p>
+        {t.closedLabel}
+        {task.closed === undefined ? "" : ` ${formatDateTime(language, task.closed)}`}
+        {task.resolution !== undefined && ` · ${core.resolutionLabel(task.resolution)} — ${task.reason ?? ""}`}
+      </p>
+      <Countdown task={task} now={now} />
+      <Button className={styles.restore} onClick={onRestore}>
+        {t.restoreToBacklog}
+      </Button>
+    </div>
+  );
 }
-
-function asError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error));
-}
-
-const SAVED_NOTE_MS = 2000;
-
-function useSaveNote(pending: boolean, success: boolean, submittedAt: number, t: TaskMessages): string {
-  const [fadedSave, setFadedSave] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!success) return;
-    const timer = setTimeout(() => setFadedSave(submittedAt), SAVED_NOTE_MS);
-    return () => clearTimeout(timer);
-  }, [success, submittedAt]);
-
-  if (pending) return t.saving;
-  return success && fadedSave !== submittedAt ? t.saved : "";
-}
-
-const trimTitle = (text: string) => text.trim();
 
 type TitleFieldProps = { draft: Draft; titleRef: RefObject<HTMLTextAreaElement | null>; label: string; onSave: (title: string) => Promise<boolean> };
 
 function TitleField({ draft: title, titleRef, label, onSave }: TitleFieldProps) {
-
   useLayoutEffect(() => {
     const field = titleRef.current;
     if (!field) return;

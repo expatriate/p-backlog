@@ -1,80 +1,50 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { listPath, taskPath } from "../app/paths";
-import { activeProjectIds, projectNameOf, tasksInScope } from "../app/scope";
+import { useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { buildIndex } from "../../core/model/graph";
-import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
-import { localeOf, type Language } from "../../core/i18n/language";
-import type { Task } from "../../core/model/types";
-import { useProjects, useTasks } from "../app/queries";
+import type { TasksResponse } from "../../core/api/contract";
+import { listPath, taskPath } from "../app/paths";
 import { RequestFailure } from "../app/RequestFailure";
-import { useLanguage, useMessages } from "../i18n";
+import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
+import { toneOf } from "../ui/epic-tone";
+import { useSettledValue } from "../ui/use-settled-value";
 import { useStatusFocus } from "../ui/use-status-focus";
 import { TaskPanel } from "../task/TaskPanel";
-import { epicTones, toneOf } from "../ui/epic-tone";
-import { epicChoices } from "./epic-choices";
 import type { ListMessages } from "./messages.ru";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
 import { useSeenTasks } from "./use-seen-tasks";
+import { useSelectedTask } from "./use-selected-task";
+import { useTaskListView, type ListContent } from "./use-task-list-view";
 import { toggledTags } from "./tag-filter";
-import { AUTO_CLOSED_VIEW, DEFAULT_FILTER, dateColumnFor, followDateColumn, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
+import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
 const COUNT_ANNOUNCE_DELAY_MS = 500;
 
 export function TaskListPage() {
   const { list } = useMessages();
-  const language = useLanguage();
   const { projectId, taskId } = useParams();
   const [search, setSearch] = useSearchParams();
   const navigate = useNavigate();
-  const { data, isFetching, error, refetch } = useTasks();
-  const projects = useProjects();
-  const { isNew, markSeen } = useSeenTasks(data?.tasks);
 
   const searchKey = search.toString();
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
-  const dateColumn = dateColumnFor(params.filter);
-  const sort = useMemo(() => followDateColumn(params.sort, dateColumn), [params.sort, dateColumn]);
-  const allTasks = useMemo(() => data?.tasks ?? [], [data]);
-  const activeIds = useMemo(() => activeProjectIds(projects.data ?? []), [projects.data]);
-  const scopedTasks = useMemo(() => tasksInScope(allTasks, projectId, activeIds), [allTasks, projectId, activeIds]);
-  const index = useMemo(() => buildIndex(allTasks), [allTasks]);
-  const tones = useMemo(() => epicTones(allTasks), [allTasks]);
-  const visibleTasks = useMemo(() => sortTasks(filterTasks(scopedTasks, params.filter, index), sort, index, language), [scopedTasks, index, params.filter, sort, language]);
-  const epicFilterChoices = useMemo(() => epicChoices(scopedTasks, tones), [scopedTasks, tones]);
-  const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, index).length, [scopedTasks, index]);
-  const tags = useMemo(() => collectTags(scopedTasks, language), [scopedTasks, language]);
-  const hiddenOpen = useMemo(
-    () => (projectId === undefined && projects.data !== undefined ? allTasks.filter((task) => !activeIds.has(task.projectId) && OPEN_STATUSES.includes(task.status)).length : 0),
-    [allTasks, activeIds, projectId, projects.data],
-  );
+  const view = useTaskListView(params, projectId);
+  const { isNew, markSeen } = useSeenTasks(view.loaded ? view.allTasks : undefined);
+  const { selectedTask, gone, missingTaskId } = useSelectedTask(view.allTasks, taskId, view.loaded);
 
-  const liveTask = taskId === undefined ? undefined : allTasks.find((task) => task.id === taskId);
-  const selectedTask = useLastFound(liveTask, taskId);
-  const missingTaskId = taskId !== undefined && data !== undefined && selectedTask === undefined ? taskId : undefined;
-  const missingTask = missingTaskId !== undefined;
-  const unknownProject = projectId !== undefined && projects.data !== undefined && !projects.data.some((project) => project.id === projectId);
-  const projectName = projectId === undefined ? undefined : projectNameOf(projects.data, projectId);
-  const viewTitle = viewTitleFor(list, projectName, params.filter.onlyAutoClosed === true);
+  const viewTitle = viewTitleFor(list, view.projectName, params.filter.onlyAutoClosed === true);
   useEffect(() => {
     document.title = selectedTask === undefined ? list.docTitle(viewTitle) : list.taskDocTitle(selectedTask.id, selectedTask.title);
   }, [list, viewTitle, selectedTask]);
-
-  const setParams = (next: ListParams) => setSearch(writeListParams(next), { replace: true });
-  const taskHref = (id: string) => ({ pathname: taskPath(projectId, id), search: searchKey });
   useEffect(() => {
     if (selectedTask !== undefined) markSeen(selectedTask);
   }, [selectedTask, markSeen]);
-  const parseErrors = (data?.errors ?? []).filter((parseError) => projectId === undefined || parseError.projectId === projectId);
-  const content = listContentOf({ hasData: data !== undefined, failed: error !== null, unknownProject, visibleCount: visibleTasks.length });
-  const settled = content === "table" && error === null;
-  const shownCount = settled ? visibleTasks.length : null;
-  const announcedCount = useSettledValue(shownCount, COUNT_ANNOUNCE_DELAY_MS) ?? shownCount ?? 0;
+
+  const setParams = (next: ListParams) => setSearch(writeListParams(next), { replace: true });
+  const taskHref = (id: string) => ({ pathname: taskPath(projectId, id), search: searchKey });
   const heading = useRef<HTMLHeadingElement>(null);
-  const { status, keepFocus } = useStatusFocus(settled, heading);
+  const { status, keepFocus } = useStatusFocus(view.settled, heading);
 
   return (
     <main id="content" tabIndex={-1} className={styles.page}>
@@ -82,65 +52,49 @@ export function TaskListPage() {
         <h1 ref={heading} tabIndex={-1} className={styles.heading}>
           {viewTitle}
         </h1>
-        <Toolbar params={params} onChange={setParams} tags={tags} epicChoices={epicFilterChoices} autoClosedCount={autoClosedCount} />
+        <Toolbar params={params} onChange={setParams} tags={view.tags} epicChoices={view.epicFilterChoices} autoClosedCount={view.autoClosedCount} />
 
-        <p className={missingTask ? styles.warning : "visually-hidden"} role="status">
+        <p className={missingTaskId !== undefined ? styles.warning : "visually-hidden"} role="status">
           {missingTaskId !== undefined && list.missingTask(missingTaskId)}
         </p>
 
-        <div className={parseErrors.length > 0 ? styles.warning : "visually-hidden"} role="status">
-          {parseErrors.length > 0 && (
-            <>
-              <strong>{list.parseErrorsTitle}</strong>
-              <ul>
-                {parseErrors.map((parseError) => (
-                  <li key={parseError.path}>
-                    {parseError.path} — {parseError.message}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
+        <ParseErrorsNote list={list} parseErrors={view.parseErrors} />
 
         <div className={styles.tableWrap}>
-          <div ref={status} tabIndex={-1} role="status" className={settled ? "visually-hidden" : styles.hint}>
-            {error !== null && (
-              <RequestFailure
-                error={error}
-                fetching={isFetching}
-                onRetry={() => {
-                  keepFocus();
-                  void refetch();
-                }}
-              />
-            )}
-            {content === "loading" && <p>{list.loadingTasks}</p>}
-            {content === "unknownProject" && <p>{list.unknownProject}</p>}
-            {content === "empty" && (
+          <ListStatus
+            list={list}
+            statusRef={status}
+            content={view.content}
+            settled={view.settled}
+            shownCount={view.settled ? view.visibleTasks.length : null}
+            request={view.request}
+            onRetry={() => {
+              keepFocus();
+              void view.request.refetch();
+            }}
+            empty={
               <EmptyList
                 list={list}
-                hasTasks={scopedTasks.length > 0}
-                hiddenOpen={hiddenOpen}
+                hasTasks={view.scopedTasks.length > 0}
+                hiddenOpen={view.hiddenOpen}
                 filter={params.filter}
                 onFilterChange={(filter) => {
                   keepFocus();
                   setParams({ ...params, filter });
                 }}
               />
-            )}
-            {settled && <p>{list.taskCount(announcedCount)}</p>}
-          </div>
-          {content === "table" && (
+            }
+          />
+          {view.content === "table" && (
             <TaskTable
-              tasks={visibleTasks}
-              index={index}
+              tasks={view.visibleTasks}
+              index={view.index}
               selectedId={selectedTask?.id}
-              sort={sort}
-              dateColumn={dateColumn}
-              onSort={(key) => setParams({ ...params, sort: pickSortKey(sort, key) })}
+              sort={view.sort}
+              dateColumn={view.dateColumn}
+              onSort={(key) => setParams({ ...params, sort: pickSortKey(view.sort, key) })}
               taskHref={taskHref}
-              tones={tones}
+              tones={view.tones}
               isNew={isNew}
               selectedTags={params.filter.tags ?? []}
               onToggleTag={(tag) => setParams({ ...params, filter: { ...params.filter, tags: toggledTags(params.filter.tags ?? [], tag) } })}
@@ -153,15 +107,58 @@ export function TaskListPage() {
         <TaskPanel
           key={selectedTask.id}
           task={selectedTask}
-          tasks={allTasks}
-          index={index}
+          tasks={view.allTasks}
+          index={view.index}
           taskHref={taskHref}
           onClose={() => void navigate({ pathname: listPath(projectId), search: searchKey })}
-          tone={toneOf(selectedTask, tones)}
-          gone={liveTask === undefined}
+          tone={toneOf(selectedTask, view.tones)}
+          gone={gone}
         />
       )}
     </main>
+  );
+}
+
+function ParseErrorsNote({ list, parseErrors }: { list: ListMessages; parseErrors: TasksResponse["errors"] }) {
+  return (
+    <div className={parseErrors.length > 0 ? styles.warning : "visually-hidden"} role="status">
+      {parseErrors.length > 0 && (
+        <>
+          <strong>{list.parseErrorsTitle}</strong>
+          <ul>
+            {parseErrors.map((parseError) => (
+              <li key={parseError.path}>
+                {parseError.path} — {parseError.message}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
+type ListStatusProps = {
+  list: ListMessages;
+  statusRef: RefObject<HTMLDivElement | null>;
+  content: ListContent;
+  settled: boolean;
+  shownCount: number | null;
+  request: { error: Error | null; isFetching: boolean };
+  onRetry: () => void;
+  empty: ReactNode;
+};
+
+function ListStatus({ list, statusRef, content, settled, shownCount, request, onRetry, empty }: ListStatusProps) {
+  const announcedCount = useSettledValue(shownCount, COUNT_ANNOUNCE_DELAY_MS) ?? shownCount ?? 0;
+  return (
+    <div ref={statusRef} tabIndex={-1} role="status" className={settled ? "visually-hidden" : styles.hint}>
+      {request.error !== null && <RequestFailure error={request.error} fetching={request.isFetching} onRetry={onRetry} />}
+      {content === "loading" && <p>{list.loadingTasks}</p>}
+      {content === "unknownProject" && <p>{list.unknownProject}</p>}
+      {content === "empty" && empty}
+      {settled && <p>{list.taskCount(announcedCount)}</p>}
+    </div>
   );
 }
 
@@ -199,34 +196,7 @@ function EmptyList({
   );
 }
 
-type ListContent = "failed" | "loading" | "unknownProject" | "empty" | "table";
-
-function listContentOf({ hasData, failed, unknownProject, visibleCount }: { hasData: boolean; failed: boolean; unknownProject: boolean; visibleCount: number }): ListContent {
-  if (!hasData) return failed ? "failed" : "loading";
-  if (unknownProject) return "unknownProject";
-  return visibleCount === 0 ? "empty" : "table";
-}
-
-function useLastFound(task: Task | undefined, taskId: string | undefined): Task | undefined {
-  const [lastFound, setLastFound] = useState(task);
-  if (task !== undefined && task !== lastFound) setLastFound(task);
-  return task ?? (lastFound?.id === taskId ? lastFound : undefined);
-}
-
-function useSettledValue<T>(value: T, delayMs: number): T {
-  const [settled, setSettled] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setSettled(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return settled;
-}
-
 function viewTitleFor(list: ListMessages, projectName: string | undefined, onlyAutoClosed: boolean): string {
   if (onlyAutoClosed) return projectName === undefined ? list.autoClosed : list.autoClosedInProject(projectName);
   return projectName ?? list.projects;
-}
-
-function collectTags(tasks: readonly Task[], language: Language): string[] {
-  return [...new Set(tasks.flatMap((task) => task.tags))].sort((a, b) => a.localeCompare(b, localeOf(language)));
 }
