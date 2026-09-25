@@ -5,7 +5,7 @@ import { agentHookConfigPath, installAgentHook, removeAgentHook } from "../agent
 import { agentPlugin } from "../agents/claude-plugin";
 import type { HookInstallResult, HookRemoveResult } from "../agents/grouped-stop-hooks";
 import type { CliCommand } from "../command";
-import { EXIT, parseChoice, parseOptions, type CliIo } from "../io";
+import { EXIT, parseChoice, parseOptions, UsageError, type CliIo } from "../io";
 import { cliMessages } from "../messages";
 import { linkSkillFor, skillSourceDir, unlinkOurSkill, type SkillLinkResult } from "../skill-link";
 import { installService } from "./service";
@@ -20,11 +20,12 @@ export const setupCommand: CliCommand = {
 
 async function runSetup(args: string[], io: CliIo): Promise<number> {
   const options = parseOptions(io.language, args, { service: { type: "boolean" }, agent: { type: "string" }, "remove-manual": { type: "boolean" } });
+  if (options["remove-manual"] && options.service) throw new UsageError(cliMessages(io.language).removeManualWithService);
   const agents = await targetAgents(options.agent, io);
   const step = options["remove-manual"] ? removeManualSetup : setUpAgent;
   const outcomes: boolean[] = [];
   for (const agent of agents) outcomes.push(await step(agent, io));
-  const serviceCode = options.service && !options["remove-manual"] ? await installService(io) : EXIT.ok;
+  const serviceCode = options.service ? await installService(io) : EXIT.ok;
   return outcomes.every(Boolean) ? serviceCode : EXIT.failed;
 }
 

@@ -62,7 +62,8 @@ It consists of the `backlog` CLI, the `backlog` skill and a Stop hook for Claude
      ```
 
      `p-backlog-ru@p-backlog` installs the Russian skill instead. The plugin brings the skill and the Stop hook
-     and updates with `/plugin marketplace update p-backlog`; the CLI itself still comes from npm.
+     and updates with `/plugin marketplace update p-backlog`; the CLI itself still comes from npm, and the plugin
+     needs p-backlog CLI 0.5.0 or newer.
    - **Without the plugin, and for Codex and Cursor:** `backlog setup` links the skill and adds the Stop hook
      for every agent it finds — see [Other agents](#other-agents).
 
@@ -264,13 +265,9 @@ backlog service uninstall
 npm uninstall -g p-backlog
 ```
 
-Run `backlog service uninstall` before removing the package — otherwise launchd's `KeepAlive` (or systemd's
-`Restart=on-failure`) keeps relaunching a `cli.js` that no longer exists. Before that, remove the skill links
-and Stop hooks from every agent (a plugin is removed with `/plugin uninstall`):
-
-```bash
-backlog setup --remove-manual
-```
+`backlog setup --remove-manual` removes the skill links and Stop hooks from every agent (a plugin is removed with
+`/plugin uninstall`). Run `backlog service uninstall` before removing the package — otherwise launchd's `KeepAlive`
+(or systemd's `Restart=on-failure`) keeps relaunching a `cli.js` that no longer exists.
 
 On Windows, the Startup-folder script does not restart a crashed server the way launchd `KeepAlive` or
 systemd `Restart=on-failure` do — after a crash, run `backlog service install` again or start it with

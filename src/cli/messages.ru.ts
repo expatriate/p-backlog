@@ -30,6 +30,7 @@ export const cliRu = {
   pluginManages: (plugin: string): string => `скилл и хук подключает плагин ${plugin}. Ручные можно убрать: backlog setup --remove-manual`,
   pluginLanguageHint: (installed: string, wanted: string): string =>
     `скилл даёт плагин ${installed}; для этого языка поставьте другой: /plugin uninstall ${installed}, затем /plugin install ${wanted}`,
+  removeManualWithService: "--remove-manual не сочетается с --service: службу снимает backlog service uninstall",
   manualSkillRemoval: {
     removed: (target: string): string => `ссылка на скилл снята: ${target}`,
     absent: (target: string): string => `ссылки на скилл нет: ${target}`,

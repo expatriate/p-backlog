@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["src/cli/main.ts", "scripts/*.{mjs,ts}", "scripts/plugins/stop.mjs"],
-  "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts", "scripts/**/*.{mjs,ts}"]
+  "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts", "scripts/**/*.{mjs,ts}"],
+  "ignoreBinaries": ["backlog"]
 }

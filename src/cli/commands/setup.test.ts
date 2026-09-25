@@ -229,6 +229,18 @@ describe("backlog setup", () => {
     expect((await lstat(join(home, ".cursor/skills/backlog"))).isDirectory()).toBe(true);
   });
 
+  it("--remove-manual вместе с --service — ошибка использования, ничего не снято", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    await run(["setup"], { env });
+
+    const result = await run(["setup", "--remove-manual", "--service"], { env });
+
+    expect(result.code).toBe(EXIT.invalid);
+    expect(result.err).toContain("--remove-manual не сочетается с --service");
+    expect(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8")).hooks.Stop).toHaveLength(1);
+  });
+
   it("--remove-manual снимает и прежнюю ссылку Codex из <каталог codex>/skills", async () => {
     const { home, run } = await makeCliSandbox();
     const legacyLink = join(home, ".codex/skills/backlog");

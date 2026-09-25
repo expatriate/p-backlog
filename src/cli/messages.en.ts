@@ -30,6 +30,7 @@ export const cliEn: CliMessages = {
   agentNotFound: (dir) => `not found (${dir})`,
   pluginManages: (plugin) => `the ${plugin} plugin provides the skill and the hook. Remove the manual ones with: backlog setup --remove-manual`,
   pluginLanguageHint: (installed, wanted) => `the skill comes from the ${installed} plugin; for this language switch plugins: /plugin uninstall ${installed}, then /plugin install ${wanted}`,
+  removeManualWithService: "--remove-manual cannot be combined with --service: remove the service with backlog service uninstall",
   manualSkillRemoval: {
     removed: (target) => `skill link removed: ${target}`,
     absent: (target) => `no skill link: ${target}`,

@@ -61,7 +61,8 @@
      ```
 
      `p-backlog@p-backlog` ставит английский скилл. Плагин приносит скилл и хук Stop и обновляется командой
-     `/plugin marketplace update p-backlog`; сам CLI по-прежнему ставится из npm.
+     `/plugin marketplace update p-backlog`; сам CLI по-прежнему ставится из npm, и для плагина нужен CLI p-backlog
+     0.5.0 или новее.
    - **Без плагина, а также для Codex и Cursor:** `backlog setup` ставит ссылку на скилл и хук Stop каждому
      найденному агенту — см. [Другие агенты](#другие-агенты).
 
@@ -258,13 +259,9 @@ backlog service uninstall
 npm uninstall -g p-backlog
 ```
 
-Перед удалением пакета выполните `backlog service uninstall` — иначе `KeepAlive` у launchd (или
-`Restart=on-failure` у systemd) продолжит перезапускать несуществующий `cli.js`. Перед этим снимите ссылки
-на скилл и хуки Stop у всех агентов (плагин удаляется через `/plugin uninstall`):
-
-```bash
-backlog setup --remove-manual
-```
+`backlog setup --remove-manual` снимает ссылки на скилл и хуки Stop у всех агентов (плагин удаляется через
+`/plugin uninstall`). Перед удалением пакета выполните `backlog service uninstall` — иначе `KeepAlive` у launchd
+(или `Restart=on-failure` у systemd) продолжит перезапускать несуществующий `cli.js`.
 
 На Windows скрипт в папке «Автозагрузка» не перезапускает сервер после падения — в отличие от `KeepAlive`
 у launchd или `Restart=on-failure` у systemd; после сбоя запустите `backlog service install` заново или
