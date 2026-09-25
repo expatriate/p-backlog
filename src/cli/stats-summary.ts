@@ -7,7 +7,7 @@ import { cliMessages } from "./messages";
 export type StatsSummary = {
   language: Language;
   scopeName: string;
-  head: Pick<ReportHead, "unparsedTasks" | "invalidJournalLines">;
+  head: Pick<ReportHead, "unparsedTasks" | "invalidJournalLines" | "unknownJournalLines">;
   totals: StatsTotals;
   forecast: FlowForecast;
   signals: Signal[];
@@ -23,6 +23,7 @@ export function statsSummary({ language, scopeName, head, totals, forecast, sign
     cli.statsTitle(scopeName),
     ...(head.unparsedTasks > 0 ? [cli.statsUnparsedTasks(head.unparsedTasks)] : []),
     ...(head.invalidJournalLines > 0 ? [cli.statsInvalidJournalLines(head.invalidJournalLines)] : []),
+    ...(head.unknownJournalLines > 0 ? [cli.statsUnknownJournalLines(head.unknownJournalLines)] : []),
     cli.statsOpenLine({ open: totals.open, weight: totals.openWeight, net: formatSigned(net), created: totals.createdLastWeek, closed: totals.closedLastWeek }),
     cli.statsAgeLine(messages.days(totals.ageMedianDays), messages.days(totals.leadTimeMedianDays), tail),
     cli.statsForecastLine(messages.forecast(forecast), messages.forecastTail(forecast)),

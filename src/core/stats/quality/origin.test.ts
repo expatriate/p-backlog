@@ -36,11 +36,25 @@ describe("происхождение", () => {
   const events = [created("SPA-1", 2, "review", "feat/a"), created("SPA-2", 3, "review", "feat/a"), created("SPA-3", 4, "incidental", "feat/b"), created("SPA-4", 4, "incidental")];
   const histories = taskHistories(tasks, journal(events));
 
-  it("как найдены: три строки всегда, открыто и исправлено из созданных в периоде", () => {
+  it("как найдены: четыре строки всегда, открыто и исправлено из созданных в периоде", () => {
     expect(foundBreakdown(histories, period(FROM, TO))).toEqual([
       { found: "review", created: 2, open: 1, fixed: 1 },
       { found: "incidental", created: 2, open: 1, fixed: 0 },
+      { found: "unknown", created: 0, open: 0, fixed: 0 },
       { found: null, created: 1, open: 1, fixed: 0 },
+    ]);
+  });
+
+  it("переименованное «как найдена» видно отдельной строкой, а не пропадает", () => {
+    const task = makeTask({ id: "SPA-10", created: iso(6) });
+    const renamedFound: JournalEvent = { at: iso(6), task: "SPA-10", via: "cli", kind: "created", type: "task", priority: "medium", tags: [], found: "unknown" };
+    const renamedHistories = taskHistories([task], journal([renamedFound]));
+
+    expect(foundBreakdown(renamedHistories, period(FROM, TO))).toEqual([
+      { found: "review", created: 0, open: 0, fixed: 0 },
+      { found: "incidental", created: 0, open: 0, fixed: 0 },
+      { found: "unknown", created: 1, open: 1, fixed: 0 },
+      { found: null, created: 0, open: 0, fixed: 0 },
     ]);
   });
 
@@ -82,6 +96,7 @@ describe("происхождение", () => {
     expect(foundBreakdown(reopenedHistories, period(FROM, TO))).toEqual([
       { found: "review", created: 0, open: 0, fixed: 0 },
       { found: "incidental", created: 0, open: 0, fixed: 0 },
+      { found: "unknown", created: 0, open: 0, fixed: 0 },
       { found: null, created: 1, open: 1, fixed: 0 },
     ]);
   });

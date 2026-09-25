@@ -98,6 +98,10 @@
   --segment: var(--line-strong);
 }
 
+.unknown {
+  --segment: var(--warn);
+}
+
 .shareBar {
   display: flex;
   height: 10px;

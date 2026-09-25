@@ -13,14 +13,14 @@ const TO = at(18).getTime();
 const journal = (events: JournalEvent[]) => [{ projectId: "spa", events, invalidLines: 0 }];
 
 describe("категории", () => {
-  it("смена на неизвестную категорию не превращает удалённую задачу в «без категории»", () => {
+  it("смена на неизвестную категорию не пропадает и не превращается в «без категории»", () => {
     const events: JournalEvent[] = [
       { at: iso(2), task: "SPA-7", via: "cli", kind: "created", type: "task", priority: "medium", tags: [], category: "bug" },
       { at: iso(3), task: "SPA-7", via: "cli", kind: "category", from: "bug", to: "unknown" },
       { at: iso(4), task: "SPA-7", via: "cli", kind: "status", from: "backlog", to: "done" },
     ];
 
-    expect(categoryBreakdown([], taskHistories([], journal(events)), period(FROM, TO))).toEqual([]);
+    expect(categoryBreakdown([], taskHistories([], journal(events)), period(FROM, TO))).toEqual([{ category: "unknown", open: 0, weight: 0, created: 1, closed: 1 }]);
   });
 
   it("открыто, вес, создано и закрыто по категориям; удалённая по снимку; «не указана» последней; нулевые не выводятся", () => {

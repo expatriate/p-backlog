@@ -50,10 +50,10 @@ describe("файл журнала", () => {
     expect(journal.invalidLines).toBe(1);
     expect(journal.events).toEqual([
       expect.objectContaining({ kind: "created", via: "unknown", priority: "unknown", category: "unknown", found: "unknown" }),
-      expect.objectContaining({ kind: "status", via: "unknown", from: "backlog", to: "done", resolution: undefined }),
+      expect.objectContaining({ kind: "status", via: "unknown", from: "backlog", to: "done", resolution: "unknown" }),
       expect.objectContaining({ kind: "category", from: "bug", to: "unknown" }),
       expect.objectContaining({ kind: "candidate", evidence: "source-changed", mode: "unknown", method: undefined, match: undefined }),
-      expect.objectContaining({ kind: "deleted", snapshot: expect.objectContaining({ status: "done", priority: "unknown", category: "unknown", resolution: undefined }) }),
+      expect.objectContaining({ kind: "deleted", snapshot: expect.objectContaining({ status: "done", priority: "unknown", category: "unknown", resolution: "unknown" }) }),
     ]);
   });
 

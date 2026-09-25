@@ -35,7 +35,13 @@ async function runStats(args: string[], io: CliIo): Promise<number> {
   const signals = statsSignals(input, base);
 
   if (values.json) {
-    io.print(JSON.stringify({ totals, forecast, signals, unparsedTasks: base.head.unparsedTasks, invalidJournalLines: base.head.invalidJournalLines }, null, 2));
+    io.print(
+      JSON.stringify(
+        { totals, forecast, signals, unparsedTasks: base.head.unparsedTasks, invalidJournalLines: base.head.invalidJournalLines, unknownJournalLines: base.head.unknownJournalLines },
+        null,
+        2,
+      ),
+    );
     return EXIT.ok;
   }
   const path = project === undefined ? "/stats" : `/p/${project.id}/stats`;

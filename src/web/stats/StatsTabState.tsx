@@ -59,8 +59,13 @@ export function StatsTabState<T extends ReportHead>({ query, children }: { query
   const { stats } = useMessages();
   const language = useLanguage();
   const invalidLines = query.data?.invalidJournalLines ?? 0;
+  const unknownLines = query.data?.unknownJournalLines ?? 0;
   const unparsedTasks = query.data?.unparsedTasks ?? 0;
-  const warnings = [invalidLines > 0 ? stats.invalidJournalLines(invalidLines) : null, unparsedTasks > 0 ? stats.unparsedTasks(unparsedTasks) : null].filter((text) => text !== null);
+  const warnings = [
+    invalidLines > 0 ? stats.invalidJournalLines(invalidLines) : null,
+    unknownLines > 0 ? stats.unknownJournalLines(unknownLines) : null,
+    unparsedTasks > 0 ? stats.unparsedTasks(unparsedTasks) : null,
+  ].filter((text) => text !== null);
   return (
     <>
       <p className={warnings.length > 0 ? styles.warning : "visually-hidden"} role="status">

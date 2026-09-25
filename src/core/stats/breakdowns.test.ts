@@ -81,13 +81,14 @@ describe("как закрываются", () => {
         { at: at(9).getTime(), from: "backlog", to: "cancelled", via: "cli" },
         { at: at(10).getTime(), from: "cancelled", to: "backlog", via: "web" },
       ]),
+      history("SPA-6", [{ at: at(11).getTime(), from: "backlog", to: "done", resolution: "unknown", via: "cli" }], "src/c.ts:1"),
     ];
 
     const closing = closingBreakdown(histories, period(at(1).getTime(), at(30).getTime()));
 
-    expect(closing.byReason).toEqual({ done: 1, fixed: 1, obsolete: 1, duplicate: 1, cancelled: 1 });
-    expect(closing.duplicateShare).toBeCloseTo(0.2);
-    expect(closing.withoutSourceShare).toBeCloseTo(0.4);
+    expect(closing.byReason).toEqual({ done: 1, fixed: 1, obsolete: 1, duplicate: 1, cancelled: 1, unknown: 1 });
+    expect(closing.duplicateShare).toBeCloseTo(1 / 6);
+    expect(closing.withoutSourceShare).toBeCloseTo(1 / 3);
     expect(closing.reopened).toBe(1);
   });
 

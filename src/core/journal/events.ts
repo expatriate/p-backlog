@@ -72,7 +72,7 @@ const eventBase = { at: z.iso.datetime({ offset: true }), task: z.string().min(1
 const taskSnapshotSchema = taskFrontmatterSchema.extend({
   priority: recordedEnum(PRIORITIES),
   category: recordedEnum(TASK_CATEGORIES).optional(),
-  resolution: unknownAsMissing(RESOLUTIONS),
+  resolution: recordedEnum(RESOLUTIONS).optional(),
 });
 
 export const journalEventSchema = z.discriminatedUnion("kind", [
@@ -88,7 +88,7 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
     found: recordedEnum(FOUND_HOW).optional(),
     origin: z.object({ branch: z.string().optional(), commit: z.string().min(1) }).optional(),
   }),
-  z.object({ ...eventBase, kind: z.literal("status"), from: z.enum(TASK_STATUSES), to: z.enum(TASK_STATUSES), resolution: unknownAsMissing(RESOLUTIONS) }),
+  z.object({ ...eventBase, kind: z.literal("status"), from: z.enum(TASK_STATUSES), to: z.enum(TASK_STATUSES), resolution: recordedEnum(RESOLUTIONS).optional() }),
   z.object({ ...eventBase, kind: z.literal("priority"), from: recordedEnum(PRIORITIES), to: recordedEnum(PRIORITIES) }),
   z.object({ ...eventBase, kind: z.literal("deleted"), snapshot: taskSnapshotSchema }),
   z.object({ ...eventBase, kind: z.literal("category"), from: recordedEnum(TASK_CATEGORIES).optional(), to: recordedEnum(TASK_CATEGORIES).optional() }),
@@ -110,6 +110,28 @@ export type TaskSnapshot = z.output<typeof taskSnapshotSchema>;
 const SNAPSHOT_FIELDS = Object.keys(taskSnapshotSchema.shape) as (keyof TaskSnapshot)[];
 
 export type ProjectJournal = { projectId: string; events: JournalEvent[]; invalidLines: number };
+
+export function hasUnknownValue(event: JournalEvent): boolean {
+  if (event.via === UNKNOWN) return true;
+  switch (event.kind) {
+    case "created":
+      return event.priority === UNKNOWN || event.category === UNKNOWN || event.found === UNKNOWN;
+    case "status":
+      return event.resolution === UNKNOWN;
+    case "priority":
+      return event.from === UNKNOWN || event.to === UNKNOWN;
+    case "category":
+      return event.from === UNKNOWN || event.to === UNKNOWN;
+    case "deleted":
+      return event.snapshot.priority === UNKNOWN || event.snapshot.category === UNKNOWN || event.snapshot.resolution === UNKNOWN;
+    case "candidate":
+      return event.mode === UNKNOWN;
+    case "verified":
+    case "candidate-gone":
+    case "candidate-filtered":
+      return false;
+  }
+}
 
 export function createdEvent(task: Task, now: Date, via: ChangeSource, provenance: Provenance = {}): JournalEvent {
   return {

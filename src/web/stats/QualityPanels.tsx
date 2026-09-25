@@ -99,6 +99,7 @@ function resolvedCell({ state, pinned, resolved }: ProjectGraphRow): string {
 
 export function CategoriesPanel({ rows }: { rows: CategoryRow[] }) {
   const { stats, core } = useMessages();
+  const categoryText = (row: CategoryRow): string => (row.category === "unknown" ? stats.categoryUnknown : core.categoryLabel(row.category ?? undefined));
   return (
     <Panel title={stats.categoriesTitle}>
       {rows.length === 0 ? (
@@ -107,7 +108,7 @@ export function CategoriesPanel({ rows }: { rows: CategoryRow[] }) {
         <StatsTable
           label={stats.categoriesTitle}
           head={stats.categoriesHead}
-          rows={rows.map((row) => ({ key: row.category ?? "none", cells: [core.categoryLabel(row.category ?? undefined), row.open, row.weight, row.created, row.closed] }))}
+          rows={rows.map((row) => ({ key: row.category ?? "none", cells: [categoryText(row), row.open, row.weight, row.created, row.closed] }))}
         />
       )}
     </Panel>
@@ -116,6 +117,11 @@ export function CategoriesPanel({ rows }: { rows: CategoryRow[] }) {
 
 export function OriginPanel({ found, branches }: { found: FoundRow[]; branches: BranchRow[] }) {
   const { stats } = useMessages();
+  const foundText = (row: FoundRow): string => {
+    if (row.found === null) return stats.foundNotRecorded;
+    if (row.found === "unknown") return stats.foundUnknown;
+    return stats.foundLabels[row.found];
+  };
   return (
     <Panel title={stats.originTitle}>
       <div>
@@ -123,7 +129,7 @@ export function OriginPanel({ found, branches }: { found: FoundRow[]; branches: 
         <StatsTable
           label={stats.foundTitle}
           head={stats.foundHead}
-          rows={found.map((row) => ({ key: row.found ?? "unknown", cells: [stats.foundLabels[row.found ?? "unknown"], row.created, row.open, row.fixed] }))}
+          rows={found.map((row) => ({ key: row.found ?? "not-recorded", cells: [foundText(row), row.created, row.open, row.fixed] }))}
         />
       </div>
       <div>

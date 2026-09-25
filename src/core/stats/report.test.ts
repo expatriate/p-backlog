@@ -33,6 +33,17 @@ describe("отчёт статистики", () => {
     expect(report.invalidJournalLines).toBe(2);
   });
 
+  it("строка журнала с неизвестным значением считается отдельно от неразобранных", () => {
+    const withUnknownValue = [
+      { projectId: "spa", events: [{ at: formatLocalIso(at(16)), task: "SPA-2", via: "cli", kind: "category", from: "bug", to: "unknown" }] as JournalEvent[], invalidLines: 0 },
+    ];
+
+    const report = statsReport({ tasks, journals: withUnknownValue, now: NOW, projectId: "spa" });
+
+    expect(report.invalidJournalLines).toBe(0);
+    expect(report.unknownJournalLines).toBe(1);
+  });
+
   it("все проекты: задачи обоих проектов, папки с именем проекта", () => {
     const report = statsReport({ tasks, journals, now: NOW });
 

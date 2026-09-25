@@ -8,10 +8,10 @@ import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import styles from "./StatsPanels.module.css";
 
-const REASONS: readonly ClosingReason[] = ["done", "fixed", "obsolete", "duplicate", "cancelled"];
+const REASONS: readonly ClosingReason[] = ["done", "fixed", "obsolete", "duplicate", "cancelled", "unknown"];
 
 function reasonLabel(reason: ClosingReason, { stats, core }: WebMessages): string {
-  return reason === "done" || reason === "cancelled" ? stats.closingReasons[reason] : core.resolutionLabel(reason);
+  return reason === "done" || reason === "cancelled" || reason === "unknown" ? stats.closingReasons[reason] : core.resolutionLabel(reason);
 }
 
 export function ClosingPanel({ closing }: { closing: ClosingBreakdown }) {

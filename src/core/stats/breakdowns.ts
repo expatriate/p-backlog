@@ -49,7 +49,7 @@ export function urgentStaleCount(openTasks: readonly Task[], now: Date): number 
 export function closingBreakdown(histories: readonly TaskHistory[], period: Period): ClosingBreakdown {
   const closings = histories.flatMap(closingsOf).filter((closing) => period.contains(closing.at));
   const created = histories.filter((history) => period.contains(history.createdAt));
-  const byReason: Record<ClosingReason, number> = { done: 0, fixed: 0, obsolete: 0, duplicate: 0, cancelled: 0 };
+  const byReason: Record<ClosingReason, number> = { done: 0, fixed: 0, obsolete: 0, duplicate: 0, cancelled: 0, unknown: 0 };
   for (const closing of closings) byReason[closingReason(closing)] += 1;
   return {
     byReason,
@@ -60,6 +60,7 @@ export function closingBreakdown(histories: readonly TaskHistory[], period: Peri
 }
 
 function closingReason(closing: Transition): ClosingReason {
+  if (closing.resolution === "unknown") return "unknown";
   if (closing.resolution === "fixed" || closing.resolution === "obsolete" || closing.resolution === "duplicate") return closing.resolution;
   return closing.to === "cancelled" ? "cancelled" : "done";
 }

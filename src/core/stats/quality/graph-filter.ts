@@ -1,3 +1,4 @@
+import type { Recorded } from "../../journal/events";
 import type { Resolution } from "../../model/types";
 import { closingsOf, type TaskHistory } from "../history";
 import type { Period } from "../period";
@@ -5,7 +6,7 @@ import type { GraphFilterEffect } from "../types";
 
 type FilterOutcome = "caught" | "missed" | "quiet";
 
-const SILENT_CLOSINGS: ReadonlySet<Resolution | undefined> = new Set<Resolution>(["fixed", "obsolete"]);
+const SILENT_CLOSINGS: ReadonlySet<Recorded<Resolution> | undefined> = new Set<Resolution>(["fixed", "obsolete"]);
 
 export function graphFilterEffect(histories: readonly TaskHistory[], period: Period): GraphFilterEffect {
   const outcomes = histories.flatMap((history) =>

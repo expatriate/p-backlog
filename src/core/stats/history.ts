@@ -4,7 +4,7 @@ import type { Priority, Resolution, Task, TaskCategory, TaskStatus, TaskType } f
 
 const CREATED_STATUS: TaskStatus = "backlog";
 
-export type Transition = { at: number; from?: TaskStatus | undefined; to: TaskStatus; resolution?: Resolution | undefined; via: ChangeSource | "unknown" };
+export type Transition = { at: number; from?: TaskStatus | undefined; to: TaskStatus; resolution?: Recorded<Resolution> | undefined; via: ChangeSource | "unknown" };
 
 export type TaskHistory = {
   id: string;

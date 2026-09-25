@@ -139,6 +139,13 @@ describe("страница статистики", () => {
     expect(await screen.findByText("Не удалось разобрать строк журнала: 1. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.")).toBeDefined();
   });
 
+  it("строка журнала с неизвестным значением — предупреждение, значение не теряется", async () => {
+    const line = JSON.stringify({ at: "2026-09-18T10:00:00+03:00", task: "SPA-1", via: "cli", kind: "category", from: "bug", to: "old-name" });
+    await renderApp({ ...FILES, "spa/journal.jsonl": `${line}\n` }, "/stats");
+
+    expect(await screen.findByText(/Строк журнала с неизвестным значением: 1\./)).toBeDefined();
+  });
+
   it("битые строки журнала, появившиеся после загрузки, объявляются через область статуса, существовавшую до них", async () => {
     const app = await renderApp(FILES, "/stats");
     await screen.findByRole("group", { name: "За неделю" });
@@ -360,7 +367,7 @@ describe("вкладка «Качество»", () => {
     const categoriesPanel = screen.getByRole("region", { name: "Категории" });
     expect(cells(within(categoriesPanel).getByRole("row", { name: /не указана/ }))).toEqual(["не указана", "3", "8", "4", "1"]);
     const originPanel = screen.getByRole("region", { name: "Происхождение" });
-    expect(cells(within(originPanel).getByRole("row", { name: /неизвестно/ }))).toEqual(["неизвестно", "4", "3", "0"]);
+    expect(cells(within(originPanel).getByRole("row", { name: /не записано/ }))).toEqual(["не записано", "4", "3", "0"]);
     expect(within(originPanel).getByText("Ветки появятся у задач, заведённых через backlog new в репозитории")).toBeDefined();
   });
 

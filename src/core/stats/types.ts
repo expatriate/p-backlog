@@ -1,8 +1,8 @@
 import type { GraphState } from "../check/graph-health";
-import type { CandidateEvidence, CheckMethod, FoundHow, RecordedMatch, RecordedMethod } from "../journal/events";
+import type { CandidateEvidence, CheckMethod, FoundHow, Recorded, RecordedMatch, RecordedMethod } from "../journal/events";
 import type { Priority, TaskCategory } from "../model/types";
 
-export type ClosingReason = "done" | "fixed" | "obsolete" | "duplicate" | "cancelled";
+export type ClosingReason = "done" | "fixed" | "obsolete" | "duplicate" | "cancelled" | "unknown";
 export type AgeBucket = "week" | "month" | "quarter" | "older";
 
 export type WeekFlow = { start: string; created: number; closed: number; openAtEnd: number };
@@ -35,7 +35,7 @@ export type ClosingBreakdown = {
   reopened: number;
 };
 
-export type ReportHead = { taskCount: number; journalSince: string | null; invalidJournalLines: number; unparsedTasks: number };
+export type ReportHead = { taskCount: number; journalSince: string | null; invalidJournalLines: number; unknownJournalLines: number; unparsedTasks: number };
 
 export type StatsReport = ReportHead & {
   totals: StatsTotals;
@@ -76,8 +76,8 @@ export type MatchAccuracyRow = { by: RecordedMatch } & OutcomeCounts;
 export type GraphFilterEffect = { filtered: number; caught: number; missed: number; quiet: number };
 export type ProjectGraphRow = { projectId: string; name: string; state: GraphState; pinned: number; resolved: number };
 export type GraphReport = { projects: ProjectGraphRow[]; filter: GraphFilterEffect };
-export type CategoryRow = { category: TaskCategory | null; open: number; weight: number; created: number; closed: number };
-export type FoundRow = { found: FoundHow | null; created: number; open: number; fixed: number };
+export type CategoryRow = { category: Recorded<TaskCategory> | null; open: number; weight: number; created: number; closed: number };
+export type FoundRow = { found: Recorded<FoundHow> | null; created: number; open: number; fixed: number };
 export type BranchRow = { label: string; created: number; open: number };
 export type QualityReport = ReportHead & {
   accuracy: AccuracyRow[];

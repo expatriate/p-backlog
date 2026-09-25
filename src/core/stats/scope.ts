@@ -1,4 +1,4 @@
-import type { ProjectJournal } from "../journal/events";
+import { hasUnknownValue, type ProjectJournal } from "../journal/events";
 import { formatLocalIso } from "../model/dates";
 import type { Task } from "../model/types";
 import type { UnparsedTask } from "../store/load";
@@ -21,6 +21,7 @@ type StatsScope = {
   journalStart: number | null;
   journalSince: string | null;
   invalidJournalLines: number;
+  unknownJournalLines: number;
   unparsedTasks: number;
 };
 
@@ -36,6 +37,7 @@ function statsScope({ tasks, journals, projectId, unparsedTasks = [] }: StatsInp
     journalStart,
     journalSince: journalStart === null ? null : formatLocalIso(new Date(journalStart)),
     invalidJournalLines: sum(scopedJournals.map((journal) => journal.invalidLines)),
+    unknownJournalLines: sum(scopedJournals.map((journal) => journal.events.filter(hasUnknownValue).length)),
     unparsedTasks: unparsedIds.size,
   };
 }
@@ -51,6 +53,12 @@ export function reportBase(input: StatsInput): ReportBase {
     histories,
     tasks,
     openTasks: tasks.filter((task) => !isClosed(task.status)),
-    head: { taskCount: histories.length, journalSince: scope.journalSince, invalidJournalLines: scope.invalidJournalLines, unparsedTasks: scope.unparsedTasks },
+    head: {
+      taskCount: histories.length,
+      journalSince: scope.journalSince,
+      invalidJournalLines: scope.invalidJournalLines,
+      unknownJournalLines: scope.unknownJournalLines,
+      unparsedTasks: scope.unparsedTasks,
+    },
   };
 }

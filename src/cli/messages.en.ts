@@ -46,6 +46,7 @@ export const cliEn: CliMessages = {
   statsForecastLine: (forecast, tail) => `Forecast: ${forecast} (${tail})`,
   statsUnparsedTasks: (n) => `Unparsed task files: ${n} — the statistics use their last status from the journal; backlog check shows the errors`,
   statsInvalidJournalLines: (n) => `Unparsed journal lines: ${n} — they are left out of the statistics`,
+  statsUnknownJournalLines: (n) => `Journal lines with an unknown value: ${n} — a renamed value is shown as "unknown"`,
   noAlerts: "No alerts",
   alertsHeader: "Alerts:",
   moreAt: (url) => `More: ${url}`,

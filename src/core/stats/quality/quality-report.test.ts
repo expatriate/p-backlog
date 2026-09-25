@@ -20,7 +20,7 @@ describe("отчёт «Качество»", () => {
     expect(report.taskCount).toBe(1);
     expect(report.accuracy.at(-1)).toEqual({ evidence: "total", candidates: 1, closed: 0, verified: 0, open: 1, precision: null });
     expect(report.categories).toEqual([{ category: "bug", open: 1, weight: 2, created: 1, closed: 0 }]);
-    expect(report.found.map((row) => row.created)).toEqual([0, 0, 1]);
+    expect(report.found.map((row) => row.created)).toEqual([0, 0, 0, 1]);
     expect(report.branches).toEqual([]);
   });
 });

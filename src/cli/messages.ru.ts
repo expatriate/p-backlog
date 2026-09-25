@@ -48,6 +48,7 @@ export const cliRu = {
   statsForecastLine: (forecast: string, tail: string): string => `Прогноз: ${forecast} (${tail})`,
   statsUnparsedTasks: (n: number): string => `Не разобрано файлов задач: ${n} — в статистике их последний статус из журнала; ошибки покажет backlog check`,
   statsInvalidJournalLines: (n: number): string => `Не разобрано строк журнала: ${n} — они не входят в статистику`,
+  statsUnknownJournalLines: (n: number): string => `Строк журнала с неизвестным значением: ${n} — переименованное значение показано как «неизвестно»`,
   noAlerts: "Тревог нет",
   alertsHeader: "Тревоги:",
   moreAt: (url: string): string => `Подробнее: ${url}`,

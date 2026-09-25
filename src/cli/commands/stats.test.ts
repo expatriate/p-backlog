@@ -66,15 +66,22 @@ describe("backlog stats", () => {
     await run(["new", "--category", "bug", "--title", "Сломается"]);
     await run(["new", "--category", "bug", "--title", "Целая"]);
     await writeFiles(root, { "spa/SPA-1.md": "---\nid: SPA-1\ntitle: [\n---\n" });
-    await appendFile(join(root, "spa", "journal.jsonl"), "не json\n", "utf8");
+    const unknownValueLine = JSON.stringify({ at: "2026-09-18T10:00:00+03:00", task: "SPA-2", via: "cli", kind: "category", from: "bug", to: "old-name" });
+    await appendFile(join(root, "spa", "journal.jsonl"), `не json\n${unknownValueLine}\n`, "utf8");
 
     const text = await run(["stats"]);
-    const json = JSON.parse((await run(["stats", "--json"])).out) as { totals: { open: number }; unparsedTasks: number; invalidJournalLines: number };
+    const json = JSON.parse((await run(["stats", "--json"])).out) as {
+      totals: { open: number };
+      unparsedTasks: number;
+      invalidJournalLines: number;
+      unknownJournalLines: number;
+    };
 
     expect(text.out).toContain("Открыто: 2");
     expect(text.out).toContain("Не разобрано файлов задач: 1");
     expect(text.out).toContain("Не разобрано строк журнала: 1");
-    expect(json).toMatchObject({ totals: { open: 2 }, unparsedTasks: 1, invalidJournalLines: 1 });
+    expect(text.out).toContain("Строк журнала с неизвестным значением: 1");
+    expect(json).toMatchObject({ totals: { open: 2 }, unparsedTasks: 1, invalidJournalLines: 1, unknownJournalLines: 1 });
   });
 
   it("ошибки области", async () => {

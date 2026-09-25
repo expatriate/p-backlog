@@ -36,6 +36,8 @@ export const statsRu = {
 
   invalidJournalLines: (n: number): string =>
     `Не удалось разобрать строк журнала: ${n}. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.`,
+  unknownJournalLines: (n: number): string =>
+    `Строк журнала с неизвестным значением: ${n}. Переименованное значение (категория, «как найдена», резолюция) показано как «неизвестно», но учтено в разбивках.`,
   unparsedTasks: (n: number): string =>
     `Не удалось разобрать файлов задач: ${n}. Для них в статистике — последний статус из журнала; исправьте файлы, команда backlog check покажет ошибки.`,
   noTasks: "Задач пока нет.",
@@ -81,7 +83,7 @@ export const statsRu = {
   priorityCounts: { critical: "критичных", high: "высоких", medium: "средних", low: "низких" } satisfies Record<Priority, string>,
   urgentStale: (n: number): string => `Критичные и высокие старше ${STALE_URGENT_DAYS} дней: ${n}`,
   closing: "Как закрываются",
-  closingReasons: { done: "сделано", cancelled: "отменено" } satisfies Record<Extract<ClosingReason, "done" | "cancelled">, string>,
+  closingReasons: { done: "сделано", cancelled: "отменено", unknown: "резолюция не распознана" } satisfies Record<Extract<ClosingReason, "done" | "cancelled" | "unknown">, string>,
   noiseAndReopens: "Шум и возвраты",
   duplicatesAmongClosed: "Дубли среди закрытых",
   noSourceAmongCreated: "Без source среди созданных",
@@ -130,10 +132,13 @@ export const statsRu = {
   categoriesTitle: "Категории",
   categoriesEmpty: `За ${STATS_PERIOD} задач не было`,
   categoriesHead: ["Категория", "Открыто", "Вес", "Создано", "Закрыто"],
+  categoryUnknown: "неизвестна",
   originTitle: "Происхождение",
   foundTitle: "Как найдены",
   foundHead: ["Как найдена", "Создано", "Открыто", "Исправлено"],
-  foundLabels: { review: "на ревью", incidental: "попутно", unknown: "неизвестно" } satisfies Record<FoundHow | "unknown", string>,
+  foundLabels: { review: "на ревью", incidental: "попутно" } satisfies Record<FoundHow, string>,
+  foundNotRecorded: "не записано",
+  foundUnknown: "неизвестно",
   branchesTitle: "Ветки",
   branchesEmpty: "Ветки появятся у задач, заведённых через backlog new в репозитории",
   branchesHead: ["Ветка", "Создано", "Открыто"],
