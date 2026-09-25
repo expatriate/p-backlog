@@ -49,11 +49,13 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
   const [bodySaving, setBodySaving] = useState(false);
   const [bodyError, setBodyError] = useState<Error | null>(null);
   const [saveError, setSaveError] = useState<Error | null>(null);
-  const cardAlerts = cardAlertTexts(bodyError, saveError, bodyDraft !== null, t);
+  const [conflictField, setConflictField] = useState<string | null>(null);
+  const cardAlerts = cardAlertTexts({ bodyError, saveError, conflictField, draftOpen: bodyDraft !== null }, t);
 
   const saveNote = useSaveNote(updateTask.isPending, updateTask.isSuccess && cardAlerts.length === 0, updateTask.submittedAt, t);
   const save = (change: TaskChange) => {
     setSaveError(null);
+    setConflictField(null);
     void updateTask.mutateAsync({ id: task.id, change }).catch((error: unknown) => setSaveError(asError(error)));
   };
   const apply = (changes: TaskChangesRequest) => save(() => changes);
@@ -104,9 +106,9 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
       }
       onClose={onClose}
     >
-      <TitleField title={task.title} label={t.title} onSave={(title) => apply({ title })} />
+      <TitleField title={task.title} label={t.title} onSave={(title) => apply({ title })} onConflict={setConflictField} />
 
-      <TaskFields task={task} epicListId={EPIC_LIST_ID} knownTasks={tasks} onChange={apply} />
+      <TaskFields task={task} epicListId={EPIC_LIST_ID} knownTasks={tasks} onChange={apply} onConflict={setConflictField} />
 
       <div className={styles.meta}>
         <StatusBadge status={task.status} />
@@ -190,10 +192,13 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
   );
 }
 
-function cardAlertTexts(bodyError: Error | null, saveError: Error | null, draftOpen: boolean, t: TaskMessages): string[] {
+type CardAlerts = { bodyError: Error | null; saveError: Error | null; conflictField: string | null; draftOpen: boolean };
+
+function cardAlertTexts({ bodyError, saveError, conflictField, draftOpen }: CardAlerts, t: TaskMessages): string[] {
   const bodyText = bodyError === null ? null : isConflict(bodyError) && draftOpen ? t.draftConflict : errorText(bodyError, t);
   const saveText = saveError === null ? null : errorText(saveError, t);
-  return [...new Set([bodyText, saveText].filter((text) => text !== null))];
+  const fieldText = conflictField === null ? null : t.fieldConflict(conflictField);
+  return [...new Set([bodyText, saveText, fieldText].filter((text) => text !== null))];
 }
 
 function errorText(error: Error, t: TaskMessages): string {
@@ -223,8 +228,10 @@ function useSaveNote(pending: boolean, success: boolean, submittedAt: number, t:
   return success && fadedSave !== submittedAt ? t.saved : "";
 }
 
-function TitleField({ title: serverTitle, label, onSave }: { title: string; label: string; onSave: (title: string) => void }) {
-  const [title, setTitle, titleRef] = useDraft<HTMLTextAreaElement>(serverTitle);
+type TitleFieldProps = { title: string; label: string; onSave: (title: string) => void; onConflict: (field: string) => void };
+
+function TitleField({ title: serverTitle, label, onSave, onConflict }: TitleFieldProps) {
+  const [title, titleRef] = useDraft<HTMLTextAreaElement>(serverTitle);
 
   useLayoutEffect(() => {
     const field = titleRef.current;
@@ -240,16 +247,16 @@ function TitleField({ title: serverTitle, label, onSave }: { title: string; labe
     const observer = new ResizeObserver(fit);
     observer.observe(box);
     return () => observer.disconnect();
-  }, [title, titleRef]);
+  }, [title.value, titleRef]);
 
   return (
     <textarea
       ref={titleRef}
       className={styles.title}
       rows={1}
-      value={title}
+      value={title.value}
       aria-label={label}
-      onChange={(event) => setTitle(event.target.value)}
+      onChange={(event) => title.set(event.target.value)}
       onKeyDown={(event) => {
         if (event.key === "Enter") {
           event.preventDefault();
@@ -257,9 +264,11 @@ function TitleField({ title: serverTitle, label, onSave }: { title: string; labe
         }
       }}
       onBlur={() => {
-        const next = title.trim();
-        if (next === "") setTitle(serverTitle);
-        else if (next !== serverTitle) onSave(next);
+        const next = title.value.trim();
+        if (next === "") return title.reset();
+        const outcome = title.commit(next);
+        if (outcome === "save") onSave(next);
+        if (outcome === "conflict") onConflict(label);
       }}
     />
   );

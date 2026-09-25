@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider, type RouteObject } from "react-router";
 import { makeTestApp, type TestApp, type TestAppOptions } from "../../server/testing/test-app";
 import { routes } from "../app/App";
-import { BacklogApiProvider, type BacklogApi } from "../app/backlog-api";
+import { BacklogApiProvider, type BacklogApi, type EventStream } from "../app/backlog-api";
 import { createApiClient } from "../api/client";
 import { MessagesProvider } from "../i18n";
 
@@ -23,9 +23,10 @@ export async function renderApp(files: Record<string, string>, route = "/", appR
     await backlog.usage.scanOnce();
   }
   await beforeRender?.(backlog);
+  const events = fakeEventSource();
   const api: BacklogApi = {
     client: createApiClient((path, init) => backlog.request(path, init)),
-    openEvents: () => null,
+    openEvents: events.open,
   };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const router = createMemoryRouter(appRoutes, { initialEntries: [route] });
@@ -42,8 +43,31 @@ export async function renderApp(files: Record<string, string>, route = "/", appR
 
   return {
     ...backlog,
+    emitChange: () => {
+      backlog.emitChange();
+      events.emitChange();
+    },
     user: userEvent.setup(),
     router,
     route: () => `${router.state.location.pathname}${router.state.location.search}`,
   };
+}
+
+type StreamListeners = Map<string, Set<() => void>>;
+
+function fakeEventSource() {
+  const streams = new Set<StreamListeners>();
+  const fire = (listeners: StreamListeners, type: string) => listeners.get(type)?.forEach((listener) => listener());
+  const open = (): EventStream => {
+    const listeners: StreamListeners = new Map();
+    streams.add(listeners);
+    setTimeout(() => {
+      if (streams.has(listeners)) fire(listeners, "open");
+    });
+    return {
+      addEventListener: (type, listener) => listeners.set(type, (listeners.get(type) ?? new Set()).add(listener)),
+      close: () => streams.delete(listeners),
+    };
+  };
+  return { open, emitChange: () => streams.forEach((listeners) => fire(listeners, "change")) };
 }

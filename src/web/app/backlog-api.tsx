@@ -1,7 +1,7 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { createApiClient, type ApiClient } from "../api/client";
 
-type EventStream = { addEventListener: (type: string, listener: () => void) => void; close: () => void };
+export type EventStream = { addEventListener: (type: string, listener: () => void) => void; close: () => void };
 
 export type BacklogApi = { client: ApiClient; openEvents: () => EventStream | null };
 

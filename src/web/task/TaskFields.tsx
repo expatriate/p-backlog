@@ -3,26 +3,43 @@ import type { TaskChangesRequest } from "../../core/api/contract";
 import { epicProblems } from "../../core/model/integrity";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, type Task } from "../../core/model/types";
 import { useMessages } from "../i18n";
-import { useDraft } from "../ui/use-draft";
+import { useDraft, type Draft } from "../ui/use-draft";
 import { normalizeTaskId } from "./normalize-task-id";
 import styles from "./TaskFields.module.css";
 
-export type TaskFieldsProps = { task: Task; epicListId: string; knownTasks: readonly Task[]; onChange: (changes: TaskChangesRequest) => void };
+export type TaskFieldsProps = {
+  task: Task;
+  epicListId: string;
+  knownTasks: readonly Task[];
+  onChange: (changes: TaskChangesRequest) => void;
+  onConflict: (field: string) => void;
+};
 
-export function TaskFields({ task, epicListId, knownTasks, onChange }: TaskFieldsProps) {
+export function TaskFields({ task, epicListId, knownTasks, onChange, onConflict }: TaskFieldsProps) {
   const { core, task: t } = useMessages();
-  const [tags, setTags, tagsRef] = useDraft(task.tags.join(", "));
-  const [epic, setEpic, epicRef] = useDraft(task.epic ?? "");
+  const [tags, tagsRef] = useDraft(task.tags.join(", "));
+  const [epic, epicRef] = useDraft(task.epic ?? "");
   const [epicError, setEpicError] = useState<string | null>(null);
   const epicErrorId = useId();
 
+  const commit = (draft: Draft, canonical: string, field: string, save: () => void) => {
+    const outcome = draft.commit(canonical);
+    if (outcome === "save") save();
+    if (outcome === "conflict") onConflict(field);
+  };
+
   const saveEpic = () => {
-    const value = normalizeTaskId(epic);
+    const value = normalizeTaskId(epic.value);
     const resolve = (id: string) => knownTasks.find((known) => known.id === id);
     const problems = value === "" ? [] : epicProblems({ ...task, epic: value }, resolve);
     setEpicError(problems.length === 0 ? null : core.problems(problems));
     if (problems.length > 0) return;
-    if (value !== (task.epic ?? "")) onChange({ epic: value === "" ? null : value });
+    commit(epic, value, t.epicField, () => onChange({ epic: value === "" ? null : value }));
+  };
+
+  const saveTags = () => {
+    const next = parseTags(tags.value);
+    commit(tags, next.join(", "), t.tagsField, () => onChange({ tags: next }));
   };
 
   return (
@@ -44,12 +61,12 @@ export function TaskFields({ task, epicListId, knownTasks, onChange }: TaskField
           <input
             ref={epicRef}
             list={epicListId}
-            value={epic}
+            value={epic.value}
             placeholder={t.epicPlaceholder}
             aria-invalid={epicError !== null}
             aria-describedby={epicError === null ? undefined : epicErrorId}
             onChange={(event) => {
-              setEpic(event.target.value);
+              epic.set(event.target.value);
               setEpicError(null);
             }}
             onBlur={saveEpic}
@@ -64,7 +81,7 @@ export function TaskFields({ task, epicListId, knownTasks, onChange }: TaskField
 
       <label className={styles.tags}>
         {t.tagsField}
-        <input ref={tagsRef} value={tags} onChange={(event) => setTags(event.target.value)} onBlur={() => saveTags(tags, task, onChange)} />
+        <input ref={tagsRef} value={tags.value} onChange={(event) => tags.set(event.target.value)} onBlur={saveTags} />
       </label>
     </>
   );
@@ -95,10 +112,9 @@ function ChoiceSelect<T extends string>({ label, value, choices, labelFor, empty
   );
 }
 
-function saveTags(value: string, task: Task, onChange: (changes: TaskChangesRequest) => void): void {
-  const tags = value
+function parseTags(value: string): string[] {
+  return value
     .split(",")
     .map((tag) => tag.trim().toLowerCase())
     .filter(Boolean);
-  if (tags.join(",") !== task.tags.join(",")) onChange({ tags });
 }

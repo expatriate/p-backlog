@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import { useDraft } from "./use-draft";
 
 function Field({ serverValue }: { serverValue: string }) {
-  const [value, set, ref] = useDraft(serverValue);
-  return <input ref={ref} aria-label="поле" value={value} onChange={(event) => set(event.target.value)} />;
+  const [draft, ref] = useDraft(serverValue);
+  return <input ref={ref} aria-label="поле" value={draft.value} onChange={(event) => draft.set(event.target.value)} />;
 }
 
 describe("useDraft", () => {

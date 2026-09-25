@@ -369,6 +369,54 @@ describe("связи и название: ошибки у поля", () => {
   });
 });
 
+describe("правка агента, пока поле в фокусе", () => {
+  const AGENT_FILES = { ...FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "Эпик агента", type: "epic" }) };
+  const AGENT_CHANGES = { title: "Название от агента", tags: ["agent"], epic: "SPA-5" };
+
+  async function agentEdits(app: RenderedApp) {
+    await updateTask(app.root, { id: "SPA-1", changes: AGENT_CHANGES, now: new Date(), via: "cli" });
+    app.emitChange();
+    await screen.findByRole("link", { name: AGENT_CHANGES.title });
+  }
+
+  it.each([
+    { field: "Название задачи", role: "textbox", agentValue: "Название от агента" },
+    { field: "Теги через запятую", role: "textbox", agentValue: "agent" },
+    { field: "Эпик", role: "combobox", agentValue: "SPA-5" },
+  ] as const)("поле «$field», в котором только стоял фокус, не откатывает правку агента при уходе из него", async ({ field, role, agentValue }) => {
+    const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    await app.user.click(within(panel).getByRole(role, { name: field }));
+    await agentEdits(app);
+    await app.user.click(within(panel).getByRole("combobox", { name: "Статус" }));
+
+    await waitFor(() => expect(within(panel).getByRole(role, { name: field })).toHaveProperty("value", agentValue));
+    const onDisk = await taskOnDisk(app.root, "SPA-1");
+    expect({ title: onDisk.title, tags: onDisk.tags, epic: onDisk.epic }).toEqual(AGENT_CHANGES);
+  });
+
+  it("своя правка поверх правки агента не записывается молча: сперва предупреждение, повторный уход из поля записывает", async () => {
+    const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    const title = within(panel).getByRole("textbox", { name: "Название задачи" });
+
+    await app.user.type(title, " и повторы");
+    await agentEdits(app);
+    await app.user.tab();
+
+    expect((await within(panel).findByRole("alert")).textContent).toContain("изменилось на диске");
+    expect(title).toHaveProperty("value", "Таймауты загрузки и повторы");
+    expect((await taskOnDisk(app.root, "SPA-1")).title).toBe(AGENT_CHANGES.title);
+
+    await app.user.click(title);
+    await app.user.tab();
+
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).title).toBe("Таймауты загрузки и повторы"));
+    expect((await taskOnDisk(app.root, "SPA-1")).tags).toEqual(AGENT_CHANGES.tags);
+  });
+});
+
 describe("сохранения карточки идут по очереди", () => {
   it("второй пункт чеклиста, отмеченный до ответа на первый, не теряет первый", async () => {
     const patches = holdFirstPatch();
