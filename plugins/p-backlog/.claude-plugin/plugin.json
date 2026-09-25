@@ -1,7 +1,7 @@
 {
   "name": "p-backlog",
   "description": "Local backlog for coding agents: the skill files out-of-scope issues as Markdown tasks with context, the Stop hook asks to re-check tasks whose code changed. Needs the CLI: npm i -g p-backlog.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": {
     "name": "expatriate"
   },

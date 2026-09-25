@@ -1,6 +1,6 @@
 {
   "name": "p-backlog",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Keep pull requests clean and audit findings safe: a local, autonomous backlog for Claude Code. The agent files out-of-scope issues as Markdown tasks with context and re-checks them as code changes. Optional web UI with metrics.",
   "keywords": [
     "claude-code",
