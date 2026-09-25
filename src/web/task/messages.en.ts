@@ -5,6 +5,7 @@ export const taskEn: TaskMessages = {
   title: "Task title",
   description: "Task description",
   leaveWithDraft: "Leave without saving the description?",
+  leaveWithFieldEdits: "Leave without saving your field edit?",
   createdLabel: "created",
   closedLabel: "Closed",
   restoreToBacklog: "Restore to backlog",

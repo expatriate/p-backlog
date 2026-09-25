@@ -1,44 +1,57 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-type CommitHandlers = { save: () => void; conflict: () => void };
-
-type Draft = {
+export type Draft = {
   value: string;
   set: (next: string) => void;
-  commit: (canonical: string, handlers: CommitHandlers) => void;
+  unsaved: boolean;
+  conflicted: boolean;
+  commit: (save: (canonical: string) => Promise<boolean>) => void;
   reset: () => void;
 };
 
-type DraftState = { text: string; base: string; serverMoved: boolean };
+type DraftState = { text: string; base: string; conflicted: boolean };
 
-const synced = (serverValue: string): DraftState => ({ text: serverValue, base: serverValue, serverMoved: false });
+const synced = (serverValue: string): DraftState => ({ text: serverValue, base: serverValue, conflicted: false });
 
-export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: string): [Draft, RefObject<E | null>] {
+const asTyped = (text: string) => text;
+
+export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: string, canonical: (text: string) => string = asTyped): [Draft, RefObject<E | null>] {
   const ref = useRef<E>(null);
   const [state, setState] = useState(() => synced(serverValue));
 
   useEffect(() => {
-    const editing = document.activeElement === ref.current;
-    setState((current) => (editing ? { ...current, serverMoved: serverValue !== current.base } : synced(serverValue)));
-  }, [serverValue]);
+    if (document.activeElement === ref.current) return;
+    setState((current) => {
+      if (canonical(current.text) === current.base) return synced(serverValue);
+      return serverValue === current.base ? current : { ...current, conflicted: true };
+    });
+  }, [serverValue, canonical]);
 
-  const commit = (canonical: string, { save, conflict }: CommitHandlers) => {
-    if (canonical === serverValue) {
-      setState({ text: state.text, base: serverValue, serverMoved: false });
-    } else if (!state.serverMoved) {
-      setState({ text: state.text, base: canonical, serverMoved: false });
-      save();
-    } else if (canonical === state.base) {
+  const commit = (save: (canonical: string) => Promise<boolean>) => {
+    const next = canonical(state.text);
+    if (next === serverValue) {
+      setState({ text: state.text, base: serverValue, conflicted: false });
+    } else if (next === state.base) {
       setState(synced(serverValue));
+    } else if (serverValue !== state.base) {
+      setState({ text: state.text, base: serverValue, conflicted: true });
     } else {
-      setState({ text: state.text, base: serverValue, serverMoved: false });
-      conflict();
+      const previousBase = state.base;
+      setState({ ...state, base: next });
+      void save(next).then((saved) =>
+        setState((current) => {
+          if (current.base !== next) return current;
+          return saved ? { ...current, conflicted: false } : { ...current, base: previousBase };
+        }),
+      );
     }
   };
 
   const draft: Draft = {
     value: state.text,
     set: (text) => setState((current) => ({ ...current, text })),
+    unsaved: canonical(state.text) !== state.base,
+    conflicted: state.conflicted,
     commit,
     reset: () => setState(synced(serverValue)),
   };

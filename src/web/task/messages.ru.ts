@@ -5,6 +5,7 @@ export const taskRu = {
   title: "Название задачи",
   description: "Описание задачи",
   leaveWithDraft: "Уйти без сохранения описания?",
+  leaveWithFieldEdits: "Уйти, не сохранив правку поля?",
   createdLabel: "создана",
   closedLabel: "Закрыта",
   restoreToBacklog: "Вернуть в беклог",

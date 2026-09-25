@@ -417,6 +417,93 @@ describe("правка агента, пока поле в фокусе", () => {
     await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).title).toBe("Таймауты загрузки и повторы"));
     expect((await taskOnDisk(app.root, "SPA-1")).tags).toEqual(AGENT_CHANGES.tags);
   });
+
+  const MINE = "Таймауты загрузки и повторы";
+  const CONFLICT = "изменилось на диске";
+
+  async function conflictOnTitle(app: RenderedApp) {
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    const title = within(panel).getByRole("textbox", { name: "Название задачи" });
+    await app.user.type(title, " и повторы");
+    await agentEdits(app);
+    await app.user.tab();
+    expect((await within(panel).findByRole("alert")).textContent).toContain(CONFLICT);
+    return { panel, title };
+  }
+
+  const alertTexts = (panel: HTMLElement) => within(panel).queryAllByRole("alert").map((alert) => alert.textContent ?? "");
+
+  it("новая правка агента после конфликта не заменяет свой текст молча: он остаётся, предупреждение тоже", async () => {
+    const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1");
+    const { panel, title } = await conflictOnTitle(app);
+
+    await updateTask(app.root, { id: "SPA-1", changes: { title: "Агент ещё раз" }, now: new Date(), via: "cli" });
+    app.emitChange();
+    await screen.findByRole("link", { name: "Агент ещё раз" });
+
+    expect(title).toHaveProperty("value", MINE);
+    expect(alertTexts(panel).join()).toContain(CONFLICT);
+  });
+
+  it("незаписанный после конфликта текст переживает сохранение другого поля и не даёт молча закрыть карточку", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    onTestFinished(() => confirm.mockRestore());
+    const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1");
+    const { panel, title } = await conflictOnTitle(app);
+
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "critical");
+    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).priority).toBe("critical"));
+    expect(alertTexts(panel).join()).toContain(CONFLICT);
+
+    await app.user.click(within(panel).getByRole("button", { name: "Закрыть" }));
+
+    expect(confirm).toHaveBeenCalledWith("Уйти, не сохранив правку поля?");
+    expect(screen.getByRole("complementary", { name: "Задача SPA-1" })).toBeDefined();
+    expect(title).toHaveProperty("value", MINE);
+    expect((await taskOnDisk(app.root, "SPA-1")).title).toBe(AGENT_CHANGES.title);
+  });
+
+  it.each([
+    { how: "вписать версию агента", edit: (app: RenderedApp, title: HTMLElement) => app.user.type(title, `{Control>}a{/Control}${AGENT_CHANGES.title}`) },
+    { how: "стереть поле", edit: (app: RenderedApp, title: HTMLElement) => app.user.clear(title) },
+  ])("после конфликта «$how» принимает версию с диска и снимает предупреждение", async ({ edit }) => {
+    const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1");
+    const { panel, title } = await conflictOnTitle(app);
+
+    await app.user.click(title);
+    await edit(app, title);
+    await app.user.tab();
+
+    await waitFor(() => expect(title).toHaveProperty("value", AGENT_CHANGES.title));
+    expect(alertTexts(panel).join()).not.toContain(CONFLICT);
+  });
+
+  it("правка, которую не удалось записать, не заменяется молча правкой агента", async () => {
+    let failNextPatch = true;
+    const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1", undefined, {
+      beforeRender: (backlog) => {
+        const request = backlog.request;
+        backlog.request = async (path, init) => {
+          if (init?.method !== "PATCH" || !failNextPatch) return request(path, init);
+          failNextPatch = false;
+          return Promise.reject(new TypeError("Failed to fetch"));
+        };
+      },
+    });
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    const title = within(panel).getByRole("textbox", { name: "Название задачи" });
+    await app.user.type(title, " и повторы");
+    await app.user.tab();
+    await within(panel).findByRole("alert");
+
+    await app.user.click(title);
+    await agentEdits(app);
+    await app.user.tab();
+
+    await waitFor(() => expect(alertTexts(panel).join()).toContain(CONFLICT));
+    expect(title).toHaveProperty("value", MINE);
+    expect((await taskOnDisk(app.root, "SPA-1")).title).toBe(AGENT_CHANGES.title);
+  });
 });
 
 describe("сервер не принял сохранение", () => {

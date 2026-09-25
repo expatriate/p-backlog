@@ -1,9 +1,9 @@
-import { useId, useState } from "react";
+import { useId, useState, type RefObject } from "react";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { epicProblems } from "../../core/model/integrity";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, type Task } from "../../core/model/types";
 import { useMessages } from "../i18n";
-import { useDraft } from "../ui/use-draft";
+import type { Draft } from "../ui/use-draft";
 import { normalizeTaskId } from "./normalize-task-id";
 import styles from "./TaskFields.module.css";
 
@@ -11,14 +11,15 @@ export type TaskFieldsProps = {
   task: Task;
   epicListId: string;
   knownTasks: readonly Task[];
-  onChange: (changes: TaskChangesRequest) => void;
-  onConflict: (field: string) => void;
+  onChange: (changes: TaskChangesRequest) => Promise<boolean>;
+  tags: Draft;
+  tagsRef: RefObject<HTMLInputElement | null>;
+  epic: Draft;
+  epicRef: RefObject<HTMLInputElement | null>;
 };
 
-export function TaskFields({ task, epicListId, knownTasks, onChange, onConflict }: TaskFieldsProps) {
+export function TaskFields({ task, epicListId, knownTasks, onChange, tags, tagsRef, epic, epicRef }: TaskFieldsProps) {
   const { core, task: t } = useMessages();
-  const [tags, tagsRef] = useDraft(task.tags.join(", "));
-  const [epic, epicRef] = useDraft(task.epic ?? "");
   const [epicError, setEpicError] = useState<string | null>(null);
   const epicErrorId = useId();
 
@@ -28,28 +29,25 @@ export function TaskFields({ task, epicListId, knownTasks, onChange, onConflict 
     const problems = value === "" ? [] : epicProblems({ ...task, epic: value }, resolve);
     setEpicError(problems.length === 0 ? null : core.problems(problems));
     if (problems.length > 0) return;
-    epic.commit(value, { save: () => onChange({ epic: value === "" ? null : value }), conflict: () => onConflict(t.epicField) });
+    epic.commit((next) => onChange({ epic: next === "" ? null : next }));
   };
 
-  const saveTags = () => {
-    const next = parseTags(tags.value);
-    tags.commit(next.join(", "), { save: () => onChange({ tags: next }), conflict: () => onConflict(t.tagsField) });
-  };
+  const saveTags = () => tags.commit(() => onChange({ tags: parseTags(tags.value) }));
 
   return (
     <>
       <div className={styles.grid}>
-        <ChoiceSelect label={t.statusField} value={task.status} choices={TASK_STATUSES} labelFor={core.statusLabel} onChange={(status) => status !== null && onChange({ status })} />
-        <ChoiceSelect label={t.priorityField} value={task.priority} choices={PRIORITIES} labelFor={core.priorityLabel} onChange={(priority) => priority !== null && onChange({ priority })} />
+        <ChoiceSelect label={t.statusField} value={task.status} choices={TASK_STATUSES} labelFor={core.statusLabel} onChange={(status) => status !== null && void onChange({ status })} />
+        <ChoiceSelect label={t.priorityField} value={task.priority} choices={PRIORITIES} labelFor={core.priorityLabel} onChange={(priority) => priority !== null && void onChange({ priority })} />
         <ChoiceSelect
           label={t.categoryField}
           value={task.category}
           choices={TASK_CATEGORIES}
           labelFor={core.categoryLabel}
           emptyLabel={core.categoryLabel(undefined)}
-          onChange={(category) => onChange({ category })}
+          onChange={(category) => void onChange({ category })}
         />
-        <ChoiceSelect label={t.typeField} value={task.type} choices={TASK_TYPES} labelFor={(type) => t.typeLabels[type]} onChange={(type) => type !== null && onChange({ type })} />
+        <ChoiceSelect label={t.typeField} value={task.type} choices={TASK_TYPES} labelFor={(type) => t.typeLabels[type]} onChange={(type) => type !== null && void onChange({ type })} />
         <label>
           {t.epicField}
           <input
@@ -104,6 +102,10 @@ function ChoiceSelect<T extends string>({ label, value, choices, labelFor, empty
       </select>
     </label>
   );
+}
+
+export function canonicalTags(value: string): string {
+  return parseTags(value).join(", ");
 }
 
 function parseTags(value: string): string[] {

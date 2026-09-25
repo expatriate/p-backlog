@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, type RefObject } from "react";
 import { Link } from "react-router";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { formatDateTime } from "../../core/i18n/format";
@@ -15,13 +15,14 @@ import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { Countdown } from "../ui/Countdown";
 import { ProgressBar } from "../ui/ProgressBar";
-import { useDraft } from "../ui/use-draft";
+import { useDraft, type Draft } from "../ui/use-draft";
 import { useLeaveGuard } from "../ui/use-leave-guard";
 import { SidePanel } from "../ui/SidePanel";
 import { StatusBadge } from "../ui/StatusBadge";
 import { useNow } from "../ui/use-now";
 import { TaskBody } from "./TaskBody";
-import { TaskFields } from "./TaskFields";
+import { canonicalTags, TaskFields } from "./TaskFields";
+import { normalizeTaskId } from "./normalize-task-id";
 import type { TaskMessages } from "./messages.ru";
 import { TaskOptions, TaskRefs, type RefsSaveResult, type TaskHref } from "./TaskRefs";
 import styles from "./TaskPanel.module.css";
@@ -47,26 +48,39 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
   const updateTask = useUpdateTask();
   const [bodyDraft, setBodyDraft] = useState<BodyDraft | null>(null);
   const now = useNow();
-  useLeaveGuard(bodyDraft !== null, t.leaveWithDraft);
+  const [title, titleRef] = useDraft<HTMLTextAreaElement>(task.title, trimTitle);
+  const [tags, tagsRef] = useDraft(task.tags.join(", "), canonicalTags);
+  const [epic, epicRef] = useDraft(task.epic ?? "", normalizeTaskId);
+  const fieldDrafts = [
+    { draft: title, label: t.title },
+    { draft: tags, label: t.tagsField },
+    { draft: epic, label: t.epicField },
+  ];
+  const fieldsUnsaved = fieldDrafts.some(({ draft }) => draft.unsaved);
+  useLeaveGuard(bodyDraft !== null || fieldsUnsaved, bodyDraft !== null ? t.leaveWithDraft : t.leaveWithFieldEdits);
 
   const [bodySaving, setBodySaving] = useState(false);
   const [bodyError, setBodyError] = useState<Error | null>(null);
   const [saveError, setSaveError] = useState<Error | null>(null);
-  const [conflictField, setConflictField] = useState<string | null>(null);
   const errorText = (error: Error) => saveErrorText(error, app, t);
   const bodyAlert = bodyError === null ? null : isConflict(bodyError) && bodyDraft !== null ? t.draftConflict : errorText(bodyError);
   const cardAlerts = distinctTexts([
     gone ? t.taskGone(task.id) : null,
     bodyAlert,
     saveError === null ? null : errorText(saveError),
-    conflictField === null ? null : t.fieldConflict(conflictField),
+    ...fieldDrafts.filter(({ draft }) => draft.conflicted).map(({ label }) => t.fieldConflict(label)),
   ]);
 
   const saveNote = useSaveNote(updateTask.isPending, updateTask.isSuccess && cardAlerts.length === 0, updateTask.submittedAt, t);
-  const save = (change: TaskChange) => {
+  const save = async (change: TaskChange): Promise<boolean> => {
     setSaveError(null);
-    setConflictField(null);
-    void updateTask.mutateAsync({ id: task.id, change }).catch((error: unknown) => setSaveError(asError(error)));
+    try {
+      await updateTask.mutateAsync({ id: task.id, change });
+      return true;
+    } catch (error) {
+      setSaveError(asError(error));
+      return false;
+    }
   };
   const apply = (changes: TaskChangesRequest) => save(() => changes);
   const saveRefs = async (change: TaskChange): Promise<RefsSaveResult> => {
@@ -125,9 +139,9 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
       }
       onClose={onClose}
     >
-      <TitleField title={task.title} label={t.title} onSave={(title) => apply({ title })} onConflict={setConflictField} />
+      <TitleField draft={title} titleRef={titleRef} label={t.title} onSave={(next) => apply({ title: next })} />
 
-      <TaskFields task={task} epicListId={EPIC_LIST_ID} knownTasks={tasks} onChange={apply} onConflict={setConflictField} />
+      <TaskFields task={task} epicListId={EPIC_LIST_ID} knownTasks={tasks} onChange={apply} tags={tags} tagsRef={tagsRef} epic={epic} epicRef={epicRef} />
 
       <div className={styles.meta}>
         <StatusBadge status={task.status} />
@@ -150,7 +164,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
             {task.resolution !== undefined && ` · ${core.resolutionLabel(task.resolution)} — ${task.reason ?? ""}`}
           </p>
           <Countdown task={task} now={now} />
-          <Button className={styles.restore} onClick={() => apply({ status: "backlog" })}>
+          <Button className={styles.restore} onClick={() => void apply({ status: "backlog" })}>
             {t.restoreToBacklog}
           </Button>
         </div>
@@ -174,7 +188,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
         draft={bodyDraft?.text ?? null}
         saving={bodySaving}
         onDraftChange={editBody}
-        onToggleLine={(line) => save((fresh) => ({ body: toggleChecklistItem(fresh.body, line) }))}
+        onToggleLine={(line) => void save((fresh) => ({ body: toggleChecklistItem(fresh.body, line) }))}
         onSave={saveBody}
       />
 
@@ -243,10 +257,11 @@ function useSaveNote(pending: boolean, success: boolean, submittedAt: number, t:
   return success && fadedSave !== submittedAt ? t.saved : "";
 }
 
-type TitleFieldProps = { title: string; label: string; onSave: (title: string) => void; onConflict: (field: string) => void };
+const trimTitle = (text: string) => text.trim();
 
-function TitleField({ title: serverTitle, label, onSave, onConflict }: TitleFieldProps) {
-  const [title, titleRef] = useDraft<HTMLTextAreaElement>(serverTitle);
+type TitleFieldProps = { draft: Draft; titleRef: RefObject<HTMLTextAreaElement | null>; label: string; onSave: (title: string) => Promise<boolean> };
+
+function TitleField({ draft: title, titleRef, label, onSave }: TitleFieldProps) {
 
   useLayoutEffect(() => {
     const field = titleRef.current;
@@ -281,7 +296,7 @@ function TitleField({ title: serverTitle, label, onSave, onConflict }: TitleFiel
       onBlur={() => {
         const next = title.value.trim();
         if (next === "") title.reset();
-        else title.commit(next, { save: () => onSave(next), conflict: () => onConflict(label) });
+        else title.commit(onSave);
       }}
     />
   );
