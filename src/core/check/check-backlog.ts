@@ -167,7 +167,7 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
 
   const pathMarks = earliestMarks(tasks);
   const facts = await collectRepoFacts(repo, { since: new Date(Math.min(...tasks.map(reviewMark))), paths: [...pathMarks.keys()], pathMarks });
-  const review = codeReview(tasks, facts, await mergesKnownAtCreation(repo, tasks, facts, origins));
+  const review = codeReview(tasks, facts, await mergesKnownAtCreation({ repo, tasks, facts, origins }));
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
   const diffOf = diffsSince(repo);
   const graph = openCodeGraph(repo);

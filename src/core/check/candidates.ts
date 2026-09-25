@@ -86,6 +86,10 @@ export function changesSince(facts: RepoFacts, path: string, mark: number): { co
   return { commits, uncommitted };
 }
 
+export function judgedByCommits(task: Task, facts: RepoFacts): boolean {
+  return task.source !== undefined && anchorState(task, facts).kind === "none";
+}
+
 function anchorState(task: Task, facts: RepoFacts): AnchorState {
   if (task.anchor === undefined || task.source === undefined || !hasLines(task.source) || !isAnchorFor(task.anchor, task.source)) return { kind: "none" };
   const text = facts.texts.get(sourcePath(task.source));
