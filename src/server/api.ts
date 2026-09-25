@@ -93,8 +93,7 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     if (!body.ok) return body.response;
 
     const { index } = await backlog();
-    const outcomes = await applyBatch(index, { ...body.data, now: now() });
-    forgetBacklog();
+    const outcomes = await applyBatch(index, { ...body.data, now: now() }).finally(forgetBacklog);
     const messages = serverMessages(body.language);
     const core = coreMessages(body.language);
     return c.json<BatchResponse>({ results: outcomes.map((outcome) => viewOf(outcome, messages, core)) });

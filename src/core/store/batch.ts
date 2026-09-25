@@ -4,7 +4,9 @@ import { compareIds } from "../model/ids";
 import type { Closure } from "../model/lifecycle";
 import type { Problem } from "../model/problems";
 import type { Task } from "../model/types";
-import { updateTaskInIndex, type TaskChanges } from "./update";
+import { FileBusyError } from "./file-lock";
+import { updateTaskInIndex, type TaskChanges, type UpdateTaskRequest } from "./update";
+import type { UpdateTaskResult } from "./write-result";
 
 export type CoreBatchOutcome =
   | { id: string; outcome: "done"; task: Task; previous: BatchPrevious }
@@ -24,11 +26,21 @@ async function applyOne(index: BacklogIndex, { id, version }: { id: string; vers
   if (!current) return { id, outcome: "skipped", reason: "not-found" };
   const plan = planFor(current, action, index);
   if ("skip" in plan) return { id, outcome: "skipped", reason: plan.skip };
-  const result = await updateTaskInIndex(index, { id, changes: plan.changes, closure: plan.closure, expectedVersion: version, now, via: "web" });
+  const result = await updateUnlessBusy(index, { id, changes: plan.changes, closure: plan.closure, expectedVersion: version, now, via: "web" });
+  if (result === "busy") return { id, outcome: "skipped", reason: "busy" };
   if (result.ok) return { id, outcome: "done", task: result.task, previous: previousOf(current) };
   if (result.reason === "conflict") return { id, outcome: "skipped", reason: "changed" };
   if (result.reason === "not-found") return { id, outcome: "skipped", reason: "not-found" };
   return { id, outcome: "skipped", reason: "invalid", problems: result.errors };
+}
+
+async function updateUnlessBusy(index: BacklogIndex, request: UpdateTaskRequest): Promise<UpdateTaskResult | "busy"> {
+  try {
+    return await updateTaskInIndex(index, request);
+  } catch (error) {
+    if (error instanceof FileBusyError) return "busy";
+    throw error;
+  }
 }
 
 function planFor(current: Task, action: BatchAction, index: BacklogIndex): Plan {

@@ -58,7 +58,7 @@ export const batchRequestSchema = z.strictObject({
 export type BatchRequest = z.infer<typeof batchRequestSchema>;
 export type BatchAction = BatchRequest["action"];
 export type BatchPrevious = z.infer<typeof batchPreviousSchema>;
-export type BatchSkipReason = "changed" | "not-found" | "already-closed" | "invalid";
+export type BatchSkipReason = "changed" | "not-found" | "already-closed" | "invalid" | "busy";
 export type BatchOutcome =
   | { id: string; outcome: "done"; version: string; previous: BatchPrevious }
   | { id: string; outcome: "skipped"; reason: BatchSkipReason; message: string };

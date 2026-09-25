@@ -9,6 +9,7 @@ export const serverRu = {
     "not-found": (id: string): string => `${id} не найдена`,
     "already-closed": (id: string): string => `${id} уже закрыта`,
     invalid: (id: string): string => `${id}: действие к ней не подходит`,
+    busy: (id: string): string => `${id} занята другим процессом`,
   },
   unknownRoute: (path: string): string => `Неизвестный адрес API: ${path}`,
   hostRejected: (host: string): string => `Запросы с хоста ${host} не принимаются`,

@@ -244,6 +244,29 @@ describe("POST /api/tasks/batch", () => {
     expect(restoredOnDisk?.reason).toBeUndefined();
   });
 
+  it("задача, занятая другим процессом, пропускается как busy, остальные меняются", { timeout: 20_000 }, async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const tasks = [
+      { id: "SPA-1", version: await backlog.taskVersion("SPA-1") },
+      { id: "SPA-2", version: await backlog.taskVersion("SPA-2") },
+      { id: "TI-1", version: await backlog.taskVersion("TI-1") },
+    ];
+    await writeFiles(backlog.root, { "spa/.SPA-2.md.lock": "другой процесс" });
+
+    const response = await backlog.json("/api/tasks/batch", "POST", { tasks, action: { kind: "priority", priority: "critical" } });
+
+    expect(response.status).toBe(200);
+    const { results } = (await response.json()) as BatchResponse;
+    expect(results.map((result) => [result.id, result.outcome === "done" ? "done" : result.reason])).toEqual([
+      ["SPA-1", "done"],
+      ["SPA-2", "busy"],
+      ["TI-1", "done"],
+    ]);
+    expect(results.find((result) => result.id === "SPA-2")).toMatchObject({ message: "SPA-2 занята другим процессом" });
+    const { tasks: after } = (await (await backlog.request("/api/tasks")).json()) as TasksResponse;
+    expect(after.filter((task) => task.priority === "critical").map((task) => task.id)).toEqual(["SPA-1", "TI-1"]);
+  });
+
   it("чужой Host → 403", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
 

@@ -11,6 +11,7 @@ export const serverEn: ServerMessages = {
     "not-found": (id) => `${id} not found`,
     "already-closed": (id) => `${id} is already closed`,
     invalid: (id) => `${id}: the action doesn't apply to it`,
+    busy: (id) => `${id} is busy in another process`,
   },
   unknownRoute: (path) => `Unknown API route: ${path}`,
   hostRejected: (host) => `Requests from host ${host} are not accepted`,
