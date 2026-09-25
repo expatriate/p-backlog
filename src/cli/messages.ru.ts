@@ -11,6 +11,7 @@ export const cliRu = {
   invalidPort: (value: string): string => `--port: ожидается число от 1 до 65535, получено «${value}»`,
   commandFailed: (name: string, reason: string): string => `Команда ${name} не выполнена: ${reason}`,
   runNotRecorded: (error: string): string => `Не удалось записать запуск: ${error}`,
+  runsNotTrimmed: (error: string): string => `Не удалось обрезать журнал запусков: ${error}`,
   settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 
   optionLabel: { status: "статус", category: "категория", priority: "приоритет", language: "язык" },

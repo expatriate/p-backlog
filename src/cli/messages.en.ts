@@ -12,6 +12,7 @@ export const cliEn: CliMessages = {
   invalidPort: (value) => `--port: expected a number from 1 to 65535, got "${value}"`,
   commandFailed: (name, reason) => `Command ${name} failed: ${reason}`,
   runNotRecorded: (error) => `Could not record the run: ${error}`,
+  runsNotTrimmed: (error) => `Could not trim the run log: ${error}`,
   settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 
   optionLabel: { status: "status", category: "category", priority: "priority", language: "language" },

@@ -9,7 +9,7 @@ import { resolveBacklogRoot } from "../core/store/paths";
 import { localeLanguage, settleLanguage } from "../core/store/settings";
 import { suppressSqliteExperimentalWarning } from "../core/sqlite-warning";
 import { execProgram } from "./exec";
-import { cliMessages } from "./messages";
+import { cliMessages, type CliMessages } from "./messages";
 import { commandName, runCli } from "./run";
 
 suppressSqliteExperimentalWarning();
@@ -53,6 +53,11 @@ const exitCode = await runCli(argv, {
 });
 process.exitCode = exitCode;
 
+async function warnInUserLanguage(message: (messages: CliMessages) => string): Promise<void> {
+  const { language } = await settleLanguage(backlogRoot, process.env).catch(() => ({ language: localeLanguage(process.env) }));
+  process.stderr.write(`${message(cliMessages(language))}\n`);
+}
+
 try {
   await appendRun(backlogRoot, {
     at: formatLocalIso(new Date()),
@@ -62,8 +67,7 @@ try {
     rssMb: megabytesOf(process.resourceUsage().maxRSS * 1024),
     exitCode,
   });
-  await trimRunsWhenStale(backlogRoot, new Date());
+  await trimRunsWhenStale(backlogRoot, new Date()).catch((error: unknown) => warnInUserLanguage((messages) => messages.runsNotTrimmed(errorText(error))));
 } catch (error) {
-  const { language } = await settleLanguage(backlogRoot, process.env).catch(() => ({ language: localeLanguage(process.env) }));
-  process.stderr.write(`${cliMessages(language).runNotRecorded(errorText(error))}\n`);
+  await warnInUserLanguage((messages) => messages.runNotRecorded(errorText(error)));
 }

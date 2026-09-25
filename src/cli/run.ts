@@ -65,8 +65,12 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<numb
   const command = name === undefined ? undefined : COMMANDS.get(name);
   if (!command) {
     const askedForHelp = name === undefined || HELP_ARGUMENTS.has(name);
-    (askedForHelp ? io.print : io.warn)(usageText(CLI_COMMANDS, language));
-    return askedForHelp ? EXIT.ok : EXIT.invalid;
+    if (!askedForHelp) {
+      io.warn(usageText(CLI_COMMANDS, language));
+      return EXIT.invalid;
+    }
+    io.print(usageText(CLI_COMMANDS, language));
+    return EXIT.ok;
   }
   try {
     return await command.run(args, io);
