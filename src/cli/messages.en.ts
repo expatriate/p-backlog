@@ -14,7 +14,7 @@ export const cliEn: CliMessages = {
   runsNotTrimmed: (error) => `Could not trim the run log: ${error}`,
   settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 
-  optionLabel: { status: "status", category: "category", priority: "priority", language: "language" },
+  optionLabel: { status: "status", category: "category", priority: "priority", language: "language", agent: "agent" },
   skillForeign: (target) => `${target} is a foreign directory, the skill link was not moved`,
 
   installSkillLinked: (target, source) => `Skill installed: ${target} → ${source}`,
@@ -137,7 +137,7 @@ export const cliEn: CliMessages = {
   blockedByOpenTasks: (id) => `${id} is blocked by open tasks:`,
   noTakeableInProject: (id) => `Project ${id} has no tasks that can be taken`,
 
-  hookUsage: (stopEvent) => `${stopEvent}   (for the Stop hook in Claude Code, reads the event from stdin)`,
+  hookUsage: (stopEvent, agents) => `${stopEvent} [--agent ${agents.join("|")}]   (for the Stop hook in Claude Code, Codex or Cursor, reads the event from stdin)`,
   sessionShownReadFailed: (error) => `Could not read the tasks already shown this session: ${error}`,
   sessionShownWriteFailed: (error) => `Could not remember the tasks shown this session: ${error}`,
   alertsComputeFailed: (error) => `Could not compute alerts: ${error}`,

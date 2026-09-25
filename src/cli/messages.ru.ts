@@ -13,7 +13,7 @@ export const cliRu = {
   runsNotTrimmed: (error: string): string => `Не удалось обрезать журнал запусков: ${error}`,
   settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 
-  optionLabel: { status: "статус", category: "категория", priority: "приоритет", language: "язык" },
+  optionLabel: { status: "статус", category: "категория", priority: "приоритет", language: "язык", agent: "агент" },
   skillForeign: (target: string): string => `${target} — чужой каталог, скилл не переставлен`,
 
   installSkillLinked: (target: string, source: string): string => `Скилл установлен: ${target} → ${source}`,
@@ -162,7 +162,8 @@ export const cliRu = {
   blockedByOpenTasks: (id: string): string => `${id} заблокирована открытыми задачами:`,
   noTakeableInProject: (id: string): string => `В проекте ${id} нет задач, которые можно взять в работу`,
 
-  hookUsage: (stopEvent: string): string => `${stopEvent}   (для хука Stop в Claude Code, событие читается из stdin)`,
+  hookUsage: (stopEvent: string, agents: readonly string[]): string =>
+    `${stopEvent} [--agent ${agents.join("|")}]   (для хука Stop в Claude Code, Codex или Cursor, событие читается из stdin)`,
   sessionShownReadFailed: (error: string): string => `Не удалось прочитать показанные задачи сессии: ${error}`,
   sessionShownWriteFailed: (error: string): string => `Не удалось запомнить показанные задачи сессии: ${error}`,
   alertsComputeFailed: (error: string): string => `Не удалось посчитать тревоги: ${error}`,

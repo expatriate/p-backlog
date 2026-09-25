@@ -9,6 +9,19 @@ import { writeSettings } from "../../core/store/settings";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
+async function changedTaskSandbox() {
+  const sandbox = await makeCliSandbox();
+  await writeFiles(sandbox.repo, { "src/a.ts": "1\n" });
+  gitCommitAll(sandbox.repo, "Начало", "2026-09-16T10:00:00Z");
+  await sandbox.run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+  await writeFile(join(sandbox.repo, "src/a.ts"), "2\n");
+  gitCommitAll(sandbox.repo, "Поправить таймаут", "2026-09-18T10:00:00Z");
+  return sandbox;
+}
+
+const EXPECTED_REASON =
+  "Беклог spa: после последней проверки менялся код задач — SPA-1 (изменён src/a.ts). Перепроверь их по скиллу backlog, раздел «Перепроверить задачи».";
+
 describe("backlog hook stop", () => {
   it("просит перепроверить задачи, чей код менялся", async () => {
     const { run, repo, root } = await makeCliSandbox();
@@ -244,5 +257,43 @@ describe("backlog hook stop", () => {
     const reason = (JSON.parse(blocked.out) as { reason: string }).reason;
     expect(reason.startsWith("Backlog spa:")).toBe(true);
     expect(reason).not.toMatch(/[А-Яа-яЁё]/);
+  });
+
+  it("Codex получает тот же ответ, что и Claude Code", async () => {
+    const { run, repo } = await changedTaskSandbox();
+    const event = JSON.stringify({ session_id: "s", turn_id: "t1", cwd: repo, hook_event_name: "Stop", stop_hook_active: false, model: "gpt-5" });
+
+    const result = await run(["hook", "stop", "--agent", "codex"], { stdin: event });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(JSON.parse(result.out)).toEqual({ decision: "block", reason: EXPECTED_REASON });
+  });
+
+  it("Cursor получает follow-up и не зацикливается на своём же follow-up", async () => {
+    const { run, repo } = await changedTaskSandbox();
+    const event = (loopCount: number, generation: string) =>
+      JSON.stringify({ conversation_id: "c", generation_id: generation, workspace_roots: [repo], status: "completed", loop_count: loopCount, hook_event_name: "stop" });
+
+    const first = await run(["hook", "stop", "--agent", "cursor"], { stdin: event(0, "g1") });
+
+    expect(JSON.parse(first.out)).toEqual({ followup_message: EXPECTED_REASON });
+    expect((await run(["hook", "stop", "--agent", "cursor"], { stdin: event(1, "g2") })).out).toBe("");
+  });
+
+  it("Cursor молчит, если ход прерван, и если событие без каталога", async () => {
+    const { run, repo } = await changedTaskSandbox();
+    const aborted = JSON.stringify({ conversation_id: "c", generation_id: "g1", workspace_roots: [repo], status: "aborted", loop_count: 0 });
+
+    expect(await run(["hook", "stop", "--agent", "cursor"], { stdin: aborted })).toMatchObject({ code: EXIT.ok, out: "" });
+    expect(await run(["hook", "stop", "--agent", "cursor"], { stdin: JSON.stringify({ conversation_id: "c" }) })).toMatchObject({ code: EXIT.ok, out: "", err: "" });
+  });
+
+  it("неизвестный агент — ошибка использования с именем агента", async () => {
+    const { run } = await makeCliSandbox();
+
+    const result = await run(["hook", "stop", "--agent", "gemini"], { stdin: "{}" });
+
+    expect(result.code).toBe(EXIT.invalid);
+    expect(result.err).toContain("gemini");
   });
 });
