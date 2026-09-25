@@ -8,7 +8,9 @@ import { parseId } from "../../core/model/ids";
 import { taskWarnings } from "../../core/model/integrity";
 import type { Task } from "../../core/model/types";
 import { ApiError } from "../api/client";
-import { useUpdateTask, type BodyEdit, type TaskChange } from "../app/queries";
+import type { AppMessages } from "../app/messages.ru";
+import { TaskGoneError, useUpdateTask, type BodyEdit, type TaskChange } from "../app/queries";
+import { requestErrorMessage } from "../app/RequestErrorText";
 import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { Countdown } from "../ui/Countdown";
@@ -40,7 +42,7 @@ type BodyDraft = { text: string; from: BodyEdit };
 
 export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskPanelProps) {
   const language = useLanguage();
-  const { core, task: t } = useMessages();
+  const { app, core, task: t } = useMessages();
   const updateTask = useUpdateTask();
   const [bodyDraft, setBodyDraft] = useState<BodyDraft | null>(null);
   const now = useNow();
@@ -50,7 +52,8 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
   const [bodyError, setBodyError] = useState<Error | null>(null);
   const [saveError, setSaveError] = useState<Error | null>(null);
   const [conflictField, setConflictField] = useState<string | null>(null);
-  const cardAlerts = cardAlertTexts({ bodyError, saveError, conflictField, draftOpen: bodyDraft !== null }, t);
+  const errorText = (error: Error) => saveErrorText(error, app, t);
+  const cardAlerts = cardAlertTexts({ bodyError, saveError, conflictField, draftOpen: bodyDraft !== null }, t, errorText);
 
   const saveNote = useSaveNote(updateTask.isPending, updateTask.isSuccess && cardAlerts.length === 0, updateTask.submittedAt, t);
   const save = (change: TaskChange) => {
@@ -65,7 +68,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
       await updateTask.mutateAsync({ id: task.id, change });
       return { saved: true };
     } catch (error) {
-      if (!isConflict(error)) return { saved: false, fieldError: asError(error).message };
+      if (!isConflict(error)) return { saved: false, fieldError: errorText(asError(error)) };
       setSaveError(asError(error));
       return { saved: false, fieldError: null };
     }
@@ -194,15 +197,17 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone }: TaskP
 
 type CardAlerts = { bodyError: Error | null; saveError: Error | null; conflictField: string | null; draftOpen: boolean };
 
-function cardAlertTexts({ bodyError, saveError, conflictField, draftOpen }: CardAlerts, t: TaskMessages): string[] {
-  const bodyText = bodyError === null ? null : isConflict(bodyError) && draftOpen ? t.draftConflict : errorText(bodyError, t);
-  const saveText = saveError === null ? null : errorText(saveError, t);
+function cardAlertTexts({ bodyError, saveError, conflictField, draftOpen }: CardAlerts, t: TaskMessages, errorText: (error: Error) => string): string[] {
+  const bodyText = bodyError === null ? null : isConflict(bodyError) && draftOpen ? t.draftConflict : errorText(bodyError);
+  const saveText = saveError === null ? null : errorText(saveError);
   const fieldText = conflictField === null ? null : t.fieldConflict(conflictField);
   return [...new Set([bodyText, saveText, fieldText].filter((text) => text !== null))];
 }
 
-function errorText(error: Error, t: TaskMessages): string {
-  return isConflict(error) ? t.taskConflict : error.message;
+function saveErrorText(error: Error, app: AppMessages, t: TaskMessages): string {
+  if (isConflict(error)) return t.taskConflict;
+  if (error instanceof TaskGoneError) return t.taskGone(error.taskId);
+  return requestErrorMessage(app, error);
 }
 
 function isConflict(error: unknown): boolean {

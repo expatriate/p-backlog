@@ -417,6 +417,31 @@ describe("правка агента, пока поле в фокусе", () => {
   });
 });
 
+describe("сервер не принял сохранение", () => {
+  function failPatches(answer: () => Promise<Response>) {
+    return (backlog: TestApp) => {
+      const request = backlog.request;
+      backlog.request = async (path, init) => (init?.method === "PATCH" ? answer() : request(path, init));
+    };
+  }
+
+  it.each([
+    { reason: "сервер недоступен", answer: () => Promise.reject(new TypeError("Failed to fetch")), text: "Сервер беклога не отвечает. Запустите его: npm start" },
+    { reason: "ошибка 500 без текста", answer: async () => Response.json({}, { status: 500 }), text: "Сервер вернул ошибку 500" },
+  ])("$reason — карточка и поле связей объясняют это по-русски", async ({ answer, text }) => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-2", undefined, { beforeRender: failPatches(answer) });
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });
+
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "critical");
+    expect((await within(panel).findByRole("alert")).textContent).toContain(text);
+
+    const blockedBy = within(panel).getByRole("region", { name: "Блокируется" });
+    await app.user.type(within(blockedBy).getByRole("combobox", { name: "Добавить в «Блокируется»" }), "SPA-4{Enter}");
+    expect((await within(blockedBy).findByRole("alert")).textContent).toContain(text);
+    expect(panel.textContent).not.toContain("backlog api error");
+  });
+});
+
 describe("сохранения карточки идут по очереди", () => {
   it("второй пункт чеклиста, отмеченный до ответа на первый, не теряет первый", async () => {
     const patches = holdFirstPatch();

@@ -113,6 +113,13 @@ export type UpdateTaskVariables = { id: string; change: TaskChange; bodyEdit?: B
 
 const TASK_SAVES = { id: "task-saves" };
 
+export class TaskGoneError extends Error {
+  constructor(readonly taskId: string) {
+    super(`task ${taskId} is not in the loaded backlog`);
+    this.name = "TaskGoneError";
+  }
+}
+
 export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariables> {
   const { client } = useBacklogApi();
   const queryClient = useQueryClient();
@@ -120,7 +127,7 @@ export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariab
     scope: TASK_SAVES,
     mutationFn: ({ id, change, bodyEdit }: UpdateTaskVariables) => {
       const task = freshestTask(queryClient, id);
-      if (!task) throw new Error(`task ${id} not found`);
+      if (!task) throw new TaskGoneError(id);
       const changes = change(task);
       return bodyEdit === undefined ? client.updateTask(id, task.version, changes) : saveEditedBody(client, id, changes, bodyEdit);
     },
