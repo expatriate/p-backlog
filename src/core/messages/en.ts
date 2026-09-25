@@ -165,7 +165,7 @@ function problem(p: Problem): string {
     case "epic-not-epic":
       return `${p.epic} is not an epic`;
     case "epic-foreign-project":
-      return `epic ${p.epic} belongs to another project`;
+      return `epic ${p.epic} belongs to another project — clear the epic or pick one from this project`;
     case "epic-in-epic":
       return "an epic cannot belong to another epic";
     case "reference-missing":

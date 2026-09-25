@@ -57,7 +57,7 @@ describe("backlog epic", () => {
     });
 
     expect((await loadBacklog(root)).errors).toEqual([]);
-    expect(await run(["check"])).toMatchObject({ code: EXIT.needsReview, out: "Проблемы:\n  SPA-1: эпик TI-1 из другого проекта" });
+    expect(await run(["check"])).toMatchObject({ code: EXIT.needsReview, out: "Проблемы:\n  SPA-1: эпик TI-1 из другого проекта — снимите эпик или выберите эпик этого проекта" });
 
     expect(await run(["epic", "SPA-1", "--to", "none"])).toMatchObject({ code: EXIT.ok, out: "SPA-1: TI-1 → без эпика" });
   });

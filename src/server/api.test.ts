@@ -122,7 +122,7 @@ describe("PATCH /api/tasks/:id", () => {
     const response = await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { epic: "TI-2" } });
 
     expect(response.status).toBe(422);
-    expect(((await response.json()) as ErrorResponse).errors).toEqual(["эпик TI-2 из другого проекта"]);
+    expect(((await response.json()) as ErrorResponse).errors).toEqual(["эпик TI-2 из другого проекта — снимите эпик или выберите эпик этого проекта"]);
     expect((await loadBacklog(backlog.root)).tasks.find((task) => task.id === "SPA-1")?.epic).toBeUndefined();
   });
 
