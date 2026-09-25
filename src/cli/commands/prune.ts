@@ -32,7 +32,7 @@ async function runPrune(args: string[], io: CliIo): Promise<number> {
   }
   if (!values.apply) {
     for (const task of stale) io.print(cli.staleTaskLine(task.id, task.title, formatDayMonth(io.language, new Date(task.created))));
-    io.print(cli.undoPruneHint);
+    io.print(cli.cancelStaleHint);
     return EXIT.ok;
   }
 

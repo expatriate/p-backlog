@@ -111,7 +111,7 @@ export const cliEn: CliMessages = {
   pruneReason: (days) => `Low priority, not taken up in ${days}+ days (backlog prune)`,
   noStaleTasks: "No stale tasks",
   staleTaskLine: (id, title, created) => `${id} — ${title} (created ${created})`,
-  undoPruneHint: "Undo: backlog prune --apply",
+  cancelStaleHint: "Cancel these tasks: backlog prune --apply",
   taskCancelled: (id) => `${id}: cancelled`,
 
   verifyUsage: () => "<ID> [<ID> …] [--source file:line — only for a single task]",
@@ -157,7 +157,6 @@ export const cliEn: CliMessages = {
   epicUsage: (noEpic) => `<ID> [<ID> …] --to <epic ID|${noEpic}>   (moves tasks into the epic or takes them out of it)`,
   notAnEpic: (id) => `${id} is not an epic — tasks can only be moved into an epic`,
   epicCannotContainEpic: (id) => `${id} is an epic, an epic cannot belong to another epic`,
-  epicCannotBeSelf: (id) => `${id} cannot be its own epic`,
   noEpicWord: "no epic",
 
   closeUsage: (resolutions) => `<ID> --as ${resolutions} --reason <evidence> [--duplicate-of <ID>]`,

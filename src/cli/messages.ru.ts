@@ -135,7 +135,7 @@ export const cliRu = {
   pruneReason: (days: number): string => `Низкий приоритет, не брали в работу ${days}+ дней (backlog prune)`,
   noStaleTasks: "Застоявшихся задач нет",
   staleTaskLine: (id: string, title: string, created: string): string => `${id} — ${title} (создана ${created})`,
-  undoPruneHint: "Отменить: backlog prune --apply",
+  cancelStaleHint: "Отменить эти задачи: backlog prune --apply",
   taskCancelled: (id: string): string => `${id}: отменена`,
 
   verifyUsage: (): string => "<ID> [<ID> …] [--source файл:строка — только для одной задачи]",
@@ -182,7 +182,6 @@ export const cliRu = {
   epicUsage: (noEpic: string): string => `<ID> [<ID> …] --to <ID эпика|${noEpic}>   (переносит задачи в эпик или вынимает из него)`,
   notAnEpic: (id: string): string => `${id} не эпик — перенести задачи можно только в эпик`,
   epicCannotContainEpic: (id: string): string => `${id} — эпик, эпик не может входить в другой эпик`,
-  epicCannotBeSelf: (id: string): string => `${id} не может быть своим эпиком`,
   noEpicWord: "без эпика",
 
   closeUsage: (resolutions: string): string => `<ID> --as ${resolutions} --reason <улика> [--duplicate-of <ID>]`,

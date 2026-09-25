@@ -1,5 +1,6 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, win32 } from "node:path";
+import { PID_FILE_ENV } from "../../server/start";
 import { fileExists, numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
 
 const SCRIPT_NAME = "p-backlog.vbs";
@@ -27,7 +28,7 @@ function pidFilePath(context: ServiceContext): string {
 
 export function startupScript(context: ServiceContext): string {
   const command = `cmd /c ""${context.nodePath}" "${context.cliPath}" serve >> "${logPath(context)}" 2>&1"`;
-  const env = { ...serviceEnvironment(context), P_BACKLOG_PID_FILE: pidFilePath(context) };
+  const env = { ...serviceEnvironment(context), [PID_FILE_ENV]: pidFilePath(context) };
   return [
     'Set shell = CreateObject("WScript.Shell")',
     'Set env = shell.Environment("Process")',

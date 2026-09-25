@@ -1,33 +1,15 @@
-import { parseArgs } from "node:util";
 import { coreMessages } from "../../core/messages";
 import { TASK_CATEGORIES } from "../../core/model/types";
-import { loadBacklog } from "../../core/store/load";
-import { usageError, type CliCommand } from "../command";
-import { EXIT, parseChoice, withUsageErrors, type CliIo } from "../io";
-import { requireTask } from "../lookups";
+import { parseChoice } from "../io";
 import { cliMessages } from "../messages";
-import { taskWriter } from "../task-write";
+import { taskFieldCommand } from "../task-field-command";
 
 const NO_CATEGORY = "none";
 
-export const categoryCommand: CliCommand = {
+export const categoryCommand = taskFieldCommand({
   name: "category",
-  usage: () => [`<ID> <${TASK_CATEGORIES.join("|")}|${NO_CATEGORY}>`],
-  run: runCategory,
-};
-
-async function runCategory(args: string[], io: CliIo): Promise<number> {
-  const { positionals } = withUsageErrors(() => parseArgs({ args, allowPositionals: true, options: {} }));
-  const [id, value, ...rest] = positionals;
-  if (id === undefined || value === undefined || rest.length > 0) throw usageError(categoryCommand, io.language);
-  const category = value === NO_CATEGORY ? null : parseChoice(io.language, value, TASK_CATEGORIES, cliMessages(io.language).optionLabel.category);
-
-  const loaded = await loadBacklog(io.backlogRoot);
-  const task = requireTask(loaded, io, id);
-  if (!task) return EXIT.notFound;
-  const written = await taskWriter(io, loaded.tasks)(task, { category });
-  if (!written.ok) return written.exitCode;
-  const messages = coreMessages(io.language);
-  io.print(`${id}: ${messages.categoryLabel(task.category)} → ${messages.categoryLabel(written.task.category)}`);
-  return EXIT.ok;
-}
+  choices: `${TASK_CATEGORIES.join("|")}|${NO_CATEGORY}`,
+  parse: (language, value) => (value === NO_CATEGORY ? null : parseChoice(language, value, TASK_CATEGORIES, cliMessages(language).optionLabel.category)),
+  changes: (category) => ({ category }),
+  label: (task, language) => coreMessages(language).categoryLabel(task.category),
+});

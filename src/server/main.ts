@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { resolveBacklogRoot } from "../core/store/paths";
 import { suppressSqliteExperimentalWarning } from "../core/sqlite-warning";
 import { readPort } from "./port";
-import { startServer } from "./start";
+import { PID_FILE_ENV, startServer } from "./start";
 
 suppressSqliteExperimentalWarning();
 
@@ -15,7 +15,7 @@ try {
     port: readPort(process.env.PORT),
     home,
     env: process.env,
-    pidFile: process.env.P_BACKLOG_PID_FILE,
+    pidFile: process.env[PID_FILE_ENV],
   });
 } catch (error) {
   process.stderr.write(`${errorText(error)}\n`);

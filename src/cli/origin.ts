@@ -1,8 +1,6 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import type { TaskOrigin } from "../core/journal/events";
+import { runGit } from "../core/git/run";
 
-const runFile = promisify(execFile);
 const DETACHED_HEAD = "HEAD";
 
 export async function readOrigin(dir: string): Promise<TaskOrigin | undefined> {
@@ -11,12 +9,7 @@ export async function readOrigin(dir: string): Promise<TaskOrigin | undefined> {
   return branch === null || branch === DETACHED_HEAD ? { commit } : { branch, commit };
 }
 
-async function gitLine(dir: string, args: readonly string[]): Promise<string | null> {
-  try {
-    const { stdout } = await runFile("git", ["-C", dir, "--no-optional-locks", ...args]);
-    const line = stdout.trim();
-    return line === "" ? null : line;
-  } catch {
-    return null;
-  }
+async function gitLine(dir: string, args: string[]): Promise<string | null> {
+  const line = (await runGit(dir, args))?.trim();
+  return line === undefined || line === "" ? null : line;
 }

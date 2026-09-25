@@ -17,7 +17,7 @@ describe("backlog prune", () => {
 
     const preview = await run(["prune"]);
 
-    expect(preview).toMatchObject({ code: EXIT.ok, out: "SPA-1 — Старая мелочь (создана 01.08)\nОтменить: backlog prune --apply" });
+    expect(preview).toMatchObject({ code: EXIT.ok, out: "SPA-1 — Старая мелочь (создана 01.08)\nОтменить эти задачи: backlog prune --apply" });
     expect((await loadBacklog(root)).tasks.every((task) => task.status === "backlog")).toBe(true);
 
     const applied = await run(["prune", "--apply"]);

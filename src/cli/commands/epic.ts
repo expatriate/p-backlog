@@ -45,10 +45,6 @@ async function moveOne(id: string, { loaded, epic, write, io }: Move): Promise<n
     io.warn(cli.epicCannotContainEpic(task.id));
     return EXIT.invalid;
   }
-  if (epic !== null && epic.id === task.id) {
-    io.warn(cli.epicCannotBeSelf(task.id));
-    return EXIT.invalid;
-  }
   const written = await write(task, { epic: epic === null ? null : epic.id });
   if (!written.ok) return written.exitCode;
   io.print(`${task.id}: ${epicWord(cli, task.epic)} → ${epicWord(cli, written.task.epic)}`);

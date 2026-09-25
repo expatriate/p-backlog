@@ -6,7 +6,10 @@ import { fileExists, numberRecordedIn, serviceEnvironment, type ServiceContext, 
 const LABEL = "local.p-backlog";
 const BOOTSTRAP_RETRY_ATTEMPTS = 5;
 const BOOTSTRAP_RETRY_DELAY_MS = 300;
-const NOT_LOADED_CODES = new Set([3, 113]);
+const NO_SUCH_PROCESS_CODE = 3;
+const SERVICE_NOT_FOUND_CODE = 113;
+const NOT_LOADED_CODES = new Set([NO_SUCH_PROCESS_CODE, SERVICE_NOT_FOUND_CODE]);
+const PREVIOUS_BOOTOUT_UNFINISHED_CODE = 5;
 
 const XML_ENTITIES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" };
 
@@ -68,7 +71,7 @@ export function launchdManager(context: ServiceContext, delay: (ms: number) => P
       await mkdir(dirname(logPath(context.home)), { recursive: true });
       await writeFile(file, launchdPlist(context));
       let result = await bootstrap();
-      for (let attempt = 1; result.code === 5 && attempt < BOOTSTRAP_RETRY_ATTEMPTS; attempt++) {
+      for (let attempt = 1; result.code === PREVIOUS_BOOTOUT_UNFINISHED_CODE && attempt < BOOTSTRAP_RETRY_ATTEMPTS; attempt++) {
         await delay(BOOTSTRAP_RETRY_DELAY_MS);
         result = await bootstrap();
       }
