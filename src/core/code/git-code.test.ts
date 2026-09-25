@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { readFixCommits, readRefs, readRepoCode } from "./git-code";
 import { runGit, type GitRunner } from "../git/run";
 import { countingGit } from "../git/testing/counting-git";
@@ -21,6 +21,59 @@ const readCode = async (git: GitRunner, repo: string, since: Date) => readRepoCo
 
 const shortHead = (repo: string) => execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
 
+const FIX_DATE = "2026-09-11T10:00:00+03:00";
+const MERGE_DATE = "2026-09-15T10:00:00+03:00";
+
+async function fixOnBranch(): Promise<{ repo: string; fix: string }> {
+  const repo = await makeGitRepo(await makeTempDir(), "spa");
+  await writeFiles(repo, { "src/a.ts": "one\n", "src/b.ts": "b\n" });
+  gitCommitAll(repo, "init", "2026-09-01T10:00:00+03:00");
+  gitCheckout(repo, "fix", { create: true });
+  await writeFiles(repo, { "src/a.ts": "one\ntwo\n" });
+  gitCommitAll(repo, "fix: таймаут загрузки", FIX_DATE);
+  const fix = shortHead(repo);
+  gitCheckout(repo, "master");
+  await writeFiles(repo, { "src/b.ts": "b\nc\n" });
+  gitCommitAll(repo, "main: b", "2026-09-12T10:00:00+03:00");
+  return { repo, fix };
+}
+
+const landedAt = async (repo: string, fix: string) => {
+  const commit = (await readFixCommits(runGit, repo, [fix], (await readRefs(runGit, repo)).main))?.get(fix);
+  return commit?.landedAt === undefined ? undefined : Date.parse(commit.landedAt);
+};
+
+describe("когда исправление попало в основную ветку", () => {
+  it("коммит основной ветки — в свою дату", async () => {
+    const repo = await sampleRepo();
+
+    expect(await landedAt(repo, shortHead(repo))).toBe(Date.parse("2026-09-10T10:00:00+03:00"));
+  });
+
+  it("коммит ветки, слитой merge-коммитом, — в дату слияния", async () => {
+    const { repo, fix } = await fixOnBranch();
+    gitMergeNoFastForward(repo, "fix", MERGE_DATE);
+
+    expect(await landedAt(repo, fix)).toBe(Date.parse(MERGE_DATE));
+  });
+
+  it("коммит ветки, слитой squash-коммитом с его заголовком в сообщении, — в дату squash-коммита", async () => {
+    const { repo, fix } = await fixOnBranch();
+    execFileSync("git", ["merge", "--squash", "-q", "fix"], { cwd: repo });
+    gitCommitAll(repo, "Таймаут загрузки (#12)\n\n* fix: таймаут загрузки", MERGE_DATE);
+
+    expect(await landedAt(repo, fix)).toBe(Date.parse(MERGE_DATE));
+  });
+
+  it("не слитый коммит ветки — даты попадания нет, даже если его заголовок упомянут внутри строки сообщения", async () => {
+    const { repo, fix } = await fixOnBranch();
+    await writeFiles(repo, { "src/b.ts": "b\nc\nd\n" });
+    gitCommitAll(repo, "docs: следом за fix: таймаут загрузки (ветка fix)", MERGE_DATE);
+
+    expect(await landedAt(repo, fix)).toBeUndefined();
+  });
+});
+
 describe("чтение git для вкладки «Код»", () => {
   it("коммиты с файлами за период и строки без lock-файлов", async () => {
     const repo = await sampleRepo();
@@ -37,11 +90,11 @@ describe("чтение git для вкладки «Код»", () => {
   it("коммит исправления: дата и агент по трейлеру без учёта регистра, неизвестный хеш — null", async () => {
     const repo = await sampleRepo();
 
-    const commit = (await readFixCommits(runGit, repo, [shortHead(repo)]))?.get(shortHead(repo));
+    const commit = (await readFixCommits(runGit, repo, [shortHead(repo)], null))?.get(shortHead(repo));
 
     expect(commit?.byAgent).toBe(true);
     expect(Date.parse(commit?.date ?? "")).toBe(Date.parse("2026-09-10T10:00:00+03:00"));
-    expect((await readFixCommits(runGit, repo, ["deadbee"]))?.get("deadbee")).toBeUndefined();
+    expect((await readFixCommits(runGit, repo, ["deadbee"], null))?.get("deadbee")).toBeUndefined();
   });
 
   it("репозиторий — поддиректория: пути коммитов и строк относительны ей", async () => {
@@ -97,7 +150,7 @@ describe("чтение git для вкладки «Код»", () => {
   it("размер коммита исправления", async () => {
     const repo = await sampleRepo();
 
-    const commit = (await readFixCommits(runGit, repo, [shortHead(repo)]))?.get(shortHead(repo));
+    const commit = (await readFixCommits(runGit, repo, [shortHead(repo)], null))?.get(shortHead(repo));
 
     expect(commit?.lines).toBe(2);
   });
@@ -109,7 +162,7 @@ describe("чтение git для вкладки «Код»", () => {
     await writeFiles(repo, { "src/a.ts": "one\ntwo\nthree\n", "src/a.test.ts": "a\nb\nc\n" });
     gitCommitAll(repo, "fix: with test", "2026-09-10T10:00:00+03:00");
 
-    const commit = (await readFixCommits(runGit, repo, [shortHead(repo)]))?.get(shortHead(repo));
+    const commit = (await readFixCommits(runGit, repo, [shortHead(repo)], null))?.get(shortHead(repo));
 
     expect(commit).toMatchObject({ lines: 5, testLines: 3 });
   });
@@ -121,7 +174,7 @@ describe("чтение git для вкладки «Код»", () => {
     await writeFiles(repo, { "package-lock.json": "{\n}\n" });
     gitCommitAll(repo, "fix: lockfile only", "2026-09-10T10:00:00+03:00");
 
-    const commit = (await readFixCommits(runGit, repo, [shortHead(repo)]))?.get(shortHead(repo));
+    const commit = (await readFixCommits(runGit, repo, [shortHead(repo)], null))?.get(shortHead(repo));
 
     expect(Date.parse(commit?.date ?? "")).toBe(Date.parse("2026-09-10T10:00:00+03:00"));
     expect(commit?.lines).toBe(0);
@@ -176,7 +229,7 @@ describe("чтение git для вкладки «Код»", () => {
     gitCommitAll(repo, "second", "2026-09-11T10:00:00+03:00");
     const second = shortHead(repo);
 
-    const commits = await readFixCommits(runGit, repo, [first, "deadbee", second, "0123456789abcdef"]);
+    const commits = await readFixCommits(runGit, repo, [first, "deadbee", second, "0123456789abcdef"], null);
 
     expect([...(commits?.keys() ?? [])].sort()).toEqual([first, second].sort());
     expect(commits?.get(second)?.lines).toBe(1);
@@ -188,7 +241,7 @@ describe("чтение git для вкладки «Код»", () => {
     const alien = Array.from({ length: 20 }, (_, index) => `dead${String(index).padStart(3, "0")}`);
     const counting = countingGit();
 
-    const commits = await readFixCommits(counting.git, repo, [own, ...alien]);
+    const commits = await readFixCommits(counting.git, repo, [own, ...alien], null);
 
     expect([...(commits?.keys() ?? [])]).toEqual([own]);
     expect(counting.processes()).toBeLessThanOrEqual(3);

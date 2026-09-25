@@ -81,17 +81,19 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     return { key, code };
   };
 
-  const fixCommitsOf = async (repo: string, hashes: readonly string[]): Promise<void> => {
-    const unknown = hashes.filter((hash) => !fixCache.has(`${repo} ${hash}`));
-    if (unknown.length === 0) return;
-    const found = await readFixCommits(git, repo, unknown);
+  const fixCommitsOf = async (repo: string, main: string | null, hashes: readonly string[]): Promise<void> => {
+    const unsettled = hashes.filter((hash) => fixCache.get(`${repo} ${hash}`)?.landedAt === undefined);
+    if (unsettled.length === 0) return;
+    const found = await readFixCommits(git, repo, unsettled, main);
     for (const [hash, commit] of found ?? []) {
-      fixCache.set(`${repo} ${hash}`, commit);
+      const key = `${repo} ${hash}`;
+      if (fixCache.has(key) && commit.landedAt === undefined) continue;
+      fixCache.set(key, commit);
       changed = true;
     }
   };
 
-  const fixReposOf = async (projects: readonly Project[], now: Date): Promise<Map<string, { repo: string; key: string }[]>> => {
+  const fixReposOf = async (projects: readonly Project[], now: Date): Promise<Map<string, { repo: string; key: string; main: string | null }[]>> => {
     const refsOf = new Map<string, Promise<RepoRefs>>();
     const refsOnce = (repo: string): Promise<RepoRefs> => remembered(refsOf, repo, () => readRefs(git, repo));
     const entries = await Promise.all(
@@ -100,7 +102,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
           project.repos.map(async (repo) => {
             const expanded = expandHome(repo, home);
             const refs = await refsOnce(expanded);
-            return refs.head === null ? [] : [{ repo: expanded, key: repoKey(refs, now) }];
+            return refs.head === null ? [] : [{ repo: expanded, key: repoKey(refs, now), main: refs.main }];
           }),
         );
         return [project.id, repos.flat()] as const;
@@ -144,7 +146,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     fixCommits: async (projects, requests, now) => {
       await restore();
       const reposOf = await fixReposOf(projects, now);
-      await Promise.all(requests.flatMap(({ projectId, hashes }) => (reposOf.get(projectId) ?? []).map(({ repo }) => fixCommitsOf(repo, hashes))));
+      await Promise.all(requests.flatMap(({ projectId, hashes }) => (reposOf.get(projectId) ?? []).map(({ repo, main }) => fixCommitsOf(repo, main, hashes))));
       const found = new Map<string, FixCommit>();
       const requested = new Set<string>();
       for (const { projectId, hashes } of requests) {

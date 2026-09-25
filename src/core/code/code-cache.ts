@@ -16,7 +16,7 @@ const repoCodeSchema = z.object({
   units: z.array(z.object({ date: z.string(), lines: z.number() })),
 });
 
-const fixCommitSchema = z.object({ date: z.string(), byAgent: z.boolean(), lines: z.number(), testLines: z.number() });
+const fixCommitSchema = z.object({ date: z.string(), landedAt: z.string().optional(), byAgent: z.boolean(), lines: z.number(), testLines: z.number() });
 
 const snapshotSchema = z.object({
   version: z.literal(CODE_CACHE_VERSION),

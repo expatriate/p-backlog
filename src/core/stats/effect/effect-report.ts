@@ -79,7 +79,7 @@ function buildDeferred(candidates: readonly TaskHistory[], histories: readonly T
     const entry = fixEntryOf(history, code);
     if (entry === undefined) return [];
     const sharers = sharersByCommit.get(entry.key) ?? 1;
-    return [{ history, fixedLines: entry.commit.lines / sharers, fixedTestLines: entry.commit.testLines / sharers, fixedAt: Date.parse(entry.commit.date) }];
+    return [{ history, fixedLines: entry.commit.lines / sharers, fixedTestLines: entry.commit.testLines / sharers, fixedAt: Date.parse(entry.commit.landedAt ?? entry.commit.date) }];
   });
 }
 

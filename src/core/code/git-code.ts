@@ -31,21 +31,31 @@ export async function readRepoCode(git: GitRunner, repo: string, since: Date, ma
   return { commits: parseCommits(log), lines: parseLines(grep), units };
 }
 
-export async function readFixCommits(git: GitRunner, repo: string, hashes: readonly string[]): Promise<Map<string, FixCommit> | null> {
+export async function readFixCommits(git: GitRunner, repo: string, hashes: readonly string[], mainCommit: string | null): Promise<Map<string, FixCommit> | null> {
   const fullHashes = await resolveCommits(git, repo, hashes);
   if (fullHashes === null) return null;
-  return fullHashes.size === 0 ? new Map() : readFixBatch(git, repo, fullHashes);
+  return fullHashes.size === 0 ? new Map() : readFixBatch(git, repo, fullHashes, mainCommit);
 }
 
-async function readFixBatch(git: GitRunner, repo: string, fullHashes: ReadonlyMap<string, string>): Promise<Map<string, FixCommit> | null> {
+type FixHeader = { full: string; date: string; subject: string; byAgent: boolean };
+
+async function readFixBatch(git: GitRunner, repo: string, fullHashes: ReadonlyMap<string, string>, mainCommit: string | null): Promise<Map<string, FixCommit> | null> {
   const commits = [...new Set(fullHashes.values())];
   const [headers, stats] = await Promise.all([
-    git(repo, ["log", "--no-walk=unsorted", ...commits, `--format=tformat:${RECORD}%H${FIELD}%cI${FIELD}%(trailers:key=Co-authored-by,valueonly,separator=${FIELD})`, "--"]),
+    git(repo, ["log", "--no-walk=unsorted", ...commits, `--format=tformat:${RECORD}%H${FIELD}%cI${FIELD}%s${FIELD}%(trailers:key=Co-authored-by,valueonly,separator=${FIELD})`, "--"]),
     git(repo, ["log", "--no-walk=unsorted", ...commits, `--format=tformat:${RECORD}%H`, "--numstat", "--diff-merges=first-parent", "--relative", "--", ".", ...CHURN_EXCLUDES]),
   ]);
   if (headers === null || stats === null) return null;
   const changedLines = new Map(parseFixStats(stats));
-  const byFullHash = new Map(parseFixHeaders(headers, changedLines));
+  const byFullHash = new Map(
+    await Promise.all(
+      parseFixHeaders(headers).map(async (header): Promise<[string, FixCommit]> => {
+        const landedAt = mainCommit === null ? undefined : await landingDate(git, repo, header, mainCommit);
+        const changed = changedLines.get(header.full) ?? { lines: 0, testLines: 0 };
+        return [header.full, { date: header.date, byAgent: header.byAgent, ...changed, ...(landedAt === undefined ? {} : { landedAt }) }];
+      }),
+    ),
+  );
   return new Map(
     [...fullHashes].flatMap(([hash, full]): [string, FixCommit][] => {
       const commit = byFullHash.get(full);
@@ -54,12 +64,30 @@ async function readFixBatch(git: GitRunner, repo: string, fullHashes: ReadonlyMa
   );
 }
 
-function parseFixHeaders(output: string, changedLines: ReadonlyMap<string, { lines: number; testLines: number }>): [string, FixCommit][] {
-  return records(output).map((record): [string, FixCommit] => {
-    const [full = "", date = "", ...trailers] = record.split("\n")[0]?.split(FIELD) ?? [];
-    const changed = changedLines.get(full) ?? { lines: 0, testLines: 0 };
-    return [full, { date, byAgent: trailers.some((trailer) => AGENT_TRAILER.test(trailer.trim())), ...changed }];
+function parseFixHeaders(output: string): FixHeader[] {
+  return records(output).map((record) => {
+    const [full = "", date = "", subject = "", ...trailers] = record.split("\n")[0]?.split(FIELD) ?? [];
+    return { full, date, subject, byAgent: trailers.some((trailer) => AGENT_TRAILER.test(trailer.trim())) };
   });
+}
+
+async function landingDate(git: GitRunner, repo: string, fix: FixHeader, mainCommit: string): Promise<string | undefined> {
+  if (fix.full === mainCommit) return fix.date;
+  const descendants = await git(repo, ["log", "--first-parent", "--ancestry-path", `--format=tformat:%P${FIELD}%cI`, `${fix.full}..${mainCommit}`, "--"]);
+  const [parents = "", mergedAt = ""] = lastLine(descendants).split(FIELD);
+  if (mergedAt !== "") return parents.split(" ")[0] === fix.full ? fix.date : mergedAt;
+  if (fix.subject === "") return undefined;
+  const squashes = await git(repo, ["log", mainCommit, "--first-parent", `--since=${fix.date}`, "--extended-regexp", `--grep=${subjectLinePattern(fix.subject)}`, "--format=tformat:%cI", "--"]);
+  return lastLine(squashes) || undefined;
+}
+
+function subjectLinePattern(subject: string): string {
+  const escaped = subject.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return `^[[:space:]]*([*-][[:space:]]+)?${escaped}[[:space:]]*$`;
+}
+
+function lastLine(output: string | null): string {
+  return output?.trim().split("\n").at(-1) ?? "";
 }
 
 function parseFixStats(output: string): [string, { lines: number; testLines: number }][] {

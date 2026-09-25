@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Project } from "../model/types";
 import { fixKey } from "../stats/code/fixes";
-import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { CODE_CACHE_FILE, createCodeCacheFile, type CodeCacheStore } from "./code-cache";
 import { createCodeSource, type CodeSource } from "./code-source";
 import { runGit, type GitRunner } from "../git/run";
@@ -138,6 +138,26 @@ describe("сбор данных git по проектам", () => {
     execFileSync("git", ["-C", repo, "fetch", "-q", clone, "HEAD"]);
 
     expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(fixKey("spa", hash))).toBe(true);
+  });
+
+  it("коммит исправления, прочитанный до слияния ветки, после слияния получает дату попадания в основную ветку", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "fix", { create: true });
+    await writeFiles(repo, { "src/a.ts": "a\nb\n" });
+    gitCommitAll(repo, "fix: b", "2026-09-11T10:00:00+03:00");
+    const hash = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    gitCheckout(repo, "master");
+    const source = createCodeSource({ home: "/h" });
+    const request = [{ projectId: "spa", hashes: [hash] }];
+    const landedAt = async () => (await source.fixCommits([projectOf("spa", [repo])], request, NOW)).get(fixKey("spa", hash))?.landedAt;
+
+    const beforeMerge = await landedAt();
+    gitMergeNoFastForward(repo, "fix", "2026-09-15T10:00:00+03:00");
+
+    expect(beforeMerge).toBeUndefined();
+    expect(Date.parse((await landedAt()) ?? "")).toBe(Date.parse("2026-09-15T10:00:00+03:00"));
   });
 
   it("хеши, которых нет в репозитории, проверяются одним процессом git, а не по процессу на хеш", async () => {

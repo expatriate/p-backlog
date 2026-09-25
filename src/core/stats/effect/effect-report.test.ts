@@ -49,6 +49,15 @@ describe("эффект беклога", () => {
     expect(day(8, 2)).toMatchObject({ onTopicLines: 100, deferredLines: 0, deferredTasks: 0 });
   });
 
+  it("строки исправления с ветки ложатся в неделю попадания в основную ветку, а не в неделю коммита", () => {
+    const branchFix: [string, FixCommit] = [fixKey("spa", "aaaaaa1"), { date: iso(8, 10), landedAt: iso(8, 15), byAgent: true, lines: 40, testLines: 0 }];
+
+    const report = effectReport({ tasks: fixes.slice(0, 1).map((fix) => fix.task), journals: [], now: NOW, projectId: "spa", code: code([branchFix]) });
+
+    expect(report.weeks.at(-1)).toMatchObject({ onTopicLines: 260, deferredLines: 40, deferredTasks: 1 });
+    expect(report.weeks.at(-2)).toMatchObject({ deferredLines: 0, deferredTasks: 0 });
+  });
+
   it("меньше 5 исправлений — оценки ожидающих нет", () => {
     const few = fixes.slice(0, 4);
 
