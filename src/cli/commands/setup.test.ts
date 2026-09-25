@@ -7,6 +7,8 @@ import { makeCliSandbox } from "../testing/cli-harness";
 const repoRoot = join(import.meta.dirname, "../../..");
 const STOP_HOOK_COMMAND = "command -v backlog >/dev/null && backlog hook stop || true";
 const POWERSHELL_COMMAND = "if (Get-Command backlog.cmd -ErrorAction SilentlyContinue) { backlog.cmd hook stop }";
+const CODEX_COMMAND = "command -v backlog >/dev/null && backlog hook stop --agent codex || true";
+const CURSOR_COMMAND = "command -v backlog >/dev/null && backlog hook stop --agent cursor || true";
 
 function claudeEnv(home: string): { CLAUDE_SKILLS_DIR: string; CLAUDE_SETTINGS_PATH: string } {
   return { CLAUDE_SKILLS_DIR: join(home, "skills"), CLAUDE_SETTINGS_PATH: join(home, "claude/settings.json") };
@@ -137,5 +139,46 @@ describe("backlog setup", () => {
     expect(result.code).toBe(EXIT.failed);
     expect(result.err).toContain("не объект JSON");
     expect(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8")).toBe("{ сломано");
+  });
+
+  it("ставит скилл и хук каждому найденному агенту и говорит, кого не нашёл", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    await mkdir(join(home, ".codex"), { recursive: true });
+
+    const result = await run(["setup"], { env });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(await realpath(join(home, ".codex/skills/backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog")));
+    expect(JSON.parse(await readFile(join(home, ".codex/hooks.json"), "utf8")).hooks.Stop[0].hooks[0]).toMatchObject({ command: CODEX_COMMAND });
+    expect(result.out).toMatch(/^Claude Code: /m);
+    expect(result.out).toMatch(/^Codex: /m);
+    expect(result.out).toContain(`Cursor: не найден (${join(home, ".cursor")})`);
+    await expect(lstat(join(home, ".cursor"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("--agent сужает установку до одного агента", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    await mkdir(join(home, ".codex"), { recursive: true });
+
+    expect((await run(["setup", "--agent", "cursor"], { env })).code).toBe(EXIT.ok);
+
+    expect(JSON.parse(await readFile(join(home, ".cursor/hooks.json"), "utf8"))).toEqual({ hooks: { stop: [{ command: CURSOR_COMMAND }] }, version: 1 });
+    await expect(readFile(env.CLAUDE_SETTINGS_PATH, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(home, ".codex/hooks.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("сбой у одного агента не мешает остальным, но код выхода — отказ", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    await mkdir(join(home, ".cursor"), { recursive: true });
+    await writeFile(join(home, ".cursor/hooks.json"), "{ сломано");
+
+    const result = await run(["setup"], { env });
+
+    expect(result.code).toBe(EXIT.failed);
+    expect(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8")).hooks.Stop).toHaveLength(1);
+    expect(result.err).toMatch(/^Cursor: /m);
   });
 });

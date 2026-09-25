@@ -25,6 +25,7 @@ export const cliEn: CliMessages = {
   installHookAdded: (settingsPath) => `Stop hook added to ${settingsPath}`,
   installSettingsUnreadable: (settingsPath, detail) => `Could not read ${settingsPath} (${detail}), Stop hook not added.`,
   installSettingsInvalid: (settingsPath) => `${settingsPath} is not a JSON object, Stop hook not added. Fix the file and try again.`,
+  agentNotFound: (dir) => `not found (${dir})`,
 
   serviceInstalled: (file) => `Service installed: ${file}`,
   serviceLogs: (path) => `Logs: ${path}`,

@@ -24,6 +24,7 @@ export const cliRu = {
   installHookAdded: (settingsPath: string): string => `Хук Stop добавлен в ${settingsPath}`,
   installSettingsUnreadable: (settingsPath: string, detail: string): string => `${settingsPath} не прочитать (${detail}), хук Stop не добавлен.`,
   installSettingsInvalid: (settingsPath: string): string => `${settingsPath} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`,
+  agentNotFound: (dir: string): string => `не найден (${dir})`,
 
   serviceInstalled: (file: string): string => `Служба установлена: ${file}`,
   serviceLogs: (path: string): string => `Логи: ${path}`,

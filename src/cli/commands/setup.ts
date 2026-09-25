@@ -1,62 +1,84 @@
 import { join } from "node:path";
 import { errorCodeOrText } from "../../core/errors";
-import { claudeSettingsPath, claudeSkillsDir } from "../../core/claude-dir";
-import type { CliCommand } from "../command";
-import { EXIT, parseOptions, type CliIo } from "../io";
-import { cliMessages } from "../messages";
+import { AGENT_LABELS, AGENTS, agentSkillsDir, detectAgents, type Agent } from "../agents/agent";
+import { agentHookConfigPath, installAgentHook } from "../agents/agent-hooks";
 import type { HookInstallResult } from "../agents/grouped-stop-hooks";
+import type { CliCommand } from "../command";
+import { EXIT, parseChoice, parseOptions, type CliIo } from "../io";
+import { cliMessages } from "../messages";
 import { linkSkillFor, skillSourceDir, type SkillLinkResult } from "../skill-link";
-import { addStopHook } from "../stop-hook";
 import { installService } from "./service";
+
+type AgentVoice = { print: (line: string) => void; warn: (line: string) => void };
 
 export const setupCommand: CliCommand = {
   name: "setup",
-  usage: () => ["[--service]"],
+  usage: () => [`[--agent ${AGENTS.join("|")}] [--service]`],
   run: runSetup,
 };
 
 async function runSetup(args: string[], io: CliIo): Promise<number> {
-  const { service } = parseOptions(io.language, args, { service: { type: "boolean" } });
-  const setupDone = await runSetupSteps(io);
-  const serviceCode = service ? await installService(io) : EXIT.ok;
-  return setupDone ? serviceCode : EXIT.failed;
+  const options = parseOptions(io.language, args, { service: { type: "boolean" }, agent: { type: "string" } });
+  const agents = await targetAgents(options.agent, io);
+  const outcomes: boolean[] = [];
+  for (const agent of agents) outcomes.push(await setUpAgent(agent, io));
+  const serviceCode = options.service ? await installService(io) : EXIT.ok;
+  return outcomes.every(Boolean) ? serviceCode : EXIT.failed;
 }
 
-async function runSetupSteps(io: CliIo): Promise<boolean> {
+async function targetAgents(option: string | undefined, io: CliIo): Promise<Agent[]> {
   const messages = cliMessages(io.language);
-  const skillsDir = claudeSkillsDir(io.env, io.home);
+  if (option !== undefined) return [parseChoice(io.language, option, AGENTS, messages.optionLabel.agent)];
+  const detection = await detectAgents(io.env, io.home);
+  for (const { agent, dir } of detection.missing) agentVoice(agent, io).print(messages.agentNotFound(dir));
+  return detection.found;
+}
+
+function agentVoice(agent: Agent, io: CliIo): AgentVoice {
+  const label = AGENT_LABELS[agent];
+  return { print: (line) => io.print(`${label}: ${line}`), warn: (line) => io.warn(`${label}: ${line}`) };
+}
+
+async function setUpAgent(agent: Agent, io: CliIo): Promise<boolean> {
+  const voice = agentVoice(agent, io);
+  if (!(await linkAgentSkill(agent, io, voice))) return false;
+  return reportHook(await installAgentHook(agent, io), agentHookConfigPath(agent, io.env, io.home), io, voice);
+}
+
+async function linkAgentSkill(agent: Agent, io: CliIo, voice: AgentVoice): Promise<boolean> {
+  const messages = cliMessages(io.language);
+  const skillsDir = agentSkillsDir(agent, io.env, io.home);
   const target = join(skillsDir, "backlog");
   const source = skillSourceDir(io.packageRoot, io.language);
   let link: SkillLinkResult;
   try {
     link = await linkSkillFor(io.language, { skillsDir, packageRoot: io.packageRoot, platform: io.platform });
   } catch (error) {
-    io.warn(messages.installSkillLinkFailed(target, errorCodeOrText(error)));
+    voice.warn(messages.installSkillLinkFailed(target, errorCodeOrText(error)));
     return false;
   }
   if (link === "foreign") {
-    io.warn(messages.installSkillForeign(target, source));
+    voice.warn(messages.installSkillForeign(target, source));
     return false;
   }
-  io.print(link === "linked" ? messages.installSkillLinked(target, source) : messages.installSkillKept(target));
-  const settingsPath = claudeSettingsPath(io.env, io.home);
-  return reportHook(await addStopHook(settingsPath, io.platform), settingsPath, io);
+  voice.print(link === "linked" ? messages.installSkillLinked(target, source) : messages.installSkillKept(target));
+  return true;
 }
 
-function reportHook(result: HookInstallResult, settingsPath: string, io: CliIo): boolean {
+function reportHook(result: HookInstallResult, configPath: string, io: CliIo, voice: AgentVoice): boolean {
   const messages = cliMessages(io.language);
   if (result === "added") {
-    io.print(messages.installHookAdded(settingsPath));
+    voice.print(messages.installHookAdded(configPath));
     return true;
   }
   if (result === "exists") {
-    io.print(messages.installHookExists(settingsPath));
+    voice.print(messages.installHookExists(configPath));
     return true;
   }
   if (result.failed === "unreadable") {
-    io.warn(messages.installSettingsUnreadable(settingsPath, result.code));
+    voice.warn(messages.installSettingsUnreadable(configPath, result.code));
     return false;
   }
-  io.warn(messages.installSettingsInvalid(settingsPath));
+  voice.warn(messages.installSettingsInvalid(configPath));
   return false;
 }
