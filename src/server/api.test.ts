@@ -379,6 +379,29 @@ describe("GET /api/stats", () => {
     expect(spa.weeks).toHaveLength(12);
   });
 
+  it("закрытие, отменённое кнопкой «Отменить», не считается ни закрытием, ни переоткрытием; ручное переоткрытие считается", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const batch = async (tasks: { id: string; version: string }[], action: unknown) => ((await (await backlog.json("/api/tasks/batch", "POST", { tasks, action })).json()) as BatchResponse).results;
+    const versions = async (ids: string[]) => Promise.all(ids.map(async (id) => ({ id, version: await backlog.taskVersion(id) })));
+    const stats = async () => (await (await backlog.request("/api/stats")).json()) as StatsReport;
+
+    const closed = (await batch(await versions(["SPA-1", "SPA-2", "TI-1"]), { kind: "close", reason: "по ошибке" })).filter((result) => result.outcome === "done");
+    expect(closed).toHaveLength(3);
+    await batch(
+      closed.map(({ id, version }) => ({ id, version })),
+      { kind: "restore", changes: Object.fromEntries(closed.map((result) => [result.id, result.previous])) },
+    );
+
+    const afterUndo = await stats();
+    expect([afterUndo.totals.closedToday, afterUndo.closing.byReason.obsolete, afterUndo.closing.reopened, afterUndo.weeks.at(-1)?.closed]).toEqual([0, 0, 0, 0]);
+
+    await batch(await versions(["SPA-1"]), { kind: "close", reason: "неактуально" });
+    await backlog.json("/api/tasks/SPA-1", "PATCH", { version: await backlog.taskVersion("SPA-1"), changes: { status: "backlog" } });
+
+    const afterManualReopen = await stats();
+    expect([afterManualReopen.totals.closedToday, afterManualReopen.closing.byReason.obsolete, afterManualReopen.closing.reopened]).toEqual([1, 1, 1]);
+  });
+
   it("неразобранный файл задачи попадает в шапку отчёта своего проекта", async () => {
     const backlog = await makeTestApp({ ...SAMPLE_FILES, "spa/SPA-9.md": "---\nid: [\n---\n" });
 

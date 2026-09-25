@@ -4,7 +4,7 @@ import type { Priority, Resolution, Task, TaskCategory, TaskStatus, TaskType } f
 
 const CREATED_STATUS: TaskStatus = "backlog";
 
-export type Transition = { at: number; from?: TaskStatus | undefined; to: TaskStatus; resolution?: Recorded<Resolution> | undefined; via: ChangeSource | "unknown" };
+export type Transition = { at: number; from?: TaskStatus | undefined; to: TaskStatus; resolution?: Recorded<Resolution> | undefined; via: ChangeSource | "unknown"; undo?: true | undefined };
 
 export type TaskHistory = {
   id: string;
@@ -60,7 +60,7 @@ export function taskHistories(tasks: readonly Task[], journals: readonly Project
       if (event.kind === "category") item.categoryEvents.push({ at: Date.parse(event.at), to: event.to });
       if (event.kind === "priority") item.priorityEvents.push({ at: Date.parse(event.at), to: event.to });
       if (event.kind === "status") {
-        item.transitions.push({ at: Date.parse(event.at), from: event.from, to: event.to, resolution: event.resolution, via: event.via });
+        item.transitions.push({ at: Date.parse(event.at), from: event.from, to: event.to, resolution: event.resolution, via: event.via, undo: event.undo });
       }
       if (event.kind === "candidate") item.candidates.push({ at: Date.parse(event.at), evidence: event.evidence, method: recordedMethodOf(event), match: event.match ?? "unknown" });
       if (event.kind === "candidate-filtered") item.filtered.push(Date.parse(event.at));
@@ -98,7 +98,7 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, prio
   const createdIso = final?.created ?? created?.at;
   const type = final?.type ?? created?.type;
   if (createdIso === undefined || type === undefined) return [];
-  const ordered = [...transitions].sort((a, b) => a.at - b.at);
+  const ordered = withoutUndoneClosings([...transitions].sort((a, b) => a.at - b.at));
   const fateUnknown = final === undefined && unparsed;
   return [
     {
@@ -119,6 +119,16 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, prio
       filtered: [...filtered].sort((a, b) => a - b),
     },
   ];
+}
+
+function withoutUndoneClosings(ordered: readonly Transition[]): Transition[] {
+  const kept: Transition[] = [];
+  for (const transition of ordered) {
+    const undone = kept.at(-1);
+    if (transition.undo === true && undone !== undefined && isClosing(undone) && transition.from === undone.to) kept.pop();
+    else kept.push(transition);
+  }
+  return kept;
 }
 
 function categoryOf(

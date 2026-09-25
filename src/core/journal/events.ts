@@ -67,7 +67,7 @@ export function recordedMethodOf({ method, bySymbol, byAnchor }: MethodMarks): R
   return bySymbol === true || byAnchor === true ? checkMethodOf({ bySymbol, byAnchor }) : "unknown";
 }
 
-const eventBase = { at: z.iso.datetime({ offset: true }), task: z.string().min(1), via: recordedEnum(CHANGE_SOURCES) };
+const eventBase = { at: z.iso.datetime({ offset: true }), task: z.string().min(1), via: recordedEnum(CHANGE_SOURCES), undo: z.literal(true).optional().catch(undefined) };
 
 const taskSnapshotSchema = taskFrontmatterSchema.extend({
   priority: recordedEnum(PRIORITIES),

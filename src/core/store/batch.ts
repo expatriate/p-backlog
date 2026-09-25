@@ -26,7 +26,7 @@ async function applyOne(index: BacklogIndex, { id, version }: { id: string; vers
   if (!current) return { id, outcome: "skipped", reason: "not-found" };
   const plan = planFor(current, action, index);
   if ("skip" in plan) return { id, outcome: "skipped", reason: plan.skip };
-  const result = await updateUnlessBusy(index, { id, changes: plan.changes, closure: plan.closure, expectedVersion: version, now, via: "web" });
+  const result = await updateUnlessBusy(index, { id, changes: plan.changes, closure: plan.closure, expectedVersion: version, now, via: "web", undo: action.kind === "restore" });
   if (result === "busy") return { id, outcome: "skipped", reason: "busy" };
   if (result.ok) return { id, outcome: "done", task: result.task, previous: previousOf(current) };
   if (result.reason === "conflict") return { id, outcome: "skipped", reason: "changed" };

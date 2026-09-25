@@ -19,11 +19,11 @@ export type TaskChanges = OptionalFields<
   anchor?: string | null | undefined;
 };
 
-export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion: string; now: Date; closure?: Closure | undefined; via: ChangeSource };
+export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion: string; now: Date; closure?: Closure | undefined; via: ChangeSource; undo?: boolean | undefined };
 
 const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "related", "body", "source", "verified"] as const;
 
-export async function updateTaskInIndex(index: BacklogIndex, { id, changes, expectedVersion, now, closure, via }: UpdateTaskRequest): Promise<UpdateTaskResult> {
+export async function updateTaskInIndex(index: BacklogIndex, { id, changes, expectedVersion, now, closure, via, undo = false }: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const current = index.byId.get(id);
   if (!current) return { ok: false, reason: "not-found" };
   if (expectedVersion !== current.version) return { ok: false, reason: "conflict", current };
@@ -38,7 +38,8 @@ export async function updateTaskInIndex(index: BacklogIndex, { id, changes, expe
     const changedOnDisk = await diskChange(current, expectedVersion);
     if (changedOnDisk !== null) return changedOnDisk;
     await writeFileAtomic(current.path, text);
-    await appendJournal(dirname(current.path), changeEvents(current, task, now, via));
+    const events = changeEvents(current, task, now, via);
+    await appendJournal(dirname(current.path), undo ? events.map((event) => ({ ...event, undo: true })) : events);
     return { ok: true, task };
   });
 }
