@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { link, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, link, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { z } from "zod";
@@ -116,6 +116,7 @@ async function viaTemporaryFile(path: string, content: string, publish: (tempora
   const temporary = temporaryPathFor(path);
   try {
     await writeFile(temporary, content, { encoding: "utf8", mode });
+    if (mode !== undefined) await chmod(temporary, mode);
     await publish(temporary);
   } finally {
     await rm(temporary, { force: true });

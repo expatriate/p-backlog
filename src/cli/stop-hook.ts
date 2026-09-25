@@ -1,11 +1,13 @@
-import { mkdir, readFile, realpath, stat } from "node:fs/promises";
-import { dirname } from "node:path";
+import { mkdir, readFile, readlink, realpath, stat } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { z } from "zod";
 import { errorCodeOrText } from "../core/errors";
 import { hasErrorCode, writeFileAtomic } from "../core/store/fs-utils";
 
 const POSIX_COMMAND = "command -v backlog >/dev/null && backlog hook stop || true";
 const POWERSHELL_COMMAND = "if (Get-Command backlog.cmd -ErrorAction SilentlyContinue) { backlog.cmd hook stop }";
+
+const MAX_LINK_HOPS = 40;
 
 type StopHook = { type: "command"; command: string; shell?: "powershell" };
 
@@ -31,21 +33,21 @@ export function isOurStopHook(hook: unknown): boolean {
 export async function addStopHook(settingsPath: string, platform: NodeJS.Platform): Promise<StopHookResult> {
   const text = await readSettingsText(settingsPath);
   if (typeof text !== "string") return text;
-  const settings = parseSettingsInPlace(text);
+  const settings = validatedSettings(text);
   if (settings === null) return { failed: "invalid" };
   const hooks = (settings.hooks ??= {});
   const stopGroups = (hooks.Stop ??= []);
   const installed = stopGroups.some((group) => group.hooks?.some(isOurStopHook) ?? false);
   if (installed) return "exists";
   stopGroups.push({ hooks: [stopHookFor(platform)] });
-  const target = await realFileOf(settingsPath);
-  await mkdir(dirname(target), { recursive: true });
+  await mkdir(dirname(settingsPath), { recursive: true });
+  const target = await writeTargetOf(settingsPath);
   const mode = await stat(target).then(({ mode }) => mode & 0o777, () => undefined);
   await writeFileAtomic(target, `${JSON.stringify(settings, null, 2)}\n`, mode);
   return "added";
 }
 
-function parseSettingsInPlace(text: string): Settings | null {
+function validatedSettings(text: string): Settings | null {
   let value: unknown;
   try {
     value = JSON.parse(text);
@@ -55,13 +57,23 @@ function parseSettingsInPlace(text: string): Settings | null {
   return settingsSchema.safeParse(value).success ? (value as Settings) : null;
 }
 
-async function realFileOf(path: string): Promise<string> {
+async function writeTargetOf(path: string): Promise<string> {
   try {
     return await realpath(path);
   } catch (error) {
-    if (hasErrorCode(error, "ENOENT")) return path;
+    if (hasErrorCode(error, "ENOENT")) return danglingLinkTarget(path);
     throw error;
   }
+}
+
+async function danglingLinkTarget(path: string): Promise<string> {
+  let current = path;
+  for (let hop = 0; hop < MAX_LINK_HOPS; hop++) {
+    const link = await readlink(current).catch(() => null);
+    if (link === null) return current;
+    current = resolve(dirname(current), link);
+  }
+  return current;
 }
 
 async function readSettingsText(settingsPath: string): Promise<string | { failed: "unreadable"; code: string }> {
