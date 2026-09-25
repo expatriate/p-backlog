@@ -1,4 +1,4 @@
-import type { Task } from "../model/types";
+import { UNKNOWN } from "../journal/events";
 import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
 import { scopeLabel } from "./format";
 import { closingsOf, isOpenAt, type TaskHistory } from "./history";
@@ -20,7 +20,7 @@ export function statsReport(input: StatsInput, base: ReportBase = reportBase(inp
 
   return {
     ...base.head,
-    totals: totals(openTasks, histories, now, period, base.scope.journalStart),
+    totals: totals(histories, now, period, base.scope.journalStart),
     weeks: weeklyFlow(histories, now),
     days: dailyIntake(histories, now),
     hotspots: hotspots(openTasks, scopeLabel(projectId)),
@@ -29,10 +29,11 @@ export function statsReport(input: StatsInput, base: ReportBase = reportBase(inp
   };
 }
 
-function totals(openTasks: readonly Task[], histories: readonly TaskHistory[], now: Date, period: Period, journalStart: number | null): StatsTotals {
+function totals(histories: readonly TaskHistory[], now: Date, period: Period, journalStart: number | null): StatsTotals {
   const nowMs = now.getTime();
   const inLastWeek = (moment: number) => moment > nowMs - WEEK_MS && moment <= nowMs;
-  const ages = histories.filter((history) => isOpenAt(history, nowMs)).map((history) => daysBetween(history.createdAt, nowMs));
+  const openNow = histories.filter((history) => isOpenAt(history, nowMs));
+  const ages = openNow.map((history) => daysBetween(history.createdAt, nowMs));
   const leadTimes = histories.flatMap((history) =>
     closingsOf(history)
       .filter((closing) => period.contains(closing.at))
@@ -43,7 +44,7 @@ function totals(openTasks: readonly Task[], histories: readonly TaskHistory[], n
     open: ages.length,
     createdToday: histories.filter((history) => formatLocalDay(new Date(history.createdAt)) === today).length,
     closedToday: histories.flatMap(closingsOf).filter((closing) => formatLocalDay(new Date(closing.at)) === today).length,
-    openWeight: sum(openTasks.map((task) => PRIORITY_WEIGHT[task.priority])),
+    openWeight: sum(openNow.map(priorityWeight)),
     createdLastWeek: histories.filter((history) => inLastWeek(history.createdAt)).length,
     closedLastWeek: histories.flatMap(closingsOf).filter((closing) => inLastWeek(closing.at)).length,
     ageMedianDays: median(ages),
@@ -52,6 +53,10 @@ function totals(openTasks: readonly Task[], histories: readonly TaskHistory[], n
     leadTimeP90Days: nearestRank(leadTimes, TAIL_FRACTION),
     previous: previousTotals(histories, nowMs, journalStart),
   };
+}
+
+function priorityWeight({ priority }: TaskHistory): number {
+  return priority === undefined || priority === UNKNOWN ? 0 : PRIORITY_WEIGHT[priority];
 }
 
 function previousTotals(histories: readonly TaskHistory[], nowMs: number, journalStart: number | null): PreviousTotals | null {

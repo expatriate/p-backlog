@@ -59,8 +59,19 @@ async function brokenProjectFilesOf(loaded: LoadedBacklog, roots: GitRoots, home
   return broken.filter((error, position) => basename(dirname(error.path)) === ownId || repoPaths.some((path) => mentionsPath(texts[position] ?? "", path)));
 }
 
+const PATH_BOUNDARY = /[\s"',[\]]/;
+const TRAILING_SEPARATORS = /^[\\/]*/;
+
 function mentionsPath(text: string, path: string): boolean {
-  return text.split(/[\s"',[\]]+/).some((word) => word.replace(/[\\/]+$/, "") === path);
+  for (let start = text.indexOf(path); start !== -1; start = text.indexOf(path, start + 1)) {
+    const end = start + path.length + (TRAILING_SEPARATORS.exec(text.slice(start + path.length))?.[0].length ?? 0);
+    if (isBoundary(text.charAt(start - 1)) && isBoundary(text.charAt(end))) return true;
+  }
+  return false;
+}
+
+function isBoundary(char: string): boolean {
+  return char === "" || PATH_BOUNDARY.test(char);
 }
 
 function homeRelative(path: string, home: string): string {

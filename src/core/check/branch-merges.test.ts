@@ -31,7 +31,7 @@ describe("слияния, уже известные задаче при созд
     }
     const anchored = (id: string, line: number) => makeTask({ id, created: CREATED, source: `src/a.ts:${line}`, anchor: anchorOf(text, `src/a.ts:${line}`) ?? undefined });
     const tasks = [anchored("SPA-1", 2), anchored("SPA-2", 5), makeTask({ id: "SPA-3", created: CREATED, source: "src/a.ts" }), makeTask({ id: "SPA-4", created: CREATED, source: "src/a.ts" })];
-    const facts = await collectRepoFacts(repo, { since: new Date(CREATED), paths: ["src/a.ts"] });
+    const facts = await collectRepoFacts(repo, new Map([["src/a.ts", Date.parse(CREATED)]]));
     const counting = countingGit();
 
     const known = await mergesKnownAtCreation({ repo, tasks, facts, origins: new Map(tasks.map((task) => [task.id, origin])), git: counting.git });

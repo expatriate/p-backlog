@@ -201,6 +201,18 @@ describe("backlog new", () => {
     expect(result.code).toBe(EXIT.notFound);
   });
 
+  it("битый project.md со своим путём, в котором есть пробел, останавливает создание проекта", async () => {
+    const { run, root, home } = await makeCliSandbox();
+    const spaced = join(home, "My Projects", "app");
+    await mkdir(spaced, { recursive: true });
+    execFileSync("git", ["init", "-q", "-b", "master"], { cwd: spaced });
+    await writeFiles(root, { "other/project.md": `---\nname: other\nprefix: OT\nrepos: [${spaced}]\n  bad\n---\n` });
+
+    const result = await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"], { cwd: spaced });
+
+    expect(result.code).toBe(EXIT.notFound);
+  });
+
   it("неизвестные категория и «как найдена» — код 1", async () => {
     const { run } = await makeCliSandbox();
 

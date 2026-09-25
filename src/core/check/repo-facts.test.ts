@@ -6,6 +6,8 @@ import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTemp
 import { countingGit } from "../git/testing/counting-git";
 import { collectRepoFacts, diffsSince } from "./repo-facts";
 
+const marksSince = (iso: string, paths: readonly string[]) => new Map(paths.map((path) => [path, Date.parse(iso)]));
+
 describe("collectRepoFacts", () => {
   it("собирает коммиты после даты с файлами и переименованиями, незакоммиченные правки и существующие файлы", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
@@ -18,7 +20,7 @@ describe("collectRepoFacts", () => {
     gitCommitAll(repo, "Переименовать old", "2026-09-13T10:00:00+03:00");
     await writeFile(join(repo, "src/a.ts"), "export const a = 3;\n");
 
-    const facts = await collectRepoFacts(repo, { since: new Date("2026-09-11T00:00:00Z"), paths: ["src/a.ts", "src/old.ts", "src/new.ts", "src/загрузка.ts"] });
+    const facts = await collectRepoFacts(repo, marksSince("2026-09-11T00:00:00Z", ["src/a.ts", "src/old.ts", "src/new.ts", "src/загрузка.ts"]));
 
     expect(facts.history).toBe("read");
     expect(facts.renames.map(({ subject, files }) => ({ subject, files }))).toEqual([{ subject: "Переименовать old", files: [{ path: "src/new.ts", renamedFrom: "src/old.ts" }] }]);
@@ -43,7 +45,7 @@ describe("collectRepoFacts", () => {
     gitCommitAll(mono, "Поправить a и b", "2026-09-12T10:00:00+03:00");
     await writeFiles(mono, { "app/src/a.ts": "export const a = 3;\n", "lib/b.ts": "export const b = 3;\n" });
 
-    const facts = await collectRepoFacts(join(mono, "app"), { since: new Date("2026-09-11T00:00:00Z"), paths: ["src/a.ts"] });
+    const facts = await collectRepoFacts(join(mono, "app"), marksSince("2026-09-11T00:00:00Z", ["src/a.ts"]));
 
     expect(facts.commits.map(({ files }) => files)).toEqual([[{ path: "src/a.ts" }]]);
     expect([...facts.dirtyModifiedAt.keys()]).toEqual(["src/a.ts"]);
@@ -57,7 +59,7 @@ describe("collectRepoFacts", () => {
     await writeFile(join(repo, odd), "b\n");
     gitCommitAll(repo, "Правка", "2026-09-12T10:00:00+03:00");
 
-    const facts = await collectRepoFacts(repo, { since: new Date("2026-09-11T00:00:00Z"), paths: [odd] });
+    const facts = await collectRepoFacts(repo, marksSince("2026-09-11T00:00:00Z", [odd]));
 
     expect(facts.commits.map(({ files }) => files)).toEqual([[{ path: odd }]]);
   });
@@ -69,7 +71,7 @@ describe("collectRepoFacts", () => {
     await writeFile(join(repo, "src/a.ts"), "export const a = 2;\n");
     gitCommitAll(repo, "Поправить a", "2026-09-12T10:00:00+03:00");
 
-    const facts = await collectRepoFacts(repo, { since: new Date("2026-09-11T00:00:00Z"), paths: ["../outside.ts", "", "src/a.ts"] });
+    const facts = await collectRepoFacts(repo, marksSince("2026-09-11T00:00:00Z", ["../outside.ts", "", "src/a.ts"]));
 
     expect(facts.history).toBe("read");
     expect(facts.commits.map(({ files }) => files)).toEqual([[{ path: "src/a.ts" }]]);
@@ -79,7 +81,7 @@ describe("collectRepoFacts", () => {
     const dir = await makeTempDir();
     await writeFiles(dir, { "src/a.ts": "" });
 
-    const facts = await collectRepoFacts(dir, { since: new Date("2026-09-11T00:00:00Z"), paths: ["src/a.ts", "src/b.ts"] });
+    const facts = await collectRepoFacts(dir, marksSince("2026-09-11T00:00:00Z", ["src/a.ts", "src/b.ts"]));
 
     expect(facts).toEqual({ history: "not-a-repo", commits: [], renames: [], dirtyModifiedAt: new Map(), existing: new Set(["src/a.ts"]), texts: new Map([["src/a.ts", ""]]) });
   });
@@ -92,7 +94,7 @@ describe("collectRepoFacts", () => {
     await utimes(join(repo, "src/a.ts"), staleStat, staleStat);
     const indexBefore = await readFile(join(repo, ".git/index"));
 
-    await collectRepoFacts(repo, { since: new Date("2026-09-01T00:00:00Z"), paths: ["src/a.ts"] });
+    await collectRepoFacts(repo, marksSince("2026-09-01T00:00:00Z", ["src/a.ts"]));
 
     expect(await readFile(join(repo, ".git/index"))).toEqual(indexBefore);
   });

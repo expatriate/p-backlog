@@ -8,6 +8,7 @@ import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
 import { roundToTenth } from "../numbers";
+import { DAYS_PER_WEEK } from "../stats/weeks";
 import type { FlowForecast, Signal } from "../stats/types";
 import type { CoreMessages, CountUnit } from "./index";
 import { zodIssueText } from "./zod";
@@ -103,8 +104,9 @@ function forecast({ open, weeklyNet, weeks, until }: FlowForecast): string {
   return `Debt grows by ${growth} ${pluralEn(growth, "task", "tasks")} a week`;
 }
 
-function forecastTail({ windowWeeks, closed, created }: FlowForecast): string {
-  return `over ${countEn(windowWeeks, "week", "weeks")}: closed ${closed}, created ${created}`;
+function forecastTail({ windowDays, closed, created }: FlowForecast): string {
+  const span = windowDays % DAYS_PER_WEEK === 0 ? countEn(windowDays / DAYS_PER_WEEK, "week", "weeks") : countEn(windowDays, "day", "days");
+  return `over ${span}: closed ${closed}, created ${created}`;
 }
 
 function signal(s: Signal): string {

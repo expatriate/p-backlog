@@ -12,6 +12,7 @@ CLI contract changes (scripts that parse output or exit codes may need updating)
 - `backlog`, `backlog --help` and `backlog <command> --help` print help to stdout with exit code `0`.
 - Argument errors are shown in the interface language and followed by the command's usage. Arguments that used to be ignored are now rejected with exit code `1`: extra words after `project list`, `--confirm` outside `project delete`, an empty `list --status`, `take <ID> --project`, `take --next|--path --force`, a `serve --port` that is not a decimal number from 1 to 65535.
 - `serve` and `service install` reject a `PORT` environment variable that is not a decimal number from 1 to 65535 with exit code `1` instead of silently using 4317. `serve` exits with `0` after a clean stop on SIGTERM, SIGINT or SIGHUP.
+- `stats` prints warnings about unparsed task files and journal lines before the "Open" line; `stats --json` has `unparsedTasks` and `invalidJournalLines`. `totals.open`, the age median and the open weight now count tasks by their history, so an open task whose file cannot be parsed is still counted. `forecast.windowWeeks` is replaced by `forecast.windowDays` — the span the weekly rate is computed over.
 - `hook stop` exits with `0` on internal failures (for example, an unreadable backlog directory) and only prints a warning to stderr, so Claude Code on Windows no longer reports a hook error on every turn.
 
 Other changes:

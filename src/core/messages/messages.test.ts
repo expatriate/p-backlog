@@ -21,7 +21,7 @@ describe("тексты ошибок ядра", () => {
 });
 
 describe("прогноз долга", () => {
-  const forecast = { closed: 0, created: 0, open: 3, weeklyNet: 0, weeks: null, until: null, windowWeeks: 4 };
+  const forecast = { closed: 0, created: 0, open: 3, weeklyNet: 0, weeks: null, until: null, windowDays: 28 };
 
   it("нет открытых задач", () => {
     expect(coreMessages("ru").forecast({ ...forecast, open: 0 })).toBe("Открытых задач нет");
@@ -47,9 +47,11 @@ describe("прогноз долга", () => {
     expect(coreMessages("ru").forecast({ ...forecast, weeklyNet: -1 })).toBe(`Долг растёт на 1${NBSP}задача в неделю`);
   });
 
-  it("хвост прогноза — недели согласуются с числом", () => {
-    expect(coreMessages("ru").forecastTail({ ...forecast, closed: 2, created: 20, windowWeeks: 4 })).toBe(`за 4${NBSP}недели: закрыто 2, создано 20`);
-    expect(coreMessages("ru").forecastTail({ ...forecast, closed: 0, created: 1, windowWeeks: 1 })).toBe(`за 1${NBSP}неделю: закрыто 0, создано 1`);
+  it("хвост прогноза — недели согласуются с числом, неполные недели — в днях", () => {
+    expect(coreMessages("ru").forecastTail({ ...forecast, closed: 2, created: 20, windowDays: 28 })).toBe(`за 4${NBSP}недели: закрыто 2, создано 20`);
+    expect(coreMessages("ru").forecastTail({ ...forecast, closed: 0, created: 1, windowDays: 7 })).toBe(`за 1${NBSP}неделю: закрыто 0, создано 1`);
+    expect(coreMessages("ru").forecastTail({ ...forecast, closed: 0, created: 2, windowDays: 16 })).toBe(`за 16${NBSP}дней: закрыто 0, создано 2`);
+    expect(coreMessages("en").forecastTail({ ...forecast, closed: 0, created: 2, windowDays: 16 })).toBe(`over 16${NBSP}days: closed 0, created 2`);
   });
 });
 

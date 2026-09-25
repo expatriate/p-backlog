@@ -13,7 +13,7 @@ export async function currentSources(tasks: readonly Task[], facts: RepoFacts, d
 
 export async function currentSourceIn(repo: string, task: Task): Promise<string | null> {
   if (task.source === undefined) return null;
-  const facts = await collectRepoFacts(repo, { since: new Date(reviewMark(task)), paths: [sourcePath(task.source)] });
+  const facts = await collectRepoFacts(repo, new Map([[sourcePath(task.source), reviewMark(task)]]));
   return currentSource(task, facts, diffsSince(repo));
 }
 

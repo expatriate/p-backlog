@@ -22,17 +22,18 @@ export type RepoFacts = {
 
 const DIFF_LINE_LIMIT = 80;
 
-type FactsRequest = { since: Date; paths: readonly string[]; pathMarks?: ReadonlyMap<string, number> };
+export type PathMarks = ReadonlyMap<string, number>;
 
-export async function collectRepoFacts(repo: string, { since, paths, pathMarks = new Map() }: FactsRequest): Promise<RepoFacts> {
+export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Promise<RepoFacts> {
+  const paths = [...pathMarks.keys()];
   const [prefix, existing] = await Promise.all([runGit(repo, ["rev-parse", "--show-prefix"]), existingPaths(repo, paths)]);
   const texts = await fileTexts(repo, [...existing]);
   const withoutHistory = (history: GitHistory): RepoFacts => ({ history, commits: [], renames: [], dirtyModifiedAt: new Map(), existing, texts });
   if (prefix === null) return withoutHistory("not-a-repo");
   const missing = paths.filter((path) => !existing.has(path));
   const [log, renames, status] = await Promise.all([
-    pathLog(repo, since, paths),
-    missing.length === 0 ? "" : runGit(repo, [...logArgs(earliest(missing, pathMarks) ?? since), "--diff-filter=R"]),
+    pathLog(repo, earliestMark(pathMarks, paths), paths),
+    missing.length === 0 ? "" : runGit(repo, [...logArgs(earliestMark(pathMarks, missing)), "--diff-filter=R"]),
     runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
   ]);
   if (log === null || renames === null || status === null) return withoutHistory("unreadable");
@@ -40,9 +41,8 @@ export async function collectRepoFacts(repo: string, { since, paths, pathMarks =
   return { history: "read", commits: parseLog(log), renames: parseLog(renames), dirtyModifiedAt: await modificationTimes(repo, dirty), existing, texts };
 }
 
-function earliest(paths: readonly string[], marks: ReadonlyMap<string, number>): Date | null {
-  const known = paths.flatMap((path) => marks.get(path) ?? []);
-  return known.length === paths.length ? new Date(Math.min(...known)) : null;
+function earliestMark(marks: PathMarks, paths: readonly string[]): Date {
+  return new Date(Math.min(...paths.flatMap((path) => marks.get(path) ?? [])));
 }
 
 function logArgs(since: Date): string[] {

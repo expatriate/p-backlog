@@ -48,7 +48,7 @@ export type StatsReport = ReportHead & {
 
 export type WorkStatus = "in-progress" | "blocked";
 export type LongestInWork = { id: string; projectId: string; title: string; status: WorkStatus; days: number; atLeast: boolean };
-export type FlowForecast = { closed: number; created: number; open: number; weeklyNet: number; weeks: number | null; until: string | null; windowWeeks: number };
+export type FlowForecast = { closed: number; created: number; open: number; weeklyNet: number; weeks: number | null; until: string | null; windowDays: number };
 
 export type CommitUnit = { date: string; lines: number };
 export type RepoCode = { commits: string[][]; lines: { path: string; lines: number }[]; units: CommitUnit[] };

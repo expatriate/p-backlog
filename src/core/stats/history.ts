@@ -1,6 +1,6 @@
 import { recordedMethodOf, type Recorded, type CandidateEvidence, type ChangeSource, type RecordedMatch, type RecordedMethod, type FoundHow, type JournalEvent, type ProjectJournal, type TaskSnapshot } from "../journal/events";
 import { isClosed } from "../model/graph";
-import type { Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
+import type { Priority, Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
 
 const CREATED_STATUS: TaskStatus = "backlog";
 
@@ -15,6 +15,7 @@ export type TaskHistory = {
   reason?: string | undefined;
   finalStatus: TaskStatus;
   transitions: Transition[];
+  priority?: Recorded<Priority> | undefined;
   category?: Recorded<TaskCategory> | undefined;
   found?: Recorded<FoundHow> | undefined;
   branch?: string | undefined;
@@ -27,11 +28,14 @@ export type CandidateSeen = { at: number; evidence: CandidateEvidence; method: R
 
 type CategoryEvent = { at: number; to?: Recorded<TaskCategory> | undefined };
 
+type PriorityEvent = { at: number; to: Recorded<Priority> };
+
 type Known = {
   projectId: string;
   final?: Task | TaskSnapshot;
   created?: Extract<JournalEvent, { kind: "created" }>;
   categoryEvents: CategoryEvent[];
+  priorityEvents: PriorityEvent[];
   transitions: Transition[];
   candidates: CandidateSeen[];
   verifications: number[];
@@ -43,7 +47,7 @@ export function taskHistories(tasks: readonly Task[], journals: readonly Project
   const entry = (id: string, projectId: string): Known => {
     const existing = known.get(id);
     if (existing) return existing;
-    const created: Known = { projectId, categoryEvents: [], transitions: [], candidates: [], verifications: [], filtered: [] };
+    const created: Known = { projectId, categoryEvents: [], priorityEvents: [], transitions: [], candidates: [], verifications: [], filtered: [] };
     known.set(id, created);
     return created;
   };
@@ -54,6 +58,7 @@ export function taskHistories(tasks: readonly Task[], journals: readonly Project
       if (event.kind === "created") item.created = event;
       if (event.kind === "deleted") item.final ??= event.snapshot;
       if (event.kind === "category") item.categoryEvents.push({ at: Date.parse(event.at), to: event.to });
+      if (event.kind === "priority") item.priorityEvents.push({ at: Date.parse(event.at), to: event.to });
       if (event.kind === "status") {
         item.transitions.push({ at: Date.parse(event.at), from: event.from, to: event.to, resolution: event.resolution, via: event.via });
       }
@@ -89,7 +94,7 @@ export function reopeningsOf(history: TaskHistory): Transition[] {
   return history.transitions.filter((transition) => transition.from !== undefined && isClosed(transition.from) && !isClosed(transition.to));
 }
 
-function historyOf(id: string, { projectId, final, created, categoryEvents, transitions, candidates, verifications, filtered }: Known, unparsed: boolean): TaskHistory[] {
+function historyOf(id: string, { projectId, final, created, categoryEvents, priorityEvents, transitions, candidates, verifications, filtered }: Known, unparsed: boolean): TaskHistory[] {
   const createdIso = final?.created ?? created?.at;
   const type = final?.type ?? created?.type;
   if (createdIso === undefined || type === undefined) return [];
@@ -105,6 +110,7 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, tran
       reason: final?.reason,
       finalStatus: final?.status ?? (fateUnknown ? (ordered.at(-1)?.to ?? CREATED_STATUS) : "cancelled"),
       transitions: fateUnknown ? ordered : [...ordered, ...restoredTransitions(final, ordered, Date.parse(createdIso))],
+      priority: final?.priority ?? [...priorityEvents].sort((a, b) => a.at - b.at).at(-1)?.to ?? created?.priority,
       category: categoryOf(final, created, categoryEvents),
       found: created?.found,
       branch: created?.origin?.branch,

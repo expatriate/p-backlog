@@ -8,6 +8,7 @@ import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
 import { roundToTenth } from "../numbers";
+import { DAYS_PER_WEEK } from "../stats/weeks";
 import type { FlowForecast, Signal } from "../stats/types";
 import type { CountUnit } from "./index";
 import { zodIssueText } from "./zod";
@@ -106,8 +107,9 @@ function forecast({ open, weeklyNet, weeks, until }: FlowForecast): string {
   return `Долг растёт на ${formatDecimal("ru", growth)}${NBSP}${pluralRu(growth, "задача", "задачи", "задач")} в неделю`;
 }
 
-function forecastTail({ windowWeeks, closed, created }: FlowForecast): string {
-  return `за ${countRu(windowWeeks, "неделю", "недели", "недель")}: закрыто ${closed}, создано ${created}`;
+function forecastTail({ windowDays, closed, created }: FlowForecast): string {
+  const span = windowDays % DAYS_PER_WEEK === 0 ? countRu(windowDays / DAYS_PER_WEEK, "неделю", "недели", "недель") : countRu(windowDays, "день", "дня", "дней");
+  return `за ${span}: закрыто ${closed}, создано ${created}`;
 }
 
 function signal(s: Signal): string {

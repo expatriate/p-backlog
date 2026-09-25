@@ -99,7 +99,7 @@ describe("отчёт статистики", () => {
     });
 
     expect(report.unparsedTasks).toBe(1);
-    expect(report.totals).toMatchObject({ open: 1, closedToday: 0, closedLastWeek: 0 });
+    expect(report.totals).toMatchObject({ open: 1, openWeight: 2, closedToday: 0, closedLastWeek: 0 });
     expect(report.closing.byReason.cancelled).toBe(0);
     expect(report.weeks.at(-1)).toMatchObject({ closed: 0, openAtEnd: 1 });
   });
