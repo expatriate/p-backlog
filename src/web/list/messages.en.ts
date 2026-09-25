@@ -58,6 +58,20 @@ export const listEn: ListMessages = {
   selectTask: (id) => `Select ${id}`,
   selectAllVisible: "Select all visible",
 
+  selectionActions: "Actions on selected",
+  selectedCount: (n) => `${n} selected`,
+  hiddenByFilter: (n) => `(${n} hidden by filter)`,
+  closeAsObsolete: "Close as obsolete",
+  closeDialogTitle: (n) => `Close ${countEn(n, "task", "tasks")} as obsolete?`,
+  closeDialogDescription: (status) => `Status becomes “${status}”; the reason is saved to every task.`,
+  closeReason: "Reason",
+  closeConfirm: (n) => `Close ${n}`,
+  epic: "Epic",
+  removeFromEpic: "Remove from epic",
+  mixedProjects: "Tasks from different projects",
+  clearSelection: "Clear selection",
+  bulkFailed: "Couldn't change the tasks",
+
   collapseTags: "collapse",
   showMoreTags: (n) => `Show ${n} more`,
 };

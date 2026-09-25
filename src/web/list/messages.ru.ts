@@ -1,4 +1,4 @@
-import { countRu } from "../../core/i18n/plural";
+import { countRu, pluralRu } from "../../core/i18n/plural";
 
 export const listRu = {
   docTitle: (title: string): string => `${title} — Беклог`,
@@ -57,6 +57,20 @@ export const listRu = {
 
   selectTask: (id: string): string => `Выбрать ${id}`,
   selectAllVisible: "Выбрать все видимые",
+
+  selectionActions: "Действия с выбранными",
+  selectedCount: (n: number): string => `Выбрано ${n}`,
+  hiddenByFilter: (n: number): string => `(${n} ${pluralRu(n, "скрыта", "скрыты", "скрыто")} фильтром)`,
+  closeAsObsolete: "Закрыть как неактуальные",
+  closeDialogTitle: (n: number): string => `Закрыть ${countRu(n, "задачу", "задачи", "задач")} как неактуальные?`,
+  closeDialogDescription: (status: string): string => `Статус станет «${status}», причина запишется в каждую задачу.`,
+  closeReason: "Причина",
+  closeConfirm: (n: number): string => `Закрыть ${n}`,
+  epic: "Эпик",
+  removeFromEpic: "Вынуть из эпика",
+  mixedProjects: "Задачи из разных проектов",
+  clearSelection: "Снять выбор",
+  bulkFailed: "Не удалось изменить задачи",
 
   collapseTags: "свернуть",
   showMoreTags: (n: number): string => `Показать ещё ${n}`,

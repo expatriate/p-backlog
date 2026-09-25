@@ -6,10 +6,10 @@ type SelectionState = { scopeKey: string; selected: ReadonlySet<string>; anchor:
 
 const NOTHING_SELECTED: ReadonlySet<string> = new Set();
 
-export function useTaskSelection(visibleIds: readonly string[], scopeKey: string) {
+export function useTaskSelection(visibleIds: readonly string[], scopeKey: string, loadedIds: ReadonlySet<string>) {
   const [state, setState] = useState<SelectionState>({ scopeKey, selected: NOTHING_SELECTED, anchor: undefined });
   if (state.scopeKey !== scopeKey) setState({ scopeKey, selected: NOTHING_SELECTED, anchor: undefined });
-  const { selected } = state;
+  const selected = useMemo(() => onlyLoaded(state.selected, loadedIds), [state.selected, loadedIds]);
 
   const toggle = useCallback(
     (id: string, options?: { range: boolean }) =>
@@ -36,6 +36,11 @@ export function useTaskSelection(visibleIds: readonly string[], scopeKey: string
 }
 
 export type TaskSelection = ReturnType<typeof useTaskSelection>;
+
+function onlyLoaded(selected: ReadonlySet<string>, loadedIds: ReadonlySet<string>): ReadonlySet<string> {
+  const loaded = [...selected].filter((id) => loadedIds.has(id));
+  return loaded.length === selected.size ? selected : new Set(loaded);
+}
 
 function rangeOf(visibleIds: readonly string[], anchor: string | undefined, id: string): readonly string[] {
   const from = anchor === undefined ? -1 : visibleIds.indexOf(anchor);

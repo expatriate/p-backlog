@@ -13,8 +13,8 @@ describe("подтверждение действия", () => {
         open
         title="Удалить проект «Торг»?"
         description="Задач: 27. Отменить нельзя."
-        confirmWord="torg-io"
-        confirmWordLabel="Введите id проекта: torg-io"
+        fieldLabel="Введите id проекта: torg-io"
+        canConfirm={(typed) => typed === "torg-io"}
         confirmLabel="Удалить"
         cancelLabel="Отмена"
         onConfirm={onConfirm}
@@ -42,8 +42,8 @@ describe("подтверждение действия", () => {
         open
         title="Удалить проект «Торг»?"
         description="Задач: 27. Отменить нельзя."
-        confirmWord="torg-io"
-        confirmWordLabel="Введите id проекта: torg-io"
+        fieldLabel="Введите id проекта: torg-io"
+        canConfirm={(typed) => typed === "torg-io"}
         confirmLabel="Удалить"
         cancelLabel="Отмена"
         onConfirm={onConfirm}
@@ -81,8 +81,8 @@ function DialogOpener() {
         open={open}
         title="Удалить проект «Торг»?"
         description="Задач: 27. Отменить нельзя."
-        confirmWord="torg-io"
-        confirmWordLabel="Введите id проекта: torg-io"
+        fieldLabel="Введите id проекта: torg-io"
+        canConfirm={(typed) => typed === "torg-io"}
         confirmLabel="Удалить"
         cancelLabel="Отмена"
         onConfirm={() => setOpen(false)}

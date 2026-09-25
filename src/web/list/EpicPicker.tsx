@@ -1,10 +1,10 @@
-import { useRef, type ReactNode } from "react";
+import { useRef } from "react";
 import type { TaskFilter } from "../../core/model/query";
 import { useMessages } from "../i18n";
 import { CloseIcon } from "../ui/CloseIcon";
-import { cx } from "../ui/cx";
-import { Popover, POPOVER_INITIAL_FOCUS, useClosePopover } from "../ui/Popover";
-import type { EpicChoices } from "./epic-choices";
+import { MenuOption, MenuOptions } from "../ui/Menu";
+import { Popover, useClosePopover } from "../ui/Popover";
+import type { EpicChoice, EpicChoices } from "./epic-choices";
 import type { ListMessages } from "./messages.ru";
 import styles from "./EpicPicker.module.css";
 
@@ -66,48 +66,41 @@ function EpicOptions({ choices, selected, onSelect }: EpicPickerProps) {
   const foreignEpic = typeof selected === "string" && !choices.epics.some((epic) => epic.id === selected) ? selected : undefined;
 
   return (
-    <div className={styles.options} role="group" aria-label={list.epics}>
-      <EpicOption pressed={selected === undefined} onChoose={() => choose(undefined)}>
+    <MenuOptions label={list.epics}>
+      <MenuOption pressed={selected === undefined} onChoose={() => choose(undefined)}>
         {list.anyEpic}
-      </EpicOption>
-      <EpicOption pressed={selected === null} onChoose={() => choose(null)}>
+      </MenuOption>
+      <MenuOption pressed={selected === null} onChoose={() => choose(null)}>
         {list.noEpic} <span className={styles.count}>{choices.withoutEpicCount}</span>
-      </EpicOption>
+      </MenuOption>
       {(choices.epics.length > 0 || foreignEpic !== undefined) && (
         <div className={styles.epics}>
           {foreignEpic !== undefined && (
-            <EpicOption pressed onChoose={() => choose(foreignEpic)}>
+            <MenuOption pressed onChoose={() => choose(foreignEpic)}>
               <span className={styles.dot} aria-hidden="true" />
               <span className={styles.id}>{foreignEpic}</span>
               <span className={styles.title}>{list.epicNotFound}</span>
-            </EpicOption>
+            </MenuOption>
           )}
           {choices.epics.map((epic) => (
-            <EpicOption key={epic.id} pressed={selected === epic.id} tone={epic.tone} onChoose={() => choose(epic.id)}>
-              <span className={styles.dot} aria-hidden="true" />
-              <span className={styles.id}>{epic.id}</span>
-              <span className={styles.title}>{epic.title}</span>
-              <span className={styles.count}>{epic.taskCount}</span>
-            </EpicOption>
+            <MenuOption key={epic.id} pressed={selected === epic.id} tone={epic.tone} onChoose={() => choose(epic.id)}>
+              <EpicChoiceLabel epic={epic} />
+            </MenuOption>
           ))}
         </div>
       )}
-    </div>
+    </MenuOptions>
   );
 }
 
-function EpicOption({ pressed, tone, onChoose, children }: { pressed: boolean; tone?: number | undefined; onChoose: () => void; children: ReactNode }) {
+export function EpicChoiceLabel({ epic }: { epic: EpicChoice }) {
   return (
-    <button
-      type="button"
-      className={cx(styles.option, pressed && styles.pressed)}
-      aria-pressed={pressed}
-      data-epic-tone={tone}
-      {...(pressed ? POPOVER_INITIAL_FOCUS : {})}
-      onClick={onChoose}
-    >
-      {children}
-    </button>
+    <>
+      <span className={styles.dot} aria-hidden="true" />
+      <span className={styles.id}>{epic.id}</span>
+      <span className={styles.title}>{epic.title}</span>
+      <span className={styles.count}>{epic.taskCount}</span>
+    </>
   );
 }
 

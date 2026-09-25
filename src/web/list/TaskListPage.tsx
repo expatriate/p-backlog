@@ -10,6 +10,7 @@ import { useSettledValue } from "../ui/use-settled-value";
 import { useStatusFocus } from "../ui/use-status-focus";
 import { TaskPanel } from "../task/TaskPanel";
 import type { ListMessages } from "./messages.ru";
+import { BulkActions } from "./BulkActions";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
 import { useSeenTasks } from "./use-seen-tasks";
@@ -34,7 +35,8 @@ export function TaskListPage() {
   const { isNew, markSeen } = useSeenTasks(view.loaded ? view.allTasks : undefined);
   const { selectedTask, gone, missingTaskId } = useSelectedTask(view.allTasks, taskId, view.loaded);
   const visibleIds = useMemo(() => view.visibleTasks.map((task) => task.id), [view.visibleTasks]);
-  const selection = useTaskSelection(visibleIds, projectId ?? "");
+  const loadedIds = useMemo(() => new Set(view.allTasks.map((task) => task.id)), [view.allTasks]);
+  const selection = useTaskSelection(visibleIds, projectId ?? "", loadedIds);
 
   const viewTitle = viewTitleFor(list, view.projectName, params.filter.onlyAutoClosed === true);
   useEffect(() => {
@@ -105,6 +107,7 @@ export function TaskListPage() {
             />
           )}
         </div>
+        <BulkActions selection={selection} tasks={view.allTasks} tones={view.tones} onDone={selection.clear} />
       </div>
 
       {selectedTask && (

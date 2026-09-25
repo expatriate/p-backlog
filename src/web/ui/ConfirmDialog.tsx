@@ -6,11 +6,11 @@ export type ConfirmDialogProps = {
   open: boolean;
   title: string;
   description: string;
-  confirmWord: string;
-  confirmWordLabel: string;
+  fieldLabel: string;
+  canConfirm: (typed: string) => boolean;
   confirmLabel: string;
   cancelLabel: string;
-  onConfirm: () => void;
+  onConfirm: (typed: string) => void;
   onCancel: () => void;
 };
 
@@ -18,7 +18,7 @@ export function ConfirmDialog({ open, ...props }: ConfirmDialogProps) {
   return open ? <OpenDialog {...props} /> : null;
 }
 
-function OpenDialog({ title, description, confirmWord, confirmWordLabel, confirmLabel, cancelLabel, onConfirm, onCancel }: Omit<ConfirmDialogProps, "open">) {
+function OpenDialog({ title, description, fieldLabel, canConfirm, confirmLabel, cancelLabel, onConfirm, onCancel }: Omit<ConfirmDialogProps, "open">) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const [typed, setTyped] = useState("");
@@ -47,12 +47,12 @@ function OpenDialog({ title, description, confirmWord, confirmWordLabel, confirm
       </h2>
       <p className={styles.description}>{description}</p>
       <label className={styles.field}>
-        {confirmWordLabel}
+        {fieldLabel}
         <input value={typed} autoComplete="off" onChange={(event) => setTyped(event.target.value)} />
       </label>
       <div className={styles.actions}>
         <Button onClick={onCancel}>{cancelLabel}</Button>
-        <Button variant="primary" disabled={typed !== confirmWord} onClick={onConfirm}>
+        <Button variant="primary" disabled={!canConfirm(typed)} onClick={() => onConfirm(typed)}>
           {confirmLabel}
         </Button>
       </div>

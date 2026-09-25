@@ -45,8 +45,8 @@ export function ProjectDeleteButton({ project, taskCount, onDeleted }: ProjectDe
         open={confirming}
         title={layout.deleteDialogTitle(project.name)}
         description={taskCount === undefined ? layout.deleteDialogDescriptionUnknown : layout.deleteDialogDescription(taskCount)}
-        confirmWord={project.id}
-        confirmWordLabel={layout.confirmWordLabel(project.id)}
+        fieldLabel={layout.confirmWordLabel(project.id)}
+        canConfirm={(typed) => typed === project.id}
         confirmLabel={layout.confirmLabel}
         cancelLabel={ui.cancel}
         onCancel={() => setConfirming(false)}

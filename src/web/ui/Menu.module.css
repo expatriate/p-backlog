@@ -1,0 +1,38 @@
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.options :focus-visible {
+  outline-offset: -2px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-chip);
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: var(--text-base);
+  text-align: left;
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.pressed {
+  background: var(--surface-selected);
+  color: var(--ink);
+  font-weight: 600;
+}

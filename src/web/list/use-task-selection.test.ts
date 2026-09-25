@@ -3,9 +3,10 @@ import { describe, expect, it } from "vitest";
 import { useTaskSelection } from "./use-task-selection";
 
 const IDS = ["SPA-1", "SPA-2", "SPA-3", "SPA-4", "SPA-5"];
+const LOADED = new Set(IDS);
 
 function renderSelection(visibleIds: readonly string[] = IDS, scopeKey = "spa") {
-  return renderHook(({ ids, scope }) => useTaskSelection(ids, scope), { initialProps: { ids: visibleIds, scope: scopeKey } });
+  return renderHook(({ ids, scope }) => useTaskSelection(ids, scope, LOADED), { initialProps: { ids: visibleIds, scope: scopeKey } });
 }
 
 describe("useTaskSelection", () => {
@@ -20,7 +21,7 @@ describe("useTaskSelection", () => {
   });
 
   it("диапазон идёт от последней отмеченной до нажатой в порядке списка, в обе стороны", () => {
-    const { result } = renderHook(() => useTaskSelection(["SPA-5", "SPA-1", "SPA-4", "SPA-2", "SPA-3"], "spa"));
+    const { result } = renderHook(() => useTaskSelection(["SPA-5", "SPA-1", "SPA-4", "SPA-2", "SPA-3"], "spa", LOADED));
 
     act(() => result.current.toggle("SPA-1"));
     act(() => result.current.toggle("SPA-2", { range: true }));
