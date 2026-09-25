@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ChangeEvent, type KeyboardEvent } from "react";
 import { Link } from "react-router";
 import { isBlocked, type BacklogIndex } from "../../core/model/graph";
 import { formatDate } from "../../core/i18n/format";
@@ -15,12 +15,13 @@ import { toneOf, type EpicTones } from "../ui/epic-tone";
 import { useNow } from "../ui/use-now";
 import type { DateColumn } from "./list-params";
 import { TagCell } from "./TagCell";
+import type { TaskSelection } from "./use-task-selection";
 import styles from "./TaskTable.module.css";
 
 export type TaskTableProps = {
   tasks: Task[];
   index: BacklogIndex;
-  selectedId?: string | undefined;
+  openedId?: string | undefined;
   selectedTags: readonly string[];
   onToggleTag: (tag: string) => void;
   sort: TaskSort;
@@ -29,6 +30,7 @@ export type TaskTableProps = {
   dateColumn: DateColumn;
   tones: EpicTones;
   isNew: (task: Task) => boolean;
+  selection: Pick<TaskSelection, "selected" | "allVisibleState" | "toggle" | "setAllVisible">;
 };
 
 const ARIA_SORT: Record<SortDirection, "ascending" | "descending"> = { asc: "ascending", desc: "descending" };
@@ -40,14 +42,14 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
   critical: styles.critical,
 };
 
-export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, dateColumn, tones, isNew, selectedTags, onToggleTag }: TaskTableProps) {
+export function TaskTable({ tasks, index, openedId, sort, onSort, taskHref, dateColumn, tones, isNew, selectedTags, onToggleTag, selection }: TaskTableProps) {
   const { list, core } = useMessages();
   const language = useLanguage();
   const now = useNow();
-  const selectedRow = useRef<HTMLTableRowElement>(null);
+  const openedRow = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
-    selectedRow.current?.scrollIntoView({ block: "nearest" });
-  }, [selectedId]);
+    openedRow.current?.scrollIntoView({ block: "nearest" });
+  }, [openedId]);
   const dateColumnLabels: Record<DateColumn, string> = { created: list.created, closed: list.closed };
   const sortableHeader = (key: SortKey, label: string, className?: string) => {
     const active = sort.key === key;
@@ -67,6 +69,9 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
     <table className={styles.table}>
       <thead>
         <tr>
+          <th className={styles.pick} scope="col">
+            <SelectAllCheckbox state={selection.allVisibleState} label={list.selectAllVisible} onChange={selection.setAllVisible} />
+          </th>
           {sortableHeader("id", "ID")}
           {sortableHeader("title", list.task)}
           <th className={styles.tags} scope="col">
@@ -81,14 +86,29 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
         {tasks.map((task) => {
           const blocked = isBlocked(task, index);
           const epic = task.epic === undefined ? undefined : index.byId.get(task.epic);
-          const selected = task.id === selectedId;
+          const opened = task.id === openedId;
           return (
             <tr
               key={task.id}
-              ref={selected ? selectedRow : undefined}
-              className={cx(styles.row, selected && styles.selected)}
+              ref={opened ? openedRow : undefined}
+              className={cx(styles.row, opened && styles.opened)}
               data-epic-tone={toneOf(task, tones)}
+              onKeyDown={(event) => {
+                if (!isSpaceOnLink(event)) return;
+                event.preventDefault();
+                selection.toggle(task.id, { range: event.shiftKey });
+              }}
             >
+              <td className={styles.pick}>
+                <label className={styles.pickTarget}>
+                  <input
+                    type="checkbox"
+                    checked={selection.selected.has(task.id)}
+                    aria-label={list.selectTask(task.id)}
+                    onChange={(event) => selection.toggle(task.id, { range: isShiftClick(event) })}
+                  />
+                </label>
+              </td>
               <td>
                 <Link to={taskHref(task.id)} className={styles.id}>
                   {task.id}
@@ -97,7 +117,7 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
               <td>
                 <DeletionBar task={task} now={now} />
                 {isNew(task) && <span className={styles.newBadge}>{list.newBadge}</span>}
-                <Link to={taskHref(task.id)} className={styles.title} aria-current={selected ? "true" : undefined}>
+                <Link to={taskHref(task.id)} className={styles.title} aria-current={opened ? "true" : undefined}>
                   {task.title}
                 </Link>
                 {task.type === "epic" && <span className={cx(styles.marker, styles.epicMarker)}>{list.epicBadge}</span>}
@@ -132,6 +152,26 @@ export function TaskTable({ tasks, index, selectedId, sort, onSort, taskHref, da
       </tbody>
     </table>
   );
+}
+
+function SelectAllCheckbox({ state, label, onChange }: { state: TaskSelection["allVisibleState"]; label: string; onChange: (on: boolean) => void }) {
+  const checkbox = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (checkbox.current) checkbox.current.indeterminate = state === "some";
+  }, [state]);
+  return (
+    <label className={styles.pickTarget}>
+      <input ref={checkbox} type="checkbox" checked={state === "all"} aria-label={label} onChange={() => onChange(state !== "all")} />
+    </label>
+  );
+}
+
+function isSpaceOnLink(event: KeyboardEvent): boolean {
+  return event.key === " " && event.target instanceof HTMLAnchorElement;
+}
+
+function isShiftClick(event: ChangeEvent): boolean {
+  return event.nativeEvent instanceof MouseEvent && event.nativeEvent.shiftKey;
 }
 
 function formatTaskDate(task: Task, column: DateColumn, language: Language): string {

@@ -55,6 +55,9 @@ export const listRu = {
   anyEpicLabel: "любой",
   noEpicLabel: "без эпика",
 
+  selectTask: (id: string): string => `Выбрать ${id}`,
+  selectAllVisible: "Выбрать все видимые",
+
   collapseTags: "свернуть",
   showMoreTags: (n: number): string => `Показать ещё ${n}`,
 };

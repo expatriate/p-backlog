@@ -14,6 +14,7 @@ import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
 import { useSeenTasks } from "./use-seen-tasks";
 import { useSelectedTask } from "./use-selected-task";
+import { useTaskSelection } from "./use-task-selection";
 import { useTaskListView, type ListContent } from "./use-task-list-view";
 import { toggledTags } from "./tag-filter";
 import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
@@ -32,6 +33,8 @@ export function TaskListPage() {
   const view = useTaskListView(params, projectId);
   const { isNew, markSeen } = useSeenTasks(view.loaded ? view.allTasks : undefined);
   const { selectedTask, gone, missingTaskId } = useSelectedTask(view.allTasks, taskId, view.loaded);
+  const visibleIds = useMemo(() => view.visibleTasks.map((task) => task.id), [view.visibleTasks]);
+  const selection = useTaskSelection(visibleIds, projectId ?? "");
 
   const viewTitle = viewTitleFor(list, view.projectName, params.filter.onlyAutoClosed === true);
   useEffect(() => {
@@ -89,7 +92,7 @@ export function TaskListPage() {
             <TaskTable
               tasks={view.visibleTasks}
               index={view.index}
-              selectedId={selectedTask?.id}
+              openedId={selectedTask?.id}
               sort={view.sort}
               dateColumn={view.dateColumn}
               onSort={(key) => setParams({ ...params, sort: pickSortKey(view.sort, key) })}
@@ -98,6 +101,7 @@ export function TaskListPage() {
               isNew={isNew}
               selectedTags={params.filter.tags ?? []}
               onToggleTag={(tag) => setParams({ ...params, filter: { ...params.filter, tags: toggledTags(params.filter.tags ?? [], tag) } })}
+              selection={selection}
             />
           )}
         </div>

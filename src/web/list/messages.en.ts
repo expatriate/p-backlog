@@ -55,6 +55,9 @@ export const listEn: ListMessages = {
   anyEpicLabel: "any",
   noEpicLabel: "no epic",
 
+  selectTask: (id) => `Select ${id}`,
+  selectAllVisible: "Select all visible",
+
   collapseTags: "collapse",
   showMoreTags: (n) => `Show ${n} more`,
 };
