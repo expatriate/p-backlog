@@ -152,7 +152,7 @@ describe("страница статистики", () => {
     const statusesBefore = screen.getAllByRole("status");
 
     await writeFiles(app.root, { "spa/journal.jsonl": "сломано\n" });
-    app.emitChange();
+    await app.emitChange();
     refetchStats();
 
     const announced = (await screen.findByText(/Не удалось разобрать строк журнала: 1/)).closest("[role=status]");

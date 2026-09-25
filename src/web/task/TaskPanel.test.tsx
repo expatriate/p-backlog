@@ -377,7 +377,7 @@ describe("правка агента, пока поле в фокусе", () => {
 
   async function agentEdits(app: RenderedApp) {
     await updateTask(app.root, { id: "SPA-1", changes: AGENT_CHANGES, now: new Date(), via: "cli" });
-    app.emitChange();
+    await app.emitChange();
     await screen.findByRole("link", { name: AGENT_CHANGES.title });
   }
 
@@ -438,7 +438,7 @@ describe("правка агента, пока поле в фокусе", () => {
     const { panel, title } = await conflictOnTitle(app);
 
     await updateTask(app.root, { id: "SPA-1", changes: { title: "Агент ещё раз" }, now: new Date(), via: "cli" });
-    app.emitChange();
+    await app.emitChange();
     await screen.findByRole("link", { name: "Агент ещё раз" });
 
     expect(title).toHaveProperty("value", MINE);
@@ -636,7 +636,7 @@ describe("черновик описания при уходе с задачи", 
     const panel = await startDraft(app);
 
     await rm(join(app.root, "spa/SPA-1.md"));
-    app.emitChange();
+    await app.emitChange();
     await waitFor(() => expect(screen.queryByRole("link", { name: "Таймауты загрузки" })).toBeNull());
 
     expect(within(panel).getByRole("alert").textContent).toBe("Задачи SPA-1 больше нет в беклоге: её удалили или перенесли.");

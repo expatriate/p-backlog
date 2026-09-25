@@ -7,7 +7,7 @@ import type {
   EffectReport,
   MemorySamplesResponse,
   ProjectDeletedResponse,
-  ProjectView,
+  ProjectsResponse,
   QualityReport,
   SettingsResponse,
   SignalsReport,
@@ -32,7 +32,7 @@ export class ApiError extends Error {
 }
 
 export type ApiClient = {
-  projects: () => Promise<ProjectView[]>;
+  projects: () => Promise<ProjectsResponse>;
   setProjectActive: (id: string, active: boolean) => Promise<Project>;
   deleteProject: (id: string, confirm: string) => Promise<void>;
   tasks: () => Promise<TasksResponse>;
@@ -72,7 +72,7 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
     throw new ApiError(response.status, errors, current);
   };
   return {
-    projects: () => request<ProjectView[]>("/api/projects"),
+    projects: () => request<ProjectsResponse>("/api/projects"),
     setProjectActive: (id, active) => request<Project>(projectPath(id), jsonInit("PATCH", { active })),
     deleteProject: async (id, confirm) => {
       await request<ProjectDeletedResponse>(projectPath(id), jsonInit("DELETE", { confirm }));

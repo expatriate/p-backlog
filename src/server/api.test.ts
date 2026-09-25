@@ -1,7 +1,7 @@
 import { appendFile, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
-import { describe, expect, it } from "vitest";
-import type { BatchResponse, CodeReport, ConflictResponse, ProjectView, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
+import { describe, expect, it, onTestFinished } from "vitest";
+import type { BatchResponse, CodeReport, ConflictResponse, ProjectsResponse, Revision, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
 import { FileBusyError } from "../core/store/file-lock";
 import { readJournal } from "../core/store/journal";
 import { loadBacklog } from "../core/store/load";
@@ -10,13 +10,13 @@ import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
 import { runGit } from "../core/git/run";
 import { makeGraph } from "../core/graph/testing/make-graph";
-import { makeTestApp, SAMPLE_FILES, TEST_NOW } from "./testing/test-app";
+import { makeTestApp, SAMPLE_FILES, TEST_NOW, type TestApp } from "./testing/test-app";
 
 describe("GET /api/projects и /api/tasks", () => {
   it("отдают проекты, задачи и ошибки разбора", async () => {
     const backlog = await makeTestApp({ ...SAMPLE_FILES, "spa/SPA-9.md": "сломано" });
 
-    const projects = (await (await backlog.request("/api/projects")).json()) as Project[];
+    const { projects } = (await (await backlog.request("/api/projects")).json()) as ProjectsResponse;
     expect(projects.map((project) => project.id)).toEqual(["spa", "torg-io"]);
 
     const response = await backlog.request("/api/tasks");
@@ -41,7 +41,7 @@ describe("GET /api/projects: граф кода", () => {
       "torg-io/project.md": projectFile("TI", [withoutGraph]),
     });
 
-    const projects = (await (await backlog.request("/api/projects")).json()) as ProjectView[];
+    const { projects } = (await (await backlog.request("/api/projects")).json()) as ProjectsResponse;
 
     expect(projects.map((project) => [project.id, project.codeGraph])).toEqual([
       ["spa", "fresh"],
@@ -352,7 +352,7 @@ describe("защита локального API", () => {
       });
       expect(response.status).toBe(403);
     }
-    const projects = (await (await backlog.request("/api/projects")).json()) as Project[];
+    const { projects } = (await (await backlog.request("/api/projects")).json()) as ProjectsResponse;
     expect(projects.map((project) => project.id)).toContain("spa");
   });
 });
@@ -366,10 +366,51 @@ describe("GET /api/events", () => {
 
     const reader = response.body?.getReader();
     if (!reader) throw new Error("нет потока событий");
-    backlog.emitChange();
+    await backlog.emitChange();
     const chunk = await reader.read();
     expect(new TextDecoder().decode(chunk.value)).toContain("event: change");
     await reader.cancel();
+  });
+});
+
+describe("ревизия данных в ответах и событиях", () => {
+  async function openChanges(backlog: TestApp) {
+    const reader = (await backlog.request("/api/events")).body?.pipeThrough(new TextDecoderStream()).getReader();
+    if (!reader) throw new Error("нет потока событий");
+    onTestFinished(() => reader.cancel());
+    return async (paths: readonly string[]): Promise<Revision> => {
+      await backlog.emitChange(paths);
+      const { value = "" } = await reader.read();
+      return JSON.parse(value.match(/^data: (.*)$/m)?.[1] ?? "null") as Revision;
+    };
+  }
+  const tasksRevision = async (backlog: TestApp) => ((await (await backlog.request("/api/tasks")).json()) as TasksResponse).revision;
+  const path = (backlog: TestApp, name: string) => join(backlog.root, "spa", name);
+
+  it("своя запись не сдвигает ревизию события: список после неё уже актуален", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const change = await openChanges(backlog);
+    const before = await tasksRevision(backlog);
+
+    await backlog.json("/api/tasks/SPA-1", "PATCH", { version: await backlog.taskVersion("SPA-1"), changes: { priority: "low" } });
+    const afterWrite = await tasksRevision(backlog);
+
+    expect(afterWrite.seq).toBeGreaterThan(before.seq);
+    expect(await change([path(backlog, "SPA-1.md"), path(backlog, "journal.jsonl")])).toEqual(afterWrite);
+  });
+
+  it("чужое изменение — в том числе поверх своей записи — сдвигает ревизию, и список её догоняет", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const change = await openChanges(backlog);
+    await backlog.json("/api/tasks/SPA-1", "PATCH", { version: await backlog.taskVersion("SPA-1"), changes: { priority: "low" } });
+    const afterWrite = await tasksRevision(backlog);
+
+    await writeFiles(backlog.root, { "spa/SPA-1.md": taskFile("SPA-1", "priority: critical\n") });
+    const foreign = await change([path(backlog, "SPA-1.md")]);
+
+    expect(foreign.seq).toBeGreaterThan(afterWrite.seq);
+    expect(await tasksRevision(backlog)).toEqual(foreign);
+    expect(await change([])).toMatchObject({ seq: foreign.seq + 1 });
   });
 });
 
@@ -451,7 +492,7 @@ describe("кэш отчётов", () => {
     await writeFiles(backlog.root, { "spa/SPA-7.md": taskFile("SPA-7") });
     expect(await openCount()).toBe(before);
 
-    backlog.emitChange();
+    await backlog.emitChange();
     expect(await openCount()).toBe(before + 1);
 
     await writeFiles(backlog.root, { "spa/SPA-8.md": taskFile("SPA-8") });

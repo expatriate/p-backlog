@@ -23,10 +23,9 @@ export async function renderApp(files: Record<string, string>, route = "/", appR
     await backlog.usage.scanOnce();
   }
   await beforeRender?.(backlog);
-  const events = fakeEventSource();
   const api: BacklogApi = {
     client: createApiClient((path, init) => backlog.request(path, init)),
-    openEvents: events.open,
+    openEvents: serverEvents((path, init) => backlog.request(path, init)),
   };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const router = createMemoryRouter(appRoutes, { initialEntries: [route] });
@@ -43,31 +42,39 @@ export async function renderApp(files: Record<string, string>, route = "/", appR
 
   return {
     ...backlog,
-    emitChange: () => {
-      backlog.emitChange();
-      events.emitChange();
-    },
     user: userEvent.setup(),
     router,
     route: () => `${router.state.location.pathname}${router.state.location.search}`,
   };
 }
 
-type StreamListeners = Map<string, Set<() => void>>;
+type Listener = Parameters<EventStream["addEventListener"]>[1];
 
-function fakeEventSource() {
-  const streams = new Set<StreamListeners>();
-  const fire = (listeners: StreamListeners, type: string) => listeners.get(type)?.forEach((listener) => listener());
-  const open = (): EventStream => {
-    const listeners: StreamListeners = new Map();
-    streams.add(listeners);
-    setTimeout(() => {
-      if (streams.has(listeners)) fire(listeners, "open");
+function serverEvents(request: TestApp["request"]): () => EventStream {
+  return () => {
+    const listeners = new Map<string, Set<Listener>>();
+    const fire = (type: string, data: unknown = "") => listeners.get(type)?.forEach((listener) => listener(new MessageEvent(type, { data })));
+    const reading = request("/api/events").then((opened) => opened.body?.pipeThrough(new TextDecoderStream()).getReader());
+    void reading.then(async (reader) => {
+      if (!reader) return;
+      fire("open");
+      let buffered = "";
+      for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+        buffered += chunk.value;
+        const messages = buffered.split("\n\n");
+        buffered = messages.pop() ?? "";
+        for (const message of messages) fireMessage(message, fire);
+      }
     });
     return {
       addEventListener: (type, listener) => listeners.set(type, (listeners.get(type) ?? new Set()).add(listener)),
-      close: () => streams.delete(listeners),
+      close: () => void reading.then((reader) => reader?.cancel()),
     };
   };
-  return { open, emitChange: () => streams.forEach((listeners) => fire(listeners, "change")) };
+}
+
+function fireMessage(message: string, fire: (type: string, data: string) => void): void {
+  const field = (name: string) => message.split("\n").find((line) => line.startsWith(`${name}: `))?.slice(name.length + 2);
+  const type = field("event");
+  if (type !== undefined) fire(type, field("data") ?? "");
 }

@@ -6,7 +6,7 @@ import { makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store
 import { createApp } from "../app";
 import { serverLanguage } from "../messages";
 import { serverRu } from "../messages.ru";
-import type { ChangeFeed } from "../change-feed";
+import type { ChangeFeed, ChangeListener } from "../change-feed";
 import { createMemorySampler, type MemorySampler } from "../memory-sampler";
 import { createUsageScanner, type UsageScanner } from "../usage-scanner";
 
@@ -20,7 +20,7 @@ export type TestApp = {
   app: Hono;
   usage: UsageScanner;
   memory: MemorySampler;
-  emitChange: () => void;
+  emitChange: (paths?: readonly string[]) => Promise<void>;
   request: (path: string, init?: RequestInit) => Promise<Response>;
   json: (path: string, method: "POST" | "PATCH" | "DELETE", body: unknown) => Promise<Response>;
   taskVersion: (id: string) => Promise<string>;
@@ -31,7 +31,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
   await writeFiles(root, files);
   await writeSettings(root, { language: options.language ?? "ru" });
 
-  const listeners = new Set<() => void>();
+  const listeners = new Set<ChangeListener>();
   const { promise: closed, resolve: markClosed }: PromiseWithResolvers<void> = Promise.withResolvers();
   const changes: ChangeFeed = {
     subscribe: (listener) => {
@@ -69,7 +69,9 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
     app,
     usage,
     memory,
-    emitChange: () => listeners.forEach((listener) => listener()),
+    emitChange: async (paths = []) => {
+      await Promise.all([...listeners].map((listener) => listener(paths)));
+    },
     request,
     json: (path, method, body) =>
       request(path, { method, body: JSON.stringify(body), headers: { "content-type": "application/json" } }),

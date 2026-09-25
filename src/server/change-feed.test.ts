@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { writeFileAtomic } from "../core/store/fs-utils";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
 import { createChangeFeed, createDebouncer, isHiddenPath } from "./change-feed";
 import { serverRu } from "./messages.ru";
@@ -9,29 +10,33 @@ function watchBacklog(root: string, debounceMs: number) {
   return createChangeFeed({ root, debounceMs, messages: async () => serverRu, warn: () => undefined });
 }
 
-function nextChange(feed: ReturnType<typeof watchBacklog>, timeoutMs = 2000): Promise<void> {
+function nextChange(feed: ReturnType<typeof watchBacklog>, timeoutMs = 2000): Promise<readonly string[]> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("изменение не пришло")), timeoutMs);
-    const unsubscribe = feed.subscribe(() => {
+    const unsubscribe = feed.subscribe((paths) => {
       clearTimeout(timer);
       unsubscribe();
-      resolve();
+      resolve(paths);
     });
   });
 }
 
 describe("createChangeFeed", () => {
-  it("сообщает об изменении файла задачи", async () => {
+  it("сообщает, какие файлы изменились; временный файл атомарной записи не виден", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
+    await writeFile(join(root, "spa/SPA-2.md"), "задача", "utf8");
     const feed = watchBacklog(root, 20);
     onTestFinished(() => feed.close());
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    const change = nextChange(feed);
+    const created = nextChange(feed);
     await writeFile(join(root, "spa/SPA-1.md"), "задача", "utf8");
+    await expect(created).resolves.toEqual([join(root, "spa/SPA-1.md")]);
 
-    await expect(change).resolves.toBeUndefined();
+    const replaced = nextChange(feed);
+    await writeFileAtomic(join(root, "spa/SPA-2.md"), "правка");
+    await expect(replaced).resolves.toEqual([join(root, "spa/SPA-2.md")]);
   });
 
   it("схлопывает пачку файловых изменений в одно событие", async () => {

@@ -3,7 +3,7 @@ import { watch } from "chokidar";
 import { errorText } from "../core/errors";
 import type { ServerMessages } from "./messages.ru";
 
-type ChangeListener = () => void;
+export type ChangeListener = (paths: readonly string[]) => void | Promise<void>;
 
 export type ChangeFeed = {
   subscribe: (listener: ChangeListener) => () => void;
@@ -37,12 +37,18 @@ export type ChangeFeedOptions = { root: string; debounceMs: number; messages: ()
 export function createChangeFeed({ root, debounceMs, messages, warn }: ChangeFeedOptions): ChangeFeed {
   const listeners = new Set<ChangeListener>();
   const { promise: closed, resolve: markClosed }: PromiseWithResolvers<void> = Promise.withResolvers();
+  const changedPaths = new Set<string>();
   const debouncer = createDebouncer(debounceMs, () => {
-    for (const listener of listeners) listener();
+    const paths = [...changedPaths];
+    changedPaths.clear();
+    for (const listener of listeners) void listener(paths);
   });
 
   const watcher = watch(root, { ignoreInitial: true, ignored: (path) => isHiddenPath(root, path) });
-  watcher.on("all", () => debouncer.schedule());
+  watcher.on("all", (_event, path) => {
+    changedPaths.add(path);
+    debouncer.schedule();
+  });
   watcher.on("error", (error) => {
     void messages().then((texts) => warn(texts.watcherError(root, errorText(error))));
   });

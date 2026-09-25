@@ -161,7 +161,7 @@ describe("панель массовых действий", () => {
     await select(app, "SPA-1", "SPA-3");
 
     await rm(join(app.root, "spa/SPA-1.md"));
-    app.emitChange();
+    await app.emitChange();
 
     await waitFor(() => expect(panel().textContent).toContain("Выбрано 1"));
     expect(panel().textContent).not.toContain("скрыт");
@@ -225,7 +225,7 @@ describe("панель массовых действий", () => {
     expect(screen.getByRole("dialog")).toBeDefined();
 
     await rm(join(app.root, "spa/SPA-3.md"));
-    app.emitChange();
+    await app.emitChange();
     await waitFor(() => expect(screen.queryByRole("region", { name: "Действия с выбранными" })).toBeNull());
     await select(app, "SPA-1");
 

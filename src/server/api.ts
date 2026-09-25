@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import type { Language } from "../core/i18n/language";
-import { batchRequestSchema, projectActiveSchema, projectDeleteSchema, settingsRequestSchema, updateTaskRequestSchema, type BatchOutcome, type BatchResponse, type ProjectView, type SettingsResponse } from "../core/api/contract";
+import { batchRequestSchema, projectActiveSchema, projectDeleteSchema, settingsRequestSchema, updateTaskRequestSchema, type BatchOutcome, type BatchResponse, type ProjectsResponse, type ProjectView, type Revision, type SettingsResponse, type TasksResponse } from "../core/api/contract";
 import { projectGraphHealth, type GraphState } from "../core/check/graph-health";
 import { buildIndex, type BacklogIndex } from "../core/model/graph";
 import type { Project } from "../core/model/types";
@@ -18,20 +18,22 @@ import type { ChangeFeed } from "./change-feed";
 import { serverMessages, type ServerMessages } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createReportCache } from "./report-cache";
+import { createRevisions, type OwnWrite } from "./revisions";
 import { createStatsApi } from "./stats-api";
 import type { UsageScanner } from "./usage-scanner";
 
 export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; usage: UsageScanner; memory: MemorySampler; warn: (line: string) => void };
 
-type BacklogSnapshot = LoadedBacklog & { index: BacklogIndex };
+type BacklogSnapshot = LoadedBacklog & { index: BacklogIndex; revision: Revision };
 
 const GRAPH_STATE_TTL_MS = 60 * 1000;
 
 export function createApi({ root, readLanguage, changes, now, home, usage, memory, warn }: ApiOptions): Hono {
   const api = new Hono();
+  const revisions = createRevisions();
   let snapshot: Promise<BacklogSnapshot> | null = null;
   const backlog = (): Promise<BacklogSnapshot> => {
-    snapshot ??= loadSnapshot(root).catch((error: unknown) => {
+    snapshot ??= loadSnapshot(root, revisions.current()).catch((error: unknown) => {
       snapshot = null;
       throw error;
     });
@@ -44,21 +46,31 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     stats.forget();
     graphStates.clear();
   };
-  changes.subscribe(forgetBacklog);
+  const recordOwnWrites = async (writes: readonly OwnWrite[]) => {
+    if (writes.length > 0) await revisions.recordOwnWrites(writes);
+    forgetBacklog();
+  };
+  const streams = new Set<(revision: Revision) => void>();
+  changes.subscribe(async (paths) => {
+    if ((await revisions.settle(paths)) === "foreign") forgetBacklog();
+    else stats.forget();
+    const revision = revisions.current();
+    for (const send of streams) send(revision);
+  });
 
   api.get("/projects", async (c) => {
-    const { projects, tasks } = await backlog();
+    const { projects, tasks, revision } = await backlog();
     const withGraph = async (project: Project): Promise<ProjectView> => {
       const codeGraph = await graphStates.get<GraphState>(project.id, async () => (await projectGraphHealth(project, tasks, home)).state);
       return { ...project, codeGraph };
     };
-    return c.json(await Promise.all(projects.map(withGraph)));
+    return c.json<ProjectsResponse>({ projects: await Promise.all(projects.map(withGraph)), revision });
   });
 
   api.get("/tasks", async (c) => {
-    const [{ tasks, errors }, language] = await Promise.all([backlog(), readLanguage()]);
+    const [{ tasks, errors, revision }, language] = await Promise.all([backlog(), readLanguage()]);
     const messages = coreMessages(language);
-    return c.json({ tasks, errors: errors.map(({ problems, ...error }) => ({ ...error, message: messages.problems(problems) })) });
+    return c.json<TasksResponse>({ tasks, errors: errors.map(({ problems, ...error }) => ({ ...error, message: messages.problems(problems) })), revision });
   });
 
   api.route("/", stats.routes);
@@ -80,7 +92,7 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     const id = c.req.param("id");
     const { index } = await backlog();
     const result = await updateTaskInIndex(index, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now(), via: "web" });
-    forgetBacklog();
+    await recordOwnWrites(result.ok ? [result.task] : []);
     if (result.ok) return c.json(result.task);
     const messages = serverMessages(body.language);
     if (result.reason === "not-found") return c.json({ errors: [messages.taskNotFound(id)] }, 404);
@@ -93,7 +105,11 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     if (!body.ok) return body.response;
 
     const { index } = await backlog();
-    const outcomes = await applyBatch(index, { ...body.data, now: now() }).finally(forgetBacklog);
+    const outcomes = await applyBatch(index, { ...body.data, now: now() }).catch((error: unknown) => {
+      forgetBacklog();
+      throw error;
+    });
+    await recordOwnWrites(outcomes.flatMap((outcome) => (outcome.outcome === "done" ? [outcome.task] : [])));
     const messages = serverMessages(body.language);
     const core = coreMessages(body.language);
     return c.json<BatchResponse>({ results: outcomes.map((outcome) => viewOf(outcome, messages, core)) });
@@ -125,19 +141,20 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
 
   api.get("/events", (c) =>
     streamSSE(c, async (stream) => {
-      const unsubscribe = changes.subscribe(() => void stream.writeSSE({ event: "change", data: "" }));
+      const send = (revision: Revision) => void stream.writeSSE({ event: "change", data: JSON.stringify(revision) });
+      streams.add(send);
       const clientGone = new Promise<void>((resolve) => stream.onAbort(resolve));
       await Promise.race([clientGone, changes.closed]);
-      unsubscribe();
+      streams.delete(send);
     }),
   );
 
   return api;
 }
 
-async function loadSnapshot(root: string): Promise<BacklogSnapshot> {
+async function loadSnapshot(root: string, revision: Revision): Promise<BacklogSnapshot> {
   const loaded = await loadBacklog(root);
-  return { ...loaded, index: buildIndex(loaded.tasks) };
+  return { ...loaded, index: buildIndex(loaded.tasks), revision };
 }
 
 function invalidResponse(c: Context, result: Invalid, messages: CoreMessages) {
