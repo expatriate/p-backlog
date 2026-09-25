@@ -9,7 +9,6 @@ export const cliEn: CliMessages = {
     takesNoValue: (option) => `Option ${option} does not take a value`,
   },
   invalidChoice: (label, allowed, value) => `${label}: expected one of ${allowed.join(", ")}, got "${value}"`,
-  invalidPort: (value) => `--port: expected a number from 1 to 65535, got "${value}"`,
   commandFailed: (name, reason) => `Command ${name} failed: ${reason}`,
   runNotRecorded: (error) => `Could not record the run: ${error}`,
   runsNotTrimmed: (error) => `Could not trim the run log: ${error}`,

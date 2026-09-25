@@ -2,6 +2,7 @@ import { appendFile, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { CodeReport, ConflictResponse, ProjectView, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
+import { FileBusyError } from "../core/store/file-lock";
 import { readJournal } from "../core/store/journal";
 import { loadBacklog } from "../core/store/load";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
@@ -180,6 +181,28 @@ describe("защита локального API", () => {
 
     const plain = await backlog.request("/api/tasks/SPA-1", { method: "PATCH", body: "status=done" });
     expect(plain.status).toBe(415);
+  });
+
+  it.each([
+    ["GET", "/"],
+    ["GET", "/p/spa/t/SPA-1"],
+    ["GET", "/assets/app.js"],
+    ["GET", "/api/tasks"],
+    ["DELETE", "/api/projects/spa"],
+  ])("чужой Host или порт не получает ни страницу, ни API: %s %s", async (method, path) => {
+    const staticDir = await makeTempDir();
+    await writeFiles(staticDir, { "index.html": "<!doctype html><title>Беклог</title>", "assets/app.js": "console.log('app');" });
+    const backlog = await makeTestApp(SAMPLE_FILES, { staticDir });
+
+    for (const host of ["attacker.example:4317", "localhost:80"]) {
+      const response = await backlog.app.request(`http://${host}${path}`, {
+        method,
+        headers: { host, "content-type": "application/json" },
+        body: method === "GET" ? null : JSON.stringify({ confirm: "spa" }),
+      });
+      expect(response.status).toBe(403);
+    }
+    expect(await backlog.taskVersion("SPA-1")).toHaveLength(40);
   });
 });
 
@@ -571,5 +594,17 @@ describe("неожиданная ошибка сервера", () => {
 
     expect(response.status).toBe(500);
     expect((await response.json()) as ErrorResponse).toEqual({ errors: ["сканер расшифровок упал"] });
+  });
+
+  it("занятый другим процессом файл — 503 с понятным текстом, а не поломка сервера", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    backlog.usage.snapshot = () => {
+      throw new FileBusyError("/backlog/spa/SPA-1.md", "/backlog/spa/.SPA-1.md.lock", 5);
+    };
+
+    const response = await backlog.request("/api/stats/cost");
+
+    expect(response.status).toBe(503);
+    expect((await response.json()) as ErrorResponse).toEqual({ errors: ["/backlog/spa/SPA-1.md занят другим процессом дольше 5 с (/backlog/spa/.SPA-1.md.lock)"] });
   });
 });

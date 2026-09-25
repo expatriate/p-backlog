@@ -22,6 +22,7 @@ export const serverRu = {
   transcriptsScanFailed: (detail: string): string => `Не удалось прочитать расшифровки Claude Code: ${detail}`,
   watcherError: (root: string, detail: string): string => `Наблюдатель за каталогом ${root}: ${detail}`,
 
+  invalidPort: (source: string, value: string): string => `${source}: ожидается число от 1 до 65535, получено «${value}»`,
   listenFailed: (reason: string): string => `p-backlog не запустился: ${reason}`,
   portBusy: (port: number): string => `порт ${port} уже занят`,
 

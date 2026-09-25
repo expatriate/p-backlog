@@ -36,21 +36,22 @@ export type AppOptions = {
   home: string;
   usage: UsageScanner;
   memory: MemorySampler;
+  warn: (line: string) => void;
   staticDir?: string | undefined;
   now?: () => Date;
 };
 
-export function createApp({ root, readLanguage, changes, allowedHosts, home, usage, memory, staticDir, now = () => new Date() }: AppOptions): Hono {
+export function createApp({ root, readLanguage, changes, allowedHosts, home, usage, memory, warn, staticDir, now = () => new Date() }: AppOptions): Hono {
   const app = new Hono();
   app.use("*", APP_SECURITY_HEADERS);
   app.use("*", allowLocalHostsOnly(allowedHosts, readLanguage));
   app.use("/api/*", requireJsonBody(readLanguage));
-  app.route("/api", createApi({ root, readLanguage, changes, now, home, usage, memory }));
+  app.route("/api", createApi({ root, readLanguage, changes, now, home, usage, memory, warn }));
   app.all("/api/*", async (c) => c.json({ errors: [serverMessages(await readLanguage()).unknownRoute(new URL(c.req.url).pathname)] }, 404));
 
   app.onError(async (error, c) => {
-    const text = error instanceof FileBusyError ? coreMessages(await readLanguage()).fileBusy(error.path, error.lock, error.seconds) : errorText(error);
-    return c.json({ errors: [text] }, 500);
+    if (!(error instanceof FileBusyError)) return c.json({ errors: [errorText(error)] }, 500);
+    return c.json({ errors: [coreMessages(await readLanguage()).fileBusy(error.path, error.lock, error.seconds)] }, 503);
   });
 
   if (staticDir !== undefined) {

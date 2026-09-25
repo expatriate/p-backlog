@@ -6,7 +6,7 @@ import { makeTempDir } from "../core/store/testing/temp-dirs";
 import { startServer } from "./start";
 
 describe("startServer", () => {
-  it("поднимает API и статику на заданном порту и закрывается", async () => {
+  it("поднимает API на заданном порту и закрывается", async () => {
     const home = await makeTempDir();
     const server = await startServer({ root: join(home, "backlog"), port: 0, home, env: { CLAUDE_CONFIG_DIR: join(home, ".claude") } });
     try {

@@ -5,6 +5,7 @@ import { writeSettings } from "../../core/store/settings";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { createApp } from "../app";
 import { serverLanguage } from "../messages";
+import { serverRu } from "../messages.ru";
 import type { ChangeFeed } from "../change-feed";
 import { createMemorySampler, type MemorySampler } from "../memory-sampler";
 import { createUsageScanner, type UsageScanner } from "../usage-scanner";
@@ -45,7 +46,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
     },
   };
 
-  const usage = createUsageScanner({ root, claudeProjectsDir: options.transcriptsDir ?? (await makeTempDir()) });
+  const usage = createUsageScanner({ root, claudeProjectsDir: options.transcriptsDir ?? (await makeTempDir()), messages: async () => serverRu, warn: () => undefined });
   const memory = createMemorySampler();
 
   const app = createApp({
@@ -56,6 +57,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
     home: root,
     usage,
     memory,
+    warn: () => undefined,
     staticDir: options.staticDir,
     now: () => TEST_NOW,
   });

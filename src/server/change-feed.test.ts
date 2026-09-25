@@ -3,8 +3,13 @@ import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
 import { createChangeFeed, createDebouncer, isHiddenPath } from "./change-feed";
+import { serverRu } from "./messages.ru";
 
-function nextChange(feed: ReturnType<typeof createChangeFeed>, timeoutMs = 2000): Promise<void> {
+function watchBacklog(root: string, debounceMs: number) {
+  return createChangeFeed({ root, debounceMs, messages: async () => serverRu, warn: () => undefined });
+}
+
+function nextChange(feed: ReturnType<typeof watchBacklog>, timeoutMs = 2000): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("изменение не пришло")), timeoutMs);
     const unsubscribe = feed.subscribe(() => {
@@ -19,7 +24,7 @@ describe("createChangeFeed", () => {
   it("сообщает об изменении файла задачи", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
-    const feed = createChangeFeed(root, 20);
+    const feed = watchBacklog(root, 20);
     onTestFinished(() => feed.close());
     await new Promise((resolve) => setTimeout(resolve, 300));
 
@@ -32,7 +37,7 @@ describe("createChangeFeed", () => {
   it("схлопывает пачку файловых изменений в одно событие", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
-    const feed = createChangeFeed(root, 300);
+    const feed = watchBacklog(root, 300);
     onTestFinished(() => feed.close());
     await new Promise((resolve) => setTimeout(resolve, 300));
 
@@ -49,7 +54,7 @@ describe("createChangeFeed", () => {
   it("после close не зовёт подписчиков", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
-    const feed = createChangeFeed(root, 20);
+    const feed = watchBacklog(root, 20);
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     let calls = 0;

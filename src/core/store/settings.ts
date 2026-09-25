@@ -38,6 +38,11 @@ export async function settleLanguage(root: string, env: NodeJS.ProcessEnv): Prom
   return { language: locale(), invalidSettingsFile: true };
 }
 
+export async function readLanguage(root: string, env: NodeJS.ProcessEnv): Promise<Language> {
+  const file = await readSettingsFile(root);
+  return file.found && file.valid ? file.settings.language : localeLanguage(env);
+}
+
 export function localeLanguage(env: NodeJS.ProcessEnv): Language {
   return languageFromLocale(env.LC_ALL || env.LANG || Intl.DateTimeFormat().resolvedOptions().locale);
 }

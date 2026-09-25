@@ -24,6 +24,7 @@ export const serverEn: ServerMessages = {
   transcriptsScanFailed: (detail) => `Could not read Claude Code transcripts: ${detail}`,
   watcherError: (root, detail) => `Watcher for directory ${root}: ${detail}`,
 
+  invalidPort: (source, value) => `${source}: expected a number from 1 to 65535, got "${value}"`,
   listenFailed: (reason) => `p-backlog failed to start: ${reason}`,
   portBusy: (port) => `port ${port} is already in use`,
 

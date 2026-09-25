@@ -20,13 +20,13 @@ import { createReportCache } from "./report-cache";
 import { createStatsApi } from "./stats-api";
 import type { UsageScanner } from "./usage-scanner";
 
-export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; usage: UsageScanner; memory: MemorySampler };
+export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; usage: UsageScanner; memory: MemorySampler; warn: (line: string) => void };
 
 type BacklogSnapshot = LoadedBacklog & { index: BacklogIndex };
 
 const GRAPH_STATE_TTL_MS = 60 * 1000;
 
-export function createApi({ root, readLanguage, changes, now, home, usage, memory }: ApiOptions): Hono {
+export function createApi({ root, readLanguage, changes, now, home, usage, memory, warn }: ApiOptions): Hono {
   const api = new Hono();
   let snapshot: Promise<BacklogSnapshot> | null = null;
   const backlog = (): Promise<BacklogSnapshot> => {
@@ -36,11 +36,12 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     });
     return snapshot;
   };
-  const stats = createStatsApi({ root, readLanguage, now, home, usage, memory, backlog });
+  const stats = createStatsApi({ root, readLanguage, now, home, usage, memory, warn, backlog });
   const graphStates = createReportCache({ ttlMs: GRAPH_STATE_TTL_MS, now: () => now().getTime() });
   const forgetBacklog = () => {
     snapshot = null;
     stats.forget();
+    graphStates.clear();
   };
   changes.subscribe(forgetBacklog);
 
@@ -110,14 +111,17 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     return result.ok ? c.json({ deleted: id }) : c.json({ errors: [messages.projectNotFound(id)] }, 404);
   });
 
-  api.get("/events", (c) =>
-    streamSSE(c, async (stream) => {
+  api.get("/events", (c) => {
+    const response = streamSSE(c, async (stream) => {
       const unsubscribe = changes.subscribe(() => void stream.writeSSE({ event: "change", data: "" }));
       const clientGone = new Promise<void>((resolve) => stream.onAbort(resolve));
       await Promise.race([clientGone, changes.closed]);
       unsubscribe();
-    }),
-  );
+    });
+    // Node keeps a finished keep-alive socket open until its timeout, and server.close() waits for it.
+    response.headers.set("Connection", "close");
+    return response;
+  });
 
   return api;
 }

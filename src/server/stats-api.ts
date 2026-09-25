@@ -31,6 +31,7 @@ type StatsApiOptions = {
   home: string;
   usage: UsageScanner;
   memory: MemorySampler;
+  warn: (line: string) => void;
   backlog: () => Promise<Pick<LoadedBacklog, "projects" | "tasks" | "errors">>;
 };
 
@@ -44,14 +45,14 @@ type ScopedReportOptions = { sourceKey?: (projects: readonly Project[]) => Promi
 
 const REPORT_TTL_MS = 5 * 60 * 1000;
 
-export function createStatsApi({ root, readLanguage, now, home, usage, memory, backlog }: StatsApiOptions): StatsApi {
+export function createStatsApi({ root, readLanguage, now, home, usage, memory, warn, backlog }: StatsApiOptions): StatsApi {
   const routes = new Hono();
   const reports = createReportCache({ ttlMs: REPORT_TTL_MS, now: () => now().getTime() });
   const onCodeSourceError = (kind: CodeCacheErrorKind, error: unknown) =>
     void readLanguage().then((language) => {
       const messages = serverMessages(language);
       const text = kind === "read" ? messages.codeCacheReadFailed(errorText(error)) : messages.codeCacheWriteFailed(errorText(error));
-      process.stderr.write(`${text}\n`);
+      warn(text);
     });
   const codeSource = createCodeSource({ home, store: createCodeCacheFile(root), onError: onCodeSourceError });
   const lookupRepoRoot = cachedRepoRoots();

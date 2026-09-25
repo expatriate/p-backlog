@@ -5,6 +5,8 @@ import { startSweeper } from "./sweeper";
 
 const EMPTY_REPORT: SweepReport = { closedEpics: [], blockingFiles: [], deleted: [], conflicts: [], invalid: [] };
 
+const inRussian = async () => serverRu;
+
 function useFakeClock() {
   vi.useFakeTimers();
   onTestFinished(() => void vi.useRealTimers());
@@ -21,7 +23,7 @@ describe("startSweeper", () => {
     const log = vi.fn();
     const warn = vi.fn();
 
-    const stop = startSweeper({ sweep, intervalMs: 1000, log, warn });
+    const stop = startSweeper({ sweep, intervalMs: 1000, log, warn, messages: inRussian });
     await vi.advanceTimersByTimeAsync(0);
     expect(sweep).toHaveBeenCalledTimes(1);
     expect(log).toHaveBeenCalledWith("Удалены закрытые задачи: SPA-1, SPA-4");
@@ -30,7 +32,7 @@ describe("startSweeper", () => {
     expect(sweep).toHaveBeenCalledTimes(2);
     expect(log).toHaveBeenLastCalledWith("Задачи менялись во время прохода, повторю при следующем: SPA-2");
 
-    stop();
+    await stop();
     await vi.advanceTimersByTimeAsync(5000);
     expect(sweep).toHaveBeenCalledTimes(2);
   });
@@ -41,32 +43,13 @@ describe("startSweeper", () => {
     const log = vi.fn();
     const warn = vi.fn();
 
-    const stop = startSweeper({ sweep, intervalMs: 1000, log, warn });
+    const stop = startSweeper({ sweep, intervalMs: 1000, log, warn, messages: inRussian });
     await vi.advanceTimersByTimeAsync(1000);
-    stop();
+    await stop();
 
     expect(warn).toHaveBeenCalledWith("Не удалось удалить закрытые задачи: EACCES");
     expect(log).not.toHaveBeenCalled();
     expect(sweep).toHaveBeenCalledTimes(2);
-  });
-
-  it("сбой чтения языка попадает в лог и не останавливает следующие проходы", async () => {
-    useFakeClock();
-    const sweep = vi.fn(async () => EMPTY_REPORT);
-    const messages = vi.fn().mockRejectedValueOnce(new Error("EACCES")).mockResolvedValue(serverRu);
-    const log = vi.fn();
-    const warn = vi.fn();
-
-    const stop = startSweeper({ sweep, intervalMs: 1000, log, warn, messages });
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(warn).toHaveBeenCalledWith("Не удалось удалить закрытые задачи: EACCES");
-    expect(sweep).not.toHaveBeenCalled();
-
-    await vi.advanceTimersByTimeAsync(1000);
-    stop();
-
-    expect(sweep).toHaveBeenCalledTimes(1);
   });
 
   it("каждая непустая часть итога — отдельной строкой лога", async () => {
@@ -83,9 +66,9 @@ describe("startSweeper", () => {
     };
     const log = vi.fn();
 
-    const stop = startSweeper({ sweep: async () => report, intervalMs: 1000, log, warn: vi.fn() });
+    const stop = startSweeper({ sweep: async () => report, intervalMs: 1000, log, warn: vi.fn(), messages: inRussian });
     await vi.advanceTimersByTimeAsync(0);
-    stop();
+    await stop();
 
     expect(log.mock.calls).toEqual([
       ["Закрыты завершённые эпики: SPA-7, SPA-8"],

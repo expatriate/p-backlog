@@ -16,6 +16,15 @@ describe("backlog serve", () => {
     expect(result.err).toContain(port);
   });
 
+  it("неверный PORT из окружения отклоняется с именем переменной, а не заменяется на 4317", async () => {
+    const { run } = await makeCliSandbox();
+
+    const result = await run(["serve"], { env: { PORT: "abc" } });
+
+    expect(result.code).toBe(EXIT.invalid);
+    expect(result.err).toContain("PORT: ожидается число от 1 до 65535, получено «abc»");
+  });
+
   it("занятый порт печатает причину и возвращает код failed", async () => {
     const home = await makeTempDir();
     const blocker = await startServer({ root: join(home, "backlog-1"), port: 0, home, env: {} });

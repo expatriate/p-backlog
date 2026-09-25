@@ -1,25 +1,25 @@
 import { errorText } from "../core/errors";
 import type { SweepReport } from "../core/store/sweep";
-import { serverRu, type ServerMessages } from "./messages.ru";
+import type { ServerMessages } from "./messages.ru";
 
 export type SweeperOptions = {
   sweep: () => Promise<SweepReport>;
   intervalMs: number;
   log: (line: string) => void;
   warn: (line: string) => void;
-  messages?: () => Promise<ServerMessages>;
+  messages: () => Promise<ServerMessages>;
 };
 
-export function startSweeper({ sweep, intervalMs, log, warn, messages = () => Promise.resolve(serverRu) }: SweeperOptions): () => Promise<void> {
+export function startSweeper({ sweep, intervalMs, log, warn, messages }: SweeperOptions): () => Promise<void> {
   let current = Promise.resolve();
   const run = async () => {
-    let texts = serverRu;
-    try {
-      texts = await messages();
-      logReport(await sweep(), texts, log);
-    } catch (error) {
-      warn(texts.sweepFailed(errorText(error)));
-    }
+    const outcome = await sweep().then(
+      (report) => ({ report }),
+      (error: unknown) => ({ error }),
+    );
+    const texts = await messages();
+    if ("report" in outcome) logReport(outcome.report, texts, log);
+    else warn(texts.sweepFailed(errorText(outcome.error)));
   };
   const trigger = () => {
     current = run();
