@@ -69,7 +69,7 @@ export async function listDir(path: string, { recursive = false }: { recursive?:
   }
 }
 
-const REPLACE_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320, 640];
+const REPLACE_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320, 640, 1000, 1000, 1000, 1000];
 const REPLACE_BLOCKED_CODES = ["EPERM", "EACCES", "EBUSY"];
 
 export async function writeFileAtomic(path: string, content: string, mode?: number): Promise<void> {

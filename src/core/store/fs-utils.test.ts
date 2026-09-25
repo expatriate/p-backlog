@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
 import { contentVersion, removeIfUnchanged, writeFileAtomic } from "./fs-utils";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
@@ -23,19 +24,32 @@ describe("removeIfUnchanged", () => {
   });
 });
 
+const LOCK_HELD_MS = 200;
+
 describe("writeFileAtomic", () => {
   it.runIf(process.platform === "win32")("на Windows дожидается, пока другой процесс отпустит файл, и записывает его", async () => {
     const root = await makeTempDir();
     const path = join(root, "task.md");
     await writeFile(path, "было\n");
-    const script = `$f = [System.IO.File]::Open('${path.replaceAll("'", "''")}', 'Open', 'Read', 'None'); [Console]::Out.WriteLine('locked'); Start-Sleep -Milliseconds 400; $f.Close()`;
+    const script = `$f = [System.IO.File]::Open('${path.replaceAll("'", "''")}', 'Open', 'Read', 'None'); [Console]::Out.WriteLine('locked'); [void][Console]::In.ReadLine(); $f.Close()`;
     const holder = spawn("powershell", ["-NoProfile", "-NonInteractive", "-Command", script]);
     const released = once(holder, "exit");
-    await once(holder.stdout, "data");
+    try {
+      await once(holder.stdout, "data");
+      let written = false;
+      const writing = writeFileAtomic(path, "стало\n").then(() => {
+        written = true;
+      });
+      await sleep(LOCK_HELD_MS);
+      const writtenWhileLocked = written;
+      holder.stdin.end("release\n");
+      await writing;
 
-    await writeFileAtomic(path, "стало\n");
-
-    await released;
-    expect(await readFile(path, "utf8")).toBe("стало\n");
+      expect(writtenWhileLocked).toBe(false);
+      expect(await readFile(path, "utf8")).toBe("стало\n");
+    } finally {
+      holder.stdin.end();
+      await released;
+    }
   });
 });
