@@ -22,11 +22,12 @@ export function useSeenTasks(tasks: readonly Task[] | undefined): SeenTasks {
   }, [record]);
 
   useEffect(() => {
-    if (record === undefined || tasks === undefined) return;
+    const current = parseRecord(readStored());
+    if (current === undefined || tasks === undefined) return;
     const existingIds = new Set(tasks.map((task) => task.id));
-    const ids = record.ids.filter((id) => existingIds.has(id));
-    if (ids.length < record.ids.length) writeRecord({ ...record, ids });
-  }, [record, tasks]);
+    const ids = current.ids.filter((id) => existingIds.has(id));
+    if (ids.length < current.ids.length) writeRecord({ ...current, ids });
+  }, [tasks]);
 
   return useMemo(() => {
     const seen = new Set(record?.ids);

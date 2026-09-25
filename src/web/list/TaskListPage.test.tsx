@@ -724,6 +724,19 @@ describe("шильдик «новая»", () => {
     await waitFor(() => expect(JSON.parse(localStorage.getItem(SEEN_KEY) ?? "null").ids).toEqual(["SPA-2", "SPA-3"]));
   });
 
+  it("задача, открытая в другой вкладке раньше, чем эта о ней узнала, остаётся просмотренной", async () => {
+    rememberFirstVisit("2026-09-15T00:00:00+03:00");
+    await renderApp(NEW_FILES);
+    expect(await hasBadge("Свежая")).toBe(true);
+
+    rememberFirstVisit("2026-09-15T00:00:00+03:00", ["SPA-4"]);
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: SEEN_KEY }));
+    });
+
+    expect(JSON.parse(localStorage.getItem(SEEN_KEY) ?? "null").ids).toEqual(["SPA-4"]);
+  });
+
   it("просмотр в другой вкладке снимает шильдик", async () => {
     rememberFirstVisit("2026-09-15T00:00:00+03:00");
     await renderApp(NEW_FILES);
