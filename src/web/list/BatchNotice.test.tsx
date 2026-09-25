@@ -132,6 +132,29 @@ describe("уведомление об итоге массового действ
     expect((await taskOnDisk(app.root, "SPA-1")).epic).toBe("SPA-10");
   });
 
+  it("больше 500 выбранных уходят частями по 500, итог и отмена — общие на все", { timeout: 20_000 }, async () => {
+    const many = Object.fromEntries(Array.from({ length: 520 }, (_, index) => [`spa/SPA-${index + 1}.md`, taskFixture(`SPA-${index + 1}`, { priority: "low" })]));
+    const { sent, beforeRender } = recordBatches();
+    const app = await renderApp({ "spa/project.md": projectFile("SPA"), ...many }, "/", undefined, { beforeRender });
+    await screen.findAllByRole("row");
+    await app.user.click(screen.getByRole("checkbox", { name: "Выбрать все видимые" }));
+    await app.user.type(screen.getByRole("searchbox", { name: "Поиск задач" }), "SPA-520");
+    const panel = screen.getByRole("region", { name: "Действия с выбранными" });
+    await app.user.click(within(panel).getByRole("button", { name: "Приоритет" }));
+    await app.user.click(within(panel).getByRole("button", { name: "критичный" }));
+
+    const notice = await findNotice("Изменено 520 из 520");
+    expect(sent.map((request) => request.tasks.length)).toEqual([500, 20]);
+    await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
+
+    await findNotice("Возвращено 520 из 520");
+    expect(sent.slice(2).map((request) => [request.tasks.length, request.action.kind === "restore" && Object.keys(request.action.changes).length])).toEqual([
+      [500, 500],
+      [20, 20],
+    ]);
+    expect((await taskOnDisk(app.root, "SPA-520")).priority).toBe("low");
+  });
+
   it("неудавшаяся отмена видна и не переезжает в следующее уведомление", async () => {
     const { beforeRender } = recordBatches(true);
     const app = await renderApp(FILES, "/", undefined, { beforeRender });

@@ -41,11 +41,13 @@ const batchPreviousSchema = z.strictObject({
   reason: z.string().nullable(),
 });
 
+export const BATCH_TASKS_LIMIT = 500;
+
 export const batchRequestSchema = z.strictObject({
   tasks: z
     .array(z.strictObject({ id: taskIdSchema, version: z.string().min(1) }))
     .min(1)
-    .max(500)
+    .max(BATCH_TASKS_LIMIT)
     .refine((tasks) => new Set(tasks.map((task) => task.id)).size === tasks.length),
   action: z.discriminatedUnion("kind", [
     z.strictObject({ kind: z.literal("close"), reason: z.string().transform((reason) => reason.replace(/\s*\n\s*/g, " ").trim()).pipe(z.string().min(1)) }),

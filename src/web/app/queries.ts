@@ -1,6 +1,17 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient, type UseMutationResult, type UseQueryOptions } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { BatchRequest, BatchResponse, MemorySamplesResponse, ProjectView, SettingsResponse, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
+import {
+  BATCH_TASKS_LIMIT,
+  type BatchAction,
+  type BatchOutcome,
+  type BatchRequest,
+  type BatchResponse,
+  type MemorySamplesResponse,
+  type ProjectView,
+  type SettingsResponse,
+  type TaskChangesRequest,
+  type TasksResponse,
+} from "../../core/api/contract";
 import { MEMORY_SAMPLE_INTERVAL_MS } from "../../core/api/memory";
 import type { Language } from "../../core/i18n/language";
 import type { Project, Task } from "../../core/model/types";
@@ -142,9 +153,25 @@ export function useBatchTasks(): UseMutationResult<BatchResponse, Error, BatchRe
   const queryClient = useQueryClient();
   return useMutation({
     scope: TASK_SAVES,
-    mutationFn: (request: BatchRequest) => client.batchTasks(request),
-    onSuccess: () => invalidateFileData(queryClient),
+    mutationFn: (request: BatchRequest) => batchInChunks(client, request),
+    onSettled: () => invalidateFileData(queryClient),
   });
+}
+
+async function batchInChunks(client: ApiClient, { tasks, action }: BatchRequest): Promise<BatchResponse> {
+  const results: BatchOutcome[] = [];
+  for (let start = 0; start < tasks.length; start += BATCH_TASKS_LIMIT) {
+    const chunk = tasks.slice(start, start + BATCH_TASKS_LIMIT);
+    const response = await client.batchTasks({ tasks: chunk, action: actionForChunk(action, chunk) });
+    results.push(...response.results);
+  }
+  return { results };
+}
+
+function actionForChunk(action: BatchAction, chunk: BatchRequest["tasks"]): BatchAction {
+  if (action.kind !== "restore") return action;
+  const ids = new Set(chunk.map(({ id }) => id));
+  return { kind: "restore", changes: Object.fromEntries(Object.entries(action.changes).filter(([id]) => ids.has(id))) };
 }
 
 async function saveEditedBody(client: ApiClient, id: string, changes: TaskChangesRequest, edit: BodyEdit): Promise<Task> {
