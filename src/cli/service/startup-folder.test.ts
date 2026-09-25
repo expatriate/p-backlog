@@ -1,7 +1,9 @@
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import { makeTempDir } from "../../core/store/testing/temp-dirs";
+import { access, copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
+import { dirname, join } from "node:path";
+import { describe, expect, it, onTestFinished } from "vitest";
+import { makeTempDir, writeFiles } from "../../core/store/testing/temp-dirs";
+import { execProgram } from "../exec";
 import type { CliEnv, ExecResult } from "../io";
 import { fakeExec } from "../testing/cli-harness";
 import { startupFolderManager, startupScript } from "./startup-folder";
@@ -51,6 +53,19 @@ function powershellFailing(result: ExecResult): CliEnv["exec"] {
   return fakeExec((command) => (command.startsWith("powershell.exe") ? result : { code: 0, output: "" })).exec;
 }
 
+function execRunningScriptsInConsole(): CliEnv["exec"] {
+  return (file, args, options) => (file === "wscript.exe" ? execProgram("cscript.exe", ["//nologo", ...args], options) : execProgram(file, args, options));
+}
+
+async function contentOnceWritten(path: string): Promise<string> {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const content = await readFile(path, "utf8").catch(() => "");
+    if (content.endsWith("\n")) return content;
+    await delay(100);
+  }
+  throw new Error(`${path} так и не записан`);
+}
+
 function recordInto(stopped: number[]): CliEnv["stopProcess"] {
   return (pid) => {
     stopped.push(pid);
@@ -71,8 +86,22 @@ describe("startupScript", () => {
     expect(script).toContain('env("PORT") = "4400"');
     expect(script).toContain('env("PATH") = "/usr/local/bin;/usr/bin"');
     expect(script).toContain(`env("P_BACKLOG_PID_FILE") = "${pidFilePath(roots.localAppData)}"`);
-    const command = `cmd /c ""C:\\node\\node.exe" "C:\\p-backlog\\dist\\cli.js" serve >> "${logPath(roots.localAppData)}" 2>&1"`;
-    expect(script).toContain(`shell.Run "${command.replaceAll('"', '""')}", 0, False`);
+    expect(script).toContain('env("P_BACKLOG_NODE") = "C:\\node\\node.exe"');
+    expect(script).toContain('env("P_BACKLOG_CLI") = "C:\\p-backlog\\dist\\cli.js"');
+    expect(script).toContain(`env("P_BACKLOG_LOG") = "${logPath(roots.localAppData)}"`);
+    expect(script).toContain('shell.Run "cmd /v:on /c """"!P_BACKLOG_NODE!"" ""!P_BACKLOG_CLI!"" serve >> ""!P_BACKLOG_LOG!"" 2>&1""", 0, False');
+  });
+
+  it("пути с %ИМЯ% попадают в строку запуска только через переменные окружения: Run и cmd их не раскроют", async () => {
+    const roots = await tempRoots();
+    const context = { ...contextFor(roots), nodePath: "C:\\%USERNAME%\\node.exe", cliPath: "C:\\%TEMP%\\dist\\cli.js", env: { LOCALAPPDATA: "C:\\%PATH%" } };
+
+    const lines = startupScript(context).split("\r\n");
+
+    expect(lines).toContain('env("P_BACKLOG_NODE") = "C:\\%USERNAME%\\node.exe"');
+    expect(lines).toContain('env("P_BACKLOG_CLI") = "C:\\%TEMP%\\dist\\cli.js"');
+    expect(lines).toContain(`env("P_BACKLOG_LOG") = "${join("C:\\%PATH%", "p-backlog", "p-backlog.log")}"`);
+    expect(lines.filter((line) => line.startsWith("shell.Run")).join("")).not.toContain("%");
   });
 
   it("удваивает кавычки внутри путей по правилам VBScript", async () => {
@@ -237,6 +266,25 @@ describe("startupFolderManager", () => {
     await manager.install();
 
     expect(await manager.installedPort()).toBe(4400);
+  });
+
+  it.runIf(process.platform === "win32")("на Windows скрипт запускает node и пишет лог по путям с %ИМЯ% как есть, без подстановки переменных", async () => {
+    const base = await makeTempDir();
+    const roots = { home: await makeTempDir(), appData: await makeTempDir(), localAppData: join(base, "%PATH%") };
+    const nodePath = join(base, "%TEMP%", "node.exe");
+    const cliPath = join(base, "%USERNAME%", "cli.js");
+    await mkdir(dirname(nodePath), { recursive: true });
+    await copyFile(process.execPath, nodePath);
+    onTestFinished(() => rm(dirname(nodePath), { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }));
+    await writeFiles(base, {
+      [join("%USERNAME%", "cli.js")]: "console.log(JSON.stringify({ node: process.execPath, argv: process.argv.slice(1), pidFile: process.env.P_BACKLOG_PID_FILE }));\n",
+    });
+    const context = { ...contextFor(roots, execRunningScriptsInConsole()), env: { ...process.env, LOCALAPPDATA: roots.localAppData }, nodePath, cliPath };
+
+    expect(await startupFolderManager(context).install()).toBe("done");
+
+    const launched: unknown = JSON.parse(await contentOnceWritten(logPath(roots.localAppData)));
+    expect(launched).toEqual({ node: nodePath, argv: [cliPath, "serve"], pidFile: pidFilePath(roots.localAppData) });
   });
 
   it("file и logs указывают на скрипт в «Автозагрузке» и лог в LOCALAPPDATA", async () => {

@@ -29,14 +29,25 @@ function pidFilePath(context: ServiceContext): string {
   return join(appDataDir(context), "server.pid");
 }
 
+const NODE_PATH_ENV = "P_BACKLOG_NODE";
+const CLI_PATH_ENV = "P_BACKLOG_CLI";
+const LOG_PATH_ENV = "P_BACKLOG_LOG";
+// Run and cmd expand %NAME% even inside quotes; values substituted by !NAME! delayed expansion are never re-expanded.
+const SERVE_COMMAND = `cmd /v:on /c ""!${NODE_PATH_ENV}!" "!${CLI_PATH_ENV}!" serve >> "!${LOG_PATH_ENV}!" 2>&1"`;
+
 export function startupScript(context: ServiceContext): string {
-  const command = `cmd /c ""${context.nodePath}" "${context.cliPath}" serve >> "${logPath(context)}" 2>&1"`;
-  const env = { ...serviceEnvironment(context), [PID_FILE_ENV]: pidFilePath(context) };
+  const env = {
+    ...serviceEnvironment(context),
+    [PID_FILE_ENV]: pidFilePath(context),
+    [NODE_PATH_ENV]: context.nodePath,
+    [CLI_PATH_ENV]: context.cliPath,
+    [LOG_PATH_ENV]: logPath(context),
+  };
   return [
     'Set shell = CreateObject("WScript.Shell")',
     'Set env = shell.Environment("Process")',
     ...Object.entries(env).map(([key, value]) => `env(${vbsString(key)}) = ${vbsString(value)}`),
-    `shell.Run ${vbsString(command)}, 0, False`,
+    `shell.Run ${vbsString(SERVE_COMMAND)}, 0, False`,
     "",
   ].join("\r\n");
 }
