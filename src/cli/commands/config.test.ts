@@ -1,4 +1,4 @@
-import { lstat, mkdir, realpath, writeFile } from "node:fs/promises";
+import { lstat, mkdir, realpath, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { EXIT } from "../io";
@@ -39,16 +39,34 @@ describe("backlog config language", () => {
     expect((await lstat(join(skillsDir, "backlog"))).isSymbolicLink()).toBe(false);
   });
 
-  it("переставляет скилл и у Codex, и у Cursor", async () => {
+  it("у Codex и Cursor переставляет только уже стоящую нашу ссылку, новую не заводит", async () => {
     const { home, run } = await makeCliSandbox();
+    const codexLink = join(home, ".agents/skills/backlog");
+    const cursorLink = join(home, ".cursor/skills/backlog");
     await mkdir(join(home, ".codex"), { recursive: true });
-    await mkdir(join(home, ".cursor"), { recursive: true });
+    await mkdir(dirname(codexLink), { recursive: true });
+    await mkdir(dirname(cursorLink), { recursive: true });
+    await symlink(join(repoRoot, "skill/backlog"), codexLink, "dir");
 
     expect((await run(["config", "language", "en"])).code).toBe(EXIT.ok);
 
-    for (const dir of [".claude", ".agents", ".cursor"]) {
-      expect(await realpath(join(home, dir, "skills/backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
-    }
+    expect(await realpath(codexLink)).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
+    await expect(lstat(cursorLink)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("сбой ссылки у одного агента не мешает переставить скилл остальным", async () => {
+    const { home, run } = await makeCliSandbox();
+    const codexLink = join(home, ".agents/skills/backlog");
+    await writeFile(join(home, "not-a-dir"), "");
+    await mkdir(join(home, ".codex"), { recursive: true });
+    await mkdir(dirname(codexLink), { recursive: true });
+    await symlink(join(repoRoot, "skill/backlog"), codexLink, "dir");
+
+    const result = await run(["config", "language", "en"], { env: { CLAUDE_SKILLS_DIR: join(home, "not-a-dir/skills") } });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(result.err).toMatch(/^Claude Code: /m);
+    expect(await realpath(codexLink)).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
   });
 
   it("при включённом плагине скилл Claude Code не трогает и подсказывает плагин нужного языка", async () => {

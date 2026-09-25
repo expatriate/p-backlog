@@ -44,6 +44,11 @@ export async function linkSkillFor(language: Language, { skillsDir, packageRoot,
   return "linked";
 }
 
+export async function relinkExistingSkill(language: Language, options: SkillLinkOptions): Promise<SkillLinkResult | "absent"> {
+  if (!(await pathExists(join(options.skillsDir, "backlog")))) return "absent";
+  return linkSkillFor(language, options);
+}
+
 export async function unlinkOurSkill(skillsDir: string): Promise<SkillUnlinkResult> {
   const target = join(skillsDir, "backlog");
   const existing = await lstat(target).catch(() => null);

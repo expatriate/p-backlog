@@ -105,7 +105,7 @@ limits it to one:
 | Cursor | `~/.cursor` | `~/.cursor/skills/backlog` | `~/.cursor/hooks.json` |
 
 The skill is a link to the package's skill in the configured language; `backlog config language` switches it for
-every agent. Other hooks in those files stay as they are, and running `setup` again adds nothing twice. Codex asks
+every agent where `setup` installed it. Other hooks in those files stay as they are, and running `setup` again adds nothing twice. Codex asks
 you to review and approve the new hook once: open `/hooks` in Codex. In Cursor the re-check request arrives as a
 follow-up message. Token and cost statistics cover Claude Code only.
 

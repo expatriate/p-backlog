@@ -14,7 +14,8 @@ Claude Code plugin and other agents:
   message.
 - With the plugin enabled, `setup` leaves Claude Code alone; `backlog setup --remove-manual` removes the skill links
   and Stop hooks installed earlier. Two Stop hooks in one turn (plugin and manual) answer once.
-- `backlog config language` switches the skill for every agent and, with the plugin, tells which plugin to install.
+- `backlog config language` switches the skill for every agent where `setup` installed it and, with the plugin, tells
+  which plugin to install.
 - Cost statistics note that Codex and Cursor usage is not counted.
 
 ## 0.4.0
