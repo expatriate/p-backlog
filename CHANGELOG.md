@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Codex and Cursor share one skill link in `~/.agents/skills` (Cursor reads it too); `setup` removes the older
+  `~/.cursor/skills` / `~/.codex/skills` links it made, and `setup --remove-manual --agent cursor` keeps the shared
+  link while Codex still uses it. Before, Cursor listed the skill up to three times.
+
 ## 0.5.0
 
 Claude Code plugin and other agents:

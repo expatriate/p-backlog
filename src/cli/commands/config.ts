@@ -32,7 +32,7 @@ async function runLanguage(positionals: string[], io: CliIo): Promise<number> {
   const language = parseChoice(io.language, value, LANGUAGES, cliMessages(io.language).optionLabel.language);
   await writeSettings(io.backlogRoot, { language });
   io.print(`${io.language} → ${language}`);
-  const { found } = await detectAgents(io.env, io.home);
+  const { found } = await detectAgents(io);
   for (const agent of found) await relinkSkill(agent, language, io);
   return EXIT.ok;
 }
@@ -40,13 +40,13 @@ async function runLanguage(positionals: string[], io: CliIo): Promise<number> {
 async function relinkSkill(agent: Agent, language: Language, io: CliIo): Promise<void> {
   const messages = cliMessages(language);
   const label = AGENT_LABELS[agent];
-  const plugin = await agentPlugin(agent, io.env, io.home);
+  const plugin = await agentPlugin(agent, io);
   if (plugin !== null) {
     const wanted = pluginToSwitchTo(plugin, language);
     if (wanted !== null) io.print(`${label}: ${messages.pluginLanguageHint(plugin, wanted)}`);
     return;
   }
-  const skillsDir = agentSkillsDir(agent, io.env, io.home);
+  const skillsDir = agentSkillsDir(agent, io);
   const target = join(skillsDir, "backlog");
   const options = { skillsDir, packageRoot: io.packageRoot, platform: io.platform };
   try {

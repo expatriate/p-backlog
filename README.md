@@ -103,12 +103,16 @@ limits it to one:
 |---|---|---|---|
 | Claude Code | always | `~/.claude/skills/backlog` | `~/.claude/settings.json` |
 | Codex CLI | `$CODEX_HOME` or `~/.codex` | `~/.agents/skills/backlog` | `<codex home>/hooks.json` |
-| Cursor | `~/.cursor` | `~/.cursor/skills/backlog` | `~/.cursor/hooks.json` |
+| Cursor | `~/.cursor` | `~/.agents/skills/backlog` | `~/.cursor/hooks.json` |
 
 The skill is a link to the package's skill in the configured language; `backlog config language` switches it for
 every agent where `setup` installed it. Other hooks in those files stay as they are, and running `setup` again adds nothing twice. Codex asks
 you to review and approve the new hook once: open `/hooks` in Codex. In Cursor the re-check request arrives as a
 follow-up message. Token and cost statistics cover Claude Code only.
+
+Codex and Cursor share one skill link in `~/.agents/skills`, the common skills folder both read; `setup` removes
+the older links it made in `~/.codex/skills` and `~/.cursor/skills`. Cursor also reads `~/.claude/skills`, so with
+Claude Code connected manually it may list the skill twice.
 
 If the Claude Code plugin is enabled, `setup` leaves Claude Code alone; `backlog setup --remove-manual` removes the
 skill links and Stop hooks that `setup` installed earlier (for all agents, or for `--agent`).

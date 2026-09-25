@@ -24,8 +24,8 @@ export const cliRu = {
   installHookAdded: (settingsPath: string): string => `Хук Stop добавлен в ${settingsPath}`,
   installHookUpdated: (settingsPath: string): string => `Хук Stop обновлён в ${settingsPath}`,
   codexHookApproval: "одобрите хук в Codex: /hooks",
-  installSettingsUnreadable: (settingsPath: string, detail: string): string => `${settingsPath} не прочитать (${detail}), хук Stop не добавлен.`,
-  installSettingsInvalid: (settingsPath: string): string => `${settingsPath} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`,
+  installHookConfigUnreadable: (path: string, detail: string): string => `${path} не прочитать (${detail}), хук Stop не добавлен.`,
+  installHookConfigInvalid: (path: string): string => `${path} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`,
   agentNotFound: (dir: string): string => `не найден (${dir})`,
   pluginManages: (plugin: string): string => `скилл и хук подключает плагин ${plugin}. Ручные можно убрать: backlog setup --remove-manual`,
   pluginLanguageHint: (installed: string, wanted: string): string =>
@@ -36,12 +36,13 @@ export const cliRu = {
     absent: (target: string): string => `ссылки на скилл нет: ${target}`,
     foreign: (target: string): string => `${target} — не ссылка p-backlog, не тронут`,
   },
+  manualSkillShared: (target: string, agent: string): string => `ссылка на скилл оставлена, ею пользуется ${agent}: ${target}`,
   manualHookRemoval: {
     removed: (path: string): string => `хук Stop снят из ${path}`,
     absent: (path: string): string => `хука Stop p-backlog в ${path} нет`,
   },
-  hookConfigUnreadable: (path: string, detail: string): string => `Не удалось прочитать ${path} (${detail}), хук не снят.`,
-  hookConfigInvalid: (path: string): string => `${path} — не объект JSON, хук не снят. Исправьте файл и повторите.`,
+  removeHookConfigUnreadable: (path: string, detail: string): string => `Не удалось прочитать ${path} (${detail}), хук не снят.`,
+  removeHookConfigInvalid: (path: string): string => `${path} — не объект JSON, хук не снят. Исправьте файл и повторите.`,
 
   serviceInstalled: (file: string): string => `Служба установлена: ${file}`,
   serviceLogs: (path: string): string => `Логи: ${path}`,

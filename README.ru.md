@@ -102,12 +102,16 @@
 |---|---|---|---|
 | Claude Code | всегда | `~/.claude/skills/backlog` | `~/.claude/settings.json` |
 | Codex CLI | `$CODEX_HOME` или `~/.codex` | `~/.agents/skills/backlog` | `<каталог codex>/hooks.json` |
-| Cursor | `~/.cursor` | `~/.cursor/skills/backlog` | `~/.cursor/hooks.json` |
+| Cursor | `~/.cursor` | `~/.agents/skills/backlog` | `~/.cursor/hooks.json` |
 
 Скилл — ссылка на скилл пакета на выбранном языке; `backlog config language` переставляет её у всех
 агентов, которым её поставил `setup`. Чужие хуки в этих файлах остаются на месте, повторный `setup` ничего
 не дублирует. Codex один раз просит одобрить новый хук: откройте `/hooks` в Codex. В Cursor просьба перепроверить
 задачи приходит следующим сообщением. Статистика токенов и расходов считает только Claude Code.
+
+У Codex и Cursor одна ссылка на скилл в `~/.agents/skills` — общем каталоге скиллов, который читают оба; прежние
+ссылки в `~/.codex/skills` и `~/.cursor/skills` `setup` снимает. Cursor читает ещё и `~/.claude/skills`, поэтому при
+ручной установке для Claude Code он может показать скилл дважды.
 
 Если включён плагин для Claude Code, `setup` Claude Code не трогает; `backlog setup --remove-manual` снимает ссылки на
 скилл и хуки Stop, которые `setup` ставил раньше (у всех агентов или у `--agent`).

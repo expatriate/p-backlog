@@ -140,9 +140,7 @@ describe("путь нового пользователя из tarball", () => {
     const run = backlogRunner(env);
 
     run(["setup"]);
-    for (const skillsDir of [join(home, ".agents", "skills"), join(cursorHome, "skills")]) {
-      expect(await realpath(join(skillsDir, "backlog"))).toBe(await realpath(join(packageDir, "skill", "backlog-en")));
-    }
+    expect(await realpath(join(home, ".agents", "skills", "backlog"))).toBe(await realpath(join(packageDir, "skill", "backlog-en")));
     const codexHook = JSON.parse(await readFile(join(codexHome, "hooks.json"), "utf8")).hooks.Stop[0].hooks[0];
     const cursorHook = JSON.parse(await readFile(join(cursorHome, "hooks.json"), "utf8")).hooks.stop[0];
 

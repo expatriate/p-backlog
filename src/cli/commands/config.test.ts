@@ -40,18 +40,19 @@ describe("backlog config language", () => {
   });
 
   it("у Codex и Cursor переставляет только уже стоящую нашу ссылку, новую не заводит", async () => {
-    const { home, run } = await makeCliSandbox();
-    const codexLink = join(home, ".agents/skills/backlog");
-    const cursorLink = join(home, ".cursor/skills/backlog");
-    await mkdir(join(home, ".codex"), { recursive: true });
+    const withLink = await makeCliSandbox();
+    const codexLink = join(withLink.home, ".agents/skills/backlog");
+    await mkdir(join(withLink.home, ".codex"), { recursive: true });
     await mkdir(dirname(codexLink), { recursive: true });
-    await mkdir(dirname(cursorLink), { recursive: true });
     await symlink(join(repoRoot, "skill/backlog"), codexLink, "dir");
+    const withoutLink = await makeCliSandbox();
+    await mkdir(join(withoutLink.home, ".cursor"), { recursive: true });
 
-    expect((await run(["config", "language", "en"])).code).toBe(EXIT.ok);
+    expect((await withLink.run(["config", "language", "en"])).code).toBe(EXIT.ok);
+    expect((await withoutLink.run(["config", "language", "en"])).code).toBe(EXIT.ok);
 
     expect(await realpath(codexLink)).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
-    await expect(lstat(cursorLink)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(lstat(join(withoutLink.home, ".agents/skills/backlog"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("сбой ссылки у одного агента не мешает переставить скилл остальным", async () => {

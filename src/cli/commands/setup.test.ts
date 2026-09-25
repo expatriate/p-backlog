@@ -229,6 +229,37 @@ describe("backlog setup", () => {
     expect((await lstat(join(home, ".cursor/skills/backlog"))).isDirectory()).toBe(true);
   });
 
+  it("Codex и Cursor делят одну ссылку в ~/.agents/skills, прежняя ссылка Cursor снимается", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    const legacyCursorLink = join(home, ".cursor/skills/backlog");
+    await mkdir(join(home, ".codex"), { recursive: true });
+    await mkdir(dirname(legacyCursorLink), { recursive: true });
+    await symlink(join(repoRoot, "skill/backlog"), legacyCursorLink, "dir");
+
+    const result = await run(["setup"], { env });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(await realpath(join(home, ".agents/skills/backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog")));
+    expect(result.out).toContain(`Cursor: Скилл уже установлен: ${join(home, ".agents/skills/backlog")}`);
+    await expect(lstat(legacyCursorLink)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("--remove-manual --agent cursor оставляет общую ссылку, пока ею пользуется Codex", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    await mkdir(join(home, ".codex"), { recursive: true });
+    await mkdir(join(home, ".cursor"), { recursive: true });
+    await run(["setup"], { env });
+
+    const result = await run(["setup", "--remove-manual", "--agent", "cursor"], { env });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(result.out).toContain("ею пользуется Codex");
+    expect(await realpath(join(home, ".agents/skills/backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog")));
+    expect(JSON.parse(await readFile(join(home, ".cursor/hooks.json"), "utf8"))).toEqual({ hooks: {}, version: 1 });
+  });
+
   it("--remove-manual вместе с --service — ошибка использования, ничего не снято", async () => {
     const { home, run } = await makeCliSandbox();
     const env = claudeEnv(home);
