@@ -106,7 +106,7 @@ export function useSetProjectActive(): UseMutationResult<Project, Error, SetProj
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, active }: SetProjectActiveVariables) => client.setProjectActive(id, active),
-    onSuccess: () => invalidateFileData(queryClient),
+    onSuccess: () => invalidateBacklogAndStats(queryClient),
   });
 }
 
@@ -117,17 +117,17 @@ export function useDeleteProject(): UseMutationResult<void, Error, DeleteProject
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, confirm }: DeleteProjectVariables) => client.deleteProject(id, confirm),
-    onSuccess: () => invalidateFileData(queryClient),
+    onSuccess: () => invalidateBacklogAndStats(queryClient),
   });
 }
 
 const REVISIONED_KEYS = [TASKS_KEY, PROJECTS_KEY];
 
-function invalidateFileData(queryClient: QueryClient): void {
+function invalidateBacklogAndStats(queryClient: QueryClient): void {
   for (const queryKey of [...REVISIONED_KEYS, STATS_KEY]) void queryClient.invalidateQueries({ queryKey });
 }
 
-function invalidateTaskData(queryClient: QueryClient): Promise<unknown> {
+function invalidateBacklogOnly(queryClient: QueryClient): Promise<unknown> {
   return Promise.all(REVISIONED_KEYS.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
 }
 
@@ -156,7 +156,7 @@ export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariab
       return bodyEdit === undefined ? client.updateTask(id, task.version, changes) : saveEditedBody(client, id, changes, bodyEdit);
     },
     onSuccess: (task) => putTask(queryClient, task),
-    onSettled: () => invalidateTaskData(queryClient),
+    onSettled: () => invalidateBacklogOnly(queryClient),
   });
 }
 
@@ -166,7 +166,7 @@ export function useBatchTasks(): UseMutationResult<BatchResponse, Error, BatchRe
   return useMutation({
     scope: TASK_SAVES,
     mutationFn: (request: BatchRequest) => batchInChunks(client, request),
-    onSettled: () => void invalidateTaskData(queryClient),
+    onSettled: () => void invalidateBacklogOnly(queryClient),
   });
 }
 
@@ -223,11 +223,11 @@ export function useLiveUpdates(): void {
     if (!stream) return;
     stream.addEventListener("change", (event) => {
       const revision = parseRevision(event.data);
-      if (revision === null) return invalidateFileData(queryClient);
+      if (revision === null) return invalidateBacklogAndStats(queryClient);
       void queryClient.invalidateQueries({ queryKey: STATS_KEY });
       for (const queryKey of REVISIONED_KEYS) void refreshIfBehind(queryClient, queryKey, revision);
     });
-    stream.addEventListener("open", () => invalidateFileData(queryClient));
+    stream.addEventListener("open", () => invalidateBacklogAndStats(queryClient));
     return () => stream.close();
   }, [openEvents, queryClient]);
 }
