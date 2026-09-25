@@ -51,6 +51,7 @@ describe("backlog new", () => {
     expect(result.code).toBe(EXIT.ok);
     expect(result.err).toBe("");
     expect(JSON.parse(result.out)).toMatchObject({ id: "SPA-2", related: ["SPA-1"], projectId: "spa" });
+    expect(JSON.parse(result.out)).toEqual(JSON.parse((await run(["show", "SPA-2", "--json"])).out));
   });
 
   it("ошибки аргументов и правил — код 1, неизвестный --project — код 2", async () => {

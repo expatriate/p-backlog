@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatLocalIso } from "../core/model/dates";
-import { appendRun } from "../core/store/runs";
+import { appendRun, trimRunsWhenStale } from "../core/store/runs";
 import { resolveBacklogRoot } from "../core/store/paths";
 import { localeLanguage, settleLanguage } from "../core/store/settings";
 import { suppressSqliteExperimentalWarning } from "../core/sqlite-warning";
@@ -62,6 +62,7 @@ try {
     rssMb: megabytesOf(process.resourceUsage().maxRSS * 1024),
     exitCode,
   });
+  await trimRunsWhenStale(backlogRoot, new Date());
 } catch (error) {
   const { language } = await settleLanguage(backlogRoot, process.env).catch(() => ({ language: localeLanguage(process.env) }));
   process.stderr.write(`${cliMessages(language).runNotRecorded(errorText(error))}\n`);

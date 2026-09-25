@@ -125,6 +125,9 @@ Exit codes: `0` success, `1` argument or rule error, `2` not found, `3` refused 
 blocked, or every matching task is blocked), `4` the command failed, `5` `check` found candidates or task problems to
 work through.
 
+With `--json`, `new`, `show`, and `take` print the same task object (with progress, blockers, and links),
+while `list` and `take --path` print an array of such objects.
+
 A project that's no longer maintained is marked inactive: its tasks drop out of the combined "Projects"
 scope's list and statistics, but the project's own page works as usual. Checks (`backlog check`), the Stop
 hook, and deleting old closed tasks run across all projects, including inactive ones. Deleting a project

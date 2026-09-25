@@ -4,12 +4,12 @@ import { statsReport } from "../../core/stats/report";
 import { statsSignals } from "../../core/stats/signals/signals";
 import { readJournals } from "../../core/store/journal";
 import { loadBacklog, unparsedTasks } from "../../core/store/load";
-import { readPort } from "../../server/port";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo } from "../io";
 import { cliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { statsSummary } from "../stats-summary";
+import { webPort } from "./service";
 
 export const statsCommand: CliCommand = {
   name: "stats",
@@ -46,7 +46,7 @@ async function runStats(args: string[], io: CliIo): Promise<number> {
       totals,
       forecast,
       signals,
-      url: `http://localhost:${readPort(io.env.PORT)}${path}`,
+      url: `http://localhost:${await webPort(io)}${path}`,
     }),
   );
   return EXIT.ok;

@@ -91,8 +91,8 @@ out of its epic. An epic closes on its own once all its tasks are closed.
 "Take SPA-12" → `backlog take SPA-12`. "Take the next one" → `backlog take --next` (the project is picked
 from the current repository; from another directory add `--project <id>`). "Take all tasks for
 src/web/stats" → `backlog take --path src/web/stats`: takes every open task whose `source` is inside that
-path (skipping blocked ones), and prints them one after another separated by `---` — fix them together,
-closing each one.
+path (skipping blocked ones), and prints them one after another separated by `---` (with `--json` — one JSON
+array) — fix them together, closing each one.
 
 | Code | What happened | What to do |
 |---|---|---|

@@ -1,5 +1,6 @@
 import { dependentTasks, epicChildren, openBlockers, relatedTasks, taskProgress, type BacklogIndex } from "../core/model/graph";
 import { taskWarnings } from "../core/model/integrity";
+import { formatLocalIso } from "../core/model/dates";
 import { deletionDate } from "../core/model/lifecycle";
 import type { Problem } from "../core/model/problems";
 import type { Task } from "../core/model/types";
@@ -43,6 +44,11 @@ export function toJson(description: TaskDescription): object {
     epicTask: description.epic && reference(description.epic),
     children: description.children.map(reference),
     warnings: description.warnings,
-    deletesAt: deletionDate(description.task)?.toISOString(),
+    deletesAt: deletesAtIso(description.task),
   };
+}
+
+function deletesAtIso(task: Task): string | undefined {
+  const deletesAt = deletionDate(task);
+  return deletesAt === undefined ? undefined : formatLocalIso(deletesAt);
 }

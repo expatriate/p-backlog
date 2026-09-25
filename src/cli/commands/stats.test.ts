@@ -51,6 +51,14 @@ describe("backlog stats", () => {
     expect(json).toMatchObject({ totals: { open: 1 }, forecast: { created: 1 }, signals: [] });
   });
 
+  it("ссылка ведёт на порт установленной службы, даже если PORT в окружении не задан", async () => {
+    const { run } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Одна"]);
+    expect((await run(["service", "install"], { env: { PORT: "5000" } })).code).toBe(EXIT.ok);
+
+    expect((await run(["stats"])).out).toContain("Подробнее: http://localhost:5000/p/spa/stats");
+  });
+
   it("ошибки области", async () => {
     const { run, home } = await makeCliSandbox();
 

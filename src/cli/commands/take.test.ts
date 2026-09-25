@@ -94,11 +94,11 @@ describe("backlog take", () => {
 
     const result = await run(["take", "--path", "src", "--json"]);
 
-    const [, second] = result.out.split("\n---\n").map((text) => JSON.parse(text) as { relatedTasks: { id: string; status: string }[] });
+    const [, second] = JSON.parse(result.out) as { relatedTasks: { id: string; status: string }[] }[];
     expect(second?.relatedTasks).toEqual([{ id: "SPA-1", title: "Первая", status: "in-progress" }]);
   });
 
-  it("--path после неудачной записи одной задачи берёт остальные и отдаёт по блоку на каждую взятую", async () => {
+  it("--path после неудачной записи одной задачи берёт остальные и отдаёт массив из взятых", async () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
     await run(["new", "--category", "bug", "--title", "Битая", "--source", "src/b.ts:1"]);
@@ -110,7 +110,7 @@ describe("backlog take", () => {
 
     expect(result.code).not.toBe(EXIT.ok);
     expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2"), await statusOf(root, "SPA-3")]).toEqual(["in-progress", "backlog", "in-progress"]);
-    expect(result.out.split("\n---\n").map((text) => (JSON.parse(text) as { id: string }).id)).toEqual(["SPA-1", "SPA-3"]);
+    expect((JSON.parse(result.out) as { id: string }[]).map((task) => task.id)).toEqual(["SPA-1", "SPA-3"]);
   });
 
   it("--path понимает путь от текущего каталога, а не только от корня репозитория", async () => {

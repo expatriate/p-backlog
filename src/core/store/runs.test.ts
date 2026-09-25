@@ -1,7 +1,7 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { appendRun, readRuns, RUNS_FILE, trimRuns, type CliRun } from "./runs";
+import { appendRun, readRuns, RUNS_FILE, trimRuns, trimRunsWhenStale, type CliRun } from "./runs";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
 
 const RUN: CliRun = { at: "2026-09-20T10:00:00+03:00", command: "list", cwd: "/tmp/repo", ms: 12, rssMb: 80.5, exitCode: 0 };
@@ -64,5 +64,16 @@ describe("журнал запусков CLI", () => {
     await Promise.all([trimRuns(root, new Date("2026-09-20T12:00:00+03:00")), appendRun(root, RUN)]);
 
     expect(await readRuns(root)).toEqual([RUN]);
+  });
+
+  it("без сервера журнал не растёт: CLI обрезает его, когда старейший запуск вышел за 30 дней с запасом в сутки", async () => {
+    const root = await makeTempDir();
+    await appendRun(root, { ...RUN, at: "2026-08-20T15:00:00+03:00", command: "old" });
+    await appendRun(root, RUN);
+
+    expect(await trimRunsWhenStale(root, new Date("2026-09-20T12:00:00+03:00"))).toBe(0);
+    expect(await trimRunsWhenStale(root, new Date("2026-09-21T12:00:00+03:00"))).toBe(1);
+    expect(await readRuns(root)).toEqual([RUN]);
+    expect(await trimRunsWhenStale(await makeTempDir(), new Date())).toBe(0);
   });
 });

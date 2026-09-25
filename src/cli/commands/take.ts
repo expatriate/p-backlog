@@ -14,7 +14,7 @@ import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
 import { requireProject, requireTask } from "../lookups";
 import { cliMessages } from "../messages";
 import { taskWriter, type TaskWrite } from "../task-write";
-import { printTask } from "./show";
+import { printTask, taskJson } from "./show";
 
 export const takeCommand: CliCommand = {
   name: "take",
@@ -51,7 +51,9 @@ async function runTake(args: string[], io: CliIo): Promise<number> {
     for (const line of refusal.lines) io.warn(line);
     return refusal.code;
   }
-  return takeAll(loaded.tasks, [selected.task], io, { json: values.json });
+  const { code, taken, tasks } = await takeAll(loaded.tasks, [selected.task], io);
+  for (const task of taken) await printTask(io, task, tasks, { json: values.json });
+  return code;
 }
 
 type TakeMode = { kind: "path"; path: string } | { kind: "next" } | { kind: "id"; id: string };
@@ -82,7 +84,15 @@ async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projec
     io.warn(cliMessages(io.language).noOpenTasksAt(path));
     return EXIT.notFound;
   }
-  return takeAll(loaded.tasks, takeable, io, { json });
+  const { code, taken, tasks } = await takeAll(loaded.tasks, takeable, io);
+  if (json) io.print(JSON.stringify(taken.map((task) => taskJson(task, tasks)), null, 2));
+  else {
+    for (const [position, task] of taken.entries()) {
+      if (position > 0) io.print("---");
+      await printTask(io, task, tasks, { json: false });
+    }
+  }
+  return code;
 }
 
 function isOpenTaskAt(task: Task, path: string): boolean {
@@ -102,19 +112,20 @@ function repoRelativePath(io: CliIo, project: Project, path: string): string {
   return outsideRepo ? sourcePath(path) : fromRoot;
 }
 
-async function takeAll(loadedTasks: readonly Task[], chosen: readonly Task[], io: CliIo, { json }: { json: boolean }): Promise<number> {
+type Taken = { code: number; taken: Task[]; tasks: readonly Task[] };
+
+async function takeAll(loadedTasks: readonly Task[], chosen: readonly Task[], io: CliIo): Promise<Taken> {
   const write = taskWriter(io, loadedTasks);
-  let current = loadedTasks;
-  let printed = 0;
-  return applyAll(chosen, async (task) => {
-    const taken: TaskWrite = task.status === "in-progress" ? { ok: true, task } : await write(task, { status: "in-progress" });
-    if (!taken.ok) return taken.exitCode;
-    current = current.map((candidate) => (candidate.id === taken.task.id ? taken.task : candidate));
-    if (printed > 0) io.print("---");
-    printed++;
-    await printTask(io, taken.task, current, { json });
+  let tasks = loadedTasks;
+  const taken: Task[] = [];
+  const code = await applyAll(chosen, async (task) => {
+    const written: TaskWrite = task.status === "in-progress" ? { ok: true, task } : await write(task, { status: "in-progress" });
+    if (!written.ok) return written.exitCode;
+    tasks = tasks.map((candidate) => (candidate.id === written.task.id ? written.task : candidate));
+    taken.push(written.task);
     return EXIT.ok;
   });
+  return { code, taken, tasks };
 }
 
 function selectById(loaded: LoadedBacklog, io: CliIo, id: string): Selection {

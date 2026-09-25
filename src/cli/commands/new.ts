@@ -11,6 +11,7 @@ import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo } fr
 import { ensureProject } from "../lookups";
 import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
+import { taskJson } from "./show";
 
 export const newCommand: CliCommand = {
   name: "new",
@@ -78,7 +79,7 @@ async function runNew(args: string[], io: CliIo): Promise<number> {
     for (const error of result.errors) io.warn(coreMessages(io.language).problem(error));
     return EXIT.invalid;
   }
-  io.print(values.json ? JSON.stringify(result.task, null, 2) : `${result.task.id} ${result.task.path}`);
+  io.print(values.json ? JSON.stringify(taskJson(result.task, [...loaded.tasks, result.task]), null, 2) : `${result.task.id} ${result.task.path}`);
   return EXIT.ok;
 }
 

@@ -34,8 +34,17 @@ export function installService(io: CliIo): Promise<number> {
   return withServiceManager(io, installWith);
 }
 
-async function withServiceManager(io: CliIo, action: ServiceAction): Promise<number> {
-  const manager = await serviceManagerFor(io.platform, {
+export async function webPort(io: CliIo): Promise<number> {
+  return portOf(await serviceManagerOf(io), io);
+}
+
+async function portOf(manager: ServiceManager | null, io: CliIo): Promise<number> {
+  const installed = await manager?.installedPort().catch(() => null);
+  return installed ?? readPort(io.env.PORT);
+}
+
+function serviceManagerOf(io: CliIo): Promise<ServiceManager | null> {
+  return serviceManagerFor(io.platform, {
     home: io.home,
     env: io.env,
     backlogRoot: io.backlogRoot,
@@ -46,6 +55,10 @@ async function withServiceManager(io: CliIo, action: ServiceAction): Promise<num
     uid: io.uid,
     stopProcess: io.stopProcess,
   });
+}
+
+async function withServiceManager(io: CliIo, action: ServiceAction): Promise<number> {
+  const manager = await serviceManagerOf(io);
   if (manager === null) {
     io.warn(cliMessages(io.language).serviceUnsupported);
     return EXIT.failed;
@@ -71,7 +84,7 @@ async function uninstallWith(manager: ServiceManager, io: CliIo): Promise<number
 }
 
 async function statusWith(manager: ServiceManager, io: CliIo): Promise<number> {
-  const port = (await manager.installedPort()) ?? readPort(io.env.PORT);
+  const port = await portOf(manager, io);
   const [registered, responding] = await Promise.all([manager.registered(), serverResponds(port)]);
   io.print(cliMessages(io.language).serviceStatus(registered, responding, port));
   return EXIT.ok;
