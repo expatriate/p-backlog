@@ -178,6 +178,30 @@ describe("applyBatch", () => {
     expect(t2Reloaded?.resolution).toBeUndefined();
     expect(t2Reloaded?.reason).toBeUndefined();
   });
+
+  it("restore не закрывает открытую задачу ни с резолюцией, ни без неё", async () => {
+    const { root, t2, t3 } = await setup();
+    const index = await freshIndex(root);
+
+    const outcomes = await applyBatch(index, {
+      tasks: [t2, t3].map((task) => ({ id: task.id, version: versionOf(index, task.id) })),
+      action: {
+        kind: "restore",
+        changes: {
+          [t2.id]: { status: "done", priority: "medium", epic: null, resolution: "fixed", reason: "исправлено" },
+          [t3.id]: { status: "cancelled", priority: "medium", epic: null, resolution: null, reason: null },
+        },
+      },
+      now: NOW,
+    });
+
+    expect(outcomes).toEqual([
+      { id: t2.id, outcome: "skipped", reason: "invalid" },
+      { id: t3.id, outcome: "skipped", reason: "invalid" },
+    ]);
+    const reloaded = await loadBacklog(root);
+    for (const task of [t2, t3]) expect(reloaded.tasks.find((candidate) => candidate.id === task.id)?.version).toBe(versionOf(index, task.id));
+  });
 });
 
 describe("batchRequestSchema", () => {

@@ -52,7 +52,7 @@ function planFor(current: Task, action: BatchAction, index: BacklogIndex): Plan 
     case "epic":
       return epicPlan(current, action.epic, index);
     case "restore":
-      return restorePlan(action.changes[current.id]);
+      return restorePlan(current, action.changes[current.id]);
   }
 }
 
@@ -64,11 +64,11 @@ function epicPlan(current: Task, epic: string | null, index: BacklogIndex): Plan
   return { changes: { epic } };
 }
 
-function restorePlan(previous: BatchPrevious | undefined): Plan {
+function restorePlan(current: Task, previous: BatchPrevious | undefined): Plan {
   if (!previous) return { skip: "invalid" };
-  const changes: TaskChanges = { status: previous.status, priority: previous.priority, epic: previous.epic };
-  const closure: Closure | undefined = previous.resolution === null ? undefined : { resolution: previous.resolution, reason: previous.reason ?? "" };
-  return { changes, closure };
+  const wouldClose = previous.status !== current.status && isClosed(previous.status);
+  if (wouldClose) return { skip: "invalid" };
+  return { changes: { status: previous.status, priority: previous.priority, epic: previous.epic } };
 }
 
 function previousOf(task: Task): BatchPrevious {
