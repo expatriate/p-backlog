@@ -172,7 +172,7 @@ describe("уведомление об итоге массового действ
     expect(within(notice).getByRole("alert").textContent).toContain("Не изменено 20 задач");
     await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
 
-    await findNotice("Возвращено 500 из 500");
+    await findNotice("Возвращено 500 из 500", MANY_TASKS_WAIT);
     expect(sent[2]?.tasks.length).toBe(500);
     expect((await taskOnDisk(app.root, "SPA-1")).priority).toBe("low");
   });
