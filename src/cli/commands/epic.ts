@@ -1,9 +1,8 @@
-import { parseArgs } from "node:util";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import type { Task } from "../../core/model/types";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
+import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
 import { requireTask } from "../lookups";
 import { cliMessages, type CliMessages } from "../messages";
 import { taskWriter, type TaskWriter } from "../task-write";
@@ -19,7 +18,7 @@ export const epicCommand: CliCommand = {
 type Move = { loaded: LoadedBacklog; epic: Task | null; write: TaskWriter; io: CliIo };
 
 async function runEpic(args: string[], io: CliIo): Promise<number> {
-  const { values, positionals } = withUsageErrors(() => parseArgs({ args, allowPositionals: true, options: { to: { type: "string" } } }));
+  const { values, positionals } = parseCommandArgs(io.language, args, { to: { type: "string" } });
   if (positionals.length === 0 || values.to === undefined) throw usageError(epicCommand, io.language);
 
   const loaded = await loadBacklog(io.backlogRoot);

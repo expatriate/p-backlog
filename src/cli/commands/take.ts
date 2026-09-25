@@ -1,6 +1,5 @@
 import { realpathSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
-import { parseArgs } from "node:util";
 import { sourcePath } from "../../core/check/candidates";
 import { buildIndex, epicChildren, isClosed, openBlockers, type BacklogIndex } from "../../core/model/graph";
 import { pickNextTask } from "../../core/model/query";
@@ -10,7 +9,7 @@ import { findGitRoots, findProjectForDir } from "../../core/store/resolve-projec
 import { formatTaskRef } from "../format";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
+import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
 import { requireProject, requireTask } from "../lookups";
 import { cliMessages } from "../messages";
 import { taskWriter, type TaskWrite } from "../task-write";
@@ -27,20 +26,16 @@ type Refusal = { code: number; lines: string[] };
 type Selection = { ok: true; task: Task } | { ok: false; exitCode: number };
 
 async function runTake(args: string[], io: CliIo): Promise<number> {
-  const { values, positionals } = withUsageErrors(() =>
-    parseArgs({
-      args,
-      allowPositionals: true,
-      options: {
-        next: { type: "boolean", default: false },
-        force: { type: "boolean", default: false },
-        project: { type: "string" },
-        path: { type: "string" },
-        json: { type: "boolean", default: false },
-      },
-    }),
-  );
+  const { values, positionals } = parseCommandArgs(io.language, args, {
+      next: { type: "boolean", default: false },
+      force: { type: "boolean", default: false },
+      project: { type: "string" },
+      path: { type: "string" },
+      json: { type: "boolean", default: false },
+    });
   const mode = takeMode(io, values, positionals);
+  const inapplicable = mode.kind === "id" ? values.project !== undefined : values.force;
+  if (inapplicable) throw usageError(takeCommand, io.language);
   const loaded = await loadBacklog(io.backlogRoot);
   if (mode.kind === "path") return takeByPath(loaded, io, mode.path, values.project, { json: values.json });
   const selected = mode.kind === "next" ? selectNext(loaded, io, values.project) : selectById(loaded, io, mode.id);

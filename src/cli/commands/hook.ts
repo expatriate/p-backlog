@@ -26,6 +26,7 @@ export const hookCommand: CliCommand = {
   name: "hook",
   usage: (language) => [cliMessages(language).hookUsage(HOOK_STOP_EVENT)],
   run: runHook,
+  failureExit: EXIT.ok,
 };
 
 async function runHook(args: string[], io: CliIo): Promise<number> {

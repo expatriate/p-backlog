@@ -1,9 +1,10 @@
 import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 import { errorText } from "../core/errors";
-import { hasErrorCode } from "../core/store/fs-utils";
 import type { Language } from "../core/i18n/language";
 import { cliMessages } from "./messages";
 export type ExecResult = { code: number; output: string };
+
+export type ExecOptions = { timeoutMs?: number };
 
 export type CliEnv = {
   cwd: string;
@@ -14,7 +15,7 @@ export type CliEnv = {
   uid: number;
   nodePath: string;
   cliPath: string;
-  exec: (file: string, args: readonly string[]) => Promise<ExecResult>;
+  exec: (file: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
   stopProcess: (pid: number) => boolean;
   env: NodeJS.ProcessEnv;
   now: () => Date;
@@ -29,39 +30,44 @@ export const EXIT = { ok: 0, invalid: 1, notFound: 2, refused: 3, failed: 4, nee
 
 export class UsageError extends Error {}
 
-export type ArgumentProblem = { kind: "unknownOption" | "missingValue" | "takesNoValue"; option: string };
+export class ArgumentsError extends UsageError {}
 
-export class ArgumentParseError extends UsageError {
-  constructor(
-    readonly problem: ArgumentProblem | null,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+type ArgumentProblem = { kind: "unknownOption" | "missingValue" | "takesNoValue"; option: string };
 
-const QUOTED_OPTION = /'(-{1,2}[^'\s=]+)/;
+const END_OF_OPTIONS = "--";
 
-export function withUsageErrors<T>(parse: () => T): T {
+export function parseCommandArgs<const T extends ParseArgsOptionsConfig>(language: Language, args: string[], options: T) {
   try {
-    return parse();
+    return parseArgs({ args, options, allowPositionals: true });
   } catch (error) {
-    throw new ArgumentParseError(argumentProblemOf(error), errorText(error));
+    const problem = argumentProblem(args, options);
+    throw new ArgumentsError(problem === null ? errorText(error) : cliMessages(language).argumentProblem[problem.kind](problem.option));
   }
-}
-
-function argumentProblemOf(error: unknown): ArgumentProblem | null {
-  const option = QUOTED_OPTION.exec(errorText(error))?.[1];
-  if (option === undefined) return null;
-  if (hasErrorCode(error, "ERR_PARSE_ARGS_UNKNOWN_OPTION")) return { kind: "unknownOption", option };
-  if (hasErrorCode(error, "ERR_PARSE_ARGS_INVALID_OPTION_VALUE")) return { kind: errorText(error).includes("does not take") ? "takesNoValue" : "missingValue", option };
-  return null;
 }
 
 export function parseOptions<const T extends ParseArgsOptionsConfig>(language: Language, args: string[], options: T) {
-  const { values, positionals } = withUsageErrors(() => parseArgs({ args, options, allowPositionals: true }));
-  if (positionals.length > 0) throw new UsageError(cliMessages(language).extraArguments(positionals));
+  const { values, positionals } = parseCommandArgs(language, args, options);
+  if (positionals.length > 0) throw new ArgumentsError(cliMessages(language).extraArguments(positionals));
   return values;
+}
+
+function argumentProblem(args: readonly string[], options: ParseArgsOptionsConfig): ArgumentProblem | null {
+  for (let position = 0; position < args.length; position++) {
+    const arg = args[position] ?? "";
+    if (arg === END_OF_OPTIONS) return null;
+    if (!arg.startsWith("-") || arg === "-") continue;
+    const [option = arg, ...inline] = arg.split("=");
+    const config = option.startsWith("--") ? options[option.slice(2)] : Object.values(options).find((candidate) => `-${candidate.short}` === option);
+    if (config === undefined) return { kind: "unknownOption", option };
+    const hasInlineValue = inline.length > 0;
+    if (config.type === "boolean" && hasInlineValue) return { kind: "takesNoValue", option };
+    if (config.type === "string" && !hasInlineValue) {
+      const value = args[position + 1];
+      if (value === undefined || value.startsWith("-")) return { kind: "missingValue", option };
+      position++;
+    }
+  }
+  return null;
 }
 
 export function splitList(value: string | undefined): string[] | undefined {

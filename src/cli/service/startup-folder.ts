@@ -1,10 +1,13 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, win32 } from "node:path";
-import { PID_FILE_ENV } from "../../server/start";
+import { PID_FILE_ENV } from "../../core/store/paths";
 import { fileExists, numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
 
 const SCRIPT_NAME = "p-backlog.vbs";
 const COMMAND_LINE_ARGUMENT = /"[^"]*"|\S+/g;
+const PROCESS_QUERY_TIMEOUT_MS = 15_000;
+
+type ProcessIdentity = "ours" | "other" | "unknown";
 
 function vbsString(value: string): string {
   return `"${value.replaceAll('"', '""')}"`;
@@ -41,21 +44,33 @@ export function startupScript(context: ServiceContext): string {
 async function stopRunningServer(context: ServiceContext): Promise<void> {
   const file = pidFilePath(context);
   const pid = await numberRecordedIn(file, /^(\d+)$/);
-  if (pid !== null && (await runsOurServer(context, pid))) context.stopProcess(pid);
+  if (pid !== null) {
+    const identity = await processIdentity(context, pid);
+    if (identity === "unknown") {
+      context.onUnverifiedPid(pid, file);
+      return;
+    }
+    if (identity === "ours") context.stopProcess(pid);
+  }
   await rm(file, { force: true });
 }
 
-async function runsOurServer(context: ServiceContext, pid: number): Promise<boolean> {
+async function processIdentity(context: ServiceContext, pid: number): Promise<ProcessIdentity> {
   const query = `(Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}').CommandLine`;
-  const { code, output } = await context.exec("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", query]);
-  return code === 0 && isServerCommandLine(output);
+  const { code, output } = await context.exec("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", query], { timeoutMs: PROCESS_QUERY_TIMEOUT_MS });
+  if (code !== 0) return "unknown";
+  return runsServerScript(output, context.cliPath) ? "ours" : "other";
 }
 
-function isServerCommandLine(commandLine: string): boolean {
+function runsServerScript(commandLine: string, cliPath: string): boolean {
   const args = (commandLine.match(COMMAND_LINE_ARGUMENT) ?? []).map((arg) => arg.replaceAll('"', ""));
   if (args.length !== 3) return false;
   const [program = "", script = "", command] = args;
-  return /^node(\.exe)?$/i.test(win32.basename(program)) && win32.basename(script).toLowerCase() === "cli.js" && command === "serve";
+  return /^node(\.exe)?$/i.test(win32.basename(program)) && sameWindowsPath(script, cliPath) && command === "serve";
+}
+
+function sameWindowsPath(left: string, right: string): boolean {
+  return win32.normalize(left).toLowerCase() === win32.normalize(right).toLowerCase();
 }
 
 export function startupFolderManager(context: ServiceContext): ServiceManager {

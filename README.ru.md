@@ -101,7 +101,7 @@
 | `backlog new --title <t> --category <категория> [--type task\|epic] [--priority low\|medium\|high\|critical] [--tags a,b] [--found review\|incidental] [--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--force] [--json]` | Создаёт задачу, описание читается из stdin; похожая открытая задача — отказ (код 3), `--force` создаёт всё равно; `--found review` — находка ревью, по умолчанию `incidental` (замечено попутно) |
 | `backlog list [--query q] [--status s,…] [--tag t,…] [--project id \| --all-projects] [--json]` | Список задач, по умолчанию открытые задачи текущего проекта |
 | `backlog show <ID> [--json]` | Задача целиком: связи, блокеры, предупреждения |
-| `backlog take <ID> \| --next [--project id] [--force] [--json]` | Берёт задачу в работу, проверяя блокеры |
+| `backlog take <ID> [--force] [--json]` \| `--next [--project id] [--json]` | Берёт задачу в работу, проверяя блокеры |
 | `backlog take --path <файл\|каталог> [--project id] [--json]` | Берёт в работу все открытые задачи внутри пути |
 | `backlog status <ID> <backlog\|in-progress\|blocked\|done\|cancelled>` | Меняет статус |
 | `backlog priority <ID> <low\|medium\|high\|critical>` | Меняет приоритет |

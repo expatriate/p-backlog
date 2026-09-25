@@ -9,7 +9,7 @@ import { EXIT, parseOptions, type CliIo } from "../io";
 import { cliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { statsSummary } from "../stats-summary";
-import { webPort } from "./service";
+import { webPort } from "../service/managers";
 
 export const statsCommand: CliCommand = {
   name: "stats",

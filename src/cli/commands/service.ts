@@ -1,9 +1,7 @@
-import { parseArgs } from "node:util";
-import { readPort } from "../../server/port";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, withUsageErrors, type CliIo } from "../io";
+import { EXIT, parseCommandArgs, type CliIo } from "../io";
 import { cliMessages } from "../messages";
-import { serviceManagerFor } from "../service/managers";
+import { portOf, serviceManagerOf } from "../service/managers";
 import type { ServiceFailure, ServiceManager } from "../service/service";
 
 const STATUS_TIMEOUT_MS = 1000;
@@ -23,7 +21,7 @@ const ACTIONS = new Map<string, ServiceAction>([
 ]);
 
 async function runService(args: string[], io: CliIo): Promise<number> {
-  const { positionals } = withUsageErrors(() => parseArgs({ args, allowPositionals: true, options: {} }));
+  const { positionals } = parseCommandArgs(io.language, args, {});
   const [name, ...rest] = positionals;
   const action = name === undefined ? undefined : ACTIONS.get(name);
   if (action === undefined || rest.length > 0) throw usageError(serviceCommand, io.language);
@@ -32,29 +30,6 @@ async function runService(args: string[], io: CliIo): Promise<number> {
 
 export function installService(io: CliIo): Promise<number> {
   return withServiceManager(io, installWith);
-}
-
-export async function webPort(io: CliIo): Promise<number> {
-  return portOf(await serviceManagerOf(io), io);
-}
-
-async function portOf(manager: ServiceManager | null, io: CliIo): Promise<number> {
-  const installed = await manager?.installedPort().catch(() => null);
-  return installed ?? readPort(io.env.PORT);
-}
-
-function serviceManagerOf(io: CliIo): Promise<ServiceManager | null> {
-  return serviceManagerFor(io.platform, {
-    home: io.home,
-    env: io.env,
-    backlogRoot: io.backlogRoot,
-    port: readPort(io.env.PORT),
-    nodePath: io.nodePath,
-    cliPath: io.cliPath,
-    exec: io.exec,
-    uid: io.uid,
-    stopProcess: io.stopProcess,
-  });
 }
 
 async function withServiceManager(io: CliIo, action: ServiceAction): Promise<number> {

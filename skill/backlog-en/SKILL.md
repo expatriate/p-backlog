@@ -99,7 +99,7 @@ array) — fix them together, closing each one.
 | 0 | Status became `in-progress`, the path, links, and task text were printed | Work on it |
 | 1 | It's an epic | Show the user the epic's tasks from the output and ask which one to take |
 | 2 | Task or project not found, no open tasks | Tell the user |
-| 3 | Open blockers, or the task is already closed; with `--next` and `--path` — every matching task is blocked | List the blockers and stop. `--force` — only on the user's direct request |
+| 3 | Open blockers, or the task is already closed; with `--next` and `--path` — every matching task is blocked | List the blockers and stop. `take <ID> --force` — only on the user's direct request |
 
 1. Read the description and `source`; for related tasks you need, use `backlog show <ID>`.
 2. Do the work. Finished a checklist item — mark it in the task file right away (`- [ ]` → `- [x]`, the

@@ -1,6 +1,7 @@
 import { basename, join, resolve } from "node:path";
 
 export const PROJECT_FILE = "project.md";
+export const PID_FILE_ENV = "P_BACKLOG_PID_FILE";
 
 export function expandHome(path: string, home: string): string {
   if (path === "~") return home;

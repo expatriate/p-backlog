@@ -103,7 +103,7 @@ If there's no project yet, `backlog new` creates it.
 | `backlog new --title <t> --category <category> [--type task\|epic] [--priority low\|medium\|high\|critical] [--tags a,b] [--found review\|incidental] [--source file:line] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--force] [--json]` | Creates a task, the description is read from stdin; a similar open task refuses the command (code 3), `--force` creates it anyway; `--found review` marks a review finding, the default is `incidental` (noticed in passing) |
 | `backlog list [--query q] [--status s,…] [--tag t,…] [--project id \| --all-projects] [--json]` | Lists tasks, by default the open tasks of the current project |
 | `backlog show <ID> [--json]` | The full task: links, blockers, warnings |
-| `backlog take <ID> \| --next [--project id] [--force] [--json]` | Takes a task into progress, checking blockers |
+| `backlog take <ID> [--force] [--json]` \| `--next [--project id] [--json]` | Takes a task into progress, checking blockers |
 | `backlog take --path <file\|directory> [--project id] [--json]` | Takes into progress every open task inside the path |
 | `backlog status <ID> <backlog\|in-progress\|blocked\|done\|cancelled>` | Changes the status |
 | `backlog priority <ID> <low\|medium\|high\|critical>` | Changes the priority |

@@ -6,6 +6,7 @@ export type CliCommand = {
   name: string;
   usage: (language: Language) => readonly string[];
   run: (args: string[], io: CliIo) => Promise<number>;
+  failureExit?: number;
 };
 
 export function usageText(commands: readonly CliCommand[], language: Language): string {

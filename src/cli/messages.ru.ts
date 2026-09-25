@@ -28,6 +28,8 @@ export const cliRu = {
   serviceInstalled: (file: string): string => `Служба установлена: ${file}`,
   serviceLogs: (path: string): string => `Логи: ${path}`,
   serviceUninstalled: "Служба удалена",
+  servicePidUnverified: (pid: number, pidFile: string): string =>
+    `Не удалось проверить процесс ${pid} из ${pidFile}: если это прежний сервер p-backlog, остановите его вручную. Файл PID оставлен.`,
   serviceNotInstalled: "Служба не установлена",
   serviceUnsupported: "Автозапуск на этой системе не поддерживается — запускайте веб командой backlog serve",
   serviceCommandFailed: (command: string, code: number, output: string): string => `${command} завершился с кодом ${code}: ${output}`,

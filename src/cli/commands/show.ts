@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import { parseArgs } from "node:util";
 import { buildIndex } from "../../core/model/graph";
 import { coreMessages } from "../../core/messages";
 import type { Task } from "../../core/model/types";
@@ -7,7 +6,7 @@ import { loadBacklog } from "../../core/store/load";
 import { describeTask, toJson } from "../describe";
 import { formatTaskDetails } from "../format";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, withUsageErrors, type CliIo } from "../io";
+import { EXIT, parseCommandArgs, type CliIo } from "../io";
 import { requireTask } from "../lookups";
 import { cliMessages } from "../messages";
 
@@ -18,9 +17,7 @@ export const showCommand: CliCommand = {
 };
 
 async function runShow(args: string[], io: CliIo): Promise<number> {
-  const { values, positionals } = withUsageErrors(() =>
-    parseArgs({ args, allowPositionals: true, options: { json: { type: "boolean", default: false } } }),
-  );
+  const { values, positionals } = parseCommandArgs(io.language, args, { json: { type: "boolean", default: false } });
   const [id, ...rest] = positionals;
   if (id === undefined || rest.length > 0) throw usageError(showCommand, io.language);
 

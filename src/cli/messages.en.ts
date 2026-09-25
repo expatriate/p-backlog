@@ -29,6 +29,7 @@ export const cliEn: CliMessages = {
   serviceInstalled: (file) => `Service installed: ${file}`,
   serviceLogs: (path) => `Logs: ${path}`,
   serviceUninstalled: "Service removed",
+  servicePidUnverified: (pid, pidFile) => `Could not check process ${pid} from ${pidFile}: if it is an old p-backlog server, stop it manually. The PID file was kept.`,
   serviceNotInstalled: "Service is not installed",
   serviceUnsupported: "Autostart is not supported on this system — run the web UI with backlog serve",
   serviceCommandFailed: (command, code, output) => `${command} exited with code ${code}: ${output}`,

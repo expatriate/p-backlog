@@ -1,4 +1,3 @@
-import { parseArgs } from "node:util";
 import { isClosed } from "../../core/model/graph";
 import { deletionDate, RESOLUTION_STATUS } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
@@ -7,7 +6,7 @@ import { reasonHashes } from "../../core/stats/code/fixes";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { formatDay } from "../format";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, parseChoice, UsageError, withUsageErrors, type CliIo } from "../io";
+import { EXIT, parseChoice, UsageError, parseCommandArgs, type CliIo } from "../io";
 import { projectOf, requireTask } from "../lookups";
 import { cliMessages, type CliMessages } from "../messages";
 import { taskWriter } from "../task-write";
@@ -22,13 +21,7 @@ export const closeCommand: CliCommand = {
 
 async function runClose(args: string[], io: CliIo): Promise<number> {
   const cli = cliMessages(io.language);
-  const { values, positionals } = withUsageErrors(() =>
-    parseArgs({
-      args,
-      allowPositionals: true,
-      options: { as: { type: "string" }, reason: { type: "string" }, "duplicate-of": { type: "string" } },
-    }),
-  );
+  const { values, positionals } = parseCommandArgs(io.language, args, { as: { type: "string" }, reason: { type: "string" }, "duplicate-of": { type: "string" } });
   const [id, ...rest] = positionals;
   if (id === undefined || rest.length > 0 || values.as === undefined) throw usageError(closeCommand, io.language);
   const resolution = parseChoice(io.language, values.as, CLOSE_RESOLUTIONS, "--as");

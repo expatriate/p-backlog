@@ -1,11 +1,10 @@
-import { parseArgs } from "node:util";
 import { buildIndex } from "../../core/model/graph";
 import { coreMessages } from "../../core/messages";
 import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
 import { loadBacklog } from "../../core/store/load";
 import { deleteProject, setProjectActive } from "../../core/store/projects";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
+import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
 import { cliMessages, type CliMessages } from "../messages";
 
 export const projectCommand: CliCommand = {
@@ -15,7 +14,7 @@ export const projectCommand: CliCommand = {
 };
 
 async function runProject(args: string[], io: CliIo): Promise<number> {
-  const { values, positionals } = withUsageErrors(() => parseArgs({ args, allowPositionals: true, options: { confirm: { type: "string" } } }));
+  const { values, positionals } = parseCommandArgs(io.language, args, { confirm: { type: "string" } });
   const [action, ...rest] = positionals;
   if (action === "delete") return removeProject(rest, values.confirm, io);
   if (values.confirm !== undefined) throw usageError(projectCommand, io.language);

@@ -4,7 +4,8 @@ import { suppressSqliteExperimentalWarning } from "../core/sqlite-warning";
 import { resolveBacklogRoot } from "../core/store/paths";
 import { serverLanguage, serverMessages } from "./messages";
 import { requestedPort } from "./port";
-import { BUNDLED_WEB_DIR, closeOnStopSignal, PID_FILE_ENV, startServer } from "./start";
+import { PID_FILE_ENV } from "../core/store/paths";
+import { BUNDLED_WEB_DIR, closeOnStopSignal, startServer } from "./start";
 
 suppressSqliteExperimentalWarning();
 

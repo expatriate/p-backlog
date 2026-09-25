@@ -18,6 +18,7 @@ function contextFor(home: string, exec: CliEnv["exec"] = fakeExec().exec): Servi
     exec,
     uid: 501,
     stopProcess: () => true,
+    onUnverifiedPid: () => undefined,
   };
 }
 

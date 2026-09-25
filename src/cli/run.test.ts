@@ -25,8 +25,21 @@ describe("runCli", () => {
     const missing = await run(["list", "--status"]);
     expect(missing.err).toContain("У параметра --status нет значения");
 
-    const extra = await run(["list", "--json=yes"]);
-    expect(extra.err).toContain("Параметр --json не принимает значения");
+    const withValue = await run(["list", "--json=yes"]);
+    expect(withValue.err).toContain("Параметр --json не принимает значения");
+
+    const extra = await run(["list", "лишнее"]);
+    expect(extra).toMatchObject({ code: EXIT.invalid, err: expect.stringContaining("Лишние аргументы: лишнее\nИспользование:\n  backlog list ") });
+  });
+
+  it("--help у команды печатает её справку в stdout с кодом 0", async () => {
+    const { run } = await makeCliSandbox();
+
+    for (const flag of ["--help", "-h"]) {
+      const result = await run(["take", flag]);
+      expect(result).toMatchObject({ code: EXIT.ok, err: "" });
+      expect(result.out).toMatch(/^Использование:\n {2}backlog take /);
+    }
   });
 
   it("нечитаемый каталог беклога даёт сообщение и код 4, а не исключение со стеком", async () => {
@@ -37,6 +50,10 @@ describe("runCli", () => {
     const io: CliEnv = { ...baseCliEnv({ cwd: repo, home, backlogRoot: notADir, packageRoot: home }), warn: (line) => warnings.push(line) };
 
     expect(await runCli(["list"], io)).toBe(EXIT.failed);
+    expect(warnings.join("\n")).toContain("ENOTDIR");
+
+    warnings.length = 0;
+    expect(await runCli(["hook", "stop"], io)).toBe(EXIT.ok);
     expect(warnings.join("\n")).toContain("ENOTDIR");
   });
 

@@ -11,6 +11,17 @@ async function statusOf(root: string, id: string): Promise<string | undefined> {
 }
 
 describe("backlog take", () => {
+  it.each([
+    [["SPA-1", "--project", "spa"]],
+    [["--next", "--force"]],
+    [["--path", "src", "--force"]],
+  ])("неприменимый флаг %j отклоняет кодом 1, а не игнорирует", async (argv) => {
+    const { run } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
+
+    expect((await run(["take", ...argv])).code).toBe(EXIT.invalid);
+  });
+
   it("берёт задачу по ID и ставит in-progress, повторный take не падает", async () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Задача"]);

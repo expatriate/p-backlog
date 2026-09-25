@@ -1,10 +1,9 @@
-import { parseArgs } from "node:util";
 import type { Language } from "../core/i18n/language";
 import type { Task } from "../core/model/types";
 import { loadBacklog } from "../core/store/load";
 import type { TaskChanges } from "../core/store/update";
 import { usageError, type CliCommand } from "./command";
-import { EXIT, withUsageErrors, type CliIo } from "./io";
+import { EXIT, parseCommandArgs, type CliIo } from "./io";
 import { requireTask } from "./lookups";
 import { taskWriter } from "./task-write";
 
@@ -22,7 +21,7 @@ export function taskFieldCommand<T>(spec: TaskFieldSpec<T>): CliCommand {
     name: spec.name,
     usage: () => [`<ID> <${spec.choices}>`],
     run: async (args, io) => {
-      const { positionals } = withUsageErrors(() => parseArgs({ args, allowPositionals: true, options: {} }));
+      const { positionals } = parseCommandArgs(io.language, args, {});
       const [id, rawValue, ...rest] = positionals;
       if (id === undefined || rawValue === undefined || rest.length > 0) throw usageError(command, io.language);
       const value = spec.parse(io.language, rawValue);

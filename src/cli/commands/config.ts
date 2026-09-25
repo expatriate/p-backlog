@@ -1,10 +1,9 @@
-import { parseArgs } from "node:util";
 import { join } from "node:path";
 import { claudeSkillsDir } from "../../core/claude-dir";
 import { LANGUAGES } from "../../core/i18n/language";
 import { writeSettings } from "../../core/store/settings";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, parseChoice, withUsageErrors, type CliIo } from "../io";
+import { EXIT, parseChoice, parseCommandArgs, type CliIo } from "../io";
 import { cliMessages } from "../messages";
 import { linkSkillFor } from "../skill-link";
 
@@ -15,7 +14,7 @@ export const configCommand: CliCommand = {
 };
 
 async function runConfig(args: string[], io: CliIo): Promise<number> {
-  const { positionals } = withUsageErrors(() => parseArgs({ args, allowPositionals: true, options: {} }));
+  const { positionals } = parseCommandArgs(io.language, args, {});
   const [key, ...rest] = positionals;
   if (key === "language") return runLanguage(rest, io);
   throw usageError(configCommand, io.language);

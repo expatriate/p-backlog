@@ -1,11 +1,10 @@
-import { parseArgs } from "node:util";
 import { relocatedSource, sourceAnchor } from "../../core/check/project-repo";
 import { formatLocalIso } from "../../core/model/dates";
 import { isClosed } from "../../core/model/graph";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, UsageError, withUsageErrors, type CliIo } from "../io";
+import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
 import { projectOf, requireTask } from "../lookups";
 import { cliMessages } from "../messages";
 import { taskWriter, type TaskWriter } from "../task-write";
@@ -19,9 +18,7 @@ export const verifyCommand: CliCommand = {
 type Verification = { loaded: LoadedBacklog; source: string | undefined; write: TaskWriter; io: CliIo };
 
 async function runVerify(args: string[], io: CliIo): Promise<number> {
-  const { values, positionals } = withUsageErrors(() =>
-    parseArgs({ args, allowPositionals: true, options: { source: { type: "string" } } }),
-  );
+  const { values, positionals } = parseCommandArgs(io.language, args, { source: { type: "string" } });
   if (positionals.length === 0) throw usageError(verifyCommand, io.language);
   const source = values.source?.trim();
   if (source === "") throw new UsageError(cliMessages(io.language).sourceEmpty);

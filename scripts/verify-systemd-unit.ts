@@ -17,6 +17,7 @@ writeFileSync(
     exec: async () => ({ code: 0, output: "" }),
     uid: 1000,
     stopProcess: () => true,
+    onUnverifiedPid: () => undefined,
   }),
 );
 process.stdout.write(unitFile);

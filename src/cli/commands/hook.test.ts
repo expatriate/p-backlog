@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { NBSP } from "../../core/i18n/plural";
@@ -38,6 +38,20 @@ describe("backlog hook stop", () => {
     const result = await run(["hook", "stop"], { stdin: JSON.stringify({ session_id: "s", cwd: join(home, "projects/removed-worktree") }) });
 
     expect(result).toMatchObject({ code: EXIT.ok, out: "", err: "" });
+  });
+
+  it("сбой чтения беклога не валит хук: предупреждение в stderr и код 0, чтобы Windows не показывал ошибку хука", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Таймаут"]);
+    await chmod(join(root, "spa"), 0o000);
+    try {
+      const result = await run(["hook", "stop"], { stdin: JSON.stringify({ session_id: "s", cwd: repo }) });
+
+      expect(result).toMatchObject({ code: EXIT.ok, out: "" });
+      expect(result.err).toContain("EACCES");
+    } finally {
+      await chmod(join(root, "spa"), 0o755);
+    }
   });
 
   it("в git worktree вне основного репозитория видит правку, закоммиченную в этом worktree", async () => {

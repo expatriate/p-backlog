@@ -19,6 +19,8 @@ async function closedPort(): Promise<number> {
   return address.port;
 }
 
+const sandboxCliPath = join(import.meta.dirname, "../../../dist/cli.js");
+
 describe("backlog service", () => {
   it("install на macOS ставит агент launchd и печатает, где он и где логи", async () => {
     const { home, run } = await makeCliSandbox();
@@ -72,7 +74,7 @@ describe("backlog service", () => {
       return true;
     };
 
-    const exec = fakeExec((command) => ({ code: 0, output: command.startsWith("powershell.exe") ? '"C:\\node\\node.exe" "C:\\p-backlog\\dist\\cli.js" serve' : "" })).exec;
+    const exec = fakeExec((command) => ({ code: 0, output: command.startsWith("powershell.exe") ? `"C:\\node\\node.exe" "${sandboxCliPath}" serve` : "" })).exec;
 
     await run(["service", "install"], { platform: "win32", stopProcess, exec });
 

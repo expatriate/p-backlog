@@ -20,7 +20,6 @@ import { createUsageScanner, type UsageScanner } from "./usage-scanner";
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 const STOP_SIGNALS: readonly NodeJS.Signals[] = ["SIGTERM", "SIGINT"];
 
-export const PID_FILE_ENV = "P_BACKLOG_PID_FILE";
 export const BUNDLED_WEB_DIR = join(import.meta.dirname, "web");
 
 export type RunningServer = { port: number; close: () => Promise<void> };

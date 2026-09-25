@@ -64,7 +64,7 @@ describe("backlog new", () => {
     expect((await run(["new", "--category", "bug", "--title", "X", "--unknown"])).code).toBe(EXIT.invalid);
     expect(await run(["new", "--category", "bug", "--title", "Заголовок", "без", "кавычек"])).toMatchObject({
       code: EXIT.invalid,
-      err: "Лишние аргументы: без кавычек",
+      err: expect.stringMatching(/^Лишние аргументы: без кавычек\nИспользование:/),
     });
     expect(await run(["new", "--category", "bug", "--title", "X", "--epic", "SPA-40"])).toMatchObject({
       code: EXIT.invalid,

@@ -1,7 +1,8 @@
 import { errorText } from "../../core/errors";
 import { serverMessages } from "../../server/messages";
 import { requestedPort } from "../../server/port";
-import { BUNDLED_WEB_DIR, closeOnStopSignal, PID_FILE_ENV, startServer } from "../../server/start";
+import { PID_FILE_ENV } from "../../core/store/paths";
+import { BUNDLED_WEB_DIR, closeOnStopSignal, startServer } from "../../server/start";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, UsageError, type CliIo } from "../io";
 

@@ -2,7 +2,7 @@ import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeTempDir } from "../../core/store/testing/temp-dirs";
-import type { CliEnv } from "../io";
+import type { CliEnv, ExecResult } from "../io";
 import { fakeExec } from "../testing/cli-harness";
 import { startupFolderManager, startupScript } from "./startup-folder";
 import type { ServiceContext } from "./service";
@@ -13,7 +13,12 @@ async function tempRoots(): Promise<Roots> {
   return { home: await makeTempDir(), appData: await makeTempDir(), localAppData: await makeTempDir() };
 }
 
-function contextFor(roots: Roots, exec: CliEnv["exec"] = fakeExec().exec, stopProcess: CliEnv["stopProcess"] = () => true): ServiceContext {
+function contextFor(
+  roots: Roots,
+  exec: CliEnv["exec"] = fakeExec().exec,
+  stopProcess: CliEnv["stopProcess"] = () => true,
+  onUnverifiedPid: ServiceContext["onUnverifiedPid"] = () => undefined,
+): ServiceContext {
   return {
     home: roots.home,
     env: { PATH: "/usr/local/bin;/usr/bin", APPDATA: roots.appData, LOCALAPPDATA: roots.localAppData },
@@ -24,6 +29,7 @@ function contextFor(roots: Roots, exec: CliEnv["exec"] = fakeExec().exec, stopPr
     exec,
     uid: 501,
     stopProcess,
+    onUnverifiedPid,
   };
 }
 
@@ -39,6 +45,10 @@ async function writePidFile(roots: Roots, pid: string): Promise<void> {
 
 function execAnswering(commandLine: string): CliEnv["exec"] {
   return fakeExec((command) => ({ code: 0, output: command.startsWith("powershell.exe") && command.includes("ProcessId=4242") ? commandLine : "" })).exec;
+}
+
+function powershellFailing(result: ExecResult): CliEnv["exec"] {
+  return fakeExec((command) => (command.startsWith("powershell.exe") ? result : { code: 0, output: "" })).exec;
 }
 
 function recordInto(stopped: number[]): CliEnv["stopProcess"] {
@@ -118,8 +128,8 @@ describe("startupFolderManager", () => {
   it.each([
     ["PID занят чужим процессом", execAnswering('"C:\\Program Files\\Notepad++\\notepad++.exe" C:\\notes\\draft.txt')],
     ["node с чужим скриптом", execAnswering('"C:\\node\\node.exe" C:\\work\\build.js serve')],
+    ["чужой cli.js serve", execAnswering('"C:\\node\\node.exe" "C:\\work\\tool\\dist\\cli.js" serve')],
     ["процесса с этим PID уже нет", execAnswering("")],
-    ["командную строку процесса не узнать", fakeExec(() => ({ code: 1, output: "Get-CimInstance: Access denied" })).exec],
   ])("install не останавливает процесс из server.pid, если это не наш сервер: %s", async (_case, exec) => {
     const roots = await tempRoots();
     await writePidFile(roots, "4242");
@@ -129,6 +139,33 @@ describe("startupFolderManager", () => {
 
     expect(stopped).toEqual([]);
     await expect(access(pidFilePath(roots.localAppData))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("наш сервер узнаёт и при другом регистре пути к cli.js", async () => {
+    const roots = await tempRoots();
+    await writePidFile(roots, "4242");
+    const stopped: number[] = [];
+
+    await startupFolderManager(contextFor(roots, execAnswering('"C:\\NODE\\node.exe" "c:\\P-Backlog\\dist\\CLI.JS" serve '), recordInto(stopped))).install();
+
+    expect(stopped).toEqual([4242]);
+  });
+
+  it.each([
+    ["PowerShell не ответил или не уложился в таймаут", powershellFailing({ code: 1, output: "Get-CimInstance: Access denied" })],
+    ["PowerShell не найден", powershellFailing({ code: 127, output: "spawn powershell.exe ENOENT" })],
+  ])("если процесс из server.pid не проверить (%s), его не трогает, файл PID оставляет и предупреждает", async (_case, exec) => {
+    const roots = await tempRoots();
+    await writePidFile(roots, "4242");
+    const stopped: number[] = [];
+    const unverified: string[] = [];
+
+    const outcome = await startupFolderManager(contextFor(roots, exec, recordInto(stopped), (pid, file) => unverified.push(`${pid} ${file}`))).install();
+
+    expect(outcome).toBe("done");
+    expect(stopped).toEqual([]);
+    expect(unverified).toEqual([`4242 ${pidFilePath(roots.localAppData)}`]);
+    expect(await readFile(pidFilePath(roots.localAppData), "utf8")).toBe("4242");
   });
 
   it("install при мёртвом процессе в server.pid всё равно убирает файл PID", async () => {

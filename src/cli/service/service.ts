@@ -11,6 +11,7 @@ export type ServiceContext = {
   exec: CliEnv["exec"];
   uid: number;
   stopProcess: CliEnv["stopProcess"];
+  onUnverifiedPid: (pid: number, pidFile: string) => void;
 };
 
 export type ServiceFailure = { failed: string; code: number; output: string };
