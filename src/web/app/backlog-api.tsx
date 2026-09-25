@@ -1,5 +1,6 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { createApiClient, type ApiClient } from "../api/client";
+import { openSharedEvents } from "./shared-events";
 
 export type EventStream = { addEventListener: (type: string, listener: () => void) => void; close: () => void };
 
@@ -9,7 +10,7 @@ const BacklogApiContext = createContext<BacklogApi | null>(null);
 
 export const browserApi: BacklogApi = {
   client: createApiClient((path, init) => fetch(path, init)),
-  openEvents: () => new EventSource("/api/events"),
+  openEvents: () => openSharedEvents("/api/events"),
 };
 
 export function BacklogApiProvider({ api, children }: { api: BacklogApi; children: ReactNode }) {

@@ -14,9 +14,13 @@ async function writeTask(id: string, title: string): Promise<void> {
   );
 }
 
-test("задача, созданную агентом в каталоге, видно без перезагрузки страницы", async ({ page }) => {
+async function writeProject(): Promise<void> {
   await mkdir(projectDir, { recursive: true });
   await writeFile(join(projectDir, "project.md"), "---\nname: spa\nprefix: SPA\nrepos: []\n---\n", "utf8");
+}
+
+test("задача, созданную агентом в каталоге, видно без перезагрузки страницы", async ({ page }) => {
+  await writeProject();
   await writeTask("SPA-1", "Первая задача");
 
   await page.goto("/");
@@ -26,4 +30,26 @@ test("задача, созданную агентом в каталоге, ви�
 
   await expect(page.getByRole("link", { name: "Прилетела из каталога" })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByRole("listitem").filter({ has: page.getByRole("link", { name: /spa/ }) })).toContainText("2");
+});
+
+test("семь вкладок делят одну ленту: все загружаются, изменения доходят до каждой и после закрытия ведущей", async ({ context }) => {
+  const TABS = 7;
+  await writeProject();
+  await writeTask("SPA-3", "Много вкладок");
+
+  const pages = [];
+  for (let tab = 0; tab < TABS; tab += 1) {
+    const page = await context.newPage();
+    await page.goto("/");
+    await expect(page.getByRole("link", { name: "Много вкладок" })).toBeVisible();
+    pages.push(page);
+  }
+
+  await writeTask("SPA-4", "Увидят все вкладки");
+  for (const page of pages) await expect(page.getByRole("link", { name: "Увидят все вкладки" })).toBeVisible({ timeout: 10_000 });
+
+  const [leader, ...followers] = pages;
+  await leader?.close();
+  await writeTask("SPA-5", "Лента пережила ведущую");
+  for (const page of followers) await expect(page.getByRole("link", { name: "Лента пережила ведущую" })).toBeVisible({ timeout: 10_000 });
 });
