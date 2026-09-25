@@ -29,7 +29,12 @@ HTMLDialogElement.prototype.close ??= function close(this: HTMLDialogElement) {
 
 Element.prototype.scrollIntoView ??= () => undefined;
 
+export const hoverNone = { matches: false };
+
+window.matchMedia ??= (query: string) => ({ matches: query === "(hover: none)" && hoverNone.matches, media: query }) as MediaQueryList;
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  hoverNone.matches = false;
 });

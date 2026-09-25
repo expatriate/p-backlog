@@ -11,6 +11,7 @@ import { useStatusFocus } from "../ui/use-status-focus";
 import { TaskPanel } from "../task/TaskPanel";
 import type { ListMessages } from "./messages.ru";
 import { BatchNotice, useBatchResult } from "./BatchNotice";
+import { actionsShortcutLabel, offersKeyboardHints } from "./actions-shortcut";
 import { BulkActions } from "./BulkActions";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
@@ -42,6 +43,7 @@ export function TaskListPage() {
   const [batchResult, showBatchResult] = useBatchResult(projectId ?? "");
   const footer = useRef<HTMLDivElement>(null);
   const keysHintId = useId();
+  const keyboardHints = offersKeyboardHints();
   useScrollSpaceFor(footer);
 
   const viewTitle = viewTitleFor(list, view.projectName, params.filter.onlyAutoClosed === true);
@@ -71,9 +73,9 @@ export function TaskListPage() {
 
         <ParseErrorsNote list={list} parseErrors={view.parseErrors} />
 
-        {view.content === "table" && (
+        {view.content === "table" && keyboardHints && (
           <p id={keysHintId} className={styles.keysHint}>
-            {list.selectionKeysHint}
+            {list.selectionKeysHint(actionsShortcutLabel())}
           </p>
         )}
 
@@ -116,7 +118,7 @@ export function TaskListPage() {
               selectedTags={params.filter.tags ?? []}
               onToggleTag={(tag) => setParams({ ...params, filter: { ...params.filter, tags: toggledTags(params.filter.tags ?? [], tag) } })}
               selection={selection}
-              describedBy={keysHintId}
+              describedBy={keyboardHints ? keysHintId : undefined}
             />
           )}
         </div>

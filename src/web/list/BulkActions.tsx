@@ -11,6 +11,7 @@ import type { EpicTones } from "../ui/epic-tone";
 import { MenuOption, MenuOptions } from "../ui/Menu";
 import { Popover, useClosePopover } from "../ui/Popover";
 import { epicChoices, type EpicChoice } from "./epic-choices";
+import { ACTIONS_SHORTCUT, actionsShortcutLabel, isActionsShortcut, offersKeyboardHints } from "./actions-shortcut";
 import { EpicLabel } from "./EpicLabel";
 import { partialBatchResult, type BatchResult } from "./BatchNotice";
 import type { TaskSelection } from "./use-task-selection";
@@ -23,8 +24,6 @@ export type BulkActionsProps = {
   tones: EpicTones;
   onDone: (result: BatchResult) => void;
 };
-
-const TO_ACTIONS_KEYS = "Alt+A";
 
 export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProps) {
   const { list, app } = useMessages();
@@ -40,7 +39,7 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
   useEffect(() => {
     if (!shown) return;
     const jumpToActions = (event: KeyboardEvent) => {
-      if (!isToActionsKeys(event) || isTextEntry(event.target)) return;
+      if (!isActionsShortcut(event) || isTextEntry(event.target)) return;
       event.preventDefault();
       firstAction.current?.focus();
     };
@@ -67,7 +66,7 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
         {shown && selection.hiddenCount > 0 && <span className={styles.hidden}> {list.hiddenByFilter(selection.hiddenCount)}</span>}
       </p>
       {shown && <SelectionActions firstAction={firstAction} chosen={chosen} tasks={tasks} tones={tones} busy={isPending} onRun={run} onClear={selection.clear} />}
-      {shown && <p className={styles.hint}>{list.toActionsHint(TO_ACTIONS_KEYS)}</p>}
+      {shown && offersKeyboardHints() && <p className={styles.hint}>{list.toActionsHint(actionsShortcutLabel())}</p>}
       {shown && batch.error !== null && (
         <p className={footer.error} role="alert">
           {list.bulkFailed}: {requestErrorMessage(app, batch.error)}
@@ -93,7 +92,7 @@ function SelectionActions({ firstAction, chosen, tasks, tones, busy, onRun, onCl
 
   return (
     <div className={styles.actions}>
-      <Button ref={firstAction} busy={busy} aria-keyshortcuts={TO_ACTIONS_KEYS} onClick={() => setClosing(true)}>
+      <Button ref={firstAction} busy={busy} aria-keyshortcuts={ACTIONS_SHORTCUT} onClick={() => setClosing(true)}>
         {list.closeAsObsolete}
       </Button>
       <Popover trigger={list.priority} placement="above" width="content" busy={busy}>
@@ -185,10 +184,6 @@ function AssignEpicOptions({ epics, onChoose }: { epics: EpicChoice[]; onChoose:
       ))}
     </MenuOptions>
   );
-}
-
-function isToActionsKeys(event: KeyboardEvent): boolean {
-  return event.altKey && event.code === "KeyA" && !event.ctrlKey && !event.metaKey && !event.shiftKey;
 }
 
 function isTextEntry(target: EventTarget | null): boolean {

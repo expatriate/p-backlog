@@ -86,14 +86,28 @@ test("на 320 px панель и уведомление не дают гори�
   expect(await violations.settled()).toEqual([]);
 });
 
-test("подсказка про Пробел видна над списком, Alt+A из строки ведёт к действиям", async ({ page }) => {
+test("подсказка про Пробел видна над списком, Alt+A (⌥A на macOS) из строки ведёт к действиям", async ({ page }) => {
   await page.goto("/p/triage");
   await expect(page.getByText("Пробел на задаче — выбрать её, Shift+Пробел — выбрать диапазон")).toBeVisible();
 
   await page.getByRole("link", { name: "Разбор 1", exact: true }).focus();
   await page.keyboard.press("Space");
   const panel = page.getByRole("region", { name: "Действия с выбранными" });
-  await expect(panel.getByText("Alt+A — к действиям")).toBeVisible();
+  await expect(panel.getByText(process.platform === "darwin" ? "⌥A — к действиям" : "Alt+A — к действиям")).toBeVisible();
   await page.keyboard.press("Alt+KeyA");
   await expect(panel.getByRole("button", { name: "Закрыть как неактуальные" })).toBeFocused();
+});
+
+test.describe("на сенсорном экране", () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 375, height: 800 } });
+
+  test("подсказок о клавишах нет ни над списком, ни в панели", async ({ page }) => {
+    await page.goto("/p/triage");
+    await expect(page.getByRole("table")).toBeVisible();
+    await select(page, 1);
+
+    await expect(page.getByRole("region", { name: "Действия с выбранными" })).toBeVisible();
+    await expect(page.getByText("Пробел на задаче")).toHaveCount(0);
+    await expect(page.getByText("к действиям")).toHaveCount(0);
+  });
 });

@@ -1,13 +1,14 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { BatchRequest } from "../../core/api/contract";
 import { loadBacklog } from "../../core/store/load";
 import { projectFile } from "../../core/store/testing/temp-dirs";
 import type { TestApp } from "../../server/testing/test-app";
 import { taskFixture } from "../testing/fixtures";
 import { renderApp, type RenderedApp } from "../testing/render-app";
+import { hoverNone } from "../testing/setup";
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),
@@ -79,7 +80,9 @@ describe("панель массовых действий", () => {
     const app = await renderApp(FILES);
     await screen.findAllByRole("row");
     const table = screen.getByRole("table");
-    expect(document.getElementById(table.getAttribute("aria-describedby") ?? "")?.textContent).toBe("Пробел на задаче — выбрать её, Shift+Пробел — выбрать диапазон");
+    expect(document.getElementById(table.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "Пробел на задаче — выбрать её, Shift+Пробел — выбрать диапазон, Alt+A — к действиям с выбранными",
+    );
 
     screen.getByRole("link", { name: "Разобрать очередь" }).focus();
     await app.user.keyboard(" ");
@@ -92,6 +95,28 @@ describe("панель массовых действий", () => {
     search.focus();
     await app.user.keyboard("{Alt>}a{/Alt}");
     expect(document.activeElement).toBe(search);
+  });
+
+  it("на macOS сочетание показано как ⌥A", async () => {
+    vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
+    onTestFinished(() => void vi.restoreAllMocks());
+    const app = await renderApp(FILES);
+    await select(app, "SPA-3");
+
+    expect(screen.getByText("Пробел на задаче — выбрать её, Shift+Пробел — выбрать диапазон, ⌥A — к действиям с выбранными")).toBeTruthy();
+    expect(within(panel()).getByText("⌥A — к действиям")).toBeTruthy();
+  });
+
+  it("на сенсорном экране подсказок о клавишах нет и таблица без описания, а сочетание по-прежнему работает", async () => {
+    hoverNone.matches = true;
+    const app = await renderApp(FILES);
+    await select(app, "SPA-3");
+
+    expect(screen.getByRole("table").hasAttribute("aria-describedby")).toBe(false);
+    expect(screen.queryByText(/Пробел на задаче/)).toBeNull();
+    expect(within(panel()).queryByText(/к действиям/)).toBeNull();
+    await app.user.keyboard("{Alt>}a{/Alt}");
+    expect(document.activeElement?.getAttribute("aria-keyshortcuts")).toBe("Alt+A");
   });
 
   it("«Закрыть как неактуальные» требует причину и закрывает выбранные с их версиями", async () => {

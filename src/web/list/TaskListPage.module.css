@@ -62,9 +62,3 @@
   color: var(--ink-muted);
   font-size: var(--text-sm);
 }
-
-@media (hover: none) {
-  .keysHint {
-    display: none;
-  }
-}
