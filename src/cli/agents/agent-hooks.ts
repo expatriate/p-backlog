@@ -5,7 +5,7 @@ import type { CliIo } from "../io";
 import { addStopHook, removeStopHook } from "../stop-hook";
 import { agentHomeDir, type Agent } from "./agent";
 import { addCursorStopHook, removeCursorStopHook } from "./cursor-hooks";
-import { addGroupedStopHook, removeGroupedStopHook, type HookInstallResult, type HookRemoveResult, type IsOurHook } from "./grouped-stop-hooks";
+import { addGroupedStopHook, removeGroupedStopHook, type HookInstallResult, type HookRemoveResult, type IsOurHook, type OurHook } from "./grouped-stop-hooks";
 
 type HookSite = Pick<CliIo, "env" | "home" | "platform" | "cliPath">;
 
@@ -21,14 +21,14 @@ export function installAgentHook(agent: Agent, site: HookSite): Promise<HookInst
   switch (agent) {
     case "claude":
       return addStopHook(path, site.platform);
-    case "codex":
-      return addGroupedStopHook(
-        path,
-        { type: "command", command: posixCommand(agent), commandWindows: windowsCommand(agent, site.cliPath), timeout: CODEX_HOOK_TIMEOUT_SECONDS },
-        ourHookOf(agent),
-      );
-    case "cursor":
-      return addCursorStopHook(path, { command: site.platform === "win32" ? windowsCommand(agent, site.cliPath) : posixCommand(agent) }, ourHookOf(agent));
+    case "codex": {
+      const hook = { type: "command", command: posixCommand(agent), commandWindows: windowsCommand(agent, site.cliPath), timeout: CODEX_HOOK_TIMEOUT_SECONDS };
+      return addGroupedStopHook(path, hook, ourCurrentHook(agent, site.cliPath, hook));
+    }
+    case "cursor": {
+      const hook = { command: site.platform === "win32" ? windowsCommand(agent, site.cliPath) : posixCommand(agent) };
+      return addCursorStopHook(path, hook, ourCurrentHook(agent, site.cliPath, hook));
+    }
   }
 }
 
@@ -56,9 +56,21 @@ function windowsCommand(agent: Agent, cliPath: string): string {
   return `node "${cliPath}" ${agentStopCommand(agent)}`;
 }
 
-function ourHookOf(agent: Agent): IsOurHook {
+function windowsCommandPattern(agent: Agent): RegExp {
+  return new RegExp(`^node "[^"]*cli\\.js" ${agentStopCommand(agent)}$`);
+}
+
+function ourHookOf(agent: Agent, cliPath?: string): IsOurHook {
   return (hook) => {
     const command = typeof hook === "object" && hook !== null ? (hook as { command?: unknown }).command : undefined;
-    return typeof command === "string" && command.includes(agentStopCommand(agent));
+    if (typeof command !== "string") return false;
+    return command === posixCommand(agent) || (cliPath !== undefined && command === windowsCommand(agent, cliPath)) || windowsCommandPattern(agent).test(command);
+  };
+}
+
+function ourCurrentHook(agent: Agent, cliPath: string, wanted: Record<string, unknown>): OurHook {
+  return {
+    isOurs: ourHookOf(agent, cliPath),
+    isCurrent: (hook) => Object.entries(wanted).every(([key, value]) => (hook as Record<string, unknown>)[key] === value),
   };
 }

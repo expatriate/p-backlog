@@ -16,7 +16,7 @@ export function isOurStopHook(hook: unknown): boolean {
 }
 
 export function addStopHook(settingsPath: string, platform: NodeJS.Platform): Promise<HookInstallResult> {
-  return addGroupedStopHook(settingsPath, stopHookFor(platform), isOurStopHook);
+  return addGroupedStopHook(settingsPath, stopHookFor(platform), { isOurs: isOurStopHook, isCurrent: isOurStopHook });
 }
 
 export function removeStopHook(settingsPath: string): Promise<HookRemoveResult> {

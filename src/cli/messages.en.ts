@@ -23,6 +23,7 @@ export const cliEn: CliMessages = {
   installSkillLinkFailed: (target, detail) => `Could not create the symlink ${target} (${detail}).`,
   installHookExists: (settingsPath) => `Stop hook is already present in ${settingsPath}`,
   installHookAdded: (settingsPath) => `Stop hook added to ${settingsPath}`,
+  installHookUpdated: (settingsPath) => `Stop hook updated in ${settingsPath}`,
   codexHookApproval: "approve the hook in Codex: /hooks",
   installSettingsUnreadable: (settingsPath, detail) => `Could not read ${settingsPath} (${detail}), Stop hook not added.`,
   installSettingsInvalid: (settingsPath) => `${settingsPath} is not a JSON object, Stop hook not added. Fix the file and try again.`,

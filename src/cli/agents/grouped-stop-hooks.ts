@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { readJsonConfig, writeJsonConfig, type JsonConfigFailure } from "./json-config";
 
-export type HookInstallResult = "added" | "exists" | JsonConfigFailure;
+export type HookInstallResult = "added" | "exists" | "updated" | JsonConfigFailure;
 
 export type HookRemoveResult = "removed" | "absent" | JsonConfigFailure;
 
 export type IsOurHook = (hook: unknown) => boolean;
+
+export type OurHook = { isOurs: IsOurHook; isCurrent: IsOurHook };
 
 const stopGroupSchema = z.object({ hooks: z.array(z.unknown()).optional() }).passthrough();
 const groupedConfigSchema = z
@@ -14,14 +16,24 @@ const groupedConfigSchema = z
 
 type StopGroup = z.infer<typeof stopGroupSchema>;
 
-export async function addGroupedStopHook(path: string, hook: object, isOurs: IsOurHook): Promise<HookInstallResult> {
+export function refreshOurHook(lists: unknown[][], hook: object, { isOurs, isCurrent }: OurHook): "exists" | "updated" | "missing" {
+  const ours = lists.flatMap((list) => list.flatMap((entry, index) => (isOurs(entry) ? [{ list, index, entry }] : [])));
+  if (ours.some(({ entry }) => isCurrent(entry))) return "exists";
+  const stale = ours[0];
+  if (stale === undefined) return "missing";
+  stale.list[stale.index] = { ...(stale.entry as object), ...hook };
+  return "updated";
+}
+
+export async function addGroupedStopHook(path: string, hook: object, ourHook: OurHook): Promise<HookInstallResult> {
   const read = await readJsonConfig(path, groupedConfigSchema);
   if (!("config" in read)) return read;
   const stopGroups = ((read.config.hooks ??= {}).Stop ??= []);
-  if (stopGroups.some((group) => hasOurHook(group, isOurs))) return "exists";
-  stopGroups.push({ hooks: [hook] });
+  const refreshed = refreshOurHook(stopGroups.flatMap((group) => (group.hooks === undefined ? [] : [group.hooks])), hook, ourHook);
+  if (refreshed === "exists") return "exists";
+  if (refreshed === "missing") stopGroups.push({ hooks: [hook] });
   await writeJsonConfig(path, read.config);
-  return "added";
+  return refreshed === "missing" ? "added" : "updated";
 }
 
 export async function removeGroupedStopHook(path: string, isOurs: IsOurHook): Promise<HookRemoveResult> {

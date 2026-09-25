@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { HookInstallResult, HookRemoveResult, IsOurHook } from "./grouped-stop-hooks";
+import { refreshOurHook, type HookInstallResult, type HookRemoveResult, type IsOurHook, type OurHook } from "./grouped-stop-hooks";
 import { readJsonConfig, writeJsonConfig } from "./json-config";
 
 const CURSOR_HOOKS_VERSION = 1;
@@ -8,15 +8,16 @@ const cursorConfigSchema = z
   .object({ version: z.number().optional(), hooks: z.object({ stop: z.array(z.unknown()).optional() }).passthrough().optional() })
   .passthrough();
 
-export async function addCursorStopHook(path: string, hook: { command: string }, isOurs: IsOurHook): Promise<HookInstallResult> {
+export async function addCursorStopHook(path: string, hook: { command: string }, ourHook: OurHook): Promise<HookInstallResult> {
   const read = await readJsonConfig(path, cursorConfigSchema);
   if (!("config" in read)) return read;
   const stop = ((read.config.hooks ??= {}).stop ??= []);
-  if (stop.some(isOurs)) return "exists";
-  stop.push(hook);
+  const refreshed = refreshOurHook([stop], hook, ourHook);
+  if (refreshed === "exists") return "exists";
+  if (refreshed === "missing") stop.push(hook);
   read.config.version ??= CURSOR_HOOKS_VERSION;
   await writeJsonConfig(path, read.config);
-  return "added";
+  return refreshed === "missing" ? "added" : "updated";
 }
 
 export async function removeCursorStopHook(path: string, isOurs: IsOurHook): Promise<HookRemoveResult> {

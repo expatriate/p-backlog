@@ -51,7 +51,7 @@ async function setUpAgent(agent: Agent, io: CliIo): Promise<boolean> {
   if (!(await linkAgentSkill(agent, io, voice))) return false;
   const hook = await installAgentHook(agent, io);
   const reported = reportHook(hook, agentHookConfigPath(agent, io.env, io.home), io, voice);
-  if (agent === "codex" && hook === "added") voice.print(cliMessages(io.language).codexHookApproval);
+  if (agent === "codex" && (hook === "added" || hook === "updated")) voice.print(cliMessages(io.language).codexHookApproval);
   return reported;
 }
 
@@ -77,12 +77,9 @@ async function linkAgentSkill(agent: Agent, io: CliIo, voice: AgentVoice): Promi
 
 function reportHook(result: HookInstallResult, configPath: string, io: CliIo, voice: AgentVoice): boolean {
   const messages = cliMessages(io.language);
-  if (result === "added") {
-    voice.print(messages.installHookAdded(configPath));
-    return true;
-  }
-  if (result === "exists") {
-    voice.print(messages.installHookExists(configPath));
+  if (typeof result === "string") {
+    const report = { added: messages.installHookAdded, exists: messages.installHookExists, updated: messages.installHookUpdated }[result];
+    voice.print(report(configPath));
     return true;
   }
   if (result.failed === "unreadable") {

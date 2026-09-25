@@ -71,6 +71,42 @@ describe("хуки агентов", () => {
     });
   });
 
+  it("Codex: наш хук со старым путём к cli.js обновляется на месте, чужие ключи и хуки целы", async () => {
+    const target = await site();
+    const path = join(target.home, ".codex/hooks.json");
+    const foreign = { type: "command", command: "notify-send done" };
+    const stale = { ...CODEX_HOOK, commandWindows: 'node "C:\\Users\\me\\.nvm\\v20\\p-backlog\\dist\\cli.js" hook stop --agent codex', timeout: 10, statusMessage: "backlog" };
+    await writeJson(path, { hooks: { Stop: [{ hooks: [foreign, stale] }] } });
+
+    expect(await installAgentHook("codex", target)).toBe("updated");
+    expect(await installAgentHook("codex", target)).toBe("exists");
+
+    expect((await readJson(path)).hooks.Stop).toEqual([{ hooks: [foreign, { ...CODEX_HOOK, statusMessage: "backlog" }] }]);
+  });
+
+  it("Cursor на Windows: команда со старым путём к cli.js заменяется текущей", async () => {
+    const target = await site("win32");
+    const path = join(target.home, ".cursor/hooks.json");
+    await writeJson(path, { version: 1, hooks: { stop: [{ command: 'node "D:\\old\\dist\\cli.js" hook stop --agent cursor' }] } });
+
+    expect(await installAgentHook("cursor", target)).toBe("updated");
+
+    expect(await readJson(path)).toEqual({ version: 1, hooks: { stop: [{ command: `node "${CLI_PATH}" hook stop --agent cursor` }] } });
+  });
+
+  it("чужая обёртка вокруг нашей команды — не наш хук: ставим свой рядом и не снимаем её", async () => {
+    const target = await site();
+    const path = join(target.home, ".codex/hooks.json");
+    const wrapper = { hooks: [{ type: "command", command: "mywrap backlog hook stop --agent codex" }] };
+    await writeJson(path, { hooks: { Stop: [wrapper] } });
+
+    expect(await installAgentHook("codex", target)).toBe("added");
+    expect(await removeAgentHook("codex", target)).toBe("removed");
+    expect(await removeAgentHook("codex", target)).toBe("absent");
+
+    expect(await readJson(path)).toEqual({ hooks: { Stop: [wrapper] } });
+  });
+
   it("снятие убирает только наш хук у всех трёх агентов", async () => {
     const target = await site();
     const claudeSettings = join(target.home, ".claude/settings.json");
