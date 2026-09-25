@@ -15,7 +15,7 @@ function recordedEnum<const T extends readonly [string, ...string[]]>(values: T)
   return z.enum([...values, UNKNOWN]).catch(UNKNOWN);
 }
 
-function optionalOrUnknown<const T extends readonly [string, ...string[]]>(values: T) {
+function unknownAsMissing<const T extends readonly [string, ...string[]]>(values: T) {
   return z.enum(values).optional().catch(undefined);
 }
 
@@ -72,7 +72,7 @@ const eventBase = { at: z.iso.datetime({ offset: true }), task: z.string().min(1
 const taskSnapshotSchema = taskFrontmatterSchema.extend({
   priority: recordedEnum(PRIORITIES),
   category: recordedEnum(TASK_CATEGORIES).optional(),
-  resolution: optionalOrUnknown(RESOLUTIONS),
+  resolution: unknownAsMissing(RESOLUTIONS),
 });
 
 export const journalEventSchema = z.discriminatedUnion("kind", [
@@ -88,16 +88,16 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
     found: recordedEnum(FOUND_HOW).optional(),
     origin: z.object({ branch: z.string().optional(), commit: z.string().min(1) }).optional(),
   }),
-  z.object({ ...eventBase, kind: z.literal("status"), from: z.enum(TASK_STATUSES), to: z.enum(TASK_STATUSES), resolution: optionalOrUnknown(RESOLUTIONS) }),
+  z.object({ ...eventBase, kind: z.literal("status"), from: z.enum(TASK_STATUSES), to: z.enum(TASK_STATUSES), resolution: unknownAsMissing(RESOLUTIONS) }),
   z.object({ ...eventBase, kind: z.literal("priority"), from: recordedEnum(PRIORITIES), to: recordedEnum(PRIORITIES) }),
   z.object({ ...eventBase, kind: z.literal("deleted"), snapshot: taskSnapshotSchema }),
   z.object({ ...eventBase, kind: z.literal("category"), from: recordedEnum(TASK_CATEGORIES).optional(), to: recordedEnum(TASK_CATEGORIES).optional() }),
   z.object({ ...eventBase, kind: z.literal("verified"), source: z.string().optional() }),
   z.object({ ...eventBase, kind: z.literal("candidate"), evidence: z.enum(CANDIDATE_EVIDENCE), mode: recordedEnum(CHECK_MODES),
-    method: optionalOrUnknown(CHECK_METHODS),
+    method: unknownAsMissing(CHECK_METHODS),
     bySymbol: z.boolean().optional(),
     byAnchor: z.boolean().optional(),
-    match: optionalOrUnknown(DUPLICATE_MATCHES),
+    match: unknownAsMissing(DUPLICATE_MATCHES),
   }),
   z.object({ ...eventBase, kind: z.literal("candidate-gone"), evidence: z.enum(CANDIDATE_EVIDENCE) }),
   z.object({ ...eventBase, kind: z.literal("candidate-filtered"), symbol: z.string() }),
