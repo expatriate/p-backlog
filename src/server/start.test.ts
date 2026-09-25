@@ -1,6 +1,7 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { localeLanguage, settingsFilePath } from "../core/store/settings";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
 import { startServer } from "./start";
 
@@ -12,6 +13,21 @@ describe("startServer", () => {
       const response = await fetch(`http://127.0.0.1:${server.port}/api/settings`);
       expect(response.status).toBe(200);
       expect(await response.json()).toHaveProperty("language");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("при испорченном .settings.json язык ответов берётся из переданного env, а не из окружения процесса", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await mkdir(root, { recursive: true });
+    await writeFile(settingsFilePath(root), "{ сломано");
+    const injected = localeLanguage(process.env) === "ru" ? { LC_ALL: "en_US.UTF-8", expected: "Unknown API route" } : { LC_ALL: "ru_RU.UTF-8", expected: "Неизвестный адрес API" };
+    const server = await startServer({ root, port: 0, home, env: { LC_ALL: injected.LC_ALL } });
+    try {
+      const response = await fetch(`http://127.0.0.1:${server.port}/api/no-such-route`);
+      expect(await response.text()).toContain(injected.expected);
     } finally {
       await server.close();
     }

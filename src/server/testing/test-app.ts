@@ -4,6 +4,7 @@ import { loadBacklog } from "../../core/store/load";
 import { writeSettings } from "../../core/store/settings";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { createApp } from "../app";
+import { serverLanguage } from "../messages";
 import type { ChangeFeed } from "../change-feed";
 import { createMemorySampler, type MemorySampler } from "../memory-sampler";
 import { createUsageScanner, type UsageScanner } from "../usage-scanner";
@@ -49,6 +50,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
 
   const app = createApp({
     root,
+    readLanguage: () => serverLanguage(root, {}),
     changes,
     allowedHosts: new Set([TEST_HOST]),
     home: root,

@@ -14,22 +14,21 @@ import { deleteProject, setProjectActive } from "../core/store/projects";
 import { updateTaskInIndex } from "../core/store/update";
 import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
-import { serverLanguage, serverMessages } from "./messages";
+import { serverMessages } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createReportCache } from "./report-cache";
 import { createStatsApi } from "./stats-api";
 import type { UsageScanner } from "./usage-scanner";
 
-export type ApiOptions = { root: string; changes: ChangeFeed; now: () => Date; home: string; usage: UsageScanner; memory: MemorySampler };
+export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; usage: UsageScanner; memory: MemorySampler };
 
 type BacklogSnapshot = LoadedBacklog & { index: BacklogIndex };
 
 const GRAPH_STATE_TTL_MS = 60 * 1000;
 
-export function createApi({ root, changes, now, home, usage, memory }: ApiOptions): Hono {
+export function createApi({ root, readLanguage, changes, now, home, usage, memory }: ApiOptions): Hono {
   const api = new Hono();
   let snapshot: Promise<BacklogSnapshot> | null = null;
-  const readLanguage = () => serverLanguage(root);
   const backlog = (): Promise<BacklogSnapshot> => {
     snapshot ??= loadSnapshot(root).catch((error: unknown) => {
       snapshot = null;
@@ -37,7 +36,7 @@ export function createApi({ root, changes, now, home, usage, memory }: ApiOption
     });
     return snapshot;
   };
-  const stats = createStatsApi({ root, now, home, usage, memory, backlog });
+  const stats = createStatsApi({ root, readLanguage, now, home, usage, memory, backlog });
   const graphStates = createReportCache({ ttlMs: GRAPH_STATE_TTL_MS, now: () => now().getTime() });
   const forgetBacklog = () => {
     snapshot = null;

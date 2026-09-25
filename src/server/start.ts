@@ -33,16 +33,17 @@ export async function startServer({ root, port, home, env, pidFile }: StartServe
   const startupMessages = serverMessages(settled.language);
   if (settled.invalidSettingsFile) process.stderr.write(`${startupMessages.settingsFileInvalid(settingsFilePath(root))}\n`);
 
-  const readMessages = () => serverLanguage(root).then(serverMessages);
+  const readLanguage = () => serverLanguage(root, env);
+  const readMessages = () => readLanguage().then(serverMessages);
   const usage = createUsageScanner({ root, claudeProjectsDir: claudeProjectsDir(env, home), messages: readMessages });
   const memory = createMemorySampler();
   const changes = createChangeFeed(root, CHANGE_DEBOUNCE_MS, readMessages);
   const hostsForActualPort = new Set<string>();
 
-  const app = createApp({ root, changes, allowedHosts: hostsForActualPort, home, usage, memory, staticDir: join(import.meta.dirname, "web") });
+  const app = createApp({ root, readLanguage, changes, allowedHosts: hostsForActualPort, home, usage, memory, staticDir: join(import.meta.dirname, "web") });
 
   const sweepAll = async (now: Date): Promise<SweepReport> => {
-    const language = await serverLanguage(root);
+    const language = await readLanguage();
     await trimRuns(root, now).catch((error: unknown) => process.stderr.write(`${serverMessages(language).runsTrimFailed(errorText(error))}\n`));
     return sweepClosed(root, now, coreMessages(language));
   };

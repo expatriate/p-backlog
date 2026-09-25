@@ -18,13 +18,15 @@ import { unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/st
 import { cachedRepoRoots, findProjectForRoots, type GitRoots, type RepoRootLookup } from "../core/store/resolve-project";
 import { readRuns } from "../core/store/runs";
 import type { UsageCache } from "../core/usage/usage-cache";
-import { serverLanguage, serverMessages } from "./messages";
+import type { Language } from "../core/i18n/language";
+import { serverMessages } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createReportCache } from "./report-cache";
 import type { UsageScanner } from "./usage-scanner";
 
 type StatsApiOptions = {
   root: string;
+  readLanguage: () => Promise<Language>;
   now: () => Date;
   home: string;
   usage: UsageScanner;
@@ -42,11 +44,11 @@ type ScopedReportOptions = { sourceKey?: (projects: readonly Project[]) => Promi
 
 const REPORT_TTL_MS = 5 * 60 * 1000;
 
-export function createStatsApi({ root, now, home, usage, memory, backlog }: StatsApiOptions): StatsApi {
+export function createStatsApi({ root, readLanguage, now, home, usage, memory, backlog }: StatsApiOptions): StatsApi {
   const routes = new Hono();
   const reports = createReportCache({ ttlMs: REPORT_TTL_MS, now: () => now().getTime() });
   const onCodeSourceError = (kind: CodeCacheErrorKind, error: unknown) =>
-    void serverLanguage(root).then((language) => {
+    void readLanguage().then((language) => {
       const messages = serverMessages(language);
       const text = kind === "read" ? messages.codeCacheReadFailed(errorText(error)) : messages.codeCacheWriteFailed(errorText(error));
       process.stderr.write(`${text}\n`);
@@ -58,7 +60,7 @@ export function createStatsApi({ root, now, home, usage, memory, backlog }: Stat
     const projectId = c.req.query("project") || undefined;
     const { projects, tasks, errors } = await backlog();
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
-      return c.json({ errors: [serverMessages(await serverLanguage(root)).projectNotFound(projectId)] }, 404);
+      return c.json({ errors: [serverMessages(await readLanguage()).projectNotFound(projectId)] }, 404);
     }
     const included = (project: Project) => project.id === projectId || ((projectId === undefined || wholeBacklog) && project.active);
     const scoped = projects.filter(included);

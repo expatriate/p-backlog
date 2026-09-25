@@ -9,6 +9,6 @@ export function serverMessages(language: Language): ServerMessages {
   return language === "ru" ? serverRu : serverEn;
 }
 
-export function serverLanguage(root: string): Promise<Language> {
-  return settleLanguage(root, process.env).then((settled) => settled.language);
+export function serverLanguage(root: string, env: NodeJS.ProcessEnv): Promise<Language> {
+  return settleLanguage(root, env).then((settled) => settled.language);
 }
