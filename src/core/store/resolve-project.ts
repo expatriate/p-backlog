@@ -71,8 +71,8 @@ function canonicalRoots(worktreePath: string, mainPath: string): GitRoots | null
 export function findProjectForDir(projects: readonly Project[], dir: string, home: string): Project | undefined {
   const roots = findGitRoots(dir);
   if (roots !== null) return findProjectForRoots(projects, roots, home);
-  const plain = realpathSync.native(dir);
-  return findProjectForRoots(projects, { worktree: plain, main: plain }, home);
+  const plain = realpathOrNull(dir);
+  return plain === null ? undefined : findProjectForRoots(projects, { worktree: plain, main: plain }, home);
 }
 
 export function findProjectForRoots(projects: readonly Project[], { worktree, main }: GitRoots, home: string): Project | undefined {

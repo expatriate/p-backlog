@@ -3,6 +3,11 @@ import type { CliMessages } from "./messages.ru";
 export const cliEn: CliMessages = {
   usageHeader: "Usage:",
   extraArguments: (args) => `Extra arguments: ${args.join(" ")}`,
+  argumentProblem: {
+    unknownOption: (option) => `Unknown option ${option}`,
+    missingValue: (option) => `Option ${option} needs a value`,
+    takesNoValue: (option) => `Option ${option} does not take a value`,
+  },
   invalidChoice: (label, allowed, value) => `${label}: expected one of ${allowed.join(", ")}, got "${value}"`,
   commandFailed: (name, reason) => `Command ${name} failed: ${reason}`,
   runNotRecorded: (error) => `Could not record the run: ${error}`,

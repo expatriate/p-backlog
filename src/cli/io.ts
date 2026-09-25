@@ -1,5 +1,6 @@
 import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 import { errorText } from "../core/errors";
+import { hasErrorCode } from "../core/store/fs-utils";
 import type { Language } from "../core/i18n/language";
 import { cliMessages } from "./messages";
 export type ExecResult = { code: number; output: string };
@@ -28,12 +29,33 @@ export const EXIT = { ok: 0, invalid: 1, notFound: 2, refused: 3, failed: 4, nee
 
 export class UsageError extends Error {}
 
+export type ArgumentProblem = { kind: "unknownOption" | "missingValue" | "takesNoValue"; option: string };
+
+export class ArgumentParseError extends UsageError {
+  constructor(
+    readonly problem: ArgumentProblem | null,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+const QUOTED_OPTION = /'(-{1,2}[^'\s=]+)/;
+
 export function withUsageErrors<T>(parse: () => T): T {
   try {
     return parse();
   } catch (error) {
-    throw new UsageError(errorText(error));
+    throw new ArgumentParseError(argumentProblemOf(error), errorText(error));
   }
+}
+
+function argumentProblemOf(error: unknown): ArgumentProblem | null {
+  const option = QUOTED_OPTION.exec(errorText(error))?.[1];
+  if (option === undefined) return null;
+  if (hasErrorCode(error, "ERR_PARSE_ARGS_UNKNOWN_OPTION")) return { kind: "unknownOption", option };
+  if (hasErrorCode(error, "ERR_PARSE_ARGS_INVALID_OPTION_VALUE")) return { kind: errorText(error).includes("does not take") ? "takesNoValue" : "missingValue", option };
+  return null;
 }
 
 export function parseOptions<const T extends ParseArgsOptionsConfig>(language: Language, args: string[], options: T) {

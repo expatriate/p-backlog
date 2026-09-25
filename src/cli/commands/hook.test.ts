@@ -32,6 +32,14 @@ describe("backlog hook stop", () => {
     expect(journal.events).toContainEqual(expect.objectContaining({ kind: "candidate", mode: "changed", via: "check" }));
   });
 
+  it("молчит с кодом 0, если каталога сессии уже нет (агент удалил свой worktree)", async () => {
+    const { run, home } = await makeCliSandbox();
+
+    const result = await run(["hook", "stop"], { stdin: JSON.stringify({ session_id: "s", cwd: join(home, "projects/removed-worktree") }) });
+
+    expect(result).toMatchObject({ code: EXIT.ok, out: "", err: "" });
+  });
+
   it("в git worktree вне основного репозитория видит правку, закоммиченную в этом worktree", async () => {
     const { run, repo, home } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n" });

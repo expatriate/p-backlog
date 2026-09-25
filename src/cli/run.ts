@@ -2,7 +2,7 @@ import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/stats/cost/hook-sign
 import { errorText } from "../core/errors";
 import { coreMessages } from "../core/messages";
 import { FileBusyError } from "../core/store/file-lock";
-import { settingsFilePath, settleLanguage } from "../core/store/settings";
+import { localeLanguage, settingsFilePath, settleLanguage } from "../core/store/settings";
 import { cliMessages } from "./messages";
 import { usageText, type CliCommand } from "./command";
 import { categoryCommand } from "./commands/category";
@@ -24,7 +24,7 @@ import { statsCommand } from "./commands/stats";
 import { statusCommand } from "./commands/status";
 import { takeCommand } from "./commands/take";
 import { verifyCommand } from "./commands/verify";
-import { EXIT, UsageError, type CliEnv } from "./io";
+import { ArgumentParseError, EXIT, UsageError, type CliEnv } from "./io";
 
 export const CLI_COMMANDS: readonly CliCommand[] = [
   newCommand,
@@ -50,23 +50,32 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
 
 const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
 
-const COMMANDS = new Map(CLI_COMMANDS.map((command) => [command.name, command.run]));
+const COMMANDS = new Map(CLI_COMMANDS.map((command) => [command.name, command]));
 
 export async function runCli(argv: readonly string[], env: CliEnv): Promise<number> {
-  const settled = await settleLanguage(env.backlogRoot, env.env);
+  const [name, ...args] = argv;
+  const settled = await settleLanguage(env.backlogRoot, env.env).catch((error: unknown) => ({ unreadable: error }));
+  if ("unreadable" in settled) {
+    env.warn(cliMessages(localeLanguage(env.env)).commandFailed(name ?? "", errorText(settled.unreadable)));
+    return EXIT.failed;
+  }
   const { language } = settled;
   const io = { ...env, language };
   if (settled.invalidSettingsFile) io.warn(cliMessages(language).settingsFileInvalid(settingsFilePath(env.backlogRoot)));
-  const [name, ...args] = argv;
   const command = name === undefined ? undefined : COMMANDS.get(name);
   if (!command) {
-    io.warn(usageText(CLI_COMMANDS, language));
     const askedForHelp = name === undefined || HELP_ARGUMENTS.has(name);
+    (askedForHelp ? io.print : io.warn)(usageText(CLI_COMMANDS, language));
     return askedForHelp ? EXIT.ok : EXIT.invalid;
   }
   try {
-    return await command(args, io);
+    return await command.run(args, io);
   } catch (error) {
+    if (error instanceof ArgumentParseError) {
+      const problem = error.problem === null ? error.message : cliMessages(language).argumentProblem[error.problem.kind](error.problem.option);
+      io.warn(`${problem}\n${usageText([command], language)}`);
+      return EXIT.invalid;
+    }
     if (error instanceof UsageError) {
       io.warn(error.message);
       return EXIT.invalid;

@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/stats/cost/hook-signature";
 import { CLI_COMMANDS, commandName, runCli } from "./run";
 import { describe, expect, it } from "vitest";
@@ -6,11 +7,37 @@ import { EXIT, type CliEnv } from "./io";
 import { baseCliEnv, makeCliSandbox } from "./testing/cli-harness";
 
 describe("runCli", () => {
-  it("без команды печатает справку, с неизвестной командой — код 1", async () => {
+  it("справку по запросу печатает в stdout с кодом 0, на неизвестную команду — в stderr с кодом 1", async () => {
     const { run } = await makeCliSandbox();
-    expect(await run([])).toMatchObject({ code: EXIT.ok, err: expect.stringContaining("Использование") });
-    expect((await run(["--help"])).code).toBe(EXIT.ok);
-    expect((await run(["remove", "SPA-1"])).code).toBe(EXIT.invalid);
+    expect(await run([])).toMatchObject({ code: EXIT.ok, out: expect.stringContaining("Использование"), err: "" });
+    expect(await run(["--help"])).toMatchObject({ code: EXIT.ok, out: expect.stringContaining("Использование") });
+    expect(await run(["remove", "SPA-1"])).toMatchObject({ code: EXIT.invalid, out: "", err: expect.stringContaining("Использование") });
+  });
+
+  it("ошибку разбора аргументов показывает на языке пользователя вместе со справкой по команде", async () => {
+    const { run } = await makeCliSandbox();
+
+    const unknown = await run(["list", "--foo"]);
+    expect(unknown.code).toBe(EXIT.invalid);
+    expect(unknown.err).toContain("Неизвестный параметр --foo");
+    expect(unknown.err).toContain("Использование:\n  backlog list ");
+
+    const missing = await run(["list", "--status"]);
+    expect(missing.err).toContain("У параметра --status нет значения");
+
+    const extra = await run(["list", "--json=yes"]);
+    expect(extra.err).toContain("Параметр --json не принимает значения");
+  });
+
+  it("нечитаемый каталог беклога даёт сообщение и код 4, а не исключение со стеком", async () => {
+    const { repo, home } = await makeCliSandbox();
+    const notADir = join(home, "backlog-file");
+    await writeFile(notADir, "");
+    const warnings: string[] = [];
+    const io: CliEnv = { ...baseCliEnv({ cwd: repo, home, backlogRoot: notADir, packageRoot: home }), warn: (line) => warnings.push(line) };
+
+    expect(await runCli(["list"], io)).toBe(EXIT.failed);
+    expect(warnings.join("\n")).toContain("ENOTDIR");
   });
 
   it("неожиданная ошибка команды не уходит стеком: текст в stderr и отдельный код", async () => {

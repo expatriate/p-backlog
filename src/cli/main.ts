@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { formatLocalIso } from "../core/model/dates";
 import { appendRun } from "../core/store/runs";
 import { resolveBacklogRoot } from "../core/store/paths";
-import { settleLanguage } from "../core/store/settings";
+import { localeLanguage, settleLanguage } from "../core/store/settings";
 import { suppressSqliteExperimentalWarning } from "../core/sqlite-warning";
 import { execProgram } from "./exec";
 import { cliMessages } from "./messages";
@@ -63,6 +63,6 @@ try {
     exitCode,
   });
 } catch (error) {
-  const { language } = await settleLanguage(backlogRoot, process.env);
+  const { language } = await settleLanguage(backlogRoot, process.env).catch(() => ({ language: localeLanguage(process.env) }));
   process.stderr.write(`${cliMessages(language).runNotRecorded(errorText(error))}\n`);
 }

@@ -1,6 +1,11 @@
 export const cliRu = {
   usageHeader: "Использование:",
   extraArguments: (args: readonly string[]): string => `Лишние аргументы: ${args.join(" ")}`,
+  argumentProblem: {
+    unknownOption: (option: string): string => `Неизвестный параметр ${option}`,
+    missingValue: (option: string): string => `У параметра ${option} нет значения`,
+    takesNoValue: (option: string): string => `Параметр ${option} не принимает значения`,
+  },
   invalidChoice: (label: string, allowed: readonly string[], value: string): string =>
     `${label}: ожидается одно из ${allowed.join(", ")}, получено «${value}»`,
   commandFailed: (name: string, reason: string): string => `Команда ${name} не выполнена: ${reason}`,

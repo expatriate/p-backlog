@@ -29,13 +29,17 @@ export type SettledLanguage = { language: Language; invalidSettingsFile: boolean
 export async function settleLanguage(root: string, env: NodeJS.ProcessEnv): Promise<SettledLanguage> {
   const file = await readSettingsFile(root);
   if (file.found && file.valid) return { language: file.settings.language, invalidSettingsFile: false };
-  const locale = () => languageFromLocale(env.LC_ALL || env.LANG || Intl.DateTimeFormat().resolvedOptions().locale);
+  const locale = () => localeLanguage(env);
   if (!file.found) {
     const language = (await hasProjects(root)) ? "ru" : locale();
     await writeSettings(root, { language }).catch(() => {});
     return { language, invalidSettingsFile: false };
   }
   return { language: locale(), invalidSettingsFile: true };
+}
+
+export function localeLanguage(env: NodeJS.ProcessEnv): Language {
+  return languageFromLocale(env.LC_ALL || env.LANG || Intl.DateTimeFormat().resolvedOptions().locale);
 }
 
 async function hasProjects(root: string): Promise<boolean> {
