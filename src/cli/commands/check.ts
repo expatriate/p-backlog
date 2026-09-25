@@ -32,10 +32,20 @@ async function runCheck(args: string[], io: CliIo): Promise<number> {
   return needsReview(report) ? EXIT.needsReview : EXIT.ok;
 }
 
-const TASK_PROBLEMS: ReadonlySet<CheckProblem["kind"]> = new Set(["task-invalid", "fix-failed", "file-not-parsed"]);
+const PROBLEM_NEEDS_REVIEW: Record<CheckProblem["kind"], boolean> = {
+  "task-invalid": true,
+  "fix-failed": true,
+  "file-not-parsed": true,
+  "epics-wait-for-files": false,
+  "project-without-repos": false,
+  "project-repos-missing": false,
+  "project-repo-not-git": false,
+  "project-history-unreadable": false,
+  "prefix-shared": false,
+};
 
 function needsReview({ candidates, problems }: CheckReport): boolean {
-  return candidates.length > 0 || problems.some((problem) => TASK_PROBLEMS.has(problem.kind));
+  return candidates.length > 0 || problems.some((problem) => PROBLEM_NEEDS_REVIEW[problem.kind]);
 }
 
 function formatReport(language: Language, { fixed, problems, candidates }: CheckReport): string {

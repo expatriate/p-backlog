@@ -1,8 +1,8 @@
 import { mkdir, readFile, readlink, realpath, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { z } from "zod";
-import { errorCodeOrText } from "../core/errors";
-import { hasErrorCode, writeFileAtomic } from "../core/store/fs-utils";
+import { errorCodeOrText, hasErrorCode } from "../core/errors";
+import { writeFileAtomic } from "../core/store/fs-utils";
 
 const POSIX_COMMAND = "command -v backlog >/dev/null && backlog hook stop || true";
 const POWERSHELL_COMMAND = "if (Get-Command backlog.cmd -ErrorAction SilentlyContinue) { backlog.cmd hook stop }";

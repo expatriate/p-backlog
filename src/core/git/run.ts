@@ -1,5 +1,6 @@
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
+import { errorCode } from "../errors";
 import { createLimiter } from "./limit";
 
 export type GitRunner = (repo: string, args: string[], input?: string) => Promise<string | null>;
@@ -22,7 +23,7 @@ export const runGit: GitRunner = (repo, args, input) =>
       const { stdout } = await running;
       return stdout;
     } catch (error) {
-      return args[0] === "grep" && exitCodeOf(error) === GREP_NO_MATCH_EXIT ? "" : null;
+      return args[0] === "grep" && errorCode(error) === GREP_NO_MATCH_EXIT ? "" : null;
     }
   });
 
@@ -55,6 +56,3 @@ function ignoreStdinOfExitedGit(): undefined {
   return undefined;
 }
 
-function exitCodeOf(error: unknown): unknown {
-  return typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
-}

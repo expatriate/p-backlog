@@ -13,7 +13,8 @@ import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
 import { requireProject, requireTask } from "../lookups";
 import { cliMessages } from "../messages";
 import { taskWriter, type TaskWrite } from "../task-write";
-import { printTask, taskJson } from "./show";
+import { taskJson } from "../describe";
+import { printTask } from "./show";
 
 export const takeCommand: CliCommand = {
   name: "take",

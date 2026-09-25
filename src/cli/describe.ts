@@ -1,4 +1,4 @@
-import { dependentTasks, epicChildren, openBlockers, relatedTasks, taskProgress, type BacklogIndex } from "../core/model/graph";
+import { buildIndex, dependentTasks, epicChildren, openBlockers, relatedTasks, taskProgress, type BacklogIndex } from "../core/model/graph";
 import { taskWarnings } from "../core/model/integrity";
 import { formatLocalIso } from "../core/model/dates";
 import { deletionDate } from "../core/model/lifecycle";
@@ -51,4 +51,8 @@ export function toJson(description: TaskDescription): object {
 function deletesAtIso(task: Task): string | undefined {
   const deletesAt = deletionDate(task);
   return deletesAt === undefined ? undefined : formatLocalIso(deletesAt);
+}
+
+export function taskJson(task: Task, tasks: readonly Task[]): object {
+  return toJson(describeTask(task, buildIndex(tasks)));
 }

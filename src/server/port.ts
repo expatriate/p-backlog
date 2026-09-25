@@ -2,7 +2,10 @@ import type { ServerMessages } from "./messages.ru";
 
 const DEFAULT_PORT = 4317;
 
+const DECIMAL_DIGITS = /^\d+$/;
+
 function parsePort(value: string): number | null {
+  if (!DECIMAL_DIGITS.test(value)) return null;
   const port = Number(value);
   return Number.isInteger(port) && port > 0 && port < 65536 ? port : null;
 }

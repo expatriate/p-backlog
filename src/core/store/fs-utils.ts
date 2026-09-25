@@ -4,13 +4,10 @@ import { chmod, link, readdir, readFile, rename, rm, stat, writeFile } from "nod
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { z } from "zod";
+import { hasErrorCode } from "../errors";
 
 export function contentVersion(text: string): string {
   return createHash("sha1").update(text).digest("hex");
-}
-
-export function hasErrorCode(error: unknown, code: string): boolean {
-  return error instanceof Error && "code" in error && error.code === code;
 }
 
 export async function readTextOrNull(path: string): Promise<string | null> {

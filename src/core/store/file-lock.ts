@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { hasErrorCode, readTextOrNull } from "./fs-utils";
+import { hasErrorCode } from "../errors";
+import { readTextOrNull } from "./fs-utils";
 
 const RETRY_MS = 10;
 const WAIT_LIMIT_MS = 5_000;

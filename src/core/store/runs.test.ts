@@ -76,4 +76,14 @@ describe("журнал запусков CLI", () => {
     expect(await readRuns(root)).toEqual([RUN]);
     expect(await trimRunsWhenStale(await makeTempDir(), new Date())).toBe(0);
   });
+
+  it("неразобранная первая строка тоже ведёт к обрезке, иначе без сервера журнал рос бы вечно", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { [RUNS_FILE]: `{"at":"обрыв записи\n${JSON.stringify(RUN)}\n` });
+    const now = new Date("2026-09-20T12:00:00+03:00");
+
+    expect(await trimRunsWhenStale(root, now)).toBe(1);
+    expect(await readFile(join(root, RUNS_FILE), "utf8")).toBe(`${JSON.stringify(RUN)}\n`);
+    expect(await trimRunsWhenStale(root, now)).toBe(0);
+  });
 });

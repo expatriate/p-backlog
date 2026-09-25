@@ -3,7 +3,7 @@ import { buildIndex } from "../../core/model/graph";
 import { coreMessages } from "../../core/messages";
 import type { Task } from "../../core/model/types";
 import { loadBacklog } from "../../core/store/load";
-import { describeTask, toJson } from "../describe";
+import { describeTask, taskJson } from "../describe";
 import { formatTaskDetails } from "../format";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseCommandArgs, type CliIo } from "../io";
@@ -35,8 +35,4 @@ export async function printTask(io: CliIo, task: Task, tasks: readonly Task[], {
   }
   const description = describeTask(task, buildIndex(tasks));
   io.print(formatTaskDetails(coreMessages(io.language), cliMessages(io.language), description, await readFile(task.path, "utf8")));
-}
-
-export function taskJson(task: Task, tasks: readonly Task[]): object {
-  return toJson(describeTask(task, buildIndex(tasks)));
 }

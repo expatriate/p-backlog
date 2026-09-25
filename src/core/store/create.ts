@@ -7,7 +7,8 @@ import { derivePrefix, deriveProjectId, formatId, parseId, type ParsedId } from 
 import { createdEvent, type ChangeSource, type Provenance } from "../journal/events";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { OptionalFields, Project, Task } from "../model/types";
-import { createFileAtomic, hasErrorCode, listDir, readTextOrNull } from "./fs-utils";
+import { hasErrorCode } from "../errors";
+import { createFileAtomic, listDir, readTextOrNull } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { PROJECT_FILE, taskFileName } from "./paths";
 import { issuedUpToOnDisk, readProjectFile } from "./projects";

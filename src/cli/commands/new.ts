@@ -11,7 +11,7 @@ import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo } fr
 import { ensureProject } from "../lookups";
 import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
-import { taskJson } from "./show";
+import { taskJson } from "../describe";
 
 export const newCommand: CliCommand = {
   name: "new",
