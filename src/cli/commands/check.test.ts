@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { CheckReport } from "../../core/check/check-backlog";
 import type { Language } from "../../core/i18n/language";
 import { writeSettings } from "../../core/store/settings";
-import { gitAddWorktree, gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitAddWorktree, gitCommitAll, gitMergeNoFastForward, writeFiles } from "../../core/store/testing/temp-dirs";
 import { loadBacklog } from "../../core/store/load";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
@@ -20,6 +20,27 @@ async function sandboxWithChangedSource() {
 }
 
 describe("backlog check", () => {
+  it("задачи про код ещё не слитой ветки не судятся в основном checkout, а после слияния — судятся без ложных кандидатов", async () => {
+    const { run, repo, home } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "const a = 1;\nconst timeout = 30;\nconst b = 2;\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Прогрев проекта"]);
+    const worktree = join(home, "projects/spa-feat");
+    gitAddWorktree(repo, worktree, "feat");
+    await writeFiles(worktree, { "src/a.ts": "import x from 'x';\nimport y from 'y';\nconst a = 1;\nconst timeout = 30;\nconst b = 2;\n", "src/n.ts": "new file\nline2\n" });
+    gitCommitAll(worktree, "Фича", "2026-09-16T11:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут в ветке", "--source", "src/a.ts:4"], { cwd: worktree });
+    await run(["new", "--category", "bug", "--title", "Новый файл в ветке", "--source", "src/n.ts:1"], { cwd: worktree });
+
+    const beforeMerge = JSON.parse((await run(["check", "--json"])).out) as CheckReport;
+    gitMergeNoFastForward(repo, "feat", "2026-09-17T10:00:00Z");
+    const afterMerge = JSON.parse((await run(["check", "--json"])).out) as CheckReport;
+
+    expect(beforeMerge.candidates.filter((candidate) => candidate.kind !== "duplicate")).toEqual([]);
+    expect(afterMerge.candidates.filter((candidate) => candidate.kind !== "duplicate")).toEqual([]);
+    expect([...beforeMerge.fixed, ...afterMerge.fixed]).toEqual([]);
+  });
+
   it("проверка из git worktree не переносит source задачи на строки ветки: главный якорь — основной checkout", async () => {
     const { run, repo, root, home } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "const a = 1;\nconst timeout = 30;\n" });

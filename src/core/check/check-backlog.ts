@@ -1,6 +1,6 @@
 import { errorText } from "../errors";
 import { basename, join } from "node:path";
-import { CANDIDATE_EVIDENCE, candidateEvents, candidateGoneEvents, episodeStates, filteredEvents, type CandidateEvidence, type CandidateSighting, type CheckMode, type FilteredSighting } from "../journal/events";
+import { CANDIDATE_EVIDENCE, candidateEvents, candidateGoneEvents, episodeStates, filteredEvents, type CandidateEvidence, type CandidateSighting, type CheckMode, type FilteredSighting, type TaskOrigin } from "../journal/events";
 import type { CoreMessages } from "../messages";
 import { buildIndex } from "../model/graph";
 import { parseId } from "../model/ids";
@@ -17,6 +17,7 @@ import { snippetOf } from "./anchor";
 import type { CheckFix, CheckProblem } from "./findings";
 import { projectCheckout } from "./project-repo";
 import { mergesKnownAtCreation } from "./branch-merges";
+import { awaitingMerge } from "./pending-branches";
 import { findGitRoots } from "../store/resolve-project";
 import { codeReview, duplicateCandidates, isReviewable, relocationPlan, reviewMark, type AnchorPlan, type Candidate } from "./candidates";
 import { currentSources } from "./current-source";
@@ -42,7 +43,15 @@ type Fix = { changes: TaskChanges; closure?: Closure; done: CheckFix[] };
 type EpicClosing = { closure: Closure; childIds: string[] };
 const PROBLEM_LIMIT = 400;
 
-type ProjectReview = { projectId: string; candidates: Candidate[]; filtered: FilteredSighting[]; plans: AnchorPlan[]; problems: CheckProblem[]; unchecked: CandidateEvidence[] };
+type ProjectReview = {
+  projectId: string;
+  candidates: Candidate[];
+  filtered: FilteredSighting[];
+  plans: AnchorPlan[];
+  problems: CheckProblem[];
+  unchecked: CandidateEvidence[];
+  awaitingMerge: string[];
+};
 type FixOutcome = { fixed: CheckFix[]; failed: CheckProblem[] };
 
 export async function checkBacklog(root: string, loaded: LoadedBacklog, request: CheckRequest): Promise<CheckReport> {
@@ -60,7 +69,9 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const anchorPlans = reviews.filter((review) => checkouts.get(review.projectId)?.linkedWorktree !== true).flatMap((review) => review.plans);
   const moved = await applyAnchorPlans(current.tasks, anchorPlans, request.now);
   const unchecked = new Map(reviews.map((review) => [review.projectId, review.unchecked]));
-  await recordCandidates(root, current.tasks, { candidates, filtered: reviews.flatMap((review) => review.filtered), unchecked }, request);
+  const awaiting = new Set(reviews.flatMap((review) => review.awaitingMerge));
+  const judged = current.tasks.filter((task) => !awaiting.has(task.id));
+  await recordCandidates(root, judged, { candidates, filtered: reviews.flatMap((review) => review.filtered), unchecked }, request);
   const reviewProblems = reviews.flatMap((review) => review.problems);
   const problems = coverage.reportsProblems ? [...fixes.failed, ...findProblems(current, projects, repos, inScope), ...reviewProblems] : [];
   return { fixed: [...fixes.fixed, ...moved], problems, candidates };
@@ -153,21 +164,21 @@ function goneTaskCheck(loaded: LoadedBacklog): (id: string) => boolean {
   };
 }
 
-async function creationOrigins(root: string, projectId: string): Promise<Map<string, string>> {
+async function creationOrigins(root: string, projectId: string): Promise<Map<string, TaskOrigin>> {
   const journal = await readJournal(join(root, projectId), projectId).catch(() => null);
-  return new Map((journal?.events ?? []).flatMap((event) => (event.kind === "created" && event.origin !== undefined ? [[event.task, event.origin.commit] as const] : [])));
+  return new Map((journal?.events ?? []).flatMap((event) => (event.kind === "created" && event.origin !== undefined ? [[event.task, event.origin] as const] : [])));
 }
 
-async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, origins: ReadonlyMap<string, string>, { mode }: CheckRequest): Promise<ProjectReview> {
+async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, origins: ReadonlyMap<string, TaskOrigin>, { mode }: CheckRequest): Promise<ProjectReview> {
   const coverage = COVERAGE[mode];
   const tasks = allTasks.filter((task) => task.projectId === project.id && isReviewable(task));
-  const nothing = { projectId: project.id, candidates: [], filtered: [], plans: [], problems: [], unchecked: [] };
+  const nothing = { projectId: project.id, candidates: [], filtered: [], plans: [], problems: [], unchecked: [], awaitingMerge: [] };
   if (tasks.length === 0) return nothing;
   if (repo === undefined) return { ...nothing, candidates: coverage.findsDuplicates ? duplicateCandidates(tasks) : [], unchecked: ["source-changed", "source-missing"] };
 
   const pathMarks = earliestMarks(tasks);
   const facts = await collectRepoFacts(repo, { since: new Date(Math.min(...tasks.map(reviewMark))), paths: [...pathMarks.keys()], pathMarks });
-  const review = codeReview(tasks, facts, await mergesKnownAtCreation({ repo, tasks, facts, origins }));
+  const review = codeReview(tasks, facts, await mergesKnownAtCreation({ repo, tasks, facts, origins: creationCommits(origins) }));
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
   const diffOf = diffsSince(repo);
   const graph = openCodeGraph(repo);
@@ -179,15 +190,19 @@ async function projectReview(project: Project, allTasks: readonly Task[], repo: 
     const duplicates = coverage.findsDuplicates ? duplicateCandidates(tasks, symbolNames(symbolAt, located)) : [];
     const context: ProjectContext = { tasksById, located, facts, diffOf, symbolAt };
     const { kept, filtered } = await filterBySymbol(review.candidates, context);
-    const code = await Promise.all(kept.map((candidate) => withContext(candidate, context)));
     const plans = settledPlans(review.plans, { kept, filtered }, context);
+    const involved = new Set([...kept.map((candidate) => candidate.task.id), ...filtered.map((sighting) => sighting.task), ...plans.map((plan) => plan.id)]);
+    const awaiting = await awaitingMerge({ repo, taskIds: [...involved], origins });
+    const judged = (id: string) => !awaiting.has(id);
+    const code = await Promise.all(kept.filter((candidate) => judged(candidate.task.id)).map((candidate) => withContext(candidate, context)));
     return {
       projectId: project.id,
       candidates: [...code, ...duplicates],
-      filtered,
-      plans,
+      filtered: filtered.filter((sighting) => judged(sighting.task)),
+      plans: plans.filter((plan) => judged(plan.id)),
       problems: historyProblems(project, repo, facts.history),
       unchecked: facts.history === "read" ? [] : ["source-changed"],
+      awaitingMerge: [...awaiting],
     };
   } finally {
     graph?.close();
@@ -216,6 +231,10 @@ function earliestMarks(tasks: readonly Task[]): Map<string, number> {
 }
 
 type ProjectContext = SymbolFilterContext & { facts: RepoFacts };
+
+function creationCommits(origins: ReadonlyMap<string, TaskOrigin>): Map<string, string> {
+  return new Map([...origins].map(([id, origin]) => [id, origin.commit]));
+}
 
 function settledPlans(plans: readonly AnchorPlan[], { kept, filtered }: SymbolFilterResult, { tasksById, located, facts }: ProjectContext): AnchorPlan[] {
   const flagged = new Set(kept.map((candidate) => candidate.task.id));
