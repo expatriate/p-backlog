@@ -29,18 +29,22 @@ export type SettledLanguage = { language: Language; invalidSettingsFile: boolean
 export async function settleLanguage(root: string, env: NodeJS.ProcessEnv): Promise<SettledLanguage> {
   const file = await readSettingsFile(root);
   if (file.found && file.valid) return { language: file.settings.language, invalidSettingsFile: false };
-  const locale = () => localeLanguage(env);
   if (!file.found) {
-    const language = (await hasProjects(root)) ? "ru" : locale();
+    const language = await unsetLanguage(root, env);
     await writeSettings(root, { language }).catch(() => {});
     return { language, invalidSettingsFile: false };
   }
-  return { language: locale(), invalidSettingsFile: true };
+  return { language: localeLanguage(env), invalidSettingsFile: true };
 }
 
 export async function readLanguage(root: string, env: NodeJS.ProcessEnv): Promise<Language> {
   const file = await readSettingsFile(root);
-  return file.found && file.valid ? file.settings.language : localeLanguage(env);
+  if (!file.found) return unsetLanguage(root, env);
+  return file.valid ? file.settings.language : localeLanguage(env);
+}
+
+async function unsetLanguage(root: string, env: NodeJS.ProcessEnv): Promise<Language> {
+  return (await hasProjects(root)) ? "ru" : localeLanguage(env);
 }
 
 export function localeLanguage(env: NodeJS.ProcessEnv): Language {

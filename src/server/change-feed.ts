@@ -36,8 +36,7 @@ export type ChangeFeedOptions = { root: string; debounceMs: number; messages: ()
 
 export function createChangeFeed({ root, debounceMs, messages, warn }: ChangeFeedOptions): ChangeFeed {
   const listeners = new Set<ChangeListener>();
-  let markClosed = (): void => undefined;
-  const closed = new Promise<void>((resolve) => (markClosed = resolve));
+  const { promise: closed, resolve: markClosed }: PromiseWithResolvers<void> = Promise.withResolvers();
   const debouncer = createDebouncer(debounceMs, () => {
     for (const listener of listeners) listener();
   });

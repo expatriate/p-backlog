@@ -1,5 +1,7 @@
 import { usageError, type CliCommand } from "../command";
-import { EXIT, parseCommandArgs, type CliIo } from "../io";
+import { serverMessages } from "../../server/messages";
+import { requestedPort } from "../../server/port";
+import { EXIT, parseCommandArgs, UsageError, type CliIo } from "../io";
 import { cliMessages } from "../messages";
 import { portOf, serviceManagerOf } from "../service/managers";
 import type { ServiceFailure, ServiceManager } from "../service/service";
@@ -42,6 +44,7 @@ async function withServiceManager(io: CliIo, action: ServiceAction): Promise<num
 }
 
 async function installWith(manager: ServiceManager, io: CliIo): Promise<number> {
+  if (requestedPort(io.env.PORT) === null) throw new UsageError(serverMessages(io.language).invalidPort("PORT", io.env.PORT ?? ""));
   const messages = cliMessages(io.language);
   const outcome = await manager.install();
   if (typeof outcome === "object") return reportFailure(outcome, io);

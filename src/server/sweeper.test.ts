@@ -52,6 +52,19 @@ describe("startSweeper", () => {
     expect(sweep).toHaveBeenCalledTimes(2);
   });
 
+  it("сбой чтения сообщений не роняет сервер: проход выполнен, причина — в лог", async () => {
+    useFakeClock();
+    const sweep = vi.fn(async () => EMPTY_REPORT);
+    const warn = vi.fn();
+
+    const stop = startSweeper({ sweep, intervalMs: 1000, log: vi.fn(), warn, messages: () => Promise.reject(new Error("EACCES")) });
+    await vi.advanceTimersByTimeAsync(0);
+
+    await expect(stop()).resolves.toBeUndefined();
+    expect(sweep).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith("EACCES");
+  });
+
   it("каждая непустая часть итога — отдельной строкой лога", async () => {
     useFakeClock();
     const report: SweepReport = {

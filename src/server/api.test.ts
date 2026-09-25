@@ -202,7 +202,8 @@ describe("защита локального API", () => {
       });
       expect(response.status).toBe(403);
     }
-    expect(await backlog.taskVersion("SPA-1")).toHaveLength(40);
+    const projects = (await (await backlog.request("/api/projects")).json()) as Project[];
+    expect(projects.map((project) => project.id)).toContain("spa");
   });
 });
 

@@ -32,8 +32,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
   await writeSettings(root, { language: options.language ?? "ru" });
 
   const listeners = new Set<() => void>();
-  let markClosed = (): void => undefined;
-  const closed = new Promise<void>((resolve) => (markClosed = resolve));
+  const { promise: closed, resolve: markClosed }: PromiseWithResolvers<void> = Promise.withResolvers();
   const changes: ChangeFeed = {
     subscribe: (listener) => {
       listeners.add(listener);

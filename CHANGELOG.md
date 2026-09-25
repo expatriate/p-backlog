@@ -11,6 +11,7 @@ CLI contract changes (scripts that parse output or exit codes may need updating)
 - `service` on a system without autostart support exits with `4` (the command failed) instead of `3` (refused).
 - `backlog`, `backlog --help` and `backlog <command> --help` print help to stdout with exit code `0`.
 - Argument errors are shown in the interface language and followed by the command's usage. Arguments that used to be ignored are now rejected with exit code `1`: extra words after `project list`, `--confirm` outside `project delete`, an empty `list --status`, `take <ID> --project`, `take --next|--path --force`, a `serve --port` that is not a decimal number from 1 to 65535.
+- `serve` and `service install` reject a `PORT` environment variable that is not a decimal number from 1 to 65535 with exit code `1` instead of silently using 4317. `serve` exits with `0` after a clean stop on SIGTERM, SIGINT or SIGHUP.
 - `hook stop` exits with `0` on internal failures (for example, an unreadable backlog directory) and only prints a warning to stderr, so Claude Code on Windows no longer reports a hook error on every turn.
 
 Other changes:
@@ -19,6 +20,9 @@ Other changes:
 - Windows service: `service install|uninstall` stops the process from `server.pid` only after checking that it is this p-backlog server; if the check is impossible, the PID file is kept and a warning is printed.
 - The CLI trims `.runs.jsonl` by itself, so the run log no longer grows without the web server.
 - `dist/server.js` is no longer shipped in the npm package.
+- The server stops cleanly on SIGTERM, SIGINT and SIGHUP: it finishes edits already in progress, closes open browser tabs' event streams and removes its PID file, instead of being killed mid-write.
+- The web UI cannot be embedded in another site's frame (`X-Frame-Options: DENY`, CSP `frame-ancestors 'none'`). The CSP loads scripts, styles and images only from the server itself (images also from `data:`), so an external image in a task description is not shown: text written by an agent cannot make the browser contact a third-party host.
+- A file locked by another process for more than 5 seconds is reported by the API as `503` with an explanation instead of `500`.
 
 ## 0.2.4
 

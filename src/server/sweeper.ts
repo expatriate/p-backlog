@@ -22,7 +22,7 @@ export function startSweeper({ sweep, intervalMs, log, warn, messages }: Sweeper
     else warn(texts.sweepFailed(errorText(outcome.error)));
   };
   const trigger = () => {
-    current = run();
+    current = run().catch((error: unknown) => warn(errorText(error)));
   };
   trigger();
   const timer = setInterval(trigger, intervalMs);

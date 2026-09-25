@@ -33,6 +33,16 @@ describe("backlog service", () => {
     await expect(readFile(plistPath(home), "utf8")).resolves.toContain("<string>serve</string>");
   });
 
+  it("install с неверным PORT отклоняется, а не ставит службу на 4317", async () => {
+    const { home, run } = await makeCliSandbox();
+
+    const result = await run(["service", "install"], { env: { PORT: "abc" } });
+
+    expect(result.code).toBe(EXIT.invalid);
+    expect(result.err).toContain("PORT: ожидается число от 1 до 65535, получено «abc»");
+    await expect(readFile(plistPath(home), "utf8")).rejects.toThrow();
+  });
+
   it("отказ launchctl печатает его код и вывод и возвращает код failed", async () => {
     const { run } = await makeCliSandbox();
     const exec = fakeExec((command) => (command.startsWith("launchctl bootstrap") ? { code: 5, output: "Input/output error" } : { code: 0, output: "" })).exec;
