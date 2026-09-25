@@ -24,7 +24,10 @@ export function useSetLanguage(): UseMutationResult<SettingsResponse, Error, Lan
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (language: Language) => client.setLanguage(language),
-    onSuccess: () => queryClient.invalidateQueries(),
+    onSuccess: (settings) => {
+      queryClient.setQueryData(SETTINGS_KEY, settings);
+      return queryClient.invalidateQueries();
+    },
   });
 }
 

@@ -49,7 +49,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
     if (language !== undefined) document.documentElement.lang = language;
   }, [language]);
 
-  if (settings.isError) return <SettingsLoadError onRetry={() => void settings.refetch()} />;
+  if (settings.data === undefined && settings.isError) return <SettingsLoadError onRetry={() => void settings.refetch()} />;
   if (language === undefined) return null;
 
   return (
