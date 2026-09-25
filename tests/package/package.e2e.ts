@@ -48,25 +48,33 @@ async function freePort(): Promise<number> {
   });
 }
 
+function isolatedEnv(home: string): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    ...ISOLATED_GIT_ENV,
+    HOME: home,
+    USERPROFILE: home,
+    BACKLOG_DIR: join(home, "store"),
+    CLAUDE_CONFIG_DIR: join(home, ".claude"),
+    CODEX_HOME: join(home, ".codex"),
+    LC_ALL: "en_US.UTF-8",
+    PATH: `${join(prefix, isWindows ? "" : "bin")}${isWindows ? ";" : ":"}${process.env.PATH ?? ""}`,
+  };
+}
+
+function backlogRunner(env: NodeJS.ProcessEnv) {
+  return (args: string[], options: { input?: string; cwd?: string } = {}) =>
+    isWindows
+      ? execFileSync(quoteForWindowsShell(backlogBin), args.map(quoteForWindowsShell), { ...options, env, encoding: "utf8", shell: true })
+      : execFileSync(backlogBin, args, { ...options, env, encoding: "utf8" });
+}
+
 describe("путь нового пользователя из tarball", () => {
   it("setup, new, hook и serve работают из установленного пакета", async () => {
     const home = await makeTempDir();
     const claudeConfigDir = join(home, ".claude");
-    const env = {
-      ...process.env,
-      ...ISOLATED_GIT_ENV,
-      HOME: home,
-      USERPROFILE: home,
-      BACKLOG_DIR: join(home, "store"),
-      CLAUDE_CONFIG_DIR: claudeConfigDir,
-      CODEX_HOME: join(home, ".codex"),
-      LC_ALL: "en_US.UTF-8",
-      PATH: `${join(prefix, isWindows ? "" : "bin")}${isWindows ? ";" : ":"}${process.env.PATH ?? ""}`,
-    };
-    const run = (args: string[], options: { input?: string; cwd?: string } = {}) =>
-      isWindows
-        ? execFileSync(quoteForWindowsShell(backlogBin), args.map(quoteForWindowsShell), { ...options, env, encoding: "utf8", shell: true })
-        : execFileSync(backlogBin, args, { ...options, env, encoding: "utf8" });
+    const env = isolatedEnv(home);
+    const run = backlogRunner(env);
 
     run(["setup"]);
     const skillLink = join(claudeConfigDir, "skills", "backlog");
@@ -128,21 +136,8 @@ describe("путь нового пользователя из tarball", () => {
     const cursorHome = join(home, ".cursor");
     await mkdir(codexHome, { recursive: true });
     await mkdir(cursorHome, { recursive: true });
-    const env = {
-      ...process.env,
-      ...ISOLATED_GIT_ENV,
-      HOME: home,
-      USERPROFILE: home,
-      BACKLOG_DIR: join(home, "store"),
-      CLAUDE_CONFIG_DIR: join(home, ".claude"),
-      CODEX_HOME: codexHome,
-      LC_ALL: "en_US.UTF-8",
-      PATH: `${join(prefix, isWindows ? "" : "bin")}${isWindows ? ";" : ":"}${process.env.PATH ?? ""}`,
-    };
-    const run = (args: string[], options: { input?: string; cwd?: string } = {}) =>
-      isWindows
-        ? execFileSync(quoteForWindowsShell(backlogBin), args.map(quoteForWindowsShell), { ...options, env, encoding: "utf8", shell: true })
-        : execFileSync(backlogBin, args, { ...options, env, encoding: "utf8" });
+    const env = isolatedEnv(home);
+    const run = backlogRunner(env);
 
     run(["setup"]);
     for (const agentHome of [codexHome, cursorHome]) {
