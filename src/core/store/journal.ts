@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../journal/events";
 import { errorText } from "../errors";
-import { appendJsonLines, readJsonLines, type JsonLines } from "./fs-utils";
+import { appendJsonLines, readJsonLines } from "./fs-utils";
 
 export const JOURNAL_FILE = "journal.jsonl";
 
@@ -19,7 +19,7 @@ export async function readJournal(projectDir: string, projectId: string): Promis
   return projectJournal(projectId, await readJsonLines(join(projectDir, JOURNAL_FILE), journalEventSchema));
 }
 
-export function projectJournal(projectId: string, { values, invalidLines }: JsonLines<JournalEvent>): ProjectJournal {
+export function projectJournal(projectId: string, { values, invalidLines }: { values: readonly JournalEvent[]; invalidLines: number }): ProjectJournal {
   return { projectId, events: values, invalidLines };
 }
 

@@ -3,7 +3,7 @@ import type { FileHandle } from "node:fs/promises";
 import type { z } from "zod";
 import { parseJsonLines, readAt, withExistingFile, type JsonLines } from "./fs-utils";
 
-type TailRead<T> = JsonLines<T> & { length: number; generation: number };
+type TailRead<T> = { values: readonly T[]; invalidLines: number; length: number; generation: number };
 
 export type JsonlTail<T> = { read: () => Promise<TailRead<T>> };
 
@@ -11,7 +11,7 @@ const HEAD_FINGERPRINT_BYTES = 4096;
 const NEWLINE = 0x0a;
 const EMPTY_FINGERPRINT = createHash("sha1").digest("hex");
 
-type TailState<T> = { offset: number; headFingerprint: string; values: T[]; invalidLines: number };
+type TailState<T> = { offset: number; headFingerprint: string; values: readonly T[]; invalidLines: number };
 
 type Pending<T> = JsonLines<T> & { bytes: number };
 
@@ -30,7 +30,7 @@ export function createJsonlTail<T>(path: string, schema: z.ZodType<T>): JsonlTai
     const pending = await withExistingFile(path, consumeNew);
     if (pending === null) restart();
     const { values, invalidLines, bytes } = pending ?? nothingPending();
-    return { values: [...state.values, ...values], invalidLines: state.invalidLines + invalidLines, length: state.offset + bytes, generation };
+    return { values: values.length === 0 ? state.values : [...state.values, ...values], invalidLines: state.invalidLines + invalidLines, length: state.offset + bytes, generation };
   }
 
   async function consumeNew(handle: FileHandle): Promise<Pending<T>> {

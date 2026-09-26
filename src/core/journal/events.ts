@@ -109,7 +109,7 @@ export type TaskSnapshot = z.output<typeof taskSnapshotSchema>;
 
 const SNAPSHOT_FIELDS = Object.keys(taskSnapshotSchema.shape) as (keyof TaskSnapshot)[];
 
-export type ProjectJournal = { projectId: string; events: JournalEvent[]; invalidLines: number };
+export type ProjectJournal = { projectId: string; events: readonly JournalEvent[]; invalidLines: number };
 
 export function hasUnknownValue(event: JournalEvent): boolean {
   if (event.via === UNKNOWN) return true;
