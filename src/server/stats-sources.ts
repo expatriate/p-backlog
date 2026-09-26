@@ -11,7 +11,7 @@ type BaseSlot = "scoped" | "backlog";
 
 type ScopeSources = { journals: ProjectJournal[]; baseOf: (slot: BaseSlot, input: StatsInput) => ReportBase };
 
-type CostReportScope = { usageRevision: number; projectId: string | undefined; now: Date };
+type CostReportScope = { usageRevision: number; projectId: string | undefined; now: Date; snapshot: object };
 
 export type StatsSources = {
   read: (snapshot: object, projectIds: readonly string[]) => Promise<ScopeSources>;
@@ -23,7 +23,7 @@ type TailedJournal = { journal: ProjectJournal; position: string };
 
 type RememberedBase = { projectId: string | undefined; snapshot: object; key: string; base: ReportBase };
 
-type RememberedCost = { key: string; report: Promise<CostReport> };
+type RememberedCost = { snapshot: object; key: string; report: Promise<CostReport> };
 
 const ALL_PROJECTS_SLOT = "*";
 
@@ -68,14 +68,14 @@ export function createStatsSources(root: string): StatsSources {
       pruneUnlessKept(bases, kept, (_, { projectId }) => projectId);
       pruneUnlessKept(costMemos, kept, (slot) => (slot === ALL_PROJECTS_SLOT ? undefined : slot));
     },
-    costReport: async ({ usageRevision, projectId, now }, compute) => {
+    costReport: async ({ usageRevision, projectId, now, snapshot }, compute) => {
       const { values: runs, length, generation } = await runsTail.read();
       const slot = projectId ?? ALL_PROJECTS_SLOT;
       const key = `${usageRevision}|${generation}:${length}|${slot}|${formatLocalDay(now)}`;
       const remembered = costMemos.get(slot);
-      if (remembered?.key === key) return remembered.report;
+      if (remembered?.snapshot === snapshot && remembered.key === key) return remembered.report;
       const report = compute(runs);
-      costMemos.set(slot, { key, report });
+      costMemos.set(slot, { snapshot, key, report });
       report.catch(() => {
         if (costMemos.get(slot)?.report === report) costMemos.delete(slot);
       });

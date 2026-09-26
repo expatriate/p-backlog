@@ -113,11 +113,11 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
 
   const statsOfQuality: ScopedReport<QualityReport> = async ({ input, base, projects }) => qualityReport(input, base, await projectGraphs(projects, input.tasks, home));
 
-  const statsOfCost = async (projectId: string | undefined, projects: readonly Project[]): Promise<CostReport> => {
+  const statsOfCost = async (projectId: string | undefined, projects: readonly Project[], snapshot: object): Promise<CostReport> => {
     usage.ensureStarted();
     const { cache, scan, revision } = usage.snapshot();
     const moment = now();
-    return sources.costReport({ usageRevision: revision, projectId, now: moment }, async (runs) => {
+    return sources.costReport({ usageRevision: revision, projectId, now: moment, snapshot }, async (runs) => {
       const buckets = bucketsOf(cache);
       const repoRoots = projectId === undefined ? new Map<string, GitRoots | null>() : await resolveRepoRoots(lookupRepoRoot, [...buckets, ...runs].map((entry) => entry.cwd));
       const projectOf = (cwd: string) => {
@@ -136,7 +136,7 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
   routes.get("/stats/signals", scopedStats("signals", ({ input, base }) => ({ signals: statsSignals(input, base) })));
   routes.get("/stats/cost", async (c) => {
     const scope = await statsScopeOf(c, { wholeBacklog: true });
-    return scope instanceof Response ? scope : c.json(await statsOfCost(scope.projectId, scope.projects));
+    return scope instanceof Response ? scope : c.json(await statsOfCost(scope.projectId, scope.projects, scope.snapshot));
   });
   routes.get("/stats/memory", (c) => c.json({ samples: memory.samples() }));
 

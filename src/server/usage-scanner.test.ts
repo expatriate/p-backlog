@@ -82,6 +82,30 @@ describe("createUsageScanner", () => {
     expect(scanner.snapshot().revision).toBe(afterFirstPass);
   });
 
+  it("revision растёт, когда вклад удалённой расшифровки выпадает из окна истории, хотя новых байт не было", async () => {
+    const root = await makeTempDir();
+    const transcriptsDir = await makeTempDir();
+    const filePath = join(transcriptsDir, "proj", "a.jsonl");
+    const hookLine = JSON.stringify({ type: "user", isMeta: true, timestamp: "2026-09-19T08:59:00.000Z", cwd: "/x", message: { content: "Stop hook feedback:\nБеклог p-backlog: тест" } });
+    const assistantLine = JSON.stringify({ type: "assistant", timestamp: "2026-09-19T09:00:00.000Z", cwd: "/x", message: { model: "claude-opus-5", usage: { input_tokens: 1, output_tokens: 1 } } });
+    await writeFiles(transcriptsDir, { "proj/a.jsonl": `${hookLine}\n${assistantLine}\n` });
+    let now = new Date("2026-09-19T12:00:00Z");
+    const scanner = scannerOf({ root, claudeProjectsDir: transcriptsDir, now: () => now });
+    await scanner.scanOnce();
+
+    await rm(filePath);
+    now = new Date("2026-10-10T12:00:00Z");
+    await scanner.scanOnce();
+    const stillWithinWindow = scanner.snapshot().revision;
+    expect(Object.keys(scanner.snapshot().cache.files)).toContain(filePath);
+
+    now = new Date("2026-12-18T12:00:00Z");
+    await scanner.scanOnce();
+
+    expect(scanner.snapshot().revision).toBeGreaterThan(stillWithinWindow);
+    expect(scanner.snapshot().cache.files).toEqual({});
+  });
+
   it("упавший проход не оставляет сканер в догоняющем режиме", async () => {
     const root = await makeTempDir();
     const transcriptsDir = await makeTempDir();

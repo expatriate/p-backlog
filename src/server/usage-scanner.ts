@@ -55,7 +55,7 @@ export function createUsageScanner({
     const files = await listTranscripts(claudeProjectsDir);
     setScan(progressBefore(files, current));
     const result = await scanTranscripts({ files, cache: current, byteBudget, now: now() });
-    if (result.bytesRead > 0) revision += 1;
+    if (result.bytesRead > 0 || cachedFileCount(current) !== cachedFileCount(result.cache)) revision += 1;
     cache = result.cache;
     setScan({ listed: true, filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft });
     budgetExhausted = result.bytesRead >= byteBudget;
@@ -100,6 +100,10 @@ export function createUsageScanner({
 
 function scanEquals(a: ScanProgress, b: ScanProgress): boolean {
   return a.listed === b.listed && a.filesTotal === b.filesTotal && a.filesDone === b.filesDone && a.bytesLeft === b.bytesLeft;
+}
+
+function cachedFileCount(cache: UsageCache): number {
+  return Object.keys(cache.files).length;
 }
 
 function progressBefore(files: readonly TranscriptFile[], cache: UsageCache): ScanProgress {
