@@ -4,7 +4,9 @@ import type { z } from "zod";
 import { hasErrorCode } from "../errors";
 import { parseJsonLines, type JsonLines } from "./fs-utils";
 
-export type JsonlTail<T> = { read: () => Promise<JsonLines<T>>; length: () => number };
+type TailRead<T> = JsonLines<T> & { length: number; generation: number };
+
+export type JsonlTail<T> = { read: () => Promise<TailRead<T>> };
 
 const HEAD_FINGERPRINT_BYTES = 4096;
 const NEWLINE = 0x0a;
@@ -14,23 +16,26 @@ type TailState<T> = { offset: number; headFingerprint: string; values: T[]; inva
 
 export function createJsonlTail<T>(path: string, schema: z.ZodType<T>): JsonlTail<T> {
   let state: TailState<T> = emptyState();
+  let generation = 0;
   let queue: Promise<unknown> = Promise.resolve();
 
-  function read(): Promise<JsonLines<T>> {
+  function read(): Promise<TailRead<T>> {
     const result = queue.then(doRead);
     queue = result.catch(() => undefined);
     return result;
   }
 
-  async function doRead(): Promise<JsonLines<T>> {
+  async function doRead(): Promise<TailRead<T>> {
     const size = await sizeOrNull(path);
-    if (size === null) {
-      state = emptyState();
-      return { values: [], invalidLines: 0 };
-    }
-    if (size < state.offset || !(await headMatches())) state = emptyState();
-    if (size > state.offset) await appendFrom(size);
-    return { values: [...state.values], invalidLines: state.invalidLines };
+    if (size === null || size < state.offset || !(await headMatches())) restart();
+    if (size !== null && size > state.offset) await appendFrom(size);
+    return { values: [...state.values], invalidLines: state.invalidLines, length: state.offset, generation };
+  }
+
+  function restart(): void {
+    if (state.offset === 0) return;
+    generation += 1;
+    state = emptyState();
   }
 
   async function headMatches(): Promise<boolean> {
@@ -61,7 +66,7 @@ export function createJsonlTail<T>(path: string, schema: z.ZodType<T>): JsonlTai
     });
   }
 
-  return { read, length: () => state.offset };
+  return { read };
 }
 
 function emptyState<T>(): TailState<T> {

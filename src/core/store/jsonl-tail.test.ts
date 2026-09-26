@@ -19,7 +19,7 @@ describe("createJsonlTail", () => {
     await appendFile(path, `${JSON.stringify({ n: 3 })}\nне json\n${JSON.stringify({ n: 4 })}\n`);
     const result = await tail.read();
 
-    expect(result).toEqual(await readJsonLines(path, SCHEMA));
+    expect(result).toMatchObject(await readJsonLines(path, SCHEMA));
   });
 
   it("недописанная строка учитывается после дописывания", async () => {
@@ -46,7 +46,7 @@ describe("createJsonlTail", () => {
     await writeFile(path, `${JSON.stringify({ n: 9 })}\n`);
     const result = await tail.read();
 
-    expect(result).toEqual({ values: [{ n: 9 }], invalidLines: 0 });
+    expect(result).toMatchObject({ values: [{ n: 9 }], invalidLines: 0 });
   });
 
   it("подменённое начало того же размера перечитывается", async () => {
@@ -56,11 +56,25 @@ describe("createJsonlTail", () => {
     const tail = createJsonlTail(path, SCHEMA);
     await tail.read();
 
-    await writeFile(path, `${JSON.stringify({ n: 11 })}\n${JSON.stringify({ n: 22 })}\n`);
+    await writeFile(path, `${JSON.stringify({ n: 3 })}\n${JSON.stringify({ n: 4 })}\n`);
     await appendFile(path, `${JSON.stringify({ n: 33 })}\n`);
     const result = await tail.read();
 
-    expect(result).toEqual(await readJsonLines(path, SCHEMA));
+    expect(result).toMatchObject(await readJsonLines(path, SCHEMA));
+  });
+
+  it("файл, подменённый другим той же длины, читается заново и получает новое поколение", async () => {
+    const root = await makeTempDir();
+    const path = join(root, "log.jsonl");
+    await writeFile(path, `${JSON.stringify({ n: 1 })}\n`);
+    const tail = createJsonlTail(path, SCHEMA);
+    const before = await tail.read();
+
+    await writeFile(path, `${JSON.stringify({ n: 2 })}\n`);
+    const after = await tail.read();
+
+    expect(after).toMatchObject({ values: [{ n: 2 }], length: before.length });
+    expect(after.generation).not.toBe(before.generation);
   });
 
   it("нет файла — пусто, потом появился — читается", async () => {
@@ -68,21 +82,19 @@ describe("createJsonlTail", () => {
     const path = join(root, "log.jsonl");
     const tail = createJsonlTail(path, SCHEMA);
 
-    expect(await tail.read()).toEqual({ values: [], invalidLines: 0 });
+    expect(await tail.read()).toMatchObject({ values: [], invalidLines: 0 });
 
     await writeFile(path, `${JSON.stringify({ n: 7 })}\n`);
-    expect(await tail.read()).toEqual({ values: [{ n: 7 }], invalidLines: 0 });
+    expect(await tail.read()).toMatchObject({ values: [{ n: 7 }], invalidLines: 0 });
   });
 
-  it("length() — сколько байт файла учтено чтением", async () => {
+  it("length — сколько байт файла учтено этим чтением", async () => {
     const root = await makeTempDir();
     const path = join(root, "log.jsonl");
     const line = `${JSON.stringify({ n: 1 })}\n`;
     await writeFile(path, line);
     const tail = createJsonlTail(path, SCHEMA);
 
-    expect(tail.length()).toBe(0);
-    await tail.read();
-    expect(tail.length()).toBe(Buffer.byteLength(line));
+    expect((await tail.read()).length).toBe(Buffer.byteLength(line));
   });
 });
