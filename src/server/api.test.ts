@@ -3,8 +3,10 @@ import { join, relative } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import type { BatchResponse, CodeReport, ConflictResponse, ProjectsResponse, Revision, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
 import { FileBusyError } from "../core/store/file-lock";
-import { readJournal } from "../core/store/journal";
-import { loadBacklog } from "../core/store/load";
+import type { JournalEvent } from "../core/journal/events";
+import { appendJournal, readJournal, readJournals } from "../core/store/journal";
+import { loadBacklog, unparsedTasks } from "../core/store/load";
+import { statsReport } from "../core/stats/report";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
@@ -513,6 +515,58 @@ describe("кэш отчётов", () => {
     gitCommitAll(repo, "second", "2026-09-12T10:00:00+03:00");
 
     expect(await commits()).toBe(2);
+  });
+});
+
+describe("статистика после изменений равна собранной с нуля", () => {
+  const event = (at: string, fields: Record<string, unknown>) => ({ at, via: "cli", ...fields }) as JournalEvent;
+
+  async function statsFromScratch(root: string, projectId?: string): Promise<StatsReport> {
+    const { projects, tasks, errors } = await loadBacklog(root);
+    const ids = projects.filter((project) => project.active).map((project) => project.id);
+    const inScope = (task: { projectId: string }) => ids.includes(task.projectId);
+    const journals = await readJournals(root, ids);
+    const report = statsReport({ tasks: tasks.filter(inScope), journals, now: TEST_NOW, projectId, unparsedTasks: unparsedTasks(errors).filter(inScope) });
+    return JSON.parse(JSON.stringify(report)) as StatsReport;
+  }
+
+  it("после дописывания событий в журналы отчёты по всем проектам и по одному равны собранным с нуля", async () => {
+    const backlog = await makeTestApp({
+      ...SAMPLE_FILES,
+      "spa/journal.jsonl": `${JSON.stringify(event("2026-09-10T10:00:00+03:00", { task: "SPA-1", kind: "created", type: "task", priority: "medium", tags: [] }))}\n`,
+    });
+    const stats = async (query = "") => (await (await backlog.request(`/api/stats${query}`)).json()) as StatsReport;
+    const allBefore = await stats();
+    const spaBefore = await stats("?project=spa");
+
+    await appendJournal(join(backlog.root, "spa"), [
+      event("2026-09-11T10:00:00+03:00", { task: "SPA-9", kind: "created", type: "task", priority: "high", tags: [] }),
+      event("2026-09-12T10:00:00+03:00", { task: "SPA-9", kind: "status", from: "backlog", to: "done", resolution: "fixed" }),
+      event("2026-09-13T10:00:00+03:00", { task: "SPA-1", kind: "priority", from: "medium", to: "high" }),
+    ]);
+    await appendFile(join(backlog.root, "spa", "journal.jsonl"), "сломано\n");
+    await appendJournal(join(backlog.root, "torg-io"), [event("2026-09-14T10:00:00+03:00", { task: "TI-1", kind: "status", from: "backlog", to: "in-progress" })]);
+    await backlog.emitChange([join(backlog.root, "spa", "journal.jsonl"), join(backlog.root, "torg-io", "journal.jsonl")]);
+
+    const all = await stats();
+    const spa = await stats("?project=spa");
+
+    expect([all, spa]).not.toEqual([allBefore, spaBefore]);
+    expect(spa.invalidJournalLines).toBe(1);
+    expect(all).toEqual(await statsFromScratch(backlog.root));
+    expect(spa).toEqual(await statsFromScratch(backlog.root, "spa"));
+  });
+
+  it("правка категории в файле задачи задним числом меняет отчёт «Качество»", async () => {
+    const backlog = await makeTestApp({ ...SAMPLE_FILES, "spa/SPA-1.md": taskFile("SPA-1", "category: bug\n") });
+    const categories = async () => ((await (await backlog.request("/api/stats/quality?project=spa")).json()) as QualityReport).categories.map((row) => row.category);
+    expect(await categories()).toContain("bug");
+
+    await writeFiles(backlog.root, { "spa/SPA-1.md": taskFile("SPA-1", "category: bloaters\n") });
+    await backlog.emitChange([join(backlog.root, "spa", "SPA-1.md")]);
+
+    expect(await categories()).toContain("bloaters");
+    expect(await categories()).not.toContain("bug");
   });
 });
 

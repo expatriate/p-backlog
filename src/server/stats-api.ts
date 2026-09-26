@@ -1,4 +1,6 @@
+import { join } from "node:path";
 import { Hono, type Context } from "hono";
+import type { Revision } from "../core/api/contract";
 import { errorText } from "../core/errors";
 import { projectGraphHealth } from "../core/check/graph-health";
 import { createCodeCacheFile } from "../core/code/code-cache";
@@ -13,7 +15,9 @@ import { statsReport } from "../core/stats/report";
 import { reportBase, type ReportBase, type StatsInput } from "../core/stats/scope";
 import { statsSignals } from "../core/stats/signals/signals";
 import type { CodeReport, CostReport, EffectReport, ProjectGraphRow, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
-import { readJournals } from "../core/store/journal";
+import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../core/journal/events";
+import { JOURNAL_FILE, projectJournal } from "../core/store/journal";
+import { createJsonlTail, type JsonlTail } from "../core/store/jsonl-tail";
 import { unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/store/load";
 import { cachedRepoRoots, findProjectForRoots, type GitRoots, type RepoRootLookup } from "../core/store/resolve-project";
 import { readRuns } from "../core/store/runs";
@@ -32,14 +36,26 @@ type StatsApiOptions = {
   usage: UsageScanner;
   memory: MemorySampler;
   warn: (line: string) => void;
-  backlog: () => Promise<Pick<LoadedBacklog, "projects" | "tasks" | "errors">>;
+  backlog: () => Promise<Pick<LoadedBacklog, "projects" | "tasks" | "errors"> & { revision: Revision }>;
 };
 
 type StatsApi = { routes: Hono; forget: () => void };
 
-type StatsScope = { projectId: string | undefined; projects: Project[]; tasks: Task[]; unparsedTasks: UnparsedTask[] };
+type StatsScope = { projectId: string | undefined; projects: Project[]; tasks: Task[]; unparsedTasks: UnparsedTask[]; revision: Revision };
 
-type ScopedReport<R> = (input: StatsInput, base: ReportBase, projects: readonly Project[]) => R | Promise<R>;
+type ReportSources = { input: StatsInput; base: ReportBase; projects: readonly Project[]; wholeBacklogBase: () => ReportBase };
+
+type ScopedReport<R> = (sources: ReportSources) => R | Promise<R>;
+
+type JournalLengths = ReadonlyMap<string, number>;
+
+type TailedJournals = { journals: ProjectJournal[]; lengths: JournalLengths };
+
+type BaseVersion = { revision: Revision; lengths: JournalLengths };
+
+type BaseSlot = "scoped" | "backlog";
+
+type MemoizedBase = (slot: BaseSlot, input: StatsInput, version: BaseVersion) => ReportBase;
 
 type ScopedReportOptions = { sourceKey?: (projects: readonly Project[]) => Promise<string>; wholeBacklog?: boolean };
 
@@ -56,10 +72,12 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
     });
   const codeSource = createCodeSource({ home, store: createCodeCacheFile(root), onError: onCodeSourceError });
   const lookupRepoRoot = cachedRepoRoots();
+  const readJournalsTailed = createJournalTails(root);
+  const memoizedBase = createBaseMemo();
 
   const statsScopeOf = async (c: Context, { wholeBacklog }: { wholeBacklog: boolean }): Promise<StatsScope | Response> => {
     const projectId = c.req.query("project") || undefined;
-    const { projects, tasks, errors } = await backlog();
+    const { projects, tasks, errors, revision } = await backlog();
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
       return c.json({ errors: [serverMessages(await readLanguage()).projectNotFound(projectId)] }, 404);
     }
@@ -67,7 +85,7 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
     const scoped = projects.filter(included);
     const scopedIds = new Set(scoped.map((project) => project.id));
     const inScope = (task: { projectId: string }) => scopedIds.has(task.projectId);
-    return { projectId, projects: scoped, tasks: tasks.filter(inScope), unparsedTasks: unparsedTasks(errors).filter(inScope) };
+    return { projectId, projects: scoped, tasks: tasks.filter(inScope), unparsedTasks: unparsedTasks(errors).filter(inScope), revision };
   };
 
   const scopedStats =
@@ -78,24 +96,26 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
       const moment = now();
       const key = [name, scope.projectId ?? "*", formatLocalDay(moment), sourceKey === undefined ? "" : await sourceKey(scope.projects)].join("|");
       const result = await reports.get(key, async () => {
-        const journals = await readJournals(root, scope.projects.map((project) => project.id));
+        const { journals, lengths } = await readJournalsTailed(scope.projects.map((project) => project.id));
         const input: StatsInput = { tasks: scope.tasks, journals, now: moment, projectId: scope.projectId, unparsedTasks: scope.unparsedTasks };
-        return report(input, reportBase(input), scope.projects);
+        const version: BaseVersion = { revision: scope.revision, lengths };
+        const wholeBacklogBase = () => memoizedBase("backlog", { ...input, projectId: undefined }, version);
+        return report({ input, base: memoizedBase("scoped", input, version), projects: scope.projects, wholeBacklogBase });
       });
       return c.json(result);
     };
 
-  const statsOfCode: ScopedReport<CodeReport> = async (input, base, projects) => codeReport({ ...input, code: await codeSource.collect(projects, input.now) }, base);
+  const statsOfCode: ScopedReport<CodeReport> = async ({ input, base, projects }) => codeReport({ ...input, code: await codeSource.collect(projects, input.now) }, base);
 
-  const statsOfEffect: ScopedReport<EffectReport> = async (input, base, projects) => {
-    const backlogBase = input.projectId === undefined ? base : reportBase({ ...input, projectId: undefined });
+  const statsOfEffect: ScopedReport<EffectReport> = async ({ input, base, projects, wholeBacklogBase }) => {
+    const backlogBase = input.projectId === undefined ? base : wholeBacklogBase();
     const scoped = projects.filter((project) => input.projectId === undefined || project.id === input.projectId);
     const code = await codeSource.collect(scoped, input.now);
     const fixCommits = await codeSource.fixCommits(projects, codeFixRequests({ ...input, projectId: undefined }, backlogBase), input.now);
     return effectReport({ ...input, code: { ...code, fixCommits } }, base, backlogBase);
   };
 
-  const statsOfQuality: ScopedReport<QualityReport> = async (input, base, projects) => qualityReport(input, base, await projectGraphs(projects, input.tasks, home));
+  const statsOfQuality: ScopedReport<QualityReport> = async ({ input, base, projects }) => qualityReport(input, base, await projectGraphs(projects, input.tasks, home));
 
   const statsOfCost = async (projectId: string | undefined, projects: readonly Project[]): Promise<CostReport> => {
     usage.ensureStarted();
@@ -111,11 +131,11 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
   };
 
   const codeState = { sourceKey: (projects: readonly Project[]) => codeSource.stateKey(projects) };
-  routes.get("/stats", scopedStats("stats", (input, base) => statsReport(input, base)));
+  routes.get("/stats", scopedStats("stats", ({ input, base }) => statsReport(input, base)));
   routes.get("/stats/code", scopedStats("code", statsOfCode, codeState));
   routes.get("/stats/effect", scopedStats("effect", statsOfEffect, { ...codeState, wholeBacklog: true }));
   routes.get("/stats/quality", scopedStats("quality", statsOfQuality));
-  routes.get("/stats/signals", scopedStats("signals", (input, base) => ({ signals: statsSignals(input, base) })));
+  routes.get("/stats/signals", scopedStats("signals", ({ input, base }) => ({ signals: statsSignals(input, base) })));
   routes.get("/stats/cost", async (c) => {
     const scope = await statsScopeOf(c, { wholeBacklog: true });
     return scope instanceof Response ? scope : c.json(await statsOfCost(scope.projectId, scope.projects));
@@ -123,6 +143,40 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
   routes.get("/stats/memory", (c) => c.json({ samples: memory.samples() }));
 
   return { routes, forget: () => reports.clear() };
+}
+
+function createJournalTails(root: string): (projectIds: readonly string[]) => Promise<TailedJournals> {
+  const tails = new Map<string, JsonlTail<JournalEvent>>();
+  const tailOf = (projectId: string) => {
+    const known = tails.get(projectId);
+    if (known !== undefined) return known;
+    const created = createJsonlTail(join(root, projectId, JOURNAL_FILE), journalEventSchema);
+    tails.set(projectId, created);
+    return created;
+  };
+  const readTailed = async (projectId: string) => {
+    const tail = tailOf(projectId);
+    const lines = await tail.read();
+    return { journal: projectJournal(projectId, lines), length: tail.length() };
+  };
+  return async (projectIds) => {
+    const read = await Promise.all(projectIds.map(readTailed));
+    return { journals: read.map(({ journal }) => journal), lengths: new Map(read.map(({ journal, length }) => [journal.projectId, length])) };
+  };
+}
+
+function createBaseMemo(): MemoizedBase {
+  const memo = new Map<string, { key: string; base: ReportBase }>();
+  return (slot, input, { revision, lengths }) => {
+    const slotKey = `${slot}|${input.projectId ?? "*"}`;
+    const readLengths = [...lengths].filter(([projectId]) => input.projectId === undefined || projectId === input.projectId);
+    const key = `${revision.boot}:${revision.seq}|${slotKey}|${readLengths.map(([projectId, length]) => `${projectId}=${length}`).join(",")}`;
+    const remembered = memo.get(slotKey);
+    if (remembered?.key === key) return remembered.base;
+    const base = reportBase(input);
+    memo.set(slotKey, { key, base });
+    return base;
+  };
 }
 
 async function projectGraphs(projects: readonly Project[], tasks: readonly Task[], home: string): Promise<ProjectGraphRow[]> {

@@ -2,7 +2,7 @@ import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
 import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../journal/events";
 import { errorText } from "../errors";
-import { readJsonLines, toJsonLines } from "./fs-utils";
+import { readJsonLines, toJsonLines, type JsonLines } from "./fs-utils";
 
 export const JOURNAL_FILE = "journal.jsonl";
 
@@ -17,7 +17,10 @@ export async function appendJournal(projectDir: string, events: readonly Journal
 }
 
 export async function readJournal(projectDir: string, projectId: string): Promise<ProjectJournal> {
-  const { values, invalidLines } = await readJsonLines(join(projectDir, JOURNAL_FILE), journalEventSchema);
+  return projectJournal(projectId, await readJsonLines(join(projectDir, JOURNAL_FILE), journalEventSchema));
+}
+
+export function projectJournal(projectId: string, { values, invalidLines }: JsonLines<JournalEvent>): ProjectJournal {
   return { projectId, events: values, invalidLines };
 }
 
