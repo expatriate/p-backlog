@@ -32,6 +32,15 @@ describe("журнал запусков CLI", () => {
     expect(await readRuns(root)).toEqual([RUN]);
   });
 
+  it("дописывание после последней строки без перевода строки не склеивает запуски", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { [RUNS_FILE]: JSON.stringify(RUN) });
+
+    await appendRun(root, { ...RUN, command: "stats" });
+
+    expect(await readRuns(root)).toEqual([RUN, { ...RUN, command: "stats" }]);
+  });
+
   it("нет файла — пустой список", async () => {
     const root = await makeTempDir();
 

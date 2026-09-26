@@ -10,6 +10,8 @@
   skip (a merge tree-same with a parent: a change and its revert, `merge -s ours`, a change already cherry-picked) —
   on ordinary histories nothing changes.
 - The code cache file format changed, so the first run after this update rescans git once.
+- An event appended to a project journal or the CLI run log no longer merges with the last line when that line lacks
+  a trailing newline (a hand edit, an interrupted write): both events stay readable.
 
 ## 0.5.1
 

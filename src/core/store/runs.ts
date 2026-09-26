@@ -1,10 +1,10 @@
-import { appendFile, mkdir, open } from "node:fs/promises";
+import { mkdir, open } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { DAY_MS, STATS_HISTORY_DAYS } from "../model/lifecycle";
 import { withFileLock } from "./file-lock";
 import { hasErrorCode } from "../errors";
-import { parseJson, readJsonLines, toJsonLines, writeFileAtomic } from "./fs-utils";
+import { appendJsonLines, parseJson, readJsonLines, toJsonLines, writeFileAtomic } from "./fs-utils";
 
 export const RUNS_FILE = ".runs.jsonl";
 
@@ -26,7 +26,7 @@ export type CliRun = z.infer<typeof cliRunSchema>;
 export async function appendRun(root: string, run: CliRun): Promise<void> {
   await mkdir(root, { recursive: true });
   const path = join(root, RUNS_FILE);
-  await withFileLock(path, () => appendFile(path, toJsonLines([run]), "utf8"));
+  await withFileLock(path, () => appendJsonLines(path, [run]));
 }
 
 export async function readRuns(root: string): Promise<CliRun[]> {

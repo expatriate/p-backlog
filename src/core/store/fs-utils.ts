@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { chmod, link, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, link, open, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { z } from "zod";
@@ -37,6 +37,21 @@ export async function readJsonLines<T>(path: string, schema: z.ZodType<T>): Prom
 
 export function toJsonLines(values: readonly unknown[]): string {
   return values.map((value) => `${JSON.stringify(value)}\n`).join("");
+}
+
+const NEWLINE = 0x0a;
+
+export async function appendJsonLines(path: string, values: readonly unknown[]): Promise<void> {
+  const handle = await open(path, "a+");
+  try {
+    const { size } = await handle.stat();
+    const lastByte = Buffer.alloc(1);
+    if (size > 0) await handle.read(lastByte, 0, 1, size - 1);
+    const separator = size > 0 && lastByte[0] !== NEWLINE ? "\n" : "";
+    await handle.appendFile(separator + toJsonLines(values), "utf8");
+  } finally {
+    await handle.close();
+  }
 }
 
 export function parseJson<T>(text: string, schema: z.ZodType<T>): T | null {

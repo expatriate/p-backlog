@@ -57,6 +57,17 @@ describe("файл журнала", () => {
     ]);
   });
 
+  it("дописывание после последней строки без перевода строки не склеивает события", async () => {
+    const dir = await makeTempDir();
+    await writeFiles(dir, { [JOURNAL_FILE]: JSON.stringify(createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")) });
+
+    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-2" }), NOW, "cli")]);
+
+    const journal = await readJournal(dir, "spa");
+    expect(journal.events.map((event) => event.task)).toEqual(["SPA-1", "SPA-2"]);
+    expect(journal.invalidLines).toBe(0);
+  });
+
   it("нет файла — пустой журнал", async () => {
     const dir = await makeTempDir();
 
