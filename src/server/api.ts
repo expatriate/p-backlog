@@ -3,9 +3,9 @@ import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import type { Language } from "../core/i18n/language";
 import { batchRequestSchema, projectActiveSchema, projectDeleteSchema, settingsRequestSchema, updateTaskRequestSchema, type BatchOutcome, type BatchResponse, type ProjectsResponse, type ProjectView, type Revision, type SettingsResponse, type TasksResponse } from "../core/api/contract";
-import { projectGraphHealth, type GraphState } from "../core/check/graph-health";
+import { projectGraphHealth, type GraphHealth } from "../core/check/graph-health";
 import { buildIndex, type BacklogIndex } from "../core/model/graph";
-import type { Project } from "../core/model/types";
+import type { Project, Task } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { parseWithLocale } from "../core/model/zod-issues";
 import { applyBatch, type CoreBatchOutcome } from "../core/store/batch";
@@ -17,7 +17,7 @@ import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
 import { serverMessages, type ServerMessages } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
-import { createReportCache } from "./report-cache";
+import { createReportCache, type ReportCache } from "./report-cache";
 import { createRevisions, type OwnWrite } from "./revisions";
 import { createStatsApi } from "./stats-api";
 import type { UsageScanner } from "./usage-scanner";
@@ -39,12 +39,19 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     });
     return snapshot;
   };
-  const stats = createStatsApi({ root, readLanguage, now, home, usage, memory, warn, backlog });
-  const graphStates = createReportCache({ ttlMs: GRAPH_STATE_TTL_MS, now: () => now().getTime() });
+  const graphHealthsBySnapshot = new WeakMap<object, ReportCache>();
+  const graphHealth = (backlogSnapshot: { tasks: readonly Task[] }, project: Project): Promise<GraphHealth> => {
+    let healths = graphHealthsBySnapshot.get(backlogSnapshot);
+    if (healths === undefined) {
+      healths = createReportCache({ ttlMs: GRAPH_STATE_TTL_MS, now: () => now().getTime() });
+      graphHealthsBySnapshot.set(backlogSnapshot, healths);
+    }
+    return healths.get(project.id, () => projectGraphHealth(project, backlogSnapshot.tasks, home));
+  };
+  const stats = createStatsApi({ root, readLanguage, now, home, usage, memory, warn, backlog, graphHealth });
   const forgetBacklog = (paths?: readonly string[]) => {
     snapshot = null;
     stats.forget(paths);
-    graphStates.clear();
   };
   const recordOwnWrites = async (writes: readonly OwnWrite[]) => {
     if (writes.length > 0) await revisions.recordOwnWrites(writes);
@@ -59,11 +66,9 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
   });
 
   api.get("/projects", async (c) => {
-    const { projects, tasks, revision } = await backlog();
-    const withGraph = async (project: Project): Promise<ProjectView> => {
-      const codeGraph = await graphStates.get<GraphState>(project.id, async () => (await projectGraphHealth(project, tasks, home)).state);
-      return { ...project, codeGraph };
-    };
+    const loaded = await backlog();
+    const { projects, revision } = loaded;
+    const withGraph = async (project: Project): Promise<ProjectView> => ({ ...project, codeGraph: (await graphHealth(loaded, project)).state });
     return c.json<ProjectsResponse>({ projects: await Promise.all(projects.map(withGraph)), revision });
   });
 

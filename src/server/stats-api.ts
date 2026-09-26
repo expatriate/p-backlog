@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { relative, sep } from "node:path";
 import { errorText } from "../core/errors";
-import { projectGraphHealth } from "../core/check/graph-health";
+import type { GraphHealth } from "../core/check/graph-health";
 import { createCodeCacheFile } from "../core/code/code-cache";
 import { createCodeSource, type CodeCacheErrorKind } from "../core/code/code-source";
 import { formatLocalDay } from "../core/model/dates";
@@ -32,14 +32,17 @@ type StatsApiOptions = {
   usage: UsageScanner;
   memory: MemorySampler;
   warn: (line: string) => void;
-  backlog: () => Promise<Pick<LoadedBacklog, "projects" | "tasks" | "errors">>;
+  backlog: () => Promise<BacklogSnapshot>;
+  graphHealth: (snapshot: BacklogSnapshot, project: Project) => Promise<GraphHealth>;
 };
+
+type BacklogSnapshot = Pick<LoadedBacklog, "projects" | "tasks" | "errors">;
 
 type StatsApi = { routes: Hono; forget: (paths?: readonly string[]) => void };
 
-type StatsScope = { projectId: string | undefined; projects: Project[]; tasks: Task[]; unparsedTasks: UnparsedTask[]; snapshot: object };
+type StatsScope = { projectId: string | undefined; projects: Project[]; tasks: Task[]; unparsedTasks: UnparsedTask[]; snapshot: BacklogSnapshot };
 
-type ReportSources = { input: StatsInput; base: ReportBase; projects: readonly Project[]; wholeBacklogBase: () => ReportBase };
+type ReportSources = { input: StatsInput; base: ReportBase; projects: readonly Project[]; snapshot: BacklogSnapshot; wholeBacklogBase: () => ReportBase };
 
 type ScopedReport<R> = (sources: ReportSources) => R | Promise<R>;
 
@@ -50,7 +53,7 @@ const ALL_PROJECTS_TAG = "project:*";
 const WHOLE_BACKLOG_TAG = "whole-backlog";
 const projectTag = (projectId: string) => `project:${projectId}`;
 
-export function createStatsApi({ root, readLanguage, now, home, usage, memory, warn, backlog }: StatsApiOptions): StatsApi {
+export function createStatsApi({ root, readLanguage, now, home, usage, memory, warn, backlog, graphHealth }: StatsApiOptions): StatsApi {
   const routes = new Hono();
   const reports = createReportCache({ ttlMs: REPORT_TTL_MS, now: () => now().getTime() });
   const onCodeSourceError = (kind: CodeCacheErrorKind, error: unknown) =>
@@ -95,7 +98,7 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
         const { journals, baseOf } = await sources.read(scope.snapshot, scope.projects.map((project) => project.id));
         const input: StatsInput = { tasks: scope.tasks, journals, now: moment, projectId: scope.projectId, unparsedTasks: scope.unparsedTasks };
         const wholeBacklogBase = () => baseOf("backlog", { ...input, projectId: undefined });
-        return report({ input, base: baseOf("scoped", input), projects: scope.projects, wholeBacklogBase });
+        return report({ input, base: baseOf("scoped", input), projects: scope.projects, snapshot: scope.snapshot, wholeBacklogBase });
       };
       const scopeOutdated = forgetCount !== forgetCountAtRead;
       return c.json(await (scopeOutdated ? compute() : reports.get(key, compute, tags)));
@@ -111,7 +114,10 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
     return effectReport({ ...input, code: { ...code, fixCommits } }, base, backlogBase);
   };
 
-  const statsOfQuality: ScopedReport<QualityReport> = async ({ input, base, projects }) => qualityReport(input, base, await projectGraphs(projects, input.tasks, home));
+  const statsOfQuality: ScopedReport<QualityReport> = async ({ input, base, projects, snapshot }) => {
+    const graphs = await Promise.all(projects.map(async (project): Promise<ProjectGraphRow> => ({ projectId: project.id, name: project.name, ...(await graphHealth(snapshot, project)) })));
+    return qualityReport(input, base, graphs);
+  };
 
   const codeState = { sourceKey: (projects: readonly Project[]) => codeSource.stateKey(projects) };
   routes.get("/stats", scopedStats("stats", ({ input, base }) => statsReport(input, base)));
@@ -146,12 +152,6 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
   };
 
   return { routes, forget };
-}
-
-async function projectGraphs(projects: readonly Project[], tasks: readonly Task[], home: string): Promise<ProjectGraphRow[]> {
-  return Promise.all(
-    projects.map(async (project) => ({ projectId: project.id, name: project.name, ...(await projectGraphHealth(project, tasks, home)) })),
-  );
 }
 
 async function costOf({ usage: { cache, scan }, runs, scope: { projectId, projects }, now }: CostInputs, home: string, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {

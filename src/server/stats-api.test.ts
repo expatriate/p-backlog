@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StatsReport } from "../core/api/contract";
+import { projectGraphHealth } from "../core/check/graph-health";
 import { statsReport } from "../core/stats/report";
 import { readJournals } from "../core/store/journal";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
@@ -26,6 +27,7 @@ describe("кэш отчётов статистики и смена снимка 
       usage: createUsageScanner({ root, claudeProjectsDir: await makeTempDir(), messages: async () => serverRu, warn: () => undefined }),
       memory: createMemorySampler(),
       warn: () => undefined,
+      graphHealth: (snapshot, project) => projectGraphHealth(project, snapshot.tasks, root),
       backlog: async () => {
         const read = current;
         if (read === before) {
