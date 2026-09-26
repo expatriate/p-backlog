@@ -273,6 +273,9 @@ npm uninstall -g p-backlog
 
 ## Разработка
 
+Как предложить изменения — в [CONTRIBUTING.md](CONTRIBUTING.md) (на английском), как сообщить об уязвимости — в
+[SECURITY.md](SECURITY.md); правила общения — [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ```bash
 npm install
 npm run build

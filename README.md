@@ -279,6 +279,9 @@ systemd `Restart=on-failure` do — after a crash, run `backlog service install`
 
 ## Development
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to propose changes, [SECURITY.md](SECURITY.md) for reporting
+vulnerabilities, and the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ```bash
 npm install
 npm run build

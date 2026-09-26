@@ -1,0 +1,60 @@
+name: Bug report
+description: Something in the CLI, the web app, the hooks or the plugin works wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Security problems go through [Report a vulnerability](https://github.com/expatriate/p-backlog/security/advisories/new), not here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Commands, the page you were on, or a minimal task file / journal line that triggers it.
+      placeholder: |
+        1. backlog new --title "…" --category bug
+        2. …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: p-backlog version
+      description: Output of `npm ls -g p-backlog` (or the plugin version for the Claude Code plugin).
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where
+      multiple: true
+      options:
+        - CLI
+        - Web app
+        - Stop hook
+        - Claude Code plugin
+        - Codex / Cursor integration
+        - Service (autostart)
+        - Statistics
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node.js version (`node -v`), agent (Claude Code / Codex / Cursor) if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output or logs
+      description: Error output, the service log (its path is printed by `backlog service install`) or a screenshot.
+      render: text
