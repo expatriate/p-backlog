@@ -3,8 +3,9 @@
 ## Unreleased
 
 - Statistics on the server read only what was appended to project journals and the CLI run log, keep parsed task
-  histories between requests, and rescan git only for new commits (a new day no longer rescans the 90-day window); a
-  change in one project no longer drops the cached reports of the others.
+  histories between requests, and rescan git only for new commits (a new day no longer rescans the 90-day window, and
+  if reading the main branch's log fails, the repository is shown as unavailable for that refresh instead of silently
+  showing no changes); a change in one project no longer drops the cached reports of the others.
 - The Code tab's commit counts now also include commits of merged branches that git history simplification used to
   skip (a merge tree-same with a parent: a change and its revert, `merge -s ours`, a change already cherry-picked) —
   on ordinary histories nothing changes.
