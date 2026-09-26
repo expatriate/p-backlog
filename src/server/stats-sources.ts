@@ -21,9 +21,9 @@ export type StatsSources = {
 
 type TailedJournal = { journal: ProjectJournal; position: string };
 
-type RememberedBase = { projectId: string | undefined; snapshot: object; key: string; base: ReportBase };
+type RememberedBase = { projectId: string | undefined; key: string; base: ReportBase };
 
-type RememberedCost = { snapshot: object; key: string; report: Promise<CostReport> };
+type RememberedCost = { key: string; report: Promise<CostReport> };
 
 const ALL_PROJECTS_SLOT = "*";
 
@@ -32,6 +32,16 @@ export function createStatsSources(root: string): StatsSources {
   const bases = new Map<string, RememberedBase>();
   const runsTail = createJsonlTail<CliRun>(join(root, RUNS_FILE), cliRunSchema);
   const costMemos = new Map<string, RememberedCost>();
+  const snapshotIds = new WeakMap<object, number>();
+  let lastSnapshotId = 0;
+
+  const snapshotIdOf = (snapshot: object): number => {
+    const known = snapshotIds.get(snapshot);
+    if (known !== undefined) return known;
+    lastSnapshotId += 1;
+    snapshotIds.set(snapshot, lastSnapshotId);
+    return lastSnapshotId;
+  };
 
   const tailOf = (projectId: string) => {
     const known = tails.get(projectId);
@@ -49,11 +59,11 @@ export function createStatsSources(root: string): StatsSources {
   const rememberedBase = (snapshot: object, tailed: readonly TailedJournal[]) => (slot: BaseSlot, input: StatsInput) => {
     const slotKey = `${slot}|${input.projectId ?? "*"}`;
     const positions = tailed.filter(({ journal }) => input.projectId === undefined || journal.projectId === input.projectId).map(({ position }) => position);
-    const key = `${slotKey}|${positions.join(",")}`;
+    const key = `${snapshotIdOf(snapshot)}|${slotKey}|${positions.join(",")}`;
     const remembered = bases.get(slotKey);
-    if (remembered?.snapshot === snapshot && remembered.key === key) return remembered.base;
+    if (remembered?.key === key) return remembered.base;
     const base = reportBase(input);
-    bases.set(slotKey, { projectId: input.projectId, snapshot, key, base });
+    bases.set(slotKey, { projectId: input.projectId, key, base });
     return base;
   };
 
@@ -71,11 +81,11 @@ export function createStatsSources(root: string): StatsSources {
     costReport: async ({ usageRevision, projectId, now, snapshot }, compute) => {
       const { values: runs, length, generation } = await runsTail.read();
       const slot = projectId ?? ALL_PROJECTS_SLOT;
-      const key = `${usageRevision}|${generation}:${length}|${slot}|${formatLocalDay(now)}`;
+      const key = `${snapshotIdOf(snapshot)}|${usageRevision}|${generation}:${length}|${slot}|${formatLocalDay(now)}`;
       const remembered = costMemos.get(slot);
-      if (remembered?.snapshot === snapshot && remembered.key === key) return remembered.report;
+      if (remembered?.key === key) return remembered.report;
       const report = compute(runs);
-      costMemos.set(slot, { snapshot, key, report });
+      costMemos.set(slot, { key, report });
       report.catch(() => {
         if (costMemos.get(slot)?.report === report) costMemos.delete(slot);
       });
