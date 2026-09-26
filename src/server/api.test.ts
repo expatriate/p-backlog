@@ -819,6 +819,26 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     expect(report).toEqual(JSON.parse(JSON.stringify(fresh)));
   });
 
+  it("расшифровка, обрезанная до нуля, уходит из отчёта, хотя новых байт не было", async () => {
+    const transcriptsDir = await makeTempDir();
+    const hookLine = JSON.stringify({ type: "user", isMeta: true, timestamp: "2026-09-18T08:59:00.000Z", cwd: "/x", message: { content: "Stop hook feedback:\nБеклог spa: тест" } });
+    const assistantLine = JSON.stringify({ type: "assistant", timestamp: "2026-09-18T09:00:00.000Z", cwd: "/x", message: { model: "claude-opus-5", usage: { input_tokens: 1000, output_tokens: 1000 } } });
+    await writeFiles(transcriptsDir, { "proj/a.jsonl": `${hookLine}\n${assistantLine}\n` });
+    const backlog = await makeTestApp({}, { transcriptsDir });
+    await backlog.usage.scanOnce();
+    const before = (await (await backlog.request("/api/stats/cost")).json()) as CostReport;
+    expect(before.totals.tokens).toBeGreaterThan(0);
+
+    await writeFile(join(transcriptsDir, "proj", "a.jsonl"), "");
+    await backlog.usage.scanOnce();
+    const report = (await (await backlog.request("/api/stats/cost")).json()) as CostReport;
+
+    const { cache, scan } = backlog.usage.snapshot();
+    const fresh = costReport({ buckets: Object.values(cache.files).flatMap((entry) => entry.buckets), runs: [], projectOf: () => null, now: TEST_NOW, scan });
+    expect(fresh.totals.tokens).toBe(0);
+    expect(report).toEqual(JSON.parse(JSON.stringify(fresh)));
+  });
+
   it("после перезапуска отчёт, запрошенный во время первого прохода, не застревает пустым", async () => {
     const transcriptsDir = await makeTempDir();
     const hookLine = JSON.stringify({ type: "user", isMeta: true, timestamp: "2026-09-18T08:59:00.000Z", cwd: "/x", message: { content: "Stop hook feedback:\nБеклог spa: тест" } });

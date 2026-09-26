@@ -1,8 +1,9 @@
+import { isDeepStrictEqual } from "node:util";
 import { errorText } from "../core/errors";
 import { sum } from "../core/stats/numbers";
 import type { ScanProgress } from "../core/stats/types";
 import { listTranscripts, scanTranscripts, type TranscriptFile } from "../core/usage/transcripts";
-import { emptyUsageCache, readUsageCache, writeUsageCache, type UsageCache } from "../core/usage/usage-cache";
+import { emptyUsageCache, readUsageCache, writeUsageCache, type UsageCache, type UsageCacheEntry } from "../core/usage/usage-cache";
 import type { ServerMessages } from "./messages.ru";
 
 export type UsageScannerOptions = {
@@ -51,12 +52,12 @@ export function createUsageScanner({
   };
 
   const runPass = async (): Promise<void> => {
-    const firstLoad = cache === null;
+    const published = cache ?? emptyUsageCache();
     const current = cache ?? (await readUsageCache(root));
     const files = await listTranscripts(claudeProjectsDir);
     setScan(progressBefore(files, current));
     const result = await scanTranscripts({ files, cache: current, byteBudget, now: now() });
-    if (firstLoad || result.bytesRead > 0 || cachedFileCount(current) !== cachedFileCount(result.cache)) revision += 1;
+    if (cacheChanged(published, result.cache)) revision += 1;
     cache = result.cache;
     setScan({ listed: true, filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft });
     budgetExhausted = result.bytesRead >= byteBudget;
@@ -103,8 +104,15 @@ function scanEquals(a: ScanProgress, b: ScanProgress): boolean {
   return a.listed === b.listed && a.filesTotal === b.filesTotal && a.filesDone === b.filesDone && a.bytesLeft === b.bytesLeft;
 }
 
-function cachedFileCount(cache: UsageCache): number {
-  return Object.keys(cache.files).length;
+function cacheChanged(previous: UsageCache, next: UsageCache): boolean {
+  const previousPaths = Object.keys(previous.files);
+  if (previousPaths.length !== Object.keys(next.files).length) return true;
+  return previousPaths.some((path) => entryChanged(previous.files[path], next.files[path]));
+}
+
+function entryChanged(previous: UsageCacheEntry | undefined, next: UsageCacheEntry | undefined): boolean {
+  if (previous === undefined || next === undefined) return previous !== next;
+  return previous.size !== next.size || previous.offset !== next.offset || previous.fingerprint !== next.fingerprint || !isDeepStrictEqual(previous.buckets, next.buckets);
 }
 
 function progressBefore(files: readonly TranscriptFile[], cache: UsageCache): ScanProgress {
