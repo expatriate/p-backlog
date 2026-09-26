@@ -51,11 +51,12 @@ export function createUsageScanner({
   };
 
   const runPass = async (): Promise<void> => {
+    const firstLoad = cache === null;
     const current = cache ?? (await readUsageCache(root));
     const files = await listTranscripts(claudeProjectsDir);
     setScan(progressBefore(files, current));
     const result = await scanTranscripts({ files, cache: current, byteBudget, now: now() });
-    if (result.bytesRead > 0 || cachedFileCount(current) !== cachedFileCount(result.cache)) revision += 1;
+    if (firstLoad || result.bytesRead > 0 || cachedFileCount(current) !== cachedFileCount(result.cache)) revision += 1;
     cache = result.cache;
     setScan({ listed: true, filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft });
     budgetExhausted = result.bytesRead >= byteBudget;

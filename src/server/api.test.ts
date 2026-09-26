@@ -801,6 +801,28 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     expect(report).toEqual(JSON.parse(JSON.stringify(fresh)));
   });
 
+  it("после перезапуска отчёт, запрошенный во время первого прохода, не застревает пустым", async () => {
+    const transcriptsDir = await makeTempDir();
+    const hookLine = JSON.stringify({ type: "user", isMeta: true, timestamp: "2026-09-18T08:59:00.000Z", cwd: "/x", message: { content: "Stop hook feedback:\nБеклог spa: тест" } });
+    const assistantLine = JSON.stringify({ type: "assistant", timestamp: "2026-09-18T09:00:00.000Z", cwd: "/x", message: { model: "claude-opus-5", usage: { input_tokens: 1000, output_tokens: 1000 } } });
+    await writeFiles(transcriptsDir, Object.fromEntries(Array.from({ length: 200 }, (_, index) => [`proj/${index}.jsonl`, `${hookLine}\n${assistantLine}\n`])));
+    const beforeRestart = await makeTestApp({}, { transcriptsDir });
+    await beforeRestart.usage.scanOnce();
+    const usageCache = await readFile(join(beforeRestart.root, ".usage-cache.json"), "utf8");
+
+    const backlog = await makeTestApp({ ".usage-cache.json": usageCache }, { transcriptsDir });
+    await backlog.request("/api/stats/cost");
+    while (!backlog.usage.snapshot().scan.listed) await new Promise((resolve) => setImmediate(resolve));
+    await backlog.request("/api/stats/cost");
+    await backlog.usage.scanOnce();
+    const report = (await (await backlog.request("/api/stats/cost")).json()) as CostReport;
+
+    const { cache, scan } = backlog.usage.snapshot();
+    const fresh = costReport({ buckets: Object.values(cache.files).flatMap((entry) => entry.buckets), runs: [], projectOf: () => null, now: TEST_NOW, scan });
+    expect(fresh.totals.tokens).toBeGreaterThan(0);
+    expect(report).toEqual(JSON.parse(JSON.stringify(fresh)));
+  });
+
   it("отдаёт точки памяти сервера", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
     backlog.memory.sample();
