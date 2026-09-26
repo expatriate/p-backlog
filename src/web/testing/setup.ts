@@ -9,8 +9,8 @@ class ResizeObserverStub {
 
 vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 
-// Lazy routes are compiled on first use, and on Windows that outlasts the default wait of findBy/waitFor.
-if (process.platform === "win32") configure({ asyncUtilTimeout: 5_000 });
+// Lazy routes are compiled on first use, and on slow CI runners that outlasts the default wait of findBy/waitFor.
+configure({ asyncUtilTimeout: 5_000 });
 
 const focusedBeforeModal = new WeakMap<HTMLDialogElement, Element | null>();
 

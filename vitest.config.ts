@@ -10,7 +10,8 @@ const nodeBuiltinsStayExternal: Plugin = {
 };
 
 const FIXTURE_TIME_ZONE = { TZ: "Europe/Moscow" };
-const LONGER_TIMEOUT_ON_WINDOWS = process.platform === "win32" ? { testTimeout: 20_000 } : {};
+const SLOW_TEST_TIMEOUT = { testTimeout: 20_000 };
+const LONGER_TIMEOUT_ON_WINDOWS = process.platform === "win32" ? SLOW_TEST_TIMEOUT : {};
 
 export default defineConfig({
   test: {
@@ -38,7 +39,7 @@ export default defineConfig({
           environment: "jsdom",
           env: FIXTURE_TIME_ZONE,
           setupFiles: ["src/web/testing/setup.ts"],
-          ...LONGER_TIMEOUT_ON_WINDOWS,
+          ...SLOW_TEST_TIMEOUT,
         },
       },
     ],
