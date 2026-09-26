@@ -549,7 +549,7 @@ describe("английский язык", () => {
     expect(within(tabs).getByRole("link", { name: "Overview" }).getAttribute("aria-current")).toBe("page");
     const week = await screen.findByRole("group", { name: "This week" });
     expect(within(week).getByText("created 3, closed 1")).toBeDefined();
-    const alerts = screen.getByRole("status", { name: "Alerts" });
+    const alerts = await screen.findByRole("status", { name: "Alerts" });
     expect(within(alerts).getByText("Urgent tasks have been waiting more than 7 days: 1")).toBeDefined();
   });
 
