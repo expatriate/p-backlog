@@ -6,7 +6,7 @@ import { sum } from "../stats/numbers";
 import { DAY_MS, STATS_HISTORY_DAYS } from "../model/lifecycle";
 import { addTokens } from "../stats/cost/token-counts";
 import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
-import { listDir, readAt, readFileAt, withFile } from "../store/fs-utils";
+import { listDir, NEWLINE, readAt, readFileAt, withFile } from "../store/fs-utils";
 import { USAGE_CACHE_VERSION, type UsageCache, type UsageCacheEntry } from "./usage-cache";
 
 export type TranscriptFile = { path: string; size: number; mtimeMs: number };
@@ -20,7 +20,6 @@ export type ScanTranscriptsInput = {
 
 export type ScanTranscriptsResult = { cache: UsageCache; bytesRead: number; bytesLeft: number; filesDone: number };
 
-const NEWLINE = 0x0a;
 const FINGERPRINT_BYTES = 256;
 const ABANDONED_LINE_MS = 10 * 60 * 1000;
 const EMPTY_FINGERPRINT = createHash("sha1").digest("hex");

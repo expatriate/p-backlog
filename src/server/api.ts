@@ -3,9 +3,9 @@ import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import type { Language } from "../core/i18n/language";
 import { batchRequestSchema, projectActiveSchema, projectDeleteSchema, settingsRequestSchema, updateTaskRequestSchema, type BatchOutcome, type BatchResponse, type ProjectsResponse, type ProjectView, type Revision, type SettingsResponse, type TasksResponse } from "../core/api/contract";
-import { projectGraphHealth, type GraphHealth } from "../core/check/graph-health";
+import { projectGraphHealth } from "../core/check/graph-health";
 import { buildIndex, type BacklogIndex } from "../core/model/graph";
-import type { Project, Task } from "../core/model/types";
+import type { Project } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { parseWithLocale } from "../core/model/zod-issues";
 import { applyBatch, type CoreBatchOutcome } from "../core/store/batch";
@@ -19,7 +19,7 @@ import { serverMessages, type ServerMessages } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createReportCache, type ReportCache } from "./report-cache";
 import { createRevisions, type OwnWrite } from "./revisions";
-import { createStatsApi } from "./stats-api";
+import { createStatsApi, type GraphHealthOf } from "./stats-api";
 import type { UsageScanner } from "./usage-scanner";
 
 export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; usage: UsageScanner; memory: MemorySampler; warn: (line: string) => void };
@@ -40,7 +40,7 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     return snapshot;
   };
   const graphHealthsBySnapshot = new WeakMap<object, ReportCache>();
-  const graphHealth = (backlogSnapshot: { tasks: readonly Task[] }, project: Project): Promise<GraphHealth> => {
+  const graphHealth: GraphHealthOf = (backlogSnapshot, project) => {
     let healths = graphHealthsBySnapshot.get(backlogSnapshot);
     if (healths === undefined) {
       healths = createReportCache({ ttlMs: GRAPH_STATE_TTL_MS, now: () => now().getTime() });

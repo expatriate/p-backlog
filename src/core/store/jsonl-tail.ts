@@ -1,14 +1,13 @@
 import { createHash } from "node:crypto";
 import type { FileHandle } from "node:fs/promises";
 import type { z } from "zod";
-import { parseJsonLines, readAt, withExistingFile, type JsonLines } from "./fs-utils";
+import { NEWLINE, parseJsonLines, readAt, withExistingFile, type JsonLines } from "./fs-utils";
 
-type TailRead<T> = { values: readonly T[]; invalidLines: number; length: number; generation: number };
+type TailRead<T> = JsonLines<T> & { length: number; generation: number };
 
 export type JsonlTail<T> = { read: () => Promise<TailRead<T>> };
 
 const HEAD_FINGERPRINT_BYTES = 4096;
-const NEWLINE = 0x0a;
 const EMPTY_FINGERPRINT = createHash("sha1").digest("hex");
 
 type TailState<T> = { offset: number; headFingerprint: string; values: readonly T[]; invalidLines: number };

@@ -19,7 +19,7 @@ export async function readTextOrNull(path: string): Promise<string | null> {
   }
 }
 
-export type JsonLines<T> = { values: T[]; invalidLines: number };
+export type JsonLines<T> = { values: readonly T[]; invalidLines: number };
 
 export function parseJsonLines<T>(text: string, schema: z.ZodType<T>): JsonLines<T> {
   const parsed = text
@@ -39,7 +39,7 @@ export function toJsonLines(values: readonly unknown[]): string {
   return values.map((value) => `${JSON.stringify(value)}\n`).join("");
 }
 
-const NEWLINE = 0x0a;
+export const NEWLINE = 0x0a;
 
 export async function appendJsonLines(path: string, values: readonly unknown[]): Promise<void> {
   await withFile(

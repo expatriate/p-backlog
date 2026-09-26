@@ -13,7 +13,7 @@ type BaseSlot = "scoped" | "backlog";
 
 type ScopeSources = { journals: ProjectJournal[]; baseOf: (slot: BaseSlot, input: StatsInput) => ReportBase };
 
-type CostScope = { snapshot: object; projectId: string | undefined; projects: readonly Project[] };
+type CostScope = { snapshot: { projects: readonly Project[] }; projectId: string | undefined };
 
 export type CostInputs = { usage: UsageSnapshot; runs: readonly CliRun[]; scope: CostScope; now: Date };
 

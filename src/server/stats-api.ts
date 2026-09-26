@@ -33,10 +33,12 @@ type StatsApiOptions = {
   memory: MemorySampler;
   warn: (line: string) => void;
   backlog: () => Promise<BacklogSnapshot>;
-  graphHealth: (snapshot: BacklogSnapshot, project: Project) => Promise<GraphHealth>;
+  graphHealth: GraphHealthOf;
 };
 
 type BacklogSnapshot = Pick<LoadedBacklog, "projects" | "tasks" | "errors">;
+
+export type GraphHealthOf = (snapshot: BacklogSnapshot, project: Project) => Promise<GraphHealth>;
 
 type StatsApi = { routes: Hono; forget: (paths?: readonly string[]) => void };
 
@@ -78,8 +80,7 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
       return c.json({ errors: [serverMessages(await readLanguage()).projectNotFound(projectId)] }, 404);
     }
-    const included = (project: Project) => project.id === projectId || ((projectId === undefined || wholeBacklog) && project.active);
-    const scoped = projects.filter(included);
+    const scoped = projectsInScope(projects, projectId, { wholeBacklog });
     const scopedIds = new Set(scoped.map((project) => project.id));
     const inScope = (task: { projectId: string }) => scopedIds.has(task.projectId);
     return { projectId, projects: scoped, tasks: tasks.filter(inScope), unparsedTasks: unparsedTasks(errors).filter(inScope), snapshot };
@@ -129,8 +130,8 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
     const scope = await statsScopeOf(c, { wholeBacklog: true });
     if (scope instanceof Response) return scope;
     usage.ensureStarted();
-    const { snapshot, projectId, projects } = scope;
-    return c.json(await sources.costReport({ usage: usage.snapshot(), scope: { snapshot, projectId, projects }, now: now() }));
+    const { snapshot, projectId } = scope;
+    return c.json(await sources.costReport({ usage: usage.snapshot(), scope: { snapshot, projectId }, now: now() }));
   });
   routes.get("/stats/memory", (c) => c.json({ samples: memory.samples() }));
 
@@ -154,7 +155,12 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
   return { routes, forget };
 }
 
-async function costOf({ usage: { cache, scan }, runs, scope: { projectId, projects }, now }: CostInputs, home: string, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
+function projectsInScope(projects: readonly Project[], projectId: string | undefined, { wholeBacklog }: { wholeBacklog: boolean }): Project[] {
+  return projects.filter((project) => project.id === projectId || ((projectId === undefined || wholeBacklog) && project.active));
+}
+
+async function costOf({ usage: { cache, scan }, runs, scope: { snapshot, projectId }, now }: CostInputs, home: string, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
+  const projects = projectsInScope(snapshot.projects, projectId, { wholeBacklog: true });
   const buckets = bucketsOf(cache);
   const repoRoots = projectId === undefined ? new Map<string, GitRoots | null>() : await resolveRepoRoots(lookupRepoRoot, [...buckets, ...runs].map((entry) => entry.cwd));
   const projectOf = (cwd: string) => {
