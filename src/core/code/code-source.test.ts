@@ -112,6 +112,34 @@ describe("сбор данных git по проектам", () => {
     expect(fromGit).toEqual(first.code);
   });
 
+  it("репозиторий, убранный из всех проектов, уходит из файла кэша вместе с его исправлениями, а сбор по одному проекту не трогает репозитории других", async () => {
+    const parent = await makeTempDir();
+    const committedRepo = async (name: string) => {
+      const repo = await makeGitRepo(parent, name);
+      await writeFiles(repo, { "src/a.ts": "a\n" });
+      gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+      return repo;
+    };
+    const [a, b, c] = [await committedRepo("a"), await committedRepo("b"), await committedRepo("c")];
+    const bHead = (await runGit(b, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const removedFix = `${b} ${bHead}`;
+    const cacheRoot = await makeTempDir();
+    const cached = async () => JSON.parse(await readFile(join(cacheRoot, CODE_CACHE_FILE), "utf8")) as { repos: object; fixes: object };
+    const source = createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) });
+    const all = [projectOf("a", [a]), projectOf("b", [b]), projectOf("c", [c])];
+    source.retain(all);
+    await source.collect(all, NOW);
+    await source.fixCommits(all, [{ projectId: "b", hashes: [bHead] }], NOW);
+    expect(Object.keys((await cached()).fixes)).toContain(removedFix);
+
+    const withoutB = [projectOf("a", [a]), projectOf("c", [c])];
+    source.retain(withoutB);
+    await source.collect(withoutB.slice(0, 1), NOW);
+
+    expect(Object.keys((await cached()).repos).sort()).toEqual([a, c].sort());
+    expect(Object.keys((await cached()).fixes)).not.toContain(removedFix);
+  });
+
   it("неудавшаяся запись кэша повторяется при следующем сборе, даже если новых данных нет", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a\n" });

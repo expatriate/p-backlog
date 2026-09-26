@@ -71,6 +71,7 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
     const { projects, tasks, errors } = snapshot;
     knownProjectIds = projects.map((project) => project.id);
     sources.retain(knownProjectIds);
+    codeSource.retain(projects);
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
       return c.json({ errors: [serverMessages(await readLanguage()).projectNotFound(projectId)] }, 404);
     }

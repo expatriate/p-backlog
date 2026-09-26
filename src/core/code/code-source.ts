@@ -17,6 +17,7 @@ export type CodeSource = {
   collect: (projects: readonly Project[], now: Date) => Promise<ScannedCode>;
   fixCommits: (projects: readonly Project[], requests: readonly FixRequest[], now: Date) => Promise<ReadonlyMap<string, FixCommit>>;
   stateKey: (projects: readonly Project[]) => Promise<string>;
+  retain: (backlogProjects: readonly Project[]) => void;
 };
 
 export function createCodeSource({ home, git = runGit, store, onError = () => {} }: CodeSourceOptions): CodeSource {
@@ -25,6 +26,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
   const unsettledCheckedAt = new Map<string, string | null>();
   let changed = false;
   let restored: Promise<void> | null = null;
+  let retainedRepos: ReadonlySet<string> | null = null;
 
   const restore = (): Promise<void> => {
     restored ??= readSnapshot(store, (error) => onError("read", error)).then((snapshot) => {
@@ -45,9 +47,26 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     }
   };
 
+  const dropUnretainedRepos = (): void => {
+    if (retainedRepos === null) return;
+    const kept = retainedRepos;
+    for (const repo of repoCache.keys()) {
+      if (kept.has(repo)) continue;
+      repoCache.delete(repo);
+      changed = true;
+    }
+    for (const key of new Set([...fixCache.keys(), ...unsettledCheckedAt.keys()])) {
+      if (kept.has(repoOfFixCacheKey(key))) continue;
+      fixCache.delete(key);
+      unsettledCheckedAt.delete(key);
+      changed = true;
+    }
+  };
+
   let writing: Promise<void> = Promise.resolve();
 
   const persist = (): Promise<void> => {
+    dropUnretainedRepos();
     if (store === undefined || !changed) return writing;
     changed = false;
     const snapshot: CodeCacheSnapshot = { repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache), unsettled: Object.fromEntries(unsettledCheckedAt) };
@@ -95,11 +114,11 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
   };
 
   const fixCommitsOf = async (repo: string, main: string | null, hashes: readonly string[]): Promise<void> => {
-    const unsettled = hashes.filter((hash) => needsReading(`${repo} ${hash}`, main));
+    const unsettled = hashes.filter((hash) => needsReading(fixCacheKey(repo, hash), main));
     if (unsettled.length === 0) return;
     const found = await readFixCommits(git, repo, { hashes: unsettled, mainCommit: main });
     for (const [hash, commit] of found ?? []) {
-      const key = `${repo} ${hash}`;
+      const key = fixCacheKey(repo, hash);
       rememberUnsettled(key, main, commit);
       if (fixCache.has(key) && commit.landedAt === undefined) continue;
       fixCache.set(key, commit);
@@ -126,6 +145,9 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
   };
 
   return {
+    retain: (backlogProjects) => {
+      retainedRepos = new Set(backlogProjects.flatMap((project) => project.repos.map((repo) => expandHome(repo, home))));
+    },
     stateKey: async (projects) => {
       const repos = [...new Set(projects.flatMap((project) => project.repos.map((repo) => expandHome(repo, home))))];
       const states = await Promise.all(repos.map(async (repo) => `${repo}@${refsKey(await readRefs(git, repo))}`));
@@ -165,7 +187,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       const requested = new Set<string>();
       for (const { projectId, hashes } of requests) {
         for (const hash of hashes) {
-          const keys = (reposOf.get(projectId) ?? []).map(({ repo }) => `${repo} ${hash}`);
+          const keys = (reposOf.get(projectId) ?? []).map(({ repo }) => fixCacheKey(repo, hash));
           for (const key of keys) requested.add(key);
           const commit = keys.map((key) => fixCache.get(key)).find((cached) => cached !== undefined);
           if (commit !== undefined) found.set(fixKey(projectId, hash), commit);
@@ -176,6 +198,14 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       return found;
     },
   };
+}
+
+function fixCacheKey(repo: string, hash: string): string {
+  return `${repo} ${hash}`;
+}
+
+function repoOfFixCacheKey(key: string): string {
+  return key.slice(0, key.lastIndexOf(" "));
 }
 
 function refsKey(refs: RepoRefs): string {
