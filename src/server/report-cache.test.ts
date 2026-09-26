@@ -38,4 +38,19 @@ describe("кэш отчётов", () => {
 
     expect([await a(), await b()]).toEqual([2, 1]);
   });
+
+  it("отказ устаревшего расчёта после clearTagged не удаляет свежую запись по тому же ключу", async () => {
+    const cache = createReportCache({ ttlMs: 1000, now: () => 0 });
+    let computed = 0;
+    const { promise: stale, reject: rejectStale } = Promise.withResolvers<number>();
+
+    const staleResult = cache.get("k", () => stale, ["tag"]);
+    cache.clearTagged(["tag"]);
+    const fresh = await cache.get("k", async () => ++computed, ["tag"]);
+
+    rejectStale(new Error("устарел"));
+    await staleResult.catch(() => undefined);
+
+    expect(await cache.get("k", async () => ++computed)).toBe(fresh);
+  });
 });

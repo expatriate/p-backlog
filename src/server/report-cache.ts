@@ -10,10 +10,11 @@ export function createReportCache({ ttlMs, now }: { ttlMs: number; now: () => nu
     get: <T>(key: string, compute: () => Promise<T>, tags: readonly string[] = []): Promise<T> => {
       const cached = entries.get(key);
       if (cached !== undefined && now() - cached.at <= ttlMs) return cached.value as Promise<T>;
-      const generation = entries;
       const value = compute();
-      generation.set(key, { at: now(), value, tags });
-      value.catch(() => generation.delete(key));
+      entries.set(key, { at: now(), value, tags });
+      value.catch(() => {
+        if (entries.get(key)?.value === value) entries.delete(key);
+      });
       return value;
     },
     clear: () => {
