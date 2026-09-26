@@ -350,10 +350,10 @@ describe("вкладка «Качество»", () => {
     const app = await renderApp(
       {
         ...FILES,
-        "spa/journal.jsonl": [
+        "spa/journal.jsonl": `${[
           event({ at: "2026-09-16T10:00:00+03:00", task: "SPA-1", kind: "candidate", evidence: "source-changed", mode: "changed" }),
           event({ at: "2026-09-17T10:00:00+03:00", task: "SPA-1", kind: "verified", via: "cli" }),
-        ].join("\n"),
+        ].join("\n")}\n`,
       },
       "/stats",
     );
@@ -509,10 +509,10 @@ describe("масштаб графиков", () => {
     const app = await renderApp(
       {
         ...FILES,
-        "spa/journal.jsonl": [
+        "spa/journal.jsonl": `${[
           event({ at: "2026-09-16T10:00:00+03:00", task: "SPA-1", kind: "candidate", evidence: "source-changed", mode: "changed" }),
           event({ at: "2026-09-17T10:00:00+03:00", task: "SPA-1", kind: "verified", via: "cli" }),
-        ].join("\n"),
+        ].join("\n")}\n`,
       },
       "/stats/quality",
     );
