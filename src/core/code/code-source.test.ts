@@ -1,10 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { formatLocalDay } from "../model/dates";
+import { DAY_MS } from "../model/lifecycle";
 import type { Project } from "../model/types";
 import { fixKey } from "../stats/code/fixes";
-import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { ISOLATED_GIT_ENV, gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { CODE_CACHE_FILE, createCodeCacheFile, type CodeCacheStore } from "./code-cache";
 import { createCodeSource, type CodeSource } from "./code-source";
 import { runGit, type GitRunner } from "../git/run";
@@ -12,6 +14,13 @@ import { countingGit } from "../git/testing/counting-git";
 
 const NOW = new Date("2026-09-18T12:00:00+03:00");
 const projectOf = (id: string, repos: string[]): Project => ({ id, name: `Проект ${id}`, prefix: "SPA", repos, active: true, extra: {}, body: "", path: `/backlog/${id}/project.md` });
+const fullHead = async (repo: string): Promise<string> => (await runGit(repo, ["rev-parse", "HEAD"]))?.trim() ?? "";
+
+function gitAmendAll(repo: string, isoDate: string): void {
+  const env = { ...process.env, ...ISOLATED_GIT_ENV, GIT_AUTHOR_DATE: isoDate, GIT_COMMITTER_DATE: isoDate };
+  execFileSync("git", ["add", "-A"], { cwd: repo, env });
+  execFileSync("git", ["-c", "user.name=backlog-test", "-c", "user.email=test@backlog.local", "-c", "commit.gpgsign=false", "commit", "-q", "--amend", "--no-edit"], { cwd: repo, env });
+}
 
 describe("сбор данных git по проектам", () => {
   it("проекты с данными репозиториев, недоступные пути, коммиты исправлений по ключу проекта", async () => {
@@ -227,6 +236,166 @@ describe("сбор данных git по проектам", () => {
 
     expect(again.has(fixKey("spa", head))).toBe(true);
     expect(counting.processes()).toBe(1);
+  });
+
+  it("после новых коммитов результат равен полному сканированию, а git читает только новый диапазон", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const old = await fullHead(repo);
+    const calls: string[][] = [];
+    const recording: GitRunner = (dir, args, input) => {
+      calls.push(args);
+      return runGit(dir, args, input);
+    };
+    const source = createCodeSource({ home: "/h", git: recording });
+    const projects = [projectOf("spa", [repo])];
+    await source.collect(projects, NOW);
+    await writeFiles(repo, { "src/b.ts": "b\n" });
+    gitCommitAll(repo, "second", "2026-09-12T10:00:00+03:00");
+    await writeFiles(repo, { "src/a.ts": "a\nc\n" });
+    gitCommitAll(repo, "third", "2026-09-13T10:00:00+03:00");
+    const range = `${old}..${await fullHead(repo)}`;
+    calls.length = 0;
+
+    const updated = await source.collect(projects, NOW);
+
+    expect(updated).toEqual(await createCodeSource({ home: "/h" }).collect(projects, NOW));
+    const logs = calls.filter((args) => args[0] === "log");
+    expect(logs.length).toBeGreaterThan(0);
+    expect(logs.filter((args) => !args.includes(range))).toEqual([]);
+  });
+
+  it("после commit --amend результат равен полному сканированию", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    await writeFiles(repo, { "src/b.ts": "b\n" });
+    gitCommitAll(repo, "second", "2026-09-12T10:00:00+03:00");
+    const source = createCodeSource({ home: "/h" });
+    const projects = [projectOf("spa", [repo])];
+    await source.collect(projects, NOW);
+    await rm(join(repo, "src/b.ts"));
+    await writeFiles(repo, { "src/c.ts": "c\n" });
+    gitAmendAll(repo, "2026-09-13T10:00:00+03:00");
+
+    expect(await source.collect(projects, NOW)).toEqual(await createCodeSource({ home: "/h" }).collect(projects, NOW));
+  });
+
+  it("на следующий день коммиты, вышедшие из окна, отбрасываются без git", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "на краю окна", "2026-06-21T10:00:00+03:00");
+    await writeFiles(repo, { "src/b.ts": "b\n" });
+    gitCommitAll(repo, "свежий", "2026-09-10T10:00:00+03:00");
+    const onlyRefs: GitRunner = (dir, args, input) => (args[0] === "cat-file" ? runGit(dir, args, input) : Promise.resolve(null));
+    let git: GitRunner = runGit;
+    const source = createCodeSource({ home: "/h", git: (dir, args, input) => git(dir, args, input) });
+    const projects = [projectOf("spa", [repo])];
+    await source.collect(projects, NOW);
+    git = onlyRefs;
+    const later = new Date(NOW.getTime() + 2 * DAY_MS);
+
+    const fresh = await createCodeSource({ home: "/h" }).collect(projects, later);
+
+    expect(await source.collect(projects, later)).toEqual(fresh);
+    expect(fresh.projects[0]?.repos[0]?.commits).toEqual([["src/b.ts"]]);
+  });
+
+  it("после перезапуска не попавшее в основную ветку исправление не перепроверяется, пока она не сдвинулась", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "fix", { create: true });
+    await writeFiles(repo, { "src/a.ts": "a\nb\n" });
+    gitCommitAll(repo, "fix: b", "2026-09-11T10:00:00+03:00");
+    const hash = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    gitCheckout(repo, "master");
+    const cacheRoot = await makeTempDir();
+    const projects = [projectOf("spa", [repo])];
+    const request = [{ projectId: "spa", hashes: [hash] }];
+    await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }).fixCommits(projects, request, NOW);
+    let landingChecks = 0;
+    const countingLanding: GitRunner = (dir, args, input) => {
+      if (args.includes("--ancestry-path")) landingChecks++;
+      return runGit(dir, args, input);
+    };
+    const restarted = createCodeSource({ home: "/h", git: countingLanding, store: createCodeCacheFile(cacheRoot) });
+
+    const unchangedMain = await restarted.fixCommits(projects, request, NOW);
+
+    expect(unchangedMain.has(fixKey("spa", hash))).toBe(true);
+    expect(landingChecks).toBe(0);
+
+    await writeFiles(repo, { "src/c.ts": "c\n" });
+    gitCommitAll(repo, "main moves", "2026-09-12T10:00:00+03:00");
+    await restarted.fixCommits(projects, request, NOW);
+
+    expect(landingChecks).toBeGreaterThan(0);
+  });
+
+  it("файл кэша прежнего формата читается как отсутствующий: полное сканирование без ошибки", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    const head = await fullHead(repo);
+    const cacheRoot = await makeTempDir();
+    const staleCode = { commits: [["src/stale.ts"]], lines: [], units: [] };
+    await writeFile(join(cacheRoot, CODE_CACHE_FILE), JSON.stringify({ version: 1, repos: { [repo]: { key: `${head} ${head} ${formatLocalDay(NOW)}`, code: staleCode } }, fixes: {} }), "utf8");
+    const errors: unknown[] = [];
+    const projects = [projectOf("spa", [repo])];
+
+    const code = await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot), onError: (_kind, error) => errors.push(error) }).collect(projects, NOW);
+
+    expect(code).toEqual(await createCodeSource({ home: "/h" }).collect(projects, NOW));
+    expect(errors).toEqual([]);
+  });
+
+  it("слияние ветки, выросшей из ранее слитой ветки с отменённым изменением, даёт то же, что полное сканирование", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "side", { create: true });
+    await writeFiles(repo, { "src/x.ts": "x\n" });
+    gitCommitAll(repo, "side: x", "2026-09-11T10:00:00+03:00");
+    await rm(join(repo, "src/x.ts"));
+    gitCommitAll(repo, "side: revert x", "2026-09-11T11:00:00+03:00");
+    gitCheckout(repo, "master");
+    await writeFiles(repo, { "src/a.ts": "a\nb\n" });
+    gitCommitAll(repo, "main: b", "2026-09-12T10:00:00+03:00");
+    gitMergeNoFastForward(repo, "side", "2026-09-13T10:00:00+03:00");
+    const source = createCodeSource({ home: "/h" });
+    const projects = [projectOf("spa", [repo])];
+    await source.collect(projects, NOW);
+    gitCheckout(repo, "side");
+    gitCheckout(repo, "next", { create: true });
+    await writeFiles(repo, { "src/z.ts": "z\n" });
+    gitCommitAll(repo, "next: z", "2026-09-11T12:00:00+03:00");
+    gitCheckout(repo, "master");
+    gitMergeNoFastForward(repo, "next", "2026-09-15T10:00:00+03:00");
+
+    expect(await source.collect(projects, NOW)).toEqual(await createCodeSource({ home: "/h" }).collect(projects, NOW));
+  });
+
+  it("основная ветка переставлена на слияние, где прежняя — второй родитель: единицы изменений как при полном сканировании", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "main", { create: true });
+    await writeFiles(repo, { "src/b.ts": "b\n" });
+    gitCommitAll(repo, "main: b", "2026-09-11T10:00:00+03:00");
+    gitCheckout(repo, "master");
+    const source = createCodeSource({ home: "/h" });
+    const projects = [projectOf("spa", [repo])];
+    await source.collect(projects, NOW);
+    gitCheckout(repo, "feature", { create: true });
+    await writeFiles(repo, { "src/c.ts": "c\n" });
+    gitCommitAll(repo, "feature: c", "2026-09-12T10:00:00+03:00");
+    gitMergeNoFastForward(repo, "main", "2026-09-13T10:00:00+03:00");
+    execFileSync("git", ["-C", repo, "branch", "-f", "main", "feature"]);
+    gitCheckout(repo, "master");
+
+    expect(await source.collect(projects, NOW)).toEqual(await createCodeSource({ home: "/h" }).collect(projects, NOW));
   });
 
   it("ключ состояния — один процесс git на репозиторий", async () => {

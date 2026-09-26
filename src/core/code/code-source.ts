@@ -1,5 +1,3 @@
-import { formatLocalDay } from "../model/dates";
-import { DAY_MS } from "../model/lifecycle";
 import type { Project } from "../model/types";
 import { runGit, type GitRunner } from "../git/run";
 import { fixKey, type FixRequest } from "../stats/code/fixes";
@@ -7,8 +5,9 @@ import type { FixCommit, ProjectCode, RepoCode, ScannedCode } from "../stats/typ
 import { expandHome } from "../store/paths";
 import { remembered } from "../remembered";
 import { emptyCodeCache, type CodeCacheSnapshot, type CodeCacheStore } from "./code-cache";
-import { CHURN_DAYS } from "./code-window";
-import { readFixCommits, readRefs, readRepoCode, type RepoRefs } from "./git-code";
+import { churnWindowStart } from "./code-window";
+import { readFixCommits, readRefs, type RepoRefs } from "./git-code";
+import { repoCodeOf, scanRepo, type RepoScan } from "./repo-scan";
 
 export type CodeCacheErrorKind = "read" | "write";
 
@@ -21,8 +20,9 @@ export type CodeSource = {
 };
 
 export function createCodeSource({ home, git = runGit, store, onError = () => {} }: CodeSourceOptions): CodeSource {
-  const repoCache = new Map<string, { key: string; code: RepoCode }>();
+  const repoCache = new Map<string, RepoScan>();
   const fixCache = new Map<string, FixCommit>();
+  const unsettledCheckedAt = new Map<string, string | null>();
   let changed = false;
   let restored: Promise<void> | null = null;
 
@@ -30,15 +30,17 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     restored ??= readSnapshot(store, (error) => onError("read", error)).then((snapshot) => {
       for (const [repo, entry] of Object.entries(snapshot.repos)) if (!repoCache.has(repo)) repoCache.set(repo, entry);
       for (const [key, commit] of Object.entries(snapshot.fixes)) if (!fixCache.has(key)) fixCache.set(key, commit);
+      for (const [key, main] of Object.entries(snapshot.unsettled)) if (!unsettledCheckedAt.has(key)) unsettledCheckedAt.set(key, main);
     });
     return restored;
   };
 
   const dropStaleFixes = (now: Date, requested: ReadonlySet<string>): void => {
-    const oldest = now.getTime() - CHURN_DAYS * DAY_MS;
+    const oldest = churnWindowStart(now).getTime();
     for (const [key, commit] of fixCache) {
       if (requested.has(key) || Date.parse(commit.date) >= oldest) continue;
       fixCache.delete(key);
+      unsettledCheckedAt.delete(key);
       changed = true;
     }
   };
@@ -48,7 +50,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
   const persist = (): Promise<void> => {
     if (store === undefined || !changed) return writing;
     changed = false;
-    const snapshot: CodeCacheSnapshot = { repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache) };
+    const snapshot: CodeCacheSnapshot = { repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache), unsettled: Object.fromEntries(unsettledCheckedAt) };
     writing = writing.then(() =>
       store.write(snapshot).catch((error: unknown) => {
         changed = true;
@@ -58,9 +60,9 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     return writing;
   };
 
-  const inFlight = new Map<string, Promise<ReadRepo | null>>();
+  const inFlight = new Map<string, Promise<RepoCode | null>>();
 
-  const repoCode = (repo: string, now: Date): Promise<ReadRepo | null> => {
+  const repoCode = (repo: string, now: Date): Promise<RepoCode | null> => {
     const running = inFlight.get(repo);
     if (running !== undefined) return running;
     const started = readRepoOnce(repo, now).finally(() => inFlight.delete(repo));
@@ -68,20 +70,24 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     return started;
   };
 
-  const readRepoOnce = async (repo: string, now: Date): Promise<ReadRepo | null> => {
-    const refs = await readRefs(git, repo);
-    if (refs.head === null) return null;
-    const key = repoKey(refs, now);
-    const cached = repoCache.get(repo);
-    if (cached?.key === key) return { key, code: cached.code };
-    const code = await readRepoCode(git, repo, new Date(now.getTime() - CHURN_DAYS * DAY_MS), refs.main);
-    if (code === null) return null;
-    repoCache.set(repo, { key, code });
-    changed = true;
-    return { key, code };
+  const readRepoOnce = async (repo: string, now: Date): Promise<RepoCode | null> => {
+    const previous = repoCache.get(repo);
+    const scan = await scanRepo(git, repo, { refs: await readRefs(git, repo), now, previous });
+    if (scan === null) return null;
+    if (scan !== previous) {
+      repoCache.set(repo, scan);
+      changed = true;
+    }
+    return repoCodeOf(scan);
   };
 
-  const unsettledCheckedAt = new Map<string, string | null>();
+  const rememberUnsettled = (key: string, main: string | null, commit: FixCommit): void => {
+    const checkedAt = commit.landedAt === undefined ? main : undefined;
+    if (unsettledCheckedAt.get(key) === checkedAt) return;
+    if (checkedAt === undefined) unsettledCheckedAt.delete(key);
+    else unsettledCheckedAt.set(key, checkedAt);
+    changed = true;
+  };
 
   const needsReading = (key: string, main: string | null): boolean => {
     const cached = fixCache.get(key);
@@ -94,14 +100,14 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     const found = await readFixCommits(git, repo, { hashes: unsettled, mainCommit: main });
     for (const [hash, commit] of found ?? []) {
       const key = `${repo} ${hash}`;
-      if (commit.landedAt === undefined) unsettledCheckedAt.set(key, main);
+      rememberUnsettled(key, main, commit);
       if (fixCache.has(key) && commit.landedAt === undefined) continue;
       fixCache.set(key, commit);
       changed = true;
     }
   };
 
-  const fixReposOf = async (projects: readonly Project[], now: Date): Promise<Map<string, { repo: string; key: string; main: string | null }[]>> => {
+  const fixReposOf = async (projects: readonly Project[]): Promise<Map<string, { repo: string; main: string | null }[]>> => {
     const refsOf = new Map<string, Promise<RepoRefs>>();
     const refsOnce = (repo: string): Promise<RepoRefs> => remembered(refsOf, repo, () => readRefs(git, repo));
     const entries = await Promise.all(
@@ -110,7 +116,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
           project.repos.map(async (repo) => {
             const expanded = expandHome(repo, home);
             const refs = await refsOnce(expanded);
-            return refs.head === null ? [] : [{ repo: expanded, key: repoKey(refs, now), main: refs.main }];
+            return refs.head === null ? [] : [{ repo: expanded, main: refs.main }];
           }),
         );
         return [project.id, repos.flat()] as const;
@@ -140,7 +146,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
         const readable: RepoCode[] = [];
         for (const { repo, read } of repos) {
           if (read !== null) {
-            readable.push(read.code);
+            readable.push(read);
           } else if (!seenUnavailable.has(repo)) {
             seenUnavailable.add(repo);
             unavailableRepos.push(repo);
@@ -153,7 +159,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     },
     fixCommits: async (projects, requests, now) => {
       await restore();
-      const reposOf = await fixReposOf(projects, now);
+      const reposOf = await fixReposOf(projects);
       await Promise.all(requests.flatMap(({ projectId, hashes }) => (reposOf.get(projectId) ?? []).map(({ repo, main }) => fixCommitsOf(repo, main, hashes))));
       const found = new Map<string, FixCommit>();
       const requested = new Set<string>();
@@ -172,14 +178,8 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
   };
 }
 
-type ReadRepo = { key: string; code: RepoCode };
-
 function refsKey(refs: RepoRefs): string {
   return `${refs.head ?? ""} ${refs.main ?? ""}`;
-}
-
-function repoKey(refs: RepoRefs, now: Date): string {
-  return `${refsKey(refs)} ${formatLocalDay(now)}`;
 }
 
 async function readSnapshot(store: CodeCacheStore | undefined, onError: (error: unknown) => void): Promise<CodeCacheSnapshot> {

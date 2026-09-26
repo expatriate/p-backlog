@@ -2,7 +2,10 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { gitCheckout, gitCommitAll, gitMergeNoFastForward, gitMergeSquash, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
-import { readFixCommits, readRefs, readRepoCode } from "./git-code";
+import { DAY_MS } from "../model/lifecycle";
+import { CHURN_DAYS } from "./code-window";
+import { readFixCommits, readRefs } from "./git-code";
+import { repoCodeOf, scanRepo } from "./repo-scan";
 import { runGit, type GitRunner } from "../git/run";
 import { countingGit } from "../git/testing/counting-git";
 
@@ -17,7 +20,10 @@ async function sampleRepo(): Promise<string> {
   return repo;
 }
 
-const readCode = async (git: GitRunner, repo: string, since: Date) => readRepoCode(git, repo, since, (await readRefs(git, repo)).main);
+const readCode = async (git: GitRunner, repo: string, since: Date) => {
+  const scan = await scanRepo(git, repo, { refs: await readRefs(git, repo), now: new Date(since.getTime() + CHURN_DAYS * DAY_MS), previous: undefined });
+  return scan === null ? null : repoCodeOf(scan);
+};
 
 const shortHead = (repo: string) => execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
 
