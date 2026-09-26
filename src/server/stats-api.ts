@@ -63,6 +63,7 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
   const lookupRepoRoot = cachedRepoRoots();
   const sources = createStatsSources(root, (inputs) => costOf(inputs, home, lookupRepoRoot));
   let knownProjectIds: readonly string[] = [];
+  let forgetCount = 0;
 
   const statsScopeOf = async (c: Context, { wholeBacklog }: { wholeBacklog: boolean }): Promise<StatsScope | Response> => {
     const projectId = c.req.query("project") || undefined;
@@ -83,22 +84,20 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
   const scopedStats =
     <R extends StatsReport | CodeReport | QualityReport | SignalsReport | EffectReport>(name: string, report: ScopedReport<R>, { sourceKey, wholeBacklog = false }: ScopedReportOptions = {}) =>
     async (c: Context) => {
+      const forgetCountAtRead = forgetCount;
       const scope = await statsScopeOf(c, { wholeBacklog });
       if (scope instanceof Response) return scope;
       const moment = now();
       const key = [name, scope.projectId ?? "*", formatLocalDay(moment), sourceKey === undefined ? "" : await sourceKey(scope.projects)].join("|");
       const tags = wholeBacklog ? [WHOLE_BACKLOG_TAG] : [scope.projectId === undefined ? ALL_PROJECTS_TAG : projectTag(scope.projectId)];
-      const result = await reports.get(
-        key,
-        async () => {
-          const { journals, baseOf } = await sources.read(scope.snapshot, scope.projects.map((project) => project.id));
-          const input: StatsInput = { tasks: scope.tasks, journals, now: moment, projectId: scope.projectId, unparsedTasks: scope.unparsedTasks };
-          const wholeBacklogBase = () => baseOf("backlog", { ...input, projectId: undefined });
-          return report({ input, base: baseOf("scoped", input), projects: scope.projects, wholeBacklogBase });
-        },
-        tags,
-      );
-      return c.json(result);
+      const compute = async () => {
+        const { journals, baseOf } = await sources.read(scope.snapshot, scope.projects.map((project) => project.id));
+        const input: StatsInput = { tasks: scope.tasks, journals, now: moment, projectId: scope.projectId, unparsedTasks: scope.unparsedTasks };
+        const wholeBacklogBase = () => baseOf("backlog", { ...input, projectId: undefined });
+        return report({ input, base: baseOf("scoped", input), projects: scope.projects, wholeBacklogBase });
+      };
+      const scopeOutdated = forgetCount !== forgetCountAtRead;
+      return c.json(await (scopeOutdated ? compute() : reports.get(key, compute, tags)));
     };
 
   const statsOfCode: ScopedReport<CodeReport> = async ({ input, base, projects }) => codeReport({ ...input, code: await codeSource.collect(projects, input.now) }, base);
@@ -134,6 +133,7 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
   };
 
   const forget = (paths?: readonly string[]) => {
+    forgetCount += 1;
     if (paths === undefined || paths.length === 0) return void reports.clear();
     const changedProjectIds = new Set<string>();
     for (const path of paths) {
