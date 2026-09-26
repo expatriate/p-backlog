@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
-import { open, stat, type FileHandle } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { attributeLine, flushEstimates, newTranscriptState } from "../stats/cost/attribute";
 import { sum } from "../stats/numbers";
 import { DAY_MS, STATS_HISTORY_DAYS } from "../model/lifecycle";
 import { addTokens } from "../stats/cost/token-counts";
 import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
-import { listDir } from "../store/fs-utils";
+import { listDir, readAt, readFileAt, withFile } from "../store/fs-utils";
 import { USAGE_CACHE_VERSION, type UsageCache, type UsageCacheEntry } from "./usage-cache";
 
 export type TranscriptFile = { path: string; size: number; mtimeMs: number };
@@ -95,7 +95,7 @@ function deletedStillReported(cache: UsageCache, listedFiles: Readonly<Record<st
 async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: number, { longestReadableLine, now }: ChunkLimits): Promise<Omit<UsageCacheEntry, "fingerprint">> {
   if (chunkSize <= 0) return { size: file.size, offset: start.offset, state: start.state, buckets: start.buckets };
 
-  const chunk = await readChunk(file.path, start.offset, chunkSize);
+  const chunk = await readFileAt(file.path, start.offset, chunkSize);
   const tailAbandoned = start.offset + chunk.length === file.size && now.getTime() - file.mtimeMs >= ABANDONED_LINE_MS;
   const readableLength = tailAbandoned ? chunk.length : chunk.lastIndexOf(NEWLINE) + 1;
   if (readableLength === 0) {
@@ -130,25 +130,6 @@ async function fingerprintOf(path: string, offset: number): Promise<string> {
     const tail = await readAt(handle, offset - edge, edge);
     return createHash("sha1").update(head).update(tail).digest("hex");
   });
-}
-
-function readChunk(path: string, position: number, length: number): Promise<Buffer> {
-  return withFile(path, (handle) => readAt(handle, position, length));
-}
-
-async function withFile<T>(path: string, use: (handle: FileHandle) => Promise<T>): Promise<T> {
-  const handle = await open(path, "r");
-  try {
-    return await use(handle);
-  } finally {
-    await handle.close();
-  }
-}
-
-async function readAt(handle: FileHandle, position: number, length: number): Promise<Buffer> {
-  const buffer = Buffer.alloc(length);
-  const { bytesRead } = await handle.read(buffer, 0, length, position);
-  return buffer.subarray(0, bytesRead);
 }
 
 function parseLineOrNull(line: string): unknown {

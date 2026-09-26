@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { chmod, link, open, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, link, open, readdir, readFile, rename, rm, stat, writeFile, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { z } from "zod";
@@ -42,16 +42,45 @@ export function toJsonLines(values: readonly unknown[]): string {
 const NEWLINE = 0x0a;
 
 export async function appendJsonLines(path: string, values: readonly unknown[]): Promise<void> {
-  const handle = await open(path, "a+");
+  await withFile(
+    path,
+    async (handle) => {
+      const { size } = await handle.stat();
+      const endsMidLine = size > 0 && (await readAt(handle, size - 1, 1))[0] !== NEWLINE;
+      await handle.appendFile((endsMidLine ? "\n" : "") + toJsonLines(values), "utf8");
+    },
+    "a+",
+  );
+}
+
+export async function withFile<T>(path: string, use: (handle: FileHandle) => Promise<T>, flags = "r"): Promise<T> {
+  return closingAfter(await open(path, flags), use);
+}
+
+export async function withExistingFile<T>(path: string, use: (handle: FileHandle) => Promise<T>): Promise<T | null> {
+  const handle = await open(path, "r").catch((error: unknown) => {
+    if (hasErrorCode(error, "ENOENT")) return null;
+    throw error;
+  });
+  return handle === null ? null : closingAfter(handle, use);
+}
+
+async function closingAfter<T>(handle: FileHandle, use: (handle: FileHandle) => Promise<T>): Promise<T> {
   try {
-    const { size } = await handle.stat();
-    const lastByte = Buffer.alloc(1);
-    if (size > 0) await handle.read(lastByte, 0, 1, size - 1);
-    const separator = size > 0 && lastByte[0] !== NEWLINE ? "\n" : "";
-    await handle.appendFile(separator + toJsonLines(values), "utf8");
+    return await use(handle);
   } finally {
     await handle.close();
   }
+}
+
+export async function readAt(handle: FileHandle, position: number, length: number): Promise<Buffer> {
+  const buffer = Buffer.alloc(length);
+  const { bytesRead } = await handle.read(buffer, 0, length, position);
+  return buffer.subarray(0, bytesRead);
+}
+
+export function readFileAt(path: string, position: number, length: number): Promise<Buffer> {
+  return withFile(path, (handle) => readAt(handle, position, length));
 }
 
 export function parseJson<T>(text: string, schema: z.ZodType<T>): T | null {

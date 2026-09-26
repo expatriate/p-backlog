@@ -1,10 +1,9 @@
-import { mkdir, open } from "node:fs/promises";
+import { mkdir, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { DAY_MS, STATS_HISTORY_DAYS } from "../model/lifecycle";
 import { withFileLock } from "./file-lock";
-import { hasErrorCode } from "../errors";
-import { appendJsonLines, parseJson, readJsonLines, toJsonLines, writeFileAtomic } from "./fs-utils";
+import { appendJsonLines, parseJson, readAt, readJsonLines, toJsonLines, withExistingFile, writeFileAtomic } from "./fs-utils";
 
 export const RUNS_FILE = ".runs.jsonl";
 
@@ -55,18 +54,12 @@ export async function trimRunsWhenStale(root: string, now: Date): Promise<number
 type FirstRun = "none" | "unparsable" | number;
 
 async function firstRun(path: string): Promise<FirstRun> {
-  const file = await open(path, "r").catch((error: unknown) => {
-    if (hasErrorCode(error, "ENOENT")) return null;
-    throw error;
-  });
-  if (file === null) return "none";
-  try {
-    const { buffer, bytesRead } = await file.read(Buffer.alloc(FIRST_LINE_BYTES), 0, FIRST_LINE_BYTES, 0);
-    const [firstLine = ""] = buffer.toString("utf8", 0, bytesRead).split("\n");
-    if (firstLine.trim() === "") return "none";
-    const run = parseJson(firstLine, cliRunSchema);
-    return run === null ? "unparsable" : Date.parse(run.at);
-  } finally {
-    await file.close();
-  }
+  return (await withExistingFile(path, firstRunIn)) ?? "none";
+}
+
+async function firstRunIn(handle: FileHandle): Promise<FirstRun> {
+  const [firstLine = ""] = (await readAt(handle, 0, FIRST_LINE_BYTES)).toString("utf8").split("\n");
+  if (firstLine.trim() === "") return "none";
+  const run = parseJson(firstLine, cliRunSchema);
+  return run === null ? "unparsable" : Date.parse(run.at);
 }
