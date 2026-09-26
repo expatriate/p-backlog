@@ -19,16 +19,20 @@ export async function readTextOrNull(path: string): Promise<string | null> {
   }
 }
 
-type JsonLines<T> = { values: T[]; invalidLines: number };
+export type JsonLines<T> = { values: T[]; invalidLines: number };
 
-export async function readJsonLines<T>(path: string, schema: z.ZodType<T>): Promise<JsonLines<T>> {
-  const text = (await readTextOrNull(path)) ?? "";
+export function parseJsonLines<T>(text: string, schema: z.ZodType<T>): JsonLines<T> {
   const parsed = text
     .split("\n")
     .filter((line) => line.trim() !== "")
     .map((line) => parseJson(line, schema));
   const values = parsed.filter((value): value is T => value !== null);
   return { values, invalidLines: parsed.length - values.length };
+}
+
+export async function readJsonLines<T>(path: string, schema: z.ZodType<T>): Promise<JsonLines<T>> {
+  const text = (await readTextOrNull(path)) ?? "";
+  return parseJsonLines(text, schema);
 }
 
 export function toJsonLines(values: readonly unknown[]): string {
