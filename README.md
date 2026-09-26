@@ -309,3 +309,7 @@ To try a build the way a published package would install, without publishing it:
 ```bash
 npm pack && npm i -g ./p-backlog-0.2.0.tgz
 ```
+
+Releases are published to npm by the `Release` GitHub Actions workflow through npm Trusted Publishing: bump the
+version and the CHANGELOG, run `npm run plugins`, commit, push, then push the tag `v<version>` — the workflow checks that
+the tag matches `package.json`, runs the checks and publishes with provenance. No npm token is stored anywhere.

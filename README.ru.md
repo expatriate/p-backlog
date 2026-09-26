@@ -303,3 +303,8 @@ npm run screenshots               # скриншоты для README на дем
 ```bash
 npm pack && npm i -g ./p-backlog-0.2.0.tgz
 ```
+
+Версии публикует в npm workflow GitHub Actions `Release` через Trusted Publishing: поднимите версию и CHANGELOG,
+выполните `npm run plugins`, закоммитьте, запушьте и запушьте тег `v<версия>` — workflow проверит, что тег совпадает
+с `package.json`, прогонит проверки и опубликует пакет с подтверждением происхождения (provenance). Токен npm нигде не
+хранится.
