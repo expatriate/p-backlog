@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { relative, sep } from "node:path";
 import { errorText } from "../core/errors";
 import { projectGraphHealth } from "../core/check/graph-health";
 import { createCodeCacheFile } from "../core/code/code-cache";
@@ -35,7 +36,7 @@ type StatsApiOptions = {
   backlog: () => Promise<Pick<LoadedBacklog, "projects" | "tasks" | "errors">>;
 };
 
-type StatsApi = { routes: Hono; forget: () => void };
+type StatsApi = { routes: Hono; forget: (paths?: readonly string[]) => void };
 
 type StatsScope = { projectId: string | undefined; projects: Project[]; tasks: Task[]; unparsedTasks: UnparsedTask[]; snapshot: object };
 
@@ -46,6 +47,9 @@ type ScopedReport<R> = (sources: ReportSources) => R | Promise<R>;
 type ScopedReportOptions = { sourceKey?: (projects: readonly Project[]) => Promise<string>; wholeBacklog?: boolean };
 
 const REPORT_TTL_MS = 5 * 60 * 1000;
+const ALL_PROJECTS_TAG = "project:*";
+const WHOLE_BACKLOG_TAG = "whole-backlog";
+const projectTag = (projectId: string) => `project:${projectId}`;
 
 export function createStatsApi({ root, readLanguage, now, home, usage, memory, warn, backlog }: StatsApiOptions): StatsApi {
   const routes = new Hono();
@@ -59,12 +63,14 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
   const codeSource = createCodeSource({ home, store: createCodeCacheFile(root), onError: onCodeSourceError });
   const lookupRepoRoot = cachedRepoRoots();
   const sources = createStatsSources(root);
+  let knownProjectIds: readonly string[] = [];
 
   const statsScopeOf = async (c: Context, { wholeBacklog }: { wholeBacklog: boolean }): Promise<StatsScope | Response> => {
     const projectId = c.req.query("project") || undefined;
     const snapshot = await backlog();
     const { projects, tasks, errors } = snapshot;
-    sources.retain(projects.map((project) => project.id));
+    knownProjectIds = projects.map((project) => project.id);
+    sources.retain(knownProjectIds);
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
       return c.json({ errors: [serverMessages(await readLanguage()).projectNotFound(projectId)] }, 404);
     }
@@ -82,12 +88,17 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
       if (scope instanceof Response) return scope;
       const moment = now();
       const key = [name, scope.projectId ?? "*", formatLocalDay(moment), sourceKey === undefined ? "" : await sourceKey(scope.projects)].join("|");
-      const result = await reports.get(key, async () => {
-        const { journals, baseOf } = await sources.read(scope.snapshot, scope.projects.map((project) => project.id));
-        const input: StatsInput = { tasks: scope.tasks, journals, now: moment, projectId: scope.projectId, unparsedTasks: scope.unparsedTasks };
-        const wholeBacklogBase = () => baseOf("backlog", { ...input, projectId: undefined });
-        return report({ input, base: baseOf("scoped", input), projects: scope.projects, wholeBacklogBase });
-      });
+      const tags = wholeBacklog ? [WHOLE_BACKLOG_TAG] : [scope.projectId === undefined ? ALL_PROJECTS_TAG : projectTag(scope.projectId)];
+      const result = await reports.get(
+        key,
+        async () => {
+          const { journals, baseOf } = await sources.read(scope.snapshot, scope.projects.map((project) => project.id));
+          const input: StatsInput = { tasks: scope.tasks, journals, now: moment, projectId: scope.projectId, unparsedTasks: scope.unparsedTasks };
+          const wholeBacklogBase = () => baseOf("backlog", { ...input, projectId: undefined });
+          return report({ input, base: baseOf("scoped", input), projects: scope.projects, wholeBacklogBase });
+        },
+        tags,
+      );
       return c.json(result);
     };
 
@@ -128,7 +139,23 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
   });
   routes.get("/stats/memory", (c) => c.json({ samples: memory.samples() }));
 
-  return { routes, forget: () => reports.clear() };
+  const projectIdOfPath = (path: string): string | undefined => {
+    const [first] = relative(root, path).split(sep);
+    return knownProjectIds.find((id) => id === first);
+  };
+
+  const forget = (paths?: readonly string[]) => {
+    if (paths === undefined || paths.length === 0) return void reports.clear();
+    const changedProjectIds = new Set<string>();
+    for (const path of paths) {
+      const projectId = projectIdOfPath(path);
+      if (projectId === undefined) return void reports.clear();
+      changedProjectIds.add(projectId);
+    }
+    reports.clearTagged([ALL_PROJECTS_TAG, WHOLE_BACKLOG_TAG, ...[...changedProjectIds].map(projectTag)]);
+  };
+
+  return { routes, forget };
 }
 
 async function projectGraphs(projects: readonly Project[], tasks: readonly Task[], home: string): Promise<ProjectGraphRow[]> {

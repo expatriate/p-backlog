@@ -41,19 +41,19 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
   };
   const stats = createStatsApi({ root, readLanguage, now, home, usage, memory, warn, backlog });
   const graphStates = createReportCache({ ttlMs: GRAPH_STATE_TTL_MS, now: () => now().getTime() });
-  const forgetBacklog = () => {
+  const forgetBacklog = (paths?: readonly string[]) => {
     snapshot = null;
-    stats.forget();
+    stats.forget(paths);
     graphStates.clear();
   };
   const recordOwnWrites = async (writes: readonly OwnWrite[]) => {
     if (writes.length > 0) await revisions.recordOwnWrites(writes);
-    forgetBacklog();
+    forgetBacklog(writes.length > 0 ? writes.map((write) => write.path) : undefined);
   };
   const streams = new Set<(revision: Revision) => void>();
   changes.subscribe(async (paths) => {
-    if ((await revisions.settle(paths)) === "foreign") forgetBacklog();
-    else stats.forget();
+    if ((await revisions.settle(paths)) === "foreign") forgetBacklog(paths);
+    else stats.forget(paths);
     const revision = revisions.current();
     for (const send of streams) send(revision);
   });

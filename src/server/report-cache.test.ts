@@ -24,4 +24,18 @@ describe("кэш отчётов", () => {
     await expect(cache.get("k", async () => Promise.reject(new Error("git упал")))).rejects.toThrow("git упал");
     expect(await cache.get("k", async () => "ok")).toBe("ok");
   });
+
+  it("clearTagged убирает только записи с пересекающимися тегами", async () => {
+    const cache = createReportCache({ ttlMs: 1000, now: () => 0 });
+    let computedA = 0;
+    let computedB = 0;
+    const a = () => cache.get("a", async () => ++computedA, ["project:a", "project:*"]);
+    const b = () => cache.get("b", async () => ++computedB, ["project:b", "project:*"]);
+
+    expect([await a(), await b()]).toEqual([1, 1]);
+
+    cache.clearTagged(["project:a"]);
+
+    expect([await a(), await b()]).toEqual([2, 1]);
+  });
 });

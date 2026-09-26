@@ -503,6 +503,21 @@ describe("кэш отчётов", () => {
     expect(await openCount()).toBe(before + 2);
   });
 
+  it("изменение в проекте A не сбрасывает кэш отчёта проекта B, но сбрасывает «все проекты»", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const openOf = async (query: string) => ((await (await backlog.request(`/api/stats${query}`)).json()) as StatsReport).totals.open;
+    const bBefore = await openOf("?project=torg-io");
+    const allBefore = await openOf("");
+
+    await writeFiles(backlog.root, { "spa/SPA-7.md": taskFile("SPA-7") });
+    await backlog.emitChange([join(backlog.root, "spa", "SPA-7.md")]);
+
+    await writeFiles(backlog.root, { "torg-io/TI-2.md": taskFile("TI-2") });
+
+    expect(await openOf("?project=torg-io")).toBe(bBefore);
+    expect(await openOf("")).toBe(allBefore + 2);
+  });
+
   it("новый коммит в репозитории пересчитывает отчёт «Код» без изменения файлов беклога", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a\n" });
