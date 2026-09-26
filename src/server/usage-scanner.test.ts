@@ -15,7 +15,7 @@ describe("createUsageScanner", () => {
     const root = await makeTempDir();
     const scanner = scannerOf({ root, claudeProjectsDir: join(root, "does-not-exist") });
 
-    expect(scanner.snapshot()).toEqual({ cache: emptyUsageCache(), scan: { listed: false, filesTotal: 0, filesDone: 0, bytesLeft: 0 } });
+    expect(scanner.snapshot()).toEqual({ cache: emptyUsageCache(), scan: { listed: false, filesTotal: 0, filesDone: 0, bytesLeft: 0 }, revision: 0 });
   });
 
   it("нет каталога расшифровок — после прохода список получен и пуст", async () => {
@@ -64,6 +64,22 @@ describe("createUsageScanner", () => {
 
     await scanner.scanOnce();
     expect(scanner.snapshot().scan).toMatchObject({ filesDone: 2, bytesLeft: 0 });
+  });
+
+  it("revision растёт после прохода с новыми данными и не растёт после прохода без изменений", async () => {
+    const root = await makeTempDir();
+    const transcriptsDir = await makeTempDir();
+    const line = JSON.stringify({ type: "assistant", timestamp: "2026-09-19T09:00:00.000Z", cwd: "/x", message: { model: "claude-opus-5", usage: { input_tokens: 1, output_tokens: 1 } } });
+    await writeFiles(transcriptsDir, { "proj/a.jsonl": `${line}\n` });
+    const scanner = scannerOf({ root, claudeProjectsDir: transcriptsDir });
+    const before = scanner.snapshot().revision;
+
+    await scanner.scanOnce();
+    const afterFirstPass = scanner.snapshot().revision;
+    expect(afterFirstPass).toBeGreaterThan(before);
+
+    await scanner.scanOnce();
+    expect(scanner.snapshot().revision).toBe(afterFirstPass);
   });
 
   it("упавший проход не оставляет сканер в догоняющем режиме", async () => {

@@ -12,7 +12,7 @@ const RUNS_KEPT_DAYS = STATS_HISTORY_DAYS;
 const STALE_RUN_SLACK_DAYS = 1;
 const FIRST_LINE_BYTES = 4096;
 
-const cliRunSchema = z.object({
+export const cliRunSchema = z.object({
   at: z.iso.datetime({ offset: true }),
   command: z.string().min(1),
   cwd: z.string().min(1),

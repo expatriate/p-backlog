@@ -1,25 +1,37 @@
 import { join } from "node:path";
 import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../core/journal/events";
+import { formatLocalDay } from "../core/model/dates";
 import { reportBase, type ReportBase, type StatsInput } from "../core/stats/scope";
+import type { CostReport } from "../core/stats/types";
 import { JOURNAL_FILE, projectJournal } from "../core/store/journal";
 import { createJsonlTail, type JsonlTail } from "../core/store/jsonl-tail";
+import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
 
 type BaseSlot = "scoped" | "backlog";
 
 type ScopeSources = { journals: ProjectJournal[]; baseOf: (slot: BaseSlot, input: StatsInput) => ReportBase };
 
+type CostReportScope = { usageRevision: number; projectId: string | undefined; now: Date };
+
 export type StatsSources = {
   read: (snapshot: object, projectIds: readonly string[]) => Promise<ScopeSources>;
   retain: (projectIds: readonly string[]) => void;
+  costReport: (scope: CostReportScope, compute: (runs: readonly CliRun[]) => Promise<CostReport>) => Promise<CostReport>;
 };
 
 type TailedJournal = { journal: ProjectJournal; position: string };
 
 type RememberedBase = { projectId: string | undefined; snapshot: object; key: string; base: ReportBase };
 
+type RememberedCost = { key: string; report: Promise<CostReport> };
+
+const ALL_PROJECTS_SLOT = "*";
+
 export function createStatsSources(root: string): StatsSources {
   const tails = new Map<string, JsonlTail<JournalEvent>>();
   const bases = new Map<string, RememberedBase>();
+  const runsTail = createJsonlTail<CliRun>(join(root, RUNS_FILE), cliRunSchema);
+  const costMemos = new Map<string, RememberedCost>();
 
   const tailOf = (projectId: string) => {
     const known = tails.get(projectId);
@@ -52,8 +64,29 @@ export function createStatsSources(root: string): StatsSources {
     },
     retain: (projectIds) => {
       const kept = new Set(projectIds);
-      for (const projectId of tails.keys()) if (!kept.has(projectId)) tails.delete(projectId);
-      for (const [slotKey, { projectId }] of bases) if (projectId !== undefined && !kept.has(projectId)) bases.delete(slotKey);
+      pruneUnlessKept(tails, kept, (projectId) => projectId);
+      pruneUnlessKept(bases, kept, (_, { projectId }) => projectId);
+      pruneUnlessKept(costMemos, kept, (slot) => (slot === ALL_PROJECTS_SLOT ? undefined : slot));
+    },
+    costReport: async ({ usageRevision, projectId, now }, compute) => {
+      const { values: runs, length, generation } = await runsTail.read();
+      const slot = projectId ?? ALL_PROJECTS_SLOT;
+      const key = `${usageRevision}|${generation}:${length}|${slot}|${formatLocalDay(now)}`;
+      const remembered = costMemos.get(slot);
+      if (remembered?.key === key) return remembered.report;
+      const report = compute(runs);
+      costMemos.set(slot, { key, report });
+      report.catch(() => {
+        if (costMemos.get(slot)?.report === report) costMemos.delete(slot);
+      });
+      return report;
     },
   };
+}
+
+function pruneUnlessKept<K, V>(map: Map<K, V>, kept: ReadonlySet<string>, projectIdOf: (key: K, value: V) => string | undefined): void {
+  for (const [key, value] of map) {
+    const projectId = projectIdOf(key, value);
+    if (projectId !== undefined && !kept.has(projectId)) map.delete(key);
+  }
 }

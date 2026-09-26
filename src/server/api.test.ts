@@ -1,4 +1,4 @@
-import { appendFile, readFile } from "node:fs/promises";
+import { appendFile, readFile, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import type { BatchResponse, CodeReport, ConflictResponse, ProjectsResponse, Revision, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport, TasksResponse } from "../core/api/contract";
@@ -6,7 +6,10 @@ import { FileBusyError } from "../core/store/file-lock";
 import type { JournalEvent } from "../core/journal/events";
 import { appendJournal, readJournal, readJournals } from "../core/store/journal";
 import { loadBacklog, unparsedTasks } from "../core/store/load";
+import { costReport } from "../core/stats/cost/cost-report";
 import { statsReport } from "../core/stats/report";
+import { readRuns } from "../core/store/runs";
+import type { UsageCache } from "../core/usage/usage-cache";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
@@ -738,6 +741,42 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     expect(report.totals.cost ?? 0).toBeGreaterThan(0);
 
     expect((await backlog.request("/api/stats/cost?project=nope")).status).toBe(404);
+  });
+
+  it("новый запуск CLI попадает в отчёт", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    await backlog.usage.scanOnce();
+    const runsPath = join(backlog.root, ".runs.jsonl");
+    await writeFile(runsPath, `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd: "/tmp/repo", ms: 10, rssMb: 50, exitCode: 0 })}\n`, "utf8");
+
+    const before = (await (await backlog.request("/api/stats/cost")).json()) as CostReport;
+    expect(before.totals.cliRuns).toBe(1);
+
+    await appendFile(runsPath, `${JSON.stringify({ at: "2026-09-18T09:05:00+03:00", command: "show", cwd: "/tmp/repo", ms: 20, rssMb: 60, exitCode: 0 })}\n`, "utf8");
+
+    const after = (await (await backlog.request("/api/stats/cost")).json()) as CostReport;
+    expect(after.totals.cliRuns).toBe(2);
+    expect(after.commands.map((row) => row.command)).toContain("show");
+  });
+
+  it("обрезка журнала запусков не ломает отчёт: результат равен пересчёту с нуля", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    await backlog.usage.scanOnce();
+    const runsPath = join(backlog.root, ".runs.jsonl");
+    const runs = [
+      { at: "2026-09-18T09:00:00+03:00", command: "list", cwd: "/tmp/repo", ms: 10, rssMb: 50, exitCode: 0 },
+      { at: "2026-09-18T09:05:00+03:00", command: "show", cwd: "/tmp/repo", ms: 20, rssMb: 60, exitCode: 0 },
+    ];
+    await writeFile(runsPath, runs.map((run) => `${JSON.stringify(run)}\n`).join(""), "utf8");
+    await backlog.request("/api/stats/cost");
+
+    await writeFile(runsPath, `${JSON.stringify(runs[1])}\n`, "utf8");
+    const report = (await (await backlog.request("/api/stats/cost")).json()) as CostReport;
+
+    const { cache, scan } = backlog.usage.snapshot();
+    const buckets = Object.values((cache as UsageCache).files).flatMap((entry) => entry.buckets);
+    const fresh = costReport({ buckets, runs: await readRuns(backlog.root), projectOf: () => null, now: TEST_NOW, scan });
+    expect(report).toEqual(JSON.parse(JSON.stringify(fresh)));
   });
 
   it("отдаёт точки памяти сервера", async () => {

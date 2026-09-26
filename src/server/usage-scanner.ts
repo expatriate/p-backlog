@@ -20,7 +20,7 @@ export type UsageScanner = {
   stop: () => Promise<void>;
   scanOnce: () => Promise<void>;
   ensureStarted: () => void;
-  snapshot: () => { cache: UsageCache; scan: ScanProgress };
+  snapshot: () => { cache: UsageCache; scan: ScanProgress; revision: number };
 };
 
 const DEFAULT_BYTE_BUDGET = 16 * 1024 * 1024;
@@ -39,18 +39,25 @@ export function createUsageScanner({
 }: UsageScannerOptions): UsageScanner {
   let cache: UsageCache | null = null;
   let scan: ScanProgress = NOT_LISTED;
+  let revision = 0;
   let inFlight: Promise<void> | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let running = false;
   let budgetExhausted = false;
 
+  const setScan = (next: ScanProgress): void => {
+    if (!scanEquals(scan, next)) revision += 1;
+    scan = next;
+  };
+
   const runPass = async (): Promise<void> => {
     const current = cache ?? (await readUsageCache(root));
     const files = await listTranscripts(claudeProjectsDir);
-    scan = progressBefore(files, current);
+    setScan(progressBefore(files, current));
     const result = await scanTranscripts({ files, cache: current, byteBudget, now: now() });
+    if (result.bytesRead > 0) revision += 1;
     cache = result.cache;
-    scan = { listed: true, filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft };
+    setScan({ listed: true, filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft });
     budgetExhausted = result.bytesRead >= byteBudget;
     if (result.bytesRead > 0) await writeUsageCache(root, result.cache);
   };
@@ -87,8 +94,12 @@ export function createUsageScanner({
     ensureStarted: () => {
       if (!scan.listed && inFlight === null) void scanOnce();
     },
-    snapshot: () => ({ cache: cache ?? emptyUsageCache(), scan }),
+    snapshot: () => ({ cache: cache ?? emptyUsageCache(), scan, revision }),
   };
+}
+
+function scanEquals(a: ScanProgress, b: ScanProgress): boolean {
+  return a.listed === b.listed && a.filesTotal === b.filesTotal && a.filesDone === b.filesDone && a.bytesLeft === b.bytesLeft;
 }
 
 function progressBefore(files: readonly TranscriptFile[], cache: UsageCache): ScanProgress {

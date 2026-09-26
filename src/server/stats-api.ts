@@ -16,7 +16,6 @@ import { statsSignals } from "../core/stats/signals/signals";
 import type { CodeReport, CostReport, EffectReport, ProjectGraphRow, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
 import { unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/store/load";
 import { cachedRepoRoots, findProjectForRoots, type GitRoots, type RepoRootLookup } from "../core/store/resolve-project";
-import { readRuns } from "../core/store/runs";
 import type { UsageCache } from "../core/usage/usage-cache";
 import type { Language } from "../core/i18n/language";
 import { serverMessages } from "./messages";
@@ -116,15 +115,17 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
 
   const statsOfCost = async (projectId: string | undefined, projects: readonly Project[]): Promise<CostReport> => {
     usage.ensureStarted();
-    const { cache, scan } = usage.snapshot();
-    const buckets = bucketsOf(cache);
-    const runs = await readRuns(root);
-    const repoRoots = projectId === undefined ? new Map<string, GitRoots | null>() : await resolveRepoRoots(lookupRepoRoot, [...buckets, ...runs].map((entry) => entry.cwd));
-    const projectOf = (cwd: string) => {
-      const roots = repoRoots.get(cwd) ?? null;
-      return roots === null ? null : (findProjectForRoots(projects, roots, home)?.id ?? null);
-    };
-    return costReport({ buckets, runs, projectOf, projectId, now: now(), scan });
+    const { cache, scan, revision } = usage.snapshot();
+    const moment = now();
+    return sources.costReport({ usageRevision: revision, projectId, now: moment }, async (runs) => {
+      const buckets = bucketsOf(cache);
+      const repoRoots = projectId === undefined ? new Map<string, GitRoots | null>() : await resolveRepoRoots(lookupRepoRoot, [...buckets, ...runs].map((entry) => entry.cwd));
+      const projectOf = (cwd: string) => {
+        const roots = repoRoots.get(cwd) ?? null;
+        return roots === null ? null : (findProjectForRoots(projects, roots, home)?.id ?? null);
+      };
+      return costReport({ buckets, runs, projectOf, projectId, now: moment, scan });
+    });
   };
 
   const codeState = { sourceKey: (projects: readonly Project[]) => codeSource.stateKey(projects) };
