@@ -16,12 +16,14 @@ export type UsageScannerOptions = {
   now?: () => Date;
 };
 
+export type UsageSnapshot = { cache: UsageCache; scan: ScanProgress; revision: number };
+
 export type UsageScanner = {
   start: () => void;
   stop: () => Promise<void>;
   scanOnce: () => Promise<void>;
   ensureStarted: () => void;
-  snapshot: () => { cache: UsageCache; scan: ScanProgress; revision: number };
+  snapshot: () => UsageSnapshot;
 };
 
 const DEFAULT_BYTE_BUDGET = 16 * 1024 * 1024;

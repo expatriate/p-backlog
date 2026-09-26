@@ -1,22 +1,28 @@
 import { join } from "node:path";
 import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../core/journal/events";
 import { formatLocalDay } from "../core/model/dates";
+import type { Project } from "../core/model/types";
 import { reportBase, type ReportBase, type StatsInput } from "../core/stats/scope";
 import type { CostReport } from "../core/stats/types";
 import { JOURNAL_FILE, projectJournal } from "../core/store/journal";
 import { createJsonlTail, type JsonlTail } from "../core/store/jsonl-tail";
 import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
+import type { UsageSnapshot } from "./usage-scanner";
 
 type BaseSlot = "scoped" | "backlog";
 
 type ScopeSources = { journals: ProjectJournal[]; baseOf: (slot: BaseSlot, input: StatsInput) => ReportBase };
 
-type CostReportScope = { usageRevision: number; projectId: string | undefined; now: Date; snapshot: object };
+type CostScope = { snapshot: object; projectId: string | undefined; projects: readonly Project[] };
+
+export type CostInputs = { usage: UsageSnapshot; runs: readonly CliRun[]; scope: CostScope; now: Date };
+
+type CostRequest = Omit<CostInputs, "runs">;
 
 export type StatsSources = {
   read: (snapshot: object, projectIds: readonly string[]) => Promise<ScopeSources>;
   retain: (projectIds: readonly string[]) => void;
-  costReport: (scope: CostReportScope, compute: (runs: readonly CliRun[]) => Promise<CostReport>) => Promise<CostReport>;
+  costReport: (request: CostRequest) => Promise<CostReport>;
 };
 
 type TailedJournal = { journal: ProjectJournal; position: string };
@@ -27,7 +33,7 @@ type RememberedCost = { key: string; report: Promise<CostReport> };
 
 const ALL_PROJECTS_SLOT = "*";
 
-export function createStatsSources(root: string): StatsSources {
+export function createStatsSources(root: string, computeCost: (inputs: CostInputs) => Promise<CostReport>): StatsSources {
   const tails = new Map<string, JsonlTail<JournalEvent>>();
   const bases = new Map<string, RememberedBase>();
   const runsTail = createJsonlTail<CliRun>(join(root, RUNS_FILE), cliRunSchema);
@@ -78,13 +84,20 @@ export function createStatsSources(root: string): StatsSources {
       pruneUnlessKept(bases, kept, (_, { projectId }) => projectId);
       pruneUnlessKept(costMemos, kept, (slot) => (slot === ALL_PROJECTS_SLOT ? undefined : slot));
     },
-    costReport: async ({ usageRevision, projectId, now, snapshot }, compute) => {
+    costReport: async (request) => {
       const { values: runs, length, generation } = await runsTail.read();
-      const slot = projectId ?? ALL_PROJECTS_SLOT;
-      const key = `${snapshotIdOf(snapshot)}|${usageRevision}|${generation}:${length}|${slot}|${formatLocalDay(now)}`;
+      const inputs: CostInputs = { ...request, runs };
+      const slot = inputs.scope.projectId ?? ALL_PROJECTS_SLOT;
+      const keyParts: Record<keyof CostInputs, string> = {
+        usage: `${inputs.usage.revision}`,
+        runs: `${generation}:${length}`,
+        scope: `${snapshotIdOf(inputs.scope.snapshot)}/${slot}`,
+        now: formatLocalDay(inputs.now),
+      };
+      const key = Object.values(keyParts).join("|");
       const remembered = costMemos.get(slot);
       if (remembered?.key === key) return remembered.report;
-      const report = compute(runs);
+      const report = computeCost(inputs);
       costMemos.set(slot, { key, report });
       report.catch(() => {
         if (costMemos.get(slot)?.report === report) costMemos.delete(slot);

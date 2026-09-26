@@ -21,7 +21,7 @@ import type { Language } from "../core/i18n/language";
 import { serverMessages } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createReportCache } from "./report-cache";
-import { createStatsSources } from "./stats-sources";
+import { createStatsSources, type CostInputs } from "./stats-sources";
 import type { UsageScanner } from "./usage-scanner";
 
 type StatsApiOptions = {
@@ -61,7 +61,7 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
     });
   const codeSource = createCodeSource({ home, store: createCodeCacheFile(root), onError: onCodeSourceError });
   const lookupRepoRoot = cachedRepoRoots();
-  const sources = createStatsSources(root);
+  const sources = createStatsSources(root, (inputs) => costOf(inputs, home, lookupRepoRoot));
   let knownProjectIds: readonly string[] = [];
 
   const statsScopeOf = async (c: Context, { wholeBacklog }: { wholeBacklog: boolean }): Promise<StatsScope | Response> => {
@@ -113,21 +113,6 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
 
   const statsOfQuality: ScopedReport<QualityReport> = async ({ input, base, projects }) => qualityReport(input, base, await projectGraphs(projects, input.tasks, home));
 
-  const statsOfCost = async (projectId: string | undefined, projects: readonly Project[], snapshot: object): Promise<CostReport> => {
-    usage.ensureStarted();
-    const { cache, scan, revision } = usage.snapshot();
-    const moment = now();
-    return sources.costReport({ usageRevision: revision, projectId, now: moment, snapshot }, async (runs) => {
-      const buckets = bucketsOf(cache);
-      const repoRoots = projectId === undefined ? new Map<string, GitRoots | null>() : await resolveRepoRoots(lookupRepoRoot, [...buckets, ...runs].map((entry) => entry.cwd));
-      const projectOf = (cwd: string) => {
-        const roots = repoRoots.get(cwd) ?? null;
-        return roots === null ? null : (findProjectForRoots(projects, roots, home)?.id ?? null);
-      };
-      return costReport({ buckets, runs, projectOf, projectId, now: moment, scan });
-    });
-  };
-
   const codeState = { sourceKey: (projects: readonly Project[]) => codeSource.stateKey(projects) };
   routes.get("/stats", scopedStats("stats", ({ input, base }) => statsReport(input, base)));
   routes.get("/stats/code", scopedStats("code", statsOfCode, codeState));
@@ -136,7 +121,10 @@ export function createStatsApi({ root, readLanguage, now, home, usage, memory, w
   routes.get("/stats/signals", scopedStats("signals", ({ input, base }) => ({ signals: statsSignals(input, base) })));
   routes.get("/stats/cost", async (c) => {
     const scope = await statsScopeOf(c, { wholeBacklog: true });
-    return scope instanceof Response ? scope : c.json(await statsOfCost(scope.projectId, scope.projects, scope.snapshot));
+    if (scope instanceof Response) return scope;
+    usage.ensureStarted();
+    const { snapshot, projectId, projects } = scope;
+    return c.json(await sources.costReport({ usage: usage.snapshot(), scope: { snapshot, projectId, projects }, now: now() }));
   });
   routes.get("/stats/memory", (c) => c.json({ samples: memory.samples() }));
 
@@ -163,6 +151,16 @@ async function projectGraphs(projects: readonly Project[], tasks: readonly Task[
   return Promise.all(
     projects.map(async (project) => ({ projectId: project.id, name: project.name, ...(await projectGraphHealth(project, tasks, home)) })),
   );
+}
+
+async function costOf({ usage: { cache, scan }, runs, scope: { projectId, projects }, now }: CostInputs, home: string, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
+  const buckets = bucketsOf(cache);
+  const repoRoots = projectId === undefined ? new Map<string, GitRoots | null>() : await resolveRepoRoots(lookupRepoRoot, [...buckets, ...runs].map((entry) => entry.cwd));
+  const projectOf = (cwd: string) => {
+    const roots = repoRoots.get(cwd) ?? null;
+    return roots === null ? null : (findProjectForRoots(projects, roots, home)?.id ?? null);
+  };
+  return costReport({ buckets, runs, projectOf, projectId, now, scan });
 }
 
 function bucketsOf(cache: UsageCache) {
