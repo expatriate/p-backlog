@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0
 
 - Statistics on the server read only what was appended to project journals and the CLI run log, keep parsed task
   histories between requests, and rescan git only for new commits (a new day no longer rescans the 90-day window, and
