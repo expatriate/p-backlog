@@ -759,6 +759,24 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     expect(after.commands.map((row) => row.command)).toContain("show");
   });
 
+  it("запуск CLI, дописанный без перевода строки, попадает в отчёт, как при чтении журнала целиком", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    await backlog.usage.scanOnce();
+    const runsPath = join(backlog.root, ".runs.jsonl");
+    const secondRun = JSON.stringify({ at: "2026-09-18T09:05:00+03:00", command: "show", cwd: "/tmp/repo", ms: 20, rssMb: 60, exitCode: 0 });
+    const cutAt = secondRun.indexOf("show");
+    await writeFile(runsPath, `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd: "/tmp/repo", ms: 10, rssMb: 50, exitCode: 0 })}\n${secondRun.slice(0, cutAt)}`, "utf8");
+
+    const before = (await (await backlog.request("/api/stats/cost")).json()) as CostReport;
+    expect(before.totals.cliRuns).toBe(1);
+
+    await appendFile(runsPath, secondRun.slice(cutAt), "utf8");
+
+    const after = (await (await backlog.request("/api/stats/cost")).json()) as CostReport;
+    expect(after.totals.cliRuns).toBe((await readRuns(backlog.root)).length);
+    expect(after.totals.cliRuns).toBe(2);
+  });
+
   it("правка repos в project.md сразу меняет привязку «Стоимости» — без новых запусков и без нового дня", async () => {
     const home = await makeTempDir();
     const primaryRepo = await makeGitRepo(home, "spa");

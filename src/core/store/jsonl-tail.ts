@@ -28,8 +28,8 @@ export function createJsonlTail<T>(path: string, schema: z.ZodType<T>): JsonlTai
   async function doRead(): Promise<TailRead<T>> {
     const size = await sizeOrNull(path);
     if (size === null || size < state.offset || !(await headMatches())) restart();
-    if (size !== null && size > state.offset) await appendFrom(size);
-    return { values: [...state.values], invalidLines: state.invalidLines, length: state.offset, generation };
+    const pending = size !== null && size > state.offset ? await consumeUpTo(size) : { values: [], invalidLines: 0, bytes: 0 };
+    return { values: [...state.values, ...pending.values], invalidLines: state.invalidLines + pending.invalidLines, length: state.offset + pending.bytes, generation };
   }
 
   function restart(): void {
@@ -43,13 +43,16 @@ export function createJsonlTail<T>(path: string, schema: z.ZodType<T>): JsonlTai
     return (await headFingerprintAt(state.offset)) === state.headFingerprint;
   }
 
-  async function appendFrom(size: number): Promise<void> {
+  async function consumeUpTo(size: number): Promise<JsonLines<T> & { bytes: number }> {
     const chunk = await readAt(state.offset, size - state.offset);
-    const lastNewline = chunk.lastIndexOf(NEWLINE);
-    if (lastNewline === -1) return;
-    const parsed = parseJsonLines(chunk.subarray(0, lastNewline + 1).toString("utf8"), schema);
-    const offset = state.offset + lastNewline + 1;
-    state = { offset, headFingerprint: await headFingerprintAt(offset), values: [...state.values, ...parsed.values], invalidLines: state.invalidLines + parsed.invalidLines };
+    const completeLength = chunk.lastIndexOf(NEWLINE) + 1;
+    if (completeLength > 0) {
+      const parsed = parseJsonLines(chunk.subarray(0, completeLength).toString("utf8"), schema);
+      const offset = state.offset + completeLength;
+      state = { offset, headFingerprint: await headFingerprintAt(offset), values: [...state.values, ...parsed.values], invalidLines: state.invalidLines + parsed.invalidLines };
+    }
+    const pending = chunk.subarray(completeLength);
+    return { ...parseJsonLines(pending.toString("utf8"), schema), bytes: pending.length };
   }
 
   async function headFingerprintAt(offset: number): Promise<string> {

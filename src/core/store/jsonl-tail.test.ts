@@ -22,18 +22,18 @@ describe("createJsonlTail", () => {
     expect(result).toMatchObject(await readJsonLines(path, SCHEMA));
   });
 
-  it("недописанная строка учитывается после дописывания", async () => {
+  it("последняя строка без перевода строки — результат равен полному чтению до и после дописывания", async () => {
     const root = await makeTempDir();
     const path = join(root, "log.jsonl");
-    await writeFile(path, `${JSON.stringify({ n: 1 })}\n`);
+    await writeFile(path, `${JSON.stringify({ n: 1 })}\n${JSON.stringify({ n: 5 })}`);
     const tail = createJsonlTail(path, SCHEMA);
-    await tail.read();
+    expect(await tail.read()).toMatchObject(await readJsonLines(path, SCHEMA));
 
-    await appendFile(path, JSON.stringify({ n: 5 }));
-    expect((await tail.read()).values).toEqual([{ n: 1 }]);
+    await appendFile(path, `\n{"n":`);
+    expect(await tail.read()).toMatchObject(await readJsonLines(path, SCHEMA));
 
-    await appendFile(path, "\n");
-    expect((await tail.read()).values).toEqual([{ n: 1 }, { n: 5 }]);
+    await appendFile(path, `6}\n`);
+    expect(await tail.read()).toMatchObject(await readJsonLines(path, SCHEMA));
   });
 
   it("укороченный файл перечитывается целиком", async () => {
