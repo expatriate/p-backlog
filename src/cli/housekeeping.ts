@@ -10,11 +10,11 @@ import { cliMessages } from "./messages";
 export type HousekeepingRun = { backlogRoot: string; argv: readonly string[]; env: NodeJS.ProcessEnv; now: Date; warn: (line: string) => void };
 
 export async function tidyAfterCommand({ backlogRoot, argv, env, now, warn }: HousekeepingRun): Promise<void> {
-  if (argv[0] === hookCommand.name) return;
   const language = await readLanguage(backlogRoot, env).catch(() => localeLanguage(env));
   const messages = cliMessages(language);
   const compactionFailed = (dir: string, error: unknown) => warn(messages.journalNotCompacted(dir, errorText(error)));
   await trimRunsWhenStale(backlogRoot, now).catch((error: unknown) => warn(messages.runsNotTrimmed(errorText(error))));
+  if (argv[0] === hookCommand.name) return;
   await sweepClosedWhenDue(backlogRoot, now, coreMessages(language)).catch((error: unknown) => warn(messages.closedNotSwept(errorText(error))));
   await compactJournalsWhenDue(backlogRoot, now, compactionFailed).catch((error: unknown) => compactionFailed(backlogRoot, error));
 }
