@@ -30,9 +30,9 @@ export function effectReport(
   const { histories } = base;
   const reportPeriod = statsPeriod(now);
   const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
-  const commitSharers = histories.filter((history) => closedSince(history, retainedSince(now)));
-  const deferred = buildDeferred(histories.filter((history) => reportPeriod.contains(history.createdAt)), commitSharers, code);
-  const estimate = estimator(estimateSamples(wholeBacklog.histories, code));
+  const retainedFixes = (pool: readonly TaskHistory[]) => pool.filter((history) => closedSince(history, retainedSince(now)));
+  const deferred = buildDeferred(histories.filter((history) => reportPeriod.contains(history.createdAt)), retainedFixes(histories), code);
+  const estimate = estimator(estimateSamples(retainedFixes(wholeBacklog.histories), code));
   const adoptionStart = (id: string) => {
     const firstCreated = smallest(histories.filter((history) => history.projectId === id).map((history) => history.createdAt));
     return firstCreated === null ? reportPeriod.from : Math.max(reportPeriod.from, firstCreated);

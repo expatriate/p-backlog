@@ -8,7 +8,7 @@ import { qualityReport } from "../stats/quality/quality-report";
 import { statsReport } from "../stats/report";
 import { reportBase, type StatsInput } from "../stats/scope";
 import { statsSignals } from "../stats/signals/signals";
-import type { CollectedCode } from "../stats/types";
+import type { CollectedCode, FixCommit } from "../stats/types";
 import { JOURNAL_FILE, readJournal, readJournals } from "./journal";
 import { compactJournal } from "./journal-compaction";
 import { loadBacklog, taskIdsOnDisk, unparsedTasks } from "./load";
@@ -24,7 +24,11 @@ const CODE: CollectedCode = {
     { projectId: "ti", name: "ti", repos: [repoWithUnits] },
   ],
   unavailableRepos: [],
-  fixCommits: new Map([["spa abc1234", { date: "2026-09-05T09:00:00+03:00", byAgent: true, lines: 12, testLines: 4 }]]),
+  fixCommits: new Map([
+    ["spa abc1234", { date: "2026-09-05T09:00:00+03:00", byAgent: true, lines: 12, testLines: 4 }],
+    ...[1, 2, 3, 4].map((lines): [string, FixCommit] => [`ti aaa000${lines}`, { date: "2026-09-01T09:00:00+03:00", byAgent: true, lines, testLines: 0 }]),
+    ["ti bbb0008", { date: "2026-09-08T09:00:00+03:00", byAgent: true, lines: 100, testLines: 0 }],
+  ]),
 };
 
 const at = (day: string) => `${day}T10:00:00+03:00`;
@@ -82,10 +86,20 @@ const SPA_JOURNAL = [
 const TI_JOURNAL = [
   created("TI-1", "2026-01-01", "epic"),
   deleted("TI-1", "2026-01-20", { type: "epic", status: "cancelled", created: at("2026-01-01"), closed: at("2026-01-20"), resolution: "obsolete", reason: "не нужен" }),
+  created("TI-8", "2026-02-01"),
+  status("TI-8", "2026-03-01", "backlog", "done", "fixed"),
+  deleted("TI-8", "2026-03-05", { status: "done", category: "bug", created: at("2026-02-01"), closed: at("2026-03-01"), resolution: "fixed", reason: "bbb0008" }),
   status("TI-2", "2026-03-19", "backlog", "done", "fixed"),
   deleted("TI-2", "2026-03-20", { status: "done", created: at("2025-11-01"), closed: at("2026-03-19"), resolution: "fixed", reason: "готово" }),
+  created("TI-9", "2026-08-01"),
+  status("TI-9", "2026-09-08", "backlog", "done", "fixed"),
   created("TI-3", "2026-09-10"),
+  deleted("TI-9", "2026-09-15", { status: "done", category: "bloaters", created: at("2026-08-01"), closed: at("2026-09-08"), resolution: "fixed", reason: "bbb0008" }),
 ];
+
+const TI_BUG_FIXES = Object.fromEntries(
+  [1, 2, 3, 4].map((index) => [join("ti", `TI-${index + 3}.md`), taskText(`TI-${index + 3}`, "2026-07-15", `category: bug\nstatus: done\nclosed: ${at("2026-09-01")}\nresolution: fixed\nreason: aaa000${index}\n`)]),
+);
 
 async function spaProject(journal: readonly unknown[] = SPA_JOURNAL): Promise<{ root: string; dir: string }> {
   const root = await makeTempDir();
@@ -104,7 +118,8 @@ async function spaProject(journal: readonly unknown[] = SPA_JOURNAL): Promise<{ 
 async function addTiProject(root: string): Promise<string> {
   await writeFiles(root, {
     [join("ti", PROJECT_FILE)]: projectFile("TI"),
-    [join("ti", "TI-3.md")]: taskText("TI-3", "2026-09-10"),
+    [join("ti", "TI-3.md")]: taskText("TI-3", "2026-09-10", "category: bug\n"),
+    ...TI_BUG_FIXES,
     [join("ti", JOURNAL_FILE)]: journalText(TI_JOURNAL),
   });
   return join(root, "ti");
