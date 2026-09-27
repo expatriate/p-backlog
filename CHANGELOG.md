@@ -2,16 +2,32 @@
 
 ## Unreleased
 
-- Project journals are compacted once a day, by the service and after CLI commands: events of tasks whose files
-  disappeared more than 13 weeks ago and check events (`candidate`, `candidate-gone`, `candidate-filtered`,
-  `verified`) older than 13 weeks are removed; the history of existing tasks, the event that opened a still-open
-  check episode and the earliest event stay, so no statistics report changes.
-- The graph filter records a filtered candidate once per check episode instead of on every check.
-- The usage cache drops usage older than 13 weeks; "By model" now covers the last 30 days.
+- Project journals are compacted once a day, by the service and after CLI commands other than the agent hook. Removed:
+  events of tasks whose file no longer exists and whose last event is older than 13 weeks; check events (`candidate`,
+  `candidate-gone`, `candidate-filtered`, `verified`) older than 13 weeks; unreadable journal lines written before the
+  first event of the last 13 weeks. Kept: the whole history of tasks whose file exists, the event that opened a
+  still-open check episode and the earliest event. Statistics reports stay the same after compaction; only the
+  journal's own line counters (task count, unreadable and unknown lines) change.
+- Effect splits a commit shared by several fixes, and takes the samples for the pending estimate, only from fixes
+  closed within the last 13 weeks, so compaction cannot change them. Numbers on the Effect tab may shift slightly after
+  updating.
+- The graph filter records a filtered candidate once per check episode instead of on every check. "Filtered out" in
+  the Code graph panel of the Quality tab now counts episodes; repeats recorded before the update stay in the count until they age out of
+  the 12-week window.
+- The usage cache drops usage older than 13 weeks; "By model" now covers the last 30 days. The Cost tab says since
+  which date usage data exists when it starts inside the 12-week window.
+- The CLI run log is kept for 13 weeks (was 12), and the agent hook trims it too, so without the service it no longer
+  grows with every agent turn.
 - On macOS the service log is trimmed to its last 256 KB once it exceeds 1 MB.
-- Without the service, closed tasks older than 7 days are deleted after a CLI command at most once a day.
-- Every statistics panel shows its period with dates; the Effect tab says "over 12 weeks (since adoption, if
-  later)".
+- Without the service, closed tasks older than 7 days are deleted after a CLI command other than the agent hook, at
+  most once a day, and the command warns about tasks it could not update and files that keep epics open. The service
+  marks its own hourly sweep, so while it runs the CLI does not repeat the sweep. The service's cleanup steps (closed
+  tasks, journal compaction, run log, service log) no longer stop each other when one fails.
+- Every statistics panel shows its period with dates; the Effect tab says "over 12 weeks (since adoption, if later)".
+  The "90 days" code churn caption spans exactly 90 calendar days. The Effect chart's bars are labelled "on topic in
+  pull requests": pull request lines without the fixes of backlog tasks; "in pull requests" everywhere else means all
+  lines of the commits.
+- After updating, reinstall the service (`backlog service install`) so the running server serves the new API.
 
 ## 0.6.0
 

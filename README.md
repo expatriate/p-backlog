@@ -134,7 +134,7 @@ If there's no project yet, `backlog new` creates it.
 
 | File | Stores | Kept for |
 | --- | --- | --- |
-| Task files | One closed task per file | 7 days after closing, then deleted (service: hourly; without the service: once a day, after a CLI command other than the agent hook) |
+| Task files | One file per task, closed ones included | 7 days after closing, then deleted (service: hourly; without the service: once a day, after a CLI command other than the agent hook) |
 | `journal.jsonl` | Per-project history of task and check events | Full history for tasks whose file still exists; other events for 13 weeks (compacted once a day, by the service and after CLI commands other than the agent hook) |
 | `.runs.jsonl` | CLI run log | 13 weeks |
 | `.usage-cache.json` | Claude Code usage parsed from transcripts | 13 weeks |
