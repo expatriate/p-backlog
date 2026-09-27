@@ -1,8 +1,9 @@
-import { readFile, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { candidateEvents, episodeStates } from "../journal/events";
 import { effectReport } from "../stats/effect/effect-report";
+import { flowForecast } from "../stats/flow/forecast";
 import { qualityReport } from "../stats/quality/quality-report";
 import { statsReport } from "../stats/report";
 import { reportBase, type StatsInput } from "../stats/scope";
@@ -10,20 +11,24 @@ import { statsSignals } from "../stats/signals/signals";
 import type { CollectedCode } from "../stats/types";
 import { JOURNAL_FILE, readJournal, readJournals } from "./journal";
 import { compactJournal } from "./journal-compaction";
-import { loadBacklog, taskIdsOnDisk } from "./load";
+import { loadBacklog, taskIdsOnDisk, unparsedTasks } from "./load";
 import { PROJECT_FILE } from "./paths";
 import { makeTempDir, projectFile, writeFiles } from "./testing/temp-dirs";
 
 const NOW = new Date("2026-09-27T12:00:00+03:00");
 const FILE_COUNTERS = { taskCount: 0, invalidJournalLines: 0, unknownJournalLines: 0 };
+const repoWithUnits = { commits: [], lines: [], units: [{ date: "2026-09-06T10:00:00+03:00", lines: 100 }] };
 const CODE: CollectedCode = {
-  projects: [{ projectId: "spa", name: "spa", repos: [{ commits: [], lines: [], units: [{ date: "2026-09-06T10:00:00+03:00", lines: 100 }] }] }],
+  projects: [
+    { projectId: "spa", name: "spa", repos: [repoWithUnits] },
+    { projectId: "ti", name: "ti", repos: [repoWithUnits] },
+  ],
   unavailableRepos: [],
   fixCommits: new Map([["spa abc1234", { date: "2026-09-05T09:00:00+03:00", byAgent: true, lines: 12, testLines: 4 }]]),
 };
 
 const at = (day: string) => `${day}T10:00:00+03:00`;
-const created = (task: string, day: string) => ({ at: at(day), task, via: "cli", kind: "created", type: "task", priority: "medium", tags: [] });
+const created = (task: string, day: string, type = "task") => ({ at: at(day), task, via: "cli", kind: "created", type, priority: "medium", tags: [] });
 const status = (task: string, day: string, from: string, to: string, resolution?: string) => ({ at: at(day), task, via: "cli", kind: "status", from, to, resolution });
 const candidate = (task: string, day: string, evidence: string) => ({ at: at(day), task, via: "check", kind: "candidate", evidence, mode: "full" });
 const candidateGone = (task: string, day: string, evidence: string) => ({ at: at(day), task, via: "check", kind: "candidate-gone", evidence });
@@ -44,44 +49,82 @@ const SPA_JOURNAL = [
   created("SPA-1", "2026-01-10"),
   created("SPA-2", "2026-02-01"),
   created("SPA-3", "2026-02-05"),
+  created("SPA-9", "2026-02-10"),
   created("SPA-5", "2026-02-15"),
+  created("SPA-8", "2026-02-20"),
+  created("SPA-6", "2026-02-25"),
   status("SPA-1", "2026-03-01", "backlog", "in-progress"),
   status("SPA-5", "2026-03-01", "backlog", "in-progress"),
+  status("SPA-9", "2026-03-01", "backlog", "in-progress"),
+  candidate("SPA-5", "2026-03-02", "source-changed"),
+  candidate("SPA-8", "2026-03-05", "source-changed"),
+  status("SPA-8", "2026-03-06", "backlog", "done", "fixed"),
+  { ...status("SPA-8", "2026-03-07", "done", "backlog"), undo: true },
   "не json",
   status("SPA-3", "2026-03-10", "backlog", "done", "fixed"),
   deleted("SPA-3", "2026-03-17", { status: "done", created: at("2026-02-05"), closed: at("2026-03-10"), resolution: "fixed", reason: "готово" }),
+  status("SPA-6", "2026-03-12", "backlog", "done", "fixed"),
+  deleted("SPA-6", "2026-03-18", { status: "done", created: at("2026-02-25"), closed: at("2026-03-12"), resolution: "fixed", reason: "abc1234" }),
   created("SPA-4", "2026-04-01"),
   candidate("SPA-1", "2026-04-10", "source-changed"),
   candidateGone("SPA-1", "2026-04-20", "source-changed"),
   verified("SPA-1", "2026-05-01"),
   candidate("SPA-2", "2026-05-15", "source-changed"),
+  created("SPA-7", "2026-07-20"),
+  status("SPA-1", "2026-08-01", "in-progress", "blocked"),
   candidate("SPA-1", "2026-09-01", "duplicate"),
   status("SPA-4", "2026-09-05", "backlog", "done", "fixed"),
+  status("SPA-7", "2026-09-06", "backlog", "done", "fixed"),
   deleted("SPA-4", "2026-09-12", { status: "done", created: at("2026-04-01"), closed: at("2026-09-05"), resolution: "fixed", reason: "abc1234" }),
   "сломано",
+];
+
+const TI_JOURNAL = [
+  created("TI-1", "2026-01-01", "epic"),
+  deleted("TI-1", "2026-01-20", { type: "epic", status: "cancelled", created: at("2026-01-01"), closed: at("2026-01-20"), resolution: "obsolete", reason: "не нужен" }),
+  status("TI-2", "2026-03-19", "backlog", "done", "fixed"),
+  deleted("TI-2", "2026-03-20", { status: "done", created: at("2025-11-01"), closed: at("2026-03-19"), resolution: "fixed", reason: "готово" }),
+  created("TI-3", "2026-09-10"),
 ];
 
 async function spaProject(journal: readonly unknown[] = SPA_JOURNAL): Promise<{ root: string; dir: string }> {
   const root = await makeTempDir();
   await writeFiles(root, {
     [join("spa", PROJECT_FILE)]: projectFile("SPA"),
-    [join("spa", "SPA-1.md")]: taskText("SPA-1", "2026-01-10", `status: in-progress\nsource: src/a.ts\nverified: ${at("2026-05-01")}\n`),
+    [join("spa", "SPA-1.md")]: taskText("SPA-1", "2026-01-10", `status: blocked\nsource: src/a.ts\nverified: ${at("2026-05-01")}\n`),
     [join("spa", "SPA-2.md")]: taskText("SPA-2", "2026-02-01", "source: src/b.ts\n"),
+    [join("spa", "SPA-7.md")]: taskText("SPA-7", "2026-07-20", `status: done\nclosed: ${at("2026-09-06")}\nresolution: fixed\nreason: abc1234\n`),
+    [join("spa", "SPA-8.md")]: taskText("SPA-8", "2026-02-20", "source: src/c.ts\n"),
+    [join("spa", "SPA-9.md")]: "---\nid: SPA-9\nstatus: in-progress\n---\n",
     [join("spa", JOURNAL_FILE)]: journalText(journal),
   });
   return { root, dir: join(root, "spa") };
 }
 
+async function addTiProject(root: string): Promise<string> {
+  await writeFiles(root, {
+    [join("ti", PROJECT_FILE)]: projectFile("TI"),
+    [join("ti", "TI-3.md")]: taskText("TI-3", "2026-09-10"),
+    [join("ti", JOURNAL_FILE)]: journalText(TI_JOURNAL),
+  });
+  return join(root, "ti");
+}
+
 async function reports(root: string) {
-  const { tasks } = await loadBacklog(root);
-  const input: StatsInput = { tasks, journals: await readJournals(root, ["spa"]), now: NOW };
-  const base = reportBase(input);
-  return {
-    stats: { ...statsReport(input, base), ...FILE_COUNTERS },
-    quality: { ...qualityReport(input, base, []), ...FILE_COUNTERS },
-    signals: statsSignals(input, base),
-    effect: { ...effectReport({ ...input, code: CODE }, base), ...FILE_COUNTERS },
-  };
+  const { tasks, errors } = await loadBacklog(root);
+  const journals = await readJournals(root, ["spa", "ti"]);
+  return [undefined, "spa", "ti"].map((projectId) => {
+    const input: StatsInput = { tasks, journals, now: NOW, projectId, unparsedTasks: unparsedTasks(errors) };
+    const base = reportBase(input);
+    const stats = statsReport(input, base);
+    return {
+      stats: { ...stats, ...FILE_COUNTERS },
+      forecast: flowForecast(base.histories, stats.totals.open, NOW),
+      quality: { ...qualityReport(input, base, []), ...FILE_COUNTERS },
+      signals: statsSignals(input, base),
+      effect: { ...effectReport({ ...input, code: CODE }, base), ...FILE_COUNTERS },
+    };
+  });
 }
 
 async function compact(dir: string): Promise<number> {
@@ -93,10 +136,12 @@ const journalLines = async (dir: string) => (await readFile(join(dir, JOURNAL_FI
 describe("уплотнение журнала проекта", () => {
   it("отчёты до и после уплотнения совпадают", async () => {
     const { root, dir } = await spaProject();
+    const tiDir = await addTiProject(root);
     const before = await reports(root);
 
-    await compact(dir);
+    const removed = (await compact(dir)) + (await compact(tiDir));
 
+    expect(removed).toBeGreaterThan(0);
     expect(await reports(root)).toEqual(before);
   });
 
@@ -110,14 +155,25 @@ describe("уплотнение журнала проекта", () => {
     expect(events).toEqual([
       ["SPA-1", "created", "2026-01-10"],
       ["SPA-2", "created", "2026-02-01"],
+      ["SPA-3", "created", "2026-02-05"],
+      ["SPA-9", "created", "2026-02-10"],
+      ["SPA-8", "created", "2026-02-20"],
       ["SPA-1", "status", "2026-03-01"],
+      ["SPA-9", "status", "2026-03-01"],
+      ["SPA-8", "candidate", "2026-03-05"],
+      ["SPA-8", "status", "2026-03-06"],
+      ["SPA-8", "status", "2026-03-07"],
+      ["SPA-3", "deleted", "2026-03-17"],
       ["SPA-4", "created", "2026-04-01"],
       ["SPA-2", "candidate", "2026-05-15"],
+      ["SPA-7", "created", "2026-07-20"],
+      ["SPA-1", "status", "2026-08-01"],
       ["SPA-1", "candidate", "2026-09-01"],
       ["SPA-4", "status", "2026-09-05"],
+      ["SPA-7", "status", "2026-09-06"],
       ["SPA-4", "deleted", "2026-09-12"],
     ]);
-    expect(removed).toBe(9);
+    expect(removed).toBe(11);
     expect(lines).not.toContain("не json");
     expect(lines.at(-1)).toBe("сломано");
   });
@@ -128,7 +184,8 @@ describe("уплотнение журнала проекта", () => {
     await compact(dir);
 
     const { events } = await readJournal(dir, "spa");
-    expect(candidateEvents([{ task: "SPA-2", evidence: "source-changed" }], episodeStates(events), NOW, "changed")).toEqual([]);
+    const sightings = [{ task: "SPA-2", evidence: "source-changed" as const }, { task: "SPA-8", evidence: "source-changed" as const }];
+    expect(candidateEvents(sightings, episodeStates(events), NOW, "changed")).toEqual([]);
   });
 
   it("самое раннее событие остаётся, даже если задача исчезла до окна: «Журнал ведётся с» не сдвигается", async () => {
@@ -158,5 +215,14 @@ describe("уплотнение журнала проекта", () => {
 
     expect(removed).toBe(0);
     expect((await stat(path)).mtimeMs).toBe(before.mtimeMs);
+  });
+
+  it("без каталога проекта или без журнала уплотнять нечего", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { [join("spa", PROJECT_FILE)]: projectFile("SPA") });
+
+    expect(await compactJournal(join(root, "gone"), new Set(), NOW)).toBe(0);
+    expect(await compactJournal(join(root, "spa"), new Set(), NOW)).toBe(0);
+    expect(await readdir(join(root, "spa"))).toEqual([PROJECT_FILE]);
   });
 });

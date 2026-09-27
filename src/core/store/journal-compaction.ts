@@ -1,8 +1,9 @@
 import { join } from "node:path";
 import { episodeOpeners, journalEventSchema, type JournalEvent } from "../journal/events";
 import { retainedSince } from "../model/lifecycle";
+import { taskHistories, type TaskHistory } from "../stats/history";
 import { withFileLock } from "./file-lock";
-import { parseJson, readTextOrNull, writeFileAtomic } from "./fs-utils";
+import { parseJson, readTextOrNull, withExistingFile, writeFileAtomic } from "./fs-utils";
 import { JOURNAL_FILE } from "./journal";
 
 type JournalLine = { text: string; event: JournalEvent | null };
@@ -11,6 +12,7 @@ const EPISODE_KINDS: ReadonlySet<JournalEvent["kind"]> = new Set(["candidate", "
 
 export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySet<string>, now: Date): Promise<number> {
   const path = join(projectDir, JOURNAL_FILE);
+  if (!(await fileExists(path))) return 0;
   return withFileLock(path, async () => {
     const lines = journalLines((await readTextOrNull(path)) ?? "");
     const kept = retainedLines(lines, liveTaskIds, retainedSince(now));
@@ -18,6 +20,10 @@ export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySe
     if (removed > 0) await writeFileAtomic(path, kept.map(({ text }) => `${text}\n`).join(""));
     return removed;
   });
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  return (await withExistingFile(path, async () => true)) ?? false;
 }
 
 function journalLines(text: string): JournalLine[] {
@@ -29,17 +35,29 @@ function journalLines(text: string): JournalLine[] {
 
 function retainedLines(lines: readonly JournalLine[], liveTaskIds: ReadonlySet<string>, since: number): JournalLine[] {
   const events = lines.flatMap(({ event }) => (event === null ? [] : [event]));
-  const openers = episodeOpeners(events);
-  const anchor = earliestEvent(events);
+  const isRecent = (event: JournalEvent) => Date.parse(event.at) >= since;
   const lastSeen = lastMomentByTask(events);
-  const firstRecent = lines.findIndex(({ event }) => event !== null && Date.parse(event.at) >= since);
+  const keepsHistory = (task: string) => liveTaskIds.has(task) || (lastSeen.get(task) ?? 0) >= since;
+  const anchors = anchorEvents(events, keepsHistory);
+  const openers = episodeOpeners(events);
+  const firstRecent = lines.findIndex(({ event }) => event !== null && isRecent(event));
   return lines.filter(({ event }, position) => {
     if (event === null) return firstRecent !== -1 && position > firstRecent;
-    if (event === anchor || openers.has(event)) return true;
-    const recent = Date.parse(event.at) >= since;
-    if (EPISODE_KINDS.has(event.kind)) return recent;
-    return recent || liveTaskIds.has(event.task) || (lastSeen.get(event.task) ?? 0) >= since;
+    if (anchors.has(event) || (openers.has(event) && liveTaskIds.has(event.task))) return true;
+    return EPISODE_KINDS.has(event.kind) ? isRecent(event) : keepsHistory(event.task);
   });
+}
+
+function anchorEvents(events: readonly JournalEvent[], keepsHistory: (task: string) => boolean): Set<JournalEvent> {
+  const earliest = earliestEvent(events);
+  const oldestDropped = oldestTask(events.filter((event) => !keepsHistory(event.task)));
+  const oldestDroppedLife = events.filter((event) => event.task === oldestDropped && (event.kind === "created" || event.kind === "deleted"));
+  return new Set([...(earliest === undefined ? [] : [earliest]), ...oldestDroppedLife]);
+}
+
+function oldestTask(events: readonly JournalEvent[]): string | undefined {
+  const tasks = taskHistories([], [{ projectId: "", events, invalidLines: 0 }]).filter((history) => history.type === "task");
+  return tasks.reduce<TaskHistory | undefined>((oldest, history) => (oldest === undefined || history.createdAt < oldest.createdAt ? history : oldest), undefined)?.id;
 }
 
 function earliestEvent(events: readonly JournalEvent[]): JournalEvent | undefined {

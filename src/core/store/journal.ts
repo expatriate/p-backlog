@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../journal/events";
 import { errorText } from "../errors";
-import { withFileLock } from "./file-lock";
+import { FileBusyError, withFileLock } from "./file-lock";
 import { appendJsonLines, readJsonLines, type JsonLines } from "./fs-utils";
 
 export const JOURNAL_FILE = "journal.jsonl";
@@ -10,9 +10,18 @@ export async function appendJournal(projectDir: string, events: readonly Journal
   if (events.length === 0) return;
   const path = join(projectDir, JOURNAL_FILE);
   try {
-    await withFileLock(path, () => appendJsonLines(path, events));
+    await appendWaitingForLock(path, events);
   } catch (error) {
     onError(path, error);
+  }
+}
+
+async function appendWaitingForLock(path: string, events: readonly JournalEvent[]): Promise<void> {
+  try {
+    await withFileLock(path, () => appendJsonLines(path, events));
+  } catch (error) {
+    if (!(error instanceof FileBusyError)) throw error;
+    await appendJsonLines(path, events);
   }
 }
 

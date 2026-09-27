@@ -1,9 +1,10 @@
 import { formatLocalIso } from "../../model/dates";
+import { retainedSince } from "../../model/lifecycle";
 import { isClosed } from "../../model/graph";
 import { UNKNOWN, type Recorded } from "../../journal/events";
 import type { TaskCategory } from "../../model/types";
 import { fixCommitEntry, type FixCommitEntry } from "../code/fixes";
-import { isFixedNow, type TaskHistory } from "../history";
+import { closingsOf, isFixedNow, type TaskHistory } from "../history";
 import { countBy, median, smallest, sum } from "../numbers";
 import { period, type Period } from "../period";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
@@ -29,7 +30,8 @@ export function effectReport(
   const { histories } = base;
   const reportPeriod = statsPeriod(now);
   const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
-  const deferred = buildDeferred(histories.filter((history) => reportPeriod.contains(history.createdAt)), histories, code);
+  const commitSharers = histories.filter((history) => closedSince(history, retainedSince(now)));
+  const deferred = buildDeferred(histories.filter((history) => reportPeriod.contains(history.createdAt)), commitSharers, code);
   const estimate = estimator(estimateSamples(wholeBacklog.histories, code));
   const adoptionStart = (id: string) => {
     const firstCreated = smallest(histories.filter((history) => history.projectId === id).map((history) => history.createdAt));
@@ -65,13 +67,18 @@ export function effectReport(
   };
 }
 
+function closedSince(history: TaskHistory, since: number): boolean {
+  const lastClosing = closingsOf(history).at(-1);
+  return lastClosing !== undefined && lastClosing.at >= since;
+}
+
 function fixEntryOf(history: TaskHistory, code: CollectedCode): FixCommitEntry | undefined {
   return isFixedNow(history) ? fixCommitEntry(history, code.fixCommits) : undefined;
 }
 
-function buildDeferred(candidates: readonly TaskHistory[], histories: readonly TaskHistory[], code: CollectedCode): Deferred[] {
+function buildDeferred(candidates: readonly TaskHistory[], commitSharers: readonly TaskHistory[], code: CollectedCode): Deferred[] {
   const sharersByCommit = countBy(
-    histories.flatMap((history) => fixEntryOf(history, code)?.key ?? []),
+    commitSharers.flatMap((history) => fixEntryOf(history, code)?.key ?? []),
     (key) => key,
   );
   return candidates.flatMap((history): Deferred[] => {

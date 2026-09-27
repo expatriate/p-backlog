@@ -127,6 +127,26 @@ describe("файл журнала", () => {
     expect((await readJournal(dir, "spa")).events.map((event) => event.task)).toEqual(["SPA-1"]);
   });
 
+  it("если журнал занят дольше предела ожидания, событие всё равно дописывается", async () => {
+    const dir = await makeTempDir();
+    const path = join(dir, JOURNAL_FILE);
+    const failures: unknown[] = [];
+
+    await withFileLock(path, async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        const appended = appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")], (_, error) => failures.push(error));
+        vi.setSystemTime(Date.now() + 10_000);
+        await appended;
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    expect(failures).toEqual([]);
+    expect((await readJournal(dir, "spa")).events.map((event) => event.task)).toEqual(["SPA-1"]);
+  });
+
   it("строки, дописанные во время уплотнения, не теряются", async () => {
     const dir = await makeTempDir();
     const old = new Date(2026, 0, 5, 12, 0, 0);

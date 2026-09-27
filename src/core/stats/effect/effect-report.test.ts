@@ -134,6 +134,15 @@ describe("эффект беклога", () => {
     expect(report.totals).toMatchObject({ fixedTasks: 1, fixedLines: 50, deferredTestLines: 20 });
   });
 
+  it("задача, закрытая до окна хранения, не делит с новой строки общего коммита — уплотнение журнала итог не меняет", () => {
+    const sameFix = (id: string, created: string, closed: string) => makeTask({ id, created, status: "done", closed, resolution: "fixed", reason: "Исправлено в dddddd1" });
+    const commits: [string, FixCommit][] = [[fixKey("spa", "dddddd1"), { date: iso(8, 10), byAgent: true, lines: 100, testLines: 40 }]];
+
+    const report = effectReport({ tasks: [sameFix("SPA-201", iso(0, 5), iso(1, 10)), sameFix("SPA-202", iso(8, 5), iso(8, 10))], journals: [], now: NOW, projectId: "spa", code: code(commits) });
+
+    expect(report.totals).toMatchObject({ fixedTasks: 1, fixedLines: 100, deferredTestLines: 40 });
+  });
+
   it("окно итогов начинается с даты внедрения беклога проектом, недели показывают весь период", () => {
     const task = makeTask({ id: "SPA-30", created: iso(8, 15), category: "bug" });
 
