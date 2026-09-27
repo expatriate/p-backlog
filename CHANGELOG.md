@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Project journals are compacted once a day, by the service and after CLI commands: events of tasks whose files
+  disappeared more than 13 weeks ago and check events (`candidate`, `candidate-gone`, `candidate-filtered`,
+  `verified`) older than 13 weeks are removed; the history of existing tasks, the event that opened a still-open
+  check episode and the earliest event stay, so no statistics report changes.
+- The graph filter records a filtered candidate once per check episode instead of on every check.
+- The usage cache drops usage older than 13 weeks; "By model" now covers the last 30 days.
+- On macOS the service log is trimmed to its last 256 KB once it exceeds 1 MB.
+- Without the service, closed tasks older than 7 days are deleted after a CLI command at most once a day.
+- Every statistics panel shows its period with dates; the Effect tab says "over 12 weeks (since adoption, if
+  later)".
+
 ## 0.6.0
 
 - Statistics on the server read only what was appended to project journals and the CLI run log, keep parsed task
