@@ -186,4 +186,13 @@ describe("заведённые задачи по дням", () => {
     expect(own.totals).toMatchObject({ createdToday: 2, closedToday: 1 });
     expect(all.totals).toMatchObject({ createdToday: 3, closedToday: 2 });
   });
+
+  it("границы окон в отчёте совпадают с окнами расчёта", () => {
+    const report = statsReport({ tasks: [], journals: [], now: NOW });
+
+    expect(report.periods.weeks.from).toBe(report.weeks[0]?.start);
+    expect(report.periods.days.from).toBe(report.days[0]?.start);
+    expect(report.periods.weeks.to).toBe(formatLocalIso(NOW));
+    expect(report.periods.days.to).toBe(formatLocalIso(NOW));
+  });
 });

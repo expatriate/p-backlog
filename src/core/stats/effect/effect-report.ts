@@ -7,6 +7,7 @@ import { fixCommitEntry, type FixCommitEntry } from "../code/fixes";
 import { closingsOf, isFixedNow, type TaskHistory } from "../history";
 import { countBy, median, smallest, sum } from "../numbers";
 import { period, type Period } from "../period";
+import { grainPeriods } from "../report-periods";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { CollectedCode, CommitUnit, EffectProject, EffectReport, EffectTotals, EffectPeriod, ProjectCode } from "../types";
 import { dayWindows } from "../days";
@@ -48,6 +49,7 @@ export function effectReport(
   const periodUnits = projects.flatMap(unitsOf).filter((unit) => reportPeriod.contains(Date.parse(unit.date)));
   return {
     ...base.head,
+    periods: grainPeriods(now),
     unavailableRepos: code.unavailableRepos,
     totals: totalsOf(deferred, unitsForTotals(), estimate),
     weeks: bucketsOf(weekWindows(now), deferred, periodUnits, estimate),

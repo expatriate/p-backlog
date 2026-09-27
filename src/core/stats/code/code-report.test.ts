@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { churnWindowStart } from "../../code/code-window";
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { codeFixRequests, codeReport } from "./code-report";
@@ -29,5 +30,11 @@ describe("отчёт «Код»", () => {
     expect(report.churn).toEqual([{ label: "src", commits: 1, tasks: 1, weight: 4, score: 4 }]);
     expect(report.density.projects).toEqual([{ projectId: "spa", name: "spa", lines: 2000, open: 1, perKloc: 0.5 }]);
     expect(codeFixRequests({ tasks, journals: [], now: NOW, projectId: "spa" })).toEqual([{ projectId: "spa", hashes: ["abcdef1"] }]);
+  });
+
+  it("граница окна оборота совпадает с окном сканирования репозиториев", () => {
+    const report = codeReport({ tasks: [], journals: [], now: NOW, code: { projects: [], unavailableRepos: [] } });
+
+    expect(report.periods.churn).toEqual({ from: formatLocalIso(churnWindowStart(NOW)), to: formatLocalIso(NOW) });
   });
 });

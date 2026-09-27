@@ -34,9 +34,13 @@ export type ClosingBreakdown = {
   reopened: number;
 };
 
+export type ReportPeriod = { from: string; to: string };
+export type GrainPeriods = { weeks: ReportPeriod; days: ReportPeriod };
+
 export type ReportHead = { taskCount: number; journalSince: string | null; invalidJournalLines: number; unknownJournalLines: number; unparsedTasks: number };
 
 export type StatsReport = ReportHead & {
+  periods: GrainPeriods;
   totals: StatsTotals;
   weeks: FlowPeriod[];
   days: FlowPeriod[];
@@ -61,6 +65,7 @@ export type ProjectDensity = DensityRow & { projectId: string; name: string };
 export type FolderDensity = DensityRow & { label: string };
 export type CodeDensity = { projects: ProjectDensity[]; folders: FolderDensity[] };
 export type CodeReport = ReportHead & {
+  periods: { churn: ReportPeriod };
   unavailableRepos: string[];
   churn: ChurnRow[];
   density: CodeDensity;
@@ -79,6 +84,7 @@ export type CategoryRow = { category: Recorded<TaskCategory> | null; open: numbe
 export type FoundRow = { found: Recorded<FoundHow> | null; created: number; open: number; fixed: number };
 export type BranchRow = { label: string; created: number; open: number };
 export type QualityReport = ReportHead & {
+  periods: GrainPeriods;
   accuracy: AccuracyRow[];
   accuracyWeeks: AccuracyPeriod[];
   accuracyDays: AccuracyPeriod[];
@@ -94,6 +100,7 @@ export type EffectTotals = { realLines: number; fixedTasks: number; fixedLines: 
 export type EffectPeriod = { start: string; onTopicLines: number; deferredLines: number; deferredTestLines: number; deferredTasks: number };
 export type EffectProject = { projectId: string; name: string; realLines: number; deferredTasks: number; fixedLines: number; estimatedLines: number | null; noiseShare: number | null };
 export type EffectReport = ReportHead & {
+  periods: GrainPeriods;
   unavailableRepos: string[];
   totals: EffectTotals;
   weeks: EffectPeriod[];
@@ -121,6 +128,6 @@ export type CostDay = { day: string; hookTokens: number; cliTokens: number; cost
 export type CostPeriod = { start: string; hookTokens: number; cliTokens: number; cost: number | null; hasUnpricedTokens: boolean; hookTurns: number; cliRuns: number; hookRuns: number };
 export type CostModel = { model: string; fast: boolean; tokens: number; cost: number | null };
 export type CostCommand = { command: string; runs: number; avgMs: number; avgRssMb: number; maxRssMb: number };
-export type CostReport = { scan: ScanProgress; since: string | null; totals: CostTotals; days: CostDay[]; weeks: CostPeriod[]; models: CostModel[]; commands: CostCommand[] };
+export type CostReport = { periods: GrainPeriods & { totals: ReportPeriod }; scan: ScanProgress; since: string | null; totals: CostTotals; days: CostDay[]; weeks: CostPeriod[]; models: CostModel[]; commands: CostCommand[] };
 
 export type MemorySample = { at: string; rssMb: number; heapUsedMb: number };

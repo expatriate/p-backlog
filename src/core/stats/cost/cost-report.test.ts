@@ -239,4 +239,13 @@ describe("отчёт о стоимости", () => {
       else process.env.TZ = previousZone;
     }
   });
+
+  it("границы окон в отчёте совпадают с окнами расчёта", () => {
+    const report = costReport({ buckets: [], runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
+
+    expect(report.periods.days.from.startsWith(report.days[0]?.day ?? "-")).toBe(true);
+    expect(report.periods.totals.from.startsWith(report.days.at(-7)?.day ?? "-")).toBe(true);
+    expect(report.periods.weeks.from).toBe(report.weeks[0]?.start);
+    expect([report.periods.weeks.to, report.periods.days.to, report.periods.totals.to]).toEqual(Array(3).fill(formatLocalIso(NOW)));
+  });
 });

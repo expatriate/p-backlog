@@ -1,3 +1,4 @@
+import { grainPeriods } from "../report-periods";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { ProjectGraphRow, QualityReport } from "../types";
 import { statsPeriod } from "../weeks";
@@ -13,6 +14,7 @@ export function qualityReport(input: StatsInput, base: ReportBase = reportBase(i
   const period = statsPeriod(now);
   return {
     ...base.head,
+    periods: grainPeriods(now),
     accuracy: accuracy(histories, period),
     accuracyWeeks: accuracyWeeks(histories, now),
     accuracyDays: accuracyDays(histories, now),

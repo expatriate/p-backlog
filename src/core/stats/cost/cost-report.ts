@@ -9,6 +9,7 @@ import { dayRange } from "../days";
 import { DAYS_PER_WEEK, statsPeriod, weekWindows } from "../weeks";
 import type { Period } from "../period";
 import { groupBy, sum } from "../numbers";
+import { lastDays, reportPeriod } from "../report-periods";
 
 export const COST_TOTALS_DAYS = 7;
 
@@ -35,6 +36,7 @@ export function costReport({ buckets, runs, projectOf, projectId, now, scan }: C
   const weeks = weekWindows(now);
 
   return {
+    periods: { weeks: reportPeriod(statsPeriod(now)), days: lastDays(now, COST_REPORT_DAYS), totals: lastDays(now, COST_TOTALS_DAYS) },
     scan,
     since: sinceWithin(scopedBuckets, statsPeriod(now)),
     totals: totalsOf(inDays(bucketsByDay, totalsDays), inDays(runsByDay, totalsDays)),

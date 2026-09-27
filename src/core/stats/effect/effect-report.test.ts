@@ -151,4 +151,13 @@ describe("эффект беклога", () => {
     expect(report.totals.realLines).toBe(300);
     expect(report.weeks.at(-3)).toMatchObject({ onTopicLines: 100 });
   });
+
+  it("границы окон в отчёте совпадают с окнами расчёта", () => {
+    const report = effectReport({ tasks: [], journals: [], now: NOW, code: code([]) });
+
+    expect(report.periods.weeks.from).toBe(report.weeks[0]?.start);
+    expect(report.periods.days.from).toBe(report.days[0]?.start);
+    expect(report.periods.weeks.to).toBe(formatLocalIso(NOW));
+    expect(report.periods.days.to).toBe(formatLocalIso(NOW));
+  });
 });

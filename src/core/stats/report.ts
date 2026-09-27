@@ -4,6 +4,7 @@ import { scopeLabel } from "./format";
 import { closingsOf, isOpenAt, type TaskHistory } from "./history";
 import { daysBetween, median, nearestRank, sum, TAIL_FRACTION } from "./numbers";
 import type { Period } from "./period";
+import { grainPeriods } from "./report-periods";
 import { reportBase, type ReportBase, type StatsInput } from "./scope";
 import { PRIORITY_WEIGHT } from "./weights";
 import type { PreviousTotals, StatsReport, StatsTotals } from "./types";
@@ -20,6 +21,7 @@ export function statsReport(input: StatsInput, base: ReportBase = reportBase(inp
 
   return {
     ...base.head,
+    periods: grainPeriods(now),
     totals: totals(histories, now, period, base.scope.journalStart),
     weeks: weeklyFlow(histories, now),
     days: dailyFlow(histories, now),

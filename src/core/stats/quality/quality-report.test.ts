@@ -23,4 +23,13 @@ describe("отчёт «Качество»", () => {
     expect(report.found.map((row) => row.created)).toEqual([0, 0, 0, 1]);
     expect(report.branches).toEqual([]);
   });
+
+  it("границы окон в отчёте совпадают с окнами расчёта", () => {
+    const report = qualityReport({ tasks: [], journals: [], now: NOW });
+
+    expect(report.periods.weeks.from).toBe(report.accuracyWeeks[0]?.start);
+    expect(report.periods.days.from).toBe(report.accuracyDays[0]?.start);
+    expect(report.periods.weeks.to).toBe(formatLocalIso(NOW));
+    expect(report.periods.days.to).toBe(formatLocalIso(NOW));
+  });
 });
