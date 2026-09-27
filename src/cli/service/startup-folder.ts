@@ -1,5 +1,6 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, win32 } from "node:path";
+import { SERVICE_LOG_LIMIT_BYTES } from "../../core/service-log";
 import { fileExists } from "../../core/store/fs-utils";
 import { PID_FILE_ENV } from "../../core/store/paths";
 import { numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
@@ -36,6 +37,26 @@ const LOG_PATH_ENV = "P_BACKLOG_LOG";
 // Run and cmd expand %NAME% even inside quotes; values substituted by !NAME! delayed expansion are never re-expanded.
 const SERVE_COMMAND = `cmd /v:on /c ""!${NODE_PATH_ENV}!" "!${CLI_PATH_ENV}!" serve >> "!${LOG_PATH_ENV}!" 2>&1"`;
 
+function rotatedLogPath(context: ServiceContext): string {
+  return `${logPath(context)}.old`;
+}
+
+function logRotation(context: ServiceContext): string[] {
+  return [
+    'Set fso = CreateObject("Scripting.FileSystemObject")',
+    `logFile = ${vbsString(logPath(context))}`,
+    `rotatedLogFile = ${vbsString(rotatedLogPath(context))}`,
+    "On Error Resume Next",
+    "logSize = 0",
+    "If fso.FileExists(logFile) Then logSize = fso.GetFile(logFile).Size",
+    `If logSize > ${SERVICE_LOG_LIMIT_BYTES} Then`,
+    "  fso.DeleteFile rotatedLogFile, True",
+    "  fso.MoveFile logFile, rotatedLogFile",
+    "End If",
+    "On Error GoTo 0",
+  ];
+}
+
 export function startupScript(context: ServiceContext): string {
   const env = {
     ...serviceEnvironment(context),
@@ -48,6 +69,7 @@ export function startupScript(context: ServiceContext): string {
     'Set shell = CreateObject("WScript.Shell")',
     'Set env = shell.Environment("Process")',
     ...Object.entries(env).map(([key, value]) => `env(${vbsString(key)}) = ${vbsString(value)}`),
+    ...logRotation(context),
     `shell.Run ${vbsString(SERVE_COMMAND)}, 0, False`,
     "",
   ].join("\r\n");

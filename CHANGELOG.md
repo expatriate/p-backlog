@@ -18,7 +18,8 @@
   which date usage data exists when it starts inside the 12-week window.
 - The CLI run log is kept for 13 weeks (was 12), and the agent hook trims it too, so without the service it no longer
   grows with every agent turn.
-- On macOS the service log is trimmed to its last 256 KB once it exceeds 1 MB.
+- On macOS the service log is trimmed to its last 256 KB once it exceeds 1 MB. On Windows a log over 1 MB is moved to
+  `p-backlog.log.old` when the service starts (at sign-in or `backlog service install`).
 - Without the service, closed tasks older than 7 days are deleted after a CLI command other than the agent hook, at
   most once a day, and the command warns about tasks it could not update and files that keep epics open. The service
   marks its own hourly sweep, so while it runs the CLI does not repeat the sweep. The service's cleanup steps (closed

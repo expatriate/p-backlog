@@ -287,6 +287,20 @@ describe("startupFolderManager", () => {
     expect(launched).toEqual({ node: nodePath, argv: [cliPath, "serve"], pidFile: pidFilePath(roots.localAppData) });
   });
 
+  it.runIf(process.platform === "win32")("на Windows лог больше 1 МБ перед запуском уходит в .old, новый лог начинается с нуля", async () => {
+    const base = await makeTempDir();
+    const roots = { home: await makeTempDir(), appData: await makeTempDir(), localAppData: join(base, "local") };
+    const cliPath = join(base, "cli.js");
+    const oversized = "x".repeat(1024 * 1024) + "\n";
+    await writeFiles(base, { "cli.js": "console.log('started');\n", [join("local", "p-backlog", "p-backlog.log")]: oversized });
+    const context = { ...contextFor(roots, execRunningScriptsInConsole()), env: { ...process.env, LOCALAPPDATA: roots.localAppData }, nodePath: process.execPath, cliPath };
+
+    expect(await startupFolderManager(context).install()).toBe("done");
+
+    expect(await contentOnceWritten(logPath(roots.localAppData))).toBe("started\n");
+    expect(await readFile(`${logPath(roots.localAppData)}.old`, "utf8")).toBe(oversized);
+  });
+
   it("file и logs указывают на скрипт в «Автозагрузке» и лог в LOCALAPPDATA", async () => {
     const roots = await tempRoots();
     const manager = startupFolderManager(contextFor(roots));

@@ -11,7 +11,7 @@ export function launchdLogPath(home: string): string {
 }
 
 export function serviceLogToTrim(platform: NodeJS.Platform, home: string): string | null {
-  // Windows service log is written via a positional handle, not append mode — truncating it would leave a zero-filled gap (PB-186).
+  // On Windows cmd's >> redirection holds the log open while the server runs; the startup script rotates it before launch instead.
   return platform === "darwin" ? launchdLogPath(home) : null;
 }
 

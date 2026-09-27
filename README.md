@@ -139,7 +139,7 @@ If there's no project yet, `backlog new` creates it.
 | `.runs.jsonl` | CLI run log | 13 weeks |
 | `.usage-cache.json` | Claude Code usage parsed from transcripts | 13 weeks |
 | `.code-cache.json` | Cached git history for the Code tab | 90 days |
-| Service log (macOS) | `launchd` stdout/stderr | Trimmed to the last 256 KB once it exceeds 1 MB; not trimmed on Linux (use `journald`) or Windows |
+| Service log | `launchd` stdout/stderr on macOS, `p-backlog.log` in `%LOCALAPPDATA%` on Windows | macOS: trimmed to the last 256 KB once it exceeds 1 MB. Windows: over 1 MB it is moved to `p-backlog.log.old` when the service starts. Linux: `journald` limits it |
 | `.swept-at`, `.journal-compacted-at` | Timestamp of the last sweep/compaction | Until the next one |
 
 The retention window isn't configurable.
