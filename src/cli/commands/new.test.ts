@@ -87,13 +87,13 @@ describe("backlog new", () => {
     expect(created).toMatchObject({ kind: "created", category: "couplers", found: "review", origin: { branch, commit } });
   });
 
-  it("без коммитов происхождения нет, по умолчанию — найдена попутно", async () => {
+  it("без коммитов происхождения нет, по умолчанию — заведена вручную, а не вынесена агентом", async () => {
     const { run, root } = await makeCliSandbox();
 
     await run(["new", "--category", "bug", "--title", "X"]);
 
     const [created] = (await readJournal(join(root, "spa"), "spa")).events;
-    expect(created).toMatchObject({ kind: "created", found: "incidental" });
+    expect(created).toMatchObject({ kind: "created", found: "manual" });
     expect(created).not.toHaveProperty("origin");
   });
 

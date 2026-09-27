@@ -616,6 +616,8 @@ describe("GET /api/stats/code", () => {
   });
 });
 
+const createdByAgent = (task: string) => `${JSON.stringify({ at: "2026-09-17T10:00:00+03:00", task, via: "cli", kind: "created", type: "task", priority: "medium", tags: [], found: "incidental" })}\n`;
+
 async function spaWithFixedNeighbour({ neighbourActive }: { neighbourActive: boolean }): Promise<Record<string, string>> {
   const home = await makeTempDir();
   const spaRepo = await makeGitRepo(home, "spa");
@@ -632,6 +634,7 @@ async function spaWithFixedNeighbour({ neighbourActive }: { neighbourActive: boo
   return {
     "spa/project.md": projectFile("SPA", [spaRepo]),
     "spa/SPA-1.md": taskFile("SPA-1", "source: src/a.ts:1\n"),
+    "spa/journal.jsonl": createdByAgent("SPA-1"),
     "ti/project.md": projectFile("TI", [tiRepo], { active: neighbourActive }),
     ...tiFixes,
   };
@@ -645,6 +648,7 @@ describe("GET /api/stats/effect", () => {
     const backlog = await makeTestApp({
       "spa/project.md": projectFile("SPA", [repo]),
       "spa/SPA-1.md": taskFile("SPA-1", "source: src/a.ts:1\n"),
+      "spa/journal.jsonl": createdByAgent("SPA-1"),
     });
 
     const report = (await (await backlog.request("/api/stats/effect?project=spa")).json()) as EffectReport;
@@ -680,7 +684,7 @@ describe("GET /api/stats/quality", () => {
     const unknown = await backlog.request("/api/stats/quality?project=nope");
 
     expect(spa.taskCount).toBe(2);
-    expect(spa.found.map((row) => row.found)).toEqual(["review", "incidental", "unknown", null]);
+    expect(spa.found.map((row) => row.found)).toEqual(["review", "incidental", "manual", "unknown", null]);
     expect(unknown.status).toBe(404);
   });
 });

@@ -41,7 +41,7 @@ async function runNew(args: string[], io: CliIo): Promise<number> {
   const priority = values.priority === undefined ? undefined : parseChoice(io.language, values.priority, PRIORITIES, "--priority");
   const category = values.category === undefined ? undefined : parseChoice(io.language, values.category, TASK_CATEGORIES, "--category");
   if (category === undefined && type !== "epic") throw new UsageError(cli.categoryRequired);
-  const found = values.found === undefined ? "incidental" : parseChoice(io.language, values.found, FOUND_HOW, "--found");
+  const found = values.found === undefined ? "manual" : parseChoice(io.language, values.found, FOUND_HOW, "--found");
   if (category === "bug" && values.source === undefined) io.warn(cli.bugNeedsSourceWarning);
 
   const loaded = await loadBacklog(io.backlogRoot);

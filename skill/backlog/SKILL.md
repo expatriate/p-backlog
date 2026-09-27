@@ -37,7 +37,7 @@ description: Use when, while working on code, you notice a problem outside the c
 2. Создай задачу. Описание передавай всегда через heredoc — без него команда ждёт stdin:
    ```bash
    backlog new --title "Таймаут загрузки не учитывает размер файла" \
-     --priority high --tags upload,network --source src/upload/client.ts:88 --category bug <<'EOF'
+     --priority high --tags upload,network --source src/upload/client.ts:88 --category bug --found incidental <<'EOF'
    Таймаут фиксированный — 30 с, файлы больше ~500 МБ обрываются на медленном канале.
 
    **Чем грозит:** большие файлы не загружаются, повторная попытка тоже падает.
@@ -56,8 +56,9 @@ description: Use when, while working on code, you notice a problem outside the c
    - `--category` — обязательно. Запах кода — его категория из каталога code-smells: `bloaters`,
      `change-preventers`, `couplers`, `data-dealers`, `dispensables`, `functional-abusers`,
      `lexical-abusers`, `oo-abusers`, `obfuscators`. Неправильное поведение — `bug`.
-   - `--found review` — находка аудита или ревью по просьбе пользователя; замеченное попутно флага не
-     требует.
+   - `--found` — как найдена, обязательно: `incidental` — ты сам заметил проблему по ходу работы и вынес её,
+     чтобы не раздувать текущую правку; `review` — находка аудита или ревью по просьбе пользователя; `manual` —
+     пользователь попросил завести задачу. Только `incidental` считается выигрышем в статистике «Эффект».
    - Работаешь над задачей из беклога — добавь `--related <её ID>`.
    - Чеклист — проверяемые шаги: по нему считается прогресс.
    - Код выхода 3 и «Похоже на SPA-12 — …» — такая задача уже открыта: новую не создавай, упомяни

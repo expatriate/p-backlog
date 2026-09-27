@@ -5,6 +5,7 @@ import { execProgram } from "../../src/cli/exec";
 import { runCli } from "../../src/cli/run";
 import type { Language } from "../../src/core/i18n/language";
 import { coreMessages } from "../../src/core/messages";
+import { FOUND_HOW } from "../../src/core/journal/events";
 import { DAY_MS } from "../../src/core/model/lifecycle";
 import { serializeProject } from "../../src/core/model/project-file";
 import { PRIORITIES, TASK_CATEGORIES } from "../../src/core/model/types";
@@ -32,7 +33,7 @@ const taskSchema = z.object({
   epic: z.string().optional(),
   blockedBy: z.array(z.string()).default([]),
   related: z.array(z.string()).default([]),
-  found: z.enum(["review", "incidental"]).optional(),
+  found: z.enum(FOUND_HOW).optional(),
   branch: z.string().optional(),
   force: z.boolean().default(false),
   events: z.array(eventSchema).default([]),
@@ -160,7 +161,7 @@ export async function buildDemoBacklog(scenario: Scenario, texts: Texts, languag
       ["--priority", task.priority],
       ["--category", task.category],
       ["--tags", task.tags.length > 0 ? task.tags.join(",") : undefined],
-      ["--found", task.found],
+      ["--found", task.found ?? "incidental"],
       ["--source", task.source],
       ["--epic", task.epic === undefined ? undefined : idOf(task.epic)],
       ["--blocked-by", task.blockedBy.length > 0 ? task.blockedBy.map(idOf).join(",") : undefined],

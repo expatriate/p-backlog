@@ -40,6 +40,7 @@ describe("происхождение", () => {
     expect(foundBreakdown(histories, period(FROM, TO))).toEqual([
       { found: "review", created: 2, open: 1, fixed: 1 },
       { found: "incidental", created: 2, open: 1, fixed: 0 },
+      { found: "manual", created: 0, open: 0, fixed: 0 },
       { found: "unknown", created: 0, open: 0, fixed: 0 },
       { found: null, created: 1, open: 1, fixed: 0 },
     ]);
@@ -53,6 +54,7 @@ describe("происхождение", () => {
     expect(foundBreakdown(renamedHistories, period(FROM, TO))).toEqual([
       { found: "review", created: 0, open: 0, fixed: 0 },
       { found: "incidental", created: 0, open: 0, fixed: 0 },
+      { found: "manual", created: 0, open: 0, fixed: 0 },
       { found: "unknown", created: 1, open: 1, fixed: 0 },
       { found: null, created: 0, open: 0, fixed: 0 },
     ]);
@@ -96,6 +98,7 @@ describe("происхождение", () => {
     expect(foundBreakdown(reopenedHistories, period(FROM, TO))).toEqual([
       { found: "review", created: 0, open: 0, fixed: 0 },
       { found: "incidental", created: 0, open: 0, fixed: 0 },
+      { found: "manual", created: 0, open: 0, fixed: 0 },
       { found: "unknown", created: 0, open: 0, fixed: 0 },
       { found: null, created: 1, open: 1, fixed: 0 },
     ]);

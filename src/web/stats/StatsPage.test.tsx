@@ -385,7 +385,9 @@ describe("вкладка «Эффект»", () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a\nb\n" });
     gitCommitAll(repo, "init", "2026-09-12T10:00:00+03:00");
-    const app = await renderApp({ ...FILES, "spa/project.md": projectFile("SPA", [repo]) }, "/p/spa/stats");
+    const createdByAgent = (task: string, at: string) => JSON.stringify({ at, task, via: "cli", kind: "created", type: "task", priority: "medium", tags: [], found: "incidental" });
+    const journal = [createdByAgent("SPA-1", "2026-09-10T10:00:00+03:00"), createdByAgent("SPA-2", "2026-09-16T10:00:00+03:00")].join("\n");
+    const app = await renderApp({ ...FILES, "spa/project.md": projectFile("SPA", [repo]), "spa/journal.jsonl": `${journal}\n` }, "/p/spa/stats");
 
     await app.user.click(await screen.findByRole("link", { name: "Эффект" }));
 

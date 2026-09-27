@@ -41,7 +41,7 @@ this same task.
    stdin:
    ```bash
    backlog new --title "Upload timeout ignores file size" \
-     --priority high --tags upload,network --source src/upload/client.ts:88 --category bug <<'EOF'
+     --priority high --tags upload,network --source src/upload/client.ts:88 --category bug --found incidental <<'EOF'
    The timeout is fixed at 30 s; files over ~500 MB drop on a slow connection.
 
    **Impact:** large files fail to upload, and the retry fails too.
@@ -62,8 +62,10 @@ this same task.
    - `--category` — required. For a code smell, use its category from the code-smells catalog: `bloaters`,
      `change-preventers`, `couplers`, `data-dealers`, `dispensables`, `functional-abusers`,
      `lexical-abusers`, `oo-abusers`, `obfuscators`. For incorrect behavior, use `bug`.
-   - `--found review` — a finding from an audit or review the user asked for; something noticed in passing
-     needs no flag.
+   - `--found` — how it was found, required: `incidental` — you noticed the problem yourself while working and
+     moved it out so the current change stays small; `review` — a finding from an audit or review the user asked
+     for; `manual` — the user asked you to record the task. Only `incidental` counts as a gain in the Effect
+     statistics.
    - If you're working on a task from the backlog — add `--related <its ID>`.
    - The checklist holds verifiable steps: progress is counted from it.
    - Exit code 3 and "Looks like SPA-12 — …" mean such a task is already open: don't create a new one,

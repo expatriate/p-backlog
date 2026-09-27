@@ -19,7 +19,7 @@ function unknownAsMissing<const T extends readonly [string, ...string[]]>(values
   return z.enum(values).optional().catch(undefined);
 }
 
-export const FOUND_HOW = ["review", "incidental"] as const;
+export const FOUND_HOW = ["review", "incidental", "manual"] as const;
 
 export type FoundHow = (typeof FOUND_HOW)[number];
 
