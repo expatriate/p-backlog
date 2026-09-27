@@ -186,15 +186,15 @@ export const statsRu = {
   effectTitle: "Эффективность",
   byProject: "По проектам",
   projectsHead: ["Проект", "Вынесено задач", "Исправлено строк", "Оценка ожидающих", "Строк в пулреквестах", "Шум без беклога"],
-  inPullRequests: "в пулреквестах",
+  onTopicSeries: "по теме пулреквестов",
   deferredSeries: "вынесено в беклог",
   codeLines: "код",
   testLines: "тесты",
   deferredTasks: "задач вынесено",
   effectSummary: (realLines: number, deferred: string, noise: string): string =>
     `За ${EFFECT_WINDOW}: в пулреквестах ${countRu(realLines, "строка", "строки", "строк")}, вынесено ${deferred}, шум без беклога ${noise}`,
-  effectDaysSummary: (dayCount: number, inPullRequests: number, deferred: string): string =>
-    `За ${periods("day", dayCount)}: в пулреквестах ${countRu(inPullRequests, "строка", "строки", "строк")}, вынесено ${deferred}`,
+  effectDaysSummary: (days: number, onTopicLines: number, deferred: string): string =>
+    `За ${periods("day", days)}: по теме пулреквестов ${countRu(onTopicLines, "строка", "строки", "строк")}, вынесено ${deferred}`,
   explainerTitle: "Как считается выигрыш",
   explainerTask: "Каждая задача, заведённая по ходу работы, — правка, которую без беклога агент сделал бы в текущем пулреквесте. Выигрыш — строки, которые туда не попали.",
   explainerFixed:

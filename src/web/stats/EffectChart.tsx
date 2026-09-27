@@ -20,7 +20,7 @@ function periodTooltip(stats: StatsMessages, core: CoreMessages, language: Langu
   return rowTooltip((period: EffectPeriod) => ({
     title: stats.periodOf(grain, tooltipDay(language, period.start)),
     rows: [
-      { label: stats.inPullRequests, value: core.count(Math.round(period.onTopicLines), "line"), shape: "bar", color: REAL },
+      { label: stats.onTopicSeries, value: core.count(Math.round(period.onTopicLines), "line"), shape: "bar", color: REAL },
       { label: stats.deferredSeries, value: roughLines(period.deferredLines), shape: "hatch", color: DEFERRED },
       { label: stats.codeLines, value: roughLines(period.deferredLines - period.deferredTestLines) },
       { label: stats.testLines, value: roughLines(period.deferredTestLines) },
@@ -35,7 +35,7 @@ export function EffectChart({ periods, totals, grain }: { periods: EffectPeriod[
   const tooltip = useMemo(() => periodTooltip(stats, core, language, grain), [stats, core, language, grain]);
   const patternId = useId();
   const legend: LegendItem[] = [
-    { label: stats.inPullRequests, shape: "bar", color: REAL },
+    { label: stats.onTopicSeries, shape: "bar", color: REAL },
     { label: stats.deferredSeries, shape: "hatch", color: DEFERRED },
   ];
   return (
@@ -61,6 +61,6 @@ export function EffectChart({ periods, totals, grain }: { periods: EffectPeriod[
 function effectSummary(stats: StatsMessages, grain: Grain, periods: EffectPeriod[], totals: EffectTotals): string {
   const approx = isEstimated(totals.estimatedLines);
   if (grain === "week") return stats.effectSummary(totals.realLines, stats.linesText(totals.deferredLines, approx), formatNoiseShare(totals.noiseShare));
-  const inPullRequests = Math.round(sum(periods.map((period) => period.onTopicLines)));
-  return stats.effectDaysSummary(periods.length, inPullRequests, stats.linesText(sum(periods.map((period) => period.deferredLines)), approx));
+  const onTopicLines = Math.round(sum(periods.map((period) => period.onTopicLines)));
+  return stats.effectDaysSummary(periods.length, onTopicLines, stats.linesText(sum(periods.map((period) => period.deferredLines)), approx));
 }

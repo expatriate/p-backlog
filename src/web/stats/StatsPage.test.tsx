@@ -409,7 +409,7 @@ describe("вкладка «Эффект»", () => {
 
     expect(within(grain).getByRole("button", { name: "день" }).getAttribute("aria-pressed")).toBe("true");
     expect(within(grain).getByRole("button", { name: "неделя" }).getAttribute("aria-pressed")).toBe("false");
-    expect(screen.getByRole("figure", { name: new RegExp(`^За 30${NBSP}дней: в пулреквестах 2${NBSP}строки, вынесено 0${NBSP}строк$`) })).toBeDefined();
+    expect(screen.getByRole("figure", { name: new RegExp(`^За 30${NBSP}дней: по теме пулреквестов 2${NBSP}строки, вынесено 0${NBSP}строк$`) })).toBeDefined();
 
     const explainer = screen.getByRole("region", { name: "Как считается выигрыш" });
     expect(within(explainer).getByText("Сейчас: 0 задач — 0 строк")).toBeDefined();
