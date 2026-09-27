@@ -58,6 +58,11 @@ async function loadTaskFile(path: string, project: Project): Promise<ParseResult
   return parsed;
 }
 
+export async function taskIdsOnDisk(projectDir: string): Promise<Set<string>> {
+  const taskFiles = (await listDir(projectDir)).filter((entry) => entry.isFile() && isTaskFileName(entry.name));
+  return new Set(taskFiles.map((entry) => basename(entry.name, ".md")));
+}
+
 function isTaskFileName(name: string): boolean {
   return name.endsWith(".md") && ID_PATTERN.test(name.slice(0, -".md".length));
 }

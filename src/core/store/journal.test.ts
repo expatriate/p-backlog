@@ -1,9 +1,13 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { describe, expect, it, vi } from "vitest";
 import { createdEvent } from "../journal/events";
 import { makeTask } from "../model/testing/make-task";
+import { withFileLock } from "./file-lock";
+import { readTextOrNull } from "./fs-utils";
 import { appendJournal, JOURNAL_FILE, readJournal, readJournals } from "./journal";
+import { compactJournal } from "./journal-compaction";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
 
 const NOW = new Date(2026, 8, 18, 12, 0, 0);
@@ -106,5 +110,32 @@ describe("файл журнала", () => {
       ["spa", 1],
       ["ti", 0],
     ]);
+  });
+
+  it("дописывание ждёт уплотнения", async () => {
+    const dir = await makeTempDir();
+    const path = join(dir, JOURNAL_FILE);
+    let appended: Promise<void> = Promise.resolve();
+
+    await withFileLock(path, async () => {
+      appended = appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")]);
+      await sleep(50);
+      expect(await readTextOrNull(path)).toBeNull();
+    });
+    await appended;
+
+    expect((await readJournal(dir, "spa")).events.map((event) => event.task)).toEqual(["SPA-1"]);
+  });
+
+  it("строки, дописанные во время уплотнения, не теряются", async () => {
+    const dir = await makeTempDir();
+    const old = new Date(2026, 0, 5, 12, 0, 0);
+    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-3" }), old, "cli"), createdEvent(makeTask({ id: "SPA-4" }), old, "cli")]);
+    const appendedIds = Array.from({ length: 10 }, (_, index) => `SPA-9${index}`);
+
+    await Promise.all([compactJournal(dir, new Set(), NOW), ...appendedIds.map((id) => appendJournal(dir, [createdEvent(makeTask({ id }), NOW, "cli")]))]);
+
+    const tasks = (await readJournal(dir, "spa")).events.map((event) => event.task);
+    expect(tasks.filter((task) => appendedIds.includes(task)).sort()).toEqual(appendedIds);
   });
 });

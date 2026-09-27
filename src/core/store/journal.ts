@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../journal/events";
 import { errorText } from "../errors";
+import { withFileLock } from "./file-lock";
 import { appendJsonLines, readJsonLines, type JsonLines } from "./fs-utils";
 
 export const JOURNAL_FILE = "journal.jsonl";
@@ -9,7 +10,7 @@ export async function appendJournal(projectDir: string, events: readonly Journal
   if (events.length === 0) return;
   const path = join(projectDir, JOURNAL_FILE);
   try {
-    await appendJsonLines(path, events);
+    await withFileLock(path, () => appendJsonLines(path, events));
   } catch (error) {
     onError(path, error);
   }

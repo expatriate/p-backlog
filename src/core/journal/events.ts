@@ -240,6 +240,23 @@ export function episodeStates(journal: readonly JournalEvent[]): EpisodeStates {
   return states;
 }
 
+export function episodeOpeners(journal: readonly JournalEvent[]): ReadonlySet<JournalEvent> {
+  const states = episodeStates(journal);
+  const seenKeys = new Set<string>();
+  const openers = new Set<JournalEvent>();
+  for (const event of journal.toReversed()) {
+    const key = openingKey(event);
+    if (key === null || seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    if (states.get(key) === "open") openers.add(event);
+  }
+  return openers;
+}
+
+function openingKey(event: JournalEvent): string | null {
+  return event.kind === "candidate" ? episodeKey(event.task, event.evidence) : null;
+}
+
 function undoesClosing(event: JournalEvent): boolean {
   return event.kind === "status" && event.undo === true && isClosed(event.from) && !isClosed(event.to);
 }
