@@ -1,4 +1,4 @@
-import { errorText } from "../core/errors";
+import { errorText, warnOnFailure } from "../core/errors";
 import { coreMessages } from "../core/messages";
 import { compactJournalsWhenDue } from "../core/store/journal-compaction";
 import { trimRunsWhenStale } from "../core/store/runs";
@@ -12,15 +12,12 @@ export type HousekeepingRun = { backlogRoot: string; argv: readonly string[]; en
 export async function tidyAfterCommand({ backlogRoot, argv, env, now, warn }: HousekeepingRun): Promise<void> {
   const language = await readLanguage(backlogRoot, env).catch(() => localeLanguage(env));
   const messages = cliMessages(language);
-  await trimRunsWhenStale(backlogRoot, now).catch((error: unknown) => warn(messages.runsNotTrimmed(errorText(error))));
+  await warnOnFailure(trimRunsWhenStale(backlogRoot, now), warn, messages.runsNotTrimmed);
   if (argv[0] === hookCommand.name) return;
-  const report = await sweepClosedWhenDue(backlogRoot, now, coreMessages(language)).catch((error: unknown) => {
-    warn(messages.closedNotSwept(errorText(error)));
-    return null;
-  });
+  const report = await warnOnFailure(sweepClosedWhenDue(backlogRoot, now, coreMessages(language)), warn, messages.closedNotSwept);
   if (report !== null) warnAboutSweep(report, messages, warn);
   const compactionFailed = (dir: string, error: unknown) => warn(messages.journalNotCompacted(dir, errorText(error)));
-  await compactJournalsWhenDue(backlogRoot, now, compactionFailed).catch((error: unknown) => compactionFailed(backlogRoot, error));
+  await warnOnFailure(compactJournalsWhenDue(backlogRoot, now, compactionFailed), warn, (error) => messages.journalNotCompacted(backlogRoot, error));
 }
 
 function warnAboutSweep({ blockingFiles, conflicts, invalid }: SweepReport, messages: CliMessages, warn: (line: string) => void): void {
