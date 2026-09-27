@@ -94,7 +94,7 @@ async function recordCandidates(root: string, tasks: readonly Task[], { candidat
       const sightings = found.map(sightingOf);
       const checked = CANDIDATE_EVIDENCE.filter((evidence) => !(unchecked.get(projectId) ?? []).includes(evidence));
       const gone = endsGone ? candidateGoneEvents(sightings, reviewed, states, now, checked) : [];
-      await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, now)], (path, error) => {
+      await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, states, now)], (path, error) => {
         throw error;
       });
     } catch (error) {

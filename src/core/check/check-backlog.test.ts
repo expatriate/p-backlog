@@ -150,6 +150,17 @@ describe("checkBacklog", () => {
     expect(events.filter((event) => event.kind === "candidate")).toEqual([]);
   });
 
+  it("отсев того же символа в уже открытом эпизоде не пишет повторного события", async () => {
+    const { home, root } = await symbolFixture(() => "source: src/upload.ts:2\n", editRetry);
+    const opened = { at: "2026-09-11T10:00:00+03:00", task: "SPA-1", via: "check", kind: "candidate-filtered", symbol: "uploadFile" };
+    await writeFile(join(root, "spa", "journal.jsonl"), `${JSON.stringify(opened)}\n`);
+
+    await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU });
+
+    const events = (await readJournal(join(root, "spa"), "spa")).events;
+    expect(events.filter((event) => event.kind === "candidate-filtered")).toHaveLength(1);
+  });
+
   async function shiftedFixture(taskFields: (before: string) => string, edit: (code: string) => string) {
     const home = await makeTempDir();
     const root = join(home, "backlog");

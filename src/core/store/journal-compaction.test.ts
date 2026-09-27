@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { candidateEvents, episodeStates } from "../journal/events";
+import { candidateEvents, episodeStates, filteredEvents } from "../journal/events";
 import { effectReport } from "../stats/effect/effect-report";
 import { flowForecast } from "../stats/flow/forecast";
 import { qualityReport } from "../stats/quality/quality-report";
@@ -36,6 +36,7 @@ const created = (task: string, day: string, type = "task") => ({ at: at(day), ta
 const status = (task: string, day: string, from: string, to: string, resolution?: string) => ({ at: at(day), task, via: "cli", kind: "status", from, to, resolution });
 const candidate = (task: string, day: string, evidence: string) => ({ at: at(day), task, via: "check", kind: "candidate", evidence, mode: "full" });
 const candidateGone = (task: string, day: string, evidence: string) => ({ at: at(day), task, via: "check", kind: "candidate-gone", evidence });
+const candidateFiltered = (task: string, day: string, symbol: string) => ({ at: at(day), task, via: "check", kind: "candidate-filtered", symbol });
 const verified = (task: string, day: string) => ({ at: at(day), task, via: "cli", kind: "verified" });
 const deleted = (task: string, day: string, snapshot: Record<string, unknown>) => ({
   at: at(day),
@@ -87,6 +88,7 @@ const TI_JOURNAL = [
   created("TI-1", "2026-01-01", "epic"),
   deleted("TI-1", "2026-01-20", { type: "epic", status: "cancelled", created: at("2026-01-01"), closed: at("2026-01-20"), resolution: "obsolete", reason: "не нужен" }),
   created("TI-8", "2026-02-01"),
+  candidateFiltered("TI-8", "2026-02-15", "legacySymbol"),
   status("TI-8", "2026-03-01", "backlog", "done", "fixed"),
   deleted("TI-8", "2026-03-05", { status: "done", category: "bug", created: at("2026-02-01"), closed: at("2026-03-01"), resolution: "fixed", reason: "bbb0008" }),
   status("TI-2", "2026-03-19", "backlog", "done", "fixed"),
@@ -201,6 +203,15 @@ describe("уплотнение журнала проекта", () => {
     const { events } = await readJournal(dir, "spa");
     const sightings = [{ task: "SPA-2", evidence: "source-changed" as const }, { task: "SPA-8", evidence: "source-changed" as const }];
     expect(candidateEvents(sightings, episodeStates(events), NOW, "changed")).toEqual([]);
+  });
+
+  it("открытый эпизод отсева переживает уплотнение — следующая проверка его не повторит", async () => {
+    const { dir } = await spaProject([...SPA_JOURNAL, candidateFiltered("SPA-2", "2026-05-20", "uploadFile")]);
+
+    await compact(dir);
+
+    const { events } = await readJournal(dir, "spa");
+    expect(filteredEvents([{ task: "SPA-2", symbol: "uploadFile" }], episodeStates(events), NOW)).toEqual([]);
   });
 
   it("самое раннее событие остаётся, даже если задача исчезла до окна: «Журнал ведётся с» не сдвигается", async () => {

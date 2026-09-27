@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
-import { candidateEvents, candidateGoneEvents, episodeStates, changeEvents, createdEvent, deletedEvent, journalEventSchema } from "./events";
+import { candidateEvents, candidateGoneEvents, episodeStates, changeEvents, createdEvent, deletedEvent, filteredEvents, journalEventSchema } from "./events";
 
 const NOW = new Date(2026, 8, 18, 12, 0, 0);
 const AT = "2026-09-18T12:00:00";
@@ -145,5 +145,31 @@ describe("новые поля и события", () => {
     expect(candidateGoneEvents([], ["SPA-1"], episodeStates([...first, ...gone]), NOW)).toEqual([]);
 
     expect(candidateEvents([{ task: "SPA-1", evidence: "source-changed" }], episodeStates([...first, ...gone]), NOW, "full")).toMatchObject([{ kind: "candidate" }]);
+  });
+
+  it("повторный отсев того же символа в открытом эпизоде не пишется, после подтверждения, кандидата по коду или для другого символа — пишется", () => {
+    const opened = [{ at: AT, task: "SPA-1", via: "check" as const, kind: "candidate-filtered" as const, symbol: "uploadFile" }];
+    const sighting = { task: "SPA-1", symbol: "uploadFile" };
+
+    expect(filteredEvents([sighting], episodeStates(opened), NOW)).toEqual([]);
+
+    const afterVerify = [...opened, { at: AT, task: "SPA-1", via: "cli" as const, kind: "verified" as const }];
+    expect(filteredEvents([sighting], episodeStates(afterVerify), NOW)).toHaveLength(1);
+
+    const afterCandidate = [...opened, { at: AT, task: "SPA-1", via: "check" as const, kind: "candidate" as const, evidence: "source-changed" as const, mode: "full" as const }];
+    expect(filteredEvents([sighting], episodeStates(afterCandidate), NOW)).toHaveLength(1);
+
+    expect(filteredEvents([{ task: "SPA-1", symbol: "retry" }], episodeStates(opened), NOW)).toHaveLength(1);
+
+    expect(filteredEvents([sighting, sighting], episodeStates([]), NOW)).toHaveLength(1);
+  });
+
+  it("отменённое закрытие возвращает открытый эпизод отсева", () => {
+    const sighting = { task: "SPA-1", symbol: "uploadFile" };
+    const opened = { at: AT, task: "SPA-1", via: "check" as const, kind: "candidate-filtered" as const, symbol: "uploadFile" };
+    const closed = { at: AT, task: "SPA-1", via: "web" as const, kind: "status" as const, from: "backlog" as const, to: "done" as const };
+    const undone = { at: AT, task: "SPA-1", via: "web" as const, kind: "status" as const, from: "done" as const, to: "backlog" as const, undo: true as const };
+
+    expect(filteredEvents([sighting], episodeStates([opened, closed, undone]), NOW)).toEqual([]);
   });
 });
