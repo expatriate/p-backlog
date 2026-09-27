@@ -1,6 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { dirname, join, posix } from "node:path";
+import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
+import { launchdLogPath } from "../../core/service-log";
 import { fileExists, numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
 
 const LABEL = "local.p-backlog";
@@ -17,15 +18,11 @@ function xml(text: string): string {
   return text.replace(/[&<>"']/g, (char) => XML_ENTITIES[char] ?? char);
 }
 
-function logPath(home: string): string {
-  return posix.join(home, "Library/Logs/p-backlog.log");
-}
-
 export function launchdPlist(context: ServiceContext): string {
   const entries = Object.entries(serviceEnvironment(context))
     .map(([key, value]) => `    <key>${xml(key)}</key>\n    <string>${xml(value)}</string>`)
     .join("\n");
-  const log = xml(logPath(context.home));
+  const log = xml(launchdLogPath(context.home));
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -64,11 +61,11 @@ export function launchdManager(context: ServiceContext, delay: (ms: number) => P
   const bootstrap = () => context.exec("launchctl", ["bootstrap", domain, file]);
   return {
     file,
-    logs: logPath(context.home),
+    logs: launchdLogPath(context.home),
     async install() {
       await bootout();
       await mkdir(dirname(file), { recursive: true });
-      await mkdir(dirname(logPath(context.home)), { recursive: true });
+      await mkdir(dirname(launchdLogPath(context.home)), { recursive: true });
       await writeFile(file, launchdPlist(context));
       let result = await bootstrap();
       for (let attempt = 1; result.code === PREVIOUS_BOOTOUT_UNFINISHED_CODE && attempt < BOOTSTRAP_RETRY_ATTEMPTS; attempt++) {

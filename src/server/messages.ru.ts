@@ -17,6 +17,7 @@ export const serverRu = {
 
   runsTrimFailed: (detail: string): string => `Не удалось обрезать журнал запусков: ${detail}`,
   journalCompactionFailed: (dir: string, detail: string): string => `Не удалось уплотнить журнал в ${dir}: ${detail}`,
+  serviceLogTrimFailed: (detail: string): string => `Не удалось обрезать лог службы: ${detail}`,
   serverStarted: (port: number, root: string): string => `p-backlog: http://localhost:${port}\nКаталог беклога: ${root}\n`,
   settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 

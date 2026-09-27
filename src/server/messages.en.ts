@@ -19,6 +19,7 @@ export const serverEn: ServerMessages = {
 
   runsTrimFailed: (detail) => `Could not trim the run log: ${detail}`,
   journalCompactionFailed: (dir, detail) => `Could not compact the journal in ${dir}: ${detail}`,
+  serviceLogTrimFailed: (detail) => `Could not trim the service log: ${detail}`,
   serverStarted: (port, root) => `p-backlog: http://localhost:${port}\nBacklog directory: ${root}\n`,
   settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 

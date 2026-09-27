@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { claudeProjectsDir } from "../core/claude-dir";
 import { errorText } from "../core/errors";
 import { coreMessages } from "../core/messages";
+import { SERVICE_LOG_KEPT_BYTES, SERVICE_LOG_LIMIT_BYTES, serviceLogToTrim, trimLogFile } from "../core/service-log";
 import { compactJournalsWhenDue } from "../core/store/journal-compaction";
 import { trimRuns } from "../core/store/runs";
 import { settingsFilePath, settleLanguage } from "../core/store/settings";
@@ -59,6 +60,12 @@ export async function startServer({ root, port, home, env, pidFile, staticDir }:
     const report = await sweepClosed(root, now, coreMessages(language));
     const compactionFailed = (dir: string, error: unknown) => warn(serverMessages(language).journalCompactionFailed(dir, errorText(error)));
     await compactJournalsWhenDue(root, now, compactionFailed).catch((error: unknown) => compactionFailed(root, error));
+    const logToTrim = serviceLogToTrim(process.platform, home);
+    if (logToTrim !== null) {
+      await trimLogFile(logToTrim, SERVICE_LOG_LIMIT_BYTES, SERVICE_LOG_KEPT_BYTES).catch((error: unknown) =>
+        warn(serverMessages(language).serviceLogTrimFailed(errorText(error))),
+      );
+    }
     return report;
   };
 

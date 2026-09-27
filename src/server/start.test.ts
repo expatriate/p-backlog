@@ -1,5 +1,5 @@
-import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { localeLanguage, settingsFilePath } from "../core/store/settings";
 import { journalWithTaskGoneLongAgo } from "../core/store/testing/stale-journal";
@@ -93,6 +93,20 @@ describe("startServer", () => {
     const journal = await readFile(join(root, "spa", "journal.jsonl"), "utf8");
     expect(journal).not.toContain("SPA-3");
     expect(journal).toContain("SPA-1");
+  });
+
+  it.runIf(process.platform === "darwin")("служба при старте обрезает свой лог", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const logPath = join(home, "Library/Logs/p-backlog.log");
+    await mkdir(dirname(logPath), { recursive: true });
+    await writeFile(logPath, "line 0000000000000000000000000000000000\n".repeat(80_000));
+    expect((await stat(logPath)).size).toBeGreaterThan(2 * 1024 * 1024);
+
+    const server = await startServer({ root, port: 0, home, env: {} });
+    await server.close();
+
+    expect((await stat(logPath)).size).toBeLessThanOrEqual(256 * 1024);
   });
 
   it("занятый порт отклоняет промис ошибкой с номером порта", async () => {
