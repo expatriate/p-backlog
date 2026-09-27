@@ -2,21 +2,16 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { candidateEvents, episodeStates, filteredEvents } from "../journal/events";
-import { effectReport } from "../stats/effect/effect-report";
-import { flowForecast } from "../stats/flow/forecast";
-import { qualityReport } from "../stats/quality/quality-report";
-import { statsReport } from "../stats/report";
-import { reportBase, type StatsInput } from "../stats/scope";
-import { statsSignals } from "../stats/signals/signals";
+import { reportBase } from "../stats/scope";
 import type { CollectedCode, FixCommit } from "../stats/types";
 import { JOURNAL_FILE, readJournal, readJournals } from "./journal";
 import { compactJournal } from "./journal-compaction";
-import { loadBacklog, taskIdsOnDisk, unparsedTasks } from "./load";
+import { loadBacklog, taskIdsOnDisk } from "./load";
 import { PROJECT_FILE } from "./paths";
+import { reportsOf } from "./testing/compaction-reports";
 import { makeTempDir, projectFile, writeFiles } from "./testing/temp-dirs";
 
 const NOW = new Date("2026-09-27T12:00:00+03:00");
-const FILE_COUNTERS = { taskCount: 0, invalidJournalLines: 0, unknownJournalLines: 0 };
 const repoWithUnits = { commits: [], lines: [], units: [{ date: "2026-09-06T10:00:00+03:00", lines: 100 }] };
 const CODE: CollectedCode = {
   projects: [
@@ -127,22 +122,7 @@ async function addTiProject(root: string): Promise<string> {
   return join(root, "ti");
 }
 
-async function reports(root: string) {
-  const { tasks, errors } = await loadBacklog(root);
-  const journals = await readJournals(root, ["spa", "ti"]);
-  return [undefined, "spa", "ti"].map((projectId) => {
-    const input: StatsInput = { tasks, journals, now: NOW, projectId, unparsedTasks: unparsedTasks(errors) };
-    const base = reportBase(input);
-    const stats = statsReport(input, base);
-    return {
-      stats: { ...stats, ...FILE_COUNTERS },
-      forecast: flowForecast(base.histories, stats.totals.open, NOW),
-      quality: { ...qualityReport(input, base, []), ...FILE_COUNTERS },
-      signals: statsSignals(input, base),
-      effect: { ...effectReport({ ...input, code: CODE }, base), ...FILE_COUNTERS },
-    };
-  });
-}
+const reports = (root: string) => reportsOf(root, ["spa", "ti"], NOW, CODE);
 
 async function compact(dir: string): Promise<number> {
   return compactJournal(dir, await taskIdsOnDisk(dir), NOW);
