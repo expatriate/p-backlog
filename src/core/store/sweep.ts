@@ -6,6 +6,7 @@ import { DAY_MS, epicDoneClosure, isExpired, planEpicClosing, planEpicReopening 
 import { deletedEvent } from "../journal/events";
 import type { Problem } from "../model/problems";
 import type { Project, Task } from "../model/types";
+import { runWhenDue } from "./daily";
 import { FileBusyError, withAvailableLocks } from "./file-lock";
 import { contentVersion, listDir, readTextOrNull, removeIfUnchanged, removeTemporariesBefore } from "./fs-utils";
 import { appendJournal } from "./journal";
@@ -33,6 +34,12 @@ type ReopenStep = { reopened: string[]; failures: SweepFailure[] };
 type RemovalStep = { deleted: string[]; failures: SweepFailure[] };
 
 type UpdateStep = { failures: SweepFailure[]; stillReferenced: ReadonlySet<string> };
+
+export const SWEPT_AT_FILE = ".swept-at";
+
+export function sweepClosedWhenDue(root: string, now: Date, messages: CoreMessages): Promise<SweepReport | null> {
+  return runWhenDue(join(root, SWEPT_AT_FILE), now, () => sweepClosed(root, now, messages));
+}
 
 export async function sweepClosed(root: string, now: Date, messages: CoreMessages): Promise<SweepReport> {
   const initial = await loadBacklog(root);

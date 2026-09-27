@@ -1,6 +1,9 @@
 import { appendFile, mkdir, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { formatLocalIso } from "../core/model/dates";
+import { DAY_MS } from "../core/model/lifecycle";
+import { SWEPT_AT_FILE } from "../core/store/sweep";
 import { createdLine, journalWithTaskGoneLongAgo } from "../core/store/testing/stale-journal";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import { tidyAfterCommand } from "./housekeeping";
@@ -47,6 +50,26 @@ describe("уборка после команды CLI", () => {
 
     await tidy(["show", "SPA-1"]);
     expect(await readFile(journalPath, "utf8")).not.toContain("SPA-3");
+  });
+
+  it("закрытая больше 7 дней назад задача удаляется после команды CLI, повтор в тот же день уборку не запускает", async () => {
+    const root = await makeTempDir();
+    const closedDaysAgo = (days: number) => formatLocalIso(new Date(NOW.getTime() - days * DAY_MS));
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1", `status: done\nclosed: ${closedDaysAgo(10)}\n`) });
+    const tidy = tidyIn(root);
+
+    await tidy(["list"]);
+
+    await expect(readFile(join(root, "spa", "SPA-1.md"), "utf8")).rejects.toThrow();
+    expect(await readFile(join(root, "spa", "journal.jsonl"), "utf8")).toContain('"kind":"deleted"');
+    expect(await readdir(root)).toContain(SWEPT_AT_FILE);
+
+    await writeFiles(root, { "spa/SPA-2.md": taskFile("SPA-2", `status: done\nclosed: ${closedDaysAgo(10)}\n`) });
+    await tidy(["list"], 1);
+    await expect(readFile(join(root, "spa", "SPA-2.md"), "utf8")).resolves.toContain("SPA-2");
+
+    await tidy(["list"], 25);
+    await expect(readFile(join(root, "spa", "SPA-2.md"), "utf8")).rejects.toThrow();
   });
 
   it("сбой уплотнения одного проекта не мешает остальным, предупреждение называет сломанный проект", async () => {

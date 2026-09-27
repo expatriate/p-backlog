@@ -13,6 +13,7 @@ export const cliEn: CliMessages = {
   runNotRecorded: (error) => `Could not record the run: ${error}`,
   runsNotTrimmed: (error) => `Could not trim the run log: ${error}`,
   journalNotCompacted: (dir, error) => `Could not compact the journal in ${dir}: ${error}`,
+  closedNotSwept: (error) => `Could not delete closed tasks: ${error}`,
   settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 
   optionLabel: { status: "status", category: "category", priority: "priority", language: "language", agent: "agent" },
