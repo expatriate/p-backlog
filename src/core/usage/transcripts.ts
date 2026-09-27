@@ -89,11 +89,15 @@ export async function scanTranscripts({ files, cache, byteBudget, now }: ScanTra
 
 function pruneStaleBuckets(entries: Readonly<Record<string, UsageCacheEntry>>, now: Date): { files: Record<string, UsageCacheEntry>; prunedBuckets: number } {
   const retained = retainedSince(now);
-  const pruned = Object.entries(entries).map(([path, entry]) => {
-    const buckets = entry.buckets.filter((bucket) => Date.parse(bucket.slot) >= retained);
-    return { path, entry: buckets.length === entry.buckets.length ? entry : { ...entry, buckets }, removed: entry.buckets.length - buckets.length };
-  });
-  return { files: Object.fromEntries(pruned.map(({ path, entry }) => [path, entry])), prunedBuckets: sum(pruned.map(({ removed }) => removed)) };
+  return Object.entries(entries).reduce<{ files: Record<string, UsageCacheEntry>; prunedBuckets: number }>(
+    (result, [path, entry]) => {
+      const buckets = entry.buckets.filter((bucket) => Date.parse(bucket.slot) >= retained);
+      result.files[path] = buckets.length === entry.buckets.length ? entry : { ...entry, buckets };
+      result.prunedBuckets += entry.buckets.length - buckets.length;
+      return result;
+    },
+    { files: {}, prunedBuckets: 0 },
+  );
 }
 
 function deletedStillReported(cache: UsageCache, listedFiles: Readonly<Record<string, UsageCacheEntry>>, now: Date): Record<string, UsageCacheEntry> {

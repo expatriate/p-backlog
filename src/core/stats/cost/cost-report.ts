@@ -6,7 +6,7 @@ import { COST_REPORT_DAYS, type UsageBucket } from "./usage-state";
 import { HOOK_STOP_COMMAND } from "./hook-signature";
 import { costOf, splitFastModel } from "./pricing";
 import { dayRange } from "../days";
-import { DAYS_PER_WEEK, weekWindows } from "../weeks";
+import { DAYS_PER_WEEK, statsPeriod, weekWindows } from "../weeks";
 import type { Period } from "../period";
 import { groupBy, sum } from "../numbers";
 
@@ -36,7 +36,7 @@ export function costReport({ buckets, runs, projectOf, projectId, now, scan }: C
 
   return {
     scan,
-    since: sinceWithin(scopedBuckets, weeks[0]),
+    since: sinceWithin(scopedBuckets, statsPeriod(now)),
     totals: totalsOf(inDays(bucketsByDay, totalsDays), inDays(runsByDay, totalsDays)),
     days: days.map((day) => dayRow(day, bucketsByDay.get(day) ?? [], runsByDay.get(day) ?? [])),
     weeks: weeks.map((week) => {
@@ -88,11 +88,8 @@ function sinceOf(buckets: readonly UsageBucket[]): string | null {
   return days.length === 0 ? null : days.reduce((earliest, day) => (day < earliest ? day : earliest));
 }
 
-function sinceWithin(buckets: readonly UsageBucket[], window: Period | undefined): string | null {
-  const earliest = sinceOf(buckets);
-  if (earliest === null || window === undefined) return earliest;
-  const windowStart = formatLocalDay(new Date(window.from));
-  return earliest < windowStart ? windowStart : earliest;
+function sinceWithin(buckets: readonly UsageBucket[], window: Period): string | null {
+  return sinceOf(buckets.filter((bucket) => window.contains(Date.parse(bucket.slot))));
 }
 
 function totalsOf(buckets: readonly UsageBucket[], runs: readonly CliRun[]): CostTotals {

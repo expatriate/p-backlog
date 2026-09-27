@@ -313,9 +313,8 @@ describe("обрезка корзин старше окна хранения", (
     return { slot: new Date(NOW.getTime() - daysAgo * DAY_MS).toISOString(), cwd: CWD, model: "claude-sonnet-5", kind: "hook", tokens: { input, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 }, hookTurns: 0 };
   }
 
-  function costFieldsOf(buckets: readonly UsageBucket[]) {
-    const { totals, days, weeks, models, commands } = costReport({ buckets, runs: [], projectOf: () => null, now: NOW, scan: SCAN });
-    return { totals, days, weeks, models, commands };
+  function reportOf(buckets: readonly UsageBucket[]) {
+    return costReport({ buckets, runs: [], projectOf: () => null, now: NOW, scan: SCAN });
   }
 
   async function staleAndFreshFixture(root: string) {
@@ -336,7 +335,7 @@ describe("обрезка корзин старше окна хранения", (
     expect(result.bytesRead).toBe(0);
     expect(result.prunedBuckets).toBe(1);
     expect(result.cache.files[path]).toEqual({ ...previous, buckets: [freshBucket] });
-    expect(costFieldsOf(result.cache.files[path]?.buckets ?? [])).toEqual(costFieldsOf(previous.buckets));
+    expect(reportOf(result.cache.files[path]?.buckets ?? [])).toEqual(reportOf(previous.buckets));
   });
 
   it("запись удалённого файла со свежей корзиной: старая корзина уходит, запись остаётся", async () => {
@@ -347,6 +346,6 @@ describe("обрезка корзин старше окна хранения", (
 
     expect(result.prunedBuckets).toBe(1);
     expect(result.cache.files[path]).toEqual({ ...previous, buckets: [freshBucket] });
-    expect(costFieldsOf(result.cache.files[path]?.buckets ?? [])).toEqual(costFieldsOf(previous.buckets));
+    expect(reportOf(result.cache.files[path]?.buckets ?? [])).toEqual(reportOf(previous.buckets));
   });
 });

@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { formatLocalDay, formatLocalIso } from "../../model/dates";
+import { formatLocalIso } from "../../model/dates";
 import type { CliRun } from "../../store/runs";
 import type { ScanProgress } from "../types";
-import { weekWindows } from "../weeks";
 import type { TokenCounts } from "./token-counts";
 import type { UsageBucket } from "./usage-state";
 import { attributeLine, newTranscriptState } from "./attribute";
@@ -202,12 +201,12 @@ describe("отчёт о стоимости", () => {
     expect(costReport({ buckets: [], runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN }).since).toBeNull();
   });
 
-  it("since не раньше начала 12 недель", () => {
-    const buckets = [bucket({ slot: slotAt(200) }), bucket({ slot: slotAt(3) })];
+  it("since не раньше начала 12 недель: корзины вне окна не влияют", () => {
+    const outOfWindow = [bucket({ slot: slotAt(200) })];
+    const mixed = [bucket({ slot: slotAt(200) }), bucket({ slot: slotAt(3) })];
 
-    const report = costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
-
-    expect(report.since).toBe(formatLocalDay(new Date(weekWindows(NOW)[0]?.from ?? NOW.getTime())));
+    expect(costReport({ buckets: outOfWindow, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN }).since).toBeNull();
+    expect(costReport({ buckets: mixed, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN }).since).toBe(dayAt(3));
   });
 
   it("scan передаётся в отчёт без изменений", () => {
