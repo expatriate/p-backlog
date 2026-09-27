@@ -1,13 +1,19 @@
 import { appendFile, chmod, readFile, stat, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
+import { DAY_MS } from "../model/lifecycle";
 import { makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { newTranscriptState } from "../stats/cost/attribute";
+import { costReport } from "../stats/cost/cost-report";
+import type { ScanProgress } from "../stats/types";
+import type { UsageBucket } from "../stats/cost/usage-state";
 import { listTranscripts, scanTranscripts, type TranscriptFile } from "./transcripts";
-import { emptyUsageCache, readUsageCache, writeUsageCache } from "./usage-cache";
+import { emptyUsageCache, readUsageCache, USAGE_CACHE_VERSION, writeUsageCache, type UsageCache, type UsageCacheEntry } from "./usage-cache";
 
 const CWD = "/Users/x/projects/spa";
 const BIG_BUDGET = 10_000_000;
 const NOW = new Date("2026-09-19T12:00:00Z");
+const SCAN: ScanProgress = { listed: true, filesTotal: 1, filesDone: 1, bytesLeft: 0 };
 
 function usage(input: number, output: number) {
   return { input_tokens: input, output_tokens: output, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
@@ -299,5 +305,48 @@ describe("чтение расшифровок по частям", () => {
 
     expect(raw).not.toContain(marker);
     expect(raw).not.toContain("MARKER-");
+  });
+});
+
+describe("обрезка корзин старше окна хранения", () => {
+  function bucketAt(daysAgo: number, input: number): UsageBucket {
+    return { slot: new Date(NOW.getTime() - daysAgo * DAY_MS).toISOString(), cwd: CWD, model: "claude-sonnet-5", kind: "hook", tokens: { input, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 }, hookTurns: 0 };
+  }
+
+  function costFieldsOf(buckets: readonly UsageBucket[]) {
+    const { totals, days, weeks, models, commands } = costReport({ buckets, runs: [], projectOf: () => null, now: NOW, scan: SCAN });
+    return { totals, days, weeks, models, commands };
+  }
+
+  async function staleAndFreshFixture(root: string) {
+    const path = join(root, "session.jsonl");
+    const file = await transcriptFile(path, jsonl([assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
+    const freshBucket = bucketAt(1, 5);
+    const previous: UsageCacheEntry = { size: file.size, mtimeMs: file.mtimeMs, offset: file.size, fingerprint: "unchanged-fingerprint", state: newTranscriptState(), buckets: [bucketAt(100, 1000), freshBucket] };
+    const cache: UsageCache = { version: USAGE_CACHE_VERSION, files: { [path]: previous } };
+    return { path, file, previous, cache, freshBucket };
+  }
+
+  it("запись полностью прочитанного файла: корзина старше окна уходит, файл не перечитывается", async () => {
+    const root = await makeTempDir();
+    const { path, file, previous, cache, freshBucket } = await staleAndFreshFixture(root);
+
+    const result = await scanTranscripts({ files: [file], cache, byteBudget: BIG_BUDGET, now: NOW });
+
+    expect(result.bytesRead).toBe(0);
+    expect(result.prunedBuckets).toBe(1);
+    expect(result.cache.files[path]).toEqual({ ...previous, buckets: [freshBucket] });
+    expect(costFieldsOf(result.cache.files[path]?.buckets ?? [])).toEqual(costFieldsOf(previous.buckets));
+  });
+
+  it("запись удалённого файла со свежей корзиной: старая корзина уходит, запись остаётся", async () => {
+    const root = await makeTempDir();
+    const { path, previous, cache, freshBucket } = await staleAndFreshFixture(root);
+
+    const result = await scanTranscripts({ files: [], cache, byteBudget: BIG_BUDGET, now: NOW });
+
+    expect(result.prunedBuckets).toBe(1);
+    expect(result.cache.files[path]).toEqual({ ...previous, buckets: [freshBucket] });
+    expect(costFieldsOf(result.cache.files[path]?.buckets ?? [])).toEqual(costFieldsOf(previous.buckets));
   });
 });

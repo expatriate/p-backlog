@@ -63,7 +63,7 @@ export function createUsageScanner({
     cache = result.cache;
     setScan({ listed: true, filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft });
     budgetExhausted = result.bytesRead >= byteBudget;
-    if (result.bytesRead > 0) await writeUsageCache(root, result.cache);
+    if (result.bytesRead > 0 || result.prunedBuckets > 0) await writeUsageCache(root, result.cache);
   };
 
   const scanOnce = (): Promise<void> => {

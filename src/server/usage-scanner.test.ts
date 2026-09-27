@@ -1,8 +1,10 @@
-import { rm, writeFile } from "node:fs/promises";
+import { rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { DAY_MS } from "../core/model/lifecycle";
+import { newTranscriptState } from "../core/stats/cost/attribute";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
-import { emptyUsageCache, readUsageCache } from "../core/usage/usage-cache";
+import { emptyUsageCache, readUsageCache, USAGE_CACHE_VERSION, writeUsageCache } from "../core/usage/usage-cache";
 import { serverRu } from "./messages.ru";
 import { CATCH_UP_DELAY_MS, createUsageScanner, type UsageScannerOptions } from "./usage-scanner";
 
@@ -104,6 +106,34 @@ describe("createUsageScanner", () => {
 
     expect(scanner.snapshot().revision).toBeGreaterThan(stillWithinWindow);
     expect(scanner.snapshot().cache.files).toEqual({});
+  });
+
+  it("обрезанный кэш сохраняется без новых байтов", async () => {
+    const root = await makeTempDir();
+    const transcriptsDir = await makeTempDir();
+    const path = join(transcriptsDir, "proj", "a.jsonl");
+    const line = JSON.stringify({ type: "assistant", timestamp: "2026-09-19T09:00:00.000Z", cwd: "/x", message: { model: "claude-opus-5", usage: { input_tokens: 1, output_tokens: 1 } } });
+    await writeFiles(transcriptsDir, { "proj/a.jsonl": `${line}\n` });
+    const { size, mtimeMs } = await stat(path);
+    const now = new Date("2026-09-19T12:00:00Z");
+    const staleBucket = {
+      slot: new Date(now.getTime() - 100 * DAY_MS).toISOString(),
+      cwd: "/x",
+      model: "claude-opus-5",
+      kind: "hook" as const,
+      tokens: { input: 1, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 },
+      hookTurns: 0,
+    };
+    await writeUsageCache(root, {
+      version: USAGE_CACHE_VERSION,
+      files: { [path]: { size, mtimeMs, offset: size, fingerprint: "unchanged", state: newTranscriptState(), buckets: [staleBucket] } },
+    });
+    const scanner = scannerOf({ root, claudeProjectsDir: transcriptsDir, now: () => now });
+
+    await scanner.scanOnce();
+
+    const cache = await readUsageCache(root);
+    expect(cache.files[path]?.buckets).toEqual([]);
   });
 
   it("упавший проход не оставляет сканер в догоняющем режиме", async () => {

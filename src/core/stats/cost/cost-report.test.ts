@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { formatLocalIso } from "../../model/dates";
+import { formatLocalDay, formatLocalIso } from "../../model/dates";
 import type { CliRun } from "../../store/runs";
 import type { ScanProgress } from "../types";
+import { weekWindows } from "../weeks";
 import type { TokenCounts } from "./token-counts";
 import type { UsageBucket } from "./usage-state";
 import { attributeLine, newTranscriptState } from "./attribute";
@@ -113,10 +114,11 @@ describe("отчёт о стоимости", () => {
     expect(report.totals.cost).toBeNull();
   });
 
-  it("models — по убыванию токенов за весь охваченный период", () => {
+  it("models — по убыванию токенов за 30 дней", () => {
     const buckets = [
       bucket({ model: "claude-haiku-4-5", slot: slotAt(25), tokens: tokens({ input: 100 }) }),
       bucket({ model: "claude-opus-5", slot: slotAt(1), tokens: tokens({ input: 900 }) }),
+      bucket({ model: "claude-sonnet-5", slot: slotAt(40), tokens: tokens({ input: 500 }) }),
     ];
 
     const report = costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
@@ -198,6 +200,14 @@ describe("отчёт о стоимости", () => {
 
     expect(costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN }).since).toBe(dayAt(20));
     expect(costReport({ buckets: [], runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN }).since).toBeNull();
+  });
+
+  it("since не раньше начала 12 недель", () => {
+    const buckets = [bucket({ slot: slotAt(200) }), bucket({ slot: slotAt(3) })];
+
+    const report = costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
+
+    expect(report.since).toBe(formatLocalDay(new Date(weekWindows(NOW)[0]?.from ?? NOW.getTime())));
   });
 
   it("scan передаётся в отчёт без изменений", () => {

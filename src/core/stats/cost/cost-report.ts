@@ -32,17 +32,18 @@ export function costReport({ buckets, runs, projectOf, projectId, now, scan }: C
   const runsByDay = groupBy(scopedRuns, (run) => localDay(run.at));
   const inDays = <T>(byDay: ReadonlyMap<string, T[]>, window: readonly string[]) => window.flatMap((day) => byDay.get(day) ?? []);
   const totalsDays = days.slice(-COST_TOTALS_DAYS);
+  const weeks = weekWindows(now);
 
   return {
     scan,
-    since: sinceOf(scopedBuckets),
+    since: sinceWithin(scopedBuckets, weeks[0]),
     totals: totalsOf(inDays(bucketsByDay, totalsDays), inDays(runsByDay, totalsDays)),
     days: days.map((day) => dayRow(day, bucketsByDay.get(day) ?? [], runsByDay.get(day) ?? [])),
-    weeks: weekWindows(now).map((week) => {
+    weeks: weeks.map((week) => {
       const weekDays = daysOf(week);
       return periodRow(formatLocalIso(new Date(week.from)), inDays(bucketsByDay, weekDays), inDays(runsByDay, weekDays));
     }),
-    models: modelsOf(scopedBuckets),
+    models: modelsOf(inDays(bucketsByDay, days)),
     commands: commandsOf(inDays(runsByDay, days)),
   };
 }
@@ -85,6 +86,13 @@ function hasUnpricedTokens(buckets: readonly UsageBucket[]): boolean {
 function sinceOf(buckets: readonly UsageBucket[]): string | null {
   const days = buckets.map((bucket) => localDay(bucket.slot)).filter((day) => day !== "");
   return days.length === 0 ? null : days.reduce((earliest, day) => (day < earliest ? day : earliest));
+}
+
+function sinceWithin(buckets: readonly UsageBucket[], window: Period | undefined): string | null {
+  const earliest = sinceOf(buckets);
+  if (earliest === null || window === undefined) return earliest;
+  const windowStart = formatLocalDay(new Date(window.from));
+  return earliest < windowStart ? windowStart : earliest;
 }
 
 function totalsOf(buckets: readonly UsageBucket[], runs: readonly CliRun[]): CostTotals {

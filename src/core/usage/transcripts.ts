@@ -3,7 +3,7 @@ import { stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { attributeLine, flushEstimates, newTranscriptState } from "../stats/cost/attribute";
 import { sum } from "../stats/numbers";
-import { DAY_MS, STATS_HISTORY_DAYS } from "../model/lifecycle";
+import { DAY_MS, retainedSince, STATS_HISTORY_DAYS } from "../model/lifecycle";
 import { addTokens } from "../stats/cost/token-counts";
 import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
 import { listDir, NEWLINE, readAt, readFileAt, withFile } from "../store/fs-utils";
@@ -18,7 +18,7 @@ export type ScanTranscriptsInput = {
   now: Date;
 };
 
-export type ScanTranscriptsResult = { cache: UsageCache; bytesRead: number; bytesLeft: number; filesDone: number };
+export type ScanTranscriptsResult = { cache: UsageCache; bytesRead: number; bytesLeft: number; filesDone: number; prunedBuckets: number };
 
 const FINGERPRINT_BYTES = 256;
 const ABANDONED_LINE_MS = 10 * 60 * 1000;
@@ -75,12 +75,25 @@ export async function scanTranscripts({ files, cache, byteBudget, now }: ScanTra
     await yieldToEventLoop();
   }
 
+  const merged = { ...deletedStillReported(cache, listedFiles, now), ...listedFiles };
+  const pruned = pruneStaleBuckets(merged, now);
+
   return {
-    cache: { version: USAGE_CACHE_VERSION, files: { ...deletedStillReported(cache, listedFiles, now), ...listedFiles } },
+    cache: { version: USAGE_CACHE_VERSION, files: pruned.files },
     bytesRead: byteBudget - remainingBudget,
     bytesLeft: sum(Object.values(listedFiles).map((entry) => entry.size - entry.offset)),
     filesDone: Object.values(listedFiles).filter((entry) => entry.offset === entry.size).length,
+    prunedBuckets: pruned.prunedBuckets,
   };
+}
+
+function pruneStaleBuckets(entries: Readonly<Record<string, UsageCacheEntry>>, now: Date): { files: Record<string, UsageCacheEntry>; prunedBuckets: number } {
+  const retained = retainedSince(now);
+  const pruned = Object.entries(entries).map(([path, entry]) => {
+    const buckets = entry.buckets.filter((bucket) => Date.parse(bucket.slot) >= retained);
+    return { path, entry: buckets.length === entry.buckets.length ? entry : { ...entry, buckets }, removed: entry.buckets.length - buckets.length };
+  });
+  return { files: Object.fromEntries(pruned.map(({ path, entry }) => [path, entry])), prunedBuckets: sum(pruned.map(({ removed }) => removed)) };
 }
 
 function deletedStillReported(cache: UsageCache, listedFiles: Readonly<Record<string, UsageCacheEntry>>, now: Date): Record<string, UsageCacheEntry> {
