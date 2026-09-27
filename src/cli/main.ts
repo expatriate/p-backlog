@@ -71,4 +71,4 @@ try {
 } catch (error) {
   await warnInUserLanguage((messages) => messages.runNotRecorded(errorText(error)));
 }
-await tidyAfterCommand({ backlogRoot, env: process.env, now: new Date(), warn: (line) => void process.stderr.write(`${line}\n`) });
+await tidyAfterCommand({ backlogRoot, argv, env: process.env, now: new Date(), warn: (line) => void process.stderr.write(`${line}\n`) });

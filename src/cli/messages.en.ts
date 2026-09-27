@@ -12,7 +12,7 @@ export const cliEn: CliMessages = {
   commandFailed: (name, reason) => `Command ${name} failed: ${reason}`,
   runNotRecorded: (error) => `Could not record the run: ${error}`,
   runsNotTrimmed: (error) => `Could not trim the run log: ${error}`,
-  journalsNotCompacted: (error) => `Could not compact the project journals: ${error}`,
+  journalNotCompacted: (dir, error) => `Could not compact the journal in ${dir}: ${error}`,
   settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 
   optionLabel: { status: "status", category: "category", priority: "priority", language: "language", agent: "agent" },

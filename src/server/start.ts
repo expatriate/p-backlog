@@ -57,7 +57,8 @@ export async function startServer({ root, port, home, env, pidFile, staticDir }:
     const language = await readLanguage();
     await trimRuns(root, now).catch((error: unknown) => warn(serverMessages(language).runsTrimFailed(errorText(error))));
     const report = await sweepClosed(root, now, coreMessages(language));
-    await compactJournalsWhenDue(root, now).catch((error: unknown) => warn(serverMessages(language).journalCompactionFailed(errorText(error))));
+    const compactionFailed = (dir: string, error: unknown) => warn(serverMessages(language).journalCompactionFailed(dir, errorText(error)));
+    await compactJournalsWhenDue(root, now, compactionFailed).catch((error: unknown) => compactionFailed(root, error));
     return report;
   };
 

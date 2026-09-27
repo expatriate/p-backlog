@@ -2,13 +2,16 @@ import { errorText } from "../core/errors";
 import { compactJournalsWhenDue } from "../core/store/journal-compaction";
 import { trimRunsWhenStale } from "../core/store/runs";
 import { localeLanguage, readLanguage } from "../core/store/settings";
+import { hookCommand } from "./commands/hook";
 import { cliMessages } from "./messages";
 
-export type HousekeepingRun = { backlogRoot: string; env: NodeJS.ProcessEnv; now: Date; warn: (line: string) => void };
+export type HousekeepingRun = { backlogRoot: string; argv: readonly string[]; env: NodeJS.ProcessEnv; now: Date; warn: (line: string) => void };
 
-export async function tidyAfterCommand({ backlogRoot, env, now, warn }: HousekeepingRun): Promise<void> {
+export async function tidyAfterCommand({ backlogRoot, argv, env, now, warn }: HousekeepingRun): Promise<void> {
+  if (argv[0] === hookCommand.name) return;
   const language = await readLanguage(backlogRoot, env).catch(() => localeLanguage(env));
   const messages = cliMessages(language);
+  const compactionFailed = (dir: string, error: unknown) => warn(messages.journalNotCompacted(dir, errorText(error)));
   await trimRunsWhenStale(backlogRoot, now).catch((error: unknown) => warn(messages.runsNotTrimmed(errorText(error))));
-  await compactJournalsWhenDue(backlogRoot, now).catch((error: unknown) => warn(messages.journalsNotCompacted(errorText(error))));
+  await compactJournalsWhenDue(backlogRoot, now, compactionFailed).catch((error: unknown) => compactionFailed(backlogRoot, error));
 }

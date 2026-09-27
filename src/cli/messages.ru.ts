@@ -11,7 +11,7 @@ export const cliRu = {
   commandFailed: (name: string, reason: string): string => `Команда ${name} не выполнена: ${reason}`,
   runNotRecorded: (error: string): string => `Не удалось записать запуск: ${error}`,
   runsNotTrimmed: (error: string): string => `Не удалось обрезать журнал запусков: ${error}`,
-  journalsNotCompacted: (error: string): string => `Не удалось уплотнить журналы проектов: ${error}`,
+  journalNotCompacted: (dir: string, error: string): string => `Не удалось уплотнить журнал в ${dir}: ${error}`,
   settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 
   optionLabel: { status: "статус", category: "категория", priority: "приоритет", language: "язык", agent: "агент" },

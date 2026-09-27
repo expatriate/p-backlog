@@ -14,16 +14,25 @@ type JournalLine = { text: string; event: JournalEvent | null };
 
 const EPISODE_KINDS: ReadonlySet<JournalEvent["kind"]> = new Set(["candidate", "candidate-gone", "candidate-filtered", "verified"]);
 
-export async function compactJournalsWhenDue(root: string, now: Date): Promise<string[]> {
+export type CompactionFailed = (dir: string, error: unknown) => void;
+
+export async function compactJournalsWhenDue(root: string, now: Date, failed: CompactionFailed): Promise<string[]> {
   const compacted: string[] = [];
   for (const entry of await listDir(root)) {
     if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
     const dir = join(root, entry.name);
-    if (!(await fileExists(join(dir, JOURNAL_FILE)))) continue;
-    const removed = await runWhenDue(join(dir, COMPACTED_STAMP), now, async () => compactJournal(dir, await taskIdsOnDisk(dir), now));
+    const removed = await compactProjectWhenDue(dir, now).catch((error: unknown) => {
+      failed(dir, error);
+      return null;
+    });
     if (removed !== null && removed > 0) compacted.push(entry.name);
   }
   return compacted;
+}
+
+async function compactProjectWhenDue(dir: string, now: Date): Promise<number | null> {
+  if (!(await fileExists(join(dir, JOURNAL_FILE)))) return null;
+  return runWhenDue(join(dir, COMPACTED_STAMP), now, async () => compactJournal(dir, await taskIdsOnDisk(dir), now));
 }
 
 export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySet<string>, now: Date): Promise<number> {
