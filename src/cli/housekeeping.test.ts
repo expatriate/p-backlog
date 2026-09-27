@@ -84,6 +84,22 @@ describe("уборка после команды CLI", () => {
     await expect(readFile(join(root, "spa", "SPA-2.md"), "utf8")).rejects.toThrow();
   });
 
+  it("уборка из CLI предупреждает о задачах, которые не смогла обновить, и о файлах, держащих эпик", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", "type: epic\n"),
+      "spa/SPA-2.md": taskFile("SPA-2", "epic: SPA-1\nstatus: done\n"),
+      "spa/SPA-3.md": "сломано",
+      "spa/SPA-4.md": taskFile("SPA-4", "status: done\nblockedBy: [SPA-4]\n"),
+    });
+    const warnings: string[] = [];
+
+    await tidyIn(root, warnings)(["list"]);
+
+    expect(warnings).toEqual([expect.stringContaining(join(root, "spa", "SPA-3.md")), expect.stringContaining("SPA-4 (задача не может блокировать саму себя)")]);
+  });
+
   it("сбой уплотнения одного проекта не мешает остальным, предупреждение называет сломанный проект", async () => {
     const { root, journalPath } = await backlogWithStaleJournal();
     await writeFiles(root, { "aaa/project.md": projectFile("AAA") });

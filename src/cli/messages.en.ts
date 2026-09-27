@@ -14,6 +14,9 @@ export const cliEn: CliMessages = {
   runsNotTrimmed: (error) => `Could not trim the run log: ${error}`,
   journalNotCompacted: (dir, error) => `Could not compact the journal in ${dir}: ${error}`,
   closedNotSwept: (error) => `Could not delete closed tasks: ${error}`,
+  sweepConflicts: (ids) => `Tasks changed while closed tasks were swept, the sweep will run again in a day: ${ids}`,
+  sweepInvalid: (detail) => `The closed-task sweep could not update tasks, fix the files: ${detail}`,
+  sweepEpicsBlocked: (paths) => `Epics will not close until these files are fixed: ${paths}`,
   settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 
   optionLabel: { status: "status", category: "category", priority: "priority", language: "language", agent: "agent" },

@@ -13,6 +13,9 @@ export const cliRu = {
   runsNotTrimmed: (error: string): string => `Не удалось обрезать журнал запусков: ${error}`,
   journalNotCompacted: (dir: string, error: string): string => `Не удалось уплотнить журнал в ${dir}: ${error}`,
   closedNotSwept: (error: string): string => `Не удалось удалить закрытые задачи: ${error}`,
+  sweepConflicts: (ids: string): string => `Задачи менялись во время уборки закрытых, она повторится через сутки: ${ids}`,
+  sweepInvalid: (detail: string): string => `Уборка закрытых не смогла обновить задачи, исправьте файлы: ${detail}`,
+  sweepEpicsBlocked: (paths: string): string => `Эпики не закрываются, пока не разобраны файлы: ${paths}`,
   settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 
   optionLabel: { status: "статус", category: "категория", priority: "приоритет", language: "язык", agent: "агент" },
