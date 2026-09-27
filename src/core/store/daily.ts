@@ -8,15 +8,19 @@ export async function runWhenDue<T>(stampPath: string, now: Date, action: () => 
   try {
     return await withFileLock(stampPath, async () => {
       if (!(await isDue(stampPath, now))) return null;
-      try {
-        return await action();
-      } finally {
-        await writeFileAtomic(stampPath, `${formatLocalIso(now)}\n`);
-      }
+      return runAndStamp(stampPath, now, action);
     });
   } catch (error) {
     if (error instanceof FileBusyError && error.path === stampPath) return null;
     throw error;
+  }
+}
+
+export async function runAndStamp<T>(stampPath: string, now: Date, action: () => Promise<T>): Promise<T> {
+  try {
+    return await action();
+  } finally {
+    await writeFileAtomic(stampPath, `${formatLocalIso(now)}\n`);
   }
 }
 

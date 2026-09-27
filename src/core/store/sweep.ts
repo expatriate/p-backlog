@@ -6,7 +6,7 @@ import { DAY_MS, epicDoneClosure, isExpired, planEpicClosing, planEpicReopening 
 import { deletedEvent } from "../journal/events";
 import type { Problem } from "../model/problems";
 import type { Project, Task } from "../model/types";
-import { runWhenDue } from "./daily";
+import { runAndStamp, runWhenDue } from "./daily";
 import { FileBusyError, withAvailableLocks } from "./file-lock";
 import { contentVersion, listDir, readTextOrNull, removeIfUnchanged, removeTemporariesBefore } from "./fs-utils";
 import { appendJournal } from "./journal";
@@ -39,6 +39,10 @@ export const SWEPT_AT_FILE = ".swept-at";
 
 export function sweepClosedWhenDue(root: string, now: Date, messages: CoreMessages): Promise<SweepReport | null> {
   return runWhenDue(join(root, SWEPT_AT_FILE), now, () => sweepClosed(root, now, messages));
+}
+
+export function sweepClosedAndStamp(root: string, now: Date, messages: CoreMessages): Promise<SweepReport> {
+  return runAndStamp(join(root, SWEPT_AT_FILE), now, () => sweepClosed(root, now, messages));
 }
 
 export async function sweepClosed(root: string, now: Date, messages: CoreMessages): Promise<SweepReport> {

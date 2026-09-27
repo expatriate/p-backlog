@@ -1,7 +1,9 @@
 import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { coreMessages } from "../core/messages";
 import { localeLanguage, settingsFilePath } from "../core/store/settings";
+import { sweepClosedWhenDue } from "../core/store/sweep";
 import { journalWithTaskGoneLongAgo } from "../core/store/testing/stale-journal";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import { startServer } from "./start";
@@ -93,6 +95,29 @@ describe("startServer", () => {
     const journal = await readFile(join(root, "spa", "journal.jsonl"), "utf8");
     expect(journal).not.toContain("SPA-3");
     expect(journal).toContain("SPA-1");
+  });
+
+  it("сбой уборки закрытых задач не мешает службе уплотнить журналы", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/journal.jsonl": journalWithTaskGoneLongAgo(new Date()) });
+    await mkdir(join(root, "bbb", "project.md"), { recursive: true });
+
+    const server = await startServer({ root, port: 0, home, env: {} });
+    await server.close();
+
+    expect(await readFile(join(root, "spa", "journal.jsonl"), "utf8")).not.toContain("SPA-3");
+  });
+
+  it("после уборки службы CLI в тот же день закрытые задачи не убирает повторно", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA") });
+
+    const server = await startServer({ root, port: 0, home, env: {} });
+    await server.close();
+
+    expect(await sweepClosedWhenDue(root, new Date(), coreMessages("ru"))).toBeNull();
   });
 
   it.runIf(process.platform === "darwin")("служба при старте обрезает свой лог", async () => {

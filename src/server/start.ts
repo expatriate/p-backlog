@@ -10,7 +10,7 @@ import { SERVICE_LOG_KEPT_BYTES, SERVICE_LOG_LIMIT_BYTES, serviceLogToTrim, trim
 import { compactJournalsWhenDue } from "../core/store/journal-compaction";
 import { trimRuns } from "../core/store/runs";
 import { settingsFilePath, settleLanguage } from "../core/store/settings";
-import { sweepClosed, type SweepReport } from "../core/store/sweep";
+import { sweepClosedAndStamp, type SweepReport } from "../core/store/sweep";
 import { createApp } from "./app";
 import { CHANGE_DEBOUNCE_MS, createChangeFeed } from "./change-feed";
 import { localHosts } from "./guards";
@@ -56,17 +56,20 @@ export async function startServer({ root, port, home, env, pidFile, staticDir }:
   const sweep = async (): Promise<SweepReport> => {
     const now = new Date();
     const language = await readLanguage();
-    await trimRuns(root, now).catch((error: unknown) => warn(serverMessages(language).runsTrimFailed(errorText(error))));
-    const report = await sweepClosed(root, now, coreMessages(language));
-    const compactionFailed = (dir: string, error: unknown) => warn(serverMessages(language).journalCompactionFailed(dir, errorText(error)));
+    const messages = serverMessages(language);
+    await trimRuns(root, now).catch((error: unknown) => warn(messages.runsTrimFailed(errorText(error))));
+    const swept = await sweepClosedAndStamp(root, now, coreMessages(language)).then(
+      (report) => ({ report }),
+      (error: unknown) => ({ error }),
+    );
+    const compactionFailed = (dir: string, error: unknown) => warn(messages.journalCompactionFailed(dir, errorText(error)));
     await compactJournalsWhenDue(root, now, compactionFailed).catch((error: unknown) => compactionFailed(root, error));
     const logToTrim = serviceLogToTrim(process.platform, home);
     if (logToTrim !== null) {
-      await trimLogFile(logToTrim, SERVICE_LOG_LIMIT_BYTES, SERVICE_LOG_KEPT_BYTES).catch((error: unknown) =>
-        warn(serverMessages(language).serviceLogTrimFailed(errorText(error))),
-      );
+      await trimLogFile(logToTrim, SERVICE_LOG_LIMIT_BYTES, SERVICE_LOG_KEPT_BYTES).catch((error: unknown) => warn(messages.serviceLogTrimFailed(errorText(error))));
     }
-    return report;
+    if ("error" in swept) throw swept.error;
+    return swept.report;
   };
 
   const { server, port: actualPort } = await listen(app, port).catch(async (error: NodeJS.ErrnoException) => {
