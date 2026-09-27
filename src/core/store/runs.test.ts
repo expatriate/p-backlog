@@ -54,7 +54,7 @@ describe("журнал запусков CLI", () => {
     await expect(appendRun(root, RUN)).rejects.toThrow();
   });
 
-  it("обрезка оставляет запуски последних 84 дней (12 недель), файл без старых строк не переписывает", async () => {
+  it("обрезка убирает запуски старше окна хранения, файл без старых строк не переписывает", async () => {
     const root = await makeTempDir();
     const old = { ...RUN, at: "2026-05-01T10:00:00+03:00", command: "old" };
     await appendRun(root, old);
@@ -76,6 +76,15 @@ describe("журнал запусков CLI", () => {
     expect(await readRuns(root)).toEqual([recentEnough]);
   });
 
+  it("запуск чуть старше 12 недель переживает обрезку — окно хранения с запасом, сдвиг часов не срежет первую неделю графика", async () => {
+    const root = await makeTempDir();
+    const edgeOfView = { ...RUN, at: "2026-06-24T12:00:00+03:00", command: "eighty-eight-days" };
+    await appendRun(root, edgeOfView);
+
+    expect(await trimRuns(root, new Date("2026-09-20T12:00:00+03:00"))).toBe(0);
+    expect(await readRuns(root)).toEqual([edgeOfView]);
+  });
+
   it("запуск, дописанный во время обрезки, не теряется", async () => {
     const root = await makeTempDir();
     await appendRun(root, { ...RUN, at: "2026-05-01T10:00:00+03:00", command: "old" });
@@ -85,9 +94,9 @@ describe("журнал запусков CLI", () => {
     expect(await readRuns(root)).toEqual([RUN]);
   });
 
-  it("без сервера журнал не растёт: CLI обрезает его, когда старейший запуск вышел за 84 дня с запасом в сутки", async () => {
+  it("без сервера журнал не растёт: CLI обрезает его, когда старейший запуск вышел за окно хранения с запасом в сутки", async () => {
     const root = await makeTempDir();
-    await appendRun(root, { ...RUN, at: "2026-06-27T15:00:00+03:00", command: "old" });
+    await appendRun(root, { ...RUN, at: "2026-06-20T15:00:00+03:00", command: "old" });
     await appendRun(root, RUN);
 
     expect(await trimRunsWhenStale(root, new Date("2026-09-20T12:00:00+03:00"))).toBe(0);

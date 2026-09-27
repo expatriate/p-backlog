@@ -1,13 +1,12 @@
 import { mkdir, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { DAY_MS, STATS_HISTORY_DAYS } from "../model/lifecycle";
+import { DAY_MS, retainedSince } from "../model/lifecycle";
 import { withFileLock } from "./file-lock";
 import { appendJsonLines, parseJson, readAt, readJsonLines, toJsonLines, withExistingFile, writeFileAtomic } from "./fs-utils";
 
 export const RUNS_FILE = ".runs.jsonl";
 
-const RUNS_KEPT_DAYS = STATS_HISTORY_DAYS;
 const STALE_RUN_SLACK_DAYS = 1;
 const FIRST_LINE_BYTES = 4096;
 
@@ -36,7 +35,7 @@ export async function trimRuns(root: string, now: Date): Promise<number> {
   const path = join(root, RUNS_FILE);
   return withFileLock(path, async () => {
     const { values: runs, invalidLines } = await readJsonLines(path, cliRunSchema);
-    const cutoff = now.getTime() - RUNS_KEPT_DAYS * DAY_MS;
+    const cutoff = retainedSince(now);
     const kept = runs.filter((run) => Date.parse(run.at) >= cutoff);
     const removed = runs.length - kept.length + invalidLines;
     if (removed > 0) await writeFileAtomic(path, toJsonLines(kept));
@@ -46,7 +45,7 @@ export async function trimRuns(root: string, now: Date): Promise<number> {
 
 export async function trimRunsWhenStale(root: string, now: Date): Promise<number> {
   const first = await firstRun(join(root, RUNS_FILE));
-  const staleBefore = now.getTime() - (RUNS_KEPT_DAYS + STALE_RUN_SLACK_DAYS) * DAY_MS;
+  const staleBefore = retainedSince(now) - STALE_RUN_SLACK_DAYS * DAY_MS;
   const needsTrim = first === "unparsable" || (typeof first === "number" && first < staleBefore);
   return needsTrim ? trimRuns(root, now) : 0;
 }
