@@ -4,16 +4,21 @@ import { countRu, NBSP, pluralRu } from "../../core/i18n/plural";
 import type { FoundHow } from "../../core/journal/events";
 import type { Priority } from "../../core/model/types";
 import { STALE_URGENT_DAYS } from "../../core/stats/breakdowns";
+import { COST_TOTALS_DAYS } from "../../core/stats/cost/cost-report";
+import { STATS_DAYS } from "../../core/stats/days";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/api/contract";
 import { STATS_WEEKS } from "../../core/stats/weeks";
 import type { ChartId, ChartStep, Grain } from "./charts/chart-style";
 import { formatApprox, formatLines, isEstimated } from "./effect-format";
+import type { PeriodWindow } from "./period-caption";
 
-const CHURN_PERIOD = countRu(CHURN_DAYS, "день", "дня", "дней");
+const dayCount = (n: number): string => countRu(n, "день", "дня", "дней");
+const CHURN_PERIOD = dayCount(CHURN_DAYS);
 const STATS_PERIOD = countRu(STATS_WEEKS, "неделю", "недели", "недель");
 const STATS_PERIOD_GENITIVE = countRu(STATS_WEEKS, "недели", "недель", "недель");
 const CHART_STEPS: Record<ChartStep, string> = { day: "дням", week: "неделям", sample: "замерам" };
+const EFFECT_WINDOW = `${STATS_PERIOD} (с внедрения, если оно позже)`;
 const ESTIMATE_LATER = `оценка появится после ${MIN_FIXES_FOR_ESTIMATE} исправлений`;
 
 type FlowSummary = { grain: Grain; periodCount: number; created: number; closed: number; openNow: number };
@@ -57,6 +62,14 @@ export const statsRu = {
   folders: "Папки",
   projects: "Проекты",
 
+  periodWindows: {
+    weeks: countRu(STATS_WEEKS, "неделя", "недели", "недель"),
+    days: dayCount(STATS_DAYS),
+    lastWeek: dayCount(COST_TOTALS_DAYS),
+    churn: CHURN_PERIOD,
+  } satisfies Record<PeriodWindow, string>,
+  periodCaption: (window: string, range: string): string => `${window} · ${range}`,
+  periodNow: "сейчас",
   chartLabel: (name: string, step: ChartStep): string => `${name}. Стрелки влево и вправо — по ${CHART_STEPS[step]}`,
   periodOf: (grain: Grain, day: string): string => (grain === "week" ? `неделя с ${day}` : day),
   weekTrend: (arrow: string, size: string): string => `${arrow}${NBSP}${size}${NBSP}за${NBSP}неделю`,
@@ -107,7 +120,7 @@ export const statsRu = {
   accuracyTitle: "Точность проверки",
   noCandidates: "Проверка ещё не находила кандидатов",
   accuracyHint: "Доля кандидатов проверки, после которых задача закрылась; остальные подтверждены как актуальные",
-  accuracyTable: "Точность проверки за период",
+  accuracyTable: (period: string): string => `Точность проверки, ${period}`,
   accuracyHead: ["Улика", "Кандидатов", "Закрыто", "Подтверждено", "Без решения", "Точность"],
   splitRow: (label: string): string => `└ из них ${label}`,
   beforeMethodRecorded: "до записи способа",
@@ -164,7 +177,7 @@ export const statsRu = {
   deferredToBacklog: "Вынесено в беклог",
   deferredNote: (fixed: number, pending: number): string => `исправлено ${fixed}, ожидают ${pending}`,
   pullRequestLines: "Строк в пулреквестах",
-  sinceAdoption: "с внедрения беклога",
+  effectWindow: `за ${EFFECT_WINDOW}`,
   chartScale: (chart: string): string => `Масштаб графика «${chart}»`,
   chartNames: { flow: "Долг", intake: "Создано", accuracy: "Точность проверки", effect: "Эффект", spend: "Расход" } satisfies Record<ChartId, string>,
   grainWeek: "неделя",
@@ -178,7 +191,7 @@ export const statsRu = {
   testLines: "тесты",
   deferredTasks: "задач вынесено",
   effectSummary: (realLines: number, deferred: string, noise: string): string =>
-    `С внедрения беклога: в пулреквестах ${countRu(realLines, "строка", "строки", "строк")}, вынесено ${deferred}, шум без беклога ${noise}`,
+    `За ${EFFECT_WINDOW}: в пулреквестах ${countRu(realLines, "строка", "строки", "строк")}, вынесено ${deferred}, шум без беклога ${noise}`,
   explainerTitle: "Как считается выигрыш",
   explainerTask: "Каждая задача, заведённая по ходу работы, — правка, которую без беклога агент сделал бы в текущем пулреквесте. Выигрыш — строки, которые туда не попали.",
   explainerFixed:
@@ -207,6 +220,7 @@ export const statsRu = {
   hookTurns: "Ходов из-за хука",
   hookRunsNote: (runs: string): string => `запусков хука ${runs}`,
   cliCalls: "Вызовов CLI",
+  costSince: (date: string): string => `Данные о расходе есть с ${date}`,
   byModel: "По моделям",
   noModels: "Моделей пока нет",
   modelsHead: ["Модель", "Токены", "По ценам API"],

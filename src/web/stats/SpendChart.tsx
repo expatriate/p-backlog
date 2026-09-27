@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import { formatMoney } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
-import type { CostDay, CostPeriod } from "../../core/api/contract";
+import type { CostDay, CostPeriod, GrainPeriods } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
@@ -15,6 +15,7 @@ import { formatLines } from "./effect-format";
 import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
+import { grainWindow, usePeriodCaption } from "./period-caption";
 import { useGrainSeries } from "./use-grain-series";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
@@ -39,9 +40,10 @@ function dayPeriod({ day, ...numbers }: CostDay): CostPeriod {
   return { start: day, ...numbers };
 }
 
-export function SpendPanel({ weeks, days }: { weeks: CostPeriod[]; days: CostDay[] }) {
+export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days: CostDay[]; windows: GrainPeriods }) {
   const { stats } = useMessages();
   const language = useLanguage();
+  const caption = usePeriodCaption();
   const dayPeriods = useMemo(() => days.map(dayPeriod), [days]);
   const { grain, periods, setGrain } = useGrainSeries("spend", "day", { week: weeks, day: dayPeriods });
   const tooltip = useMemo(() => periodTooltip(stats, language, grain), [stats, language, grain]);
@@ -54,7 +56,7 @@ export function SpendPanel({ weeks, days }: { weeks: CostPeriod[]; days: CostDay
   ];
   const compact = (value: number) => compactNumber(language, value);
   return (
-    <Panel title={title} aside={<GrainToggle chart="spend" grain={grain} onChange={setGrain} />}>
+    <Panel title={title} period={caption(grainWindow(grain), windows[grainWindow(grain)])} aside={<GrainToggle chart="spend" grain={grain} onChange={setGrain} />}>
       <ChartFrame summary={spendSummary(stats, language, grain, periods)} legend={legend}>
         <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />

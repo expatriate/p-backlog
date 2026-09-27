@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 import { formatShare } from "../../core/stats/format";
-import type { ClosingBreakdown, ClosingReason } from "../../core/api/contract";
+import type { ClosingBreakdown, ClosingReason, ReportPeriod } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useMessages, type WebMessages } from "../i18n";
 import { cx } from "../ui/cx";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
+import { usePeriodCaption } from "./period-caption";
 import styles from "./StatsPanels.module.css";
 
 const REASONS: readonly ClosingReason[] = ["done", "fixed", "obsolete", "duplicate", "cancelled", "unknown"];
@@ -14,14 +15,15 @@ function reasonLabel(reason: ClosingReason, { stats, core }: WebMessages): strin
   return reason === "done" || reason === "cancelled" || reason === "unknown" ? stats.closingReasons[reason] : core.resolutionLabel(reason);
 }
 
-export function ClosingPanel({ closing }: { closing: ClosingBreakdown }) {
+export function ClosingPanel({ closing, period }: { closing: ClosingBreakdown; period: ReportPeriod }) {
   const messages = useMessages();
+  const caption = usePeriodCaption();
   const { stats } = messages;
   const total = sum(REASONS.map((reason) => closing.byReason[reason]));
   const summary = REASONS.map((reason) => `${reasonLabel(reason, messages)}: ${closing.byReason[reason]}`).join("; ");
 
   return (
-    <Panel title={stats.closing}>
+    <Panel title={stats.closing} period={caption("weeks", period)}>
       <div role="img" aria-label={summary} className={styles.shareBar}>
         {REASONS.map((reason) => (
           <span key={reason} className={cx(styles.share, styles[reason])} style={{ width: total === 0 ? 0 : `${(closing.byReason[reason] / total) * 100}%` }} />

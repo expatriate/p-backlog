@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import type { Language } from "../../core/i18n/language";
-import type { FlowPeriod } from "../../core/api/contract";
+import type { FlowPeriod, GrainPeriods } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
@@ -12,6 +12,7 @@ import { nonZeroDot } from "./charts/value-dot";
 import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
+import { grainWindow, usePeriodCaption } from "./period-caption";
 import { useGrainSeries } from "./use-grain-series";
 
 const CREATED = "var(--chart-bar-neutral)";
@@ -29,9 +30,10 @@ function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
   }));
 }
 
-export function FlowPanel({ weeks, days }: { weeks: FlowPeriod[]; days: FlowPeriod[] }) {
+export function FlowPanel({ weeks, days, windows }: { weeks: FlowPeriod[]; days: FlowPeriod[]; windows: GrainPeriods }) {
   const { stats } = useMessages();
   const language = useLanguage();
+  const caption = usePeriodCaption();
   const { grain, periods, setGrain } = useGrainSeries("flow", "week", { week: weeks, day: days });
   const tooltip = useMemo(() => periodTooltip(stats, language, grain), [stats, language, grain]);
   const legend: LegendItem[] = [
@@ -49,7 +51,7 @@ export function FlowPanel({ weeks, days }: { weeks: FlowPeriod[]; days: FlowPeri
   });
   const compact = (value: number) => compactNumber(language, value);
   return (
-    <Panel title={title} aside={<GrainToggle chart="flow" grain={grain} onChange={setGrain} />}>
+    <Panel title={title} period={caption(grainWindow(grain), windows[grainWindow(grain)])} aside={<GrainToggle chart="flow" grain={grain} onChange={setGrain} />}>
       <ChartFrame summary={summary} legend={legend}>
         <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />

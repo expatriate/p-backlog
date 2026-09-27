@@ -1,5 +1,6 @@
 import type { Language } from "../../core/i18n/language";
-import type { EffectPeriod, EffectProject, EffectTotals } from "../../core/api/contract";
+import type { EffectPeriod, EffectProject, EffectTotals, GrainPeriods, ReportPeriod } from "../../core/api/contract";
+import { formatDayRange } from "../../core/i18n/format";
 import { useLanguage, useMessages } from "../i18n";
 import { EffectChart } from "./EffectChart";
 import { GrainToggle } from "./GrainToggle";
@@ -8,6 +9,7 @@ import type { StatsMessages } from "./messages.ru";
 import rowStyles from "./PanelRows.module.css";
 import { Figure } from "./Figure";
 import { Panel } from "./Panel";
+import { grainWindow, usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
 import totalsStyles from "./StatsPage.module.css";
 import { useGrainSeries } from "./use-grain-series";
@@ -20,7 +22,7 @@ export function EffectFigures({ totals }: { totals: EffectTotals }) {
       <Figure label={stats.keptOut} value={keptOutValue(stats, totals)} note={`${keptOutNote(stats, language, totals)} · ${stats.codeAndTests(totals)}`} />
       <Figure label={stats.noiseWithoutBacklog} value={formatNoiseShare(totals.noiseShare)} note={stats.noiseNote} />
       <Figure label={stats.deferredToBacklog} value={String(totals.fixedTasks + totals.openTasks)} note={stats.deferredNote(totals.fixedTasks, totals.openTasks)} />
-      <Figure label={stats.pullRequestLines} value={formatLines(language, totals.realLines)} note={stats.sinceAdoption} />
+      <Figure label={stats.pullRequestLines} value={formatLines(language, totals.realLines)} note={stats.effectWindow} />
     </div>
   );
 }
@@ -36,21 +38,22 @@ function keptOutNote(stats: StatsMessages, language: Language, totals: EffectTot
   return stats.keptOutEstimated(fixed, formatApprox(language, totals.estimatedLines, isEstimated(totals.estimatedLines)));
 }
 
-export function EffectChartPanel({ weeks, days, totals }: { weeks: EffectPeriod[]; days: EffectPeriod[]; totals: EffectTotals }) {
+export function EffectChartPanel({ weeks, days, windows, totals }: { weeks: EffectPeriod[]; days: EffectPeriod[]; windows: GrainPeriods; totals: EffectTotals }) {
   const { stats } = useMessages();
+  const caption = usePeriodCaption();
   const { grain, periods, setGrain } = useGrainSeries("effect", "week", { week: weeks, day: days });
   return (
-    <Panel title={stats.effectTitle} aside={<GrainToggle chart="effect" grain={grain} onChange={setGrain} />}>
+    <Panel title={stats.effectTitle} period={caption(grainWindow(grain), windows[grainWindow(grain)])} aside={<GrainToggle chart="effect" grain={grain} onChange={setGrain} />}>
       <EffectChart periods={periods} totals={totals} grain={grain} />
     </Panel>
   );
 }
 
-export function ProjectsPanel({ projects }: { projects: EffectProject[] }) {
+export function ProjectsPanel({ projects, period }: { projects: EffectProject[]; period: ReportPeriod }) {
   const { stats } = useMessages();
   const language = useLanguage();
   return (
-    <Panel title={stats.byProject}>
+    <Panel title={stats.byProject} period={stats.periodCaption(stats.effectWindow, formatDayRange(language, period.from, period.to))}>
       {projects.length === 0 ? (
         <p className={rowStyles.muted}>{stats.noCodeData}</p>
       ) : (

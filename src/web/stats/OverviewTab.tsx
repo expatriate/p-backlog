@@ -26,11 +26,11 @@ function Overview({ report, listPath }: { report: StatsReport; listPath: string 
     <>
       <Totals totals={report.totals} />
       <div className={styles.blocks}>
-        <FlowPanel weeks={report.weeks} days={report.days} />
-        <IntakePanel weeks={report.weeks} days={report.days} />
+        <FlowPanel weeks={report.weeks} days={report.days} windows={report.periods} />
+        <IntakePanel weeks={report.weeks} days={report.days} windows={report.periods} />
         <HotspotsPanel hotspots={report.hotspots} listPath={listPath} />
         <AgePanel age={report.age} />
-        <ClosingPanel closing={report.closing} />
+        <ClosingPanel closing={report.closing} period={report.periods.weeks} />
       </div>
     </>
   );

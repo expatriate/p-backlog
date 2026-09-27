@@ -1,20 +1,23 @@
 import { formatShare } from "../../core/stats/format";
-import type { AccuracyPeriod, AccuracyRow, BranchRow, CategoryRow, FoundRow, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow } from "../../core/api/contract";
-import { useMessages } from "../i18n";
+import type { AccuracyPeriod, AccuracyRow, BranchRow, CategoryRow, FoundRow, GrainPeriods, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow, ReportPeriod } from "../../core/api/contract";
+import { formatDayRange } from "../../core/i18n/format";
+import { useLanguage, useMessages } from "../i18n";
 import { AccuracyChart } from "./AccuracyChart";
 import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
+import { grainWindow, usePeriodCaption } from "./period-caption";
 import { StatsTable, type StatsTableRow } from "./StatsTable";
 import { useGrainSeries } from "./use-grain-series";
 
 type SplitRow = { by: string } & OutcomeCounts;
 
-type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyPeriod[]; days: AccuracyPeriod[]; methodRows: MethodAccuracyRow[]; matchRows: MatchAccuracyRow[] };
+type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyPeriod[]; days: AccuracyPeriod[]; windows: GrainPeriods; methodRows: MethodAccuracyRow[]; matchRows: MatchAccuracyRow[] };
 
-export function AccuracyPanel({ rows, weeks, days, methodRows, matchRows }: AccuracyPanelProps) {
+export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRows }: AccuracyPanelProps) {
   const { stats, core } = useMessages();
+  const caption = usePeriodCaption();
   const { grain, periods, setGrain } = useGrainSeries("accuracy", "week", { week: weeks, day: days });
   const splitOf = (evidence: AccuracyRow["evidence"]): StatsTableRow[] => {
     if (evidence === "source-changed")
@@ -24,7 +27,11 @@ export function AccuracyPanel({ rows, weeks, days, methodRows, matchRows }: Accu
     return [];
   };
   return (
-    <Panel title={stats.accuracyTitle} aside={rows.length === 0 ? undefined : <GrainToggle chart="accuracy" grain={grain} onChange={setGrain} />}>
+    <Panel
+      title={stats.accuracyTitle}
+      period={caption(grainWindow(grain), windows[grainWindow(grain)])}
+      aside={rows.length === 0 ? undefined : <GrainToggle chart="accuracy" grain={grain} onChange={setGrain} />}
+    >
       {rows.length === 0 ? (
         <p className={rowStyles.muted}>{stats.noCandidates}</p>
       ) : (
@@ -32,7 +39,7 @@ export function AccuracyPanel({ rows, weeks, days, methodRows, matchRows }: Accu
           <p className={rowStyles.muted}>{stats.accuracyHint}</p>
           <AccuracyChart periods={periods} grain={grain} />
           <StatsTable
-            label={stats.accuracyTable}
+            label={stats.accuracyTable(caption("weeks", windows.weeks))}
             head={stats.accuracyHead}
             rows={rows.flatMap((row): StatsTableRow[] => [
               {
@@ -53,8 +60,9 @@ function splitRow(stats: StatsMessages, split: SplitRow, label: string): StatsTa
   return { key: split.by, tone: "child", cells: [stats.splitRow(label), split.candidates, split.closed, split.verified, split.open, formatShare(split.precision)] };
 }
 
-export function GraphPanel({ graph }: { graph: GraphReport }) {
+export function GraphPanel({ graph, period }: { graph: GraphReport; period: ReportPeriod }) {
   const { stats, core } = useMessages();
+  const language = useLanguage();
   const { projects, filter } = graph;
   if (filter.filtered === 0 && projects.every((project) => project.state === "none")) {
     return (
@@ -67,7 +75,7 @@ export function GraphPanel({ graph }: { graph: GraphReport }) {
     <Panel title={stats.graphTitle}>
       <p className={rowStyles.muted}>{stats.graphHint}</p>
       <div>
-        <h3 className={rowStyles.subTitle}>{stats.filteredTitle}</h3>
+        <h3 className={rowStyles.subTitle}>{stats.periodCaption(stats.filteredTitle, formatDayRange(language, period.from, period.to))}</h3>
         {filter.filtered === 0 ? (
           <p className={rowStyles.muted}>{stats.nothingFiltered}</p>
         ) : (
@@ -84,7 +92,7 @@ export function GraphPanel({ graph }: { graph: GraphReport }) {
         )}
       </div>
       <div>
-        <h3 className={rowStyles.subTitle}>{stats.projects}</h3>
+        <h3 className={rowStyles.subTitle}>{stats.periodCaption(stats.projects, stats.periodNow)}</h3>
         <StatsTable
           label={stats.graphByProject}
           head={stats.graphHead}
@@ -100,11 +108,12 @@ function resolvedCell({ state, pinned, resolved }: ProjectGraphRow): string {
   return `${resolved} (${formatShare(pinned === 0 ? null : resolved / pinned)})`;
 }
 
-export function CategoriesPanel({ rows }: { rows: CategoryRow[] }) {
+export function CategoriesPanel({ rows, period }: { rows: CategoryRow[]; period: ReportPeriod }) {
   const { stats, core } = useMessages();
+  const caption = usePeriodCaption();
   const categoryText = (row: CategoryRow): string => (row.category === "unknown" ? stats.categoryUnknown : core.categoryLabel(row.category ?? undefined));
   return (
-    <Panel title={stats.categoriesTitle}>
+    <Panel title={stats.categoriesTitle} period={caption("weeks", period)}>
       {rows.length === 0 ? (
         <p className={rowStyles.muted}>{stats.categoriesEmpty}</p>
       ) : (
@@ -118,15 +127,16 @@ export function CategoriesPanel({ rows }: { rows: CategoryRow[] }) {
   );
 }
 
-export function OriginPanel({ found, branches }: { found: FoundRow[]; branches: BranchRow[] }) {
+export function OriginPanel({ found, branches, period }: { found: FoundRow[]; branches: BranchRow[]; period: ReportPeriod }) {
   const { stats } = useMessages();
+  const caption = usePeriodCaption();
   const foundText = (row: FoundRow): string => {
     if (row.found === null) return stats.foundNotRecorded;
     if (row.found === "unknown") return stats.foundUnknown;
     return stats.foundLabels[row.found];
   };
   return (
-    <Panel title={stats.originTitle}>
+    <Panel title={stats.originTitle} period={caption("weeks", period)}>
       <div>
         <h3 className={rowStyles.subTitle}>{stats.foundTitle}</h3>
         <StatsTable

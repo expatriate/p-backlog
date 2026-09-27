@@ -1,6 +1,6 @@
 import { formatMoney } from "../../core/i18n/format";
 import { COST_TOTALS_DAYS } from "../../core/stats/cost/cost-report";
-import type { CostCommand, CostDay, CostModel, CostTotals } from "../../core/api/contract";
+import type { CostCommand, CostDay, CostModel, CostTotals, ReportPeriod } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { costValue } from "./cost-format";
@@ -8,6 +8,7 @@ import { formatLines } from "./effect-format";
 import { Figure } from "./Figure";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
+import { usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
 import totalsStyles from "./StatsPage.module.css";
 
@@ -28,11 +29,12 @@ export function CostFigures({ totals, days }: { totals: CostTotals; days: CostDa
   );
 }
 
-export function ModelsPanel({ models }: { models: CostModel[] }) {
+export function ModelsPanel({ models, period }: { models: CostModel[]; period: ReportPeriod }) {
   const { stats } = useMessages();
   const language = useLanguage();
+  const caption = usePeriodCaption();
   return (
-    <Panel title={stats.byModel}>
+    <Panel title={stats.byModel} period={caption("days", period)}>
       {models.length === 0 ? (
         <p className={rowStyles.muted}>{stats.noModels}</p>
       ) : (
@@ -49,11 +51,12 @@ export function ModelsPanel({ models }: { models: CostModel[] }) {
   );
 }
 
-export function CommandsPanel({ commands }: { commands: CostCommand[] }) {
+export function CommandsPanel({ commands, period }: { commands: CostCommand[]; period: ReportPeriod }) {
   const { stats } = useMessages();
   const language = useLanguage();
+  const caption = usePeriodCaption();
   return (
-    <Panel title={stats.commandsTitle}>
+    <Panel title={stats.commandsTitle} period={caption("days", period)}>
       {commands.length === 0 ? (
         <p className={rowStyles.muted}>{stats.noCommands}</p>
       ) : (

@@ -4,7 +4,7 @@ import { consecutivePeriods, type Period } from "./period";
 import type { FlowPeriod } from "./types";
 import { flowOver } from "./weeks";
 
-const STATS_DAYS = 30;
+export const STATS_DAYS = 30;
 
 export function dayRange(now: Date, count: number): string[] {
   return dayStarts(now, count).map(formatLocalDay);

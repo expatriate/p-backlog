@@ -9,7 +9,7 @@ import styles from "./StatsPanels.module.css";
 export function HotspotsPanel({ hotspots, listPath }: { hotspots: Hotspots; listPath: string }) {
   const { stats } = useMessages();
   return (
-    <Panel title={stats.hotspots}>
+    <Panel title={stats.hotspots} period={stats.periodNow}>
       <div className={styles.columns}>
         <CountList title={stats.folders} empty={stats.noSourceFolders} items={hotspots.folders.map(({ label, count }) => ({ key: label, label: <code>{label}</code>, count }))} />
         <CountList

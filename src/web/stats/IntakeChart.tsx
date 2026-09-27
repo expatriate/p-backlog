@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Tooltip, XAxis, YAxis } from "recharts";
 import type { Language } from "../../core/i18n/language";
 import type { CoreMessages } from "../../core/messages";
-import type { FlowPeriod } from "../../core/api/contract";
+import type { FlowPeriod, GrainPeriods } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
@@ -12,6 +12,7 @@ import { rowTooltip } from "./charts/ChartTooltip";
 import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
+import { grainWindow, usePeriodCaption } from "./period-caption";
 import { useGrainSeries } from "./use-grain-series";
 
 const CREATED = "var(--chart-bar-warm)";
@@ -23,15 +24,16 @@ function periodTooltip(stats: StatsMessages, core: CoreMessages, language: Langu
   }));
 }
 
-export function IntakePanel({ weeks, days }: { weeks: FlowPeriod[]; days: FlowPeriod[] }) {
+export function IntakePanel({ weeks, days, windows }: { weeks: FlowPeriod[]; days: FlowPeriod[]; windows: GrainPeriods }) {
   const { stats, core } = useMessages();
   const language = useLanguage();
+  const caption = usePeriodCaption();
   const { grain, periods, setGrain } = useGrainSeries("intake", "day", { week: weeks, day: days });
   const tooltip = useMemo(() => periodTooltip(stats, core, language, grain), [stats, core, language, grain]);
   const legend: LegendItem[] = [{ label: stats.createdTasks, shape: "bar", color: CREATED }];
   const title = stats.createdBy[grain];
   return (
-    <Panel title={title} aside={<GrainToggle chart="intake" grain={grain} onChange={setGrain} />}>
+    <Panel title={title} period={caption(grainWindow(grain), windows[grainWindow(grain)])} aside={<GrainToggle chart="intake" grain={grain} onChange={setGrain} />}>
       <ChartFrame summary={stats.intakeSummary(grain, periods.length, sum(periods.map((period) => period.created)))} legend={legend}>
         <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />

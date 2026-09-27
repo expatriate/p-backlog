@@ -21,7 +21,7 @@ function Code({ report }: { report: CodeReport }) {
       <UnavailableRepos repos={report.unavailableRepos} />
       <div className={styles.blocks}>
         <div className={rowStyles.wide}>
-          <ChurnPanel churn={report.churn} />
+          <ChurnPanel churn={report.churn} period={report.periods.churn} />
         </div>
         <DensityPanel density={report.density} />
       </div>

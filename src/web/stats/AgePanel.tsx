@@ -23,7 +23,7 @@ export function AgePanel({ age }: { age: AgeBreakdown }) {
   const summary = totals.map(({ bucket, total, byPriority }) => `${stats.ageBuckets[bucket]}: ${total}${priorityBreakdown(stats, byPriority)}`).join("; ");
 
   return (
-    <Panel title={stats.openAge}>
+    <Panel title={stats.openAge} period={stats.periodNow}>
       <div role="img" aria-label={summary} className={styles.ageRows}>
         {totals.map(({ bucket, total, byPriority }) => (
           <div key={bucket} className={styles.ageRow} aria-hidden="true">

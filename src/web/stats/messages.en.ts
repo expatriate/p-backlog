@@ -2,15 +2,19 @@ import { CHURN_DAYS } from "../../core/code/code-window";
 import { formatDecimal } from "../../core/i18n/format";
 import { countEn, NBSP, pluralEn } from "../../core/i18n/plural";
 import { STALE_URGENT_DAYS } from "../../core/stats/breakdowns";
+import { COST_TOTALS_DAYS } from "../../core/stats/cost/cost-report";
+import { STATS_DAYS } from "../../core/stats/days";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import { STATS_WEEKS } from "../../core/stats/weeks";
 import type { ChartStep, Grain } from "./charts/chart-style";
 import { formatApprox, formatLines, isEstimated } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 
-const CHURN_PERIOD = countEn(CHURN_DAYS, "day", "days");
+const dayCount = (n: number): string => countEn(n, "day", "days");
+const CHURN_PERIOD = dayCount(CHURN_DAYS);
 const STATS_PERIOD = countEn(STATS_WEEKS, "week", "weeks");
 const CHART_STEPS: Record<ChartStep, string> = { day: "day", week: "week", sample: "sample" };
+const EFFECT_WINDOW = `${STATS_PERIOD} (since adoption, if later)`;
 const ESTIMATE_LATER = `the estimate appears after ${MIN_FIXES_FOR_ESTIMATE} fixes`;
 
 const PERIOD_FORMS: Record<Grain, [string, string]> = { week: ["week", "weeks"], day: ["day", "days"] };
@@ -47,6 +51,9 @@ export const statsEn: StatsMessages = {
   folders: "Folders",
   projects: "Projects",
 
+  periodWindows: { weeks: STATS_PERIOD, days: dayCount(STATS_DAYS), lastWeek: dayCount(COST_TOTALS_DAYS), churn: CHURN_PERIOD },
+  periodCaption: (window, range) => `${window} · ${range}`,
+  periodNow: "now",
   chartLabel: (name, step) => `${name}. Left and right arrows move by ${CHART_STEPS[step]}`,
   periodOf: (grain, day) => (grain === "week" ? `week of ${day}` : day),
   weekTrend: (arrow, size) => `${arrow}${NBSP}${size}${NBSP}vs${NBSP}last${NBSP}week`,
@@ -96,7 +103,7 @@ export const statsEn: StatsMessages = {
   accuracyTitle: "Check precision",
   noCandidates: "The check has not found any candidates yet",
   accuracyHint: "Share of check candidates after which the task was closed; the rest were confirmed as still relevant",
-  accuracyTable: "Check precision for the period",
+  accuracyTable: (period) => `Check precision, ${period}`,
   accuracyHead: ["Evidence", "Candidates", "Closed", "Confirmed", "Undecided", "Precision"],
   splitRow: (label) => `└ of them ${label}`,
   beforeMethodRecorded: "before the method was recorded",
@@ -153,7 +160,7 @@ export const statsEn: StatsMessages = {
   deferredToBacklog: "Deferred to backlog",
   deferredNote: (fixed, pending) => `fixed ${fixed}, pending ${pending}`,
   pullRequestLines: "Lines in pull requests",
-  sinceAdoption: "since the backlog was adopted",
+  effectWindow: `over ${EFFECT_WINDOW}`,
   chartScale: (chart) => `Scale of the "${chart}" chart`,
   chartNames: { flow: "Debt", intake: "Created", accuracy: "Check precision", effect: "Effect", spend: "Usage" },
   grainWeek: "week",
@@ -166,7 +173,7 @@ export const statsEn: StatsMessages = {
   codeLines: "code",
   testLines: "tests",
   deferredTasks: "tasks deferred",
-  effectSummary: (realLines, deferred, noise) => `Since the backlog was adopted: ${countEn(realLines, "line", "lines")} in pull requests, deferred ${deferred}, noise without backlog ${noise}`,
+  effectSummary: (realLines, deferred, noise) => `Over ${EFFECT_WINDOW}: ${countEn(realLines, "line", "lines")} in pull requests, deferred ${deferred}, noise without backlog ${noise}`,
   explainerTitle: "How the gain is calculated",
   explainerTask: "Every task recorded during work is an edit the agent would have made in the current pull request without the backlog. The gain is the lines that did not get there.",
   explainerFixed:
@@ -194,6 +201,7 @@ export const statsEn: StatsMessages = {
   hookTurns: "Turns due to the hook",
   hookRunsNote: (runs) => `hook runs ${runs}`,
   cliCalls: "CLI calls",
+  costSince: (date) => `Usage data since ${date}`,
   byModel: "By model",
   noModels: "No models yet",
   modelsHead: ["Model", "Tokens", "At API prices"],

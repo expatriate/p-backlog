@@ -16,16 +16,16 @@ function Quality({ report }: { report: QualityReport }) {
   return (
     <div className={styles.blocks}>
       <div className={rowStyles.wide}>
-        <AccuracyPanel rows={report.accuracy} weeks={report.accuracyWeeks} days={report.accuracyDays} methodRows={report.methodAccuracy} matchRows={report.matchAccuracy} />
+        <AccuracyPanel rows={report.accuracy} weeks={report.accuracyWeeks} days={report.accuracyDays} windows={report.periods} methodRows={report.methodAccuracy} matchRows={report.matchAccuracy} />
       </div>
       <div className={rowStyles.wide}>
-        <GraphPanel graph={report.graph} />
+        <GraphPanel graph={report.graph} period={report.periods.weeks} />
       </div>
       <div className={rowStyles.wide}>
-        <CategoriesPanel rows={report.categories} />
+        <CategoriesPanel rows={report.categories} period={report.periods.weeks} />
       </div>
       <div className={rowStyles.wide}>
-        <OriginPanel found={report.found} branches={report.branches} />
+        <OriginPanel found={report.found} branches={report.branches} period={report.periods.weeks} />
       </div>
     </div>
   );

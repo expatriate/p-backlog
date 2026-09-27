@@ -12,6 +12,7 @@ import { freezeDate } from "../testing/freeze-date";
 import { renderApp, type RenderedApp } from "../testing/render-app";
 import { StatsPage } from "./StatsPage";
 import { NBSP } from "../../core/i18n/plural";
+import type { StatsReport } from "../../core/api/contract";
 
 const MINUS = "\u2212";
 
@@ -393,8 +394,10 @@ describe("вкладка «Эффект»", () => {
     expect(within(kept).getByText("0 строк")).toBeDefined();
     expect(within(kept).getByText("исправлено 0; оценка ожидающих появится после 5 исправлений · код 0, тесты 0")).toBeDefined();
     expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("2")).toBeDefined();
-    expect(screen.getByRole("figure", { name: /С внедрения беклога: в пулреквестах 2/ })).toBeDefined();
-    expect(screen.getByRole("region", { name: "По проектам" })).toBeDefined();
+    expect(screen.getByRole("figure", { name: new RegExp(`^За 12${NBSP}недель \\(с внедрения, если оно позже\\): в пулреквестах 2`) })).toBeDefined();
+    expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("за 12 недель (с внедрения, если оно позже)")).toBeDefined();
+    expect(screen.queryByText("с внедрения беклога")).toBeNull();
+    expect(within(screen.getByRole("region", { name: "По проектам" })).getByText("за 12 недель (с внедрения, если оно позже) · 29 июн. – 18 сент.")).toBeDefined();
 
     const grain = screen.getByRole("group", { name: "Масштаб графика «Эффект»" });
     expect(within(grain).getByRole("button", { name: "неделя" }).getAttribute("aria-pressed")).toBe("true");
@@ -457,6 +460,7 @@ describe("вкладка «Стоимость»", () => {
     expect(within(commands).getByRole("row", { name: /list/ })).toBeDefined();
 
     expect(await screen.findByRole("figure", { name: new RegExp(`Сейчас \\S+${NBSP}МБ, максимум за час \\S+${NBSP}МБ`) })).toBeDefined();
+    expect(screen.getByText("Данные о расходе есть с 18.09.26")).toBeDefined();
   });
 
   it("каталог расшифровок пуст — вкладка говорит, что расшифровки не найдены", async () => {
@@ -536,6 +540,53 @@ describe("масштаб графиков", () => {
 
     expect(screen.getByRole("region", { name: "Расход по неделям" })).toBe(spend);
     expect(within(spend).getByRole("figure", { name: new RegExp(`^За 12${NBSP}недель: .*; запусков хука 2, других команд 0$`) })).toBeDefined();
+  });
+});
+
+describe("подписи периодов", () => {
+  const regionWith = (name: string, period: string) => within(screen.getByRole("region", { name })).getByText(period);
+
+  it("панели «Обзора» подписаны периодом, подпись следует масштабу", async () => {
+    const app = await renderApp(FILES, "/stats");
+    await screen.findByRole("region", { name: "Долг по неделям" });
+
+    expect(regionWith("Долг по неделям", "12 недель · 29 июн. – 18 сент.")).toBeDefined();
+    expect(regionWith("Как закрываются", "12 недель · 29 июн. – 18 сент.")).toBeDefined();
+    expect(regionWith("Где болит", "сейчас")).toBeDefined();
+    expect(regionWith("Возраст открытых", "сейчас")).toBeDefined();
+
+    await app.user.click(within(screen.getByRole("group", { name: "Масштаб графика «Долг»" })).getByRole("button", { name: "день" }));
+
+    expect(regionWith("Долг по дням", "30 дней · 20 авг. – 18 сент.")).toBeDefined();
+  });
+
+  it("подпись берётся из ответа сервера", async () => {
+    const shiftedWeeks: StatsAnswer = async (real) => {
+      const report = (await (await real()).json()) as StatsReport;
+      const periods = { ...report.periods, weeks: { from: "2026-07-06T00:00:00+03:00", to: "2026-09-27T12:00:00+03:00" } };
+      return new Response(JSON.stringify({ ...report, periods }), { status: 200, headers: { "content-type": "application/json" } });
+    };
+    await renderStatsWith(shiftedWeeks);
+    await screen.findByRole("region", { name: "Долг по неделям" });
+
+    expect(regionWith("Долг по неделям", "12 недель · 6 июл. – 27 сент.")).toBeDefined();
+  });
+
+  it("«Стоимость»: модели за 30 дней, плитки за 7 дней, без расхода нет строки о его начале", async () => {
+    await renderApp({ "spa/project.md": projectFile("SPA") }, "/p/spa/stats/cost", routes, { transcriptsDir: await makeTempDir() });
+    await screen.findByRole("region", { name: "По моделям" });
+
+    expect(regionWith("По моделям", "30 дней · 20 авг. – 18 сент.")).toBeDefined();
+    expect(screen.getByText("7 дней · 12–18 сент.")).toBeDefined();
+    expect(screen.queryByText(/Данные о расходе есть с/)).toBeNull();
+  });
+
+  it("«Код»: изменения за 90 дней, плотность — сейчас", async () => {
+    await renderApp(FILES, "/stats/code");
+    await screen.findByRole("region", { name: "Долг в часто меняемом коде" });
+
+    expect(regionWith("Долг в часто меняемом коде", "90 дней · 20 июн. – 18 сент.")).toBeDefined();
+    expect(regionWith("Плотность долга", "сейчас")).toBeDefined();
   });
 });
 

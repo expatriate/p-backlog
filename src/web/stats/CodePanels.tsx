@@ -1,15 +1,17 @@
 import type { ReactNode } from "react";
-import type { ChurnRow, CodeDensity, DensityRow } from "../../core/api/contract";
+import type { ChurnRow, CodeDensity, DensityRow, ReportPeriod } from "../../core/api/contract";
 import { useMessages } from "../i18n";
 import { Panel } from "./Panel";
+import { usePeriodCaption } from "./period-caption";
 import rowStyles from "./PanelRows.module.css";
 import styles from "./CodePanels.module.css";
 
-export function ChurnPanel({ churn }: { churn: ChurnRow[] }) {
+export function ChurnPanel({ churn, period }: { churn: ChurnRow[]; period: ReportPeriod }) {
   const { stats } = useMessages();
+  const caption = usePeriodCaption();
   const top = churn[0]?.score ?? 1;
   return (
-    <Panel title={stats.churnTitle}>
+    <Panel title={stats.churnTitle} period={caption("churn", period)}>
       <p className={rowStyles.muted}>{stats.churnHint}</p>
       {churn.length === 0 ? (
         <p className={rowStyles.muted}>{stats.churnEmpty}</p>
@@ -34,7 +36,7 @@ export function ChurnPanel({ churn }: { churn: ChurnRow[] }) {
 export function DensityPanel({ density }: { density: CodeDensity }) {
   const { stats } = useMessages();
   return (
-    <Panel title={stats.densityTitle}>
+    <Panel title={stats.densityTitle} period={stats.periodNow}>
       {density.projects.length === 0 ? (
         <p className={rowStyles.muted}>{stats.noCodeData}</p>
       ) : (

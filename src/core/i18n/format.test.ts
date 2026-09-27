@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatDateTime, formatDayMonth, formatDecimal, formatMoney, formatNumber } from "./format";
+import { formatDate, formatDateTime, formatDayMonth, formatDayRange, formatDecimal, formatMoney, formatNumber } from "./format";
+
+const plainSpaces = (text: string) => text.replace(/[\u00a0\u202f\u2009]/g, " ");
 
 describe("форматирование по языку", () => {
   it("день и месяц: русский порядок дд.мм, английский мм/дд", () => {
@@ -35,5 +37,13 @@ describe("форматирование по языку", () => {
     expect(formatMoney("ru", 0)).toBe("$0,00");
     expect(formatMoney("en", 1234.56)).toBe("$1,234.56");
     expect(formatMoney("en", null)).toBe("—");
+  });
+
+  it("диапазон дат: один месяц схлопывается, разные годы показывают год", () => {
+    expect(plainSpaces(formatDayRange("ru", "2026-09-21T00:00:00+03:00", "2026-09-27T18:00:00+03:00"))).toBe("21–27 сент.");
+    expect(plainSpaces(formatDayRange("ru", "2026-07-06T00:00:00+03:00", "2026-09-27T18:00:00+03:00"))).toBe("6 июл. – 27 сент.");
+    const acrossYears = formatDayRange("en", "2025-12-29", "2026-01-04");
+    expect(acrossYears).toContain("2025");
+    expect(acrossYears).toContain("2026");
   });
 });
