@@ -10,7 +10,7 @@ export type JsonlTail<T> = { read: () => Promise<TailRead<T>> };
 const HEAD_FINGERPRINT_BYTES = 4096;
 const EMPTY_FINGERPRINT = createHash("sha1").digest("hex");
 
-type TailState<T> = { offset: number; headFingerprint: string; values: readonly T[]; invalidLines: number };
+type TailState<T> = { offset: number; identity: string; headFingerprint: string; values: readonly T[]; invalidLines: number };
 
 type Pending<T> = JsonLines<T> & { bytes: number };
 
@@ -33,9 +33,11 @@ export function createJsonlTail<T>(path: string, schema: z.ZodType<T>): JsonlTai
   }
 
   async function consumeNew(handle: FileHandle): Promise<Pending<T>> {
-    const { size } = await handle.stat();
-    if (size < state.offset || !(await headMatches(handle))) restart();
-    return size > state.offset ? consumeUpTo(handle, size) : nothingPending();
+    const stats = await handle.stat({ bigint: true });
+    const identity = `${stats.dev}:${stats.ino}`;
+    const size = Number(stats.size);
+    if (identity !== state.identity || size < state.offset || !(await headMatches(handle))) restart();
+    return size > state.offset ? consumeUpTo(handle, size, identity) : nothingPending();
   }
 
   function restart(): void {
@@ -49,13 +51,13 @@ export function createJsonlTail<T>(path: string, schema: z.ZodType<T>): JsonlTai
     return (await headFingerprintAt(handle, state.offset)) === state.headFingerprint;
   }
 
-  async function consumeUpTo(handle: FileHandle, size: number): Promise<Pending<T>> {
+  async function consumeUpTo(handle: FileHandle, size: number, identity: string): Promise<Pending<T>> {
     const chunk = await readAt(handle, state.offset, size - state.offset);
     const completeLength = chunk.lastIndexOf(NEWLINE) + 1;
     if (completeLength > 0) {
       const parsed = parseJsonLines(chunk.subarray(0, completeLength).toString("utf8"), schema);
       const offset = state.offset + completeLength;
-      state = { offset, headFingerprint: await headFingerprintAt(handle, offset), values: [...state.values, ...parsed.values], invalidLines: state.invalidLines + parsed.invalidLines };
+      state = { offset, identity, headFingerprint: await headFingerprintAt(handle, offset), values: [...state.values, ...parsed.values], invalidLines: state.invalidLines + parsed.invalidLines };
     }
     const pending = chunk.subarray(completeLength);
     return { ...parseJsonLines(pending.toString("utf8"), schema), bytes: pending.length };
@@ -65,7 +67,7 @@ export function createJsonlTail<T>(path: string, schema: z.ZodType<T>): JsonlTai
 }
 
 function emptyState<T>(): TailState<T> {
-  return { offset: 0, headFingerprint: EMPTY_FINGERPRINT, values: [], invalidLines: 0 };
+  return { offset: 0, identity: "", headFingerprint: EMPTY_FINGERPRINT, values: [], invalidLines: 0 };
 }
 
 function nothingPending<T>(): Pending<T> {

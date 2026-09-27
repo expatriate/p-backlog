@@ -2,7 +2,7 @@ import { appendFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
-import { readJsonLines } from "./fs-utils";
+import { readJsonLines, writeFileAtomic } from "./fs-utils";
 import { createJsonlTail } from "./jsonl-tail";
 import { makeTempDir } from "./testing/temp-dirs";
 
@@ -75,6 +75,22 @@ describe("createJsonlTail", () => {
 
     expect(after).toMatchObject({ values: [{ n: 2 }], length: before.length });
     expect(after.generation).not.toBe(before.generation);
+  });
+
+  it("файл, переписанный с тем же началом и дописанный длиннее прежнего, перечитывается целиком", async () => {
+    const root = await makeTempDir();
+    const path = join(root, "log.jsonl");
+    const lines = (from: number, count: number) => Array.from({ length: count }, (_, i) => `${JSON.stringify({ n: from + i, pad: "x".repeat(120) })}\n`).join("");
+    const kept = lines(0, 40);
+    await writeFile(path, kept + lines(40, 3));
+    const tail = createJsonlTail(path, SCHEMA);
+    await tail.read();
+
+    await writeFileAtomic(path, kept);
+    await appendFile(path, lines(100, 5));
+    const result = await tail.read();
+
+    expect(result).toMatchObject(await readJsonLines(path, SCHEMA));
   });
 
   it("нет файла — пусто, потом появился — читается", async () => {

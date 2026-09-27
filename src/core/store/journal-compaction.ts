@@ -2,13 +2,29 @@ import { join } from "node:path";
 import { episodeOpeners, journalEventSchema, type JournalEvent } from "../journal/events";
 import { retainedSince } from "../model/lifecycle";
 import { taskHistories, type TaskHistory } from "../stats/history";
+import { runWhenDue } from "./daily";
 import { withFileLock } from "./file-lock";
-import { parseJson, readTextOrNull, withExistingFile, writeFileAtomic } from "./fs-utils";
+import { listDir, parseJson, readTextOrNull, withExistingFile, writeFileAtomic } from "./fs-utils";
 import { JOURNAL_FILE } from "./journal";
+import { taskIdsOnDisk } from "./load";
+
+const COMPACTED_STAMP = ".journal-compacted-at";
 
 type JournalLine = { text: string; event: JournalEvent | null };
 
 const EPISODE_KINDS: ReadonlySet<JournalEvent["kind"]> = new Set(["candidate", "candidate-gone", "candidate-filtered", "verified"]);
+
+export async function compactJournalsWhenDue(root: string, now: Date): Promise<string[]> {
+  const compacted: string[] = [];
+  for (const entry of await listDir(root)) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    const dir = join(root, entry.name);
+    if (!(await fileExists(join(dir, JOURNAL_FILE)))) continue;
+    const removed = await runWhenDue(join(dir, COMPACTED_STAMP), now, async () => compactJournal(dir, await taskIdsOnDisk(dir), now));
+    if (removed !== null && removed > 0) compacted.push(entry.name);
+  }
+  return compacted;
+}
 
 export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySet<string>, now: Date): Promise<number> {
   const path = join(projectDir, JOURNAL_FILE);

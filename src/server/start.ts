@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { claudeProjectsDir } from "../core/claude-dir";
 import { errorText } from "../core/errors";
 import { coreMessages } from "../core/messages";
+import { compactJournalsWhenDue } from "../core/store/journal-compaction";
 import { trimRuns } from "../core/store/runs";
 import { settingsFilePath, settleLanguage } from "../core/store/settings";
 import { sweepClosed, type SweepReport } from "../core/store/sweep";
@@ -55,7 +56,9 @@ export async function startServer({ root, port, home, env, pidFile, staticDir }:
     const now = new Date();
     const language = await readLanguage();
     await trimRuns(root, now).catch((error: unknown) => warn(serverMessages(language).runsTrimFailed(errorText(error))));
-    return sweepClosed(root, now, coreMessages(language));
+    const report = await sweepClosed(root, now, coreMessages(language));
+    await compactJournalsWhenDue(root, now).catch((error: unknown) => warn(serverMessages(language).journalCompactionFailed(errorText(error))));
+    return report;
   };
 
   const { server, port: actualPort } = await listen(app, port).catch(async (error: NodeJS.ErrnoException) => {

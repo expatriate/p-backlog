@@ -2,6 +2,7 @@ import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { localeLanguage, settingsFilePath } from "../core/store/settings";
+import { journalWithTaskGoneLongAgo } from "../core/store/testing/stale-journal";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import { startServer } from "./start";
 
@@ -79,6 +80,19 @@ describe("startServer", () => {
 
     expect((await patch).status).toBe(200);
     expect(await closed).toBeLessThan(2000);
+  });
+
+  it("служба при старте уплотняет журналы проектов", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/journal.jsonl": journalWithTaskGoneLongAgo(new Date()) });
+
+    const server = await startServer({ root, port: 0, home, env: {} });
+    await server.close();
+
+    const journal = await readFile(join(root, "spa", "journal.jsonl"), "utf8");
+    expect(journal).not.toContain("SPA-3");
+    expect(journal).toContain("SPA-1");
   });
 
   it("занятый порт отклоняет промис ошибкой с номером порта", async () => {

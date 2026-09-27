@@ -16,6 +16,7 @@ export const serverRu = {
   jsonContentTypeExpected: "Ожидается Content-Type: application/json",
 
   runsTrimFailed: (detail: string): string => `Не удалось обрезать журнал запусков: ${detail}`,
+  journalCompactionFailed: (detail: string): string => `Не удалось уплотнить журналы проектов: ${detail}`,
   serverStarted: (port: number, root: string): string => `p-backlog: http://localhost:${port}\nКаталог беклога: ${root}\n`,
   settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 

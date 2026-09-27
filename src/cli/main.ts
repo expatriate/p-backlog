@@ -4,11 +4,12 @@ import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatLocalIso } from "../core/model/dates";
-import { appendRun, trimRunsWhenStale } from "../core/store/runs";
+import { appendRun } from "../core/store/runs";
 import { resolveBacklogRoot } from "../core/store/paths";
 import { localeLanguage, settleLanguage } from "../core/store/settings";
 import { suppressSqliteExperimentalWarning } from "../core/sqlite-warning";
 import { execProgram } from "./exec";
+import { tidyAfterCommand } from "./housekeeping";
 import { cliMessages, type CliMessages } from "./messages";
 import { commandName, runCli } from "./run";
 
@@ -67,7 +68,7 @@ try {
     rssMb: megabytesOf(process.resourceUsage().maxRSS * 1024),
     exitCode,
   });
-  await trimRunsWhenStale(backlogRoot, new Date()).catch((error: unknown) => warnInUserLanguage((messages) => messages.runsNotTrimmed(errorText(error))));
 } catch (error) {
   await warnInUserLanguage((messages) => messages.runNotRecorded(errorText(error)));
 }
+await tidyAfterCommand({ backlogRoot, env: process.env, now: new Date(), warn: (line) => void process.stderr.write(`${line}\n`) });
