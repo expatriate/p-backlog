@@ -159,6 +159,11 @@ describe("новые поля и события", () => {
     const afterCandidate = [...opened, { at: AT, task: "SPA-1", via: "check" as const, kind: "candidate" as const, evidence: "source-changed" as const, mode: "full" as const }];
     expect(filteredEvents([sighting], episodeStates(afterCandidate), NOW)).toHaveLength(1);
 
+    for (const evidence of ["duplicate", "source-missing"] as const) {
+      const afterUnrelatedCandidate = [...opened, { at: AT, task: "SPA-1", via: "check" as const, kind: "candidate" as const, evidence, mode: "full" as const }];
+      expect(filteredEvents([sighting], episodeStates(afterUnrelatedCandidate), NOW)).toEqual([]);
+    }
+
     expect(filteredEvents([{ task: "SPA-1", symbol: "retry" }], episodeStates(opened), NOW)).toHaveLength(1);
 
     expect(filteredEvents([sighting, sighting], episodeStates([]), NOW)).toHaveLength(1);
