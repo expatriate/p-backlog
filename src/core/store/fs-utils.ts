@@ -111,11 +111,14 @@ export async function writeJsonFile(path: string, value: unknown): Promise<void>
   await writeFileAtomic(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-export async function removeIfUnchanged(path: string, version: string): Promise<boolean> {
+type RemovalOutcome = "removed" | "already-gone" | "changed";
+
+export async function removeIfUnchanged(path: string, version: string): Promise<RemovalOutcome> {
   const text = await readTextOrNull(path);
-  if (text !== null && contentVersion(text) !== version) return false;
+  if (text === null) return "already-gone";
+  if (contentVersion(text) !== version) return "changed";
   await rm(path, { force: true });
-  return true;
+  return "removed";
 }
 
 export async function listDir(path: string, { recursive = false }: { recursive?: boolean } = {}): Promise<Dirent[]> {

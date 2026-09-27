@@ -164,10 +164,11 @@ async function removeLocked(expired: readonly Task[], now: Date): Promise<Remova
   const deleted: string[] = [];
   const failures: SweepFailure[] = [];
   for (const task of expired) {
-    if (await removeIfUnchanged(task.path, task.version)) {
-      deleted.push(task.id);
-      await appendJournal(dirname(task.path), [deletedEvent(task, now, "sweep")]);
-    } else failures.push({ id: task.id, reason: "conflict" });
+    const outcome = await removeIfUnchanged(task.path, task.version);
+    if (outcome === "changed") failures.push({ id: task.id, reason: "conflict" });
+    if (outcome !== "removed") continue;
+    deleted.push(task.id);
+    await appendJournal(dirname(task.path), [deletedEvent(task, now, "sweep")]);
   }
   return { deleted, failures };
 }
