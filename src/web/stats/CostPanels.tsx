@@ -22,9 +22,9 @@ export function CostFigures({ totals, days, period }: { totals: CostTotals; days
   return (
     <FigureGroup period={caption.of("lastWeek", period)}>
       <Figure label={stats.backlogTokens} value={lines(totals.tokens)} note={stats.backlogTokensNote(lines(hookTokens), lines(cliTokens))} />
-      <Figure label={stats.apiPrice} value={costValue(language, totals.cost)} note={totals.hasUnpricedTokens ? stats.unpricedNote : ""} />
+      <Figure label={stats.apiPrice} value={costValue(language, totals.cost)} note={totals.hasUnpricedTokens ? stats.unpricedNote : undefined} />
       <Figure label={stats.hookTurns} value={lines(totals.hookTurns)} note={stats.hookRunsNote(lines(totals.hookRuns))} />
-      <Figure label={stats.cliCalls} value={lines(totals.cliRuns)} note="" />
+      <Figure label={stats.cliCalls} value={lines(totals.cliRuns)} />
     </FigureGroup>
   );
 }

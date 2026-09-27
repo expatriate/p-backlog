@@ -15,8 +15,7 @@ import { NBSP } from "../../core/i18n/plural";
 import type { StatsReport } from "../../core/api/contract";
 
 const MINUS = "\u2212";
-
-const describedAs = (text: string) => (description: string) => description.replace(/\s+/g, " ") === text;
+const spacedAs = (text: string) => (name: string) => name.replace(/\s+/g, " ") === text;
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),
@@ -397,7 +396,7 @@ describe("вкладка «Эффект»", () => {
     expect(within(kept).getByText("исправлено 0; оценка ожидающих появится после 5 исправлений · код 0, тесты 0")).toBeDefined();
     expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("2")).toBeDefined();
     expect(screen.getByRole("figure", { name: new RegExp(`^За 12${NBSP}недель \\(с внедрения, если оно позже\\): в пулреквестах 2`) })).toBeDefined();
-    const effectFigures = screen.getByRole("group", { description: describedAs("за 12 недель (с внедрения, если оно позже) · 29 июн. – 18 сент.") });
+    const effectFigures = screen.getByRole("group", { name: spacedAs("за 12 недель (с внедрения, если оно позже) · 29 июн. – 18 сент.") });
     expect(within(effectFigures).getByRole("group", { name: "Посторонних правок вынесено" })).toBeDefined();
     expect(screen.queryByText("с внедрения беклога")).toBeNull();
     expect(within(screen.getByRole("region", { name: "По проектам" })).getByText("за 12 недель (с внедрения, если оно позже) · 29 июн. – 18 сент.")).toBeDefined();
@@ -583,7 +582,7 @@ describe("подписи периодов", () => {
     await screen.findByRole("region", { name: "По моделям" });
 
     expect(regionWith("По моделям", "30 дней · 20 авг. – 18 сент.")).toBeDefined();
-    const lastWeekFigures = screen.getByRole("group", { description: describedAs("7 дней · 12–18 сент.") });
+    const lastWeekFigures = screen.getByRole("group", { name: spacedAs("7 дней · 12–18 сент.") });
     expect(within(lastWeekFigures).getByRole("group", { name: "Вызовов CLI" })).toBeDefined();
     expect(screen.queryByText(/Данные о расходе есть с/)).toBeNull();
   });

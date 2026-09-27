@@ -21,7 +21,7 @@ export function EffectFigures({ totals, period }: { totals: EffectTotals; period
       <Figure label={stats.keptOut} value={keptOutValue(stats, totals)} note={`${keptOutNote(stats, language, totals)} · ${stats.codeAndTests(totals)}`} />
       <Figure label={stats.noiseWithoutBacklog} value={formatNoiseShare(totals.noiseShare)} note={stats.noiseNote} />
       <Figure label={stats.deferredToBacklog} value={String(totals.fixedTasks + totals.openTasks)} note={stats.deferredNote(totals.fixedTasks, totals.openTasks)} />
-      <Figure label={stats.pullRequestLines} value={formatLines(language, totals.realLines)} note="" />
+      <Figure label={stats.pullRequestLines} value={formatLines(language, totals.realLines)} />
     </FigureGroup>
   );
 }
