@@ -29,24 +29,24 @@ export function effectReport(
 ): EffectReport {
   const { now, projectId } = input;
   const { histories } = base;
-  const reportPeriod = statsPeriod(now);
+  const statsWindow = statsPeriod(now);
   const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
   const retainedFixes = (pool: readonly TaskHistory[]) => pool.filter((history) => closedSince(history, retainedSince(now)));
-  const deferred = buildDeferred(histories.filter((history) => reportPeriod.contains(history.createdAt)), retainedFixes(histories), code);
+  const deferred = buildDeferred(histories.filter((history) => statsWindow.contains(history.createdAt)), retainedFixes(histories), code);
   const estimate = estimator(estimateSamples(retainedFixes(wholeBacklog.histories), code));
   const adoptionStart = (id: string) => {
     const firstCreated = smallest(histories.filter((history) => history.projectId === id).map((history) => history.createdAt));
-    return firstCreated === null ? reportPeriod.from : Math.max(reportPeriod.from, firstCreated);
+    return firstCreated === null ? statsWindow.from : Math.max(statsWindow.from, firstCreated);
   };
   const unitsOf = (project: ProjectCode) => project.repos.flatMap((repo) => repo.units);
   const unitsForTotals = (id?: string) =>
     projects
       .filter((project) => id === undefined || project.projectId === id)
       .flatMap((project) => {
-        const adopted = period(adoptionStart(project.projectId), reportPeriod.to);
+        const adopted = period(adoptionStart(project.projectId), statsWindow.to);
         return unitsOf(project).filter((unit) => adopted.contains(Date.parse(unit.date)));
       });
-  const periodUnits = projects.flatMap(unitsOf).filter((unit) => reportPeriod.contains(Date.parse(unit.date)));
+  const periodUnits = projects.flatMap(unitsOf).filter((unit) => statsWindow.contains(Date.parse(unit.date)));
   return {
     ...base.head,
     periods: grainPeriods(now),
