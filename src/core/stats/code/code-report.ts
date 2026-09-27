@@ -1,6 +1,5 @@
-import { churnWindowStart } from "../../code/code-window";
-import { period } from "../period";
-import { reportPeriod } from "../report-periods";
+import { CHURN_DAYS } from "../../code/code-window";
+import { lastDays } from "../report-periods";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { CodeReport, ScannedCode } from "../types";
 import { statsPeriod } from "../weeks";
@@ -17,7 +16,7 @@ export function codeReport({ code, ...input }: CodeInput, base: ReportBase = rep
   const projects = code.projects.filter((project) => projectId === undefined || project.projectId === projectId);
   return {
     ...base.head,
-    periods: { churn: reportPeriod(period(churnWindowStart(now).getTime(), now.getTime())) },
+    periods: { churn: lastDays(now, CHURN_DAYS) },
     unavailableRepos: code.unavailableRepos,
     churn: churn(openTasks, projects, scopeLabel(projectId)),
     density: density(openTasks, projects, projectId),

@@ -607,7 +607,7 @@ describe("подписи периодов", () => {
     await renderApp(FILES, "/stats/code");
     await screen.findByRole("region", { name: "Долг в часто меняемом коде" });
 
-    expect(regionWith("Долг в часто меняемом коде", "90 дней · 20 июн. – 18 сент.")).toBeDefined();
+    expect(regionWith("Долг в часто меняемом коде", "90 дней · 21 июн. – 18 сент.")).toBeDefined();
     expect(regionWith("Плотность долга", "сейчас")).toBeDefined();
   });
 });

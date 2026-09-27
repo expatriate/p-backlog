@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { churnWindowStart } from "../../code/code-window";
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { codeFixRequests, codeReport } from "./code-report";
@@ -32,9 +31,9 @@ describe("отчёт «Код»", () => {
     expect(codeFixRequests({ tasks, journals: [], now: NOW, projectId: "spa" })).toEqual([{ projectId: "spa", hashes: ["abcdef1"] }]);
   });
 
-  it("граница окна оборота совпадает с окном сканирования репозиториев", () => {
+  it("подпись окна оборота охватывает ровно 90 календарных дней, а не 91", () => {
     const report = codeReport({ tasks: [], journals: [], now: NOW, code: { projects: [], unavailableRepos: [] } });
 
-    expect(report.periods.churn).toEqual({ from: formatLocalIso(churnWindowStart(NOW)), to: formatLocalIso(NOW) });
+    expect(report.periods.churn).toEqual({ from: formatLocalIso(new Date(2026, 5, 21)), to: formatLocalIso(NOW) });
   });
 });
