@@ -16,6 +16,8 @@ import type { StatsReport } from "../../core/api/contract";
 
 const MINUS = "\u2212";
 
+const describedAs = (text: string) => (description: string) => description.replace(/\s+/g, " ") === text;
+
 const FILES = {
   "spa/project.md": projectFile("SPA"),
   "spa/SPA-1.md": taskFixture("SPA-1", { title: "Таймауты", priority: "high", tags: "[upload]", source: "src/upload/client.ts:88", created: "2026-09-10T10:00:00+03:00" }),
@@ -395,7 +397,8 @@ describe("вкладка «Эффект»", () => {
     expect(within(kept).getByText("исправлено 0; оценка ожидающих появится после 5 исправлений · код 0, тесты 0")).toBeDefined();
     expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("2")).toBeDefined();
     expect(screen.getByRole("figure", { name: new RegExp(`^За 12${NBSP}недель \\(с внедрения, если оно позже\\): в пулреквестах 2`) })).toBeDefined();
-    expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("за 12 недель (с внедрения, если оно позже)")).toBeDefined();
+    const effectFigures = screen.getByRole("group", { description: describedAs("за 12 недель (с внедрения, если оно позже) · 29 июн. – 18 сент.") });
+    expect(within(effectFigures).getByRole("group", { name: "Посторонних правок вынесено" })).toBeDefined();
     expect(screen.queryByText("с внедрения беклога")).toBeNull();
     expect(within(screen.getByRole("region", { name: "По проектам" })).getByText("за 12 недель (с внедрения, если оно позже) · 29 июн. – 18 сент.")).toBeDefined();
 
@@ -406,6 +409,7 @@ describe("вкладка «Эффект»", () => {
 
     expect(within(grain).getByRole("button", { name: "день" }).getAttribute("aria-pressed")).toBe("true");
     expect(within(grain).getByRole("button", { name: "неделя" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("figure", { name: new RegExp(`^За 30${NBSP}дней: в пулреквестах 2${NBSP}строки, вынесено 0${NBSP}строк$`) })).toBeDefined();
 
     const explainer = screen.getByRole("region", { name: "Как считается выигрыш" });
     expect(within(explainer).getByText("Сейчас: 0 задач — 0 строк")).toBeDefined();
@@ -460,7 +464,7 @@ describe("вкладка «Стоимость»", () => {
     expect(within(commands).getByRole("row", { name: /list/ })).toBeDefined();
 
     expect(await screen.findByRole("figure", { name: new RegExp(`Сейчас \\S+${NBSP}МБ, максимум за час \\S+${NBSP}МБ`) })).toBeDefined();
-    expect(screen.getByText("Данные о расходе есть с 18.09.26")).toBeDefined();
+    expect(screen.getByText("Данные о расходе есть с 18 сент.")).toBeDefined();
   });
 
   it("каталог расшифровок пуст — вкладка говорит, что расшифровки не найдены", async () => {
@@ -526,6 +530,8 @@ describe("масштаб графиков", () => {
     await pick(app, "Точность проверки", "день");
 
     expect(within(accuracy).getByRole("figure", { name: `30${NBSP}дней: решено 1, точность в последний день с решениями 0%` })).toBeDefined();
+    expect(within(accuracy).getByText("30 дней · 20 авг. – 18 сент.")).toBeDefined();
+    expect(within(accuracy).getByText("12 недель · 29 июн. – 18 сент.")).toBeDefined();
   });
 
   it("расход по неделям суммирует 12 недель, а не 30 дней", async () => {
@@ -577,7 +583,24 @@ describe("подписи периодов", () => {
     await screen.findByRole("region", { name: "По моделям" });
 
     expect(regionWith("По моделям", "30 дней · 20 авг. – 18 сент.")).toBeDefined();
-    expect(screen.getByText("7 дней · 12–18 сент.")).toBeDefined();
+    const lastWeekFigures = screen.getByRole("group", { description: describedAs("7 дней · 12–18 сент.") });
+    expect(within(lastWeekFigures).getByRole("group", { name: "Вызовов CLI" })).toBeDefined();
+    expect(screen.queryByText(/Данные о расходе есть с/)).toBeNull();
+  });
+
+  it("«Стоимость»: расход с первого дня окна 12 недель — строки о его начале нет", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    const transcriptsDir = await makeTempDir();
+    const hookTurn = (timestamp: string) => [
+      { type: "user", isMeta: true, timestamp, cwd: repo, message: { content: "Stop hook feedback:\nБеклог spa: тест" } },
+      { type: "assistant", timestamp, cwd: repo, message: { model: "claude-opus-5", usage: { input_tokens: 1000, output_tokens: 200 } } },
+    ];
+    await writeFiles(transcriptsDir, {
+      "proj1/session.jsonl": [...hookTurn("2026-06-29T09:00:00.000Z"), ...hookTurn("2026-09-18T09:00:00.000Z")].map((line) => JSON.stringify(line)).join("\n") + "\n",
+    });
+    await renderApp({ "spa/project.md": projectFile("SPA", [repo]) }, "/p/spa/stats/cost", routes, { transcriptsDir });
+
+    expect(await within(await screen.findByRole("region", { name: "По моделям" })).findByRole("rowheader", { name: "claude-opus-5" })).toBeDefined();
     expect(screen.queryByText(/Данные о расходе есть с/)).toBeNull();
   });
 

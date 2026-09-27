@@ -174,6 +174,7 @@ export const statsEn: StatsMessages = {
   testLines: "tests",
   deferredTasks: "tasks deferred",
   effectSummary: (realLines, deferred, noise) => `Over ${EFFECT_WINDOW}: ${countEn(realLines, "line", "lines")} in pull requests, deferred ${deferred}, noise without backlog ${noise}`,
+  effectDaysSummary: (dayCount, inPullRequests, deferred) => `Over ${periods("day", dayCount)}: ${countEn(inPullRequests, "line", "lines")} in pull requests, deferred ${deferred}`,
   explainerTitle: "How the gain is calculated",
   explainerTask: "Every task recorded during work is an edit the agent would have made in the current pull request without the backlog. The gain is the lines that did not get there.",
   explainerFixed:

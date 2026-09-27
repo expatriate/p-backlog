@@ -1,4 +1,4 @@
-import { formatDayMonth, localDay } from "../../../core/i18n/format";
+import { formatDay, formatDayMonth, startOfLocalDay } from "../../../core/i18n/format";
 import { localeOf, type Language } from "../../../core/i18n/language";
 
 const COMPACT_OPTIONS: Intl.NumberFormatOptions = { notation: "compact", maximumFractionDigits: 1 };
@@ -8,11 +8,11 @@ const COMPACT: Record<Language, Intl.NumberFormat> = {
 };
 
 export function axisDay(language: Language, day: string): string {
-  return formatDayMonth(language, localDay(day));
+  return formatDayMonth(language, startOfLocalDay(day));
 }
 
 export function tooltipDay(language: Language, day: string): string {
-  return localDay(day).toLocaleDateString(localeOf(language), { day: "numeric", month: "short" });
+  return formatDay(language, day);
 }
 
 export function axisTime(language: Language, at: string): string {

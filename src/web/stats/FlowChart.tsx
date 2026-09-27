@@ -12,7 +12,7 @@ import { nonZeroDot } from "./charts/value-dot";
 import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
-import { grainWindow, usePeriodCaption } from "./period-caption";
+import { usePeriodCaption } from "./period-caption";
 import { useGrainSeries } from "./use-grain-series";
 
 const CREATED = "var(--chart-bar-neutral)";
@@ -51,7 +51,7 @@ export function FlowPanel({ weeks, days, windows }: { weeks: FlowPeriod[]; days:
   });
   const compact = (value: number) => compactNumber(language, value);
   return (
-    <Panel title={title} period={caption(grainWindow(grain), windows[grainWindow(grain)])} aside={<GrainToggle chart="flow" grain={grain} onChange={setGrain} />}>
+    <Panel title={title} period={caption.ofGrain(grain, windows)} aside={<GrainToggle chart="flow" grain={grain} onChange={setGrain} />}>
       <ChartFrame summary={summary} legend={legend}>
         <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />

@@ -1,13 +1,12 @@
 import { formatShare } from "../../core/stats/format";
 import type { AccuracyPeriod, AccuracyRow, BranchRow, CategoryRow, FoundRow, GrainPeriods, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow, ReportPeriod } from "../../core/api/contract";
-import { formatDayRange } from "../../core/i18n/format";
-import { useLanguage, useMessages } from "../i18n";
+import { useMessages } from "../i18n";
 import { AccuracyChart } from "./AccuracyChart";
 import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
-import { grainWindow, usePeriodCaption } from "./period-caption";
+import { usePeriodCaption } from "./period-caption";
 import { StatsTable, type StatsTableRow } from "./StatsTable";
 import { useGrainSeries } from "./use-grain-series";
 
@@ -19,6 +18,7 @@ export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRow
   const { stats, core } = useMessages();
   const caption = usePeriodCaption();
   const { grain, periods, setGrain } = useGrainSeries("accuracy", "week", { week: weeks, day: days });
+  const tablePeriod = caption.of("weeks", windows.weeks);
   const splitOf = (evidence: AccuracyRow["evidence"]): StatsTableRow[] => {
     if (evidence === "source-changed")
       return methodRows.map((split) => splitRow(stats, split, split.by === "unknown" ? stats.beforeMethodRecorded : stats.checkedBy(core.checkMethodLabel(split.by))));
@@ -29,7 +29,7 @@ export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRow
   return (
     <Panel
       title={stats.accuracyTitle}
-      period={caption(grainWindow(grain), windows[grainWindow(grain)])}
+      period={caption.ofGrain(grain, windows)}
       aside={rows.length === 0 ? undefined : <GrainToggle chart="accuracy" grain={grain} onChange={setGrain} />}
     >
       {rows.length === 0 ? (
@@ -38,8 +38,9 @@ export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRow
         <>
           <p className={rowStyles.muted}>{stats.accuracyHint}</p>
           <AccuracyChart periods={periods} grain={grain} />
+          <p className={rowStyles.muted}>{tablePeriod}</p>
           <StatsTable
-            label={stats.accuracyTable(caption("weeks", windows.weeks))}
+            label={stats.accuracyTable(tablePeriod)}
             head={stats.accuracyHead}
             rows={rows.flatMap((row): StatsTableRow[] => [
               {
@@ -62,7 +63,7 @@ function splitRow(stats: StatsMessages, split: SplitRow, label: string): StatsTa
 
 export function GraphPanel({ graph, period }: { graph: GraphReport; period: ReportPeriod }) {
   const { stats, core } = useMessages();
-  const language = useLanguage();
+  const caption = usePeriodCaption();
   const { projects, filter } = graph;
   if (filter.filtered === 0 && projects.every((project) => project.state === "none")) {
     return (
@@ -75,7 +76,7 @@ export function GraphPanel({ graph, period }: { graph: GraphReport; period: Repo
     <Panel title={stats.graphTitle}>
       <p className={rowStyles.muted}>{stats.graphHint}</p>
       <div>
-        <h3 className={rowStyles.subTitle}>{stats.periodCaption(stats.filteredTitle, formatDayRange(language, period.from, period.to))}</h3>
+        <h3 className={rowStyles.subTitle}>{caption.labelled(stats.filteredTitle, period)}</h3>
         {filter.filtered === 0 ? (
           <p className={rowStyles.muted}>{stats.nothingFiltered}</p>
         ) : (
@@ -113,7 +114,7 @@ export function CategoriesPanel({ rows, period }: { rows: CategoryRow[]; period:
   const caption = usePeriodCaption();
   const categoryText = (row: CategoryRow): string => (row.category === "unknown" ? stats.categoryUnknown : core.categoryLabel(row.category ?? undefined));
   return (
-    <Panel title={stats.categoriesTitle} period={caption("weeks", period)}>
+    <Panel title={stats.categoriesTitle} period={caption.of("weeks", period)}>
       {rows.length === 0 ? (
         <p className={rowStyles.muted}>{stats.categoriesEmpty}</p>
       ) : (
@@ -136,7 +137,7 @@ export function OriginPanel({ found, branches, period }: { found: FoundRow[]; br
     return stats.foundLabels[row.found];
   };
   return (
-    <Panel title={stats.originTitle} period={caption("weeks", period)}>
+    <Panel title={stats.originTitle} period={caption.of("weeks", period)}>
       <div>
         <h3 className={rowStyles.subTitle}>{stats.foundTitle}</h3>
         <StatsTable

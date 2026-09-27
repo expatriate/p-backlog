@@ -1,7 +1,7 @@
 import { useParams } from "react-router";
 import type { CostReport, ScanProgress } from "../../core/api/contract";
 import { useCostStats } from "../app/queries";
-import { formatDate } from "../../core/i18n/format";
+import { formatDay } from "../../core/i18n/format";
 import { useLanguage, useMessages } from "../i18n";
 import { CommandsPanel, CostFigures, ModelsPanel } from "./CostPanels";
 import rowStyles from "./PanelRows.module.css";
@@ -10,7 +10,6 @@ import { SpendPanel } from "./SpendChart";
 import styles from "./StatsPage.module.css";
 import type { StatsMessages } from "./messages.ru";
 import { StatsRequestState } from "./StatsTabState";
-import { usePeriodCaption } from "./period-caption";
 
 export function CostTab() {
   const { projectId } = useParams();
@@ -50,13 +49,11 @@ function scanNoticeText(stats: StatsMessages, scan: ScanProgress): string | null
 function Cost({ report }: { report: CostReport }) {
   const { stats } = useMessages();
   const language = useLanguage();
-  const caption = usePeriodCaption();
   const since = dataStartInsideWindow(report);
   return (
     <>
-      <p className={styles.note}>{caption("lastWeek", report.periods.totals)}</p>
-      <CostFigures totals={report.totals} days={report.days} />
-      {since !== null && <p className={styles.note}>{stats.costSince(formatDate(language, `${since}T00:00:00`))}</p>}
+      <CostFigures totals={report.totals} days={report.days} period={report.periods.totals} />
+      {since !== null && <p className={styles.note}>{stats.costSince(formatDay(language, since))}</p>}
       <div className={styles.blocks}>
         <div className={rowStyles.wide}>
           <SpendPanel weeks={report.weeks} days={report.days} windows={report.periods} />

@@ -12,7 +12,7 @@ import { rowTooltip } from "./charts/ChartTooltip";
 import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
-import { grainWindow, usePeriodCaption } from "./period-caption";
+import { usePeriodCaption } from "./period-caption";
 import { useGrainSeries } from "./use-grain-series";
 
 const CREATED = "var(--chart-bar-warm)";
@@ -33,7 +33,7 @@ export function IntakePanel({ weeks, days, windows }: { weeks: FlowPeriod[]; day
   const legend: LegendItem[] = [{ label: stats.createdTasks, shape: "bar", color: CREATED }];
   const title = stats.createdBy[grain];
   return (
-    <Panel title={title} period={caption(grainWindow(grain), windows[grainWindow(grain)])} aside={<GrainToggle chart="intake" grain={grain} onChange={setGrain} />}>
+    <Panel title={title} period={caption.ofGrain(grain, windows)} aside={<GrainToggle chart="intake" grain={grain} onChange={setGrain} />}>
       <ChartFrame summary={stats.intakeSummary(grain, periods.length, sum(periods.map((period) => period.created)))} legend={legend}>
         <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />

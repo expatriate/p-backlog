@@ -23,7 +23,7 @@ export function ClosingPanel({ closing, period }: { closing: ClosingBreakdown; p
   const summary = REASONS.map((reason) => `${reasonLabel(reason, messages)}: ${closing.byReason[reason]}`).join("; ");
 
   return (
-    <Panel title={stats.closing} period={caption("weeks", period)}>
+    <Panel title={stats.closing} period={caption.of("weeks", period)}>
       <div role="img" aria-label={summary} className={styles.shareBar}>
         {REASONS.map((reason) => (
           <span key={reason} className={cx(styles.share, styles[reason])} style={{ width: total === 0 ? 0 : `${(closing.byReason[reason] / total) * 100}%` }} />

@@ -23,3 +23,15 @@ export function Figure({ label, value, note, tone, trend }: { label: string; val
     </div>
   );
 }
+
+export function FigureGroup({ period, children }: { period: string; children: ReactNode }) {
+  const periodId = useId();
+  return (
+    <div role="group" aria-describedby={periodId} className={styles.figureGroup}>
+      <p id={periodId} className={styles.note}>
+        {period}
+      </p>
+      <div className={styles.totals}>{children}</div>
+    </div>
+  );
+}

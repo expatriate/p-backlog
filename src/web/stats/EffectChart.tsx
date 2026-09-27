@@ -3,6 +3,7 @@ import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import type { Language } from "../../core/i18n/language";
 import type { CoreMessages } from "../../core/messages";
 import type { EffectPeriod, EffectTotals } from "../../core/api/contract";
+import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
@@ -37,10 +38,8 @@ export function EffectChart({ periods, totals, grain }: { periods: EffectPeriod[
     { label: stats.inPullRequests, shape: "bar", color: REAL },
     { label: stats.deferredSeries, shape: "hatch", color: DEFERRED },
   ];
-  const deferred = stats.linesText(totals.deferredLines, isEstimated(totals.estimatedLines));
-  const summary = stats.effectSummary(totals.realLines, deferred, formatNoiseShare(totals.noiseShare));
   return (
-    <ChartFrame summary={summary} legend={legend}>
+    <ChartFrame summary={effectSummary(stats, grain, periods, totals)} legend={legend}>
       <BarChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(stats.effectTitle, grain)}>
         <defs>
           <pattern id={patternId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -57,4 +56,11 @@ export function EffectChart({ periods, totals, grain }: { periods: EffectPeriod[
       </BarChart>
     </ChartFrame>
   );
+}
+
+function effectSummary(stats: StatsMessages, grain: Grain, periods: EffectPeriod[], totals: EffectTotals): string {
+  const approx = isEstimated(totals.estimatedLines);
+  if (grain === "week") return stats.effectSummary(totals.realLines, stats.linesText(totals.deferredLines, approx), formatNoiseShare(totals.noiseShare));
+  const inPullRequests = Math.round(sum(periods.map((period) => period.onTopicLines)));
+  return stats.effectDaysSummary(periods.length, inPullRequests, stats.linesText(sum(periods.map((period) => period.deferredLines)), approx));
 }

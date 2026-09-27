@@ -15,7 +15,7 @@ import { formatLines } from "./effect-format";
 import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
-import { grainWindow, usePeriodCaption } from "./period-caption";
+import { usePeriodCaption } from "./period-caption";
 import { useGrainSeries } from "./use-grain-series";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
@@ -56,7 +56,7 @@ export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days
   ];
   const compact = (value: number) => compactNumber(language, value);
   return (
-    <Panel title={title} period={caption(grainWindow(grain), windows[grainWindow(grain)])} aside={<GrainToggle chart="spend" grain={grain} onChange={setGrain} />}>
+    <Panel title={title} period={caption.ofGrain(grain, windows)} aside={<GrainToggle chart="spend" grain={grain} onChange={setGrain} />}>
       <ChartFrame summary={spendSummary(stats, language, grain, periods)} legend={legend}>
         <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />

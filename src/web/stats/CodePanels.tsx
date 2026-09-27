@@ -11,7 +11,7 @@ export function ChurnPanel({ churn, period }: { churn: ChurnRow[]; period: Repor
   const caption = usePeriodCaption();
   const top = churn[0]?.score ?? 1;
   return (
-    <Panel title={stats.churnTitle} period={caption("churn", period)}>
+    <Panel title={stats.churnTitle} period={caption.of("churn", period)}>
       <p className={rowStyles.muted}>{stats.churnHint}</p>
       {churn.length === 0 ? (
         <p className={rowStyles.muted}>{stats.churnEmpty}</p>

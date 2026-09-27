@@ -11,7 +11,6 @@ import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/api/cont
 import { STATS_WEEKS } from "../../core/stats/weeks";
 import type { ChartId, ChartStep, Grain } from "./charts/chart-style";
 import { formatApprox, formatLines, isEstimated } from "./effect-format";
-import type { PeriodWindow } from "./period-caption";
 
 const dayCount = (n: number): string => countRu(n, "день", "дня", "дней");
 const CHURN_PERIOD = dayCount(CHURN_DAYS);
@@ -67,7 +66,7 @@ export const statsRu = {
     days: dayCount(STATS_DAYS),
     lastWeek: dayCount(COST_TOTALS_DAYS),
     churn: CHURN_PERIOD,
-  } satisfies Record<PeriodWindow, string>,
+  },
   periodCaption: (window: string, range: string): string => `${window} · ${range}`,
   periodNow: "сейчас",
   chartLabel: (name: string, step: ChartStep): string => `${name}. Стрелки влево и вправо — по ${CHART_STEPS[step]}`,
@@ -192,6 +191,8 @@ export const statsRu = {
   deferredTasks: "задач вынесено",
   effectSummary: (realLines: number, deferred: string, noise: string): string =>
     `За ${EFFECT_WINDOW}: в пулреквестах ${countRu(realLines, "строка", "строки", "строк")}, вынесено ${deferred}, шум без беклога ${noise}`,
+  effectDaysSummary: (dayCount: number, inPullRequests: number, deferred: string): string =>
+    `За ${periods("day", dayCount)}: в пулреквестах ${countRu(inPullRequests, "строка", "строки", "строк")}, вынесено ${deferred}`,
   explainerTitle: "Как считается выигрыш",
   explainerTask: "Каждая задача, заведённая по ходу работы, — правка, которую без беклога агент сделал бы в текущем пулреквесте. Выигрыш — строки, которые туда не попали.",
   explainerFixed:

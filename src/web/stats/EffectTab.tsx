@@ -18,7 +18,7 @@ function Effect({ report }: { report: EffectReport }) {
   return (
     <>
       <UnavailableRepos repos={report.unavailableRepos} />
-      <EffectFigures totals={report.totals} />
+      <EffectFigures totals={report.totals} period={report.periods.weeks} />
       <div className={styles.blocks}>
         <div className={rowStyles.wide}>
           <EffectChartPanel weeks={report.weeks} days={report.days} windows={report.periods} totals={report.totals} />
