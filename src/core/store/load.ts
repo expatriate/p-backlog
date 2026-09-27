@@ -17,9 +17,12 @@ export function unparsedTasks(errors: readonly ParseError[]): UnparsedTask[] {
   });
 }
 
+export async function projectDirNames(root: string): Promise<string[]> {
+  return (await listDir(root)).filter((entry) => entry.isDirectory() && !entry.name.startsWith(".")).map((entry) => entry.name);
+}
+
 export async function loadBacklog(root: string): Promise<LoadedBacklog> {
-  const projectDirs = (await listDir(root)).filter((entry) => entry.isDirectory() && !entry.name.startsWith("."));
-  const parts = await Promise.all(projectDirs.map((entry) => loadProjectDir(join(root, entry.name), entry.name)));
+  const parts = await Promise.all((await projectDirNames(root)).map((name) => loadProjectDir(join(root, name), name)));
   return {
     projects: parts.flatMap((part) => part.projects).sort((a, b) => a.id.localeCompare(b.id)),
     tasks: parts.flatMap((part) => part.tasks).sort((a, b) => compareIds(a.id, b.id)),

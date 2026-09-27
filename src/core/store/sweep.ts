@@ -8,9 +8,9 @@ import type { Problem } from "../model/problems";
 import type { Project, Task } from "../model/types";
 import { runAndStamp, runWhenDue } from "./daily";
 import { FileBusyError, withAvailableLocks } from "./file-lock";
-import { contentVersion, listDir, readTextOrNull, removeIfUnchanged, removeTemporariesBefore } from "./fs-utils";
+import { contentVersion, readTextOrNull, removeIfUnchanged, removeTemporariesBefore } from "./fs-utils";
 import { appendJournal } from "./journal";
-import { loadBacklog, type LoadedBacklog } from "./load";
+import { loadBacklog, projectDirNames, type LoadedBacklog } from "./load";
 import { reserveIssuedUpTo } from "./projects";
 import { referenceCleanup } from "./references";
 import { statusToReopen, updateTaskInIndex, type TaskChanges } from "./update";
@@ -69,7 +69,7 @@ export async function sweepClosed(root: string, now: Date, messages: CoreMessage
 
 async function removeAbandonedTemporaries(root: string, now: Date): Promise<void> {
   const cutoff = new Date(now.getTime() - DAY_MS);
-  const projectDirs = (await listDir(root)).filter((entry) => entry.isDirectory()).map((entry) => join(root, entry.name));
+  const projectDirs = (await projectDirNames(root)).map((name) => join(root, name));
   for (const dir of [root, ...projectDirs]) await removeTemporariesBefore(dir, cutoff);
 }
 

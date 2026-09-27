@@ -5,6 +5,7 @@ import type { FoundHow } from "../../core/journal/events";
 import type { Priority } from "../../core/model/types";
 import { STALE_URGENT_DAYS } from "../../core/stats/breakdowns";
 import { COST_TOTALS_DAYS } from "../../core/stats/cost/cost-report";
+import { COST_REPORT_DAYS } from "../../core/stats/cost/usage-state";
 import { STATS_DAYS } from "../../core/stats/days";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/api/contract";
@@ -65,6 +66,7 @@ export const statsRu = {
     weeks: countRu(STATS_WEEKS, "неделя", "недели", "недель"),
     days: dayCount(STATS_DAYS),
     lastWeek: dayCount(COST_TOTALS_DAYS),
+    costDays: dayCount(COST_REPORT_DAYS),
     churn: CHURN_PERIOD,
   },
   periodCaption: (window: string, range: string): string => `${window} · ${range}`,

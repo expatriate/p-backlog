@@ -1,4 +1,4 @@
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import type { CliEnv } from "../io";
 
 export type ServiceContext = {
@@ -29,13 +29,6 @@ export type ServiceManager = {
 
 export function serviceEnvironment(context: ServiceContext): Record<string, string> {
   return { BACKLOG_DIR: context.backlogRoot, PORT: String(context.port), PATH: context.env.PATH ?? "", HOME: context.home };
-}
-
-export async function fileExists(path: string): Promise<boolean> {
-  return access(path).then(
-    () => true,
-    () => false,
-  );
 }
 
 export async function numberRecordedIn(file: string, pattern: RegExp, encoding: BufferEncoding = "utf8"): Promise<number | null> {

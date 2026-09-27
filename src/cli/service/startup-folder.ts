@@ -1,7 +1,8 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, win32 } from "node:path";
+import { fileExists } from "../../core/store/fs-utils";
 import { PID_FILE_ENV } from "../../core/store/paths";
-import { fileExists, numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
+import { numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
 
 const SCRIPT_NAME = "p-backlog.vbs";
 const COMMAND_LINE_ARGUMENT = /"[^"]*"|\S+/g;

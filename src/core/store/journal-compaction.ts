@@ -4,9 +4,9 @@ import { retainedSince } from "../model/lifecycle";
 import { taskHistories, type TaskHistory } from "../stats/history";
 import { runWhenDue } from "./daily";
 import { withFileLock } from "./file-lock";
-import { listDir, parseJson, readTextOrNull, withExistingFile, writeFileAtomic } from "./fs-utils";
+import { fileExists, parseJson, readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { JOURNAL_FILE } from "./journal";
-import { taskIdsOnDisk } from "./load";
+import { projectDirNames, taskIdsOnDisk } from "./load";
 
 const COMPACTED_STAMP = ".journal-compacted-at";
 
@@ -18,14 +18,13 @@ export type CompactionFailed = (dir: string, error: unknown) => void;
 
 export async function compactJournalsWhenDue(root: string, now: Date, failed: CompactionFailed): Promise<string[]> {
   const compacted: string[] = [];
-  for (const entry of await listDir(root)) {
-    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-    const dir = join(root, entry.name);
+  for (const name of await projectDirNames(root)) {
+    const dir = join(root, name);
     const removed = await compactProjectWhenDue(dir, now).catch((error: unknown) => {
       failed(dir, error);
       return null;
     });
-    if (removed !== null && removed > 0) compacted.push(entry.name);
+    if (removed !== null && removed > 0) compacted.push(name);
   }
   return compacted;
 }
@@ -45,10 +44,6 @@ export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySe
     if (removed > 0) await writeFileAtomic(path, kept.map(({ text }) => `${text}\n`).join(""));
     return removed;
   });
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  return (await withExistingFile(path, async () => true)) ?? false;
 }
 
 function journalLines(text: string): JournalLine[] {

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { chmod, link, open, readdir, readFile, rename, rm, stat, writeFile, type FileHandle } from "node:fs/promises";
+import { access, chmod, link, open, readdir, readFile, rename, rm, stat, writeFile, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { z } from "zod";
@@ -55,6 +55,16 @@ export async function appendJsonLines(path: string, values: readonly unknown[]):
 
 export async function withFile<T>(path: string, use: (handle: FileHandle) => Promise<T>, flags = "r"): Promise<T> {
   return closingAfter(await open(path, flags), use);
+}
+
+export async function fileExists(path: string): Promise<boolean> {
+  return access(path).then(
+    () => true,
+    (error: unknown) => {
+      if (hasErrorCode(error, "ENOENT")) return false;
+      throw error;
+    },
+  );
 }
 
 export async function withExistingFile<T>(path: string, use: (handle: FileHandle) => Promise<T>): Promise<T | null> {

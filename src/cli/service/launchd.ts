@@ -2,7 +2,8 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { launchdLogPath } from "../../core/service-log";
-import { fileExists, numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
+import { fileExists } from "../../core/store/fs-utils";
+import { numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
 
 const LABEL = "local.p-backlog";
 const BOOTSTRAP_RETRY_ATTEMPTS = 5;

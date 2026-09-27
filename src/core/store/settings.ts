@@ -2,7 +2,8 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { languageFromLocale, type Language } from "../i18n/language";
 import { settingsSchema, type Settings } from "../model/settings";
-import { listDir, parseJson, readTextOrNull, writeJsonFile } from "./fs-utils";
+import { parseJson, readTextOrNull, writeJsonFile } from "./fs-utils";
+import { projectDirNames } from "./load";
 
 const SETTINGS_FILE = ".settings.json";
 
@@ -52,5 +53,5 @@ export function localeLanguage(env: NodeJS.ProcessEnv): Language {
 }
 
 async function hasProjects(root: string): Promise<boolean> {
-  return (await listDir(root)).some((entry) => entry.isDirectory() && !entry.name.startsWith("."));
+  return (await projectDirNames(root)).length > 0;
 }

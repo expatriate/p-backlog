@@ -1,7 +1,8 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { fileExists } from "../../core/store/fs-utils";
 import type { CliEnv } from "../io";
-import { fileExists, numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager, type ServiceOutcome } from "./service";
+import { numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager, type ServiceOutcome } from "./service";
 
 const UNIT = "p-backlog.service";
 

@@ -3,6 +3,7 @@ import { formatDecimal } from "../../core/i18n/format";
 import { countEn, NBSP, pluralEn } from "../../core/i18n/plural";
 import { STALE_URGENT_DAYS } from "../../core/stats/breakdowns";
 import { COST_TOTALS_DAYS } from "../../core/stats/cost/cost-report";
+import { COST_REPORT_DAYS } from "../../core/stats/cost/usage-state";
 import { STATS_DAYS } from "../../core/stats/days";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import { STATS_WEEKS } from "../../core/stats/weeks";
@@ -51,7 +52,7 @@ export const statsEn: StatsMessages = {
   folders: "Folders",
   projects: "Projects",
 
-  periodWindows: { weeks: STATS_PERIOD, days: dayCount(STATS_DAYS), lastWeek: dayCount(COST_TOTALS_DAYS), churn: CHURN_PERIOD },
+  periodWindows: { weeks: STATS_PERIOD, days: dayCount(STATS_DAYS), lastWeek: dayCount(COST_TOTALS_DAYS), costDays: dayCount(COST_REPORT_DAYS), churn: CHURN_PERIOD },
   periodCaption: (window, range) => `${window} · ${range}`,
   periodNow: "now",
   chartLabel: (name, step) => `${name}. Left and right arrows move by ${CHART_STEPS[step]}`,
