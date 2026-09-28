@@ -32,5 +32,5 @@ export async function printTask(io: CliIo, task: Task, index: BacklogIndex, { js
     return;
   }
   const description = describeTask(task, index);
-  io.print(formatTaskDetails(io.core, io.cli, description, await readFile(task.path, "utf8")));
+  io.print(formatTaskDetails(io.cli, io.core, description, await readFile(task.path, "utf8")));
 }

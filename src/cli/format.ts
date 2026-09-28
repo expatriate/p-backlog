@@ -26,7 +26,7 @@ export function formatTaskLine(cli: CliMessages, task: Task, index: BacklogIndex
   ].join("  ");
 }
 
-export function formatTaskDetails(core: CoreMessages, cli: CliMessages, description: TaskDescription, fileText: string): string {
+export function formatTaskDetails(cli: CliMessages, core: CoreMessages, description: TaskDescription, fileText: string): string {
   const { task } = description;
   const categoryTail = task.category === undefined ? "" : cli.categoryTail(core.categoryLabel(task.category));
   const lines = [
