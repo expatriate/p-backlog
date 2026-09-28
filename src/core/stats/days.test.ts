@@ -3,7 +3,7 @@ import { formatLocalIso } from "../model/dates";
 import { makeTask } from "../model/testing/make-task";
 import { dailyFlow } from "./days";
 import { taskHistories } from "./history";
-import { sum } from "./numbers";
+import { sum } from "../numbers";
 import { weeklyFlow } from "./weeks";
 
 const at = (month: number, day: number, hour = 12) => new Date(2026, month, day, hour);

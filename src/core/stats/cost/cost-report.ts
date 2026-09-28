@@ -8,7 +8,8 @@ import { costOf, splitFastModel } from "./pricing";
 import { dayRange } from "../days";
 import { statsPeriod, weekWindows } from "../weeks";
 import type { Period } from "../period";
-import { groupBy, sum } from "../numbers";
+import { groupBy } from "../numbers";
+import { sum } from "../../numbers";
 import { lastDays, reportPeriod } from "../report-periods";
 
 export const COST_TOTALS_DAYS = 7;

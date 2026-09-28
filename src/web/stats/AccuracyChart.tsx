@@ -4,7 +4,7 @@ import { formatDay } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import { formatShare } from "../../core/stats/format";
 import type { AccuracyPeriod } from "../../core/api/contract";
-import { sum } from "../../core/stats/numbers";
+import { sum } from "../../core/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay } from "./charts/chart-format";

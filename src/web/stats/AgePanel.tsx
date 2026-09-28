@@ -1,6 +1,6 @@
 import type { AgeBreakdown } from "../../core/api/contract";
 import { PRIORITIES, type Priority } from "../../core/model/types";
-import { sum } from "../../core/stats/numbers";
+import { sum } from "../../core/numbers";
 import { useMessages } from "../i18n";
 import { cx } from "../ui/cx";
 import type { StatsMessages } from "./messages.ru";

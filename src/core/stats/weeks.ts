@@ -3,7 +3,7 @@ import { flowOver } from "./flow/flow-over";
 import type { TaskHistory } from "./history";
 import { consecutivePeriods, period, type Period } from "./period";
 import type { FlowPeriod } from "./types";
-import { STATS_WEEKS } from "./window";
+import { STATS_WEEKS } from "../model/history-window";
 
 const MONDAY = 1;
 

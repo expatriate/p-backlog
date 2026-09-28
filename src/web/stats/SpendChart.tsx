@@ -3,7 +3,7 @@ import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "
 import { formatDay, formatMoney } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { CostDay, CostPeriod, GrainPeriods } from "../../core/api/contract";
-import { sum } from "../../core/stats/numbers";
+import { sum } from "../../core/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber } from "./charts/chart-format";

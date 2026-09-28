@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { errorText } from "../core/errors";
-import { sum } from "../core/stats/numbers";
+import { sum } from "../core/numbers";
 import type { ScanProgress } from "../core/stats/types";
 import { listTranscripts, scanTranscripts, type TranscriptFile } from "../core/usage/transcripts";
 import { emptyUsageCache, readUsageCache, writeUsageCache, type UsageCache, type UsageCacheEntry } from "../core/usage/usage-cache";

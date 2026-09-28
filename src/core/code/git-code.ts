@@ -1,5 +1,5 @@
 import { FIELD, RECORD, resolveCommits, type GitRunner } from "../git/run";
-import { sum } from "../stats/numbers";
+import { sum } from "../numbers";
 import type { CommitUnit, FixCommit } from "./types";
 import { isTestPath } from "./test-paths";
 

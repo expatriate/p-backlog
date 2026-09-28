@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { attributeLine, flushEstimates, newTranscriptState } from "../stats/cost/attribute";
-import { sum } from "../stats/numbers";
+import { sum } from "../numbers";
 import { statsPeriod } from "../stats/weeks";
 import { addTokens } from "../stats/cost/token-counts";
 import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
 import { listDir, NEWLINE, readAt, readFileAt, withFile } from "../store/fs-utils";
 import { USAGE_CACHE_VERSION, type UsageCache, type UsageCacheEntry } from "./usage-cache";
-import { retainedSince } from "../stats/window";
+import { retainedSince } from "../model/history-window";
 
 export type TranscriptFile = { path: string; size: number; mtimeMs: number };
 

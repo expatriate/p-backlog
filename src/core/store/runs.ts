@@ -4,7 +4,7 @@ import { z } from "zod";
 import { withFileLock } from "./file-lock";
 import { appendJsonLines, parseJson, readAt, readJsonLines, toJsonLines, withExistingFile, writeFileAtomic } from "./fs-utils";
 import { DAY_MS } from "../model/dates";
-import { retainedSince } from "../stats/window";
+import { retainedSince } from "../model/history-window";
 
 export const RUNS_FILE = ".runs.jsonl";
 

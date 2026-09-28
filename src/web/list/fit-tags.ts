@@ -1,4 +1,4 @@
-import { sum } from "../../core/stats/numbers";
+import { sum } from "../../core/numbers";
 
 export type TagFit = { tagWidths: readonly number[]; moreWidth: number; gap: number; available: number };
 

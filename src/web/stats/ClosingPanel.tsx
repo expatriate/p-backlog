@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { formatShare } from "../../core/stats/format";
 import type { ClosingBreakdown, ClosingReason, ReportPeriod } from "../../core/api/contract";
-import { sum } from "../../core/stats/numbers";
+import { sum } from "../../core/numbers";
 import { useMessages, type WebMessages } from "../i18n";
 import { cx } from "../ui/cx";
 import rowStyles from "./PanelRows.module.css";

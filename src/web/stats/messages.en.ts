@@ -13,7 +13,7 @@ import { formatApprox, isEstimated } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 import { approx, formatWhole } from "./value-format";
 import { NO_VALUE } from "../labels";
-import { STATS_WEEKS } from "../../core/stats/window";
+import { STATS_WEEKS } from "../../core/model/history-window";
 
 const dayCount = (n: number): string => countEn(n, "day", "days");
 const CHURN_PERIOD = dayCount(CHURN_DAYS);

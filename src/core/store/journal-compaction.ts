@@ -6,7 +6,7 @@ import { withFileLock } from "./file-lock";
 import { fileExists, parseJson, readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { JOURNAL_FILE } from "./journal";
 import { projectDirNames, taskIdsOnDisk } from "./load";
-import { retainedSince } from "../stats/window";
+import { retainedSince } from "../model/history-window";
 
 const COMPACTED_STAMP = ".journal-compacted-at";
 
