@@ -9,7 +9,6 @@ import { loadBacklog, type LoadedBacklog } from "../store/load";
 import { findGitRoots } from "../store/resolve-project";
 import { updateTaskInIndex } from "../store/update";
 import { isReviewable, type AnchorPlan, type Candidate } from "./candidates";
-import { COVERAGE } from "./check-coverage";
 import { applyFixes, fixFailure, type FixOutcome } from "./check-fixes";
 import { findProblems } from "./find-problems";
 import type { CheckFix, CheckProblem } from "./findings";
@@ -24,8 +23,8 @@ export type CheckReport = { fixed: CheckFix[]; problems: CheckProblem[]; candida
 
 export async function checkBacklog(root: string, loaded: LoadedBacklog, request: CheckRequest): Promise<CheckReport> {
   const inScope = (projectId: string) => request.projectIds.includes(projectId);
-  const coverage = COVERAGE[request.mode];
-  const fixes: FixOutcome = coverage.repairs ? await applyFixes(loaded, inScope, request) : { fixed: [], failed: [] };
+  const full = request.mode === "full";
+  const fixes: FixOutcome = full ? await applyFixes(loaded, inScope, request) : { fixed: [], failed: [] };
   const current = fixes.fixed.length > 0 ? await loadBacklog(root) : loaded;
 
   const projects = current.projects.filter((project) => inScope(project.id));
@@ -41,7 +40,7 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const awaiting = new Set(reviews.flatMap((review) => review.awaitingMerge));
   await recordCandidates(root, current.tasks, { candidates, filtered: reviews.flatMap((review) => review.filtered), unchecked, awaiting }, request);
   const reviewProblems = reviews.flatMap((review) => review.problems);
-  const problems = coverage.reportsProblems ? [...fixes.failed, ...anchors.failed, ...findProblems(current, projects, repos, inScope), ...reviewProblems] : [];
+  const problems = full ? [...fixes.failed, ...anchors.failed, ...findProblems(current, projects, repos, inScope), ...reviewProblems] : [];
   return { fixed: [...fixes.fixed, ...anchors.fixed], problems, candidates };
 }
 
@@ -54,7 +53,7 @@ async function recordCandidates(root: string, tasks: readonly Task[], { candidat
     const found = candidates.filter((candidate) => projectOf.get(candidate.task.id) === projectId);
     const filteredHere = filtered.filter((sighting) => projectOf.get(sighting.task) === projectId);
     const reviewed = tasks.filter((task) => task.projectId === projectId && isReviewable(task) && !awaiting.has(task.id)).map((task) => task.id);
-    const endsGone = COVERAGE[mode].endsGoneEpisodes;
+    const endsGone = mode === "full";
     if (found.length === 0 && filteredHere.length === 0 && (!endsGone || reviewed.length === 0)) continue;
     const reportFailure = (error: unknown) => console.error(messages.candidatesRecordFailed(projectId, errorText(error)));
     try {

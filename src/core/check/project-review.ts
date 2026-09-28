@@ -6,7 +6,6 @@ import { readJournal } from "../store/journal";
 import { snippetOf } from "./anchor";
 import { mergesKnownAtCreation } from "./branch-merges";
 import { anchorStates, codeReview, duplicateCandidates, isReviewable, relocationPlan, reviewMark, type AnchorPlan, type Candidate, type CodeReview } from "./candidates";
-import { COVERAGE, type CheckCoverage } from "./check-coverage";
 import { currentSources } from "./current-source";
 import type { CheckProblem } from "./findings";
 import { awaitingMerge } from "./pending-branches";
@@ -30,7 +29,7 @@ type ProjectContext = SymbolFilterContext & { facts: RepoFacts };
 
 type SymbolSightings = SymbolFilterResult & { context: ProjectContext; plans: AnchorPlan[]; duplicates: Candidate[] };
 
-type SightingScope = { repo: string; facts: RepoFacts; graph: CodeGraph | null; coverage: CheckCoverage };
+type SightingScope = { repo: string; facts: RepoFacts; graph: CodeGraph | null; mode: CheckMode };
 
 export async function creationOrigins(root: string, projectId: string, onUnreadable: (error: unknown) => void): Promise<Map<string, TaskOrigin>> {
   const journal = await readJournal(join(root, projectId), projectId).catch((error: unknown) => {
@@ -41,18 +40,17 @@ export async function creationOrigins(root: string, projectId: string, onUnreada
 }
 
 export async function projectReview(project: Project, allTasks: readonly Task[], repo: string | undefined, origins: ReadonlyMap<string, TaskOrigin>, mode: CheckMode): Promise<ProjectReview> {
-  const coverage = COVERAGE[mode];
   const tasks = allTasks.filter((task) => task.projectId === project.id && isReviewable(task));
   const nothing = { projectId: project.id, candidates: [], filtered: [], plans: [], problems: [], unchecked: [], awaitingMerge: [] };
   if (tasks.length === 0) return nothing;
-  if (repo === undefined) return { ...nothing, candidates: coverage.findsDuplicates ? duplicateCandidates(tasks) : [], unchecked: ["source-changed", "source-missing"] };
+  if (repo === undefined) return { ...nothing, candidates: mode === "full" ? duplicateCandidates(tasks) : [], unchecked: ["source-changed", "source-missing"] };
 
   const facts = await collectRepoFacts(repo, earliestMarks(tasks));
   const anchors = anchorStates(tasks, facts);
   const review = codeReview(tasks, facts, await mergesKnownAtCreation({ repo, tasks, facts, anchors, origins: creationCommits(origins) }), anchors);
   const graph = openCodeGraph(repo);
   try {
-    const sighted = await sightedBySymbol(tasks, review, { repo, facts, graph, coverage });
+    const sighted = await sightedBySymbol(tasks, review, { repo, facts, graph, mode });
     const awaiting = await awaitingMerge({ repo, taskIds: involvedTaskIds(sighted), origins });
     const judged = (id: string) => !awaiting.has(id);
     const code = await Promise.all(sighted.kept.filter((candidate) => judged(candidate.task.id)).map((candidate) => withContext(candidate, sighted.context)));
@@ -70,13 +68,14 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
   }
 }
 
-async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, { repo, facts, graph, coverage }: SightingScope): Promise<SymbolSightings> {
+async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, { repo, facts, graph, mode }: SightingScope): Promise<SymbolSightings> {
+  const full = mode === "full";
   const diffOf = diffsSince(repo);
   const symbolAt = symbolLookup(graph, fileHashes(repo));
   const changedIds = new Set(review.candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? [candidate.task.id] : [])));
-  const locating = coverage.locatesAllSources && graph !== null ? tasks : tasks.filter((task) => changedIds.has(task.id));
+  const locating = full && graph !== null ? tasks : tasks.filter((task) => changedIds.has(task.id));
   const located = await currentSources(locating, facts, diffOf);
-  const duplicates = coverage.findsDuplicates ? duplicateCandidates(tasks, symbolNames(symbolAt, located)) : [];
+  const duplicates = full ? duplicateCandidates(tasks, symbolNames(symbolAt, located)) : [];
   const context: ProjectContext = { tasksById: new Map(tasks.map((task) => [task.id, task])), located, facts, diffOf, symbolAt };
   const { kept, filtered } = await filterBySymbol(review.candidates, context);
   return { kept, filtered, plans: settledPlans(review.plans, { kept, filtered }, context), duplicates, context };
