@@ -1,6 +1,7 @@
 import { findSimilarTask } from "../../core/check/candidates";
 import { sourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
+import { buildIndex } from "../../core/model/graph";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project } from "../../core/model/types";
 import { findProjectForDir } from "../../core/store/resolve-project";
 import { createTask } from "../../core/store/create";
@@ -79,7 +80,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
     for (const problem of result.problems) io.warn(io.core.problem(problem));
     return EXIT.invalid;
   }
-  io.print(values.json ? JSON.stringify(taskJson(result.task, [...loaded.tasks, result.task]), null, 2) : `${result.task.id} ${result.task.path}`);
+  io.print(values.json ? JSON.stringify(taskJson(result.task, buildIndex([...loaded.tasks, result.task])), null, 2) : `${result.task.id} ${result.task.path}`);
   return EXIT.ok;
 }
 

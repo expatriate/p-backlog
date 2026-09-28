@@ -81,8 +81,10 @@ async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projec
     return EXIT.notFound;
   }
   const { code, taken, tasks } = await takeAll(loaded.tasks, takeable, io);
-  if (json) io.print(JSON.stringify(taken.map((task) => taskJson(task, tasks)), null, 2));
-  else {
+  if (json) {
+    const takenIndex = buildIndex(tasks);
+    io.print(JSON.stringify(taken.map((task) => taskJson(task, takenIndex)), null, 2));
+  } else {
     for (const [position, task] of taken.entries()) {
       if (position > 0) io.print("---");
       await printTask(io, task, tasks, { json: false });

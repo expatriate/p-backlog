@@ -27,10 +27,11 @@ async function runShow(args: string[], io: CliIo): Promise<ExitCode> {
 }
 
 export async function printTask(io: CliIo, task: Task, tasks: readonly Task[], { json }: { json: boolean }): Promise<void> {
+  const index = buildIndex(tasks);
   if (json) {
-    io.print(JSON.stringify(taskJson(task, tasks), null, 2));
+    io.print(JSON.stringify(taskJson(task, index), null, 2));
     return;
   }
-  const description = describeTask(task, buildIndex(tasks));
+  const description = describeTask(task, index);
   io.print(formatTaskDetails(io.core, io.cli, description, await readFile(task.path, "utf8")));
 }
