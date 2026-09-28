@@ -99,8 +99,8 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
       const compute = async () => {
         const { journals, baseOf } = await journalSources.read(scope.snapshot, scope.projects.map((project) => project.id));
         const input: StatsInput = { tasks: scope.tasks, journals, now: moment, projectId: scope.projectId, unparsedTasks: scope.unparsedTasks };
-        const wholeBacklogBase = () => baseOf("backlog", { ...input, projectId: undefined });
-        return report({ input, base: baseOf("scoped", input), projects: scope.projects, snapshot: scope.snapshot, wholeBacklogBase });
+        const wholeBacklogBase = () => baseOf({ ...input, projectId: undefined });
+        return report({ input, base: baseOf(input), projects: scope.projects, snapshot: scope.snapshot, wholeBacklogBase });
       };
       const scopeOutdated = forgetCount !== forgetCountAtRead;
       return c.json(await (scopeOutdated ? compute() : reports.get(key, compute, tags)));
