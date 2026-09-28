@@ -24,9 +24,11 @@ describe("кэш отчётов статистики и смена снимка 
       home: root,
       now: () => TEST_NOW,
       readLanguage: async () => "ru",
-      usage: createUsageScanner({ root, claudeProjectsDir: await makeTempDir(), messages: async () => serverRu, warn: () => undefined }),
-      memory: createMemorySampler(),
-      warn: () => undefined,
+      services: {
+        usage: createUsageScanner({ root, claudeProjectsDir: await makeTempDir(), messages: async () => serverRu, warn: () => undefined }),
+        memory: createMemorySampler(),
+        warn: () => undefined,
+      },
       graphHealth: (snapshot, project) => projectGraphHealth(project, snapshot.tasks, root),
       backlog: async () => {
         const read = current;

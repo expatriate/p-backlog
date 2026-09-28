@@ -24,14 +24,14 @@ import { createReportCache } from "./report-cache";
 import { createStatsSources, type CostInputs } from "./stats-sources";
 import type { UsageScanner } from "./usage-scanner";
 
+export type StatsServices = { usage: UsageScanner; memory: MemorySampler; warn: (line: string) => void };
+
 type StatsApiOptions = {
   root: string;
   readLanguage: () => Promise<Language>;
   now: () => Date;
   home: string;
-  usage: UsageScanner;
-  memory: MemorySampler;
-  warn: (line: string) => void;
+  services: StatsServices;
   backlog: () => Promise<BacklogSnapshot>;
   graphHealth: GraphHealthOf;
 };
@@ -55,7 +55,7 @@ const ALL_PROJECTS_TAG = "project:*";
 const WHOLE_BACKLOG_TAG = "whole-backlog";
 const projectTag = (projectId: string) => `project:${projectId}`;
 
-export function createStatsApi({ root, readLanguage, now, home, usage, memory, warn, backlog, graphHealth }: StatsApiOptions): StatsApi {
+export function createStatsApi({ root, readLanguage, now, home, services: { usage, memory, warn }, backlog, graphHealth }: StatsApiOptions): StatsApi {
   const routes = new Hono();
   const reports = createReportCache({ ttlMs: REPORT_TTL_MS, now: () => now().getTime() });
   const onCodeSourceError = (kind: CodeCacheErrorKind, error: unknown) =>

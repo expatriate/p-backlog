@@ -16,19 +16,17 @@ import { updateTaskInIndex } from "../core/store/update";
 import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
 import { serverMessages, type ServerMessages } from "./messages";
-import type { MemorySampler } from "./memory-sampler";
 import { createReportCache, type ReportCache } from "./report-cache";
 import { createRevisions, type OwnWrite } from "./revisions";
-import { createStatsApi, type GraphHealthOf } from "./stats-api";
-import type { UsageScanner } from "./usage-scanner";
+import { createStatsApi, type GraphHealthOf, type StatsServices } from "./stats-api";
 
-export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; usage: UsageScanner; memory: MemorySampler; warn: (line: string) => void };
+export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; statsServices: StatsServices };
 
 type BacklogSnapshot = LoadedBacklog & { index: BacklogIndex; revision: Revision };
 
 const GRAPH_STATE_TTL_MS = 60 * 1000;
 
-export function createApi({ root, readLanguage, changes, now, home, usage, memory, warn }: ApiOptions): Hono {
+export function createApi({ root, readLanguage, changes, now, home, statsServices }: ApiOptions): Hono {
   const api = new Hono();
   const revisions = createRevisions();
   let snapshot: Promise<BacklogSnapshot> | null = null;
@@ -48,7 +46,7 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     }
     return healths.get(project.id, () => projectGraphHealth(project, backlogSnapshot.tasks, home));
   };
-  const stats = createStatsApi({ root, readLanguage, now, home, usage, memory, warn, backlog, graphHealth });
+  const stats = createStatsApi({ root, readLanguage, now, home, services: statsServices, backlog, graphHealth });
   const forgetBacklog = (paths?: readonly string[]) => {
     snapshot = null;
     stats.forget(paths);

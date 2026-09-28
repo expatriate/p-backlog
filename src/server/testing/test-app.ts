@@ -54,9 +54,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
     changes,
     allowedHosts: new Set([TEST_HOST]),
     home: root,
-    usage,
-    memory,
-    warn: () => undefined,
+    statsServices: { usage, memory, warn: () => undefined },
     staticDir: options.staticDir,
     now: () => TEST_NOW,
   });

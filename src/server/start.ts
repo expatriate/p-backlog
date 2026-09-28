@@ -51,7 +51,7 @@ export async function startServer({ root, port, home, env, pidFile, staticDir }:
   const memory = createMemorySampler();
   const changes = createChangeFeed({ root, debounceMs: CHANGE_DEBOUNCE_MS, messages: readMessages, warn });
   const allowedHosts = new Set<string>();
-  const app = createApp({ root, readLanguage, changes, allowedHosts, home, usage, memory, warn, staticDir });
+  const app = createApp({ root, readLanguage, changes, allowedHosts, home, statsServices: { usage, memory, warn }, staticDir });
 
   const sweep = async (): Promise<SweepReport> => {
     const now = new Date();
