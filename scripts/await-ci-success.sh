@@ -5,7 +5,11 @@ workflow=ci.yml
 attempts=40
 interval_seconds=30
 for attempt in $(seq 1 "$attempts"); do
-  runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?head_sha=$sha&per_page=100" --jq '[.workflow_runs[] | {status, conclusion}]')"
+  if ! runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?head_sha=$sha&event=push&per_page=100" --jq '[.workflow_runs[] | {status, conclusion}]')"; then
+    echo "GitHub API request failed (attempt $attempt of $attempts), retrying"
+    sleep "$interval_seconds"
+    continue
+  fi
   if jq -e 'any(.[]; .conclusion == "success")' <<< "$runs" > /dev/null; then
     echo "$workflow passed on $sha"
     exit 0
