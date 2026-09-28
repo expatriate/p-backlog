@@ -20,8 +20,8 @@ export async function agentPlugin(agent: Agent, places: AgentPlaces): Promise<st
 export function pluginToSwitchTo(pluginId: string, language: Language): string | null {
   const wanted = SKILL_VARIANTS[language].plugin;
   if (pluginName(pluginId) === wanted) return null;
-  const marketplace = pluginId.slice(pluginId.indexOf(MARKETPLACE_SEPARATOR) + 1);
-  return `${wanted}${MARKETPLACE_SEPARATOR}${marketplace}`;
+  const separator = pluginId.indexOf(MARKETPLACE_SEPARATOR);
+  return separator === -1 ? wanted : `${wanted}${pluginId.slice(separator)}`;
 }
 
 function pluginName(pluginId: string): string {
