@@ -19,7 +19,7 @@ import { useSeenTasks } from "./use-seen-tasks";
 import { useSelectedTask } from "./use-selected-task";
 import { useTaskSelection } from "./use-task-selection";
 import { useTaskListView, type ListContent } from "./use-task-list-view";
-import { toggledTags } from "./filter-toggle";
+import { withTagToggled } from "./filter-toggle";
 import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
@@ -107,7 +107,7 @@ export function TaskListPage() {
               tones={view.tones}
               isNew={isNew}
               selectedTags={params.filter.tags ?? []}
-              onToggleTag={(tag) => setParams({ ...params, filter: { ...params.filter, tags: toggledTags(params.filter.tags ?? [], tag) } })}
+              onToggleTag={(tag) => setParams(withTagToggled(params, tag))}
               selection={selection}
               describedBy={keyboardHints ? keysHintId : undefined}
             />
