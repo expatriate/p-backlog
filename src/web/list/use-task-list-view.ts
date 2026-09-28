@@ -40,7 +40,7 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const content = listContentOf({ hasData: tasks.data !== undefined && inScope !== undefined, failed: error !== null, unknownProject, visibleCount: visibleTasks.length });
 
   return {
-    loaded: tasks.data !== undefined,
+    tasksLoaded: tasks.data !== undefined,
     request: { error, isFetching: failedQueries.some((query) => query.isFetching), refetch },
     content,
     settled: content === "table" && error === null,

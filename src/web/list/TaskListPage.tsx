@@ -34,8 +34,8 @@ export function TaskListPage() {
   const searchKey = search.toString();
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
   const view = useTaskListView(params, projectId);
-  const { selectedTask, gone, missingTaskId } = useSelectedTask(view.allTasks, taskId, view.loaded);
-  const { isNew } = useSeenTasks(view.loaded ? view.allTasks : undefined, selectedTask);
+  const { selectedTask, gone, missingTaskId } = useSelectedTask(view.allTasks, taskId, view.tasksLoaded);
+  const { isNew } = useSeenTasks(view.tasksLoaded ? view.allTasks : undefined, selectedTask);
   const visibleIds = useMemo(() => view.visibleTasks.map((task) => task.id), [view.visibleTasks]);
   const loadedIds = useMemo(() => new Set(view.allTasks.map((task) => task.id)), [view.allTasks]);
   const selection = useTaskSelection(visibleIds, projectId ?? "", loadedIds);
