@@ -3,7 +3,7 @@ import { formatSigned } from "../../core/stats/format";
 import type { StatsReport, StatsTotals } from "../../core/api/contract";
 import { listPath } from "../../core/api/web-paths";
 import { useStats } from "../app/queries";
-import { useMessages } from "../i18n";
+import { useLanguage, useMessages } from "../i18n";
 import { cx } from "../ui/cx";
 import { AgePanel } from "./AgePanel";
 import { ClosingPanel } from "./ClosingPanel";
@@ -38,6 +38,7 @@ function Overview({ report, taskListPath }: { report: StatsReport; taskListPath:
 
 function Totals({ totals }: { totals: StatsTotals }) {
   const { stats } = useMessages();
+  const language = useLanguage();
   const net = totals.createdLastWeek - totals.closedLastWeek;
   const previous = totals.previous;
   return (
@@ -57,7 +58,7 @@ function Totals({ totals }: { totals: StatsTotals }) {
         value={formatSigned(net)}
         tone={netTone(net)}
         note={stats.weekNote(totals.createdLastWeek, totals.closedLastWeek)}
-        trend={trendOf(stats, net, previous?.net ?? null)}
+        trend={trendOf(stats, language, net, previous?.net ?? null)}
       />
     </div>
   );

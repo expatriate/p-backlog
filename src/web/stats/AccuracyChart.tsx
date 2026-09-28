@@ -12,6 +12,7 @@ import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, LINE_WIDTH, DATE_AXIS_PROPS, TOOL
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
 import type { StatsMessages } from "./messages.ru";
+import { formatWhole } from "./value-format";
 
 const DECIDED = "var(--chart-bar-neutral)";
 const PRECISION = "var(--chart-line-green)";
@@ -20,7 +21,7 @@ function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
   return rowTooltip((period: AccuracyPeriod) => ({
     title: stats.periodOf(grain, formatDay(language, period.start)),
     rows: [
-      { label: stats.decidedCandidates, value: String(period.decided), shape: "bar", color: DECIDED },
+      { label: stats.decidedCandidates, value: formatWhole(language, period.decided), shape: "bar", color: DECIDED },
       { label: stats.precision, value: formatShare(period.precision), shape: "line", color: PRECISION },
     ],
   }));
