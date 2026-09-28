@@ -16,13 +16,10 @@ export const serverRu = {
   hostRejected: (host: string): string => `Запросы с хоста ${host} не принимаются`,
   jsonContentTypeExpected: "Ожидается Content-Type: application/json",
 
-  runsTrimFailed: (detail: string): string => `Не удалось обрезать журнал запусков: ${detail}`,
-  journalCompactionFailed: (dir: string, detail: string): string => `Не удалось уплотнить журнал в ${dir}: ${detail}`,
-  serviceLogTrimFailed: (detail: string): string => `Не удалось обрезать лог службы: ${detail}`,
   serverStarted: (port: number, root: string): string => `p-backlog: http://localhost:${port}\nКаталог беклога: ${root}`,
   settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 
-  sweepFailed: (detail: string): string => `Не удалось удалить закрытые задачи: ${detail}`,
+  maintenanceFailed: (detail: string): string => `Обслуживание беклога прервалось: ${detail}`,
   closedEpics: (ids: string): string => `Закрыты завершённые эпики: ${ids}`,
   reopenedEpics: (ids: string): string => `Снова открыты эпики, в которых открыли задачу: ${ids}`,
   epicsBlockedByFiles: (paths: string): string => `Эпики не закрываются, пока не разобраны файлы: ${paths}`,

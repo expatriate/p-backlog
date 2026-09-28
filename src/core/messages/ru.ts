@@ -278,6 +278,10 @@ export const coreRu = {
   fileBusy: (path: string, lock: string, seconds: number): string => `${path} занят другим процессом дольше ${seconds} с (${lock})`,
   checkFix,
   checkProblem,
+  runsNotTrimmed: (error: string): string => `Не удалось обрезать журнал запусков: ${error}`,
+  journalNotCompacted: (dir: string, error: string): string => `Не удалось уплотнить журнал в ${dir}: ${error}`,
+  closedNotSwept: (error: string): string => `Не удалось удалить закрытые задачи: ${error}`,
+  serviceLogNotTrimmed: (error: string): string => `Не удалось обрезать лог службы: ${error}`,
   candidatesRecordFailed: (projectId: string, detail: string): string => `Не удалось записать кандидатов в журнал ${projectId}: ${detail}`,
 };
 

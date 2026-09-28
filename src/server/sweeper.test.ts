@@ -23,7 +23,7 @@ describe("startSweeper", () => {
     const log = vi.fn();
     const warn = vi.fn();
 
-    const stop = startSweeper({ sweep, intervalMs: 1000, log, warn, messages: inRussian });
+    const stop = startSweeper({ maintain: sweep, intervalMs: 1000, log, warn, messages: inRussian });
     await vi.advanceTimersByTimeAsync(0);
     expect(sweep).toHaveBeenCalledTimes(1);
     expect(log).toHaveBeenCalledWith("Удалены закрытые задачи: SPA-1, SPA-4");
@@ -43,11 +43,11 @@ describe("startSweeper", () => {
     const log = vi.fn();
     const warn = vi.fn();
 
-    const stop = startSweeper({ sweep, intervalMs: 1000, log, warn, messages: inRussian });
+    const stop = startSweeper({ maintain: sweep, intervalMs: 1000, log, warn, messages: inRussian });
     await vi.advanceTimersByTimeAsync(1000);
     await stop();
 
-    expect(warn).toHaveBeenCalledWith("Не удалось удалить закрытые задачи: EACCES");
+    expect(warn).toHaveBeenCalledWith("Обслуживание беклога прервалось: EACCES");
     expect(log).not.toHaveBeenCalled();
     expect(sweep).toHaveBeenCalledTimes(2);
   });
@@ -57,7 +57,7 @@ describe("startSweeper", () => {
     const sweep = vi.fn(async () => EMPTY_REPORT);
     const warn = vi.fn();
 
-    const stop = startSweeper({ sweep, intervalMs: 1000, log: vi.fn(), warn, messages: () => Promise.reject(new Error("EACCES")) });
+    const stop = startSweeper({ maintain: sweep, intervalMs: 1000, log: vi.fn(), warn, messages: () => Promise.reject(new Error("EACCES")) });
     await vi.advanceTimersByTimeAsync(0);
 
     await expect(stop()).resolves.toBeUndefined();
@@ -80,7 +80,7 @@ describe("startSweeper", () => {
     };
     const log = vi.fn();
 
-    const stop = startSweeper({ sweep: async () => report, intervalMs: 1000, log, warn: vi.fn(), messages: inRussian });
+    const stop = startSweeper({ maintain: async () => report, intervalMs: 1000, log, warn: vi.fn(), messages: inRussian });
     await vi.advanceTimersByTimeAsync(0);
     await stop();
 

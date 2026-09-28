@@ -4,10 +4,10 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { claudeProjectsDir } from "../core/claude-dir";
-import { errorText, warnOnFailure } from "../core/errors";
+import { errorText } from "../core/errors";
 import { coreMessages } from "../core/messages";
-import { SERVICE_LOG_KEPT_BYTES, SERVICE_LOG_LIMIT_BYTES, serviceLogToTrim, trimLogFile } from "../core/service-log";
-import { compactJournalsWhenDue } from "../core/store/journal-compaction";
+import { serviceLogToTrim } from "../core/service-log";
+import { runMaintenance, type MaintenancePlan } from "../core/store/maintenance";
 import { trimRuns } from "../core/store/runs";
 import { settingsFilePath, settleLanguage } from "../core/store/settings";
 import { sweepClosedAndStamp, type SweepReport } from "../core/store/sweep";
@@ -33,7 +33,7 @@ type HttpServer = ReturnType<typeof serve>;
 
 type Listening = { server: HttpServer; port: number };
 
-type BackgroundJobs = { usage: UsageScanner; memory: MemorySampler; sweep: () => Promise<SweepReport>; messages: () => Promise<ServerMessages> };
+type BackgroundJobs = { usage: UsageScanner; memory: MemorySampler; maintain: () => Promise<SweepReport | null>; messages: () => Promise<ServerMessages> };
 
 const log = (line: string): void => void process.stdout.write(`${line}\n`);
 const warn = (line: string): void => void process.stderr.write(`${line}\n`);
@@ -54,24 +54,8 @@ export async function startServer({ root, port, home, env, pidFile, staticDir }:
   const allowedHosts = new Set<string>();
   const app = createApp({ root, readLanguage, changes, allowedHosts, home, statsServices: { usage, memory, warn: warnLocalized }, staticDir });
 
-  const sweep = async (): Promise<SweepReport> => {
-    const now = new Date();
-    const language = await readLanguage();
-    const messages = serverMessages(language);
-    await warnOnFailure(trimRuns(root, now), warn, messages.runsTrimFailed);
-    const swept = await sweepClosedAndStamp(root, now, coreMessages(language)).then(
-      (report) => ({ report }),
-      (error: unknown) => ({ error }),
-    );
-    const compactionFailed = (dir: string, error: unknown) => warn(messages.journalCompactionFailed(dir, errorText(error)));
-    await warnOnFailure(compactJournalsWhenDue(root, now, compactionFailed), warn, (error) => messages.journalCompactionFailed(root, error));
-    const logToTrim = serviceLogToTrim(process.platform, home);
-    if (logToTrim !== null) {
-      await warnOnFailure(trimLogFile(logToTrim, SERVICE_LOG_LIMIT_BYTES, SERVICE_LOG_KEPT_BYTES), warn, messages.serviceLogTrimFailed);
-    }
-    if ("error" in swept) throw swept.error;
-    return swept.report;
-  };
+  const maintenancePlan: MaintenancePlan = { trimRuns, sweepClosed: sweepClosedAndStamp, compactJournals: true, serviceLog: serviceLogToTrim(process.platform, home) };
+  const maintain = async (): Promise<SweepReport | null> => runMaintenance(maintenancePlan, { root, now: new Date(), messages: coreMessages(await readLanguage()), warn });
 
   const { server, port: actualPort } = await listen(app, port).catch(async (error: NodeJS.ErrnoException) => {
     await changes.close();
@@ -79,7 +63,7 @@ export async function startServer({ root, port, home, env, pidFile, staticDir }:
   });
   server.on("error", (error) => warn(errorText(error)));
   for (const host of localHosts(actualPort)) allowedHosts.add(host);
-  const stopBackground = startBackground({ usage, memory, sweep, messages: readMessages });
+  const stopBackground = startBackground({ usage, memory, maintain, messages: readMessages });
 
   const close = async (): Promise<void> => {
     await stopBackground();
@@ -128,10 +112,10 @@ function closeServer(server: HttpServer): Promise<void> {
   return new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 }
 
-function startBackground({ usage, memory, sweep, messages }: BackgroundJobs): () => Promise<void> {
+function startBackground({ usage, memory, maintain, messages }: BackgroundJobs): () => Promise<void> {
   usage.start();
   memory.start();
-  const stopSweeper = startSweeper({ sweep, intervalMs: SWEEP_INTERVAL_MS, log, warn, messages });
+  const stopSweeper = startSweeper({ maintain, intervalMs: SWEEP_INTERVAL_MS, log, warn, messages });
   return async () => {
     await usage.stop();
     memory.stop();

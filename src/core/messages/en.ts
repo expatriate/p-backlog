@@ -273,5 +273,9 @@ export const coreEn: CoreMessages = {
   fileBusy: (path, lock, seconds) => `${path} has been locked by another process for more than ${seconds} s (${lock})`,
   checkFix,
   checkProblem,
+  runsNotTrimmed: (error) => `Could not trim the run log: ${error}`,
+  journalNotCompacted: (dir, error) => `Could not compact the journal in ${dir}: ${error}`,
+  closedNotSwept: (error) => `Could not delete closed tasks: ${error}`,
+  serviceLogNotTrimmed: (error) => `Could not trim the service log: ${error}`,
   candidatesRecordFailed: (projectId, detail) => `Could not record candidates to the ${projectId} journal: ${detail}`,
 };

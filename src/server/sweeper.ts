@@ -1,25 +1,26 @@
 import { errorText } from "../core/errors";
+import { invalidTasksText } from "../core/store/maintenance";
 import type { SweepReport } from "../core/store/sweep";
 import type { ServerMessages } from "./messages";
 
 export type SweeperOptions = {
-  sweep: () => Promise<SweepReport>;
+  maintain: () => Promise<SweepReport | null>;
   intervalMs: number;
   log: (line: string) => void;
   warn: (line: string) => void;
   messages: () => Promise<ServerMessages>;
 };
 
-export function startSweeper({ sweep, intervalMs, log, warn, messages }: SweeperOptions): () => Promise<void> {
+export function startSweeper({ maintain, intervalMs, log, warn, messages }: SweeperOptions): () => Promise<void> {
   let current = Promise.resolve();
   const run = async () => {
-    const outcome = await sweep().then(
+    const outcome = await maintain().then(
       (report) => ({ report }),
       (error: unknown) => ({ error }),
     );
     const texts = await messages();
-    if ("report" in outcome) logReport(outcome.report, texts, log);
-    else warn(texts.sweepFailed(errorText(outcome.error)));
+    if (!("report" in outcome)) warn(texts.maintenanceFailed(errorText(outcome.error)));
+    else if (outcome.report !== null) logReport(outcome.report, texts, log);
   };
   const trigger = () => {
     current = run().catch((error: unknown) => warn(errorText(error)));
@@ -38,7 +39,5 @@ function logReport({ closedEpics, reopenedEpics, blockingFiles, deleted, conflic
   if (blockingFiles.length > 0) log(messages.epicsBlockedByFiles(blockingFiles.join(", ")));
   if (deleted.length > 0) log(messages.deletedClosedTasks(deleted.join(", ")));
   if (conflicts.length > 0) log(messages.conflictedDuringSweep(conflicts.join(", ")));
-  if (invalid.length > 0) {
-    log(messages.invalidAfterSweep(invalid.map(({ id, errors }) => `${id} (${errors.join("; ")})`).join(", ")));
-  }
+  if (invalid.length > 0) log(messages.invalidAfterSweep(invalidTasksText(invalid)));
 }

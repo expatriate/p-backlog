@@ -18,13 +18,10 @@ export const serverEn: ServerMessages = {
   hostRejected: (host) => `Requests from host ${host} are not accepted`,
   jsonContentTypeExpected: "Content-Type: application/json is expected",
 
-  runsTrimFailed: (detail) => `Could not trim the run log: ${detail}`,
-  journalCompactionFailed: (dir, detail) => `Could not compact the journal in ${dir}: ${detail}`,
-  serviceLogTrimFailed: (detail) => `Could not trim the service log: ${detail}`,
   serverStarted: (port, root) => `p-backlog: http://localhost:${port}\nBacklog directory: ${root}`,
   settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 
-  sweepFailed: (detail) => `Could not delete closed tasks: ${detail}`,
+  maintenanceFailed: (detail) => `Backlog maintenance stopped: ${detail}`,
   closedEpics: (ids) => `Closed completed epics: ${ids}`,
   reopenedEpics: (ids) => `Reopened epics that got an open task again: ${ids}`,
   epicsBlockedByFiles: (paths) => `Epics will not close until these files are fixed: ${paths}`,
