@@ -1,11 +1,11 @@
-export const TEST_DIRECTORIES = ["test", "tests", "__tests__", "e2e", "spec"];
+export const TEST_DIRECTORIES: readonly string[] = ["test", "tests", "__tests__", "e2e", "spec"];
 const TEST_FILE_NAMES = [
   { glob: "*.test.*", pattern: /\.test\.[^.]+$/ },
   { glob: "*.spec.*", pattern: /\.spec\.[^.]+$/ },
   { glob: "*_test.*", pattern: /_test\.[^.]+$/ },
   { glob: "test_*.py", pattern: /^test_.+\.py$/ },
 ];
-export const TEST_FILE_GLOBS = TEST_FILE_NAMES.map(({ glob }) => glob);
+export const TEST_FILE_GLOBS: readonly string[] = TEST_FILE_NAMES.map(({ glob }) => glob);
 const RENAMED_SEGMENT = /\{[^}]* => ([^}]*)\}/g;
 const RENAMED_WHOLE_PATH = /^.* => /;
 const EMPTY_SEGMENT = /\/\//g;
