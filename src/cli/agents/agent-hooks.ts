@@ -1,9 +1,9 @@
 import { HOOK_STOP_COMMAND } from "../../core/hook-signature";
 import type { CliIo } from "../io";
-import { addStopHook, commandOfHook, guardedPosixCommand, removeStopHook } from "../stop-hook";
 import { AGENT_SPECS, type Agent, type AgentPlaces } from "./agent";
+import { addClaudeStopHook, removeClaudeStopHook } from "./claude-hooks";
 import { addCursorStopHook, removeCursorStopHook } from "./cursor-hooks";
-import { addGroupedStopHook, removeGroupedStopHook, type HookInstallResult, type HookRemoveResult, type IsOurHook, type OurHook } from "./grouped-stop-hooks";
+import { addGroupedStopHook, commandOfHook, guardedPosixCommand, removeGroupedStopHook, type HookInstallResult, type HookRemoveResult, type IsOurHook, type OurHook } from "./grouped-stop-hooks";
 
 type HookSite = AgentPlaces & Pick<CliIo, "platform" | "cliPath">;
 
@@ -13,7 +13,7 @@ export function installAgentHook(agent: Agent, site: HookSite): Promise<HookInst
   const path = AGENT_SPECS[agent].hookConfigPath(site);
   switch (agent) {
     case "claude":
-      return addStopHook(path, site.platform);
+      return addClaudeStopHook(path, site.platform);
     case "codex": {
       const hook = { type: "command", command: posixCommand(agent), commandWindows: windowsCommand(agent, site.cliPath), timeout: CODEX_HOOK_TIMEOUT_SECONDS };
       return addGroupedStopHook(path, hook, ourCurrentHook(agent, site.cliPath, hook));
@@ -29,7 +29,7 @@ export function removeAgentHook(agent: Agent, site: AgentPlaces): Promise<HookRe
   const path = AGENT_SPECS[agent].hookConfigPath(site);
   switch (agent) {
     case "claude":
-      return removeStopHook(path);
+      return removeClaudeStopHook(path);
     case "codex":
       return removeGroupedStopHook(path, ourHookOf(agent));
     case "cursor":

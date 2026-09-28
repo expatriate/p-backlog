@@ -4,7 +4,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { stopHookFor } from "../../src/cli/stop-hook";
+import { claudeStopHookFor } from "../../src/cli/agents/claude-hooks";
 import { gitCommitAll, ISOLATED_GIT_ENV, makeGitRepo, makeTempDir, writeFiles } from "../../src/core/store/testing/temp-dirs";
 
 const repoRoot = join(import.meta.dirname, "../..");
@@ -83,7 +83,7 @@ describe("путь нового пользователя из tarball", () => {
     expect(await readFile(join(skillLink, "SKILL.md"), "utf8")).toMatch(/^---/);
     const settings = JSON.parse(await readFile(join(claudeConfigDir, "settings.json"), "utf8"));
     const installedHook = settings.hooks.Stop[0].hooks[0];
-    expect(installedHook).toEqual(stopHookFor(process.platform));
+    expect(installedHook).toEqual(claudeStopHookFor(process.platform));
     const hookCommand = installedHook.command as string;
 
     const repo = await makeGitRepo(join(home, "проекты"), "demo-app");
