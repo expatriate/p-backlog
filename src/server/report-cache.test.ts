@@ -18,6 +18,20 @@ describe("кэш отчётов", () => {
     expect(await cache.get("stats|ti", async () => ++computed)).toBe(4);
   });
 
+  it("отчёты прошлых дней не копятся: истёкшие записи уходят при следующем запросе", async () => {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    let clock = 0;
+    const cache = createReportCache({ ttlMs: 1000, now: () => clock });
+
+    for (let day = 1; day <= 30; day += 1) {
+      clock = day * DAY_MS;
+      await cache.get(`stats|*|day-${day}`, async () => day);
+      await cache.get(`quality|*|day-${day}`, async () => day);
+    }
+
+    expect(cache.size()).toBe(2);
+  });
+
   it("ошибка расчёта не кэшируется", async () => {
     const cache = createReportCache({ ttlMs: 1000, now: () => 0 });
 
