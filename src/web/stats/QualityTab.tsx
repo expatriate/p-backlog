@@ -1,6 +1,6 @@
 import { useParams } from "react-router";
 import type { QualityReport } from "../../core/api/contract";
-import { useQualityStats } from "../app/queries";
+import { useStatsReport } from "../app/queries";
 import { AccuracyPanel, CategoriesPanel, GraphPanel, OriginPanel } from "./QualityPanels";
 import rowStyles from "./PanelRows.module.css";
 import styles from "./StatsPage.module.css";
@@ -8,7 +8,7 @@ import { StatsTabState } from "./StatsTabState";
 
 export function QualityTab() {
   const { projectId } = useParams();
-  const quality = useQualityStats(projectId);
+  const quality = useStatsReport("quality", projectId);
   return <StatsTabState query={quality}>{(report) => <Quality report={report} />}</StatsTabState>;
 }
 

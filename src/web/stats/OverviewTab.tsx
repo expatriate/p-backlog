@@ -3,7 +3,7 @@ import type { Language } from "../../core/i18n/language";
 import { formatSigned } from "../../core/stats/format";
 import type { StatsReport, StatsTotals } from "../../core/api/contract";
 import { listPath } from "../../core/api/web-paths";
-import { useStats } from "../app/queries";
+import { useStatsReport } from "../app/queries";
 import { useLanguage, useMessages } from "../i18n";
 import { cx } from "../ui/cx";
 import { AgePanel } from "./AgePanel";
@@ -21,7 +21,7 @@ const TREND_ARROWS: Record<FigureTone, string> = { decline: "↓", growth: "↑"
 
 export function OverviewTab() {
   const { projectId } = useParams();
-  const stats = useStats(projectId);
+  const stats = useStatsReport("overview", projectId);
   return <StatsTabState query={stats}>{(report) => <Overview report={report} taskListPath={listPath(projectId)} />}</StatsTabState>;
 }
 

@@ -1,6 +1,6 @@
 import { useParams } from "react-router";
 import type { EffectReport } from "../../core/api/contract";
-import { useEffectStats } from "../app/queries";
+import { useStatsReport } from "../app/queries";
 import { useMessages } from "../i18n";
 import { EffectExplainer } from "./EffectExplainer";
 import { EffectChartPanel, EffectFigures, ProjectsPanel } from "./EffectPanels";
@@ -11,7 +11,7 @@ import styles from "./StatsPage.module.css";
 
 export function EffectTab() {
   const { projectId } = useParams();
-  const effect = useEffectStats(projectId);
+  const effect = useStatsReport("effect", projectId);
   return <StatsTabState query={effect}>{(report) => <Effect report={report} />}</StatsTabState>;
 }
 

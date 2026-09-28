@@ -53,28 +53,12 @@ function selectProjects(response: ProjectsResponse): ProjectView[] {
   return response.projects;
 }
 
-export function useStats(projectId: string | undefined) {
-  return useStatsReport("overview", projectId);
+export function useStatsReport<K extends Exclude<StatsReportKind, "cost">>(kind: K, projectId: string | undefined) {
+  return useReportQuery(kind, projectId, { staleTime: STATS_STALE_MS });
 }
 
-export function useCodeStats(projectId: string | undefined) {
-  return useStatsReport("code", projectId);
-}
-
-export function useEffectStats(projectId: string | undefined) {
-  return useStatsReport("effect", projectId);
-}
-
-export function useQualityStats(projectId: string | undefined) {
-  return useStatsReport("quality", projectId);
-}
-
-export function useSignals(projectId: string | undefined) {
-  return useStatsReport("signals", projectId);
-}
-
-export function useCostStats(projectId: string | undefined) {
-  return useStatsReport("cost", projectId, {
+export function useCostReport(projectId: string | undefined) {
+  return useReportQuery("cost", projectId, {
     staleTime: 0,
     refetchInterval: (query) => (scanInProgress(query.state.data?.scan) ? COST_SCAN_POLL_MS : false),
   });
@@ -90,9 +74,9 @@ function scanInProgress(scan: ScanProgress | undefined): boolean {
   return !scan.listed || scan.bytesLeft > 0;
 }
 
-function useStatsReport<K extends StatsReportKind>(kind: K, projectId: string | undefined, overrides: Partial<UseQueryOptions<StatsReports[K]>> = {}) {
+function useReportQuery<K extends StatsReportKind>(kind: K, projectId: string | undefined, freshness: Partial<UseQueryOptions<StatsReports[K]>>) {
   const { client } = useBacklogApi();
-  return useQuery<StatsReports[K]>({ queryKey: statsReportKey(kind, projectId), queryFn: () => client.statsReport(kind, projectId), staleTime: STATS_STALE_MS, ...overrides });
+  return useQuery<StatsReports[K]>({ queryKey: statsReportKey(kind, projectId), queryFn: () => client.statsReport(kind, projectId), ...freshness });
 }
 
 export type SetProjectActiveVariables = { id: string; active: boolean };

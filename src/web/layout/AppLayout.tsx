@@ -4,7 +4,7 @@ import { Link, matchPath, NavLink, Outlet, useLocation, useNavigate } from "reac
 import type { ProjectView } from "../../core/api/contract";
 import type { Task } from "../../core/model/types";
 import { useMessages } from "../i18n";
-import { useProjects, useSignals, useTasks } from "../app/queries";
+import { useProjects, useStatsReport, useTasks } from "../app/queries";
 import { isClosed } from "../../core/model/graph";
 import { countBy } from "../../core/collections";
 import { RequestFailure } from "../app/RequestFailure";
@@ -24,7 +24,7 @@ export function AppLayout() {
   const { pathname, search } = useLocation();
 
   const projectId = matchPath(`${ROUTE_PATTERNS.projectList}/*`, pathname)?.params.projectId;
-  const signals = useSignals(projectId);
+  const signals = useStatsReport("signals", projectId);
   const signalCount = signals.data?.signals.length ?? 0;
   const statsTab = (matchPath(`${ROUTE_PATTERNS.stats}/*`, pathname) ?? matchPath(`${ROUTE_PATTERNS.projectStats}/*`, pathname))?.params["*"];
   const onStats = statsTab !== undefined;

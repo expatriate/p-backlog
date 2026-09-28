@@ -1,6 +1,6 @@
 import { useParams } from "react-router";
 import type { CostReport, ScanProgress } from "../../core/api/contract";
-import { useCostStats } from "../app/queries";
+import { useCostReport } from "../app/queries";
 import { formatDay, startOfLocalDay } from "../../core/i18n/format";
 import { useLanguage, useMessages } from "../i18n";
 import { CommandsPanel, CostFigures, ModelsPanel } from "./CostPanels";
@@ -13,7 +13,7 @@ import { StatsRequestState } from "./StatsTabState";
 
 export function CostTab() {
   const { projectId } = useParams();
-  const cost = useCostStats(projectId);
+  const cost = useCostReport(projectId);
   const { stats } = useMessages();
 
   return (

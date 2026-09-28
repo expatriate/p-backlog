@@ -1,7 +1,7 @@
 import { useRef, type RefObject } from "react";
 import { statsTabPath } from "../../core/api/web-paths";
 import { Link, matchPath, Outlet, useLocation, useNavigation, useParams } from "react-router";
-import { useProjects, useSignals } from "../app/queries";
+import { useProjects, useStatsReport } from "../app/queries";
 import { projectNameOf, scopeNote } from "../app/scope";
 import { useMessages } from "../i18n";
 import { cx } from "../ui/cx";
@@ -15,7 +15,7 @@ export function StatsPage() {
   const { projectId } = useParams();
   const { pathname } = useLocation();
   const projects = useProjects();
-  const signals = useSignals(projectId);
+  const signals = useStatsReport("signals", projectId);
   const { app, core, stats } = useMessages();
   const scopeName = projectId === undefined ? stats.projects : projectNameOf(projects.data, projectId);
   const heading = stats.heading(scopeName);
