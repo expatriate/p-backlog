@@ -1,11 +1,11 @@
-export type ReportCache = {
+export type TtlCache = {
   get: <T>(key: string, compute: () => Promise<T>, tags?: readonly string[]) => Promise<T>;
   clear: () => void;
   clearTagged: (tags: readonly string[]) => void;
   size: () => number;
 };
 
-export function createReportCache({ ttlMs, now }: { ttlMs: number; now: () => number }): ReportCache {
+export function createTtlCache({ ttlMs, now }: { ttlMs: number; now: () => number }): TtlCache {
   let entries = new Map<string, { at: number; value: Promise<unknown>; tags: readonly string[] }>();
   const evictExpired = (moment: number) => {
     for (const [key, entry] of entries) if (moment - entry.at > ttlMs) entries.delete(key);

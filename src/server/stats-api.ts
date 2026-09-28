@@ -21,7 +21,7 @@ import { serverMessages, type LocalizedWarn } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createCostSource } from "./cost-source";
 import { createJournalSources } from "./journal-sources";
-import { createReportCache } from "./report-cache";
+import { createTtlCache } from "./ttl-cache";
 import type { UsageScanner } from "./usage-scanner";
 
 export type StatsServices = { usage: UsageScanner; memory: MemorySampler; warn: LocalizedWarn };
@@ -42,7 +42,7 @@ export type GraphHealthOf = (snapshot: BacklogSnapshot, project: Project) => Pro
 
 type StatsApi = { routes: Hono; forgetAll: () => void; forgetChanged: (paths: readonly string[]) => void };
 
-type StatsScope = { projectId: string | undefined; projects: Project[]; tasks: Task[]; unparsedTasks: UnparsedTask[]; snapshot: BacklogSnapshot };
+type RequestScope = { projectId: string | undefined; projects: Project[]; tasks: Task[]; unparsedTasks: UnparsedTask[]; snapshot: BacklogSnapshot };
 
 type ReportSources = { input: StatsInput; base: ReportBase; projects: readonly Project[]; snapshot: BacklogSnapshot; wholeBacklogBase: () => ReportBase };
 
@@ -59,7 +59,7 @@ const projectTag = (projectId: string) => `project:${projectId}`;
 
 export function createStatsApi({ root, readLanguage, now, home, services: { usage, memory, warn }, backlog, graphHealth }: StatsApiOptions): StatsApi {
   const routes = new Hono();
-  const reports = createReportCache({ ttlMs: REPORT_TTL_MS, now: () => now().getTime() });
+  const reports = createTtlCache({ ttlMs: REPORT_TTL_MS, now: () => now().getTime() });
   const onCodeSourceError = (kind: CodeCacheErrorKind, error: unknown) =>
     void warn((messages) => (kind === "read" ? messages.codeCacheReadFailed(errorText(error)) : messages.codeCacheWriteFailed(errorText(error))));
   const codeSource = createCodeSource({ home, store: createCodeCacheFile(root), onError: onCodeSourceError });
@@ -77,7 +77,7 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
     return snapshot;
   };
 
-  const statsScopeOf = async (c: Context, snapshot: BacklogSnapshot, { wholeBacklog }: { wholeBacklog: boolean }): Promise<StatsScope | Response> => {
+  const requestScopeOf = async (c: Context, snapshot: BacklogSnapshot, { wholeBacklog }: { wholeBacklog: boolean }): Promise<RequestScope | Response> => {
     const projectId = c.req.query("project") || undefined;
     const { projects, tasks, errors } = snapshot;
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
@@ -92,7 +92,7 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
   const serveScoped = <K extends ScopedReportKind>(kind: K, report: ScopedReport<StatsReports[K]>, { sourceKey, wholeBacklog = false }: ScopedReportOptions = {}) =>
     routes.get(STATS_REPORT_ROUTES[kind], async (c) => {
       const forgetCountAtRead = forgetCount;
-      const scope = await statsScopeOf(c, await backlogPruningCaches(), { wholeBacklog });
+      const scope = await requestScopeOf(c, await backlogPruningCaches(), { wholeBacklog });
       if (scope instanceof Response) return scope;
       const moment = now();
       const key = [kind, scope.projectId ?? "*", formatLocalDay(moment), sourceKey === undefined ? "" : await sourceKey(scope.projects, scope.snapshot)].join("|");
@@ -129,7 +129,7 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
   serveScoped("quality", statsOfQuality, graphState);
   serveScoped("signals", ({ input, base }) => ({ signals: statsSignals(input, base) }));
   routes.get(STATS_REPORT_ROUTES.cost, async (c) => {
-    const scope = await statsScopeOf(c, await backlogPruningCaches(), { wholeBacklog: true });
+    const scope = await requestScopeOf(c, await backlogPruningCaches(), { wholeBacklog: true });
     if (scope instanceof Response) return scope;
     usage.scanIfNeverListed();
     const { snapshot, projects, projectId } = scope;

@@ -17,21 +17,21 @@ import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
 import { errorResponse, fileBusyResponse } from "./error-response";
 import { serverMessages, type ServerMessages } from "./messages";
-import { createReportCache } from "./report-cache";
+import { createTtlCache } from "./ttl-cache";
 import { createRevisions, type OwnWrite } from "./revisions";
 import { createStatsApi, type GraphHealthOf, type StatsServices } from "./stats-api";
 
 export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; statsServices: StatsServices };
 
-type BacklogSnapshot = LoadedBacklog & { index: BacklogIndex; revision: Revision };
+type IndexedBacklog = LoadedBacklog & { index: BacklogIndex; revision: Revision };
 
 const GRAPH_STATE_TTL_MS = 60 * 1000;
 
 export function createApi({ root, readLanguage, changes, now, home, statsServices }: ApiOptions): Hono {
   const api = new Hono();
   const revisions = createRevisions();
-  let snapshot: Promise<BacklogSnapshot> | null = null;
-  const backlog = (): Promise<BacklogSnapshot> => {
+  let snapshot: Promise<IndexedBacklog> | null = null;
+  const backlog = (): Promise<IndexedBacklog> => {
     if (snapshot !== null) return snapshot;
     const loading = loadSnapshot(root, revisions.current()).catch((error: unknown) => {
       if (snapshot === loading) snapshot = null;
@@ -40,7 +40,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
     snapshot = loading;
     return loading;
   };
-  const graphHealths = createReportCache({ ttlMs: GRAPH_STATE_TTL_MS, now: () => now().getTime() });
+  const graphHealths = createTtlCache({ ttlMs: GRAPH_STATE_TTL_MS, now: () => now().getTime() });
   const graphHealth: GraphHealthOf = ({ tasks }, project) => {
     const projectTasks = tasks.filter((task) => task.projectId === project.id);
     const key = JSON.stringify([project.id, project.repos, projectTasks.map((task) => task.version)]);
@@ -166,7 +166,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
   return api;
 }
 
-async function loadSnapshot(root: string, revision: Revision): Promise<BacklogSnapshot> {
+async function loadSnapshot(root: string, revision: Revision): Promise<IndexedBacklog> {
   const loaded = await loadBacklog(root);
   return { ...loaded, index: buildIndex(loaded.tasks), revision };
 }
