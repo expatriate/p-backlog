@@ -18,13 +18,13 @@ import { unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/st
 import { cachedRepoRoots, findProjectForRoots, type GitRoots, type RepoRootLookup } from "../core/store/resolve-project";
 import type { UsageCache } from "../core/usage/usage-cache";
 import type { Language } from "../core/i18n/language";
-import { serverMessages } from "./messages";
+import { serverMessages, type LocalizedWarn } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createReportCache } from "./report-cache";
 import { createStatsSources, type CostInputs } from "./stats-sources";
 import type { UsageScanner } from "./usage-scanner";
 
-export type StatsServices = { usage: UsageScanner; memory: MemorySampler; warn: (line: string) => void };
+export type StatsServices = { usage: UsageScanner; memory: MemorySampler; warn: LocalizedWarn };
 
 type StatsApiOptions = {
   root: string;
@@ -59,11 +59,7 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
   const routes = new Hono();
   const reports = createReportCache({ ttlMs: REPORT_TTL_MS, now: () => now().getTime() });
   const onCodeSourceError = (kind: CodeCacheErrorKind, error: unknown) =>
-    void readLanguage().then((language) => {
-      const messages = serverMessages(language);
-      const text = kind === "read" ? messages.codeCacheReadFailed(errorText(error)) : messages.codeCacheWriteFailed(errorText(error));
-      warn(text);
-    });
+    void warn((messages) => (kind === "read" ? messages.codeCacheReadFailed(errorText(error)) : messages.codeCacheWriteFailed(errorText(error))));
   const codeSource = createCodeSource({ home, store: createCodeCacheFile(root), onError: onCodeSourceError });
   const lookupRepoRoot = cachedRepoRoots();
   const sources = createStatsSources(root, (inputs) => costOf(inputs, home, lookupRepoRoot));
@@ -134,7 +130,7 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
   routes.get("/stats/cost", async (c) => {
     const scope = await statsScopeOf(c, await backlogPruningCaches(), { wholeBacklog: true });
     if (scope instanceof Response) return scope;
-    usage.ensureStarted();
+    usage.scanIfNeverListed();
     const { snapshot, projectId } = scope;
     return c.json(await sources.costReport({ usage: usage.snapshot(), scope: { snapshot, projectId }, now: now() }));
   });

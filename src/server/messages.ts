@@ -9,6 +9,12 @@ export function serverMessages(language: Language): ServerMessages {
   return language === "ru" ? serverRu : serverEn;
 }
 
+export type LocalizedWarn = (text: (messages: ServerMessages) => string) => Promise<void>;
+
+export function localizedWarn(readLanguage: () => Promise<Language>, warn: (line: string) => void): LocalizedWarn {
+  return async (text) => warn(text(serverMessages(await readLanguage())));
+}
+
 export function serverLanguage(root: string, env: NodeJS.ProcessEnv): Promise<Language> {
   return readLanguage(root, env).catch(() => localeLanguage(env));
 }

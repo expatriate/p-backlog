@@ -15,7 +15,7 @@ import { createApp } from "./app";
 import { CHANGE_DEBOUNCE_MS, createChangeFeed } from "./change-feed";
 import { localHosts } from "./guards";
 import { createMemorySampler, type MemorySampler } from "./memory-sampler";
-import { serverLanguage, serverMessages, type ServerMessages } from "./messages";
+import { localizedWarn, serverLanguage, serverMessages, type ServerMessages } from "./messages";
 import { listenFailure } from "./port";
 import { startSweeper } from "./sweeper";
 import { createUsageScanner, type UsageScanner } from "./usage-scanner";
@@ -47,11 +47,12 @@ export async function startServer({ root, port, home, env, pidFile, staticDir }:
 
   const readLanguage = () => serverLanguage(root, env);
   const readMessages = () => readLanguage().then(serverMessages);
-  const usage = createUsageScanner({ root, claudeProjectsDir: claudeProjectsDir(env, home), messages: readMessages, warn });
+  const warnLocalized = localizedWarn(readLanguage, warn);
+  const usage = createUsageScanner({ root, claudeProjectsDir: claudeProjectsDir(env, home), warn: warnLocalized });
   const memory = createMemorySampler();
-  const changes = createChangeFeed({ root, debounceMs: CHANGE_DEBOUNCE_MS, messages: readMessages, warn });
+  const changes = createChangeFeed({ root, debounceMs: CHANGE_DEBOUNCE_MS, warn: warnLocalized });
   const allowedHosts = new Set<string>();
-  const app = createApp({ root, readLanguage, changes, allowedHosts, home, statsServices: { usage, memory, warn }, staticDir });
+  const app = createApp({ root, readLanguage, changes, allowedHosts, home, statsServices: { usage, memory, warn: warnLocalized }, staticDir });
 
   const sweep = async (): Promise<SweepReport> => {
     const now = new Date();
@@ -93,7 +94,7 @@ export async function startServer({ root, port, home, env, pidFile, staticDir }:
       throw error;
     });
   }
-  process.stdout.write(startupMessages.serverStarted(actualPort, root));
+  log(startupMessages.serverStarted(actualPort, root));
   return { port: actualPort, close };
 }
 
