@@ -56,7 +56,7 @@ export const AGENT_SPECS: Record<Agent, AgentSpec> = {
   cursor: hooksJsonAgent("Cursor", ({ home }) => join(home, ".cursor"), { hookNeedsApproval: false }),
 };
 
-export type AgentDetection = { found: Agent[]; missing: { agent: Agent; dir: string }[] };
+type AgentDetection = { found: Agent[]; missing: { agent: Agent; dir: string }[] };
 
 export async function detectAgents(places: AgentPlaces): Promise<AgentDetection> {
   const detection: AgentDetection = { found: [], missing: [] };

@@ -5,9 +5,9 @@ import type { Language } from "../core/i18n/language";
 import { parseJson, readTextOrNull } from "../core/store/fs-utils";
 import { SKILL_NAME, SKILL_SOURCES_DIR, SKILL_VARIANTS } from "./skill-variants";
 
-export type SkillLinkResult = "linked" | "kept" | "foreign";
+type SkillLinkResult = "linked" | "kept" | "foreign";
 
-export type SkillUnlinkResult = "removed" | "absent" | "foreign";
+type SkillUnlinkResult = "removed" | "absent" | "foreign";
 
 export type SkillLinkOptions = { skillsDir: string; packageRoot: string; platform: NodeJS.Platform };
 

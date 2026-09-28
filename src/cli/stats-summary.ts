@@ -4,7 +4,7 @@ import { formatSigned } from "../core/stats/format";
 import type { FlowForecast, ReportHead, Signal, StatsTotals } from "../core/stats/types";
 import { cliMessages } from "./messages";
 
-export type StatsSummary = {
+type StatsSummary = {
   language: Language;
   scopeName: string;
   head: Pick<ReportHead, "unparsedTasks" | "invalidJournalLines" | "unknownJournalLines">;

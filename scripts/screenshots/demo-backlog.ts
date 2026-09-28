@@ -57,8 +57,8 @@ type ScenarioTask = z.infer<typeof taskSchema>;
 type TaskEvent = z.infer<typeof eventSchema>;
 type Texts = z.infer<typeof textsSchema>;
 
-export type DemoPaths = { home: string; backlogRoot: string };
-export type DemoBacklog = { idOf: (key: string) => string };
+type DemoPaths = { home: string; backlogRoot: string };
+type DemoBacklog = { idOf: (key: string) => string };
 
 type Step = { at: number; run: () => Promise<unknown> };
 

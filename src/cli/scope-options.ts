@@ -9,9 +9,9 @@ export const SCOPE_OPTIONS = {
   "all-projects": { type: "boolean", default: false },
 } as const;
 
-export type ScopeValues = { project?: string; "all-projects"?: boolean };
+type ScopeValues = { project?: string; "all-projects"?: boolean };
 
-export type Scope = { projectIds: string[]; activeIds: string[]; project?: Project };
+type Scope = { projectIds: string[]; activeIds: string[]; project?: Project };
 
 export function resolveScope(loaded: LoadedBacklog, io: CliIo, values: ScopeValues): Scope | null {
   if (values.project !== undefined && values["all-projects"] === true) throw new UsageError(cliMessages(io.language).needProjectOrAllProjects);

@@ -5,7 +5,7 @@ import type { Agent } from "./agent";
 
 export type StopEvent = { cwd: string; session: string | undefined; turn: string | undefined; skip: boolean };
 
-export type StopAnswer = { reason: string | null; systemMessage: string | null };
+type StopAnswer = { reason: string | null; systemMessage: string | null };
 
 type StopProtocol = "claude" | "cursor";
 
