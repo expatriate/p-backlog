@@ -1,11 +1,11 @@
-import type { Language } from "../core/i18n/language";
-import { coreMessages } from "../core/messages";
+import type { CoreMessages } from "../core/messages";
 import { formatSigned } from "../core/stats/format";
 import type { FlowForecast, ReportHead, Signal, StatsTotals } from "../core/stats/types";
-import { cliMessages } from "./messages";
+import type { CliMessages } from "./messages";
 
 type StatsSummary = {
-  language: Language;
+  cli: CliMessages;
+  core: CoreMessages;
   scopeName: string;
   head: Pick<ReportHead, "unparsedTasks" | "invalidJournalLines" | "unknownJournalLines">;
   totals: StatsTotals;
@@ -14,9 +14,7 @@ type StatsSummary = {
   url: string;
 };
 
-export function statsSummary({ language, scopeName, head, totals, forecast, signals, url }: StatsSummary): string {
-  const core = coreMessages(language);
-  const cli = cliMessages(language);
+export function statsSummary({ cli, core, scopeName, head, totals, forecast, signals, url }: StatsSummary): string {
   const net = totals.createdLastWeek - totals.closedLastWeek;
   const tail = totals.leadTimeP90Days === null ? "" : cli.statsP90Tail(core.p90(totals.leadTimeP90Days));
   return [

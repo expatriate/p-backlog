@@ -1,12 +1,11 @@
 import { checkBacklog, type CheckReport } from "../../core/check/check-backlog";
 import type { CheckProblem } from "../../core/check/findings";
-import { coreMessages } from "../../core/messages";
-import type { Language } from "../../core/i18n/language";
+import type { CoreMessages } from "../../core/messages";
 import { loadBacklog } from "../../core/store/load";
 import { describeCandidate } from "../candidate-format";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo, type ExitCode } from "../io";
-import { cliMessages } from "../messages";
+import type { CliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 
 export const checkCommand: CliCommand = {
@@ -28,7 +27,7 @@ async function runCheck(args: string[], io: CliIo): Promise<ExitCode> {
   const { projectIds } = scope;
 
   const report = await checkBacklog(io.backlogRoot, loaded, { projectIds, mode: values.changed ? "changed" : "full", now: io.now(), home: io.home, messages: io.core, workingDir: io.cwd });
-  io.print(values.json ? JSON.stringify(report, null, 2) : formatReport(io.language, report));
+  io.print(values.json ? JSON.stringify(report, null, 2) : formatReport(io.cli, io.core, report));
   return needsReview(report) ? EXIT.needsReview : EXIT.ok;
 }
 
@@ -48,13 +47,11 @@ function needsReview({ candidates, problems }: CheckReport): boolean {
   return candidates.length > 0 || problems.some((problem) => PROBLEM_NEEDS_REVIEW[problem.kind]);
 }
 
-function formatReport(language: Language, { fixed, problems, candidates }: CheckReport): string {
-  const cli = cliMessages(language);
-  const core = coreMessages(language);
+function formatReport(cli: CliMessages, core: CoreMessages, { fixed, problems, candidates }: CheckReport): string {
   const sections = [
     section(cli.fixedHeader, fixed.map(core.checkFix)),
     section(cli.problemsHeader, problems.map(core.checkProblem)),
-    section(cli.candidatesHeader, candidates.map((candidate) => describeCandidate(language, candidate))),
+    section(cli.candidatesHeader, candidates.map((candidate) => describeCandidate(cli, candidate))),
   ].filter((text) => text !== "");
   return sections.length === 0 ? cli.backlogOk : sections.join("\n");
 }

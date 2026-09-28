@@ -46,7 +46,8 @@ async function runStats(args: string[], io: CliIo): Promise<ExitCode> {
   }
   io.print(
     statsSummary({
-      language: io.language,
+      cli: io.cli,
+      core: io.core,
       scopeName: project?.name ?? io.cli.projectsFallbackName,
       head: base.head,
       totals,
