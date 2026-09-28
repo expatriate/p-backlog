@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   id-token: write
 
 concurrency:
@@ -14,6 +15,9 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NPM_VERSION: 11.6.2
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -23,9 +27,14 @@ jobs:
           cache: npm
       - name: Tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
-      - run: npm install -g npm@latest
+      - name: CI passed on the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/await-ci-success.sh "$GITHUB_SHA"
+      - run: npm install -g "npm@$NPM_VERSION"
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
       - run: npx vitest run
+      - run: npm run test:package
       - run: npm publish --access public
