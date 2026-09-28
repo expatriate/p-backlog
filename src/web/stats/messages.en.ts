@@ -64,7 +64,10 @@ export const statsEn: StatsMessages = {
   chartLabel: (name, step) => `${name}. Left and right arrows move by ${CHART_STEPS[step]}`,
   periodOf: (grain, day) => (grain === "week" ? `week of ${day}` : day),
   weekTrend: (arrow, size) => `${arrow}${NBSP}${size}${NBSP}vs${NBSP}last${NBSP}week`,
-  weekTrendSpeech: (size, better) => `${size} ${better ? "less" : "more"} than a week ago — ${better ? "better" : "worse"}`,
+  weekTrendSpeech: {
+    decline: (size) => `${size} less than a week ago — better`,
+    growth: (size) => `${size} more than a week ago — worse`,
+  },
 
   tasksToday: "Tasks today",
   createdAndClosed: "created and closed",

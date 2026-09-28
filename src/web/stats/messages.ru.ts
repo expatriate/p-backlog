@@ -13,6 +13,7 @@ import { STATS_DAYS } from "../../core/stats/days";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/api/contract";
 import type { ChartId, ChartStep, Grain } from "./charts/chart-style";
+import type { FigureTone } from "./Figure";
 import { deferredCodeLines, formatLines } from "./effect-format";
 import { approx, formatWhole } from "./value-format";
 import { NO_VALUE } from "../labels";
@@ -80,7 +81,10 @@ export const statsRu = {
   chartLabel: (name: string, step: ChartStep): string => `${name}. Стрелки влево и вправо — по ${CHART_STEPS[step]}`,
   periodOf: (grain: Grain, day: string): string => (grain === "week" ? `неделя с ${day}` : day),
   weekTrend: (arrow: string, size: string): string => `${arrow}${NBSP}${size}${NBSP}за${NBSP}неделю`,
-  weekTrendSpeech: (size: string, better: boolean): string => `на ${size} ${better ? "меньше" : "больше"}, чем неделю назад — ${better ? "лучше" : "хуже"}`,
+  weekTrendSpeech: {
+    decline: (size: string): string => `на ${size} меньше, чем неделю назад — лучше`,
+    growth: (size: string): string => `на ${size} больше, чем неделю назад — хуже`,
+  } satisfies Record<FigureTone, (size: string) => string>,
 
   tasksToday: "Задачи сегодня",
   createdAndClosed: "создано и закрыто",
