@@ -2,16 +2,8 @@ import { readFile } from "node:fs/promises";
 import { hasErrorCode } from "../../core/errors";
 import type { CliEnv } from "../io";
 
-export type ServiceContext = {
-  home: string;
-  env: NodeJS.ProcessEnv;
-  backlogRoot: string;
+export type ServiceContext = Pick<CliEnv, "home" | "env" | "backlogRoot" | "nodePath" | "cliPath" | "exec" | "uid" | "stopProcess"> & {
   port: number;
-  nodePath: string;
-  cliPath: string;
-  exec: CliEnv["exec"];
-  uid: number;
-  stopProcess: CliEnv["stopProcess"];
   onUnverifiedPid: (pid: number, pidFile: string) => void;
 };
 
