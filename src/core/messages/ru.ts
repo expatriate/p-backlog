@@ -7,10 +7,9 @@ import { countRu, NBSP, pluralRu } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
-import { roundToTenth } from "../numbers";
-import { DAYS_PER_WEEK } from "../stats/weeks";
 import type { FlowForecast, Signal } from "../stats/types";
 import type { CountUnit } from "./index";
+import { forecastOutlook, forecastSpan, type SpanUnit } from "./forecast";
 import { zodIssueText } from "./zod";
 
 const zodRu = z.locales.ru().localeError;
@@ -63,6 +62,8 @@ const COUNT_FORMS: Record<CountUnit, [string, string, string]> = {
   session: ["сессия", "сессии", "сессий"],
 };
 
+const SPAN_FORMS: Record<SpanUnit, [string, string, string]> = { week: ["неделю", "недели", "недель"], day: ["день", "дня", "дней"] };
+
 function evidenceLabel(evidence: CandidateEvidence | "total"): string {
   return EVIDENCE_LABELS[evidence];
 }
@@ -99,17 +100,23 @@ function p90(value: number | null): string {
   return value < 1 ? "быстрее суток" : `за ${days(value)}`;
 }
 
-function forecast({ open, weeklyNet, weeks, until }: FlowForecast): string {
-  if (open === 0) return "Открытых задач нет";
-  if (weeks !== null && until !== null) return `Долг разберётся примерно за ${weeks}${NBSP}нед. (к ${formatDayMonth("ru", new Date(until))})`;
-  if (weeklyNet === 0) return "Долг не уменьшается";
-  const growth = roundToTenth(-weeklyNet);
-  return `Долг растёт на ${formatDecimal("ru", growth)}${NBSP}${pluralRu(growth, "задача", "задачи", "задач")} в неделю`;
+function forecast(flow: FlowForecast): string {
+  const outlook = forecastOutlook(flow);
+  switch (outlook.kind) {
+    case "no-open":
+      return "Открытых задач нет";
+    case "clears":
+      return `Долг разберётся примерно за ${outlook.weeks}${NBSP}нед. (к ${formatDayMonth("ru", outlook.until)})`;
+    case "not-shrinking":
+      return "Долг не уменьшается";
+    case "grows":
+      return `Долг растёт на ${formatDecimal("ru", outlook.perWeek)}${NBSP}${pluralRu(outlook.perWeek, "задача", "задачи", "задач")} в неделю`;
+  }
 }
 
 function forecastTail({ windowDays, closed, created }: FlowForecast): string {
-  const span = windowDays % DAYS_PER_WEEK === 0 ? countRu(windowDays / DAYS_PER_WEEK, "неделю", "недели", "недель") : countRu(windowDays, "день", "дня", "дней");
-  return `за ${span}: закрыто ${closed}, создано ${created}`;
+  const { unit, count } = forecastSpan(windowDays);
+  return `за ${countRu(count, ...SPAN_FORMS[unit])}: закрыто ${closed}, создано ${created}`;
 }
 
 function signal(s: Signal): string {
