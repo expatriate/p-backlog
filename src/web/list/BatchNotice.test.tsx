@@ -1,43 +1,29 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { BatchRequest } from "../../core/api/contract";
-import { loadBacklog } from "../../core/store/load";
-import { projectFile } from "../../core/store/testing/temp-dirs";
+import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import type { TestApp } from "../../server/testing/test-app";
-import { taskFixture } from "../testing/fixtures";
-import { renderApp, type RenderedApp } from "../testing/render-app";
+import { accessDenied, interceptApi, renderApp, type RenderedApp } from "../testing/render-app";
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),
-  "spa/SPA-1.md": taskFixture("SPA-1", { title: "Таймауты загрузки", priority: "high", epic: "SPA-10" }),
-  "spa/SPA-3.md": taskFixture("SPA-3", { title: "Разобрать очередь", priority: "low" }),
-  "spa/SPA-7.md": taskFixture("SPA-7", { title: "Кэш превью" }),
-  "spa/SPA-10.md": taskFixture("SPA-10", { title: "Загрузка файлов", type: "epic" }),
+  "spa/SPA-1.md": taskFile("SPA-1", { title: "Таймауты загрузки", priority: "high", epic: "SPA-10" }),
+  "spa/SPA-3.md": taskFile("SPA-3", { title: "Разобрать очередь", priority: "low" }),
+  "spa/SPA-7.md": taskFile("SPA-7", { title: "Кэш превью" }),
+  "spa/SPA-10.md": taskFile("SPA-10", { title: "Загрузка файлов", type: "epic" }),
 };
 
 type FailWhen = (body: BatchRequest, attempt: number) => boolean;
 
 function recordBatches(failWhen: FailWhen = () => false) {
   const sent: BatchRequest[] = [];
-  const beforeRender = (app: TestApp) => {
-    const request = app.request;
-    app.request = async (path, init) => {
-      if (path !== "/api/tasks/batch") return request(path, init);
-      const body = JSON.parse(String(init?.body)) as BatchRequest;
-      sent.push(body);
-      if (failWhen(body, sent.length)) {
-        return new Response(JSON.stringify({ errors: ["EACCES: permission denied"] }), { status: 500, headers: { "content-type": "application/json" } });
-      }
-      return request(path, init);
-    };
-  };
+  const beforeRender = interceptApi(async (path, init, passOn) => {
+    if (path !== "/api/tasks/batch") return passOn();
+    const body = JSON.parse(String(init?.body)) as BatchRequest;
+    sent.push(body);
+    return failWhen(body, sent.length) ? accessDenied() : passOn();
+  });
   return { sent, beforeRender };
-}
-
-async function taskOnDisk(root: string, id: string) {
-  const task = (await loadBacklog(root)).tasks.find((candidate) => candidate.id === id);
-  if (!task) throw new Error(`нет задачи ${id}`);
-  return task;
 }
 
 async function select(app: RenderedApp, ...ids: string[]) {
@@ -61,7 +47,7 @@ const CHUNK_SIZE = 3;
 const MANY = 5;
 
 async function renderManyAndRaisePriority(beforeRender: (app: TestApp) => void) {
-  const many = Object.fromEntries(Array.from({ length: MANY }, (_, index) => [`spa/SPA-${index + 1}.md`, taskFixture(`SPA-${index + 1}`, { priority: "low" })]));
+  const many = Object.fromEntries(Array.from({ length: MANY }, (_, index) => [`spa/SPA-${index + 1}.md`, taskFile(`SPA-${index + 1}`, { priority: "low" })]));
   const app = await renderApp({ "spa/project.md": projectFile("SPA"), ...many }, "/", undefined, { beforeRender, batchChunkSize: CHUNK_SIZE });
   await screen.findAllByRole("row");
   await app.user.click(screen.getByRole("checkbox", { name: "Выбрать все видимые" }));
@@ -123,7 +109,7 @@ describe("уведомление об итоге массового действ
         },
       },
     });
-    const restored = await taskOnDisk(app.root, "SPA-1");
+    const restored = await app.taskOnDisk("SPA-1");
     expect([restored.status, restored.resolution, restored.reason]).toEqual(["backlog", undefined, undefined]);
     expect(within(noticeWith("Возвращено 2 из 2") as HTMLElement).queryByRole("button", { name: "Отменить" })).toBeNull();
     expect(noticeWith("Возвращено 2 из 2")?.contains(document.activeElement)).toBe(true);
@@ -137,16 +123,16 @@ describe("уведомление об итоге массового действ
     await app.user.click(within(panel).getByRole("button", { name: "критичный" }));
     await app.user.click(within(await findNotice("Изменена 1 из 1")).getByRole("button", { name: "Отменить" }));
     await findNotice("Возвращена 1 из 1");
-    expect((await taskOnDisk(app.root, "SPA-3")).priority).toBe("low");
+    expect((await app.taskOnDisk("SPA-3")).priority).toBe("low");
 
     await select(app, "SPA-1", "SPA-3");
     await app.user.click(within(screen.getByRole("region", { name: "Действия с выбранными" })).getByRole("button", { name: "Эпик" }));
     await app.user.click(screen.getByRole("button", { name: "Вынуть из эпика" }));
     const epicNotice = await findNotice("Изменено 2 из 2");
-    expect((await taskOnDisk(app.root, "SPA-1")).epic).toBeUndefined();
+    expect((await app.taskOnDisk("SPA-1")).epic).toBeUndefined();
     await app.user.click(within(epicNotice).getByRole("button", { name: "Отменить" }));
     await findNotice("Возвращено 2 из 2");
-    expect((await taskOnDisk(app.root, "SPA-1")).epic).toBe("SPA-10");
+    expect((await app.taskOnDisk("SPA-1")).epic).toBe("SPA-10");
   });
 
   it("выбранные сверх размера части уходят частями, итог и отмена — общие на все", async () => {
@@ -162,7 +148,7 @@ describe("уведомление об итоге массового действ
       [3, 3],
       [2, 2],
     ]);
-    expect((await taskOnDisk(app.root, "SPA-5")).priority).toBe("low");
+    expect((await app.taskOnDisk("SPA-5")).priority).toBe("low");
   });
 
   it("сбой второй части: итог и отмена сделанной части остаются, ошибка видна", async () => {
@@ -175,7 +161,7 @@ describe("уведомление об итоге массового действ
 
     await findNotice("Возвращено 3 из 3");
     expect(sent[2]?.tasks.length).toBe(3);
-    expect((await taskOnDisk(app.root, "SPA-1")).priority).toBe("low");
+    expect((await app.taskOnDisk("SPA-1")).priority).toBe("low");
   });
 
   it("сбой второй части отмены: итог возвращённых и повтор отмены для остальных", async () => {
@@ -186,14 +172,14 @@ describe("уведомление об итоге массового действ
 
     const notice = await findNotice("Возвращено 3 из 5");
     expect(within(notice).getByRole("alert").textContent).toContain("Не удалось отменить");
-    expect((await taskOnDisk(app.root, "SPA-5")).priority).toBe("critical");
+    expect((await app.taskOnDisk("SPA-5")).priority).toBe("critical");
     failing = false;
     const sentBeforeRetry = sent.length;
     await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
 
     await findNotice("Возвращено 5 из 5");
     expect(sent.slice(sentBeforeRetry).map((request) => request.tasks.length)).toEqual([2]);
-    expect((await taskOnDisk(app.root, "SPA-5")).priority).toBe("low");
+    expect((await app.taskOnDisk("SPA-5")).priority).toBe("low");
     expect(screen.queryByRole("alert")).toBeNull();
   });
 

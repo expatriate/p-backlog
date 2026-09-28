@@ -1,25 +1,21 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { projectFile } from "../../core/store/testing/temp-dirs";
-import { taskFixture } from "../testing/fixtures";
+import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import type { TestApp } from "../../server/testing/test-app";
-import { renderApp } from "../testing/render-app";
+import { interceptApi, renderApp, serverUnreachable } from "../testing/render-app";
 
-function failSettingsOnce(app: TestApp): void {
-  const request = app.request;
+function failSettingsOnce(): (app: TestApp) => void {
   let failed = false;
-  app.request = async (path, init) => {
-    if (path === "/api/settings" && !failed) {
-      failed = true;
-      return Promise.reject(new TypeError("Failed to fetch"));
-    }
-    return request(path, init);
-  };
+  return interceptApi(async (path, _init, passOn) => {
+    if (path !== "/api/settings" || failed) return passOn();
+    failed = true;
+    return serverUnreachable();
+  });
 }
 
 describe("загрузка языка интерфейса", () => {
   it("сбой /api/settings показывает двуязычное сообщение, повтор восстанавливает интерфейс", async () => {
-    const { user } = await renderApp({ "spa/project.md": projectFile("SPA") }, "/", undefined, { beforeRender: failSettingsOnce });
+    const { user } = await renderApp({ "spa/project.md": projectFile("SPA") }, "/", undefined, { beforeRender: failSettingsOnce() });
 
     expect(await screen.findByText(/Backlog server is not responding/)).toBeDefined();
 
@@ -30,15 +26,12 @@ describe("загрузка языка интерфейса", () => {
 
   it("сбой перезапроса /api/settings после смены языка не стирает открытый черновик описания", async () => {
     let settingsReads = 0;
-    const app = await renderApp({ "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFixture("SPA-1", {}, "Описание") }, "/p/spa/t/SPA-1", undefined, {
-      beforeRender: (backlog) => {
-        const request = backlog.request;
-        backlog.request = async (path, init) => {
-          if (path !== "/api/settings" || init?.method === "PATCH") return request(path, init);
-          settingsReads += 1;
-          return settingsReads === 1 ? request(path, init) : Promise.reject(new TypeError("Failed to fetch"));
-        };
-      },
+    const app = await renderApp({ "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1", {}, "Описание") }, "/p/spa/t/SPA-1", undefined, {
+      beforeRender: interceptApi(async (path, init, passOn) => {
+        if (path !== "/api/settings" || init?.method === "PATCH") return passOn();
+        settingsReads += 1;
+        return settingsReads === 1 ? passOn() : serverUnreachable();
+      }),
     });
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
     await app.user.click(within(panel).getByRole("button", { name: "Редактировать описание" }));

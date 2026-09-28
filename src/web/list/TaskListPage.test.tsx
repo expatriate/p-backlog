@@ -2,34 +2,29 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
-import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
-import type { TestApp } from "../../server/testing/test-app";
-import { renderApp } from "../testing/render-app";
+import { accessDenied, interceptApi, renderApp, serverUnreachable } from "../testing/render-app";
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),
-  "spa/SPA-1.md": taskFixture("SPA-1", { title: "Таймауты загрузки", priority: "high", tags: "[upload]", created: "2026-09-10T10:00:00+03:00" }),
-  "spa/SPA-2.md": taskFixture("SPA-2", { title: "Починить логин", priority: "low", status: "done", created: "2026-09-12T10:00:00+03:00" }),
-  "spa/SPA-3.md": taskFixture("SPA-3", { title: "Разобрать очередь", priority: "critical", created: "2026-09-14T10:00:00+03:00" }),
+  "spa/SPA-1.md": taskFile("SPA-1", { title: "Таймауты загрузки", priority: "high", tags: "[upload]", created: "2026-09-10T10:00:00+03:00" }),
+  "spa/SPA-2.md": taskFile("SPA-2", { title: "Починить логин", priority: "low", status: "done", created: "2026-09-12T10:00:00+03:00" }),
+  "spa/SPA-3.md": taskFile("SPA-3", { title: "Разобрать очередь", priority: "critical", created: "2026-09-14T10:00:00+03:00" }),
   "torg-io/project.md": projectFile("TI"),
-  "torg-io/TI-1.md": taskFixture("TI-1", { title: "Каталог тормозит" }),
+  "torg-io/TI-1.md": taskFile("TI-1", { title: "Каталог тормозит" }),
 };
 
 type TasksAnswer = "ok" | "unreachable" | "server-error" | "hang";
 
 function controlTasksRequest(initial: TasksAnswer) {
   const control: { answer: TasksAnswer; gate?: Promise<void> } = { answer: initial };
-  const beforeRender = (app: TestApp) => {
-    const request = app.request;
-    app.request = async (path, init) => {
-      if (path === "/api/tasks") await control.gate;
-      if (path !== "/api/tasks" || control.answer === "ok") return request(path, init);
-      if (control.answer === "hang") return new Promise<Response>(() => {});
-      if (control.answer === "unreachable") throw new TypeError("Failed to fetch");
-      return new Response(JSON.stringify({ errors: ["EACCES: permission denied"] }), { status: 500, headers: { "content-type": "application/json" } });
-    };
-  };
+  const beforeRender = interceptApi(async (path, _init, passOn) => {
+    if (path === "/api/tasks") await control.gate;
+    if (path !== "/api/tasks" || control.answer === "ok") return passOn();
+    if (control.answer === "hang") return new Promise<Response>(() => {});
+    if (control.answer === "unreachable") return serverUnreachable();
+    return accessDenied();
+  });
   return { control, beforeRender };
 }
 
@@ -154,7 +149,7 @@ describe("список задач", () => {
   it("проект только с закрытыми задачами предлагает показать все статусы, а не сбросить фильтры", async () => {
     const app = await renderApp({
       "spa/project.md": projectFile("SPA"),
-      "spa/SPA-2.md": taskFixture("SPA-2", { title: "Починить логин", status: "done" }),
+      "spa/SPA-2.md": taskFile("SPA-2", { title: "Починить логин", status: "done" }),
     });
 
     expect(await screen.findByText("Открытых задач нет.")).toBeDefined();
@@ -254,7 +249,7 @@ describe("список задач", () => {
     const app = await renderApp(
       {
         ...FILES,
-        "spa/SPA-5.md": taskFixture("SPA-5", { title: "Исправлено агентом", status: "done", closed: "2026-09-12T10:00:00+03:00", resolution: "fixed", reason: "есть" }),
+        "spa/SPA-5.md": taskFile("SPA-5", { title: "Исправлено агентом", status: "done", closed: "2026-09-12T10:00:00+03:00", resolution: "fixed", reason: "есть" }),
       },
       "/p/spa?status=done%2Ccancelled&auto=1&sort=closed",
     );
@@ -463,7 +458,7 @@ describe("список задач", () => {
   it("у закрытой задачи перед названием столбик удаления с подсказкой, прогресса в таблице нет", async () => {
     freezeDate("2026-09-12T12:00:00Z");
     const closed = { status: "cancelled", closed: "2026-09-10T10:00:00+03:00", resolution: "obsolete", reason: "модуль удалён" };
-    await renderApp({ ...FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "Устаревшая", ...closed }) }, "/?status=cancelled");
+    await renderApp({ ...FILES, "spa/SPA-5.md": taskFile("SPA-5", { title: "Устаревшая", ...closed }) }, "/?status=cancelled");
 
     const row = (await screen.findByText("Устаревшая")).closest("tr");
     if (!row) throw new Error("нет строки");
@@ -475,7 +470,7 @@ describe("список задач", () => {
 
   it("чип «закрыты агентом» со счётчиком показывает автозакрытые задачи проекта, свежие сверху", async () => {
     const auto = (id: string, title: string, closed: string) =>
-      taskFixture(id, { title, status: "done", closed, resolution: "fixed", reason: "есть" });
+      taskFile(id, { title, status: "done", closed, resolution: "fixed", reason: "есть" });
     const app = await renderApp({
       ...FILES,
       "spa/SPA-5.md": auto("SPA-5", "Старое исправление", "2026-09-12T10:00:00+03:00"),
@@ -501,7 +496,7 @@ describe("список задач", () => {
   it("чип «закрыты агентом» из обычного вида включает закрытые статусы", async () => {
     const app = await renderApp({
       ...FILES,
-      "spa/SPA-5.md": taskFixture("SPA-5", { title: "Исправлено агентом", status: "done", closed: "2026-09-12T10:00:00+03:00", resolution: "fixed", reason: "есть" }),
+      "spa/SPA-5.md": taskFile("SPA-5", { title: "Исправлено агентом", status: "done", closed: "2026-09-12T10:00:00+03:00", resolution: "fixed", reason: "есть" }),
     });
     await screen.findAllByRole("row");
     const autoChip = within(screen.getByRole("group", { name: "Тип" })).getByRole("button", { name: /закрыты агентом/ });
@@ -538,10 +533,10 @@ describe("список задач", () => {
   it("эпик и его задачи отмечены тоном эпика, тоны раздаются по номеру", async () => {
     await renderApp({
       "spa/project.md": projectFile("SPA"),
-      "spa/SPA-2.md": taskFixture("SPA-2", { title: "Эпик два", type: "epic" }),
-      "spa/SPA-10.md": taskFixture("SPA-10", { title: "Эпик десять", type: "epic" }),
-      "spa/SPA-11.md": taskFixture("SPA-11", { title: "Задача десятого", epic: "SPA-10" }),
-      "spa/SPA-12.md": taskFixture("SPA-12", { title: "Без эпика" }),
+      "spa/SPA-2.md": taskFile("SPA-2", { title: "Эпик два", type: "epic" }),
+      "spa/SPA-10.md": taskFile("SPA-10", { title: "Эпик десять", type: "epic" }),
+      "spa/SPA-11.md": taskFile("SPA-11", { title: "Задача десятого", epic: "SPA-10" }),
+      "spa/SPA-12.md": taskFile("SPA-12", { title: "Без эпика" }),
     });
     const rowOf = async (title: string) => {
       const row = (await screen.findByText(title)).closest("tr");
@@ -558,12 +553,12 @@ describe("список задач", () => {
   describe("фильтр по эпику", () => {
     const EPIC_FILES = {
       "spa/project.md": projectFile("SPA"),
-      "spa/SPA-1.md": taskFixture("SPA-1", { title: "Эпик загрузки", type: "epic" }),
-      "spa/SPA-2.md": taskFixture("SPA-2", { title: "Таймауты", epic: "SPA-1" }),
-      "spa/SPA-3.md": taskFixture("SPA-3", { title: "Ретраи", epic: "SPA-1" }),
-      "spa/SPA-4.md": taskFixture("SPA-4", { title: "Сам по себе" }),
+      "spa/SPA-1.md": taskFile("SPA-1", { title: "Эпик загрузки", type: "epic" }),
+      "spa/SPA-2.md": taskFile("SPA-2", { title: "Таймауты", epic: "SPA-1" }),
+      "spa/SPA-3.md": taskFile("SPA-3", { title: "Ретраи", epic: "SPA-1" }),
+      "spa/SPA-4.md": taskFile("SPA-4", { title: "Сам по себе" }),
     };
-    const EPIC_AND_TAG_FILES = { ...EPIC_FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "С тегом", tags: "[upload]" }) };
+    const EPIC_AND_TAG_FILES = { ...EPIC_FILES, "spa/SPA-5.md": taskFile("SPA-5", { title: "С тегом", tags: "[upload]" }) };
 
     it("кнопки «Эпик» и «Теги» стоят отдельной строкой, не в ряду чипов", async () => {
       await renderApp(EPIC_AND_TAG_FILES);
@@ -670,9 +665,9 @@ describe("шильдик «новая»", () => {
   const SEEN_KEY = "p-backlog.seen";
   const NEW_FILES = {
     "spa/project.md": projectFile("SPA"),
-    "spa/SPA-1.md": taskFixture("SPA-1", { title: "Старая", created: "2026-09-10T10:00:00+03:00" }),
-    "spa/SPA-2.md": taskFixture("SPA-2", { title: "Свежая", created: "2026-09-16T10:00:00+03:00" }),
-    "spa/SPA-3.md": taskFixture("SPA-3", {
+    "spa/SPA-1.md": taskFile("SPA-1", { title: "Старая", created: "2026-09-10T10:00:00+03:00" }),
+    "spa/SPA-2.md": taskFile("SPA-2", { title: "Свежая", created: "2026-09-16T10:00:00+03:00" }),
+    "spa/SPA-3.md": taskFile("SPA-3", {
       title: "Свежая закрытая",
       created: "2026-09-16T11:00:00+03:00",
       status: "done",
@@ -772,7 +767,7 @@ describe("область «Проекты»", () => {
   it("пустой список называет открытые задачи в неучтённых проектах", async () => {
     await renderApp({
       "spa/project.md": projectFile("SPA"),
-      "spa/SPA-2.md": taskFixture("SPA-2", { status: "done" }),
+      "spa/SPA-2.md": taskFile("SPA-2", { status: "done" }),
       "torg-io/project.md": projectFile("TI", [], { active: false }),
       "torg-io/TI-1.md": taskFile("TI-1"),
       "torg-io/TI-2.md": taskFile("TI-2"),
@@ -795,13 +790,7 @@ describe("область «Проекты»", () => {
   it("сбой загрузки проектов виден в списке и в боковой панели с «Повторить», а не как пустой беклог", async () => {
     let projectsFail = true;
     const app = await renderApp(FILES, "/", undefined, {
-      beforeRender: (testApp) => {
-        const request = testApp.request;
-        testApp.request = async (path, init) =>
-          path === "/api/projects" && projectsFail
-            ? new Response(JSON.stringify({ errors: ["EACCES: permission denied"] }), { status: 500, headers: { "content-type": "application/json" } })
-            : request(path, init);
-      },
+      beforeRender: interceptApi(async (path, _init, passOn) => (path === "/api/projects" && projectsFail ? accessDenied() : passOn())),
     });
 
     const main = await screen.findByRole("main");

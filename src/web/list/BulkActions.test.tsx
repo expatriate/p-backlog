@@ -6,58 +6,41 @@ import type { BatchRequest } from "../../core/api/contract";
 import { EXIT } from "../../cli/io";
 import { runCli } from "../../cli/run";
 import { baseCliEnv } from "../../cli/testing/cli-harness";
-import { loadBacklog } from "../../core/store/load";
-import { projectFile } from "../../core/store/testing/temp-dirs";
+import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import type { TestApp } from "../../server/testing/test-app";
-import { taskFixture } from "../testing/fixtures";
-import { renderApp, type RenderedApp } from "../testing/render-app";
+import { accessDenied, interceptApi, renderApp, type RenderedApp } from "../testing/render-app";
 import { hoverNone } from "../testing/setup";
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),
-  "spa/SPA-1.md": taskFixture("SPA-1", { title: "Таймауты загрузки", priority: "high", epic: "SPA-10" }),
-  "spa/SPA-3.md": taskFixture("SPA-3", { title: "Разобрать очередь", priority: "low" }),
-  "spa/SPA-10.md": taskFixture("SPA-10", { title: "Загрузка файлов", type: "epic" }),
+  "spa/SPA-1.md": taskFile("SPA-1", { title: "Таймауты загрузки", priority: "high", epic: "SPA-10" }),
+  "spa/SPA-3.md": taskFile("SPA-3", { title: "Разобрать очередь", priority: "low" }),
+  "spa/SPA-10.md": taskFile("SPA-10", { title: "Загрузка файлов", type: "epic" }),
   "torg-io/project.md": projectFile("TI"),
-  "torg-io/TI-1.md": taskFixture("TI-1", { title: "Каталог тормозит" }),
-  "torg-io/TI-5.md": taskFixture("TI-5", { title: "Каталог", type: "epic" }),
+  "torg-io/TI-1.md": taskFile("TI-1", { title: "Каталог тормозит" }),
+  "torg-io/TI-5.md": taskFile("TI-5", { title: "Каталог", type: "epic" }),
 };
 
 function holdBatches(answer: "ok" | "server-error") {
   const { promise: released, resolve: release }: PromiseWithResolvers<void> = Promise.withResolvers();
   const { promise: answered, resolve: markAnswered }: PromiseWithResolvers<void> = Promise.withResolvers();
-  const beforeRender = (app: TestApp) => {
-    const request = app.request;
-    app.request = async (path, init) => {
-      if (path !== "/api/tasks/batch") return request(path, init);
-      await released;
-      const response =
-        answer === "ok"
-          ? await request(path, init)
-          : new Response(JSON.stringify({ errors: ["EACCES: permission denied"] }), { status: 500, headers: { "content-type": "application/json" } });
-      markAnswered();
-      return response;
-    };
-  };
+  const beforeRender = interceptApi(async (path, _init, passOn) => {
+    if (path !== "/api/tasks/batch") return passOn();
+    await released;
+    const response = answer === "ok" ? await passOn() : accessDenied();
+    markAnswered();
+    return response;
+  });
   return { release, answered, beforeRender };
 }
 
 function recordBatches() {
   const sent: BatchRequest[] = [];
-  const beforeRender = (app: TestApp) => {
-    const request = app.request;
-    app.request = async (path, init) => {
-      if (path === "/api/tasks/batch") sent.push(JSON.parse(String(init?.body)) as BatchRequest);
-      return request(path, init);
-    };
-  };
+  const beforeRender = interceptApi(async (path, init, passOn) => {
+    if (path === "/api/tasks/batch") sent.push(JSON.parse(String(init?.body)) as BatchRequest);
+    return passOn();
+  });
   return { sent, beforeRender };
-}
-
-async function taskOnDisk(root: string, id: string) {
-  const task = (await loadBacklog(root)).tasks.find((candidate) => candidate.id === id);
-  if (!task) throw new Error(`нет задачи ${id}`);
-  return task;
 }
 
 async function select(app: RenderedApp, ...ids: string[]) {
@@ -147,7 +130,7 @@ describe("панель массовых действий", () => {
       action: { kind: "close", reason: "дубль PB-1" },
     });
     await waitFor(async () => {
-      const closed = await taskOnDisk(app.root, "SPA-3");
+      const closed = await app.taskOnDisk("SPA-3");
       expect([closed.status, closed.resolution, closed.reason]).toEqual(["cancelled", "obsolete", "дубль PB-1"]);
     });
     await waitFor(() => expect(screen.queryByRole("region", { name: "Действия с выбранными" })).toBeNull());
@@ -184,7 +167,7 @@ describe("панель массовых действий", () => {
     await app.user.click(within(menu).getByRole("button", { name: "критичный" }));
 
     await waitFor(() => expect(sent.map((request) => request.action)).toEqual([{ kind: "priority", priority: "critical" }]));
-    await waitFor(async () => expect((await taskOnDisk(app.root, "TI-1")).priority).toBe("critical"));
+    await waitFor(async () => expect((await app.taskOnDisk("TI-1")).priority).toBe("critical"));
   });
 
   it("«Эпик» предлагает эпики проекта выбранных задач и «Вынуть из эпика»", async () => {
@@ -196,14 +179,14 @@ describe("панель массовых действий", () => {
     const menu = within(panel()).getByRole("group", { name: "Эпик" });
     expect(within(menu).queryByText("TI-5")).toBeNull();
     await app.user.click(within(menu).getByRole("button", { name: /SPA-10/ }));
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-3")).epic).toBe("SPA-10"));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-3")).epic).toBe("SPA-10"));
 
     await select(app, "SPA-3");
     await app.user.click(within(panel()).getByRole("button", { name: "Эпик" }));
     await app.user.click(within(panel()).getByRole("button", { name: "Вынуть из эпика" }));
 
     await waitFor(() => expect(sent.map((request) => request.action)).toEqual([{ kind: "epic", epic: "SPA-10" }, { kind: "epic", epic: null }]));
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-3")).epic).toBeUndefined());
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-3")).epic).toBeUndefined());
   });
 
   it("для задач из разных проектов «Эпик» выключен с подсказкой", async () => {
@@ -288,7 +271,7 @@ describe("панель массовых действий", () => {
     await answered;
     await act(async () => {});
 
-    expect((await taskOnDisk(app.root, "SPA-3")).priority).toBe("critical");
+    expect((await app.taskOnDisk("SPA-3")).priority).toBe("critical");
     expect(screen.queryByText("Изменена 1 из 1")).toBeNull();
     expect(within(panel()).getByRole("status").textContent).toBe("Выбрано 1");
   });

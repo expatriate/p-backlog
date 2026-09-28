@@ -15,6 +15,19 @@ export type RenderedApp = TestApp & {
   route: () => string;
 };
 
+export type ApiInterceptor = (path: string, init: RequestInit | undefined, passOn: () => Promise<Response>) => Promise<Response>;
+
+export function interceptApi(intercept: ApiInterceptor): (app: TestApp) => void {
+  return (app) => {
+    const request = app.request;
+    app.request = (path, init) => intercept(path, init, () => request(path, init));
+  };
+}
+
+export const serverUnreachable = (): Promise<never> => Promise.reject(new TypeError("Failed to fetch"));
+
+export const accessDenied = (): Response => Response.json({ errors: ["EACCES: permission denied"] }, { status: 500 });
+
 export type RenderAppOptions = TestAppOptions & { beforeRender?: (app: TestApp) => void | Promise<void>; batchChunkSize?: number };
 
 export async function renderApp(files: Record<string, string>, route = "/", appRoutes: RouteObject[] = routes, options: RenderAppOptions = {}): Promise<RenderedApp> {

@@ -1,6 +1,7 @@
 import type { Hono } from "hono";
 import { onTestFinished } from "vitest";
 import type { Language } from "../../core/i18n/language";
+import type { Task } from "../../core/model/types";
 import { loadBacklog } from "../../core/store/load";
 import { writeSettings } from "../../core/store/settings";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
@@ -23,6 +24,7 @@ export type TestApp = {
   emitChange: (paths?: readonly string[]) => Promise<void>;
   request: (path: string, init?: RequestInit) => Promise<Response>;
   json: (path: string, method: "POST" | "PATCH" | "DELETE", body: unknown) => Promise<Response>;
+  taskOnDisk: (id: string) => Promise<Task>;
   taskVersion: (id: string) => Promise<string>;
 };
 
@@ -59,6 +61,12 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
     now: () => TEST_NOW,
   });
 
+  const taskOnDisk = async (id: string): Promise<Task> => {
+    const task = (await loadBacklog(root)).tasks.find((candidate) => candidate.id === id);
+    if (!task) throw new Error(`нет задачи ${id}`);
+    return task;
+  };
+
   const inFlight = new Set<Promise<Response>>();
   const request = (path: string, init: RequestInit = {}): Promise<Response> => {
     const response = Promise.resolve(app.request(`http://${TEST_HOST}${path}`, { ...init, headers: { host: TEST_HOST, ...init.headers } }));
@@ -86,11 +94,8 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
     request,
     json: (path, method, body) =>
       request(path, { method, body: JSON.stringify(body), headers: { "content-type": "application/json" } }),
-    taskVersion: async (id) => {
-      const task = (await loadBacklog(root)).tasks.find((candidate) => candidate.id === id);
-      if (!task) throw new Error(`нет задачи ${id}`);
-      return task.version;
-    },
+    taskOnDisk,
+    taskVersion: async (id) => (await taskOnDisk(id)).version,
   };
 }
 

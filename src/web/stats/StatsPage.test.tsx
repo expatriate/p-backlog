@@ -5,11 +5,10 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RouteObject } from "react-router";
 import { describe, expect, it } from "vitest";
-import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { routes } from "../app/App";
-import { taskFixture } from "../testing/fixtures";
 import { freezeDate } from "../testing/freeze-date";
-import { renderApp, type RenderedApp } from "../testing/render-app";
+import { interceptApi, renderApp, type RenderedApp } from "../testing/render-app";
 import { StatsPage } from "./StatsPage";
 import { NBSP } from "../../core/i18n/plural";
 import type { StatsReport } from "../../core/api/contract";
@@ -19,11 +18,11 @@ const spacedAs = (text: string) => (name: string) => name.replace(/\s+/g, " ") =
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),
-  "spa/SPA-1.md": taskFixture("SPA-1", { title: "Таймауты", priority: "high", tags: "[upload]", source: "src/upload/client.ts:88", created: "2026-09-10T10:00:00+03:00" }),
-  "spa/SPA-2.md": taskFixture("SPA-2", { title: "Логин", created: "2026-09-16T10:00:00+03:00" }),
-  "spa/SPA-3.md": taskFixture("SPA-3", { title: "Починили", status: "done", closed: "2026-09-17T10:00:00+03:00", created: "2026-09-15T10:00:00+03:00" }),
+  "spa/SPA-1.md": taskFile("SPA-1", { title: "Таймауты", priority: "high", tags: "[upload]", source: "src/upload/client.ts:88", created: "2026-09-10T10:00:00+03:00" }),
+  "spa/SPA-2.md": taskFile("SPA-2", { title: "Логин", created: "2026-09-16T10:00:00+03:00" }),
+  "spa/SPA-3.md": taskFile("SPA-3", { title: "Починили", status: "done", closed: "2026-09-17T10:00:00+03:00", created: "2026-09-15T10:00:00+03:00" }),
   "torg-io/project.md": projectFile("TI"),
-  "torg-io/TI-1.md": taskFixture("TI-1", { title: "Каталог", created: "2026-09-17T10:00:00+03:00" }),
+  "torg-io/TI-1.md": taskFile("TI-1", { title: "Каталог", created: "2026-09-17T10:00:00+03:00" }),
 };
 
 type StatsAnswer = (real: () => Promise<Response>) => Promise<Response>;
@@ -35,10 +34,7 @@ const failStats: StatsAnswer = () => Promise.resolve(new Response(JSON.stringify
 async function renderStatsWith(firstAnswer: StatsAnswer) {
   let answer = firstAnswer;
   const app = await renderApp(FILES, "/stats", routes, {
-    beforeRender: (backlog) => {
-      const request = backlog.request;
-      backlog.request = (path, init) => (path === "/api/stats" ? answer(() => request(path, init)) : request(path, init));
-    },
+    beforeRender: interceptApi((path, _init, passOn) => (path === "/api/stats" ? answer(passOn) : passOn())),
   });
   return { app, answerStatsWith: (next: StatsAnswer) => (answer = next) };
 }
@@ -71,9 +67,9 @@ describe("страница статистики", () => {
   it("«Задачи сегодня» считает заведённые и закрытые за день в выбранной области", async () => {
     const today = {
       ...FILES,
-      "spa/SPA-4.md": taskFixture("SPA-4", { title: "Сегодняшняя", created: "2026-09-18T10:00:00+03:00" }),
-      "spa/SPA-5.md": taskFixture("SPA-5", { title: "Закрыли сегодня", status: "done", closed: "2026-09-18T11:00:00+03:00", created: "2026-09-12T10:00:00+03:00" }),
-      "torg-io/TI-2.md": taskFixture("TI-2", { title: "Чужая сегодняшняя", created: "2026-09-18T10:00:00+03:00" }),
+      "spa/SPA-4.md": taskFile("SPA-4", { title: "Сегодняшняя", created: "2026-09-18T10:00:00+03:00" }),
+      "spa/SPA-5.md": taskFile("SPA-5", { title: "Закрыли сегодня", status: "done", closed: "2026-09-18T11:00:00+03:00", created: "2026-09-12T10:00:00+03:00" }),
+      "torg-io/TI-2.md": taskFile("TI-2", { title: "Чужая сегодняшняя", created: "2026-09-18T10:00:00+03:00" }),
     };
 
     await renderApp(today, "/p/spa/stats");
@@ -86,8 +82,8 @@ describe("страница статистики", () => {
   it("«Задачи сегодня» в области «Проекты» считает все активные проекты", async () => {
     const today = {
       ...FILES,
-      "spa/SPA-4.md": taskFixture("SPA-4", { title: "Сегодняшняя", created: "2026-09-18T10:00:00+03:00" }),
-      "torg-io/TI-2.md": taskFixture("TI-2", { title: "Чужая сегодняшняя", created: "2026-09-18T10:00:00+03:00" }),
+      "spa/SPA-4.md": taskFile("SPA-4", { title: "Сегодняшняя", created: "2026-09-18T10:00:00+03:00" }),
+      "torg-io/TI-2.md": taskFile("TI-2", { title: "Чужая сегодняшняя", created: "2026-09-18T10:00:00+03:00" }),
     };
 
     await renderApp(today, "/stats");
@@ -102,7 +98,7 @@ describe("страница статистики", () => {
     await renderApp(
       {
         ...FILES,
-        "spa/SPA-6.md": taskFixture("SPA-6", { title: "Прошлая неделя", created: "2026-09-08T10:00:00+03:00" }),
+        "spa/SPA-6.md": taskFile("SPA-6", { title: "Прошлая неделя", created: "2026-09-08T10:00:00+03:00" }),
         "spa/journal.jsonl": [
           created("2026-09-05T10:00:00+03:00", "SPA-1"),
           created("2026-09-08T10:00:00+03:00", "SPA-6"),
@@ -318,7 +314,7 @@ describe("вкладка «Код»", () => {
       {
         ...FILES,
         "spa/project.md": projectFile("SPA", [repo, "/nope/repo"]),
-        "spa/SPA-4.md": taskFixture("SPA-4", { title: "Починили загрузку", status: "done", resolution: "fixed", reason: `"Исправлено в ${sha}"`, created: "2026-09-11T10:00:00+03:00", closed: "2026-09-13T10:00:00+03:00" }),
+        "spa/SPA-4.md": taskFile("SPA-4", { title: "Починили загрузку", status: "done", resolution: "fixed", reason: `"Исправлено в ${sha}"`, created: "2026-09-11T10:00:00+03:00", closed: "2026-09-13T10:00:00+03:00" }),
       },
       "/p/spa/stats",
     );

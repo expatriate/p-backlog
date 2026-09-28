@@ -6,19 +6,11 @@ import { makeGraphDb } from "../../core/code-review-graph/testing/make-graph-db"
 import { loadBacklog } from "../../core/store/load";
 import { settingsFilePath } from "../../core/store/settings";
 import { makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
-import type { TestApp } from "../../server/testing/test-app";
-import { renderApp } from "../testing/render-app";
+import { interceptApi, renderApp, serverUnreachable } from "../testing/render-app";
 
-function failTasksRequest(app: TestApp): void {
-  const request = app.request;
-  app.request = async (path, init) => (path === "/api/tasks" ? Promise.reject(new TypeError("Failed to fetch")) : request(path, init));
-}
+const failTasksRequest = interceptApi(async (path, _init, passOn) => (path === "/api/tasks" ? serverUnreachable() : passOn()));
 
-function failProjectActivePatch(app: TestApp): void {
-  const request = app.request;
-  app.request = async (path, init) =>
-    path.startsWith("/api/projects/") && init?.method === "PATCH" ? Promise.reject(new TypeError("Failed to fetch")) : request(path, init);
-}
+const failProjectActivePatch = interceptApi(async (path, init, passOn) => (path.startsWith("/api/projects/") && init?.method === "PATCH" ? serverUnreachable() : passOn()));
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),

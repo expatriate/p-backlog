@@ -2,24 +2,21 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { loadBacklog } from "../../core/store/load";
 import { updateTask } from "../../core/store/testing/update-task";
-import { projectFile } from "../../core/store/testing/temp-dirs";
-import type { TestApp } from "../../server/testing/test-app";
-import { taskFixture } from "../testing/fixtures";
+import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import { freezeDate } from "../testing/freeze-date";
-import { renderApp, type RenderedApp } from "../testing/render-app";
+import { interceptApi, renderApp, type RenderedApp, serverUnreachable } from "../testing/render-app";
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),
-  "spa/SPA-1.md": taskFixture(
+  "spa/SPA-1.md": taskFile(
     "SPA-1",
     { title: "Таймауты загрузки", priority: "high", tags: "[upload]", blockedBy: "[SPA-2, SPA-99]", epic: "SPA-3" },
     "Описание\n\n## Чеклист\n- [ ] первый шаг\n- [x] второй шаг",
   ),
-  "spa/SPA-2.md": taskFixture("SPA-2", { title: "Блокер" }),
-  "spa/SPA-3.md": taskFixture("SPA-3", { title: "Эпик загрузки", type: "epic" }),
-  "spa/SPA-4.md": taskFixture("SPA-4", { title: "Связана", related: "[SPA-1]" }),
+  "spa/SPA-2.md": taskFile("SPA-2", { title: "Блокер" }),
+  "spa/SPA-3.md": taskFile("SPA-3", { title: "Эпик загрузки", type: "epic" }),
+  "spa/SPA-4.md": taskFile("SPA-4", { title: "Связана", related: "[SPA-1]" }),
 };
 
 function holdFirstPatch() {
@@ -28,28 +25,19 @@ function holdFirstPatch() {
     release = resolve;
   });
   const sent: string[] = [];
-  const beforeRender = (backlog: TestApp) => {
-    const request = backlog.request;
-    backlog.request = async (path, init) => {
-      if (init?.method === "PATCH") {
-        sent.push(path);
-        if (sent.length === 1) await released;
-      }
-      return await request(path, init);
-    };
-  };
+  const beforeRender = interceptApi(async (path, init, passOn) => {
+    if (init?.method === "PATCH") {
+      sent.push(path);
+      if (sent.length === 1) await released;
+    }
+    return await passOn();
+  });
   return { beforeRender, release: () => release(), sent };
-}
-
-async function taskOnDisk(root: string, id: string) {
-  const task = (await loadBacklog(root)).tasks.find((candidate) => candidate.id === id);
-  if (!task) throw new Error(`нет задачи ${id}`);
-  return task;
 }
 
 const CLOSED_FILES = {
   "spa/project.md": projectFile("SPA"),
-  "spa/SPA-1.md": taskFixture("SPA-1", {
+  "spa/SPA-1.md": taskFile("SPA-1", {
     title: "Таймауты загрузки",
     status: "done",
     closed: "2026-09-16T12:00:00Z",
@@ -69,8 +57,8 @@ describe("карточка закрытой задачи", () => {
 
     await app.user.click(within(panel).getByRole("button", { name: "Вернуть в беклог" }));
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).status).toBe("backlog"));
-    const reopened = await taskOnDisk(app.root, "SPA-1");
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).status).toBe("backlog"));
+    const reopened = await app.taskOnDisk("SPA-1");
     expect([reopened.closed, reopened.resolution, reopened.reason]).toEqual([undefined, undefined, undefined]);
   });
 
@@ -151,7 +139,7 @@ describe("карточка задачи", () => {
     await app.user.type(within(panel).getByRole("textbox", { name: "Название задачи" }), " и повторы");
     await app.user.keyboard("{Escape}");
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).title).toBe("Таймауты загрузки и повторы"));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).title).toBe("Таймауты загрузки и повторы"));
     expect(screen.getByRole("complementary", { name: "Задача SPA-1" })).toBeDefined();
   });
 
@@ -161,7 +149,7 @@ describe("карточка задачи", () => {
 
     await app.user.type(within(panel).getByRole("textbox", { name: "Название задачи" }), " снова{Enter}");
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).title).toBe("Таймауты загрузки снова"));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).title).toBe("Таймауты загрузки снова"));
   });
 
   it("закрывается по Esc и возвращает на список", async () => {
@@ -180,7 +168,7 @@ describe("карточка задачи", () => {
 
     await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Статус" }), "in-progress");
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).status).toBe("in-progress"));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).status).toBe("in-progress"));
   });
 
   it("категория выбирается и убирается в карточке", async () => {
@@ -189,10 +177,10 @@ describe("карточка задачи", () => {
     const select = within(panel).getByRole("combobox", { name: "Категория" });
 
     await app.user.selectOptions(select, "couplers");
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).category).toBe("couplers"));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).category).toBe("couplers"));
 
     await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Категория" }), "");
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).category).toBeUndefined());
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).category).toBeUndefined());
   });
 
   it("клик по пункту чеклиста переключает его в файле и двигает прогресс", async () => {
@@ -201,7 +189,7 @@ describe("карточка задачи", () => {
 
     await app.user.click(within(panel).getByRole("checkbox", { name: "первый шаг" }));
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("- [x] первый шаг"));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).body).toContain("- [x] первый шаг"));
     await waitFor(() => expect(within(panel).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("100"));
   });
 
@@ -211,7 +199,7 @@ describe("карточка задачи", () => {
 
     await app.user.click(within(panel).getByRole("checkbox", { name: "первый шаг" }));
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("- [x] первый шаг"));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).body).toContain("- [x] первый шаг"));
     expect(document.activeElement).not.toBe(panel);
   });
 
@@ -236,14 +224,14 @@ describe("карточка задачи", () => {
     await app.user.type(title, "Новое название");
     await app.user.tab();
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).title).toBe("Новое название"));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).title).toBe("Новое название"));
 
     const tags = within(panel).getByRole("textbox", { name: "Теги через запятую" });
     await app.user.clear(tags);
     await app.user.type(tags, "Upload, Network");
     await app.user.tab();
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).tags).toEqual(["upload", "network"]));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).tags).toEqual(["upload", "network"]));
   });
 
   it("неизвестный и неэпический ID показывают ошибку рядом с полем и не уходят на сервер", async () => {
@@ -258,23 +246,20 @@ describe("карточка задачи", () => {
     expect(error.textContent).toBe("SPA-1 не является эпиком");
     expect(epic.getAttribute("aria-invalid")).toBe("true");
     expect(epic.getAttribute("aria-describedby")).toBe(error.id);
-    expect((await taskOnDisk(app.root, "SPA-2")).epic).toBeUndefined();
+    expect((await app.taskOnDisk("SPA-2")).epic).toBeUndefined();
   });
 
   it.each([
     { id: "SPA-2", epic: "SPA-2", message: "задача не может быть своим эпиком" },
     { id: "SPA-3", epic: "SPA-5", message: "эпик не может входить в другой эпик" },
   ])("$id с эпиком $epic отклоняется у поля, как на сервере", async ({ id, epic, message }) => {
-    const files = { ...FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "Другой эпик", type: "epic" }) };
+    const files = { ...FILES, "spa/SPA-5.md": taskFile("SPA-5", { title: "Другой эпик", type: "epic" }) };
     const sentMethods: string[] = [];
     const app = await renderApp(files, `/p/spa/t/${id}`, undefined, {
-      beforeRender: (backlog) => {
-        const request = backlog.request;
-        backlog.request = async (path, init) => {
-          sentMethods.push(init?.method ?? "GET");
-          return await request(path, init);
-        };
-      },
+      beforeRender: interceptApi(async (_path, init, passOn) => {
+        sentMethods.push(init?.method ?? "GET");
+        return await passOn();
+      }),
     });
     const panel = await screen.findByRole("complementary", { name: `Задача ${id}` });
 
@@ -334,7 +319,7 @@ describe("связи и название: ошибки у поля", () => {
     expect((await within(blockedBy).findByRole("alert")).textContent).toContain("цикл блокеров");
 
     await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "critical");
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-2")).priority).toBe("critical"));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-2")).priority).toBe("critical"));
     expect(within(blockedBy).getByRole("alert").textContent).toContain("цикл блокеров");
 
     await app.user.clear(field);
@@ -353,7 +338,7 @@ describe("связи и название: ошибки у поля", () => {
 
     await app.user.click(within(blockedBy).getByRole("button", { name: "Убрать SPA-2" }));
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).blockedBy).toEqual(["SPA-99"]));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).blockedBy).toEqual(["SPA-99"]));
     await waitFor(() => expect(within(blockedBy).queryByRole("alert")).toBeNull());
   });
 
@@ -372,7 +357,7 @@ describe("связи и название: ошибки у поля", () => {
 });
 
 describe("правка агента, пока поле в фокусе", () => {
-  const AGENT_FILES = { ...FILES, "spa/SPA-5.md": taskFixture("SPA-5", { title: "Эпик агента", type: "epic" }) };
+  const AGENT_FILES = { ...FILES, "spa/SPA-5.md": taskFile("SPA-5", { title: "Эпик агента", type: "epic" }) };
   const AGENT_CHANGES = { title: "Название от агента", tags: ["agent"], epic: "SPA-5" };
 
   async function agentEdits(app: RenderedApp) {
@@ -394,7 +379,7 @@ describe("правка агента, пока поле в фокусе", () => {
     await app.user.click(within(panel).getByRole("combobox", { name: "Статус" }));
 
     await waitFor(() => expect(within(panel).getByRole(role, { name: field })).toHaveProperty("value", agentValue));
-    const onDisk = await taskOnDisk(app.root, "SPA-1");
+    const onDisk = await app.taskOnDisk("SPA-1");
     expect({ title: onDisk.title, tags: onDisk.tags, epic: onDisk.epic }).toEqual(AGENT_CHANGES);
   });
 
@@ -409,13 +394,13 @@ describe("правка агента, пока поле в фокусе", () => {
 
     expect((await within(panel).findByRole("alert")).textContent).toContain("изменилось на диске");
     expect(title).toHaveProperty("value", "Таймауты загрузки и повторы");
-    expect((await taskOnDisk(app.root, "SPA-1")).title).toBe(AGENT_CHANGES.title);
+    expect((await app.taskOnDisk("SPA-1")).title).toBe(AGENT_CHANGES.title);
 
     await app.user.click(title);
     await app.user.tab();
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).title).toBe("Таймауты загрузки и повторы"));
-    expect((await taskOnDisk(app.root, "SPA-1")).tags).toEqual(AGENT_CHANGES.tags);
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).title).toBe("Таймауты загрузки и повторы"));
+    expect((await app.taskOnDisk("SPA-1")).tags).toEqual(AGENT_CHANGES.tags);
   });
 
   const MINE = "Таймауты загрузки и повторы";
@@ -452,7 +437,7 @@ describe("правка агента, пока поле в фокусе", () => {
     const { panel, title } = await conflictOnTitle(app);
 
     await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "critical");
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).priority).toBe("critical"));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).priority).toBe("critical"));
     expect(alertTexts(panel).join()).toContain(CONFLICT);
 
     await app.user.click(within(panel).getByRole("button", { name: "Закрыть" }));
@@ -460,7 +445,7 @@ describe("правка агента, пока поле в фокусе", () => {
     expect(confirm).toHaveBeenCalledWith("Уйти, не сохранив правку поля?");
     expect(screen.getByRole("complementary", { name: "Задача SPA-1" })).toBeDefined();
     expect(title).toHaveProperty("value", MINE);
-    expect((await taskOnDisk(app.root, "SPA-1")).title).toBe(AGENT_CHANGES.title);
+    expect((await app.taskOnDisk("SPA-1")).title).toBe(AGENT_CHANGES.title);
   });
 
   it.each([
@@ -481,14 +466,11 @@ describe("правка агента, пока поле в фокусе", () => {
   it("правка, которую не удалось записать, не заменяется молча правкой агента", async () => {
     let failNextPatch = true;
     const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1", undefined, {
-      beforeRender: (backlog) => {
-        const request = backlog.request;
-        backlog.request = async (path, init) => {
-          if (init?.method !== "PATCH" || !failNextPatch) return request(path, init);
-          failNextPatch = false;
-          return Promise.reject(new TypeError("Failed to fetch"));
-        };
-      },
+      beforeRender: interceptApi(async (_path, init, passOn) => {
+        if (init?.method !== "PATCH" || !failNextPatch) return passOn();
+        failNextPatch = false;
+        return serverUnreachable();
+      }),
     });
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
     const title = within(panel).getByRole("textbox", { name: "Название задачи" });
@@ -502,20 +484,15 @@ describe("правка агента, пока поле в фокусе", () => {
 
     await waitFor(() => expect(alertTexts(panel).join()).toContain(CONFLICT));
     expect(title).toHaveProperty("value", MINE);
-    expect((await taskOnDisk(app.root, "SPA-1")).title).toBe(AGENT_CHANGES.title);
+    expect((await app.taskOnDisk("SPA-1")).title).toBe(AGENT_CHANGES.title);
   });
 });
 
 describe("сервер не принял сохранение", () => {
-  function failPatches(answer: () => Promise<Response>) {
-    return (backlog: TestApp) => {
-      const request = backlog.request;
-      backlog.request = async (path, init) => (init?.method === "PATCH" ? answer() : request(path, init));
-    };
-  }
+  const failPatches = (answer: () => Promise<Response>) => interceptApi(async (_path, init, passOn) => (init?.method === "PATCH" ? answer() : passOn()));
 
   it.each([
-    { reason: "сервер недоступен", answer: () => Promise.reject(new TypeError("Failed to fetch")), text: "Сервер беклога не отвечает. Запустите его: npm start" },
+    { reason: "сервер недоступен", answer: serverUnreachable, text: "Сервер беклога не отвечает. Запустите его: npm start" },
     { reason: "ошибка 500 без текста", answer: async () => Response.json({}, { status: 500 }), text: "Сервер вернул ошибку 500" },
   ])("$reason — карточка и поле связей объясняют это по-русски", async ({ answer, text }) => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-2", undefined, { beforeRender: failPatches(answer) });
@@ -541,8 +518,8 @@ describe("сохранения карточки идут по очереди", (
     await app.user.click(within(panel).getByRole("checkbox", { name: "второй шаг" }));
     patches.release();
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("- [ ] второй шаг"));
-    expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("- [x] первый шаг");
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).body).toContain("- [ ] второй шаг"));
+    expect((await app.taskOnDisk("SPA-1")).body).toContain("- [x] первый шаг");
     expect(within(panel).queryByRole("alert")).toBeNull();
   });
 });
@@ -574,11 +551,11 @@ describe("черновик описания при уходе с задачи", 
     await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
 
     await waitFor(() => expect(within(panel).getByRole("alert").textContent).toContain("Описание изменилось на диске"));
-    expect((await taskOnDisk(app.root, "SPA-1")).body).toBe(agentBody);
+    expect((await app.taskOnDisk("SPA-1")).body).toBe(agentBody);
 
     await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("черновик"));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).body).toContain("черновик"));
   });
 
   it("своя правка поля во время черновика не выдаётся за конфликт описания", async () => {
@@ -594,8 +571,8 @@ describe("черновик описания при уходе с задачи", 
     await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe("Сохранено"));
     await app.user.click(save);
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("черновик"));
-    expect((await taskOnDisk(app.root, "SPA-1")).priority).toBe("critical");
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).body).toContain("черновик"));
+    expect((await app.taskOnDisk("SPA-1")).priority).toBe("critical");
     expect(within(panel).queryByRole("alert")).toBeNull();
   });
 
@@ -611,8 +588,8 @@ describe("черновик описания при уходе с задачи", 
     expect(within(panel).getByRole("button", { name: "Отмена" }).getAttribute("aria-disabled")).toBe("true");
     patches.release();
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).priority).toBe("critical"));
-    expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("черновик");
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).priority).toBe("critical"));
+    expect((await app.taskOnDisk("SPA-1")).body).toContain("черновик");
     expect(within(panel).queryByRole("alert")).toBeNull();
   });
 
@@ -666,7 +643,7 @@ describe("черновик описания при уходе с задачи", 
     await app.user.type(title, " и ещё");
     patches.release();
 
-    await waitFor(async () => expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("черновик"));
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).body).toContain("черновик"));
     await waitFor(() => expect(within(panel).getByRole("button", { name: "Редактировать описание" })).toBeDefined());
     expect(document.activeElement).toBe(title);
     expect(patches.sent).toHaveLength(1);
@@ -685,7 +662,7 @@ describe("черновик описания при уходе с задачи", 
     await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
 
     await waitFor(() => expect(document.activeElement).toBe(within(panel).getByRole("button", { name: "Редактировать описание" })));
-    expect((await taskOnDisk(app.root, "SPA-1")).body).toContain("ещё");
+    expect((await app.taskOnDisk("SPA-1")).body).toContain("ещё");
   });
 
   it("закрытие карточки спрашивает: отказ оставляет черновик, согласие закрывает", async () => {
