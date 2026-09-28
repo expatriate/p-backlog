@@ -274,4 +274,5 @@ export const coreEn: CoreMessages = {
   checkFix,
   checkProblem,
   candidatesRecordFailed: (projectId, detail) => `Could not record candidates to the ${projectId} journal: ${detail}`,
+  branchOriginsReadFailed: (projectId, detail) => `Could not read the ${projectId} journal — tasks from unmerged branches are checked as usual: ${detail}`,
 };

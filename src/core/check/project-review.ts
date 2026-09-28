@@ -32,8 +32,11 @@ type SymbolSightings = SymbolFilterResult & { context: ProjectContext; plans: An
 
 type SightingScope = { repo: string; facts: RepoFacts; graph: CodeGraph | null; coverage: CheckCoverage };
 
-export async function creationOrigins(root: string, projectId: string): Promise<Map<string, TaskOrigin>> {
-  const journal = await readJournal(join(root, projectId), projectId).catch(() => null);
+export async function creationOrigins(root: string, projectId: string, onUnreadable: (error: unknown) => void): Promise<Map<string, TaskOrigin>> {
+  const journal = await readJournal(join(root, projectId), projectId).catch((error: unknown) => {
+    onUnreadable(error);
+    return null;
+  });
   return new Map((journal?.events ?? []).flatMap((event) => (event.kind === "created" && event.origin !== undefined ? [[event.task, event.origin] as const] : [])));
 }
 

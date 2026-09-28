@@ -10,13 +10,13 @@ import { findGitRoots } from "../store/resolve-project";
 import { updateTaskInIndex } from "../store/update";
 import { isReviewable, type AnchorPlan, type Candidate } from "./candidates";
 import { COVERAGE } from "./check-coverage";
-import { applyFixes, type FixOutcome } from "./check-fixes";
+import { applyFixes, fixFailure, type FixOutcome } from "./check-fixes";
 import { findProblems } from "./find-problems";
 import type { CheckFix, CheckProblem } from "./findings";
 import { projectCheckout } from "./project-repo";
 import { creationOrigins, projectReview } from "./project-review";
 
-type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed">;
+type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed" | "branchOriginsReadFailed">;
 
 export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string; messages: CheckTexts; workingDir?: string | undefined };
 
@@ -32,17 +32,18 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const workingRoots = request.workingDir === undefined ? null : findGitRoots(request.workingDir);
   const checkouts = new Map(await Promise.all(projects.map(async (project) => [project.id, await projectCheckout(project, request.home, workingRoots)] as const)));
   const repos = new Map([...checkouts].map(([projectId, checkout]) => [projectId, checkout?.path]));
-  const reviews = await Promise.all(projects.map(async (project) => projectReview(project, current.tasks, repos.get(project.id), await creationOrigins(root, project.id), request.mode)));
+  const originsOf = (projectId: string) => creationOrigins(root, projectId, (error) => console.error(request.messages.branchOriginsReadFailed(projectId, errorText(error))));
+  const reviews = await Promise.all(projects.map(async (project) => projectReview(project, current.tasks, repos.get(project.id), await originsOf(project.id), request.mode)));
   const candidates = reviews.flatMap((review) => review.candidates);
   const anchorPlans = reviews.filter((review) => checkouts.get(review.projectId)?.linkedWorktree !== true).flatMap((review) => review.plans);
-  const moved = await applyAnchorPlans(current.tasks, anchorPlans, request.now);
+  const anchors = await applyAnchorPlans(current.tasks, anchorPlans, request.now);
   const unchecked = new Map(reviews.map((review) => [review.projectId, review.unchecked]));
   const awaiting = new Set(reviews.flatMap((review) => review.awaitingMerge));
   const judged = current.tasks.filter((task) => !awaiting.has(task.id));
   await recordCandidates(root, judged, { candidates, filtered: reviews.flatMap((review) => review.filtered), unchecked }, request);
   const reviewProblems = reviews.flatMap((review) => review.problems);
-  const problems = coverage.reportsProblems ? [...fixes.failed, ...findProblems(current, projects, repos, inScope), ...reviewProblems] : [];
-  return { fixed: [...fixes.fixed, ...moved], problems, candidates };
+  const problems = coverage.reportsProblems ? [...fixes.failed, ...anchors.failed, ...findProblems(current, projects, repos, inScope), ...reviewProblems] : [];
+  return { fixed: [...fixes.fixed, ...anchors.fixed], problems, candidates };
 }
 
 type CheckFindings = { candidates: readonly Candidate[]; filtered: readonly FilteredSighting[]; unchecked: ReadonlyMap<string, readonly CandidateEvidence[]> };
@@ -56,17 +57,16 @@ async function recordCandidates(root: string, tasks: readonly Task[], { candidat
     const reviewed = tasks.filter((task) => task.projectId === projectId && isReviewable(task)).map((task) => task.id);
     const endsGone = COVERAGE[mode].endsGoneEpisodes;
     if (found.length === 0 && filteredHere.length === 0 && (!endsGone || reviewed.length === 0)) continue;
+    const reportFailure = (error: unknown) => console.error(messages.candidatesRecordFailed(projectId, errorText(error)));
     try {
       const journal = await readJournal(dir, projectId);
       const states = episodeStates(journal.events);
       const sightings = found.map(sightingOf);
       const checked = CANDIDATE_EVIDENCE.filter((evidence) => !(unchecked.get(projectId) ?? []).includes(evidence));
       const gone = endsGone ? candidateGoneEvents({ sightings, reviewed, checked }, states, now) : [];
-      await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, states, now)], (path, error) => {
-        throw error;
-      });
+      await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, states, now)], (_path, error) => reportFailure(error));
     } catch (error) {
-      console.error(messages.candidatesRecordFailed(projectId, errorText(error)));
+      reportFailure(error);
     }
   }
 }
@@ -78,15 +78,17 @@ function sightingOf(candidate: Candidate): CandidateSighting {
   return sighting;
 }
 
-async function applyAnchorPlans(tasks: readonly Task[], plans: readonly AnchorPlan[], now: Date): Promise<CheckFix[]> {
+async function applyAnchorPlans(tasks: readonly Task[], plans: readonly AnchorPlan[], now: Date): Promise<FixOutcome> {
   const index = buildIndex(tasks);
-  const moved: CheckFix[] = [];
+  const fixed: CheckFix[] = [];
+  const failed: CheckProblem[] = [];
   for (const plan of plans) {
     const task = index.byId.get(plan.id);
     if (task === undefined) continue;
     const result = await updateTaskInIndex(index, { id: plan.id, changes: plan.changes, expectedVersion: task.version, now, via: "check" });
-    if (result.ok && plan.moved !== undefined) moved.push(plan.moved);
+    if (!result.ok) failed.push(fixFailure(plan.id, result));
+    else if (plan.moved !== undefined) fixed.push(plan.moved);
   }
-  return moved;
+  return { fixed, failed };
 }
 

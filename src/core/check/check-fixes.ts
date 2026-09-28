@@ -32,7 +32,7 @@ export async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: str
   return { fixed, failed };
 }
 
-function fixFailure(taskId: string, failure: UpdateTaskFailure): CheckProblem {
+export function fixFailure(taskId: string, failure: UpdateTaskFailure): CheckProblem {
   switch (failure.reason) {
     case "invalid":
       return { kind: "fix-failed", taskId, cause: "invalid", problems: failure.problems };

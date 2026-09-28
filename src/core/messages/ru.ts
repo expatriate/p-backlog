@@ -279,5 +279,6 @@ export const coreRu = {
   checkFix,
   checkProblem,
   candidatesRecordFailed: (projectId: string, detail: string): string => `Не удалось записать кандидатов в журнал ${projectId}: ${detail}`,
+  branchOriginsReadFailed: (projectId: string, detail: string): string => `Не удалось прочитать журнал ${projectId} — задачи из невлитых веток проверяются как обычные: ${detail}`,
 };
 
