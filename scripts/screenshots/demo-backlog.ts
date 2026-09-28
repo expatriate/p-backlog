@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { execProgram } from "../../src/cli/exec";
+import { hostCliEnv } from "../../src/cli/host-env";
 import { runCli } from "../../src/cli/run";
 import type { Language } from "../../src/core/i18n/language";
 import { coreMessages } from "../../src/core/messages";
@@ -128,11 +128,8 @@ export async function buildDemoBacklog(scenario: Scenario, texts: Texts, languag
       home: paths.home,
       backlogRoot: paths.backlogRoot,
       packageRoot: repoRoot,
-      platform: process.platform,
-      uid: process.getuid?.() ?? 0,
-      nodePath: process.execPath,
+      ...hostCliEnv(),
       cliPath: join(repoRoot, "dist/cli.js"),
-      exec: execProgram,
       stopProcess: () => false,
       env: {},
       now: () => clock,

@@ -8,7 +8,7 @@ import { appendRun } from "../core/store/runs";
 import { resolveBacklogRoot } from "../core/store/paths";
 import { localeLanguage, settleLanguage } from "../core/store/settings";
 import { suppressSqliteExperimentalWarning } from "../core/sqlite-warning";
-import { execProgram } from "./exec";
+import { hostCliEnv } from "./host-env";
 import { tidyAfterCommand } from "./housekeeping";
 import { cliMessages, type CliMessages } from "./messages";
 import { commandName, runCli } from "./run";
@@ -35,11 +35,8 @@ const exitCode = await runCli(argv, {
   home,
   backlogRoot,
   packageRoot,
-  platform: process.platform,
-  uid: process.getuid?.() ?? 0,
-  nodePath: process.execPath,
+  ...hostCliEnv(),
   cliPath,
-  exec: execProgram,
   stopProcess: (pid) => {
     try {
       process.kill(pid);
