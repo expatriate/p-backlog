@@ -1,6 +1,7 @@
 import { MEMORY_HISTORY_MS } from "../../core/api/memory";
 import { HOUR_MS } from "../../core/model/dates";
 import { CHURN_DAYS } from "../../core/code/code-window";
+import { TEST_DIRECTORIES, TEST_FILE_GLOBS } from "../../core/code/test-paths";
 import { formatDecimal } from "../../core/i18n/format";
 import { countEn, NBSP, pluralEn } from "../../core/i18n/plural";
 import { STALE_URGENT_DAYS } from "../../core/stats/breakdowns";
@@ -186,7 +187,7 @@ export const statsEn: StatsMessages = {
   explainerFixed:
     "Fixed ones are exact: lines of the commit from the close reason, without lock files, docs and images; a commit for several tasks is split evenly. Tasks closed without a fix and fixed ones without a found commit are not counted.",
   explainerPending: `Pending ones are estimated: the median of fixes in the same category (if there are at least ${MIN_FIXES_FOR_ESTIMATE}), otherwise of all fixes.`,
-  explainerTests: "Code and tests: test files are *.test.*, *.spec.*, *_test.*, test_*.py and the test, tests, __tests__, e2e, spec folders. For pending ones, the share of tests in the same fixes.",
+  explainerTests: `Code and tests: test files are ${TEST_FILE_GLOBS.join(", ")} and the ${TEST_DIRECTORIES.join(", ")} folders. For pending ones, the share of tests in the same fixes.`,
   explainerNoise: `Noise without backlog = deferred ÷ (lines in pull requests + pending estimate); fixes are already inside pull requests and are not counted twice. The window starts when the backlog was adopted in the project, no earlier than ${STATS_PERIOD} ago.`,
   now: "Now:",
   fixedNow: (fixedTasks, fixedLines) => `${tasks(fixedTasks)} — ${linesText(fixedLines)}`,

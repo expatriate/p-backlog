@@ -1,6 +1,7 @@
 import { MEMORY_HISTORY_MS } from "../../core/api/memory";
 import { HOUR_MS } from "../../core/model/dates";
 import { CHURN_DAYS } from "../../core/code/code-window";
+import { TEST_DIRECTORIES, TEST_FILE_GLOBS } from "../../core/code/test-paths";
 import { formatDecimal } from "../../core/i18n/format";
 import { countRu, NBSP, pluralRu } from "../../core/i18n/plural";
 import type { FoundHow } from "../../core/journal/events";
@@ -206,7 +207,7 @@ export const statsRu = {
   explainerFixed:
     "Исправленные — точно: строки коммита из причины закрытия, без lock-файлов, документации и картинок; коммит на несколько задач делится поровну. Не считаются задачи, закрытые без исправления, и исправленные без найденного коммита.",
   explainerPending: `Ожидающие — оценка: медиана исправлений той же категории (если их не меньше ${MIN_FIXES_FOR_ESTIMATE}), иначе всех исправлений.`,
-  explainerTests: "Код и тесты: тестовые файлы — *.test.*, *.spec.*, *_test.*, test_*.py и каталоги test, tests, __tests__, e2e, spec. Для ожидающих — доля тестов в тех же исправлениях.",
+  explainerTests: `Код и тесты: тестовые файлы — ${TEST_FILE_GLOBS.join(", ")} и каталоги ${TEST_DIRECTORIES.join(", ")}. Для ожидающих — доля тестов в тех же исправлениях.`,
   explainerNoise: `Шум без беклога = вынесено ÷ (строк в пулреквестах + оценка ожидающих); исправления уже внутри пулреквестов и не удваиваются. Окно — с внедрения беклога в проекте, не раньше ${STATS_PERIOD_GENITIVE} назад.`,
   now: "Сейчас:",
   fixedNow: (fixedTasks: number, fixedLines: number): string => `${tasks(fixedTasks)} — ${linesText(fixedLines)}`,
