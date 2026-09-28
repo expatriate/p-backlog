@@ -21,6 +21,7 @@ export type RepoFacts = {
 };
 
 const DIFF_LINE_LIMIT = 80;
+const STATUS_CODE_WIDTH = 3;
 
 export type PathMarks = ReadonlyMap<string, number>;
 
@@ -128,8 +129,8 @@ function parseStatus(output: string): string[] {
   const paths: string[] = [];
   for (let index = 0; index < entries.length; index++) {
     const entry = entries[index] ?? "";
-    if (entry.length < 4) continue;
-    paths.push(entry.slice(3));
+    if (entry.length <= STATUS_CODE_WIDTH) continue;
+    paths.push(entry.slice(STATUS_CODE_WIDTH));
     if (/^(?:[RC].|.[RC])/.test(entry)) index++;
   }
   return paths;

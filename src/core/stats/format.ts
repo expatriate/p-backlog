@@ -1,3 +1,5 @@
+import { toPercent } from "./numbers";
+
 export type ProjectLabel = (projectId: string, label: string) => string;
 
 export const plainLabel: ProjectLabel = (_projectId, label) => label;
@@ -9,7 +11,7 @@ export function scopeLabel(scopeProjectId: string | undefined): ProjectLabel {
 }
 
 export function formatShare(share: number | null): string {
-  return share === null ? "—" : `${Math.round(share * 100)}%`;
+  return share === null ? "—" : `${toPercent(share)}%`;
 }
 
 export function formatSigned(value: number): string {

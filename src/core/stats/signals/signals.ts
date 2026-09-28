@@ -1,7 +1,7 @@
 import { STALE_LOW_DAYS, staleLowTasks } from "../../model/query";
 import { STALE_URGENT_DAYS, urgentStaleCount } from "../breakdowns";
 import { inWorkTasks } from "../flow/current";
-import { sum } from "../numbers";
+import { sum, toPercent } from "../numbers";
 import { period, type Period } from "../period";
 import type { CandidateEvidence, CheckMethod } from "../../journal/events";
 import { accuracy, decidedOf, isMeasuredEvidence, methodAccuracy } from "../quality/accuracy";
@@ -60,7 +60,7 @@ function noisyChecks({ histories }: ReportBase, now: Date): Signal[] {
   return checkGauges(histories, period(now.getTime() - NOISY_WINDOW_DAYS * DAY_MS, now.getTime())).flatMap((gauge) => {
     const decided = decidedOf(gauge);
     if (decided < NOISY_MIN_DECIDED || gauge.precision === null) return [];
-    const percent = Math.round(gauge.precision * 100);
+    const percent = toPercent(gauge.precision);
     if (percent >= NOISY_MAX_PERCENT) return [];
     return [{ kind: "noisy-check", params: { evidence: gauge.evidence, method: gauge.method, percent, decided, windowDays: NOISY_WINDOW_DAYS } }];
   });
