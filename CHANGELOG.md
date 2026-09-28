@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.0
 
 - The task list no longer says "No tasks yet" while the project list is loading or after it failed to load: it shows
   loading, or the error with Retry — in the list and in the sidebar.
