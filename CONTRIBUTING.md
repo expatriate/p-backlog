@@ -45,6 +45,8 @@ shells and line endings portable: the CLI and the hooks run on all three.
   the type); Cyrillic outside those catalogs, tests and `testing/` folders fails `npm run lint`. The skill has a Russian
   (`skill/backlog`) and an English (`skill/backlog-en`) variant that must stay in step — `tests/skill-parity.test.ts`
   checks it. After changing a skill or the version, run `npm run plugins` and commit the regenerated `plugins/`.
+- **The web bundle runs in the browser.** Code under `src/web` may import shared modules from `src/core`, but nothing
+  that reaches a Node module (`node:fs`, `node:child_process`, …) — `npm run build` fails if one gets in.
 - **Caches must equal a recomputation.** Statistics caches (journal tails, report memos, the git code cache) may only
   change how much work is done, never the result.
 

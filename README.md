@@ -171,8 +171,8 @@ The retention window isn't configurable.
 | `backlog service install \| uninstall \| status` | Autostarts the web server at login: launchd on macOS, systemd --user on Linux, a Startup-folder script on Windows; `status` shows whether it is installed and responding |
 
 Exit codes: `0` success, `1` argument or rule error, `2` not found, `3` refused (the task is closed,
-blocked, or every matching task is blocked), `4` the command failed, `5` `check` found candidates or task problems to
-work through.
+blocked, or every matching task is blocked), `4` the command failed (including a task file locked by another process),
+`5` `check` found candidates or task problems to work through.
 
 With `--json`, `new`, `show`, and `take` print the same task object (with progress, blockers, and links),
 while `list` and `take --path` print an array of such objects.
