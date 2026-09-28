@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { SOURCE_LINES } from "./source-lines";
 
-type SourceSpan = { first: number; last: number; context: number };
+type SourceSpan = { first: number; last: number; context: number; isRange: boolean };
 type Window = { from: number; to: number };
 
 const LINE_CONTEXT = 2;
@@ -46,12 +46,12 @@ export function findMoved(text: string, source: string, anchor: string): string 
   if (matches.length !== 1 || start === undefined) return null;
   if (significantChars(lines.slice(start - 1, start - 1 + length)) < MIN_MOVABLE_CHARS) return null;
   const shift = start - parsed.from;
-  return withLines(source, span.first + shift, span.context === 0 ? span.last + shift : undefined);
+  return withLines(source, span.first + shift, span.isRange ? span.last + shift : undefined);
 }
 
-export function relocatedSource(source: string, lineAt: (line: number) => number): string | null {
+export function remappedSource(source: string, lineAt: (line: number) => number): string | null {
   const span = sourceSpan(source);
-  return span === null ? null : withLines(source, lineAt(span.first), span.context === 0 ? lineAt(span.last) : undefined);
+  return span === null ? null : withLines(source, lineAt(span.first), span.isRange ? lineAt(span.last) : undefined);
 }
 
 export function snippetOf(text: string, source: string): string | undefined {
@@ -74,7 +74,7 @@ function sourceSpan(source: string): SourceSpan | null {
   const match = SOURCE_LINES.exec(source);
   if (match === null) return null;
   const first = Number(match[1]);
-  return match[2] === undefined ? { first, last: first, context: LINE_CONTEXT } : { first, last: Number(match[2]), context: 0 };
+  return match[2] === undefined ? { first, last: first, context: LINE_CONTEXT, isRange: false } : { first, last: Number(match[2]), context: 0, isRange: true };
 }
 
 function windowOf(span: SourceSpan, lineCount: number): Window | null {

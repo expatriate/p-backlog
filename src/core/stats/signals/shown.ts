@@ -1,6 +1,6 @@
 import type { Signal } from "../types";
 
-export type SignalsShown = Record<string, string>;
+export type SignalsShown = Partial<Record<Signal["kind"], string>>;
 
 export function signalsToShow(signals: readonly Signal[], shown: SignalsShown, today: string): Signal[] {
   return signals.filter((signal) => shown[signal.kind] !== today);

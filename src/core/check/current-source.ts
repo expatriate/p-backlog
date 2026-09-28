@@ -1,5 +1,5 @@
 import type { Task } from "../model/types";
-import { anchorOf, relocatedSource } from "./anchor";
+import { anchorOf, remappedSource } from "./anchor";
 import { changesSince, reviewMark } from "./candidates";
 import { baseText, currentLine } from "./diff-hunks";
 import { collectRepoFacts, diffsSince, type DiffSince, type RepoFacts } from "./repo-facts";
@@ -28,7 +28,7 @@ async function currentSource(task: Task, facts: RepoFacts, diffOf: DiffSince): P
   if (commits.length === 0 && !uncommitted) return source;
   const hunks = (await diffOf(path, new Date(mark)))?.hunks ?? null;
   if (hunks === null) return null;
-  const current = relocatedSource(source, (line) => currentLine(hunks, line));
+  const current = remappedSource(source, (line) => currentLine(hunks, line));
   if (current === null || anchorOf(text, current) === null) return null;
   if (task.anchor === undefined) return current === source ? source : null;
   return anchorOf(baseText(hunks, text), source) === task.anchor ? current : null;
