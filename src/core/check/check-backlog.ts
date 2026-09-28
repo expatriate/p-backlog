@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { errorText } from "../errors";
-import { CANDIDATE_EVIDENCE, candidateEvents, candidateGoneEvents, episodeStates, filteredEvents, type CandidateEvidence, type CandidateSighting, type CheckMode, type FilteredSighting } from "../journal/events";
+import { candidateEvents, candidateGoneEvents, episodeStates, filteredEvents } from "../journal/episodes";
+import { CANDIDATE_EVIDENCE, type CandidateEvidence, type CandidateSighting, type CheckMode, type FilteredSighting } from "../journal/events";
 import type { CoreMessages } from "../messages";
 import { buildIndex } from "../model/graph";
 import type { Task } from "../model/types";

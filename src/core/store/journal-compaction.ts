@@ -1,5 +1,6 @@
 import { join } from "node:path";
-import { episodeOpeners, journalEventSchema, type JournalEvent } from "../journal/events";
+import { episodeOpeners } from "../journal/episodes";
+import { journalEventSchema, type JournalEvent } from "../journal/events";
 import { taskHistories, type TaskHistory } from "../stats/history";
 import { runWhenDue } from "./daily";
 import { withFileLock } from "./file-lock";

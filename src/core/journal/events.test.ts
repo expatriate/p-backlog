@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
-import { candidateEvents, candidateGoneEvents, episodeStates, changeEvents, createdEvent, deletedEvent, filteredEvents, journalEventSchema } from "./events";
+import { candidateEvents, candidateGoneEvents, episodeStates, filteredEvents } from "./episodes";
+import { changeEvents, createdEvent, deletedEvent, journalEventSchema } from "./events";
 
 const NOW = new Date(2026, 8, 18, 12, 0, 0);
 const AT = "2026-09-18T12:00:00";

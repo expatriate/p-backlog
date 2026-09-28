@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CANDIDATE_EVIDENCE, candidateEvents, episodeStates, filteredEvents } from "../journal/events";
+import { candidateEvents, episodeStates, filteredEvents } from "../journal/episodes";
+import { CANDIDATE_EVIDENCE } from "../journal/events";
 import { DAY_MS, formatLocalIso } from "../model/dates";
 import { PRIORITIES, TASK_CATEGORIES, type TaskStatus } from "../model/types";
 import type { CollectedCode, FixCommit } from "../code/types";

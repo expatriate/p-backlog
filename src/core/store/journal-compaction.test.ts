@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { candidateEvents, episodeStates, filteredEvents } from "../journal/events";
+import { candidateEvents, episodeStates, filteredEvents } from "../journal/episodes";
 import { reportBase } from "../stats/scope";
 import type { CollectedCode, FixCommit } from "../code/types";
 import { JOURNAL_FILE, readJournal, readJournals } from "./journal";
