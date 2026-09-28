@@ -1,7 +1,7 @@
 import { UNKNOWN } from "../journal/events";
 import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
 import { scopeLabel } from "./format";
-import { closingsOf, isOpenAt, type TaskHistory } from "./history";
+import { closingsIn, createdIn, isOpenAt, type TaskHistory } from "./history";
 import { daysBetween, median, nearestRank, TAIL_FRACTION } from "./numbers";
 import { sum } from "../numbers";
 import { trailingPeriod, type Period } from "./period";
@@ -9,8 +9,8 @@ import { grainPeriods } from "./report-periods";
 import { reportBase, type ReportBase, type StatsInput } from "./scope";
 import { PRIORITY_WEIGHT } from "./weights";
 import type { PreviousTotals, StatsReport, StatsTotals } from "./types";
-import { dailyFlow } from "./days";
-import { formatLocalDay, WEEK_MS } from "../model/dates";
+import { dailyFlow, todaySoFar } from "./days";
+import { WEEK_MS } from "../model/dates";
 import { statsPeriod, weeklyFlow } from "./weeks";
 
 const STALE_DAYS = 30;
@@ -37,19 +37,15 @@ function totals(histories: readonly TaskHistory[], now: Date, period: Period, jo
   const lastWeek = trailingPeriod(nowMs, WEEK_MS);
   const openNow = histories.filter((history) => isOpenAt(history, nowMs));
   const ages = openNow.map((history) => daysBetween(history.createdAt, nowMs));
-  const leadTimes = histories.flatMap((history) =>
-    closingsOf(history)
-      .filter((closing) => period.contains(closing.at))
-      .map((closing) => daysBetween(history.createdAt, closing.at)),
-  );
-  const today = formatLocalDay(now);
+  const leadTimes = leadTimesIn(histories, period);
+  const today = todaySoFar(now);
   return {
     open: ages.length,
-    createdToday: histories.filter((history) => formatLocalDay(new Date(history.createdAt)) === today).length,
-    closedToday: histories.flatMap(closingsOf).filter((closing) => formatLocalDay(new Date(closing.at)) === today).length,
+    createdToday: createdIn(histories, today).length,
+    closedToday: closingsIn(histories, today).length,
     openWeight: sum(openNow.map(priorityWeight)),
-    createdLastWeek: histories.filter((history) => lastWeek.contains(history.createdAt)).length,
-    closedLastWeek: histories.flatMap(closingsOf).filter((closing) => lastWeek.contains(closing.at)).length,
+    createdLastWeek: createdIn(histories, lastWeek).length,
+    closedLastWeek: closingsIn(histories, lastWeek).length,
     ageMedianDays: median(ages),
     olderThan30Days: ages.filter((age) => age >= STALE_DAYS).length,
     leadTimeMedianDays: median(leadTimes),
@@ -67,12 +63,14 @@ function previousTotals(histories: readonly TaskHistory[], nowMs: number, journa
   if (journalStart === null || journalStart > weekAgo) return null;
   const weekBefore = trailingPeriod(weekAgo, WEEK_MS);
   const openThen = histories.filter((history) => isOpenAt(history, weekAgo));
-  const closedThen = histories.flatMap(closingsOf).filter((closing) => weekBefore.contains(closing.at));
-  const leadTimes = histories.flatMap((history) => closingsOf(history).filter((closing) => weekBefore.contains(closing.at)).map((closing) => daysBetween(history.createdAt, closing.at)));
   return {
     open: openThen.length,
-    net: histories.filter((history) => weekBefore.contains(history.createdAt)).length - closedThen.length,
+    net: createdIn(histories, weekBefore).length - closingsIn(histories, weekBefore).length,
     ageMedianDays: median(openThen.map((history) => daysBetween(history.createdAt, weekAgo))),
-    leadTimeMedianDays: median(leadTimes),
+    leadTimeMedianDays: median(leadTimesIn(histories, weekBefore)),
   };
+}
+
+function leadTimesIn(histories: readonly TaskHistory[], span: Period): number[] {
+  return histories.flatMap((history) => closingsIn([history], span).map((closing) => daysBetween(history.createdAt, closing.at)));
 }
