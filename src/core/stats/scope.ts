@@ -33,7 +33,7 @@ function statsScope({ tasks, journals, projectId, unparsedTasks = [] }: StatsInp
   const journalStart = smallest(scopedJournals.flatMap((journal) => journal.events.map((event) => Date.parse(event.at))));
   return {
     tasks: scopedTasks,
-    histories: taskHistories(scopedTasks, scopedJournals, unparsedIds).filter((history) => inScope(history.projectId)),
+    histories: taskHistories(scopedTasks, scopedJournals, unparsedIds),
     journalStart,
     journalSince: journalStart === null ? null : formatLocalIso(new Date(journalStart)),
     invalidJournalLines: sum(scopedJournals.map((journal) => journal.invalidLines)),

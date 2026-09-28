@@ -1,10 +1,10 @@
-import { recordedMethodOf, type Recorded, type CandidateEvidence, type ChangeSource, type RecordedMatch, type RecordedMethod, type FoundHow, type JournalEvent, type ProjectJournal, type TaskSnapshot } from "../journal/events";
+import { recordedMethodOf, UNKNOWN, type Recorded, type CandidateEvidence, type ChangeSource, type RecordedMatch, type RecordedMethod, type FoundHow, type JournalEvent, type ProjectJournal, type TaskSnapshot } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Priority, Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
 
 const CREATED_STATUS: TaskStatus = "backlog";
 
-export type Transition = { at: number; from?: TaskStatus | undefined; to: TaskStatus; resolution?: Recorded<Resolution> | undefined; via: ChangeSource | "unknown"; undo?: true | undefined };
+export type Transition = { at: number; from?: TaskStatus | undefined; to: TaskStatus; resolution?: Recorded<Resolution> | undefined; via: Recorded<ChangeSource>; undo?: true | undefined };
 
 export type TaskHistory = {
   id: string;
@@ -55,20 +55,40 @@ export function taskHistories(tasks: readonly Task[], journals: readonly Project
   for (const task of tasks) entry(task.id, task.projectId).final = task;
   for (const { projectId, events } of journals) {
     for (const event of events) {
-      const item = entry(event.task, projectId);
-      if (event.kind === "created") item.created = event;
-      if (event.kind === "deleted") item.final ??= event.snapshot;
-      if (event.kind === "category") item.categoryEvents.push({ at: Date.parse(event.at), to: event.to });
-      if (event.kind === "priority") item.priorityEvents.push({ at: Date.parse(event.at), to: event.to });
-      if (event.kind === "status") {
-        item.transitions.push({ at: Date.parse(event.at), from: event.from, to: event.to, resolution: event.resolution, via: event.via, undo: event.undo });
-      }
-      if (event.kind === "candidate") item.candidates.push({ at: Date.parse(event.at), evidence: event.evidence, method: recordedMethodOf(event), match: event.match ?? "unknown" });
-      if (event.kind === "candidate-filtered") item.filtered.push(Date.parse(event.at));
-      if (event.kind === "verified") item.verifications.push(Date.parse(event.at));
+      collectEvent(entry(event.task, projectId), event);
     }
   }
   return [...known.entries()].flatMap(([id, item]) => historyOf(id, item, unparsedIds.has(id)));
+}
+
+function collectEvent(item: Known, event: JournalEvent): void {
+  const at = Date.parse(event.at);
+  switch (event.kind) {
+    case "created":
+      item.created = event;
+      return;
+    case "deleted":
+      item.final ??= event.snapshot;
+      return;
+    case "category":
+      item.categoryEvents.push({ at, to: event.to });
+      return;
+    case "priority":
+      item.priorityEvents.push({ at, to: event.to });
+      return;
+    case "status":
+      item.transitions.push({ at, from: event.from, to: event.to, resolution: event.resolution, via: event.via, undo: event.undo });
+      return;
+    case "candidate":
+      item.candidates.push({ at, evidence: event.evidence, method: recordedMethodOf(event), match: event.match ?? UNKNOWN });
+      return;
+    case "candidate-filtered":
+      item.filtered.push(at);
+      return;
+    case "verified":
+      item.verifications.push(at);
+      return;
+  }
 }
 
 export function isOpenAt(history: TaskHistory, moment: number): boolean {
@@ -146,12 +166,12 @@ function categoryOf(
 function restoredTransitions(final: Task | TaskSnapshot | undefined, ordered: readonly Transition[], createdAt: number): Transition[] {
   const last = ordered.at(-1);
   const lastClosed = last !== undefined && isClosed(last.to);
-  if (final === undefined) return lastClosed ? [] : [{ at: last?.at ?? createdAt, to: "cancelled", via: "unknown" }];
+  if (final === undefined) return lastClosed ? [] : [{ at: last?.at ?? createdAt, to: "cancelled", via: UNKNOWN }];
   if (isClosed(final.status)) {
     if (lastClosed) return [];
     const at = final.closed === undefined ? (last?.at ?? createdAt) : Date.parse(final.closed);
-    return [{ at, to: final.status, resolution: final.resolution, via: "unknown" }];
+    return [{ at, to: final.status, resolution: final.resolution, via: UNKNOWN }];
   }
   if (!lastClosed || last === undefined) return [];
-  return [{ at: last.at + 1, from: last.to, to: final.status, via: "unknown" }];
+  return [{ at: last.at + 1, from: last.to, to: final.status, via: UNKNOWN }];
 }

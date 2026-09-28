@@ -1,3 +1,4 @@
+import { UNKNOWN } from "../journal/events";
 import { PRIORITIES, type Priority, type Task } from "../model/types";
 import { closingsOf, reopeningsOf, type TaskHistory, type Transition } from "./history";
 import type { AgeBreakdown, AgeBucket, ClosingBreakdown, ClosingReason, Hotspots } from "./types";
@@ -55,7 +56,7 @@ export function closingBreakdown(histories: readonly TaskHistory[], period: Peri
 }
 
 function closingReason(closing: Transition): ClosingReason {
-  if (closing.resolution === "unknown") return "unknown";
+  if (closing.resolution === UNKNOWN) return UNKNOWN;
   if (closing.resolution === "fixed" || closing.resolution === "obsolete" || closing.resolution === "duplicate") return closing.resolution;
   return closing.to === "cancelled" ? "cancelled" : "done";
 }

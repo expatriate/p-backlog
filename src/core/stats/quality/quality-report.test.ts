@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
+import { reportBase } from "../scope";
 import { qualityReport } from "./quality-report";
 
 const NOW = new Date(2026, 8, 18, 12);
@@ -15,7 +16,9 @@ describe("отчёт «Качество»", () => {
     ];
     const journals = [{ projectId: "spa", events: [{ at: iso(3), task: "SPA-1", via: "check" as const, kind: "candidate" as const, evidence: "source-changed" as const, mode: "full" as const }], invalidLines: 0 }];
 
-    const report = qualityReport({ tasks, journals, now: NOW, projectId: "spa" });
+    const input = { tasks, journals, now: NOW, projectId: "spa" };
+
+    const report = qualityReport(input, reportBase(input), []);
 
     expect(report.taskCount).toBe(1);
     expect(report.accuracy.at(-1)).toEqual({ evidence: "total", candidates: 1, closed: 0, verified: 0, open: 1, precision: null });
@@ -25,7 +28,9 @@ describe("отчёт «Качество»", () => {
   });
 
   it("границы окон в отчёте совпадают с окнами расчёта", () => {
-    const report = qualityReport({ tasks: [], journals: [], now: NOW });
+    const input = { tasks: [], journals: [], now: NOW };
+
+    const report = qualityReport(input, reportBase(input), []);
 
     expect(report.periods.weeks.from).toBe(report.accuracyWeeks[0]?.start);
     expect(report.periods.days.from).toBe(report.accuracyDays[0]?.start);

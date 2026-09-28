@@ -1,5 +1,5 @@
 import { grainPeriods } from "../report-periods";
-import { reportBase, type ReportBase, type StatsInput } from "../scope";
+import type { ReportBase, StatsInput } from "../scope";
 import type { ProjectGraphRow, QualityReport } from "../types";
 import { statsPeriod } from "../weeks";
 import { accuracy, accuracyDays, accuracyWeeks, matchAccuracy, methodAccuracy } from "./accuracy";
@@ -8,7 +8,7 @@ import { graphFilterEffect } from "./graph-filter";
 import { branchBreakdown, foundBreakdown } from "./origin";
 import { scopeLabel } from "../format";
 
-export function qualityReport(input: StatsInput, base: ReportBase = reportBase(input), graphs: ProjectGraphRow[] = []): QualityReport {
+export function qualityReport(input: StatsInput, base: ReportBase, graphs: ProjectGraphRow[]): QualityReport {
   const { now, projectId } = input;
   const { histories, openTasks } = base;
   const period = statsPeriod(now);
