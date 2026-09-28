@@ -34,7 +34,7 @@ async function listProjects(io: CliIo): Promise<ExitCode> {
   }
   const index = buildIndex(loaded.tasks);
   for (const project of loaded.projects) {
-    const open = filterTasks(loaded.tasks, { projectId: project.id, statuses: OPEN_STATUSES }, index).length;
+    const open = filterTasks(loaded.tasks, { projectId: project.id, statuses: OPEN_STATUSES }, { index, closedInWeb: new Set() }).length;
     io.print(io.cli.projectListLine({ id: project.id, name: project.name, prefix: project.prefix, statusWord: statusWord(io.cli, project.active), open }));
   }
   return EXIT.ok;

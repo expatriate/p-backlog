@@ -23,11 +23,11 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const inScope = useMemo(() => taskScope(projects.data, projectId), [projects.data, projectId]);
   const scopedTasks = useMemo(() => (inScope === undefined ? [] : allTasks.filter(inScope)), [allTasks, inScope]);
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
-  const closedInWeb = useMemo(() => new Set(tasks.data?.closedInWeb), [tasks.data]);
+  const filterContext = useMemo(() => ({ index, closedInWeb: new Set(tasks.data?.closedInWeb) }), [index, tasks.data]);
   const tones = useMemo(() => epicTones(allTasks), [allTasks]);
-  const visibleTasks = useMemo(() => sortTasks(filterTasks(scopedTasks, params.filter, index, closedInWeb), sort, index, language), [scopedTasks, index, closedInWeb, params.filter, sort, language]);
+  const visibleTasks = useMemo(() => sortTasks(filterTasks(scopedTasks, params.filter, filterContext), sort, index, language), [scopedTasks, index, filterContext, params.filter, sort, language]);
   const epicFilterChoices = useMemo(() => epicChoices(scopedTasks, tones), [scopedTasks, tones]);
-  const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, index, closedInWeb).length, [scopedTasks, index, closedInWeb]);
+  const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, filterContext).length, [scopedTasks, filterContext]);
   const tags = useMemo(() => collectTags(scopedTasks, language), [scopedTasks, language]);
   const hiddenOpen = useMemo(
     () => (projectId === undefined && inScope !== undefined ? allTasks.filter((task) => !inScope(task) && !isClosed(task.status)).length : 0),

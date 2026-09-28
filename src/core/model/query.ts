@@ -39,7 +39,9 @@ function matchesQuery(task: Task, query: string): boolean {
     .every((word) => haystack.includes(word));
 }
 
-export function filterTasks(tasks: readonly Task[], filter: TaskFilter, index: BacklogIndex, closedInWeb: ReadonlySet<string> = new Set()): Task[] {
+type FilterContext = { index: BacklogIndex; closedInWeb: ReadonlySet<string> };
+
+export function filterTasks(tasks: readonly Task[], filter: TaskFilter, { index, closedInWeb }: FilterContext): Task[] {
   const tags = (filter.tags ?? []).map(normalizeTag);
   return tasks.filter(
     (task) =>

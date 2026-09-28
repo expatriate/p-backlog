@@ -41,7 +41,7 @@ async function runList(args: string[], io: CliIo): Promise<ExitCode> {
   const filtered = filterTasks(
     loaded.tasks.filter((task) => inScope.has(task.projectId)),
     { projectId, query: values.query, statuses, tags: splitList(values.tag) },
-    index,
+    { index, closedInWeb: new Set() },
   );
   const tasks = sortTasks(filtered, { key: "priority", direction: "desc" }, index, io.language);
 
