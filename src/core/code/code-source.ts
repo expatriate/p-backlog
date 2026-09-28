@@ -1,14 +1,14 @@
 import type { Project } from "../model/types";
 import { runGit, type GitRunner } from "../git/run";
-import { contentVersion } from "../store/fs-utils";
 import { expandHome } from "../store/paths";
 import { remembered } from "../remembered";
-import { emptyCodeCache, type CodeCacheSnapshot, type CodeCacheStore } from "./code-cache";
+import { cachePersistence } from "./cache-persistence";
+import type { CodeCacheStore } from "./code-cache";
+import { dropStaleFixes, emptyCodeMemory, fixCacheKey, keepOnlyRepos, needsReading, rememberFix, type CodeMemory } from "./code-memory";
 import { fixKey } from "./fix-key";
-import { churnWindowStart } from "./code-window";
 import { readRefs, type RepoRefs } from "./git-code";
 import { readFixCommits } from "./git-fixes";
-import { repoCodeOf, scanRepo, type RepoScan } from "./repo-scan";
+import { repoCodeOf, scanRepo } from "./repo-scan";
 import type { FixCommit, FixRequest, ProjectCode, RepoCode, ScannedCode } from "./types";
 
 export type CodeCacheErrorKind = "read" | "write";
@@ -22,204 +22,105 @@ export type CodeSource = {
   retain: (backlogProjects: readonly Project[]) => void;
 };
 
+type FixRepo = { repo: string; main: string | null };
+
 export function createCodeSource({ home, git = runGit, store, onError = () => {} }: CodeSourceOptions): CodeSource {
-  const repoCache = new Map<string, RepoScan>();
-  const fixCache = new Map<string, FixCommit>();
-  const unsettledCheckedAt = new Map<string, string | null>();
-  let storedFingerprint: string | null = null;
-  let restored: Promise<void> | null = null;
+  const memory = emptyCodeMemory();
+  const cache = cachePersistence(memory, store, { read: (error) => onError("read", error), write: (error) => onError("write", error) });
+  const repoCode = repoReader(git, memory);
   let retainedRepos: ReadonlySet<string> | null = null;
-
-  const currentSnapshot = (): CodeCacheSnapshot => ({ repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache), unsettled: Object.fromEntries(unsettledCheckedAt) });
-
-  const restore = (): Promise<void> => {
-    restored ??= readSnapshot(store, (error) => onError("read", error)).then((snapshot) => {
-      for (const [repo, entry] of Object.entries(snapshot.repos)) if (!repoCache.has(repo)) repoCache.set(repo, entry);
-      for (const [key, commit] of Object.entries(snapshot.fixes)) if (!fixCache.has(key)) fixCache.set(key, commit);
-      for (const [key, main] of Object.entries(snapshot.unsettled)) if (!unsettledCheckedAt.has(key)) unsettledCheckedAt.set(key, main);
-      storedFingerprint = fingerprintOf(currentSnapshot());
-    });
-    return restored;
+  const forgetUnretainedRepos = () => {
+    if (retainedRepos !== null) keepOnlyRepos(memory, retainedRepos);
   };
-
-  const dropStaleFixes = (now: Date, requested: ReadonlySet<string>): void => {
-    const oldest = churnWindowStart(now).getTime();
-    for (const [key, commit] of fixCache) {
-      if (requested.has(key) || Date.parse(commit.date) >= oldest) continue;
-      fixCache.delete(key);
-      unsettledCheckedAt.delete(key);
-    }
-  };
-
-  const dropUnretainedRepos = (): void => {
-    if (retainedRepos === null) return;
-    const kept = retainedRepos;
-    for (const repo of repoCache.keys()) {
-      if (kept.has(repo)) continue;
-      repoCache.delete(repo);
-    }
-    for (const key of new Set([...fixCache.keys(), ...unsettledCheckedAt.keys()])) {
-      if (kept.has(repoOfFixCacheKey(key))) continue;
-      fixCache.delete(key);
-      unsettledCheckedAt.delete(key);
-    }
-  };
-
-  let writing: Promise<void> = Promise.resolve();
-
-  const persist = (): Promise<void> => {
-    dropUnretainedRepos();
-    if (store === undefined) return writing;
-    const snapshot = currentSnapshot();
-    const fingerprint = fingerprintOf(snapshot);
-    if (fingerprint === storedFingerprint) return writing;
-    storedFingerprint = fingerprint;
-    writing = writing.then(() =>
-      store.write(snapshot).catch((error: unknown) => {
-        storedFingerprint = null;
-        onError("write", error);
-      }),
-    );
-    return writing;
-  };
-
-  const inFlight = new Map<string, Promise<RepoCode | null>>();
-
-  const repoCode = (repo: string, now: Date): Promise<RepoCode | null> => {
-    const running = inFlight.get(repo);
-    if (running !== undefined) return running;
-    const started = readRepoOnce(repo, now).finally(() => inFlight.delete(repo));
-    inFlight.set(repo, started);
-    return started;
-  };
-
-  const readRepoOnce = async (repo: string, now: Date): Promise<RepoCode | null> => {
-    const previous = repoCache.get(repo);
-    const scan = await scanRepo(git, repo, { refs: await readRefs(git, repo), now, previous });
-    if (scan === null) return null;
-    repoCache.set(repo, scan);
-    return repoCodeOf(scan);
-  };
-
-  const rememberUnsettled = (key: string, main: string | null, commit: FixCommit): void => {
-    const checkedAt = commit.landedAt === undefined ? main : undefined;
-    if (unsettledCheckedAt.get(key) === checkedAt) return;
-    if (checkedAt === undefined) unsettledCheckedAt.delete(key);
-    else unsettledCheckedAt.set(key, checkedAt);
-  };
-
-  const needsReading = (key: string, main: string | null): boolean => {
-    const cached = fixCache.get(key);
-    return cached === undefined || (cached.landedAt === undefined && unsettledCheckedAt.get(key) !== main);
-  };
-
-  const fixCommitsOf = async (repo: string, main: string | null, hashes: readonly string[]): Promise<void> => {
-    const unsettled = hashes.filter((hash) => needsReading(fixCacheKey(repo, hash), main));
-    if (unsettled.length === 0) return;
-    const found = await readFixCommits(git, repo, { hashes: unsettled, mainCommit: main });
-    for (const [hash, commit] of found ?? []) {
-      const key = fixCacheKey(repo, hash);
-      rememberUnsettled(key, main, commit);
-      if (fixCache.has(key) && commit.landedAt === undefined) continue;
-      fixCache.set(key, commit);
-    }
-  };
-
-  const fixReposOf = async (projects: readonly Project[]): Promise<Map<string, { repo: string; main: string | null }[]>> => {
-    const refsOf = new Map<string, Promise<RepoRefs>>();
-    const refsOnce = (repo: string): Promise<RepoRefs> => remembered(refsOf, repo, () => readRefs(git, repo));
-    const entries = await Promise.all(
-      projects.map(async (project) => {
-        const repos = await Promise.all(
-          project.repos.map(async (repo) => {
-            const expanded = expandHome(repo, home);
-            const refs = await refsOnce(expanded);
-            return refs.head === null ? [] : [{ repo: expanded, main: refs.main }];
-          }),
-        );
-        return [project.id, repos.flat()] as const;
-      }),
-    );
-    return new Map(entries);
-  };
+  const expanded = (projects: readonly Project[]) => [...new Set(projects.flatMap((project) => project.repos.map((repo) => expandHome(repo, home))))];
 
   return {
     retain: (backlogProjects) => {
-      retainedRepos = new Set(backlogProjects.flatMap((project) => project.repos.map((repo) => expandHome(repo, home))));
+      retainedRepos = new Set(expanded(backlogProjects));
     },
     stateKey: async (projects) => {
-      const repos = [...new Set(projects.flatMap((project) => project.repos.map((repo) => expandHome(repo, home))))];
-      const states = await Promise.all(repos.map(async (repo) => `${repo}@${refsKey(await readRefs(git, repo))}`));
+      const states = await Promise.all(expanded(projects).map(async (repo) => `${repo}@${refsKey(await readRefs(git, repo))}`));
       return states.join(" ");
     },
     collect: async (projects, now) => {
-      await restore();
-      const unavailableRepos: string[] = [];
-      const projectCodes: ProjectCode[] = [];
-      const seenUnavailable = new Set<string>();
+      await cache.restore();
       const scanned = await Promise.all(
         projects.map(async (project) => ({
           project,
           repos: await Promise.all(project.repos.map(async (repo) => ({ repo, read: await repoCode(expandHome(repo, home), now) }))),
         })),
       );
-      for (const { project, repos } of scanned) {
-        const readable: RepoCode[] = [];
-        for (const { repo, read } of repos) {
-          if (read !== null) {
-            readable.push(read);
-          } else if (!seenUnavailable.has(repo)) {
-            seenUnavailable.add(repo);
-            unavailableRepos.push(repo);
-          }
-        }
-        projectCodes.push({ projectId: project.id, name: project.name, repos: readable });
-      }
-      await persist();
+      const projectCodes = scanned.map(({ project, repos }): ProjectCode => ({ projectId: project.id, name: project.name, repos: repos.flatMap(({ read }) => (read === null ? [] : [read])) }));
+      const unavailableRepos = [...new Set(scanned.flatMap(({ repos }) => repos.filter(({ read }) => read === null).map(({ repo }) => repo)))];
+      forgetUnretainedRepos();
+      await cache.persist();
       return { projects: projectCodes, unavailableRepos };
     },
     fixCommits: async (projects, requests, now) => {
-      await restore();
-      const reposOf = await fixReposOf(projects);
-      await Promise.all(requests.flatMap(({ projectId, hashes }) => (reposOf.get(projectId) ?? []).map(({ repo, main }) => fixCommitsOf(repo, main, hashes))));
+      await cache.restore();
+      const reposOf = await fixReposOf(git, projects, home);
+      const reposOfProject = (projectId: string) => reposOf.get(projectId) ?? [];
+      await Promise.all(requests.flatMap(({ projectId, hashes }) => reposOfProject(projectId).map((fixRepo) => readMissingFixes(git, memory, fixRepo, hashes))));
       const found = new Map<string, FixCommit>();
       const requested = new Set<string>();
       for (const { projectId, hashes } of requests) {
         for (const hash of hashes) {
-          const keys = (reposOf.get(projectId) ?? []).map(({ repo }) => fixCacheKey(repo, hash));
+          const keys = reposOfProject(projectId).map(({ repo }) => fixCacheKey(repo, hash));
           for (const key of keys) requested.add(key);
-          const commit = keys.map((key) => fixCache.get(key)).find((cached) => cached !== undefined);
+          const commit = keys.map((key) => memory.fixes.get(key)).find((cached) => cached !== undefined);
           if (commit !== undefined) found.set(fixKey(projectId, hash), commit);
         }
       }
-      dropStaleFixes(now, requested);
-      await persist();
+      dropStaleFixes(memory, now, requested);
+      forgetUnretainedRepos();
+      await cache.persist();
       return found;
     },
   };
 }
 
-function fixCacheKey(repo: string, hash: string): string {
-  return `${repo} ${hash}`;
+function repoReader(git: GitRunner, memory: CodeMemory): (repo: string, now: Date) => Promise<RepoCode | null> {
+  const inFlight = new Map<string, Promise<RepoCode | null>>();
+  const readOnce = async (repo: string, now: Date): Promise<RepoCode | null> => {
+    const scan = await scanRepo(git, repo, { refs: await readRefs(git, repo), now, previous: memory.repos.get(repo) });
+    if (scan === null) return null;
+    memory.repos.set(repo, scan);
+    return repoCodeOf(scan);
+  };
+  return (repo, now) => {
+    const running = inFlight.get(repo);
+    if (running !== undefined) return running;
+    const started = readOnce(repo, now).finally(() => inFlight.delete(repo));
+    inFlight.set(repo, started);
+    return started;
+  };
 }
 
-function repoOfFixCacheKey(key: string): string {
-  return key.slice(0, key.lastIndexOf(" "));
+async function readMissingFixes(git: GitRunner, memory: CodeMemory, { repo, main }: FixRepo, hashes: readonly string[]): Promise<void> {
+  const unsettled = hashes.filter((hash) => needsReading(memory, fixCacheKey(repo, hash), main));
+  if (unsettled.length === 0) return;
+  const found = await readFixCommits(git, repo, { hashes: unsettled, mainCommit: main });
+  for (const [hash, commit] of found ?? []) rememberFix(memory, fixCacheKey(repo, hash), main, commit);
+}
+
+async function fixReposOf(git: GitRunner, projects: readonly Project[], home: string): Promise<Map<string, FixRepo[]>> {
+  const refsOf = new Map<string, Promise<RepoRefs>>();
+  const refsOnce = (repo: string): Promise<RepoRefs> => remembered(refsOf, repo, () => readRefs(git, repo));
+  const entries = await Promise.all(
+    projects.map(async (project) => {
+      const repos = await Promise.all(
+        project.repos.map(async (repo) => {
+          const expanded = expandHome(repo, home);
+          const refs = await refsOnce(expanded);
+          return refs.head === null ? [] : [{ repo: expanded, main: refs.main }];
+        }),
+      );
+      return [project.id, repos.flat()] as const;
+    }),
+  );
+  return new Map(entries);
 }
 
 function refsKey(refs: RepoRefs): string {
   return `${refs.head ?? ""} ${refs.main ?? ""}`;
-}
-
-async function readSnapshot(store: CodeCacheStore | undefined, onError: (error: unknown) => void): Promise<CodeCacheSnapshot> {
-  try {
-    return (await store?.read()) ?? emptyCodeCache();
-  } catch (error) {
-    onError(error);
-    return emptyCodeCache();
-  }
-}
-
-function fingerprintOf(snapshot: CodeCacheSnapshot): string {
-  return contentVersion(JSON.stringify(snapshot));
 }
