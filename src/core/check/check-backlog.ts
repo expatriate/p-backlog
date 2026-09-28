@@ -2,14 +2,12 @@ import { join } from "node:path";
 import { errorText } from "../errors";
 import { CANDIDATE_EVIDENCE, candidateEvents, candidateGoneEvents, episodeStates, filteredEvents, type CandidateEvidence, type CandidateSighting, type CheckMode, type FilteredSighting } from "../journal/events";
 import type { CoreMessages } from "../messages";
-import { buildIndex } from "../model/graph";
 import type { Task } from "../model/types";
 import { appendJournal, readJournal } from "../store/journal";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
 import { findGitRoots } from "../store/resolve-project";
-import { updateTaskInIndex } from "../store/update";
-import { isReviewable, type AnchorPlan, type Candidate } from "./candidates";
-import { applyFixes, fixFailure, type FixOutcome } from "./check-fixes";
+import { isReviewable, type Candidate } from "./candidates";
+import { applyAnchorPlans, applyFixes, type FixOutcome } from "./check-fixes";
 import { findProblems } from "./find-problems";
 import type { CheckFix, CheckProblem } from "./findings";
 import { projectCheckout } from "./project-repo";
@@ -74,19 +72,5 @@ function sightingOf(candidate: Candidate): CandidateSighting {
   if (candidate.kind === "source-changed") return { ...sighting, method: candidate.method };
   if (candidate.kind === "duplicate") return { ...sighting, match: candidate.match };
   return sighting;
-}
-
-async function applyAnchorPlans(tasks: readonly Task[], plans: readonly AnchorPlan[], now: Date): Promise<FixOutcome> {
-  const index = buildIndex(tasks);
-  const fixed: CheckFix[] = [];
-  const failed: CheckProblem[] = [];
-  for (const plan of plans) {
-    const task = index.byId.get(plan.id);
-    if (task === undefined) continue;
-    const result = await updateTaskInIndex(index, { id: plan.id, changes: plan.changes, expectedVersion: task.version, now, via: "check" });
-    if (!result.ok) failed.push(fixFailure(plan.id, result));
-    else if (plan.moved !== undefined) fixed.push(plan.moved);
-  }
-  return { fixed, failed };
 }
 
