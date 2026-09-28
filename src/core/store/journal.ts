@@ -25,6 +25,21 @@ async function appendWaitingForLock(path: string, events: readonly JournalEvent[
   }
 }
 
+export type JournalWriter = (projectDir: string, events: readonly JournalEvent[]) => Promise<void>;
+
+export function bufferedJournal(): { write: JournalWriter; flush: () => Promise<void> } {
+  const pending = new Map<string, JournalEvent[]>();
+  return {
+    write: async (projectDir, events) => {
+      pending.set(projectDir, [...(pending.get(projectDir) ?? []), ...events]);
+    },
+    flush: async () => {
+      for (const [projectDir, events] of pending) await appendJournal(projectDir, events);
+      pending.clear();
+    },
+  };
+}
+
 export async function readJournal(projectDir: string, projectId: string): Promise<ProjectJournal> {
   return projectJournal(projectId, await readJsonLines(join(projectDir, JOURNAL_FILE), journalEventSchema));
 }

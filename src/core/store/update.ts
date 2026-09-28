@@ -8,7 +8,7 @@ import { changeEvents, statusBeforeAutoClose, type ChangeSource } from "../journ
 import { contentVersion, readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { errorText } from "../errors";
 import { FileBusyError, withFileLock } from "./file-lock";
-import { appendJournal, readJournal } from "./journal";
+import { appendJournal, readJournal, type JournalWriter } from "./journal";
 import { taskText } from "./task-text";
 import { invalid, type UpdateTaskFailure, type UpdateTaskResult } from "./write-result";
 
@@ -20,14 +20,23 @@ export type TaskChanges = OptionalFields<
   anchor?: string | null | undefined;
 };
 
-export type UpdateTaskRequest = { id: string; changes: TaskChanges; expectedVersion: string; now: Date; closure?: Closure | undefined; via: ChangeSource; undo?: boolean | undefined };
+export type UpdateTaskRequest = {
+  id: string;
+  changes: TaskChanges;
+  expectedVersion: string;
+  now: Date;
+  closure?: Closure | undefined;
+  via: ChangeSource;
+  undo?: boolean | undefined;
+  journal?: JournalWriter | undefined;
+};
 
 const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "related", "body", "source", "verified"] as const;
 
 export async function updateTaskInIndex(index: BacklogIndex, request: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const before = index.byId.get(request.id);
   const result = await writeChanges(index, request);
-  if (result.ok) await reopenEpicOfOpenedTask(index, { before, after: result.task, now: request.now, via: request.via, undo: request.undo });
+  if (result.ok) await reopenEpicOfOpenedTask(index, { before, after: result.task, now: request.now, via: request.via, undo: request.undo, journal: request.journal });
   return result;
 }
 
@@ -36,22 +45,22 @@ export async function statusToReopen(epic: Task): Promise<TaskStatus> {
   return statusBeforeAutoClose(events, epic.id);
 }
 
-type OpenedTask = { before: Task | undefined; after: Task; now: Date; via: ChangeSource; undo?: boolean | undefined };
+type OpenedTask = { before: Task | undefined; after: Task; now: Date; via: ChangeSource; undo?: boolean | undefined; journal?: JournalWriter | undefined };
 
-export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, after, now, via, undo }: OpenedTask): Promise<void> {
+export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, after, now, via, undo, journal }: OpenedTask): Promise<void> {
   if (after.epic === undefined || isClosed(after.status)) return;
   const becameOpenInEpic = before === undefined || isClosed(before.status) || before.epic !== after.epic;
   const epic = index.byId.get(after.epic);
   if (!becameOpenInEpic || epic === undefined || !isAutoClosedEpic(epic)) return;
   try {
     if ((await diskChange(epic, epic.version)) !== null) return;
-    await writeChanges(index, { id: epic.id, changes: { status: await statusToReopen(epic) }, expectedVersion: epic.version, now, via, undo });
+    await writeChanges(index, { id: epic.id, changes: { status: await statusToReopen(epic) }, expectedVersion: epic.version, now, via, undo, journal });
   } catch (error) {
     if (!(error instanceof FileBusyError)) console.error(`${epic.path}: ${errorText(error)}`);
   }
 }
 
-async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion, now, closure, via, undo = false }: UpdateTaskRequest): Promise<UpdateTaskResult> {
+async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion, now, closure, via, undo = false, journal = appendJournal }: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const current = index.byId.get(id);
   if (!current) return { ok: false, reason: "not-found" };
   if (expectedVersion !== current.version) return { ok: false, reason: "conflict", current };
@@ -67,7 +76,7 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
     if (changedOnDisk !== null) return changedOnDisk;
     await writeFileAtomic(current.path, text);
     const events = changeEvents(current, task, now, via);
-    await appendJournal(dirname(current.path), undo ? events.map((event) => ({ ...event, undo: true })) : events);
+    await journal(dirname(current.path), undo ? events.map((event) => ({ ...event, undo: true })) : events);
     return { ok: true, task };
   });
 }

@@ -5,6 +5,7 @@ import type { Closure } from "../model/lifecycle";
 import type { Problem } from "../model/problems";
 import type { Task } from "../model/types";
 import { FileBusyError } from "./file-lock";
+import { bufferedJournal, type JournalWriter } from "./journal";
 import { updateTaskInIndex, type TaskChanges, type UpdateTaskRequest } from "./update";
 import type { UpdateTaskResult } from "./write-result";
 
@@ -16,17 +17,24 @@ type Plan = { skip: BatchSkipReason } | { changes: TaskChanges; closure?: Closur
 
 export async function applyBatch(index: BacklogIndex, { tasks, action, now }: BatchRequest & { now: Date }): Promise<CoreBatchOutcome[]> {
   const ordered = [...tasks].sort((left, right) => compareIds(left.id, right.id));
+  const journal = bufferedJournal();
   const outcomes: CoreBatchOutcome[] = [];
-  for (const task of ordered) outcomes.push(await applyOne(index, task, action, now));
+  try {
+    for (const task of ordered) outcomes.push(await applyOne(index, task, { action, now, journal: journal.write }));
+  } finally {
+    await journal.flush();
+  }
   return outcomes;
 }
 
-async function applyOne(index: BacklogIndex, { id, version }: { id: string; version: string }, action: BatchAction, now: Date): Promise<CoreBatchOutcome> {
+type BatchStep = { action: BatchAction; now: Date; journal: JournalWriter };
+
+async function applyOne(index: BacklogIndex, { id, version }: { id: string; version: string }, { action, now, journal }: BatchStep): Promise<CoreBatchOutcome> {
   const current = index.byId.get(id);
   if (!current) return { id, outcome: "skipped", reason: "not-found" };
   const plan = planFor(current, action);
   if ("skip" in plan) return { id, outcome: "skipped", reason: plan.skip };
-  const result = await updateUnlessBusy(index, { id, changes: plan.changes, closure: plan.closure, expectedVersion: version, now, via: "web", undo: action.kind === "restore" });
+  const result = await updateUnlessBusy(index, { id, changes: plan.changes, closure: plan.closure, expectedVersion: version, now, via: "web", undo: action.kind === "restore", journal });
   if (result === "busy") return { id, outcome: "skipped", reason: "busy" };
   if (result.ok) return { id, outcome: "done", task: result.task, previous: previousOf(current) };
   if (result.reason === "conflict") return { id, outcome: "skipped", reason: "changed" };
