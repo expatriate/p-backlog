@@ -4,6 +4,8 @@ import { E2E_BACKLOG_DIR, E2E_HOME, E2E_PORT } from "./tests/e2e/backlog-dir";
 export default defineConfig({
   testDir: "tests/e2e",
   globalSetup: "./tests/e2e/global-setup.ts",
+  globalTeardown: "./tests/e2e/global-teardown.ts",
+  forbidOnly: Boolean(process.env.CI),
   use: { baseURL: `http://127.0.0.1:${E2E_PORT}` },
   webServer: {
     command: "npm run build && node dist/server.js",

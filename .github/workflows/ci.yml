@@ -14,6 +14,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -23,7 +24,18 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npx playwright install --with-deps chromium
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: playwright-browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+      - if: steps.playwright-browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.playwright-browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - run: npx playwright test
 
   os:
@@ -38,6 +50,7 @@ jobs:
           - os: ubuntu-latest
             node: 26
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v7
@@ -56,6 +69,7 @@ jobs:
 
   lowest-node:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
