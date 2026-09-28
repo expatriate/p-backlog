@@ -42,9 +42,9 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   return { fixed: [...fixes.fixed, ...anchors.fixed], problems, candidates };
 }
 
-type CheckFindings = { candidates: readonly Candidate[]; filtered: readonly FilteredSighting[]; unchecked: ReadonlyMap<string, readonly CandidateEvidence[]>; awaiting: ReadonlySet<string> };
+type CandidateOutcome = { candidates: readonly Candidate[]; filtered: readonly FilteredSighting[]; unchecked: ReadonlyMap<string, readonly CandidateEvidence[]>; awaiting: ReadonlySet<string> };
 
-async function recordCandidates(root: string, tasks: readonly Task[], { candidates, filtered, unchecked, awaiting }: CheckFindings, { mode, now, projectIds, messages, warn }: CheckRequest): Promise<void> {
+async function recordCandidates(root: string, tasks: readonly Task[], { candidates, filtered, unchecked, awaiting }: CandidateOutcome, { mode, now, projectIds, messages, warn }: CheckRequest): Promise<void> {
   const projectOf = new Map(tasks.map((task) => [task.id, task.projectId]));
   for (const projectId of projectIds) {
     const dir = join(root, projectId);

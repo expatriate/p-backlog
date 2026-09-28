@@ -17,8 +17,8 @@ export type StatsInput = {
 };
 
 type StatsScope = {
-  tasks: Task[];
-  histories: TaskHistory[];
+  tasksWithEpics: Task[];
+  historiesWithEpics: TaskHistory[];
   journalStart: number | null;
   journalSince: string | null;
   invalidJournalLines: number;
@@ -33,8 +33,8 @@ function statsScope({ tasks, journals, projectId, unparsedTasks = [] }: StatsInp
   const unparsedIds = new Set(unparsedTasks.filter((task) => inScope(task.projectId)).map((task) => task.id));
   const journalStart = smallest(scopedJournals.flatMap((journal) => journal.events.map((event) => Date.parse(event.at))));
   return {
-    tasks: scopedTasks,
-    histories: taskHistories(scopedTasks, scopedJournals, unparsedIds),
+    tasksWithEpics: scopedTasks,
+    historiesWithEpics: taskHistories(scopedTasks, scopedJournals, unparsedIds),
     journalStart,
     journalSince: journalStart === null ? null : formatLocalIso(new Date(journalStart)),
     invalidJournalLines: sum(scopedJournals.map((journal) => journal.invalidLines)),
@@ -47,8 +47,8 @@ export type ReportBase = { scope: StatsScope; histories: TaskHistory[]; tasks: T
 
 export function reportBase(input: StatsInput): ReportBase {
   const scope = statsScope(input);
-  const histories = scope.histories.filter((history) => history.type === "task");
-  const tasks = scope.tasks.filter((task) => task.type === "task");
+  const histories = scope.historiesWithEpics.filter((history) => history.type === "task");
+  const tasks = scope.tasksWithEpics.filter((task) => task.type === "task");
   return {
     scope,
     histories,

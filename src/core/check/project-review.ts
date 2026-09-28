@@ -4,12 +4,12 @@ import type { CandidateEvidence, CheckMode, FilteredSighting, TaskOrigin } from 
 import type { Project, Task } from "../model/types";
 import { readJournal } from "../store/journal";
 import { snippetOf } from "./anchor";
-import { mergesKnownAtCreation } from "./branch-merges";
+import { mergesKnownAtCreation } from "./known-merges";
 import { anchorStates, codeReview, isReviewable, relocationPlan, reviewMark, type AnchorPlan, type Candidate, type CodeReview } from "./candidates";
 import { duplicateCandidates } from "./duplicates";
 import { currentSources } from "./current-source";
 import type { CheckProblem } from "./findings";
-import { awaitingMerge } from "./pending-branches";
+import { awaitingMerge } from "./awaiting-merge";
 import { collectRepoFacts, diffsSince, type DiffExcerpt, type GitHistory, type RepoFacts } from "./repo-facts";
 import { sourcePath } from "./source-lines";
 import { fileHashes, filterBySymbol, symbolLookup, symbolNames, type SymbolFilterContext, type SymbolFilterResult } from "./symbol-filter";

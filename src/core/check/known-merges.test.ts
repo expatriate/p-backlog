@@ -6,7 +6,7 @@ import { countingGit } from "../git/testing/counting-git";
 import { makeTask } from "../model/testing/make-task";
 import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { anchorOf } from "./anchor";
-import { mergesKnownAtCreation } from "./branch-merges";
+import { mergesKnownAtCreation } from "./known-merges";
 import { anchorStates } from "./candidates";
 import { collectRepoFacts } from "./repo-facts";
 

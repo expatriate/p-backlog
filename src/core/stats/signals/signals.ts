@@ -44,7 +44,7 @@ function urgentStale(count: number): Signal[] {
 }
 
 function stuck({ scope, tasks }: ReportBase, now: Date): Signal[] {
-  const stuckTasks = inWorkTasks(tasks, scope.histories, now).filter(
+  const stuckTasks = inWorkTasks(tasks, scope.historiesWithEpics, now).filter(
     (item) => item.days > (item.status === "blocked" ? STUCK_BLOCKED_DAYS : STUCK_IN_PROGRESS_DAYS),
   );
   const longest = stuckTasks[0];
@@ -53,7 +53,7 @@ function stuck({ scope, tasks }: ReportBase, now: Date): Signal[] {
 }
 
 function staleLow({ scope }: ReportBase, now: Date): Signal[] {
-  const stale = staleLowTasks(scope.tasks, now);
+  const stale = staleLowTasks(scope.tasksWithEpics, now);
   return stale.length === 0 ? [] : [{ kind: "stale-low", params: { days: STALE_LOW_DAYS, count: stale.length } }];
 }
 
