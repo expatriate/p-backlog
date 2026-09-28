@@ -39,22 +39,21 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const anchors = await applyAnchorPlans(current.tasks, anchorPlans, request.now);
   const unchecked = new Map(reviews.map((review) => [review.projectId, review.unchecked]));
   const awaiting = new Set(reviews.flatMap((review) => review.awaitingMerge));
-  const judged = current.tasks.filter((task) => !awaiting.has(task.id));
-  await recordCandidates(root, judged, { candidates, filtered: reviews.flatMap((review) => review.filtered), unchecked }, request);
+  await recordCandidates(root, current.tasks, { candidates, filtered: reviews.flatMap((review) => review.filtered), unchecked, awaiting }, request);
   const reviewProblems = reviews.flatMap((review) => review.problems);
   const problems = coverage.reportsProblems ? [...fixes.failed, ...anchors.failed, ...findProblems(current, projects, repos, inScope), ...reviewProblems] : [];
   return { fixed: [...fixes.fixed, ...anchors.fixed], problems, candidates };
 }
 
-type CheckFindings = { candidates: readonly Candidate[]; filtered: readonly FilteredSighting[]; unchecked: ReadonlyMap<string, readonly CandidateEvidence[]> };
+type CheckFindings = { candidates: readonly Candidate[]; filtered: readonly FilteredSighting[]; unchecked: ReadonlyMap<string, readonly CandidateEvidence[]>; awaiting: ReadonlySet<string> };
 
-async function recordCandidates(root: string, tasks: readonly Task[], { candidates, filtered, unchecked }: CheckFindings, { mode, now, projectIds, messages }: CheckRequest): Promise<void> {
+async function recordCandidates(root: string, tasks: readonly Task[], { candidates, filtered, unchecked, awaiting }: CheckFindings, { mode, now, projectIds, messages }: CheckRequest): Promise<void> {
   const projectOf = new Map(tasks.map((task) => [task.id, task.projectId]));
   for (const projectId of projectIds) {
     const dir = join(root, projectId);
     const found = candidates.filter((candidate) => projectOf.get(candidate.task.id) === projectId);
     const filteredHere = filtered.filter((sighting) => projectOf.get(sighting.task) === projectId);
-    const reviewed = tasks.filter((task) => task.projectId === projectId && isReviewable(task)).map((task) => task.id);
+    const reviewed = tasks.filter((task) => task.projectId === projectId && isReviewable(task) && !awaiting.has(task.id)).map((task) => task.id);
     const endsGone = COVERAGE[mode].endsGoneEpisodes;
     if (found.length === 0 && filteredHere.length === 0 && (!endsGone || reviewed.length === 0)) continue;
     const reportFailure = (error: unknown) => console.error(messages.candidatesRecordFailed(projectId, errorText(error)));

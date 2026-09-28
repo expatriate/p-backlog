@@ -288,6 +288,32 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", commits: expect.arrayContaining([expect.objectContaining({ subject: "Слить feat" })]) })]);
   });
 
+  it("дубль задачи не слитой ветки показан и записан в журнал, хотя её кандидаты по коду ждут слияния", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFiles(repo, { "src/n.ts": "n1\n" });
+    gitCommitAll(repo, "Фича добавляет n", "2026-09-10T10:00:00+03:00");
+    const origin = { branch: "feat", commit: execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim() };
+    gitCheckout(repo, "master");
+    const created = (id: string) => JSON.stringify({ at: "2026-09-11T10:00:00+03:00", task: id, via: "cli", kind: "created", type: "task", priority: "medium", tags: [], source: "src/n.ts:1", origin });
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": task("SPA-1", "source: src/n.ts:1\n"),
+      "spa/SPA-2.md": task("SPA-2", "source: src/n.ts:1\n"),
+      "spa/journal.jsonl": `${created("SPA-1")}\n${created("SPA-2")}\n`,
+    });
+
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU });
+
+    expect(report.candidates).toMatchObject([{ kind: "duplicate", task: { id: "SPA-2" }, other: { id: "SPA-1" } }]);
+    const recorded = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind !== "created");
+    expect(recorded).toMatchObject([{ kind: "candidate", task: "SPA-2", evidence: "duplicate" }]);
+  });
+
   it("журнал помнит, по какому признаку найден дубль", async () => {
     const { home, root } = await setup();
 
