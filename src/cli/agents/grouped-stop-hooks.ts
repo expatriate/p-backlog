@@ -16,7 +16,11 @@ const groupedConfigSchema = z
 
 type StopGroup = z.infer<typeof stopGroupSchema>;
 
-export function refreshOurHook(lists: unknown[][], hook: object, { isOurs, isCurrent }: OurHook): "exists" | "updated" | "missing" {
+type GroupedConfig = z.infer<typeof groupedConfigSchema>;
+
+type StopHookSlots = { lists: unknown[][]; append: (hook: object) => void };
+
+function refreshOurHook(lists: unknown[][], hook: object, { isOurs, isCurrent }: OurHook): "exists" | "updated" | "missing" {
   const ours = lists.flatMap((list) => list.flatMap((entry, index) => (isOurs(entry) ? [{ list, index, entry }] : [])));
   if (ours.some(({ entry }) => isCurrent(entry))) return "exists";
   const stale = ours[0];
@@ -25,31 +29,47 @@ export function refreshOurHook(lists: unknown[][], hook: object, { isOurs, isCur
   return "updated";
 }
 
-export async function addGroupedStopHook(path: string, hook: object, ourHook: OurHook): Promise<HookInstallResult> {
-  const read = await readJsonConfig(path, groupedConfigSchema);
+export async function addStopHookIn<T>(path: string, schema: z.ZodType<T>, slotsOf: (config: T) => StopHookSlots, hook: object, ourHook: OurHook): Promise<HookInstallResult> {
+  const read = await readJsonConfig(path, schema);
   if (!("config" in read)) return read;
-  const stopGroups = ((read.config.hooks ??= {}).Stop ??= []);
-  const refreshed = refreshOurHook(stopGroups.flatMap((group) => (group.hooks === undefined ? [] : [group.hooks])), hook, ourHook);
+  const slots = slotsOf(read.config);
+  const refreshed = refreshOurHook(slots.lists, hook, ourHook);
   if (refreshed === "exists") return "exists";
-  if (refreshed === "missing") stopGroups.push({ hooks: [hook] });
+  if (refreshed === "missing") slots.append(hook);
   await writeJsonConfig(path, read.config);
   return refreshed === "missing" ? "added" : "updated";
 }
 
-export async function removeGroupedStopHook(path: string, isOurs: IsOurHook): Promise<HookRemoveResult> {
-  const read = await readJsonConfig(path, groupedConfigSchema);
+export async function removeStopHookIn<T>(path: string, schema: z.ZodType<T>, removeOurs: (config: T) => boolean): Promise<HookRemoveResult> {
+  const read = await readJsonConfig(path, schema);
   if (!("config" in read)) return read;
-  const hooks = read.config.hooks;
-  if (hooks?.Stop === undefined || !hooks.Stop.some((group) => hasOurHook(group, isOurs))) return "absent";
-  const kept = hooks.Stop.flatMap((group): StopGroup[] => {
-    if (!hasOurHook(group, isOurs)) return [group];
-    const others = (group.hooks ?? []).filter((hook) => !isOurs(hook));
-    return others.length > 0 ? [{ ...group, hooks: others }] : [];
-  });
-  if (kept.length > 0) hooks.Stop = kept;
-  else delete hooks.Stop;
+  if (!removeOurs(read.config)) return "absent";
   await writeJsonConfig(path, read.config);
   return "removed";
+}
+
+export function addGroupedStopHook(path: string, hook: object, ourHook: OurHook): Promise<HookInstallResult> {
+  return addStopHookIn(path, groupedConfigSchema, groupedSlots, hook, ourHook);
+}
+
+function groupedSlots(config: GroupedConfig): StopHookSlots {
+  const stopGroups = ((config.hooks ??= {}).Stop ??= []);
+  return { lists: stopGroups.flatMap((group) => (group.hooks === undefined ? [] : [group.hooks])), append: (hook) => stopGroups.push({ hooks: [hook] }) };
+}
+
+export function removeGroupedStopHook(path: string, isOurs: IsOurHook): Promise<HookRemoveResult> {
+  return removeStopHookIn(path, groupedConfigSchema, (config) => {
+    const hooks = config.hooks;
+    if (hooks?.Stop === undefined || !hooks.Stop.some((group) => hasOurHook(group, isOurs))) return false;
+    const kept = hooks.Stop.flatMap((group): StopGroup[] => {
+      if (!hasOurHook(group, isOurs)) return [group];
+      const others = (group.hooks ?? []).filter((hook) => !isOurs(hook));
+      return others.length > 0 ? [{ ...group, hooks: others }] : [];
+    });
+    if (kept.length > 0) hooks.Stop = kept;
+    else delete hooks.Stop;
+    return true;
+  });
 }
 
 function hasOurHook(group: StopGroup, isOurs: IsOurHook): boolean {
