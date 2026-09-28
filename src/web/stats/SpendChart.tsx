@@ -1,22 +1,20 @@
 import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
-import { formatMoney } from "../../core/i18n/format";
+import { formatDay, formatMoney } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { CostDay, CostPeriod, GrainPeriods } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
-import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
+import { axisDay, compactNumber } from "./charts/chart-format";
 import { AXIS_PROPS, DASHED_LINE_WIDTH, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
 import { costValue } from "./cost-format";
-import { formatLines } from "./effect-format";
-import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
-import { usePeriodCaption } from "./period-caption";
-import { useGrainSeries } from "./use-grain-series";
+import { useGrainPanel } from "./use-grain-panel";
+import { formatWhole } from "./value-format";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
 const CLI_TOKENS = "var(--chart-bar-neutral)";
@@ -25,13 +23,13 @@ const OTHER_RUNS = "var(--chart-line-yellow)";
 
 function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
   return rowTooltip((period: CostPeriod) => ({
-    title: stats.periodOf(grain, tooltipDay(language, period.start)),
+    title: stats.periodOf(grain, formatDay(language, period.start)),
     rows: [
       { label: stats.hookTurnsTooltip, value: stats.tokens(period.hookTokens), shape: "bar", color: HOOK_TOKENS },
       { label: stats.cliOutput, value: stats.tokens(period.cliTokens), shape: "bar", color: CLI_TOKENS },
       { label: stats.apiPriceTooltip, value: period.hasUnpricedTokens && period.cost !== null ? `${costValue(language, period.cost)} (${stats.unpricedNote})` : costValue(language, period.cost) },
-      { label: stats.hookRuns, value: formatLines(language, period.hookRuns), shape: "line", color: HOOK_RUNS },
-      { label: stats.otherCommands, value: formatLines(language, period.cliRuns), shape: "dashed", color: OTHER_RUNS },
+      { label: stats.hookRuns, value: formatWhole(language, period.hookRuns), shape: "line", color: HOOK_RUNS },
+      { label: stats.otherCommands, value: formatWhole(language, period.cliRuns), shape: "dashed", color: OTHER_RUNS },
     ],
   }));
 }
@@ -43,9 +41,8 @@ function dayPeriod({ day, ...numbers }: CostDay): CostPeriod {
 export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days: CostDay[]; windows: GrainPeriods }) {
   const { stats } = useMessages();
   const language = useLanguage();
-  const caption = usePeriodCaption();
   const dayPeriods = useMemo(() => days.map(dayPeriod), [days]);
-  const { grain, periods, setGrain } = useGrainSeries("spend", "day", { week: weeks, day: dayPeriods });
+  const { grain, periods, period, toggle } = useGrainPanel("spend", "day", { week: weeks, day: dayPeriods }, windows);
   const tooltip = useMemo(() => periodTooltip(stats, language, grain), [stats, language, grain]);
   const title = stats.spendBy[grain];
   const legend: LegendItem[] = [
@@ -56,7 +53,7 @@ export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days
   ];
   const compact = (value: number) => compactNumber(language, value);
   return (
-    <Panel title={title} period={caption.ofGrain(grain, windows)} aside={<GrainToggle chart="spend" grain={grain} onChange={setGrain} />}>
+    <Panel title={title} period={period} aside={toggle}>
       <ChartFrame summary={spendSummary(stats, language, grain, periods)} legend={legend}>
         <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />
@@ -76,15 +73,15 @@ export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days
 
 function spendSummary(stats: StatsMessages, language: Language, grain: Grain, periods: CostPeriod[]): string {
   const total = (pick: (period: CostPeriod) => number) => sum(periods.map(pick));
-  const lines = (value: number) => formatLines(language, value);
+  const whole = (value: number) => formatWhole(language, value);
   return stats.spendSummary({
     grain,
     periodCount: periods.length,
     hookTokens: total((period) => period.hookTokens),
-    cliTokens: lines(total((period) => period.cliTokens)),
+    cliTokens: whole(total((period) => period.cliTokens)),
     money: formatMoney(language, totalMoney(periods)),
-    hookRuns: lines(total((period) => period.hookRuns)),
-    cliRuns: lines(total((period) => period.cliRuns)),
+    hookRuns: whole(total((period) => period.hookRuns)),
+    cliRuns: whole(total((period) => period.cliRuns)),
   });
 }
 

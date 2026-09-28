@@ -4,12 +4,12 @@ import type { CostCommand, CostDay, CostModel, CostTotals, ReportPeriod } from "
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { costValue } from "./cost-format";
-import { formatLines } from "./effect-format";
 import { Figure, FigureGroup } from "./Figure";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
+import { formatWhole } from "./value-format";
 
 export function CostFigures({ totals, days, period }: { totals: CostTotals; days: CostDay[]; period: ReportPeriod }) {
   const { stats } = useMessages();
@@ -18,13 +18,13 @@ export function CostFigures({ totals, days, period }: { totals: CostTotals; days
   const lastWeek = days.slice(-COST_TOTALS_DAYS);
   const hookTokens = sum(lastWeek.map((day) => day.hookTokens));
   const cliTokens = sum(lastWeek.map((day) => day.cliTokens));
-  const lines = (value: number) => formatLines(language, value);
+  const whole = (value: number) => formatWhole(language, value);
   return (
     <FigureGroup period={caption.of("lastWeek", period)}>
-      <Figure label={stats.backlogTokens} value={lines(totals.tokens)} note={stats.backlogTokensNote(lines(hookTokens), lines(cliTokens))} />
+      <Figure label={stats.backlogTokens} value={whole(totals.tokens)} note={stats.backlogTokensNote(whole(hookTokens), whole(cliTokens))} />
       <Figure label={stats.apiPrice} value={costValue(language, totals.cost)} note={totals.hasUnpricedTokens ? stats.unpricedNote : undefined} />
-      <Figure label={stats.hookTurns} value={lines(totals.hookTurns)} note={stats.hookRunsNote(lines(totals.hookRuns))} />
-      <Figure label={stats.cliCalls} value={lines(totals.cliRuns)} />
+      <Figure label={stats.hookTurns} value={whole(totals.hookTurns)} note={stats.hookRunsNote(whole(totals.hookRuns))} />
+      <Figure label={stats.cliCalls} value={whole(totals.cliRuns)} />
     </FigureGroup>
   );
 }
@@ -43,7 +43,7 @@ export function ModelsPanel({ models, period }: { models: CostModel[]; period: R
           head={stats.modelsHead}
           rows={models.map((row) => ({
             key: `${row.model}:${row.fast}`,
-            cells: [row.fast ? stats.fastModel(row.model) : row.model, formatLines(language, row.tokens), formatMoney(language, row.cost)],
+            cells: [row.fast ? stats.fastModel(row.model) : row.model, formatWhole(language, row.tokens), formatMoney(language, row.cost)],
           }))}
         />
       )}
@@ -65,7 +65,7 @@ export function CommandsPanel({ commands, period }: { commands: CostCommand[]; p
           head={stats.commandsHead}
           rows={commands.map((command) => ({
             key: command.command,
-            cells: [command.command, formatLines(language, command.runs), stats.milliseconds(command.avgMs), stats.megabytes(command.avgRssMb), stats.megabytes(command.maxRssMb)],
+            cells: [command.command, formatWhole(language, command.runs), stats.milliseconds(command.avgMs), stats.megabytes(command.avgRssMb), stats.megabytes(command.maxRssMb)],
           }))}
         />
       )}

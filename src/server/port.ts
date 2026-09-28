@@ -1,4 +1,4 @@
-import type { ServerMessages } from "./messages.ru";
+import type { ServerMessages } from "./messages";
 
 const DEFAULT_PORT = 4317;
 

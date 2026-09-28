@@ -1,13 +1,14 @@
 import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
+import { formatDay } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import { formatShare } from "../../core/stats/format";
 import type { AccuracyPeriod } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
-import { axisDay, tooltipDay } from "./charts/chart-format";
-import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
+import { axisDay } from "./charts/chart-format";
+import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, LINE_WIDTH, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
 import type { StatsMessages } from "./messages.ru";
@@ -17,7 +18,7 @@ const PRECISION = "var(--chart-line-green)";
 
 function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
   return rowTooltip((period: AccuracyPeriod) => ({
-    title: stats.periodOf(grain, tooltipDay(language, period.start)),
+    title: stats.periodOf(grain, formatDay(language, period.start)),
     rows: [
       { label: stats.decidedCandidates, value: String(period.decided), shape: "bar", color: DECIDED },
       { label: stats.precision, value: formatShare(period.precision), shape: "line", color: PRECISION },
@@ -42,12 +43,12 @@ export function AccuracyChart({ periods, grain }: { periods: AccuracyPeriod[]; g
       <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(stats.accuracyTitle, grain)}>
         <CartesianGrid vertical={false} />
         <XAxis dataKey="start" tickFormatter={(day: string) => axisDay(language, day)} {...DATE_AXIS_PROPS} />
-        <YAxis yAxisId="decided" width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
+        <YAxis yAxisId="decided" allowDecimals={false} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
         <YAxis
           yAxisId="precision"
           orientation="right"
           domain={[0, 1]}
-          tickFormatter={(share: number) => `${Math.round(share * 100)}%`}
+          tickFormatter={formatShare}
           width={VALUE_AXIS_WIDTH}
           {...AXIS_PROPS}
         />
@@ -58,7 +59,7 @@ export function AccuracyChart({ periods, grain }: { periods: AccuracyPeriod[]; g
           type="monotone"
           dataKey="precision"
           stroke={PRECISION}
-          strokeWidth={2}
+          strokeWidth={LINE_WIDTH}
           connectNulls
           dot={nonZeroDot(PRECISION)}
           isAnimationActive={false}

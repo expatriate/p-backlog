@@ -6,7 +6,7 @@ import { useMemorySamples } from "../app/queries";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisTime, tooltipTime } from "./charts/chart-format";
-import { AXIS_PROPS, DASHED_LINE_WIDTH, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
+import { AREA_FILL_OPACITY, AXIS_PROPS, DASHED_LINE_WIDTH, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
@@ -46,7 +46,7 @@ export function MemoryPanel() {
           <XAxis dataKey="at" tickFormatter={(at: string) => axisTime(language, at)} {...DATE_AXIS_PROPS} />
           <YAxis tickFormatter={(value: number) => stats.megabytes(value)} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
           <Tooltip content={tooltip} {...TOOLTIP_PROPS} cursor={{ stroke: "var(--line-strong)" }} />
-          <Area dataKey="rssMb" stroke={RSS} strokeWidth={LINE_WIDTH} fill={RSS} fillOpacity={0.12} dot={false} isAnimationActive={false} />
+          <Area dataKey="rssMb" stroke={RSS} strokeWidth={LINE_WIDTH} fill={RSS} fillOpacity={AREA_FILL_OPACITY} dot={false} isAnimationActive={false} />
           <Area dataKey="heapUsedMb" stroke={HEAP} strokeWidth={DASHED_LINE_WIDTH} strokeDasharray={DASHED_LINE} fill="none" dot={false} isAnimationActive={false} />
         </AreaChart>
       </ChartFrame>

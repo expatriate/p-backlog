@@ -6,7 +6,6 @@ import { readJournals } from "../core/store/journal";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import { createMemorySampler } from "./memory-sampler";
-import { serverRu } from "./messages.ru";
 import { createStatsApi } from "./stats-api";
 import { TEST_NOW } from "./testing/test-app";
 import { createUsageScanner } from "./usage-scanner";
@@ -24,15 +23,17 @@ describe("кэш отчётов статистики и смена снимка 
       home: root,
       now: () => TEST_NOW,
       readLanguage: async () => "ru",
-      usage: createUsageScanner({ root, claudeProjectsDir: await makeTempDir(), messages: async () => serverRu, warn: () => undefined }),
-      memory: createMemorySampler(),
-      warn: () => undefined,
+      services: {
+        usage: createUsageScanner({ root, claudeProjectsDir: await makeTempDir(), warn: async () => undefined }),
+        memory: createMemorySampler(),
+        warn: async () => undefined,
+      },
       graphHealth: (snapshot, project) => projectGraphHealth(project, snapshot.tasks, root),
       backlog: async () => {
         const read = current;
         if (read === before) {
           current = after;
-          stats.forget();
+          stats.forgetAll();
         }
         return read;
       },

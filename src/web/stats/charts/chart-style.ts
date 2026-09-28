@@ -11,3 +11,4 @@ export const BAR_RADIUS: [number, number, number, number] = [2, 2, 0, 0];
 export const LINE_WIDTH = 3;
 export const DASHED_LINE_WIDTH = 2;
 export const DASHED_LINE = "5 4";
+export const AREA_FILL_OPACITY = 0.12;

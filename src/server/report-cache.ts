@@ -2,16 +2,22 @@ export type ReportCache = {
   get: <T>(key: string, compute: () => Promise<T>, tags?: readonly string[]) => Promise<T>;
   clear: () => void;
   clearTagged: (tags: readonly string[]) => void;
+  size: () => number;
 };
 
 export function createReportCache({ ttlMs, now }: { ttlMs: number; now: () => number }): ReportCache {
   let entries = new Map<string, { at: number; value: Promise<unknown>; tags: readonly string[] }>();
+  const evictExpired = (moment: number) => {
+    for (const [key, entry] of entries) if (moment - entry.at > ttlMs) entries.delete(key);
+  };
   return {
     get: <T>(key: string, compute: () => Promise<T>, tags: readonly string[] = []): Promise<T> => {
+      const moment = now();
+      evictExpired(moment);
       const cached = entries.get(key);
-      if (cached !== undefined && now() - cached.at <= ttlMs) return cached.value as Promise<T>;
+      if (cached !== undefined) return cached.value as Promise<T>;
       const value = compute();
-      entries.set(key, { at: now(), value, tags });
+      entries.set(key, { at: moment, value, tags });
       value.catch(() => {
         if (entries.get(key)?.value === value) entries.delete(key);
       });
@@ -24,5 +30,6 @@ export function createReportCache({ ttlMs, now }: { ttlMs: number; now: () => nu
       const tagged = new Set(tags);
       for (const [key, entry] of entries) if (entry.tags.some((tag) => tagged.has(tag))) entries.delete(key);
     },
+    size: () => entries.size,
   };
 }

@@ -10,8 +10,7 @@ import { createApi } from "./api";
 import type { ChangeFeed } from "./change-feed";
 import { allowLocalHostsOnly, requireJsonBody } from "./guards";
 import { serverMessages } from "./messages";
-import type { MemorySampler } from "./memory-sampler";
-import type { UsageScanner } from "./usage-scanner";
+import type { StatsServices } from "./stats-api";
 
 const OWN_ORIGIN_ONLY = ["'self'"];
 
@@ -34,19 +33,17 @@ export type AppOptions = {
   changes: ChangeFeed;
   allowedHosts: ReadonlySet<string>;
   home: string;
-  usage: UsageScanner;
-  memory: MemorySampler;
-  warn: (line: string) => void;
+  statsServices: StatsServices;
   staticDir?: string | undefined;
   now?: () => Date;
 };
 
-export function createApp({ root, readLanguage, changes, allowedHosts, home, usage, memory, warn, staticDir, now = () => new Date() }: AppOptions): Hono {
+export function createApp({ root, readLanguage, changes, allowedHosts, home, statsServices, staticDir, now = () => new Date() }: AppOptions): Hono {
   const app = new Hono();
   app.use("*", APP_SECURITY_HEADERS);
   app.use("*", allowLocalHostsOnly(allowedHosts, readLanguage));
   app.use("/api/*", requireJsonBody(readLanguage));
-  app.route("/api", createApi({ root, readLanguage, changes, now, home, usage, memory, warn }));
+  app.route("/api", createApi({ root, readLanguage, changes, now, home, statsServices }));
   app.all("/api/*", async (c) => c.json({ errors: [serverMessages(await readLanguage()).unknownRoute(new URL(c.req.url).pathname)] }, 404));
 
   app.onError(async (error, c) => {

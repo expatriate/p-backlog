@@ -5,11 +5,11 @@ import { DAY_MS } from "../core/model/lifecycle";
 import { newTranscriptState } from "../core/stats/cost/attribute";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
 import { emptyUsageCache, readUsageCache, USAGE_CACHE_VERSION, writeUsageCache } from "../core/usage/usage-cache";
-import { serverRu } from "./messages.ru";
+import { localizedWarn } from "./messages";
 import { CATCH_UP_DELAY_MS, createUsageScanner, type UsageScannerOptions } from "./usage-scanner";
 
-function scannerOf(options: Omit<UsageScannerOptions, "messages" | "warn">, warn: (line: string) => void = () => undefined) {
-  return createUsageScanner({ ...options, messages: async () => serverRu, warn });
+function scannerOf(options: Omit<UsageScannerOptions, "warn">, warn: (line: string) => void = () => undefined) {
+  return createUsageScanner({ ...options, warn: localizedWarn(async () => "ru", warn) });
 }
 
 describe("createUsageScanner", () => {

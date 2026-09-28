@@ -4,6 +4,7 @@ import type { Hotspots } from "../../core/api/contract";
 import { useMessages } from "../i18n";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
+import { ShareBar } from "./ShareBar";
 import styles from "./StatsPanels.module.css";
 
 export function HotspotsPanel({ hotspots, listPath }: { hotspots: Hotspots; listPath: string }) {
@@ -39,9 +40,7 @@ function CountList({ title, empty, items }: { title: string; empty: string; item
             <li key={item.key} className={rowStyles.countRow}>
               <span className={rowStyles.rowLabel}>{item.label}</span>
               <span className={rowStyles.rowValue}>{item.count}</span>
-              <span className={rowStyles.track} aria-hidden="true">
-                <span className={rowStyles.fill} style={{ transform: `scaleX(${item.count / top})` }} />
-              </span>
+              <ShareBar share={item.count / top} />
             </li>
           ))}
         </ul>
