@@ -105,7 +105,7 @@ function forecast(flow: FlowForecast): string {
     case "not-shrinking":
       return "Debt is not shrinking";
     case "grows":
-      return `Debt grows by ${formatDecimal("en", outlook.perWeek)} ${pluralEn(outlook.perWeek, "task", "tasks")} a week`;
+      return `Debt grows by ${formatDecimal("en", outlook.perWeek)} ${pluralEn(outlook.perWeek, ...COUNT_FORMS.task)} a week`;
   }
 }
 
@@ -117,20 +117,20 @@ function forecastTail({ windowDays, closed, created }: FlowForecast): string {
 function signal(s: Signal): string {
   switch (s.kind) {
     case "debt-growing":
-      return `Debt has grown for ${countEn(s.params.weeks, "week", "weeks")} straight: created ${s.params.created}, closed ${s.params.closed}`;
+      return `Debt has grown for ${count(s.params.weeks, "week")} straight: created ${s.params.created}, closed ${s.params.closed}`;
     case "urgent-stale":
-      return `Urgent tasks have been waiting more than ${countEn(s.params.days, "day", "days")}: ${s.params.count}`;
+      return `Urgent tasks have been waiting more than ${count(s.params.days, "day")}: ${s.params.count}`;
     case "stuck":
       return `Stuck in progress: ${s.params.count}, longest ${s.params.id} — ${days(s.params.days)}`;
     case "noisy-check": {
       const { evidence, method, percent, decided, windowDays } = s.params;
       const name = method === null ? `"${evidenceLabel(evidence)}"` : `"${evidenceLabel(evidence)}" ${checkMethodLabel(method)}`;
-      return `Check ${name} is almost always wrong: precision ${percent}% on ${decided} decided over ${countEn(windowDays, "day", "days")}`;
+      return `Check ${name} is almost always wrong: precision ${percent}% on ${decided} decided over ${count(windowDays, "day")}`;
     }
     case "low-changed":
-      return `Code changed for ${countEn(s.params.count, "task", "tasks")} with low priority — re-check when convenient ("clean up the backlog")`;
+      return `Code changed for ${count(s.params.count, "task")} with low priority — re-check when convenient ("clean up the backlog")`;
     case "stale-low":
-      return `Tasks with low priority older than ${countEn(s.params.days, "day", "days")}: ${s.params.count} — clean them up (backlog prune)`;
+      return `Tasks with low priority older than ${count(s.params.days, "day")}: ${s.params.count} — clean them up (backlog prune)`;
   }
 }
 

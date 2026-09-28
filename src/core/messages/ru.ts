@@ -85,6 +85,10 @@ function count(n: number, unit: CountUnit): string {
   return countRu(n, one, few, many);
 }
 
+function span(n: number, unit: SpanUnit): string {
+  return countRu(n, ...SPAN_FORMS[unit]);
+}
+
 function genitiveDays(days: number): string {
   return `${days} ${pluralRu(days, "дня", "дней", "дней")}`;
 }
@@ -110,19 +114,19 @@ function forecast(flow: FlowForecast): string {
     case "not-shrinking":
       return "Долг не уменьшается";
     case "grows":
-      return `Долг растёт на ${formatDecimal("ru", outlook.perWeek)}${NBSP}${pluralRu(outlook.perWeek, "задача", "задачи", "задач")} в неделю`;
+      return `Долг растёт на ${formatDecimal("ru", outlook.perWeek)}${NBSP}${pluralRu(outlook.perWeek, ...COUNT_FORMS.task)} в неделю`;
   }
 }
 
 function forecastTail({ windowDays, closed, created }: FlowForecast): string {
   const { unit, count } = forecastSpan(windowDays);
-  return `за ${countRu(count, ...SPAN_FORMS[unit])}: закрыто ${closed}, создано ${created}`;
+  return `за ${span(count, unit)}: закрыто ${closed}, создано ${created}`;
 }
 
 function signal(s: Signal): string {
   switch (s.kind) {
     case "debt-growing":
-      return `Долг растёт ${countRu(s.params.weeks, "неделю", "недели", "недель")} подряд: создано ${s.params.created}, закрыто ${s.params.closed}`;
+      return `Долг растёт ${span(s.params.weeks, "week")} подряд: создано ${s.params.created}, закрыто ${s.params.closed}`;
     case "urgent-stale":
       return `Срочные задачи ждут дольше ${genitiveDays(s.params.days)}: ${s.params.count}`;
     case "stuck":
@@ -130,7 +134,7 @@ function signal(s: Signal): string {
     case "noisy-check": {
       const { evidence, method, percent, decided, windowDays } = s.params;
       const name = method === null ? `«${evidenceLabel(evidence)}»` : `«${evidenceLabel(evidence)}» ${checkMethodLabel(method)}`;
-      return `Проверка ${name} почти всегда ошибается: точность ${percent}% на ${decided} решённых за ${countRu(windowDays, "день", "дня", "дней")}`;
+      return `Проверка ${name} почти всегда ошибается: точность ${percent}% на ${decided} решённых за ${span(windowDays, "day")}`;
     }
     case "low-changed":
       return `Код менялся у ${countRu(s.params.count, "задачи", "задач", "задач")} с низким приоритетом — перепроверьте при случае («почисти беклог»)`;
