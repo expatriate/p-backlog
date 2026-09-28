@@ -1,5 +1,6 @@
 import type { BatchAction, BatchPrevious, BatchRequest, BatchSkipReason } from "../api/contract";
 import { isClosed, type BacklogIndex } from "../model/graph";
+import { errorText } from "../errors";
 import { compareIds } from "../model/ids";
 import type { Closure } from "../model/lifecycle";
 import type { Problem } from "../model/problems";
@@ -7,21 +8,21 @@ import type { Task } from "../model/types";
 import { bufferedJournal, type JournalWriter } from "./journal";
 import { updateTaskInIndex, type TaskChanges } from "./update";
 
+type SkipReason = Exclude<BatchSkipReason, "failed">;
+
 export type CoreBatchOutcome =
   | { id: string; outcome: "done"; task: Task; previous: BatchPrevious }
-  | { id: string; outcome: "skipped"; reason: BatchSkipReason; problems?: Problem[] };
+  | { id: string; outcome: "skipped"; reason: SkipReason; problems?: Problem[] }
+  | { id: string; outcome: "skipped"; reason: "failed"; detail: string };
 
-type Plan = { skip: BatchSkipReason } | { changes: TaskChanges; closure?: Closure | undefined };
+type Plan = { skip: SkipReason } | { changes: TaskChanges; closure?: Closure | undefined };
 
 export async function applyBatch(index: BacklogIndex, { tasks, action, now }: BatchRequest & { now: Date }): Promise<CoreBatchOutcome[]> {
   const ordered = [...tasks].sort((left, right) => compareIds(left.id, right.id));
   const journal = bufferedJournal();
   const outcomes: CoreBatchOutcome[] = [];
-  try {
-    for (const task of ordered) outcomes.push(await applyOne(index, task, { action, now, journal: journal.write }));
-  } finally {
-    await journal.flush();
-  }
+  for (const task of ordered) outcomes.push(await applyOne(index, task, { action, now, journal: journal.write }).catch((error: unknown) => failed(task.id, error)));
+  await journal.flush();
   return outcomes;
 }
 
@@ -38,6 +39,10 @@ async function applyOne(index: BacklogIndex, { id, version }: { id: string; vers
   if (result.reason === "not-found") return { id, outcome: "skipped", reason: "not-found" };
   if (result.reason === "busy") return { id, outcome: "skipped", reason: "busy" };
   return { id, outcome: "skipped", reason: "invalid", problems: result.problems };
+}
+
+function failed(id: string, error: unknown): CoreBatchOutcome {
+  return { id, outcome: "skipped", reason: "failed", detail: errorText(error) };
 }
 
 function planFor(current: Task, action: BatchAction): Plan {

@@ -13,6 +13,7 @@ export const serverEn: ServerMessages = {
     invalid: (id) => `${id}: the action doesn't apply to it`,
     busy: (id) => `${id} is busy in another process`,
   },
+  batchFailed: (id, detail) => `${id} was not written: ${detail}`,
   unknownRoute: (path) => `Unknown API route: ${path}`,
   hostRejected: (host) => `Requests from host ${host} are not accepted`,
   jsonContentTypeExpected: "Content-Type: application/json is expected",
