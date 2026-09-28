@@ -6,11 +6,11 @@ import { fileURLToPath } from "node:url";
 import { formatLocalIso } from "../core/model/dates";
 import { appendRun } from "../core/store/runs";
 import { resolveBacklogRoot } from "../core/store/paths";
-import { localeLanguage, settleLanguage } from "../core/store/settings";
+import { localeLanguage, readLanguage } from "../core/store/settings";
 import { suppressSqliteExperimentalWarning } from "../core/sqlite-warning";
 import { hostCliEnv } from "./host-env";
 import { tidyAfterCommand } from "./housekeeping";
-import { cliMessages, type CliMessages } from "./messages";
+import { cliMessages } from "./messages";
 import { commandName, runCli } from "./run";
 
 suppressSqliteExperimentalWarning();
@@ -29,6 +29,7 @@ const backlogRoot = resolveBacklogRoot(process.env, home);
 const cliPath = fileURLToPath(import.meta.url);
 const packageRoot = resolve(dirname(cliPath), "..");
 const argv = process.argv.slice(2);
+const warn = (line: string): void => void process.stderr.write(`${line}\n`);
 
 const exitCode = await runCli(argv, {
   cwd: process.cwd(),
@@ -49,25 +50,27 @@ const exitCode = await runCli(argv, {
   now: () => new Date(),
   readStdin,
   print: (line) => process.stdout.write(`${line}\n`),
-  warn: (line) => process.stderr.write(`${line}\n`),
+  warn,
 });
 process.exitCode = exitCode;
 
-async function warnInUserLanguage(message: (messages: CliMessages) => string): Promise<void> {
-  const { language } = await settleLanguage(backlogRoot, process.env).catch(() => ({ language: localeLanguage(process.env) }));
-  process.stderr.write(`${message(cliMessages(language))}\n`);
+async function recordRun(): Promise<string | null> {
+  try {
+    await appendRun(backlogRoot, {
+      at: formatLocalIso(new Date()),
+      command: commandName(argv),
+      cwd: process.cwd(),
+      ms: Math.round(performance.now()),
+      rssMb: megabytesOf(process.resourceUsage().maxRSS * BYTES_PER_KILOBYTE),
+      exitCode,
+    });
+    return null;
+  } catch (error) {
+    return errorText(error);
+  }
 }
 
-try {
-  await appendRun(backlogRoot, {
-    at: formatLocalIso(new Date()),
-    command: commandName(argv),
-    cwd: process.cwd(),
-    ms: Math.round(performance.now()),
-    rssMb: megabytesOf(process.resourceUsage().maxRSS * BYTES_PER_KILOBYTE),
-    exitCode,
-  });
-} catch (error) {
-  await warnInUserLanguage((messages) => messages.runNotRecorded(errorText(error)));
-}
-await tidyAfterCommand({ backlogRoot, argv, env: process.env, now: new Date(), warn: (line) => void process.stderr.write(`${line}\n`) });
+const runFailure = await recordRun();
+const language = await readLanguage(backlogRoot, process.env).catch(() => localeLanguage(process.env));
+if (runFailure !== null) warn(cliMessages(language).runNotRecorded(runFailure));
+await tidyAfterCommand({ backlogRoot, argv, language, now: new Date(), warn });
