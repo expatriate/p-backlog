@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { buildIndex } from "../../core/model/graph";
+import { buildIndex, type BacklogIndex } from "../../core/model/graph";
 import type { Task } from "../../core/model/types";
 import { loadBacklog } from "../../core/store/load";
 import { describeTask, taskJson } from "../describe";
@@ -22,12 +22,11 @@ async function runShow(args: string[], io: CliIo): Promise<ExitCode> {
   const loaded = await loadBacklog(io.backlogRoot);
   const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
-  await printTask(io, task, loaded.tasks, { json: values.json });
+  await printTask(io, task, buildIndex(loaded.tasks), { json: values.json });
   return EXIT.ok;
 }
 
-export async function printTask(io: CliIo, task: Task, tasks: readonly Task[], { json }: { json: boolean }): Promise<void> {
-  const index = buildIndex(tasks);
+export async function printTask(io: CliIo, task: Task, index: BacklogIndex, { json }: { json: boolean }): Promise<void> {
   if (json) {
     io.print(JSON.stringify(taskJson(task, index), null, 2));
     return;
