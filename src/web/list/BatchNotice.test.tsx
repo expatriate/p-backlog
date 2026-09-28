@@ -117,8 +117,8 @@ describe("уведомление об итоге массового действ
       action: {
         kind: "restore",
         changes: {
-          "SPA-1": { status: "backlog", priority: "high", epic: "SPA-10", resolution: null, reason: null },
-          "SPA-3": { status: "backlog", priority: "low", epic: null, resolution: null, reason: null },
+          "SPA-1": { status: "backlog", priority: "high", epic: "SPA-10" },
+          "SPA-3": { status: "backlog", priority: "low", epic: null },
         },
       },
     });

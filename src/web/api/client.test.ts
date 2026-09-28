@@ -16,7 +16,7 @@ const task = { id: "SPA-1", title: "Задача" } as Task;
 
 describe("batchTasks", () => {
   it("отправляет POST /api/tasks/batch с телом запроса и возвращает разобранный ответ", async () => {
-    const outcome: BatchResponse = { results: [{ id: "SPA-3", outcome: "done", version: "2", previous: { status: "backlog", priority: "medium", epic: null, resolution: null, reason: null } }] };
+    const outcome: BatchResponse = { results: [{ id: "SPA-3", outcome: "done", version: "2", previous: { status: "backlog", priority: "medium", epic: null } }] };
     const apiFetch = vi.fn<ApiFetch>(async () => respond(200, outcome));
     const client = createApiClient(apiFetch);
     const batch: BatchRequest = { tasks: [{ id: "SPA-3", version: "1" }], action: { kind: "close", reason: "неактуально" } };

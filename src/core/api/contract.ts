@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { GraphState } from "../check/graph-health";
 import type { Language } from "../i18n/language";
-import { PRIORITIES, RESOLUTIONS, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskIdSchema, type ParseError, type Project, type Task } from "../model/types";
+import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskIdSchema, type ParseError, type Project, type Task } from "../model/types";
 import { settingsSchema } from "../model/settings";
 import type { MemorySample } from "../stats/types";
 
@@ -37,8 +37,6 @@ const batchPreviousSchema = z.strictObject({
   status: z.enum(TASK_STATUSES),
   priority: z.enum(PRIORITIES),
   epic: taskIdSchema.nullable(),
-  resolution: z.enum(RESOLUTIONS).nullable(),
-  reason: z.string().nullable(),
 });
 
 export const BATCH_TASKS_LIMIT = 500;

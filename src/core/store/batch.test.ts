@@ -64,7 +64,7 @@ describe("applyBatch", () => {
     expect(t1Outcome).toMatchObject({
       outcome: "done",
       task: { status: "cancelled", resolution: "obsolete", reason: "Не актуально" },
-      previous: { status: "backlog", priority: "medium", epic: t1.epic ?? null, resolution: null, reason: null },
+      previous: { status: "backlog", priority: "medium", epic: t1.epic ?? null },
     });
 
     const reloaded = await loadBacklog(root);
@@ -231,7 +231,7 @@ describe("applyBatch", () => {
     ]);
   });
 
-  it("restore не закрывает открытую задачу ни с резолюцией, ни без неё", async () => {
+  it("restore не закрывает открытую задачу ни в done, ни в cancelled", async () => {
     const { root, t2, t3 } = await setup();
     const index = await freshIndex(root);
 
@@ -240,8 +240,8 @@ describe("applyBatch", () => {
       action: {
         kind: "restore",
         changes: {
-          [t2.id]: { status: "done", priority: "medium", epic: null, resolution: "fixed", reason: "исправлено" },
-          [t3.id]: { status: "cancelled", priority: "medium", epic: null, resolution: null, reason: null },
+          [t2.id]: { status: "done", priority: "medium", epic: null },
+          [t3.id]: { status: "cancelled", priority: "medium", epic: null },
         },
       },
       now: NOW,

@@ -70,5 +70,5 @@ function restorePlan(current: Task, previous: BatchPrevious | undefined): Plan {
 }
 
 function previousOf(task: Task): BatchPrevious {
-  return { status: task.status, priority: task.priority, epic: task.epic ?? null, resolution: task.resolution ?? null, reason: task.reason ?? null };
+  return { status: task.status, priority: task.priority, epic: task.epic ?? null };
 }
