@@ -39,7 +39,7 @@ export function createCostSource(root: string, home: string): CostSource {
       const keyParts: Record<keyof CostInputs, string> = {
         usage: `${inputs.usage.revision}`,
         runs: `${generation}:${length}`,
-        scope: `${snapshotIdOf(inputs.scope.snapshot)}/${slot}`,
+        scope: `${snapshotIdOf(inputs.scope.snapshot)}/${slot}/${inputs.scope.projects.map((project) => project.id).join(",")}`,
         now: formatLocalDay(inputs.now),
       };
       const key = Object.values(keyParts).join("|");
