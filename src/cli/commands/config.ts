@@ -1,6 +1,6 @@
 import { LANGUAGES, type Language } from "../../core/i18n/language";
 import { writeSettings } from "../../core/store/settings";
-import { AGENT_SPECS, detectAgents, type Agent } from "../agents/agent";
+import { AGENT_SPECS, agentVoice, detectAgents, type Agent } from "../agents/agent";
 import { linkAgentSkill } from "../agents/agent-skill";
 import { agentPlugin, pluginToSwitchTo } from "../agents/claude-plugin";
 import { usageError, type CliCommand } from "../command";
@@ -10,7 +10,7 @@ import { linkSkillFor, relinkExistingSkill } from "../skill-link";
 
 export const configCommand: CliCommand = {
   name: "config",
-  usage: () => ["language [ru|en]"],
+  usage: () => [`language [${LANGUAGES.join("|")}]`],
   run: runConfig,
 };
 
@@ -39,15 +39,15 @@ async function runLanguage(positionals: string[], io: CliIo): Promise<ExitCode> 
 async function relinkSkill(agent: Agent, language: Language, io: CliIo): Promise<void> {
   const cli = cliMessages(language);
   const spec = AGENT_SPECS[agent];
-  const { label } = spec;
+  const voice = agentVoice(agent, io);
   const plugin = await agentPlugin(agent, io);
   if (plugin !== null) {
     const wanted = pluginToSwitchTo(plugin, language);
-    if (wanted !== null) io.print(`${label}: ${cli.pluginLanguageHint(plugin, wanted)}`);
+    if (wanted !== null) voice.print(cli.pluginLanguageHint(plugin, wanted));
     return;
   }
   const relink = spec.skillOnLanguageChange === "link" ? linkSkillFor : relinkExistingSkill;
   const link = await linkAgentSkill(agent, io, (options) => relink(language, options));
-  if (!link.ok) io.warn(`${label}: ${cli.installSkillLinkFailed(link.target, link.failed)}`);
-  else if (link.result === "foreign") io.warn(`${label}: ${cli.skillForeign(link.target)}`);
+  if (!link.ok) voice.warn(cli.installSkillLinkFailed(link.target, link.failed));
+  else if (link.result === "foreign") voice.warn(cli.skillForeign(link.target));
 }

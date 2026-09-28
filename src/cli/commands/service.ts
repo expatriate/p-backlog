@@ -3,7 +3,7 @@ import { serverMessages } from "../../server/messages";
 import { requestedPort } from "../../server/port";
 import { EXIT, parseCommandArgs, UsageError, type CliIo, type ExitCode } from "../io";
 import { portOf, serviceManagerOf } from "../service/managers";
-import { serverResponds } from "../service/server-probe";
+import { localOrigin, serverResponds } from "../service/server-probe";
 import type { ServiceFailure, ServiceManager } from "../service/service";
 
 const STATUS_TIMEOUT_MS = 1000;
@@ -61,7 +61,7 @@ async function uninstallWith(manager: ServiceManager, io: CliIo): Promise<ExitCo
 
 async function statusWith(manager: ServiceManager, io: CliIo): Promise<ExitCode> {
   const port = await portOf(manager, io);
-  const [registered, responding] = await Promise.all([manager.registered(), serverResponds(`http://127.0.0.1:${port}`, STATUS_TIMEOUT_MS)]);
+  const [registered, responding] = await Promise.all([manager.registered(), serverResponds(localOrigin(port), STATUS_TIMEOUT_MS)]);
   io.print(io.cli.serviceStatus(registered, responding, port));
   return EXIT.ok;
 }

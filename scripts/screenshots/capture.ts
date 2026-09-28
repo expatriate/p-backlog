@@ -7,7 +7,7 @@ import { chromium, type Page } from "@playwright/test";
 import sharp from "sharp";
 import type { Language } from "../../src/core/i18n/language";
 import { localeOf } from "../../src/core/i18n/language";
-import { serverResponds } from "../../src/cli/service/server-probe";
+import { localOrigin, serverResponds } from "../../src/cli/service/server-probe";
 import { DAY_MS } from "../../src/core/model/dates";
 import { SEEN_TASKS_STORAGE_KEY } from "../../src/web/list/use-seen-tasks";
 
@@ -25,7 +25,7 @@ const SEEN_SINCE_DAYS = 1;
 const QUANTIZED_PNG = { palette: true, quality: 90, effort: 10, compressionLevel: 9 } as const;
 
 export async function startDemoServer(repoRoot: string, home: string, backlogRoot: string, port: number): Promise<DemoServer> {
-  const origin = `http://127.0.0.1:${port}`;
+  const origin = localOrigin(port);
   if (await serverResponds(origin, SERVER_PROBE_TIMEOUT_MS)) throw new Error(`Port ${port} is already taken; set SCREENSHOTS_PORT to a free port`);
   const child: ChildProcess = spawn(process.execPath, [join(repoRoot, "dist/server.js")], {
     env: { PATH: process.env.PATH, HOME: home, BACKLOG_DIR: backlogRoot, CLAUDE_CONFIG_DIR: join(home, ".claude"), PORT: String(port) },

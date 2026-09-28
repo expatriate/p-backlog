@@ -24,7 +24,7 @@ import { statsCommand } from "./commands/stats";
 import { statusCommand } from "./commands/status";
 import { takeCommand } from "./commands/take";
 import { verifyCommand } from "./commands/verify";
-import { ArgumentsError, cliIo, EXIT, UsageError, type CliEnv, type ExitCode } from "./io";
+import { ArgumentsError, cliIo, END_OF_OPTIONS, EXIT, UsageError, type CliEnv, type ExitCode } from "./io";
 
 export const CLI_COMMANDS: readonly CliCommand[] = [
   newCommand,
@@ -50,7 +50,6 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
 
 const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
 const COMMAND_HELP_FLAGS = new Set(["--help", "-h"]);
-const END_OF_OPTIONS = "--";
 
 const COMMANDS = new Map(CLI_COMMANDS.map((command) => [command.name, command]));
 
