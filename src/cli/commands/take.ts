@@ -1,5 +1,5 @@
 import { realpathSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
+import { resolve } from "node:path";
 import { sourcePath } from "../../core/check/source-lines";
 import { buildIndex, epicChildren, isClosed, openBlockers, type BacklogIndex } from "../../core/model/graph";
 import { pickNextTask } from "../../core/model/query";
@@ -12,6 +12,7 @@ import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
 import { requireProject, requireTask } from "../lookups";
 import { cliMessages } from "../messages";
+import { relativeInside } from "../path-inside";
 import { taskWriter, type TaskWrite } from "../task-write";
 import { taskJson } from "../describe";
 import { printTask } from "./show";
@@ -103,9 +104,7 @@ function isInside(file: string, path: string): boolean {
 function repoRelativePath(io: CliIo, project: Project, path: string): string {
   const roots = findGitRoots(io.cwd);
   if (roots === null || findProjectForDir([project], io.cwd, io.home) === undefined) return sourcePath(path);
-  const fromRoot = relative(roots.worktree, resolve(realpathSync(io.cwd), sourcePath(path))).split(sep).join("/");
-  const outsideRepo = fromRoot === ".." || fromRoot.startsWith("../");
-  return outsideRepo ? sourcePath(path) : fromRoot;
+  return relativeInside(roots.worktree, resolve(realpathSync(io.cwd), sourcePath(path))) ?? sourcePath(path);
 }
 
 type Taken = { code: number; taken: Task[]; tasks: readonly Task[] };

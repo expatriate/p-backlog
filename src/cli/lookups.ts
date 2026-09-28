@@ -1,4 +1,4 @@
-import { basename, dirname, relative, sep } from "node:path";
+import { basename, dirname } from "node:path";
 import { deriveProjectId } from "../core/model/ids";
 import type { ParseError, Project, Task } from "../core/model/types";
 import { coreMessages } from "../core/messages";
@@ -9,6 +9,7 @@ import { readTextOrNull } from "../core/store/fs-utils";
 import { findGitRoots, findProjectForDir, type GitRoots } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
 import { cliMessages } from "./messages";
+import { relativeInside } from "./path-inside";
 
 export function requireTask(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
   const task = loaded.tasks.find((candidate) => candidate.id === id);
@@ -75,8 +76,8 @@ function isBoundary(char: string): boolean {
 }
 
 function homeRelative(path: string, home: string): string {
-  const inside = relative(home, path);
-  return inside.startsWith("..") ? path : `~/${inside.split(sep).join("/")}`;
+  const inside = relativeInside(home, path);
+  return inside === null ? path : `~/${inside}`;
 }
 
 function findProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Project | undefined {
