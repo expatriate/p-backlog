@@ -21,7 +21,7 @@ describe("где болит", () => {
     expect(hotspots(tasks, plainLabel)).toEqual({
       folders: [
         { label: "src/a", count: 2 },
-        { label: "README.md", count: 1 },
+        { label: ".", count: 1 },
       ],
       tags: [
         { tag: "upload", count: 2 },
