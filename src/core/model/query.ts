@@ -39,7 +39,7 @@ function matchesQuery(task: Task, query: string): boolean {
     .every((word) => haystack.includes(word));
 }
 
-export function filterTasks(tasks: readonly Task[], filter: TaskFilter, index: BacklogIndex): Task[] {
+export function filterTasks(tasks: readonly Task[], filter: TaskFilter, index: BacklogIndex, closedInWeb: ReadonlySet<string> = new Set()): Task[] {
   const tags = (filter.tags ?? []).map(normalizeTag);
   return tasks.filter(
     (task) =>
@@ -51,7 +51,7 @@ export function filterTasks(tasks: readonly Task[], filter: TaskFilter, index: B
       matchesEpic(task, filter.epic) &&
       (filter.type === undefined || task.type === filter.type) &&
       (!filter.onlyUnblocked || !isBlocked(task, index)) &&
-      (!filter.onlyAutoClosed || task.resolution !== undefined),
+      (!filter.onlyAutoClosed || isAutoClosed(task, closedInWeb)),
   );
 }
 
@@ -100,6 +100,10 @@ export function staleLowTasks(tasks: readonly Task[], now: Date): Task[] {
   return tasks
     .filter((task) => isQueuedTask(task) && task.priority === "low" && Date.parse(task.created) < cutoff)
     .sort((a, b) => Date.parse(a.created) - Date.parse(b.created));
+}
+
+function isAutoClosed(task: Task, closedInWeb: ReadonlySet<string>): boolean {
+  return task.resolution !== undefined && !closedInWeb.has(task.id);
 }
 
 function priorityRank(priority: Priority): number {

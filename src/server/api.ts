@@ -4,11 +4,13 @@ import type { ZodType } from "zod";
 import type { Language } from "../core/i18n/language";
 import { batchRequestSchema, projectActiveSchema, projectDeleteSchema, settingsRequestSchema, updateTaskRequestSchema, type BatchOutcome, type BatchResponse, type ConflictResponse, type ProjectsResponse, type ProjectView, type Revision, type SettingsResponse, type TasksResponse } from "../core/api/contract";
 import { projectGraphHealth } from "../core/check/graph-health";
+import { tasksClosedInWeb } from "../core/journal/closed-in-web";
 import { buildIndex, type BacklogIndex } from "../core/model/graph";
 import type { Project, Task } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { parseWithLocale } from "../core/model/zod-issues";
 import { applyBatch, type CoreBatchOutcome } from "../core/store/batch";
+import { readJournals } from "../core/store/journal";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { writeSettings } from "../core/store/settings";
 import { deleteProject, setProjectActive } from "../core/store/projects";
@@ -23,7 +25,7 @@ import { createStatsApi, type GraphHealthOf, type StatsServices } from "./stats-
 
 export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; statsServices: StatsServices };
 
-type IndexedBacklog = LoadedBacklog & { index: BacklogIndex; revision: Revision };
+type IndexedBacklog = LoadedBacklog & { index: BacklogIndex; closedInWeb: string[]; revision: Revision };
 
 const GRAPH_STATE_TTL_MS = 60 * 1000;
 
@@ -84,9 +86,9 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
   });
 
   api.get("/tasks", async (c) => {
-    const [{ tasks, errors, revision }, language] = await Promise.all([backlog(), readLanguage()]);
+    const [{ tasks, closedInWeb, errors, revision }, language] = await Promise.all([backlog(), readLanguage()]);
     const messages = coreMessages(language);
-    return c.json<TasksResponse>({ tasks, errors: errors.map(({ problems, ...error }) => ({ ...error, message: messages.problems(problems) })), revision });
+    return c.json<TasksResponse>({ tasks, closedInWeb, errors: errors.map(({ problems, ...error }) => ({ ...error, message: messages.problems(problems) })), revision });
   });
 
   api.route("/", stats.routes);
@@ -168,7 +170,8 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
 
 async function loadSnapshot(root: string, revision: Revision): Promise<IndexedBacklog> {
   const loaded = await loadBacklog(root);
-  return { ...loaded, index: buildIndex(loaded.tasks), revision };
+  const journals = await readJournals(root, loaded.projects.map((project) => project.id));
+  return { ...loaded, index: buildIndex(loaded.tasks), closedInWeb: tasksClosedInWeb(loaded.tasks, journals), revision };
 }
 
 function invalidResponse(c: Context, result: Invalid, messages: CoreMessages) {

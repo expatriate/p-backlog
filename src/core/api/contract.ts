@@ -66,7 +66,7 @@ export type BatchResponse = { results: BatchOutcome[] };
 
 type ParseErrorView = Omit<ParseError, "problems"> & { message: string };
 export type Revision = { boot: string; seq: number };
-export type TasksResponse = { tasks: Task[]; errors: ParseErrorView[]; revision: Revision };
+export type TasksResponse = { tasks: Task[]; closedInWeb: string[]; errors: ParseErrorView[]; revision: Revision };
 export type ProjectView = Project & { codeGraph: GraphState };
 export type ProjectsResponse = { projects: ProjectView[]; revision: Revision };
 export type ProjectDeletedResponse = { deleted: string };

@@ -3,6 +3,9 @@ import { join } from "node:path";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { BatchRequest } from "../../core/api/contract";
+import { EXIT } from "../../cli/io";
+import { runCli } from "../../cli/run";
+import { baseCliEnv } from "../../cli/testing/cli-harness";
 import { loadBacklog } from "../../core/store/load";
 import { projectFile } from "../../core/store/testing/temp-dirs";
 import type { TestApp } from "../../server/testing/test-app";
@@ -148,6 +151,26 @@ describe("панель массовых действий", () => {
       expect([closed.status, closed.resolution, closed.reason]).toEqual(["cancelled", "obsolete", "дубль PB-1"]);
     });
     await waitFor(() => expect(screen.queryByRole("region", { name: "Действия с выбранными" })).toBeNull());
+  });
+
+  it("задачи, закрытые массовым действием, не попадают в «закрыты агентом», а закрытая через CLI — попадает", async () => {
+    const closeViaCli = async (app: TestApp) => {
+      const env = baseCliEnv({ cwd: app.root, home: app.root, backlogRoot: app.root, packageRoot: app.root, now: () => new Date("2026-09-17T10:00:00Z") });
+      expect(await runCli(["close", "TI-1", "--as", "obsolete", "--reason", "каталог переписан"], env)).toBe(EXIT.ok);
+    };
+    const app = await renderApp(FILES, "/", undefined, { beforeRender: closeViaCli });
+    await select(app, "SPA-1", "SPA-3");
+    await app.user.click(within(panel()).getByRole("button", { name: "Закрыть как неактуальные" }));
+    const dialog = screen.getByRole("dialog");
+    await app.user.type(within(dialog).getByRole("textbox", { name: "Причина" }), "не нужно");
+    await app.user.click(within(dialog).getByRole("button", { name: "Закрыть 2" }));
+    await waitFor(() => expect(screen.queryByText("Разобрать очередь")).toBeNull());
+
+    const autoChip = within(screen.getByRole("group", { name: "Тип" })).getByRole("button", { name: /закрыты агентом/ });
+    expect(autoChip.textContent).toMatch(/\s1$/);
+    await app.user.click(autoChip);
+
+    await waitFor(() => expect(screen.getAllByRole("row").slice(1).map((row) => within(row).getAllByRole("link")[0]?.textContent)).toEqual(["TI-1"]));
   });
 
   it("«Приоритет» ставит выбранное значение всем выбранным", async () => {
