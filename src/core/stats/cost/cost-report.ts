@@ -26,26 +26,38 @@ export type CostInput = {
   scan: ScanProgress;
 };
 
-type Usage = { buckets: UsageBucket[]; runs: CliRun[] };
+type UsageInSpan = { buckets: UsageBucket[]; runs: CliRun[] };
+
+type Timed<T> = { item: T; at: number };
 
 export function costReport({ buckets, runs, projectOf, projectId, now, scan }: CostInput): CostReport {
   const projectOfCwd = new Map<string, string | null>();
   const inScope = (cwd: string) => projectId === undefined || remembered(projectOfCwd, cwd, () => projectOf(cwd)) === projectId;
   const scopedBuckets = buckets.filter((bucket) => inScope(bucket.cwd));
   const scopedRuns = runs.filter((run) => inScope(run.cwd));
-  const within = (span: Period): Usage => ({ buckets: scopedBuckets.filter((bucket) => span.contains(Date.parse(bucket.slot))), runs: scopedRuns.filter((run) => span.contains(Date.parse(run.at))) });
+  const timedBuckets = timed(scopedBuckets, (bucket) => bucket.slot);
+  const timedRuns = timed(scopedRuns, (run) => run.at);
+  const within = (span: Period): UsageInSpan => ({ buckets: itemsWithin(timedBuckets, span), runs: itemsWithin(timedRuns, span) });
   const reported = within(lastDaysSpan(now, COST_REPORT_DAYS));
 
   return {
     periods: { weeks: reportPeriod(statsPeriod(now)), days: lastDays(now, COST_REPORT_DAYS), totals: lastDays(now, COST_TOTALS_DAYS) },
     scan,
-    since: sinceWithin(scopedBuckets, statsPeriod(now)),
+    since: sinceOf(itemsWithin(timedBuckets, statsPeriod(now))),
     totals: totalsOf(within(lastDaysSpan(now, COST_TOTALS_DAYS))),
     days: dayWindows(now, COST_REPORT_DAYS).map((day): CostDay => ({ day: formatLocalDay(new Date(day.from)), ...costNumbers(within(day)) })),
     weeks: weekWindows(now).map((week): CostPeriod => ({ start: formatLocalIso(new Date(week.from)), ...costNumbers(within(week)) })),
     models: modelsOf(reported.buckets),
     commands: commandsOf(reported.runs),
   };
+}
+
+function timed<T>(items: readonly T[], momentOf: (item: T) => string): Timed<T>[] {
+  return items.map((item) => ({ item, at: Date.parse(momentOf(item)) }));
+}
+
+function itemsWithin<T>(timedItems: readonly Timed<T>[], span: Period): T[] {
+  return timedItems.filter(({ at }) => span.contains(at)).map(({ item }) => item);
 }
 
 function localDay(at: string): string {
@@ -75,11 +87,7 @@ function sinceOf(buckets: readonly UsageBucket[]): string | null {
   return days.length === 0 ? null : days.reduce((earliest, day) => (day < earliest ? day : earliest));
 }
 
-function sinceWithin(buckets: readonly UsageBucket[], window: Period): string | null {
-  return sinceOf(buckets.filter((bucket) => window.contains(Date.parse(bucket.slot))));
-}
-
-function totalsOf(usage: Usage): CostTotals {
+function totalsOf(usage: UsageInSpan): CostTotals {
   return { tokens: tokensTotalOf(usage.buckets), ...costNumbers(usage) };
 }
 
@@ -88,7 +96,7 @@ function runCounts(runs: readonly CliRun[]): { cliRuns: number; hookRuns: number
   return { cliRuns: runs.length - hookRuns, hookRuns };
 }
 
-function costNumbers({ buckets, runs }: Usage): CostNumbers {
+function costNumbers({ buckets, runs }: UsageInSpan): CostNumbers {
   const hookBuckets = buckets.filter((bucket) => bucket.kind === "hook");
   const cliBuckets = buckets.filter((bucket) => bucket.kind === "cli" || bucket.kind === "skill");
   return {
