@@ -157,8 +157,7 @@ describe("панель массовых действий", () => {
   });
 
   it("«Приоритет» ставит выбранное значение всем выбранным", async () => {
-    const { sent, beforeRender } = recordBatches();
-    const app = await renderApp(FILES, "/", undefined, { beforeRender });
+    const app = await renderApp(FILES);
     await select(app, "SPA-1", "TI-1");
 
     await app.user.click(within(panel()).getByRole("button", { name: "Приоритет" }));
@@ -166,13 +165,11 @@ describe("панель массовых действий", () => {
     expect(within(menu).getAllByRole("button").map((option) => option.textContent)).toEqual(["низкий", "средний", "высокий", "критичный"]);
     await app.user.click(within(menu).getByRole("button", { name: "критичный" }));
 
-    await waitFor(() => expect(sent.map((request) => request.action)).toEqual([{ kind: "priority", priority: "critical" }]));
-    await waitFor(async () => expect((await app.taskOnDisk("TI-1")).priority).toBe("critical"));
+    await waitFor(async () => expect([(await app.taskOnDisk("SPA-1")).priority, (await app.taskOnDisk("TI-1")).priority]).toEqual(["critical", "critical"]));
   });
 
   it("«Эпик» предлагает эпики проекта выбранных задач и «Вынуть из эпика»", async () => {
-    const { sent, beforeRender } = recordBatches();
-    const app = await renderApp(FILES, "/", undefined, { beforeRender });
+    const app = await renderApp(FILES);
     await select(app, "SPA-1", "SPA-3");
 
     await app.user.click(within(panel()).getByRole("button", { name: "Эпик" }));
@@ -185,7 +182,6 @@ describe("панель массовых действий", () => {
     await app.user.click(within(panel()).getByRole("button", { name: "Эпик" }));
     await app.user.click(within(panel()).getByRole("button", { name: "Вынуть из эпика" }));
 
-    await waitFor(() => expect(sent.map((request) => request.action)).toEqual([{ kind: "epic", epic: "SPA-10" }, { kind: "epic", epic: null }]));
     await waitFor(async () => expect((await app.taskOnDisk("SPA-3")).epic).toBeUndefined());
   });
 

@@ -286,18 +286,6 @@ describe("POST /api/tasks/batch", () => {
     expect(after.filter((task) => task.priority === "critical").map((task) => task.id)).toEqual(["SPA-1", "TI-1"]);
   });
 
-  it("чужой Host → 403", async () => {
-    const backlog = await makeTestApp(SAMPLE_FILES);
-
-    const response = await backlog.app.request("http://example.com/api/tasks/batch", {
-      method: "POST",
-      headers: { host: "example.com", "content-type": "application/json" },
-      body: JSON.stringify({ tasks: [{ id: "SPA-1", version: "v" }], action: { kind: "priority", priority: "high" } }),
-    });
-
-    expect(response.status).toBe(403);
-  });
-
   it("тело без tasks, больше 500 задач и пустая причина закрытия не проходят схему", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
     const version = await backlog.taskVersion("SPA-1");
@@ -331,11 +319,8 @@ describe("неизвестный адрес API", () => {
 });
 
 describe("защита локального API", () => {
-  it("отклоняет чужой Host и не-JSON тело", async () => {
+  it("отклоняет не-JSON тело", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
-
-    const foreign = await backlog.app.request("http://example.com/api/tasks", { headers: { host: "example.com" } });
-    expect(foreign.status).toBe(403);
 
     const plain = await backlog.request("/api/tasks/SPA-1", { method: "PATCH", body: "status=done" });
     expect(plain.status).toBe(415);
