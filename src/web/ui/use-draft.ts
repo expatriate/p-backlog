@@ -31,19 +31,18 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
   const canonicalText = canonical(state.text);
 
   const commit = (save: (canonical: string) => Promise<boolean>) => {
-    const next = canonicalText;
-    if (next === serverValue) {
+    if (canonicalText === serverValue) {
       setState({ text: state.text, base: serverValue, conflicted: false });
-    } else if (next === state.base) {
+    } else if (canonicalText === state.base) {
       setState(synced(serverValue));
     } else if (serverValue !== state.base) {
       setState({ text: state.text, base: serverValue, conflicted: true });
     } else {
       const previousBase = state.base;
-      setState({ ...state, base: next });
-      void save(next).then((saved) =>
+      setState({ ...state, base: canonicalText });
+      void save(canonicalText).then((saved) =>
         setState((current) => {
-          if (current.base !== next) return current;
+          if (current.base !== canonicalText) return current;
           return saved ? { ...current, conflicted: false } : { ...current, base: previousBase };
         }),
       );
