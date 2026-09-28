@@ -17,7 +17,7 @@ type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyPeriod[]; days: 
 export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRows }: AccuracyPanelProps) {
   const { stats, core } = useMessages();
   const caption = usePeriodCaption();
-  const { grain, periods, period, toggle } = useGrainPanel("accuracy", "week", { week: weeks, day: days }, windows);
+  const { grain, periods, period, toggle } = useGrainPanel("accuracy", "week", { weeks, days }, windows);
   const tablePeriod = caption.of("weeks", windows.weeks);
   const splitOf = (evidence: AccuracyRow["evidence"]): StatsTableRow[] => {
     if (evidence === "source-changed")

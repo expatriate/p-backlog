@@ -35,7 +35,7 @@ function keptOutNote(stats: StatsMessages, language: Language, totals: EffectTot
 
 export function EffectChartPanel({ weeks, days, windows, totals }: { weeks: EffectPeriod[]; days: EffectPeriod[]; windows: GrainPeriods; totals: EffectTotals }) {
   const { stats } = useMessages();
-  const { grain, periods, period, toggle } = useGrainPanel("effect", "week", { week: weeks, day: days }, windows);
+  const { grain, periods, period, toggle } = useGrainPanel("effect", "week", { weeks, days }, windows);
   return (
     <Panel title={stats.effectTitle} period={period} aside={toggle}>
       <EffectChart periods={periods} totals={totals} grain={grain} />

@@ -26,7 +26,7 @@ function periodTooltip(stats: StatsMessages, core: CoreMessages, language: Langu
 export function IntakePanel({ weeks, days, windows }: { weeks: FlowPeriod[]; days: FlowPeriod[]; windows: GrainPeriods }) {
   const { stats, core } = useMessages();
   const language = useLanguage();
-  const { grain, periods, period, toggle } = useGrainPanel("intake", "day", { week: weeks, day: days }, windows);
+  const { grain, periods, period, toggle } = useGrainPanel("intake", "day", { weeks, days }, windows);
   const tooltip = useMemo(() => periodTooltip(stats, core, language, grain), [stats, core, language, grain]);
   const legend: LegendItem[] = [{ label: stats.createdTasks, shape: "bar", color: CREATED }];
   const title = stats.createdBy[grain];

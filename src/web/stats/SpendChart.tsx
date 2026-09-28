@@ -41,7 +41,7 @@ export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days
   const { stats } = useMessages();
   const language = useLanguage();
   const dayPeriods = useMemo(() => days.map(dayPeriod), [days]);
-  const { grain, periods, period, toggle } = useGrainPanel("spend", "day", { week: weeks, day: dayPeriods }, windows);
+  const { grain, periods, period, toggle } = useGrainPanel("spend", "day", { weeks, days: dayPeriods }, windows);
   const tooltip = useMemo(() => periodTooltip(stats, language, grain), [stats, language, grain]);
   const title = stats.spendBy[grain];
   const legend: LegendItem[] = [

@@ -33,7 +33,7 @@ function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
 export function FlowPanel({ weeks, days, windows }: { weeks: FlowPeriod[]; days: FlowPeriod[]; windows: GrainPeriods }) {
   const { stats } = useMessages();
   const language = useLanguage();
-  const { grain, periods, period, toggle } = useGrainPanel("flow", "week", { week: weeks, day: days }, windows);
+  const { grain, periods, period, toggle } = useGrainPanel("flow", "week", { weeks, days }, windows);
   const tooltip = useMemo(() => periodTooltip(stats, language, grain), [stats, language, grain]);
   const legend: LegendItem[] = [
     { label: stats.flowCreated, shape: "bar", color: CREATED },

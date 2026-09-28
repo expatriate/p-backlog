@@ -1,7 +1,7 @@
 import type { GrainPeriods, ReportPeriod } from "../../core/api/contract";
 import { formatDayRange } from "../../core/i18n/format";
 import { useLanguage, useMessages } from "../i18n";
-import type { Grain } from "./charts/chart-style";
+import { GRAIN_WINDOWS, type Grain } from "./charts/chart-style";
 import type { StatsMessages } from "./messages.ru";
 
 type PeriodWindow = keyof StatsMessages["periodWindows"];
@@ -19,7 +19,7 @@ export function usePeriodCaption(): PeriodCaption {
   const of = (window: PeriodWindow, period: ReportPeriod) => labelled(stats.periodWindows[window], period);
   return {
     of,
-    ofGrain: (grain, windows) => (grain === "week" ? of("weeks", windows.weeks) : of("days", windows.days)),
+    ofGrain: (grain, windows) => of(GRAIN_WINDOWS[grain], windows[GRAIN_WINDOWS[grain]]),
     labelled,
   };
 }
