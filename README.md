@@ -160,7 +160,7 @@ The retention window isn't configurable.
 | `backlog check [--changed] [--project id \| --all-projects] [--json]` | Fixes dangling links and completed epics, finds tasks that are due for a re-check |
 | `backlog close <ID> --as fixed\|obsolete\|duplicate --reason <evidence> [--duplicate-of ID]` | Closes a task with a reason; `fixed` only with a commit hash from the project's repository |
 | `backlog verify <ID> [<ID> …] [--source file:line]` | Marks tasks as still relevant and remembers the code snippet |
-| `backlog prune [--project id \| --all-projects] [--apply]` | Low-priority tasks older than 30 days; `--apply` cancels them |
+| `backlog prune [--project id \| --all-projects] [--apply]` | Low-priority tasks older than 30 days; `--apply` cancels them; `--all-projects` covers active projects only |
 | `backlog stats [--project id \| --all-projects] [--json]` | Statistics summary and alerts |
 | `backlog project list \| status <id> active\|inactive \| delete <id> --confirm <id>` | Project activity and deleting a project with its tasks |
 | `backlog hook stop [--agent claude\|codex\|cursor]` | The Stop hook of Claude Code, Codex, or Cursor: asks the agent to re-check tasks whose code changed |

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { cliIo, EXIT } from "../io";
+import { makeGitRepo } from "../../core/store/testing/temp-dirs";
 import { baseCliEnv, makeCliSandbox } from "../testing/cli-harness";
 import { pruneCommand } from "./prune";
 
@@ -27,6 +28,22 @@ describe("backlog prune", () => {
     expect(tasks.find((task) => task.id === "SPA-1")).toMatchObject({ status: "cancelled", resolution: "obsolete", reason: "Низкий приоритет, не брали в работу 30+ дней (backlog prune)" });
     expect(tasks.filter((task) => task.status === "backlog").map((task) => task.id)).toEqual(["SPA-2", "SPA-3"]);
     expect((await run(["prune"])).out).toBe("Застоявшихся задач нет");
+  });
+
+  it("--all-projects --apply не отменяет задачи неактивного проекта", async () => {
+    const { run, root, home } = await makeCliSandbox();
+    const archived = await makeGitRepo(home, "projects/archived");
+    await run(["new", "--category", "bug", "--title", "Мелочь активного", "--priority", "low"], { now: LONG_AGO });
+    await run(["new", "--category", "bug", "--title", "Мелочь неактивного", "--priority", "low"], { now: LONG_AGO, cwd: archived });
+    await run(["project", "status", "archived", "inactive"]);
+
+    const applied = await run(["prune", "--all-projects", "--apply"]);
+
+    expect(applied).toMatchObject({ code: EXIT.ok, out: "SPA-1: отменена" });
+    expect((await loadBacklog(root)).tasks.map((task) => [task.id, task.status])).toEqual([
+      ["ARCH-1", "backlog"],
+      ["SPA-1", "cancelled"],
+    ]);
   });
 
   it("--apply после конфликта на одной задаче отменяет остальные и возвращает код ошибки", async () => {
