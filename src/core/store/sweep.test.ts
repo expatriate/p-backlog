@@ -277,7 +277,7 @@ describe("sweepClosed", () => {
     const actual = vi.mocked(reserveIssuedUpTo).getMockImplementation();
     vi.mocked(reserveIssuedUpTo).mockImplementationOnce(async (project, number) => {
       await writeFiles(root, { "spa/SPA-1.md": taskFile("SPA-1", "status: in-progress\n") });
-      return actual ? actual(project, number) : false;
+      return actual ? actual(project, number) : { ok: false, reason: "not-found" };
     });
 
     const report = await sweepClosed(root, NOW, RU);
@@ -364,7 +364,7 @@ describe("sweepClosed", () => {
       "spa/project.md": projectFile("SPA"),
       "spa/SPA-1.md": taskFile("SPA-1", `status: done\n${EXPIRED}resolution: fixed\nreason: x\n`),
     });
-    vi.mocked(reserveIssuedUpTo).mockResolvedValueOnce(false);
+    vi.mocked(reserveIssuedUpTo).mockResolvedValueOnce({ ok: false, reason: "not-found" });
 
     expect((await sweepClosed(root, NOW, RU)).deleted).toEqual([]);
     expect(await exists(join(root, "spa/SPA-1.md"))).toBe(true);

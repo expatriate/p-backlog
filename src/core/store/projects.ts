@@ -21,12 +21,11 @@ export async function setProjectActive(root: string, id: string, active: boolean
   return editProjectFile({ id, path: join(dir, PROJECT_FILE) }, (project) => ({ ...project, active }));
 }
 
-export async function reserveIssuedUpTo(project: Pick<Project, "id" | "path">, number: number): Promise<boolean> {
-  const edited = await editProjectFile(project, (current) => {
+export function reserveIssuedUpTo(project: Pick<Project, "id" | "path">, number: number): Promise<ProjectWriteResult> {
+  return editProjectFile(project, (current) => {
     const issuedUpTo = Math.max(current.issuedUpTo ?? 0, number);
     return issuedUpTo === current.issuedUpTo ? current : { ...current, issuedUpTo };
   });
-  return edited.ok;
 }
 
 export async function issuedUpToOnDisk(project: Pick<Project, "id" | "path">): Promise<number> {

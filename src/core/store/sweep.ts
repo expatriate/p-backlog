@@ -196,7 +196,7 @@ async function reserveNumbers(projects: readonly Project[], expired: readonly Ta
   const reserved = new Set<string>();
   for (const project of projects) {
     const numbers = expired.filter((task) => task.projectId === project.id).flatMap((task) => parseId(task.id)?.number ?? []);
-    if (numbers.length === 0 || (await reserveIssuedUpTo(project, Math.max(...numbers)))) reserved.add(project.id);
+    if (numbers.length === 0 || (await reserveIssuedUpTo(project, Math.max(...numbers))).ok) reserved.add(project.id);
   }
   return reserved;
 }

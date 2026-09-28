@@ -27,8 +27,8 @@ describe("проекты", () => {
     const path = join(root, "spa/project.md");
     await writeFiles(root, { "spa/project.md": "---\nname: Переименован руками\nprefix: SPA\nrepos: [/new/repo]\nissuedUpTo: 9\n---\nЗаметки\n" });
 
-    expect(await reserveIssuedUpTo({ id: "spa", path }, 5)).toBe(true);
-    expect(await reserveIssuedUpTo({ id: "spa", path }, 12)).toBe(true);
+    expect(await reserveIssuedUpTo({ id: "spa", path }, 5)).toMatchObject({ ok: true });
+    expect(await reserveIssuedUpTo({ id: "spa", path }, 12)).toMatchObject({ ok: true });
 
     const [project] = (await loadBacklog(root)).projects;
     expect(project).toMatchObject({ name: "Переименован руками", repos: ["/new/repo"], issuedUpTo: 12, body: "Заметки\n" });
@@ -49,8 +49,8 @@ describe("проекты", () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": "сломано" });
 
-    expect(await reserveIssuedUpTo({ id: "spa", path: join(root, "spa/project.md") }, 1)).toBe(false);
-    expect(await reserveIssuedUpTo({ id: "web", path: join(root, "web/project.md") }, 1)).toBe(false);
+    expect(await reserveIssuedUpTo({ id: "spa", path: join(root, "spa/project.md") }, 1)).toMatchObject({ ok: false, reason: "invalid" });
+    expect(await reserveIssuedUpTo({ id: "web", path: join(root, "web/project.md") }, 1)).toEqual({ ok: false, reason: "not-found" });
   });
 
   it("удаление сносит каталог проекта, посторонний каталог не трогает", async () => {
