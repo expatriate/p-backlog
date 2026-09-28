@@ -23,15 +23,18 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
   const repoCache = new Map<string, RepoScan>();
   const fixCache = new Map<string, FixCommit>();
   const unsettledCheckedAt = new Map<string, string | null>();
-  let changed = false;
+  let storedFingerprint: string | null = null;
   let restored: Promise<void> | null = null;
   let retainedRepos: ReadonlySet<string> | null = null;
+
+  const currentSnapshot = (): CodeCacheSnapshot => ({ repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache), unsettled: Object.fromEntries(unsettledCheckedAt) });
 
   const restore = (): Promise<void> => {
     restored ??= readSnapshot(store, (error) => onError("read", error)).then((snapshot) => {
       for (const [repo, entry] of Object.entries(snapshot.repos)) if (!repoCache.has(repo)) repoCache.set(repo, entry);
       for (const [key, commit] of Object.entries(snapshot.fixes)) if (!fixCache.has(key)) fixCache.set(key, commit);
       for (const [key, main] of Object.entries(snapshot.unsettled)) if (!unsettledCheckedAt.has(key)) unsettledCheckedAt.set(key, main);
+      storedFingerprint = JSON.stringify(currentSnapshot());
     });
     return restored;
   };
@@ -42,7 +45,6 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       if (requested.has(key) || Date.parse(commit.date) >= oldest) continue;
       fixCache.delete(key);
       unsettledCheckedAt.delete(key);
-      changed = true;
     }
   };
 
@@ -52,13 +54,11 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     for (const repo of repoCache.keys()) {
       if (kept.has(repo)) continue;
       repoCache.delete(repo);
-      changed = true;
     }
     for (const key of new Set([...fixCache.keys(), ...unsettledCheckedAt.keys()])) {
       if (kept.has(repoOfFixCacheKey(key))) continue;
       fixCache.delete(key);
       unsettledCheckedAt.delete(key);
-      changed = true;
     }
   };
 
@@ -66,12 +66,14 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
 
   const persist = (): Promise<void> => {
     dropUnretainedRepos();
-    if (store === undefined || !changed) return writing;
-    changed = false;
-    const snapshot: CodeCacheSnapshot = { repos: Object.fromEntries(repoCache), fixes: Object.fromEntries(fixCache), unsettled: Object.fromEntries(unsettledCheckedAt) };
+    if (store === undefined) return writing;
+    const snapshot = currentSnapshot();
+    const fingerprint = JSON.stringify(snapshot);
+    if (fingerprint === storedFingerprint) return writing;
+    storedFingerprint = fingerprint;
     writing = writing.then(() =>
       store.write(snapshot).catch((error: unknown) => {
-        changed = true;
+        storedFingerprint = null;
         onError("write", error);
       }),
     );
@@ -92,10 +94,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     const previous = repoCache.get(repo);
     const scan = await scanRepo(git, repo, { refs: await readRefs(git, repo), now, previous });
     if (scan === null) return null;
-    if (scan !== previous) {
-      repoCache.set(repo, scan);
-      changed = true;
-    }
+    repoCache.set(repo, scan);
     return repoCodeOf(scan);
   };
 
@@ -104,7 +103,6 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     if (unsettledCheckedAt.get(key) === checkedAt) return;
     if (checkedAt === undefined) unsettledCheckedAt.delete(key);
     else unsettledCheckedAt.set(key, checkedAt);
-    changed = true;
   };
 
   const needsReading = (key: string, main: string | null): boolean => {
@@ -121,7 +119,6 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       rememberUnsettled(key, main, commit);
       if (fixCache.has(key) && commit.landedAt === undefined) continue;
       fixCache.set(key, commit);
-      changed = true;
     }
   };
 
