@@ -31,6 +31,10 @@ export function normalizeTag(tag: string): string {
   return tag.trim().toLowerCase();
 }
 
+export function normalizeTags(tags: readonly string[]): string[] {
+  return [...new Set(tags.map(normalizeTag).filter(Boolean))];
+}
+
 export const taskIdSchema = z.string().regex(ID_PATTERN, schemaCode("bad-id"));
 const taskIdList = z
   .array(taskIdSchema)
@@ -47,7 +51,7 @@ export const taskFrontmatterSchema = z.object({
   tags: z
     .array(z.string())
     .default([])
-    .transform((tags) => [...new Set(tags.map(normalizeTag).filter(Boolean))]),
+    .transform(normalizeTags),
   epic: taskIdSchema.optional(),
   blockedBy: taskIdList,
   related: taskIdList,

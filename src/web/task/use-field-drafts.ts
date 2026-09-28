@@ -1,7 +1,7 @@
 import type { Task } from "../../core/model/types";
 import { useMessages } from "../i18n";
 import { useDraft } from "../ui/use-draft";
-import { canonicalTags } from "./TaskFields";
+import { canonicalTags } from "./tag-input";
 import { normalizeTaskId } from "./normalize-task-id";
 
 const trimTitle = (text: string) => text.trim();

@@ -30,6 +30,7 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
   const firstAction = useRef<HTMLButtonElement>(null);
   const batch = useBatchTasks();
   const chosen = useMemo(() => tasks.filter((task) => selection.selected.has(task.id)).sort((a, b) => compareIds(a.id, b.id)), [tasks, selection.selected]);
+  const assignableEpics = useMemo(() => assignableEpicsOf(chosen, tasks, tones), [chosen, tasks, tones]);
   const shown = chosen.length > 0;
 
   const { isPending, reset } = batch;
@@ -65,7 +66,7 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
         {shown && list.selectedCount(chosen.length)}
         {shown && selection.hiddenCount > 0 && <span className={styles.hidden}> {list.hiddenByFilter(selection.hiddenCount)}</span>}
       </p>
-      {shown && <SelectionActions firstAction={firstAction} chosen={chosen} tasks={tasks} tones={tones} busy={isPending} onRun={run} onClear={selection.clear} />}
+      {shown && <SelectionActions firstAction={firstAction} chosen={chosen} assignableEpics={assignableEpics} busy={isPending} onRun={run} onClear={selection.clear} />}
       {shown && offersKeyboardHints() && <p className={styles.hint}>{list.toActionsHint(actionsShortcutLabel())}</p>}
       {shown && batch.error !== null && (
         <p className={footer.error} role="alert">
@@ -79,14 +80,13 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
 type SelectionActionsProps = {
   firstAction: RefObject<HTMLButtonElement | null>;
   chosen: readonly Task[];
-  tasks: readonly Task[];
-  tones: EpicTones;
+  assignableEpics: EpicChoice[] | null;
   busy: boolean;
   onRun: (action: BatchAction) => void;
   onClear: () => void;
 };
 
-function SelectionActions({ firstAction, chosen, tasks, tones, busy, onRun, onClear }: SelectionActionsProps) {
+function SelectionActions({ firstAction, chosen, assignableEpics, busy, onRun, onClear }: SelectionActionsProps) {
   const { list, ui, core } = useMessages();
   const [closing, setClosing] = useState(false);
 
@@ -98,7 +98,7 @@ function SelectionActions({ firstAction, chosen, tasks, tones, busy, onRun, onCl
       <Popover trigger={list.priority} placement="above" width="content" busy={busy}>
         <PriorityOptions onChoose={(priority) => onRun({ kind: "priority", priority })} />
       </Popover>
-      <EpicAction chosen={chosen} tasks={tasks} tones={tones} busy={busy} onChoose={(epic) => onRun({ kind: "epic", epic })} />
+      <EpicAction epics={assignableEpics} busy={busy} onChoose={(epic) => onRun({ kind: "epic", epic })} />
       <Button onClick={onClear}>{list.clearSelection}</Button>
       <ConfirmDialog
         open={closing}
@@ -139,13 +139,18 @@ function PriorityOptions({ onChoose }: { onChoose: (priority: Priority) => void 
   );
 }
 
-type EpicActionProps = { chosen: readonly Task[]; tasks: readonly Task[]; tones: EpicTones; busy: boolean; onChoose: (epic: string | null) => void };
+function assignableEpicsOf(chosen: readonly Task[], tasks: readonly Task[], tones: EpicTones): EpicChoice[] | null {
+  const projectIds = new Set(chosen.map((task) => task.projectId));
+  if (projectIds.size > 1) return null;
+  return epicChoices(tasks.filter((task) => projectIds.has(task.projectId)), tones).epics;
+}
 
-function EpicAction({ chosen, tasks, tones, busy, onChoose }: EpicActionProps) {
+type EpicActionProps = { epics: EpicChoice[] | null; busy: boolean; onChoose: (epic: string | null) => void };
+
+function EpicAction({ epics, busy, onChoose }: EpicActionProps) {
   const { list } = useMessages();
   const hintId = useId();
-  const projectIds = new Set(chosen.map((task) => task.projectId));
-  if (projectIds.size > 1) {
+  if (epics === null) {
     return (
       <span className={styles.unavailable}>
         <Button aria-disabled="true" aria-describedby={hintId}>
@@ -157,10 +162,9 @@ function EpicAction({ chosen, tasks, tones, busy, onChoose }: EpicActionProps) {
       </span>
     );
   }
-  const projectTasks = tasks.filter((task) => projectIds.has(task.projectId));
   return (
     <Popover trigger={list.epic} placement="above" width="content" busy={busy}>
-      <AssignEpicOptions epics={epicChoices(projectTasks, tones).epics} onChoose={onChoose} />
+      <AssignEpicOptions epics={epics} onChoose={onChoose} />
     </Popover>
   );
 }

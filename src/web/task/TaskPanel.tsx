@@ -68,7 +68,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
     >
       <TitleField draft={fields.title} titleRef={fields.titleRef} label={taskMessages.title} onSave={(next) => saver.apply({ title: next })} />
 
-      <TaskFields task={task} epicListId={EPIC_LIST_ID} knownTasks={tasks} onChange={saver.apply} tags={fields.tags} tagsRef={fields.tagsRef} epic={fields.epic} epicRef={fields.epicRef} />
+      <TaskFields task={task} epicListId={EPIC_LIST_ID} index={index} onChange={saver.apply} tags={fields.tags} tagsRef={fields.tagsRef} epic={fields.epic} epicRef={fields.epicRef} />
 
       <TaskMeta task={task} index={index} />
 
@@ -103,7 +103,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
       <TaskRefs
         label={taskMessages.blockedByLabel}
         ids={task.blockedBy}
-        tasks={tasks}
+        index={index}
         listId={TASK_LIST_ID}
         taskHref={taskHref}
         idPrefix={idPrefix}
@@ -112,7 +112,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
       <TaskRefs
         label={taskMessages.relatedLabel}
         ids={task.related}
-        tasks={tasks}
+        index={index}
         listId={TASK_LIST_ID}
         taskHref={taskHref}
         idPrefix={idPrefix}
