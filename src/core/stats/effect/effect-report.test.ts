@@ -38,8 +38,8 @@ describe("эффект беклога", () => {
 
     expect(report.totals).toEqual({ realLines: 400, fixedTasks: 6, fixedLines: 210, openTasks: 2, deferredTasks: 8, estimatedLines: 70, deferredLines: 280, deferredTestLines: 140, noiseShare: 280 / 470 });
     expect(report.weeks).toHaveLength(12);
-    expect(report.weeks.at(-1)).toMatchObject({ onTopicLines: 300, deferredLines: 70, deferredTestLines: 35, deferredTasks: 2 });
-    expect(report.weeks.at(-2)).toMatchObject({ onTopicLines: 0, deferredLines: 210, deferredTasks: 6 });
+    expect(report.weeks.at(-1)).toMatchObject({ onTopicLines: 300, deferredLines: 70, deferredTestLines: 35, estimatedLines: 70, deferredTasks: 2 });
+    expect(report.weeks.at(-2)).toMatchObject({ onTopicLines: 0, deferredLines: 210, estimatedLines: 0, deferredTasks: 6 });
     expect(report.weeks.at(-3)).toMatchObject({ onTopicLines: 100, deferredLines: 0, deferredTasks: 0 });
     expect(report.projects).toEqual([{ projectId: "spa", name: "Проект spa", realLines: 400, deferredTasks: 8, fixedLines: 210, estimatedLines: 70, noiseShare: 280 / 470 }]);
   });
