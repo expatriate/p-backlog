@@ -1,23 +1,23 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { Language } from "../../src/core/i18n/language";
+import { SKILL_NAME, SKILL_SOURCES_DIR, SKILL_VARIANTS } from "../../src/cli/skill-variants";
 
 const MARKETPLACE = "p-backlog";
 const OWNER = { name: "expatriate" };
 const REPOSITORY = "https://github.com/expatriate/p-backlog";
 const KEYWORDS = ["backlog", "tech-debt", "code-review", "tasks", "stop-hook"];
-const PLUGINS = [
-  {
-    name: "p-backlog",
-    skill: "skill/backlog-en",
-    description:
-      "Local backlog for coding agents: the skill files out-of-scope issues as Markdown tasks with context, the Stop hook asks to re-check tasks whose code changed. Needs the CLI: npm i -g p-backlog.",
-  },
-  {
-    name: "p-backlog-ru",
-    skill: "skill/backlog",
-    description: "p-backlog with the Russian-language skill. Needs the CLI: npm i -g p-backlog.",
-  },
-] as const;
+const PLUGIN_DESCRIPTIONS: [Language, string][] = [
+  [
+    "en",
+    "Local backlog for coding agents: the skill files out-of-scope issues as Markdown tasks with context, the Stop hook asks to re-check tasks whose code changed. Needs the CLI: npm i -g p-backlog.",
+  ],
+  ["ru", "p-backlog with the Russian-language skill. Needs the CLI: npm i -g p-backlog."],
+];
+const PLUGINS = PLUGIN_DESCRIPTIONS.map(([language, description]) => {
+  const { plugin, sourceDir } = SKILL_VARIANTS[language];
+  return { name: plugin, skillDir: join(SKILL_SOURCES_DIR, sourceDir), description };
+});
 const STOP_HOOK_SOURCE = "scripts/plugins/stop.mjs";
 const HOOKS = { hooks: { Stop: [{ hooks: [{ type: "command", command: "node", args: ["${CLAUDE_PLUGIN_ROOT}/hooks/stop.mjs"] }] }] } };
 
@@ -43,7 +43,7 @@ export async function pluginFiles(repoRoot: string): Promise<Record<string, stri
       license: manifest.license,
       keywords: KEYWORDS,
     });
-    files[`${dir}/skills/backlog/SKILL.md`] = await readFile(join(repoRoot, plugin.skill, "SKILL.md"), "utf8");
+    files[`${dir}/skills/${SKILL_NAME}/SKILL.md`] = await readFile(join(repoRoot, plugin.skillDir, "SKILL.md"), "utf8");
     files[`${dir}/hooks/hooks.json`] = json(HOOKS);
     files[`${dir}/hooks/stop.mjs`] = stopHook;
   }

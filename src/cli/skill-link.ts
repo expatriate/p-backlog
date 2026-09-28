@@ -3,6 +3,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import type { Language } from "../core/i18n/language";
 import { parseJson, readTextOrNull } from "../core/store/fs-utils";
+import { SKILL_NAME, SKILL_SOURCES_DIR, SKILL_VARIANTS } from "./skill-variants";
 
 export type SkillLinkResult = "linked" | "kept" | "foreign";
 
@@ -10,15 +11,19 @@ export type SkillUnlinkResult = "removed" | "absent" | "foreign";
 
 export type SkillLinkOptions = { skillsDir: string; packageRoot: string; platform: NodeJS.Platform };
 
-const SKILL_VARIANTS = new Set(["backlog", "backlog-en"]);
+const SKILL_SOURCE_DIRS = new Set(Object.values(SKILL_VARIANTS).map((variant) => variant.sourceDir));
 const packageManifestSchema = z.object({ name: z.string() });
 
 export function skillSourceDir(packageRoot: string, language: Language): string {
-  return join(packageRoot, "skill", language === "ru" ? "backlog" : "backlog-en");
+  return join(packageRoot, SKILL_SOURCES_DIR, SKILL_VARIANTS[language].sourceDir);
+}
+
+export function skillLinkPath(skillsDir: string): string {
+  return join(skillsDir, SKILL_NAME);
 }
 
 async function isPBacklogSkill(path: string): Promise<boolean> {
-  if (!SKILL_VARIANTS.has(basename(path)) || basename(dirname(path)) !== "skill") return false;
+  if (!SKILL_SOURCE_DIRS.has(basename(path)) || basename(dirname(path)) !== SKILL_SOURCES_DIR) return false;
   const manifest = await readTextOrNull(join(dirname(dirname(path)), "package.json"));
   if (manifest !== null) return parseJson(manifest, packageManifestSchema)?.name === "p-backlog";
   return !(await pathExists(path));
@@ -29,7 +34,7 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 export async function linkSkillFor(language: Language, { skillsDir, packageRoot, platform }: SkillLinkOptions): Promise<SkillLinkResult> {
-  const target = join(skillsDir, "backlog");
+  const target = skillLinkPath(skillsDir);
   const source = skillSourceDir(packageRoot, language);
   const existing = await lstat(target).catch(() => null);
   if (existing !== null && !existing.isSymbolicLink()) return "foreign";
@@ -45,12 +50,12 @@ export async function linkSkillFor(language: Language, { skillsDir, packageRoot,
 }
 
 export async function relinkExistingSkill(language: Language, options: SkillLinkOptions): Promise<SkillLinkResult | "absent"> {
-  if (!(await pathExists(join(options.skillsDir, "backlog")))) return "absent";
+  if (!(await pathExists(skillLinkPath(options.skillsDir)))) return "absent";
   return linkSkillFor(language, options);
 }
 
 export async function unlinkOurSkill(skillsDir: string): Promise<SkillUnlinkResult> {
-  const target = join(skillsDir, "backlog");
+  const target = skillLinkPath(skillsDir);
   const existing = await lstat(target).catch(() => null);
   if (existing === null) return "absent";
   if (!existing.isSymbolicLink() || !(await isPBacklogSkill(resolve(skillsDir, await readlink(target))))) return "foreign";

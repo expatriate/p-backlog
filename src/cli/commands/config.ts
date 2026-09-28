@@ -1,13 +1,12 @@
-import { join } from "node:path";
 import { errorCodeOrText } from "../../core/errors";
 import { LANGUAGES, type Language } from "../../core/i18n/language";
 import { writeSettings } from "../../core/store/settings";
-import { AGENT_LABELS, agentSkillsDir, detectAgents, type Agent } from "../agents/agent";
+import { AGENT_SPECS, detectAgents, type Agent } from "../agents/agent";
 import { agentPlugin, pluginToSwitchTo } from "../agents/claude-plugin";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, parseCommandArgs, type CliIo } from "../io";
 import { cliMessages } from "../messages";
-import { linkSkillFor, relinkExistingSkill } from "../skill-link";
+import { linkSkillFor, relinkExistingSkill, skillLinkPath } from "../skill-link";
 
 export const configCommand: CliCommand = {
   name: "config",
@@ -39,18 +38,19 @@ async function runLanguage(positionals: string[], io: CliIo): Promise<number> {
 
 async function relinkSkill(agent: Agent, language: Language, io: CliIo): Promise<void> {
   const messages = cliMessages(language);
-  const label = AGENT_LABELS[agent];
+  const spec = AGENT_SPECS[agent];
+  const { label } = spec;
   const plugin = await agentPlugin(agent, io);
   if (plugin !== null) {
     const wanted = pluginToSwitchTo(plugin, language);
     if (wanted !== null) io.print(`${label}: ${messages.pluginLanguageHint(plugin, wanted)}`);
     return;
   }
-  const skillsDir = agentSkillsDir(agent, io);
-  const target = join(skillsDir, "backlog");
+  const skillsDir = spec.skillsDir(io);
+  const target = skillLinkPath(skillsDir);
   const options = { skillsDir, packageRoot: io.packageRoot, platform: io.platform };
   try {
-    const result = agent === "claude" ? await linkSkillFor(language, options) : await relinkExistingSkill(language, options);
+    const result = spec.skillOnLanguageChange === "link" ? await linkSkillFor(language, options) : await relinkExistingSkill(language, options);
     if (result === "foreign") io.warn(`${label}: ${messages.skillForeign(target)}`);
   } catch (error) {
     io.warn(`${label}: ${messages.installSkillLinkFailed(target, errorCodeOrText(error))}`);
