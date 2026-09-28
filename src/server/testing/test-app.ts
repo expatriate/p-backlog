@@ -44,7 +44,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
     },
   };
 
-  const usage = createUsageScanner({ root, claudeProjectsDir: options.transcriptsDir ?? (await makeTempDir()), warn: async () => undefined });
+  const usage = createUsageScanner({ root, claudeProjectsDir: options.transcriptsDir ?? (await makeTempDir()), warn: async () => undefined, now: () => TEST_NOW });
   const memory = createMemorySampler();
 
   const app = createApp({
