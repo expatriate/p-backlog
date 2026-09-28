@@ -142,6 +142,15 @@ describe("createProject", () => {
     expect(project.prefix).not.toBe("SPA");
   });
 
+  it("не берёт префикс, объявленный в project.md с битым YAML, даже без файлов задач", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/project.md": "---\nname: spa\nprefix: SPA\nrepos: [/a\n---\n" });
+
+    const project = await createProject(root, "/work/spa", []);
+
+    expect(project.prefix).not.toBe("SPA");
+  });
+
   it("каталог, который параллельное создание уже завело, но ещё не записало project.md, занимается, а не обходится как spa-2", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });

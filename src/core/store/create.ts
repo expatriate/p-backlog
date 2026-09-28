@@ -3,12 +3,11 @@ import { basename, join } from "node:path";
 import { formatLocalIso } from "../model/dates";
 import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
-import { derivePrefix, deriveProjectId, formatId, parseId, type ParsedId } from "../model/ids";
+import { derivePrefix, deriveProjectId, formatId, parseId, PREFIX_PATTERN, type ParsedId } from "../model/ids";
 import { createdEvent, type Provenance } from "../journal/events";
-import { parseFrontmatter } from "../model/frontmatter";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { TaskDraft } from "../model/task-file";
-import { projectFrontmatterSchema, type OptionalFields, type Project, type Task } from "../model/types";
+import type { OptionalFields, Project, Task } from "../model/types";
 import { hasErrorCode } from "../errors";
 import { createFileAtomic, listDir, readTextOrNull } from "./fs-utils";
 import { appendJournal } from "./journal";
@@ -101,11 +100,11 @@ async function maxTaskNumber(dir: string, prefix: string): Promise<number> {
   return Math.max(0, ...numbers);
 }
 
-const declaredPrefixSchema = projectFrontmatterSchema.pick({ prefix: true });
+const PREFIX_LINE = /^prefix:\s*["']?([^\s"']+)/m;
 
 async function takenPrefixes(dir: string): Promise<string[]> {
-  const declared = parseFrontmatter((await readTextOrNull(join(dir, PROJECT_FILE))) ?? "", declaredPrefixSchema);
-  return [...(declared.ok ? [declared.value.data.prefix] : []), ...(await taskFileIds(dir)).map((parsed) => parsed.prefix)];
+  const declared = PREFIX_LINE.exec((await readTextOrNull(join(dir, PROJECT_FILE))) ?? "")?.[1];
+  return [...(declared !== undefined && PREFIX_PATTERN.test(declared) ? [declared] : []), ...(await taskFileIds(dir)).map((parsed) => parsed.prefix)];
 }
 
 async function taskFileIds(dir: string): Promise<ParsedId[]> {
