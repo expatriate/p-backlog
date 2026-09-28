@@ -2,13 +2,12 @@ import { formatShare } from "../../core/stats/format";
 import type { AccuracyPeriod, AccuracyRow, BranchRow, CategoryRow, FoundRow, GrainPeriods, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow, ReportPeriod } from "../../core/api/contract";
 import { useMessages } from "../i18n";
 import { AccuracyChart } from "./AccuracyChart";
-import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable, type StatsTableRow } from "./StatsTable";
-import { useGrainSeries } from "./use-grain-series";
+import { useGrainPanel } from "./use-grain-panel";
 
 type SplitRow = { by: string } & OutcomeCounts;
 
@@ -17,7 +16,7 @@ type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyPeriod[]; days: 
 export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRows }: AccuracyPanelProps) {
   const { stats, core } = useMessages();
   const caption = usePeriodCaption();
-  const { grain, periods, setGrain } = useGrainSeries("accuracy", "week", { week: weeks, day: days });
+  const { grain, periods, period, toggle } = useGrainPanel("accuracy", "week", { week: weeks, day: days }, windows);
   const tablePeriod = caption.of("weeks", windows.weeks);
   const splitOf = (evidence: AccuracyRow["evidence"]): StatsTableRow[] => {
     if (evidence === "source-changed")
@@ -27,11 +26,7 @@ export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRow
     return [];
   };
   return (
-    <Panel
-      title={stats.accuracyTitle}
-      period={caption.ofGrain(grain, windows)}
-      aside={rows.length === 0 ? undefined : <GrainToggle chart="accuracy" grain={grain} onChange={setGrain} />}
-    >
+    <Panel title={stats.accuracyTitle} period={period} aside={rows.length === 0 ? undefined : toggle}>
       {rows.length === 0 ? (
         <p className={rowStyles.muted}>{stats.noCandidates}</p>
       ) : (

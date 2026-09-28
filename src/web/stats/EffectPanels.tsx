@@ -2,7 +2,6 @@ import type { Language } from "../../core/i18n/language";
 import type { EffectPeriod, EffectProject, EffectTotals, GrainPeriods, ReportPeriod } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
 import { EffectChart } from "./EffectChart";
-import { GrainToggle } from "./GrainToggle";
 import { formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 import rowStyles from "./PanelRows.module.css";
@@ -10,7 +9,7 @@ import { Figure, FigureGroup } from "./Figure";
 import { Panel } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
-import { useGrainSeries } from "./use-grain-series";
+import { useGrainPanel } from "./use-grain-panel";
 
 export function EffectFigures({ totals, period }: { totals: EffectTotals; period: ReportPeriod }) {
   const { stats } = useMessages();
@@ -39,10 +38,9 @@ function keptOutNote(stats: StatsMessages, language: Language, totals: EffectTot
 
 export function EffectChartPanel({ weeks, days, windows, totals }: { weeks: EffectPeriod[]; days: EffectPeriod[]; windows: GrainPeriods; totals: EffectTotals }) {
   const { stats } = useMessages();
-  const caption = usePeriodCaption();
-  const { grain, periods, setGrain } = useGrainSeries("effect", "week", { week: weeks, day: days });
+  const { grain, periods, period, toggle } = useGrainPanel("effect", "week", { week: weeks, day: days }, windows);
   return (
-    <Panel title={stats.effectTitle} period={caption.ofGrain(grain, windows)} aside={<GrainToggle chart="effect" grain={grain} onChange={setGrain} />}>
+    <Panel title={stats.effectTitle} period={period} aside={toggle}>
       <EffectChart periods={periods} totals={totals} grain={grain} />
     </Panel>
   );

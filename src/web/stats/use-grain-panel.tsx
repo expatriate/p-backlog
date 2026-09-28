@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import type { GrainPeriods } from "../../core/api/contract";
 import type { ChartId, Grain } from "./charts/chart-style";
+import { GrainToggle } from "./GrainToggle";
+import { usePeriodCaption } from "./period-caption";
 
-type GrainSeries<T> = { grain: Grain; periods: T[]; setGrain: (grain: Grain) => void };
+type GrainPanel<T> = { grain: Grain; periods: T[]; period: string; toggle: ReactNode };
 
 const STORAGE_PREFIX = "p-backlog.stats.grain.";
 
-export function useGrainSeries<T>(chart: ChartId, defaultGrain: Grain, series: Record<Grain, T[]>): GrainSeries<T> {
+export function useGrainPanel<T>(chart: ChartId, defaultGrain: Grain, series: Record<Grain, T[]>, windows: GrainPeriods): GrainPanel<T> {
+  const caption = usePeriodCaption();
   const key = `${STORAGE_PREFIX}${chart}`;
   const [grain, setStoredGrain] = useState(() => readGrain(key) ?? defaultGrain);
   const setGrain = (next: Grain) => {
     setStoredGrain(next);
     writeGrain(key, next);
   };
-  return { grain, periods: series[grain], setGrain };
+  return { grain, periods: series[grain], period: caption.ofGrain(grain, windows), toggle: <GrainToggle chart={chart} grain={grain} onChange={setGrain} /> };
 }
 
 function readGrain(key: string): Grain | undefined {

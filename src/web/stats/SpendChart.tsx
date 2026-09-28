@@ -12,11 +12,9 @@ import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
 import { costValue } from "./cost-format";
 import { formatLines } from "./effect-format";
-import { GrainToggle } from "./GrainToggle";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
-import { usePeriodCaption } from "./period-caption";
-import { useGrainSeries } from "./use-grain-series";
+import { useGrainPanel } from "./use-grain-panel";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
 const CLI_TOKENS = "var(--chart-bar-neutral)";
@@ -43,9 +41,8 @@ function dayPeriod({ day, ...numbers }: CostDay): CostPeriod {
 export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days: CostDay[]; windows: GrainPeriods }) {
   const { stats } = useMessages();
   const language = useLanguage();
-  const caption = usePeriodCaption();
   const dayPeriods = useMemo(() => days.map(dayPeriod), [days]);
-  const { grain, periods, setGrain } = useGrainSeries("spend", "day", { week: weeks, day: dayPeriods });
+  const { grain, periods, period, toggle } = useGrainPanel("spend", "day", { week: weeks, day: dayPeriods }, windows);
   const tooltip = useMemo(() => periodTooltip(stats, language, grain), [stats, language, grain]);
   const title = stats.spendBy[grain];
   const legend: LegendItem[] = [
@@ -56,7 +53,7 @@ export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days
   ];
   const compact = (value: number) => compactNumber(language, value);
   return (
-    <Panel title={title} period={caption.ofGrain(grain, windows)} aside={<GrainToggle chart="spend" grain={grain} onChange={setGrain} />}>
+    <Panel title={title} period={period} aside={toggle}>
       <ChartFrame summary={spendSummary(stats, language, grain, periods)} legend={legend}>
         <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />
