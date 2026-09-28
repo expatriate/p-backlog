@@ -6,7 +6,7 @@ import { formatDayMonth, formatDecimal } from "../i18n/format";
 import { countRu, NBSP, pluralRu } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
-import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
+import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
 import type { FlowForecast, Signal } from "../stats/types";
 import type { CountUnit } from "./index";
 import { forecastOutlook, forecastSpan, type SpanUnit } from "./forecast";
@@ -34,6 +34,8 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   done: "сделана",
   cancelled: "отменена",
 };
+
+const TYPE_LABELS: Record<TaskType, string> = { task: "задача", epic: "эпик" };
 
 const PRIORITY_LABELS: Record<Priority, string> = { low: "низкий", medium: "средний", high: "высокий", critical: "критичный" };
 
@@ -263,6 +265,7 @@ export const coreRu = {
   categoryLabel: (category: TaskCategory | undefined): string => (category === undefined ? "не указана" : CATEGORY_LABELS[category]),
   statusLabel: (status: TaskStatus): string => STATUS_LABELS[status],
   priorityLabel: (priority: Priority): string => PRIORITY_LABELS[priority],
+  typeLabel: (type: TaskType): string => TYPE_LABELS[type],
   resolutionLabel: (resolution: Resolution): string => RESOLUTION_LABELS[resolution],
   evidenceLabel,
   checkMethodLabel,

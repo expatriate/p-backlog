@@ -19,7 +19,7 @@ export type ToolbarProps = {
 };
 
 export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }: ToolbarProps) {
-  const { list, core, task } = useMessages();
+  const { list, core } = useMessages();
   const { filter } = params;
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
   const setFilter = (patch: Partial<ListParams["filter"]>) => onChange({ ...params, filter: { ...filter, ...patch } });
@@ -67,7 +67,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
         <div className={styles.group} role="group" aria-label={list.type}>
           {TASK_TYPES.map((type) => (
             <ToggleChip key={type} pressed={filter.type === type} onToggle={() => setFilter({ type: filter.type === type ? undefined : type })}>
-              {task.typeLabels[type]}
+              {core.typeLabel(type)}
             </ToggleChip>
           ))}
           <ToggleChip pressed={filter.onlyUnblocked === true} onToggle={() => setFilter({ onlyUnblocked: filter.onlyUnblocked ? undefined : true })}>
