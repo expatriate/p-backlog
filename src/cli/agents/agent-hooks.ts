@@ -1,4 +1,4 @@
-import { HOOK_STOP_COMMAND } from "../../core/stats/cost/hook-signature";
+import { HOOK_STOP_COMMAND } from "../../core/hook-signature";
 import type { CliIo } from "../io";
 import { addStopHook, commandOfHook, guardedPosixCommand, removeStopHook } from "../stop-hook";
 import { AGENT_SPECS, type Agent, type AgentPlaces } from "./agent";

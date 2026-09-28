@@ -3,8 +3,9 @@ import { createdEvent, type FoundHow, type ProjectJournal } from "../../journal/
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import type { Task } from "../../model/types";
-import { fixKey } from "../code/fixes";
-import type { CollectedCode, FixCommit } from "../types";
+import { codeFixRequests } from "../code/code-report";
+import { fixKey } from "../../code/code-source";
+import type { CollectedCode, FixCommit } from "../../code/types";
 import { effectReport } from "./effect-report";
 
 const NOW = new Date(2026, 8, 18, 12);
@@ -167,6 +168,22 @@ describe("эффект беклога", () => {
     const report = effectReport({ ...incidental([sameFix("SPA-201", iso(0, 5), iso(1, 10)), sameFix("SPA-202", iso(8, 5), iso(8, 10))]), now: NOW, projectId: "spa", code: code(commits) });
 
     expect(report.totals).toMatchObject({ fixedTasks: 1, fixedLines: 100, deferredTestLines: 40 });
+  });
+
+  it("отчёт одинаков с пустым и заполненным кэшем коммитов: запрашиваются все исправления, которые учитывает оценка", () => {
+    const closedEightyEightDaysAgo = makeTask({ id: "SPA-50", created: iso(5, 1), status: "done", closed: iso(5, 22), resolution: "fixed", reason: "Исправлено в eeeeee1", category: "bug" });
+    const oldFixCommit: [string, FixCommit] = [fixKey("spa", "eeeeee1"), { date: iso(5, 22), byAgent: true, lines: 70, testLines: 0 }];
+    const recent = fixes.slice(0, 4);
+    const input = { ...incidental([closedEightyEightDaysAgo, ...recent.map((fix) => fix.task), ...others]), now: NOW, projectId: "spa" };
+    const filledCache: [string, FixCommit][] = [oldFixCommit, ...recent.map((fix) => fix.commit)];
+    const requestedKeys = new Set(codeFixRequests(input).flatMap(({ projectId, hashes }) => hashes.map((hash) => fixKey(projectId, hash))));
+    const fetchedIntoEmptyCache = filledCache.filter(([key]) => requestedKeys.has(key));
+
+    const fromEmptyCache = effectReport({ ...input, code: code(fetchedIntoEmptyCache) });
+    const fromFilledCache = effectReport({ ...input, code: code(filledCache) });
+
+    expect(fromFilledCache.totals.estimatedLines).not.toBeNull();
+    expect(fromEmptyCache).toEqual(fromFilledCache);
   });
 
   it("окно итогов начинается с даты внедрения беклога проектом, недели показывают весь период", () => {

@@ -1,7 +1,6 @@
 import { appendFile, chmod, readFile, stat, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
-import { DAY_MS } from "../model/lifecycle";
 import { makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { newTranscriptState } from "../stats/cost/attribute";
 import { costReport } from "../stats/cost/cost-report";
@@ -9,6 +8,7 @@ import type { ScanProgress } from "../stats/types";
 import type { UsageBucket } from "../stats/cost/usage-state";
 import { listTranscripts, scanTranscripts, type TranscriptFile } from "./transcripts";
 import { emptyUsageCache, readUsageCache, USAGE_CACHE_VERSION, writeUsageCache, type UsageCache, type UsageCacheEntry } from "./usage-cache";
+import { DAY_MS } from "../model/dates";
 
 const CWD = "/Users/x/projects/spa";
 const BIG_BUDGET = 10_000_000;

@@ -1,4 +1,4 @@
-import { DAY_MS } from "../model/lifecycle";
+import { DAY_MS } from "../model/dates";
 
 export const CHURN_DAYS = 90;
 

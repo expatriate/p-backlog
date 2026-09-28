@@ -1,12 +1,12 @@
 import { formatLocalDay, formatLocalIso } from "../../model/dates";
 import type { CliRun } from "../../store/runs";
-import type { CostCommand, CostDay, CostModel, CostPeriod, CostReport, CostTotals, ScanProgress } from "../types";
+import type { CostCommand, CostDay, CostModel, CostNumbers, CostPeriod, CostReport, CostTotals, ScanProgress } from "../types";
 import { totalTokens } from "./token-counts";
 import { COST_REPORT_DAYS, type UsageBucket } from "./usage-state";
-import { HOOK_STOP_COMMAND } from "./hook-signature";
+import { HOOK_STOP_COMMAND } from "../../hook-signature";
 import { costOf, splitFastModel } from "./pricing";
 import { dayRange } from "../days";
-import { DAYS_PER_WEEK, statsPeriod, weekWindows } from "../weeks";
+import { statsPeriod, weekWindows } from "../weeks";
 import type { Period } from "../period";
 import { groupBy, sum } from "../numbers";
 import { lastDays, reportPeriod } from "../report-periods";
@@ -42,8 +42,8 @@ export function costReport({ buckets, runs, projectOf, projectId, now, scan }: C
     totals: totalsOf(inDays(bucketsByDay, totalsDays), inDays(runsByDay, totalsDays)),
     days: days.map((day) => dayRow(day, bucketsByDay.get(day) ?? [], runsByDay.get(day) ?? [])),
     weeks: weeks.map((week) => {
-      const weekDays = daysOf(week);
-      return periodRow(formatLocalIso(new Date(week.from)), inDays(bucketsByDay, weekDays), inDays(runsByDay, weekDays));
+      const inWeek = (at: string) => week.contains(Date.parse(at));
+      return periodRow(formatLocalIso(new Date(week.from)), scopedBuckets.filter((bucket) => inWeek(bucket.slot)), scopedRuns.filter((run) => inWeek(run.at)));
     }),
     models: modelsOf(inDays(bucketsByDay, days)),
     commands: commandsOf(inDays(runsByDay, days)),
@@ -56,11 +56,6 @@ function memoizedByCwd(projectOf: (cwd: string) => string | null): (cwd: string)
     if (!known.has(cwd)) known.set(cwd, projectOf(cwd));
     return known.get(cwd) ?? null;
   };
-}
-
-function daysOf(week: Period): string[] {
-  const monday = new Date(week.from);
-  return dayRange(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + DAYS_PER_WEEK - 1), DAYS_PER_WEEK);
 }
 
 function localDay(at: string): string {
@@ -95,13 +90,7 @@ function sinceWithin(buckets: readonly UsageBucket[], window: Period): string | 
 }
 
 function totalsOf(buckets: readonly UsageBucket[], runs: readonly CliRun[]): CostTotals {
-  return {
-    tokens: tokensTotalOf(buckets),
-    cost: costOfBuckets(buckets),
-    hasUnpricedTokens: hasUnpricedTokens(buckets),
-    hookTurns: sum(buckets.map((bucket) => bucket.hookTurns)),
-    ...runCounts(runs),
-  };
+  return { tokens: tokensTotalOf(buckets), ...costNumbers(buckets, runs) };
 }
 
 function runCounts(runs: readonly CliRun[]): { cliRuns: number; hookRuns: number } {
@@ -109,9 +98,7 @@ function runCounts(runs: readonly CliRun[]): { cliRuns: number; hookRuns: number
   return { cliRuns: runs.length - hookRuns, hookRuns };
 }
 
-type CostRowNumbers = Omit<CostPeriod, "start">;
-
-function costRowNumbers(buckets: readonly UsageBucket[], runs: readonly CliRun[]): CostRowNumbers {
+function costNumbers(buckets: readonly UsageBucket[], runs: readonly CliRun[]): CostNumbers {
   const hookBuckets = buckets.filter((bucket) => bucket.kind === "hook");
   const cliBuckets = buckets.filter((bucket) => bucket.kind === "cli" || bucket.kind === "skill");
   return {
@@ -125,11 +112,11 @@ function costRowNumbers(buckets: readonly UsageBucket[], runs: readonly CliRun[]
 }
 
 function dayRow(day: string, dayBuckets: readonly UsageBucket[], dayRuns: readonly CliRun[]): CostDay {
-  return { day, ...costRowNumbers(dayBuckets, dayRuns) };
+  return { day, ...costNumbers(dayBuckets, dayRuns) };
 }
 
 function periodRow(start: string, periodBuckets: readonly UsageBucket[], periodRuns: readonly CliRun[]): CostPeriod {
-  return { start, ...costRowNumbers(periodBuckets, periodRuns) };
+  return { start, ...costNumbers(periodBuckets, periodRuns) };
 }
 
 function modelsOf(buckets: readonly UsageBucket[]): CostModel[] {

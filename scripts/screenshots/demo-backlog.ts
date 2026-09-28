@@ -6,13 +6,13 @@ import { runCli } from "../../src/cli/run";
 import type { Language } from "../../src/core/i18n/language";
 import { coreMessages } from "../../src/core/messages";
 import { FOUND_HOW } from "../../src/core/journal/events";
-import { DAY_MS } from "../../src/core/model/lifecycle";
 import { serializeProject } from "../../src/core/model/project-file";
 import { PRIORITIES, TASK_CATEGORIES } from "../../src/core/model/types";
 import { PROJECT_FILE } from "../../src/core/store/paths";
 import { writeSettings } from "../../src/core/store/settings";
 import { sweepClosed } from "../../src/core/store/sweep";
 import { DemoRepo, pick, seededRandom, type Random } from "./demo-repo";
+import { DAY_MS } from "../../src/core/model/dates";
 
 const eventSchema = z.discriminatedUnion("do", [
   z.object({ at: z.number(), do: z.enum(["take", "done", "cancel", "block", "reopen", "verify", "touch", "obsolete"]) }),

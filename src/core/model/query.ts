@@ -1,8 +1,8 @@
 import { isBlocked, taskProgress, type BacklogIndex } from "./graph";
-import { DAY_MS } from "./lifecycle";
 import { localeOf, type Language } from "../i18n/language";
 import { compareIds } from "./ids";
 import { normalizeTag, PRIORITIES, type Priority, type Task, type TaskStatus, type TaskType } from "./types";
+import { DAY_MS } from "./dates";
 
 export const OPEN_STATUSES: readonly TaskStatus[] = ["backlog", "in-progress", "blocked"];
 const STATUS_SORT_ORDER: readonly TaskStatus[] = ["in-progress", "blocked", "backlog", "done", "cancelled"];

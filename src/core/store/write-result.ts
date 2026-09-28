@@ -9,7 +9,7 @@ type Busy = { ok: false; reason: "busy"; path: string; lock: string; seconds: nu
 
 export type UpdateTaskFailure = Invalid | Busy | { ok: false; reason: "not-found" } | { ok: false; reason: "conflict"; current: Task };
 
-export type UpdateTaskResult = { ok: true; task: Task } | UpdateTaskFailure;
+export type UpdateTaskResult = { ok: true; task: Task; reopenedEpic?: Task | undefined } | UpdateTaskFailure;
 
 export function invalid(problems: Problem[]): Invalid {
   return { ok: false, reason: "invalid", problems };

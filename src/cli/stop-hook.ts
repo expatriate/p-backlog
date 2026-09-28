@@ -1,4 +1,4 @@
-import { HOOK_STOP_COMMAND } from "../core/stats/cost/hook-signature";
+import { HOOK_STOP_COMMAND } from "../core/hook-signature";
 import { addGroupedStopHook, removeGroupedStopHook, type HookInstallResult, type HookRemoveResult } from "./agents/grouped-stop-hooks";
 
 const POSIX_COMMAND = guardedPosixCommand(HOOK_STOP_COMMAND);

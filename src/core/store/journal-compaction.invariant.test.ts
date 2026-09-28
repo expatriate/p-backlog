@@ -1,10 +1,9 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CANDIDATE_EVIDENCE, candidateEvents, episodeStates, filteredEvents } from "../journal/events";
-import { formatLocalIso } from "../model/dates";
-import { DAY_MS } from "../model/lifecycle";
+import { DAY_MS, formatLocalIso } from "../model/dates";
 import { PRIORITIES, TASK_CATEGORIES, type TaskStatus } from "../model/types";
-import type { CollectedCode, FixCommit } from "../stats/types";
+import type { CollectedCode, FixCommit } from "../code/types";
 import { JOURNAL_FILE, readJournal } from "./journal";
 import { compactJournal } from "./journal-compaction";
 import { taskIdsOnDisk } from "./load";

@@ -11,7 +11,7 @@ import { updateTaskInIndex, type TaskChanges } from "./update";
 type SkipReason = Exclude<BatchSkipReason, "failed">;
 
 export type CoreBatchOutcome =
-  | { id: string; outcome: "done"; task: Task; previous: BatchPrevious }
+  | { id: string; outcome: "done"; task: Task; reopenedEpic?: Task | undefined; previous: BatchPrevious }
   | { id: string; outcome: "skipped"; reason: SkipReason; problems?: Problem[] }
   | { id: string; outcome: "skipped"; reason: "failed"; detail: string };
 
@@ -34,7 +34,7 @@ async function applyOne(index: BacklogIndex, { id, version }: { id: string; vers
   const plan = planFor(current, action);
   if ("skip" in plan) return { id, outcome: "skipped", reason: plan.skip };
   const result = await updateTaskInIndex(index, { id, changes: plan.changes, closure: plan.closure, expectedVersion: version, now, via: "web", undo: action.kind === "restore", journal });
-  if (result.ok) return { id, outcome: "done", task: result.task, previous: previousOf(current) };
+  if (result.ok) return { id, outcome: "done", task: result.task, reopenedEpic: result.reopenedEpic, previous: previousOf(current) };
   if (result.reason === "conflict") return { id, outcome: "skipped", reason: "changed" };
   if (result.reason === "not-found") return { id, outcome: "skipped", reason: "not-found" };
   if (result.reason === "busy") return { id, outcome: "skipped", reason: "busy" };

@@ -1,6 +1,6 @@
 import type { Candidate } from "../core/check/candidates";
 import type { Language } from "../core/i18n/language";
-import { hookMessage } from "../core/stats/cost/hook-signature";
+import { hookMessage } from "../core/hook-signature";
 import { briefEvidence } from "./candidate-format";
 import { cliMessages, type CliMessages } from "./messages";
 

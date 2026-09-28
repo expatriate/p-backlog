@@ -1,10 +1,9 @@
-import { formatLocalIso } from "../model/dates";
-import { DAYS_PER_WEEK, STATS_WEEKS, WEEK_MS } from "../model/lifecycle";
-import { closingsOf, isOpenAt, type TaskHistory } from "./history";
+import { DAYS_PER_WEEK } from "../model/dates";
+import { flowOver } from "./flow/flow-over";
+import type { TaskHistory } from "./history";
 import { consecutivePeriods, period, type Period } from "./period";
 import type { FlowPeriod } from "./types";
-
-export { DAYS_PER_WEEK, STATS_WEEKS, WEEK_MS };
+import { STATS_WEEKS } from "./window";
 
 const MONDAY = 1;
 
@@ -19,16 +18,6 @@ export function statsPeriod(now: Date): Period {
 
 export function weekWindows(now: Date, count = STATS_WEEKS): Period[] {
   return consecutivePeriods(weekStarts(now, count), now.getTime());
-}
-
-export function flowOver(periods: readonly Period[], histories: readonly TaskHistory[]): FlowPeriod[] {
-  const closings = histories.flatMap(closingsOf);
-  return periods.map((span) => ({
-    start: formatLocalIso(new Date(span.from)),
-    created: histories.filter((history) => span.contains(history.createdAt)).length,
-    closed: closings.filter((closing) => span.contains(closing.at)).length,
-    openAtEnd: histories.filter((history) => isOpenAt(history, span.to)).length,
-  }));
 }
 
 export function weeklyFlow(histories: readonly TaskHistory[], now: Date): FlowPeriod[] {

@@ -1,5 +1,5 @@
 import type { GitRunner } from "../git/run";
-import type { CommitUnit, RepoCode } from "../stats/types";
+import type { CommitUnit, RepoCode } from "./types";
 import { churnWindowStart } from "./code-window";
 import { readCommitsSince, readLines, readUnits, type HistoryRange, type HistoryRead, type RepoRefs, type ScannedCommit } from "./git-code";
 
@@ -21,8 +21,7 @@ export async function scanRepo(git: GitRunner, repo: string, { refs, now, previo
     previous?.head === head ? previous.lines : readLines(git, repo, head),
   ]);
   if (commits === null || units === null || lines === null) return null;
-  const scan = { head, main, commits: windowOf(commits, since), units: windowOf(units, since), lines };
-  return previous !== undefined && isSameScan(previous, scan) ? previous : scan;
+  return { head, main, commits: windowOf(commits, since), units: windowOf(units, since), lines };
 }
 
 export function repoCodeOf(scan: RepoScan): RepoCode {
@@ -46,13 +45,4 @@ async function extendHistory<T>(read: (range: HistoryRange) => Promise<HistoryRe
 
 function windowOf<T extends { date: string }>(entries: readonly T[], since: Date): T[] {
   return entries.filter((entry) => Date.parse(entry.date) >= since.getTime()).sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
-}
-
-function isSameScan(previous: RepoScan, scan: RepoScan): boolean {
-  return (
-    previous.head === scan.head &&
-    previous.main === scan.main &&
-    previous.commits.length === scan.commits.length &&
-    previous.units.length === scan.units.length
-  );
 }

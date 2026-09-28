@@ -1,10 +1,11 @@
 import type { Language } from "../../core/i18n/language";
 import { formatDayMonth } from "../../core/i18n/format";
-import { DAY_MS, deletionDate, RETENTION_DAYS } from "../../core/model/lifecycle";
+import { deletionDate, RETENTION_DAYS } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
 import { useLanguage, useMessages } from "../i18n";
 import { cx } from "./cx";
 import type { UiMessages } from "./messages.ru";
+import { DAY_MS } from "../../core/model/dates";
 import styles from "./Countdown.module.css";
 
 type Deletion = { text: string; title: string; fraction: number; lastDay: boolean };

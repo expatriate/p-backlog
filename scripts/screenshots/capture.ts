@@ -6,9 +6,9 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { chromium, type Page } from "@playwright/test";
 import sharp from "sharp";
 import type { Language } from "../../src/core/i18n/language";
-import { DAY_MS } from "../../src/core/model/lifecycle";
 import { localeOf } from "../../src/core/i18n/language";
 import { serverResponds } from "../../src/cli/service/server-probe";
+import { DAY_MS } from "../../src/core/model/dates";
 import { SEEN_TASKS_STORAGE_KEY } from "../../src/web/list/use-seen-tasks";
 
 export type Shot = { name: string; path: string; viewport?: { width: number; height: number } };

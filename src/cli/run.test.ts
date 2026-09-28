@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/stats/cost/hook-signature";
+import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/hook-signature";
 import { CLI_COMMANDS, commandName, runCli } from "./run";
 import { describe, expect, it } from "vitest";
 import { EXIT, type CliEnv } from "./io";

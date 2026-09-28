@@ -404,6 +404,18 @@ describe("ревизия данных в ответах и событиях", ()
     expect(await change([path(backlog, "SPA-1.md"), path(backlog, "journal.jsonl")])).toEqual(afterWrite);
   });
 
+  it("эпик, переоткрытый своей записью задачи, — тоже своя запись: ревизия события не сдвигается", async () => {
+    const autoClosedEpic = `type: epic\nstatus: done\nclosed: ${formatLocalIso(TEST_NOW)}\nresolution: epic-done\nreason: готово\n`;
+    const backlog = await makeTestApp({ ...SAMPLE_FILES, "spa/SPA-7.md": taskFile("SPA-7", autoClosedEpic), "spa/SPA-8.md": taskFile("SPA-8", "epic: SPA-7\nstatus: done\n") });
+    const change = await openChanges(backlog);
+
+    await backlog.json("/api/tasks/SPA-8", "PATCH", { version: await backlog.taskVersion("SPA-8"), changes: { status: "backlog" } });
+    const { tasks, revision: afterWrite } = (await (await backlog.request("/api/tasks")).json()) as TasksResponse;
+
+    expect(tasks.find((task) => task.id === "SPA-7")?.status).toBe("backlog");
+    expect(await change([path(backlog, "SPA-8.md"), path(backlog, "SPA-7.md"), path(backlog, "journal.jsonl")])).toEqual(afterWrite);
+  });
+
   it("чужое изменение — в том числе поверх своей записи — сдвигает ревизию, и список её догоняет", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
     const change = await openChanges(backlog);

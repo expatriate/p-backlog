@@ -52,7 +52,7 @@ function Cost({ report }: { report: CostReport }) {
   const since = dataStartInsideWindow(report);
   return (
     <>
-      <CostFigures totals={report.totals} days={report.days} period={report.periods.totals} />
+      <CostFigures totals={report.totals} period={report.periods.totals} />
       {since !== null && <p className={styles.note}>{stats.costSince(formatDay(language, since))}</p>}
       <div className={styles.blocks}>
         <div className={rowStyles.wide}>

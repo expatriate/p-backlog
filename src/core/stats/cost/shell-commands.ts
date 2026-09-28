@@ -1,5 +1,5 @@
 const SEPARATORS = ["&&", "||", ";", "|", "&", "\n", "`"];
-const HEREDOC_START = /^<<-?\s*(['"]?)([^\s'"<>;&|()]+)\1/;
+const HEREDOC_START = /^<<-?\s*(?<quote>['"]?)(?<delimiter>[^\s'"<>;&|()]+)\k<quote>/;
 const HERE_STRING = "<<<";
 const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const DURATION = /^\d+(\.\d+)?[smhd]?$/;
@@ -23,6 +23,8 @@ const RUNNER_SUBCOMMANDS: Readonly<Record<string, readonly string[]>> = { pnpm: 
 const BIN_RUNNERS = new Set(["yarn"]);
 const ARITHMETIC_START = "$((";
 const ARITHMETIC_END = "))";
+const COMMAND_SUBSTITUTION = "$(";
+const UNQUOTED_STEPS: readonly Step[] = [skipSingleQuoted, openDoubleQuotes, takeEscaped, skipArithmetic, skipComment, takeHereString, startHeredoc, skipHeredocBodies, openSubstitution, openSubshell, closeGroup, splitAtSeparator];
 
 export function invokesBacklog(script: string): boolean {
   return simpleCommands(script).some((command) => {
@@ -83,103 +85,136 @@ function runsBacklogPackage(args: readonly string[]): boolean {
 
 type Context = { kind: "double" } | { kind: "group"; outer: string };
 
+type Scan = { script: string; position: number; current: string; commands: string[]; contexts: Context[]; pendingHeredocs: string[] };
+
+type Step = (scan: Scan) => boolean;
+
 function simpleCommands(script: string): string[] {
-  const commands: string[] = [];
-  const contexts: Context[] = [];
-  const pendingHeredocs: string[] = [];
-  let current = "";
-  let position = 0;
-  const finishCommand = () => {
-    commands.push(current.trim());
-    current = "";
-  };
-  const openGroup = (length: number) => {
-    contexts.push({ kind: "group", outer: current });
-    current = "";
-    position += length;
-  };
-  while (position < script.length) {
-    const char = script.charAt(position);
-    const context = contexts.at(-1);
-    if (context?.kind === "double") {
-      if (char === "\\") position += 2;
-      else if (char === '"') {
-        contexts.pop();
-        position++;
-      } else if (script.startsWith("$(", position)) openGroup(2);
-      else position++;
-      continue;
-    }
-    if (char === "'") {
-      const end = script.indexOf("'", position + 1);
-      position = end === -1 ? script.length : end + 1;
-      continue;
-    }
-    if (char === '"') {
-      contexts.push({ kind: "double" });
-      position++;
-      continue;
-    }
-    if (char === "\\") {
-      const escaped = script.charAt(position + 1);
-      if (escaped !== "\n") current += escaped;
-      position += 2;
-      continue;
-    }
-    if (script.startsWith(ARITHMETIC_START, position)) {
-      const end = script.indexOf(ARITHMETIC_END, position + ARITHMETIC_START.length);
-      position = end === -1 ? script.length : end + ARITHMETIC_END.length;
-      continue;
-    }
-    if (char === "#" && /(^|\s)$/.test(current)) {
-      const end = script.indexOf("\n", position);
-      position = end === -1 ? script.length : end;
-      continue;
-    }
-    if (script.startsWith(HERE_STRING, position)) {
-      current += HERE_STRING;
-      position += HERE_STRING.length;
-      continue;
-    }
-    const heredoc = HEREDOC_START.exec(script.slice(position));
-    if (heredoc) {
-      pendingHeredocs.push(heredoc[2] ?? "");
-      position += heredoc[0].length;
-      continue;
-    }
-    if (char === "\n" && pendingHeredocs.length > 0) {
-      finishCommand();
-      position = afterHeredocBodies(script, position + 1, pendingHeredocs.splice(0));
-      continue;
-    }
-    if (script.startsWith("$(", position)) {
-      openGroup(2);
-      continue;
-    }
-    if (char === "(") {
-      openGroup(1);
-      continue;
-    }
-    if (char === ")") {
-      finishCommand();
-      if (context?.kind === "group") {
-        current = context.outer;
-        contexts.pop();
-      }
-      position++;
-      continue;
-    }
-    const separator = SEPARATORS.find((candidate) => script.startsWith(candidate, position));
-    if (separator !== undefined) {
-      finishCommand();
-      position += separator.length;
-      continue;
-    }
-    current += char;
-    position++;
+  const scan: Scan = { script, position: 0, current: "", commands: [], contexts: [], pendingHeredocs: [] };
+  while (scan.position < script.length) {
+    if (scan.contexts.at(-1)?.kind === "double") stepInDoubleQuotes(scan);
+    else stepUnquoted(scan);
   }
-  finishCommand();
-  return commands.filter((command) => command !== "");
+  finishCommand(scan);
+  return scan.commands.filter((command) => command !== "");
+}
+
+function stepInDoubleQuotes(scan: Scan): void {
+  const char = scan.script.charAt(scan.position);
+  if (char === "\\") scan.position += 2;
+  else if (char === '"') {
+    scan.contexts.pop();
+    scan.position++;
+  } else if (!openSubstitution(scan)) scan.position++;
+}
+
+function stepUnquoted(scan: Scan): void {
+  if (UNQUOTED_STEPS.some((step) => step(scan))) return;
+  scan.current += scan.script.charAt(scan.position);
+  scan.position++;
+}
+
+function finishCommand(scan: Scan): void {
+  scan.commands.push(scan.current.trim());
+  scan.current = "";
+}
+
+function openGroup(scan: Scan, length: number): void {
+  scan.contexts.push({ kind: "group", outer: scan.current });
+  scan.current = "";
+  scan.position += length;
+}
+
+function skipTo(scan: Scan, end: number, afterEnd: number): true {
+  scan.position = end === -1 ? scan.script.length : afterEnd;
+  return true;
+}
+
+function skipSingleQuoted(scan: Scan): boolean {
+  if (scan.script.charAt(scan.position) !== "'") return false;
+  const end = scan.script.indexOf("'", scan.position + 1);
+  return skipTo(scan, end, end + 1);
+}
+
+function openDoubleQuotes(scan: Scan): boolean {
+  if (scan.script.charAt(scan.position) !== '"') return false;
+  scan.contexts.push({ kind: "double" });
+  scan.position++;
+  return true;
+}
+
+function takeEscaped(scan: Scan): boolean {
+  if (scan.script.charAt(scan.position) !== "\\") return false;
+  const escaped = scan.script.charAt(scan.position + 1);
+  if (escaped !== "\n") scan.current += escaped;
+  scan.position += 2;
+  return true;
+}
+
+function skipArithmetic(scan: Scan): boolean {
+  if (!scan.script.startsWith(ARITHMETIC_START, scan.position)) return false;
+  const end = scan.script.indexOf(ARITHMETIC_END, scan.position + ARITHMETIC_START.length);
+  return skipTo(scan, end, end + ARITHMETIC_END.length);
+}
+
+function skipComment(scan: Scan): boolean {
+  if (scan.script.charAt(scan.position) !== "#" || !/(^|\s)$/.test(scan.current)) return false;
+  const end = scan.script.indexOf("\n", scan.position);
+  return skipTo(scan, end, end);
+}
+
+function takeHereString(scan: Scan): boolean {
+  if (!scan.script.startsWith(HERE_STRING, scan.position)) return false;
+  scan.current += HERE_STRING;
+  scan.position += HERE_STRING.length;
+  return true;
+}
+
+function startHeredoc(scan: Scan): boolean {
+  const heredoc = HEREDOC_START.exec(scan.script.slice(scan.position));
+  if (!heredoc) return false;
+  scan.pendingHeredocs.push(heredoc.groups?.delimiter ?? "");
+  scan.position += heredoc[0].length;
+  return true;
+}
+
+function skipHeredocBodies(scan: Scan): boolean {
+  if (scan.script.charAt(scan.position) !== "\n" || scan.pendingHeredocs.length === 0) return false;
+  finishCommand(scan);
+  scan.position = afterHeredocBodies(scan.script, scan.position + 1, scan.pendingHeredocs.splice(0));
+  return true;
+}
+
+function openSubstitution(scan: Scan): boolean {
+  if (!scan.script.startsWith(COMMAND_SUBSTITUTION, scan.position)) return false;
+  openGroup(scan, COMMAND_SUBSTITUTION.length);
+  return true;
+}
+
+function openSubshell(scan: Scan): boolean {
+  if (scan.script.charAt(scan.position) !== "(") return false;
+  openGroup(scan, 1);
+  return true;
+}
+
+function closeGroup(scan: Scan): boolean {
+  if (scan.script.charAt(scan.position) !== ")") return false;
+  finishCommand(scan);
+  const context = scan.contexts.at(-1);
+  if (context?.kind === "group") {
+    scan.current = context.outer;
+    scan.contexts.pop();
+  }
+  scan.position++;
+  return true;
+}
+
+function splitAtSeparator(scan: Scan): boolean {
+  const separator = SEPARATORS.find((candidate) => scan.script.startsWith(candidate, scan.position));
+  if (separator === undefined) return false;
+  finishCommand(scan);
+  scan.position += separator.length;
+  return true;
 }
 
 function afterHeredocBodies(script: string, start: number, delimiters: readonly string[]): number {

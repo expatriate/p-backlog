@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../../model/testing/make-task";
-import type { ProjectCode } from "../types";
+import type { ProjectCode } from "../../code/types";
 import { density } from "./density";
 
 const project = (projectId: string, lines: Record<string, number>): ProjectCode => ({

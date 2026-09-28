@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { z } from "zod";
-import type { FixCommit } from "../stats/types";
+import type { FixCommit } from "./types";
 import { readJsonFile, writeFileAtomic } from "../store/fs-utils";
 import type { RepoScan } from "./repo-scan";
 

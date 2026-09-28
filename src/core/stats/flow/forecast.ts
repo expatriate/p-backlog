@@ -1,8 +1,8 @@
-import { formatLocalIso } from "../../model/dates";
+import { DAYS_PER_WEEK, formatLocalIso, WEEK_MS } from "../../model/dates";
 import { closingsOf, type TaskHistory } from "../history";
 import { smallest } from "../numbers";
+import { trailingPeriod } from "../period";
 import type { FlowForecast } from "../types";
-import { DAYS_PER_WEEK, WEEK_MS } from "../weeks";
 
 const FORECAST_WINDOW_WEEKS = 4;
 const MIN_WINDOW_WEEKS = 1;
@@ -18,10 +18,9 @@ export function flowForecast(histories: readonly TaskHistory[], open: number, no
   const ageWeeks = backlogAgeWeeks(histories, now);
   const windowWeeks = ageWeeks === null ? FORECAST_WINDOW_WEEKS : clampedWeeks(Math.floor(ageWeeks) + 1);
   const observedWeeks = ageWeeks === null ? FORECAST_WINDOW_WEEKS : clampedWeeks(ageWeeks);
-  const nowMs = now.getTime();
-  const inWindow = (moment: number) => moment > nowMs - windowWeeks * WEEK_MS && moment <= nowMs;
-  const closed = histories.flatMap(closingsOf).filter((closing) => inWindow(closing.at)).length;
-  const created = histories.filter((history) => inWindow(history.createdAt)).length;
+  const window = trailingPeriod(now.getTime(), windowWeeks * WEEK_MS);
+  const closed = histories.flatMap(closingsOf).filter((closing) => window.contains(closing.at)).length;
+  const created = histories.filter((history) => window.contains(history.createdAt)).length;
   const weeklyNet = (closed - created) / observedWeeks;
   const weeks = open > 0 && weeklyNet > 0 ? Math.ceil(open / weeklyNet) : null;
   const windowDays = Math.round(observedWeeks * DAYS_PER_WEEK);

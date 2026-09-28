@@ -1,22 +1,17 @@
 import { closingsOf, isFixedNow, type TaskHistory } from "../history";
-import type { Period } from "../period";
-import type { FixCommit } from "../types";
+import { fixKey } from "../../code/code-source";
+import type { FixCommit, FixRequest } from "../../code/types";
+import { retainedSince } from "../window";
 
 const HASH_PATTERN = /(?<![\p{L}\p{N}])[0-9a-f]{7,40}(?![\p{L}\p{N}])/gu;
-
-export type FixRequest = { projectId: string; hashes: string[] };
 
 export function reasonHashes(reason: string | undefined): string[] {
   return reason === undefined ? [] : [...reason.matchAll(HASH_PATTERN)].map((match) => match[0]);
 }
 
-export function fixKey(projectId: string, hash: string): string {
-  return `${projectId} ${hash}`;
-}
-
-export function fixRequests(histories: readonly TaskHistory[], period: Period): FixRequest[] {
+export function fixRequests(histories: readonly TaskHistory[], now: Date): FixRequest[] {
   const byProject = new Map<string, Set<string>>();
-  for (const history of fixedWithin(histories, period)) {
+  for (const history of retainedFixes(histories, now)) {
     const hashes = byProject.get(history.projectId) ?? new Set<string>();
     for (const hash of reasonHashes(history.reason)) hashes.add(hash);
     byProject.set(history.projectId, hashes);
@@ -33,9 +28,10 @@ export function fixCommitEntry(history: TaskHistory, commits: ReadonlyMap<string
     .at(0);
 }
 
-function fixedWithin(histories: readonly TaskHistory[], period: Period): TaskHistory[] {
+export function retainedFixes(histories: readonly TaskHistory[], now: Date): TaskHistory[] {
+  const since = retainedSince(now);
   return histories.filter((history) => {
     const closing = closingsOf(history).at(-1);
-    return isFixedNow(history) && closing !== undefined && period.contains(closing.at);
+    return isFixedNow(history) && closing !== undefined && closing.at >= since;
   });
 }

@@ -1,6 +1,6 @@
 import { roundToTenth } from "../numbers";
 import type { FlowForecast } from "../stats/types";
-import { DAYS_PER_WEEK } from "../stats/weeks";
+import { DAYS_PER_WEEK } from "../model/dates";
 
 export type ForecastOutlook = { kind: "no-open" } | { kind: "clears"; weeks: number; until: Date } | { kind: "not-shrinking" } | { kind: "grows"; perWeek: number };
 

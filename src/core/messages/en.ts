@@ -278,4 +278,5 @@ export const coreEn: CoreMessages = {
   closedNotSwept: (error) => `Could not delete closed tasks: ${error}`,
   serviceLogNotTrimmed: (error) => `Could not trim the service log: ${error}`,
   candidatesRecordFailed: (projectId, detail) => `Could not record candidates to the ${projectId} journal: ${detail}`,
+  branchOriginsReadFailed: (projectId, detail) => `Could not read the ${projectId} journal — tasks from unmerged branches are checked as usual: ${detail}`,
 };

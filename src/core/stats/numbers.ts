@@ -1,6 +1,12 @@
-import { DAY_MS } from "../model/lifecycle";
+import { DAY_MS } from "../model/dates";
 
 export const TAIL_FRACTION = 0.9;
+
+const PERCENT = 100;
+
+export function toPercent(share: number): number {
+  return Math.round(share * PERCENT);
+}
 
 export function median(values: readonly number[]): number | null {
   if (values.length === 0) return null;

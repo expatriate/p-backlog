@@ -23,6 +23,8 @@ export type KnownMerges = ReadonlyMap<string, ReadonlySet<string>>;
 
 type AnchorState = { kind: "none" } | { kind: "same" } | { kind: "moved"; source: string; anchor: string } | { kind: "changed" };
 
+export type AnchorStates = ReadonlyMap<string, AnchorState>;
+
 const MAX_COMMITS = 3;
 
 export function isReviewable(task: Task): boolean {
@@ -38,8 +40,12 @@ export function reviewMark(task: Task): number {
   return Math.max(Date.parse(task.created), verified);
 }
 
-export function codeReview(tasks: readonly Task[], facts: RepoFacts, knownMerges: KnownMerges = new Map()): CodeReview {
-  const reviewed = tasks.map((task) => ({ task, anchor: anchorState(task, facts) }));
+export function anchorStates(tasks: readonly Task[], facts: RepoFacts): AnchorStates {
+  return new Map(tasks.map((task) => [task.id, anchorState(task, facts)]));
+}
+
+export function codeReview(tasks: readonly Task[], facts: RepoFacts, knownMerges: KnownMerges = new Map(), anchors: AnchorStates = anchorStates(tasks, facts)): CodeReview {
+  const reviewed = tasks.map((task) => ({ task, anchor: anchors.get(task.id) ?? anchorState(task, facts) }));
   const candidates = reviewed.flatMap(({ task, anchor }) => codeCandidate(task, anchor, facts, knownMerges.get(task.id)));
   const plans = reviewed.flatMap(({ task, anchor }) => anchorPlan(task, anchor, facts));
   return { candidates, plans };
@@ -86,8 +92,8 @@ export function changesSince(facts: RepoFacts, path: string, mark: number): { co
   return { commits, uncommitted };
 }
 
-export function judgedByCommits(task: Task, facts: RepoFacts): boolean {
-  return task.source !== undefined && anchorState(task, facts).kind === "none";
+export function judgedByCommits(task: Task, anchors: AnchorStates): boolean {
+  return task.source !== undefined && anchors.get(task.id)?.kind === "none";
 }
 
 function anchorState(task: Task, facts: RepoFacts): AnchorState {

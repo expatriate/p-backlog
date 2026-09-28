@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { buildIndex, isClosed, type BacklogIndex } from "../model/graph";
 import { parseId } from "../model/ids";
 import type { CoreMessages } from "../messages";
-import { DAY_MS, epicDoneClosure, isExpired, planEpicClosing, planEpicReopening } from "../model/lifecycle";
+import { epicDoneClosure, isExpired, planEpicClosing, planEpicReopening } from "../model/lifecycle";
 import { deletedEvent } from "../journal/events";
 import type { Problem } from "../model/problems";
 import type { Project, Task } from "../model/types";
@@ -15,6 +15,7 @@ import { reserveIssuedUpTo } from "./projects";
 import { referenceCleanup } from "./references";
 import { statusToReopen, updateTaskInIndex, type TaskChanges } from "./update";
 import type { UpdateTaskFailure } from "./write-result";
+import { DAY_MS } from "../model/dates";
 
 export type SweepReport = {
   closedEpics: string[];

@@ -283,5 +283,6 @@ export const coreRu = {
   closedNotSwept: (error: string): string => `Не удалось удалить закрытые задачи: ${error}`,
   serviceLogNotTrimmed: (error: string): string => `Не удалось обрезать лог службы: ${error}`,
   candidatesRecordFailed: (projectId: string, detail: string): string => `Не удалось записать кандидатов в журнал ${projectId}: ${detail}`,
+  branchOriginsReadFailed: (projectId: string, detail: string): string => `Не удалось прочитать журнал ${projectId} — задачи из невлитых веток проверяются как обычные: ${detail}`,
 };
 

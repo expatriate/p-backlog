@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../model/dates";
 import { makeTask } from "../model/testing/make-task";
-import { ageBreakdown, closingBreakdown, folderOf, hotspots } from "./breakdowns";
+import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
 import { labelWithProject, plainLabel } from "./format";
 import type { TaskHistory } from "./history";
 import { makeHistory } from "./testing/make-history";
@@ -10,13 +10,6 @@ import { period } from "./period";
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 
 describe("где болит", () => {
-  it("папка — путь без строки и имени файла, файл в корне — имя файла", () => {
-    expect(folderOf("src/a/b.ts:3")).toBe("src/a");
-    expect(folderOf("src/a/b.ts:3:7")).toBe("src/a");
-    expect(folderOf("README.md:1")).toBe("README.md");
-    expect(folderOf("src/a")).toBe("src");
-  });
-
   it("8 папок и тегов с наибольшим числом задач, при равенстве — по алфавиту; в общей области — с проектом", () => {
     const tasks = [
       makeTask({ id: "SPA-1", source: "src/a/b.ts:3", tags: ["upload", "tests"] }),

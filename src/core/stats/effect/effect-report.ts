@@ -1,15 +1,15 @@
 import { formatLocalIso } from "../../model/dates";
-import { retainedSince } from "../../model/lifecycle";
 import { isClosed } from "../../model/graph";
 import { UNKNOWN, type Recorded } from "../../journal/events";
 import type { TaskCategory } from "../../model/types";
-import { fixCommitEntry, type FixCommitEntry } from "../code/fixes";
-import { closingsOf, isFixedNow, type TaskHistory } from "../history";
+import { fixCommitEntry, retainedFixes, type FixCommitEntry } from "../code/fixes";
+import { isFixedNow, type TaskHistory } from "../history";
 import { countBy, median, smallest, sum } from "../numbers";
 import { period, type Period } from "../period";
 import { grainPeriods } from "../report-periods";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
-import type { CollectedCode, CommitUnit, EffectProject, EffectReport, EffectTotals, EffectPeriod, ProjectCode } from "../types";
+import type { CollectedCode, CommitUnit, ProjectCode } from "../../code/types";
+import type { EffectProject, EffectReport, EffectTotals, EffectPeriod } from "../types";
 import { dayWindows } from "../days";
 import { statsPeriod, weekWindows } from "../weeks";
 
@@ -17,7 +17,9 @@ export const MIN_FIXES_FOR_ESTIMATE = 5;
 
 export type EffectInput = StatsInput & { code: CollectedCode };
 
-type Deferred = { history: TaskHistory; fixedLines: number | null; fixedTestLines: number; fixedAt: number | null };
+type OpenDeferred = { kind: "open"; history: TaskHistory };
+type FixedDeferred = { kind: "fixed"; history: TaskHistory; lines: number; testLines: number; at: number };
+type Deferred = OpenDeferred | FixedDeferred;
 type FixSize = { lines: number; testLines: number };
 type FixSample = FixSize & { category: Recorded<TaskCategory> | undefined };
 type Estimate = (category: Recorded<TaskCategory> | undefined) => FixSize | null;
@@ -31,10 +33,9 @@ export function effectReport(
   const { histories } = base;
   const statsWindow = statsPeriod(now);
   const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
-  const retainedFixes = (pool: readonly TaskHistory[]) => pool.filter((history) => closedSince(history, retainedSince(now)));
   const deferredByAgent = histories.filter((history) => history.found === "incidental" && history.foundExplicit && statsWindow.contains(history.createdAt));
-  const deferred = buildDeferred(deferredByAgent, retainedFixes(histories), code);
-  const estimate = estimator(estimateSamples(retainedFixes(wholeBacklog.histories), code));
+  const deferred = buildDeferred(deferredByAgent, retainedFixes(histories, now), code);
+  const estimate = estimator(estimateSamples(retainedFixes(wholeBacklog.histories, now), code));
   const adoptionStart = (id: string) => {
     const firstCreated = smallest(histories.filter((history) => history.projectId === id).map((history) => history.createdAt));
     return firstCreated === null ? statsWindow.from : Math.max(statsWindow.from, firstCreated);
@@ -70,11 +71,6 @@ export function effectReport(
   };
 }
 
-function closedSince(history: TaskHistory, since: number): boolean {
-  const lastClosing = closingsOf(history).at(-1);
-  return lastClosing !== undefined && lastClosing.at >= since;
-}
-
 function fixEntryOf(history: TaskHistory, code: CollectedCode): FixCommitEntry | undefined {
   return isFixedNow(history) ? fixCommitEntry(history, code.fixCommits) : undefined;
 }
@@ -85,11 +81,11 @@ function buildDeferred(candidates: readonly TaskHistory[], commitSharers: readon
     (key) => key,
   );
   return candidates.flatMap((history): Deferred[] => {
-    if (!isClosed(history.finalStatus)) return [{ history, fixedLines: null, fixedTestLines: 0, fixedAt: null }];
+    if (!isClosed(history.finalStatus)) return [{ kind: "open", history }];
     const entry = fixEntryOf(history, code);
     if (entry === undefined) return [];
     const sharers = sharersByCommit.get(entry.key) ?? 1;
-    return [{ history, fixedLines: entry.commit.lines / sharers, fixedTestLines: entry.commit.testLines / sharers, fixedAt: Date.parse(entry.commit.landedAt ?? entry.commit.date) }];
+    return [{ kind: "fixed", history, lines: entry.commit.lines / sharers, testLines: entry.commit.testLines / sharers, at: Date.parse(entry.commit.landedAt ?? entry.commit.date) }];
   });
 }
 
@@ -120,12 +116,11 @@ function sizeOf(samples: readonly FixSample[]): FixSize | null {
 }
 
 function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], estimate: Estimate): EffectTotals {
-  const fixed = deferred.flatMap((item) => (item.fixedLines === null ? [] : [item.fixedLines]));
-  const open = deferred.filter((item) => item.fixedLines === null);
+  const { fixed, open } = byKind(deferred);
   const estimated = estimatedSizeOf(open, estimate);
   const estimatedLines = estimated?.lines ?? null;
   const realLines = sum(units.map((unit) => unit.lines));
-  const fixedLines = sum(fixed);
+  const fixedLines = sum(fixed.map((item) => item.lines));
   const deferredLines = fixedLines + (estimatedLines ?? 0);
   const denominator = realLines + (estimatedLines ?? 0);
   return {
@@ -135,12 +130,16 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
     openTasks: open.length,
     estimatedLines,
     deferredLines,
-    deferredTestLines: sum(deferred.map((item) => item.fixedTestLines)) + (estimated?.testLines ?? 0),
+    deferredTestLines: sum(fixed.map((item) => item.testLines)) + (estimated?.testLines ?? 0),
     noiseShare: realLines === 0 || (estimatedLines === null && open.length > 0) ? null : Math.min(1, deferredLines / denominator),
   };
 }
 
-function estimatedSizeOf(open: readonly Deferred[], estimate: Estimate): FixSize | null {
+function byKind(deferred: readonly Deferred[]): { fixed: FixedDeferred[]; open: OpenDeferred[] } {
+  return { fixed: deferred.filter((item) => item.kind === "fixed"), open: deferred.filter((item) => item.kind === "open") };
+}
+
+function estimatedSizeOf(open: readonly OpenDeferred[], estimate: Estimate): FixSize | null {
   const estimates = open.map((item) => estimate(item.history.category));
   if (estimates.some((size) => size === null)) return null;
   const sizes = estimates.filter((size) => size !== null);
@@ -148,18 +147,19 @@ function estimatedSizeOf(open: readonly Deferred[], estimate: Estimate): FixSize
 }
 
 function bucketsOf(windows: readonly Period[], deferred: readonly Deferred[], periodUnits: readonly CommitUnit[], estimate: Estimate): EffectPeriod[] {
+  const { fixed, open } = byKind(deferred);
   return windows.map((span) => {
     const rawRealLines = sum(periodUnits.filter((unit) => span.contains(Date.parse(unit.date))).map((unit) => unit.lines));
-    const fixedInWindow = deferred.filter((item) => item.fixedAt !== null && span.contains(item.fixedAt));
-    const openInWindow = deferred.filter((item) => item.fixedLines === null && span.contains(item.history.createdAt));
-    const fixedLinesInWindow = sum(fixedInWindow.map((item) => item.fixedLines ?? 0));
+    const fixedInWindow = fixed.filter((item) => span.contains(item.at));
+    const openInWindow = open.filter((item) => span.contains(item.history.createdAt));
+    const fixedLinesInWindow = sum(fixedInWindow.map((item) => item.lines));
     const estimatedInWindow = estimatedSizeOf(openInWindow, estimate);
     const deferredLines = fixedLinesInWindow + (estimatedInWindow?.lines ?? 0);
     return {
       start: formatLocalIso(new Date(span.from)),
       onTopicLines: Math.max(0, rawRealLines - fixedLinesInWindow),
       deferredLines,
-      deferredTestLines: sum(fixedInWindow.map((item) => item.fixedTestLines)) + (estimatedInWindow?.testLines ?? 0),
+      deferredTestLines: sum(fixedInWindow.map((item) => item.testLines)) + (estimatedInWindow?.testLines ?? 0),
       deferredTasks: fixedInWindow.length + openInWindow.length,
     };
   });

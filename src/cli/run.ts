@@ -1,4 +1,4 @@
-import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/stats/cost/hook-signature";
+import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/hook-signature";
 import { errorText } from "../core/errors";
 import { coreMessages } from "../core/messages";
 import { FileBusyError } from "../core/store/file-lock";

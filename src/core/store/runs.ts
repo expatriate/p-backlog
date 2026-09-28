@@ -1,9 +1,10 @@
 import { mkdir, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { DAY_MS, retainedSince } from "../model/lifecycle";
 import { withFileLock } from "./file-lock";
 import { appendJsonLines, parseJson, readAt, readJsonLines, toJsonLines, withExistingFile, writeFileAtomic } from "./fs-utils";
+import { DAY_MS } from "../model/dates";
+import { retainedSince } from "../stats/window";
 
 export const RUNS_FILE = ".runs.jsonl";
 

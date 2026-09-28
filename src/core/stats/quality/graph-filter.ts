@@ -10,13 +10,13 @@ const SILENT_CLOSINGS: ReadonlySet<Recorded<Resolution> | undefined> = new Set<R
 
 export function graphFilterEffect(histories: readonly TaskHistory[], period: Period): GraphFilterEffect {
   const outcomes = histories.flatMap((history) =>
-    history.filtered.flatMap((at, index) => (period.contains(at) ? [outcomeAfter(history, at, history.filtered[index + 1] ?? Number.POSITIVE_INFINITY)] : [])),
+    history.filtered.flatMap((at, index) => (period.contains(at) ? [filterOutcomeBetween(history, at, history.filtered[index + 1] ?? Number.POSITIVE_INFINITY)] : [])),
   );
   const count = (outcome: FilterOutcome) => outcomes.filter((candidate) => candidate === outcome).length;
   return { filtered: outcomes.length, caught: count("caught"), missed: count("missed"), quiet: count("quiet") };
 }
 
-function outcomeAfter(history: TaskHistory, from: number, until: number): FilterOutcome {
+function filterOutcomeBetween(history: TaskHistory, from: number, until: number): FilterOutcome {
   const within = (at: number) => at > from && at <= until;
   const candidate = history.candidates.find((seen) => seen.evidence === "source-changed" && within(seen.at));
   const closing = closingsOf(history).find((transition) => within(transition.at));

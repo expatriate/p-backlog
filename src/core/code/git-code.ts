@@ -1,6 +1,6 @@
 import { FIELD, RECORD, resolveCommits, type GitRunner } from "../git/run";
 import { sum } from "../stats/numbers";
-import type { CommitUnit, FixCommit } from "../stats/types";
+import type { CommitUnit, FixCommit } from "./types";
 import { isTestPath } from "./test-paths";
 
 const LOCK_FILES = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"];
@@ -11,6 +11,9 @@ const HEAD = "HEAD";
 const MAIN_REFS = ["origin/HEAD", "main", "master"];
 const AGENT_TRAILER = /^claude/i;
 const RENAME_ARROW = " => ";
+const REGEX_SPECIAL = /[.*+?^${}()|[\]\\]/g;
+const LIST_BULLET = "([*-][[:space:]]+)?";
+const PULL_REQUEST_SUFFIX = "([[:space:]]*\\(#[0-9]+\\))?";
 
 export type RepoRefs = { head: string | null; main: string | null };
 
@@ -153,8 +156,8 @@ async function landingDate(git: GitRunner, repo: string, { fix, paths, mainCommi
 }
 
 function subjectLinePattern(subject: string): string {
-  const escaped = subject.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return `^[[:space:]]*([*-][[:space:]]+)?${escaped}([[:space:]]*\\(#[0-9]+\\))?[[:space:]]*$`;
+  const escaped = subject.replace(REGEX_SPECIAL, "\\$&");
+  return `^[[:space:]]*${LIST_BULLET}${escaped}${PULL_REQUEST_SUFFIX}[[:space:]]*$`;
 }
 
 function lastLine(output: string | null): string {

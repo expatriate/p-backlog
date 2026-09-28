@@ -1,14 +1,14 @@
 import { STALE_LOW_DAYS, staleLowTasks } from "../../model/query";
 import { STALE_URGENT_DAYS, urgentStaleCount } from "../breakdowns";
-import { DAY_MS } from "../../model/lifecycle";
 import { inWorkTasks } from "../flow/current";
-import { sum } from "../numbers";
+import { sum, toPercent } from "../numbers";
 import { period, type Period } from "../period";
 import type { CandidateEvidence, CheckMethod } from "../../journal/events";
-import { accuracy, methodAccuracy } from "../quality/accuracy";
+import { accuracy, decidedOf, isMeasuredEvidence, methodAccuracy } from "../quality/accuracy";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { AccuracyRow, FlowPeriod, Signal } from "../types";
 import { weeklyFlow } from "../weeks";
+import { DAY_MS } from "../../model/dates";
 
 type CheckGauge = { evidence: CandidateEvidence; method: CheckMethod | null; closed: number; verified: number; precision: number | null };
 
@@ -58,9 +58,9 @@ function staleLow({ scope }: ReportBase, now: Date): Signal[] {
 
 function noisyChecks({ histories }: ReportBase, now: Date): Signal[] {
   return checkGauges(histories, period(now.getTime() - NOISY_WINDOW_DAYS * DAY_MS, now.getTime())).flatMap((gauge) => {
-    const decided = gauge.closed + gauge.verified;
+    const decided = decidedOf(gauge);
     if (decided < NOISY_MIN_DECIDED || gauge.precision === null) return [];
-    const percent = Math.round(gauge.precision * 100);
+    const percent = toPercent(gauge.precision);
     if (percent >= NOISY_MAX_PERCENT) return [];
     return [{ kind: "noisy-check", params: { evidence: gauge.evidence, method: gauge.method, percent, decided, windowDays: NOISY_WINDOW_DAYS } }];
   });
@@ -77,5 +77,5 @@ function checkGauges(histories: ReportBase["histories"], window: Period): CheckG
 }
 
 function measuredByClosing(evidence: AccuracyRow["evidence"]): boolean {
-  return evidence !== "total" && evidence !== "no-source";
+  return evidence !== "total" && isMeasuredEvidence(evidence);
 }

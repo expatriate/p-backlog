@@ -2,13 +2,11 @@ import { execFileSync } from "node:child_process";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { formatLocalDay } from "../model/dates";
-import { DAY_MS } from "../model/lifecycle";
+import { DAY_MS, formatLocalDay } from "../model/dates";
 import type { Project } from "../model/types";
-import { fixKey } from "../stats/code/fixes";
 import { ISOLATED_GIT_ENV, gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { CODE_CACHE_FILE, createCodeCacheFile, type CodeCacheStore } from "./code-cache";
-import { createCodeSource, type CodeSource } from "./code-source";
+import { createCodeSource, fixKey, type CodeSource } from "./code-source";
 import { runGit, type GitRunner } from "../git/run";
 import { countingGit } from "../git/testing/counting-git";
 

@@ -34,8 +34,9 @@ const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "relate
 export async function updateTaskInIndex(index: BacklogIndex, request: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const before = index.byId.get(request.id);
   const result = await writeChanges(index, request);
-  if (result.ok) await reopenEpicOfOpenedTask(index, { before, after: result.task }, request);
-  return result;
+  if (!result.ok) return result;
+  const reopenedEpic = await reopenEpicOfOpenedTask(index, { before, after: result.task }, request);
+  return reopenedEpic === undefined ? result : { ...result, reopenedEpic };
 }
 
 export async function statusToReopen(epic: Task): Promise<TaskStatus> {
@@ -45,16 +46,18 @@ export async function statusToReopen(epic: Task): Promise<TaskStatus> {
 
 type OpenedTask = { before: Task | undefined; after: Task };
 
-export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, after }: OpenedTask, { now, via, undo, journal }: WriteOrigin): Promise<void> {
-  if (after.epic === undefined || isClosed(after.status)) return;
+export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, after }: OpenedTask, { now, via, undo, journal }: WriteOrigin): Promise<Task | undefined> {
+  if (after.epic === undefined || isClosed(after.status)) return undefined;
   const becameOpenInEpic = before === undefined || isClosed(before.status) || before.epic !== after.epic;
   const epic = index.byId.get(after.epic);
-  if (!becameOpenInEpic || epic === undefined || !isAutoClosedEpic(epic)) return;
+  if (!becameOpenInEpic || epic === undefined || !isAutoClosedEpic(epic)) return undefined;
   try {
-    if ((await diskChange(epic, epic.version)) !== null) return;
-    await writeChanges(index, { id: epic.id, changes: { status: await statusToReopen(epic) }, expectedVersion: epic.version, now, via, undo, journal });
+    if ((await diskChange(epic, epic.version)) !== null) return undefined;
+    const reopened = await writeChanges(index, { id: epic.id, changes: { status: await statusToReopen(epic) }, expectedVersion: epic.version, now, via, undo, journal });
+    return reopened.ok ? reopened.task : undefined;
   } catch (error) {
     console.error(`${epic.path}: ${errorText(error)}`);
+    return undefined;
   }
 }
 

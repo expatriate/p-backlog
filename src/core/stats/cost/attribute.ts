@@ -1,13 +1,21 @@
 import { z } from "zod";
 import { addTokens, tokensGrowth, totalTokens, ZERO_TOKENS, type TokenCounts } from "./token-counts";
 import type { TranscriptState, UsageBucket } from "./usage-state";
-import { isBacklogHookFeedback } from "./hook-signature";
+import { isBacklogHookFeedback } from "../../hook-signature";
 import { fastModel } from "./pricing";
 import { invokesBacklog } from "./shell-commands";
 
 type LineContext = { slot: string; cwd: string };
 
 const FAST_SPEED = "fast";
+
+const SYNTHETIC_MODEL = "<synthetic>";
+
+const UNKNOWN_MODEL = "unknown";
+
+const SKILL_PREAMBLE = "Base directory for this skill:";
+
+const BACKLOG_SKILL_PATH = "/skills/backlog";
 
 const CHARS_PER_TOKEN = 3;
 
@@ -71,7 +79,7 @@ function attributeAssistant(rawMessage: unknown, state: TranscriptState, context
   const { id, model, usage, content } = message.data;
   const buckets: UsageBucket[] = [];
   const repeatOfCountedMessage = id !== undefined && id === state.lastMessageId;
-  if (model && model !== "<synthetic>" && usage) {
+  if (model && model !== SYNTHETIC_MODEL && usage) {
     const pricedModel = usage.speed === FAST_SPEED ? fastModel(model) : model;
     const tokens = tokensFrom(usage);
     if (repeatOfCountedMessage) {
@@ -104,9 +112,9 @@ function attributeUser(rawMessage: unknown, isMeta: boolean, state: TranscriptSt
     const text = textOf(content);
     if (isBacklogHookFeedback(text)) {
       state.hookOpen = true;
-      return [{ ...context, model: state.lastModel ?? "unknown", kind: "hook", tokens: ZERO_TOKENS, hookTurns: 1 }];
+      return [{ ...context, model: state.lastModel ?? UNKNOWN_MODEL, kind: "hook", tokens: ZERO_TOKENS, hookTurns: 1 }];
     }
-    if (!state.hookOpen && text.startsWith("Base directory for this skill:") && text.includes("/skills/backlog")) {
+    if (!state.hookOpen && text.startsWith(SKILL_PREAMBLE) && text.includes(BACKLOG_SKILL_PATH)) {
       state.pendingEstimates.push({ kind: "skill", chars: text.length, ...context });
     }
     return [];
