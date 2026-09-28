@@ -1,43 +1,48 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { writeFileAtomic } from "../core/store/fs-utils";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
 import { createChangeFeed, createDebouncer, isHiddenPath, type ChangeFeed } from "./change-feed";
 
+const PROBE_FILE = "probe.md";
+
 async function watchedBacklog(root: string, debounceMs: number): Promise<ChangeFeed> {
   const feed = createChangeFeed({ root, debounceMs, warn: async () => undefined });
   onTestFinished(() => feed.close());
-  let probe = 0;
-  await vi.waitFor(async () => {
-    const seen = nextChange(feed, debounceMs + 200);
-    await writeFile(join(root, "probe.md"), String(++probe), "utf8");
-    await seen;
-  }, { timeout: 5_000, interval: 0 });
+  const probe = join(root, PROBE_FILE);
+  let writes = 0;
+  await vi.waitFor(
+    async () => {
+      const seen = firstChange(feed, (paths) => paths.includes(probe) || undefined, debounceMs + 200);
+      await writeFile(probe, String(++writes), "utf8");
+      await seen;
+    },
+    { timeout: 5_000, interval: 0 },
+  );
   return feed;
 }
 
-function nextChange(feed: ChangeFeed, timeoutMs = 2000): Promise<readonly string[]> {
+function firstChange<T>(feed: ChangeFeed, pick: (paths: readonly string[]) => T | undefined, timeoutMs = 2000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       unsubscribe();
       reject(new Error("изменение не пришло"));
     }, timeoutMs);
     const unsubscribe = feed.subscribe((paths) => {
+      const picked = pick(paths);
+      if (picked === undefined) return;
       clearTimeout(timer);
       unsubscribe();
-      resolve(paths);
+      resolve(picked);
     });
   });
 }
 
-function changeOf(feed: ChangeFeed, path: string): Promise<void> {
-  return new Promise((resolve) => {
-    const unsubscribe = feed.subscribe((paths) => {
-      if (!paths.includes(path)) return;
-      unsubscribe();
-      resolve();
-    });
+function nextChange(feed: ChangeFeed): Promise<readonly string[]> {
+  return firstChange(feed, (paths) => {
+    const changed = paths.filter((path) => basename(path) !== PROBE_FILE);
+    return changed.length > 0 ? changed : undefined;
   });
 }
 
@@ -80,7 +85,7 @@ describe("createChangeFeed", () => {
       calls++;
     });
     await feed.close();
-    const witnessed = changeOf(witness, join(root, "spa/SPA-1.md"));
+    const witnessed = firstChange(witness, (paths) => paths.includes(join(root, "spa/SPA-1.md")) || undefined);
     await writeFile(join(root, "spa/SPA-1.md"), "задача", "utf8");
     await witnessed;
 
