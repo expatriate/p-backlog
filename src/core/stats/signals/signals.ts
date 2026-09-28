@@ -5,7 +5,7 @@ import { inWorkTasks } from "../flow/current";
 import { sum } from "../numbers";
 import { period, type Period } from "../period";
 import type { CandidateEvidence, CheckMethod } from "../../journal/events";
-import { accuracy, methodAccuracy } from "../quality/accuracy";
+import { accuracy, decidedOf, isMeasuredEvidence, methodAccuracy } from "../quality/accuracy";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { AccuracyRow, FlowPeriod, Signal } from "../types";
 import { weeklyFlow } from "../weeks";
@@ -58,7 +58,7 @@ function staleLow({ scope }: ReportBase, now: Date): Signal[] {
 
 function noisyChecks({ histories }: ReportBase, now: Date): Signal[] {
   return checkGauges(histories, period(now.getTime() - NOISY_WINDOW_DAYS * DAY_MS, now.getTime())).flatMap((gauge) => {
-    const decided = gauge.closed + gauge.verified;
+    const decided = decidedOf(gauge);
     if (decided < NOISY_MIN_DECIDED || gauge.precision === null) return [];
     const percent = Math.round(gauge.precision * 100);
     if (percent >= NOISY_MAX_PERCENT) return [];
@@ -77,5 +77,5 @@ function checkGauges(histories: ReportBase["histories"], window: Period): CheckG
 }
 
 function measuredByClosing(evidence: AccuracyRow["evidence"]): boolean {
-  return evidence !== "total" && evidence !== "no-source";
+  return evidence !== "total" && isMeasuredEvidence(evidence);
 }
