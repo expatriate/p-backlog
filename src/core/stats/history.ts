@@ -107,8 +107,12 @@ export function closingsOf(history: TaskHistory): Transition[] {
   return history.transitions.filter(isClosing);
 }
 
+export function closingsOfIn(history: TaskHistory, span: Period): Transition[] {
+  return closingsOf(history).filter((closing) => span.contains(closing.at));
+}
+
 export function closingsIn(histories: readonly TaskHistory[], span: Period): Transition[] {
-  return histories.flatMap(closingsOf).filter((closing) => span.contains(closing.at));
+  return histories.flatMap((history) => closingsOfIn(history, span));
 }
 
 export function createdIn(histories: readonly TaskHistory[], span: Period): TaskHistory[] {

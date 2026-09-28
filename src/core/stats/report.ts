@@ -1,15 +1,15 @@
 import { UNKNOWN } from "../journal/events";
 import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
 import { scopeLabel } from "./format";
-import { closingsIn, createdIn, isOpenAt, type TaskHistory } from "./history";
+import { closingsIn, closingsOfIn, createdIn, isOpenAt, type TaskHistory } from "./history";
 import { daysBetween, median, nearestRank, TAIL_FRACTION } from "./numbers";
 import { sum } from "../numbers";
 import { trailingPeriod, type Period } from "./period";
-import { grainPeriods } from "./report-periods";
+import { grainPeriods, lastDaysSpan } from "./report-periods";
 import { reportBase, type ReportBase, type StatsInput } from "./scope";
 import { PRIORITY_WEIGHT } from "./weights";
 import type { PreviousTotals, StatsReport, StatsTotals } from "./types";
-import { dailyFlow, todaySoFar } from "./days";
+import { dailyFlow } from "./days";
 import { WEEK_MS } from "../model/dates";
 import { statsPeriod, weeklyFlow } from "./weeks";
 
@@ -38,7 +38,7 @@ function totals(histories: readonly TaskHistory[], now: Date, period: Period, jo
   const openNow = histories.filter((history) => isOpenAt(history, nowMs));
   const ages = openNow.map((history) => daysBetween(history.createdAt, nowMs));
   const leadTimes = leadTimesIn(histories, period);
-  const today = todaySoFar(now);
+  const today = lastDaysSpan(now, 1);
   return {
     open: ages.length,
     createdToday: createdIn(histories, today).length,
@@ -72,5 +72,5 @@ function previousTotals(histories: readonly TaskHistory[], nowMs: number, journa
 }
 
 function leadTimesIn(histories: readonly TaskHistory[], span: Period): number[] {
-  return histories.flatMap((history) => closingsIn([history], span).map((closing) => daysBetween(history.createdAt, closing.at)));
+  return histories.flatMap((history) => closingsOfIn(history, span).map((closing) => daysBetween(history.createdAt, closing.at)));
 }
