@@ -56,7 +56,7 @@ describe("файл журнала", () => {
       expect.objectContaining({ kind: "created", via: "unknown", priority: "unknown", category: "unknown", found: "unknown" }),
       expect.objectContaining({ kind: "status", via: "unknown", from: "backlog", to: "done", resolution: "unknown" }),
       expect.objectContaining({ kind: "category", from: "bug", to: "unknown" }),
-      expect.objectContaining({ kind: "candidate", evidence: "source-changed", mode: "unknown", method: undefined, match: undefined }),
+      expect.objectContaining({ kind: "candidate", evidence: "source-changed", mode: "unknown", method: "unknown", match: "unknown" }),
       expect.objectContaining({ kind: "deleted", snapshot: expect.objectContaining({ status: "done", priority: "unknown", category: "unknown", resolution: "unknown" }) }),
     ]);
   });
