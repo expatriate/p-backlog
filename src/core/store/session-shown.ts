@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { z } from "zod";
-import { WEEK_MS } from "../model/lifecycle";
 import { withFileLock } from "./file-lock";
 import { readJsonFile, writeJsonFile } from "./fs-utils";
+import { WEEK_MS } from "../model/dates";
 
 const SESSION_SHOWN_FILE = ".candidates-shown.json";
 const SESSION_RETENTION_MS = WEEK_MS;

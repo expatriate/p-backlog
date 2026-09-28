@@ -1,4 +1,4 @@
-import { formatLocalDay, formatLocalIso } from "../../model/dates";
+import { DAYS_PER_WEEK, formatLocalDay, formatLocalIso } from "../../model/dates";
 import type { CliRun } from "../../store/runs";
 import type { CostCommand, CostDay, CostModel, CostNumbers, CostPeriod, CostReport, CostTotals, ScanProgress } from "../types";
 import { totalTokens } from "./token-counts";
@@ -6,7 +6,7 @@ import { COST_REPORT_DAYS, type UsageBucket } from "./usage-state";
 import { HOOK_STOP_COMMAND } from "../../hook-signature";
 import { costOf, splitFastModel } from "./pricing";
 import { dayRange } from "../days";
-import { DAYS_PER_WEEK, statsPeriod, weekWindows } from "../weeks";
+import { statsPeriod, weekWindows } from "../weeks";
 import type { Period } from "../period";
 import { groupBy, sum } from "../numbers";
 import { lastDays, reportPeriod } from "../report-periods";

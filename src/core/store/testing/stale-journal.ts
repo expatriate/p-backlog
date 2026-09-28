@@ -1,5 +1,4 @@
-import { formatLocalIso } from "../../model/dates";
-import { DAY_MS } from "../../model/lifecycle";
+import { DAY_MS, formatLocalIso } from "../../model/dates";
 
 const daysBefore = (now: Date, days: number) => formatLocalIso(new Date(now.getTime() - days * DAY_MS));
 

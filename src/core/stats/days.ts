@@ -1,8 +1,8 @@
 import { formatLocalDay } from "../model/dates";
+import { flowOver } from "./flow/flow-over";
 import type { TaskHistory } from "./history";
 import { consecutivePeriods, type Period } from "./period";
 import type { FlowPeriod } from "./types";
-import { flowOver } from "./weeks";
 
 export const STATS_DAYS = 30;
 

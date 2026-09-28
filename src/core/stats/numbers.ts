@@ -1,4 +1,4 @@
-import { DAY_MS } from "../model/lifecycle";
+import { DAY_MS } from "../model/dates";
 
 export const TAIL_FRACTION = 0.9;
 

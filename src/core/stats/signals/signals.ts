@@ -1,6 +1,5 @@
 import { STALE_LOW_DAYS, staleLowTasks } from "../../model/query";
 import { STALE_URGENT_DAYS, urgentStaleCount } from "../breakdowns";
-import { DAY_MS } from "../../model/lifecycle";
 import { inWorkTasks } from "../flow/current";
 import { sum } from "../numbers";
 import { period, type Period } from "../period";
@@ -9,6 +8,7 @@ import { accuracy, decidedOf, isMeasuredEvidence, methodAccuracy } from "../qual
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { AccuracyRow, FlowPeriod, Signal } from "../types";
 import { weeklyFlow } from "../weeks";
+import { DAY_MS } from "../../model/dates";
 
 type CheckGauge = { evidence: CandidateEvidence; method: CheckMethod | null; closed: number; verified: number; precision: number | null };
 

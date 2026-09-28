@@ -1,8 +1,7 @@
 import { appendFile, mkdir, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { formatLocalIso } from "../core/model/dates";
-import { DAY_MS } from "../core/model/lifecycle";
+import { DAY_MS, formatLocalIso } from "../core/model/dates";
 import { appendRun, readRuns } from "../core/store/runs";
 import { SWEPT_AT_FILE } from "../core/store/sweep";
 import { createdLine, journalWithTaskGoneLongAgo } from "../core/store/testing/stale-journal";

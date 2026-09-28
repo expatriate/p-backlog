@@ -1,8 +1,7 @@
-import { formatLocalIso } from "../../model/dates";
+import { DAYS_PER_WEEK, formatLocalIso, WEEK_MS } from "../../model/dates";
 import { closingsOf, type TaskHistory } from "../history";
 import { smallest } from "../numbers";
 import type { FlowForecast } from "../types";
-import { DAYS_PER_WEEK, WEEK_MS } from "../weeks";
 
 const FORECAST_WINDOW_WEEKS = 4;
 const MIN_WINDOW_WEEKS = 1;

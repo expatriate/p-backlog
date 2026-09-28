@@ -1,7 +1,7 @@
-import { retainedSince } from "../../model/lifecycle";
 import { closingsOf, isFixedNow, type TaskHistory } from "../history";
 import { fixKey } from "../../code/code-source";
 import type { FixCommit, FixRequest } from "../../code/types";
+import { retainedSince } from "../window";
 
 const HASH_PATTERN = /(?<![\p{L}\p{N}])[0-9a-f]{7,40}(?![\p{L}\p{N}])/gu;
 

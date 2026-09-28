@@ -7,12 +7,12 @@ import { COST_TOTALS_DAYS } from "../../core/stats/cost/cost-report";
 import { COST_REPORT_DAYS } from "../../core/stats/cost/usage-state";
 import { STATS_DAYS } from "../../core/stats/days";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
-import { STATS_WEEKS } from "../../core/stats/weeks";
 import type { ChartStep, Grain } from "./charts/chart-style";
 import { formatApprox, isEstimated } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 import { approx, formatWhole } from "./value-format";
 import { NO_VALUE } from "../labels";
+import { STATS_WEEKS } from "../../core/stats/window";
 
 const dayCount = (n: number): string => countEn(n, "day", "days");
 const CHURN_PERIOD = dayCount(CHURN_DAYS);

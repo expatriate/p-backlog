@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatLocalIso } from "../../model/dates";
-import { DAY_MS } from "../../model/lifecycle";
+import { DAY_MS, formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
 import { flowForecast } from "./forecast";

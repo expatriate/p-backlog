@@ -9,8 +9,8 @@ import { reportBase, type ReportBase, type StatsInput } from "./scope";
 import { PRIORITY_WEIGHT } from "./weights";
 import type { PreviousTotals, StatsReport, StatsTotals } from "./types";
 import { dailyFlow } from "./days";
-import { formatLocalDay } from "../model/dates";
-import { statsPeriod, WEEK_MS, weeklyFlow } from "./weeks";
+import { formatLocalDay, WEEK_MS } from "../model/dates";
+import { statsPeriod, weeklyFlow } from "./weeks";
 
 const STALE_DAYS = 30;
 

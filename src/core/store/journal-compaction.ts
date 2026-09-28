@@ -1,12 +1,12 @@
 import { join } from "node:path";
 import { episodeOpeners, journalEventSchema, type JournalEvent } from "../journal/events";
-import { retainedSince } from "../model/lifecycle";
 import { taskHistories, type TaskHistory } from "../stats/history";
 import { runWhenDue } from "./daily";
 import { withFileLock } from "./file-lock";
 import { fileExists, parseJson, readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { JOURNAL_FILE } from "./journal";
 import { projectDirNames, taskIdsOnDisk } from "./load";
+import { retainedSince } from "../stats/window";
 
 const COMPACTED_STAMP = ".journal-compacted-at";
 

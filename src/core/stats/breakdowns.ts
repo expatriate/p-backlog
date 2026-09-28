@@ -1,10 +1,11 @@
 import { PRIORITIES, type Priority, type Task } from "../model/types";
 import { closingsOf, reopeningsOf, type TaskHistory, type Transition } from "./history";
 import type { AgeBreakdown, AgeBucket, ClosingBreakdown, ClosingReason, Hotspots } from "./types";
+import { folderOf } from "./folders";
 import type { ProjectLabel } from "./format";
 import { countBy, daysBetween } from "./numbers";
 import type { Period } from "./period";
-import { DAYS_PER_WEEK } from "./weeks";
+import { DAYS_PER_WEEK } from "../model/dates";
 
 const HOTSPOT_LIMIT = 8;
 export const STALE_URGENT_DAYS = 7;
@@ -14,12 +15,6 @@ const AGE_LIMITS: readonly { bucket: AgeBucket; belowDays: number }[] = [
   { bucket: "quarter", belowDays: 90 },
   { bucket: "older", belowDays: Number.POSITIVE_INFINITY },
 ];
-
-export function folderOf(source: string): string {
-  const path = source.replace(/(:\d+)+$/, "");
-  const slash = path.lastIndexOf("/");
-  return slash === -1 ? path : path.slice(0, slash);
-}
 
 export function hotspots(openTasks: readonly Task[], projectLabel: ProjectLabel): Hotspots {
   const folders = openTasks.flatMap((task) => {

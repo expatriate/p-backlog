@@ -2,12 +2,12 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { gitCheckout, gitCommitAll, gitMergeNoFastForward, gitMergeSquash, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
-import { DAY_MS } from "../model/lifecycle";
 import { CHURN_DAYS } from "./code-window";
 import { readFixCommits, readRefs } from "./git-code";
 import { repoCodeOf, scanRepo } from "./repo-scan";
 import { runGit, type GitRunner } from "../git/run";
 import { countingGit } from "../git/testing/counting-git";
+import { DAY_MS } from "../model/dates";
 
 const AGENT_MESSAGE = "fix: retry\n\nCo-authored-by: claude Sonnet 5 <noreply@anthropic.com>";
 
