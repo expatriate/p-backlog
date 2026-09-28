@@ -19,8 +19,7 @@ export function createRevisions(boot: string = randomUUID()): Revisions {
   let seq = 0;
   const ownMarks = new Map<string, FileMark>();
 
-  const isOwn = async (path: string): Promise<boolean> => {
-    if (basename(path) === JOURNAL_FILE) return true;
+  const consumeOwnMark = async (path: string): Promise<boolean> => {
     const expected = ownMarks.get(path);
     ownMarks.delete(path);
     if (expected === undefined) return false;
@@ -39,7 +38,8 @@ export function createRevisions(boot: string = randomUUID()): Revisions {
       });
     },
     settle: async (paths) => {
-      const own = paths.length > 0 && (await Promise.all(paths.map((path) => isOwn(path).catch(() => false)))).every(Boolean);
+      const ownChange = (path: string) => (basename(path) === JOURNAL_FILE ? true : consumeOwnMark(path).catch(() => false));
+      const own = paths.length > 0 && (await Promise.all(paths.map(ownChange))).every(Boolean);
       if (own) return "own";
       seq += 1;
       return "foreign";
