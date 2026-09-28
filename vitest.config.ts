@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
+import { ISOLATED_GIT_ENV } from "./src/core/store/testing/temp-dirs.ts";
 
 // Node 22 omits node:sqlite from builtinModules, so vitest would hand it to Vite to bundle for jsdom.
 const nodeBuiltinsStayExternal: Plugin = {
@@ -9,7 +10,7 @@ const nodeBuiltinsStayExternal: Plugin = {
   resolveId: (id) => (id.startsWith("node:") ? { id, external: true } : null),
 };
 
-const FIXTURE_TIME_ZONE = { TZ: "Europe/Moscow" };
+const TEST_ENV = { TZ: "Europe/Moscow", ...ISOLATED_GIT_ENV };
 const SLOW_TEST_TIMEOUT = { testTimeout: 20_000 };
 const LONGER_TIMEOUT_ON_WINDOWS = process.platform === "win32" ? SLOW_TEST_TIMEOUT : {};
 
@@ -27,7 +28,7 @@ export default defineConfig({
           name: "node",
           include: ["src/core/**/*.test.ts", "src/cli/**/*.test.ts", "src/server/**/*.test.ts", "tests/**/*.test.ts"],
           environment: "node",
-          env: FIXTURE_TIME_ZONE,
+          env: TEST_ENV,
           ...LONGER_TIMEOUT_ON_WINDOWS,
         },
       },
@@ -37,7 +38,7 @@ export default defineConfig({
           name: "web",
           include: ["src/web/**/*.test.ts", "src/web/**/*.test.tsx"],
           environment: "jsdom",
-          env: FIXTURE_TIME_ZONE,
+          env: TEST_ENV,
           setupFiles: ["src/web/testing/setup.ts"],
           ...SLOW_TEST_TIMEOUT,
         },

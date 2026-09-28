@@ -154,16 +154,13 @@ describe("чтение git для вкладки «Код»", () => {
     await writeFiles(repo, { "src/a.ts": "a\n" });
     gitCommitAll(repo, "init", "2026-09-01T10:00:00+03:00");
     const main = execFileSync("git", ["branch", "--show-current"], { cwd: repo, encoding: "utf8" }).trim();
-    execFileSync("git", ["checkout", "-q", "-b", "feature"], { cwd: repo });
+    gitCheckout(repo, "feature", { create: true });
     await writeFiles(repo, { "src/b.ts": "1\n2\n3\n", "package-lock.json": "{\n}\n" });
     gitCommitAll(repo, "feature one", "2026-09-10T10:00:00+03:00");
     await writeFiles(repo, { "src/c.ts": "1\n", "logo.png": "\x00PNG\n", "docs/plan.md": "1\n2\n" });
     gitCommitAll(repo, "feature two", "2026-09-11T10:00:00+03:00");
-    execFileSync("git", ["checkout", "-q", main], { cwd: repo });
-    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "merge", "-q", "--no-ff", "-m", "merge feature", "feature"], {
-      cwd: repo,
-      env: { ...process.env, GIT_AUTHOR_DATE: "2026-09-12T10:00:00+03:00", GIT_COMMITTER_DATE: "2026-09-12T10:00:00+03:00" },
-    });
+    gitCheckout(repo, main);
+    gitMergeNoFastForward(repo, "feature", "2026-09-12T10:00:00+03:00");
 
     const code = await readCode(runGit, repo, new Date("2026-09-05T00:00:00+03:00"));
 
