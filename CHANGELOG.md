@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
 
 - Project journals are compacted once a day, by the service and after CLI commands other than the agent hook. Removed:
   events of tasks whose file no longer exists and whose last event is older than 13 weeks; check events (`candidate`,
