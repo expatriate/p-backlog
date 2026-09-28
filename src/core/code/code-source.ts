@@ -6,7 +6,8 @@ import { remembered } from "../remembered";
 import { emptyCodeCache, type CodeCacheSnapshot, type CodeCacheStore } from "./code-cache";
 import { fixKey } from "./fix-key";
 import { churnWindowStart } from "./code-window";
-import { readFixCommits, readRefs, type RepoRefs } from "./git-code";
+import { readRefs, type RepoRefs } from "./git-code";
+import { readFixCommits } from "./git-fixes";
 import { repoCodeOf, scanRepo, type RepoScan } from "./repo-scan";
 import type { FixCommit, FixRequest, ProjectCode, RepoCode, ScannedCode } from "./types";
 
