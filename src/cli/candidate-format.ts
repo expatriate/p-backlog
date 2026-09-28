@@ -23,3 +23,18 @@ function evidence(cli: CliMessages, candidate: Candidate): string {
     }
   }
 }
+
+export function briefEvidence(cli: CliMessages, candidate: Candidate): string {
+  return `${candidate.task.id} (${briefChange(cli, candidate)})`;
+}
+
+function briefChange(cli: CliMessages, candidate: Candidate): string {
+  switch (candidate.kind) {
+    case "source-changed":
+      return cli.candidateChanged(candidate.path);
+    case "source-missing":
+      return candidate.renamedTo === undefined ? cli.candidateMissing(candidate.path) : cli.candidateRenamed(candidate.path, candidate.renamedTo);
+    case "duplicate":
+      return cli.candidateSimilarTo(candidate.other.id);
+  }
+}
