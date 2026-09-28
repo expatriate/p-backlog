@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { gitCommitAll, ISOLATED_GIT_ENV, makeGitRepo, makeTempDir, writeFiles } from "../../src/core/store/testing/temp-dirs";
+import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../../src/core/store/testing/temp-dirs";
+import { isolatedHomeEnv } from "../isolated-process";
 
 const repoRoot = join(import.meta.dirname, "../..");
 const cliPath = join(repoRoot, "dist/cli.js");
@@ -14,8 +15,7 @@ function run(args: string[], options: { cwd: string; env: NodeJS.ProcessEnv; inp
 describe("предупреждения Node в собранном CLI", () => {
   it("ExperimentalWarning про SQLite не течёт в stderr — ни когда граф кода не нужен, ни когда он реально используется", async () => {
     const home = await makeTempDir();
-    const backlogDir = join(home, "store");
-    const env = { ...process.env, ...ISOLATED_GIT_ENV, HOME: home, USERPROFILE: home, BACKLOG_DIR: backlogDir, CLAUDE_CONFIG_DIR: join(home, ".claude"), LC_ALL: "en_US.UTF-8" };
+    const env = { ...isolatedHomeEnv(home), LC_ALL: "en_US.UTF-8" };
 
     const repo = await makeGitRepo(home, "demo-app");
     await writeFiles(repo, { "src/a.ts": "1\n" });

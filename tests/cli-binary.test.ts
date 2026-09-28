@@ -1,10 +1,10 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { access } from "node:fs/promises";
-import { createServer } from "node:net";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { ISOLATED_GIT_ENV, makeGitRepo, makeTempDir } from "../src/core/store/testing/temp-dirs";
+import { makeGitRepo, makeTempDir } from "../src/core/store/testing/temp-dirs";
+import { freePort, isolatedHomeEnv } from "./isolated-process";
 
 const buildDir = join(import.meta.dirname, "../dist/test");
 const cli = join(buildDir, "cli.js");
@@ -17,7 +17,7 @@ describe("собранный бинарник backlog", () => {
   it("создаёт задачу из stdin, показывает её и меняет статус", async () => {
     const home = await makeTempDir();
     const repo = await makeGitRepo(home, "demo-app");
-    const env = { ...process.env, ...ISOLATED_GIT_ENV, HOME: home, BACKLOG_DIR: join(home, "store"), LC_ALL: "ru_RU.UTF-8" };
+    const env = { ...isolatedHomeEnv(home), LC_ALL: "ru_RU.UTF-8" };
     const run = (args: string[], input?: string) => spawnSync(process.execPath, [cli, ...args], { cwd: repo, env, input, encoding: "utf8" });
 
     const created = run(["new", "--category", "bug", "--title", "Проверка бинарника"], "- [ ] шаг\n");
@@ -37,7 +37,7 @@ describe("собранный бинарник backlog", () => {
     const pidFile = join(home, "server.pid");
     const port = await freePort();
     const server = spawn(process.execPath, [cli, "serve", "--port", String(port)], {
-      env: { ...process.env, HOME: home, BACKLOG_DIR: join(home, "store"), P_BACKLOG_PID_FILE: pidFile },
+      env: { ...isolatedHomeEnv(home), P_BACKLOG_PID_FILE: pidFile },
       stdio: ["ignore", "pipe", "pipe"],
     });
     try {
@@ -56,12 +56,3 @@ describe("собранный бинарник backlog", () => {
     }
   });
 });
-
-async function freePort(): Promise<number> {
-  const probe = createServer().listen(0, "127.0.0.1");
-  await once(probe, "listening");
-  const address = probe.address();
-  probe.close();
-  if (address === null || typeof address === "string") throw new Error("нет порта");
-  return address.port;
-}

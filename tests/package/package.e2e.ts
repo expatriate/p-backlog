@@ -1,11 +1,11 @@
 import { execFileSync, execSync, spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { claudeStopHookFor } from "../../src/cli/agents/claude-hooks";
-import { gitCommitAll, ISOLATED_GIT_ENV, makeGitRepo, makeTempDir, writeFiles } from "../../src/core/store/testing/temp-dirs";
+import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../../src/core/store/testing/temp-dirs";
+import { freePort, isolatedHomeEnv } from "../isolated-process";
 
 const repoRoot = join(import.meta.dirname, "../..");
 const isWindows = process.platform === "win32";
@@ -36,27 +36,9 @@ function quoteForWindowsShell(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-async function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-    server.on("error", reject);
-    server.listen(0, () => {
-      const address = server.address();
-      const port = typeof address === "object" && address !== null ? address.port : 0;
-      server.close(() => resolve(port));
-    });
-  });
-}
-
 function isolatedEnv(home: string): NodeJS.ProcessEnv {
   return {
-    ...process.env,
-    ...ISOLATED_GIT_ENV,
-    HOME: home,
-    USERPROFILE: home,
-    BACKLOG_DIR: join(home, "store"),
-    CLAUDE_CONFIG_DIR: join(home, ".claude"),
-    CODEX_HOME: join(home, ".codex"),
+    ...isolatedHomeEnv(home),
     LC_ALL: "en_US.UTF-8",
     PATH: `${join(prefix, isWindows ? "" : "bin")}${isWindows ? ";" : ":"}${process.env.PATH ?? ""}`,
   };
