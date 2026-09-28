@@ -1,11 +1,19 @@
 import { isClosed } from "../model/graph";
 import type { Task } from "../model/types";
-import type { ChangeSource, ProjectJournal, Recorded } from "./events";
+import { isClosingChange, withoutUndoneClosings, type JournalEvent, type ProjectJournal } from "./events";
+
+type StatusEvent = Extract<JournalEvent, { kind: "status" }>;
 
 export function tasksClosedInWeb(tasks: readonly Task[], journals: readonly ProjectJournal[]): string[] {
-  const lastCloserOf = new Map<string, Recorded<ChangeSource>>();
+  const statusEventsOf = new Map<string, StatusEvent[]>();
   for (const { events } of journals) {
-    for (const event of events) if (event.kind === "status" && isClosed(event.to) && !isClosed(event.from)) lastCloserOf.set(event.task, event.via);
+    for (const event of events) {
+      if (event.kind !== "status") continue;
+      const known = statusEventsOf.get(event.task);
+      if (known === undefined) statusEventsOf.set(event.task, [event]);
+      else known.push(event);
+    }
   }
-  return tasks.filter((task) => isClosed(task.status) && lastCloserOf.get(task.id) === "web").map((task) => task.id);
+  const lastClosingOf = (id: string) => withoutUndoneClosings([...(statusEventsOf.get(id) ?? [])].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))).findLast(isClosingChange);
+  return tasks.filter((task) => isClosed(task.status) && lastClosingOf(task.id)?.via === "web").map((task) => task.id);
 }

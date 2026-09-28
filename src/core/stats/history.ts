@@ -1,4 +1,4 @@
-import { recordedMethodOf, UNKNOWN, type Recorded, type CandidateEvidence, type ChangeSource, type RecordedMatch, type RecordedMethod, type FoundHow, type JournalEvent, type ProjectJournal, type TaskSnapshot } from "../journal/events";
+import { isClosingChange, recordedMethodOf, withoutUndoneClosings, UNKNOWN, type Recorded, type CandidateEvidence, type ChangeSource, type RecordedMatch, type RecordedMethod, type FoundHow, type JournalEvent, type ProjectJournal, type TaskSnapshot } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Priority, Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
 import type { Period } from "./period";
@@ -99,12 +99,8 @@ export function isOpenAt(history: TaskHistory, moment: number): boolean {
   return first?.from === undefined || !isClosed(first.from);
 }
 
-function isClosing(transition: Transition): boolean {
-  return isClosed(transition.to) && (transition.from === undefined || !isClosed(transition.from));
-}
-
 export function closingsOf(history: TaskHistory): Transition[] {
-  return history.transitions.filter(isClosing);
+  return history.transitions.filter(isClosingChange);
 }
 
 export function closingsOfIn(history: TaskHistory, span: Period): Transition[] {
@@ -152,16 +148,6 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, prio
       filtered: [...filtered].sort((a, b) => a - b),
     },
   ];
-}
-
-function withoutUndoneClosings(ordered: readonly Transition[]): Transition[] {
-  const kept: Transition[] = [];
-  for (const transition of ordered) {
-    const lastKept = kept.at(-1);
-    if (transition.undo === true && lastKept !== undefined && isClosing(lastKept) && transition.from === lastKept.to) kept.pop();
-    else kept.push(transition);
-  }
-  return kept;
 }
 
 function categoryOf(

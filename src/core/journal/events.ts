@@ -157,6 +157,22 @@ export function changeEvents(before: Task, after: Task, now: Date, via: ChangeSo
   return events;
 }
 
+type StatusChange = { from?: TaskStatus | undefined; to: TaskStatus; undo?: true | undefined };
+
+export function isClosingChange({ from, to }: StatusChange): boolean {
+  return isClosed(to) && (from === undefined || !isClosed(from));
+}
+
+export function withoutUndoneClosings<T extends StatusChange>(ordered: readonly T[]): T[] {
+  const kept: T[] = [];
+  for (const change of ordered) {
+    const lastKept = kept.at(-1);
+    if (change.undo === true && lastKept !== undefined && isClosingChange(lastKept) && change.from === lastKept.to) kept.pop();
+    else kept.push(change);
+  }
+  return kept;
+}
+
 export function statusBeforeAutoClose(journal: readonly JournalEvent[], epicId: string): TaskStatus {
   const autoClose = journal.findLast((event) => event.task === epicId && event.kind === "status" && event.resolution === "epic-done");
   return autoClose?.kind === "status" && !isClosed(autoClose.from) ? autoClose.from : "backlog";
