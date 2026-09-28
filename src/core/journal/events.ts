@@ -57,14 +57,10 @@ export type FilteredSighting = { task: string; symbol: string };
 
 type MethodMarks = { method?: CheckMethod | undefined; bySymbol?: boolean | undefined; byAnchor?: boolean | undefined };
 
-function checkMethodOf({ bySymbol, byAnchor }: Omit<MethodMarks, "method">): CheckMethod {
-  if (bySymbol === true) return "symbol";
-  return byAnchor === true ? "anchor" : "file";
-}
-
 export function recordedMethodOf({ method, bySymbol, byAnchor }: MethodMarks): RecordedMethod {
   if (method !== undefined) return method;
-  return bySymbol === true || byAnchor === true ? checkMethodOf({ bySymbol, byAnchor }) : "unknown";
+  if (bySymbol === true) return "symbol";
+  return byAnchor === true ? "anchor" : UNKNOWN;
 }
 
 const eventBase = { at: z.iso.datetime({ offset: true }), task: z.string().min(1), via: recordedEnum(CHANGE_SOURCES), undo: z.literal(true).optional().catch(undefined) };
