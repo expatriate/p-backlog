@@ -1,3 +1,5 @@
+import { formatNumber } from "./format";
+
 export function pluralRu(n: number, one: string, few: string, many: string): string {
   if (!Number.isInteger(n)) return few;
   const abs = Math.abs(n);
@@ -15,9 +17,9 @@ export function pluralEn(n: number, one: string, other: string): string {
 export const NBSP = " ";
 
 export function countRu(n: number, one: string, few: string, many: string): string {
-  return `${n.toLocaleString("ru-RU")}${NBSP}${pluralRu(n, one, few, many)}`;
+  return `${formatNumber("ru", n)}${NBSP}${pluralRu(n, one, few, many)}`;
 }
 
 export function countEn(n: number, one: string, other: string): string {
-  return `${n.toLocaleString("en-US")}${NBSP}${pluralEn(n, one, other)}`;
+  return `${formatNumber("en", n)}${NBSP}${pluralEn(n, one, other)}`;
 }
