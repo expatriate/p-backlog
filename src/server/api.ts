@@ -5,7 +5,7 @@ import type { Language } from "../core/i18n/language";
 import { batchRequestSchema, projectActiveSchema, projectDeleteSchema, settingsRequestSchema, updateTaskRequestSchema, type BatchOutcome, type BatchResponse, type ProjectsResponse, type ProjectView, type Revision, type SettingsResponse, type TasksResponse } from "../core/api/contract";
 import { projectGraphHealth } from "../core/check/graph-health";
 import { buildIndex, type BacklogIndex } from "../core/model/graph";
-import type { Project } from "../core/model/types";
+import type { Project, Task } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { parseWithLocale } from "../core/model/zod-issues";
 import { applyBatch, type CoreBatchOutcome } from "../core/store/batch";
@@ -102,7 +102,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
     const id = c.req.param("id");
     const { index } = await backlog();
     const result = await updateTaskInIndex(index, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now(), via: "web" });
-    await recordOwnWrites(result.ok ? [result.task] : []);
+    await recordOwnWrites(result.ok ? writtenTasks(result) : []);
     if (result.ok) return c.json(result.task);
     const messages = serverMessages(body.language);
     if (result.reason === "not-found") return c.json({ errors: [messages.taskNotFound(id)] }, 404);
@@ -120,7 +120,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
       forgetAll();
       throw error;
     });
-    await recordOwnWrites(outcomes.flatMap((outcome) => (outcome.outcome === "done" ? [outcome.task] : [])));
+    await recordOwnWrites(outcomes.flatMap((outcome) => (outcome.outcome === "done" ? writtenTasks(outcome) : [])));
     const messages = serverMessages(body.language);
     const core = coreMessages(body.language);
     return c.json<BatchResponse>({ results: outcomes.map((outcome) => viewOf(outcome, messages, core)) });
@@ -170,6 +170,10 @@ async function loadSnapshot(root: string, revision: Revision): Promise<BacklogSn
 
 function invalidResponse(c: Context, result: Invalid, messages: CoreMessages) {
   return c.json({ errors: result.problems.map(messages.problem) }, 422);
+}
+
+function writtenTasks({ task, reopenedEpic }: { task: Task; reopenedEpic?: Task | undefined }): Task[] {
+  return reopenedEpic === undefined ? [task] : [task, reopenedEpic];
 }
 
 function viewOf(outcome: CoreBatchOutcome, messages: ServerMessages, core: CoreMessages): BatchOutcome {
