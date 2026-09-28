@@ -77,7 +77,7 @@ describe("createChangeFeed", () => {
   it("после close не зовёт подписчиков", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
-    const witness = await watchedBacklog(root, 20);
+    const witness = await watchedBacklog(root, 300);
     const feed = await watchedBacklog(root, 20);
 
     let calls = 0;
