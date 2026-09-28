@@ -1,6 +1,7 @@
 import { MEMORY_HISTORY_MS } from "../../core/api/memory";
 import { HOUR_MS } from "../../core/model/dates";
 import { CHURN_DAYS } from "../../core/code/code-window";
+import { TEST_DIRECTORIES, TEST_FILE_GLOBS } from "../../core/code/test-paths";
 import { formatDecimal } from "../../core/i18n/format";
 import { countEn, NBSP, pluralEn } from "../../core/i18n/plural";
 import { STALE_URGENT_DAYS } from "../../core/stats/breakdowns";
@@ -8,7 +9,7 @@ import { COST_REPORT_DAYS, COST_TOTALS_DAYS } from "../../core/stats/cost/cost-r
 import { STATS_DAYS } from "../../core/stats/days";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { ChartStep, Grain } from "./charts/chart-style";
-import { formatApprox, isEstimated } from "./effect-format";
+import { deferredCodeLines, formatLines } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 import { approx, formatWhole } from "./value-format";
 import { NO_VALUE } from "../labels";
@@ -30,8 +31,8 @@ const periods = (grain: Grain, n: number): string => countEn(n, ...PERIOD_FORMS[
 const tasks = (n: number): string => countEn(n, "task", "tasks");
 const tokens = (n: number): string => countEn(n, "token", "tokens");
 
-function linesText(lines: number, approx: boolean): string {
-  return `${formatApprox("en", lines, approx)}${NBSP}${pluralEn(Math.round(lines), "line", "lines")}`;
+function linesText(lines: number, estimatedPart: number | null = null): string {
+  return `${formatLines("en", lines, estimatedPart)}${NBSP}${pluralEn(Math.round(lines), "line", "lines")}`;
 }
 
 export const statsEn: StatsMessages = {
@@ -62,7 +63,10 @@ export const statsEn: StatsMessages = {
   chartLabel: (name, step) => `${name}. Left and right arrows move by ${CHART_STEPS[step]}`,
   periodOf: (grain, day) => (grain === "week" ? `week of ${day}` : day),
   weekTrend: (arrow, size) => `${arrow}${NBSP}${size}${NBSP}vs${NBSP}last${NBSP}week`,
-  weekTrendSpeech: (size, better) => `${size} ${better ? "less" : "more"} than a week ago — ${better ? "better" : "worse"}`,
+  weekTrendSpeech: {
+    decline: (size) => `${size} less than a week ago — better`,
+    growth: (size) => `${size} more than a week ago — worse`,
+  },
 
   tasksToday: "Tasks today",
   createdAndClosed: "created and closed",
@@ -153,10 +157,7 @@ export const statsEn: StatsMessages = {
   branchesHead: ["Branch", "Created", "Open"],
 
   linesText,
-  codeAndTests: ({ deferredLines, deferredTestLines, estimatedLines }) => {
-    const approx = isEstimated(estimatedLines);
-    return `code ${formatApprox("en", deferredLines - deferredTestLines, approx)}, tests ${formatApprox("en", deferredTestLines, approx)}`;
-  },
+  codeAndTests: (deferred) => `code ${formatLines("en", deferredCodeLines(deferred), deferred.estimatedLines)}, tests ${formatLines("en", deferred.deferredTestLines, deferred.estimatedLines)}`,
   keptOut: "Unrelated edits deferred",
   keptOutPending: (fixed) => `fixed ${fixed}; the pending estimate appears after ${MIN_FIXES_FOR_ESTIMATE} fixes`,
   keptOutEstimated: (fixed, pending) => `fixed ${fixed} + pending ${pending}`,
@@ -168,8 +169,7 @@ export const statsEn: StatsMessages = {
   effectWindow: `over ${EFFECT_WINDOW}`,
   chartScale: (chart) => `Scale of the "${chart}" chart`,
   chartNames: { flow: "Debt", intake: "Created", accuracy: "Check precision", effect: "Effect", spend: "Usage" },
-  grainWeek: "week",
-  grainDay: "day",
+  grainNames: { week: "week", day: "day" },
   effectTitle: "Effectiveness",
   byProject: "By project",
   projectsHead: ["Project", "Tasks deferred", "Lines fixed", "Pending estimate", "Lines in pull requests", "Noise without backlog"],
@@ -188,13 +188,13 @@ export const statsEn: StatsMessages = {
   explainerFixed:
     "Fixed ones are exact: lines of the commit from the close reason, without lock files, docs and images; a commit for several tasks is split evenly. Tasks closed without a fix and fixed ones without a found commit are not counted.",
   explainerPending: `Pending ones are estimated: the median of fixes in the same category (if there are at least ${MIN_FIXES_FOR_ESTIMATE}), otherwise of all fixes.`,
-  explainerTests: "Code and tests: test files are *.test.*, *.spec.*, *_test.*, test_*.py and the test, tests, __tests__, e2e, spec folders. For pending ones, the share of tests in the same fixes.",
+  explainerTests: `Code and tests: test files are ${TEST_FILE_GLOBS.join(", ")} and the ${TEST_DIRECTORIES.join(", ")} folders. For pending ones, the share of tests in the same fixes.`,
   explainerNoise: `Noise without backlog = deferred ÷ (lines in pull requests + pending estimate); fixes are already inside pull requests and are not counted twice. The window starts when the backlog was adopted in the project, no earlier than ${STATS_PERIOD} ago.`,
   now: "Now:",
-  fixedNow: (fixedTasks, fixedLines) => `${tasks(fixedTasks)} — ${linesText(fixedLines, false)}`,
+  fixedNow: (fixedTasks, fixedLines) => `${tasks(fixedTasks)} — ${linesText(fixedLines)}`,
   noPending: "nothing pending",
   pendingWithoutEstimate: (openTasks) => `${tasks(openTasks)}, ${ESTIMATE_LATER}`,
-  pendingEstimated: (openTasks, estimatedLines, perTask) => `${tasks(openTasks)} ${linesText(estimatedLines, true)}, on average ${approx(formatWhole("en", perTask))} per task`,
+  pendingEstimated: (openTasks, estimatedLines, perTask) => `${tasks(openTasks)} ${linesText(estimatedLines, estimatedLines)}, on average ${formatLines("en", perTask, estimatedLines)} per task`,
   estimateLater: ESTIMATE_LATER,
   noCommitsSinceAdoption: "no commits since adoption",
   noiseFormula: (deferred, real, estimated, share) => `${deferred} ÷ (${real} + ${estimated}) ${share}`,

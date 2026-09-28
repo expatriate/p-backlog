@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createReportCache } from "./report-cache";
+import { createTtlCache } from "./ttl-cache";
 
-describe("кэш отчётов", () => {
+describe("кэш со сроком жизни", () => {
   it("повтор по тому же ключу — из кэша; сброс и истечение срока — пересчёт", async () => {
     let clock = 0;
     let computed = 0;
-    const cache = createReportCache({ ttlMs: 1000, now: () => clock });
+    const cache = createTtlCache({ ttlMs: 1000, now: () => clock });
     const report = () => cache.get("stats|spa", async () => ++computed);
 
     expect([await report(), await report()]).toEqual([1, 1]);
@@ -21,7 +21,7 @@ describe("кэш отчётов", () => {
   it("отчёты прошлых дней не копятся: истёкшие записи уходят при следующем запросе", async () => {
     const DAY_MS = 24 * 60 * 60 * 1000;
     let clock = 0;
-    const cache = createReportCache({ ttlMs: 1000, now: () => clock });
+    const cache = createTtlCache({ ttlMs: 1000, now: () => clock });
 
     for (let day = 1; day <= 30; day += 1) {
       clock = day * DAY_MS;
@@ -33,14 +33,14 @@ describe("кэш отчётов", () => {
   });
 
   it("ошибка расчёта не кэшируется", async () => {
-    const cache = createReportCache({ ttlMs: 1000, now: () => 0 });
+    const cache = createTtlCache({ ttlMs: 1000, now: () => 0 });
 
     await expect(cache.get("k", async () => Promise.reject(new Error("git упал")))).rejects.toThrow("git упал");
     expect(await cache.get("k", async () => "ok")).toBe("ok");
   });
 
   it("clearTagged убирает только записи с пересекающимися тегами", async () => {
-    const cache = createReportCache({ ttlMs: 1000, now: () => 0 });
+    const cache = createTtlCache({ ttlMs: 1000, now: () => 0 });
     let computedA = 0;
     let computedB = 0;
     const a = () => cache.get("a", async () => ++computedA, ["project:a", "project:*"]);
@@ -54,7 +54,7 @@ describe("кэш отчётов", () => {
   });
 
   it("отказ устаревшего расчёта после clearTagged не удаляет свежую запись по тому же ключу", async () => {
-    const cache = createReportCache({ ttlMs: 1000, now: () => 0 });
+    const cache = createTtlCache({ ttlMs: 1000, now: () => 0 });
     let computed = 0;
     const { promise: stale, reject: rejectStale } = Promise.withResolvers<number>();
 

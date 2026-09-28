@@ -1,4 +1,5 @@
 import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { request as httpRequest } from "node:http";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { coreMessages } from "../core/messages";
@@ -8,6 +9,17 @@ import { journalWithTaskGoneLongAgo } from "../core/store/testing/stale-journal"
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import { startServer } from "./start";
 
+function statusWithHost(port: number, host: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest({ host: "127.0.0.1", port, path: "/api/settings", headers: { host } }, (response) => {
+      response.resume();
+      resolve(response.statusCode ?? 0);
+    });
+    request.on("error", reject);
+    request.end();
+  });
+}
+
 describe("startServer", () => {
   it("поднимает API на заданном порту и закрывается", async () => {
     const home = await makeTempDir();
@@ -16,6 +28,24 @@ describe("startServer", () => {
       const response = await fetch(`http://127.0.0.1:${server.port}/api/settings`);
       expect(response.status).toBe(200);
       expect(await response.json()).toHaveProperty("language");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("отвечает на Host localhost, 127.0.0.1 и [::1] своего порта, чужой Host — 403", async () => {
+    const home = await makeTempDir();
+    const server = await startServer({ root: join(home, "backlog"), port: 0, home, env: {} });
+    try {
+      const hosts = [`localhost:${server.port}`, `127.0.0.1:${server.port}`, `[::1]:${server.port}`, `evil.example:${server.port}`, "localhost:1"];
+      const statuses = await Promise.all(hosts.map(async (host) => [host, await statusWithHost(server.port, host)] as const));
+      expect(Object.fromEntries(statuses)).toEqual({
+        [`localhost:${server.port}`]: 200,
+        [`127.0.0.1:${server.port}`]: 200,
+        [`[::1]:${server.port}`]: 200,
+        [`evil.example:${server.port}`]: 403,
+        "localhost:1": 403,
+      });
     } finally {
       await server.close();
     }

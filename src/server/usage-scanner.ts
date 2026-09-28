@@ -17,10 +17,12 @@ export type UsageScannerOptions = {
 
 export type UsageSnapshot = { cache: UsageCache; scan: ScanProgress; revision: number };
 
+type PassEnd = "budget-spent" | "settled";
+
 export type UsageScanner = {
   start: () => void;
   stop: () => Promise<void>;
-  scanOnce: () => Promise<void>;
+  scanOnce: () => Promise<PassEnd>;
   scanIfNeverListed: () => void;
   snapshot: () => UsageSnapshot;
 };
@@ -41,17 +43,16 @@ export function createUsageScanner({
   let cache: UsageCache | null = null;
   let scan: ScanProgress = NOT_LISTED;
   let revision = 0;
-  let inFlight: Promise<void> | null = null;
+  let inFlight: Promise<PassEnd> | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let running = false;
-  let budgetExhausted = false;
 
   const setScan = (next: ScanProgress): void => {
     if (!scanEquals(scan, next)) revision += 1;
     scan = next;
   };
 
-  const runPass = async (): Promise<void> => {
+  const runPass = async (): Promise<PassEnd> => {
     const published = cache ?? emptyUsageCache();
     const current = cache ?? (await readUsageCache(root));
     const files = await listTranscripts(claudeProjectsDir);
@@ -60,15 +61,15 @@ export function createUsageScanner({
     if (cacheChanged(published, result.cache)) revision += 1;
     cache = result.cache;
     setScan({ listed: true, filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft });
-    budgetExhausted = result.bytesRead >= byteBudget;
     if (result.bytesRead > 0 || result.prunedBuckets > 0) await writeUsageCache(root, result.cache);
+    return result.bytesRead >= byteBudget ? "budget-spent" : "settled";
   };
 
-  const scanOnce = (): Promise<void> => {
+  const scanOnce = (): Promise<PassEnd> => {
     inFlight ??= runPass()
-      .catch(async (error: unknown) => {
-        budgetExhausted = false;
+      .catch(async (error: unknown): Promise<PassEnd> => {
         await warn((messages) => messages.transcriptsScanFailed(errorText(error)));
+        return "settled";
       })
       .finally(() => {
         inFlight = null;
@@ -77,8 +78,8 @@ export function createUsageScanner({
   };
 
   const tick = async (): Promise<void> => {
-    await scanOnce();
-    if (running) timer = setTimeout(() => void tick(), budgetExhausted ? CATCH_UP_DELAY_MS : intervalMs);
+    const end = await scanOnce();
+    if (running) timer = setTimeout(() => void tick(), end === "budget-spent" ? CATCH_UP_DELAY_MS : intervalMs);
   };
 
   return {
@@ -90,7 +91,7 @@ export function createUsageScanner({
       running = false;
       if (timer !== null) clearTimeout(timer);
       timer = null;
-      return inFlight ?? Promise.resolve();
+      return inFlight === null ? Promise.resolve() : inFlight.then(() => undefined);
     },
     scanOnce,
     scanIfNeverListed: () => {

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { Language } from "../../core/i18n/language";
 import type { EffectTotals } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
-import { formatApprox, formatNoiseShare, isEstimated } from "./effect-format";
+import { formatLines, formatNoiseShare } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
 import styles from "./EffectExplainer.module.css";
@@ -54,7 +54,6 @@ function pendingText(stats: StatsMessages, totals: EffectTotals): string {
 function noiseText(stats: StatsMessages, language: Language, totals: EffectTotals): string {
   if (totals.estimatedLines === null && totals.openTasks > 0) return stats.estimateLater;
   if (totals.noiseShare === null) return stats.noCommitsSinceAdoption;
-  const estimated = totals.estimatedLines ?? 0;
-  const approx = isEstimated(totals.estimatedLines);
-  return stats.noiseFormula(formatApprox(language, totals.deferredLines, approx), formatWhole(language, totals.realLines), formatApprox(language, estimated, approx), formatNoiseShare(totals.noiseShare));
+  const lines = (value: number) => formatLines(language, value, totals.estimatedLines);
+  return stats.noiseFormula(lines(totals.deferredLines), formatWhole(language, totals.realLines), lines(totals.estimatedLines ?? 0), formatNoiseShare(totals.noiseShare, totals.estimatedLines));
 }

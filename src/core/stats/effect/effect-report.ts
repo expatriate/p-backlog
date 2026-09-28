@@ -63,7 +63,7 @@ export function effectReport(
         projectId: project.projectId,
         name: project.name,
         realLines: own.realLines,
-        deferredTasks: own.fixedTasks + own.openTasks,
+        deferredTasks: own.deferredTasks,
         fixedLines: own.fixedLines,
         estimatedLines: own.estimatedLines,
         noiseShare: own.noiseShare,
@@ -131,6 +131,7 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
     fixedTasks: fixed.length,
     fixedLines,
     openTasks: open.length,
+    deferredTasks: fixed.length + open.length,
     estimatedLines,
     deferredLines,
     deferredTestLines: sum(fixed.map((item) => item.testLines)) + (estimated?.testLines ?? 0),
@@ -163,6 +164,7 @@ function bucketsOf(windows: readonly Period[], deferred: readonly Deferred[], pe
       onTopicLines: Math.max(0, rawRealLines - fixedLinesInWindow),
       deferredLines,
       deferredTestLines: sum(fixedInWindow.map((item) => item.testLines)) + (estimatedInWindow?.testLines ?? 0),
+      estimatedLines: estimatedInWindow?.lines ?? null,
       deferredTasks: fixedInWindow.length + openInWindow.length,
     };
   });

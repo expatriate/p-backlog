@@ -11,6 +11,7 @@ import { AXIS_PROPS, BAR_RADIUS, LINE_WIDTH, CHART_MARGIN, DATE_AXIS_PROPS, TOOL
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
 import type { StatsMessages } from "./messages.ru";
+import { formatWhole } from "./value-format";
 import { Panel } from "./Panel";
 import { useGrainPanel } from "./use-grain-panel";
 
@@ -22,9 +23,9 @@ function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
   return rowTooltip((period: FlowPeriod) => ({
     title: stats.periodOf(grain, formatDay(language, period.start)),
     rows: [
-      { label: stats.flowCreated, value: String(period.created), shape: "bar", color: CREATED },
-      { label: stats.flowClosed, value: String(period.closed), shape: "bar", color: CLOSED },
-      { label: stats.flowOpen, value: String(period.openAtEnd), shape: "line", color: OPEN },
+      { label: stats.flowCreated, value: formatWhole(language, period.created), shape: "bar", color: CREATED },
+      { label: stats.flowClosed, value: formatWhole(language, period.closed), shape: "bar", color: CLOSED },
+      { label: stats.flowOpen, value: formatWhole(language, period.openAtEnd), shape: "line", color: OPEN },
     ],
   }));
 }
@@ -32,7 +33,7 @@ function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
 export function FlowPanel({ weeks, days, windows }: { weeks: FlowPeriod[]; days: FlowPeriod[]; windows: GrainPeriods }) {
   const { stats } = useMessages();
   const language = useLanguage();
-  const { grain, periods, period, toggle } = useGrainPanel("flow", "week", { week: weeks, day: days }, windows);
+  const { grain, periods, period, toggle } = useGrainPanel("flow", "week", { weeks, days }, windows);
   const tooltip = useMemo(() => periodTooltip(stats, language, grain), [stats, language, grain]);
   const legend: LegendItem[] = [
     { label: stats.flowCreated, shape: "bar", color: CREATED },

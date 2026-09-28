@@ -1,19 +1,23 @@
 import { useParams } from "react-router";
+import type { Language } from "../../core/i18n/language";
 import { formatSigned } from "../../core/stats/format";
 import type { StatsReport, StatsTotals } from "../../core/api/contract";
 import { listPath } from "../../core/api/web-paths";
 import { useStats } from "../app/queries";
-import { useMessages } from "../i18n";
+import { useLanguage, useMessages } from "../i18n";
 import { cx } from "../ui/cx";
 import { AgePanel } from "./AgePanel";
 import { ClosingPanel } from "./ClosingPanel";
-import { Figure, type FigureTone } from "./Figure";
-import { trendOf } from "./trend";
+import { Figure, type FigureTone, type FigureTrend } from "./Figure";
 import { HotspotsPanel } from "./HotspotsPanel";
 import { StatsTabState } from "./StatsTabState";
-import { FlowPanel } from "./FlowChart";
-import { IntakePanel } from "./IntakeChart";
+import { FlowPanel } from "./FlowPanel";
+import { IntakePanel } from "./IntakePanel";
+import type { StatsMessages } from "./messages.ru";
+import { formatWhole } from "./value-format";
 import styles from "./StatsPage.module.css";
+
+const TREND_ARROWS: Record<FigureTone, string> = { decline: "↓", growth: "↑" };
 
 export function OverviewTab() {
   const { projectId } = useParams();
@@ -38,6 +42,7 @@ function Overview({ report, taskListPath }: { report: StatsReport; taskListPath:
 
 function Totals({ totals }: { totals: StatsTotals }) {
   const { stats } = useMessages();
+  const language = useLanguage();
   const net = totals.createdLastWeek - totals.closedLastWeek;
   const previous = totals.previous;
   return (
@@ -57,7 +62,7 @@ function Totals({ totals }: { totals: StatsTotals }) {
         value={formatSigned(net)}
         tone={netTone(net)}
         note={stats.weekNote(totals.createdLastWeek, totals.closedLastWeek)}
-        trend={trendOf(stats, net, previous?.net ?? null)}
+        trend={trendOf(stats, language, net, previous?.net ?? null)}
       />
     </div>
   );
@@ -67,4 +72,13 @@ function netTone(net: number): FigureTone | undefined {
   if (net > 0) return "growth";
   if (net < 0) return "decline";
   return undefined;
+}
+
+function trendOf(stats: StatsMessages, language: Language, current: number | null, previous: number | null): FigureTrend | undefined {
+  if (current === null || previous === null) return undefined;
+  const change = current - previous;
+  if (change === 0) return undefined;
+  const tone: FigureTone = change < 0 ? "decline" : "growth";
+  const size = formatWhole(language, Math.abs(change));
+  return { text: stats.weekTrend(TREND_ARROWS[tone], size), speech: stats.weekTrendSpeech[tone](size), tone };
 }

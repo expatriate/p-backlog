@@ -2,7 +2,7 @@ import type { Language } from "../../core/i18n/language";
 import type { EffectPeriod, EffectProject, EffectTotals, GrainPeriods, ReportPeriod } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
 import { EffectChart } from "./EffectChart";
-import { formatApprox, formatNoiseShare, isEstimated } from "./effect-format";
+import { formatLines, formatNoiseShare } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 import rowStyles from "./PanelRows.module.css";
 import { Figure, FigureGroup } from "./Figure";
@@ -19,28 +19,23 @@ export function EffectFigures({ totals, period }: { totals: EffectTotals; period
   const caption = usePeriodCaption();
   return (
     <FigureGroup period={caption.labelled(stats.effectWindow, period)}>
-      <Figure label={stats.keptOut} value={keptOutValue(stats, totals)} note={`${keptOutNote(stats, language, totals)} · ${stats.codeAndTests(totals)}`} />
-      <Figure label={stats.noiseWithoutBacklog} value={formatNoiseShare(totals.noiseShare)} note={stats.noiseNote} />
-      <Figure label={stats.deferredToBacklog} value={String(totals.fixedTasks + totals.openTasks)} note={stats.deferredNote(totals.fixedTasks, totals.openTasks)} />
+      <Figure label={stats.keptOut} value={stats.linesText(totals.deferredLines, totals.estimatedLines)} note={`${keptOutNote(stats, language, totals)} · ${stats.codeAndTests(totals)}`} />
+      <Figure label={stats.noiseWithoutBacklog} value={formatNoiseShare(totals.noiseShare, totals.estimatedLines)} note={stats.noiseNote} />
+      <Figure label={stats.deferredToBacklog} value={formatWhole(language, totals.deferredTasks)} note={stats.deferredNote(totals.fixedTasks, totals.openTasks)} />
       <Figure label={stats.pullRequestLines} value={formatWhole(language, totals.realLines)} />
     </FigureGroup>
   );
 }
 
-function keptOutValue(stats: StatsMessages, totals: EffectTotals): string {
-  if (totals.estimatedLines === null) return stats.linesText(totals.fixedLines, false);
-  return stats.linesText(totals.deferredLines, isEstimated(totals.estimatedLines));
-}
-
 function keptOutNote(stats: StatsMessages, language: Language, totals: EffectTotals): string {
   const fixed = formatWhole(language, totals.fixedLines);
   if (totals.estimatedLines === null) return stats.keptOutPending(fixed);
-  return stats.keptOutEstimated(fixed, formatApprox(language, totals.estimatedLines, isEstimated(totals.estimatedLines)));
+  return stats.keptOutEstimated(fixed, formatLines(language, totals.estimatedLines, totals.estimatedLines));
 }
 
 export function EffectChartPanel({ weeks, days, windows, totals }: { weeks: EffectPeriod[]; days: EffectPeriod[]; windows: GrainPeriods; totals: EffectTotals }) {
   const { stats } = useMessages();
-  const { grain, periods, period, toggle } = useGrainPanel("effect", "week", { week: weeks, day: days }, windows);
+  const { grain, periods, period, toggle } = useGrainPanel("effect", "week", { weeks, days }, windows);
   return (
     <Panel title={stats.effectTitle} period={period} aside={toggle}>
       <EffectChart periods={periods} totals={totals} grain={grain} />
@@ -66,9 +61,9 @@ export function ProjectsPanel({ projects, period }: { projects: EffectProject[];
               project.name,
               project.deferredTasks,
               formatWhole(language, project.fixedLines),
-              project.estimatedLines === null ? NO_VALUE : formatApprox(language, project.estimatedLines, isEstimated(project.estimatedLines)),
+              project.estimatedLines === null ? NO_VALUE : formatLines(language, project.estimatedLines, project.estimatedLines),
               formatWhole(language, project.realLines),
-              formatNoiseShare(project.noiseShare),
+              formatNoiseShare(project.noiseShare, project.estimatedLines),
             ],
           }))}
         />

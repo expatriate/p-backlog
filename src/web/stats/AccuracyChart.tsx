@@ -10,8 +10,9 @@ import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay } from "./charts/chart-format";
 import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, LINE_WIDTH, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
-import { nonZeroDot } from "./charts/value-dot";
+import { valueDot } from "./charts/value-dot";
 import type { StatsMessages } from "./messages.ru";
+import { formatWhole } from "./value-format";
 
 const DECIDED = "var(--chart-bar-neutral)";
 const PRECISION = "var(--chart-line-green)";
@@ -20,7 +21,7 @@ function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
   return rowTooltip((period: AccuracyPeriod) => ({
     title: stats.periodOf(grain, formatDay(language, period.start)),
     rows: [
-      { label: stats.decidedCandidates, value: String(period.decided), shape: "bar", color: DECIDED },
+      { label: stats.decidedCandidates, value: formatWhole(language, period.decided), shape: "bar", color: DECIDED },
       { label: stats.precision, value: formatShare(period.precision), shape: "line", color: PRECISION },
     ],
   }));
@@ -61,7 +62,7 @@ export function AccuracyChart({ periods, grain }: { periods: AccuracyPeriod[]; g
           stroke={PRECISION}
           strokeWidth={LINE_WIDTH}
           connectNulls
-          dot={nonZeroDot(PRECISION)}
+          dot={valueDot(PRECISION)}
           isAnimationActive={false}
         />
       </ComposedChart>

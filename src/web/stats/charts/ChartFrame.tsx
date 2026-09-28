@@ -3,8 +3,9 @@ import { ResponsiveContainer } from "recharts";
 import { cx } from "../../ui/cx";
 import styles from "./ChartFrame.module.css";
 
-export type LegendShape = "bar" | "line" | "dashed" | "hatch";
-export type LegendItem = { label: string; shape: LegendShape; color: string };
+type LegendShape = "bar" | "line" | "dashed" | "hatch";
+export type Swatch = { shape: LegendShape; color: string };
+export type LegendItem = { label: string } & Swatch;
 
 const INITIAL_DIMENSION = { width: 360, height: 180 };
 
@@ -24,7 +25,7 @@ export function ChartFrame({ summary, legend, children }: { summary: string; leg
         <figcaption className={styles.legend}>
           {legend.map((item) => (
             <span key={item.label} className={styles.legendItem}>
-              <span className={cx(styles.swatch, styles[item.shape])} style={{ "--swatch": item.color } as CSSProperties} aria-hidden="true" />
+              <SwatchMark shape={item.shape} color={item.color} />
               {item.label}
             </span>
           ))}
@@ -32,4 +33,8 @@ export function ChartFrame({ summary, legend, children }: { summary: string; leg
       )}
     </figure>
   );
+}
+
+export function SwatchMark({ shape, color }: Swatch) {
+  return <span className={cx(styles.swatch, styles[shape])} style={{ "--swatch": color } as CSSProperties} aria-hidden="true" />;
 }

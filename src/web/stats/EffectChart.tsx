@@ -10,7 +10,8 @@ import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber } from "./charts/chart-format";
 import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
-import { formatApprox, formatNoiseShare, isEstimated } from "./effect-format";
+import { deferredCodeLines, formatLines, formatNoiseShare } from "./effect-format";
+import { formatWhole } from "./value-format";
 import type { StatsMessages } from "./messages.ru";
 
 const REAL = "var(--chart-bar-neutral)";
@@ -19,17 +20,19 @@ const HATCH_SIZE = 6;
 const HATCH_STROKE_WIDTH = 3;
 
 function periodTooltip(stats: StatsMessages, core: CoreMessages, language: Language, grain: Grain) {
-  const roughLines = (lines: number) => formatApprox(language, lines, Math.round(lines) > 0);
-  return rowTooltip((period: EffectPeriod) => ({
-    title: stats.periodOf(grain, formatDay(language, period.start)),
-    rows: [
-      { label: stats.onTopicSeries, value: core.count(Math.round(period.onTopicLines), "line"), shape: "bar", color: REAL },
-      { label: stats.deferredSeries, value: roughLines(period.deferredLines), shape: "hatch", color: DEFERRED },
-      { label: stats.codeLines, value: roughLines(period.deferredLines - period.deferredTestLines) },
-      { label: stats.testLines, value: roughLines(period.deferredTestLines) },
-      { label: stats.deferredTasks, value: String(period.deferredTasks) },
-    ],
-  }));
+  return rowTooltip((period: EffectPeriod) => {
+    const lines = (value: number) => formatLines(language, value, period.estimatedLines);
+    return {
+      title: stats.periodOf(grain, formatDay(language, period.start)),
+      rows: [
+        { label: stats.onTopicSeries, value: core.count(Math.round(period.onTopicLines), "line"), shape: "bar", color: REAL },
+        { label: stats.deferredSeries, value: lines(period.deferredLines), shape: "hatch", color: DEFERRED },
+        { label: stats.codeLines, value: lines(deferredCodeLines(period)) },
+        { label: stats.testLines, value: lines(period.deferredTestLines) },
+        { label: stats.deferredTasks, value: formatWhole(language, period.deferredTasks) },
+      ],
+    };
+  });
 }
 
 export function EffectChart({ periods, totals, grain }: { periods: EffectPeriod[]; totals: EffectTotals; grain: Grain }) {
@@ -62,8 +65,8 @@ export function EffectChart({ periods, totals, grain }: { periods: EffectPeriod[
 }
 
 function effectSummary(stats: StatsMessages, grain: Grain, periods: EffectPeriod[], totals: EffectTotals): string {
-  const approx = isEstimated(totals.estimatedLines);
-  if (grain === "week") return stats.effectSummary(totals.realLines, stats.linesText(totals.deferredLines, approx), formatNoiseShare(totals.noiseShare));
-  const onTopicLines = Math.round(sum(periods.map((period) => period.onTopicLines)));
-  return stats.effectDaysSummary(periods.length, onTopicLines, stats.linesText(sum(periods.map((period) => period.deferredLines)), approx));
+  if (grain === "week") return stats.effectSummary(totals.realLines, stats.linesText(totals.deferredLines, totals.estimatedLines), formatNoiseShare(totals.noiseShare, totals.estimatedLines));
+  const total = (pick: (period: EffectPeriod) => number) => sum(periods.map(pick));
+  const deferred = stats.linesText(total((period) => period.deferredLines), total((period) => period.estimatedLines ?? 0));
+  return stats.effectDaysSummary(periods.length, Math.round(total((period) => period.onTopicLines)), deferred);
 }

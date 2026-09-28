@@ -1,4 +1,9 @@
-export type Grain = "week" | "day";
+import type { GrainPeriods } from "../../../core/api/contract";
+
+export const GRAINS = ["week", "day"] as const;
+export type Grain = (typeof GRAINS)[number];
+export const GRAIN_WINDOWS = { week: "weeks", day: "days" } as const satisfies Record<Grain, keyof GrainPeriods>;
+export type GrainSeries<T> = Record<keyof GrainPeriods, T[]>;
 export type ChartId = "flow" | "intake" | "accuracy" | "effect" | "spend";
 export type ChartStep = Grain | "sample";
 

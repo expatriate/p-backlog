@@ -5,9 +5,7 @@ import { JOURNAL_FILE, projectJournal } from "../core/store/journal";
 import { createJsonlTail, type JsonlTail } from "../core/store/jsonl-tail";
 import { createSnapshotIds, pruneUnlessKept } from "./source-memos";
 
-type BaseSlot = "scoped" | "backlog";
-
-type ScopeSources = { journals: ProjectJournal[]; baseOf: (slot: BaseSlot, input: StatsInput) => ReportBase };
+type ScopeSources = { journals: ProjectJournal[]; baseOf: (input: StatsInput) => ReportBase };
 
 type JournalSources = {
   read: (snapshot: object, projectIds: readonly string[]) => Promise<ScopeSources>;
@@ -36,8 +34,8 @@ export function createJournalSources(root: string): JournalSources {
     return { journal: projectJournal(projectId, lines), position: `${projectId}=${generation}:${length}` };
   };
 
-  const rememberedBase = (snapshot: object, tailed: readonly TailedJournal[]) => (slot: BaseSlot, input: StatsInput) => {
-    const slotKey = `${slot}|${input.projectId ?? "*"}`;
+  const rememberedBase = (snapshot: object, tailed: readonly TailedJournal[]) => (input: StatsInput) => {
+    const slotKey = input.projectId ?? "*";
     const positions = tailed.filter(({ journal }) => input.projectId === undefined || journal.projectId === input.projectId).map(({ position }) => position);
     const key = `${snapshotIdOf(snapshot)}|${slotKey}|${positions.join(",")}`;
     const remembered = bases.get(slotKey);

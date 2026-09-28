@@ -15,7 +15,8 @@ export type Revisions = {
 
 type FileMark = { version: string; mtimeMs: number };
 
-export function createRevisions(boot: string = randomUUID()): Revisions {
+export function createRevisions(): Revisions {
+  const boot = randomUUID();
   let seq = 0;
   const ownMarks = new Map<string, FileMark>();
 

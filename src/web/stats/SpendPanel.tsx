@@ -10,11 +10,10 @@ import { axisDay, compactNumber } from "./charts/chart-format";
 import { AXIS_PROPS, DASHED_LINE_WIDTH, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
-import { costValue } from "./cost-format";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
 import { useGrainPanel } from "./use-grain-panel";
-import { formatWhole } from "./value-format";
+import { costValue, formatWhole } from "./value-format";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
 const CLI_TOKENS = "var(--chart-bar-neutral)";
@@ -42,7 +41,7 @@ export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days
   const { stats } = useMessages();
   const language = useLanguage();
   const dayPeriods = useMemo(() => days.map(dayPeriod), [days]);
-  const { grain, periods, period, toggle } = useGrainPanel("spend", "day", { week: weeks, day: dayPeriods }, windows);
+  const { grain, periods, period, toggle } = useGrainPanel("spend", "day", { weeks, days: dayPeriods }, windows);
   const tooltip = useMemo(() => periodTooltip(stats, language, grain), [stats, language, grain]);
   const title = stats.spendBy[grain];
   const legend: LegendItem[] = [

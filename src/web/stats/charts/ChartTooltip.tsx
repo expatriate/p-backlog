@@ -1,10 +1,9 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { TooltipContentProps, TooltipValueType } from "recharts";
-import { cx } from "../../ui/cx";
-import type { LegendShape } from "./ChartFrame";
+import { SwatchMark, type Swatch } from "./ChartFrame";
 import styles from "./ChartFrame.module.css";
 
-type TooltipRow = { label: string; value: string; shape?: LegendShape; color?: string };
+type TooltipRow = { label: string; value: string } & (Swatch | { shape?: never; color?: never });
 export type TooltipView = { title: string; rows: TooltipRow[] };
 
 export function rowTooltip<Row>(describe: (row: Row) => TooltipView) {
@@ -19,9 +18,7 @@ export function rowTooltip<Row>(describe: (row: Row) => TooltipView) {
           {rows.map((item) => (
             <div key={item.label} className={styles.tooltipRow}>
               <dt>
-                {item.shape !== undefined && item.color !== undefined && (
-                  <span className={cx(styles.swatch, styles[item.shape])} style={{ "--swatch": item.color } as CSSProperties} aria-hidden="true" />
-                )}
+                {item.shape !== undefined && <SwatchMark shape={item.shape} color={item.color} />}
                 {item.label}
               </dt>
               <dd>{item.value}</dd>

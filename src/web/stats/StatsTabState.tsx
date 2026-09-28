@@ -17,6 +17,13 @@ type ReportQuery<T> = Pick<UseQueryResult<T>, "error" | "data" | "isFetching" | 
 
 type EmptyReport<T> = { isEmpty: (report: T) => boolean; message: string };
 
+type RequestView<T> =
+  | { kind: "notFound" }
+  | { kind: "loading" }
+  | { kind: "failed"; error: Error; report: T | undefined }
+  | { kind: "empty"; message: string }
+  | { kind: "ready"; report: T };
+
 export function StatsRequestState<T>({
   query,
   empty,
@@ -27,13 +34,10 @@ export function StatsRequestState<T>({
   children: (report: T) => ReactNode;
 }) {
   const { stats } = useMessages();
-  const { error, data, isFetching } = query;
-  const loaded = data !== undefined;
-  const notFound = error instanceof ApiError && error.status === 404;
-  const failure = notFound ? null : error;
-  const isLoading = error === null && !loaded;
-  const isEmpty = data !== undefined && empty !== undefined && empty.isEmpty(data);
-  const message = statusMessage(stats, error, notFound, loaded, isEmpty ? empty.message : null);
+  const view = requestView(query, empty);
+  const message = statusMessage(stats, view);
+  const failure = view.kind === "failed" ? view.error : null;
+  const report = view.kind === "ready" || view.kind === "failed" ? view.report : undefined;
   const { status, keepFocus } = useStatusFocus(message === null && failure === null, useOutletContext<StatsOutletContext | undefined>()?.heading);
 
   const retry = () => {
@@ -48,12 +52,12 @@ export function StatsRequestState<T>({
         tabIndex={-1}
         role="status"
         aria-live="polite"
-        className={message === null && failure === null ? "visually-hidden" : cx(styles.hint, isLoading && styles.hintLoading)}
+        className={message === null && failure === null ? "visually-hidden" : cx(styles.hint, view.kind === "loading" && styles.hintLoading)}
       >
         {message !== null && <p>{message}</p>}
-        {failure !== null && <RequestFailure error={failure} fetching={isFetching} onRetry={retry} />}
+        {failure !== null && <RequestFailure error={failure} fetching={query.isFetching} onRetry={retry} />}
       </div>
-      {!notFound && data !== undefined && !isEmpty && <div className={styles.content}>{children(data)}</div>}
+      {report !== undefined && <div className={styles.content}>{children(report)}</div>}
     </>
   );
 }
@@ -86,11 +90,27 @@ export function StatsTabState<T extends ReportHead>({ query, children }: { query
   );
 }
 
-function statusMessage(stats: StatsMessages, error: Error | null, notFound: boolean, loaded: boolean, emptyMessage: string | null): string | null {
-  if (notFound) return stats.projectNotFound;
-  if (error !== null) return null;
-  if (!loaded) return stats.loading;
-  return emptyMessage;
+function requestView<T>({ error, data }: ReportQuery<T>, empty: EmptyReport<T> | undefined): RequestView<T> {
+  if (error instanceof ApiError && error.status === 404) return { kind: "notFound" };
+  const shown = data !== undefined && empty?.isEmpty(data) !== true ? data : undefined;
+  if (error !== null) return { kind: "failed", error, report: shown };
+  if (data === undefined) return { kind: "loading" };
+  if (shown === undefined && empty !== undefined) return { kind: "empty", message: empty.message };
+  return { kind: "ready", report: data };
+}
+
+function statusMessage(stats: StatsMessages, view: RequestView<unknown>): string | null {
+  switch (view.kind) {
+    case "notFound":
+      return stats.projectNotFound;
+    case "loading":
+      return stats.loading;
+    case "empty":
+      return view.message;
+    case "failed":
+    case "ready":
+      return null;
+  }
 }
 
 function journalNote(stats: StatsMessages, language: Language, since: string | null): string {
