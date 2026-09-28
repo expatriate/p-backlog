@@ -5,7 +5,7 @@ import type { ProjectView } from "../../core/api/contract";
 import type { Task } from "../../core/model/types";
 import { useMessages } from "../i18n";
 import { useProjects, useSignals, useTasks } from "../app/queries";
-import { OPEN_STATUSES } from "../../core/model/query";
+import { isClosed } from "../../core/model/graph";
 import { countBy } from "../../core/stats/numbers";
 import { RequestFailure } from "../app/RequestFailure";
 import { scopeNote, taskScope, type TaskScope } from "../app/scope";
@@ -192,7 +192,7 @@ function GraphHint({ parts }: { parts: readonly HintPart[] }) {
 type TaskCounts = { scopeOpen: number | undefined; openByProject: ReadonlyMap<string, number>; totalByProject: ReadonlyMap<string, number> };
 
 function taskCounts(tasks: readonly Task[], inScope: TaskScope | undefined): TaskCounts {
-  const open = tasks.filter((task) => OPEN_STATUSES.includes(task.status));
+  const open = tasks.filter((task) => !isClosed(task.status));
   return {
     scopeOpen: inScope === undefined ? undefined : open.filter(inScope).length,
     openByProject: countBy(open, (task) => task.projectId),

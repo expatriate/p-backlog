@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { projectNameOf, taskScope } from "../app/scope";
-import { buildIndex } from "../../core/model/graph";
-import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
+import { buildIndex, isClosed } from "../../core/model/graph";
+import { filterTasks, sortTasks } from "../../core/model/query";
 import { localeOf, type Language } from "../../core/i18n/language";
 import type { Task } from "../../core/model/types";
 import { useProjects, useTasks } from "../app/queries";
@@ -29,7 +29,7 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, index).length, [scopedTasks, index]);
   const tags = useMemo(() => collectTags(scopedTasks, language), [scopedTasks, language]);
   const hiddenOpen = useMemo(
-    () => (projectId === undefined && inScope !== undefined ? allTasks.filter((task) => !inScope(task) && OPEN_STATUSES.includes(task.status)).length : 0),
+    () => (projectId === undefined && inScope !== undefined ? allTasks.filter((task) => !inScope(task) && !isClosed(task.status)).length : 0),
     [allTasks, inScope, projectId],
   );
 
