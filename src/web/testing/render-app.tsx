@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider, type RouteObject } from "react-router";
+import { BATCH_TASKS_LIMIT } from "../../core/api/contract";
 import { makeTestApp, type TestApp, type TestAppOptions } from "../../server/testing/test-app";
 import { routes } from "../app/App";
 import { BacklogApiProvider, type BacklogApi, type EventStream } from "../app/backlog-api";
@@ -14,10 +15,10 @@ export type RenderedApp = TestApp & {
   route: () => string;
 };
 
-export type RenderAppOptions = TestAppOptions & { beforeRender?: (app: TestApp) => void | Promise<void> };
+export type RenderAppOptions = TestAppOptions & { beforeRender?: (app: TestApp) => void | Promise<void>; batchChunkSize?: number };
 
 export async function renderApp(files: Record<string, string>, route = "/", appRoutes: RouteObject[] = routes, options: RenderAppOptions = {}): Promise<RenderedApp> {
-  const { beforeRender, ...testAppOptions } = options;
+  const { beforeRender, batchChunkSize = BATCH_TASKS_LIMIT, ...testAppOptions } = options;
   const backlog = await makeTestApp(files, testAppOptions);
   if (testAppOptions.transcriptsDir !== undefined) {
     await backlog.usage.scanOnce();
@@ -26,6 +27,7 @@ export async function renderApp(files: Record<string, string>, route = "/", appR
   const api: BacklogApi = {
     client: createApiClient((path, init) => backlog.request(path, init)),
     openEvents: serverEvents((path, init) => backlog.request(path, init)),
+    batchChunkSize,
   };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const router = createMemoryRouter(appRoutes, { initialEntries: [route] });

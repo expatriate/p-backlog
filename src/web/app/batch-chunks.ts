@@ -1,4 +1,4 @@
-import { BATCH_TASKS_LIMIT, type BatchAction, type BatchOutcome, type BatchRequest, type BatchResponse } from "../../core/api/contract";
+import type { BatchAction, BatchOutcome, BatchRequest, BatchResponse } from "../../core/api/contract";
 import type { ApiClient } from "../api/client";
 
 export class PartialBatchError extends Error {
@@ -12,10 +12,10 @@ export class PartialBatchError extends Error {
   }
 }
 
-export async function batchInChunks(client: ApiClient, { tasks, action }: BatchRequest): Promise<BatchResponse> {
+export async function batchInChunks(client: ApiClient, { tasks, action }: BatchRequest, chunkSize: number): Promise<BatchResponse> {
   const results: BatchOutcome[] = [];
-  for (let start = 0; start < tasks.length; start += BATCH_TASKS_LIMIT) {
-    const chunk = tasks.slice(start, start + BATCH_TASKS_LIMIT);
+  for (let start = 0; start < tasks.length; start += chunkSize) {
+    const chunk = tasks.slice(start, start + chunkSize);
     try {
       const response = await client.batchTasks(requestForChunk(action, chunk));
       results.push(...response.results);

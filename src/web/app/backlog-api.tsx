@@ -1,16 +1,18 @@
 import { createContext, useContext, type ReactNode } from "react";
+import { BATCH_TASKS_LIMIT } from "../../core/api/contract";
 import { createApiClient, type ApiClient } from "../api/client";
 import { openSharedEvents } from "./shared-events";
 
 export type EventStream = { addEventListener: (type: string, listener: (event: MessageEvent<unknown>) => void) => void; close: () => void };
 
-export type BacklogApi = { client: ApiClient; openEvents: () => EventStream };
+export type BacklogApi = { client: ApiClient; openEvents: () => EventStream; batchChunkSize: number };
 
 const BacklogApiContext = createContext<BacklogApi | null>(null);
 
 export const browserApi: BacklogApi = {
   client: createApiClient((path, init) => fetch(path, init)),
   openEvents: () => openSharedEvents("/api/events"),
+  batchChunkSize: BATCH_TASKS_LIMIT,
 };
 
 export function BacklogApiProvider({ api, children }: { api: BacklogApi; children: ReactNode }) {

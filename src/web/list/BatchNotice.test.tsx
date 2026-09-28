@@ -57,19 +57,20 @@ async function closeSelected(app: RenderedApp, reason: string) {
   await app.user.click(within(dialog).getByRole("button", { name: /^Закрыть \d+$/ }));
 }
 
+const CHUNK_SIZE = 3;
+const MANY = 5;
+
 async function renderManyAndRaisePriority(beforeRender: (app: TestApp) => void) {
-  const many = Object.fromEntries(Array.from({ length: 520 }, (_, index) => [`spa/SPA-${index + 1}.md`, taskFixture(`SPA-${index + 1}`, { priority: "low" })]));
-  const app = await renderApp({ "spa/project.md": projectFile("SPA"), ...many }, "/", undefined, { beforeRender });
+  const many = Object.fromEntries(Array.from({ length: MANY }, (_, index) => [`spa/SPA-${index + 1}.md`, taskFixture(`SPA-${index + 1}`, { priority: "low" })]));
+  const app = await renderApp({ "spa/project.md": projectFile("SPA"), ...many }, "/", undefined, { beforeRender, batchChunkSize: CHUNK_SIZE });
   await screen.findAllByRole("row");
   await app.user.click(screen.getByRole("checkbox", { name: "Выбрать все видимые" }));
-  await app.user.type(screen.getByRole("searchbox", { name: "Поиск задач" }), "SPA-520");
+  await app.user.type(screen.getByRole("searchbox", { name: "Поиск задач" }), `SPA-${MANY}`);
   const panel = screen.getByRole("region", { name: "Действия с выбранными" });
   await app.user.click(within(panel).getByRole("button", { name: "Приоритет" }));
   await app.user.click(within(panel).getByRole("button", { name: "критичный" }));
   return app;
 }
-
-const MANY_TASKS_WAIT = { timeout: 15_000 };
 
 async function findNotice(summary: string, wait?: { timeout: number }) {
   const text = await screen.findByText(summary, undefined, wait);
@@ -148,51 +149,51 @@ describe("уведомление об итоге массового действ
     expect((await taskOnDisk(app.root, "SPA-1")).epic).toBe("SPA-10");
   });
 
-  it("больше 500 выбранных уходят частями по 500, итог и отмена — общие на все", { timeout: 20_000 }, async () => {
+  it("выбранные сверх размера части уходят частями, итог и отмена — общие на все", async () => {
     const { sent, beforeRender } = recordBatches();
     const app = await renderManyAndRaisePriority(beforeRender);
 
-    const notice = await findNotice("Изменено 520 из 520", MANY_TASKS_WAIT);
-    expect(sent.map((request) => request.tasks.length)).toEqual([500, 20]);
+    const notice = await findNotice("Изменено 5 из 5");
+    expect(sent.map((request) => request.tasks.length)).toEqual([3, 2]);
     await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
 
-    await findNotice("Возвращено 520 из 520", MANY_TASKS_WAIT);
+    await findNotice("Возвращено 5 из 5");
     expect(sent.slice(2).map((request) => [request.tasks.length, request.action.kind === "restore" && Object.keys(request.action.changes).length])).toEqual([
-      [500, 500],
-      [20, 20],
+      [3, 3],
+      [2, 2],
     ]);
-    expect((await taskOnDisk(app.root, "SPA-520")).priority).toBe("low");
+    expect((await taskOnDisk(app.root, "SPA-5")).priority).toBe("low");
   });
 
-  it("сбой второй части: итог и отмена сделанной части остаются, ошибка видна", { timeout: 20_000 }, async () => {
+  it("сбой второй части: итог и отмена сделанной части остаются, ошибка видна", async () => {
     const { sent, beforeRender } = recordBatches((_, attempt) => attempt === 2);
     const app = await renderManyAndRaisePriority(beforeRender);
 
-    const notice = await findNotice("Изменено 500 из 520", MANY_TASKS_WAIT);
-    expect(within(notice).getByRole("alert").textContent).toContain("Не изменено 20 задач");
+    const notice = await findNotice("Изменено 3 из 5");
+    expect(within(notice).getByRole("alert").textContent).toContain("Не изменены 2 задачи");
     await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
 
-    await findNotice("Возвращено 500 из 500", MANY_TASKS_WAIT);
-    expect(sent[2]?.tasks.length).toBe(500);
+    await findNotice("Возвращено 3 из 3");
+    expect(sent[2]?.tasks.length).toBe(3);
     expect((await taskOnDisk(app.root, "SPA-1")).priority).toBe("low");
   });
 
-  it("сбой второй части отмены: итог возвращённых и повтор отмены для остальных", { timeout: 20_000 }, async () => {
+  it("сбой второй части отмены: итог возвращённых и повтор отмены для остальных", async () => {
     let failing = true;
     const { sent, beforeRender } = recordBatches((body, attempt) => failing && body.action.kind === "restore" && attempt === 4);
     const app = await renderManyAndRaisePriority(beforeRender);
-    await app.user.click(within(await findNotice("Изменено 520 из 520", MANY_TASKS_WAIT)).getByRole("button", { name: "Отменить" }));
+    await app.user.click(within(await findNotice("Изменено 5 из 5")).getByRole("button", { name: "Отменить" }));
 
-    const notice = await findNotice("Возвращено 500 из 520", MANY_TASKS_WAIT);
+    const notice = await findNotice("Возвращено 3 из 5");
     expect(within(notice).getByRole("alert").textContent).toContain("Не удалось отменить");
-    expect((await taskOnDisk(app.root, "SPA-520")).priority).toBe("critical");
+    expect((await taskOnDisk(app.root, "SPA-5")).priority).toBe("critical");
     failing = false;
     const sentBeforeRetry = sent.length;
     await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
 
-    await findNotice("Возвращено 520 из 520", MANY_TASKS_WAIT);
-    expect(sent.slice(sentBeforeRetry).map((request) => request.tasks.length)).toEqual([20]);
-    expect((await taskOnDisk(app.root, "SPA-520")).priority).toBe("low");
+    await findNotice("Возвращено 5 из 5");
+    expect(sent.slice(sentBeforeRetry).map((request) => request.tasks.length)).toEqual([2]);
+    expect((await taskOnDisk(app.root, "SPA-5")).priority).toBe("low");
     expect(screen.queryByRole("alert")).toBeNull();
   });
 

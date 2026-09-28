@@ -131,11 +131,11 @@ export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariab
 }
 
 export function useBatchTasks(): UseMutationResult<BatchResponse, Error, BatchRequest> {
-  const { client } = useBacklogApi();
+  const { client, batchChunkSize } = useBacklogApi();
   const queryClient = useQueryClient();
   return useMutation({
     scope: TASK_SAVES,
-    mutationFn: (request: BatchRequest) => batchInChunks(client, request),
+    mutationFn: (request: BatchRequest) => batchInChunks(client, request, batchChunkSize),
     onSettled: () => void invalidateBacklogOnly(queryClient),
   });
 }
