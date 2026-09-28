@@ -8,6 +8,7 @@ import { Panel } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable, type StatsTableRow } from "./StatsTable";
 import { useGrainPanel } from "./use-grain-panel";
+import { NO_VALUE } from "./value-format";
 
 type SplitRow = { by: string } & OutcomeCounts;
 
@@ -100,7 +101,7 @@ export function GraphPanel({ graph, period }: { graph: GraphReport; period: Repo
 }
 
 function resolvedCell({ state, pinned, resolved }: ProjectGraphRow): string {
-  if (state === "none" || state === "unreadable") return "—";
+  if (state === "none" || state === "unreadable") return NO_VALUE;
   return `${resolved} (${formatShare(pinned === 0 ? null : resolved / pinned)})`;
 }
 

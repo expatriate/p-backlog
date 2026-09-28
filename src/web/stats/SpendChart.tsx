@@ -11,10 +11,10 @@ import { AXIS_PROPS, DASHED_LINE_WIDTH, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHA
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
 import { costValue } from "./cost-format";
-import { formatLines } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
 import { useGrainPanel } from "./use-grain-panel";
+import { formatWhole } from "./value-format";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
 const CLI_TOKENS = "var(--chart-bar-neutral)";
@@ -28,8 +28,8 @@ function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
       { label: stats.hookTurnsTooltip, value: stats.tokens(period.hookTokens), shape: "bar", color: HOOK_TOKENS },
       { label: stats.cliOutput, value: stats.tokens(period.cliTokens), shape: "bar", color: CLI_TOKENS },
       { label: stats.apiPriceTooltip, value: period.hasUnpricedTokens && period.cost !== null ? `${costValue(language, period.cost)} (${stats.unpricedNote})` : costValue(language, period.cost) },
-      { label: stats.hookRuns, value: formatLines(language, period.hookRuns), shape: "line", color: HOOK_RUNS },
-      { label: stats.otherCommands, value: formatLines(language, period.cliRuns), shape: "dashed", color: OTHER_RUNS },
+      { label: stats.hookRuns, value: formatWhole(language, period.hookRuns), shape: "line", color: HOOK_RUNS },
+      { label: stats.otherCommands, value: formatWhole(language, period.cliRuns), shape: "dashed", color: OTHER_RUNS },
     ],
   }));
 }
@@ -73,15 +73,15 @@ export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days
 
 function spendSummary(stats: StatsMessages, language: Language, grain: Grain, periods: CostPeriod[]): string {
   const total = (pick: (period: CostPeriod) => number) => sum(periods.map(pick));
-  const lines = (value: number) => formatLines(language, value);
+  const whole = (value: number) => formatWhole(language, value);
   return stats.spendSummary({
     grain,
     periodCount: periods.length,
     hookTokens: total((period) => period.hookTokens),
-    cliTokens: lines(total((period) => period.cliTokens)),
+    cliTokens: whole(total((period) => period.cliTokens)),
     money: formatMoney(language, totalMoney(periods)),
-    hookRuns: lines(total((period) => period.hookRuns)),
-    cliRuns: lines(total((period) => period.cliRuns)),
+    hookRuns: whole(total((period) => period.hookRuns)),
+    cliRuns: whole(total((period) => period.cliRuns)),
   });
 }
 
