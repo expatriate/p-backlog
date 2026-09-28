@@ -16,7 +16,7 @@ type CliRunOptions = {
   stopProcess?: CliEnv["stopProcess"];
 };
 
-const SANDBOX_NOW = new Date("2026-09-17T14:50:00Z");
+export const SANDBOX_NOW = new Date("2026-09-17T14:50:00Z");
 const REPO_ROOT = join(import.meta.dirname, "../../..");
 
 export type FakeExec = { exec: CliEnv["exec"]; calls: string[] };

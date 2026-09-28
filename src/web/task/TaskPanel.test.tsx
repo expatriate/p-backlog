@@ -4,6 +4,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { updateTask } from "../../core/store/testing/update-task";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
+import { TEST_NOW } from "../../server/testing/test-app";
 import { freezeDate } from "../testing/freeze-date";
 import { interceptApi, renderApp, type RenderedApp, serverUnreachable } from "../testing/render-app";
 
@@ -361,7 +362,7 @@ describe("правка агента, пока поле в фокусе", () => {
   const AGENT_CHANGES = { title: "Название от агента", tags: ["agent"], epic: "SPA-5" };
 
   async function agentEdits(app: RenderedApp) {
-    await updateTask(app.root, { id: "SPA-1", changes: AGENT_CHANGES, now: new Date(), via: "cli" });
+    await updateTask(app.root, { id: "SPA-1", changes: AGENT_CHANGES, now: TEST_NOW, via: "cli" });
     await app.emitChange();
     await screen.findByRole("link", { name: AGENT_CHANGES.title });
   }
@@ -422,7 +423,7 @@ describe("правка агента, пока поле в фокусе", () => {
     const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1");
     const { panel, title } = await conflictOnTitle(app);
 
-    await updateTask(app.root, { id: "SPA-1", changes: { title: "Агент ещё раз" }, now: new Date(), via: "cli" });
+    await updateTask(app.root, { id: "SPA-1", changes: { title: "Агент ещё раз" }, now: TEST_NOW, via: "cli" });
     await app.emitChange();
     await screen.findByRole("link", { name: "Агент ещё раз" });
 
@@ -541,7 +542,7 @@ describe("черновик описания при уходе с задачи", 
     const app = await renderApp(FILES, "/p/spa/t/SPA-1");
     const panel = await startDraft(app);
     const agentBody = "Описание\n\nДописано агентом\n";
-    await updateTask(app.root, { id: "SPA-1", changes: { body: agentBody }, now: new Date(), via: "cli" });
+    await updateTask(app.root, { id: "SPA-1", changes: { body: agentBody }, now: TEST_NOW, via: "cli" });
     await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Статус" }), "in-progress");
     expect(await within(panel).findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("Задача изменилась на диске"));
 
@@ -596,7 +597,7 @@ describe("черновик описания при уходе с задачи", 
     const panel = await startDraft(app);
 
     await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
-    await updateTask(app.root, { id: "SPA-1", changes: { body: "Описание\n\nДописано агентом\n" }, now: new Date(), via: "cli" });
+    await updateTask(app.root, { id: "SPA-1", changes: { body: "Описание\n\nДописано агентом\n" }, now: TEST_NOW, via: "cli" });
     await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "critical");
     patches.release();
 
@@ -620,7 +621,7 @@ describe("черновик описания при уходе с задачи", 
   it("«Отмена» после конфликта описания снимает предупреждение: повторять нечего", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-1");
     const panel = await startDraft(app);
-    await updateTask(app.root, { id: "SPA-1", changes: { body: "Описание\n\nДописано агентом\n" }, now: new Date(), via: "cli" });
+    await updateTask(app.root, { id: "SPA-1", changes: { body: "Описание\n\nДописано агентом\n" }, now: TEST_NOW, via: "cli" });
 
     await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
     await waitFor(() => expect(within(panel).getByRole("alert").textContent).toContain("Описание изменилось на диске"));

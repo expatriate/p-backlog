@@ -3,7 +3,7 @@ import { writeSettings } from "../../core/store/settings";
 import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { updateTask } from "../../core/store/testing/update-task";
 import { EXIT } from "../io";
-import { makeCliSandbox } from "../testing/cli-harness";
+import { makeCliSandbox, SANDBOX_NOW } from "../testing/cli-harness";
 
 describe("backlog list", () => {
   it.each(["", ","])("пустой --status «%s» отклоняет, а не показывает пустой список", async (status) => {
@@ -20,7 +20,7 @@ describe("backlog list", () => {
     await run(["new", "--category", "bug", "--title", "Низкий", "--priority", "low", "--tags", "ui"]);
     await run(["new", "--category", "bug", "--title", "Критичный", "--priority", "critical"]);
     await run(["new", "--category", "bug", "--title", "Закрытый"]);
-    await updateTask(root, { id: "SPA-3", changes: { status: "done" }, now: new Date(), via: "cli" });
+    await updateTask(root, { id: "SPA-3", changes: { status: "done" }, now: SANDBOX_NOW, via: "cli" });
 
     const result = await run(["list"]);
 

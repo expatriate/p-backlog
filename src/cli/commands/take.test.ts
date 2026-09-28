@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { updateTask } from "../../core/store/testing/update-task";
 import { EXIT } from "../io";
-import { makeCliSandbox } from "../testing/cli-harness";
+import { makeCliSandbox, SANDBOX_NOW } from "../testing/cli-harness";
 
 async function statusOf(root: string, id: string): Promise<string | undefined> {
   return (await loadBacklog(root)).tasks.find((task) => task.id === id)?.status;
@@ -51,7 +51,7 @@ describe("backlog take", () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--title", "Эпик", "--type", "epic"]);
     await run(["new", "--category", "bug", "--title", "Часть", "--epic", "SPA-1"]);
-    await updateTask(root, { id: "SPA-2", changes: { status: "cancelled" }, now: new Date(), via: "cli" });
+    await updateTask(root, { id: "SPA-2", changes: { status: "cancelled" }, now: SANDBOX_NOW, via: "cli" });
     await run(["new", "--category", "bug", "--title", "Ещё часть", "--epic", "SPA-1"]);
 
     const epic = await run(["take", "SPA-1"]);
