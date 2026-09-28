@@ -21,7 +21,7 @@ import { errorResponse } from "./error-response";
 import { serverMessages, type LocalizedWarn } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createCostSource } from "./cost-source";
-import { createJournalSources } from "./journal-sources";
+import type { JournalSources } from "./journal-sources";
 import { createTtlCache } from "./ttl-cache";
 import type { UsageScanner } from "./usage-scanner";
 
@@ -35,6 +35,7 @@ type StatsApiOptions = {
   services: StatsServices;
   backlog: () => Promise<BacklogSnapshot>;
   graphHealth: GraphHealthOf;
+  journalSources: JournalSources;
 };
 
 type BacklogSnapshot = Pick<LoadedBacklog, "projects" | "tasks" | "errors">;
@@ -58,13 +59,12 @@ const ALL_PROJECTS_TAG = "project:*";
 const WHOLE_BACKLOG_TAG = "whole-backlog";
 const projectTag = (projectId: string) => `project:${projectId}`;
 
-export function createStatsApi({ root, readLanguage, now, home, services: { usage, memory, warn }, backlog, graphHealth }: StatsApiOptions): StatsApi {
+export function createStatsApi({ root, readLanguage, now, home, services: { usage, memory, warn }, backlog, graphHealth, journalSources }: StatsApiOptions): StatsApi {
   const routes = new Hono();
   const reports = createTtlCache({ ttlMs: REPORT_TTL_MS, now: () => now().getTime() });
   const onCodeSourceError = (kind: CodeCacheErrorKind, error: unknown) =>
     void warn((messages) => (kind === "read" ? messages.codeCacheReadFailed(errorText(error)) : messages.codeCacheWriteFailed(errorText(error))));
   const codeSource = createCodeSource({ home, store: createCodeCacheFile(root), onError: onCodeSourceError });
-  const journalSources = createJournalSources(root);
   const costSource = createCostSource(root, home);
   let knownProjectIds: readonly string[] = [];
   let forgetCount = 0;
@@ -72,7 +72,6 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
   const backlogPruningCaches = async (): Promise<BacklogSnapshot> => {
     const snapshot = await backlog();
     knownProjectIds = snapshot.projects.map((project) => project.id);
-    journalSources.retain(knownProjectIds);
     costSource.retain(knownProjectIds);
     codeSource.retain(snapshot.projects);
     return snapshot;

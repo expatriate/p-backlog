@@ -11,7 +11,7 @@ import type { Project, Task } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { parseWithLocale } from "../core/model/zod-issues";
 import { applyBatch, type CoreBatchOutcome } from "../core/store/batch";
-import { JOURNAL_FILE, readJournals } from "../core/store/journal";
+import { JOURNAL_FILE } from "../core/store/journal";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { writeSettings } from "../core/store/settings";
 import { deleteProject, setProjectActive } from "../core/store/projects";
@@ -19,6 +19,7 @@ import { updateTaskInIndex } from "../core/store/update";
 import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
 import { errorResponse, fileBusyResponse } from "./error-response";
+import { createJournalSources, type JournalSources } from "./journal-sources";
 import { serverMessages, type ServerMessages } from "./messages";
 import { createTtlCache } from "./ttl-cache";
 import { createRevisions, type OwnWrite } from "./revisions";
@@ -33,10 +34,11 @@ const GRAPH_STATE_TTL_MS = 60 * 1000;
 export function createApi({ root, readLanguage, changes, now, home, statsServices }: ApiOptions): Hono {
   const api = new Hono();
   const revisions = createRevisions();
+  const journalSources = createJournalSources(root);
   let snapshot: Promise<IndexedBacklog> | null = null;
   const backlog = (): Promise<IndexedBacklog> => {
     if (snapshot !== null) return snapshot;
-    const loading = loadSnapshot(root, revisions.current()).catch((error: unknown) => {
+    const loading = loadSnapshot(root, revisions.current(), journalSources).catch((error: unknown) => {
       if (snapshot === loading) snapshot = null;
       throw error;
     });
@@ -49,7 +51,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
     const key = JSON.stringify([project.id, project.repos, projectTasks.map((task) => task.version)]);
     return graphHealths.get(key, () => projectGraphHealth(project, projectTasks, home));
   };
-  const stats = createStatsApi({ root, readLanguage, now, home, services: statsServices, backlog, graphHealth });
+  const stats = createStatsApi({ root, readLanguage, now, home, services: statsServices, backlog, graphHealth, journalSources });
   const forgetAll = () => {
     snapshot = null;
     stats.forgetAll();
@@ -169,9 +171,11 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
   return api;
 }
 
-async function loadSnapshot(root: string, revision: Revision): Promise<IndexedBacklog> {
+async function loadSnapshot(root: string, revision: Revision, journalSources: JournalSources): Promise<IndexedBacklog> {
   const loaded = await loadBacklog(root);
-  const journals = await readJournals(root, loaded.projects.map((project) => project.id));
+  const projectIds = loaded.projects.map((project) => project.id);
+  journalSources.retain(projectIds);
+  const journals = await journalSources.journals(projectIds);
   return { ...loaded, index: buildIndex(loaded.tasks), closedInWeb: tasksClosedInWeb(loaded.tasks, journals), revision };
 }
 

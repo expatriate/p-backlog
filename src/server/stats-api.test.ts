@@ -5,6 +5,7 @@ import { statsReport } from "../core/stats/report";
 import { readJournals } from "../core/store/journal";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
+import { createJournalSources } from "./journal-sources";
 import { createMemorySampler } from "./memory-sampler";
 import { createStatsApi } from "./stats-api";
 import { TEST_NOW } from "./testing/test-app";
@@ -29,6 +30,7 @@ describe("кэш отчётов статистики и смена снимка 
         warn: async () => undefined,
       },
       graphHealth: (snapshot, project) => projectGraphHealth(project, snapshot.tasks, root),
+      journalSources: createJournalSources(root),
       backlog: async () => {
         const read = current;
         if (read === before) {
