@@ -3,8 +3,6 @@ import { ApiError, isServerUnreachable } from "../api/client";
 import { RetryButton } from "../ui/RetryButton";
 import type { AppMessages } from "./messages.ru";
 
-const SERVER_FAILURE_STATUS = 500;
-
 function RequestErrorText({ error }: { error: Error }) {
   const { app } = useMessages();
   const command = (text: string) => (
@@ -44,5 +42,5 @@ function requestErrorParts<T>(app: AppMessages, error: Error, command: (text: st
   if (isServerUnreachable(error)) return app.unreachableMessage(command);
   if (!(error instanceof ApiError)) return [error.message];
   if (error.errors.length === 0) return [app.serverStatusError(error.status)];
-  return [error.status >= SERVER_FAILURE_STATUS ? app.serverErrorPrefixed(error.message) : error.message];
+  return [error.isServerFailure ? app.serverErrorPrefixed(error.message) : error.message];
 }

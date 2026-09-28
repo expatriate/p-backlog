@@ -17,8 +17,6 @@ type LastSave = { pending: boolean; succeeded: boolean; submittedAt: number };
 
 const CLOSED: BodyEditor = { phase: "closed" };
 
-const HTTP_CONFLICT = 409;
-
 export function useTaskSaving(task: Task) {
   const { app, task: taskMessages } = useMessages();
   const updateTask = useUpdateTask();
@@ -103,7 +101,7 @@ function saveErrorText(error: Error, app: AppMessages, taskMessages: TaskMessage
 }
 
 function isConflict(error: Error): boolean {
-  return error instanceof ApiError && error.status === HTTP_CONFLICT;
+  return error instanceof ApiError && error.isConflict;
 }
 
 function asError(error: unknown): Error {
