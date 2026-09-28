@@ -3,7 +3,8 @@ import { createdEvent, type FoundHow, type ProjectJournal } from "../../journal/
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import type { Task } from "../../model/types";
-import { codeFixRequests } from "../code/code-report";
+import { fixRequests } from "../code/fixes";
+import { reportBase } from "../scope";
 import { fixKey } from "../../code/fix-key";
 import type { CollectedCode, FixCommit } from "../../code/types";
 import { effectReport } from "./effect-report";
@@ -177,7 +178,7 @@ describe("эффект беклога", () => {
     const recent = fixes.slice(0, 4);
     const input = { ...incidental([closedEightyEightDaysAgo, ...recent.map((fix) => fix.task), ...others]), now: NOW, projectId: "spa" };
     const filledCache: [string, FixCommit][] = [oldFixCommit, ...recent.map((fix) => fix.commit)];
-    const requestedKeys = new Set(codeFixRequests(input).flatMap(({ projectId, hashes }) => hashes.map((hash) => fixKey(projectId, hash))));
+    const requestedKeys = new Set(fixRequests(reportBase(input).histories, NOW).flatMap(({ projectId, hashes }) => hashes.map((hash) => fixKey(projectId, hash))));
     const fetchedIntoEmptyCache = filledCache.filter(([key]) => requestedKeys.has(key));
 
     const fromEmptyCache = effectReport({ ...input, code: code(fetchedIntoEmptyCache) });

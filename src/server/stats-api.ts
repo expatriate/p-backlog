@@ -7,7 +7,8 @@ import { createCodeCacheFile } from "../core/code/code-cache";
 import { createCodeSource, type CodeCacheErrorKind } from "../core/code/code-source";
 import { formatLocalDay } from "../core/model/dates";
 import type { Project, Task } from "../core/model/types";
-import { codeFixRequests, codeReport } from "../core/stats/code/code-report";
+import { codeReport } from "../core/stats/code/code-report";
+import { fixRequests } from "../core/stats/code/fixes";
 import { costReport } from "../core/stats/cost/cost-report";
 import { effectReport } from "../core/stats/effect/effect-report";
 import { qualityReport } from "../core/stats/quality/quality-report";
@@ -115,7 +116,7 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
     const backlogBase = input.projectId === undefined ? base : wholeBacklogBase();
     const scoped = projects.filter((project) => input.projectId === undefined || project.id === input.projectId);
     const code = await codeSource.collect(scoped, input.now);
-    const fixCommits = await codeSource.fixCommits(projects, codeFixRequests({ ...input, projectId: undefined }, backlogBase), input.now);
+    const fixCommits = await codeSource.fixCommits(projects, fixRequests(backlogBase.histories, input.now), input.now);
     return effectReport({ ...input, code: { ...code, fixCommits } }, base, backlogBase);
   };
 
