@@ -10,6 +10,7 @@ import { readJournal } from "./journal";
 import { loadBacklog } from "./load";
 import { reserveIssuedUpTo } from "./projects";
 import { sweepClosed } from "./sweep";
+import { shortenLockWait } from "./testing/lock-wait";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 
 const RU = coreMessages("ru");
@@ -306,7 +307,8 @@ describe("sweepClosed", () => {
     expect(await exists(join(root, "spa/SPA-1.md"))).toBe(true);
   });
 
-  it("занятая задача не мешает удалить остальные просроченные, а ссылки на неё остаются", { timeout: 20_000 }, async () => {
+  it("занятая задача не мешает удалить остальные просроченные, а ссылки на неё остаются", async () => {
+    shortenLockWait();
     const root = await makeTempDir();
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),
@@ -322,7 +324,8 @@ describe("sweepClosed", () => {
     expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-3")?.related).toEqual(["SPA-1"]);
   });
 
-  it("занятый эпик, который пора закрыть, не мешает удалить остальные просроченные", { timeout: 20_000 }, async () => {
+  it("занятый эпик, который пора закрыть, не мешает удалить остальные просроченные", async () => {
+    shortenLockWait();
     const root = await makeTempDir();
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),

@@ -10,6 +10,7 @@ import { costReport } from "../core/stats/cost/cost-report";
 import { statsReport } from "../core/stats/report";
 import { reportContext } from "../core/stats/scope";
 import type { UsageCache } from "../core/usage/usage-cache";
+import { shortenLockWait } from "../core/store/testing/lock-wait";
 import { readRuns } from "../core/store/testing/runs";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
@@ -261,7 +262,8 @@ describe("POST /api/tasks/batch", () => {
     expect(restoredOnDisk?.reason).toBeUndefined();
   });
 
-  it("задача, занятая другим процессом, пропускается как busy, остальные меняются", { timeout: 20_000 }, async () => {
+  it("задача, занятая другим процессом, пропускается как busy, остальные меняются", async () => {
+    shortenLockWait();
     const backlog = await makeTestApp(SAMPLE_FILES);
     const tasks = [
       { id: "SPA-1", version: await backlog.taskVersion("SPA-1") },

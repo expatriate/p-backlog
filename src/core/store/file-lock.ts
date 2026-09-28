@@ -6,7 +6,7 @@ import { hasErrorCode } from "../errors";
 import { readTextOrNull } from "./fs-utils";
 
 const RETRY_MS = 10;
-const WAIT_LIMIT_MS = 5_000;
+export const lockWaitLimit = { ms: 5_000 };
 const ABANDONED_AFTER_MS = 30_000;
 
 export type LockBusy = { path: string; lock: string; seconds: number };
@@ -52,12 +52,13 @@ export async function withAvailableLocks<T>(paths: readonly string[], action: (l
 async function acquire(path: string): Promise<HeldLock> {
   const lock = join(dirname(path), `.${basename(path)}.lock`);
   const token = `${process.pid} ${randomUUID()}`;
-  const giveUpAt = Date.now() + WAIT_LIMIT_MS;
+  const waitMs = lockWaitLimit.ms;
+  const giveUpAt = Date.now() + waitMs;
   for (;;) {
     if (await tryCreate(lock, token)) return { path, lock, token };
     const abandoned = await abandonedToken(lock);
     if (abandoned !== null && (await breakAbandoned(lock, abandoned))) continue;
-    if (Date.now() > giveUpAt) throw new FileBusyError(path, lock, WAIT_LIMIT_MS / 1000);
+    if (Date.now() > giveUpAt) throw new FileBusyError(path, lock, waitMs / 1000);
     await sleep(RETRY_MS);
   }
 }

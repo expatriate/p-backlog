@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { NBSP } from "../../core/i18n/plural";
 import { readJournal } from "../../core/store/journal";
 import { SIGNALS_SHOWN_FILE } from "../../core/store/signals-shown";
+import { shortenLockWait } from "../../core/store/testing/lock-wait";
 import { gitAddWorktree, gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { writeSettings } from "../../core/store/settings";
 import { EXIT } from "../io";
@@ -122,7 +123,8 @@ describe("backlog hook stop", () => {
     expect(result.systemMessage).toBe("Беклог spa: Срочные задачи ждут дольше 7 дней: 1");
   });
 
-  it("занятая память сессии не отменяет блокировку: код 0, решение напечатано, предупреждение в stderr", { timeout: 20_000 }, async () => {
+  it("занятая память сессии не отменяет блокировку: код 0, решение напечатано, предупреждение в stderr", async () => {
+    shortenLockWait();
     const { run, repo, root } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n" });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
