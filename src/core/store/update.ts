@@ -56,7 +56,7 @@ export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, afte
     if ((await diskChange(epic, epic.version)) !== null) return;
     await writeChanges(index, { id: epic.id, changes: { status: await statusToReopen(epic) }, expectedVersion: epic.version, now, via, undo, journal });
   } catch (error) {
-    if (!(error instanceof FileBusyError)) console.error(`${epic.path}: ${errorText(error)}`);
+    console.error(`${epic.path}: ${errorText(error)}`);
   }
 }
 
@@ -71,7 +71,7 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
   const errors = integrityErrors(task, index);
   if (errors.length > 0) return invalid(errors);
 
-  return withFileLock(current.path, async () => {
+  return withTaskLock(current.path, async () => {
     const changedOnDisk = await diskChange(current, expectedVersion);
     if (changedOnDisk !== null) return changedOnDisk;
     await writeFileAtomic(current.path, text);
@@ -79,6 +79,15 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
     await journal(dirname(current.path), undo ? events.map((event) => ({ ...event, undo: true })) : events);
     return { ok: true, task };
   });
+}
+
+async function withTaskLock(path: string, write: () => Promise<UpdateTaskResult>): Promise<UpdateTaskResult> {
+  try {
+    return await withFileLock(path, write);
+  } catch (error) {
+    if (!(error instanceof FileBusyError) || error.path !== path) throw error;
+    return { ok: false, reason: "busy", path, lock: error.lock, seconds: error.seconds };
+  }
 }
 
 async function diskChange(snapshot: Task, expectedVersion: string): Promise<UpdateTaskFailure | null> {

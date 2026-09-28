@@ -7,7 +7,7 @@ import { deletedEvent } from "../journal/events";
 import type { Problem } from "../model/problems";
 import type { Project, Task } from "../model/types";
 import { runAndStamp, runWhenDue } from "./daily";
-import { FileBusyError, withAvailableLocks } from "./file-lock";
+import { withAvailableLocks } from "./file-lock";
 import { contentVersion, readTextOrNull, removeIfUnchanged, removeTemporariesBefore } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { loadBacklog, projectDirNames, type LoadedBacklog } from "./load";
@@ -147,13 +147,8 @@ async function repairRemainingTasks(tasks: readonly Task[], { skipped, removed }
 }
 
 async function repairFailure(index: BacklogIndex, task: Task, changes: TaskChanges, now: Date): Promise<SweepFailure | null> {
-  try {
-    const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now, via: "sweep" });
-    return result.ok ? null : sweepFailure(task.id, result);
-  } catch (error) {
-    if (error instanceof FileBusyError) return { id: task.id, reason: "conflict" };
-    throw error;
-  }
+  const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now, via: "sweep" });
+  return result.ok ? null : sweepFailure(task.id, result);
 }
 
 function referencedIds(task: Task): string[] {
@@ -179,6 +174,7 @@ function sweepFailure(id: string, failure: UpdateTaskFailure): SweepFailure {
       return { id, reason: "invalid", errors: failure.errors };
     case "conflict":
     case "not-found":
+    case "busy":
       return { id, reason: "conflict" };
   }
 }

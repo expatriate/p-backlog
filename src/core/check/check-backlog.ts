@@ -134,6 +134,8 @@ function fixFailure(taskId: string, failure: UpdateTaskFailure): CheckProblem {
       return { kind: "fix-failed", taskId, cause: "changed-during-check" };
     case "not-found":
       return { kind: "fix-failed", taskId, cause: "gone-during-check" };
+    case "busy":
+      return { kind: "fix-failed", taskId, cause: "busy-during-check" };
   }
 }
 

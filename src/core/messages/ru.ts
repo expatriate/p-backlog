@@ -242,6 +242,8 @@ function fixFailureCause(p: Extract<CheckProblem, { kind: "fix-failed" }>): stri
       return "файл изменился во время проверки";
     case "gone-during-check":
       return "файл исчез во время проверки";
+    case "busy-during-check":
+      return "файл занят другим процессом";
   }
 }
 

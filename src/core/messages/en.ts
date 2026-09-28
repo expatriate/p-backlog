@@ -239,6 +239,8 @@ function fixFailureCause(p: Extract<CheckProblem, { kind: "fix-failed" }>): stri
       return "the file changed during the check";
     case "gone-during-check":
       return "the file disappeared during the check";
+    case "busy-during-check":
+      return "the file is locked by another process";
   }
 }
 

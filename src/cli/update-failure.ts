@@ -11,6 +11,9 @@ export function reportUpdateFailure(io: CliIo, id: string, result: UpdateTaskFai
     case "conflict":
       io.warn(cliMessages(io.language).fileConflict(id));
       return EXIT.invalid;
+    case "busy":
+      io.warn(coreMessages(io.language).fileBusy(result.path, result.lock, result.seconds));
+      return EXIT.failed;
     case "invalid":
       for (const error of result.errors) io.warn(coreMessages(io.language).problem(error));
       return EXIT.invalid;
