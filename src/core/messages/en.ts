@@ -87,7 +87,7 @@ function days(value: number | null): string {
   if (value === null) return "—";
   if (value < 1) return "less than a day";
   const rounded = Math.round(value);
-  return `${rounded}${NBSP}${pluralEn(rounded, "day", "days")}`;
+  return `${rounded}${NBSP}${pluralEn(rounded, ...COUNT_FORMS.day)}`;
 }
 
 function p90(value: number | null): string {
