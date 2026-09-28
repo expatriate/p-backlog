@@ -42,14 +42,15 @@ function statsScope({ tasks, journals, projectId, unparsedTasks = [] }: StatsInp
   };
 }
 
-export type ReportContext = { input: StatsInput; scope: StatsScope; histories: TaskHistory[]; tasks: Task[]; openTasks: Task[]; head: ReportHead };
+export type ScopedReportData = { scope: StatsScope; histories: TaskHistory[]; tasks: Task[]; openTasks: Task[]; head: ReportHead };
 
-export function reportContext(input: StatsInput): ReportContext {
+export type ReportContext = ScopedReportData & { input: StatsInput };
+
+export function scopedReportData(input: StatsInput): ScopedReportData {
   const scope = statsScope(input);
   const histories = scope.historiesWithEpics.filter((history) => history.type === "task");
   const tasks = scope.tasksWithEpics.filter((task) => task.type === "task");
   return {
-    input,
     scope,
     histories,
     tasks,
@@ -62,4 +63,8 @@ export function reportContext(input: StatsInput): ReportContext {
       unparsedTasks: scope.unparsedTasks,
     },
   };
+}
+
+export function reportContext(input: StatsInput): ReportContext {
+  return { ...scopedReportData(input), input };
 }
