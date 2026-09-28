@@ -11,7 +11,8 @@ import { STATS_WEEKS } from "../../core/stats/weeks";
 import type { ChartStep, Grain } from "./charts/chart-style";
 import { formatApprox, isEstimated } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
-import { approx, formatWhole, NO_VALUE } from "./value-format";
+import { approx, formatWhole } from "./value-format";
+import { NO_VALUE } from "../labels";
 
 const dayCount = (n: number): string => countEn(n, "day", "days");
 const CHURN_PERIOD = dayCount(CHURN_DAYS);

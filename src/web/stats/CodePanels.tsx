@@ -6,7 +6,7 @@ import { usePeriodCaption } from "./period-caption";
 import rowStyles from "./PanelRows.module.css";
 import { ShareBar } from "./ShareBar";
 import styles from "./CodePanels.module.css";
-import { NO_VALUE } from "./value-format";
+import { NO_VALUE } from "../labels";
 
 export function ChurnPanel({ churn, period }: { churn: ChurnRow[]; period: ReportPeriod }) {
   const { stats } = useMessages();

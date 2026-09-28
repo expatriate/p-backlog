@@ -10,7 +10,8 @@ import { Panel } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
 import { useGrainPanel } from "./use-grain-panel";
-import { formatWhole, NO_VALUE } from "./value-format";
+import { formatWhole } from "./value-format";
+import { NO_VALUE } from "../labels";
 
 export function EffectFigures({ totals, period }: { totals: EffectTotals; period: ReportPeriod }) {
   const { stats } = useMessages();

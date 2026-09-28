@@ -8,7 +8,7 @@ import { Panel } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable, type StatsTableRow } from "./StatsTable";
 import { useGrainPanel } from "./use-grain-panel";
-import { NO_VALUE } from "./value-format";
+import { NO_VALUE } from "../labels";
 
 type SplitRow = { by: string } & OutcomeCounts;
 

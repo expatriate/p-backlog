@@ -1,6 +1,7 @@
 import type { Language } from "../../core/i18n/language";
 import { formatShare } from "../../core/stats/format";
-import { approx, formatWhole, NO_VALUE } from "./value-format";
+import { approx, formatWhole } from "./value-format";
+import { NO_VALUE } from "../labels";
 
 export function isEstimated(estimatedLines: number | null): boolean {
   return typeof estimatedLines === "number" && estimatedLines > 0;

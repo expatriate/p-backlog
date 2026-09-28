@@ -13,7 +13,8 @@ import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/api/cont
 import { STATS_WEEKS } from "../../core/stats/weeks";
 import type { ChartId, ChartStep, Grain } from "./charts/chart-style";
 import { formatApprox, isEstimated } from "./effect-format";
-import { approx, formatWhole, NO_VALUE } from "./value-format";
+import { approx, formatWhole } from "./value-format";
+import { NO_VALUE } from "../labels";
 
 const dayCount = (n: number): string => countRu(n, "день", "дня", "дней");
 const CHURN_PERIOD = dayCount(CHURN_DAYS);
