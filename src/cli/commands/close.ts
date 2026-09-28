@@ -20,27 +20,26 @@ export const closeCommand: CliCommand = {
 };
 
 async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
-  const cli = cliMessages(io.language);
   const { values, positionals } = parseCommandArgs(io.language, args, { as: { type: "string" }, reason: { type: "string" }, "duplicate-of": { type: "string" } });
   const [id, ...rest] = positionals;
   if (id === undefined || rest.length > 0 || values.as === undefined) throw usageError(closeCommand, io.language);
   const resolution = parseChoice(io.language, values.as, CLOSE_RESOLUTIONS, "--as");
   const reason = (values.reason ?? "").replace(/\s*\n\s*/g, " ").trim();
-  if (reason === "") throw new UsageError(cli.reasonRequired);
+  if (reason === "") throw new UsageError(io.cli.reasonRequired);
   const duplicateOf = values["duplicate-of"];
   const closesAsDuplicate = resolution === "duplicate";
   const namesOriginal = duplicateOf !== undefined;
-  if (closesAsDuplicate !== namesOriginal) throw new UsageError(cli.duplicateOfRule);
+  if (closesAsDuplicate !== namesOriginal) throw new UsageError(io.cli.duplicateOfRule);
 
   const loaded = await loadBacklog(io.backlogRoot);
   const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
   if (task.type === "epic") {
-    io.warn(cli.epicClosesOnItsOwn(id));
+    io.warn(io.cli.epicClosesOnItsOwn(id));
     return EXIT.invalid;
   }
   if (isClosed(task.status)) {
-    io.warn(cli.alreadyInStatus(id, task.status));
+    io.warn(io.cli.alreadyInStatus(id, task.status));
     return EXIT.refused;
   }
 
@@ -48,7 +47,7 @@ async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
   if (duplicateOf !== undefined) {
     const original = findTaskOrWarn(loaded, io, duplicateOf);
     if (!original) return EXIT.notFound;
-    const problem = originalProblem(cli, task, original);
+    const problem = originalProblem(io.cli, task, original);
     if (problem !== null) {
       io.warn(problem);
       return EXIT.invalid;
@@ -57,7 +56,7 @@ async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
   }
 
   if (resolution === "fixed" && !(await fixCommitFound(loaded, task, reason, io))) {
-    io.warn(cli.fixCommitRequired);
+    io.warn(io.cli.fixCommitRequired);
     return EXIT.invalid;
   }
 
@@ -65,7 +64,7 @@ async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
   const written = await taskWriter(io, loaded.tasks)(task, { status, related }, { resolution, reason });
   if (!written.ok) return written.exitCode;
   const deletesAt = deletionDate(written.task);
-  io.print(`${id}: ${task.status} → ${status} (${resolution})${deletesAt === undefined ? "" : cli.deletesAtTail(formatLocalDay(deletesAt))}`);
+  io.print(`${id}: ${task.status} → ${status} (${resolution})${deletesAt === undefined ? "" : io.cli.deletesAtTail(formatLocalDay(deletesAt))}`);
   return EXIT.ok;
 }
 

@@ -24,7 +24,7 @@ import { statsCommand } from "./commands/stats";
 import { statusCommand } from "./commands/status";
 import { takeCommand } from "./commands/take";
 import { verifyCommand } from "./commands/verify";
-import { ArgumentsError, EXIT, UsageError, type CliEnv, type ExitCode } from "./io";
+import { ArgumentsError, cliIo, EXIT, UsageError, type CliEnv, type ExitCode } from "./io";
 
 export const CLI_COMMANDS: readonly CliCommand[] = [
   newCommand,
@@ -64,7 +64,7 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<Exit
     return failureExit;
   }
   const { language } = settled;
-  const io = { ...env, language };
+  const io = cliIo(env, language);
   if (settled.invalidSettingsFile) io.warn(cliMessages(language).settingsFileInvalid(settingsFilePath(env.backlogRoot)));
   if (!command) {
     const askedForHelp = name === undefined || HELP_ARGUMENTS.has(name);

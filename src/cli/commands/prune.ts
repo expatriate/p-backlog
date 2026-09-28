@@ -15,7 +15,6 @@ export const pruneCommand: CliCommand = {
 };
 
 async function runPrune(args: string[], io: CliIo): Promise<ExitCode> {
-  const cli = cliMessages(io.language);
   const values = parseOptions(io.language, args, { ...SCOPE_OPTIONS, apply: { type: "boolean", default: false } });
 
   const loaded = await loadBacklog(io.backlogRoot);
@@ -27,20 +26,20 @@ async function runPrune(args: string[], io: CliIo): Promise<ExitCode> {
     io.now(),
   );
   if (stale.length === 0) {
-    io.print(cli.noStaleTasks);
+    io.print(io.cli.noStaleTasks);
     return EXIT.ok;
   }
   if (!values.apply) {
-    for (const task of stale) io.print(cli.staleTaskLine(task.id, task.title, formatDayMonth(io.language, new Date(task.created))));
-    io.print(cli.cancelStaleHint);
+    for (const task of stale) io.print(io.cli.staleTaskLine(task.id, task.title, formatDayMonth(io.language, new Date(task.created))));
+    io.print(io.cli.cancelStaleHint);
     return EXIT.ok;
   }
 
   const write = taskWriter(io, loaded.tasks);
   return applyAll(stale, async (task) => {
-    const written = await write(task, { status: "cancelled" }, { resolution: "obsolete", reason: cli.pruneReason(STALE_LOW_DAYS) });
+    const written = await write(task, { status: "cancelled" }, { resolution: "obsolete", reason: io.cli.pruneReason(STALE_LOW_DAYS) });
     if (!written.ok) return written.exitCode;
-    io.print(cli.taskCancelled(task.id));
+    io.print(io.cli.taskCancelled(task.id));
     return EXIT.ok;
   });
 }

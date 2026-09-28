@@ -26,9 +26,9 @@ export function formatTaskLine(cli: CliMessages, task: Task, index: BacklogIndex
   ].join("  ");
 }
 
-export function formatTaskDetails(messages: CoreMessages, cli: CliMessages, description: TaskDescription, fileText: string): string {
+export function formatTaskDetails(core: CoreMessages, cli: CliMessages, description: TaskDescription, fileText: string): string {
   const { task } = description;
-  const categoryTail = task.category === undefined ? "" : cli.categoryTail(messages.categoryLabel(task.category));
+  const categoryTail = task.category === undefined ? "" : cli.categoryTail(core.categoryLabel(task.category));
   const lines = [
     `${task.id} · ${task.title}`,
     cli.fileLine(task.path),
@@ -47,7 +47,7 @@ export function formatTaskDetails(messages: CoreMessages, cli: CliMessages, desc
   if (description.blocks.length > 0) lines.push(cli.blocksLine(description.blocks.map(formatTaskRef).join("; ")));
   if (description.related.length > 0) lines.push(cli.relatedLine(description.related.map(formatTaskRef).join("; ")));
   if (description.children.length > 0) lines.push(cli.epicChildrenLine(description.children.map(formatTaskRef).join("; ")));
-  if (description.warnings.length > 0) lines.push(cli.warningsLine(description.warnings.map(messages.problem).join("; ")));
+  if (description.warnings.length > 0) lines.push(cli.warningsLine(description.warnings.map(core.problem).join("; ")));
   return [...lines, "", fileText.trimEnd()].join("\n");
 }
 

@@ -28,7 +28,7 @@ async function runLanguage(positionals: string[], io: CliIo): Promise<ExitCode> 
     io.print(io.language);
     return EXIT.ok;
   }
-  const language = parseChoice(io.language, value, LANGUAGES, cliMessages(io.language).optionLabel.language);
+  const language = parseChoice(io.language, value, LANGUAGES, io.cli.optionLabel.language);
   await writeSettings(io.backlogRoot, { language });
   io.print(`${io.language} → ${language}`);
   const { found } = await detectAgents(io);
@@ -37,17 +37,17 @@ async function runLanguage(positionals: string[], io: CliIo): Promise<ExitCode> 
 }
 
 async function relinkSkill(agent: Agent, language: Language, io: CliIo): Promise<void> {
-  const messages = cliMessages(language);
+  const cli = cliMessages(language);
   const spec = AGENT_SPECS[agent];
   const { label } = spec;
   const plugin = await agentPlugin(agent, io);
   if (plugin !== null) {
     const wanted = pluginToSwitchTo(plugin, language);
-    if (wanted !== null) io.print(`${label}: ${messages.pluginLanguageHint(plugin, wanted)}`);
+    if (wanted !== null) io.print(`${label}: ${cli.pluginLanguageHint(plugin, wanted)}`);
     return;
   }
   const relink = spec.skillOnLanguageChange === "link" ? linkSkillFor : relinkExistingSkill;
   const { target, result } = await linkAgentSkill(agent, io, (options) => relink(language, options));
-  if (result === "foreign") io.warn(`${label}: ${messages.skillForeign(target)}`);
-  if (typeof result === "object") io.warn(`${label}: ${messages.installSkillLinkFailed(target, result.failed)}`);
+  if (result === "foreign") io.warn(`${label}: ${cli.skillForeign(target)}`);
+  if (typeof result === "object") io.warn(`${label}: ${cli.installSkillLinkFailed(target, result.failed)}`);
 }

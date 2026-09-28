@@ -2,7 +2,6 @@ import { usageError, type CliCommand } from "../command";
 import { serverMessages } from "../../server/messages";
 import { requestedPort } from "../../server/port";
 import { EXIT, parseCommandArgs, UsageError, type CliIo, type ExitCode } from "../io";
-import { cliMessages } from "../messages";
 import { portOf, serviceManagerOf } from "../service/managers";
 import { serverResponds } from "../service/server-probe";
 import type { ServiceFailure, ServiceManager } from "../service/service";
@@ -38,7 +37,7 @@ export function installService(io: CliIo): Promise<ExitCode> {
 async function withServiceManager(io: CliIo, action: ServiceAction): Promise<ExitCode> {
   const manager = await serviceManagerOf(io);
   if (manager === null) {
-    io.warn(cliMessages(io.language).serviceUnsupported);
+    io.warn(io.cli.serviceUnsupported);
     return EXIT.failed;
   }
   return action(manager, io);
@@ -46,30 +45,28 @@ async function withServiceManager(io: CliIo, action: ServiceAction): Promise<Exi
 
 async function installWith(manager: ServiceManager, io: CliIo): Promise<ExitCode> {
   if (requestedPort(io.env.PORT) === null) throw new UsageError(serverMessages(io.language).invalidPort("PORT", io.env.PORT ?? ""));
-  const messages = cliMessages(io.language);
   const outcome = await manager.install();
   if (typeof outcome === "object") return reportFailure(outcome, io);
-  io.print(messages.serviceInstalled(manager.file));
-  io.print(messages.serviceLogs(manager.logs));
+  io.print(io.cli.serviceInstalled(manager.file));
+  io.print(io.cli.serviceLogs(manager.logs));
   return EXIT.ok;
 }
 
 async function uninstallWith(manager: ServiceManager, io: CliIo): Promise<ExitCode> {
-  const messages = cliMessages(io.language);
   const outcome = await manager.uninstall();
   if (typeof outcome === "object") return reportFailure(outcome, io);
-  io.print(outcome === "absent" ? messages.serviceNotInstalled : messages.serviceUninstalled);
+  io.print(outcome === "absent" ? io.cli.serviceNotInstalled : io.cli.serviceUninstalled);
   return EXIT.ok;
 }
 
 async function statusWith(manager: ServiceManager, io: CliIo): Promise<ExitCode> {
   const port = await portOf(manager, io);
   const [registered, responding] = await Promise.all([manager.registered(), serverResponds(`http://127.0.0.1:${port}`, STATUS_TIMEOUT_MS)]);
-  io.print(cliMessages(io.language).serviceStatus(registered, responding, port));
+  io.print(io.cli.serviceStatus(registered, responding, port));
   return EXIT.ok;
 }
 
 function reportFailure({ failed, code, output }: ServiceFailure, io: CliIo): ExitCode {
-  io.warn(cliMessages(io.language).serviceCommandFailed(failed, code, output));
+  io.warn(io.cli.serviceCommandFailed(failed, code, output));
   return EXIT.failed;
 }

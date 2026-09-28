@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeTempDir } from "../../core/store/testing/temp-dirs";
 import { startServer } from "../../server/start";
-import { EXIT, type CliIo } from "../io";
+import { cliIo, EXIT } from "../io";
 import { baseCliEnv, makeCliSandbox } from "../testing/cli-harness";
 import { serveCommand } from "./serve";
 
@@ -30,12 +30,14 @@ describe("backlog serve", () => {
     const blocker = await startServer({ root: join(home, "backlog-1"), port: 0, home, env: {} });
     try {
       const warnings: string[] = [];
-      const io: CliIo = {
-        ...baseCliEnv({ cwd: home, home, backlogRoot: join(home, "backlog-2"), packageRoot: home }),
-        env: { PORT: String(blocker.port) },
-        language: "ru",
-        warn: (line) => warnings.push(line),
-      };
+      const io = cliIo(
+        {
+          ...baseCliEnv({ cwd: home, home, backlogRoot: join(home, "backlog-2"), packageRoot: home }),
+          env: { PORT: String(blocker.port) },
+          warn: (line) => warnings.push(line),
+        },
+        "ru",
+      );
 
       const code = await serveCommand.run([], io);
 

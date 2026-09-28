@@ -12,6 +12,6 @@ export const statusCommand = taskFieldCommand({
   label: (task) => task.status,
   afterWrite: (task, io) => {
     const uncheckedCount = checklistItems(task.body).filter((item) => !item.checked).length;
-    if (task.status === "done" && uncheckedCount > 0) io.warn(cliMessages(io.language).checklistWarning(uncheckedCount));
+    if (task.status === "done" && uncheckedCount > 0) io.warn(io.cli.checklistWarning(uncheckedCount));
   },
 });

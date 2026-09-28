@@ -1,5 +1,4 @@
 import { buildIndex } from "../../core/model/graph";
-import { coreMessages } from "../../core/messages";
 import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
 import { loadBacklog } from "../../core/store/load";
 import { deleteProject, setProjectActive } from "../../core/store/projects";
@@ -24,51 +23,48 @@ async function runProject(args: string[], io: CliIo): Promise<ExitCode> {
 }
 
 async function listProjects(io: CliIo): Promise<ExitCode> {
-  const cli = cliMessages(io.language);
   const loaded = await loadBacklog(io.backlogRoot);
   if (loaded.projects.length === 0) {
-    io.print(cli.noProjects);
+    io.print(io.cli.noProjects);
     return EXIT.ok;
   }
   const index = buildIndex(loaded.tasks);
   for (const project of loaded.projects) {
     const open = filterTasks(loaded.tasks, { projectId: project.id, statuses: OPEN_STATUSES }, index).length;
-    io.print(cli.projectListLine({ id: project.id, name: project.name, prefix: project.prefix, statusWord: statusWord(cli, project.active), open }));
+    io.print(io.cli.projectListLine({ id: project.id, name: project.name, prefix: project.prefix, statusWord: statusWord(io.cli, project.active), open }));
   }
   return EXIT.ok;
 }
 
 async function changeStatus(positionals: string[], io: CliIo): Promise<ExitCode> {
-  const cli = cliMessages(io.language);
   const [id, state, ...rest] = positionals;
   if (id === undefined || (state !== "active" && state !== "inactive") || rest.length > 0) throw usageError(projectCommand, io.language);
   const active = state === "active";
   const result = await setProjectActive(io.backlogRoot, id, active);
   if (!result.ok && result.reason === "invalid") {
-    io.warn(`${id}: ${coreMessages(io.language).problems(result.problems)}`);
+    io.warn(`${id}: ${io.core.problems(result.problems)}`);
     return EXIT.invalid;
   }
   if (!result.ok) {
-    io.warn(cli.projectNotFound(id));
+    io.warn(io.cli.projectNotFound(id));
     return EXIT.notFound;
   }
-  io.print(`${id}: ${statusWord(cli, !active)} → ${statusWord(cli, active)}`);
+  io.print(`${id}: ${statusWord(io.cli, !active)} → ${statusWord(io.cli, active)}`);
   return EXIT.ok;
 }
 
 async function removeProject(positionals: string[], confirm: string | undefined, io: CliIo): Promise<ExitCode> {
-  const cli = cliMessages(io.language);
   const [id, ...rest] = positionals;
   if (id === undefined || rest.length > 0) throw usageError(projectCommand, io.language);
-  if (confirm !== id) throw new UsageError(cli.confirmProjectDelete(id));
+  if (confirm !== id) throw new UsageError(io.cli.confirmProjectDelete(id));
   const loaded = await loadBacklog(io.backlogRoot);
   const taskCount = loaded.tasks.filter((task) => task.projectId === id).length;
   const result = await deleteProject(io.backlogRoot, id);
   if (!result.ok) {
-    io.warn(cli.projectNotFound(id));
+    io.warn(io.cli.projectNotFound(id));
     return EXIT.notFound;
   }
-  io.print(cli.projectDeleted(id, taskCount));
+  io.print(io.cli.projectDeleted(id, taskCount));
   return EXIT.ok;
 }
 

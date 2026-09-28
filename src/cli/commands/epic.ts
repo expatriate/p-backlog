@@ -32,20 +32,19 @@ async function runEpic(args: string[], io: CliIo): Promise<ExitCode> {
 function findEpicOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
   const target = findTaskOrWarn(loaded, io, id);
   if (!target) return undefined;
-  if (target.type !== "epic") throw new UsageError(cliMessages(io.language).notAnEpic(target.id));
+  if (target.type !== "epic") throw new UsageError(io.cli.notAnEpic(target.id));
   return target;
 }
 
 async function moveOne(id: string, { loaded, epic, write, io }: Move): Promise<ExitCode> {
   const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
-  const cli = cliMessages(io.language);
   if (task.type === "epic") {
-    io.warn(cli.epicCannotContainEpic(task.id));
+    io.warn(io.cli.epicCannotContainEpic(task.id));
     return EXIT.invalid;
   }
   const written = await write(task, { epic: epic === null ? null : epic.id });
   if (!written.ok) return written.exitCode;
-  io.print(`${task.id}: ${task.epic ?? cli.noEpicWord} → ${written.task.epic ?? cli.noEpicWord}`);
+  io.print(`${task.id}: ${task.epic ?? io.cli.noEpicWord} → ${written.task.epic ?? io.cli.noEpicWord}`);
   return EXIT.ok;
 }

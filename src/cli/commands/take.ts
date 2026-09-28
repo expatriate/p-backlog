@@ -58,7 +58,7 @@ type TakeMode = { kind: "path"; path: string } | { kind: "next" } | { kind: "id"
 
 function takeMode(io: CliIo, values: { path?: string | undefined; next: boolean }, positionals: string[]): TakeMode {
   const chosen = [values.path !== undefined && "--path", values.next && "--next", positionals.length > 0 && "ID"].filter((name) => name !== false);
-  if (chosen.length > 1) throw new UsageError(cliMessages(io.language).chooseOnlyOne(chosen.join(", ")));
+  if (chosen.length > 1) throw new UsageError(io.cli.chooseOnlyOne(chosen.join(", ")));
   if (values.path !== undefined) return { kind: "path", path: values.path };
   if (values.next) return { kind: "next" };
   const [id] = positionals;
@@ -77,7 +77,7 @@ async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projec
   const takeable = matching.filter((_, position) => refusals[position] === null);
   if (takeable.length === 0) {
     if (matching.length > 0) return EXIT.refused;
-    io.warn(cliMessages(io.language).noOpenTasksAt(path));
+    io.warn(io.cli.noOpenTasksAt(path));
     return EXIT.notFound;
   }
   const { code, taken, tasks } = await takeAll(loaded.tasks, takeable, io);
@@ -133,24 +133,23 @@ function selectNext(loaded: LoadedBacklog, io: CliIo, projectId: string | undefi
   const index = buildIndex(loaded.tasks);
   const task = pickNextTask(loaded.tasks, project.id, index);
   if (task) return { ok: true, task };
-  io.warn(cliMessages(io.language).noTakeableInProject(project.id));
+  io.warn(io.cli.noTakeableInProject(project.id));
   const blocked = loaded.tasks.some((candidate) => candidate.projectId === project.id && isQueuedTask(candidate) && openBlockers(candidate, index).length > 0);
   return { ok: false, exitCode: blocked ? EXIT.refused : EXIT.notFound };
 }
 
 function takeRefusal(io: CliIo, task: Task, index: BacklogIndex, { ignoreBlockers }: { ignoreBlockers: boolean }): Refusal | null {
-  const cli = cliMessages(io.language);
   if (task.type === "epic") {
     const openChildren = epicChildren(task, index).filter((child) => !isClosed(child.status));
-    const childLines = openChildren.length === 0 ? [cli.noOpenChildren] : openChildren.map((child) => `  ${formatTaskRef(child)}`);
-    return { code: EXIT.invalid, lines: [cli.epicTakeChildren(task.id), ...childLines] };
+    const childLines = openChildren.length === 0 ? [io.cli.noOpenChildren] : openChildren.map((child) => `  ${formatTaskRef(child)}`);
+    return { code: EXIT.invalid, lines: [io.cli.epicTakeChildren(task.id), ...childLines] };
   }
-  if (isClosed(task.status)) return { code: EXIT.refused, lines: [cli.alreadyInStatus(task.id, task.status)] };
+  if (isClosed(task.status)) return { code: EXIT.refused, lines: [io.cli.alreadyInStatus(task.id, task.status)] };
   const blockers = openBlockers(task, index);
   if (blockers.length > 0 && !ignoreBlockers) {
     return {
       code: EXIT.refused,
-      lines: [cli.blockedByOpenTasks(task.id), ...blockers.map((blocker) => `  ${formatTaskRef(blocker)}`)],
+      lines: [io.cli.blockedByOpenTasks(task.id), ...blockers.map((blocker) => `  ${formatTaskRef(blocker)}`)],
     };
   }
   return null;

@@ -6,7 +6,6 @@ import { readJournals } from "../../core/store/journal";
 import { loadBacklog, unparsedTasks } from "../../core/store/load";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo, type ExitCode } from "../io";
-import { cliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { statsSummary } from "../stats-summary";
 import { webPort } from "../service/managers";
@@ -48,7 +47,7 @@ async function runStats(args: string[], io: CliIo): Promise<ExitCode> {
   io.print(
     statsSummary({
       language: io.language,
-      scopeName: project?.name ?? cliMessages(io.language).projectsFallbackName,
+      scopeName: project?.name ?? io.cli.projectsFallbackName,
       head: base.head,
       totals,
       forecast,

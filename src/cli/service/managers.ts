@@ -1,6 +1,5 @@
 import { readPort } from "../../server/port";
 import type { CliIo } from "../io";
-import { cliMessages } from "../messages";
 import { launchdManager } from "./launchd";
 import type { ServiceContext, ServiceManager } from "./service";
 import { startupFolderManager } from "./startup-folder";
@@ -19,7 +18,7 @@ export async function serviceManagerFor(platform: NodeJS.Platform, context: Serv
 }
 
 function serviceContextOf(io: CliIo): ServiceContext {
-  return { ...io, port: readPort(io.env.PORT), onUnverifiedPid: (pid, pidFile) => io.warn(cliMessages(io.language).servicePidUnverified(pid, pidFile)) };
+  return { ...io, port: readPort(io.env.PORT), onUnverifiedPid: (pid, pidFile) => io.warn(io.cli.servicePidUnverified(pid, pidFile)) };
 }
 
 export function serviceManagerOf(io: CliIo): Promise<ServiceManager | null> {

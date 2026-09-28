@@ -21,7 +21,7 @@ async function runVerify(args: string[], io: CliIo): Promise<ExitCode> {
   const { values, positionals } = parseCommandArgs(io.language, args, { source: { type: "string" } });
   if (positionals.length === 0) throw usageError(verifyCommand, io.language);
   const source = values.source?.trim();
-  if (source === "") throw new UsageError(cliMessages(io.language).sourceEmpty);
+  if (source === "") throw new UsageError(io.cli.sourceEmpty);
   if (source !== undefined && positionals.length > 1) throw usageError(verifyCommand, io.language);
 
   const loaded = await loadBacklog(io.backlogRoot);
@@ -32,9 +32,8 @@ async function runVerify(args: string[], io: CliIo): Promise<ExitCode> {
 async function verifyOne(id: string, { loaded, source, write, io }: Verification): Promise<ExitCode> {
   const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
-  const cli = cliMessages(io.language);
   if (isClosed(task.status)) {
-    io.warn(cli.alreadyInStatusNothingToVerify(id, task.status));
+    io.warn(io.cli.alreadyInStatusNothingToVerify(id, task.status));
     return EXIT.refused;
   }
 
@@ -44,6 +43,6 @@ async function verifyOne(id: string, { loaded, source, write, io }: Verification
   const anchor = project === undefined || anchored === undefined ? undefined : await sourceAnchor(project, anchored, io.home, io.cwd);
   const written = await write(task, { verified: formatLocalIso(io.now()), source: target, anchor });
   if (!written.ok) return written.exitCode;
-  io.print(target === undefined ? cli.verified(id) : cli.verifiedWithSource(id, target));
+  io.print(target === undefined ? io.cli.verified(id) : io.cli.verifiedWithSource(id, target));
   return EXIT.ok;
 }

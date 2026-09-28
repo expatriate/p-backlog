@@ -1,7 +1,6 @@
 import { errorText } from "../../core/errors";
 import { dirname } from "node:path";
 import { checkBacklog } from "../../core/check/check-backlog";
-import { coreMessages } from "../../core/messages";
 import { formatLocalDay } from "../../core/model/dates";
 import { FileBusyError } from "../../core/store/file-lock";
 import { claimHookTurn } from "../../core/store/hook-turns";
@@ -36,7 +35,7 @@ export const hookCommand: CliCommand = {
 async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   const { values, positionals } = parseCommandArgs(io.language, args, { agent: { type: "string" } });
   if (positionals.length !== 1 || positionals[0] !== HOOK_STOP_EVENT) throw usageError(hookCommand, io.language);
-  const agent = values.agent === undefined ? DEFAULT_AGENT : parseChoice(io.language, values.agent, AGENTS, cliMessages(io.language).optionLabel.agent);
+  const agent = values.agent === undefined ? DEFAULT_AGENT : parseChoice(io.language, values.agent, AGENTS, io.cli.optionLabel.agent);
   const event = parseStopEvent(agent, await io.readStdin());
   if (event === null || event.skip) return EXIT.ok;
 
@@ -44,8 +43,7 @@ async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   const project = findProjectForDir(loaded.projects, event.cwd, io.home);
   if (!project) return EXIT.ok;
   if (!(await isFirstHookOfTurn(agent, event, io))) return EXIT.ok;
-  const messages = coreMessages(io.language);
-  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home, messages, workingDir: event.cwd });
+  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home, messages: io.core, workingDir: event.cwd });
   const lowPriority = new Set(loaded.tasks.filter((task) => task.priority === "low").map((task) => task.id));
   const worthTelling = candidates.filter((candidate) => !lowPriority.has(candidate.task.id));
   const lowCount = candidates.length - worthTelling.length;
@@ -57,7 +55,7 @@ async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
     : NO_SIGNALS;
   const answer = formatStopAnswer(agent, {
     reason: blocking.length > 0 ? stopReason(io.language, project.id, blocking) : null,
-    systemMessage: signals.fresh.length > 0 ? hookMessage(io.language, project.id, signals.fresh.map((signal) => messages.signal(signal)).join("; ")) : null,
+    systemMessage: signals.fresh.length > 0 ? hookMessage(io.language, project.id, signals.fresh.map((signal) => io.core.signal(signal)).join("; ")) : null,
   });
   if (answer !== null) io.print(answer);
   await signals.remember();
@@ -71,7 +69,7 @@ async function isFirstHookOfTurn(agent: Agent, event: StopEvent, io: CliIo): Pro
     return await claimHookTurn(io.backlogRoot, `${agent}:${event.session}:${event.turn}`, io.now());
   } catch (error) {
     if (error instanceof FileBusyError) return false;
-    io.warn(cliMessages(io.language).hookTurnClaimFailed(errorText(error)));
+    io.warn(io.cli.hookTurnClaimFailed(errorText(error)));
     return true;
   }
 }
@@ -87,11 +85,11 @@ async function sessionMemory(project: Project, session: string | undefined, io: 
     return {
       told: new Set(await readSessionShown(projectDir, session)),
       remember: async (ids) => {
-        if (ids.length > 0) await rememberSessionShown(projectDir, session, ids, io.now()).catch((error: unknown) => io.warn(cliMessages(io.language).sessionShownWriteFailed(errorText(error))));
+        if (ids.length > 0) await rememberSessionShown(projectDir, session, ids, io.now()).catch((error: unknown) => io.warn(io.cli.sessionShownWriteFailed(errorText(error))));
       },
     };
   } catch (error) {
-    io.warn(cliMessages(io.language).sessionShownReadFailed(errorText(error)));
+    io.warn(io.cli.sessionShownReadFailed(errorText(error)));
     return NO_SESSION_MEMORY;
   }
 }
@@ -114,7 +112,7 @@ async function freshSignals(project: Project, tasks: readonly Task[], extra: rea
     const fresh = signalsToShow([...statsSignals({ tasks, journals: [journal], now: io.now(), projectId: project.id }), ...extra], shown, today);
     return { fresh, remember: fresh.length === 0 ? rememberNothing : () => rememberShown(projectDir, markShown(shown, fresh, today), io) };
   } catch (error) {
-    io.warn(cliMessages(io.language).alertsComputeFailed(errorText(error)));
+    io.warn(io.cli.alertsComputeFailed(errorText(error)));
     return NO_SIGNALS;
   }
 }
@@ -123,6 +121,6 @@ async function rememberShown(projectDir: string, shown: SignalsShown, io: CliIo)
   try {
     await writeSignalsShown(projectDir, shown);
   } catch (error) {
-    io.warn(cliMessages(io.language).alertsShownWriteFailed(errorText(error)));
+    io.warn(io.cli.alertsShownWriteFailed(errorText(error)));
   }
 }

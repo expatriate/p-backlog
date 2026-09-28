@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
 import { buildIndex } from "../../core/model/graph";
-import { coreMessages } from "../../core/messages";
 import type { Task } from "../../core/model/types";
 import { loadBacklog } from "../../core/store/load";
 import { describeTask, taskJson } from "../describe";
@@ -8,7 +7,6 @@ import { formatTaskDetails } from "../format";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { findTaskOrWarn } from "../lookups";
-import { cliMessages } from "../messages";
 
 export const showCommand: CliCommand = {
   name: "show",
@@ -34,5 +32,5 @@ export async function printTask(io: CliIo, task: Task, tasks: readonly Task[], {
     return;
   }
   const description = describeTask(task, buildIndex(tasks));
-  io.print(formatTaskDetails(coreMessages(io.language), cliMessages(io.language), description, await readFile(task.path, "utf8")));
+  io.print(formatTaskDetails(io.core, io.cli, description, await readFile(task.path, "utf8")));
 }

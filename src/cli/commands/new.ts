@@ -1,7 +1,6 @@
 import { findSimilarTask } from "../../core/check/candidates";
 import { sourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW } from "../../core/journal/events";
-import { coreMessages } from "../../core/messages";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project } from "../../core/model/types";
 import { findProjectForDir } from "../../core/store/resolve-project";
 import { createTask } from "../../core/store/create";
@@ -20,7 +19,6 @@ export const newCommand: CliCommand = {
 };
 
 async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
-  const cli = cliMessages(io.language);
   const values = parseOptions(io.language, args, {
     title: { type: "string" },
     type: { type: "string" },
@@ -36,13 +34,13 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
     json: { type: "boolean", default: false },
     force: { type: "boolean", default: false },
   });
-  if (values.title === undefined) throw new UsageError(cli.titleRequired);
+  if (values.title === undefined) throw new UsageError(io.cli.titleRequired);
   const type = values.type === undefined ? undefined : parseChoice(io.language, values.type, TASK_TYPES, "--type");
   const priority = values.priority === undefined ? undefined : parseChoice(io.language, values.priority, PRIORITIES, "--priority");
   const category = values.category === undefined ? undefined : parseChoice(io.language, values.category, TASK_CATEGORIES, "--category");
-  if (category === undefined && type !== "epic") throw new UsageError(cli.categoryRequired);
+  if (category === undefined && type !== "epic") throw new UsageError(io.cli.categoryRequired);
   const found = values.found === undefined ? "manual" : parseChoice(io.language, values.found, FOUND_HOW, "--found");
-  if (category === "bug" && values.source === undefined) io.warn(cli.bugNeedsSourceWarning);
+  if (category === "bug" && values.source === undefined) io.warn(io.cli.bugNeedsSourceWarning);
 
   const loaded = await loadBacklog(io.backlogRoot);
   const project = await ensureProject(loaded, io, values.project);
@@ -50,8 +48,8 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
 
   const similar = values.force ? null : findSimilarTask({ title: values.title, source: values.source }, loaded.tasks.filter((task) => task.projectId === project.id));
   if (similar !== null) {
-    const why = similar.match === "source" ? cli.sameSource : cli.similarTitle;
-    io.warn(cli.similarTaskWarning(similar.task.id, similar.task.title, why));
+    const why = similar.match === "source" ? io.cli.sameSource : io.cli.similarTitle;
+    io.warn(io.cli.similarTaskWarning(similar.task.id, similar.task.title, why));
     return EXIT.refused;
   }
 
@@ -76,7 +74,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
     provenance: { found, foundExplicit: values.found === undefined ? undefined : true, origin: cwdBelongsTo(project, loaded.projects, io) ? await readOrigin(io.cwd) : undefined },
   });
   if (!result.ok) {
-    for (const error of result.errors) io.warn(coreMessages(io.language).problem(error));
+    for (const error of result.errors) io.warn(io.core.problem(error));
     return EXIT.invalid;
   }
   io.print(values.json ? JSON.stringify(taskJson(result.task, [...loaded.tasks, result.task]), null, 2) : `${result.task.id} ${result.task.path}`);
