@@ -3,6 +3,7 @@ import { runGit, type GitRunner } from "../git/run";
 import { expandHome } from "../store/paths";
 import { remembered } from "../remembered";
 import { emptyCodeCache, type CodeCacheSnapshot, type CodeCacheStore } from "./code-cache";
+import { fixKey } from "./fix-key";
 import { churnWindowStart } from "./code-window";
 import { readFixCommits, readRefs, type RepoRefs } from "./git-code";
 import { repoCodeOf, scanRepo, type RepoScan } from "./repo-scan";
@@ -194,10 +195,6 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       return found;
     },
   };
-}
-
-export function fixKey(projectId: string, hash: string): string {
-  return `${projectId} ${hash}`;
 }
 
 function fixCacheKey(repo: string, hash: string): string {

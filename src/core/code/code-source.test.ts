@@ -6,7 +6,8 @@ import { DAY_MS, formatLocalDay } from "../model/dates";
 import type { Project } from "../model/types";
 import { ISOLATED_GIT_ENV, gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { CODE_CACHE_FILE, createCodeCacheFile, type CodeCacheStore } from "./code-cache";
-import { createCodeSource, fixKey, type CodeSource } from "./code-source";
+import { createCodeSource, type CodeSource } from "./code-source";
+import { fixKey } from "./fix-key";
 import { runGit, type GitRunner } from "../git/run";
 import { countingGit } from "../git/testing/counting-git";
 

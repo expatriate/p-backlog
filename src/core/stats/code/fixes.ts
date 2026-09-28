@@ -1,5 +1,5 @@
 import { closingsOf, isFixedNow, type TaskHistory } from "../history";
-import { fixKey } from "../../code/code-source";
+import { fixKey } from "../../code/fix-key";
 import type { FixCommit, FixRequest } from "../../code/types";
 import { retainedSince } from "../window";
 
