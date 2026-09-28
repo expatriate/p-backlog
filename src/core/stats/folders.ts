@@ -1,4 +1,4 @@
-import { SOURCE_LINES, sourcePath } from "../check/source-lines";
+import { SOURCE_LINES, sourcePath } from "../model/source";
 
 const REPOSITORY_ROOT = ".";
 

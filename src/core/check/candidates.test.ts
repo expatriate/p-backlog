@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
 import { anchorOf } from "./anchor";
 import { anchorStates, codeReview, isReviewable } from "./candidates";
-import { sourcePath } from "./source-lines";
+import { sourcePath } from "../model/source";
 import type { Task } from "../model/types";
 import type { Commit, RepoFacts } from "./repo-facts";
 

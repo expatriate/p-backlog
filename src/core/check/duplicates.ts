@@ -3,7 +3,7 @@ import { isClosed } from "../model/graph";
 import type { Task } from "../model/types";
 import { taskRef, type Candidate, type TaskRef } from "./candidates";
 import { similarStems, similarTitles, titleStems } from "./similar-titles";
-import { lineSuffix, sourcePath } from "./source-lines";
+import { lineSuffix, sourcePath } from "../model/source";
 
 export type SimilarTask = { task: TaskRef; match: "source" | "title" };
 

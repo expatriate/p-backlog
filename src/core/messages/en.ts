@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { CheckFix, CheckProblem } from "../check/findings";
 import type { GraphState } from "../check/graph-health";
-import { lineSuffix } from "../check/source-lines";
+import { lineSuffix } from "../model/source";
 import { formatDayMonth, formatDecimal } from "../i18n/format";
 import { countEn, NBSP, pluralEn } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";

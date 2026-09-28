@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { SOURCE_LINES } from "./source-lines";
+import { SOURCE_LINES } from "../model/source";
 
 type SourceSpan = { first: number; last: number; context: number; isRange: boolean };
 const LINE_CONTEXT = 2;

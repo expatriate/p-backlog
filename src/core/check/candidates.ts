@@ -3,7 +3,7 @@ import type { Task } from "../model/types";
 import { anchorOf, findMoved, isAnchorFor } from "./anchor";
 import type { CheckFix } from "./findings";
 import type { Commit, RepoFacts } from "./repo-facts";
-import { hasLines, sourcePath } from "./source-lines";
+import { hasLines, sourcePath } from "../model/source";
 
 export type TaskRef = { id: string; title: string };
 type CommitRef = { sha: string; subject: string };

@@ -7,7 +7,7 @@ import type { Task } from "../model/types";
 import { sourceRange, type LineRange } from "./anchor";
 import { reviewMark, type Candidate } from "./candidates";
 import type { SymbolOf } from "./duplicates";
-import { sourcePath } from "./source-lines";
+import { sourcePath } from "../model/source";
 import type { CurrentSources } from "./current-source";
 import type { DiffSince } from "./repo-facts";
 import { remembered } from "../remembered";

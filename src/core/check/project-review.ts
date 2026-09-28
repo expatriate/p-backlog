@@ -11,7 +11,7 @@ import { currentSources } from "./current-source";
 import type { CheckProblem } from "./findings";
 import { awaitingMerge } from "./awaiting-merge";
 import { collectRepoFacts, diffsSince, type DiffExcerpt, type GitHistory, type RepoFacts } from "./repo-facts";
-import { sourcePath } from "./source-lines";
+import { sourcePath } from "../model/source";
 import { fileHashes, filterBySymbol, symbolLookup, symbolNames, type SymbolFilterContext, type SymbolFilterResult } from "./symbol-filter";
 
 const PROBLEM_LIMIT = 400;

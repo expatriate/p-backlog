@@ -3,7 +3,7 @@ import { anchorOf, remappedSource } from "./anchor";
 import { changesSince, reviewMark } from "./candidates";
 import { baseText, currentLine } from "./diff-hunks";
 import { collectRepoFacts, diffsSince, type DiffSince, type RepoFacts } from "./repo-facts";
-import { hasLines, sourcePath } from "./source-lines";
+import { hasLines, sourcePath } from "../model/source";
 
 export type CurrentSources = ReadonlyMap<string, string | null>;
 
