@@ -1,12 +1,12 @@
-import { errorCodeOrText } from "../../core/errors";
 import { LANGUAGES, type Language } from "../../core/i18n/language";
 import { writeSettings } from "../../core/store/settings";
 import { AGENT_SPECS, detectAgents, type Agent } from "../agents/agent";
+import { linkAgentSkill } from "../agents/agent-skill";
 import { agentPlugin, pluginToSwitchTo } from "../agents/claude-plugin";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { cliMessages } from "../messages";
-import { linkSkillFor, relinkExistingSkill, skillLinkPath } from "../skill-link";
+import { linkSkillFor, relinkExistingSkill } from "../skill-link";
 
 export const configCommand: CliCommand = {
   name: "config",
@@ -46,13 +46,8 @@ async function relinkSkill(agent: Agent, language: Language, io: CliIo): Promise
     if (wanted !== null) io.print(`${label}: ${messages.pluginLanguageHint(plugin, wanted)}`);
     return;
   }
-  const skillsDir = spec.skillsDir(io);
-  const target = skillLinkPath(skillsDir);
-  const options = { skillsDir, packageRoot: io.packageRoot, platform: io.platform };
-  try {
-    const result = spec.skillOnLanguageChange === "link" ? await linkSkillFor(language, options) : await relinkExistingSkill(language, options);
-    if (result === "foreign") io.warn(`${label}: ${messages.skillForeign(target)}`);
-  } catch (error) {
-    io.warn(`${label}: ${messages.installSkillLinkFailed(target, errorCodeOrText(error))}`);
-  }
+  const relink = spec.skillOnLanguageChange === "link" ? linkSkillFor : relinkExistingSkill;
+  const { target, result } = await linkAgentSkill(agent, io, (options) => relink(language, options));
+  if (result === "foreign") io.warn(`${label}: ${messages.skillForeign(target)}`);
+  if (typeof result === "object") io.warn(`${label}: ${messages.installSkillLinkFailed(target, result.failed)}`);
 }

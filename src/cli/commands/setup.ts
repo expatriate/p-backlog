@@ -1,12 +1,12 @@
-import { errorCodeOrText } from "../../core/errors";
 import { AGENT_SPECS, AGENTS, detectAgents, type Agent } from "../agents/agent";
 import { installAgentHook, removeAgentHook } from "../agents/agent-hooks";
+import { linkAgentSkill } from "../agents/agent-skill";
 import { agentPlugin } from "../agents/claude-plugin";
 import type { HookInstallResult, HookRemoveResult } from "../agents/grouped-stop-hooks";
 import type { CliCommand } from "../command";
 import { EXIT, parseChoice, parseOptions, UsageError, type CliIo, type ExitCode } from "../io";
 import { cliMessages } from "../messages";
-import { linkSkillFor, skillLinkPath, skillSourceDir, unlinkOurSkill, type SkillLinkResult } from "../skill-link";
+import { linkSkillFor, skillLinkPath, skillSourceDir, unlinkOurSkill } from "../skill-link";
 import { installService } from "./service";
 
 type AgentVoice = { print: (line: string) => void; warn: (line: string) => void };
@@ -47,23 +47,19 @@ async function setUpAgent(agent: Agent, io: CliIo): Promise<boolean> {
     voice.print(cliMessages(io.language).pluginManages(plugin));
     return true;
   }
-  if (!(await linkAgentSkill(agent, io, voice))) return false;
+  if (!(await installAgentSkill(agent, io, voice))) return false;
   const hook = await installAgentHook(agent, io);
   const reported = reportHook(hook, AGENT_SPECS[agent].hookConfigPath(io), io, voice);
   if (AGENT_SPECS[agent].hookNeedsApproval && (hook === "added" || hook === "updated")) voice.print(cliMessages(io.language).codexHookApproval);
   return reported;
 }
 
-async function linkAgentSkill(agent: Agent, io: CliIo, voice: AgentVoice): Promise<boolean> {
+async function installAgentSkill(agent: Agent, io: CliIo, voice: AgentVoice): Promise<boolean> {
   const messages = cliMessages(io.language);
-  const skillsDir = AGENT_SPECS[agent].skillsDir(io);
-  const target = skillLinkPath(skillsDir);
   const source = skillSourceDir(io.packageRoot, io.language);
-  let link: SkillLinkResult;
-  try {
-    link = await linkSkillFor(io.language, { skillsDir, packageRoot: io.packageRoot, platform: io.platform });
-  } catch (error) {
-    voice.warn(messages.installSkillLinkFailed(target, errorCodeOrText(error)));
+  const { target, result: link } = await linkAgentSkill(agent, io, (options) => linkSkillFor(io.language, options));
+  if (typeof link === "object") {
+    voice.warn(messages.installSkillLinkFailed(target, link.failed));
     return false;
   }
   if (link === "foreign") {
