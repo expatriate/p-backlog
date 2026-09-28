@@ -1,6 +1,7 @@
 import type { Candidate } from "../core/check/candidates";
 import type { Language } from "../core/i18n/language";
 import { hookMessage } from "../core/stats/cost/hook-signature";
+import { briefEvidence } from "./candidate-format";
 import { cliMessages, type CliMessages } from "./messages";
 
 export const STOP_REASON_LIMIT = 500;
@@ -19,17 +20,4 @@ export function stopReason(language: Language, projectId: string, candidates: re
 function compose(language: Language, cli: CliMessages, projectId: string, shown: readonly string[], hidden: number): string {
   const more = hidden > 0 ? cli.stopReasonMore(hidden) : "";
   return hookMessage(language, projectId, cli.stopReasonBody(shown.join("; "), more));
-}
-
-function briefEvidence(cli: CliMessages, candidate: Candidate): string {
-  switch (candidate.kind) {
-    case "source-changed":
-      return `${candidate.task.id} (${cli.candidateChanged(candidate.path)})`;
-    case "source-missing":
-      return candidate.renamedTo === undefined
-        ? `${candidate.task.id} (${cli.candidateMissing(candidate.path)})`
-        : `${candidate.task.id} (${cli.candidateRenamed(candidate.path, candidate.renamedTo)})`;
-    case "duplicate":
-      return `${candidate.task.id} (${cli.candidateSimilarTo(candidate.other.id)})`;
-  }
 }

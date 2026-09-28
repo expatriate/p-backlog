@@ -2,7 +2,7 @@ import { appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
-import { EXIT, type CliIo } from "../io";
+import { cliIo, EXIT } from "../io";
 import { baseCliEnv, makeCliSandbox } from "../testing/cli-harness";
 import { pruneCommand } from "./prune";
 
@@ -33,15 +33,17 @@ describe("backlog prune", () => {
     const { run, root, home, repo } = await makeCliSandbox();
     for (const title of ["Первая", "Вторая", "Третья"]) await run(["new", "--category", "bug", "--title", title, "--priority", "low"], { now: LONG_AGO });
     const err: string[] = [];
-    const io: CliIo = {
-      ...baseCliEnv({ cwd: repo, home, backlogRoot: root, packageRoot: root }),
-      now: () => new Date("2026-09-17T14:50:00Z"),
-      print: (line) => {
-        if (line === "SPA-1: отменена") appendFileSync(join(root, "spa", "SPA-2.md"), "Правка руками во время prune\n");
+    const io = cliIo(
+      {
+        ...baseCliEnv({ cwd: repo, home, backlogRoot: root, packageRoot: root }),
+        now: () => new Date("2026-09-17T14:50:00Z"),
+        print: (line) => {
+          if (line === "SPA-1: отменена") appendFileSync(join(root, "spa", "SPA-2.md"), "Правка руками во время prune\n");
+        },
+        warn: (line) => err.push(line),
       },
-      warn: (line) => err.push(line),
-      language: "ru",
-    };
+      "ru",
+    );
 
     const code = await pruneCommand.run(["--apply"], io);
 

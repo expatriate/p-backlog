@@ -4,8 +4,8 @@ import { isClosed } from "../../core/model/graph";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
-import { projectOf, requireTask } from "../lookups";
+import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
+import { projectOf, findTaskOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 import { taskWriter, type TaskWriter } from "../task-write";
 
@@ -17,11 +17,11 @@ export const verifyCommand: CliCommand = {
 
 type Verification = { loaded: LoadedBacklog; source: string | undefined; write: TaskWriter; io: CliIo };
 
-async function runVerify(args: string[], io: CliIo): Promise<number> {
+async function runVerify(args: string[], io: CliIo): Promise<ExitCode> {
   const { values, positionals } = parseCommandArgs(io.language, args, { source: { type: "string" } });
   if (positionals.length === 0) throw usageError(verifyCommand, io.language);
   const source = values.source?.trim();
-  if (source === "") throw new UsageError(cliMessages(io.language).sourceEmpty);
+  if (source === "") throw new UsageError(io.cli.sourceEmpty);
   if (source !== undefined && positionals.length > 1) throw usageError(verifyCommand, io.language);
 
   const loaded = await loadBacklog(io.backlogRoot);
@@ -29,12 +29,11 @@ async function runVerify(args: string[], io: CliIo): Promise<number> {
   return applyAll(new Set(positionals), (id) => verifyOne(id, verification));
 }
 
-async function verifyOne(id: string, { loaded, source, write, io }: Verification): Promise<number> {
-  const task = requireTask(loaded, io, id);
+async function verifyOne(id: string, { loaded, source, write, io }: Verification): Promise<ExitCode> {
+  const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
-  const cli = cliMessages(io.language);
   if (isClosed(task.status)) {
-    io.warn(cli.alreadyInStatusNothingToVerify(id, task.status));
+    io.warn(io.cli.alreadyInStatusNothingToVerify(id, task.status));
     return EXIT.refused;
   }
 
@@ -44,6 +43,6 @@ async function verifyOne(id: string, { loaded, source, write, io }: Verification
   const anchor = project === undefined || anchored === undefined ? undefined : await sourceAnchor(project, anchored, io.home, io.cwd);
   const written = await write(task, { verified: formatLocalIso(io.now()), source: target, anchor });
   if (!written.ok) return written.exitCode;
-  io.print(target === undefined ? cli.verified(id) : cli.verifiedWithSource(id, target));
+  io.print(target === undefined ? io.cli.verified(id) : io.cli.verifiedWithSource(id, target));
   return EXIT.ok;
 }

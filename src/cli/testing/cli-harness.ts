@@ -60,26 +60,22 @@ export async function makeCliSandbox(): Promise<CliSandbox> {
   const root = join(home, "backlog");
   const repo = await makeGitRepo(home, "projects/spa");
   await writeSettings(root, { language: "ru" });
-  const run = async (argv: string[], options: CliRunOptions = {}): Promise<CliRun> => {
+  const run = async (argv: string[], { cwd = repo, stdin = "", now = SANDBOX_NOW, ...overrides }: CliRunOptions = {}): Promise<CliRun> => {
     const out: string[] = [];
     const err: string[] = [];
-    const io: CliEnv = {
-      cwd: options.cwd ?? repo,
+    const io = baseCliEnv({
+      cwd,
       home,
       backlogRoot: root,
       packageRoot: REPO_ROOT,
-      platform: options.platform ?? "darwin",
-      uid: 501,
       nodePath: "/opt/node/bin/node",
       cliPath: join(REPO_ROOT, "dist/cli.js"),
-      exec: options.exec ?? fakeExec().exec,
-      stopProcess: options.stopProcess ?? (() => true),
-      env: options.env ?? {},
-      now: () => options.now ?? SANDBOX_NOW,
-      readStdin: async () => options.stdin ?? "",
+      now: () => now,
+      readStdin: async () => stdin,
       print: (line) => out.push(line),
       warn: (line) => err.push(line),
-    };
+      ...overrides,
+    });
     const code = await runCli(argv, io);
     return { code, out: out.join("\n"), err: err.join("\n") };
   };

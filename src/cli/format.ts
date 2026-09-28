@@ -1,4 +1,4 @@
-import { formatLocalIso } from "../core/model/dates";
+import { formatLocalDay } from "../core/model/dates";
 import { isBlocked, taskProgress, type BacklogIndex } from "../core/model/graph";
 import { deletionDate } from "../core/model/lifecycle";
 import { PRIORITIES, TASK_STATUSES, type Task } from "../core/model/types";
@@ -26,16 +26,16 @@ export function formatTaskLine(cli: CliMessages, task: Task, index: BacklogIndex
   ].join("  ");
 }
 
-export function formatTaskDetails(messages: CoreMessages, cli: CliMessages, description: TaskDescription, fileText: string): string {
+export function formatTaskDetails(core: CoreMessages, cli: CliMessages, description: TaskDescription, fileText: string): string {
   const { task } = description;
-  const categoryTail = task.category === undefined ? "" : cli.categoryTail(messages.categoryLabel(task.category));
+  const categoryTail = task.category === undefined ? "" : cli.categoryTail(core.categoryLabel(task.category));
   const lines = [
     `${task.id} · ${task.title}`,
     cli.fileLine(task.path),
     cli.summaryLine({ type: task.type, status: task.status, priority: task.priority, progress: formatProgress(description.progress), categoryTail }),
   ];
   const deletesAt = deletionDate(task);
-  if (deletesAt !== undefined) lines.push(cli.closedLine(task.closed ?? "", formatDay(deletesAt)));
+  if (deletesAt !== undefined) lines.push(cli.closedLine(task.closed ?? "", formatLocalDay(deletesAt)));
   if (task.resolution !== undefined) lines.push(cli.reasonLine(task.resolution, task.reason ?? ""));
   if (task.verified !== undefined) lines.push(cli.verifiedLine(task.verified));
   if (task.tags.length > 0) lines.push(cli.tagsLine(task.tags.join(", ")));
@@ -47,12 +47,8 @@ export function formatTaskDetails(messages: CoreMessages, cli: CliMessages, desc
   if (description.blocks.length > 0) lines.push(cli.blocksLine(description.blocks.map(formatTaskRef).join("; ")));
   if (description.related.length > 0) lines.push(cli.relatedLine(description.related.map(formatTaskRef).join("; ")));
   if (description.children.length > 0) lines.push(cli.epicChildrenLine(description.children.map(formatTaskRef).join("; ")));
-  if (description.warnings.length > 0) lines.push(cli.warningsLine(description.warnings.map(messages.problem).join("; ")));
+  if (description.warnings.length > 0) lines.push(cli.warningsLine(description.warnings.map(core.problem).join("; ")));
   return [...lines, "", fileText.trimEnd()].join("\n");
-}
-
-export function formatDay(date: Date): string {
-  return formatLocalIso(date).slice(0, "YYYY-MM-DD".length);
 }
 
 function formatProgress(progress: number | null): string {

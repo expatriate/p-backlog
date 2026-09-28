@@ -1,21 +1,19 @@
 import type { UpdateTaskFailure } from "../core/store/write-result";
-import { coreMessages } from "../core/messages";
-import { EXIT, type CliIo } from "./io";
-import { cliMessages } from "./messages";
+import { EXIT, type CliIo, type ExitCode } from "./io";
 
-export function reportUpdateFailure(io: CliIo, id: string, result: UpdateTaskFailure): number {
+export function reportUpdateFailure(io: CliIo, id: string, result: UpdateTaskFailure): ExitCode {
   switch (result.reason) {
     case "not-found":
-      io.warn(cliMessages(io.language).taskNotFound(id));
+      io.warn(io.cli.taskNotFound(id));
       return EXIT.notFound;
     case "conflict":
-      io.warn(cliMessages(io.language).fileConflict(id));
+      io.warn(io.cli.fileConflict(id));
       return EXIT.invalid;
     case "busy":
-      io.warn(coreMessages(io.language).fileBusy(result.path, result.lock, result.seconds));
+      io.warn(io.core.fileBusy(result.path, result.lock, result.seconds));
       return EXIT.failed;
     case "invalid":
-      for (const problem of result.problems) io.warn(coreMessages(io.language).problem(problem));
+      for (const problem of result.problems) io.warn(io.core.problem(problem));
       return EXIT.invalid;
   }
 }

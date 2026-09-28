@@ -79,10 +79,12 @@ export function sortTasks(tasks: readonly Task[], sort: TaskSort, index: Backlog
   return [...tasks].sort((a, b) => compare(a, b) || compareIds(a.id, b.id));
 }
 
+export function isQueuedTask(task: Task): boolean {
+  return task.type === "task" && task.status === "backlog";
+}
+
 export function pickNextTask(tasks: readonly Task[], projectId: string, index: BacklogIndex): Task | undefined {
-  const candidates = tasks.filter(
-    (task) => task.projectId === projectId && task.type === "task" && task.status === "backlog" && !isBlocked(task, index),
-  );
+  const candidates = tasks.filter((task) => task.projectId === projectId && isQueuedTask(task) && !isBlocked(task, index));
   return candidates.sort(
     (a, b) =>
       priorityRank(b.priority) - priorityRank(a.priority) ||

@@ -4,7 +4,7 @@ import { loadBacklog } from "../core/store/load";
 import type { TaskChanges } from "../core/store/update";
 import { usageError, type CliCommand } from "./command";
 import { EXIT, parseCommandArgs, type CliIo } from "./io";
-import { requireTask } from "./lookups";
+import { findTaskOrWarn } from "./lookups";
 import { taskWriter } from "./task-write";
 
 type TaskFieldSpec<T> = {
@@ -27,7 +27,7 @@ export function taskFieldCommand<T>(spec: TaskFieldSpec<T>): CliCommand {
       const value = spec.parse(io.language, rawValue);
 
       const loaded = await loadBacklog(io.backlogRoot);
-      const task = requireTask(loaded, io, id);
+      const task = findTaskOrWarn(loaded, io, id);
       if (!task) return EXIT.notFound;
       const written = await taskWriter(io, loaded.tasks)(task, spec.changes(value));
       if (!written.ok) return written.exitCode;

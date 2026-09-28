@@ -2,6 +2,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LANGUAGES } from "../../src/core/i18n/language";
+import { listPath, statsPath, taskPath } from "../../src/web/app/paths";
 import { captureShots, startDemoServer, type Shot } from "./capture";
 import { buildDemoBacklog, readDemoInputs } from "./demo-backlog";
 import { ISOLATED_GIT_ENV } from "./demo-repo";
@@ -10,6 +11,7 @@ const REPO_ROOT = join(import.meta.dirname, "../..");
 const DATA_DIR = join(REPO_ROOT, "docs/screenshots");
 const PORT = Number(process.env.SCREENSHOTS_PORT ?? 4399);
 const HERO_TASK = "holder-name";
+const CODE_PROJECT = "shop-web";
 
 Object.assign(process.env, ISOLATED_GIT_ENV);
 
@@ -22,11 +24,11 @@ for (const language of LANGUAGES) {
   const { scenario, texts } = await readDemoInputs(DATA_DIR, language);
   const backlog = await buildDemoBacklog(scenario, texts, language, { home, backlogRoot }, REPO_ROOT);
   const shots: Shot[] = [
-    { name: "tasks", path: "/" },
-    { name: "task", path: `/t/${backlog.idOf(HERO_TASK)}`, viewport: { width: 1280, height: 1180 } },
-    { name: "stats", path: "/stats" },
-    { name: "effect", path: "/stats/effect" },
-    { name: "code", path: "/p/shop-web/stats/code" },
+    { name: "tasks", path: listPath() },
+    { name: "task", path: taskPath(undefined, backlog.idOf(HERO_TASK)), viewport: { width: 1280, height: 1180 } },
+    { name: "stats", path: statsPath() },
+    { name: "effect", path: `${statsPath()}/effect` },
+    { name: "code", path: `${statsPath(CODE_PROJECT)}/code` },
   ];
 
   const server = await startDemoServer(REPO_ROOT, home, backlogRoot, PORT);

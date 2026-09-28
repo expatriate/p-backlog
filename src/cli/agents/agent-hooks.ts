@@ -1,23 +1,16 @@
-import { join } from "node:path";
-import { claudeSettingsPath } from "../../core/claude-dir";
 import { HOOK_STOP_COMMAND } from "../../core/stats/cost/hook-signature";
 import type { CliIo } from "../io";
-import { addStopHook, guardedPosixCommand, hookCommand, removeStopHook } from "../stop-hook";
-import { agentHomeDir, type Agent, type AgentPlaces } from "./agent";
+import { addStopHook, commandOfHook, guardedPosixCommand, removeStopHook } from "../stop-hook";
+import { AGENT_SPECS, type Agent, type AgentPlaces } from "./agent";
 import { addCursorStopHook, removeCursorStopHook } from "./cursor-hooks";
 import { addGroupedStopHook, removeGroupedStopHook, type HookInstallResult, type HookRemoveResult, type IsOurHook, type OurHook } from "./grouped-stop-hooks";
 
 type HookSite = AgentPlaces & Pick<CliIo, "platform" | "cliPath">;
 
 const CODEX_HOOK_TIMEOUT_SECONDS = 30;
-const AGENT_HOOKS_FILE = "hooks.json";
-
-export function agentHookConfigPath(agent: Agent, places: AgentPlaces): string {
-  return agent === "claude" ? claudeSettingsPath(places.env, places.home) : join(agentHomeDir(agent, places), AGENT_HOOKS_FILE);
-}
 
 export function installAgentHook(agent: Agent, site: HookSite): Promise<HookInstallResult> {
-  const path = agentHookConfigPath(agent, site);
+  const path = AGENT_SPECS[agent].hookConfigPath(site);
   switch (agent) {
     case "claude":
       return addStopHook(path, site.platform);
@@ -33,7 +26,7 @@ export function installAgentHook(agent: Agent, site: HookSite): Promise<HookInst
 }
 
 export function removeAgentHook(agent: Agent, site: AgentPlaces): Promise<HookRemoveResult> {
-  const path = agentHookConfigPath(agent, site);
+  const path = AGENT_SPECS[agent].hookConfigPath(site);
   switch (agent) {
     case "claude":
       return removeStopHook(path);
@@ -62,7 +55,7 @@ function windowsCommandPattern(agent: Agent): RegExp {
 
 function ourHookOf(agent: Agent, cliPath?: string): IsOurHook {
   return (hook) => {
-    const command = hookCommand(hook);
+    const command = commandOfHook(hook);
     if (command === undefined) return false;
     return command === posixCommand(agent) || (cliPath !== undefined && command === windowsCommand(agent, cliPath)) || windowsCommandPattern(agent).test(command);
   };

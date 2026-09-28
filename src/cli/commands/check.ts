@@ -5,7 +5,7 @@ import type { Language } from "../../core/i18n/language";
 import { loadBacklog } from "../../core/store/load";
 import { describeCandidate } from "../candidate-format";
 import type { CliCommand } from "../command";
-import { EXIT, parseOptions, type CliIo } from "../io";
+import { EXIT, parseOptions, type CliIo, type ExitCode } from "../io";
 import { cliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 
@@ -15,7 +15,7 @@ export const checkCommand: CliCommand = {
   run: runCheck,
 };
 
-async function runCheck(args: string[], io: CliIo): Promise<number> {
+async function runCheck(args: string[], io: CliIo): Promise<ExitCode> {
   const values = parseOptions(io.language, args, {
     changed: { type: "boolean", default: false },
     ...SCOPE_OPTIONS,
@@ -27,7 +27,7 @@ async function runCheck(args: string[], io: CliIo): Promise<number> {
   if (scope === null) return EXIT.notFound;
   const { projectIds } = scope;
 
-  const report = await checkBacklog(io.backlogRoot, loaded, { projectIds, mode: values.changed ? "changed" : "full", now: io.now(), home: io.home, messages: coreMessages(io.language), workingDir: io.cwd });
+  const report = await checkBacklog(io.backlogRoot, loaded, { projectIds, mode: values.changed ? "changed" : "full", now: io.now(), home: io.home, messages: io.core, workingDir: io.cwd });
   io.print(values.json ? JSON.stringify(report, null, 2) : formatReport(io.language, report));
   return needsReview(report) ? EXIT.needsReview : EXIT.ok;
 }

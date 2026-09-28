@@ -14,13 +14,13 @@ export function guardedPosixCommand(backlogArgs: string): string {
   return `command -v backlog >/dev/null && backlog ${backlogArgs} || true`;
 }
 
-export function hookCommand(hook: unknown): string | undefined {
+export function commandOfHook(hook: unknown): string | undefined {
   const command = typeof hook === "object" && hook !== null ? (hook as { command?: unknown }).command : undefined;
   return typeof command === "string" ? command : undefined;
 }
 
 export function isOurStopHook(hook: unknown): boolean {
-  const command = hookCommand(hook);
+  const command = commandOfHook(hook);
   return command === POSIX_COMMAND || command === POWERSHELL_COMMAND;
 }
 

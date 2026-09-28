@@ -1,7 +1,9 @@
 import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 import { errorText } from "../core/errors";
 import type { Language } from "../core/i18n/language";
-import { cliMessages } from "./messages";
+import { coreMessages, type CoreMessages } from "../core/messages";
+import { cliMessages, type CliMessages } from "./messages";
+
 export type ExecResult = { code: number; output: string };
 
 export type ExecOptions = { timeoutMs?: number };
@@ -24,9 +26,15 @@ export type CliEnv = {
   warn: (line: string) => void;
 };
 
-export type CliIo = CliEnv & { language: Language };
+export type CliIo = CliEnv & { language: Language; cli: CliMessages; core: CoreMessages };
+
+export function cliIo(env: CliEnv, language: Language): CliIo {
+  return { ...env, language, cli: cliMessages(language), core: coreMessages(language) };
+}
 
 export const EXIT = { ok: 0, invalid: 1, notFound: 2, refused: 3, failed: 4, needsReview: 5 } as const;
+
+export type ExitCode = (typeof EXIT)[keyof typeof EXIT];
 
 export class UsageError extends Error {}
 

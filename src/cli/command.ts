@@ -1,12 +1,12 @@
 import type { Language } from "../core/i18n/language";
-import { UsageError, type CliIo } from "./io";
+import { UsageError, type CliIo, type ExitCode } from "./io";
 import { cliMessages } from "./messages";
 
 export type CliCommand = {
   name: string;
   usage: (language: Language) => readonly string[];
-  run: (args: string[], io: CliIo) => Promise<number>;
-  failureExit?: number;
+  run: (args: string[], io: CliIo) => Promise<ExitCode>;
+  failureExit?: ExitCode;
 };
 
 export function usageText(commands: readonly CliCommand[], language: Language): string {

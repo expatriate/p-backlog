@@ -1,6 +1,6 @@
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import { claudeDir, claudeSkillsDir } from "../../core/claude-dir";
+import { claudeDir, claudeSettingsPath, claudeSkillsDir } from "../../core/claude-dir";
 
 export const AGENTS = ["claude", "codex", "cursor"] as const;
 
@@ -8,29 +8,62 @@ export type Agent = (typeof AGENTS)[number];
 
 export type AgentPlaces = { env: NodeJS.ProcessEnv; home: string };
 
-export const AGENT_LABELS: Record<Agent, string> = { claude: "Claude Code", codex: "Codex", cursor: "Cursor" };
+type PlacePath = (places: AgentPlaces) => string;
 
-export type AgentDetection = { found: Agent[]; missing: { agent: Agent; dir: string }[] };
+type AgentSpec = {
+  label: string;
+  homeDir: PlacePath;
+  skillsDir: PlacePath;
+  legacySkillsDirs: (places: AgentPlaces) => string[];
+  hookConfigPath: PlacePath;
+  pluginSettingsPath: PlacePath | null;
+  alwaysInstalled: boolean;
+  skillOnLanguageChange: "link" | "relinkExisting";
+  hookNeedsApproval: boolean;
+};
 
-export function agentHomeDir(agent: Agent, { env, home }: AgentPlaces): string {
-  if (agent === "claude") return claudeDir(env, home);
-  if (agent === "codex") return env.CODEX_HOME || join(home, ".codex");
-  return join(home, ".cursor");
+const AGENT_HOOKS_FILE = "hooks.json";
+
+const claudeSettings: PlacePath = ({ env, home }) => claudeSettingsPath(env, home);
+
+function hooksJsonAgent(label: string, homeDir: PlacePath, { hookNeedsApproval }: { hookNeedsApproval: boolean }): AgentSpec {
+  return {
+    label,
+    homeDir,
+    skillsDir: ({ home }) => join(home, ".agents", "skills"),
+    legacySkillsDirs: (places) => [join(homeDir(places), "skills")],
+    hookConfigPath: (places) => join(homeDir(places), AGENT_HOOKS_FILE),
+    pluginSettingsPath: null,
+    alwaysInstalled: false,
+    skillOnLanguageChange: "relinkExisting",
+    hookNeedsApproval,
+  };
 }
 
-export function agentSkillsDir(agent: Agent, places: AgentPlaces): string {
-  return agent === "claude" ? claudeSkillsDir(places.env, places.home) : join(places.home, ".agents", "skills");
-}
+export const AGENT_SPECS: Record<Agent, AgentSpec> = {
+  claude: {
+    label: "Claude Code",
+    homeDir: ({ env, home }) => claudeDir(env, home),
+    skillsDir: ({ env, home }) => claudeSkillsDir(env, home),
+    legacySkillsDirs: () => [],
+    hookConfigPath: claudeSettings,
+    pluginSettingsPath: claudeSettings,
+    alwaysInstalled: true,
+    skillOnLanguageChange: "link",
+    hookNeedsApproval: false,
+  },
+  codex: hooksJsonAgent("Codex", ({ env, home }) => env.CODEX_HOME || join(home, ".codex"), { hookNeedsApproval: true }),
+  cursor: hooksJsonAgent("Cursor", ({ home }) => join(home, ".cursor"), { hookNeedsApproval: false }),
+};
 
-export function legacySkillsDirs(agent: Agent, places: AgentPlaces): string[] {
-  return agent === "claude" ? [] : [join(agentHomeDir(agent, places), "skills")];
-}
+type AgentDetection = { found: Agent[]; missing: { agent: Agent; dir: string }[] };
 
 export async function detectAgents(places: AgentPlaces): Promise<AgentDetection> {
   const detection: AgentDetection = { found: [], missing: [] };
   for (const agent of AGENTS) {
-    const dir = agentHomeDir(agent, places);
-    const present = agent === "claude" || ((await stat(dir).catch(() => null))?.isDirectory() ?? false);
+    const spec = AGENT_SPECS[agent];
+    const dir = spec.homeDir(places);
+    const present = spec.alwaysInstalled || ((await stat(dir).catch(() => null))?.isDirectory() ?? false);
     if (present) detection.found.push(agent);
     else detection.missing.push({ agent, dir });
   }

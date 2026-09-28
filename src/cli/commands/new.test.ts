@@ -202,6 +202,16 @@ describe("backlog new", () => {
     expect(result.code).toBe(EXIT.notFound);
   });
 
+  it("битый project.md со своим путём вида ~/..cfg останавливает создание проекта: каталог на «..» лежит внутри домашнего", async () => {
+    const { run, root, home } = await makeCliSandbox();
+    const dotted = await makeGitRepo(home, "..cfg/app");
+    await writeFiles(root, { "other/project.md": "---\nname: other\nprefix: OT\nrepos: [~/..cfg/app]\n  bad\n---\n" });
+
+    const result = await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"], { cwd: dotted });
+
+    expect(result.code).toBe(EXIT.notFound);
+  });
+
   it("битый project.md со своим путём, в котором есть пробел, останавливает создание проекта", async () => {
     const { run, root, home } = await makeCliSandbox();
     const spaced = join(home, "My Projects", "app");
