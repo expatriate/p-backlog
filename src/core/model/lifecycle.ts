@@ -1,11 +1,11 @@
 import type { CoreMessages } from "../messages";
 import { DAY_MS, formatLocalIso } from "./dates";
-import { buildIndex, epicChildren, isClosed, type BacklogIndex } from "./graph";
+import { buildIndex, epicChildren, isClosed, type BacklogIndex, type ClosedStatus } from "./graph";
 import type { ParseError, Resolution, Task, TaskStatus } from "./types";
 
 export const RETENTION_DAYS = 7;
 
-export const RESOLUTION_STATUS: Record<Resolution, "done" | "cancelled"> = {
+export const RESOLUTION_STATUS: Record<Resolution, ClosedStatus> = {
   fixed: "done",
   obsolete: "cancelled",
   duplicate: "cancelled",

@@ -8,10 +8,12 @@ export type BacklogIndex = {
   childrenOf: ReadonlyMap<string, readonly Task[]>;
 };
 
-const CLOSED_STATUSES: ReadonlySet<TaskStatus> = new Set(["done", "cancelled"]);
+const CLOSED_STATUSES = ["done", "cancelled"] as const satisfies readonly TaskStatus[];
 
-export function isClosed(status: TaskStatus): boolean {
-  return CLOSED_STATUSES.has(status);
+export type ClosedStatus = (typeof CLOSED_STATUSES)[number];
+
+export function isClosed(status: TaskStatus): status is ClosedStatus {
+  return CLOSED_STATUSES.some((closed) => closed === status);
 }
 
 export function buildIndex(tasks: readonly Task[]): BacklogIndex {

@@ -1,10 +1,10 @@
-import { isBlocked, taskProgress, type BacklogIndex } from "./graph";
+import { isBlocked, isClosed, taskProgress, type BacklogIndex } from "./graph";
 import { localeOf, type Language } from "../i18n/language";
 import { compareIds } from "./ids";
-import { normalizeTag, PRIORITIES, type Priority, type Task, type TaskStatus, type TaskType } from "./types";
+import { normalizeTag, PRIORITIES, TASK_STATUSES, type Priority, type Task, type TaskStatus, type TaskType } from "./types";
 import { DAY_MS } from "./dates";
 
-export const OPEN_STATUSES: readonly TaskStatus[] = ["backlog", "in-progress", "blocked"];
+export const OPEN_STATUSES: readonly TaskStatus[] = TASK_STATUSES.filter((status) => !isClosed(status));
 const STATUS_SORT_ORDER: readonly TaskStatus[] = ["in-progress", "blocked", "backlog", "done", "cancelled"];
 
 export type TaskFilter = {
