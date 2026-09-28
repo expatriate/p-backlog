@@ -2,7 +2,7 @@ import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { sourcePath } from "../../core/check/source-lines";
 import { buildIndex, epicChildren, isClosed, openBlockers, type BacklogIndex } from "../../core/model/graph";
-import { pickNextTask } from "../../core/model/query";
+import { isQueuedTask, pickNextTask } from "../../core/model/query";
 import type { Project, Task } from "../../core/model/types";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { findGitRoots, findProjectForDir } from "../../core/store/resolve-project";
@@ -134,12 +134,8 @@ function selectNext(loaded: LoadedBacklog, io: CliIo, projectId: string | undefi
   const task = pickNextTask(loaded.tasks, project.id, index);
   if (task) return { ok: true, task };
   io.warn(cliMessages(io.language).noTakeableInProject(project.id));
-  const blocked = loaded.tasks.some((candidate) => candidate.projectId === project.id && isTakeable(candidate) && openBlockers(candidate, index).length > 0);
+  const blocked = loaded.tasks.some((candidate) => candidate.projectId === project.id && isQueuedTask(candidate) && openBlockers(candidate, index).length > 0);
   return { ok: false, exitCode: blocked ? EXIT.refused : EXIT.notFound };
-}
-
-function isTakeable(task: Task): boolean {
-  return task.type === "task" && !isClosed(task.status);
 }
 
 function takeRefusal(io: CliIo, task: Task, index: BacklogIndex, { ignoreBlockers }: { ignoreBlockers: boolean }): Refusal | null {

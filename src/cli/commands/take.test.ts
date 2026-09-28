@@ -80,6 +80,16 @@ describe("backlog take", () => {
     expect((await run(["take", "SPA-1", "--next"])).code).toBe(EXIT.invalid);
   });
 
+  it("--next без задач в очереди — «не найдено», даже если уже взятая задача ждёт блокер", async () => {
+    const { run } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Блокер"]);
+    await run(["new", "--category", "bug", "--title", "Взята в обход блокера", "--blocked-by", "SPA-1"]);
+    await run(["take", "SPA-1"]);
+    await run(["take", "SPA-2", "--force"]);
+
+    expect((await run(["take", "--next"])).code).toBe(EXIT.notFound);
+  });
+
   it("--path берёт все открытые задачи внутри пути, заблокированные пропускает", async () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Первая в stats", "--source", "src/web/stats/A.tsx:3"]);
