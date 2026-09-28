@@ -11,7 +11,12 @@ describe("папка source", () => {
   it("источник с ./ попадает в ту же папку, что путь из git", () => {
     expect(folderOf("./src/a.ts:3")).toBe(folderOf("src/a.ts:3"));
     expect(folderOf("./src/a.ts:3")).toBe("src");
-    expect(folderOf("./src/shared/")).toBe("src");
+  });
+
+  it("источник-папка со слэшем на конце — сама эта папка, а не её родитель", () => {
+    expect(folderOf("src/shared/")).toBe("src/shared");
+    expect(folderOf("./src/shared/")).toBe(folderOf("src/shared/"));
+    expect(folderOf("./")).toBe(".");
   });
 
   it("файл в корне репозитория относится к корню, а не к папке с именем файла", () => {
