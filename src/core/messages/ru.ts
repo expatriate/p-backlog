@@ -9,7 +9,6 @@ import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
 import type { LockBusy } from "../store/file-lock";
 import type { FlowForecast, Signal } from "../stats/types";
-import type { CountUnit } from "./index";
 import { forecastOutlook, forecastSpan, type SpanUnit } from "./forecast";
 import { zodIssueText } from "./zod";
 
@@ -53,6 +52,8 @@ const CHECK_METHOD_LABELS: Record<CheckMethod, string> = { symbol: "по сим�
 const DUPLICATE_MATCH_LABELS: Record<DuplicateMatch, string> = { source: "по месту в коде", title: "по заголовку", symbol: "по символу" };
 
 const GRAPH_STATE_LABELS: Record<GraphState, string> = { none: "нет", unreadable: "не читается", stale: "устарел", fresh: "свежий" };
+
+export type CountUnit = "task" | "line" | "project" | "day" | "week" | "session";
 
 const COUNT_FORMS: Record<CountUnit, [string, string, string]> = {
   task: ["задача", "задачи", "задач"],
@@ -291,3 +292,4 @@ export const coreRu = {
   branchOriginsReadFailed: (projectId: string, detail: string): string => `Не удалось прочитать журнал ${projectId} — задачи из невлитых веток проверяются как обычные: ${detail}`,
 };
 
+export type CoreMessages = typeof coreRu;

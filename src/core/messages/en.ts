@@ -8,7 +8,7 @@ import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
 import type { FlowForecast, Signal } from "../stats/types";
-import type { CoreMessages, CountUnit } from "./index";
+import type { CoreMessages, CountUnit } from "./ru";
 import { forecastOutlook, forecastSpan } from "./forecast";
 import { zodIssueText } from "./zod";
 

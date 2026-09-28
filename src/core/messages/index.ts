@@ -1,10 +1,8 @@
 import type { Language } from "../i18n/language";
 import { coreEn } from "./en";
-import { coreRu } from "./ru";
+import { coreRu, type CoreMessages } from "./ru";
 
-export type CountUnit = "task" | "line" | "project" | "day" | "week" | "session";
-
-export type CoreMessages = typeof coreRu;
+export type { CoreMessages } from "./ru";
 
 export function coreMessages(language: Language): CoreMessages {
   return language === "ru" ? coreRu : coreEn;
