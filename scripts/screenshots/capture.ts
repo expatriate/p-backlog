@@ -8,6 +8,8 @@ import sharp from "sharp";
 import type { Language } from "../../src/core/i18n/language";
 import { DAY_MS } from "../../src/core/model/lifecycle";
 import { localeOf } from "../../src/core/i18n/language";
+import { serverResponds } from "../../src/cli/service/server-probe";
+import { SEEN_TASKS_STORAGE_KEY } from "../../src/web/list/use-seen-tasks";
 
 export type Shot = { name: string; path: string; viewport?: { width: number; height: number } };
 
@@ -16,6 +18,7 @@ type DemoServer = { origin: string; stop: () => Promise<void> };
 const DESKTOP = { width: 1280, height: 800 };
 const SERVER_START_TIMEOUT_MS = 20_000;
 const SERVER_POLL_MS = 200;
+const SERVER_PROBE_TIMEOUT_MS = 1000;
 const RETINA_SCALE = 2;
 const CHART_SETTLE_MS = 1500;
 const SEEN_SINCE_DAYS = 1;
@@ -23,7 +26,7 @@ const QUANTIZED_PNG = { palette: true, quality: 90, effort: 10, compressionLevel
 
 export async function startDemoServer(repoRoot: string, home: string, backlogRoot: string, port: number): Promise<DemoServer> {
   const origin = `http://127.0.0.1:${port}`;
-  if (await responds(origin)) throw new Error(`Port ${port} is already taken; set SCREENSHOTS_PORT to a free port`);
+  if (await serverResponds(origin, SERVER_PROBE_TIMEOUT_MS)) throw new Error(`Port ${port} is already taken; set SCREENSHOTS_PORT to a free port`);
   const child: ChildProcess = spawn(process.execPath, [join(repoRoot, "dist/server.js")], {
     env: { PATH: process.env.PATH, HOME: home, BACKLOG_DIR: backlogRoot, CLAUDE_CONFIG_DIR: join(home, ".claude"), PORT: String(port) },
     stdio: ["ignore", "ignore", "inherit"],
@@ -35,7 +38,7 @@ export async function startDemoServer(repoRoot: string, home: string, backlogRoo
     await exited;
   };
   const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
-  while (!(await responds(origin))) {
+  while (!(await serverResponds(origin, SERVER_PROBE_TIMEOUT_MS))) {
     if (Date.now() > deadline || child.exitCode !== null) {
       await stop();
       throw new Error(`The demo server did not start on ${origin}`);
@@ -58,7 +61,7 @@ export async function captureShots(origin: string, language: Language, shots: re
         locale: localeOf(language),
         reducedMotion: "reduce",
       });
-      await context.addInitScript((since) => window.localStorage.setItem("p-backlog.seen", JSON.stringify({ since, ids: [] })), Date.now() - SEEN_SINCE_DAYS * DAY_MS);
+      await context.addInitScript(({ key, since }) => window.localStorage.setItem(key, JSON.stringify({ since, ids: [] })), { key: SEEN_TASKS_STORAGE_KEY, since: Date.now() - SEEN_SINCE_DAYS * DAY_MS });
       const page = await context.newPage();
       await page.goto(`${origin}${shot.path}`);
       await settle(page);
@@ -78,12 +81,4 @@ async function settle(page: Page): Promise<void> {
   await page.locator("main").first().waitFor();
   await page.waitForFunction(() => document.querySelector("[aria-busy='true']") === null);
   await sleep(CHART_SETTLE_MS);
-}
-
-async function responds(origin: string): Promise<boolean> {
-  try {
-    return (await fetch(`${origin}/api/projects`)).ok;
-  } catch {
-    return false;
-  }
 }

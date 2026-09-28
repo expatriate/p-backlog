@@ -10,6 +10,7 @@ import { cliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { statsSummary } from "../stats-summary";
 import { webPort } from "../service/managers";
+import { statsPath } from "../../web/app/paths";
 
 export const statsCommand: CliCommand = {
   name: "stats",
@@ -44,7 +45,6 @@ async function runStats(args: string[], io: CliIo): Promise<ExitCode> {
     );
     return EXIT.ok;
   }
-  const path = project === undefined ? "/stats" : `/p/${project.id}/stats`;
   io.print(
     statsSummary({
       language: io.language,
@@ -53,7 +53,7 @@ async function runStats(args: string[], io: CliIo): Promise<ExitCode> {
       totals,
       forecast,
       signals,
-      url: `http://localhost:${await webPort(io)}${path}`,
+      url: `http://localhost:${await webPort(io)}${statsPath(project?.id)}`,
     }),
   );
   return EXIT.ok;

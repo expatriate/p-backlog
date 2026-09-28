@@ -3,7 +3,7 @@ import { z } from "zod";
 import { OPEN_STATUSES } from "../../core/model/query";
 import type { Task } from "../../core/model/types";
 
-const STORAGE_KEY = "p-backlog.seen";
+export const SEEN_TASKS_STORAGE_KEY = "p-backlog.seen";
 
 const seenRecordSchema = z.object({ since: z.number(), ids: z.array(z.string()) });
 
@@ -58,7 +58,7 @@ function subscribe(listener: () => void): () => void {
 
 function readStored(): string | null {
   try {
-    return window.localStorage.getItem(STORAGE_KEY);
+    return window.localStorage.getItem(SEEN_TASKS_STORAGE_KEY);
   } catch {
     return null;
   }
@@ -66,7 +66,7 @@ function readStored(): string | null {
 
 function writeRecord(record: SeenRecord): void {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
+    window.localStorage.setItem(SEEN_TASKS_STORAGE_KEY, JSON.stringify(record));
   } catch {
     return;
   }
