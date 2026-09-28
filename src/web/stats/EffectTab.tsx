@@ -17,7 +17,7 @@ export function EffectTab() {
 
 function Effect({ report }: { report: EffectReport }) {
   const { stats } = useMessages();
-  const nothingDeferred = report.totals.fixedTasks + report.totals.openTasks === 0;
+  const nothingDeferred = report.totals.deferredTasks === 0;
   return (
     <>
       <UnavailableRepos repos={report.unavailableRepos} />

@@ -36,7 +36,7 @@ describe("эффект беклога", () => {
   it("исправленные — точно, открытые — по медиане, закрытые без исправления не считаются", () => {
     const report = effectReport({ ...incidental([...fixes.map((fix) => fix.task), ...others]), now: NOW, projectId: "spa", code: code(fixes.map((fix) => fix.commit)) });
 
-    expect(report.totals).toEqual({ realLines: 400, fixedTasks: 6, fixedLines: 210, openTasks: 2, estimatedLines: 70, deferredLines: 280, deferredTestLines: 140, noiseShare: 280 / 470 });
+    expect(report.totals).toEqual({ realLines: 400, fixedTasks: 6, fixedLines: 210, openTasks: 2, deferredTasks: 8, estimatedLines: 70, deferredLines: 280, deferredTestLines: 140, noiseShare: 280 / 470 });
     expect(report.weeks).toHaveLength(12);
     expect(report.weeks.at(-1)).toMatchObject({ onTopicLines: 300, deferredLines: 70, deferredTestLines: 35, deferredTasks: 2 });
     expect(report.weeks.at(-2)).toMatchObject({ onTopicLines: 0, deferredLines: 210, deferredTasks: 6 });
