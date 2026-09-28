@@ -8,7 +8,9 @@ describe("formatLocalIso", () => {
     expect(formatted).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
     expect(Date.parse(formatted)).toBe(moment.getTime());
   });
+});
 
+describe("daysBetween", () => {
   it("дни между моментами", () => {
     expect(daysBetween(0, 36 * 60 * 60 * 1000)).toBe(1.5);
   });
