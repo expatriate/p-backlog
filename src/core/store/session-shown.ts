@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { withFileLock } from "./file-lock";
 import { readJsonFile, writeJsonFile } from "./fs-utils";
-import { WEEK_MS } from "../model/dates";
+import { formatLocalIso, WEEK_MS } from "../model/dates";
 
 const SESSION_SHOWN_FILE = ".candidates-shown.json";
 const SESSION_RETENTION_MS = WEEK_MS;
@@ -21,7 +21,7 @@ export async function rememberSessionShown(projectDir: string, session: string, 
     const sessions = await readSessions(projectDir);
     const recent = Object.entries(sessions).filter(([, shown]) => now.getTime() - Date.parse(shown.at) < SESSION_RETENTION_MS);
     const tasks = [...new Set([...(sessions[session]?.tasks ?? []), ...taskIds])];
-    await writeJsonFile(path, { ...Object.fromEntries(recent), [session]: { tasks, at: now.toISOString() } });
+    await writeJsonFile(path, { ...Object.fromEntries(recent), [session]: { tasks, at: formatLocalIso(now) } });
   });
 }
 

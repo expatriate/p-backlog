@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { withFileLock } from "./file-lock";
 import { readJsonFile, writeJsonFile } from "./fs-utils";
+import { formatLocalIso } from "../model/dates";
 
 const HOOK_TURNS_FILE = ".hook-turns.json";
 const CLAIM_WINDOW_MS = 60_000;
@@ -14,7 +15,7 @@ export async function claimHookTurn(backlogRoot: string, turnKey: string, now: D
     const turns = (await readJsonFile(path, hookTurnsSchema)) ?? {};
     const claimed = Object.entries(turns).filter(([, at]) => now.getTime() - Date.parse(at) < CLAIM_WINDOW_MS);
     if (claimed.some(([key]) => key === turnKey)) return false;
-    await writeJsonFile(path, { ...Object.fromEntries(claimed), [turnKey]: now.toISOString() });
+    await writeJsonFile(path, { ...Object.fromEntries(claimed), [turnKey]: formatLocalIso(now) });
     return true;
   });
 }
