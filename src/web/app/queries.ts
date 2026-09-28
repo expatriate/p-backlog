@@ -15,6 +15,7 @@ import {
   type TasksResponse,
 } from "../../core/api/contract";
 import { MEMORY_SAMPLE_INTERVAL_MS } from "../../core/api/memory";
+import type { StatsReportKind, StatsReports } from "../../core/api/stats-routes";
 import type { Language } from "../../core/i18n/language";
 import type { Project, Task } from "../../core/model/types";
 import { ApiError, type ApiClient } from "../api/client";
@@ -60,27 +61,27 @@ function selectProjects(response: ProjectsResponse): ProjectView[] {
 }
 
 export function useStats(projectId: string | undefined) {
-  return useStatsReport("overview", projectId, (client) => client.stats(projectId));
+  return useStatsReport("overview", projectId);
 }
 
 export function useCodeStats(projectId: string | undefined) {
-  return useStatsReport("code", projectId, (client) => client.codeStats(projectId));
+  return useStatsReport("code", projectId);
 }
 
 export function useEffectStats(projectId: string | undefined) {
-  return useStatsReport("effect", projectId, (client) => client.effectStats(projectId));
+  return useStatsReport("effect", projectId);
 }
 
 export function useQualityStats(projectId: string | undefined) {
-  return useStatsReport("quality", projectId, (client) => client.qualityStats(projectId));
+  return useStatsReport("quality", projectId);
 }
 
 export function useSignals(projectId: string | undefined) {
-  return useStatsReport("signals", projectId, (client) => client.signals(projectId));
+  return useStatsReport("signals", projectId);
 }
 
 export function useCostStats(projectId: string | undefined) {
-  return useStatsReport("cost", projectId, (client) => client.costStats(projectId), {
+  return useStatsReport("cost", projectId, {
     staleTime: 0,
     refetchInterval: (query) => {
       const scan = query.state.data?.scan;
@@ -94,9 +95,9 @@ export function useMemorySamples() {
   return useQuery<MemorySamplesResponse>({ queryKey: [...STATS_KEY, "memory"], queryFn: client.memorySamples, refetchInterval: MEMORY_SAMPLE_INTERVAL_MS });
 }
 
-function useStatsReport<T>(report: string, projectId: string | undefined, fetchReport: (client: ApiClient) => Promise<T>, overrides: Partial<UseQueryOptions<T>> = {}) {
+function useStatsReport<K extends StatsReportKind>(kind: K, projectId: string | undefined, overrides: Partial<UseQueryOptions<StatsReports[K]>> = {}) {
   const { client } = useBacklogApi();
-  return useQuery<T>({ queryKey: [...STATS_KEY, report, projectId ?? "all"], queryFn: () => fetchReport(client), staleTime: STATS_STALE_MS, ...overrides });
+  return useQuery<StatsReports[K]>({ queryKey: [...STATS_KEY, kind, projectId ?? "all"], queryFn: () => client.statsReport(kind, projectId), staleTime: STATS_STALE_MS, ...overrides });
 }
 
 export type SetProjectActiveVariables = { id: string; active: boolean };

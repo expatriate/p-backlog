@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { relative, sep } from "node:path";
 import { errorText } from "../core/errors";
+import { STATS_MEMORY_ROUTE, STATS_REPORT_ROUTES } from "../core/api/stats-routes";
 import type { GraphHealth } from "../core/check/graph-health";
 import { createCodeCacheFile } from "../core/code/code-cache";
 import { createCodeSource, type CodeCacheErrorKind } from "../core/code/code-source";
@@ -125,19 +126,19 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
 
   const codeState = { sourceKey: (projects: readonly Project[]) => codeSource.stateKey(projects) };
   const graphState = { sourceKey: async (projects: readonly Project[], snapshot: BacklogSnapshot) => JSON.stringify(await graphRowsOf(projects, snapshot)) };
-  routes.get("/stats", scopedStats("stats", ({ input, base }) => statsReport(input, base)));
-  routes.get("/stats/code", scopedStats("code", statsOfCode, codeState));
-  routes.get("/stats/effect", scopedStats("effect", statsOfEffect, { ...codeState, wholeBacklog: true }));
-  routes.get("/stats/quality", scopedStats("quality", statsOfQuality, graphState));
-  routes.get("/stats/signals", scopedStats("signals", ({ input, base }) => ({ signals: statsSignals(input, base) })));
-  routes.get("/stats/cost", async (c) => {
+  routes.get(STATS_REPORT_ROUTES.overview, scopedStats("stats", ({ input, base }) => statsReport(input, base)));
+  routes.get(STATS_REPORT_ROUTES.code, scopedStats("code", statsOfCode, codeState));
+  routes.get(STATS_REPORT_ROUTES.effect, scopedStats("effect", statsOfEffect, { ...codeState, wholeBacklog: true }));
+  routes.get(STATS_REPORT_ROUTES.quality, scopedStats("quality", statsOfQuality, graphState));
+  routes.get(STATS_REPORT_ROUTES.signals, scopedStats("signals", ({ input, base }) => ({ signals: statsSignals(input, base) })));
+  routes.get(STATS_REPORT_ROUTES.cost, async (c) => {
     const scope = await statsScopeOf(c, await backlogPruningCaches(), { wholeBacklog: true });
     if (scope instanceof Response) return scope;
     usage.scanIfNeverListed();
     const { snapshot, projectId } = scope;
     return c.json(await costSource.costReport({ usage: usage.snapshot(), scope: { snapshot, projectId }, now: now() }));
   });
-  routes.get("/stats/memory", (c) => c.json({ samples: memory.samples() }));
+  routes.get(STATS_MEMORY_ROUTE, (c) => c.json({ samples: memory.samples() }));
 
   const projectIdOfPath = (path: string): string | undefined => {
     const [first] = relative(root, path).split(sep);
