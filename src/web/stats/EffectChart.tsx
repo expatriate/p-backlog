@@ -14,6 +14,8 @@ import type { StatsMessages } from "./messages.ru";
 
 const REAL = "var(--chart-bar-neutral)";
 const DEFERRED = "var(--accent-ink)";
+const HATCH_SIZE = 6;
+const HATCH_STROKE_WIDTH = 3;
 
 function periodTooltip(stats: StatsMessages, core: CoreMessages, language: Language, grain: Grain) {
   const roughLines = (lines: number) => formatApprox(language, lines, Math.round(lines) > 0);
@@ -42,9 +44,9 @@ export function EffectChart({ periods, totals, grain }: { periods: EffectPeriod[
     <ChartFrame summary={effectSummary(stats, grain, periods, totals)} legend={legend}>
       <BarChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(stats.effectTitle, grain)}>
         <defs>
-          <pattern id={patternId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <rect width="6" height="6" fill="var(--surface-raised)" />
-            <line x1="0" y1="0" x2="0" y2="6" stroke={DEFERRED} strokeWidth="3" />
+          <pattern id={patternId} width={HATCH_SIZE} height={HATCH_SIZE} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width={HATCH_SIZE} height={HATCH_SIZE} fill="var(--surface-raised)" />
+            <line x1={0} y1={0} x2={0} y2={HATCH_SIZE} stroke={DEFERRED} strokeWidth={HATCH_STROKE_WIDTH} />
           </pattern>
         </defs>
         <CartesianGrid vertical={false} />
