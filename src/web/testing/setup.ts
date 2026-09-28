@@ -31,7 +31,8 @@ Element.prototype.scrollIntoView ??= () => undefined;
 
 export const hoverNone = { matches: false };
 
-window.matchMedia ??= (query: string) => ({ matches: query === "(hover: none)" && hoverNone.matches, media: query }) as MediaQueryList;
+window.matchMedia ??= (query: string) =>
+  ({ matches: query === "(hover: none)" && hoverNone.matches, media: query, addEventListener: () => undefined, removeEventListener: () => undefined }) as unknown as MediaQueryList;
 
 afterEach(() => {
   cleanup();

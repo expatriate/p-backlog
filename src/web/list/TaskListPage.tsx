@@ -11,7 +11,7 @@ import { useStatusFocus } from "../ui/use-status-focus";
 import { TaskPanel } from "../task/TaskPanel";
 import type { ListMessages } from "./messages.ru";
 import { BatchNotice, useBatchResult } from "./BatchNotice";
-import { actionsShortcutLabel, offersKeyboardHints } from "./actions-shortcut";
+import { actionsShortcutLabel, useKeyboardHints } from "./actions-shortcut";
 import { BulkActions } from "./BulkActions";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
@@ -43,7 +43,7 @@ export function TaskListPage() {
   const batchResult = useBatchResult(projectId ?? "");
   const footer = useRef<HTMLDivElement>(null);
   const keysHintId = useId();
-  const keyboardHints = offersKeyboardHints();
+  const keyboardHints = useKeyboardHints();
   useScrollSpaceFor(footer);
 
   const viewTitle = viewTitleFor(list, view.projectName, params.filter.onlyAutoClosed === true);

@@ -11,7 +11,7 @@ import type { EpicTones } from "../ui/epic-tone";
 import { MenuOption, MenuOptions } from "../ui/Menu";
 import { Popover, useClosePopover } from "../ui/Popover";
 import { epicChoices, type EpicChoice } from "./epic-choices";
-import { ACTIONS_SHORTCUT, actionsShortcutLabel, isActionsShortcut, offersKeyboardHints } from "./actions-shortcut";
+import { ACTIONS_SHORTCUT, actionsShortcutLabel, isActionsShortcut, useKeyboardHints } from "./actions-shortcut";
 import { EpicLabel } from "./EpicLabel";
 import { partialBatchResult, type BatchResult } from "./BatchNotice";
 import type { TaskSelection } from "./use-task-selection";
@@ -29,6 +29,7 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
   const { list, app } = useMessages();
   const firstAction = useRef<HTMLButtonElement>(null);
   const batch = useBatchTasks();
+  const keyboardHints = useKeyboardHints();
   const chosen = useMemo(() => tasks.filter((task) => selection.selected.has(task.id)).sort((a, b) => compareIds(a.id, b.id)), [tasks, selection.selected]);
   const assignableEpics = useMemo(() => assignableEpicsOf(chosen, tasks, tones), [chosen, tasks, tones]);
   const shown = chosen.length > 0;
@@ -67,7 +68,7 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
         {shown && selection.hiddenCount > 0 && <span className={styles.hidden}> {list.hiddenByFilter(selection.hiddenCount)}</span>}
       </p>
       {shown && <SelectionActions firstAction={firstAction} chosen={chosen} assignableEpics={assignableEpics} busy={isPending} onRun={run} onClear={selection.clear} />}
-      {shown && offersKeyboardHints() && <p className={styles.hint}>{list.toActionsHint(actionsShortcutLabel())}</p>}
+      {shown && keyboardHints && <p className={styles.hint}>{list.toActionsHint(actionsShortcutLabel())}</p>}
       {shown && batch.error !== null && (
         <p className={footer.error} role="alert">
           {list.bulkFailed}: {requestErrorMessage(app, batch.error)}

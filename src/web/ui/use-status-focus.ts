@@ -8,12 +8,14 @@ export function useStatusFocus(settled: boolean, settledTarget: RefObject<HTMLEl
     if (!watching.current) return;
     const active = document.activeElement;
     const region = status.current;
-    if (active !== document.body && !(active !== null && region?.contains(active))) {
+    const focusDropped = active === document.body;
+    const focusInStatus = active !== null && region?.contains(active) === true;
+    if (!focusDropped && !focusInStatus) {
       watching.current = false;
       return;
     }
     if (!settled) {
-      if (active === document.body) region?.focus();
+      if (focusDropped) region?.focus();
       return;
     }
     watching.current = false;

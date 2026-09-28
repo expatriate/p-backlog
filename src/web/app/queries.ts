@@ -10,6 +10,7 @@ import {
   type ProjectsResponse,
   type ProjectView,
   type Revision,
+  type ScanProgress,
   type SettingsResponse,
   type TaskChangesRequest,
   type TasksResponse,
@@ -82,16 +83,18 @@ export function useSignals(projectId: string | undefined) {
 export function useCostStats(projectId: string | undefined) {
   return useStatsReport("cost", projectId, (client) => client.costStats(projectId), {
     staleTime: 0,
-    refetchInterval: (query) => {
-      const scan = query.state.data?.scan;
-      return scan !== undefined && (!scan.listed || scan.bytesLeft > 0) ? COST_SCAN_POLL_MS : false;
-    },
+    refetchInterval: (query) => (scanInProgress(query.state.data?.scan) ? COST_SCAN_POLL_MS : false),
   });
 }
 
 export function useMemorySamples() {
   const { client } = useBacklogApi();
   return useQuery<MemorySamplesResponse>({ queryKey: [...STATS_KEY, "memory"], queryFn: client.memorySamples, refetchInterval: MEMORY_SAMPLE_INTERVAL_MS });
+}
+
+function scanInProgress(scan: ScanProgress | undefined): boolean {
+  if (scan === undefined) return false;
+  return !scan.listed || scan.bytesLeft > 0;
 }
 
 function useStatsReport<T>(report: string, projectId: string | undefined, fetchReport: (client: ApiClient) => Promise<T>, overrides: Partial<UseQueryOptions<T>> = {}) {
