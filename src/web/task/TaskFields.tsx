@@ -33,7 +33,7 @@ export function TaskFields({ task, epicListId, index, onChange, tags, tagsRef, e
     epic.commit((next) => onChange({ epic: next === "" ? null : next }));
   };
 
-  const saveTags = () => tags.commit(() => onChange({ tags: parseTagInput(tags.value) }));
+  const saveTags = () => tags.commit((next) => onChange({ tags: parseTagInput(next) }));
 
   return (
     <>

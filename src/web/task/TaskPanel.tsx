@@ -204,8 +204,7 @@ function TitleField({ draft: title, titleRef, label, onSave }: TitleFieldProps) 
         }
       }}
       onBlur={() => {
-        const next = title.value.trim();
-        if (next === "") title.reset();
+        if (title.canonical === "") title.reset();
         else title.commit(onSave);
       }}
     />

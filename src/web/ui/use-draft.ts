@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 
 export type Draft = {
   value: string;
+  canonical: string;
   set: (next: string) => void;
   unsaved: boolean;
   conflicted: boolean;
@@ -27,8 +28,10 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
     });
   }, [serverValue, canonical]);
 
+  const canonicalText = canonical(state.text);
+
   const commit = (save: (canonical: string) => Promise<boolean>) => {
-    const next = canonical(state.text);
+    const next = canonicalText;
     if (next === serverValue) {
       setState({ text: state.text, base: serverValue, conflicted: false });
     } else if (next === state.base) {
@@ -49,8 +52,9 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
 
   const draft: Draft = {
     value: state.text,
+    canonical: canonicalText,
     set: (text) => setState((current) => ({ ...current, text })),
-    unsaved: canonical(state.text) !== state.base,
+    unsaved: canonicalText !== state.base,
     conflicted: state.conflicted,
     commit,
     reset: () => setState(synced(serverValue)),
