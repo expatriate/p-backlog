@@ -8,7 +8,7 @@ import { taskWarnings } from "../../core/model/integrity";
 import type { Task } from "../../core/model/types";
 import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
-import { Countdown } from "../ui/Countdown";
+import { Countdown } from "../ui/Deletion";
 import { ProgressBar } from "../ui/ProgressBar";
 import type { Draft } from "../ui/use-draft";
 import { useLeaveGuard } from "../ui/use-leave-guard";

@@ -7,7 +7,7 @@ import type { SortDirection, SortKey, TaskSort } from "../../core/model/query";
 import type { Priority, Task } from "../../core/model/types";
 import { DIRECTION_MARKS, NO_VALUE } from "../labels";
 import { useLanguage, useMessages } from "../i18n";
-import { DeletionBar } from "../ui/Countdown";
+import { DeletionBar } from "../ui/Deletion";
 import { StatusBadge } from "../ui/StatusBadge";
 import type { TaskHref } from "../task/TaskRefs";
 import { cx } from "../ui/cx";
