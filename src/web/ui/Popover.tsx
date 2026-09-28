@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type ComponentProps,
+  type CSSProperties,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -27,6 +28,8 @@ export type PopoverProps = {
 const INITIAL_FOCUS_ATTRIBUTE = "data-popover-focus";
 
 const VIEWPORT_SIDE_MARGIN_PX = 16;
+
+const VIEWPORT_MARGIN_STYLE = { "--viewport-margin": `${VIEWPORT_SIDE_MARGIN_PX}px` } as CSSProperties;
 
 export const POPOVER_INITIAL_FOCUS = { [INITIAL_FOCUS_ATTRIBUTE]: "" } as const;
 
@@ -103,7 +106,7 @@ export function Popover({ trigger, triggerProps, triggerRef, placement = "below"
         {trigger}
       </Button>
       {open && (
-        <div ref={panel} id={panelId} role="group" aria-labelledby={triggerId} className={cx(styles.panel, placement === "above" && styles.above, width === "content" && styles.fitContent)}>
+        <div ref={panel} id={panelId} role="group" aria-labelledby={triggerId} className={cx(styles.panel, placement === "above" && styles.above, width === "content" && styles.fitContent)} style={VIEWPORT_MARGIN_STYLE}>
           <ClosePopoverContext value={closePopover}>{children}</ClosePopoverContext>
         </div>
       )}
