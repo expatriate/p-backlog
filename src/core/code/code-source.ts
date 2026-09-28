@@ -1,5 +1,6 @@
 import type { Project } from "../model/types";
 import { runGit, type GitRunner } from "../git/run";
+import { contentVersion } from "../store/fs-utils";
 import { expandHome } from "../store/paths";
 import { remembered } from "../remembered";
 import { emptyCodeCache, type CodeCacheSnapshot, type CodeCacheStore } from "./code-cache";
@@ -35,7 +36,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       for (const [repo, entry] of Object.entries(snapshot.repos)) if (!repoCache.has(repo)) repoCache.set(repo, entry);
       for (const [key, commit] of Object.entries(snapshot.fixes)) if (!fixCache.has(key)) fixCache.set(key, commit);
       for (const [key, main] of Object.entries(snapshot.unsettled)) if (!unsettledCheckedAt.has(key)) unsettledCheckedAt.set(key, main);
-      storedFingerprint = JSON.stringify(currentSnapshot());
+      storedFingerprint = fingerprintOf(currentSnapshot());
     });
     return restored;
   };
@@ -69,7 +70,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
     dropUnretainedRepos();
     if (store === undefined) return writing;
     const snapshot = currentSnapshot();
-    const fingerprint = JSON.stringify(snapshot);
+    const fingerprint = fingerprintOf(snapshot);
     if (fingerprint === storedFingerprint) return writing;
     storedFingerprint = fingerprint;
     writing = writing.then(() =>
@@ -216,4 +217,8 @@ async function readSnapshot(store: CodeCacheStore | undefined, onError: (error: 
     onError(error);
     return emptyCodeCache();
   }
+}
+
+function fingerprintOf(snapshot: CodeCacheSnapshot): string {
+  return contentVersion(JSON.stringify(snapshot));
 }
