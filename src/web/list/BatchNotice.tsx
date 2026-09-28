@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type FocusEvent } from "react";
 import { Link } from "react-router";
 import type { BatchOutcome, BatchRequest, BatchResponse } from "../../core/api/contract";
-import { PartialBatchError, useBatchTasks } from "../app/queries";
+import { PartialBatchError } from "../app/batch-chunks";
+import { useBatchTasks } from "../app/queries";
 import { requestErrorMessage } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
