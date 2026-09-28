@@ -1,4 +1,4 @@
-import { DAYS_PER_WEEK, formatLocalDay, formatLocalIso } from "../../model/dates";
+import { formatLocalDay, formatLocalIso } from "../../model/dates";
 import type { CliRun } from "../../store/runs";
 import type { CostCommand, CostDay, CostModel, CostNumbers, CostPeriod, CostReport, CostTotals, ScanProgress } from "../types";
 import { totalTokens } from "./token-counts";
@@ -42,8 +42,8 @@ export function costReport({ buckets, runs, projectOf, projectId, now, scan }: C
     totals: totalsOf(inDays(bucketsByDay, totalsDays), inDays(runsByDay, totalsDays)),
     days: days.map((day) => dayRow(day, bucketsByDay.get(day) ?? [], runsByDay.get(day) ?? [])),
     weeks: weeks.map((week) => {
-      const weekDays = daysOf(week);
-      return periodRow(formatLocalIso(new Date(week.from)), inDays(bucketsByDay, weekDays), inDays(runsByDay, weekDays));
+      const inWeek = (at: string) => week.contains(Date.parse(at));
+      return periodRow(formatLocalIso(new Date(week.from)), scopedBuckets.filter((bucket) => inWeek(bucket.slot)), scopedRuns.filter((run) => inWeek(run.at)));
     }),
     models: modelsOf(inDays(bucketsByDay, days)),
     commands: commandsOf(inDays(runsByDay, days)),
@@ -56,11 +56,6 @@ function memoizedByCwd(projectOf: (cwd: string) => string | null): (cwd: string)
     if (!known.has(cwd)) known.set(cwd, projectOf(cwd));
     return known.get(cwd) ?? null;
   };
-}
-
-function daysOf(week: Period): string[] {
-  const monday = new Date(week.from);
-  return dayRange(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + DAYS_PER_WEEK - 1), DAYS_PER_WEEK);
 }
 
 function localDay(at: string): string {

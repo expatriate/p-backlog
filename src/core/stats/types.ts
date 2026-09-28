@@ -15,7 +15,7 @@ export type StatsTotals = {
   createdLastWeek: number;
   closedLastWeek: number;
   ageMedianDays: number | null;
-  olderThan30Days: number;
+  staleOpen: number;
   leadTimeMedianDays: number | null;
   leadTimeP90Days: number | null;
   createdToday: number;
