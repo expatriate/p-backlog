@@ -1,7 +1,7 @@
 import { useParams } from "react-router";
 import type { CostReport, ScanProgress } from "../../core/api/contract";
 import { useCostStats } from "../app/queries";
-import { formatDay } from "../../core/i18n/format";
+import { formatDay, startOfLocalDay } from "../../core/i18n/format";
 import { useLanguage, useMessages } from "../i18n";
 import { CommandsPanel, CostFigures, ModelsPanel } from "./CostPanels";
 import rowStyles from "./PanelRows.module.css";
@@ -69,5 +69,5 @@ function Cost({ report }: { report: CostReport }) {
 }
 
 function dataStartInsideWindow({ since, periods }: CostReport): string | null {
-  return since !== null && since > periods.weeks.from.slice(0, 10) ? since : null;
+  return since !== null && startOfLocalDay(since) > startOfLocalDay(periods.weeks.from) ? since : null;
 }

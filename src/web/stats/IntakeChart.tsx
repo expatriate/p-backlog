@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Tooltip, XAxis, YAxis } from "recharts";
+import { formatDay } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { CoreMessages } from "../../core/messages";
 import type { FlowPeriod, GrainPeriods } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
-import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
+import { axisDay, compactNumber } from "./charts/chart-format";
 import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import type { StatsMessages } from "./messages.ru";
@@ -17,7 +18,7 @@ const CREATED = "var(--chart-bar-warm)";
 
 function periodTooltip(stats: StatsMessages, core: CoreMessages, language: Language, grain: Grain) {
   return rowTooltip((period: FlowPeriod) => ({
-    title: stats.periodOf(grain, tooltipDay(language, period.start)),
+    title: stats.periodOf(grain, formatDay(language, period.start)),
     rows: [{ label: stats.flowCreated, value: core.count(period.created, "task"), shape: "bar", color: CREATED }],
   }));
 }

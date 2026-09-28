@@ -18,17 +18,17 @@ import styles from "./StatsPage.module.css";
 export function OverviewTab() {
   const { projectId } = useParams();
   const stats = useStats(projectId);
-  return <StatsTabState query={stats}>{(report) => <Overview report={report} listPath={listPath(projectId)} />}</StatsTabState>;
+  return <StatsTabState query={stats}>{(report) => <Overview report={report} taskListPath={listPath(projectId)} />}</StatsTabState>;
 }
 
-function Overview({ report, listPath }: { report: StatsReport; listPath: string }) {
+function Overview({ report, taskListPath }: { report: StatsReport; taskListPath: string }) {
   return (
     <>
       <Totals totals={report.totals} />
       <div className={styles.blocks}>
         <FlowPanel weeks={report.weeks} days={report.days} windows={report.periods} />
         <IntakePanel weeks={report.weeks} days={report.days} windows={report.periods} />
-        <HotspotsPanel hotspots={report.hotspots} listPath={listPath} />
+        <HotspotsPanel hotspots={report.hotspots} listPath={taskListPath} />
         <AgePanel age={report.age} />
         <ClosingPanel closing={report.closing} period={report.periods.weeks} />
       </div>

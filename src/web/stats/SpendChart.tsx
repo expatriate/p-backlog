@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
-import { formatMoney } from "../../core/i18n/format";
+import { formatDay, formatMoney } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { CostDay, CostPeriod, GrainPeriods } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
-import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
+import { axisDay, compactNumber } from "./charts/chart-format";
 import { AXIS_PROPS, DASHED_LINE_WIDTH, BAR_RADIUS, LINE_WIDTH, DASHED_LINE, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
@@ -23,7 +23,7 @@ const OTHER_RUNS = "var(--chart-line-yellow)";
 
 function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
   return rowTooltip((period: CostPeriod) => ({
-    title: stats.periodOf(grain, tooltipDay(language, period.start)),
+    title: stats.periodOf(grain, formatDay(language, period.start)),
     rows: [
       { label: stats.hookTurnsTooltip, value: stats.tokens(period.hookTokens), shape: "bar", color: HOOK_TOKENS },
       { label: stats.cliOutput, value: stats.tokens(period.cliTokens), shape: "bar", color: CLI_TOKENS },

@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
+import { formatDay } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { FlowPeriod, GrainPeriods } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
-import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
+import { axisDay, compactNumber } from "./charts/chart-format";
 import { AXIS_PROPS, BAR_RADIUS, LINE_WIDTH, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { nonZeroDot } from "./charts/value-dot";
@@ -19,7 +20,7 @@ const OPEN = "var(--chart-line-bright)";
 
 function periodTooltip(stats: StatsMessages, language: Language, grain: Grain) {
   return rowTooltip((period: FlowPeriod) => ({
-    title: stats.periodOf(grain, tooltipDay(language, period.start)),
+    title: stats.periodOf(grain, formatDay(language, period.start)),
     rows: [
       { label: stats.flowCreated, value: String(period.created), shape: "bar", color: CREATED },
       { label: stats.flowClosed, value: String(period.closed), shape: "bar", color: CLOSED },

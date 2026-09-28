@@ -1,12 +1,13 @@
 import { useId, useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
+import { formatDay } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { CoreMessages } from "../../core/messages";
 import type { EffectPeriod, EffectTotals } from "../../core/api/contract";
 import { sum } from "../../core/stats/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
-import { axisDay, compactNumber, tooltipDay } from "./charts/chart-format";
+import { axisDay, compactNumber } from "./charts/chart-format";
 import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
 import { formatApprox, formatNoiseShare, isEstimated } from "./effect-format";
@@ -20,7 +21,7 @@ const HATCH_STROKE_WIDTH = 3;
 function periodTooltip(stats: StatsMessages, core: CoreMessages, language: Language, grain: Grain) {
   const roughLines = (lines: number) => formatApprox(language, lines, Math.round(lines) > 0);
   return rowTooltip((period: EffectPeriod) => ({
-    title: stats.periodOf(grain, tooltipDay(language, period.start)),
+    title: stats.periodOf(grain, formatDay(language, period.start)),
     rows: [
       { label: stats.onTopicSeries, value: core.count(Math.round(period.onTopicLines), "line"), shape: "bar", color: REAL },
       { label: stats.deferredSeries, value: roughLines(period.deferredLines), shape: "hatch", color: DEFERRED },

@@ -15,13 +15,15 @@ import styles from "./StatsPage.module.css";
 
 type ReportQuery<T> = Pick<UseQueryResult<T>, "error" | "data" | "isFetching" | "refetch">;
 
+type EmptyReport<T> = { isEmpty: (report: T) => boolean; message: string };
+
 export function StatsRequestState<T>({
   query,
-  emptyMessage = null,
+  empty,
   children,
 }: {
   query: ReportQuery<T>;
-  emptyMessage?: string | null;
+  empty?: EmptyReport<T> | undefined;
   children: (report: T) => ReactNode;
 }) {
   const { stats } = useMessages();
@@ -30,7 +32,8 @@ export function StatsRequestState<T>({
   const notFound = error instanceof ApiError && error.status === 404;
   const failure = notFound ? null : error;
   const isLoading = error === null && !loaded;
-  const message = statusMessage(stats, error, notFound, loaded, emptyMessage);
+  const isEmpty = data !== undefined && empty !== undefined && empty.isEmpty(data);
+  const message = statusMessage(stats, error, notFound, loaded, isEmpty ? empty.message : null);
   const { status, keepFocus } = useStatusFocus(message === null && failure === null, useOutletContext<StatsOutletContext | undefined>()?.heading);
 
   const retry = () => {
@@ -50,7 +53,7 @@ export function StatsRequestState<T>({
         {message !== null && <p>{message}</p>}
         {failure !== null && <RequestFailure error={failure} fetching={isFetching} onRetry={retry} />}
       </div>
-      {!notFound && data !== undefined && emptyMessage === null && <div className={styles.content}>{children(data)}</div>}
+      {!notFound && data !== undefined && !isEmpty && <div className={styles.content}>{children(data)}</div>}
     </>
   );
 }
@@ -71,7 +74,7 @@ export function StatsTabState<T extends ReportHead>({ query, children }: { query
       <p className={warnings.length > 0 ? styles.warning : "visually-hidden"} role="status">
         {warnings.join(" ")}
       </p>
-      <StatsRequestState query={query} emptyMessage={query.data?.taskCount === 0 ? stats.noTasks : null}>
+      <StatsRequestState query={query} empty={{ isEmpty: (report) => report.taskCount === 0, message: stats.noTasks }}>
         {(report) => (
           <>
             {children(report)}
