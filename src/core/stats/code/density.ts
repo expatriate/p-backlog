@@ -1,7 +1,8 @@
 import type { Task } from "../../model/types";
 import { folderOf } from "../breakdowns";
 import { countBy, sum } from "../numbers";
-import type { CodeDensity, DensityRow, FolderDensity, ProjectCode, ProjectDensity } from "../types";
+import type { ProjectCode } from "../../code/types";
+import type { CodeDensity, DensityRow, FolderDensity, ProjectDensity } from "../types";
 
 const FOLDER_LIMIT = 8;
 const MIN_FOLDER_LINES = 500;

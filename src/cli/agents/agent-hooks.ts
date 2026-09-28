@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { claudeSettingsPath } from "../../core/claude-dir";
-import { HOOK_STOP_COMMAND } from "../../core/stats/cost/hook-signature";
+import { HOOK_STOP_COMMAND } from "../../core/hook-signature";
 import type { CliIo } from "../io";
 import { addStopHook, guardedPosixCommand, hookCommand, removeStopHook } from "../stop-hook";
 import { agentHomeDir, type Agent, type AgentPlaces } from "./agent";

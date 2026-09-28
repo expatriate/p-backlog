@@ -8,7 +8,8 @@ import { countBy, median, smallest, sum } from "../numbers";
 import { period, type Period } from "../period";
 import { grainPeriods } from "../report-periods";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
-import type { CollectedCode, CommitUnit, EffectProject, EffectReport, EffectTotals, EffectPeriod, ProjectCode } from "../types";
+import type { CollectedCode, CommitUnit, ProjectCode } from "../../code/types";
+import type { EffectProject, EffectReport, EffectTotals, EffectPeriod } from "../types";
 import { dayWindows } from "../days";
 import { statsPeriod, weekWindows } from "../weeks";
 

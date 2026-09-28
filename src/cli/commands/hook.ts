@@ -10,7 +10,7 @@ import { loadBacklog } from "../../core/store/load";
 import { findProjectForDir } from "../../core/store/resolve-project";
 import { readSignalsShown, rememberSignalsShown } from "../../core/store/signals-shown";
 import { readSessionShown, rememberSessionShown } from "../../core/store/session-shown";
-import { HOOK_STOP_EVENT, hookMessage } from "../../core/stats/cost/hook-signature";
+import { HOOK_STOP_EVENT, hookMessage } from "../../core/hook-signature";
 import { statsSignals } from "../../core/stats/signals/signals";
 import { signalsToShow } from "../../core/stats/signals/shown";
 import type { Signal } from "../../core/stats/types";

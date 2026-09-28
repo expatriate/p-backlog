@@ -3,7 +3,7 @@ import type { CliRun } from "../../store/runs";
 import type { CostCommand, CostDay, CostModel, CostPeriod, CostReport, CostTotals, ScanProgress } from "../types";
 import { totalTokens } from "./token-counts";
 import { COST_REPORT_DAYS, type UsageBucket } from "./usage-state";
-import { HOOK_STOP_COMMAND } from "./hook-signature";
+import { HOOK_STOP_COMMAND } from "../../hook-signature";
 import { costOf, splitFastModel } from "./pricing";
 import { dayRange } from "../days";
 import { DAYS_PER_WEEK, statsPeriod, weekWindows } from "../weeks";

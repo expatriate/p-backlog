@@ -1,13 +1,12 @@
 import type { Project } from "../model/types";
 import { runGit, type GitRunner } from "../git/run";
-import { fixKey, type FixRequest } from "../stats/code/fixes";
-import type { FixCommit, ProjectCode, RepoCode, ScannedCode } from "../stats/types";
 import { expandHome } from "../store/paths";
 import { remembered } from "../remembered";
 import { emptyCodeCache, type CodeCacheSnapshot, type CodeCacheStore } from "./code-cache";
 import { churnWindowStart } from "./code-window";
 import { readFixCommits, readRefs, type RepoRefs } from "./git-code";
 import { repoCodeOf, scanRepo, type RepoScan } from "./repo-scan";
+import type { FixCommit, FixRequest, ProjectCode, RepoCode, ScannedCode } from "./types";
 
 export type CodeCacheErrorKind = "read" | "write";
 
@@ -198,6 +197,10 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       return found;
     },
   };
+}
+
+export function fixKey(projectId: string, hash: string): string {
+  return `${projectId} ${hash}`;
 }
 
 function fixCacheKey(repo: string, hash: string): string {

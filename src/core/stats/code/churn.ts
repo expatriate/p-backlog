@@ -3,7 +3,8 @@ import { folderOf } from "../breakdowns";
 import type { ProjectLabel } from "../format";
 import { countBy } from "../numbers";
 import { PRIORITY_WEIGHT } from "../weights";
-import type { ChurnRow, ProjectCode } from "../types";
+import type { ProjectCode } from "../../code/types";
+import type { ChurnRow } from "../types";
 
 const CHURN_LIMIT = 8;
 

@@ -1,11 +1,12 @@
 import { CHURN_DAYS } from "../../code/code-window";
 import { lastDays } from "../report-periods";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
-import type { CodeReport, ScannedCode } from "../types";
+import type { FixRequest, ScannedCode } from "../../code/types";
+import type { CodeReport } from "../types";
 import { churn } from "./churn";
 import { scopeLabel } from "../format";
 import { density } from "./density";
-import { fixRequests, type FixRequest } from "./fixes";
+import { fixRequests } from "./fixes";
 
 export type CodeInput = StatsInput & { code: ScannedCode };
 

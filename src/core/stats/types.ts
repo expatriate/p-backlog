@@ -53,12 +53,6 @@ export type WorkStatus = "in-progress" | "blocked";
 export type LongestInWork = { id: string; projectId: string; title: string; status: WorkStatus; days: number; atLeast: boolean };
 export type FlowForecast = { closed: number; created: number; open: number; weeklyNet: number; weeks: number | null; until: string | null; windowDays: number };
 
-export type CommitUnit = { date: string; lines: number };
-export type RepoCode = { commits: string[][]; lines: { path: string; lines: number }[]; units: CommitUnit[] };
-export type ProjectCode = { projectId: string; name: string; repos: RepoCode[] };
-export type FixCommit = { date: string; landedAt?: string | undefined; byAgent: boolean; lines: number; testLines: number };
-export type ScannedCode = { projects: ProjectCode[]; unavailableRepos: string[] };
-export type CollectedCode = ScannedCode & { fixCommits: ReadonlyMap<string, FixCommit> };
 export type ChurnRow = { label: string; commits: number; tasks: number; weight: number; score: number };
 export type DensityRow = { lines: number; open: number; perKloc: number | null };
 export type ProjectDensity = DensityRow & { projectId: string; name: string };

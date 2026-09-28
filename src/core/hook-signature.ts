@@ -1,5 +1,5 @@
-import { LANGUAGES, type Language } from "../../i18n/language";
-import { coreMessages } from "../../messages";
+import { LANGUAGES, type Language } from "./i18n/language";
+import { coreMessages } from "./messages";
 
 export const HOOK_STOP_EVENT = "stop";
 export const HOOK_STOP_COMMAND = `hook ${HOOK_STOP_EVENT}`;

@@ -1,6 +1,6 @@
 import { FIELD, RECORD, resolveCommits, type GitRunner } from "../git/run";
 import { sum } from "../stats/numbers";
-import type { CommitUnit, FixCommit } from "../stats/types";
+import type { CommitUnit, FixCommit } from "./types";
 import { isTestPath } from "./test-paths";
 
 const LOCK_FILES = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"];

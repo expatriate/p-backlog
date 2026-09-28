@@ -1,5 +1,5 @@
 import type { GitRunner } from "../git/run";
-import type { CommitUnit, RepoCode } from "../stats/types";
+import type { CommitUnit, RepoCode } from "./types";
 import { churnWindowStart } from "./code-window";
 import { readCommitsSince, readLines, readUnits, type HistoryRange, type HistoryRead, type RepoRefs, type ScannedCommit } from "./git-code";
 

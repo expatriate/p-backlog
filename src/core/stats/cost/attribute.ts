@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { addTokens, tokensGrowth, totalTokens, ZERO_TOKENS, type TokenCounts } from "./token-counts";
 import type { TranscriptState, UsageBucket } from "./usage-state";
-import { isBacklogHookFeedback } from "./hook-signature";
+import { isBacklogHookFeedback } from "../../hook-signature";
 import { fastModel } from "./pricing";
 import { invokesBacklog } from "./shell-commands";
 

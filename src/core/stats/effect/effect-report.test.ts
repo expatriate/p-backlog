@@ -4,8 +4,8 @@ import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import type { Task } from "../../model/types";
 import { codeFixRequests } from "../code/code-report";
-import { fixKey } from "../code/fixes";
-import type { CollectedCode, FixCommit } from "../types";
+import { fixKey } from "../../code/code-source";
+import type { CollectedCode, FixCommit } from "../../code/types";
 import { effectReport } from "./effect-report";
 
 const NOW = new Date(2026, 8, 18, 12);

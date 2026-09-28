@@ -1,17 +1,12 @@
 import { retainedSince } from "../../model/lifecycle";
 import { closingsOf, isFixedNow, type TaskHistory } from "../history";
-import type { FixCommit } from "../types";
+import { fixKey } from "../../code/code-source";
+import type { FixCommit, FixRequest } from "../../code/types";
 
 const HASH_PATTERN = /(?<![\p{L}\p{N}])[0-9a-f]{7,40}(?![\p{L}\p{N}])/gu;
 
-export type FixRequest = { projectId: string; hashes: string[] };
-
 export function reasonHashes(reason: string | undefined): string[] {
   return reason === undefined ? [] : [...reason.matchAll(HASH_PATTERN)].map((match) => match[0]);
-}
-
-export function fixKey(projectId: string, hash: string): string {
-  return `${projectId} ${hash}`;
 }
 
 export function fixRequests(histories: readonly TaskHistory[], now: Date): FixRequest[] {

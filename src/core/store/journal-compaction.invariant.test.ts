@@ -4,7 +4,7 @@ import { CANDIDATE_EVIDENCE, candidateEvents, episodeStates, filteredEvents } fr
 import { formatLocalIso } from "../model/dates";
 import { DAY_MS } from "../model/lifecycle";
 import { PRIORITIES, TASK_CATEGORIES, type TaskStatus } from "../model/types";
-import type { CollectedCode, FixCommit } from "../stats/types";
+import type { CollectedCode, FixCommit } from "../code/types";
 import { JOURNAL_FILE, readJournal } from "./journal";
 import { compactJournal } from "./journal-compaction";
 import { taskIdsOnDisk } from "./load";

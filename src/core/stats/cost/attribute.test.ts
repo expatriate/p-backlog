@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { attributeLine, newTranscriptState } from "./attribute";
-import { isBacklogHookFeedback } from "./hook-signature";
+import { isBacklogHookFeedback } from "../../hook-signature";
 import { fastModel } from "./pricing";
 
 const CWD = "/Users/x/projects/spa";

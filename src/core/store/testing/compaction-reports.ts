@@ -4,7 +4,7 @@ import { qualityReport } from "../../stats/quality/quality-report";
 import { statsReport } from "../../stats/report";
 import { reportBase, type StatsInput } from "../../stats/scope";
 import { statsSignals } from "../../stats/signals/signals";
-import type { CollectedCode } from "../../stats/types";
+import type { CollectedCode } from "../../code/types";
 import { readJournals } from "../journal";
 import { loadBacklog, unparsedTasks } from "../load";
 

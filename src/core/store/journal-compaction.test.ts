@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { candidateEvents, episodeStates, filteredEvents } from "../journal/events";
 import { reportBase } from "../stats/scope";
-import type { CollectedCode, FixCommit } from "../stats/types";
+import type { CollectedCode, FixCommit } from "../code/types";
 import { JOURNAL_FILE, readJournal, readJournals } from "./journal";
 import { compactJournal } from "./journal-compaction";
 import { loadBacklog, taskIdsOnDisk } from "./load";
