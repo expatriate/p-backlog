@@ -6,6 +6,10 @@ export const DAYS_PER_WEEK = 7;
 
 export const WEEK_MS = DAYS_PER_WEEK * DAY_MS;
 
+export function daysBetween(from: number, to: number): number {
+  return (to - from) / DAY_MS;
+}
+
 export function formatLocalDay(date: Date): string {
   return formatLocalIso(date).slice(0, 10);
 }

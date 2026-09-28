@@ -1,7 +1,7 @@
 import type { Task } from "../../model/types";
 import { folderOf } from "../folders";
 import type { ProjectLabel } from "../format";
-import { countBy } from "../numbers";
+import { countBy } from "../../collections";
 import { PRIORITY_WEIGHT } from "../weights";
 import type { ProjectCode } from "../../code/types";
 import type { ChurnRow } from "../types";

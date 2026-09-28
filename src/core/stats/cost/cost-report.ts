@@ -8,8 +8,8 @@ import { costOf, splitFastModel } from "./pricing";
 import { dayWindows } from "../days";
 import { statsPeriod, weekWindows } from "../weeks";
 import type { Period } from "../period";
-import { groupBy } from "../numbers";
 import { sum } from "../../numbers";
+import { groupBy } from "../../collections";
 import { lastDays, lastDaysSpan, reportPeriod } from "../report-periods";
 import { remembered } from "../../remembered";
 

@@ -1,7 +1,7 @@
 import type { Task } from "../../model/types";
 import { folderOf } from "../folders";
-import { countBy } from "../numbers";
 import { sum } from "../../numbers";
+import { countBy } from "../../collections";
 import type { ProjectCode } from "../../code/types";
 import type { CodeDensity, DensityRow, FolderDensity, ProjectDensity } from "../types";
 

@@ -2,18 +2,18 @@ import { UNKNOWN } from "../journal/events";
 import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
 import { scopeLabel } from "./format";
 import { closingsIn, closingsOfIn, createdIn, isOpenAt, type TaskHistory } from "./history";
-import { daysBetween, median, nearestRank, TAIL_FRACTION } from "./numbers";
-import { sum } from "../numbers";
+import { median, nearestRank, sum } from "../numbers";
 import { trailingPeriod, type Period } from "./period";
 import { grainPeriods, lastDaysSpan } from "./report-periods";
 import { reportBase, type ReportBase, type StatsInput } from "./scope";
 import { PRIORITY_WEIGHT } from "./weights";
 import type { PreviousTotals, StatsReport, StatsTotals } from "./types";
 import { dailyFlow } from "./days";
-import { WEEK_MS } from "../model/dates";
+import { daysBetween, WEEK_MS } from "../model/dates";
 import { statsPeriod, weeklyFlow } from "./weeks";
 
 const STALE_DAYS = 30;
+const TAIL_FRACTION = 0.9;
 
 export function statsReport(input: StatsInput, base: ReportBase = reportBase(input)): StatsReport {
   const { now, projectId } = input;

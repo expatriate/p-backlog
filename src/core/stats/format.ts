@@ -1,4 +1,4 @@
-import { toPercent } from "./numbers";
+import { toPercent } from "../numbers";
 
 export type ProjectLabel = (projectId: string, label: string) => string;
 

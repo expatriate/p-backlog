@@ -1,6 +1,6 @@
 import { DAYS_PER_WEEK, formatLocalIso, WEEK_MS } from "../../model/dates";
 import { closingsIn, createdIn, type TaskHistory } from "../history";
-import { smallest } from "../numbers";
+import { smallest } from "../../numbers";
 import { trailingPeriod } from "../period";
 import type { FlowForecast } from "../types";
 

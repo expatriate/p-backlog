@@ -6,7 +6,7 @@ import type { Task } from "../../core/model/types";
 import { useMessages } from "../i18n";
 import { useProjects, useSignals, useTasks } from "../app/queries";
 import { isClosed } from "../../core/model/graph";
-import { countBy } from "../../core/stats/numbers";
+import { countBy } from "../../core/collections";
 import { RequestFailure } from "../app/RequestFailure";
 import { scopeNote, taskScope, type TaskScope } from "../app/scope";
 import { NO_VALUE } from "../labels";

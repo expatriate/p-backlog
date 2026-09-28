@@ -4,8 +4,7 @@ import type { Task } from "../model/types";
 import type { UnparsedTask } from "../store/load";
 import { isClosed } from "../model/graph";
 import { taskHistories, type TaskHistory } from "./history";
-import { smallest } from "./numbers";
-import { sum } from "../numbers";
+import { smallest, sum } from "../numbers";
 import type { ReportHead } from "./types";
 
 export type StatsInput = {

@@ -1,8 +1,7 @@
 import { STALE_LOW_DAYS, staleLowTasks } from "../../model/query";
 import { STALE_URGENT_DAYS, urgentStaleCount } from "../breakdowns";
 import { inWorkTasks } from "../flow/current";
-import { toPercent } from "../numbers";
-import { sum } from "../../numbers";
+import { sum, toPercent } from "../../numbers";
 import { trailingPeriod, type Period } from "../period";
 import type { CandidateEvidence, CheckMethod } from "../../journal/events";
 import { accuracy, decidedOf, isMeasuredEvidence, methodAccuracy } from "../quality/accuracy";

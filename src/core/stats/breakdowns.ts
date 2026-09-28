@@ -4,9 +4,9 @@ import { closingsIn, createdIn, reopeningsOf, type TaskHistory, type Transition 
 import type { AgeBreakdown, AgeBucket, ClosingBreakdown, ClosingReason, Hotspots } from "./types";
 import { folderOf } from "./folders";
 import type { ProjectLabel } from "./format";
-import { countBy, daysBetween } from "./numbers";
+import { countBy } from "../collections";
 import type { Period } from "./period";
-import { DAYS_PER_WEEK } from "../model/dates";
+import { daysBetween, DAYS_PER_WEEK } from "../model/dates";
 
 const HOTSPOT_LIMIT = 8;
 export const STALE_URGENT_DAYS = 7;

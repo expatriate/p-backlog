@@ -1,7 +1,7 @@
 import { compareIds } from "../../model/ids";
 import type { Task, TaskStatus } from "../../model/types";
 import type { TaskHistory } from "../history";
-import { daysBetween } from "../numbers";
+import { daysBetween } from "../../model/dates";
 import type { LongestInWork, WorkStatus } from "../types";
 
 export function inWorkTasks(tasks: readonly Task[], histories: readonly TaskHistory[], now: Date): LongestInWork[] {
