@@ -3,6 +3,7 @@ import { normalizeText } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 import { useMessages } from "../i18n";
 import { ToggleChip } from "../ui/Chip";
+import { focusDropped } from "../ui/focus-dropped";
 import { toggled, toggledOrUnset, withTagToggled } from "./filter-toggle";
 import { Popover, POPOVER_INITIAL_FOCUS } from "../ui/Popover";
 import { EpicPicker } from "./EpicPicker";
@@ -101,7 +102,7 @@ function useFocusAfterEpicPickerLeaves(shown: boolean, nextTarget: () => HTMLEle
   useEffect(() => {
     const left = wasShown.current && !shown;
     wasShown.current = shown;
-    if (left && document.activeElement === document.body) nextTarget()?.focus();
+    if (left && focusDropped()) nextTarget()?.focus();
   });
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from "react";
+import { focusDropped } from "./focus-dropped";
 
 export function useStatusFocus(settled: boolean, settledTarget: RefObject<HTMLElement | null> | undefined) {
   const status = useRef<HTMLDivElement>(null);
@@ -8,14 +9,14 @@ export function useStatusFocus(settled: boolean, settledTarget: RefObject<HTMLEl
     if (!watching.current) return;
     const active = document.activeElement;
     const region = status.current;
-    const focusDropped = active === document.body;
+    const dropped = focusDropped();
     const focusInStatus = active !== null && region?.contains(active) === true;
-    if (!focusDropped && !focusInStatus) {
+    if (!dropped && !focusInStatus) {
       watching.current = false;
       return;
     }
     if (!settled) {
-      if (focusDropped) region?.focus();
+      if (dropped) region?.focus();
       return;
     }
     watching.current = false;
