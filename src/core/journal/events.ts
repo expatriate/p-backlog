@@ -15,10 +15,6 @@ function recordedEnum<const T extends readonly [string, ...string[]]>(values: T)
   return z.enum([...values, UNKNOWN]).catch(UNKNOWN);
 }
 
-function unknownAsMissing<const T extends readonly [string, ...string[]]>(values: T) {
-  return z.enum(values).optional().catch(undefined);
-}
-
 export const FOUND_HOW = ["review", "incidental", "manual"] as const;
 
 export type FoundHow = (typeof FOUND_HOW)[number];
@@ -55,7 +51,7 @@ export type CandidateSighting = { task: string; evidence: CandidateEvidence; met
 
 export type FilteredSighting = { task: string; symbol: string };
 
-type MethodMarks = { method?: CheckMethod | undefined; bySymbol?: boolean | undefined; byAnchor?: boolean | undefined };
+type MethodMarks = { method?: RecordedMethod | undefined; bySymbol?: boolean | undefined; byAnchor?: boolean | undefined };
 
 export function recordedMethodOf({ method, bySymbol, byAnchor }: MethodMarks): RecordedMethod {
   if (method !== undefined) return method;
@@ -90,10 +86,10 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
   z.object({ ...eventBase, kind: z.literal("category"), from: recordedEnum(TASK_CATEGORIES).optional(), to: recordedEnum(TASK_CATEGORIES).optional() }),
   z.object({ ...eventBase, kind: z.literal("verified"), source: z.string().optional() }),
   z.object({ ...eventBase, kind: z.literal("candidate"), evidence: z.enum(CANDIDATE_EVIDENCE), mode: recordedEnum(CHECK_MODES),
-    method: unknownAsMissing(CHECK_METHODS),
+    method: recordedEnum(CHECK_METHODS).optional(),
     bySymbol: z.boolean().optional(),
     byAnchor: z.boolean().optional(),
-    match: unknownAsMissing(DUPLICATE_MATCHES),
+    match: recordedEnum(DUPLICATE_MATCHES).optional(),
   }),
   z.object({ ...eventBase, kind: z.literal("candidate-gone"), evidence: z.enum(CANDIDATE_EVIDENCE) }),
   z.object({ ...eventBase, kind: z.literal("candidate-filtered"), symbol: z.string() }),
@@ -121,7 +117,7 @@ export function hasUnknownValue(event: JournalEvent): boolean {
     case "deleted":
       return event.snapshot.priority === UNKNOWN || event.snapshot.category === UNKNOWN || event.snapshot.resolution === UNKNOWN;
     case "candidate":
-      return event.mode === UNKNOWN;
+      return event.mode === UNKNOWN || event.method === UNKNOWN || event.match === UNKNOWN;
     case "verified":
     case "candidate-gone":
     case "candidate-filtered":

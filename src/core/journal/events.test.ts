@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
 import { candidateEvents, candidateGoneEvents, episodeStates, filteredEvents } from "./episodes";
-import { changeEvents, createdEvent, deletedEvent, journalEventSchema } from "./events";
+import { changeEvents, createdEvent, deletedEvent, hasUnknownValue, journalEventSchema, UNKNOWN } from "./events";
 
 const NOW = new Date(2026, 8, 18, 12, 0, 0);
 const AT = "2026-09-18T12:00:00";
@@ -134,6 +134,16 @@ describe("новые поля и события", () => {
     ]) {
       expect(journalEventSchema.safeParse(event).success).toBe(true);
     }
+  });
+
+  it("кандидат с переименованным способом или совпадением читается как неизвестный и учитывается среди строк с неизвестным значением", () => {
+    const at = "2026-09-18T12:00:00+03:00";
+    const renamedMethod = journalEventSchema.parse({ at, task: "SPA-1", via: "check", kind: "candidate", evidence: "source-changed", mode: "full", method: "ast" });
+    const renamedMatch = journalEventSchema.parse({ at, task: "SPA-1", via: "check", kind: "candidate", evidence: "duplicate", mode: "full", match: "body" });
+
+    expect(renamedMethod).toMatchObject({ method: UNKNOWN });
+    expect(renamedMatch).toMatchObject({ match: UNKNOWN });
+    expect([renamedMethod, renamedMatch].map(hasUnknownValue)).toEqual([true, true]);
   });
 
   it("улика пропала в полном прогоне — эпизод закрыт, её возвращение даёт новый эпизод", () => {
