@@ -202,16 +202,12 @@ export function filteredEvents(filtered: readonly FilteredSighting[], states: Ep
     .map(([, { task, symbol }]) => ({ at, task, via: "check", kind: "candidate-filtered", symbol }));
 }
 
-export function candidateGoneEvents(
-  sightings: readonly CandidateSighting[],
-  tasks: readonly string[],
-  states: EpisodeStates,
-  now: Date,
-  checked: readonly CandidateEvidence[] = CANDIDATE_EVIDENCE,
-): JournalEvent[] {
+type ReviewedTasks = { sightings: readonly CandidateSighting[]; reviewed: readonly string[]; checked?: readonly CandidateEvidence[] };
+
+export function candidateGoneEvents({ sightings, reviewed, checked = CANDIDATE_EVIDENCE }: ReviewedTasks, states: EpisodeStates, now: Date): JournalEvent[] {
   const at = formatLocalIso(now);
   const seen = new Set(sightings.map((sighting) => episodeKey(sighting.task, sighting.evidence)));
-  return tasks.flatMap((task) =>
+  return reviewed.flatMap((task) =>
     checked.flatMap((evidence): JournalEvent[] => {
       const key = episodeKey(task, evidence);
       return seen.has(key) || states.get(key) !== "open" ? [] : [{ at, task, via: "check", kind: "candidate-gone", evidence }];
