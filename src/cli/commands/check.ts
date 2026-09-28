@@ -27,7 +27,7 @@ async function runCheck(args: string[], io: CliIo): Promise<ExitCode> {
   if (scope === null) return EXIT.notFound;
   const { projectIds } = scope;
 
-  const report = await checkBacklog(io.backlogRoot, loaded, { projectIds, mode: values.changed ? "changed" : "full", now: io.now(), home: io.home, messages: io.core, workingDir: io.cwd });
+  const report = await checkBacklog(io.backlogRoot, loaded, { projectIds, mode: values.changed ? "changed" : "full", now: io.now(), home: io.home, messages: io.core, warn: io.warn, workingDir: io.cwd });
   io.print(values.json ? JSON.stringify(report, null, 2) : formatReport(io.language, report));
   return needsReview(report) ? EXIT.needsReview : EXIT.ok;
 }

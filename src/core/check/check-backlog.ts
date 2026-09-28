@@ -17,7 +17,7 @@ import { creationOrigins, projectReview } from "./project-review";
 
 type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed" | "branchOriginsReadFailed">;
 
-export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string; messages: CheckTexts; workingDir?: string | undefined };
+export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string; messages: CheckTexts; warn: (line: string) => void; workingDir?: string | undefined };
 
 export type CheckReport = { fixed: CheckFix[]; problems: CheckProblem[]; candidates: Candidate[] };
 
@@ -31,7 +31,7 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const workingRoots = request.workingDir === undefined ? null : findGitRoots(request.workingDir);
   const checkouts = new Map(await Promise.all(projects.map(async (project) => [project.id, await projectCheckout(project, request.home, workingRoots)] as const)));
   const repos = new Map([...checkouts].map(([projectId, checkout]) => [projectId, checkout?.path]));
-  const originsOf = (projectId: string) => creationOrigins(root, projectId, (error) => console.error(request.messages.branchOriginsReadFailed(projectId, errorText(error))));
+  const originsOf = (projectId: string) => creationOrigins(root, projectId, (error) => request.warn(request.messages.branchOriginsReadFailed(projectId, errorText(error))));
   const reviews = await Promise.all(projects.map(async (project) => projectReview(project, current.tasks, repos.get(project.id), await originsOf(project.id), request.mode)));
   const candidates = reviews.flatMap((review) => review.candidates);
   const anchorPlans = reviews.filter((review) => checkouts.get(review.projectId)?.linkedWorktree !== true).flatMap((review) => review.plans);
@@ -46,7 +46,7 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
 
 type CheckFindings = { candidates: readonly Candidate[]; filtered: readonly FilteredSighting[]; unchecked: ReadonlyMap<string, readonly CandidateEvidence[]>; awaiting: ReadonlySet<string> };
 
-async function recordCandidates(root: string, tasks: readonly Task[], { candidates, filtered, unchecked, awaiting }: CheckFindings, { mode, now, projectIds, messages }: CheckRequest): Promise<void> {
+async function recordCandidates(root: string, tasks: readonly Task[], { candidates, filtered, unchecked, awaiting }: CheckFindings, { mode, now, projectIds, messages, warn }: CheckRequest): Promise<void> {
   const projectOf = new Map(tasks.map((task) => [task.id, task.projectId]));
   for (const projectId of projectIds) {
     const dir = join(root, projectId);
@@ -55,7 +55,7 @@ async function recordCandidates(root: string, tasks: readonly Task[], { candidat
     const reviewed = tasks.filter((task) => task.projectId === projectId && isReviewable(task) && !awaiting.has(task.id)).map((task) => task.id);
     const endsGone = mode === "full";
     if (found.length === 0 && filteredHere.length === 0 && (!endsGone || reviewed.length === 0)) continue;
-    const reportFailure = (error: unknown) => console.error(messages.candidatesRecordFailed(projectId, errorText(error)));
+    const reportFailure = (error: unknown) => warn(messages.candidatesRecordFailed(projectId, errorText(error)));
     try {
       const journal = await readJournal(dir, projectId);
       const states = episodeStates(journal.events);
