@@ -10,7 +10,7 @@ import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay } from "./charts/chart-format";
 import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, LINE_WIDTH, DATE_AXIS_PROPS, TOOLTIP_PROPS, VALUE_AXIS_WIDTH, type Grain } from "./charts/chart-style";
 import { rowTooltip } from "./charts/ChartTooltip";
-import { nonZeroDot } from "./charts/value-dot";
+import { valueDot } from "./charts/value-dot";
 import type { StatsMessages } from "./messages.ru";
 import { formatWhole } from "./value-format";
 
@@ -62,7 +62,7 @@ export function AccuracyChart({ periods, grain }: { periods: AccuracyPeriod[]; g
           stroke={PRECISION}
           strokeWidth={LINE_WIDTH}
           connectNulls
-          dot={nonZeroDot(PRECISION)}
+          dot={valueDot(PRECISION)}
           isAnimationActive={false}
         />
       </ComposedChart>
