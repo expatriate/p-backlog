@@ -14,13 +14,8 @@ export type SweeperOptions = {
 export function startSweeper({ maintain, intervalMs, log, warn, messages }: SweeperOptions): () => Promise<void> {
   let current = Promise.resolve();
   const run = async () => {
-    const outcome = await maintain().then(
-      (report) => ({ report }),
-      (error: unknown) => ({ error }),
-    );
-    const texts = await messages();
-    if (!("report" in outcome)) warn(texts.maintenanceFailed(errorText(outcome.error)));
-    else if (outcome.report !== null) logReport(outcome.report, texts, log);
+    const report = await maintain();
+    if (report !== null) logReport(report, await messages(), log);
   };
   const trigger = () => {
     current = run().catch((error: unknown) => warn(errorText(error)));

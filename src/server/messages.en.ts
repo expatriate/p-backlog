@@ -21,7 +21,6 @@ export const serverEn: ServerMessages = {
   serverStarted: (port, root) => `p-backlog: http://localhost:${port}\nBacklog directory: ${root}`,
   settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 
-  maintenanceFailed: (detail) => `Backlog maintenance stopped: ${detail}`,
   closedEpics: (ids) => `Closed completed epics: ${ids}`,
   reopenedEpics: (ids) => `Reopened epics that got an open task again: ${ids}`,
   epicsBlockedByFiles: (paths) => `Epics will not close until these files are fixed: ${paths}`,

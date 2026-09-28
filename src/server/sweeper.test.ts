@@ -47,7 +47,7 @@ describe("startSweeper", () => {
     await vi.advanceTimersByTimeAsync(1000);
     await stop();
 
-    expect(warn).toHaveBeenCalledWith("Обслуживание беклога прервалось: EACCES");
+    expect(warn).toHaveBeenCalledWith("EACCES");
     expect(log).not.toHaveBeenCalled();
     expect(sweep).toHaveBeenCalledTimes(2);
   });
