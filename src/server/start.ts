@@ -29,7 +29,7 @@ export const BUNDLED_WEB_DIR = join(import.meta.dirname, "web");
 
 export type RunningServer = { port: number; close: () => Promise<void> };
 
-export type StartServerOptions = { root: string; port: number; home: string; env: NodeJS.ProcessEnv; pidFile?: string | undefined; staticDir?: string | undefined };
+export type StartServerOptions = { root: string; port: number; home: string; env: NodeJS.ProcessEnv; pidFile?: string | undefined; staticDir?: string | undefined; now?: () => Date };
 
 type HttpServer = ReturnType<typeof serve>;
 
@@ -40,7 +40,7 @@ type BackgroundJobs = { usage: UsageScanner; memory: MemorySampler; maintain: ()
 const log = (line: string): void => void process.stdout.write(`${line}\n`);
 const warn = (line: string): void => void process.stderr.write(`${line}\n`);
 
-export async function startServer({ root, port, home, env, pidFile, staticDir }: StartServerOptions): Promise<RunningServer> {
+export async function startServer({ root, port, home, env, pidFile, staticDir, now = () => new Date() }: StartServerOptions): Promise<RunningServer> {
   await mkdir(root, { recursive: true });
 
   const settled = await settleLanguage(root, env);
@@ -50,14 +50,14 @@ export async function startServer({ root, port, home, env, pidFile, staticDir }:
   const readLanguage = () => serverLanguage(root, env);
   const readMessages = () => readLanguage().then(serverMessages);
   const warnLocalized = localizedWarn(readLanguage, warn);
-  const usage = createUsageScanner({ root, claudeProjectsDir: claudeProjectsDir(env, home), warn: warnLocalized });
-  const memory = createMemorySampler();
+  const usage = createUsageScanner({ root, claudeProjectsDir: claudeProjectsDir(env, home), warn: warnLocalized, now });
+  const memory = createMemorySampler({ now });
   const changes = createChangeFeed({ root, debounceMs: CHANGE_DEBOUNCE_MS, warn: warnLocalized });
   const allowedHosts = new Set<string>();
-  const app = createApp({ root, readLanguage, changes, allowedHosts, home, statsServices: { usage, memory, warn: warnLocalized }, staticDir });
+  const app = createApp({ root, readLanguage, changes, allowedHosts, home, statsServices: { usage, memory, warn: warnLocalized }, staticDir, now });
 
   const maintenancePlan: MaintenancePlan = { trimRuns, sweepClosed: sweepClosedAndStamp, compactJournals: compactJournalsWhenDue, serviceLog: serviceLogToTrim(process.platform, home) };
-  const maintain = async (): Promise<SweepReport | null> => runMaintenance(maintenancePlan, { root, now: new Date(), messages: coreMessages(await readLanguage()), warn });
+  const maintain = async (): Promise<SweepReport | null> => runMaintenance(maintenancePlan, { root, now: now(), messages: coreMessages(await readLanguage()), warn });
 
   const { server, port: actualPort } = await listen(app, port).catch(async (error: NodeJS.ErrnoException) => {
     await changes.close();

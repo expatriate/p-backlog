@@ -3,19 +3,40 @@ import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { writeFileAtomic } from "../core/store/fs-utils";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
-import { createChangeFeed, createDebouncer, isHiddenPath } from "./change-feed";
+import { createChangeFeed, createDebouncer, isHiddenPath, type ChangeFeed } from "./change-feed";
 
-function watchBacklog(root: string, debounceMs: number) {
-  return createChangeFeed({ root, debounceMs, warn: async () => undefined });
+async function watchedBacklog(root: string, debounceMs: number): Promise<ChangeFeed> {
+  const feed = createChangeFeed({ root, debounceMs, warn: async () => undefined });
+  onTestFinished(() => feed.close());
+  let probe = 0;
+  await vi.waitFor(async () => {
+    const seen = nextChange(feed, debounceMs + 200);
+    await writeFile(join(root, "probe.md"), String(++probe), "utf8");
+    await seen;
+  }, { timeout: 5_000, interval: 0 });
+  return feed;
 }
 
-function nextChange(feed: ReturnType<typeof watchBacklog>, timeoutMs = 2000): Promise<readonly string[]> {
+function nextChange(feed: ChangeFeed, timeoutMs = 2000): Promise<readonly string[]> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("изменение не пришло")), timeoutMs);
+    const timer = setTimeout(() => {
+      unsubscribe();
+      reject(new Error("изменение не пришло"));
+    }, timeoutMs);
     const unsubscribe = feed.subscribe((paths) => {
       clearTimeout(timer);
       unsubscribe();
       resolve(paths);
+    });
+  });
+}
+
+function changeOf(feed: ChangeFeed, path: string): Promise<void> {
+  return new Promise((resolve) => {
+    const unsubscribe = feed.subscribe((paths) => {
+      if (!paths.includes(path)) return;
+      unsubscribe();
+      resolve();
     });
   });
 }
@@ -25,9 +46,7 @@ describe("createChangeFeed", () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
     await writeFile(join(root, "spa/SPA-2.md"), "задача", "utf8");
-    const feed = watchBacklog(root, 20);
-    onTestFinished(() => feed.close());
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    const feed = await watchedBacklog(root, 20);
 
     const created = nextChange(feed);
     await writeFile(join(root, "spa/SPA-1.md"), "задача", "utf8");
@@ -41,33 +60,29 @@ describe("createChangeFeed", () => {
   it("схлопывает пачку файловых изменений в одно событие", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
-    const feed = watchBacklog(root, 300);
-    onTestFinished(() => feed.close());
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    const feed = await watchedBacklog(root, 300);
+    const paths = ["SPA-1", "SPA-2", "SPA-3"].map((id) => join(root, `spa/${id}.md`));
 
-    let calls = 0;
-    feed.subscribe(() => {
-      calls++;
-    });
-    await Promise.all(["SPA-1", "SPA-2", "SPA-3"].map((id) => writeFile(join(root, `spa/${id}.md`), id, "utf8")));
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const first = nextChange(feed);
+    await Promise.all(paths.map((path) => writeFile(path, path, "utf8")));
 
-    expect(calls).toBe(1);
+    expect([...(await first)].sort()).toEqual(paths);
   });
 
   it("после close не зовёт подписчиков", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
-    const feed = watchBacklog(root, 20);
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    const witness = await watchedBacklog(root, 20);
+    const feed = await watchedBacklog(root, 20);
 
     let calls = 0;
     feed.subscribe(() => {
       calls++;
     });
     await feed.close();
+    const witnessed = changeOf(witness, join(root, "spa/SPA-1.md"));
     await writeFile(join(root, "spa/SPA-1.md"), "задача", "utf8");
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await witnessed;
 
     expect(calls).toBe(0);
   });

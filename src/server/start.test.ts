@@ -1,13 +1,43 @@
 import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { request as httpRequest } from "node:http";
+import { subscribe, unsubscribe } from "node:diagnostics_channel";
+import { request as httpRequest, type IncomingMessage } from "node:http";
+import { connect } from "node:net";
 import { dirname, join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { coreMessages } from "../core/messages";
 import { localeLanguage, settingsFilePath } from "../core/store/settings";
 import { sweepClosedWhenDue } from "../core/store/sweep";
 import { journalWithTaskGoneLongAgo } from "../core/store/testing/stale-journal";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import { startServer } from "./start";
+
+const NOW = new Date("2026-09-18T12:00:00+03:00");
+
+function requestArrived(method: string): Promise<void> {
+  const { promise, resolve }: PromiseWithResolvers<void> = Promise.withResolvers();
+  const onRequestStart = (message: unknown) => {
+    if ((message as { request: IncomingMessage }).request.method !== method) return;
+    unsubscribe("http.server.request.start", onRequestStart);
+    resolve();
+  };
+  subscribe("http.server.request.start", onRequestStart);
+  return promise;
+}
+
+async function stoppedListening(port: number): Promise<void> {
+  await vi.waitFor(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const socket = connect(port, "127.0.0.1");
+        socket.once("connect", () => {
+          socket.destroy();
+          reject(new Error(`порт ${port} ещё принимает соединения`));
+        });
+        socket.once("error", () => resolve());
+      }),
+    { timeout: 3_000 },
+  );
+}
 
 function statusWithHost(port: number, host: string): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -82,9 +112,8 @@ describe("startServer", () => {
     const events = await fetch(`http://127.0.0.1:${server.port}/api/events`);
     expect(events.status).toBe(200);
 
-    const outcome = await Promise.race([server.close().then(() => "closed"), new Promise((resolve) => setTimeout(resolve, 3000, "hung"))]);
+    await server.close();
 
-    expect(outcome).toBe("closed");
     await expect(access(pidFile)).rejects.toThrow();
     await events.body?.cancel().catch(() => undefined);
   });
@@ -98,28 +127,29 @@ describe("startServer", () => {
     const { tasks } = (await (await fetch(`${origin}/api/tasks`)).json()) as { tasks: { id: string; version: string }[] };
     const lock = join(root, "spa", ".SPA-1.md.lock");
     await writeFile(lock, "другой процесс");
+    const patchArrived = requestArrived("PATCH");
     const patch = fetch(`${origin}/api/tasks/SPA-1`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ version: tasks[0]?.version, changes: { status: "done" } }),
     });
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await patchArrived;
 
-    const startedAt = Date.now();
-    const closed = server.close().then(() => Date.now() - startedAt);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    const closeStartedAt = performance.now();
+    const closeDuration = server.close().then(() => performance.now() - closeStartedAt);
+    await stoppedListening(server.port);
     await rm(lock);
 
     expect((await patch).status).toBe(200);
-    expect(await closed).toBeLessThan(2000);
+    expect(await closeDuration).toBeLessThan(2000);
   });
 
   it("служба при старте уплотняет журналы проектов", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
-    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/journal.jsonl": journalWithTaskGoneLongAgo(new Date()) });
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/journal.jsonl": journalWithTaskGoneLongAgo(NOW) });
 
-    const server = await startServer({ root, port: 0, home, env: {} });
+    const server = await startServer({ root, port: 0, home, env: {}, now: () => NOW });
     await server.close();
 
     const journal = await readFile(join(root, "spa", "journal.jsonl"), "utf8");
@@ -130,10 +160,10 @@ describe("startServer", () => {
   it("сбой уборки закрытых задач не мешает службе уплотнить журналы", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
-    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/journal.jsonl": journalWithTaskGoneLongAgo(new Date()) });
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/journal.jsonl": journalWithTaskGoneLongAgo(NOW) });
     await mkdir(join(root, "bbb", "project.md"), { recursive: true });
 
-    const server = await startServer({ root, port: 0, home, env: {} });
+    const server = await startServer({ root, port: 0, home, env: {}, now: () => NOW });
     await server.close();
 
     expect(await readFile(join(root, "spa", "journal.jsonl"), "utf8")).not.toContain("SPA-3");
@@ -144,10 +174,10 @@ describe("startServer", () => {
     const root = join(home, "backlog");
     await writeFiles(root, { "spa/project.md": projectFile("SPA") });
 
-    const server = await startServer({ root, port: 0, home, env: {} });
+    const server = await startServer({ root, port: 0, home, env: {}, now: () => NOW });
     await server.close();
 
-    expect(await sweepClosedWhenDue(root, new Date(), coreMessages("ru"))).toBeNull();
+    expect(await sweepClosedWhenDue(root, NOW, coreMessages("ru"))).toBeNull();
   });
 
   it.runIf(process.platform === "darwin")("служба при старте обрезает свой лог", async () => {
@@ -200,7 +230,10 @@ describe("startServer", () => {
       const doomedRoot = join(home, "backlog-2");
       await expect(startServer({ root: doomedRoot, port: first.port, home, env: { CLAUDE_CONFIG_DIR: claudeConfigDir } })).rejects.toThrow();
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const laterRoot = join(home, "backlog-3");
+      const later = await startServer({ root: laterRoot, port: 0, home, env: { CLAUDE_CONFIG_DIR: claudeConfigDir } });
+      await vi.waitFor(() => access(join(laterRoot, ".usage-cache.json")));
+      await later.close();
       await expect(access(join(doomedRoot, ".usage-cache.json"))).rejects.toThrow();
     } finally {
       await first.close();
