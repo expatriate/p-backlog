@@ -32,8 +32,7 @@ export function formatDateTime(language: Language, iso: string): string {
 }
 
 export function formatDecimal(language: Language, value: number): string {
-  const rounded = String(roundToTenth(value));
-  return language === "ru" ? rounded.replace(".", ",") : rounded;
+  return roundToTenth(value).toLocaleString(localeOf(language), { useGrouping: false });
 }
 
 export function formatMoney(language: Language, value: number | null): string {

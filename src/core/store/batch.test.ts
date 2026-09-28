@@ -1,3 +1,4 @@
+import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { batchRequestSchema } from "../api/contract";
@@ -92,6 +93,26 @@ describe("applyBatch", () => {
     expect(outcomes.find((outcome) => outcome.id === t2.id)).toMatchObject({ outcome: "skipped", reason: "changed" });
     expect(outcomes.find((outcome) => outcome.id === t1.id)).toMatchObject({ outcome: "done" });
     expect(outcomes.find((outcome) => outcome.id === t3.id)).toMatchObject({ outcome: "done" });
+  });
+
+  it("сбой записи одной задачи не теряет итог уже изменённых: она failed, остальные done", async () => {
+    const { root, t1, t2, t3 } = await setup();
+    const index = await freshIndex(root);
+    await rm(t2.path);
+    await mkdir(t2.path);
+
+    const outcomes = await applyBatch(index, {
+      tasks: [t1, t2, t3].map((task) => ({ id: task.id, version: versionOf(index, task.id) })),
+      action: { kind: "priority", priority: "critical" },
+      now: NOW,
+    });
+
+    expect(outcomes).toMatchObject([
+      { id: t1.id, outcome: "done" },
+      { id: t2.id, outcome: "skipped", reason: "failed" },
+      { id: t3.id, outcome: "done" },
+    ]);
+    expect((await freshIndex(root)).byId.get(t1.id)?.priority).toBe("critical");
   });
 
   it("закрытая задача при закрытии — already-closed", async () => {

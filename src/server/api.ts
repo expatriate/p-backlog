@@ -102,6 +102,7 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     const messages = serverMessages(body.language);
     if (result.reason === "not-found") return c.json({ errors: [messages.taskNotFound(id)] }, 404);
     if (result.reason === "conflict") return c.json({ errors: [messages.taskChangedOnDisk], current: result.current }, 409);
+    if (result.reason === "busy") return c.json({ errors: [coreMessages(body.language).fileBusy(result.path, result.lock, result.seconds)] }, 503);
     return invalidResponse(c, result, coreMessages(body.language));
   });
 
@@ -163,11 +164,12 @@ async function loadSnapshot(root: string, revision: Revision): Promise<BacklogSn
 }
 
 function invalidResponse(c: Context, result: Invalid, messages: CoreMessages) {
-  return c.json({ errors: result.errors.map(messages.problem) }, 422);
+  return c.json({ errors: result.problems.map(messages.problem) }, 422);
 }
 
 function viewOf(outcome: CoreBatchOutcome, messages: ServerMessages, core: CoreMessages): BatchOutcome {
   if (outcome.outcome === "done") return { id: outcome.id, outcome: "done", version: outcome.task.version, previous: outcome.previous };
+  if (outcome.reason === "failed") return { id: outcome.id, outcome: "skipped", reason: outcome.reason, message: messages.batchFailed(outcome.id, outcome.detail) };
   const message = outcome.reason === "invalid" && outcome.problems ? core.problems(outcome.problems) : messages.batchSkipped[outcome.reason](outcome.id);
   return { id: outcome.id, outcome: "skipped", reason: outcome.reason, message };
 }

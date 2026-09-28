@@ -3,7 +3,8 @@ import { stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { attributeLine, flushEstimates, newTranscriptState } from "../stats/cost/attribute";
 import { sum } from "../stats/numbers";
-import { DAY_MS, retainedSince, STATS_HISTORY_DAYS } from "../model/lifecycle";
+import { retainedSince } from "../model/lifecycle";
+import { statsPeriod } from "../stats/weeks";
 import { addTokens } from "../stats/cost/token-counts";
 import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
 import { listDir, NEWLINE, readAt, readFileAt, withFile } from "../store/fs-utils";
@@ -100,7 +101,7 @@ function pruneStaleBuckets(entries: Readonly<Record<string, UsageCacheEntry>>, n
 }
 
 function deletedStillReported(cache: UsageCache, listedFiles: Readonly<Record<string, UsageCacheEntry>>, now: Date): Record<string, UsageCacheEntry> {
-  const reportStart = now.getTime() - STATS_HISTORY_DAYS * DAY_MS;
+  const reportStart = statsPeriod(now).from;
   const listedSessions = new Set(Object.keys(listedFiles).map((path) => basename(path)));
   return Object.fromEntries(
     Object.entries(cache.files).filter(([path, entry]) => !listedSessions.has(basename(path)) && entry.buckets.some((bucket) => Date.parse(bucket.slot) >= reportStart)),

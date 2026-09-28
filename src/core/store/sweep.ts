@@ -7,7 +7,7 @@ import { deletedEvent } from "../journal/events";
 import type { Problem } from "../model/problems";
 import type { Project, Task } from "../model/types";
 import { runAndStamp, runWhenDue } from "./daily";
-import { FileBusyError, withAvailableLocks } from "./file-lock";
+import { withAvailableLocks } from "./file-lock";
 import { contentVersion, readTextOrNull, removeIfUnchanged, removeTemporariesBefore } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { loadBacklog, projectDirNames, type LoadedBacklog } from "./load";
@@ -25,7 +25,7 @@ export type SweepReport = {
   invalid: { id: string; errors: string[] }[];
 };
 
-type SweepFailure = { id: string; reason: "conflict" } | { id: string; reason: "invalid"; errors: Problem[] };
+type SweepFailure = { id: string; reason: "conflict" } | { id: string; reason: "invalid"; problems: Problem[] };
 
 type EpicStep = { closed: string[]; failures: SweepFailure[]; leftOpen: ReadonlySet<string>; blockingFiles: string[] };
 
@@ -147,13 +147,8 @@ async function repairRemainingTasks(tasks: readonly Task[], { skipped, removed }
 }
 
 async function repairFailure(index: BacklogIndex, task: Task, changes: TaskChanges, now: Date): Promise<SweepFailure | null> {
-  try {
-    const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now, via: "sweep" });
-    return result.ok ? null : sweepFailure(task.id, result);
-  } catch (error) {
-    if (error instanceof FileBusyError) return { id: task.id, reason: "conflict" };
-    throw error;
-  }
+  const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now, via: "sweep" });
+  return result.ok ? null : sweepFailure(task.id, result);
 }
 
 function referencedIds(task: Task): string[] {
@@ -176,9 +171,10 @@ async function removeLocked(expired: readonly Task[], now: Date): Promise<Remova
 function sweepFailure(id: string, failure: UpdateTaskFailure): SweepFailure {
   switch (failure.reason) {
     case "invalid":
-      return { id, reason: "invalid", errors: failure.errors };
+      return { id, reason: "invalid", problems: failure.problems };
     case "conflict":
     case "not-found":
+    case "busy":
       return { id, reason: "conflict" };
   }
 }
@@ -187,7 +183,7 @@ function failureLists(failures: readonly SweepFailure[], messages: CoreMessages)
   const firstPerTask = failures.filter((failure, position) => failures.findIndex(({ id }) => id === failure.id) === position);
   return {
     conflicts: firstPerTask.filter((failure) => failure.reason === "conflict").map(({ id }) => id),
-    invalid: firstPerTask.flatMap((failure) => (failure.reason === "invalid" ? [{ id: failure.id, errors: failure.errors.map(messages.problem) }] : [])),
+    invalid: firstPerTask.flatMap((failure) => (failure.reason === "invalid" ? [{ id: failure.id, errors: failure.problems.map(messages.problem) }] : [])),
   };
 }
 

@@ -2,15 +2,14 @@ import { z } from "zod";
 import type { CheckFix, CheckProblem } from "../check/findings";
 import type { GraphState } from "../check/graph-health";
 import { lineSuffix } from "../check/source-lines";
-import { formatDayMonth } from "../i18n/format";
+import { formatDayMonth, formatDecimal } from "../i18n/format";
 import { countEn, NBSP, pluralEn } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
-import { roundToTenth } from "../numbers";
-import { DAYS_PER_WEEK } from "../stats/weeks";
 import type { FlowForecast, Signal } from "../stats/types";
 import type { CoreMessages, CountUnit } from "./index";
+import { forecastOutlook, forecastSpan } from "./forecast";
 import { zodIssueText } from "./zod";
 
 const zodEn = z.locales.en().localeError;
@@ -96,17 +95,23 @@ function p90(value: number | null): string {
   return value < 1 ? "within a day" : `within ${days(value)}`;
 }
 
-function forecast({ open, weeklyNet, weeks, until }: FlowForecast): string {
-  if (open === 0) return "No open tasks";
-  if (weeks !== null && until !== null) return `Debt clears in about ${weeks} wk. (by ${formatDayMonth("en", new Date(until))})`;
-  if (weeklyNet === 0) return "Debt is not shrinking";
-  const growth = roundToTenth(-weeklyNet);
-  return `Debt grows by ${growth} ${pluralEn(growth, "task", "tasks")} a week`;
+function forecast(flow: FlowForecast): string {
+  const outlook = forecastOutlook(flow);
+  switch (outlook.kind) {
+    case "no-open":
+      return "No open tasks";
+    case "clears":
+      return `Debt clears in about ${outlook.weeks} wk. (by ${formatDayMonth("en", outlook.until)})`;
+    case "not-shrinking":
+      return "Debt is not shrinking";
+    case "grows":
+      return `Debt grows by ${formatDecimal("en", outlook.perWeek)} ${pluralEn(outlook.perWeek, "task", "tasks")} a week`;
+  }
 }
 
 function forecastTail({ windowDays, closed, created }: FlowForecast): string {
-  const span = windowDays % DAYS_PER_WEEK === 0 ? countEn(windowDays / DAYS_PER_WEEK, "week", "weeks") : countEn(windowDays, "day", "days");
-  return `over ${span}: closed ${closed}, created ${created}`;
+  const span = forecastSpan(windowDays);
+  return `over ${count(span.count, span.unit)}: closed ${closed}, created ${created}`;
 }
 
 function signal(s: Signal): string {
@@ -239,6 +244,8 @@ function fixFailureCause(p: Extract<CheckProblem, { kind: "fix-failed" }>): stri
       return "the file changed during the check";
     case "gone-during-check":
       return "the file disappeared during the check";
+    case "busy-during-check":
+      return "the file is locked by another process";
   }
 }
 

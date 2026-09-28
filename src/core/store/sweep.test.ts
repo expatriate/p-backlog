@@ -322,6 +322,22 @@ describe("sweepClosed", () => {
     expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-3")?.related).toEqual(["SPA-1"]);
   });
 
+  it("занятый эпик, который пора закрыть, не мешает удалить остальные просроченные", { timeout: 20_000 }, async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1", "type: epic\n"),
+      "spa/SPA-2.md": taskFile("SPA-2", `epic: SPA-1\nstatus: done\n${EXPIRED}`),
+      "spa/SPA-3.md": taskFile("SPA-3", `status: done\n${EXPIRED}`),
+      "spa/.SPA-1.md.lock": "другой процесс",
+    });
+
+    const report = await sweepClosed(root, NOW, RU);
+
+    expect(report).toMatchObject({ closedEpics: [], deleted: ["SPA-3"], conflicts: ["SPA-1"] });
+    expect(await exists(join(root, "spa/SPA-2.md"))).toBe(true);
+  });
+
   it("неразобранный файл, когда закрывать нечего, в итог не попадает", async () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/SPA-2.md": "сломано" });

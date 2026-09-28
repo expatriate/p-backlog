@@ -18,15 +18,16 @@ type RevParse = { topLevel: string; isMainWorktree: boolean };
 export function findGitRoots(dir: string): GitRoots | null {
   const parsed = parseRevParse(dir, runGitSync(dir, SHOW_ROOTS));
   if (parsed === null) return null;
-  const main = parsed.isMainWorktree ? parsed.topLevel : (mainWorktreeIn(runGitSync(dir, LIST_WORKTREES)) ?? parsed.topLevel);
-  return canonicalRoots(parsed.topLevel, main);
+  return rootsOf(parsed, parsed.isMainWorktree ? null : runGitSync(dir, LIST_WORKTREES));
 }
 
 export function cachedRepoRoots({ ttlMs = REPO_ROOT_TTL_MS, now = Date.now }: { ttlMs?: number; now?: () => number } = {}): RepoRootLookup {
   const known = new Map<string, { roots: Promise<GitRoots | null>; checkedAt: number }>();
+  const isFresh = ({ checkedAt }: { checkedAt: number }) => now() - checkedAt < ttlMs;
   return (dir) => {
     const cached = known.get(dir);
-    if (cached !== undefined && now() - cached.checkedAt < ttlMs) return cached.roots;
+    if (cached !== undefined && isFresh(cached)) return cached.roots;
+    for (const [knownDir, entry] of known) if (!isFresh(entry)) known.delete(knownDir);
     const roots = rootsOrPlainDir(dir);
     known.set(dir, { roots, checkedAt: now() });
     return roots;
@@ -35,12 +36,16 @@ export function cachedRepoRoots({ ttlMs = REPO_ROOT_TTL_MS, now = Date.now }: { 
 
 async function rootsOrPlainDir(dir: string): Promise<GitRoots | null> {
   const parsed = parseRevParse(dir, await runGit(dir, SHOW_ROOTS));
-  if (parsed === null) {
-    const plain = await realpath(dir).catch(() => null);
-    return plain === null ? null : { worktree: plain, main: plain };
-  }
-  const main = parsed.isMainWorktree ? parsed.topLevel : (mainWorktreeIn(await runGit(dir, LIST_WORKTREES)) ?? parsed.topLevel);
-  return canonicalRoots(parsed.topLevel, main);
+  if (parsed === null) return plainDirRoots(await realpath(dir).catch(() => null));
+  return rootsOf(parsed, parsed.isMainWorktree ? null : await runGit(dir, LIST_WORKTREES));
+}
+
+function rootsOf({ topLevel }: RevParse, worktreeList: string | null): GitRoots | null {
+  return canonicalRoots(topLevel, mainWorktreeIn(worktreeList) ?? topLevel);
+}
+
+function plainDirRoots(path: string | null): GitRoots | null {
+  return path === null ? null : { worktree: path, main: path };
 }
 
 function parseRevParse(dir: string, output: string | null): RevParse | null {
@@ -64,10 +69,8 @@ function canonicalRoots(worktreePath: string, mainPath: string): GitRoots | null
 }
 
 export function findProjectForDir(projects: readonly Project[], dir: string, home: string): Project | undefined {
-  const roots = findGitRoots(dir);
-  if (roots !== null) return findProjectForRoots(projects, roots, home);
-  const plain = realpathOrNull(dir);
-  return plain === null ? undefined : findProjectForRoots(projects, { worktree: plain, main: plain }, home);
+  const roots = findGitRoots(dir) ?? plainDirRoots(realpathOrNull(dir));
+  return roots === null ? undefined : findProjectForRoots(projects, roots, home);
 }
 
 export function findProjectForRoots(projects: readonly Project[], { worktree, main }: GitRoots, home: string): Project | undefined {

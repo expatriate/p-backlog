@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { readSignalsShown, SIGNALS_SHOWN_FILE, writeSignalsShown } from "./signals-shown";
+import { readSignalsShown, rememberSignalsShown, SIGNALS_SHOWN_FILE } from "./signals-shown";
 import { makeTempDir } from "./testing/temp-dirs";
 
 describe("показанные тревоги", () => {
@@ -9,12 +9,20 @@ describe("показанные тревоги", () => {
     const dir = await makeTempDir();
 
     expect(await readSignalsShown(dir)).toEqual({});
-    await writeSignalsShown(dir, { "urgent-stale": "2026-09-18" });
+    await rememberSignalsShown(dir, [{ kind: "urgent-stale", params: { days: 3, count: 1 } }], "2026-09-18");
     expect(await readSignalsShown(dir)).toEqual({ "urgent-stale": "2026-09-18" });
     await writeFile(join(dir, SIGNALS_SHOWN_FILE), "не json");
     expect(await readSignalsShown(dir)).toEqual({});
     await writeFile(join(dir, SIGNALS_SHOWN_FILE), "[1, 2]");
     expect(await readSignalsShown(dir)).toEqual({});
+  });
+
+  it("одновременные отметки разных хуков не затирают друг друга", async () => {
+    const dir = await makeTempDir();
+
+    await Promise.all([rememberSignalsShown(dir, [{ kind: "urgent-stale", params: { days: 3, count: 1 } }], "2026-09-18"), rememberSignalsShown(dir, [{ kind: "low-changed", params: { count: 2 } }], "2026-09-18")]);
+
+    expect(await readSignalsShown(dir)).toEqual({ "urgent-stale": "2026-09-18", "low-changed": "2026-09-18" });
   });
 
   it("файл, который нельзя прочитать, не выдаётся за пустой", async () => {

@@ -1,29 +1,28 @@
 import type { BatchAction, BatchPrevious, BatchRequest, BatchSkipReason } from "../api/contract";
 import { isClosed, type BacklogIndex } from "../model/graph";
+import { errorText } from "../errors";
 import { compareIds } from "../model/ids";
 import type { Closure } from "../model/lifecycle";
 import type { Problem } from "../model/problems";
 import type { Task } from "../model/types";
-import { FileBusyError } from "./file-lock";
 import { bufferedJournal, type JournalWriter } from "./journal";
-import { updateTaskInIndex, type TaskChanges, type UpdateTaskRequest } from "./update";
-import type { UpdateTaskResult } from "./write-result";
+import { updateTaskInIndex, type TaskChanges } from "./update";
+
+type SkipReason = Exclude<BatchSkipReason, "failed">;
 
 export type CoreBatchOutcome =
   | { id: string; outcome: "done"; task: Task; previous: BatchPrevious }
-  | { id: string; outcome: "skipped"; reason: BatchSkipReason; problems?: Problem[] };
+  | { id: string; outcome: "skipped"; reason: SkipReason; problems?: Problem[] }
+  | { id: string; outcome: "skipped"; reason: "failed"; detail: string };
 
-type Plan = { skip: BatchSkipReason } | { changes: TaskChanges; closure?: Closure | undefined };
+type Plan = { skip: SkipReason } | { changes: TaskChanges; closure?: Closure | undefined };
 
 export async function applyBatch(index: BacklogIndex, { tasks, action, now }: BatchRequest & { now: Date }): Promise<CoreBatchOutcome[]> {
   const ordered = [...tasks].sort((left, right) => compareIds(left.id, right.id));
   const journal = bufferedJournal();
   const outcomes: CoreBatchOutcome[] = [];
-  try {
-    for (const task of ordered) outcomes.push(await applyOne(index, task, { action, now, journal: journal.write }));
-  } finally {
-    await journal.flush();
-  }
+  for (const task of ordered) outcomes.push(await applyOne(index, task, { action, now, journal: journal.write }).catch((error: unknown) => failed(task.id, error)));
+  await journal.flush();
   return outcomes;
 }
 
@@ -34,21 +33,16 @@ async function applyOne(index: BacklogIndex, { id, version }: { id: string; vers
   if (!current) return { id, outcome: "skipped", reason: "not-found" };
   const plan = planFor(current, action);
   if ("skip" in plan) return { id, outcome: "skipped", reason: plan.skip };
-  const result = await updateUnlessBusy(index, { id, changes: plan.changes, closure: plan.closure, expectedVersion: version, now, via: "web", undo: action.kind === "restore", journal });
-  if (result === "busy") return { id, outcome: "skipped", reason: "busy" };
+  const result = await updateTaskInIndex(index, { id, changes: plan.changes, closure: plan.closure, expectedVersion: version, now, via: "web", undo: action.kind === "restore", journal });
   if (result.ok) return { id, outcome: "done", task: result.task, previous: previousOf(current) };
   if (result.reason === "conflict") return { id, outcome: "skipped", reason: "changed" };
   if (result.reason === "not-found") return { id, outcome: "skipped", reason: "not-found" };
-  return { id, outcome: "skipped", reason: "invalid", problems: result.errors };
+  if (result.reason === "busy") return { id, outcome: "skipped", reason: "busy" };
+  return { id, outcome: "skipped", reason: "invalid", problems: result.problems };
 }
 
-async function updateUnlessBusy(index: BacklogIndex, request: UpdateTaskRequest): Promise<UpdateTaskResult | "busy"> {
-  try {
-    return await updateTaskInIndex(index, request);
-  } catch (error) {
-    if (error instanceof FileBusyError) return "busy";
-    throw error;
-  }
+function failed(id: string, error: unknown): CoreBatchOutcome {
+  return { id, outcome: "skipped", reason: "failed", detail: errorText(error) };
 }
 
 function planFor(current: Task, action: BatchAction): Plan {

@@ -1,10 +1,10 @@
-import { access, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { Problem } from "../model/problems";
 import type { ParseResult, Project } from "../model/types";
 import { withFileLock } from "./file-lock";
-import { readTextOrNull, writeFileAtomic } from "./fs-utils";
+import { fileExists, readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { PROJECT_FILE, projectDir } from "./paths";
 
 type ProjectNotFound = { ok: false; reason: "not-found" };
@@ -40,7 +40,7 @@ export async function readProjectFile({ id, path }: Pick<Project, "id" | "path">
 }
 
 async function editProjectFile({ id, path }: Pick<Project, "id" | "path">, edit: (project: Project) => Project): Promise<ProjectWriteResult> {
-  if (!(await access(path).then(() => true, () => false))) return NOT_FOUND;
+  if (!(await fileExists(path))) return NOT_FOUND;
   return withFileLock(path, async () => {
     const parsed = await readProjectFile({ id, path });
     if (parsed === null) return NOT_FOUND;
