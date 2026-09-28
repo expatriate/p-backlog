@@ -1,4 +1,5 @@
 import { Navigate, type RouteObject } from "react-router";
+import { ROUTE_PATTERNS } from "../../core/api/web-paths";
 import { useMessages } from "../i18n";
 import { AppLayout } from "../layout/AppLayout";
 import { TaskListPage } from "../list/TaskListPage";
@@ -19,11 +20,11 @@ export const routes: RouteObject[] = [
     errorElement: <CrashScreen />,
     children: [
       { index: true, element: <TaskListPage /> },
-      { path: "t/:taskId", element: <TaskListPage /> },
-      { path: "p/:projectId", element: <TaskListPage /> },
-      { path: "p/:projectId/t/:taskId", element: <TaskListPage /> },
-      { path: "stats", lazy: loadStatsPage, children: STATS_TAB_ROUTES },
-      { path: "p/:projectId/stats", lazy: loadStatsPage, children: STATS_TAB_ROUTES },
+      { path: ROUTE_PATTERNS.task, element: <TaskListPage /> },
+      { path: ROUTE_PATTERNS.projectList, element: <TaskListPage /> },
+      { path: ROUTE_PATTERNS.projectTask, element: <TaskListPage /> },
+      { path: ROUTE_PATTERNS.stats, lazy: loadStatsPage, children: STATS_TAB_ROUTES },
+      { path: ROUTE_PATTERNS.projectStats, lazy: loadStatsPage, children: STATS_TAB_ROUTES },
     ],
   },
 ];

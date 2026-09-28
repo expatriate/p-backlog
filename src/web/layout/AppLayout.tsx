@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useRef, useState } from "react";
-import { listPath, statsPath } from "../../core/api/web-paths";
+import { listPath, ROUTE_PATTERNS, statsPath } from "../../core/api/web-paths";
 import { Link, matchPath, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import type { ProjectView } from "../../core/api/contract";
 import type { Task } from "../../core/model/types";
@@ -23,10 +23,10 @@ export function AppLayout() {
   const { layout } = useMessages();
   const { pathname, search } = useLocation();
 
-  const projectId = matchPath("/p/:projectId/*", pathname)?.params.projectId;
+  const projectId = matchPath(`${ROUTE_PATTERNS.projectList}/*`, pathname)?.params.projectId;
   const signals = useSignals(projectId);
   const signalCount = signals.data?.signals.length ?? 0;
-  const statsTab = (matchPath("/stats/*", pathname) ?? matchPath("/p/:projectId/stats/*", pathname))?.params["*"];
+  const statsTab = (matchPath(`${ROUTE_PATTERNS.stats}/*`, pathname) ?? matchPath(`${ROUTE_PATTERNS.projectStats}/*`, pathname))?.params["*"];
   const onStats = statsTab !== undefined;
   const scopePath = (id?: string) => (onStats ? `${statsPath(id)}${statsTab === "" ? "" : `/${statsTab}`}` : listPath(id));
 
