@@ -7,7 +7,7 @@ import { useMessages } from "../i18n";
 import { cx } from "../ui/cx";
 import { AgePanel } from "./AgePanel";
 import { ClosingPanel } from "./ClosingPanel";
-import { Figure } from "./Figure";
+import { Figure, type FigureTone } from "./Figure";
 import { trendOf } from "./trend";
 import { HotspotsPanel } from "./HotspotsPanel";
 import { StatsTabState } from "./StatsTabState";
@@ -57,13 +57,13 @@ function Totals({ totals }: { totals: StatsTotals }) {
         value={formatSigned(net)}
         tone={netTone(net)}
         note={stats.weekNote(totals.createdLastWeek, totals.closedLastWeek)}
-        trend={trendOf(stats, net, previous?.net ?? null, String)}
+        trend={trendOf(stats, net, previous?.net ?? null)}
       />
     </div>
   );
 }
 
-function netTone(net: number): "growth" | "decline" | undefined {
+function netTone(net: number): FigureTone | undefined {
   if (net > 0) return "growth";
   if (net < 0) return "decline";
   return undefined;
