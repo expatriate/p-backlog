@@ -3,7 +3,7 @@ import type { TaskChangesRequest } from "../../core/api/contract";
 import type { Task } from "../../core/model/types";
 import { ApiError } from "../api/client";
 import type { AppMessages } from "../app/messages.ru";
-import { TaskGoneError, useUpdateTask, type BodyEdit, type TaskChange } from "../app/queries";
+import { TaskGoneError, useUpdateTask, type BodyEdit, type TaskChange, type UpdateTaskVariables } from "../app/queries";
 import { requestErrorMessage } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import type { TaskMessages } from "./messages.ru";
@@ -17,53 +17,52 @@ type LastSave = { pending: boolean; succeeded: boolean; submittedAt: number };
 
 const CLOSED: BodyEditor = { phase: "closed" };
 
+const HTTP_CONFLICT = 409;
+
 export function useTaskSaving(task: Task) {
-  const { app, task: t } = useMessages();
+  const { app, task: taskMessages } = useMessages();
   const updateTask = useUpdateTask();
   const [bodyEditor, setBodyEditor] = useState<BodyEditor>(CLOSED);
   const [saveError, setSaveError] = useState<Error | null>(null);
-  const errorText = (error: Error) => saveErrorText(error, app, t);
+  const errorText = (error: Error) => saveErrorText(error, app, taskMessages);
 
-  const save = async (change: TaskChange): Promise<boolean> => {
+  const failureOf = async (variables: Omit<UpdateTaskVariables, "id">): Promise<Error | null> => {
     setSaveError(null);
     try {
-      await updateTask.mutateAsync({ id: task.id, change });
-      return true;
+      await updateTask.mutateAsync({ id: task.id, ...variables });
+      return null;
     } catch (error) {
-      setSaveError(asError(error));
-      return false;
+      return asError(error);
     }
   };
 
+  const save = async (change: TaskChange): Promise<boolean> => {
+    const failure = await failureOf({ change });
+    if (failure !== null) setSaveError(failure);
+    return failure === null;
+  };
+
   const saveRefs = async (change: TaskChange): Promise<RefsSaveResult> => {
-    setSaveError(null);
-    try {
-      await updateTask.mutateAsync({ id: task.id, change });
-      return { saved: true };
-    } catch (error) {
-      if (!isConflict(error)) return { saved: false, fieldError: errorText(asError(error)) };
-      setSaveError(asError(error));
-      return { saved: false, fieldError: null };
-    }
+    const failure = await failureOf({ change });
+    if (failure === null) return { saved: true };
+    if (!isConflict(failure)) return { saved: false, fieldError: errorText(failure) };
+    setSaveError(failure);
+    return { saved: false, fieldError: null };
   };
 
   const taskOrigin: BodyEdit = { version: task.version, body: task.body };
   const editBody = (text: string | null) => setBodyEditor((editor) => withBodyText(editor, text, taskOrigin));
 
-  const saveBody = async (text: string) => {
+  const saveBody = async (text: string): Promise<boolean> => {
     const from = bodyEditor.phase === "closed" ? taskOrigin : bodyEditor.draft.from;
     setBodyEditor((editor) => (editor.phase === "closed" ? editor : { phase: "saving", draft: editor.draft }));
-    setSaveError(null);
-    try {
-      await updateTask.mutateAsync({ id: task.id, change: () => ({ body: text }), bodyEdit: from });
-      setBodyEditor((editor) => (editor.phase === "closed" ? editor : { phase: "editing", draft: editor.draft, error: null }));
-    } catch (error) {
-      setBodyEditor((editor) => failedBodySave(editor, error));
-      throw error;
-    }
+    const failure = await failureOf({ change: () => ({ body: text }), bodyEdit: from });
+    setBodyEditor((editor) => (failure === null ? savedBody(editor) : failedBodySave(editor, failure)));
+    return failure === null;
   };
 
-  const bodyAlert = bodyEditor.phase === "editing" && bodyEditor.error !== null ? (isConflict(bodyEditor.error) ? t.draftConflict : errorText(bodyEditor.error)) : null;
+  const bodyError = bodyEditor.phase === "editing" ? bodyEditor.error : null;
+  const bodyAlert = bodyError === null ? null : bodyErrorText(bodyError, errorText, taskMessages);
   const lastSave: LastSave = { pending: updateTask.isPending, succeeded: updateTask.isSuccess, submittedAt: updateTask.submittedAt };
 
   return {
@@ -82,21 +81,29 @@ function withBodyText(editor: BodyEditor, text: string | null, taskOrigin: BodyE
   return { ...editor, draft: { ...editor.draft, text } };
 }
 
-function failedBodySave(editor: BodyEditor, error: unknown): BodyEditor {
+function savedBody(editor: BodyEditor): BodyEditor {
+  return editor.phase === "closed" ? editor : { phase: "editing", draft: editor.draft, error: null };
+}
+
+function failedBodySave(editor: BodyEditor, error: Error): BodyEditor {
   if (editor.phase === "closed") return editor;
   const current = error instanceof ApiError ? error.current : undefined;
   const from = current === undefined ? editor.draft.from : { version: current.version, body: current.body };
-  return { phase: "editing", draft: { ...editor.draft, from }, error: asError(error) };
+  return { phase: "editing", draft: { ...editor.draft, from }, error };
 }
 
-function saveErrorText(error: Error, app: AppMessages, t: TaskMessages): string {
-  if (isConflict(error)) return t.taskConflict;
-  if (error instanceof TaskGoneError) return t.taskGone(error.taskId);
+function bodyErrorText(error: Error, errorText: (error: Error) => string, taskMessages: TaskMessages): string {
+  return isConflict(error) ? taskMessages.draftConflict : errorText(error);
+}
+
+function saveErrorText(error: Error, app: AppMessages, taskMessages: TaskMessages): string {
+  if (isConflict(error)) return taskMessages.taskConflict;
+  if (error instanceof TaskGoneError) return taskMessages.taskGone(error.taskId);
   return requestErrorMessage(app, error);
 }
 
-function isConflict(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 409;
+function isConflict(error: Error): boolean {
+  return error instanceof ApiError && error.status === HTTP_CONFLICT;
 }
 
 function asError(error: unknown): Error {
@@ -105,9 +112,10 @@ function asError(error: unknown): Error {
 
 const SAVED_NOTE_MS = 2000;
 
-export function useSaveNote({ pending, succeeded, submittedAt }: LastSave, noAlerts: boolean, t: TaskMessages): string {
+export function useSaveNote({ pending, succeeded, submittedAt }: LastSave, cardAlerts: readonly string[]): string {
+  const { task: taskMessages } = useMessages();
   const [fadedSave, setFadedSave] = useState<number | null>(null);
-  const success = succeeded && noAlerts;
+  const success = succeeded && cardAlerts.length === 0;
 
   useEffect(() => {
     if (!success) return;
@@ -115,6 +123,6 @@ export function useSaveNote({ pending, succeeded, submittedAt }: LastSave, noAle
     return () => clearTimeout(timer);
   }, [success, submittedAt]);
 
-  if (pending) return t.saving;
-  return success && fadedSave !== submittedAt ? t.saved : "";
+  if (pending) return taskMessages.saving;
+  return success && fadedSave !== submittedAt ? taskMessages.saved : "";
 }

@@ -36,13 +36,13 @@ const TASK_LIST_ID = "task-ids";
 const EPIC_LIST_ID = "epic-ids";
 
 export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }: TaskPanelProps) {
-  const { core, task: t } = useMessages();
+  const { core, task: taskMessages } = useMessages();
   const saver = useTaskSaving(task);
   const fields = useFieldDrafts(task);
   const bodyEditing = saver.body.draft !== null;
-  useLeaveGuard(bodyEditing || fields.unsaved, bodyEditing ? t.leaveWithDraft : t.leaveWithFieldEdits);
-  const cardAlerts = distinctTexts([gone ? t.taskGone(task.id) : null, ...saver.alerts, ...fields.conflictAlerts]);
-  const saveNote = useSaveNote(saver.lastSave, cardAlerts.length === 0, t);
+  useLeaveGuard(bodyEditing || fields.unsaved, bodyEditing ? taskMessages.leaveWithDraft : taskMessages.leaveWithFieldEdits);
+  const cardAlerts = distinctTexts([gone ? taskMessages.taskGone(task.id) : null, ...saver.alerts, ...fields.conflictAlerts]);
+  const saveNote = useSaveNote(saver.lastSave, cardAlerts);
   const refOptions = useMemo(
     () => (
       <>
@@ -58,7 +58,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
 
   return (
     <SidePanel
-      label={t.cardLabel(task.id)}
+      label={taskMessages.cardLabel(task.id)}
       heading={
         <span className={styles.id} data-epic-tone={tone}>
           {task.id}
@@ -66,7 +66,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
       }
       onClose={onClose}
     >
-      <TitleField draft={fields.title} titleRef={fields.titleRef} label={t.title} onSave={(next) => saver.apply({ title: next })} />
+      <TitleField draft={fields.title} titleRef={fields.titleRef} label={taskMessages.title} onSave={(next) => saver.apply({ title: next })} />
 
       <TaskFields task={task} epicListId={EPIC_LIST_ID} knownTasks={tasks} onChange={saver.apply} tags={fields.tags} tagsRef={fields.tagsRef} epic={fields.epic} epicRef={fields.epicRef} />
 
@@ -101,7 +101,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
       />
 
       <TaskRefs
-        label={t.blockedByLabel}
+        label={taskMessages.blockedByLabel}
         ids={task.blockedBy}
         tasks={tasks}
         listId={TASK_LIST_ID}
@@ -110,7 +110,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
         onChange={(update) => saver.saveRefs((fresh) => ({ blockedBy: update(fresh.blockedBy) }))}
       />
       <TaskRefs
-        label={t.relatedLabel}
+        label={taskMessages.relatedLabel}
         ids={task.related}
         tasks={tasks}
         listId={TASK_LIST_ID}
@@ -119,13 +119,13 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
         onChange={(update) => saver.saveRefs((fresh) => ({ related: update(fresh.related) }))}
       />
 
-      <ReadonlyRefs label={t.dependentsLabel} tasks={dependentTasks(task, index)} taskHref={taskHref} />
+      <ReadonlyRefs label={taskMessages.dependentsLabel} tasks={dependentTasks(task, index)} taskHref={taskHref} />
       <ReadonlyRefs
-        label={t.referrersLabel}
+        label={taskMessages.referrersLabel}
         tasks={relatedTasks(task, index).filter((other) => !task.related.includes(other.id))}
         taskHref={taskHref}
       />
-      <ReadonlyRefs label={t.epicChildrenLabel} tasks={children} taskHref={taskHref} />
+      <ReadonlyRefs label={taskMessages.epicChildrenLabel} tasks={children} taskHref={taskHref} />
 
       {refOptions}
     </SidePanel>
@@ -138,13 +138,13 @@ function distinctTexts(texts: (string | null)[]): string[] {
 
 function TaskMeta({ task, index }: { task: Task; index: BacklogIndex }) {
   const language = useLanguage();
-  const { task: t } = useMessages();
+  const { task: taskMessages } = useMessages();
   return (
     <div className={styles.meta}>
       <StatusBadge status={task.status} />
       <ProgressBar progress={taskProgress(task, index)} />
       <span>
-        {t.createdLabel} {formatDateTime(language, task.created)}
+        {taskMessages.createdLabel} {formatDateTime(language, task.created)}
       </span>
       {task.source && <span className={styles.source}>{task.source}</span>}
     </div>
@@ -153,18 +153,18 @@ function TaskMeta({ task, index }: { task: Task; index: BacklogIndex }) {
 
 function ClosureNote({ task, onRestore }: { task: Task; onRestore: () => void }) {
   const language = useLanguage();
-  const { core, task: t } = useMessages();
+  const { core, task: taskMessages } = useMessages();
   const now = useNow();
   return (
     <div className={styles.closure}>
       <p>
-        {t.closedLabel}
+        {taskMessages.closedLabel}
         {task.closed === undefined ? "" : ` ${formatDateTime(language, task.closed)}`}
         {task.resolution !== undefined && ` · ${core.resolutionLabel(task.resolution)} — ${task.reason ?? ""}`}
       </p>
       <Countdown task={task} now={now} />
       <Button className={styles.restore} onClick={onRestore}>
-        {t.restoreToBacklog}
+        {taskMessages.restoreToBacklog}
       </Button>
     </div>
   );

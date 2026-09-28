@@ -19,7 +19,7 @@ export type TaskFieldsProps = {
 };
 
 export function TaskFields({ task, epicListId, knownTasks, onChange, tags, tagsRef, epic, epicRef }: TaskFieldsProps) {
-  const { core, task: t } = useMessages();
+  const { core, task: taskMessages } = useMessages();
   const [epicError, setEpicError] = useState<string | null>(null);
   const epicErrorId = useId();
 
@@ -37,24 +37,24 @@ export function TaskFields({ task, epicListId, knownTasks, onChange, tags, tagsR
   return (
     <>
       <div className={styles.grid}>
-        <ChoiceSelect label={t.statusField} value={task.status} choices={TASK_STATUSES} labelFor={core.statusLabel} onChange={(status) => status !== null && void onChange({ status })} />
-        <ChoiceSelect label={t.priorityField} value={task.priority} choices={PRIORITIES} labelFor={core.priorityLabel} onChange={(priority) => priority !== null && void onChange({ priority })} />
+        <ChoiceSelect label={taskMessages.statusField} value={task.status} choices={TASK_STATUSES} labelFor={core.statusLabel} onChange={(status) => status !== null && void onChange({ status })} />
+        <ChoiceSelect label={taskMessages.priorityField} value={task.priority} choices={PRIORITIES} labelFor={core.priorityLabel} onChange={(priority) => priority !== null && void onChange({ priority })} />
         <ChoiceSelect
-          label={t.categoryField}
+          label={taskMessages.categoryField}
           value={task.category}
           choices={TASK_CATEGORIES}
           labelFor={core.categoryLabel}
           emptyLabel={core.categoryLabel(undefined)}
           onChange={(category) => void onChange({ category })}
         />
-        <ChoiceSelect label={t.typeField} value={task.type} choices={TASK_TYPES} labelFor={(type) => t.typeLabels[type]} onChange={(type) => type !== null && void onChange({ type })} />
+        <ChoiceSelect label={taskMessages.typeField} value={task.type} choices={TASK_TYPES} labelFor={(type) => taskMessages.typeLabels[type]} onChange={(type) => type !== null && void onChange({ type })} />
         <label>
-          {t.epicField}
+          {taskMessages.epicField}
           <input
             ref={epicRef}
             list={epicListId}
             value={epic.value}
-            placeholder={t.epicPlaceholder}
+            placeholder={taskMessages.epicPlaceholder}
             aria-invalid={epicError !== null}
             aria-describedby={epicError === null ? undefined : epicErrorId}
             onChange={(event) => {
@@ -72,7 +72,7 @@ export function TaskFields({ task, epicListId, knownTasks, onChange, tags, tagsR
       </div>
 
       <label className={styles.tags}>
-        {t.tagsField}
+        {taskMessages.tagsField}
         <input ref={tagsRef} value={tags.value} onChange={(event) => tags.set(event.target.value)} onBlur={saveTags} />
       </label>
     </>
