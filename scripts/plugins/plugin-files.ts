@@ -9,16 +9,13 @@ const MARKETPLACE = "p-backlog";
 const OWNER = { name: "expatriate" };
 const REPOSITORY = "https://github.com/expatriate/p-backlog";
 const KEYWORDS = ["backlog", "tech-debt", "code-review", "tasks", "stop-hook"];
-const PLUGIN_DESCRIPTIONS: [Language, string][] = [
-  [
-    "en",
-    "Local backlog for coding agents: the skill files out-of-scope issues as Markdown tasks with context, the Stop hook asks to re-check tasks whose code changed. Needs the CLI: npm i -g p-backlog.",
-  ],
-  ["ru", "p-backlog with the Russian-language skill. Needs the CLI: npm i -g p-backlog."],
-];
-const PLUGINS = PLUGIN_DESCRIPTIONS.map(([language, description]) => {
+const PLUGIN_DESCRIPTIONS: Record<Language, string> = {
+  en: "Local backlog for coding agents: the skill files out-of-scope issues as Markdown tasks with context, the Stop hook asks to re-check tasks whose code changed. Needs the CLI: npm i -g p-backlog.",
+  ru: "p-backlog with the Russian-language skill. Needs the CLI: npm i -g p-backlog.",
+};
+const PLUGINS = (Object.keys(PLUGIN_DESCRIPTIONS) as Language[]).map((language) => {
   const { plugin, sourceDir } = SKILL_VARIANTS[language];
-  return { name: plugin, skillDir: join(SKILL_SOURCES_DIR, sourceDir), description };
+  return { name: plugin, skillDir: join(SKILL_SOURCES_DIR, sourceDir), description: PLUGIN_DESCRIPTIONS[language] };
 });
 const packageManifestSchema = z.object({ version: z.string(), license: z.string(), homepage: z.string() });
 const STOP_HOOK_SOURCE = "scripts/plugins/stop.mjs";
