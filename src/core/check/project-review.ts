@@ -5,7 +5,7 @@ import type { Project, Task } from "../model/types";
 import { readJournal } from "../store/journal";
 import { snippetOf } from "./anchor";
 import { mergesKnownAtCreation } from "./branch-merges";
-import { codeReview, duplicateCandidates, isReviewable, relocationPlan, reviewMark, type AnchorPlan, type Candidate, type CodeReview } from "./candidates";
+import { anchorStates, codeReview, duplicateCandidates, isReviewable, relocationPlan, reviewMark, type AnchorPlan, type Candidate, type CodeReview } from "./candidates";
 import { COVERAGE, type CheckCoverage } from "./check-coverage";
 import { currentSources } from "./current-source";
 import type { CheckProblem } from "./findings";
@@ -45,7 +45,8 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
   if (repo === undefined) return { ...nothing, candidates: coverage.findsDuplicates ? duplicateCandidates(tasks) : [], unchecked: ["source-changed", "source-missing"] };
 
   const facts = await collectRepoFacts(repo, earliestMarks(tasks));
-  const review = codeReview(tasks, facts, await mergesKnownAtCreation({ repo, tasks, facts, origins: creationCommits(origins) }));
+  const anchors = anchorStates(tasks, facts);
+  const review = codeReview(tasks, facts, await mergesKnownAtCreation({ repo, tasks, facts, anchors, origins: creationCommits(origins) }), anchors);
   const graph = openCodeGraph(repo);
   try {
     const sighted = await sightedBySymbol(tasks, review, { repo, facts, graph, coverage });

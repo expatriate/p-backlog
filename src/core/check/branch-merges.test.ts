@@ -7,6 +7,7 @@ import { makeTask } from "../model/testing/make-task";
 import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { anchorOf } from "./anchor";
 import { mergesKnownAtCreation } from "./branch-merges";
+import { anchorStates } from "./candidates";
 import { collectRepoFacts } from "./repo-facts";
 
 const CREATED = "2026-09-11T10:00:00+03:00";
@@ -34,7 +35,7 @@ describe("слияния, уже известные задаче при созд
     const facts = await collectRepoFacts(repo, new Map([["src/a.ts", Date.parse(CREATED)]]));
     const counting = countingGit();
 
-    const known = await mergesKnownAtCreation({ repo, tasks, facts, origins: new Map(tasks.map((task) => [task.id, origin])), git: counting.git });
+    const known = await mergesKnownAtCreation({ repo, tasks, facts, anchors: anchorStates(tasks, facts), origins: new Map(tasks.map((task) => [task.id, origin])), git: counting.git });
 
     expect(counting.processes()).toBe(merges.length);
     expect(known.size).toBe(0);

@@ -1,20 +1,20 @@
 import { runGit, type GitRunner } from "../git/run";
 import type { Task } from "../model/types";
 import { remembered } from "../remembered";
-import { commitsAfter, judgedByCommits, reviewMark, touches, type KnownMerges } from "./candidates";
+import { commitsAfter, judgedByCommits, reviewMark, touches, type AnchorStates, type KnownMerges } from "./candidates";
 import { sourcePath } from "./source-lines";
 import type { Commit, RepoFacts } from "./repo-facts";
 
 const MERGE_PARENTS = 2;
 
-export type MergeCheck = { repo: string; tasks: readonly Task[]; facts: RepoFacts; origins: ReadonlyMap<string, string>; git?: GitRunner };
+export type MergeCheck = { repo: string; tasks: readonly Task[]; facts: RepoFacts; anchors: AnchorStates; origins: ReadonlyMap<string, string>; git?: GitRunner };
 
 type MergeQuestion = { taskId: string; merge: Commit; origin: string; path: string };
 
-export async function mergesKnownAtCreation({ repo, tasks, facts, origins, git = runGit }: MergeCheck): Promise<KnownMerges> {
+export async function mergesKnownAtCreation({ repo, tasks, facts, anchors, origins, git = runGit }: MergeCheck): Promise<KnownMerges> {
   const questions = tasks.flatMap((task): MergeQuestion[] => {
     const origin = origins.get(task.id);
-    if (origin === undefined || task.verified !== undefined || task.source === undefined || !judgedByCommits(task, facts)) return [];
+    if (origin === undefined || task.verified !== undefined || task.source === undefined || !judgedByCommits(task, anchors)) return [];
     const path = sourcePath(task.source);
     return commitsAfter(facts.commits, reviewMark(task))
       .filter((commit) => commit.parents.length === MERGE_PARENTS && touches(commit, path))
