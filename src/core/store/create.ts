@@ -4,7 +4,7 @@ import { formatLocalIso } from "../model/dates";
 import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
 import { derivePrefix, deriveProjectId, formatId, parseId, PREFIX_PATTERN, type ParsedId } from "../model/ids";
-import { createdEvent, type ChangeSource, type Provenance } from "../journal/events";
+import { createdEvent, type Provenance } from "../journal/events";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { OptionalFields, Project, Task } from "../model/types";
 import { hasErrorCode } from "../errors";
@@ -14,18 +14,16 @@ import { PROJECT_FILE, taskFileName } from "./paths";
 import { taskIdsOnDisk } from "./load";
 import { issuedUpToOnDisk, readProjectFile } from "./projects";
 import { taskText } from "./task-text";
-import { reopenEpicOfOpenedTask } from "./update";
+import { reopenEpicOfOpenedTask, type WriteOrigin } from "./update";
 import { invalid, type CreateTaskResult } from "./write-result";
 
 type NewTaskInput = Pick<Task, "title"> &
   OptionalFields<Pick<Task, "type" | "priority" | "tags" | "epic" | "blockedBy" | "related" | "source" | "anchor" | "body" | "category">>;
 
-export type CreateTaskRequest = {
+export type CreateTaskRequest = Pick<WriteOrigin, "now" | "via"> & {
   project: Project;
   input: NewTaskInput;
   existingTasks: readonly Task[];
-  now: Date;
-  via: ChangeSource;
   provenance?: Provenance;
 };
 
@@ -46,7 +44,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
     try {
       await createFileAtomic(path, text);
       await appendJournal(dir, [createdEvent(task, request.now, request.via, request.provenance)]);
-      await reopenEpicOfOpenedTask(index, { before: undefined, after: task, now: request.now, via: request.via });
+      await reopenEpicOfOpenedTask(index, { before: undefined, after: task }, request);
       return { ok: true, task };
     } catch (error) {
       if (!hasErrorCode(error, "EEXIST")) throw error;

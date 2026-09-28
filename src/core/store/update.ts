@@ -20,15 +20,13 @@ export type TaskChanges = OptionalFields<
   anchor?: string | null | undefined;
 };
 
-export type UpdateTaskRequest = {
+export type WriteOrigin = { now: Date; via: ChangeSource; undo?: boolean | undefined; journal?: JournalWriter | undefined };
+
+export type UpdateTaskRequest = WriteOrigin & {
   id: string;
   changes: TaskChanges;
   expectedVersion: string;
-  now: Date;
   closure?: Closure | undefined;
-  via: ChangeSource;
-  undo?: boolean | undefined;
-  journal?: JournalWriter | undefined;
 };
 
 const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "related", "body", "source", "verified"] as const;
@@ -36,7 +34,7 @@ const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "relate
 export async function updateTaskInIndex(index: BacklogIndex, request: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const before = index.byId.get(request.id);
   const result = await writeChanges(index, request);
-  if (result.ok) await reopenEpicOfOpenedTask(index, { before, after: result.task, now: request.now, via: request.via, undo: request.undo, journal: request.journal });
+  if (result.ok) await reopenEpicOfOpenedTask(index, { before, after: result.task }, request);
   return result;
 }
 
@@ -45,9 +43,9 @@ export async function statusToReopen(epic: Task): Promise<TaskStatus> {
   return statusBeforeAutoClose(events, epic.id);
 }
 
-type OpenedTask = { before: Task | undefined; after: Task; now: Date; via: ChangeSource; undo?: boolean | undefined; journal?: JournalWriter | undefined };
+type OpenedTask = { before: Task | undefined; after: Task };
 
-export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, after, now, via, undo, journal }: OpenedTask): Promise<void> {
+export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, after }: OpenedTask, { now, via, undo, journal }: WriteOrigin): Promise<void> {
   if (after.epic === undefined || isClosed(after.status)) return;
   const becameOpenInEpic = before === undefined || isClosed(before.status) || before.epic !== after.epic;
   const epic = index.byId.get(after.epic);
