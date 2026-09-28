@@ -1,3 +1,4 @@
+import { MEMORY_HISTORY_MS } from "../../core/api/memory";
 import { CHURN_DAYS } from "../../core/code/code-window";
 import { formatDecimal } from "../../core/i18n/format";
 import { countRu, NBSP, pluralRu } from "../../core/i18n/plural";
@@ -17,6 +18,7 @@ import { approx, formatWhole, NO_VALUE } from "./value-format";
 const dayCount = (n: number): string => countRu(n, "день", "дня", "дней");
 const CHURN_PERIOD = dayCount(CHURN_DAYS);
 const STATS_PERIOD = countRu(STATS_WEEKS, "неделю", "недели", "недель");
+const MEMORY_HISTORY_PERIOD = countRu(MEMORY_HISTORY_MS / (60 * 60 * 1000), "час", "часа", "часов");
 const STATS_PERIOD_GENITIVE = countRu(STATS_WEEKS, "недели", "недель", "недель");
 const CHART_STEPS: Record<ChartStep, string> = { day: "дням", week: "неделям", sample: "замерам" };
 const EFFECT_WINDOW = `${STATS_PERIOD} (с внедрения, если оно позже)`;
@@ -249,7 +251,7 @@ export const statsRu = {
     `За ${countRu(periodCount, ...OVER_PERIOD_FORMS[grain])}: из-за хука ${tokens(hookTokens)}, вывод CLI и скилл ${cliTokens}, ${approx(money)}; запусков хука ${hookRuns}, других команд ${cliRuns}`,
   serverMemory: "Память сервера",
   memoryRestartNote: "После перезапуска сервера история начинается заново",
-  memorySummary: (current: string, max: string): string => `Сейчас ${current}, максимум за час ${max}`,
+  memorySummary: (current: string, max: string): string => `Сейчас ${current}, максимум за ${MEMORY_HISTORY_PERIOD} ${max}`,
   processMemory: "память процесса",
   jsHeap: "куча JavaScript",
 };

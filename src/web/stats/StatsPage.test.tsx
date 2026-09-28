@@ -464,7 +464,7 @@ describe("вкладка «Стоимость»", () => {
     const commands = screen.getByRole("region", { name: "Команды" });
     expect(within(commands).getByRole("row", { name: /list/ })).toBeDefined();
 
-    expect(await screen.findByRole("figure", { name: new RegExp(`Сейчас \\S+${NBSP}МБ, максимум за час \\S+${NBSP}МБ`) })).toBeDefined();
+    expect(await screen.findByRole("figure", { name: new RegExp(`Сейчас \\S+${NBSP}МБ, максимум за 1${NBSP}час \\S+${NBSP}МБ`) })).toBeDefined();
     expect(screen.getByText("Данные о расходе есть с 18 сент.")).toBeDefined();
   });
 
