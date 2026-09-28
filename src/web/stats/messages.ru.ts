@@ -12,7 +12,7 @@ import { STATS_DAYS } from "../../core/stats/days";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/api/contract";
 import type { ChartId, ChartStep, Grain } from "./charts/chart-style";
-import { formatApprox, isEstimated } from "./effect-format";
+import { deferredCodeLines, formatLines } from "./effect-format";
 import { approx, formatWhole } from "./value-format";
 import { NO_VALUE } from "../labels";
 import { STATS_WEEKS } from "../../core/model/history-window";
@@ -39,8 +39,8 @@ const periods = (grain: Grain, n: number): string => countRu(n, ...PERIOD_FORMS[
 const tasks = (n: number): string => countRu(n, "задача", "задачи", "задач");
 const tokens = (n: number): string => countRu(n, "токен", "токена", "токенов");
 
-function linesText(lines: number, approx: boolean): string {
-  return `${formatApprox("ru", lines, approx)}${NBSP}${pluralRu(Math.round(lines), "строка", "строки", "строк")}`;
+function linesText(lines: number, estimatedPart: number | null = null): string {
+  return `${formatLines("ru", lines, estimatedPart)}${NBSP}${pluralRu(Math.round(lines), "строка", "строки", "строк")}`;
 }
 
 export const statsRu = {
@@ -171,10 +171,8 @@ export const statsRu = {
   branchesHead: ["Ветка", "Создано", "Открыто"],
 
   linesText,
-  codeAndTests: ({ deferredLines, deferredTestLines, estimatedLines }: Pick<EffectTotals, "deferredLines" | "deferredTestLines" | "estimatedLines">): string => {
-    const approx = isEstimated(estimatedLines);
-    return `код ${formatApprox("ru", deferredLines - deferredTestLines, approx)}, тесты ${formatApprox("ru", deferredTestLines, approx)}`;
-  },
+  codeAndTests: (deferred: Pick<EffectTotals, "deferredLines" | "deferredTestLines" | "estimatedLines">): string =>
+    `код ${formatLines("ru", deferredCodeLines(deferred), deferred.estimatedLines)}, тесты ${formatLines("ru", deferred.deferredTestLines, deferred.estimatedLines)}`,
   keptOut: "Посторонних правок вынесено",
   keptOutPending: (fixed: string): string => `исправлено ${fixed}; оценка ожидающих появится после ${MIN_FIXES_FOR_ESTIMATE} исправлений`,
   keptOutEstimated: (fixed: string, pending: string): string => `исправлено ${fixed} + ожидают ${pending}`,
@@ -211,11 +209,11 @@ export const statsRu = {
   explainerTests: "Код и тесты: тестовые файлы — *.test.*, *.spec.*, *_test.*, test_*.py и каталоги test, tests, __tests__, e2e, spec. Для ожидающих — доля тестов в тех же исправлениях.",
   explainerNoise: `Шум без беклога = вынесено ÷ (строк в пулреквестах + оценка ожидающих); исправления уже внутри пулреквестов и не удваиваются. Окно — с внедрения беклога в проекте, не раньше ${STATS_PERIOD_GENITIVE} назад.`,
   now: "Сейчас:",
-  fixedNow: (fixedTasks: number, fixedLines: number): string => `${tasks(fixedTasks)} — ${linesText(fixedLines, false)}`,
+  fixedNow: (fixedTasks: number, fixedLines: number): string => `${tasks(fixedTasks)} — ${linesText(fixedLines)}`,
   noPending: "ожидающих нет",
   pendingWithoutEstimate: (openTasks: number): string => `${tasks(openTasks)}, ${ESTIMATE_LATER}`,
   pendingEstimated: (openTasks: number, estimatedLines: number, perTask: number): string =>
-    `${tasks(openTasks)} ${linesText(estimatedLines, true)}, в среднем ${approx(formatWhole("ru", perTask))} на задачу`,
+    `${tasks(openTasks)} ${linesText(estimatedLines, estimatedLines)}, в среднем ${formatLines("ru", perTask, estimatedLines)} на задачу`,
   estimateLater: ESTIMATE_LATER,
   noCommitsSinceAdoption: "нет коммитов после внедрения",
   noiseFormula: (deferred: string, real: string, estimated: string, share: string): string => `${deferred} ÷ (${real} + ${estimated}) ${share}`,

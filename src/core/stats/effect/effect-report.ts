@@ -161,6 +161,7 @@ function bucketsOf(windows: readonly Period[], deferred: readonly Deferred[], pe
       onTopicLines: Math.max(0, rawRealLines - fixedLinesInWindow),
       deferredLines,
       deferredTestLines: sum(fixedInWindow.map((item) => item.testLines)) + (estimatedInWindow?.testLines ?? 0),
+      estimatedLines: estimatedInWindow?.lines ?? null,
       deferredTasks: fixedInWindow.length + openInWindow.length,
     };
   });

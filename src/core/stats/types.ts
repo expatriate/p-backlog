@@ -91,7 +91,7 @@ export type QualityReport = ReportHead & {
 };
 
 export type EffectTotals = { realLines: number; fixedTasks: number; fixedLines: number; openTasks: number; estimatedLines: number | null; deferredLines: number; deferredTestLines: number; noiseShare: number | null };
-export type EffectPeriod = { start: string; onTopicLines: number; deferredLines: number; deferredTestLines: number; deferredTasks: number };
+export type EffectPeriod = { start: string; onTopicLines: number; deferredLines: number; deferredTestLines: number; estimatedLines: number | null; deferredTasks: number };
 export type EffectProject = { projectId: string; name: string; realLines: number; deferredTasks: number; fixedLines: number; estimatedLines: number | null; noiseShare: number | null };
 export type EffectReport = ReportHead & {
   periods: GrainPeriods;

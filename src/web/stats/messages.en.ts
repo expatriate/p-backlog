@@ -9,7 +9,7 @@ import { COST_REPORT_DAYS } from "../../core/stats/cost/usage-state";
 import { STATS_DAYS } from "../../core/stats/days";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { ChartStep, Grain } from "./charts/chart-style";
-import { formatApprox, isEstimated } from "./effect-format";
+import { deferredCodeLines, formatLines } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 import { approx, formatWhole } from "./value-format";
 import { NO_VALUE } from "../labels";
@@ -31,8 +31,8 @@ const periods = (grain: Grain, n: number): string => countEn(n, ...PERIOD_FORMS[
 const tasks = (n: number): string => countEn(n, "task", "tasks");
 const tokens = (n: number): string => countEn(n, "token", "tokens");
 
-function linesText(lines: number, approx: boolean): string {
-  return `${formatApprox("en", lines, approx)}${NBSP}${pluralEn(Math.round(lines), "line", "lines")}`;
+function linesText(lines: number, estimatedPart: number | null = null): string {
+  return `${formatLines("en", lines, estimatedPart)}${NBSP}${pluralEn(Math.round(lines), "line", "lines")}`;
 }
 
 export const statsEn: StatsMessages = {
@@ -154,10 +154,7 @@ export const statsEn: StatsMessages = {
   branchesHead: ["Branch", "Created", "Open"],
 
   linesText,
-  codeAndTests: ({ deferredLines, deferredTestLines, estimatedLines }) => {
-    const approx = isEstimated(estimatedLines);
-    return `code ${formatApprox("en", deferredLines - deferredTestLines, approx)}, tests ${formatApprox("en", deferredTestLines, approx)}`;
-  },
+  codeAndTests: (deferred) => `code ${formatLines("en", deferredCodeLines(deferred), deferred.estimatedLines)}, tests ${formatLines("en", deferred.deferredTestLines, deferred.estimatedLines)}`,
   keptOut: "Unrelated edits deferred",
   keptOutPending: (fixed) => `fixed ${fixed}; the pending estimate appears after ${MIN_FIXES_FOR_ESTIMATE} fixes`,
   keptOutEstimated: (fixed, pending) => `fixed ${fixed} + pending ${pending}`,
@@ -192,10 +189,10 @@ export const statsEn: StatsMessages = {
   explainerTests: "Code and tests: test files are *.test.*, *.spec.*, *_test.*, test_*.py and the test, tests, __tests__, e2e, spec folders. For pending ones, the share of tests in the same fixes.",
   explainerNoise: `Noise without backlog = deferred ÷ (lines in pull requests + pending estimate); fixes are already inside pull requests and are not counted twice. The window starts when the backlog was adopted in the project, no earlier than ${STATS_PERIOD} ago.`,
   now: "Now:",
-  fixedNow: (fixedTasks, fixedLines) => `${tasks(fixedTasks)} — ${linesText(fixedLines, false)}`,
+  fixedNow: (fixedTasks, fixedLines) => `${tasks(fixedTasks)} — ${linesText(fixedLines)}`,
   noPending: "nothing pending",
   pendingWithoutEstimate: (openTasks) => `${tasks(openTasks)}, ${ESTIMATE_LATER}`,
-  pendingEstimated: (openTasks, estimatedLines, perTask) => `${tasks(openTasks)} ${linesText(estimatedLines, true)}, on average ${approx(formatWhole("en", perTask))} per task`,
+  pendingEstimated: (openTasks, estimatedLines, perTask) => `${tasks(openTasks)} ${linesText(estimatedLines, estimatedLines)}, on average ${formatLines("en", perTask, estimatedLines)} per task`,
   estimateLater: ESTIMATE_LATER,
   noCommitsSinceAdoption: "no commits since adoption",
   noiseFormula: (deferred, real, estimated, share) => `${deferred} ÷ (${real} + ${estimated}) ${share}`,
