@@ -18,6 +18,7 @@ export type TaskHistory = {
   priority?: Recorded<Priority> | undefined;
   category?: Recorded<TaskCategory> | undefined;
   found?: Recorded<FoundHow> | undefined;
+  foundExplicit: boolean;
   branch?: string | undefined;
   candidates: CandidateSeen[];
   verifications: number[];
@@ -113,6 +114,7 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, prio
       priority: final?.priority ?? [...priorityEvents].sort((a, b) => a.at - b.at).at(-1)?.to ?? created?.priority,
       category: categoryOf(final, created, categoryEvents),
       found: created?.found,
+      foundExplicit: created?.foundExplicit === true,
       branch: created?.origin?.branch,
       candidates: [...candidates].sort((a, b) => a.at - b.at),
       verifications: [...verifications].sort((a, b) => a - b),

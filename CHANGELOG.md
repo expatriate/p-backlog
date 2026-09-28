@@ -28,11 +28,11 @@
   The "90 days" code churn caption spans exactly 90 calendar days. The Effect chart's bars are labelled "on topic in
   pull requests": pull request lines without the fixes of backlog tasks; "in pull requests" everywhere else means all
   lines of the commits.
-- Effect counts only tasks the agent moved out of its work in passing (`--found incidental`). Review and audit
-  findings, tasks recorded at the user's request and older tasks with no record of how they were found are no longer
-  counted as a gain; they stay on the Quality tab under Origin. `backlog new` now defaults to `--found manual`, and the
-  skill tells the agent to pass `--found incidental` for problems it noticed itself. Effect numbers drop after updating
-  until new tasks are recorded this way.
+- Effect counts only tasks the agent explicitly recorded with `--found incidental`. Review and audit findings, tasks
+  recorded at the user's request and every task recorded before this version (earlier versions wrote `incidental` by
+  default, so those cannot be told apart) are no longer counted as a gain; they stay on the Quality tab under Origin.
+  `backlog new` now defaults to `--found manual`, and the skill tells the agent to pass `--found incidental` for
+  problems it noticed itself. Effect numbers drop after updating until new tasks are recorded this way.
 - After updating, reinstall the service (`backlog service install`) so the running server serves the new API.
 
 ## 0.6.0

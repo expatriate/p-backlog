@@ -178,7 +178,7 @@ export const statsEn: StatsMessages = {
   effectDaysSummary: (days, onTopicLines, deferred) => `Over ${periods("day", days)}: ${countEn(onTopicLines, "line", "lines")} on topic in pull requests, deferred ${deferred}`,
   explainerTitle: "How the gain is calculated",
   explainerTask:
-    "Every task the agent moved out of its work in passing is an edit it would have made in the current pull request without the backlog. The gain is the lines that did not get there. Review and audit findings, tasks recorded at the user's request and tasks with no record of how they were found are not counted — they are shown on the Quality tab under Origin.",
+    "Every task the agent moved out of its work in passing is an edit it would have made in the current pull request without the backlog. The gain is the lines that did not get there. Review and audit findings, tasks recorded at the user's request and tasks without an explicit “incidentally” mark — including every task recorded before the version that introduced it — are not counted. They are shown on the Quality tab under Origin.",
   explainerFixed:
     "Fixed ones are exact: lines of the commit from the close reason, without lock files, docs and images; a commit for several tasks is split evenly. Tasks closed without a fix and fixed ones without a found commit are not counted.",
   explainerPending: `Pending ones are estimated: the median of fixes in the same category (if there are at least ${MIN_FIXES_FOR_ESTIMATE}), otherwise of all fixes.`,

@@ -32,7 +32,7 @@ export function effectReport(
   const statsWindow = statsPeriod(now);
   const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
   const retainedFixes = (pool: readonly TaskHistory[]) => pool.filter((history) => closedSince(history, retainedSince(now)));
-  const deferredByAgent = histories.filter((history) => history.found === "incidental" && statsWindow.contains(history.createdAt));
+  const deferredByAgent = histories.filter((history) => history.found === "incidental" && history.foundExplicit && statsWindow.contains(history.createdAt));
   const deferred = buildDeferred(deferredByAgent, retainedFixes(histories), code);
   const estimate = estimator(estimateSamples(retainedFixes(wholeBacklog.histories), code));
   const adoptionStart = (id: string) => {

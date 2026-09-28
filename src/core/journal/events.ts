@@ -25,7 +25,7 @@ export type FoundHow = (typeof FOUND_HOW)[number];
 
 export type TaskOrigin = { branch?: string | undefined; commit: string };
 
-export type Provenance = { found?: FoundHow | undefined; origin?: TaskOrigin | undefined };
+export type Provenance = { found?: FoundHow | undefined; foundExplicit?: true | undefined; origin?: TaskOrigin | undefined };
 
 export const CANDIDATE_EVIDENCE = ["source-changed", "source-missing", "duplicate", "no-source"] as const;
 
@@ -86,6 +86,7 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
     epic: z.string().optional(),
     category: recordedEnum(TASK_CATEGORIES).optional(),
     found: recordedEnum(FOUND_HOW).optional(),
+    foundExplicit: z.literal(true).optional().catch(undefined),
     origin: z.object({ branch: z.string().optional(), commit: z.string().min(1) }).optional(),
   }),
   z.object({ ...eventBase, kind: z.literal("status"), from: z.enum(TASK_STATUSES), to: z.enum(TASK_STATUSES), resolution: recordedEnum(RESOLUTIONS).optional() }),
@@ -146,6 +147,7 @@ export function createdEvent(task: Task, now: Date, via: ChangeSource, provenanc
     epic: task.epic,
     category: task.category,
     found: provenance.found,
+    foundExplicit: provenance.foundExplicit,
     origin: provenance.origin,
   };
 }
