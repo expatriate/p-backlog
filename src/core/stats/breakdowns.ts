@@ -1,6 +1,6 @@
 import { UNKNOWN } from "../journal/events";
 import { PRIORITIES, type Priority, type Task } from "../model/types";
-import { closingsOf, reopeningsOf, type TaskHistory, type Transition } from "./history";
+import { closingsIn, createdIn, reopeningsOf, type TaskHistory, type Transition } from "./history";
 import type { AgeBreakdown, AgeBucket, ClosingBreakdown, ClosingReason, Hotspots } from "./types";
 import { folderOf } from "./folders";
 import type { ProjectLabel } from "./format";
@@ -10,10 +10,12 @@ import { DAYS_PER_WEEK } from "../model/dates";
 
 const HOTSPOT_LIMIT = 8;
 export const STALE_URGENT_DAYS = 7;
+const DAYS_PER_MONTH = 30;
+const DAYS_PER_QUARTER = 90;
 const AGE_LIMITS: readonly { bucket: AgeBucket; belowDays: number }[] = [
   { bucket: "week", belowDays: DAYS_PER_WEEK },
-  { bucket: "month", belowDays: 30 },
-  { bucket: "quarter", belowDays: 90 },
+  { bucket: "month", belowDays: DAYS_PER_MONTH },
+  { bucket: "quarter", belowDays: DAYS_PER_QUARTER },
   { bucket: "older", belowDays: Number.POSITIVE_INFINITY },
 ];
 
@@ -43,8 +45,8 @@ export function urgentStaleCount(openTasks: readonly Task[], now: Date): number 
 }
 
 export function closingBreakdown(histories: readonly TaskHistory[], period: Period): ClosingBreakdown {
-  const closings = histories.flatMap(closingsOf).filter((closing) => period.contains(closing.at));
-  const created = histories.filter((history) => period.contains(history.createdAt));
+  const closings = closingsIn(histories, period);
+  const created = createdIn(histories, period);
   const byReason: Record<ClosingReason, number> = { done: 0, fixed: 0, obsolete: 0, duplicate: 0, cancelled: 0, unknown: 0 };
   for (const closing of closings) byReason[closingReason(closing)] += 1;
   return {

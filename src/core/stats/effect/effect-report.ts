@@ -3,7 +3,7 @@ import { isClosed } from "../../model/graph";
 import { UNKNOWN, type Recorded } from "../../journal/events";
 import type { TaskCategory } from "../../model/types";
 import { fixCommitEntry, retainedFixes, type FixCommitEntry } from "../code/fixes";
-import { isFixedNow, type TaskHistory } from "../history";
+import { createdIn, isFixedNow, type TaskHistory } from "../history";
 import { countBy, median, smallest } from "../numbers";
 import { sum } from "../../numbers";
 import { period, type Period } from "../period";
@@ -34,7 +34,7 @@ export function effectReport(
   const { histories } = base;
   const statsWindow = statsPeriod(now);
   const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
-  const deferredByAgent = histories.filter((history) => history.found === "incidental" && statsWindow.contains(history.createdAt));
+  const deferredByAgent = createdIn(histories, statsWindow).filter((history) => history.found === "incidental");
   const deferred = buildDeferred(deferredByAgent, retainedFixes(histories, now), code);
   const estimate = estimator(estimateSamples(retainedFixes(wholeBacklog.histories, now), code));
   const adoptionStart = (id: string) => {
@@ -124,6 +124,8 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
   const fixedLines = sum(fixed.map((item) => item.lines));
   const deferredLines = fixedLines + (estimatedLines ?? 0);
   const denominator = realLines + (estimatedLines ?? 0);
+  const openSizeUnknown = estimatedLines === null && open.length > 0;
+  const measurable = realLines > 0 && deferred.length > 0 && !openSizeUnknown;
   return {
     realLines,
     fixedTasks: fixed.length,
@@ -132,7 +134,7 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
     estimatedLines,
     deferredLines,
     deferredTestLines: sum(fixed.map((item) => item.testLines)) + (estimated?.testLines ?? 0),
-    noiseShare: realLines === 0 || deferred.length === 0 || (estimatedLines === null && open.length > 0) ? null : Math.min(1, deferredLines / denominator),
+    noiseShare: measurable ? Math.min(1, deferredLines / denominator) : null,
   };
 }
 

@@ -1,12 +1,11 @@
 import { CHURN_DAYS } from "../../code/code-window";
 import { lastDays } from "../report-periods";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
-import type { FixRequest, ScannedCode } from "../../code/types";
+import type { ScannedCode } from "../../code/types";
 import type { CodeReport } from "../types";
 import { churn } from "./churn";
 import { scopeLabel } from "../format";
 import { density } from "./density";
-import { fixRequests } from "./fixes";
 
 export type CodeInput = StatsInput & { code: ScannedCode };
 
@@ -21,8 +20,4 @@ export function codeReport({ code, ...input }: CodeInput, base: ReportBase = rep
     churn: churn(openTasks, projects, scopeLabel(projectId)),
     density: density(openTasks, projects, projectId),
   };
-}
-
-export function codeFixRequests(input: StatsInput, base: ReportBase = reportBase(input)): FixRequest[] {
-  return fixRequests(base.histories, input.now);
 }

@@ -1,14 +1,9 @@
-import { formatLocalDay } from "../model/dates";
 import { flowOver } from "./flow/flow-over";
 import type { TaskHistory } from "./history";
 import { consecutivePeriods, type Period } from "./period";
 import type { FlowPeriod } from "./types";
 
 export const STATS_DAYS = 30;
-
-export function dayRange(now: Date, count: number): string[] {
-  return dayStarts(now, count).map(formatLocalDay);
-}
 
 export function dailyFlow(histories: readonly TaskHistory[], now: Date): FlowPeriod[] {
   return flowOver(dayWindows(now), histories);

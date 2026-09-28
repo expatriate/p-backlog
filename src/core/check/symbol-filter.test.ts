@@ -8,7 +8,7 @@ import { openCodeGraph } from "../graph/code-graph";
 import { makeGraph } from "../graph/testing/make-graph";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import type { Candidate } from "./candidates";
-import { duplicateCandidates } from "./candidates";
+import { duplicateCandidates } from "./duplicates";
 import { fileHashes, filterBySymbol, symbolLookup, symbolNames, type SymbolLookup } from "./symbol-filter";
 import type { CodeGraph } from "../graph/code-graph";
 import { diffsSince, type DiffSince } from "./repo-facts";

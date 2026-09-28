@@ -45,7 +45,7 @@ function priceOf(modelKey: string): ModelPrice | null {
   const { model, fast } = splitFastModel(modelKey);
   const baseId = baseModelId(model);
   const price = PRICE_TABLE.get(baseId);
-  if (!price) return null;
+  if (price === undefined) return null;
   if (!fast) return price;
   if (!FAST_PRICED_MODELS.has(baseId)) return null;
   return { input: price.input * FAST_PRICE_FACTOR, output: price.output * FAST_PRICE_FACTOR, cacheRead: price.cacheRead * FAST_PRICE_FACTOR };
@@ -53,7 +53,7 @@ function priceOf(modelKey: string): ModelPrice | null {
 
 export function costOf(model: string, tokens: TokenCounts): number | null {
   const price = priceOf(model);
-  if (!price) return null;
+  if (price === null) return null;
   const { input, cacheWrite5m, cacheWrite1h, cacheRead, output } = tokens;
   const total = input * price.input + cacheWrite5m * price.input * CACHE_WRITE_5M_FACTOR + cacheWrite1h * price.input * CACHE_WRITE_1H_FACTOR + cacheRead * price.cacheRead + output * price.output;
   return total / TOKENS_PER_PRICE;

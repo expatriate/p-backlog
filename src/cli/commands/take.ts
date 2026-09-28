@@ -1,6 +1,6 @@
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
-import { sourcePath } from "../../core/check/source-lines";
+import { sourcePath } from "../../core/model/source";
 import { buildIndex, epicChildren, isClosed, openBlockers, type BacklogIndex } from "../../core/model/graph";
 import { isQueuedTask, pickNextTask } from "../../core/model/query";
 import type { Project, Task } from "../../core/model/types";

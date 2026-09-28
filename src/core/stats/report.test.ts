@@ -176,7 +176,7 @@ describe("заведённые задачи по дням", () => {
   it("задачи за сегодня: заведено и закрыто, только по выбранной области", () => {
     const closedToday = [
       ...dayTasks,
-      makeTask({ id: "SPA-5", created: formatLocalIso(at(10)), status: "done", closed: formatLocalIso(at(18, 15)) }),
+      makeTask({ id: "SPA-5", created: formatLocalIso(at(10)), status: "done", closed: formatLocalIso(at(18, 10)) }),
       makeTask({ id: "SPA-6", created: formatLocalIso(at(10)), status: "done", closed: formatLocalIso(at(17)) }),
       makeTask({ id: "TI-2", projectId: "ti", created: formatLocalIso(at(10)), status: "done", closed: formatLocalIso(at(18)) }),
     ];

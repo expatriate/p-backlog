@@ -1,9 +1,7 @@
 import { createHash } from "node:crypto";
-import { SOURCE_LINES } from "./source-lines";
+import { SOURCE_LINES } from "../model/source";
 
 type SourceSpan = { first: number; last: number; context: number; isRange: boolean };
-type Window = { from: number; to: number };
-
 const LINE_CONTEXT = 2;
 const SNIPPET_CONTEXT = 5;
 const HASH_LENGTH = 12;
@@ -77,12 +75,12 @@ function sourceSpan(source: string): SourceSpan | null {
   return match[2] === undefined ? { first, last: first, context: LINE_CONTEXT, isRange: false } : { first, last: Number(match[2]), context: 0, isRange: true };
 }
 
-function windowOf(span: SourceSpan, lineCount: number): Window | null {
+function windowOf(span: SourceSpan, lineCount: number): LineRange | null {
   if (span.first > lineCount) return null;
   return { from: Math.max(1, span.first - span.context), to: Math.min(lineCount, span.last + span.context) };
 }
 
-function parseAnchor(anchor: string): (Window & { hash: string }) | null {
+function parseAnchor(anchor: string): (LineRange & { hash: string }) | null {
   const match = ANCHOR_FORMAT.exec(anchor);
   return match === null ? null : { hash: match[1] ?? "", from: Number(match[2]), to: Number(match[3]) };
 }

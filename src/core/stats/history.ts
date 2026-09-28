@@ -1,6 +1,7 @@
 import { recordedMethodOf, UNKNOWN, type Recorded, type CandidateEvidence, type ChangeSource, type RecordedMatch, type RecordedMethod, type FoundHow, type JournalEvent, type ProjectJournal, type TaskSnapshot } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Priority, Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
+import type { Period } from "./period";
 
 const CREATED_STATUS: TaskStatus = "backlog";
 
@@ -104,6 +105,18 @@ function isClosing(transition: Transition): boolean {
 
 export function closingsOf(history: TaskHistory): Transition[] {
   return history.transitions.filter(isClosing);
+}
+
+export function closingsOfIn(history: TaskHistory, span: Period): Transition[] {
+  return closingsOf(history).filter((closing) => span.contains(closing.at));
+}
+
+export function closingsIn(histories: readonly TaskHistory[], span: Period): Transition[] {
+  return histories.flatMap((history) => closingsOfIn(history, span));
+}
+
+export function createdIn(histories: readonly TaskHistory[], span: Period): TaskHistory[] {
+  return histories.filter((history) => span.contains(history.createdAt));
 }
 
 export function isFixedNow(history: TaskHistory): boolean {

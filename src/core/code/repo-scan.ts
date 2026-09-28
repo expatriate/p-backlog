@@ -1,5 +1,5 @@
 import type { GitRunner } from "../git/run";
-import type { CommitUnit, RepoCode } from "./types";
+import type { CommitUnit, FileLines, RepoCode } from "./types";
 import { churnWindowStart } from "./code-window";
 import { readCommitsSince, readLines, readUnits, type HistoryRange, type HistoryRead, type RepoRefs, type ScannedCommit } from "./git-code";
 
@@ -8,7 +8,7 @@ export type RepoScan = {
   main: string | null;
   commits: ScannedCommit[];
   units: CommitUnit[];
-  lines: { path: string; lines: number }[];
+  lines: FileLines[];
 };
 
 export async function scanRepo(git: GitRunner, repo: string, { refs, now, previous }: { refs: RepoRefs; now: Date; previous: RepoScan | undefined }): Promise<RepoScan | null> {

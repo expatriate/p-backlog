@@ -1,6 +1,6 @@
 import type { Recorded } from "../../journal/events";
 import type { Task, TaskCategory } from "../../model/types";
-import { closingsOf, type TaskHistory } from "../history";
+import { closingsOfIn, createdIn, type TaskHistory } from "../history";
 import type { Period } from "../period";
 import { PRIORITY_WEIGHT } from "../weights";
 import type { CategoryRow } from "../types";
@@ -20,10 +20,8 @@ export function categoryBreakdown(openTasks: readonly Task[], histories: readonl
     target.open += 1;
     target.weight += PRIORITY_WEIGHT[task.priority];
   }
-  for (const history of histories) {
-    if (period.contains(history.createdAt)) row(history.category).created += 1;
-    row(history.category).closed += closingsOf(history).filter((closing) => period.contains(closing.at)).length;
-  }
+  for (const history of createdIn(histories, period)) row(history.category).created += 1;
+  for (const history of histories) row(history.category).closed += closingsOfIn(history, period).length;
   return [...rows.values()]
     .filter((entry) => entry.open + entry.created + entry.closed > 0)
     .sort(

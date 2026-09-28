@@ -5,6 +5,7 @@ import { isBacklogHookFeedback } from "../../hook-signature";
 import { fastModel } from "./pricing";
 import { invokesBacklog } from "./shell-commands";
 import { SKILL_NAME } from "../../skill-name";
+import { HOUR_MS } from "../../model/dates";
 
 type LineContext = { slot: string; cwd: string };
 
@@ -22,7 +23,11 @@ const CHARS_PER_TOKEN = 3;
 
 const PENDING_TOOL_LIMIT = 64;
 
-const ZONE_OFFSET_STEP_MS = 15 * 60 * 1000;
+const ZONE_OFFSETS_PER_HOUR = 4;
+
+const ZONE_OFFSET_STEP_MS = HOUR_MS / ZONE_OFFSETS_PER_HOUR;
+
+const BASH_TOOL = "Bash";
 
 const usageSchema = z
   .object({
@@ -70,7 +75,14 @@ export function attributeLine(line: unknown, state: TranscriptState): UsageBucke
   const context: LineContext = { slot: typeof timestamp === "string" ? slotOf(timestamp) : "", cwd: cwd ?? "" };
 
   if (type === "assistant") return attributeAssistant(message, state, context);
-  if (type === "user") return attributeUser(message, isMeta === true, state, context);
+  if (type !== "user") return [];
+  const content = userContentOf(message);
+  if (isToolResultOnly(content)) {
+    resolveToolResults(content, state, context);
+    return [];
+  }
+  if (isMeta === true) return attributeMetaText(textOf(content), state, context);
+  state.hookOpen = false;
   return [];
 }
 
@@ -80,7 +92,7 @@ function attributeAssistant(rawMessage: unknown, state: TranscriptState, context
   const { id, model, usage, content } = message.data;
   const buckets: UsageBucket[] = [];
   const repeatOfCountedMessage = id !== undefined && id === state.lastMessageId;
-  if (model && model !== SYNTHETIC_MODEL && usage) {
+  if (usage !== undefined && isPricedModel(model)) {
     const pricedModel = usage.speed === FAST_SPEED ? fastModel(model) : model;
     const tokens = tokensFrom(usage);
     if (repeatOfCountedMessage) {
@@ -96,41 +108,36 @@ function attributeAssistant(rawMessage: unknown, state: TranscriptState, context
       buckets.push(...drainEstimates(state, pricedModel));
     }
   }
-  if (content) for (const block of content) registerToolUseBlock(block, state);
+  if (content !== undefined) for (const block of content) registerToolUseBlock(block, state);
   return buckets;
 }
 
-function attributeUser(rawMessage: unknown, isMeta: boolean, state: TranscriptState, context: LineContext): UsageBucket[] {
+function isPricedModel(model: string | undefined): model is string {
+  return model !== undefined && model !== "" && model !== SYNTHETIC_MODEL;
+}
+
+function userContentOf(rawMessage: unknown): unknown {
   const message = userMessageSchema.safeParse(rawMessage);
-  const content = message.success ? message.data.content : undefined;
+  return message.success ? message.data.content : undefined;
+}
 
-  if (isToolResultOnly(content)) {
-    resolveToolResults(content, state, context);
-    return [];
+function attributeMetaText(text: string, state: TranscriptState, context: LineContext): UsageBucket[] {
+  if (isBacklogHookFeedback(text)) {
+    state.hookOpen = true;
+    return [{ ...context, model: state.lastModel ?? UNKNOWN_MODEL, kind: "hook", tokens: ZERO_TOKENS, hookTurns: 1 }];
   }
-
-  if (isMeta) {
-    const text = textOf(content);
-    if (isBacklogHookFeedback(text)) {
-      state.hookOpen = true;
-      return [{ ...context, model: state.lastModel ?? UNKNOWN_MODEL, kind: "hook", tokens: ZERO_TOKENS, hookTurns: 1 }];
-    }
-    if (!state.hookOpen && text.startsWith(SKILL_PREAMBLE) && text.includes(BACKLOG_SKILL_PATH)) {
-      state.pendingEstimates.push({ kind: "skill", chars: text.length, ...context });
-    }
-    return [];
+  if (!state.hookOpen && text.startsWith(SKILL_PREAMBLE) && text.includes(BACKLOG_SKILL_PATH)) {
+    state.pendingEstimates.push({ kind: "skill", chars: text.length, ...context });
   }
-
-  state.hookOpen = false;
   return [];
 }
 
 function resolveToolResults(blocks: unknown[], state: TranscriptState, context: LineContext): void {
   for (const raw of blocks) {
     const block = toolResultBlockSchema.safeParse(raw);
-    if (!block.success || !block.data.tool_use_id) continue;
+    if (!block.success || block.data.tool_use_id === undefined) continue;
     const kind = state.pending[block.data.tool_use_id];
-    if (!kind) continue;
+    if (kind === undefined) continue;
     if (!state.hookOpen) state.pendingEstimates.push({ kind, chars: textOf(block.data.content).length, ...context });
     Reflect.deleteProperty(state.pending, block.data.tool_use_id);
   }
@@ -139,7 +146,7 @@ function resolveToolResults(blocks: unknown[], state: TranscriptState, context: 
 function registerToolUseBlock(raw: unknown, state: TranscriptState): void {
   const block = toolUseBlockSchema.safeParse(raw);
   if (!block.success) return;
-  if (block.data.name === "Bash") {
+  if (block.data.name === BASH_TOOL) {
     const input = bashInputSchema.safeParse(block.data.input);
     if (!input.success || !invokesBacklog(input.data.command)) return;
     state.pending[block.data.id] = "cli";
@@ -188,8 +195,8 @@ function textOf(content: unknown): string {
 
 function tokensFrom(usage: Usage): TokenCounts {
   const creation = usage.cache_creation;
-  const cacheWrite5m = creation ? (creation.ephemeral_5m_input_tokens ?? 0) : (usage.cache_creation_input_tokens ?? 0);
-  const cacheWrite1h = creation ? (creation.ephemeral_1h_input_tokens ?? 0) : 0;
+  const cacheWrite5m = creation === undefined ? (usage.cache_creation_input_tokens ?? 0) : (creation.ephemeral_5m_input_tokens ?? 0);
+  const cacheWrite1h = creation === undefined ? 0 : (creation.ephemeral_1h_input_tokens ?? 0);
   return { input: usage.input_tokens ?? 0, cacheWrite5m, cacheWrite1h, cacheRead: usage.cache_read_input_tokens ?? 0, output: usage.output_tokens ?? 0 };
 }
 

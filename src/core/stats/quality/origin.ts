@@ -1,7 +1,7 @@
 import { FOUND_HOW, UNKNOWN, type FoundHow, type Recorded } from "../../journal/events";
 import { isClosed } from "../../model/graph";
 import type { ProjectLabel } from "../format";
-import { isFixedNow, type TaskHistory } from "../history";
+import { createdIn, isFixedNow, type TaskHistory } from "../history";
 import type { Period } from "../period";
 import type { BranchRow, FoundRow } from "../types";
 
@@ -30,10 +30,6 @@ export function branchBreakdown(histories: readonly TaskHistory[], period: Perio
     rows.set(label, { label, created: current.created + 1, open: current.open + (isOpenNow(history) ? 1 : 0) });
   }
   return [...rows.values()].sort((a, b) => b.created - a.created || a.label.localeCompare(b.label)).slice(0, BRANCH_LIMIT);
-}
-
-function createdIn(histories: readonly TaskHistory[], period: Period): TaskHistory[] {
-  return histories.filter((history) => period.contains(history.createdAt));
 }
 
 function isOpenNow(history: TaskHistory): boolean {

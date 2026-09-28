@@ -2,7 +2,7 @@ import { runGit, type GitRunner } from "../git/run";
 import type { Task } from "../model/types";
 import { remembered } from "../remembered";
 import { commitsAfter, judgedByCommits, reviewMark, touches, type AnchorStates, type KnownMerges } from "./candidates";
-import { sourcePath } from "./source-lines";
+import { sourcePath } from "../model/source";
 import type { Commit, RepoFacts } from "./repo-facts";
 
 const MERGE_PARENTS = 2;

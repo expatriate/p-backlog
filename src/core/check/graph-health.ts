@@ -9,6 +9,8 @@ export type GraphState = "none" | "unreadable" | "stale" | "fresh";
 
 export type GraphHealth = { state: GraphState; pinned: number; resolved: number };
 
+type SourceFileState = ReturnType<CodeGraph["fileState"]>;
+
 export async function projectGraphHealth(project: Project, tasks: readonly Task[], home: string): Promise<GraphHealth> {
   return graphHealth(await findRepo(project, home), tasks.filter((task) => task.projectId === project.id));
 }
@@ -30,10 +32,10 @@ export function graphHealth(repo: string | undefined, tasks: readonly Task[]): G
 }
 
 function isStale(graph: CodeGraph, pinned: readonly Task[], hashOf: FileHashes): boolean {
-  const states = sourcePaths(pinned).map((path) => {
+  const states = sourcePaths(pinned).map((path): SourceFileState => {
     const hash = hashOf(path);
     return hash === null ? "absent" : graph.fileState(path, hash);
   });
-  const count = (state: string) => states.filter((candidate) => candidate === state).length;
+  const count = (state: SourceFileState) => states.filter((candidate) => candidate === state).length;
   return count("changed") > count("fresh");
 }
