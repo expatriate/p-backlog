@@ -55,6 +55,11 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
     snapshot = null;
     stats.forgetChanged(paths);
   };
+  const forgettingOnFailure = <T>(write: Promise<T>): Promise<T> =>
+    write.catch((error: unknown) => {
+      forgetAll();
+      throw error;
+    });
   const recordOwnWrites = async (writes: readonly OwnWrite[]) => {
     if (writes.length === 0) {
       snapshot = null;
@@ -102,7 +107,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
 
     const id = c.req.param("id");
     const { index } = await backlog();
-    const result = await updateTaskInIndex(index, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now(), via: "web" });
+    const result = await forgettingOnFailure(updateTaskInIndex(index, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now(), via: "web" }));
     await recordOwnWrites(result.ok ? writtenTasks(result) : []);
     if (result.ok) return c.json(result.task);
     const messages = serverMessages(body.language);
@@ -117,10 +122,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
     if (!body.ok) return body.response;
 
     const { index } = await backlog();
-    const outcomes = await applyBatch(index, { ...body.data, now: now() }).catch((error: unknown) => {
-      forgetAll();
-      throw error;
-    });
+    const outcomes = await forgettingOnFailure(applyBatch(index, { ...body.data, now: now() }));
     await recordOwnWrites(outcomes.flatMap((outcome) => (outcome.outcome === "done" ? writtenTasks(outcome) : [])));
     const messages = serverMessages(body.language);
     const core = coreMessages(body.language);
@@ -132,7 +134,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
     if (!body.ok) return body.response;
 
     const id = c.req.param("id");
-    const result = await setProjectActive(root, id, body.data.active);
+    const result = await forgettingOnFailure(setProjectActive(root, id, body.data.active));
     forgetAll();
     if (result.ok) return c.json(result.project);
     if (result.reason === "invalid") return errorResponse(c, 422, coreMessages(body.language).problems(result.problems));
@@ -146,7 +148,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
     const id = c.req.param("id");
     const messages = serverMessages(body.language);
     if (body.data.confirm !== id) return errorResponse(c, 422, messages.confirmMismatch);
-    const result = await deleteProject(root, id);
+    const result = await forgettingOnFailure(deleteProject(root, id));
     forgetAll();
     return result.ok ? c.json({ deleted: id }) : errorResponse(c, 404, messages.projectNotFound(id));
   });
