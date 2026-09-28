@@ -2,6 +2,7 @@ import type { EventStream } from "./backlog-api";
 
 type EventListenerFor = Parameters<EventStream["addEventListener"]>[1];
 type Relayed = { type: string; data: unknown };
+type Broadcast = (type: string, data: unknown) => void;
 
 const LEADER_LOCK = "p-backlog:events";
 const RELAY_CHANNEL = "p-backlog:events";
@@ -17,7 +18,21 @@ export function openSharedEvents(url: string): EventStream {
   relay.onmessage = (event: MessageEvent<unknown>) => {
     if (isRelayed(event.data)) notify(event.data.type, event.data.data);
   };
+  const stopLeading = leadWhenPossible(url, (type, data) => {
+    notify(type, data);
+    relay.postMessage({ type, data } satisfies Relayed);
+  });
 
+  return {
+    addEventListener: (type, listener) => listeners.set(type, (listeners.get(type) ?? new Set()).add(listener)),
+    close: () => {
+      stopLeading();
+      relay.close();
+    },
+  };
+}
+
+function leadWhenPossible(url: string, broadcast: Broadcast): () => void {
   const closed = new AbortController();
   let retry: ReturnType<typeof setTimeout> | undefined;
   const lead = () =>
@@ -26,17 +41,12 @@ export function openSharedEvents(url: string): EventStream {
         resign();
         return;
       }
-      const source = new EventSource(url);
+      const source = relayedSource(url, broadcast);
       const stepDown = () => {
+        closed.signal.removeEventListener("abort", stepDown);
         source.close();
         resign();
       };
-      for (const type of RELAYED_EVENTS) {
-        source.addEventListener(type, (event: MessageEvent<unknown>) => {
-          notify(type, event.data);
-          relay.postMessage({ type, data: event.data } satisfies Relayed);
-        });
-      }
       source.addEventListener("error", () => {
         if (source.readyState !== EventSource.CLOSED) return;
         stepDown();
@@ -48,15 +58,16 @@ export function openSharedEvents(url: string): EventStream {
     navigator.locks.request(LEADER_LOCK, { signal: closed.signal }, lead).catch(() => undefined);
   };
   seekLeadership();
-
-  return {
-    addEventListener: (type, listener) => listeners.set(type, (listeners.get(type) ?? new Set()).add(listener)),
-    close: () => {
-      clearTimeout(retry);
-      closed.abort();
-      relay.close();
-    },
+  return () => {
+    clearTimeout(retry);
+    closed.abort();
   };
+}
+
+function relayedSource(url: string, broadcast: Broadcast): EventSource {
+  const source = new EventSource(url);
+  for (const type of RELAYED_EVENTS) source.addEventListener(type, (event: MessageEvent<unknown>) => broadcast(type, event.data));
+  return source;
 }
 
 function isRelayed(message: unknown): message is Relayed {
