@@ -6,6 +6,7 @@ import styles from "./SidePanel.module.css";
 export type SidePanelProps = { label: string; heading: ReactNode; onClose: () => void; children: ReactNode };
 
 const FORM_FIELDS = "input, textarea, select";
+const MODAL_FLAG = "--drawer-modal";
 
 export function SidePanel({ label, heading, onClose, children }: SidePanelProps) {
   const { ui } = useMessages();
@@ -21,7 +22,7 @@ export function SidePanel({ label, heading, onClose, children }: SidePanelProps)
     const drawer = panel.current;
     let releaseBackground: (() => void) | null = null;
     const syncBackground = () => {
-      const covers = drawer !== null && coversPage(drawer);
+      const covers = drawer !== null && isModal(drawer);
       if (covers === (releaseBackground !== null)) return;
       releaseBackground?.();
       releaseBackground = covers ? inertOutside(drawer) : null;
@@ -66,8 +67,8 @@ export function SidePanel({ label, heading, onClose, children }: SidePanelProps)
   );
 }
 
-function coversPage(drawer: HTMLElement): boolean {
-  return getComputedStyle(drawer).position === "fixed";
+function isModal(drawer: HTMLElement): boolean {
+  return getComputedStyle(drawer).getPropertyValue(MODAL_FLAG).trim() === "1";
 }
 
 function inertOutside(element: HTMLElement): () => void {
