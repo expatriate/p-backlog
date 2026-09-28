@@ -3,7 +3,7 @@ import { STALE_URGENT_DAYS, urgentStaleCount } from "../breakdowns";
 import { inWorkTasks } from "../flow/current";
 import { toPercent } from "../numbers";
 import { sum } from "../../numbers";
-import { period, type Period } from "../period";
+import { trailingPeriod, type Period } from "../period";
 import type { CandidateEvidence, CheckMethod } from "../../journal/events";
 import { accuracy, decidedOf, isMeasuredEvidence, methodAccuracy } from "../quality/accuracy";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
@@ -58,7 +58,7 @@ function staleLow({ scope }: ReportBase, now: Date): Signal[] {
 }
 
 function noisyChecks({ histories }: ReportBase, now: Date): Signal[] {
-  return checkGauges(histories, period(now.getTime() - NOISY_WINDOW_DAYS * DAY_MS, now.getTime())).flatMap((gauge) => {
+  return checkGauges(histories, trailingPeriod(now.getTime(), NOISY_WINDOW_DAYS * DAY_MS)).flatMap((gauge) => {
     const decided = decidedOf(gauge);
     if (decided < NOISY_MIN_DECIDED || gauge.precision === null) return [];
     const percent = toPercent(gauge.precision);
