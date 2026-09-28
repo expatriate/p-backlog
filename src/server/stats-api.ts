@@ -8,20 +8,17 @@ import { createCodeSource, type CodeCacheErrorKind } from "../core/code/code-sou
 import { formatLocalDay } from "../core/model/dates";
 import type { Project, Task } from "../core/model/types";
 import { codeFixRequests, codeReport } from "../core/stats/code/code-report";
-import { costReport } from "../core/stats/cost/cost-report";
 import { effectReport } from "../core/stats/effect/effect-report";
 import { qualityReport } from "../core/stats/quality/quality-report";
 import { statsReport } from "../core/stats/report";
 import type { ReportBase, StatsInput } from "../core/stats/scope";
 import { statsSignals } from "../core/stats/signals/signals";
-import type { CodeReport, CostReport, EffectReport, ProjectGraphRow, QualityReport } from "../core/stats/types";
+import type { CodeReport, EffectReport, ProjectGraphRow, QualityReport } from "../core/stats/types";
 import { unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/store/load";
-import { cachedRepoRoots, findProjectForRoots, type GitRoots, type RepoRootLookup } from "../core/store/resolve-project";
-import type { UsageCache } from "../core/usage/usage-cache";
 import type { Language } from "../core/i18n/language";
 import { serverMessages, type LocalizedWarn } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
-import { createCostSource, type CostInputs } from "./cost-source";
+import { createCostSource } from "./cost-source";
 import { createJournalSources } from "./journal-sources";
 import { createReportCache } from "./report-cache";
 import type { UsageScanner } from "./usage-scanner";
@@ -65,9 +62,8 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
   const onCodeSourceError = (kind: CodeCacheErrorKind, error: unknown) =>
     void warn((messages) => (kind === "read" ? messages.codeCacheReadFailed(errorText(error)) : messages.codeCacheWriteFailed(errorText(error))));
   const codeSource = createCodeSource({ home, store: createCodeCacheFile(root), onError: onCodeSourceError });
-  const lookupRepoRoot = cachedRepoRoots();
   const journalSources = createJournalSources(root);
-  const costSource = createCostSource(root, (inputs) => costOf(inputs, home, lookupRepoRoot));
+  const costSource = createCostSource(root, home);
   let knownProjectIds: readonly string[] = [];
   let forgetCount = 0;
 
@@ -135,8 +131,8 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
     const scope = await statsScopeOf(c, await backlogPruningCaches(), { wholeBacklog: true });
     if (scope instanceof Response) return scope;
     usage.scanIfNeverListed();
-    const { snapshot, projectId } = scope;
-    return c.json(await costSource.costReport({ usage: usage.snapshot(), scope: { snapshot, projectId }, now: now() }));
+    const { snapshot, projects, projectId } = scope;
+    return c.json(await costSource.costReport({ usage: usage.snapshot(), scope: { snapshot, projects, projectId }, now: now() }));
   });
   routes.get(STATS_MEMORY_ROUTE, (c) => c.json({ samples: memory.samples() }));
 
@@ -162,24 +158,4 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
 
 function projectsInScope(projects: readonly Project[], projectId: string | undefined, { wholeBacklog }: { wholeBacklog: boolean }): Project[] {
   return projects.filter((project) => project.id === projectId || ((projectId === undefined || wholeBacklog) && project.active));
-}
-
-async function costOf({ usage: { cache, scan }, runs, scope: { snapshot, projectId }, now }: CostInputs, home: string, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
-  const projects = projectsInScope(snapshot.projects, projectId, { wholeBacklog: true });
-  const buckets = bucketsOf(cache);
-  const repoRoots = projectId === undefined ? new Map<string, GitRoots | null>() : await resolveRepoRoots(lookupRepoRoot, [...buckets, ...runs].map((entry) => entry.cwd));
-  const projectOf = (cwd: string) => {
-    const roots = repoRoots.get(cwd) ?? null;
-    return roots === null ? null : (findProjectForRoots(projects, roots, home)?.id ?? null);
-  };
-  return costReport({ buckets, runs, projectOf, projectId, now, scan });
-}
-
-function bucketsOf(cache: UsageCache) {
-  return Object.values(cache.files).flatMap((entry) => entry.buckets);
-}
-
-async function resolveRepoRoots(lookupRepoRoot: RepoRootLookup, cwds: readonly string[]): Promise<Map<string, GitRoots | null>> {
-  const unique = [...new Set(cwds)];
-  return new Map(await Promise.all(unique.map(async (cwd) => [cwd, await lookupRepoRoot(cwd)] as const)));
 }
