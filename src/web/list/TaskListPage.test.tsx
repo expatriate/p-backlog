@@ -792,6 +792,31 @@ describe("область «Проекты»", () => {
     expect(screen.queryByText(/Задач пока нет/)).toBeNull();
   });
 
+  it("сбой загрузки проектов виден в списке и в боковой панели с «Повторить», а не как пустой беклог", async () => {
+    let projectsFail = true;
+    const app = await renderApp(FILES, "/", undefined, {
+      beforeRender: (testApp) => {
+        const request = testApp.request;
+        testApp.request = async (path, init) =>
+          path === "/api/projects" && projectsFail
+            ? new Response(JSON.stringify({ errors: ["EACCES: permission denied"] }), { status: 500, headers: { "content-type": "application/json" } })
+            : request(path, init);
+      },
+    });
+
+    const main = await screen.findByRole("main");
+    const sidebar = screen.getByRole("navigation", { name: "Навигация" });
+    expect(await within(main).findByText("Сервер вернул ошибку: EACCES: permission denied")).toBeDefined();
+    expect(within(sidebar).getByText("Сервер вернул ошибку: EACCES: permission denied")).toBeDefined();
+    expect(screen.queryByText(/Задач пока нет/)).toBeNull();
+
+    projectsFail = false;
+    await app.user.click(within(sidebar).getByRole("button", { name: "Повторить" }));
+
+    await waitFor(async () => expect(await rowTitles()).toEqual(["Каталог тормозит", "Разобрать очередь", "Таймауты загрузки"]));
+    expect(screen.queryByRole("button", { name: "Повторить" })).toBeNull();
+  });
+
   it("не показывает задачи неактивного проекта", async () => {
     await renderApp({
       "spa/project.md": projectFile("SPA"),

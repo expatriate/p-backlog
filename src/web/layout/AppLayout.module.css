@@ -234,3 +234,18 @@
     gap: var(--space-2);
   }
 }
+
+.projectsFailure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.projectsFailure p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

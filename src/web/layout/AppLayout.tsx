@@ -7,7 +7,8 @@ import { useMessages } from "../i18n";
 import { useProjects, useSignals, useTasks } from "../app/queries";
 import { OPEN_STATUSES } from "../../core/model/query";
 import { countBy } from "../../core/stats/numbers";
-import { activeProjectIds, scopeNote, tasksInScope } from "../app/scope";
+import { RequestFailure } from "../app/RequestFailure";
+import { scopeNote, taskScope, type TaskScope } from "../app/scope";
 import { cx } from "../ui/cx";
 import type { GraphTrouble, HintPart } from "./messages.ru";
 import { LanguageSwitch } from "./LanguageSwitch";
@@ -25,8 +26,8 @@ export function AppLayout() {
   const { pathname, search } = useLocation();
 
   const allProjects = useMemo(() => projects.data ?? [], [projects.data]);
-  const activeIds = useMemo(() => activeProjectIds(allProjects), [allProjects]);
-  const counts = useMemo(() => (tasks.data === undefined ? undefined : taskCounts(tasks.data.tasks, activeIds)), [tasks.data, activeIds]);
+  const inScope = useMemo(() => taskScope(projects.data, undefined), [projects.data]);
+  const counts = useMemo(() => (tasks.data === undefined ? undefined : taskCounts(tasks.data.tasks, inScope)), [tasks.data, inScope]);
   const projectId = matchPath("/p/:projectId/*", pathname)?.params.projectId;
   const signals = useSignals(projectId);
   const signalCount = signals.data?.signals.length ?? 0;
@@ -82,7 +83,7 @@ export function AppLayout() {
               {layout.projects}
             </NavLink>
             <span className={styles.count}>
-              {counts === undefined ? (
+              {counts?.scopeOpen === undefined ? (
                 UNKNOWN_COUNT
               ) : (
                 <>
@@ -96,6 +97,11 @@ export function AppLayout() {
               {scopeNote(allProjects, app)}
               {listOpen && layout.checkedSuffix}
             </p>
+          )}
+          {projects.error !== null && (
+            <div className={styles.projectsFailure}>
+              <RequestFailure error={projects.error} fetching={projects.isFetching} onRetry={() => void projects.refetch()} />
+            </div>
           )}
           {listOpen && (
             <ul className={styles.projects} id={PROJECT_LIST_ID} aria-label={layout.projects}>
@@ -165,12 +171,12 @@ function GraphHint({ parts }: { parts: readonly HintPart[] }) {
   );
 }
 
-type TaskCounts = { scopeOpen: number; openByProject: ReadonlyMap<string, number>; totalByProject: ReadonlyMap<string, number> };
+type TaskCounts = { scopeOpen: number | undefined; openByProject: ReadonlyMap<string, number>; totalByProject: ReadonlyMap<string, number> };
 
-function taskCounts(tasks: readonly Task[], activeIds: ReadonlySet<string>): TaskCounts {
+function taskCounts(tasks: readonly Task[], inScope: TaskScope | undefined): TaskCounts {
   const open = tasks.filter((task) => OPEN_STATUSES.includes(task.status));
   return {
-    scopeOpen: tasksInScope(open, undefined, activeIds).length,
+    scopeOpen: inScope === undefined ? undefined : open.filter(inScope).length,
     openByProject: countBy(open, (task) => task.projectId),
     totalByProject: countBy(tasks, (task) => task.projectId),
   };
