@@ -20,7 +20,7 @@ export function EffectFigures({ totals, period }: { totals: EffectTotals; period
   return (
     <FigureGroup period={caption.labelled(stats.effectWindow, period)}>
       <Figure label={stats.keptOut} value={stats.linesText(totals.deferredLines, totals.estimatedLines)} note={`${keptOutNote(stats, language, totals)} · ${stats.codeAndTests(totals)}`} />
-      <Figure label={stats.noiseWithoutBacklog} value={formatNoiseShare(totals.noiseShare)} note={stats.noiseNote} />
+      <Figure label={stats.noiseWithoutBacklog} value={formatNoiseShare(totals.noiseShare, totals.estimatedLines)} note={stats.noiseNote} />
       <Figure label={stats.deferredToBacklog} value={formatWhole(language, totals.deferredTasks)} note={stats.deferredNote(totals.fixedTasks, totals.openTasks)} />
       <Figure label={stats.pullRequestLines} value={formatWhole(language, totals.realLines)} />
     </FigureGroup>
@@ -63,7 +63,7 @@ export function ProjectsPanel({ projects, period }: { projects: EffectProject[];
               formatWhole(language, project.fixedLines),
               project.estimatedLines === null ? NO_VALUE : formatLines(language, project.estimatedLines, project.estimatedLines),
               formatWhole(language, project.realLines),
-              formatNoiseShare(project.noiseShare),
+              formatNoiseShare(project.noiseShare, project.estimatedLines),
             ],
           }))}
         />

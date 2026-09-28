@@ -55,5 +55,5 @@ function noiseText(stats: StatsMessages, language: Language, totals: EffectTotal
   if (totals.estimatedLines === null && totals.openTasks > 0) return stats.estimateLater;
   if (totals.noiseShare === null) return stats.noCommitsSinceAdoption;
   const lines = (value: number) => formatLines(language, value, totals.estimatedLines);
-  return stats.noiseFormula(lines(totals.deferredLines), formatWhole(language, totals.realLines), lines(totals.estimatedLines ?? 0), formatNoiseShare(totals.noiseShare));
+  return stats.noiseFormula(lines(totals.deferredLines), formatWhole(language, totals.realLines), lines(totals.estimatedLines ?? 0), formatNoiseShare(totals.noiseShare, totals.estimatedLines));
 }
