@@ -2,7 +2,6 @@ import { CHURN_DAYS } from "../../code/code-window";
 import { lastDays } from "../report-periods";
 import { reportBase, type ReportBase, type StatsInput } from "../scope";
 import type { CodeReport, ScannedCode } from "../types";
-import { statsPeriod } from "../weeks";
 import { churn } from "./churn";
 import { scopeLabel } from "../format";
 import { density } from "./density";
@@ -24,5 +23,5 @@ export function codeReport({ code, ...input }: CodeInput, base: ReportBase = rep
 }
 
 export function codeFixRequests(input: StatsInput, base: ReportBase = reportBase(input)): FixRequest[] {
-  return fixRequests(base.histories, statsPeriod(input.now));
+  return fixRequests(base.histories, input.now);
 }

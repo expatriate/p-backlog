@@ -4,12 +4,10 @@ import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
 import { fixRequests, reasonHashes } from "./fixes";
-import { period } from "../period";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 const iso = (day: number, hour = 12) => formatLocalIso(at(day, hour));
-const FROM = at(1).getTime();
-const TO = at(18).getTime();
+const NOW = at(18);
 const fixed = (id: string, created: number, closed: number, reason: string) =>
   makeTask({ id, created: iso(created), status: "done", closed: iso(closed), resolution: "fixed", reason });
 
@@ -42,13 +40,14 @@ describe("запросы к коммитам исправлений", () => {
     };
     const histories = taskHistories(tasks, [{ projectId: "spa", events: [deleted], invalidLines: 0 }]);
 
-    expect(fixRequests(histories, period(FROM, TO))).toEqual([{ projectId: "spa", hashes: ["aaaaaaa", "bbbbbbb", "ccccccc", "ddddddd"] }]);
+    expect(fixRequests(histories, NOW)).toEqual([{ projectId: "spa", hashes: ["aaaaaaa", "bbbbbbb", "ccccccc", "ddddddd"] }]);
   });
 
-  it("закрытия вне периода не считаются", () => {
-    const histories = taskHistories([fixed("SPA-1", 1, 5, "Исправлено в aaaaaaa")], []);
+  it("закрытия до окна хранения истории не считаются", () => {
+    const closedLongAgo = makeTask({ id: "SPA-1", created: formatLocalIso(new Date(2026, 5, 1, 12)), status: "done", closed: formatLocalIso(new Date(2026, 5, 18, 12)), resolution: "fixed", reason: "Исправлено в aaaaaaa" });
+    const histories = taskHistories([closedLongAgo], []);
 
-    expect(fixRequests(histories, period(at(10).getTime(), TO))).toEqual([]);
+    expect(fixRequests(histories, NOW)).toEqual([]);
   });
 
   it("задача, переоткрытая после исправления, исправлением не считается", () => {
@@ -59,7 +58,7 @@ describe("запросы к коммитам исправлений", () => {
     ];
     const histories = taskHistories([task], [{ projectId: "spa", events, invalidLines: 0 }]);
 
-    expect(fixRequests(histories, period(FROM, TO))).toEqual([]);
+    expect(fixRequests(histories, NOW)).toEqual([]);
   });
 
 });

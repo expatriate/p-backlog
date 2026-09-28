@@ -1,10 +1,9 @@
 import { formatLocalIso } from "../../model/dates";
-import { retainedSince } from "../../model/lifecycle";
 import { isClosed } from "../../model/graph";
 import { UNKNOWN, type Recorded } from "../../journal/events";
 import type { TaskCategory } from "../../model/types";
-import { fixCommitEntry, type FixCommitEntry } from "../code/fixes";
-import { closingsOf, isFixedNow, type TaskHistory } from "../history";
+import { fixCommitEntry, retainedFixes, type FixCommitEntry } from "../code/fixes";
+import { isFixedNow, type TaskHistory } from "../history";
 import { countBy, median, smallest, sum } from "../numbers";
 import { period, type Period } from "../period";
 import { grainPeriods } from "../report-periods";
@@ -31,10 +30,9 @@ export function effectReport(
   const { histories } = base;
   const statsWindow = statsPeriod(now);
   const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
-  const retainedFixes = (pool: readonly TaskHistory[]) => pool.filter((history) => closedSince(history, retainedSince(now)));
   const deferredByAgent = histories.filter((history) => history.found === "incidental" && history.foundExplicit && statsWindow.contains(history.createdAt));
-  const deferred = buildDeferred(deferredByAgent, retainedFixes(histories), code);
-  const estimate = estimator(estimateSamples(retainedFixes(wholeBacklog.histories), code));
+  const deferred = buildDeferred(deferredByAgent, retainedFixes(histories, now), code);
+  const estimate = estimator(estimateSamples(retainedFixes(wholeBacklog.histories, now), code));
   const adoptionStart = (id: string) => {
     const firstCreated = smallest(histories.filter((history) => history.projectId === id).map((history) => history.createdAt));
     return firstCreated === null ? statsWindow.from : Math.max(statsWindow.from, firstCreated);
@@ -68,11 +66,6 @@ export function effectReport(
       };
     }),
   };
-}
-
-function closedSince(history: TaskHistory, since: number): boolean {
-  const lastClosing = closingsOf(history).at(-1);
-  return lastClosing !== undefined && lastClosing.at >= since;
 }
 
 function fixEntryOf(history: TaskHistory, code: CollectedCode): FixCommitEntry | undefined {
