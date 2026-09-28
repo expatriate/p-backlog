@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 import type { Language } from "../core/i18n/language";
+import { errorResponse } from "./error-response";
 import { serverMessages } from "./messages";
 
 const MUTATING_METHODS: ReadonlySet<string> = new Set(["POST", "PATCH", "PUT", "DELETE"]);
@@ -13,7 +14,7 @@ export function allowLocalHostsOnly(allowedHosts: ReadonlySet<string>, readLangu
     const { host } = new URL(c.req.url);
     if (!allowedHosts.has(host)) {
       const messages = serverMessages(await readLanguage());
-      return c.json({ errors: [messages.hostRejected(host)] }, 403);
+      return errorResponse(c, 403, messages.hostRejected(host));
     }
     await next();
     return undefined;
@@ -24,7 +25,7 @@ export function requireJsonBody(readLanguage: () => Promise<Language>): Middlewa
   return async (c, next) => {
     if (MUTATING_METHODS.has(c.req.method) && !c.req.header("content-type")?.startsWith("application/json")) {
       const messages = serverMessages(await readLanguage());
-      return c.json({ errors: [messages.jsonContentTypeExpected] }, 415);
+      return errorResponse(c, 415, messages.jsonContentTypeExpected);
     }
     await next();
     return undefined;

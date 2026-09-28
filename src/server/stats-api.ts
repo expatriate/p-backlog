@@ -16,6 +16,7 @@ import { statsSignals } from "../core/stats/signals/signals";
 import type { CodeReport, EffectReport, ProjectGraphRow, QualityReport } from "../core/stats/types";
 import { unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/store/load";
 import type { Language } from "../core/i18n/language";
+import { errorResponse } from "./error-response";
 import { serverMessages, type LocalizedWarn } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createCostSource } from "./cost-source";
@@ -80,7 +81,7 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
     const projectId = c.req.query("project") || undefined;
     const { projects, tasks, errors } = snapshot;
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
-      return c.json({ errors: [serverMessages(await readLanguage()).projectNotFound(projectId)] }, 404);
+      return errorResponse(c, 404, serverMessages(await readLanguage()).projectNotFound(projectId));
     }
     const scoped = projectsInScope(projects, projectId, { wholeBacklog });
     const scopedIds = new Set(scoped.map((project) => project.id));

@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import type { Language } from "../core/i18n/language";
-import { batchRequestSchema, projectActiveSchema, projectDeleteSchema, settingsRequestSchema, updateTaskRequestSchema, type BatchOutcome, type BatchResponse, type ProjectsResponse, type ProjectView, type Revision, type SettingsResponse, type TasksResponse } from "../core/api/contract";
+import { batchRequestSchema, projectActiveSchema, projectDeleteSchema, settingsRequestSchema, updateTaskRequestSchema, type BatchOutcome, type BatchResponse, type ConflictResponse, type ProjectsResponse, type ProjectView, type Revision, type SettingsResponse, type TasksResponse } from "../core/api/contract";
 import { projectGraphHealth } from "../core/check/graph-health";
 import { buildIndex, type BacklogIndex } from "../core/model/graph";
 import type { Project, Task } from "../core/model/types";
@@ -15,6 +15,7 @@ import { deleteProject, setProjectActive } from "../core/store/projects";
 import { updateTaskInIndex } from "../core/store/update";
 import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
+import { errorResponse, fileBusyResponse } from "./error-response";
 import { serverMessages, type ServerMessages } from "./messages";
 import { createReportCache } from "./report-cache";
 import { createRevisions, type OwnWrite } from "./revisions";
@@ -105,9 +106,9 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
     await recordOwnWrites(result.ok ? writtenTasks(result) : []);
     if (result.ok) return c.json(result.task);
     const messages = serverMessages(body.language);
-    if (result.reason === "not-found") return c.json({ errors: [messages.taskNotFound(id)] }, 404);
-    if (result.reason === "conflict") return c.json({ errors: [messages.taskChangedOnDisk], current: result.current }, 409);
-    if (result.reason === "busy") return c.json({ errors: [coreMessages(body.language).fileBusy(result.path, result.lock, result.seconds)] }, 503);
+    if (result.reason === "not-found") return errorResponse(c, 404, messages.taskNotFound(id));
+    if (result.reason === "conflict") return c.json<ConflictResponse>({ errors: [messages.taskChangedOnDisk], current: result.current }, 409);
+    if (result.reason === "busy") return fileBusyResponse(c, body.language, result);
     return invalidResponse(c, result, coreMessages(body.language));
   });
 
@@ -134,8 +135,8 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
     const result = await setProjectActive(root, id, body.data.active);
     forgetAll();
     if (result.ok) return c.json(result.project);
-    if (result.reason === "invalid") return c.json({ errors: [coreMessages(body.language).problems(result.problems)] }, 422);
-    return c.json({ errors: [serverMessages(body.language).projectNotFound(id)] }, 404);
+    if (result.reason === "invalid") return errorResponse(c, 422, coreMessages(body.language).problems(result.problems));
+    return errorResponse(c, 404, serverMessages(body.language).projectNotFound(id));
   });
 
   api.delete("/projects/:id", async (c) => {
@@ -144,10 +145,10 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
 
     const id = c.req.param("id");
     const messages = serverMessages(body.language);
-    if (body.data.confirm !== id) return c.json({ errors: [messages.confirmMismatch] }, 422);
+    if (body.data.confirm !== id) return errorResponse(c, 422, messages.confirmMismatch);
     const result = await deleteProject(root, id);
     forgetAll();
-    return result.ok ? c.json({ deleted: id }) : c.json({ errors: [messages.projectNotFound(id)] }, 404);
+    return result.ok ? c.json({ deleted: id }) : errorResponse(c, 404, messages.projectNotFound(id));
   });
 
   api.get("/events", (c) =>
@@ -169,7 +170,7 @@ async function loadSnapshot(root: string, revision: Revision): Promise<BacklogSn
 }
 
 function invalidResponse(c: Context, result: Invalid, messages: CoreMessages) {
-  return c.json({ errors: result.problems.map(messages.problem) }, 422);
+  return errorResponse(c, 422, ...result.problems.map(messages.problem));
 }
 
 function writtenTasks({ task, reopenedEpic }: { task: Task; reopenedEpic?: Task | undefined }): Task[] {
@@ -187,9 +188,9 @@ type ParsedBody<T> = { ok: true; data: T; language: Language } | { ok: false; re
 
 async function readBody<T>(c: Context, schema: ZodType<T>, readLanguage: () => Promise<Language>): Promise<ParsedBody<T>> {
   const [body, language] = await Promise.all([readJson(c), readLanguage()]);
-  if (body.ok === false) return { ok: false, response: c.json({ errors: [serverMessages(language).bodyNotParsed] }, 400) };
+  if (body.ok === false) return { ok: false, response: errorResponse(c, 400, serverMessages(language).bodyNotParsed) };
   const parsed = parseWithLocale(schema, body.value, language);
-  return parsed.ok ? { ok: true, data: parsed.value, language } : { ok: false, response: c.json({ errors: parsed.errors }, 422) };
+  return parsed.ok ? { ok: true, data: parsed.value, language } : { ok: false, response: errorResponse(c, 422, ...parsed.errors) };
 }
 
 async function readJson(c: Context): Promise<{ ok: true; value: unknown } | { ok: false }> {

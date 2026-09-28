@@ -4,10 +4,10 @@ import { secureHeaders } from "hono/secure-headers";
 import { join } from "node:path";
 import { errorText } from "../core/errors";
 import type { Language } from "../core/i18n/language";
-import { coreMessages } from "../core/messages";
 import { FileBusyError } from "../core/store/file-lock";
 import { createApi } from "./api";
 import type { ChangeFeed } from "./change-feed";
+import { errorResponse, fileBusyResponse } from "./error-response";
 import { allowLocalHostsOnly, requireJsonBody } from "./guards";
 import { serverMessages } from "./messages";
 import type { StatsServices } from "./stats-api";
@@ -44,11 +44,11 @@ export function createApp({ root, readLanguage, changes, allowedHosts, home, sta
   app.use("*", allowLocalHostsOnly(allowedHosts, readLanguage));
   app.use("/api/*", requireJsonBody(readLanguage));
   app.route("/api", createApi({ root, readLanguage, changes, now, home, statsServices }));
-  app.all("/api/*", async (c) => c.json({ errors: [serverMessages(await readLanguage()).unknownRoute(new URL(c.req.url).pathname)] }, 404));
+  app.all("/api/*", async (c) => errorResponse(c, 404, serverMessages(await readLanguage()).unknownRoute(new URL(c.req.url).pathname)));
 
   app.onError(async (error, c) => {
-    if (!(error instanceof FileBusyError)) return c.json({ errors: [errorText(error)] }, 500);
-    return c.json({ errors: [coreMessages(await readLanguage()).fileBusy(error.path, error.lock, error.seconds)] }, 503);
+    if (!(error instanceof FileBusyError)) return errorResponse(c, 500, errorText(error));
+    return fileBusyResponse(c, await readLanguage(), error);
   });
 
   if (staticDir !== undefined) {
