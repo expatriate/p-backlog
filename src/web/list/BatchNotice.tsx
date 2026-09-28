@@ -17,24 +17,23 @@ type DoneOutcome = Extract<BatchOutcome, { outcome: "done" }>;
 type SkippedOutcome = Extract<BatchOutcome, { outcome: "skipped" }>;
 
 export function useBatchResult(scopeKey: string) {
-  const [state, setState] = useState<{ scopeKey: string; result: BatchResult | null }>({ scopeKey, result: null });
-  if (state.scopeKey !== scopeKey) setState({ scopeKey, result: null });
-  const show = useCallback((result: BatchResult | null) => setState((current) => ({ ...current, result })), []);
-  return [state.result, show] as const;
+  const [state, setState] = useState<{ scopeKey: string; result: BatchResult | null; serial: number }>({ scopeKey, result: null, serial: 0 });
+  if (state.scopeKey !== scopeKey) setState({ scopeKey, result: null, serial: state.serial });
+  const show = useCallback((result: BatchResult | null) => setState((current) => ({ ...current, result, serial: current.serial + 1 })), []);
+  return { result: state.result, serial: state.serial, show };
 }
 
 type BatchNoticeProps = {
   result: BatchResult | null;
+  serial: number;
   onResult: (result: BatchResult | null) => void;
   taskHref: TaskHref;
 };
 
-export function BatchNotice({ result, onResult, taskHref }: BatchNoticeProps) {
+export function BatchNotice({ result, serial, onResult, taskHref }: BatchNoticeProps) {
   const { list, app } = useMessages();
   const undo = useBatchTasks();
   const [focusInside, setFocusInside] = useState(false);
-  const [shown, setShown] = useState({ result, count: 0 });
-  if (shown.result !== result) setShown({ result, count: shown.count + 1 });
   const summary = useRef<HTMLParagraphElement>(null);
   const undoButton = useRef<HTMLButtonElement>(null);
 
@@ -74,7 +73,7 @@ export function BatchNotice({ result, onResult, taskHref }: BatchNoticeProps) {
     <div role="status" className={result === null ? undefined : footer.panel} onFocus={() => setFocusInside(true)} onBlur={leave}>
       {result !== null && (
         <>
-          <p key={shown.count} ref={summary} tabIndex={-1} className={footer.headline}>
+          <p key={serial} ref={summary} tabIndex={-1} className={footer.headline}>
             {list.batchSummary[result.request.action.kind](done.length, result.request.tasks.length)}
           </p>
           {skipped.length > 0 && (

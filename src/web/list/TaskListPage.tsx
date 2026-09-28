@@ -20,7 +20,7 @@ import { useSeenTasks } from "./use-seen-tasks";
 import { useSelectedTask } from "./use-selected-task";
 import { useTaskSelection } from "./use-task-selection";
 import { useTaskListView, type ListContent } from "./use-task-list-view";
-import { toggledTags } from "./tag-filter";
+import { toggledTags } from "./filter-toggle";
 import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
@@ -40,7 +40,7 @@ export function TaskListPage() {
   const visibleIds = useMemo(() => view.visibleTasks.map((task) => task.id), [view.visibleTasks]);
   const loadedIds = useMemo(() => new Set(view.allTasks.map((task) => task.id)), [view.allTasks]);
   const selection = useTaskSelection(visibleIds, projectId ?? "", loadedIds);
-  const [batchResult, showBatchResult] = useBatchResult(projectId ?? "");
+  const batchResult = useBatchResult(projectId ?? "");
   const footer = useRef<HTMLDivElement>(null);
   const keysHintId = useId();
   const keyboardHints = offersKeyboardHints();
@@ -123,7 +123,7 @@ export function TaskListPage() {
           )}
         </div>
         <div ref={footer} className={styles.footer}>
-          <BatchNotice key={`notice-${projectId ?? ""}`} result={batchResult} onResult={showBatchResult} taskHref={taskHref} />
+          <BatchNotice key={`notice-${projectId ?? ""}`} result={batchResult.result} serial={batchResult.serial} onResult={batchResult.show} taskHref={taskHref} />
           <BulkActions
             key={`actions-${projectId ?? ""}`}
             selection={selection}
@@ -131,7 +131,7 @@ export function TaskListPage() {
             tones={view.tones}
             onDone={(result) => {
               selection.clear();
-              showBatchResult(result);
+              batchResult.show(result);
             }}
           />
         </div>
