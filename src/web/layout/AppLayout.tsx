@@ -9,6 +9,7 @@ import { OPEN_STATUSES } from "../../core/model/query";
 import { countBy } from "../../core/stats/numbers";
 import { RequestFailure } from "../app/RequestFailure";
 import { scopeNote, taskScope, type TaskScope } from "../app/scope";
+import { NO_VALUE } from "../labels";
 import { cx } from "../ui/cx";
 import type { GraphTrouble, HintPart } from "./messages.ru";
 import { LanguageSwitch } from "./LanguageSwitch";
@@ -16,7 +17,6 @@ import { ProjectCheckbox, ProjectDeleteButton } from "./ProjectControls";
 import styles from "./AppLayout.module.css";
 
 const PROJECT_LIST_ID = "sidebar-projects";
-const UNKNOWN_COUNT = "—";
 const GRAPH_TROUBLES: readonly GraphTrouble[] = ["none", "stale", "unreadable"];
 
 export function AppLayout() {
@@ -84,7 +84,7 @@ export function AppLayout() {
             </NavLink>
             <span className={styles.count}>
               {counts?.scopeOpen === undefined ? (
-                UNKNOWN_COUNT
+                NO_VALUE
               ) : (
                 <>
                   <span className={styles.number}>{counts.scopeOpen}</span> {layout.taskWord(counts.scopeOpen)}
@@ -155,7 +155,7 @@ function ProjectRow({ to, search, openTasks, taskCount, project, onDeleted }: Pr
           {project.name}
         </span>
       </NavLink>
-      <span className={styles.count}>{openTasks ?? UNKNOWN_COUNT}</span>
+      <span className={styles.count}>{openTasks ?? NO_VALUE}</span>
       <ProjectDeleteButton project={project} taskCount={taskCount} onDeleted={onDeleted} />
     </li>
   );
