@@ -1,6 +1,6 @@
 import { findSimilarTask } from "../../core/check/candidates";
 import { sourceAnchor } from "../../core/check/project-repo";
-import { FOUND_HOW } from "../../core/journal/events";
+import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project } from "../../core/model/types";
 import { findProjectForDir } from "../../core/store/resolve-project";
 import { createTask } from "../../core/store/create";
@@ -12,9 +12,11 @@ import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
 import { taskJson } from "../describe";
 
+const DEFAULT_FOUND: FoundHow = "manual";
+
 export const newCommand: CliCommand = {
   name: "new",
-  usage: (language) => [cliMessages(language).newUsage(TASK_TYPES.join("|"), PRIORITIES.join("|"), FOUND_HOW.join("|"))],
+  usage: (language) => [cliMessages(language).newUsage(TASK_TYPES.join("|"), PRIORITIES.join("|"), FOUND_HOW.join("|"), DEFAULT_FOUND)],
   run: runNew,
 };
 
@@ -39,7 +41,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   const priority = values.priority === undefined ? undefined : parseChoice(io.language, values.priority, PRIORITIES, "--priority");
   const category = values.category === undefined ? undefined : parseChoice(io.language, values.category, TASK_CATEGORIES, "--category");
   if (category === undefined && type !== "epic") throw new UsageError(io.cli.categoryRequired);
-  const found = values.found === undefined ? "manual" : parseChoice(io.language, values.found, FOUND_HOW, "--found");
+  const found = values.found === undefined ? DEFAULT_FOUND : parseChoice(io.language, values.found, FOUND_HOW, "--found");
   if (category === "bug" && values.source === undefined) io.warn(io.cli.bugNeedsSourceWarning);
 
   const loaded = await loadBacklog(io.backlogRoot);

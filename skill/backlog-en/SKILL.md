@@ -62,10 +62,10 @@ this same task.
    - `--category` — required. For a code smell, use its category from the code-smells catalog: `bloaters`,
      `change-preventers`, `couplers`, `data-dealers`, `dispensables`, `functional-abusers`,
      `lexical-abusers`, `oo-abusers`, `obfuscators`. For incorrect behavior, use `bug`.
-   - `--found` — how it was found, required: `incidental` — you noticed the problem yourself while working and
-     moved it out so the current change stays small; `review` — a finding from an audit or review the user asked
-     for; `manual` — the user asked you to record the task. Only `incidental` counts as a gain in the Effect
-     statistics.
+   - `--found` — how it was found; always pass it: without the flag the task is recorded as `manual` and does
+     not count in Effect. `incidental` — you noticed the problem yourself while working and moved it out so the
+     current change stays small; `review` — a finding from an audit or review the user asked for; `manual` — the
+     user asked you to record the task. Only `incidental` counts as a gain in the Effect statistics.
    - If you're working on a task from the backlog — add `--related <its ID>`.
    - The checklist holds verifiable steps: progress is counted from it.
    - Exit code 3 and "Looks like SPA-12 — …" mean such a task is already open: don't create a new one,

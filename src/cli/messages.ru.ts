@@ -191,10 +191,10 @@ export const cliRu = {
   alertsShownWriteFailed: (error: string): string => `Не удалось сохранить показанные тревоги: ${error}`,
   hookTurnClaimFailed: (error: string): string => `Не удалось отметить ход в защите от двойного хука: ${error}`,
 
-  newUsage: (types: string, priorities: string, found: string): string =>
+  newUsage: (types: string, priorities: string, found: string, defaultFound: string): string =>
     [
       `--title <заголовок> [--type ${types}] [--priority ${priorities}] [--tags a,b]`,
-      `--category <категория> (для задач обязателен) [--found ${found}]`,
+      `--category <категория> (для задач обязателен) [--found ${found}, по умолчанию ${defaultFound}]`,
       "[--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]",
       "[--force — создать, даже если похожая открытая задача уже есть]",
       "(описание задачи читается из stdin)",

@@ -164,10 +164,10 @@ export const cliEn: CliMessages = {
   alertsShownWriteFailed: (error) => `Could not save the shown alerts: ${error}`,
   hookTurnClaimFailed: (error) => `Could not record the turn for the double-hook guard: ${error}`,
 
-  newUsage: (types, priorities, found) =>
+  newUsage: (types, priorities, found, defaultFound) =>
     [
       `--title <title> [--type ${types}] [--priority ${priorities}] [--tags a,b]`,
-      `--category <category> (required for tasks) [--found ${found}]`,
+      `--category <category> (required for tasks) [--found ${found}, default ${defaultFound}]`,
       "[--source file:line] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]",
       "[--force — create anyway even if a similar open task already exists]",
       "(task description is read from stdin)",
