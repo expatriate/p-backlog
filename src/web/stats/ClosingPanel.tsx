@@ -9,18 +9,22 @@ import { Panel } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import styles from "./StatsPanels.module.css";
 
-const REASONS: readonly ClosingReason[] = ["done", "fixed", "obsolete", "duplicate", "cancelled", "unknown"];
-
-function reasonLabel(reason: ClosingReason, { stats, core }: WebMessages): string {
-  return reason === "done" || reason === "cancelled" || reason === "unknown" ? stats.closingReasons[reason] : core.resolutionLabel(reason);
-}
+const REASON_LABELS: Record<ClosingReason, (messages: WebMessages) => string> = {
+  done: ({ stats }) => stats.closingReasons.done,
+  fixed: ({ core }) => core.resolutionLabel("fixed"),
+  obsolete: ({ core }) => core.resolutionLabel("obsolete"),
+  duplicate: ({ core }) => core.resolutionLabel("duplicate"),
+  cancelled: ({ stats }) => stats.closingReasons.cancelled,
+  unknown: ({ stats }) => stats.closingReasons.unknown,
+};
+const REASONS = Object.keys(REASON_LABELS) as ClosingReason[];
 
 export function ClosingPanel({ closing, period }: { closing: ClosingBreakdown; period: ReportPeriod }) {
   const messages = useMessages();
   const caption = usePeriodCaption();
   const { stats } = messages;
   const total = sum(REASONS.map((reason) => closing.byReason[reason]));
-  const summary = REASONS.map((reason) => `${reasonLabel(reason, messages)}: ${closing.byReason[reason]}`).join("; ");
+  const summary = REASONS.map((reason) => `${REASON_LABELS[reason](messages)}: ${closing.byReason[reason]}`).join("; ");
 
   return (
     <Panel title={stats.closing} period={caption.of("weeks", period)}>
@@ -32,7 +36,7 @@ export function ClosingPanel({ closing, period }: { closing: ClosingBreakdown; p
       <ul className={rowStyles.rows}>
         {REASONS.map((reason) => (
           <li key={reason} className={rowStyles.row}>
-            <span className={cx(styles.legendItem, styles[reason])}>{reasonLabel(reason, messages)}</span>
+            <span className={cx(styles.legendItem, styles[reason])}>{REASON_LABELS[reason](messages)}</span>
             <span className={rowStyles.rowValue}>{closing.byReason[reason]}</span>
           </li>
         ))}
