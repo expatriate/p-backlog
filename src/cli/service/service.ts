@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { hasErrorCode } from "../../core/errors";
 import type { CliEnv } from "../io";
 
 export type ServiceContext = {
@@ -32,8 +33,8 @@ export function serviceEnvironment(context: ServiceContext): Record<string, stri
 }
 
 export async function numberRecordedIn(file: string, pattern: RegExp, encoding: BufferEncoding = "utf8"): Promise<number | null> {
-  const text = await readFile(file, encoding).catch((error: NodeJS.ErrnoException) => {
-    if (error.code === "ENOENT") return "";
+  const text = await readFile(file, encoding).catch((error: unknown) => {
+    if (hasErrorCode(error, "ENOENT")) return "";
     throw error;
   });
   const recorded = pattern.exec(text)?.[1];

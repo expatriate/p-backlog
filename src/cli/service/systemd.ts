@@ -4,7 +4,8 @@ import { fileExists } from "../../core/store/fs-utils";
 import type { CliEnv } from "../io";
 import { numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager, type ServiceOutcome } from "./service";
 
-const UNIT = "p-backlog.service";
+const SERVICE_NAME = "p-backlog";
+const UNIT = `${SERVICE_NAME}.service`;
 
 function quoted(value: string): string {
   return `"${value.replace(/[\\"]/g, "\\$&").replaceAll("%", "%%")}"`;
@@ -47,7 +48,7 @@ export function systemdManager(context: ServiceContext): ServiceManager {
   const file = join(context.home, ".config/systemd/user", UNIT);
   return {
     file,
-    logs: "journalctl --user -u p-backlog",
+    logs: `journalctl --user -u ${SERVICE_NAME}`,
     async install() {
       await mkdir(dirname(file), { recursive: true });
       await writeFile(file, systemdUnit(context));

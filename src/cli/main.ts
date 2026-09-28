@@ -15,6 +15,8 @@ import { commandName, runCli } from "./run";
 
 suppressSqliteExperimentalWarning();
 
+const BYTES_PER_KILOBYTE = 1024;
+
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return "";
   const chunks: Buffer[] = [];
@@ -65,7 +67,7 @@ try {
     command: commandName(argv),
     cwd: process.cwd(),
     ms: Math.round(performance.now()),
-    rssMb: megabytesOf(process.resourceUsage().maxRSS * 1024),
+    rssMb: megabytesOf(process.resourceUsage().maxRSS * BYTES_PER_KILOBYTE),
     exitCode,
   });
 } catch (error) {

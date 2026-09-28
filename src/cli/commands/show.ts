@@ -7,7 +7,7 @@ import { describeTask, taskJson } from "../describe";
 import { formatTaskDetails } from "../format";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseCommandArgs, type CliIo } from "../io";
-import { requireTask } from "../lookups";
+import { findTaskOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 
 export const showCommand: CliCommand = {
@@ -22,7 +22,7 @@ async function runShow(args: string[], io: CliIo): Promise<number> {
   if (id === undefined || rest.length > 0) throw usageError(showCommand, io.language);
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const task = requireTask(loaded, io, id);
+  const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
   await printTask(io, task, loaded.tasks, { json: values.json });
   return EXIT.ok;

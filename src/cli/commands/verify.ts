@@ -5,7 +5,7 @@ import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
-import { projectOf, requireTask } from "../lookups";
+import { projectOf, findTaskOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 import { taskWriter, type TaskWriter } from "../task-write";
 
@@ -30,7 +30,7 @@ async function runVerify(args: string[], io: CliIo): Promise<number> {
 }
 
 async function verifyOne(id: string, { loaded, source, write, io }: Verification): Promise<number> {
-  const task = requireTask(loaded, io, id);
+  const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
   const cli = cliMessages(io.language);
   if (isClosed(task.status)) {

@@ -1,6 +1,6 @@
 import { HOOK_STOP_COMMAND } from "../../core/stats/cost/hook-signature";
 import type { CliIo } from "../io";
-import { addStopHook, guardedPosixCommand, hookCommand, removeStopHook } from "../stop-hook";
+import { addStopHook, commandOfHook, guardedPosixCommand, removeStopHook } from "../stop-hook";
 import { AGENT_SPECS, type Agent, type AgentPlaces } from "./agent";
 import { addCursorStopHook, removeCursorStopHook } from "./cursor-hooks";
 import { addGroupedStopHook, removeGroupedStopHook, type HookInstallResult, type HookRemoveResult, type IsOurHook, type OurHook } from "./grouped-stop-hooks";
@@ -55,7 +55,7 @@ function windowsCommandPattern(agent: Agent): RegExp {
 
 function ourHookOf(agent: Agent, cliPath?: string): IsOurHook {
   return (hook) => {
-    const command = hookCommand(hook);
+    const command = commandOfHook(hook);
     if (command === undefined) return false;
     return command === posixCommand(agent) || (cliPath !== undefined && command === windowsCommand(agent, cliPath)) || windowsCommandPattern(agent).test(command);
   };

@@ -15,6 +15,8 @@ type DemoServer = { origin: string; stop: () => Promise<void> };
 
 const DESKTOP = { width: 1280, height: 800 };
 const SERVER_START_TIMEOUT_MS = 20_000;
+const SERVER_POLL_MS = 200;
+const RETINA_SCALE = 2;
 const CHART_SETTLE_MS = 1500;
 const SEEN_SINCE_DAYS = 1;
 const QUANTIZED_PNG = { palette: true, quality: 90, effort: 10, compressionLevel: 9 } as const;
@@ -38,7 +40,7 @@ export async function startDemoServer(repoRoot: string, home: string, backlogRoo
       await stop();
       throw new Error(`The demo server did not start on ${origin}`);
     }
-    await sleep(200);
+    await sleep(SERVER_POLL_MS);
   }
   return { origin, stop };
 }
@@ -51,7 +53,7 @@ export async function captureShots(origin: string, language: Language, shots: re
     for (const shot of shots) {
       const context = await browser.newContext({
         viewport: shot.viewport ?? DESKTOP,
-        deviceScaleFactor: 2,
+        deviceScaleFactor: RETINA_SCALE,
         colorScheme: "dark",
         locale: localeOf(language),
         reducedMotion: "reduce",

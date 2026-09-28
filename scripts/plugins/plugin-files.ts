@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { z } from "zod";
 import type { Language } from "../../src/core/i18n/language";
 import { SKILL_NAME, SKILL_SOURCES_DIR, SKILL_VARIANTS } from "../../src/cli/skill-variants";
 
@@ -18,11 +19,12 @@ const PLUGINS = PLUGIN_DESCRIPTIONS.map(([language, description]) => {
   const { plugin, sourceDir } = SKILL_VARIANTS[language];
   return { name: plugin, skillDir: join(SKILL_SOURCES_DIR, sourceDir), description };
 });
+const packageManifestSchema = z.object({ version: z.string(), license: z.string(), homepage: z.string() });
 const STOP_HOOK_SOURCE = "scripts/plugins/stop.mjs";
 const HOOKS = { hooks: { Stop: [{ hooks: [{ type: "command", command: "node", args: ["${CLAUDE_PLUGIN_ROOT}/hooks/stop.mjs"] }] }] } };
 
 export async function pluginFiles(repoRoot: string): Promise<Record<string, string>> {
-  const manifest = JSON.parse(await readFile(join(repoRoot, "package.json"), "utf8")) as { version: string; license: string; homepage: string };
+  const manifest = packageManifestSchema.parse(JSON.parse(await readFile(join(repoRoot, "package.json"), "utf8")));
   const stopHook = await readFile(join(repoRoot, STOP_HOOK_SOURCE), "utf8");
   const files: Record<string, string> = {
     ".claude-plugin/marketplace.json": json({

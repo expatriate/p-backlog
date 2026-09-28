@@ -1,13 +1,13 @@
 import { isClosed } from "../../core/model/graph";
 import { deletionDate, RESOLUTION_STATUS } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
+import { formatLocalDay } from "../../core/model/dates";
 import { findRepo, hasCommit } from "../../core/check/project-repo";
 import { reasonHashes } from "../../core/stats/code/fixes";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
-import { formatDay } from "../format";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, UsageError, parseCommandArgs, type CliIo } from "../io";
-import { projectOf, requireTask } from "../lookups";
+import { projectOf, findTaskOrWarn } from "../lookups";
 import { cliMessages, type CliMessages } from "../messages";
 import { taskWriter } from "../task-write";
 
@@ -28,12 +28,12 @@ async function runClose(args: string[], io: CliIo): Promise<number> {
   const reason = (values.reason ?? "").replace(/\s*\n\s*/g, " ").trim();
   if (reason === "") throw new UsageError(cli.reasonRequired);
   const duplicateOf = values["duplicate-of"];
-  if ((resolution === "duplicate") !== (duplicateOf !== undefined)) {
-    throw new UsageError(cli.duplicateOfRule);
-  }
+  const closesAsDuplicate = resolution === "duplicate";
+  const namesOriginal = duplicateOf !== undefined;
+  if (closesAsDuplicate !== namesOriginal) throw new UsageError(cli.duplicateOfRule);
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const task = requireTask(loaded, io, id);
+  const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
   if (task.type === "epic") {
     io.warn(cli.epicClosesOnItsOwn(id));
@@ -46,7 +46,7 @@ async function runClose(args: string[], io: CliIo): Promise<number> {
 
   let related = task.related;
   if (duplicateOf !== undefined) {
-    const original = requireTask(loaded, io, duplicateOf);
+    const original = findTaskOrWarn(loaded, io, duplicateOf);
     if (!original) return EXIT.notFound;
     const problem = originalProblem(cli, task, original);
     if (problem !== null) {
@@ -65,7 +65,7 @@ async function runClose(args: string[], io: CliIo): Promise<number> {
   const written = await taskWriter(io, loaded.tasks)(task, { status, related }, { resolution, reason });
   if (!written.ok) return written.exitCode;
   const deletesAt = deletionDate(written.task);
-  io.print(`${id}: ${task.status} → ${status} (${resolution})${deletesAt === undefined ? "" : cli.deletesAtTail(formatDay(deletesAt))}`);
+  io.print(`${id}: ${task.status} → ${status} (${resolution})${deletesAt === undefined ? "" : cli.deletesAtTail(formatLocalDay(deletesAt))}`);
   return EXIT.ok;
 }
 

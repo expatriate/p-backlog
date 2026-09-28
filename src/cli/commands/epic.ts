@@ -3,8 +3,8 @@ import type { Task } from "../../core/model/types";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
-import { requireTask } from "../lookups";
-import { cliMessages, type CliMessages } from "../messages";
+import { findTaskOrWarn } from "../lookups";
+import { cliMessages } from "../messages";
 import { taskWriter, type TaskWriter } from "../task-write";
 
 const NO_EPIC = "none";
@@ -22,22 +22,22 @@ async function runEpic(args: string[], io: CliIo): Promise<number> {
   if (positionals.length === 0 || values.to === undefined) throw usageError(epicCommand, io.language);
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const epic = values.to === NO_EPIC ? null : requireEpic(loaded, io, values.to);
+  const epic = values.to === NO_EPIC ? null : findEpicOrWarn(loaded, io, values.to);
   if (epic === undefined) return EXIT.notFound;
 
   const move: Move = { loaded, epic, write: taskWriter(io, loaded.tasks), io };
   return applyAll(new Set(positionals), (id) => moveOne(id, move));
 }
 
-function requireEpic(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
-  const target = requireTask(loaded, io, id);
+function findEpicOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
+  const target = findTaskOrWarn(loaded, io, id);
   if (!target) return undefined;
   if (target.type !== "epic") throw new UsageError(cliMessages(io.language).notAnEpic(target.id));
   return target;
 }
 
 async function moveOne(id: string, { loaded, epic, write, io }: Move): Promise<number> {
-  const task = requireTask(loaded, io, id);
+  const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
   const cli = cliMessages(io.language);
   if (task.type === "epic") {
@@ -46,10 +46,6 @@ async function moveOne(id: string, { loaded, epic, write, io }: Move): Promise<n
   }
   const written = await write(task, { epic: epic === null ? null : epic.id });
   if (!written.ok) return written.exitCode;
-  io.print(`${task.id}: ${epicWord(cli, task.epic)} → ${epicWord(cli, written.task.epic)}`);
+  io.print(`${task.id}: ${task.epic ?? cli.noEpicWord} → ${written.task.epic ?? cli.noEpicWord}`);
   return EXIT.ok;
-}
-
-function epicWord(cli: CliMessages, epic: string | undefined): string {
-  return epic ?? cli.noEpicWord;
 }

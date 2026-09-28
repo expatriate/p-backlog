@@ -1,7 +1,7 @@
 import type { Project } from "../core/model/types";
 import type { LoadedBacklog } from "../core/store/load";
 import { UsageError, type CliIo } from "./io";
-import { requireProject } from "./lookups";
+import { findProjectOrWarn } from "./lookups";
 import { cliMessages } from "./messages";
 
 export const SCOPE_OPTIONS = {
@@ -19,6 +19,6 @@ export function resolveScope(loaded: LoadedBacklog, io: CliIo, values: ScopeValu
     const projectIds = loaded.projects.map((project) => project.id);
     return { projectIds, activeIds: loaded.projects.filter((project) => project.active).map((project) => project.id) };
   }
-  const project = requireProject(loaded, io, values.project);
+  const project = findProjectOrWarn(loaded, io, values.project);
   return project === undefined ? null : { projectIds: [project.id], activeIds: [project.id], project };
 }

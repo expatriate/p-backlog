@@ -10,7 +10,7 @@ import { formatTaskRef } from "../format";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
-import { requireProject, requireTask } from "../lookups";
+import { findProjectOrWarn, findTaskOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 import { relativeInside } from "../path-inside";
 import { taskWriter, type TaskWrite } from "../task-write";
@@ -36,8 +36,9 @@ async function runTake(args: string[], io: CliIo): Promise<number> {
       json: { type: "boolean", default: false },
     });
   const mode = takeMode(io, values, positionals);
-  const inapplicable = mode.kind === "id" ? values.project !== undefined : values.force;
-  if (inapplicable) throw usageError(takeCommand, io.language);
+  const projectWithId = mode.kind === "id" && values.project !== undefined;
+  const forceWithoutId = mode.kind !== "id" && values.force;
+  if (projectWithId || forceWithoutId) throw usageError(takeCommand, io.language);
   const loaded = await loadBacklog(io.backlogRoot);
   if (mode.kind === "path") return takeByPath(loaded, io, mode.path, values.project, { json: values.json });
   const selected = mode.kind === "next" ? selectNext(loaded, io, values.project) : selectById(loaded, io, mode.id);
@@ -66,16 +67,14 @@ function takeMode(io: CliIo, values: { path?: string | undefined; next: boolean 
 }
 
 async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projectId: string | undefined, { json }: { json: boolean }): Promise<number> {
-  const project = requireProject(loaded, io, projectId);
+  const project = findProjectOrWarn(loaded, io, projectId);
   if (!project) return EXIT.notFound;
   const target = repoRelativePath(io, project, path);
   const index = buildIndex(loaded.tasks);
   const matching = loaded.tasks.filter((task) => task.projectId === project.id && isOpenTaskAt(task, target));
-  const takeable = matching.filter((task) => {
-    const refusal = takeRefusal(io, task, index, { ignoreBlockers: false });
-    for (const line of refusal?.lines ?? []) io.warn(line);
-    return refusal === null;
-  });
+  const refusals = matching.map((task) => takeRefusal(io, task, index, { ignoreBlockers: false }));
+  for (const line of refusals.flatMap((refusal) => refusal?.lines ?? [])) io.warn(line);
+  const takeable = matching.filter((_, position) => refusals[position] === null);
   if (takeable.length === 0) {
     if (matching.length > 0) return EXIT.refused;
     io.warn(cliMessages(io.language).noOpenTasksAt(path));
@@ -124,12 +123,12 @@ async function takeAll(loadedTasks: readonly Task[], chosen: readonly Task[], io
 }
 
 function selectById(loaded: LoadedBacklog, io: CliIo, id: string): Selection {
-  const task = requireTask(loaded, io, id);
+  const task = findTaskOrWarn(loaded, io, id);
   return task ? { ok: true, task } : { ok: false, exitCode: EXIT.notFound };
 }
 
 function selectNext(loaded: LoadedBacklog, io: CliIo, projectId: string | undefined): Selection {
-  const project = requireProject(loaded, io, projectId);
+  const project = findProjectOrWarn(loaded, io, projectId);
   if (!project) return { ok: false, exitCode: EXIT.notFound };
   const index = buildIndex(loaded.tasks);
   const task = pickNextTask(loaded.tasks, project.id, index);

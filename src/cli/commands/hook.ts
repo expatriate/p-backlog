@@ -24,6 +24,8 @@ import { stopReason } from "../stop-reason";
 
 const DEFAULT_AGENT: Agent = "claude";
 
+const rememberNothing = (): Promise<void> => Promise.resolve();
+
 export const hookCommand: CliCommand = {
   name: "hook",
   usage: (language) => [cliMessages(language).hookUsage(HOOK_STOP_EVENT, AGENTS)],
@@ -76,8 +78,10 @@ async function isFirstHookOfTurn(agent: Agent, event: StopEvent, io: CliIo): Pro
 
 type SessionMemory = { told: ReadonlySet<string>; remember: (ids: readonly string[]) => Promise<void> };
 
+const NO_SESSION_MEMORY: SessionMemory = { told: new Set(), remember: rememberNothing };
+
 async function sessionMemory(project: Project, session: string | undefined, io: CliIo): Promise<SessionMemory> {
-  if (session === undefined) return { told: new Set(), remember: () => Promise.resolve() };
+  if (session === undefined) return NO_SESSION_MEMORY;
   const projectDir = dirname(project.path);
   try {
     return {
@@ -88,13 +92,13 @@ async function sessionMemory(project: Project, session: string | undefined, io: 
     };
   } catch (error) {
     io.warn(cliMessages(io.language).sessionShownReadFailed(errorText(error)));
-    return { told: new Set(), remember: () => Promise.resolve() };
+    return NO_SESSION_MEMORY;
   }
 }
 
 type FreshSignals = { fresh: Signal[]; remember: () => Promise<void> };
 
-const NO_SIGNALS: FreshSignals = { fresh: [], remember: () => Promise.resolve() };
+const NO_SIGNALS: FreshSignals = { fresh: [], remember: rememberNothing };
 
 function lowChangedSignals(count: number): Signal[] {
   if (count === 0) return [];
@@ -108,10 +112,10 @@ async function freshSignals(project: Project, tasks: readonly Task[], extra: rea
     const journal = await readJournal(projectDir, project.id);
     const shown = await readSignalsShown(projectDir);
     const fresh = signalsToShow([...statsSignals({ tasks, journals: [journal], now: io.now(), projectId: project.id }), ...extra], shown, today);
-    return { fresh, remember: () => (fresh.length === 0 ? Promise.resolve() : rememberShown(projectDir, markShown(shown, fresh, today), io)) };
+    return { fresh, remember: fresh.length === 0 ? rememberNothing : () => rememberShown(projectDir, markShown(shown, fresh, today), io) };
   } catch (error) {
     io.warn(cliMessages(io.language).alertsComputeFailed(errorText(error)));
-    return { fresh: [], remember: () => Promise.resolve() };
+    return NO_SIGNALS;
   }
 }
 

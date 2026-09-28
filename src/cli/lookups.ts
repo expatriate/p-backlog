@@ -11,7 +11,7 @@ import type { CliIo } from "./io";
 import { cliMessages } from "./messages";
 import { relativeInside } from "./path-inside";
 
-export function requireTask(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
+export function findTaskOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
   const task = loaded.tasks.find((candidate) => candidate.id === id);
   if (task) return task;
   const broken = loaded.errors.find((error) => basename(error.path) === `${id}.md`);
@@ -24,7 +24,7 @@ export function projectOf(loaded: LoadedBacklog, task: Task): Project | undefine
   return loaded.projects.find((project) => project.id === task.projectId);
 }
 
-export function requireProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Project | undefined {
+export function findProjectOrWarn(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Project | undefined {
   const project = findProject(loaded, io, explicitId);
   if (project) return project;
   const cli = cliMessages(io.language);
@@ -33,7 +33,7 @@ export function requireProject(loaded: LoadedBacklog, io: CliIo, explicitId: str
 }
 
 export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Promise<Project | undefined> {
-  if (explicitId !== undefined) return requireProject(loaded, io, explicitId);
+  if (explicitId !== undefined) return findProjectOrWarn(loaded, io, explicitId);
   const existing = findProject(loaded, io, undefined);
   if (existing) return existing;
   const gitRoots = findGitRoots(io.cwd);
