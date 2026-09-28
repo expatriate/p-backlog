@@ -6,6 +6,7 @@ import { integrityErrors } from "../model/integrity";
 import { derivePrefix, deriveProjectId, formatId, parseId, PREFIX_PATTERN, type ParsedId } from "../model/ids";
 import { createdEvent, type Provenance } from "../journal/events";
 import { parseProjectFile, serializeProject } from "../model/project-file";
+import type { TaskDraft } from "../model/task-file";
 import type { OptionalFields, Project, Task } from "../model/types";
 import { hasErrorCode } from "../errors";
 import { createFileAtomic, listDir, readTextOrNull } from "./fs-utils";
@@ -110,7 +111,7 @@ async function taskFileIds(dir: string): Promise<ParsedId[]> {
   return [...(await taskIdsOnDisk(dir))].flatMap((id) => parseId(id) ?? []);
 }
 
-function draftTask(id: string, path: string, { project, input, now }: CreateTaskRequest): Task {
+function draftTask(id: string, path: string, { project, input, now }: CreateTaskRequest): TaskDraft {
   return {
     id,
     title: input.title,
@@ -129,6 +130,5 @@ function draftTask(id: string, path: string, { project, input, now }: CreateTask
     body: input.body ?? "",
     projectId: project.id,
     path,
-    version: "",
   };
 }
