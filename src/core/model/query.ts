@@ -98,7 +98,7 @@ export const STALE_LOW_DAYS = 30;
 export function staleLowTasks(tasks: readonly Task[], now: Date): Task[] {
   const cutoff = now.getTime() - STALE_LOW_DAYS * DAY_MS;
   return tasks
-    .filter((task) => task.type === "task" && task.status === "backlog" && task.priority === "low" && Date.parse(task.created) < cutoff)
+    .filter((task) => isQueuedTask(task) && task.priority === "low" && Date.parse(task.created) < cutoff)
     .sort((a, b) => Date.parse(a.created) - Date.parse(b.created));
 }
 
