@@ -1,15 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
-import { basename } from "node:path";
 import type { Revision } from "../core/api/contract";
 import { contentVersion, readTextOrNull } from "../core/store/fs-utils";
-import { JOURNAL_FILE } from "../core/store/journal";
 
 export type OwnWrite = { path: string; version: string };
 
 export type Revisions = {
   current: () => Revision;
-  recordOwnWrites: (writes: readonly OwnWrite[]) => Promise<void>;
+  recordOwnWrites: (writes: readonly OwnWrite[], appended: readonly string[]) => Promise<void>;
   settle: (paths: readonly string[]) => Promise<"own" | "foreign">;
 };
 
@@ -30,16 +28,17 @@ export function createRevisions(): Revisions {
 
   return {
     current: () => ({ boot, seq }),
-    recordOwnWrites: async (writes) => {
-      const marks = await Promise.all(writes.map(async ({ path }) => ({ path, mark: await markOf(path) })));
+    recordOwnWrites: async (writes, appended) => {
+      const expected = [...writes, ...appended.map((path) => ({ path, version: undefined }))];
+      const marks = await Promise.all(expected.map(async ({ path, version }) => ({ path, version, mark: await markOf(path) })));
       seq += 1;
-      marks.forEach(({ path, mark }, index) => {
-        if (mark !== null && mark.version === writes[index]?.version) ownMarks.set(path, mark);
+      for (const { path, version, mark } of marks) {
+        if (mark !== null && (version === undefined || mark.version === version)) ownMarks.set(path, mark);
         else ownMarks.delete(path);
-      });
+      }
     },
     settle: async (paths) => {
-      const ownChange = (path: string) => (basename(path) === JOURNAL_FILE ? true : consumeOwnMark(path).catch(() => false));
+      const ownChange = (path: string) => consumeOwnMark(path).catch(() => false);
       const own = paths.length > 0 && (await Promise.all(paths.map(ownChange))).every(Boolean);
       if (own) return "own";
       seq += 1;

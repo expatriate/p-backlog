@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { dirname, join } from "node:path";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import type { Language } from "../core/i18n/language";
@@ -10,7 +11,7 @@ import type { Project, Task } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { parseWithLocale } from "../core/model/zod-issues";
 import { applyBatch, type CoreBatchOutcome } from "../core/store/batch";
-import { readJournals } from "../core/store/journal";
+import { JOURNAL_FILE, readJournals } from "../core/store/journal";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { writeSettings } from "../core/store/settings";
 import { deleteProject, setProjectActive } from "../core/store/projects";
@@ -67,7 +68,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
       snapshot = null;
       return;
     }
-    await revisions.recordOwnWrites(writes);
+    await revisions.recordOwnWrites(writes, [...new Set(writes.map((write) => join(dirname(write.path), JOURNAL_FILE)))]);
     forgetChanged(writes.map((write) => write.path));
   };
   const streams = new Set<(revision: Revision) => void>();

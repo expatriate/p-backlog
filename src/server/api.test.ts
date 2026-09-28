@@ -429,6 +429,23 @@ describe("ревизия данных в ответах и событиях", ()
     expect(await tasksRevision(backlog)).toEqual(foreign);
     expect(await change([])).toMatchObject({ seq: foreign.seq + 1 });
   });
+
+  it("запись агента в журнал, пришедшая отдельно от его правки файла, — чужое изменение: «закрыта в вебе» пересчитывается", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const change = await openChanges(backlog);
+    const tasksResponse = async () => (await (await backlog.request("/api/tasks")).json()) as TasksResponse;
+    await backlog.json("/api/tasks/batch", "POST", { tasks: [{ id: "SPA-1", version: await backlog.taskVersion("SPA-1") }], action: { kind: "close", reason: "неактуально" } });
+    await backlog.json("/api/tasks/SPA-1", "PATCH", { version: await backlog.taskVersion("SPA-1"), changes: { status: "backlog" } });
+    const closedAt = new Date(TEST_NOW.getTime() + 60_000);
+
+    await writeFiles(backlog.root, { "spa/SPA-1.md": taskFile("SPA-1", `status: done\nclosed: ${formatLocalIso(closedAt)}\nresolution: fixed\nreason: готово\n`) });
+    await change([path(backlog, "SPA-1.md")]);
+    expect((await tasksResponse()).closedInWeb).toEqual(["SPA-1"]);
+    await appendJournal(join(backlog.root, "spa"), [{ at: formatLocalIso(closedAt), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" }]);
+    const afterJournal = await change([path(backlog, "journal.jsonl")]);
+
+    expect(await tasksResponse()).toMatchObject({ closedInWeb: [], revision: afterJournal });
+  });
 });
 
 describe("GET /api/stats", () => {
