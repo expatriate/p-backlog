@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { relative, sep } from "node:path";
 import { errorText } from "../core/errors";
-import { STATS_MEMORY_ROUTE, STATS_REPORT_ROUTES } from "../core/api/stats-routes";
+import { STATS_MEMORY_ROUTE, STATS_REPORT_ROUTES, type StatsReportKind, type StatsReports } from "../core/api/stats-routes";
 import type { GraphHealth } from "../core/check/graph-health";
 import { createCodeCacheFile } from "../core/code/code-cache";
 import { createCodeSource, type CodeCacheErrorKind } from "../core/code/code-source";
@@ -14,7 +14,7 @@ import { qualityReport } from "../core/stats/quality/quality-report";
 import { statsReport } from "../core/stats/report";
 import type { ReportBase, StatsInput } from "../core/stats/scope";
 import { statsSignals } from "../core/stats/signals/signals";
-import type { CodeReport, CostReport, EffectReport, ProjectGraphRow, QualityReport, SignalsReport, StatsReport } from "../core/stats/types";
+import type { CodeReport, CostReport, EffectReport, ProjectGraphRow, QualityReport } from "../core/stats/types";
 import { unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/store/load";
 import { cachedRepoRoots, findProjectForRoots, type GitRoots, type RepoRootLookup } from "../core/store/resolve-project";
 import type { UsageCache } from "../core/usage/usage-cache";
@@ -51,6 +51,8 @@ type ReportSources = { input: StatsInput; base: ReportBase; projects: readonly P
 type ScopedReport<R> = (sources: ReportSources) => R | Promise<R>;
 
 type ScopedReportOptions = { sourceKey?: (projects: readonly Project[], snapshot: BacklogSnapshot) => Promise<string>; wholeBacklog?: boolean };
+
+type ScopedReportKind = Exclude<StatsReportKind, "cost">;
 
 const REPORT_TTL_MS = 5 * 60 * 1000;
 const ALL_PROJECTS_TAG = "project:*";
@@ -90,14 +92,13 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
     return { projectId, projects: scoped, tasks: tasks.filter(inScope), unparsedTasks: unparsedTasks(errors).filter(inScope), snapshot };
   };
 
-  const scopedStats =
-    <R extends StatsReport | CodeReport | QualityReport | SignalsReport | EffectReport>(name: string, report: ScopedReport<R>, { sourceKey, wholeBacklog = false }: ScopedReportOptions = {}) =>
-    async (c: Context) => {
+  const serveScoped = <K extends ScopedReportKind>(kind: K, report: ScopedReport<StatsReports[K]>, { sourceKey, wholeBacklog = false }: ScopedReportOptions = {}) =>
+    routes.get(STATS_REPORT_ROUTES[kind], async (c) => {
       const forgetCountAtRead = forgetCount;
       const scope = await statsScopeOf(c, await backlogPruningCaches(), { wholeBacklog });
       if (scope instanceof Response) return scope;
       const moment = now();
-      const key = [name, scope.projectId ?? "*", formatLocalDay(moment), sourceKey === undefined ? "" : await sourceKey(scope.projects, scope.snapshot)].join("|");
+      const key = [kind, scope.projectId ?? "*", formatLocalDay(moment), sourceKey === undefined ? "" : await sourceKey(scope.projects, scope.snapshot)].join("|");
       const tags = wholeBacklog ? [WHOLE_BACKLOG_TAG] : [scope.projectId === undefined ? ALL_PROJECTS_TAG : projectTag(scope.projectId)];
       const compute = async () => {
         const { journals, baseOf } = await journalSources.read(scope.snapshot, scope.projects.map((project) => project.id));
@@ -107,14 +108,13 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
       };
       const scopeOutdated = forgetCount !== forgetCountAtRead;
       return c.json(await (scopeOutdated ? compute() : reports.get(key, compute, tags)));
-    };
+    });
 
   const statsOfCode: ScopedReport<CodeReport> = async ({ input, base, projects }) => codeReport({ ...input, code: await codeSource.collect(projects, input.now) }, base);
 
   const statsOfEffect: ScopedReport<EffectReport> = async ({ input, base, projects, wholeBacklogBase }) => {
     const backlogBase = input.projectId === undefined ? base : wholeBacklogBase();
-    const scoped = projects.filter((project) => input.projectId === undefined || project.id === input.projectId);
-    const code = await codeSource.collect(scoped, input.now);
+    const code = await codeSource.collect(projectsInScope(projects, input.projectId, { wholeBacklog: false }), input.now);
     const fixCommits = await codeSource.fixCommits(projects, codeFixRequests({ ...input, projectId: undefined }, backlogBase), input.now);
     return effectReport({ ...input, code: { ...code, fixCommits } }, base, backlogBase);
   };
@@ -126,11 +126,11 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
 
   const codeState = { sourceKey: (projects: readonly Project[]) => codeSource.stateKey(projects) };
   const graphState = { sourceKey: async (projects: readonly Project[], snapshot: BacklogSnapshot) => JSON.stringify(await graphRowsOf(projects, snapshot)) };
-  routes.get(STATS_REPORT_ROUTES.overview, scopedStats("stats", ({ input, base }) => statsReport(input, base)));
-  routes.get(STATS_REPORT_ROUTES.code, scopedStats("code", statsOfCode, codeState));
-  routes.get(STATS_REPORT_ROUTES.effect, scopedStats("effect", statsOfEffect, { ...codeState, wholeBacklog: true }));
-  routes.get(STATS_REPORT_ROUTES.quality, scopedStats("quality", statsOfQuality, graphState));
-  routes.get(STATS_REPORT_ROUTES.signals, scopedStats("signals", ({ input, base }) => ({ signals: statsSignals(input, base) })));
+  serveScoped("overview", ({ input, base }) => statsReport(input, base));
+  serveScoped("code", statsOfCode, codeState);
+  serveScoped("effect", statsOfEffect, { ...codeState, wholeBacklog: true });
+  serveScoped("quality", statsOfQuality, graphState);
+  serveScoped("signals", ({ input, base }) => ({ signals: statsSignals(input, base) }));
   routes.get(STATS_REPORT_ROUTES.cost, async (c) => {
     const scope = await statsScopeOf(c, await backlogPruningCaches(), { wholeBacklog: true });
     if (scope instanceof Response) return scope;
