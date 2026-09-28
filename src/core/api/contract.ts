@@ -3,6 +3,7 @@ import type { GraphState } from "../check/graph-health";
 import type { Language } from "../i18n/language";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskIdSchema, type ParseError, type Project, type Task } from "../model/types";
 import { settingsSchema } from "../model/settings";
+import type { BatchSkipReason } from "../store/batch";
 import type { MemorySample } from "../stats/types";
 
 const idList = z.array(taskIdSchema);
@@ -57,8 +58,7 @@ export const batchRequestSchema = z.strictObject({
 
 export type BatchRequest = z.infer<typeof batchRequestSchema>;
 export type BatchAction = BatchRequest["action"];
-export type BatchPrevious = z.infer<typeof batchPreviousSchema>;
-export type BatchSkipReason = "changed" | "not-found" | "already-closed" | "invalid" | "busy" | "failed";
+type BatchPrevious = z.infer<typeof batchPreviousSchema>;
 export type BatchOutcome =
   | { id: string; outcome: "done"; version: string; previous: BatchPrevious }
   | { id: string; outcome: "skipped"; reason: BatchSkipReason; message: string };

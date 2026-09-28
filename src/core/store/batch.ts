@@ -1,14 +1,25 @@
-import type { BatchAction, BatchPrevious, BatchRequest, BatchSkipReason } from "../api/contract";
 import { isClosed, type BacklogIndex } from "../model/graph";
 import { errorText } from "../errors";
 import { compareIds } from "../model/ids";
 import type { Closure } from "../model/lifecycle";
 import type { Problem } from "../model/problems";
-import type { Task } from "../model/types";
+import type { Priority, Task, TaskStatus } from "../model/types";
 import { bufferedJournal, type JournalWriter } from "./journal";
 import { updateTaskInIndex, type TaskChanges } from "./update";
 
+export type BatchSkipReason = "changed" | "not-found" | "already-closed" | "invalid" | "busy" | "failed";
+
 type SkipReason = Exclude<BatchSkipReason, "failed">;
+
+type BatchPrevious = { status: TaskStatus; priority: Priority; epic: string | null };
+
+type BatchAction =
+  | { kind: "close"; reason: string }
+  | { kind: "priority"; priority: Priority }
+  | { kind: "epic"; epic: string | null }
+  | { kind: "restore"; changes: Readonly<Record<string, BatchPrevious>> };
+
+type BatchRequest = { tasks: readonly { id: string; version: string }[]; action: BatchAction; now: Date };
 
 export type CoreBatchOutcome =
   | { id: string; outcome: "done"; task: Task; reopenedEpic?: Task | undefined; previous: BatchPrevious }
@@ -17,7 +28,7 @@ export type CoreBatchOutcome =
 
 type Plan = { skip: SkipReason } | { changes: TaskChanges; closure?: Closure | undefined };
 
-export async function applyBatch(index: BacklogIndex, { tasks, action, now }: BatchRequest & { now: Date }): Promise<CoreBatchOutcome[]> {
+export async function applyBatch(index: BacklogIndex, { tasks, action, now }: BatchRequest): Promise<CoreBatchOutcome[]> {
   const ordered = [...tasks].sort((left, right) => compareIds(left.id, right.id));
   const journal = bufferedJournal();
   const outcomes: CoreBatchOutcome[] = [];
