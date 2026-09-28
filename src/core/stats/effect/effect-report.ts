@@ -124,6 +124,8 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
   const fixedLines = sum(fixed.map((item) => item.lines));
   const deferredLines = fixedLines + (estimatedLines ?? 0);
   const denominator = realLines + (estimatedLines ?? 0);
+  const openSizeUnknown = estimatedLines === null && open.length > 0;
+  const measurable = realLines > 0 && deferred.length > 0 && !openSizeUnknown;
   return {
     realLines,
     fixedTasks: fixed.length,
@@ -132,7 +134,7 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
     estimatedLines,
     deferredLines,
     deferredTestLines: sum(fixed.map((item) => item.testLines)) + (estimated?.testLines ?? 0),
-    noiseShare: realLines === 0 || deferred.length === 0 || (estimatedLines === null && open.length > 0) ? null : Math.min(1, deferredLines / denominator),
+    noiseShare: measurable ? Math.min(1, deferredLines / denominator) : null,
   };
 }
 

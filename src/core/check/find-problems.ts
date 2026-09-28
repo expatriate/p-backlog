@@ -33,15 +33,16 @@ function parseProblems(loaded: LoadedBacklog, inScope: (projectId: string) => bo
   const waitingEpicIds = planEpicClosing(loaded.tasks, loaded.errors)
     .waiting.filter(({ epic }) => inScope(epic.projectId))
     .map(({ epic }) => epic.id);
+  const everyFileMayHoldWaitingChild = waitingEpicIds.length > 0;
   const reported = loaded.errors
-    .filter((error) => waitingEpicIds.length > 0 || inScope(error.projectId) || isProjectFileError(error))
+    .filter((error) => everyFileMayHoldWaitingChild || concernsScope(error, inScope))
     .map((error): CheckProblem => ({ kind: "file-not-parsed", path: error.path, problems: error.problems }));
   if (waitingEpicIds.length === 0) return reported;
   return [...reported, { kind: "epics-wait-for-files", epicIds: waitingEpicIds }];
 }
 
-function isProjectFileError(error: ParseError): boolean {
-  return basename(error.path) === PROJECT_FILE;
+function concernsScope(error: ParseError, inScope: (projectId: string) => boolean): boolean {
+  return inScope(error.projectId) || basename(error.path) === PROJECT_FILE;
 }
 
 function missingRepoProblem(project: Project): CheckProblem {
