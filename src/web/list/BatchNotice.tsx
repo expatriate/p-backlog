@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import type { BatchOutcome, BatchRequest, BatchResponse } from "../../core/api/contract";
 import { PartialBatchError } from "../app/batch-chunks";
 import { useBatchTasks } from "../app/queries";
-import { requestErrorMessage } from "../app/RequestFailure";
+import { ActionFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import type { TaskHref } from "../task/TaskRefs";
@@ -32,7 +32,7 @@ type BatchNoticeProps = {
 };
 
 export function BatchNotice({ result, serial, onResult, taskHref }: BatchNoticeProps) {
-  const { list, app } = useMessages();
+  const { list } = useMessages();
   const undo = useBatchTasks();
   const [focusInside, setFocusInside] = useState(false);
   const summary = useRef<HTMLParagraphElement>(null);
@@ -92,16 +92,13 @@ export function BatchNotice({ result, serial, onResult, taskHref }: BatchNoticeP
             </Button>
           )}
           {undo.error === null && result.failure !== undefined && (
-            <p className={footer.error} role="alert">
-              {result.request.action.kind === "restore" ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)}:{" "}
-              {requestErrorMessage(app, result.failure.error)}
-            </p>
+            <ActionFailure
+              className={footer.error}
+              action={result.request.action.kind === "restore" ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)}
+              error={result.failure.error}
+            />
           )}
-          {undo.error !== null && !(undo.error instanceof PartialBatchError) && (
-            <p className={footer.error} role="alert">
-              {list.undoFailed}: {requestErrorMessage(app, undo.error)}
-            </p>
-          )}
+          {!(undo.error instanceof PartialBatchError) && <ActionFailure className={footer.error} action={list.undoFailed} error={undo.error} />}
         </>
       )}
     </div>

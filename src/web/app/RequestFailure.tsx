@@ -26,6 +26,16 @@ export function RequestFailure({ error, fetching, onRetry }: { error: Error; fet
   );
 }
 
+export function ActionFailure({ action, error, className }: { action: string; error: Error | null; className: string | undefined }) {
+  const { app } = useMessages();
+  if (error === null) return null;
+  return (
+    <span className={className} role="alert">
+      {action}: {requestErrorMessage(app, error)}
+    </span>
+  );
+}
+
 export function requestErrorMessage(app: AppMessages, error: Error): string {
   return requestErrorParts(app, error, (text) => text).join("");
 }

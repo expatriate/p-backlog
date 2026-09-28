@@ -3,7 +3,7 @@ import type { BatchAction, BatchRequest } from "../../core/api/contract";
 import { compareIds } from "../../core/model/ids";
 import { PRIORITIES, type Priority, type Task } from "../../core/model/types";
 import { useBatchTasks } from "../app/queries";
-import { requestErrorMessage } from "../app/RequestFailure";
+import { ActionFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
@@ -26,7 +26,7 @@ export type BulkActionsProps = {
 };
 
 export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProps) {
-  const { list, app } = useMessages();
+  const { list } = useMessages();
   const firstAction = useRef<HTMLButtonElement>(null);
   const batch = useBatchTasks();
   const keyboardHints = useKeyboardHints();
@@ -69,11 +69,7 @@ export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProp
       </p>
       {shown && <SelectionActions firstAction={firstAction} chosen={chosen} assignableEpics={assignableEpics} busy={isPending} onRun={run} onClear={selection.clear} />}
       {shown && keyboardHints && <p className={styles.hint}>{list.toActionsHint(actionsShortcutLabel())}</p>}
-      {shown && batch.error !== null && (
-        <p className={footer.error} role="alert">
-          {list.bulkFailed}: {requestErrorMessage(app, batch.error)}
-        </p>
-      )}
+      {shown && <ActionFailure className={footer.error} action={list.bulkFailed} error={batch.error} />}
     </section>
   );
 }
