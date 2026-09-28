@@ -71,7 +71,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
     existingTasks: loaded.tasks,
     now: io.now(),
     via: "cli",
-    provenance: { found, foundExplicit: values.found === undefined ? undefined : true, origin: cwdBelongsTo(project, loaded.projects, io) ? await readOrigin(io.cwd) : undefined },
+    provenance: { found, origin: cwdBelongsTo(project, loaded.projects, io) ? await readOrigin(io.cwd) : undefined },
   });
   if (!result.ok) {
     for (const problem of result.problems) io.warn(io.core.problem(problem));

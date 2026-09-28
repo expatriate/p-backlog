@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Effect counts every task recorded as `incidental` again, including tasks recorded by earlier versions, where
+  `incidental` was the default. Without such tasks the tab explains why there is nothing to measure, and the share of
+  unrelated edits shows "—" instead of 0 %.
+
 ## 0.8.0
 
 - The task list no longer says "No tasks yet" while the project list is loading or after it failed to load: it shows

@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import type { EffectReport } from "../../core/api/contract";
 import { useEffectStats } from "../app/queries";
+import { useMessages } from "../i18n";
 import { EffectExplainer } from "./EffectExplainer";
 import { EffectChartPanel, EffectFigures, ProjectsPanel } from "./EffectPanels";
 import rowStyles from "./PanelRows.module.css";
@@ -15,9 +16,12 @@ export function EffectTab() {
 }
 
 function Effect({ report }: { report: EffectReport }) {
+  const { stats } = useMessages();
+  const nothingDeferred = report.totals.fixedTasks + report.totals.openTasks === 0;
   return (
     <>
       <UnavailableRepos repos={report.unavailableRepos} />
+      {nothingDeferred && <p className={styles.note}>{stats.noDeferredTasks}</p>}
       <EffectFigures totals={report.totals} period={report.periods.weeks} />
       <div className={styles.blocks}>
         <div className={rowStyles.wide}>

@@ -146,7 +146,7 @@
 
 | Команда | Что делает |
 |---|---|
-| `backlog new --title <t> --category <категория> [--type task\|epic] [--priority low\|medium\|high\|critical] [--tags a,b] [--found incidental\|review\|manual] [--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--force] [--json]` | Создаёт задачу, описание читается из stdin; похожая открытая задача — отказ (код 3), `--force` создаёт всё равно; `--found`: `incidental` — агент заметил попутно (в «Эффекте» считаются только такие, указанные явно), `review` — находка ревью, `manual` — заведена по просьбе пользователя (по умолчанию) |
+| `backlog new --title <t> --category <категория> [--type task\|epic] [--priority low\|medium\|high\|critical] [--tags a,b] [--found incidental\|review\|manual] [--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--force] [--json]` | Создаёт задачу, описание читается из stdin; похожая открытая задача — отказ (код 3), `--force` создаёт всё равно; `--found`: `incidental` — агент заметил попутно (в «Эффекте» считаются только такие), `review` — находка ревью, `manual` — заведена по просьбе пользователя (по умолчанию) |
 | `backlog list [--query q] [--status s,…] [--tag t,…] [--project id \| --all-projects] [--json]` | Список задач, по умолчанию открытые задачи текущего проекта |
 | `backlog show <ID> [--json]` | Задача целиком: связи, блокеры, предупреждения |
 | `backlog take <ID> [--force] [--json]` \| `--next [--project id] [--json]` | Берёт задачу в работу, проверяя блокеры |

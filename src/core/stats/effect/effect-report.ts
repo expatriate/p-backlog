@@ -34,7 +34,7 @@ export function effectReport(
   const { histories } = base;
   const statsWindow = statsPeriod(now);
   const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
-  const deferredByAgent = histories.filter((history) => history.found === "incidental" && history.foundExplicit && statsWindow.contains(history.createdAt));
+  const deferredByAgent = histories.filter((history) => history.found === "incidental" && statsWindow.contains(history.createdAt));
   const deferred = buildDeferred(deferredByAgent, retainedFixes(histories, now), code);
   const estimate = estimator(estimateSamples(retainedFixes(wholeBacklog.histories, now), code));
   const adoptionStart = (id: string) => {
@@ -132,7 +132,7 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
     estimatedLines,
     deferredLines,
     deferredTestLines: sum(fixed.map((item) => item.testLines)) + (estimated?.testLines ?? 0),
-    noiseShare: realLines === 0 || (estimatedLines === null && open.length > 0) ? null : Math.min(1, deferredLines / denominator),
+    noiseShare: realLines === 0 || deferred.length === 0 || (estimatedLines === null && open.length > 0) ? null : Math.min(1, deferredLines / denominator),
   };
 }
 

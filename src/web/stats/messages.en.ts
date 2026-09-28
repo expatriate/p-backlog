@@ -181,9 +181,11 @@ export const statsEn: StatsMessages = {
   deferredTasks: "tasks deferred",
   effectSummary: (realLines, deferred, noise) => `Over ${EFFECT_WINDOW}: ${countEn(realLines, "line", "lines")} in pull requests, deferred ${deferred}, noise without backlog ${noise}`,
   effectDaysSummary: (days, onTopicLines, deferred) => `Over ${periods("day", days)}: ${countEn(onTopicLines, "line", "lines")} on topic in pull requests, deferred ${deferred}`,
+  noDeferredTasks:
+    "No tasks moved out by the agent in passing yet, so there is no gain to measure. The agent records problems outside the current work that it notices itself (backlog new --found incidental); review and audit findings and tasks recorded at the user's request don't count here.",
   explainerTitle: "How the gain is calculated",
   explainerTask:
-    "Every task the agent moved out of its work in passing is an edit it would have made in the current pull request without the backlog. The gain is the lines that did not get there. Review and audit findings, tasks recorded at the user's request and tasks without an explicit “incidentally” mark — including every task recorded before the version that introduced it — are not counted. They are shown on the Quality tab under Origin.",
+    "Every task the agent moved out of its work in passing is an edit it would have made in the current pull request without the backlog. The gain is the lines that did not get there. Review and audit findings and tasks recorded at the user's request are not counted — they are shown on the Quality tab under Origin.",
   explainerFixed:
     "Fixed ones are exact: lines of the commit from the close reason, without lock files, docs and images; a commit for several tasks is split evenly. Tasks closed without a fix and fixed ones without a found commit are not counted.",
   explainerPending: `Pending ones are estimated: the median of fixes in the same category (if there are at least ${MIN_FIXES_FOR_ESTIMATE}), otherwise of all fixes.`,

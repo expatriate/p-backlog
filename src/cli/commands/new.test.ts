@@ -84,7 +84,7 @@ describe("backlog new", () => {
 
     expect(result.code).toBe(0);
     const [created] = (await readJournal(join(root, "spa"), "spa")).events;
-    expect(created).toMatchObject({ kind: "created", category: "couplers", found: "review", foundExplicit: true, origin: { branch, commit } });
+    expect(created).toMatchObject({ kind: "created", category: "couplers", found: "review", origin: { branch, commit } });
   });
 
   it("без коммитов происхождения нет, по умолчанию — заведена вручную, а не вынесена агентом", async () => {
@@ -94,7 +94,6 @@ describe("backlog new", () => {
 
     const [created] = (await readJournal(join(root, "spa"), "spa")).events;
     expect(created).toMatchObject({ kind: "created", found: "manual" });
-    expect(created).not.toHaveProperty("foundExplicit");
     expect(created).not.toHaveProperty("origin");
   });
 

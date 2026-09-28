@@ -14,8 +14,7 @@ const fixed = (index: number, lines: number): { task: Task; commit: [string, Fix
   task: makeTask({ id: `SPA-${index}`, created: iso(8, index), status: "done", closed: iso(8, 10), resolution: "fixed", reason: `Исправлено в aaaaaa${index}`, category: "bug" }),
   commit: [fixKey("spa", `aaaaaa${index}`), { date: iso(8, 10), byAgent: true, lines, testLines: lines / 2 }],
 });
-const createdOf = (tasks: readonly Task[], found: FoundHow | undefined, { explicit = true } = {}) =>
-  tasks.map((task) => createdEvent(task, new Date(task.created), "cli", { found, foundExplicit: explicit ? true : undefined }));
+const createdOf = (tasks: readonly Task[], found: FoundHow | undefined) => tasks.map((task) => createdEvent(task, new Date(task.created), "cli", { found }));
 const journalsOf = (tasks: readonly Task[], found: FoundHow | undefined): ProjectJournal[] =>
   [...new Set(tasks.map((task) => task.projectId))].map((projectId) => ({ projectId, invalidLines: 0, events: createdOf(tasks.filter((task) => task.projectId === projectId), found) }));
 const incidental = (tasks: readonly Task[]) => ({ tasks, journals: journalsOf(tasks, "incidental") });
@@ -45,25 +44,27 @@ describe("эффект беклога", () => {
     expect(report.projects).toEqual([{ projectId: "spa", name: "Проект spa", realLines: 400, deferredTasks: 8, fixedLines: 210, estimatedLines: 70, noiseShare: 280 / 470 }]);
   });
 
-  it("находки ревью, задачи по просьбе пользователя, задачи без отметки и «попутно» по старому умолчанию не считаются вынесенными, но их исправления дают оценку", () => {
+  it("находки ревью, задачи по просьбе пользователя и задачи без отметки не считаются вынесенными, но их исправления дают оценку", () => {
     const review = fixes.map((fix) => fix.task);
     const manual = makeTask({ id: "SPA-7", created: iso(8, 15), category: "bug" });
     const unrecorded = makeTask({ id: "SPA-8", created: iso(8, 15), category: "bug" });
     const byAgent = makeTask({ id: "SPA-9", created: iso(8, 16), category: "bug" });
-    const byOldDefault = makeTask({ id: "SPA-10", created: iso(8, 16), category: "bug" });
-    const events = [
-      ...createdOf(review, "review"),
-      ...createdOf([manual], "manual"),
-      ...createdOf([unrecorded], undefined, { explicit: false }),
-      ...createdOf([byAgent], "incidental"),
-      ...createdOf([byOldDefault], "incidental", { explicit: false }),
-    ];
+    const events = [...createdOf(review, "review"), ...createdOf([manual], "manual"), ...createdOf([unrecorded], undefined), ...createdOf([byAgent], "incidental")];
 
-    const report = effectReport({ tasks: [...review, manual, unrecorded, byAgent, byOldDefault], journals: [{ projectId: "spa", invalidLines: 0, events }], now: NOW, projectId: "spa", code: code(fixes.map((fix) => fix.commit)) });
+    const report = effectReport({ tasks: [...review, manual, unrecorded, byAgent], journals: [{ projectId: "spa", invalidLines: 0, events }], now: NOW, projectId: "spa", code: code(fixes.map((fix) => fix.commit)) });
 
     expect(report.totals).toMatchObject({ fixedTasks: 0, fixedLines: 0, openTasks: 1, estimatedLines: 35 });
     expect(report.projects[0]?.deferredTasks).toBe(1);
     expect(report.weeks.at(-2)).toMatchObject({ deferredLines: 0, deferredTasks: 0 });
+  });
+
+  it("без вынесенных задач доля шума пустая, а не нулевая", () => {
+    const review = fixes.map((fix) => fix.task);
+
+    const report = effectReport({ tasks: review, journals: journalsOf(review, "review"), now: NOW, projectId: "spa", code: code(fixes.map((fix) => fix.commit)) });
+
+    expect(report.totals).toMatchObject({ realLines: 400, fixedTasks: 0, openTasks: 0, noiseShare: null });
+    expect(report.projects[0]?.noiseShare).toBeNull();
   });
 
   it("по дням: правка и вынесенная задача попадают каждая в свой день", () => {

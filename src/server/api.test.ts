@@ -628,7 +628,7 @@ describe("GET /api/stats/code", () => {
   });
 });
 
-const createdByAgent = (task: string) => `${JSON.stringify({ at: "2026-09-17T10:00:00+03:00", task, via: "cli", kind: "created", type: "task", priority: "medium", tags: [], found: "incidental", foundExplicit: true })}\n`;
+const createdByAgent = (task: string) => `${JSON.stringify({ at: "2026-09-17T10:00:00+03:00", task, via: "cli", kind: "created", type: "task", priority: "medium", tags: [], found: "incidental" })}\n`;
 
 async function spaWithFixedNeighbour({ neighbourActive }: { neighbourActive: boolean }): Promise<Record<string, string>> {
   const home = await makeTempDir();

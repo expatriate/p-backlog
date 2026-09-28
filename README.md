@@ -148,7 +148,7 @@ The retention window isn't configurable.
 
 | Command | What it does |
 |---|---|
-| `backlog new --title <t> --category <category> [--type task\|epic] [--priority low\|medium\|high\|critical] [--tags a,b] [--found incidental\|review\|manual] [--source file:line] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--force] [--json]` | Creates a task, the description is read from stdin; a similar open task refuses the command (code 3), `--force` creates it anyway; `--found`: `incidental` — the agent noticed it in passing (only these, passed explicitly, count in Effect), `review` — a review finding, `manual` — recorded at the user's request (the default) |
+| `backlog new --title <t> --category <category> [--type task\|epic] [--priority low\|medium\|high\|critical] [--tags a,b] [--found incidental\|review\|manual] [--source file:line] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--force] [--json]` | Creates a task, the description is read from stdin; a similar open task refuses the command (code 3), `--force` creates it anyway; `--found`: `incidental` — the agent noticed it in passing (only these count in Effect), `review` — a review finding, `manual` — recorded at the user's request (the default) |
 | `backlog list [--query q] [--status s,…] [--tag t,…] [--project id \| --all-projects] [--json]` | Lists tasks, by default the open tasks of the current project |
 | `backlog show <ID> [--json]` | The full task: links, blockers, warnings |
 | `backlog take <ID> [--force] [--json]` \| `--next [--project id] [--json]` | Takes a task into progress, checking blockers |
