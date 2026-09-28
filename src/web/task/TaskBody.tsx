@@ -13,7 +13,7 @@ export type TaskBodyProps = {
   saving: boolean;
   onDraftChange: (draft: string | null) => void;
   onToggleLine: (line: number) => void;
-  onSave: (body: string) => Promise<unknown>;
+  onSave: (body: string) => Promise<boolean>;
 };
 
 type Checklist = { items: ChecklistItem[]; onToggleLine: (line: number) => void };
@@ -25,7 +25,7 @@ const InsideCodeBlock = createContext(false);
 const MARKDOWN_COMPONENTS: Components = { table: MarkdownTable, li: MarkdownItem, pre: MarkdownPre, code: MarkdownCode };
 
 export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onSave }: TaskBodyProps) {
-  const { ui, task: t } = useMessages();
+  const { ui, task: taskMessages } = useMessages();
   const items = useMemo(() => checklistItems(body), [body]);
   const markdown = useMemo(
     () => (
@@ -51,21 +51,16 @@ export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onS
   };
 
   const save = async (text: string) => {
-    try {
-      await onSave(text);
-      closeEditor();
-    } catch {
-      // text stays in the field: the card shows the error
-    }
+    if (await onSave(text)) closeEditor();
   };
 
   if (draft !== null) {
     return (
       <div ref={editor} className={styles.editor}>
-        <textarea autoFocus value={draft} rows={16} aria-label={t.description} onChange={(event) => onDraftChange(event.target.value)} />
+        <textarea autoFocus value={draft} rows={16} aria-label={taskMessages.description} onChange={(event) => onDraftChange(event.target.value)} />
         <div className={styles.editorActions}>
           <Button variant="primary" busy={saving} onClick={() => void save(draft)}>
-            {saving ? t.saving : t.save}
+            {saving ? taskMessages.saving : taskMessages.save}
           </Button>
           <Button busy={saving} onClick={closeEditor}>
             {ui.cancel}
@@ -81,7 +76,7 @@ export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onS
         <ChecklistContext value={{ items, onToggleLine }}>{markdown}</ChecklistContext>
       </div>
       <Button ref={editButton} className={styles.edit} onClick={() => onDraftChange(body)}>
-        {t.editDescription}
+        {taskMessages.editDescription}
       </Button>
     </div>
   );

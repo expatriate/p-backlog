@@ -16,51 +16,56 @@ import { updateTaskInIndex } from "../core/store/update";
 import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
 import { serverMessages, type ServerMessages } from "./messages";
-import type { MemorySampler } from "./memory-sampler";
-import { createReportCache, type ReportCache } from "./report-cache";
+import { createReportCache } from "./report-cache";
 import { createRevisions, type OwnWrite } from "./revisions";
-import { createStatsApi, type GraphHealthOf } from "./stats-api";
-import type { UsageScanner } from "./usage-scanner";
+import { createStatsApi, type GraphHealthOf, type StatsServices } from "./stats-api";
 
-export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; usage: UsageScanner; memory: MemorySampler; warn: (line: string) => void };
+export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; statsServices: StatsServices };
 
 type BacklogSnapshot = LoadedBacklog & { index: BacklogIndex; revision: Revision };
 
 const GRAPH_STATE_TTL_MS = 60 * 1000;
 
-export function createApi({ root, readLanguage, changes, now, home, usage, memory, warn }: ApiOptions): Hono {
+export function createApi({ root, readLanguage, changes, now, home, statsServices }: ApiOptions): Hono {
   const api = new Hono();
   const revisions = createRevisions();
   let snapshot: Promise<BacklogSnapshot> | null = null;
   const backlog = (): Promise<BacklogSnapshot> => {
-    snapshot ??= loadSnapshot(root, revisions.current()).catch((error: unknown) => {
-      snapshot = null;
+    if (snapshot !== null) return snapshot;
+    const loading = loadSnapshot(root, revisions.current()).catch((error: unknown) => {
+      if (snapshot === loading) snapshot = null;
       throw error;
     });
-    return snapshot;
+    snapshot = loading;
+    return loading;
   };
-  const graphHealthsBySnapshot = new WeakMap<object, ReportCache>();
-  const graphHealth: GraphHealthOf = (backlogSnapshot, project) => {
-    let healths = graphHealthsBySnapshot.get(backlogSnapshot);
-    if (healths === undefined) {
-      healths = createReportCache({ ttlMs: GRAPH_STATE_TTL_MS, now: () => now().getTime() });
-      graphHealthsBySnapshot.set(backlogSnapshot, healths);
-    }
-    return healths.get(project.id, () => projectGraphHealth(project, backlogSnapshot.tasks, home));
+  const graphHealths = createReportCache({ ttlMs: GRAPH_STATE_TTL_MS, now: () => now().getTime() });
+  const graphHealth: GraphHealthOf = ({ tasks }, project) => {
+    const projectTasks = tasks.filter((task) => task.projectId === project.id);
+    const key = JSON.stringify([project.id, project.repos, projectTasks.map((task) => task.version)]);
+    return graphHealths.get(key, () => projectGraphHealth(project, projectTasks, home));
   };
-  const stats = createStatsApi({ root, readLanguage, now, home, usage, memory, warn, backlog, graphHealth });
-  const forgetBacklog = (paths?: readonly string[]) => {
+  const stats = createStatsApi({ root, readLanguage, now, home, services: statsServices, backlog, graphHealth });
+  const forgetAll = () => {
     snapshot = null;
-    stats.forget(paths);
+    stats.forgetAll();
+  };
+  const forgetChanged = (paths: readonly string[]) => {
+    snapshot = null;
+    stats.forgetChanged(paths);
   };
   const recordOwnWrites = async (writes: readonly OwnWrite[]) => {
-    if (writes.length > 0) await revisions.recordOwnWrites(writes);
-    forgetBacklog(writes.length > 0 ? writes.map((write) => write.path) : undefined);
+    if (writes.length === 0) {
+      snapshot = null;
+      return;
+    }
+    await revisions.recordOwnWrites(writes);
+    forgetChanged(writes.map((write) => write.path));
   };
   const streams = new Set<(revision: Revision) => void>();
   changes.subscribe(async (paths) => {
-    if ((await revisions.settle(paths)) === "foreign") forgetBacklog(paths);
-    else stats.forget(paths);
+    if ((await revisions.settle(paths)) === "foreign") forgetChanged(paths);
+    else stats.forgetChanged(paths);
     const revision = revisions.current();
     for (const send of streams) send(revision);
   });
@@ -102,6 +107,7 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     const messages = serverMessages(body.language);
     if (result.reason === "not-found") return c.json({ errors: [messages.taskNotFound(id)] }, 404);
     if (result.reason === "conflict") return c.json({ errors: [messages.taskChangedOnDisk], current: result.current }, 409);
+    if (result.reason === "busy") return c.json({ errors: [coreMessages(body.language).fileBusy(result.path, result.lock, result.seconds)] }, 503);
     return invalidResponse(c, result, coreMessages(body.language));
   });
 
@@ -111,7 +117,7 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
 
     const { index } = await backlog();
     const outcomes = await applyBatch(index, { ...body.data, now: now() }).catch((error: unknown) => {
-      forgetBacklog();
+      forgetAll();
       throw error;
     });
     await recordOwnWrites(outcomes.flatMap((outcome) => (outcome.outcome === "done" ? [outcome.task] : [])));
@@ -126,7 +132,7 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
 
     const id = c.req.param("id");
     const result = await setProjectActive(root, id, body.data.active);
-    forgetBacklog();
+    forgetAll();
     if (result.ok) return c.json(result.project);
     if (result.reason === "invalid") return c.json({ errors: [coreMessages(body.language).problems(result.problems)] }, 422);
     return c.json({ errors: [serverMessages(body.language).projectNotFound(id)] }, 404);
@@ -140,7 +146,7 @@ export function createApi({ root, readLanguage, changes, now, home, usage, memor
     const messages = serverMessages(body.language);
     if (body.data.confirm !== id) return c.json({ errors: [messages.confirmMismatch] }, 422);
     const result = await deleteProject(root, id);
-    forgetBacklog();
+    forgetAll();
     return result.ok ? c.json({ deleted: id }) : c.json({ errors: [messages.projectNotFound(id)] }, 404);
   });
 
@@ -163,11 +169,12 @@ async function loadSnapshot(root: string, revision: Revision): Promise<BacklogSn
 }
 
 function invalidResponse(c: Context, result: Invalid, messages: CoreMessages) {
-  return c.json({ errors: result.errors.map(messages.problem) }, 422);
+  return c.json({ errors: result.problems.map(messages.problem) }, 422);
 }
 
 function viewOf(outcome: CoreBatchOutcome, messages: ServerMessages, core: CoreMessages): BatchOutcome {
   if (outcome.outcome === "done") return { id: outcome.id, outcome: "done", version: outcome.task.version, previous: outcome.previous };
+  if (outcome.reason === "failed") return { id: outcome.id, outcome: "skipped", reason: outcome.reason, message: messages.batchFailed(outcome.id, outcome.detail) };
   const message = outcome.reason === "invalid" && outcome.problems ? core.problems(outcome.problems) : messages.batchSkipped[outcome.reason](outcome.id);
   return { id: outcome.id, outcome: "skipped", reason: outcome.reason, message };
 }

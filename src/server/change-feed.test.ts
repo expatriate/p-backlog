@@ -4,10 +4,9 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { writeFileAtomic } from "../core/store/fs-utils";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
 import { createChangeFeed, createDebouncer, isHiddenPath } from "./change-feed";
-import { serverRu } from "./messages.ru";
 
 function watchBacklog(root: string, debounceMs: number) {
-  return createChangeFeed({ root, debounceMs, messages: async () => serverRu, warn: () => undefined });
+  return createChangeFeed({ root, debounceMs, warn: async () => undefined });
 }
 
 function nextChange(feed: ReturnType<typeof watchBacklog>, timeoutMs = 2000): Promise<readonly string[]> {

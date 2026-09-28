@@ -1,10 +1,11 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useRef, type RefObject } from "react";
 import { statsPath } from "../app/paths";
 import { Link, matchPath, Outlet, useLocation, useNavigation, useParams } from "react-router";
 import { useProjects, useSignals } from "../app/queries";
 import { projectNameOf, scopeNote } from "../app/scope";
 import { useMessages } from "../i18n";
 import { cx } from "../ui/cx";
+import { useDocumentTitle } from "../ui/use-document-title";
 import { STATS_TABS } from "./stats-tabs";
 import styles from "./StatsPage.module.css";
 
@@ -28,9 +29,7 @@ export function StatsPage() {
 
   const docTitle = stats.docTitle(active.segment === "" ? heading : `${stats.tabs[active.key]} · ${heading}`);
 
-  useEffect(() => {
-    document.title = docTitle;
-  }, [docTitle]);
+  useDocumentTitle(docTitle);
 
   return (
     <main id="content" tabIndex={-1} className={styles.page} aria-busy={pending !== undefined || undefined}>

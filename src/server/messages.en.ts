@@ -13,6 +13,7 @@ export const serverEn: ServerMessages = {
     invalid: (id) => `${id}: the action doesn't apply to it`,
     busy: (id) => `${id} is busy in another process`,
   },
+  batchFailed: (id, detail) => `${id} was not written: ${detail}`,
   unknownRoute: (path) => `Unknown API route: ${path}`,
   hostRejected: (host) => `Requests from host ${host} are not accepted`,
   jsonContentTypeExpected: "Content-Type: application/json is expected",
@@ -20,7 +21,7 @@ export const serverEn: ServerMessages = {
   runsTrimFailed: (detail) => `Could not trim the run log: ${detail}`,
   journalCompactionFailed: (dir, detail) => `Could not compact the journal in ${dir}: ${detail}`,
   serviceLogTrimFailed: (detail) => `Could not trim the service log: ${detail}`,
-  serverStarted: (port, root) => `p-backlog: http://localhost:${port}\nBacklog directory: ${root}\n`,
+  serverStarted: (port, root) => `p-backlog: http://localhost:${port}\nBacklog directory: ${root}`,
   settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 
   sweepFailed: (detail) => `Could not delete closed tasks: ${detail}`,

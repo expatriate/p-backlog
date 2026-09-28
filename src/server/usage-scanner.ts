@@ -4,15 +4,14 @@ import { sum } from "../core/stats/numbers";
 import type { ScanProgress } from "../core/stats/types";
 import { listTranscripts, scanTranscripts, type TranscriptFile } from "../core/usage/transcripts";
 import { emptyUsageCache, readUsageCache, writeUsageCache, type UsageCache, type UsageCacheEntry } from "../core/usage/usage-cache";
-import type { ServerMessages } from "./messages.ru";
+import type { LocalizedWarn } from "./messages";
 
 export type UsageScannerOptions = {
   root: string;
   claudeProjectsDir: string;
   byteBudget?: number;
   intervalMs?: number;
-  messages: () => Promise<ServerMessages>;
-  warn: (line: string) => void;
+  warn: LocalizedWarn;
   now?: () => Date;
 };
 
@@ -22,7 +21,7 @@ export type UsageScanner = {
   start: () => void;
   stop: () => Promise<void>;
   scanOnce: () => Promise<void>;
-  ensureStarted: () => void;
+  scanIfNeverListed: () => void;
   snapshot: () => UsageSnapshot;
 };
 
@@ -36,7 +35,6 @@ export function createUsageScanner({
   claudeProjectsDir,
   byteBudget = DEFAULT_BYTE_BUDGET,
   intervalMs = DEFAULT_INTERVAL_MS,
-  messages,
   warn,
   now = () => new Date(),
 }: UsageScannerOptions): UsageScanner {
@@ -70,7 +68,7 @@ export function createUsageScanner({
     inFlight ??= runPass()
       .catch(async (error: unknown) => {
         budgetExhausted = false;
-        warn((await messages()).transcriptsScanFailed(errorText(error)));
+        await warn((messages) => messages.transcriptsScanFailed(errorText(error)));
       })
       .finally(() => {
         inFlight = null;
@@ -95,7 +93,7 @@ export function createUsageScanner({
       return inFlight ?? Promise.resolve();
     },
     scanOnce,
-    ensureStarted: () => {
+    scanIfNeverListed: () => {
       if (!scan.listed && inFlight === null) void scanOnce();
     },
     snapshot: () => ({ cache: cache ?? emptyUsageCache(), scan, revision }),

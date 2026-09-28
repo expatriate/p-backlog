@@ -1,3 +1,4 @@
+import { MEMORY_HISTORY_MS } from "../../core/api/memory";
 import { CHURN_DAYS } from "../../core/code/code-window";
 import { formatDecimal } from "../../core/i18n/format";
 import { countRu, NBSP, pluralRu } from "../../core/i18n/plural";
@@ -11,11 +12,14 @@ import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import type { AgeBucket, ClosingReason, EffectTotals } from "../../core/api/contract";
 import { STATS_WEEKS } from "../../core/stats/weeks";
 import type { ChartId, ChartStep, Grain } from "./charts/chart-style";
-import { formatApprox, formatLines, isEstimated } from "./effect-format";
+import { formatApprox, isEstimated } from "./effect-format";
+import { approx, formatWhole } from "./value-format";
+import { NO_VALUE } from "../labels";
 
 const dayCount = (n: number): string => countRu(n, "день", "дня", "дней");
 const CHURN_PERIOD = dayCount(CHURN_DAYS);
 const STATS_PERIOD = countRu(STATS_WEEKS, "неделю", "недели", "недель");
+const MEMORY_HISTORY_PERIOD = countRu(MEMORY_HISTORY_MS / (60 * 60 * 1000), "час", "часа", "часов");
 const STATS_PERIOD_GENITIVE = countRu(STATS_WEEKS, "недели", "недель", "недель");
 const CHART_STEPS: Record<ChartStep, string> = { day: "дням", week: "неделям", sample: "замерам" };
 const EFFECT_WINDOW = `${STATS_PERIOD} (с внедрения, если оно позже)`;
@@ -208,9 +212,10 @@ export const statsRu = {
   noPending: "ожидающих нет",
   pendingWithoutEstimate: (openTasks: number): string => `${tasks(openTasks)}, ${ESTIMATE_LATER}`,
   pendingEstimated: (openTasks: number, estimatedLines: number, perTask: number): string =>
-    `${tasks(openTasks)} ${linesText(estimatedLines, true)}, в среднем ≈${NBSP}${formatLines("ru", perTask)} на задачу`,
+    `${tasks(openTasks)} ${linesText(estimatedLines, true)}, в среднем ${approx(formatWhole("ru", perTask))} на задачу`,
   estimateLater: ESTIMATE_LATER,
   noCommitsSinceAdoption: "нет коммитов после внедрения",
+  noiseFormula: (deferred: string, real: string, estimated: string, share: string): string => `${deferred} ÷ (${real} + ${estimated}) ${share}`,
 
   scanStarting: "Считаем расход по расшифровкам Claude Code…",
   noTranscripts: "Расшифровки Claude Code не найдены.",
@@ -232,8 +237,8 @@ export const statsRu = {
   commandsTitle: "Команды",
   noCommands: "Команд пока не было",
   commandsHead: ["Команда", "Запусков", "Среднее время", "Средняя память", "Пиковая память"],
-  megabytes: (value: number | null): string => (value === null ? "—" : `${formatDecimal("ru", value)}${NBSP}МБ`),
-  milliseconds: (value: number): string => `${formatLines("ru", value)}${NBSP}мс`,
+  megabytes: (value: number | null): string => (value === null ? NO_VALUE : `${formatDecimal("ru", value)}${NBSP}МБ`),
+  milliseconds: (value: number): string => `${formatWhole("ru", value)}${NBSP}мс`,
   spendBy: { week: "Расход по неделям", day: "Расход по дням" } satisfies Record<Grain, string>,
   hookTurnTokens: "токены ходов хука",
   cliOutputTokens: "токены вывода CLI и скилла",
@@ -244,10 +249,10 @@ export const statsRu = {
   apiPriceTooltip: "по ценам API",
   tokens,
   spendSummary: ({ grain, periodCount, hookTokens, cliTokens, money, hookRuns, cliRuns }: SpendSummary): string =>
-    `За ${countRu(periodCount, ...OVER_PERIOD_FORMS[grain])}: из-за хука ${tokens(hookTokens)}, вывод CLI и скилл ${cliTokens}, ≈${NBSP}${money}; запусков хука ${hookRuns}, других команд ${cliRuns}`,
+    `За ${countRu(periodCount, ...OVER_PERIOD_FORMS[grain])}: из-за хука ${tokens(hookTokens)}, вывод CLI и скилл ${cliTokens}, ${approx(money)}; запусков хука ${hookRuns}, других команд ${cliRuns}`,
   serverMemory: "Память сервера",
   memoryRestartNote: "После перезапуска сервера история начинается заново",
-  memorySummary: (current: string, max: string): string => `Сейчас ${current}, максимум за час ${max}`,
+  memorySummary: (current: string, max: string): string => `Сейчас ${current}, максимум за ${MEMORY_HISTORY_PERIOD} ${max}`,
   processMemory: "память процесса",
   jsHeap: "куча JavaScript",
 };

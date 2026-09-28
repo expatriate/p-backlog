@@ -5,7 +5,7 @@ import { formatDate } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { SortDirection, SortKey, TaskSort } from "../../core/model/query";
 import type { Priority, Task } from "../../core/model/types";
-import { DIRECTION_MARKS } from "../labels";
+import { DIRECTION_MARKS, NO_VALUE } from "../labels";
 import { useLanguage, useMessages } from "../i18n";
 import { DeletionBar } from "../ui/Countdown";
 import { StatusBadge } from "../ui/StatusBadge";
@@ -177,5 +177,5 @@ function isShiftClick(event: ChangeEvent): boolean {
 
 function formatTaskDate(task: Task, column: DateColumn, language: Language): string {
   const iso = column === "closed" ? task.closed : task.created;
-  return iso === undefined ? "—" : formatDate(language, iso);
+  return iso === undefined ? NO_VALUE : formatDate(language, iso);
 }

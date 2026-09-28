@@ -1,13 +1,12 @@
 import type { ReactNode } from "react";
 import { MessagesProvider } from "../i18n";
 import { Button } from "../ui/Button";
-import { appEn } from "./messages.en";
-import { appRu } from "./messages.ru";
+import { inBothLanguages } from "./both-languages";
 import { useSettings } from "./queries";
 import styles from "./LanguageLoader.module.css";
 
-const SETTINGS_ERROR_TEXT = `${appRu.bootSettingsError} · ${appEn.bootSettingsError}`;
-const SETTINGS_RETRY_TEXT = `${appRu.bootRetry} · ${appEn.bootRetry}`;
+const SETTINGS_ERROR_TEXT = inBothLanguages((app) => app.bootSettingsError);
+const SETTINGS_RETRY_TEXT = inBothLanguages((app) => app.bootRetry);
 
 export function LanguageLoader({ children }: { children: ReactNode }) {
   const settings = useSettings();

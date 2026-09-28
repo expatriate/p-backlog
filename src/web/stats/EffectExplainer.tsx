@@ -2,10 +2,11 @@ import type { ReactNode } from "react";
 import type { Language } from "../../core/i18n/language";
 import type { EffectTotals } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
-import { formatApprox, formatLines, formatNoiseShare, isEstimated } from "./effect-format";
+import { formatApprox, formatNoiseShare, isEstimated } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
 import styles from "./EffectExplainer.module.css";
+import { formatWhole } from "./value-format";
 
 export function EffectExplainer({ totals }: { totals: EffectTotals }) {
   const { stats } = useMessages();
@@ -55,5 +56,5 @@ function noiseText(stats: StatsMessages, language: Language, totals: EffectTotal
   if (totals.noiseShare === null) return stats.noCommitsSinceAdoption;
   const estimated = totals.estimatedLines ?? 0;
   const approx = isEstimated(totals.estimatedLines);
-  return `${formatApprox(language, totals.deferredLines, approx)} ÷ (${formatLines(language, totals.realLines)} + ${formatApprox(language, estimated, approx)}) ${formatNoiseShare(totals.noiseShare)}`;
+  return stats.noiseFormula(formatApprox(language, totals.deferredLines, approx), formatWhole(language, totals.realLines), formatApprox(language, estimated, approx), formatNoiseShare(totals.noiseShare));
 }

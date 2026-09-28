@@ -37,9 +37,7 @@ async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBac
   const project: ParseResult<Project> = parseProjectFile(projectText, { id: projectId, path: projectPath });
   if (!project.ok) return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, problems: project.problems }] };
 
-  const taskPaths = (await listDir(dir))
-    .filter((entry) => entry.isFile() && isTaskFileName(entry.name))
-    .map((entry) => join(dir, entry.name));
+  const taskPaths = (await taskFileNames(dir)).map((name) => join(dir, name));
   const loaded = await Promise.all(taskPaths.map(async (path) => ({ path, result: await loadTaskFile(path, project.value) })));
   return {
     projects: [project.value],
@@ -62,8 +60,11 @@ async function loadTaskFile(path: string, project: Project): Promise<ParseResult
 }
 
 export async function taskIdsOnDisk(projectDir: string): Promise<Set<string>> {
-  const taskFiles = (await listDir(projectDir)).filter((entry) => entry.isFile() && isTaskFileName(entry.name));
-  return new Set(taskFiles.map((entry) => basename(entry.name, ".md")));
+  return new Set((await taskFileNames(projectDir)).map((name) => basename(name, ".md")));
+}
+
+async function taskFileNames(projectDir: string): Promise<string[]> {
+  return (await listDir(projectDir)).filter((entry) => entry.isFile() && isTaskFileName(entry.name)).map((entry) => entry.name);
 }
 
 function isTaskFileName(name: string): boolean {

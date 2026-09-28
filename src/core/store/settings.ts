@@ -27,25 +27,28 @@ export async function writeSettings(root: string, settings: Settings): Promise<v
 
 export type SettledLanguage = { language: Language; invalidSettingsFile: boolean };
 
+type LanguageSource = "settings" | "unset" | "invalid-settings";
+
+const LANGUAGE_OF_BACKLOGS_BEFORE_SETTINGS: Language = "ru";
+
 export async function settleLanguage(root: string, env: NodeJS.ProcessEnv): Promise<SettledLanguage> {
-  const file = await readSettingsFile(root);
-  if (file.found && file.valid) return { language: file.settings.language, invalidSettingsFile: false };
-  if (!file.found) {
-    const language = await unsetLanguage(root, env);
-    await writeSettings(root, { language }).catch(() => {});
-    return { language, invalidSettingsFile: false };
-  }
-  return { language: localeLanguage(env), invalidSettingsFile: true };
+  const { language, source } = await decideLanguage(root, env);
+  if (source === "unset") await rememberLanguageWhenWritable(root, language);
+  return { language, invalidSettingsFile: source === "invalid-settings" };
 }
 
 export async function readLanguage(root: string, env: NodeJS.ProcessEnv): Promise<Language> {
-  const file = await readSettingsFile(root);
-  if (!file.found) return unsetLanguage(root, env);
-  return file.valid ? file.settings.language : localeLanguage(env);
+  return (await decideLanguage(root, env)).language;
 }
 
-async function unsetLanguage(root: string, env: NodeJS.ProcessEnv): Promise<Language> {
-  return (await hasProjects(root)) ? "ru" : localeLanguage(env);
+async function decideLanguage(root: string, env: NodeJS.ProcessEnv): Promise<{ language: Language; source: LanguageSource }> {
+  const file = await readSettingsFile(root);
+  if (!file.found) return { language: (await hasProjects(root)) ? LANGUAGE_OF_BACKLOGS_BEFORE_SETTINGS : localeLanguage(env), source: "unset" };
+  return file.valid ? { language: file.settings.language, source: "settings" } : { language: localeLanguage(env), source: "invalid-settings" };
+}
+
+async function rememberLanguageWhenWritable(root: string, language: Language): Promise<void> {
+  await writeSettings(root, { language }).catch(() => undefined);
 }
 
 export function localeLanguage(env: NodeJS.ProcessEnv): Language {

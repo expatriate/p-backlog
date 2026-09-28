@@ -20,15 +20,13 @@ export type TaskChanges = OptionalFields<
   anchor?: string | null | undefined;
 };
 
-export type UpdateTaskRequest = {
+export type WriteOrigin = { now: Date; via: ChangeSource; undo?: boolean | undefined; journal?: JournalWriter | undefined };
+
+export type UpdateTaskRequest = WriteOrigin & {
   id: string;
   changes: TaskChanges;
   expectedVersion: string;
-  now: Date;
   closure?: Closure | undefined;
-  via: ChangeSource;
-  undo?: boolean | undefined;
-  journal?: JournalWriter | undefined;
 };
 
 const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "related", "body", "source", "verified"] as const;
@@ -36,7 +34,7 @@ const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "relate
 export async function updateTaskInIndex(index: BacklogIndex, request: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const before = index.byId.get(request.id);
   const result = await writeChanges(index, request);
-  if (result.ok) await reopenEpicOfOpenedTask(index, { before, after: result.task, now: request.now, via: request.via, undo: request.undo, journal: request.journal });
+  if (result.ok) await reopenEpicOfOpenedTask(index, { before, after: result.task }, request);
   return result;
 }
 
@@ -45,9 +43,9 @@ export async function statusToReopen(epic: Task): Promise<TaskStatus> {
   return statusBeforeAutoClose(events, epic.id);
 }
 
-type OpenedTask = { before: Task | undefined; after: Task; now: Date; via: ChangeSource; undo?: boolean | undefined; journal?: JournalWriter | undefined };
+type OpenedTask = { before: Task | undefined; after: Task };
 
-export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, after, now, via, undo, journal }: OpenedTask): Promise<void> {
+export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, after }: OpenedTask, { now, via, undo, journal }: WriteOrigin): Promise<void> {
   if (after.epic === undefined || isClosed(after.status)) return;
   const becameOpenInEpic = before === undefined || isClosed(before.status) || before.epic !== after.epic;
   const epic = index.byId.get(after.epic);
@@ -56,7 +54,7 @@ export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, afte
     if ((await diskChange(epic, epic.version)) !== null) return;
     await writeChanges(index, { id: epic.id, changes: { status: await statusToReopen(epic) }, expectedVersion: epic.version, now, via, undo, journal });
   } catch (error) {
-    if (!(error instanceof FileBusyError)) console.error(`${epic.path}: ${errorText(error)}`);
+    console.error(`${epic.path}: ${errorText(error)}`);
   }
 }
 
@@ -68,10 +66,10 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
   const normalized = taskText(applyChanges(current, changes, now, closure));
   if (!normalized.ok) return invalid(normalized.problems);
   const { text, task } = normalized.value;
-  const errors = integrityErrors(task, index);
-  if (errors.length > 0) return invalid(errors);
+  const problems = integrityErrors(task, index);
+  if (problems.length > 0) return invalid(problems);
 
-  return withFileLock(current.path, async () => {
+  return withTaskLock(current.path, async () => {
     const changedOnDisk = await diskChange(current, expectedVersion);
     if (changedOnDisk !== null) return changedOnDisk;
     await writeFileAtomic(current.path, text);
@@ -79,6 +77,15 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
     await journal(dirname(current.path), undo ? events.map((event) => ({ ...event, undo: true })) : events);
     return { ok: true, task };
   });
+}
+
+async function withTaskLock(path: string, write: () => Promise<UpdateTaskResult>): Promise<UpdateTaskResult> {
+  try {
+    return await withFileLock(path, write);
+  } catch (error) {
+    if (!(error instanceof FileBusyError) || error.path !== path) throw error;
+    return { ok: false, reason: "busy", path, lock: error.lock, seconds: error.seconds };
+  }
 }
 
 async function diskChange(snapshot: Task, expectedVersion: string): Promise<UpdateTaskFailure | null> {

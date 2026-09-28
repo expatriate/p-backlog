@@ -7,7 +7,7 @@ export type CheckFix =
   | { kind: "source-moved"; taskId: string; from: string; to: string };
 
 export type CheckProblem =
-  | { kind: "fix-failed"; taskId: string; cause: "changed-during-check" | "gone-during-check" }
+  | { kind: "fix-failed"; taskId: string; cause: "changed-during-check" | "gone-during-check" | "busy-during-check" }
   | { kind: "fix-failed"; taskId: string; cause: "invalid"; problems: Problem[] }
   | { kind: "task-invalid"; taskId: string; problem: Problem }
   | { kind: "file-not-parsed"; path: string; problems: Problem[] }

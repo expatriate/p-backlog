@@ -1,3 +1,4 @@
+import { MEMORY_HISTORY_MS } from "../../core/api/memory";
 import { CHURN_DAYS } from "../../core/code/code-window";
 import { formatDecimal } from "../../core/i18n/format";
 import { countEn, NBSP, pluralEn } from "../../core/i18n/plural";
@@ -8,12 +9,15 @@ import { STATS_DAYS } from "../../core/stats/days";
 import { MIN_FIXES_FOR_ESTIMATE } from "../../core/stats/effect/effect-report";
 import { STATS_WEEKS } from "../../core/stats/weeks";
 import type { ChartStep, Grain } from "./charts/chart-style";
-import { formatApprox, formatLines, isEstimated } from "./effect-format";
+import { formatApprox, isEstimated } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
+import { approx, formatWhole } from "./value-format";
+import { NO_VALUE } from "../labels";
 
 const dayCount = (n: number): string => countEn(n, "day", "days");
 const CHURN_PERIOD = dayCount(CHURN_DAYS);
 const STATS_PERIOD = countEn(STATS_WEEKS, "week", "weeks");
+const MEMORY_HISTORY_PERIOD = countEn(MEMORY_HISTORY_MS / (60 * 60 * 1000), "hour", "hours");
 const CHART_STEPS: Record<ChartStep, string> = { day: "day", week: "week", sample: "sample" };
 const EFFECT_WINDOW = `${STATS_PERIOD} (since adoption, if later)`;
 const ESTIMATE_LATER = `the estimate appears after ${MIN_FIXES_FOR_ESTIMATE} fixes`;
@@ -188,9 +192,10 @@ export const statsEn: StatsMessages = {
   fixedNow: (fixedTasks, fixedLines) => `${tasks(fixedTasks)} — ${linesText(fixedLines, false)}`,
   noPending: "nothing pending",
   pendingWithoutEstimate: (openTasks) => `${tasks(openTasks)}, ${ESTIMATE_LATER}`,
-  pendingEstimated: (openTasks, estimatedLines, perTask) => `${tasks(openTasks)} ${linesText(estimatedLines, true)}, on average ≈${NBSP}${formatLines("en", perTask)} per task`,
+  pendingEstimated: (openTasks, estimatedLines, perTask) => `${tasks(openTasks)} ${linesText(estimatedLines, true)}, on average ${approx(formatWhole("en", perTask))} per task`,
   estimateLater: ESTIMATE_LATER,
   noCommitsSinceAdoption: "no commits since adoption",
+  noiseFormula: (deferred, real, estimated, share) => `${deferred} ÷ (${real} + ${estimated}) ${share}`,
 
   scanStarting: "Counting usage from Claude Code transcripts…",
   noTranscripts: "No Claude Code transcripts found.",
@@ -212,8 +217,8 @@ export const statsEn: StatsMessages = {
   commandsTitle: "Commands",
   noCommands: "No commands yet",
   commandsHead: ["Command", "Runs", "Average time", "Average memory", "Peak memory"],
-  megabytes: (value) => (value === null ? "—" : `${formatDecimal("en", value)}${NBSP}MB`),
-  milliseconds: (value) => `${formatLines("en", value)}${NBSP}ms`,
+  megabytes: (value) => (value === null ? NO_VALUE : `${formatDecimal("en", value)}${NBSP}MB`),
+  milliseconds: (value) => `${formatWhole("en", value)}${NBSP}ms`,
   spendBy: { week: "Usage by week", day: "Usage by day" },
   hookTurnTokens: "hook turn tokens",
   cliOutputTokens: "CLI output and skill tokens",
@@ -224,10 +229,10 @@ export const statsEn: StatsMessages = {
   apiPriceTooltip: "at API prices",
   tokens,
   spendSummary: ({ grain, periodCount, hookTokens, cliTokens, money, hookRuns, cliRuns }) =>
-    `Over ${periods(grain, periodCount)}: due to the hook ${tokens(hookTokens)}, CLI output and skill ${cliTokens}, ≈${NBSP}${money}; hook runs ${hookRuns}, other commands ${cliRuns}`,
+    `Over ${periods(grain, periodCount)}: due to the hook ${tokens(hookTokens)}, CLI output and skill ${cliTokens}, ${approx(money)}; hook runs ${hookRuns}, other commands ${cliRuns}`,
   serverMemory: "Server memory",
   memoryRestartNote: "The history starts over after the server restarts",
-  memorySummary: (current, max) => `Now ${current}, peak over the last hour ${max}`,
+  memorySummary: (current, max) => `Now ${current}, peak over ${MEMORY_HISTORY_PERIOD} ${max}`,
   processMemory: "process memory",
   jsHeap: "JavaScript heap",
 };

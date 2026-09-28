@@ -1,10 +1,11 @@
 import { join } from "node:path";
 import { z } from "zod";
+import { WEEK_MS } from "../model/lifecycle";
 import { withFileLock } from "./file-lock";
 import { readJsonFile, writeJsonFile } from "./fs-utils";
 
 const SESSION_SHOWN_FILE = ".candidates-shown.json";
-const SESSION_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const SESSION_RETENTION_MS = WEEK_MS;
 
 const sessionsShownSchema = z.record(z.string(), z.object({ tasks: z.array(z.string()), at: z.iso.datetime({ offset: true }) }));
 

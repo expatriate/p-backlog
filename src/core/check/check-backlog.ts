@@ -93,7 +93,7 @@ async function recordCandidates(root: string, tasks: readonly Task[], { candidat
       const states = episodeStates(journal.events);
       const sightings = found.map(sightingOf);
       const checked = CANDIDATE_EVIDENCE.filter((evidence) => !(unchecked.get(projectId) ?? []).includes(evidence));
-      const gone = endsGone ? candidateGoneEvents(sightings, reviewed, states, now, checked) : [];
+      const gone = endsGone ? candidateGoneEvents({ sightings, reviewed, checked }, states, now) : [];
       await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, states, now)], (path, error) => {
         throw error;
       });
@@ -129,11 +129,13 @@ async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) =>
 function fixFailure(taskId: string, failure: UpdateTaskFailure): CheckProblem {
   switch (failure.reason) {
     case "invalid":
-      return { kind: "fix-failed", taskId, cause: "invalid", problems: failure.errors };
+      return { kind: "fix-failed", taskId, cause: "invalid", problems: failure.problems };
     case "conflict":
       return { kind: "fix-failed", taskId, cause: "changed-during-check" };
     case "not-found":
       return { kind: "fix-failed", taskId, cause: "gone-during-check" };
+    case "busy":
+      return { kind: "fix-failed", taskId, cause: "busy-during-check" };
   }
 }
 

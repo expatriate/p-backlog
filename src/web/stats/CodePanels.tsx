@@ -4,7 +4,9 @@ import { useMessages } from "../i18n";
 import { Panel } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import rowStyles from "./PanelRows.module.css";
+import { ShareBar } from "./ShareBar";
 import styles from "./CodePanels.module.css";
+import { NO_VALUE } from "../labels";
 
 export function ChurnPanel({ churn, period }: { churn: ChurnRow[]; period: ReportPeriod }) {
   const { stats } = useMessages();
@@ -22,9 +24,7 @@ export function ChurnPanel({ churn, period }: { churn: ChurnRow[]; period: Repor
               <code className={rowStyles.rowLabel}>{row.label}</code>
               <span className={rowStyles.rowValue}>{stats.commits(row.commits)}</span>
               <span className={rowStyles.rowValue}>{stats.churnTasks(row.tasks, row.weight)}</span>
-              <span className={rowStyles.track} aria-hidden="true">
-                <span className={rowStyles.fill} style={{ transform: `scaleX(${row.score / top})` }} />
-              </span>
+              <ShareBar share={row.score / top} />
             </li>
           ))}
         </ul>
@@ -63,7 +63,7 @@ function DensityRows({ rows }: { rows: { key: string; label: ReactNode; row: Den
           <span className={rowStyles.rowLabel}>{label}</span>
           <span className={rowStyles.rowValue}>{core.count(row.lines, "line")}</span>
           <span className={rowStyles.rowValue}>{core.count(row.open, "task")}</span>
-          <span className={rowStyles.rowValue}>{row.perKloc === null ? "—" : stats.perKloc(row.perKloc)}</span>
+          <span className={rowStyles.rowValue}>{row.perKloc === null ? NO_VALUE : stats.perKloc(row.perKloc)}</span>
         </li>
       ))}
     </ul>

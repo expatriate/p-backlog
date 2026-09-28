@@ -8,11 +8,11 @@ import { claimHookTurn } from "../../core/store/hook-turns";
 import { readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
 import { findProjectForDir } from "../../core/store/resolve-project";
-import { readSignalsShown, writeSignalsShown } from "../../core/store/signals-shown";
+import { readSignalsShown, rememberSignalsShown } from "../../core/store/signals-shown";
 import { readSessionShown, rememberSessionShown } from "../../core/store/session-shown";
 import { HOOK_STOP_EVENT, hookMessage } from "../../core/stats/cost/hook-signature";
 import { statsSignals } from "../../core/stats/signals/signals";
-import { markShown, signalsToShow, type SignalsShown } from "../../core/stats/signals/shown";
+import { signalsToShow } from "../../core/stats/signals/shown";
 import type { Signal } from "../../core/stats/types";
 import type { Project, Task } from "../../core/model/types";
 import { AGENTS, type Agent } from "../agents/agent";
@@ -108,16 +108,16 @@ async function freshSignals(project: Project, tasks: readonly Task[], extra: rea
     const journal = await readJournal(projectDir, project.id);
     const shown = await readSignalsShown(projectDir);
     const fresh = signalsToShow([...statsSignals({ tasks, journals: [journal], now: io.now(), projectId: project.id }), ...extra], shown, today);
-    return { fresh, remember: () => (fresh.length === 0 ? Promise.resolve() : rememberShown(projectDir, markShown(shown, fresh, today), io)) };
+    return { fresh, remember: () => (fresh.length === 0 ? Promise.resolve() : rememberShown(projectDir, fresh, today, io)) };
   } catch (error) {
     io.warn(cliMessages(io.language).alertsComputeFailed(errorText(error)));
     return { fresh: [], remember: () => Promise.resolve() };
   }
 }
 
-async function rememberShown(projectDir: string, shown: SignalsShown, io: CliIo): Promise<void> {
+async function rememberShown(projectDir: string, signals: readonly Signal[], today: string, io: CliIo): Promise<void> {
   try {
-    await writeSignalsShown(projectDir, shown);
+    await rememberSignalsShown(projectDir, signals, today);
   } catch (error) {
     io.warn(cliMessages(io.language).alertsShownWriteFailed(errorText(error)));
   }

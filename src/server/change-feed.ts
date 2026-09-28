@@ -1,7 +1,7 @@
 import { relative, sep } from "node:path";
 import { watch } from "chokidar";
 import { errorText } from "../core/errors";
-import type { ServerMessages } from "./messages.ru";
+import type { LocalizedWarn } from "./messages";
 
 export type ChangeListener = (paths: readonly string[]) => void | Promise<void>;
 
@@ -32,9 +32,9 @@ export function isHiddenPath(root: string, path: string): boolean {
     .some((segment) => segment.startsWith("."));
 }
 
-export type ChangeFeedOptions = { root: string; debounceMs: number; messages: () => Promise<ServerMessages>; warn: (line: string) => void };
+export type ChangeFeedOptions = { root: string; debounceMs: number; warn: LocalizedWarn };
 
-export function createChangeFeed({ root, debounceMs, messages, warn }: ChangeFeedOptions): ChangeFeed {
+export function createChangeFeed({ root, debounceMs, warn }: ChangeFeedOptions): ChangeFeed {
   const listeners = new Set<ChangeListener>();
   const { promise: closed, resolve: markClosed }: PromiseWithResolvers<void> = Promise.withResolvers();
   const changedPaths = new Set<string>();
@@ -50,7 +50,7 @@ export function createChangeFeed({ root, debounceMs, messages, warn }: ChangeFee
     debouncer.schedule();
   });
   watcher.on("error", (error) => {
-    void messages().then((texts) => warn(texts.watcherError(root, errorText(error))));
+    void warn((messages) => messages.watcherError(root, errorText(error)));
   });
 
   return {

@@ -9,11 +9,11 @@ const seenRecordSchema = z.object({ since: z.number(), ids: z.array(z.string()) 
 
 type SeenRecord = z.infer<typeof seenRecordSchema>;
 
-export type SeenTasks = { isNew: (task: Task) => boolean; markSeen: (task: Task) => void };
+export type SeenTasks = { isNew: (task: Task) => boolean };
 
 const listeners = new Set<() => void>();
 
-export function useSeenTasks(tasks: readonly Task[] | undefined): SeenTasks {
+export function useSeenTasks(tasks: readonly Task[] | undefined, openedTask: Task | undefined): SeenTasks {
   const stored = useSyncExternalStore(subscribe, readStored);
   const record = useMemo(() => parseRecord(stored), [stored]);
 
@@ -29,11 +29,15 @@ export function useSeenTasks(tasks: readonly Task[] | undefined): SeenTasks {
     if (ids.length < current.ids.length) writeRecord({ ...current, ids });
   }, [tasks]);
 
+  useEffect(() => {
+    if (openedTask !== undefined) markSeen(openedTask);
+  }, [openedTask]);
+
   return useMemo(() => {
     const seen = new Set(record?.ids);
     const isNew = (task: Task) =>
       record !== undefined && OPEN_STATUSES.includes(task.status) && createdAfter(task, record) && !seen.has(task.id);
-    return { isNew, markSeen };
+    return { isNew };
   }, [record]);
 }
 

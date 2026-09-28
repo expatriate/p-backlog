@@ -13,13 +13,13 @@ export type CodeGraph = {
 };
 
 const GRAPH_FILE = join(".code-review-graph", "graph.db");
+const SUPPORTED_SCHEMA = "13";
+
+type SymbolRow = { qualified_name: string; kind: string; line_start: number; line_end: number };
 
 export function hasCodeGraph(repo: string): boolean {
   return existsSync(join(repo, GRAPH_FILE));
 }
-const SUPPORTED_SCHEMA = "13";
-
-type SymbolRow = { qualified_name: string; kind: string; line_start: number; line_end: number };
 
 export function openCodeGraph(repo: string): CodeGraph | null {
   let db: DatabaseSync | null = null;

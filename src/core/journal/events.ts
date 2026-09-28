@@ -39,7 +39,7 @@ const CHECK_METHODS = ["symbol", "anchor", "file"] as const;
 
 export type CheckMethod = (typeof CHECK_METHODS)[number];
 
-export const RECORDED_METHODS = [...CHECK_METHODS, "unknown"] as const;
+export const RECORDED_METHODS = [...CHECK_METHODS, UNKNOWN] as const;
 
 export type RecordedMethod = (typeof RECORDED_METHODS)[number];
 
@@ -47,7 +47,7 @@ const DUPLICATE_MATCHES = ["source", "title", "symbol"] as const;
 
 export type DuplicateMatch = (typeof DUPLICATE_MATCHES)[number];
 
-export const RECORDED_MATCHES = [...DUPLICATE_MATCHES, "unknown"] as const;
+export const RECORDED_MATCHES = [...DUPLICATE_MATCHES, UNKNOWN] as const;
 
 export type RecordedMatch = (typeof RECORDED_MATCHES)[number];
 
@@ -57,14 +57,10 @@ export type FilteredSighting = { task: string; symbol: string };
 
 type MethodMarks = { method?: CheckMethod | undefined; bySymbol?: boolean | undefined; byAnchor?: boolean | undefined };
 
-function checkMethodOf({ bySymbol, byAnchor }: Omit<MethodMarks, "method">): CheckMethod {
-  if (bySymbol === true) return "symbol";
-  return byAnchor === true ? "anchor" : "file";
-}
-
 export function recordedMethodOf({ method, bySymbol, byAnchor }: MethodMarks): RecordedMethod {
   if (method !== undefined) return method;
-  return bySymbol === true || byAnchor === true ? checkMethodOf({ bySymbol, byAnchor }) : "unknown";
+  if (bySymbol === true) return "symbol";
+  return byAnchor === true ? "anchor" : UNKNOWN;
 }
 
 const eventBase = { at: z.iso.datetime({ offset: true }), task: z.string().min(1), via: recordedEnum(CHANGE_SOURCES), undo: z.literal(true).optional().catch(undefined) };
@@ -206,16 +202,12 @@ export function filteredEvents(filtered: readonly FilteredSighting[], states: Ep
     .map(([, { task, symbol }]) => ({ at, task, via: "check", kind: "candidate-filtered", symbol }));
 }
 
-export function candidateGoneEvents(
-  sightings: readonly CandidateSighting[],
-  tasks: readonly string[],
-  states: EpisodeStates,
-  now: Date,
-  checked: readonly CandidateEvidence[] = CANDIDATE_EVIDENCE,
-): JournalEvent[] {
+type ReviewedTasks = { sightings: readonly CandidateSighting[]; reviewed: readonly string[]; checked?: readonly CandidateEvidence[] };
+
+export function candidateGoneEvents({ sightings, reviewed, checked = CANDIDATE_EVIDENCE }: ReviewedTasks, states: EpisodeStates, now: Date): JournalEvent[] {
   const at = formatLocalIso(now);
   const seen = new Set(sightings.map((sighting) => episodeKey(sighting.task, sighting.evidence)));
-  return tasks.flatMap((task) =>
+  return reviewed.flatMap((task) =>
     checked.flatMap((evidence): JournalEvent[] => {
       const key = episodeKey(task, evidence);
       return seen.has(key) || states.get(key) !== "open" ? [] : [{ at, task, via: "check", kind: "candidate-gone", evidence }];

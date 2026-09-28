@@ -1,6 +1,6 @@
 import { errorText } from "../core/errors";
 import type { SweepReport } from "../core/store/sweep";
-import type { ServerMessages } from "./messages.ru";
+import type { ServerMessages } from "./messages";
 
 export type SweeperOptions = {
   sweep: () => Promise<SweepReport>;

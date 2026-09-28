@@ -1,20 +1,15 @@
 import type {
   BatchRequest,
   BatchResponse,
-  CodeReport,
   ConflictResponse,
-  CostReport,
-  EffectReport,
   MemorySamplesResponse,
   ProjectDeletedResponse,
   ProjectsResponse,
-  QualityReport,
   SettingsResponse,
-  SignalsReport,
-  StatsReport,
   TaskChangesRequest,
   TasksResponse,
 } from "../../core/api/contract";
+import { STATS_MEMORY_ROUTE, STATS_REPORT_ROUTES, type StatsReportKind, type StatsReports } from "../../core/api/stats-routes";
 import type { Language } from "../../core/i18n/language";
 import type { Project, Task } from "../../core/model/types";
 
@@ -38,12 +33,7 @@ export type ApiClient = {
   tasks: () => Promise<TasksResponse>;
   updateTask: (id: string, version: string, changes: TaskChangesRequest) => Promise<Task>;
   batchTasks: (request: BatchRequest) => Promise<BatchResponse>;
-  stats: (projectId?: string) => Promise<StatsReport>;
-  codeStats: (projectId?: string) => Promise<CodeReport>;
-  effectStats: (projectId?: string) => Promise<EffectReport>;
-  qualityStats: (projectId?: string) => Promise<QualityReport>;
-  signals: (projectId?: string) => Promise<SignalsReport>;
-  costStats: (projectId?: string) => Promise<CostReport>;
+  statsReport: <K extends StatsReportKind>(kind: K, projectId?: string) => Promise<StatsReports[K]>;
   memorySamples: () => Promise<MemorySamplesResponse>;
   settings: () => Promise<SettingsResponse>;
   setLanguage: (language: Language) => Promise<SettingsResponse>;
@@ -78,15 +68,10 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
       await request<ProjectDeletedResponse>(projectPath(id), jsonInit("DELETE", { confirm }));
     },
     tasks: () => request<TasksResponse>("/api/tasks"),
-    updateTask: (id, version, changes) => request<Task>(`/api/tasks/${id}`, jsonInit("PATCH", { version, changes })),
+    updateTask: (id, version, changes) => request<Task>(`/api/tasks/${encodeURIComponent(id)}`, jsonInit("PATCH", { version, changes })),
     batchTasks: (batch) => request<BatchResponse>("/api/tasks/batch", jsonInit("POST", batch)),
-    stats: (projectId) => request<StatsReport>(scopedPath("/api/stats", projectId)),
-    codeStats: (projectId) => request<CodeReport>(scopedPath("/api/stats/code", projectId)),
-    effectStats: (projectId) => request<EffectReport>(scopedPath("/api/stats/effect", projectId)),
-    qualityStats: (projectId) => request<QualityReport>(scopedPath("/api/stats/quality", projectId)),
-    signals: (projectId) => request<SignalsReport>(scopedPath("/api/stats/signals", projectId)),
-    costStats: (projectId) => request<CostReport>(scopedPath("/api/stats/cost", projectId)),
-    memorySamples: () => request<MemorySamplesResponse>("/api/stats/memory"),
+    statsReport: (kind, projectId) => request(scopedPath(`/api${STATS_REPORT_ROUTES[kind]}`, projectId)),
+    memorySamples: () => request<MemorySamplesResponse>(`/api${STATS_MEMORY_ROUTE}`),
     settings: () => request<SettingsResponse>("/api/settings"),
     setLanguage: (language) => request<SettingsResponse>("/api/settings", jsonInit("PATCH", { language })),
   };

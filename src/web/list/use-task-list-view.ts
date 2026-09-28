@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { activeProjectIds, projectNameOf, tasksInScope } from "../app/scope";
+import { projectNameOf, taskScope } from "../app/scope";
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
 import { localeOf, type Language } from "../../core/i18n/language";
@@ -14,14 +14,14 @@ export type ListContent = "failed" | "loading" | "unknownProject" | "empty" | "t
 
 export function useTaskListView(params: ListParams, projectId: string | undefined) {
   const language = useLanguage();
-  const { data, isFetching, error, refetch } = useTasks();
+  const tasks = useTasks();
   const projects = useProjects();
 
   const dateColumn = dateColumnFor(params.filter);
   const sort = useMemo(() => followDateColumn(params.sort, dateColumn), [params.sort, dateColumn]);
-  const allTasks = useMemo(() => data?.tasks ?? [], [data]);
-  const activeIds = useMemo(() => activeProjectIds(projects.data ?? []), [projects.data]);
-  const scopedTasks = useMemo(() => tasksInScope(allTasks, projectId, activeIds), [allTasks, projectId, activeIds]);
+  const allTasks = useMemo(() => tasks.data?.tasks ?? [], [tasks.data]);
+  const inScope = useMemo(() => taskScope(projects.data, projectId), [projects.data, projectId]);
+  const scopedTasks = useMemo(() => (inScope === undefined ? [] : allTasks.filter(inScope)), [allTasks, inScope]);
   const index = useMemo(() => buildIndex(allTasks), [allTasks]);
   const tones = useMemo(() => epicTones(allTasks), [allTasks]);
   const visibleTasks = useMemo(() => sortTasks(filterTasks(scopedTasks, params.filter, index), sort, index, language), [scopedTasks, index, params.filter, sort, language]);
@@ -29,20 +29,23 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, index).length, [scopedTasks, index]);
   const tags = useMemo(() => collectTags(scopedTasks, language), [scopedTasks, language]);
   const hiddenOpen = useMemo(
-    () => (projectId === undefined && projects.data !== undefined ? allTasks.filter((task) => !activeIds.has(task.projectId) && OPEN_STATUSES.includes(task.status)).length : 0),
-    [allTasks, activeIds, projectId, projects.data],
+    () => (projectId === undefined && inScope !== undefined ? allTasks.filter((task) => !inScope(task) && OPEN_STATUSES.includes(task.status)).length : 0),
+    [allTasks, inScope, projectId],
   );
 
+  const failedQueries = [tasks, projects].filter((query) => query.error !== null);
+  const error = tasks.error ?? projects.error;
+  const refetch = () => Promise.all(failedQueries.map((query) => query.refetch()));
   const unknownProject = projectId !== undefined && projects.data !== undefined && !projects.data.some((project) => project.id === projectId);
-  const content = listContentOf({ hasData: data !== undefined, failed: error !== null, unknownProject, visibleCount: visibleTasks.length });
+  const content = listContentOf({ hasData: tasks.data !== undefined && inScope !== undefined, failed: error !== null, unknownProject, visibleCount: visibleTasks.length });
 
   return {
-    loaded: data !== undefined,
-    request: { error, isFetching, refetch },
+    tasksLoaded: tasks.data !== undefined,
+    request: { error, isFetching: failedQueries.some((query) => query.isFetching), refetch },
     content,
     settled: content === "table" && error === null,
     projectName: projectId === undefined ? undefined : projectNameOf(projects.data, projectId),
-    parseErrors: (data?.errors ?? []).filter((parseError) => projectId === undefined || parseError.projectId === projectId),
+    parseErrors: (tasks.data?.errors ?? []).filter((parseError) => projectId === undefined || parseError.projectId === projectId),
     allTasks,
     scopedTasks,
     visibleTasks,

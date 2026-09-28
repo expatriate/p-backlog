@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { appEn } from "./app/messages.en";
-import { appRu } from "./app/messages.ru";
+import { inBothLanguages } from "./app/both-languages";
 
 z.config({ jitless: true });
 // CSP forbids eval: every module that builds zod schemas loads only after the line above.
@@ -11,6 +10,6 @@ void import("./start")
 function showLoadFailure(): void {
   const message = document.createElement("p");
   message.setAttribute("role", "alert");
-  message.textContent = `${appRu.bootLoadError} · ${appEn.bootLoadError}`;
+  message.textContent = inBothLanguages((app) => app.bootLoadError);
   (document.getElementById("root") ?? document.body).replaceChildren(message);
 }

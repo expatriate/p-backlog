@@ -11,6 +11,7 @@ export const serverRu = {
     invalid: (id: string): string => `${id}: действие к ней не подходит`,
     busy: (id: string): string => `${id} занята другим процессом`,
   },
+  batchFailed: (id: string, detail: string): string => `${id} не записана: ${detail}`,
   unknownRoute: (path: string): string => `Неизвестный адрес API: ${path}`,
   hostRejected: (host: string): string => `Запросы с хоста ${host} не принимаются`,
   jsonContentTypeExpected: "Ожидается Content-Type: application/json",
@@ -18,7 +19,7 @@ export const serverRu = {
   runsTrimFailed: (detail: string): string => `Не удалось обрезать журнал запусков: ${detail}`,
   journalCompactionFailed: (dir: string, detail: string): string => `Не удалось уплотнить журнал в ${dir}: ${detail}`,
   serviceLogTrimFailed: (detail: string): string => `Не удалось обрезать лог службы: ${detail}`,
-  serverStarted: (port: number, root: string): string => `p-backlog: http://localhost:${port}\nКаталог беклога: ${root}\n`,
+  serverStarted: (port: number, root: string): string => `p-backlog: http://localhost:${port}\nКаталог беклога: ${root}`,
   settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 
   sweepFailed: (detail: string): string => `Не удалось удалить закрытые задачи: ${detail}`,

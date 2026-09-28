@@ -140,9 +140,9 @@ describe("новые поля и события", () => {
     const repeat = candidateEvents([{ task: "SPA-1", evidence: "source-changed" }], episodeStates(first), NOW, "full");
     expect(repeat).toEqual([]);
 
-    const gone = candidateGoneEvents([], ["SPA-1"], episodeStates(first), NOW);
+    const gone = candidateGoneEvents({ sightings: [], reviewed: ["SPA-1"] }, episodeStates(first), NOW);
     expect(gone).toMatchObject([{ task: "SPA-1", kind: "candidate-gone", evidence: "source-changed" }]);
-    expect(candidateGoneEvents([], ["SPA-1"], episodeStates([...first, ...gone]), NOW)).toEqual([]);
+    expect(candidateGoneEvents({ sightings: [], reviewed: ["SPA-1"] }, episodeStates([...first, ...gone]), NOW)).toEqual([]);
 
     expect(candidateEvents([{ task: "SPA-1", evidence: "source-changed" }], episodeStates([...first, ...gone]), NOW, "full")).toMatchObject([{ kind: "candidate" }]);
   });
