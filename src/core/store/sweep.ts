@@ -25,7 +25,7 @@ export type SweepReport = {
   invalid: { id: string; errors: string[] }[];
 };
 
-type SweepFailure = { id: string; reason: "conflict" } | { id: string; reason: "invalid"; errors: Problem[] };
+type SweepFailure = { id: string; reason: "conflict" } | { id: string; reason: "invalid"; problems: Problem[] };
 
 type EpicStep = { closed: string[]; failures: SweepFailure[]; leftOpen: ReadonlySet<string>; blockingFiles: string[] };
 
@@ -171,7 +171,7 @@ async function removeLocked(expired: readonly Task[], now: Date): Promise<Remova
 function sweepFailure(id: string, failure: UpdateTaskFailure): SweepFailure {
   switch (failure.reason) {
     case "invalid":
-      return { id, reason: "invalid", errors: failure.errors };
+      return { id, reason: "invalid", problems: failure.problems };
     case "conflict":
     case "not-found":
     case "busy":
@@ -183,7 +183,7 @@ function failureLists(failures: readonly SweepFailure[], messages: CoreMessages)
   const firstPerTask = failures.filter((failure, position) => failures.findIndex(({ id }) => id === failure.id) === position);
   return {
     conflicts: firstPerTask.filter((failure) => failure.reason === "conflict").map(({ id }) => id),
-    invalid: firstPerTask.flatMap((failure) => (failure.reason === "invalid" ? [{ id: failure.id, errors: failure.errors.map(messages.problem) }] : [])),
+    invalid: firstPerTask.flatMap((failure) => (failure.reason === "invalid" ? [{ id: failure.id, errors: failure.problems.map(messages.problem) }] : [])),
   };
 }
 

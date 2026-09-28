@@ -41,8 +41,8 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
     const normalized = taskText(draftTask(id, path, request));
     if (!normalized.ok) return invalid(normalized.problems);
     const { text, task } = normalized.value;
-    const errors = integrityErrors(task, index);
-    if (errors.length > 0) return invalid(errors);
+    const problems = integrityErrors(task, index);
+    if (problems.length > 0) return invalid(problems);
     try {
       await createFileAtomic(path, text);
       await appendJournal(dir, [createdEvent(task, request.now, request.via, request.provenance)]);

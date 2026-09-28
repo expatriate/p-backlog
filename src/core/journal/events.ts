@@ -39,7 +39,7 @@ const CHECK_METHODS = ["symbol", "anchor", "file"] as const;
 
 export type CheckMethod = (typeof CHECK_METHODS)[number];
 
-export const RECORDED_METHODS = [...CHECK_METHODS, "unknown"] as const;
+export const RECORDED_METHODS = [...CHECK_METHODS, UNKNOWN] as const;
 
 export type RecordedMethod = (typeof RECORDED_METHODS)[number];
 
@@ -47,7 +47,7 @@ const DUPLICATE_MATCHES = ["source", "title", "symbol"] as const;
 
 export type DuplicateMatch = (typeof DUPLICATE_MATCHES)[number];
 
-export const RECORDED_MATCHES = [...DUPLICATE_MATCHES, "unknown"] as const;
+export const RECORDED_MATCHES = [...DUPLICATE_MATCHES, UNKNOWN] as const;
 
 export type RecordedMatch = (typeof RECORDED_MATCHES)[number];
 

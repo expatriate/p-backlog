@@ -1,7 +1,7 @@
 import type { Problem } from "../model/problems";
 import type { Task } from "../model/types";
 
-export type Invalid = { ok: false; reason: "invalid"; errors: Problem[] };
+export type Invalid = { ok: false; reason: "invalid"; problems: Problem[] };
 
 export type CreateTaskResult = { ok: true; task: Task } | Invalid;
 
@@ -11,6 +11,6 @@ export type UpdateTaskFailure = Invalid | Busy | { ok: false; reason: "not-found
 
 export type UpdateTaskResult = { ok: true; task: Task } | UpdateTaskFailure;
 
-export function invalid(errors: Problem[]): Invalid {
-  return { ok: false, reason: "invalid", errors };
+export function invalid(problems: Problem[]): Invalid {
+  return { ok: false, reason: "invalid", problems };
 }

@@ -129,7 +129,7 @@ async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) =>
 function fixFailure(taskId: string, failure: UpdateTaskFailure): CheckProblem {
   switch (failure.reason) {
     case "invalid":
-      return { kind: "fix-failed", taskId, cause: "invalid", problems: failure.errors };
+      return { kind: "fix-failed", taskId, cause: "invalid", problems: failure.problems };
     case "conflict":
       return { kind: "fix-failed", taskId, cause: "changed-during-check" };
     case "not-found":

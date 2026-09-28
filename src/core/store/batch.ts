@@ -37,7 +37,7 @@ async function applyOne(index: BacklogIndex, { id, version }: { id: string; vers
   if (result.reason === "conflict") return { id, outcome: "skipped", reason: "changed" };
   if (result.reason === "not-found") return { id, outcome: "skipped", reason: "not-found" };
   if (result.reason === "busy") return { id, outcome: "skipped", reason: "busy" };
-  return { id, outcome: "skipped", reason: "invalid", problems: result.errors };
+  return { id, outcome: "skipped", reason: "invalid", problems: result.problems };
 }
 
 function planFor(current: Task, action: BatchAction): Plan {

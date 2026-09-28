@@ -15,7 +15,7 @@ export function reportUpdateFailure(io: CliIo, id: string, result: UpdateTaskFai
       io.warn(coreMessages(io.language).fileBusy(result.path, result.lock, result.seconds));
       return EXIT.failed;
     case "invalid":
-      for (const error of result.errors) io.warn(coreMessages(io.language).problem(error));
+      for (const problem of result.problems) io.warn(coreMessages(io.language).problem(problem));
       return EXIT.invalid;
   }
 }

@@ -164,7 +164,7 @@ async function loadSnapshot(root: string, revision: Revision): Promise<BacklogSn
 }
 
 function invalidResponse(c: Context, result: Invalid, messages: CoreMessages) {
-  return c.json({ errors: result.errors.map(messages.problem) }, 422);
+  return c.json({ errors: result.problems.map(messages.problem) }, 422);
 }
 
 function viewOf(outcome: CoreBatchOutcome, messages: ServerMessages, core: CoreMessages): BatchOutcome {

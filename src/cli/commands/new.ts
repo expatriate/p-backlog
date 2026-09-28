@@ -76,7 +76,7 @@ async function runNew(args: string[], io: CliIo): Promise<number> {
     provenance: { found, foundExplicit: values.found === undefined ? undefined : true, origin: cwdBelongsTo(project, loaded.projects, io) ? await readOrigin(io.cwd) : undefined },
   });
   if (!result.ok) {
-    for (const error of result.errors) io.warn(coreMessages(io.language).problem(error));
+    for (const problem of result.problems) io.warn(coreMessages(io.language).problem(problem));
     return EXIT.invalid;
   }
   io.print(values.json ? JSON.stringify(taskJson(result.task, [...loaded.tasks, result.task]), null, 2) : `${result.task.id} ${result.task.path}`);

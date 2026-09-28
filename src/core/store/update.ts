@@ -68,8 +68,8 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
   const normalized = taskText(applyChanges(current, changes, now, closure));
   if (!normalized.ok) return invalid(normalized.problems);
   const { text, task } = normalized.value;
-  const errors = integrityErrors(task, index);
-  if (errors.length > 0) return invalid(errors);
+  const problems = integrityErrors(task, index);
+  if (problems.length > 0) return invalid(problems);
 
   return withTaskLock(current.path, async () => {
     const changedOnDisk = await diskChange(current, expectedVersion);
