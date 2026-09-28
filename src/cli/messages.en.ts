@@ -118,9 +118,9 @@ export const cliEn: CliMessages = {
   candidateDescribeRenamed: (path, to) => `file ${path} is missing — renamed to ${to}`,
   candidateDescribeDuplicate: (otherId, match) => `looks like a duplicate of ${otherId} (${match})`,
 
-  projectUsage: () => [
+  projectUsage: (states) => [
     "list",
-    "status <id> active|inactive   (inactive projects are excluded from the combined scope)",
+    `status <id> ${states}   (inactive projects are excluded from the combined scope)`,
     "delete <id> --confirm <id>    (deletes the project directory with all its tasks)",
   ],
   noProjects: "No projects",

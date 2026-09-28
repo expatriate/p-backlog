@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { hostCliEnv } from "../../src/cli/host-env";
+import { EXIT, type ExitCode } from "../../src/cli/io";
 import { runCli } from "../../src/cli/run";
 import type { Language } from "../../src/core/i18n/language";
 import { coreMessages } from "../../src/core/messages";
@@ -69,7 +70,7 @@ const MINUTES_PER_HOUR = 60;
 const MINUTE_MS = 60_000;
 const CHECK_AFTER_TOUCH_DAYS = 0.02;
 const SEED = 20260924;
-const CHECK_EXIT_CODES = [0, 5];
+const CHECK_EXIT_CODES = [EXIT.ok, EXIT.needsReview];
 const FIX_REWRITTEN_LINES = 3;
 const NUMSTAT_LINES_PER_REWRITTEN_LINE = 2;
 const FEATURE_LINES = { min: 6, spread: 30 };
@@ -111,7 +112,7 @@ async function createDemoProjects(scenario: Scenario, paths: DemoPaths, random: 
   return repos;
 }
 
-type CliCall = { cwd?: string; stdin?: string; allowed?: number[] };
+type CliCall = { cwd?: string; stdin?: string; allowed?: readonly ExitCode[] };
 
 class DemoRun {
   private readonly ids = new Map<string, string>();
@@ -189,7 +190,7 @@ class DemoRun {
     return reason;
   }
 
-  private async cli(argv: string[], { cwd = this.paths.backlogRoot, stdin = "", allowed = [0] }: CliCall = {}): Promise<string> {
+  private async cli(argv: string[], { cwd = this.paths.backlogRoot, stdin = "", allowed = [EXIT.ok] }: CliCall = {}): Promise<string> {
     const out: string[] = [];
     const err: string[] = [];
     const code = await runCli(argv, {

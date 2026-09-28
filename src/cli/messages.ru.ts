@@ -132,9 +132,9 @@ export const cliRu = {
   candidateDescribeRenamed: (path: string, to: string): string => `файла ${path} нет — переименован в ${to}`,
   candidateDescribeDuplicate: (otherId: string, match: string): string => `похоже на дубль ${otherId} (${match})`,
 
-  projectUsage: (): readonly string[] => [
+  projectUsage: (states: string): readonly string[] => [
     "list",
-    "status <id> active|inactive   (неактивные не входят в общую область)",
+    `status <id> ${states}   (неактивные не входят в общую область)`,
     "delete <id> --confirm <id>    (удаляет каталог проекта со всеми задачами)",
   ],
   noProjects: "Проектов нет",
