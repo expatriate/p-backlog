@@ -59,6 +59,7 @@ export const cliRu = {
 
   taskNotFound: (id: string): string => `Задача ${id} не найдена`,
   fileConflict: (id: string): string => `Файл задачи ${id} изменился во время записи, повторите команду`,
+  epicReopened: (id: string): string => `Эпик ${id} снова открыт — в нём появилась открытая задача`,
 
   statsTitle: (scopeName: string): string => `${scopeName} · статистика`,
   statsOpenLine: ({ open, weight, net, created, closed }: { open: number; weight: number; net: string; created: number; closed: number }): string =>

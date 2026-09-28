@@ -13,7 +13,9 @@ export function taskWriter(io: CliIo, loadedTasks: readonly Task[]): TaskWriter 
   const index = buildIndex(loadedTasks);
   return async (task, changes, closure) => {
     const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now: io.now(), via: "cli", closure });
-    return result.ok ? { ok: true, task: result.task } : { ok: false, exitCode: reportUpdateFailure(io, task.id, result) };
+    if (!result.ok) return { ok: false, exitCode: reportUpdateFailure(io, task.id, result) };
+    if (result.reopenedEpic !== undefined) io.warn(io.cli.epicReopened(result.reopenedEpic.id));
+    return { ok: true, task: result.task };
   };
 }
 

@@ -58,6 +58,7 @@ export const cliEn: CliMessages = {
 
   taskNotFound: (id) => `Task ${id} not found`,
   fileConflict: (id) => `Task file ${id} changed while writing, retry the command`,
+  epicReopened: (id) => `Epic ${id} is open again — it has an open task now`,
 
   statsTitle: (scopeName) => `${scopeName} · stats`,
   statsOpenLine: ({ open, weight, net, created, closed }) => `Open: ${open} (weight ${weight}) · this week: ${net} (created ${created}, closed ${closed})`,
