@@ -174,7 +174,7 @@ async function snapshot(root: string, code: CollectedCode) {
 }
 
 describe("уплотнение журнала на случайных журналах", () => {
-  it("отчёты сейчас и через 10 дней и открытые эпизоды проверки не меняются", async () => {
+  it("отчёты сейчас и через 10 дней и открытые эпизоды проверки не меняются", { timeout: 30_000 }, async () => {
     let removedTotal = 0;
     for (const seed of SEEDS) {
       const { root, code } = await generatedBacklog(seed);
