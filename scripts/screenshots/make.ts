@@ -2,7 +2,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LANGUAGES } from "../../src/core/i18n/language";
-import { listPath, statsPath, taskPath } from "../../src/web/app/paths";
+import { listPath, statsPath, taskPath } from "../../src/core/api/web-paths";
 import { captureShots, startDemoServer, type Shot } from "./capture";
 import { buildDemoBacklog, readDemoInputs } from "./demo-backlog";
 import { ISOLATED_GIT_ENV } from "./demo-repo";

@@ -3,7 +3,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import type { Language } from "../core/i18n/language";
 import { parseJson, readTextOrNull } from "../core/store/fs-utils";
-import { SKILL_NAME, SKILL_SOURCES_DIR, SKILL_VARIANTS } from "./skill-variants";
+import { SKILL_NAME } from "../core/skill-name";
+import { SKILL_SOURCES_DIR, SKILL_VARIANTS } from "./skill-variants";
 
 type SkillLinkResult = "linked" | "kept" | "foreign";
 

@@ -1,4 +1,5 @@
 import { MEMORY_HISTORY_MS } from "../../core/api/memory";
+import { HOUR_MS } from "../../core/model/dates";
 import { CHURN_DAYS } from "../../core/code/code-window";
 import { formatDecimal } from "../../core/i18n/format";
 import { countEn, NBSP, pluralEn } from "../../core/i18n/plural";
@@ -17,7 +18,7 @@ import { STATS_WEEKS } from "../../core/stats/window";
 const dayCount = (n: number): string => countEn(n, "day", "days");
 const CHURN_PERIOD = dayCount(CHURN_DAYS);
 const STATS_PERIOD = countEn(STATS_WEEKS, "week", "weeks");
-const MEMORY_HISTORY_PERIOD = countEn(MEMORY_HISTORY_MS / (60 * 60 * 1000), "hour", "hours");
+const MEMORY_HISTORY_PERIOD = countEn(MEMORY_HISTORY_MS / HOUR_MS, "hour", "hours");
 const CHART_STEPS: Record<ChartStep, string> = { day: "day", week: "week", sample: "sample" };
 const EFFECT_WINDOW = `${STATS_PERIOD} (since adoption, if later)`;
 const ESTIMATE_LATER = `the estimate appears after ${MIN_FIXES_FOR_ESTIMATE} fixes`;

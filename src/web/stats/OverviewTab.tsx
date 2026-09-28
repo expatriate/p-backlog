@@ -1,7 +1,7 @@
 import { useParams } from "react-router";
 import { formatSigned } from "../../core/stats/format";
 import type { StatsReport, StatsTotals } from "../../core/api/contract";
-import { listPath } from "../app/paths";
+import { listPath } from "../../core/api/web-paths";
 import { useStats } from "../app/queries";
 import { useMessages } from "../i18n";
 import { cx } from "../ui/cx";

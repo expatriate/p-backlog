@@ -1,5 +1,5 @@
 import { useRef, type RefObject } from "react";
-import { statsPath } from "../app/paths";
+import { statsPath } from "../../core/api/web-paths";
 import { Link, matchPath, Outlet, useLocation, useNavigation, useParams } from "react-router";
 import { useProjects, useSignals } from "../app/queries";
 import { projectNameOf, scopeNote } from "../app/scope";

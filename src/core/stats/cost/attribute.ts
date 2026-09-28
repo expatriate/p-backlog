@@ -4,6 +4,7 @@ import type { TranscriptState, UsageBucket } from "./usage-state";
 import { isBacklogHookFeedback } from "../../hook-signature";
 import { fastModel } from "./pricing";
 import { invokesBacklog } from "./shell-commands";
+import { SKILL_NAME } from "../../skill-name";
 
 type LineContext = { slot: string; cwd: string };
 
@@ -15,7 +16,7 @@ const UNKNOWN_MODEL = "unknown";
 
 const SKILL_PREAMBLE = "Base directory for this skill:";
 
-const BACKLOG_SKILL_PATH = "/skills/backlog";
+const BACKLOG_SKILL_PATH = `/skills/${SKILL_NAME}`;
 
 const CHARS_PER_TOKEN = 3;
 

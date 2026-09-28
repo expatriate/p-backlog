@@ -1,7 +1,7 @@
 import { useId, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import type { TasksResponse } from "../../core/api/contract";
-import { listPath, taskPath } from "../app/paths";
+import { listPath, taskPath } from "../../core/api/web-paths";
 import { RequestFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";

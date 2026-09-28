@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { HOUR_MS } from "../../core/model/dates";
 
-const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+const REFRESH_INTERVAL_MS = HOUR_MS;
 
 export function useNow(): Date {
   const [now, setNow] = useState(() => new Date());

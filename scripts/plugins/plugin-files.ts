@@ -2,7 +2,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import type { Language } from "../../src/core/i18n/language";
-import { SKILL_NAME, SKILL_SOURCES_DIR, SKILL_VARIANTS } from "../../src/cli/skill-variants";
+import { SKILL_SOURCES_DIR, SKILL_VARIANTS } from "../../src/cli/skill-variants";
+import { SKILL_NAME } from "../../src/core/skill-name";
 
 const MARKETPLACE = "p-backlog";
 const OWNER = { name: "expatriate" };

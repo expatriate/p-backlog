@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useRef, useState } from "react";
-import { listPath, statsPath } from "../app/paths";
+import { listPath, statsPath } from "../../core/api/web-paths";
 import { Link, matchPath, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import type { ProjectView } from "../../core/api/contract";
 import type { Task } from "../../core/model/types";

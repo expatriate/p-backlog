@@ -4,9 +4,11 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { claudeProjectsDir } from "../core/claude-dir";
+import { HOUR_MS } from "../core/model/dates";
 import { errorText } from "../core/errors";
 import { coreMessages } from "../core/messages";
 import { serviceLogToTrim } from "../core/service-log";
+import { compactJournalsWhenDue } from "../core/store/journal-compaction";
 import { runMaintenance, type MaintenancePlan } from "../core/store/maintenance";
 import { trimRuns } from "../core/store/runs";
 import { settingsFilePath, settleLanguage } from "../core/store/settings";
@@ -20,7 +22,7 @@ import { listenFailure } from "./port";
 import { startSweeper } from "./sweeper";
 import { createUsageScanner, type UsageScanner } from "./usage-scanner";
 
-const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = HOUR_MS;
 const STOP_SIGNALS: readonly NodeJS.Signals[] = ["SIGTERM", "SIGINT", "SIGHUP"];
 
 export const BUNDLED_WEB_DIR = join(import.meta.dirname, "web");
@@ -54,7 +56,7 @@ export async function startServer({ root, port, home, env, pidFile, staticDir }:
   const allowedHosts = new Set<string>();
   const app = createApp({ root, readLanguage, changes, allowedHosts, home, statsServices: { usage, memory, warn: warnLocalized }, staticDir });
 
-  const maintenancePlan: MaintenancePlan = { trimRuns, sweepClosed: sweepClosedAndStamp, compactJournals: true, serviceLog: serviceLogToTrim(process.platform, home) };
+  const maintenancePlan: MaintenancePlan = { trimRuns, sweepClosed: sweepClosedAndStamp, compactJournals: compactJournalsWhenDue, serviceLog: serviceLogToTrim(process.platform, home) };
   const maintain = async (): Promise<SweepReport | null> => runMaintenance(maintenancePlan, { root, now: new Date(), messages: coreMessages(await readLanguage()), warn });
 
   const { server, port: actualPort } = await listen(app, port).catch(async (error: NodeJS.ErrnoException) => {
