@@ -1,5 +1,5 @@
 import { useRef, type RefObject } from "react";
-import { statsPath } from "../../core/api/web-paths";
+import { statsTabPath } from "../../core/api/web-paths";
 import { Link, matchPath, Outlet, useLocation, useNavigation, useParams } from "react-router";
 import { useProjects, useSignals } from "../app/queries";
 import { projectNameOf, scopeNote } from "../app/scope";
@@ -19,8 +19,7 @@ export function StatsPage() {
   const { app, core, stats } = useMessages();
   const scopeName = projectId === undefined ? stats.projects : projectNameOf(projects.data, projectId);
   const heading = stats.heading(scopeName);
-  const base = statsPath(projectId);
-  const tabPath = (segment: string) => (segment === "" ? base : `${base}/${segment}`);
+  const tabPath = (segment: string) => statsTabPath(segment, projectId);
   const isTabAt = (segment: string, at: string) => matchPath({ path: tabPath(segment), end: true }, at) !== null;
   const active = STATS_TABS.find((tab) => tab.segment !== "" && isTabAt(tab.segment, pathname)) ?? STATS_TABS[0];
   const pendingPathname = useNavigation().location?.pathname;

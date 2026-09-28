@@ -2,7 +2,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LANGUAGES } from "../../src/core/i18n/language";
-import { listPath, statsPath, taskPath } from "../../src/core/api/web-paths";
+import { listPath, statsTabPath, taskPath } from "../../src/core/api/web-paths";
 import { STATS_TABS } from "../../src/web/stats/stats-tabs";
 import { captureShots, startDemoServer, type Shot } from "./capture";
 import { buildDemoBacklog, readDemoInputs } from "./demo-backlog";
@@ -16,9 +16,10 @@ const CODE_PROJECT = "shop-web";
 
 Object.assign(process.env, ISOLATED_GIT_ENV);
 
-function statsTabPath(key: (typeof STATS_TABS)[number]["key"], projectId?: string): string {
-  const segment = STATS_TABS.find((tab) => tab.key === key)?.segment ?? "";
-  return segment === "" ? statsPath(projectId) : `${statsPath(projectId)}/${segment}`;
+function statsTabShotPath(key: (typeof STATS_TABS)[number]["key"], projectId?: string): string {
+  const tab = STATS_TABS.find((candidate) => candidate.key === key);
+  if (tab === undefined) throw new Error(`Unknown stats tab: ${key}`);
+  return statsTabPath(tab.segment, projectId);
 }
 
 for (const language of LANGUAGES) {
@@ -32,9 +33,9 @@ for (const language of LANGUAGES) {
   const shots: Shot[] = [
     { name: "tasks", path: listPath() },
     { name: "task", path: taskPath(undefined, backlog.idOf(HERO_TASK)), viewport: { width: 1280, height: 1180 } },
-    { name: "stats", path: statsTabPath("overview") },
-    { name: "effect", path: statsTabPath("effect") },
-    { name: "code", path: statsTabPath("code", CODE_PROJECT) },
+    { name: "stats", path: statsTabShotPath("overview") },
+    { name: "effect", path: statsTabShotPath("effect") },
+    { name: "code", path: statsTabShotPath("code", CODE_PROJECT) },
   ];
 
   const server = await startDemoServer(REPO_ROOT, home, backlogRoot, PORT);
