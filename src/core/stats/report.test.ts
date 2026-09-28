@@ -24,7 +24,7 @@ describe("отчёт статистики", () => {
     const report = statsReport({ tasks, journals, now: NOW, projectId: "spa" });
 
     expect(report.taskCount).toBe(3);
-    expect(report.totals).toMatchObject({ open: 2, openWeight: 5, createdLastWeek: 1, closedLastWeek: 1, staleOpen: 0 });
+    expect(report.totals).toMatchObject({ open: 2, openWeight: 5, createdLastWeek: 1, closedLastWeek: 1, olderThan30Days: 0 });
     expect(report.totals.ageMedianDays).toBeCloseTo((17 + 4) / 2);
     expect(report.totals.leadTimeMedianDays).toBeCloseTo(2);
     expect(report.totals.leadTimeP90Days).toBeCloseTo(2);

@@ -50,7 +50,7 @@ function totals(histories: readonly TaskHistory[], now: Date, period: Period, jo
     createdLastWeek: histories.filter((history) => lastWeek.contains(history.createdAt)).length,
     closedLastWeek: histories.flatMap(closingsOf).filter((closing) => lastWeek.contains(closing.at)).length,
     ageMedianDays: median(ages),
-    staleOpen: ages.filter((age) => age >= STALE_DAYS).length,
+    olderThan30Days: ages.filter((age) => age >= STALE_DAYS).length,
     leadTimeMedianDays: median(leadTimes),
     leadTimeP90Days: nearestRank(leadTimes, TAIL_FRACTION),
     previous: previousTotals(histories, nowMs, journalStart),
