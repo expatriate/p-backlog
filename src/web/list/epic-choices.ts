@@ -1,7 +1,7 @@
 import { compareIds } from "../../core/model/ids";
 import { countBy } from "../../core/stats/numbers";
 import type { Task } from "../../core/model/types";
-import { toneOf, type EpicTones } from "../ui/epic-tone";
+import { toneOf, type EpicTones } from "./epic-tone";
 
 export type EpicChoice = { id: string; title: string; tone: number | undefined; taskCount: number };
 export type EpicChoices = { epics: EpicChoice[]; withoutEpicCount: number };

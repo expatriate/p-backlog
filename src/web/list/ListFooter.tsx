@@ -1,25 +1,25 @@
 import { useRef } from "react";
 import type { Task } from "../../core/model/types";
-import type { TaskHref } from "../task/TaskRefs";
-import type { EpicTones } from "../ui/epic-tone";
-import { BatchNotice, useBatchResult } from "./BatchNotice";
+import type { TaskHref } from "../app/task-href";
+import type { EpicTones } from "./epic-tone";
+import { BatchNotice } from "./BatchNotice";
 import { BulkActions } from "./BulkActions";
+import { useBatchResult } from "./use-batch-result";
 import { useScrollSpaceFor } from "./use-scroll-space";
 import type { TaskSelection } from "./use-task-selection";
 import styles from "./ListFooter.module.css";
 
-type ListFooterProps = { projectId: string | undefined; selection: TaskSelection; tasks: readonly Task[]; tones: EpicTones; taskHref: TaskHref };
+type ListFooterProps = { selection: TaskSelection; tasks: readonly Task[]; tones: EpicTones; taskHref: TaskHref };
 
-export function ListFooter({ projectId, selection, tasks, tones, taskHref }: ListFooterProps) {
-  const batchResult = useBatchResult(projectId ?? "");
+export function ListFooter({ selection, tasks, tones, taskHref }: ListFooterProps) {
+  const batchResult = useBatchResult();
   const footer = useRef<HTMLDivElement>(null);
   useScrollSpaceFor(footer);
 
   return (
     <div ref={footer} className={styles.footer}>
-      <BatchNotice key={`notice-${projectId ?? ""}`} result={batchResult.result} serial={batchResult.serial} onResult={batchResult.show} taskHref={taskHref} />
+      <BatchNotice result={batchResult.result} serial={batchResult.serial} onResult={batchResult.show} taskHref={taskHref} />
       <BulkActions
-        key={`actions-${projectId ?? ""}`}
         selection={selection}
         tasks={tasks}
         tones={tones}

@@ -1,6 +1,6 @@
 import { LANGUAGES } from "../../core/i18n/language";
 import { coreMessages } from "../../core/messages";
-import { requestErrorMessage } from "../app/RequestFailure";
+import { ActionFailure } from "../app/RequestFailure";
 import { useSetLanguage } from "../app/queries";
 import { useLanguage, useMessages } from "../i18n";
 import { cx } from "../ui/cx";
@@ -8,7 +8,7 @@ import styles from "./LanguageSwitch.module.css";
 
 export function LanguageSwitch() {
   const language = useLanguage();
-  const { app, layout } = useMessages();
+  const { layout } = useMessages();
   const setLanguage = useSetLanguage();
 
   return (
@@ -29,11 +29,7 @@ export function LanguageSwitch() {
           </button>
         ))}
       </div>
-      {setLanguage.error !== null && (
-        <span className={styles.error} role="alert">
-          {layout.languageSwitchFailed}: {requestErrorMessage(app, setLanguage.error)}
-        </span>
-      )}
+      <ActionFailure className={styles.error} action={layout.languageSwitchFailed} error={setLanguage.error} />
     </div>
   );
 }

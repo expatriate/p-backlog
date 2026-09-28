@@ -387,7 +387,7 @@ describe("список задач", () => {
 
   it("карточка поверх страницы: под ней ничего не доступно с клавиатуры, после закрытия — снова доступно", async () => {
     const overlayLayout = document.head.appendChild(document.createElement("style"));
-    overlayLayout.textContent = "aside { position: fixed; }";
+    overlayLayout.textContent = "aside { --drawer-modal: 1; }";
     onTestFinished(() => overlayLayout.remove());
     const app = await renderApp(FILES);
     const link = await screen.findByRole("link", { name: "Таймауты загрузки" });
@@ -409,7 +409,7 @@ describe("список задач", () => {
 
   it("карточка поверх страницы закрывается нажатием на затемнённый фон", async () => {
     const overlayLayout = document.head.appendChild(document.createElement("style"));
-    overlayLayout.textContent = "aside { position: fixed; }";
+    overlayLayout.textContent = "aside { --drawer-modal: 1; }";
     onTestFinished(() => overlayLayout.remove());
     const app = await renderApp(FILES, "/t/SPA-1");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
@@ -429,7 +429,7 @@ describe("список задач", () => {
     await app.user.click(screen.getByRole("searchbox", { name: "Поиск задач" }));
 
     const overlayLayout = document.head.appendChild(document.createElement("style"));
-    overlayLayout.textContent = "aside { position: fixed; }";
+    overlayLayout.textContent = "aside { --drawer-modal: 1; }";
     onTestFinished(() => overlayLayout.remove());
     act(() => {
       window.dispatchEvent(new Event("resize"));

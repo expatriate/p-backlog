@@ -6,7 +6,7 @@ import { formatDayMonth, formatDecimal } from "../i18n/format";
 import { countEn, NBSP, pluralEn } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
-import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
+import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
 import type { FlowForecast, Signal } from "../stats/types";
 import type { CoreMessages, CountUnit } from "./ru";
 import { forecastOutlook, forecastSpan } from "./forecast";
@@ -34,6 +34,8 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   done: "done",
   cancelled: "cancelled",
 };
+
+const TYPE_LABELS: Record<TaskType, string> = { task: "task", epic: "epic" };
 
 const PRIORITY_LABELS: Record<Priority, string> = { low: "low", medium: "medium", high: "high", critical: "critical" };
 
@@ -258,6 +260,7 @@ export const coreEn: CoreMessages = {
   categoryLabel: (category) => (category === undefined ? "not set" : CATEGORY_LABELS[category]),
   statusLabel: (status) => STATUS_LABELS[status],
   priorityLabel: (priority) => PRIORITY_LABELS[priority],
+  typeLabel: (type) => TYPE_LABELS[type],
   resolutionLabel: (resolution) => RESOLUTION_LABELS[resolution],
   evidenceLabel,
   checkMethodLabel,

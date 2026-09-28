@@ -33,7 +33,7 @@ export function TaskFields({ task, epicListId, index, onChange, tags, tagsRef, e
     epic.commit((next) => onChange({ epic: next === "" ? null : next }));
   };
 
-  const saveTags = () => tags.commit(() => onChange({ tags: parseTagInput(tags.value) }));
+  const saveTags = () => tags.commit((next) => onChange({ tags: parseTagInput(next) }));
 
   return (
     <>
@@ -48,7 +48,7 @@ export function TaskFields({ task, epicListId, index, onChange, tags, tagsRef, e
           emptyLabel={core.categoryLabel(undefined)}
           onChange={(category) => void onChange({ category })}
         />
-        <ChoiceSelect label={taskMessages.typeField} value={task.type} choices={TASK_TYPES} labelFor={(type) => taskMessages.typeLabels[type]} onChange={(type) => type !== null && void onChange({ type })} />
+        <ChoiceSelect label={taskMessages.typeField} value={task.type} choices={TASK_TYPES} labelFor={core.typeLabel} onChange={(type) => type !== null && void onChange({ type })} />
         <label>
           {taskMessages.epicField}
           <input

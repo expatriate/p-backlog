@@ -17,7 +17,7 @@ import type { Project, Task } from "../../core/model/types";
 import { ApiError, type ApiClient } from "../api/client";
 import { useBacklogApi } from "./backlog-api";
 import { batchInChunks } from "./batch-chunks";
-import { invalidateBacklogAndStats, invalidateBacklogOnly, PROJECTS_KEY, SETTINGS_KEY, STATS_KEY, TASKS_KEY } from "./query-keys";
+import { invalidateBacklogAndStats, invalidateBacklogOnly, MEMORY_SAMPLES_KEY, PROJECTS_KEY, SETTINGS_KEY, statsReportKey, TASKS_KEY } from "./query-keys";
 
 const STATS_STALE_MS = 60_000;
 const COST_SCAN_POLL_MS = 10_000;
@@ -34,7 +34,7 @@ export function useSetLanguage(): UseMutationResult<SettingsResponse, Error, Lan
     mutationFn: (language: Language) => client.setLanguage(language),
     onSuccess: (settings) => {
       queryClient.setQueryData(SETTINGS_KEY, settings);
-      return queryClient.invalidateQueries();
+      void queryClient.invalidateQueries();
     },
   });
 }
@@ -82,7 +82,7 @@ export function useCostStats(projectId: string | undefined) {
 
 export function useMemorySamples() {
   const { client } = useBacklogApi();
-  return useQuery<MemorySamplesResponse>({ queryKey: [...STATS_KEY, "memory"], queryFn: client.memorySamples, refetchInterval: MEMORY_SAMPLE_INTERVAL_MS });
+  return useQuery<MemorySamplesResponse>({ queryKey: MEMORY_SAMPLES_KEY, queryFn: client.memorySamples, refetchInterval: MEMORY_SAMPLE_INTERVAL_MS });
 }
 
 function scanInProgress(scan: ScanProgress | undefined): boolean {
@@ -92,7 +92,7 @@ function scanInProgress(scan: ScanProgress | undefined): boolean {
 
 function useStatsReport<K extends StatsReportKind>(kind: K, projectId: string | undefined, overrides: Partial<UseQueryOptions<StatsReports[K]>> = {}) {
   const { client } = useBacklogApi();
-  return useQuery<StatsReports[K]>({ queryKey: [...STATS_KEY, kind, projectId ?? "all"], queryFn: () => client.statsReport(kind, projectId), staleTime: STATS_STALE_MS, ...overrides });
+  return useQuery<StatsReports[K]>({ queryKey: statsReportKey(kind, projectId), queryFn: () => client.statsReport(kind, projectId), staleTime: STATS_STALE_MS, ...overrides });
 }
 
 export type SetProjectActiveVariables = { id: string; active: boolean };
@@ -102,7 +102,7 @@ export function useSetProjectActive(): UseMutationResult<Project, Error, SetProj
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, active }: SetProjectActiveVariables) => client.setProjectActive(id, active),
-    onSuccess: () => invalidateBacklogAndStats(queryClient),
+    onSuccess: () => void invalidateBacklogAndStats(queryClient),
   });
 }
 
@@ -113,7 +113,7 @@ export function useDeleteProject(): UseMutationResult<void, Error, DeleteProject
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, confirm }: DeleteProjectVariables) => client.deleteProject(id, confirm),
-    onSuccess: () => invalidateBacklogAndStats(queryClient),
+    onSuccess: () => void invalidateBacklogAndStats(queryClient),
   });
 }
 

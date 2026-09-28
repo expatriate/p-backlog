@@ -9,14 +9,16 @@ export function useLiveUpdates(): void {
   const queryClient = useQueryClient();
   useEffect(() => {
     const stream = openEvents();
-    if (!stream) return;
     stream.addEventListener("change", (event) => {
       const revision = parseRevision(event.data);
-      if (revision === null) return invalidateBacklogAndStats(queryClient);
+      if (revision === null) {
+        void invalidateBacklogAndStats(queryClient);
+        return;
+      }
       void queryClient.invalidateQueries({ queryKey: STATS_KEY });
       for (const queryKey of REVISIONED_KEYS) void refreshIfBehind(queryClient, queryKey, revision);
     });
-    stream.addEventListener("open", () => invalidateBacklogAndStats(queryClient));
+    stream.addEventListener("open", () => void invalidateBacklogAndStats(queryClient));
     return () => stream.close();
   }, [openEvents, queryClient]);
 }

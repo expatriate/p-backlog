@@ -23,7 +23,6 @@ export const taskEn: TaskMessages = {
   epicField: "Epic",
   epicPlaceholder: "Epic ID",
   tagsField: "Comma-separated tags",
-  typeLabels: { task: "task", epic: "epic" },
 
   save: "Save",
   editDescription: "Edit description",

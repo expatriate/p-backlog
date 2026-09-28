@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 
 export type Draft = {
   value: string;
+  canonical: string;
   set: (next: string) => void;
   unsaved: boolean;
   conflicted: boolean;
@@ -27,20 +28,21 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
     });
   }, [serverValue, canonical]);
 
+  const canonicalText = canonical(state.text);
+
   const commit = (save: (canonical: string) => Promise<boolean>) => {
-    const next = canonical(state.text);
-    if (next === serverValue) {
+    if (canonicalText === serverValue) {
       setState({ text: state.text, base: serverValue, conflicted: false });
-    } else if (next === state.base) {
+    } else if (canonicalText === state.base) {
       setState(synced(serverValue));
     } else if (serverValue !== state.base) {
       setState({ text: state.text, base: serverValue, conflicted: true });
     } else {
       const previousBase = state.base;
-      setState({ ...state, base: next });
-      void save(next).then((saved) =>
+      setState({ ...state, base: canonicalText });
+      void save(canonicalText).then((saved) =>
         setState((current) => {
-          if (current.base !== next) return current;
+          if (current.base !== canonicalText) return current;
           return saved ? { ...current, conflicted: false } : { ...current, base: previousBase };
         }),
       );
@@ -49,8 +51,9 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
 
   const draft: Draft = {
     value: state.text,
+    canonical: canonicalText,
     set: (text) => setState((current) => ({ ...current, text })),
-    unsaved: canonical(state.text) !== state.base,
+    unsaved: canonicalText !== state.base,
     conflicted: state.conflicted,
     commit,
     reset: () => setState(synced(serverValue)),

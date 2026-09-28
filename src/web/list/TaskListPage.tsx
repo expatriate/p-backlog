@@ -5,7 +5,7 @@ import { listPath, taskPath } from "../../core/api/web-paths";
 import { RequestFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
-import { toneOf } from "../ui/epic-tone";
+import { toneOf } from "./epic-tone";
 import { useSettledValue } from "../ui/use-settled-value";
 import { useDocumentTitle } from "../ui/use-document-title";
 import { useStatusFocus } from "../ui/use-status-focus";
@@ -19,7 +19,7 @@ import { useSeenTasks } from "./use-seen-tasks";
 import { useSelectedTask } from "./use-selected-task";
 import { useTaskSelection } from "./use-task-selection";
 import { useTaskListView, type ListContent } from "./use-task-list-view";
-import { toggledTags } from "./filter-toggle";
+import { withTagToggled } from "./filter-toggle";
 import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
 
@@ -62,7 +62,7 @@ export function TaskListPage() {
           {missingTaskId !== undefined && list.missingTask(missingTaskId)}
         </p>
 
-        <ParseErrorsNote list={list} parseErrors={view.parseErrors} />
+        <ParseErrorsNote parseErrors={view.parseErrors} />
 
         {view.content === "table" && keyboardHints && (
           <p id={keysHintId} className={styles.keysHint}>
@@ -72,10 +72,8 @@ export function TaskListPage() {
 
         <div className={styles.tableWrap}>
           <ListStatus
-            list={list}
             statusRef={status}
             content={view.content}
-            settled={view.settled}
             shownCount={view.settled ? view.visibleTasks.length : null}
             request={view.request}
             onRetry={() => {
@@ -84,7 +82,6 @@ export function TaskListPage() {
             }}
             empty={
               <EmptyList
-                list={list}
                 hasTasks={view.scopedTasks.length > 0}
                 hiddenOpen={view.hiddenOpen}
                 filter={params.filter}
@@ -107,13 +104,13 @@ export function TaskListPage() {
               tones={view.tones}
               isNew={isNew}
               selectedTags={params.filter.tags ?? []}
-              onToggleTag={(tag) => setParams({ ...params, filter: { ...params.filter, tags: toggledTags(params.filter.tags ?? [], tag) } })}
+              onToggleTag={(tag) => setParams(withTagToggled(params, tag))}
               selection={selection}
               describedBy={keyboardHints ? keysHintId : undefined}
             />
           )}
         </div>
-        <ListFooter projectId={projectId} selection={selection} tasks={view.allTasks} tones={view.tones} taskHref={taskHref} />
+        <ListFooter key={projectId ?? ""} selection={selection} tasks={view.allTasks} tones={view.tones} taskHref={taskHref} />
       </div>
 
       {selectedTask && (
@@ -132,7 +129,8 @@ export function TaskListPage() {
   );
 }
 
-function ParseErrorsNote({ list, parseErrors }: { list: ListMessages; parseErrors: TasksResponse["errors"] }) {
+function ParseErrorsNote({ parseErrors }: { parseErrors: TasksResponse["errors"] }) {
+  const { list } = useMessages();
   return (
     <div className={parseErrors.length > 0 ? styles.warning : "visually-hidden"} role="status">
       {parseErrors.length > 0 && (
@@ -152,17 +150,17 @@ function ParseErrorsNote({ list, parseErrors }: { list: ListMessages; parseError
 }
 
 type ListStatusProps = {
-  list: ListMessages;
   statusRef: RefObject<HTMLDivElement | null>;
   content: ListContent;
-  settled: boolean;
   shownCount: number | null;
   request: { error: Error | null; isFetching: boolean };
   onRetry: () => void;
   empty: ReactNode;
 };
 
-function ListStatus({ list, statusRef, content, settled, shownCount, request, onRetry, empty }: ListStatusProps) {
+function ListStatus({ statusRef, content, shownCount, request, onRetry, empty }: ListStatusProps) {
+  const { list } = useMessages();
+  const settled = shownCount !== null;
   const announcedCount = useSettledValue(shownCount, COUNT_ANNOUNCE_DELAY_MS) ?? shownCount ?? 0;
   return (
     <div ref={statusRef} tabIndex={-1} role="status" className={settled ? "visually-hidden" : styles.hint}>
@@ -176,18 +174,17 @@ function ListStatus({ list, statusRef, content, settled, shownCount, request, on
 }
 
 function EmptyList({
-  list,
   hasTasks,
   hiddenOpen,
   filter,
   onFilterChange,
 }: {
-  list: ListMessages;
   hasTasks: boolean;
   hiddenOpen: number;
   filter: ListParams["filter"];
   onFilterChange: (filter: ListParams["filter"]) => void;
 }) {
+  const { list } = useMessages();
   const hiddenNote = list.hiddenOpenNote(hiddenOpen);
   if (!hasTasks) {
     if (hiddenOpen > 0) return <p>{list.noTasksInScope(hiddenNote)}</p>;

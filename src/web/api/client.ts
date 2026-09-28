@@ -15,6 +15,9 @@ import type { Project, Task } from "../../core/model/types";
 
 export type ApiFetch = (path: string, init?: RequestInit) => Promise<Response>;
 
+const CONFLICT_STATUS = 409;
+const SERVER_FAILURE_STATUS = 500;
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -23,6 +26,14 @@ export class ApiError extends Error {
   ) {
     super(errors.length > 0 ? errors.join("; ") : `backlog api error, status ${status}`);
     this.name = "ApiError";
+  }
+
+  get isConflict(): boolean {
+    return this.status === CONFLICT_STATUS;
+  }
+
+  get isServerFailure(): boolean {
+    return this.status >= SERVER_FAILURE_STATUS;
   }
 }
 

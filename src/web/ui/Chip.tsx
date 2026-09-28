@@ -18,9 +18,9 @@ export function ToggleChip({ pressed, locked = false, onToggle, children }: Togg
   );
 }
 
-export function Chip({ children, title }: { children: ReactNode; title?: string }) {
+export function Chip({ children }: { children: ReactNode }) {
   return (
-    <span className={cx(styles.chip, styles.static)} title={title}>
+    <span className={cx(styles.chip, styles.static)}>
       <ChipLabel>{children}</ChipLabel>
     </span>
   );

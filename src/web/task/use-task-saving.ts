@@ -7,7 +7,8 @@ import { TaskGoneError, useUpdateTask, type BodyEdit, type TaskChange, type Upda
 import { requestErrorMessage } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import type { TaskMessages } from "./messages.ru";
-import type { RefsSaveResult } from "./TaskRefs";
+
+export type RefsSaveResult = { saved: true } | { saved: false; fieldError: string | null };
 
 type BodyDraft = { text: string; from: BodyEdit };
 
@@ -16,8 +17,6 @@ type BodyEditor = { phase: "closed" } | { phase: "editing"; draft: BodyDraft; er
 type LastSave = { pending: boolean; succeeded: boolean; submittedAt: number };
 
 const CLOSED: BodyEditor = { phase: "closed" };
-
-const HTTP_CONFLICT = 409;
 
 export function useTaskSaving(task: Task) {
   const { app, task: taskMessages } = useMessages();
@@ -103,7 +102,7 @@ function saveErrorText(error: Error, app: AppMessages, taskMessages: TaskMessage
 }
 
 function isConflict(error: Error): boolean {
-  return error instanceof ApiError && error.status === HTTP_CONFLICT;
+  return error instanceof ApiError && error.isConflict;
 }
 
 function asError(error: unknown): Error {

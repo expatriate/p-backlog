@@ -3,7 +3,8 @@ import { normalizeText } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 import { useMessages } from "../i18n";
 import { ToggleChip } from "../ui/Chip";
-import { emptyToUndefined, toggled, toggledTags } from "./filter-toggle";
+import { focusDropped } from "../ui/focus-dropped";
+import { toggled, toggledOrUnset, withTagToggled } from "./filter-toggle";
 import { Popover, POPOVER_INITIAL_FOCUS } from "../ui/Popover";
 import { EpicPicker } from "./EpicPicker";
 import type { EpicChoices } from "./epic-choices";
@@ -19,7 +20,7 @@ export type ToolbarProps = {
 };
 
 export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }: ToolbarProps) {
-  const { list, core, task } = useMessages();
+  const { list, core } = useMessages();
   const { filter } = params;
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
   const setFilter = (patch: Partial<ListParams["filter"]>) => onChange({ ...params, filter: { ...filter, ...patch } });
@@ -28,7 +29,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
   const epicAndTags = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
   useFocusAfterEpicPickerLeaves(showEpicPicker, () => epicAndTags.current?.querySelector("button") ?? search.current);
-  const toggleTag = (tag: string) => setFilter({ tags: toggledTags(filter.tags ?? [], tag) });
+  const toggleTag = (tag: string) => onChange(withTagToggled(params, tag));
   const toggleAutoClosed = () => {
     if (filter.onlyAutoClosed) setFilter({ onlyAutoClosed: undefined });
     else onChange({ filter: { ...filter, ...AUTO_CLOSED_VIEW.filter }, sort: AUTO_CLOSED_VIEW.sort });
@@ -58,7 +59,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
             <ToggleChip
               key={priority}
               pressed={filter.priorities?.includes(priority) ?? false}
-              onToggle={() => setFilter({ priorities: emptyToUndefined(toggled(filter.priorities ?? [], priority)) })}
+              onToggle={() => setFilter({ priorities: toggledOrUnset(filter.priorities, priority) })}
             >
               {core.priorityLabel(priority)}
             </ToggleChip>
@@ -67,7 +68,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
         <div className={styles.group} role="group" aria-label={list.type}>
           {TASK_TYPES.map((type) => (
             <ToggleChip key={type} pressed={filter.type === type} onToggle={() => setFilter({ type: filter.type === type ? undefined : type })}>
-              {task.typeLabels[type]}
+              {core.typeLabel(type)}
             </ToggleChip>
           ))}
           <ToggleChip pressed={filter.onlyUnblocked === true} onToggle={() => setFilter({ onlyUnblocked: filter.onlyUnblocked ? undefined : true })}>
@@ -101,7 +102,7 @@ function useFocusAfterEpicPickerLeaves(shown: boolean, nextTarget: () => HTMLEle
   useEffect(() => {
     const left = wasShown.current && !shown;
     wasShown.current = shown;
-    if (left && document.activeElement === document.body) nextTarget()?.focus();
+    if (left && focusDropped()) nextTarget()?.focus();
   });
 }
 

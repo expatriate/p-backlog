@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Project } from "../../core/model/types";
 import { useDeleteProject, useSetProjectActive } from "../app/queries";
-import { requestErrorMessage } from "../app/RequestFailure";
+import { ActionFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import styles from "./ProjectControls.module.css";
@@ -20,7 +20,7 @@ export function ProjectCheckbox({ project }: { project: Project }) {
           onChange={(event) => setActive.mutate({ id: project.id, active: event.target.checked })}
         />
       </label>
-      <MutationError error={setActive.error} action={layout.setActiveFailed(setActive.variables?.active ?? false)} />
+      <ActionFailure className={styles.error} action={layout.setActiveFailed(setActive.variables?.active ?? false)} error={setActive.error} />
     </>
   );
 }
@@ -40,7 +40,7 @@ export function ProjectDeleteButton({ project, taskCount, onDeleted }: ProjectDe
           <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2h5.8l.6-8.2" />
         </svg>
       </button>
-      <MutationError error={deleteProject.error} action={layout.deleteFailed} />
+      <ActionFailure className={styles.error} action={layout.deleteFailed} error={deleteProject.error} />
       <ConfirmDialog
         open={confirming}
         title={layout.deleteDialogTitle(project.name)}
@@ -67,14 +67,4 @@ function useFocusAfterDialogCloses<T extends HTMLElement>(dialogOpen: boolean): 
     return () => element?.focus();
   }, [dialogOpen]);
   return target;
-}
-
-function MutationError({ error, action }: { error: Error | null; action: string }) {
-  const { app } = useMessages();
-  if (error === null) return null;
-  return (
-    <span className={styles.error} role="alert">
-      {action}: {requestErrorMessage(app, error)}
-    </span>
-  );
 }

@@ -4,7 +4,7 @@ import { openSharedEvents } from "./shared-events";
 
 export type EventStream = { addEventListener: (type: string, listener: (event: MessageEvent<unknown>) => void) => void; close: () => void };
 
-export type BacklogApi = { client: ApiClient; openEvents: () => EventStream | null };
+export type BacklogApi = { client: ApiClient; openEvents: () => EventStream };
 
 const BacklogApiContext = createContext<BacklogApi | null>(null);
 

@@ -1,5 +1,3 @@
-import type { TaskType } from "../../core/model/types";
-
 export const taskRu = {
   cardLabel: (id: string): string => `Задача ${id}`,
   title: "Название задачи",
@@ -24,7 +22,6 @@ export const taskRu = {
   epicField: "Эпик",
   epicPlaceholder: "ID эпика",
   tagsField: "Теги через запятую",
-  typeLabels: { task: "задача", epic: "эпик" } as Record<TaskType, string>,
 
   save: "Сохранить",
   editDescription: "Редактировать описание",

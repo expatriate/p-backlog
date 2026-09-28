@@ -5,6 +5,7 @@ import { checklistItems, type ChecklistItem } from "../../core/model/checklist";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
+import { focusDropped } from "../ui/focus-dropped";
 import styles from "./TaskBody.module.css";
 
 export type TaskBodyProps = {
@@ -84,7 +85,7 @@ export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onS
 
 function focusFellWith(editor: HTMLElement | null): boolean {
   const active = document.activeElement;
-  if (active === null || active === document.body || editor === null) return true;
+  if (focusDropped() || active === null || editor === null) return true;
   return editor.contains(active) || active.contains(editor);
 }
 

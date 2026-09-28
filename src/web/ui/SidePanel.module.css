@@ -18,6 +18,7 @@
 
 @media (max-width: 1160px) {
   .drawer {
+    --drawer-modal: 1;
     position: fixed;
     inset: 0 0 0 auto;
     z-index: var(--z-panel);
