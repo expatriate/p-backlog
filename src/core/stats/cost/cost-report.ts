@@ -2,7 +2,7 @@ import { formatLocalDay, formatLocalIso } from "../../model/dates";
 import type { CliRun } from "../../store/runs";
 import type { CostCommand, CostDay, CostModel, CostNumbers, CostPeriod, CostReport, CostTotals, ScanProgress } from "../types";
 import { totalTokens } from "./token-counts";
-import { COST_REPORT_DAYS, type UsageBucket } from "./usage-state";
+import type { UsageBucket } from "./usage-state";
 import { HOOK_STOP_COMMAND } from "../../hook-signature";
 import { costOf, splitFastModel } from "./pricing";
 import { dayWindows } from "../days";
@@ -12,6 +12,8 @@ import { groupBy } from "../numbers";
 import { sum } from "../../numbers";
 import { lastDays, lastDaysSpan, reportPeriod } from "../report-periods";
 import { remembered } from "../../remembered";
+
+export const COST_REPORT_DAYS = 30;
 
 export const COST_TOTALS_DAYS = 7;
 
