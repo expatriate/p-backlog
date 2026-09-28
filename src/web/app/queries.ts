@@ -34,7 +34,7 @@ export function useSetLanguage(): UseMutationResult<SettingsResponse, Error, Lan
     mutationFn: (language: Language) => client.setLanguage(language),
     onSuccess: (settings) => {
       queryClient.setQueryData(SETTINGS_KEY, settings);
-      return queryClient.invalidateQueries();
+      void queryClient.invalidateQueries();
     },
   });
 }
