@@ -89,69 +89,136 @@ export async function readDemoInputs(dataDir: string, language: Language): Promi
 
 export async function buildDemoBacklog(scenario: Scenario, texts: Texts, language: Language, paths: DemoPaths, repoRoot: string): Promise<DemoBacklog> {
   const now = Date.now();
-  const daysAgo = (days: number) => new Date(now - days * DAY_MS);
   const random = seededRandom(SEED);
-  const ids = new Map<string, string>();
-  const idOf = (key: string): string => {
-    const id = ids.get(key);
-    if (id === undefined) throw new Error(`Task "${key}" is used before it is created`);
-    return id;
-  };
-  const textOf = (key: string) => {
-    const text = texts.tasks[key];
-    if (text === undefined) throw new Error(`No ${language} text for task "${key}"`);
-    return text;
-  };
-
   await writeSettings(paths.backlogRoot, { language });
+  const repos = await createDemoProjects(scenario, paths, random, new Date(now - scenario.repoCreatedDaysAgo * DAY_MS));
+  const demo = new DemoRun(texts, language, paths, repoRoot, repos, now);
+  const featureSteps = scenario.projects.flatMap((project) => featureCommitSteps(demo.repoOf(project.id), project, random, now, scenario.repoCreatedDaysAgo));
+  await demo.play([...featureSteps, ...demo.taskSteps(scenario.tasks), ...demo.dailySteps(scenario)]);
+  return { idOf: (key) => demo.idOf(key) };
+}
+
+async function createDemoProjects(scenario: Scenario, paths: DemoPaths, random: Random, repoCreatedAt: Date): Promise<Map<string, DemoRepo>> {
   const repos = new Map<string, DemoRepo>();
   for (const project of scenario.projects) {
     const repo = new DemoRepo(join(paths.home, "projects", project.id), random);
-    await repo.init(project.files, daysAgo(scenario.repoCreatedDaysAgo));
+    await repo.init(project.files, repoCreatedAt);
     repos.set(project.id, repo);
     await mkdir(join(paths.backlogRoot, project.id), { recursive: true });
     const text = serializeProject({ name: project.id, prefix: project.prefix, repos: [`~/projects/${project.id}`], issuedUpTo: undefined, active: true, extra: {}, body: "" });
     await writeFile(join(paths.backlogRoot, project.id, PROJECT_FILE), text, "utf8");
   }
-  const repoOf = (projectId: string): DemoRepo => {
-    const repo = repos.get(projectId);
+  return repos;
+}
+
+type CliCall = { cwd?: string; stdin?: string; allowed?: number[] };
+
+class DemoRun {
+  private readonly ids = new Map<string, string>();
+  private readonly touchedBy = new Map<string, string>();
+  private clock: Date;
+
+  constructor(
+    private readonly texts: Texts,
+    private readonly language: Language,
+    private readonly paths: DemoPaths,
+    private readonly repoRoot: string,
+    private readonly repos: ReadonlyMap<string, DemoRepo>,
+    private readonly now: number,
+  ) {
+    this.clock = new Date(now);
+  }
+
+  idOf(key: string): string {
+    const id = this.ids.get(key);
+    if (id === undefined) throw new Error(`Task "${key}" is used before it is created`);
+    return id;
+  }
+
+  repoOf(projectId: string): DemoRepo {
+    const repo = this.repos.get(projectId);
     if (repo === undefined) throw new Error(`Unknown project "${projectId}"`);
     return repo;
-  };
+  }
 
-  let clock = new Date(now);
-  const cli = async (argv: string[], { cwd = paths.backlogRoot, stdin = "", allowed = [0] }: { cwd?: string; stdin?: string; allowed?: number[] } = {}): Promise<string> => {
+  taskSteps(tasks: readonly ScenarioTask[]): Step[] {
+    const steps: Step[] = [];
+    const at = (days: number, run: () => Promise<unknown>) => steps.push({ at: this.now - days * DAY_MS, run });
+    const check = () => this.check();
+    for (const task of tasks) {
+      at(task.created, () => this.createTask(task));
+      if (task.force) at(task.created - CHECK_AFTER_TOUCH_DAYS, check);
+      for (const event of task.events) {
+        at(event.at, () => this.applyEvent(task, event));
+        if (event.do === "touch") at(event.at - CHECK_AFTER_TOUCH_DAYS, check);
+      }
+    }
+    return steps;
+  }
+
+  dailySteps(scenario: Scenario): Step[] {
+    const messages = coreMessages(this.language);
+    const steps: Step[] = [];
+    for (let day = Math.floor(scenario.startDaysAgo); day >= 1; day--) {
+      const evening = eveningOf(this.now, day);
+      steps.push({ at: evening, run: () => sweepClosed(this.paths.backlogRoot, new Date(evening), messages) });
+      if (day % scenario.checkEveryDays === 0) {
+        steps.push({ at: evening + 1, run: () => this.check() });
+      }
+    }
+    return steps;
+  }
+
+  async play(steps: readonly Step[]): Promise<void> {
+    const ordered = steps.map((step, index) => ({ ...step, index })).sort((a, b) => a.at - b.at || a.index - b.index);
+    for (const step of ordered) {
+      this.clock = new Date(step.at);
+      await step.run();
+    }
+  }
+
+  private textOf(key: string): Texts["tasks"][string] {
+    const text = this.texts.tasks[key];
+    if (text === undefined) throw new Error(`No ${this.language} text for task "${key}"`);
+    return text;
+  }
+
+  private reasonOf(task: ScenarioTask): string {
+    const reason = this.textOf(task.key).reason;
+    if (reason === undefined) throw new Error(`Task "${task.key}" needs a ${this.language} closing reason`);
+    return reason;
+  }
+
+  private async cli(argv: string[], { cwd = this.paths.backlogRoot, stdin = "", allowed = [0] }: CliCall = {}): Promise<string> {
     const out: string[] = [];
     const err: string[] = [];
     const code = await runCli(argv, {
       cwd,
-      home: paths.home,
-      backlogRoot: paths.backlogRoot,
-      packageRoot: repoRoot,
+      home: this.paths.home,
+      backlogRoot: this.paths.backlogRoot,
+      packageRoot: this.repoRoot,
       ...hostCliEnv(),
-      cliPath: join(repoRoot, "dist/cli.js"),
+      cliPath: join(this.repoRoot, "dist/cli.js"),
       stopProcess: () => false,
       env: {},
-      now: () => clock,
+      now: () => this.clock,
       readStdin: async () => stdin,
       print: (line) => out.push(line),
       warn: (line) => err.push(line),
     });
     if (!allowed.includes(code)) throw new Error(`backlog ${argv.join(" ")} exited with ${code}:\n${err.join("\n")}`);
     return out.join("\n");
-  };
+  }
 
-  const touchedBy = new Map<string, string>();
-  const sourceOf = (task: ScenarioTask): { path: string; line: number } => {
-    const match = /^(?<path>.+):(?<line>\d+)$/.exec(task.source ?? "");
-    if (match?.groups?.path === undefined || match.groups.line === undefined) throw new Error(`Task "${task.key}" needs a file:line source`);
-    return { path: match.groups.path, line: Number(match.groups.line) };
-  };
+  private check(): Promise<string> {
+    return this.cli(["check", "--all-projects"], { allowed: CHECK_EXIT_CODES });
+  }
 
-  const createTask = async (task: ScenarioTask): Promise<void> => {
-    const repo = repoOf(task.project);
-    const text = textOf(task.key);
+  private async createTask(task: ScenarioTask): Promise<void> {
+    const repo = this.repoOf(task.project);
+    const text = this.textOf(task.key);
     if (task.branch !== undefined) await repo.switchBranch(task.branch);
+    const idsOf = (keys: readonly string[]) => (keys.length > 0 ? keys.map((key) => this.idOf(key)).join(",") : undefined);
     const options: [string, string | undefined][] = [
       ["--title", text.title],
       ["--type", task.type],
@@ -160,67 +227,62 @@ export async function buildDemoBacklog(scenario: Scenario, texts: Texts, languag
       ["--tags", task.tags.length > 0 ? task.tags.join(",") : undefined],
       ["--found", task.found ?? "incidental"],
       ["--source", task.source],
-      ["--epic", task.epic === undefined ? undefined : idOf(task.epic)],
-      ["--blocked-by", task.blockedBy.length > 0 ? task.blockedBy.map(idOf).join(",") : undefined],
-      ["--related", task.related.length > 0 ? task.related.map(idOf).join(",") : undefined],
+      ["--epic", task.epic === undefined ? undefined : this.idOf(task.epic)],
+      ["--blocked-by", idsOf(task.blockedBy)],
+      ["--related", idsOf(task.related)],
       ["--project", task.project],
     ];
     const argv = ["new", ...options.flatMap(([flag, value]) => (value === undefined ? [] : [flag, value])), ...(task.force ? ["--force"] : [])];
-    const output = await cli(argv, { cwd: repo.dir, stdin: text.body ?? "" });
+    const output = await this.cli(argv, { cwd: repo.dir, stdin: text.body ?? "" });
     if (task.branch !== undefined) await repo.switchBranch("main");
     const id = output.split(" ")[0];
     if (id === undefined || id === "") throw new Error(`backlog new printed no id for "${task.key}"`);
-    ids.set(task.key, id);
-  };
+    this.ids.set(task.key, id);
+  }
 
-  const closeWithReason = (task: ScenarioTask, resolution: string, reason: string, extra: string[] = []) =>
-    cli(["close", idOf(task.key), "--as", resolution, "--reason", reason, ...extra]);
+  private closeWithReason(task: ScenarioTask, resolution: string, reason: string, extra: string[] = []): Promise<string> {
+    return this.cli(["close", this.idOf(task.key), "--as", resolution, "--reason", reason, ...extra]);
+  }
 
-  const reasonOf = (task: ScenarioTask): string => {
-    const reason = textOf(task.key).reason;
-    if (reason === undefined) throw new Error(`Task "${task.key}" needs a ${language} closing reason`);
-    return reason;
-  };
-
-  const applyEvent = async (task: ScenarioTask, event: TaskEvent): Promise<void> => {
-    const id = idOf(task.key);
-    const repo = repoOf(task.project);
+  private async applyEvent(task: ScenarioTask, event: TaskEvent): Promise<void> {
+    const id = this.idOf(task.key);
+    const repo = this.repoOf(task.project);
     switch (event.do) {
       case "take":
-        await cli(["take", id]);
+        await this.cli(["take", id]);
         return;
       case "done":
-        await cli(["status", id, "done"]);
+        await this.cli(["status", id, "done"]);
         return;
       case "cancel":
-        await cli(["status", id, "cancelled"]);
+        await this.cli(["status", id, "cancelled"]);
         return;
       case "block":
-        await cli(["status", id, "blocked"]);
+        await this.cli(["status", id, "blocked"]);
         return;
       case "reopen":
-        await cli(["status", id, "backlog"]);
+        await this.cli(["status", id, "backlog"]);
         return;
       case "verify":
-        await cli(["verify", id]);
+        await this.cli(["verify", id]);
         return;
       case "priority":
-        await cli(["priority", id, event.to]);
+        await this.cli(["priority", id, event.to]);
         return;
       case "touch": {
         const source = sourceOf(task);
         await repo.rewriteLines(source.path, source.line, 1);
-        touchedBy.set(task.key, await repo.commit(`refactor: reshape ${source.path}`, clock));
+        this.touchedBy.set(task.key, await repo.commit(`refactor: reshape ${source.path}`, this.clock));
         return;
       }
       case "obsolete": {
-        const commit = touchedBy.get(task.key) ?? "";
-        await closeWithReason(task, "obsolete", reasonOf(task).replace("{commit}", commit));
+        const commit = this.touchedBy.get(task.key) ?? "";
+        await this.closeWithReason(task, "obsolete", this.reasonOf(task).replace("{commit}", commit));
         return;
       }
       case "duplicate": {
-        const original = idOf(event.of);
-        await closeWithReason(task, "duplicate", reasonOf(task).replace("{original}", original), ["--duplicate-of", original]);
+        const original = this.idOf(event.of);
+        await this.closeWithReason(task, "duplicate", this.reasonOf(task).replace("{original}", original), ["--duplicate-of", original]);
         return;
       }
       case "fix": {
@@ -228,41 +290,18 @@ export async function buildDemoBacklog(scenario: Scenario, texts: Texts, languag
         await repo.rewriteLines(source.path, source.line, FIX_REWRITTEN_LINES);
         await repo.appendCode(source.path, Math.max(0, event.lines - event.tests - FIX_REWRITTEN_LINES * NUMSTAT_LINES_PER_REWRITTEN_LINE));
         if (event.tests > 0) await repo.appendTests(source.path, event.tests);
-        const commit = await repo.commit(`fix: ${task.key}`, clock, { byAgent: event.agent });
-        await closeWithReason(task, "fixed", (textOf(task.key).reason ?? texts.fixReason).replace("{commit}", commit));
+        const commit = await repo.commit(`fix: ${task.key}`, this.clock, { byAgent: event.agent });
+        await this.closeWithReason(task, "fixed", (this.textOf(task.key).reason ?? this.texts.fixReason).replace("{commit}", commit));
         return;
       }
     }
-  };
-
-  const steps: Step[] = scenario.projects.flatMap((project) => featureCommitSteps(repoOf(project.id), project, random, now, scenario.repoCreatedDaysAgo));
-  const at = (days: number, run: () => Promise<unknown>) => steps.push({ at: now - days * DAY_MS, run });
-
-  const check = () => cli(["check", "--all-projects"], { allowed: CHECK_EXIT_CODES });
-  for (const task of scenario.tasks) {
-    at(task.created, () => createTask(task));
-    if (task.force) at(task.created - CHECK_AFTER_TOUCH_DAYS, check);
-    for (const event of task.events) {
-      at(event.at, () => applyEvent(task, event));
-      if (event.do === "touch") at(event.at - CHECK_AFTER_TOUCH_DAYS, check);
-    }
   }
+}
 
-  const messages = coreMessages(language);
-  for (let day = Math.floor(scenario.startDaysAgo); day >= 1; day--) {
-    const evening = eveningOf(now, day);
-    steps.push({ at: evening, run: () => sweepClosed(paths.backlogRoot, new Date(evening), messages) });
-    if (day % scenario.checkEveryDays === 0) {
-      steps.push({ at: evening + 1, run: check });
-    }
-  }
-
-  const ordered = steps.map((step, index) => ({ ...step, index })).sort((a, b) => a.at - b.at || a.index - b.index);
-  for (const step of ordered) {
-    clock = new Date(step.at);
-    await step.run();
-  }
-  return { idOf };
+function sourceOf(task: ScenarioTask): { path: string; line: number } {
+  const match = /^(?<path>.+):(?<line>\d+)$/.exec(task.source ?? "");
+  if (match?.groups?.path === undefined || match.groups.line === undefined) throw new Error(`Task "${task.key}" needs a file:line source`);
+  return { path: match.groups.path, line: Number(match.groups.line) };
 }
 
 function featureCommitSteps(repo: DemoRepo, project: Scenario["projects"][number], random: Random, now: number, repoCreatedDaysAgo: number): Step[] {
