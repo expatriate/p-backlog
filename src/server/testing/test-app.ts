@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import { onTestFinished } from "vitest";
 import type { Language } from "../../core/i18n/language";
 import { loadBacklog } from "../../core/store/load";
 import { writeSettings } from "../../core/store/settings";
@@ -58,8 +59,21 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
     now: () => TEST_NOW,
   });
 
-  const request = async (path: string, init: RequestInit = {}) =>
-    await app.request(`http://${TEST_HOST}${path}`, { ...init, headers: { host: TEST_HOST, ...init.headers } });
+  const inFlight = new Set<Promise<Response>>();
+  const request = (path: string, init: RequestInit = {}): Promise<Response> => {
+    const response = Promise.resolve(app.request(`http://${TEST_HOST}${path}`, { ...init, headers: { host: TEST_HOST, ...init.headers } }));
+    const settle = () => void inFlight.delete(response);
+    inFlight.add(response);
+    response.then(settle, settle);
+    return response;
+  };
+
+  onTestFinished(async () => {
+    await changes.close();
+    await Promise.allSettled(inFlight);
+    await usage.stop();
+    memory.stop();
+  });
 
   return {
     root,

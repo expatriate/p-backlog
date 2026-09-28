@@ -6,7 +6,7 @@ import { onTestFinished } from "vitest";
 
 export async function makeTempDir(): Promise<string> {
   const dir = await realpath(await mkdtemp(join(tmpdir(), "backlog-test-")));
-  onTestFinished(() => rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
+  onTestFinished(() => rm(dir, { recursive: true, force: true }));
   return dir;
 }
 
