@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+- The task list no longer says "No tasks yet" while the project list is loading or after it failed to load: it shows
+  loading, or the error with Retry — in the list and in the sidebar.
+- A task file locked by another process no longer aborts the whole closed-task sweep or `backlog check`: the task is
+  skipped as busy and the rest continue. CLI commands that change a task report the lock and exit with code 4.
+- A bulk action continues when one task fails to write: that task is reported as failed (new skip reason `failed` in
+  `POST /api/tasks/batch`), the others are changed and can be undone.
+- `backlog check` reports failed anchor updates as `fix-failed` problems (exit code 5) and warns when a project journal
+  cannot be read instead of silently ignoring branch origins.
+- `backlog take --next` exits with code 2 ("nothing to take") instead of 3 when the only tasks left are already in
+  progress.
+- Effect also counts fixes closed 12–13 weeks ago, as the 13-week retention window always intended; numbers may shift
+  slightly.
+- The service's report cache drops expired reports, so its memory no longer grows with every day of uptime; the code
+  cache keeps a hash of what it wrote instead of a full copy.
+- The code-graph state on the Quality tab refreshes as fast as in the project list; a failed task edit no longer drops
+  cached statistics; an epic reopened by the service no longer triggers a second full reload in open tabs.
+- Two agent hooks finishing at the same time no longer lose each other's "signal shown" marks.
+- New task numbers ignore directories and files without `.md` named like a task ID.
+- A repository in a directory whose name starts with `..` (for example `~/..cfg/repo`) is recognized as inside the home
+  directory.
+- An unreadable `project.md` is reported as an error instead of "project not found".
+- `backlog stats` on Linux no longer runs `systemctl` just to print the web address.
+- Tables on the Quality tab group digits like the rest of the statistics; the memory chart caption says "over 1 hour".
+- The web build fails if a Node-only module ends up in the browser bundle.
+
 ## 0.7.0
 
 - Project journals are compacted once a day, by the service and after CLI commands other than the agent hook. Removed:
