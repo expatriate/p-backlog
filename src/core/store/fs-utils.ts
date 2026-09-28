@@ -10,6 +10,8 @@ export function contentVersion(text: string): string {
   return createHash("sha1").update(text).digest("hex");
 }
 
+export const EMPTY_FINGERPRINT = createHash("sha1").digest("hex");
+
 export async function readTextOrNull(path: string): Promise<string | null> {
   try {
     return await readFile(path, "utf8");
@@ -67,8 +69,8 @@ export async function fileExists(path: string): Promise<boolean> {
   );
 }
 
-export async function withExistingFile<T>(path: string, use: (handle: FileHandle) => Promise<T>): Promise<T | null> {
-  const handle = await open(path, "r").catch((error: unknown) => {
+export async function withExistingFile<T>(path: string, use: (handle: FileHandle) => Promise<T>, flags = "r"): Promise<T | null> {
+  const handle = await open(path, flags).catch((error: unknown) => {
     if (hasErrorCode(error, "ENOENT")) return null;
     throw error;
   });

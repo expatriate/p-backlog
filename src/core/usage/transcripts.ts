@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { z } from "zod";
 import { stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { attributeLine, flushEstimates, newTranscriptState } from "../stats/cost/attribute";
@@ -6,7 +7,7 @@ import { sum } from "../numbers";
 import { statsPeriod } from "../stats/weeks";
 import { addTokens } from "../stats/cost/token-counts";
 import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
-import { listDir, NEWLINE, readAt, readFileAt, withFile } from "../store/fs-utils";
+import { EMPTY_FINGERPRINT, listDir, NEWLINE, parseJson, readAt, readFileAt, withFile } from "../store/fs-utils";
 import { USAGE_CACHE_VERSION, type UsageCache, type UsageCacheEntry } from "./usage-cache";
 import { retainedSince } from "../model/history-window";
 
@@ -23,7 +24,7 @@ export type ScanTranscriptsResult = { cache: UsageCache; bytesRead: number; byte
 
 const FINGERPRINT_BYTES = 256;
 const ABANDONED_LINE_MS = 10 * 60 * 1000;
-const EMPTY_FINGERPRINT = createHash("sha1").digest("hex");
+const anyJsonSchema = z.unknown();
 const COUNTED_LINE_MARKERS = ['"type":"assistant"', '"type":"user"'];
 
 export async function listTranscripts(claudeProjectsDir: string): Promise<TranscriptFile[]> {
@@ -122,7 +123,7 @@ async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: numb
   const bucketsByKey = new Map(start.buckets.map((bucket) => [bucketKey(bucket), bucket]));
   for (const line of chunk.subarray(0, readableLength).toString("utf8").split("\n")) {
     if (!COUNTED_LINE_MARKERS.some((marker) => line.includes(marker))) continue;
-    const parsed = parseLineOrNull(line);
+    const parsed = parseJson(line, anyJsonSchema);
     if (parsed === null) continue;
     for (const addition of attributeLine(parsed, start.state)) addBucket(bucketsByKey, addition);
   }
@@ -146,14 +147,6 @@ async function fingerprintOf(path: string, offset: number): Promise<string> {
     const tail = await readAt(handle, offset - edge, edge);
     return createHash("sha1").update(head).update(tail).digest("hex");
   });
-}
-
-function parseLineOrNull(line: string): unknown {
-  try {
-    return JSON.parse(line);
-  } catch {
-    return null;
-  }
 }
 
 function yieldToEventLoop(): Promise<void> {
