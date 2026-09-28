@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FocusEvent } from "react";
+import { useEffect, useRef, useState, type FocusEvent } from "react";
 import { Link } from "react-router";
 import type { BatchOutcome, BatchRequest, BatchResponse } from "../../core/api/contract";
 import { PartialBatchError } from "../app/batch-chunks";
@@ -7,22 +7,14 @@ import { ActionFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import type { TaskHref } from "../task/TaskRefs";
+import { failureOf, isUndoResult, type BatchFailure, type BatchResult } from "./use-batch-result";
 import footer from "./FooterPanel.module.css";
 import styles from "./BatchNotice.module.css";
 
 const NOTICE_LIFETIME_MS = 15_000;
 
-export type BatchResult = { request: BatchRequest; response: BatchResponse; failure?: { error: Error; rest: BatchRequest } };
-
 type DoneOutcome = Extract<BatchOutcome, { outcome: "done" }>;
 type SkippedOutcome = Extract<BatchOutcome, { outcome: "skipped" }>;
-
-export function useBatchResult(scopeKey: string) {
-  const [state, setState] = useState<{ scopeKey: string; result: BatchResult | null; serial: number }>({ scopeKey, result: null, serial: 0 });
-  if (state.scopeKey !== scopeKey) setState({ scopeKey, result: null, serial: state.serial });
-  const show = useCallback((result: BatchResult | null) => setState((current) => ({ ...current, result, serial: current.serial + 1 })), []);
-  return { result: state.result, serial: state.serial, show };
-}
 
 type BatchNoticeProps = {
   result: BatchResult | null;
@@ -59,13 +51,13 @@ export function BatchNotice({ result, serial, onResult, taskHref }: BatchNoticeP
 
   const runUndo = () => {
     if (isPending || result === null || undoRequest === undefined) return;
-    const base: BatchResult = result.request.action.kind === "restore" ? result : { request: undoRequest, response: { results: [] } };
-    const settle = (response: BatchResponse, failure?: BatchResult["failure"]) =>
+    const base: BatchResult = isUndoResult(result) ? result : { request: undoRequest, response: { results: [] } };
+    const settle = (response: BatchResponse, failure?: BatchFailure) =>
       onResult({ request: base.request, response: { results: [...base.response.results, ...response.results] }, ...(failure && { failure }) });
     undo.mutate(undoRequest, {
       onSuccess: (response) => settle(response),
       onError: (error) => {
-        if (error instanceof PartialBatchError) settle(error.done, { error: error.failure, rest: error.rest });
+        if (error instanceof PartialBatchError) settle(error.done, failureOf(error));
       },
     });
   };
@@ -94,7 +86,7 @@ export function BatchNotice({ result, serial, onResult, taskHref }: BatchNoticeP
           {undo.error === null && result.failure !== undefined && (
             <ActionFailure
               className={footer.error}
-              action={result.request.action.kind === "restore" ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)}
+              action={isUndoResult(result) ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)}
               error={result.failure.error}
             />
           )}
@@ -105,12 +97,8 @@ export function BatchNotice({ result, serial, onResult, taskHref }: BatchNoticeP
   );
 }
 
-export function partialBatchResult(request: BatchRequest, error: Error): BatchResult | null {
-  return error instanceof PartialBatchError ? { request, response: error.done, failure: { error: error.failure, rest: error.rest } } : null;
-}
-
 function nextUndoRequest(result: BatchResult, done: readonly DoneOutcome[]): BatchRequest | undefined {
-  if (result.request.action.kind === "restore") return result.failure?.rest;
+  if (isUndoResult(result)) return result.failure?.rest;
   return done.length > 0 ? restoreRequestFor(done) : undefined;
 }
 

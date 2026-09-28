@@ -113,7 +113,7 @@ export function TaskListPage() {
             />
           )}
         </div>
-        <ListFooter projectId={projectId} selection={selection} tasks={view.allTasks} tones={view.tones} taskHref={taskHref} />
+        <ListFooter key={projectId ?? ""} selection={selection} tasks={view.allTasks} tones={view.tones} taskHref={taskHref} />
       </div>
 
       {selectedTask && (

@@ -13,7 +13,7 @@ import { Popover, useClosePopover } from "../ui/Popover";
 import { epicChoices, type EpicChoice } from "./epic-choices";
 import { ACTIONS_SHORTCUT, actionsShortcutLabel, isActionsShortcut, useKeyboardHints } from "./actions-shortcut";
 import { EpicLabel } from "./EpicLabel";
-import { partialBatchResult, type BatchResult } from "./BatchNotice";
+import { partialBatchResult, type BatchResult } from "./use-batch-result";
 import type { TaskSelection } from "./use-task-selection";
 import footer from "./FooterPanel.module.css";
 import styles from "./BulkActions.module.css";
