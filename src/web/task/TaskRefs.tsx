@@ -1,16 +1,16 @@
 import { useId, useState } from "react";
-import { Link, type To } from "react-router";
+import { Link } from "react-router";
 import type { BacklogIndex } from "../../core/model/graph";
 import { formatId, ID_PATTERN } from "../../core/model/ids";
 import type { Task } from "../../core/model/types";
+import type { TaskHref } from "../app/task-href";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { CloseIcon } from "../ui/CloseIcon";
 import { StatusBadge } from "../ui/StatusBadge";
 import { normalizeTaskId } from "./normalize-task-id";
+import type { RefsSaveResult } from "./use-task-saving";
 import styles from "./TaskRefs.module.css";
-
-export type TaskHref = (id: string) => To;
 
 export type TaskRefsProps = {
   label: string;
@@ -21,8 +21,6 @@ export type TaskRefsProps = {
   idPrefix: string;
   onChange: (update: (ids: readonly string[]) => string[]) => Promise<RefsSaveResult>;
 };
-
-export type RefsSaveResult = { saved: true } | { saved: false; fieldError: string | null };
 
 const EXAMPLE_TASK_NUMBER = 12;
 

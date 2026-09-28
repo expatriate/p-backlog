@@ -7,7 +7,8 @@ import { TaskGoneError, useUpdateTask, type BodyEdit, type TaskChange, type Upda
 import { requestErrorMessage } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import type { TaskMessages } from "./messages.ru";
-import type { RefsSaveResult } from "./TaskRefs";
+
+export type RefsSaveResult = { saved: true } | { saved: false; fieldError: string | null };
 
 type BodyDraft = { text: string; from: BodyEdit };
 

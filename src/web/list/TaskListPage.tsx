@@ -5,7 +5,7 @@ import { listPath, taskPath } from "../../core/api/web-paths";
 import { RequestFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
-import { toneOf } from "../ui/epic-tone";
+import { toneOf } from "./epic-tone";
 import { useSettledValue } from "../ui/use-settled-value";
 import { useDocumentTitle } from "../ui/use-document-title";
 import { useStatusFocus } from "../ui/use-status-focus";

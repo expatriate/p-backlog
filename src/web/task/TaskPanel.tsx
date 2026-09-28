@@ -6,6 +6,7 @@ import { dependentTasks, epicChildren, isClosed, relatedTasks, taskProgress, typ
 import { parseId } from "../../core/model/ids";
 import { taskWarnings } from "../../core/model/integrity";
 import type { Task } from "../../core/model/types";
+import type { TaskHref } from "../app/task-href";
 import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { Countdown } from "../ui/Deletion";
@@ -17,7 +18,7 @@ import { StatusBadge } from "../ui/StatusBadge";
 import { useNow } from "../ui/use-now";
 import { TaskBody } from "./TaskBody";
 import { TaskFields } from "./TaskFields";
-import { TaskOptions, TaskRefs, type TaskHref } from "./TaskRefs";
+import { TaskOptions, TaskRefs } from "./TaskRefs";
 import { useFieldDrafts } from "./use-field-drafts";
 import { useSaveNote, useTaskSaving } from "./use-task-saving";
 import styles from "./TaskPanel.module.css";

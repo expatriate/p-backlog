@@ -6,7 +6,7 @@ import { localeOf, type Language } from "../../core/i18n/language";
 import type { Task } from "../../core/model/types";
 import { useProjects, useTasks } from "../app/queries";
 import { useLanguage } from "../i18n";
-import { epicTones } from "../ui/epic-tone";
+import { epicTones } from "./epic-tone";
 import { epicChoices } from "./epic-choices";
 import { AUTO_CLOSED_VIEW, dateColumnFor, followDateColumn, type ListParams } from "./list-params";
 

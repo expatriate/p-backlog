@@ -7,7 +7,7 @@ import { ActionFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import type { EpicTones } from "../ui/epic-tone";
+import type { EpicTones } from "./epic-tone";
 import { MenuOption, MenuOptions } from "../ui/Menu";
 import { Popover, useClosePopover } from "../ui/Popover";
 import { epicChoices, type EpicChoice } from "./epic-choices";

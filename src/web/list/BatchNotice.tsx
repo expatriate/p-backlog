@@ -6,7 +6,7 @@ import { useBatchTasks } from "../app/queries";
 import { ActionFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
-import type { TaskHref } from "../task/TaskRefs";
+import type { TaskHref } from "../app/task-href";
 import { failureOf, isUndoResult, type BatchFailure, type BatchResult } from "./use-batch-result";
 import footer from "./FooterPanel.module.css";
 import styles from "./BatchNotice.module.css";
