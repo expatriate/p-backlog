@@ -9,7 +9,6 @@ export function useLiveUpdates(): void {
   const queryClient = useQueryClient();
   useEffect(() => {
     const stream = openEvents();
-    if (!stream) return;
     stream.addEventListener("change", (event) => {
       const revision = parseRevision(event.data);
       if (revision === null) {
