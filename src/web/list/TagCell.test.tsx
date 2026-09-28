@@ -11,15 +11,10 @@ function visibleChips(): string[] {
 }
 
 function stubLayout(cellWidth: number) {
-  const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
     return { width: CHIP_WIDTHS[this.textContent ?? ""] ?? 0 } as DOMRect;
   });
-  const width = vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(cellWidth);
-  onTestFinished(() => {
-    rect.mockRestore();
-    width.mockRestore();
-  });
-  return width;
+  return vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(cellWidth);
 }
 
 describe("ячейка тегов", () => {

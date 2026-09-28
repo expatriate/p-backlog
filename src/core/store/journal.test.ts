@@ -96,7 +96,6 @@ describe("файл журнала", () => {
     await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")]);
 
     expect(stderr.mock.calls.flat().join("\n")).toContain(join(dir, JOURNAL_FILE));
-    stderr.mockRestore();
   });
 
   it("читает журналы нескольких проектов", async () => {

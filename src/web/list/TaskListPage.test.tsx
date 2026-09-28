@@ -749,12 +749,8 @@ describe("шильдик «новая»", () => {
     const denied = () => {
       throw new Error("доступ запрещён");
     };
-    const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(denied);
-    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(denied);
-    onTestFinished(() => {
-      getItem.mockRestore();
-      setItem.mockRestore();
-    });
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(denied);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(denied);
 
     await renderApp(NEW_FILES);
 

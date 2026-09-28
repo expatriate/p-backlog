@@ -1,6 +1,6 @@
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { coreMessages } from "../messages";
 import { formatLocalIso } from "../model/dates";
 import { buildIndex } from "../model/graph";
@@ -218,8 +218,7 @@ describe("журнал правок", () => {
   it("ошибка записи журнала не отменяет правку", async () => {
     const root = await setup();
     await mkdir(join(root, "spa", JOURNAL_FILE));
-    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    onTestFinished(() => errors.mockRestore());
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     const result = await updateTask(root, { id: "SPA-3", changes: { status: "done" }, now: NOW, via: "cli" });
 
@@ -331,7 +330,6 @@ describe("эпик, закрытый автоматически", () => {
     await writeFiles(root, { "spa/SPA-2.md": taskFile("SPA-2", "epic: SPA-1\nstatus: done\n") });
     await mkdir(join(root, "spa", JOURNAL_FILE));
     const stderr = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    onTestFinished(() => void stderr.mockRestore());
 
     const reopened = await updateTask(root, { id: "SPA-2", changes: { status: "backlog" }, now: NOW, via: "web" });
     const { projects, tasks } = await loadBacklog(root);

@@ -1,7 +1,7 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { updateTask } from "../../core/store/testing/update-task";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import { freezeDate } from "../testing/freeze-date";
@@ -431,8 +431,7 @@ describe("правка агента, пока поле в фокусе", () => {
   });
 
   it("незаписанный после конфликта текст переживает сохранение другого поля и не даёт молча закрыть карточку", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-    onTestFinished(() => confirm.mockRestore());
+    vi.spyOn(window, "confirm").mockReturnValue(false);
     const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1");
     const { panel, title } = await conflictOnTitle(app);
 
@@ -528,9 +527,7 @@ describe("черновик описания при уходе с задачи", 
   const LEAVE = "Уйти без сохранения описания?";
 
   function stubConfirm(answer: boolean) {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(answer);
-    onTestFinished(() => confirm.mockRestore());
-    return confirm;
+    return vi.spyOn(window, "confirm").mockReturnValue(answer);
   }
 
   async function startDraft(app: RenderedApp) {

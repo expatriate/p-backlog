@@ -1,7 +1,7 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { BatchRequest } from "../../core/api/contract";
 import { EXIT } from "../../cli/io";
 import { runCli } from "../../cli/run";
@@ -85,7 +85,6 @@ describe("панель массовых действий", () => {
 
   it("на macOS сочетание показано как ⌥A", async () => {
     vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
-    onTestFinished(() => void vi.restoreAllMocks());
     const app = await renderApp(FILES);
     await select(app, "SPA-3");
 

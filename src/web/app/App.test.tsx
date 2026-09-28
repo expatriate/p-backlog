@@ -1,5 +1,5 @@
 import { screen } from "@testing-library/react";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { projectFile } from "../../core/store/testing/temp-dirs";
 import { renderApp } from "../testing/render-app";
 import { routes } from "./App";
@@ -10,12 +10,8 @@ function Boom(): never {
 
 describe("экран поломки", () => {
   it("ошибка отрисовки показывает экран поломки по-русски", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    onTestFinished(() => {
-      consoleError.mockRestore();
-      consoleWarn.mockRestore();
-    });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const [rootRoute] = routes;
     if (!rootRoute) throw new Error("нет корневого маршрута");
 

@@ -1,16 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Popover, POPOVER_INITIAL_FOCUS } from "./Popover";
 
 function stubViewport(clientWidth: number): void {
-  const clientWidthSpy = vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(clientWidth);
-  onTestFinished(() => clientWidthSpy.mockRestore());
+  vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(clientWidth);
 }
 
 function stubMenuRect(rect: { left: number; right: number; width: number }): void {
-  const rectSpy = vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(rect as DOMRect);
-  onTestFinished(() => rectSpy.mockRestore());
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(rect as DOMRect);
 }
 
 describe("Popover", () => {

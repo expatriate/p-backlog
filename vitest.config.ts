@@ -16,6 +16,8 @@ const LONGER_TIMEOUT_ON_WINDOWS = process.platform === "win32" ? SLOW_TEST_TIMEO
 
 export default defineConfig({
   test: {
+    restoreMocks: true,
+    mockReset: true,
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts", "src/**/*.tsx"],
