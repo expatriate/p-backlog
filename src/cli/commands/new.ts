@@ -1,4 +1,4 @@
-import { findSimilarTask } from "../../core/check/candidates";
+import { findSimilarTask } from "../../core/check/duplicates";
 import { sourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW } from "../../core/journal/events";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project } from "../../core/model/types";

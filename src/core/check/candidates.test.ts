@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
 import { anchorOf } from "./anchor";
-import { codeReview, duplicateCandidates, isReviewable } from "./candidates";
+import { anchorStates, codeReview, isReviewable } from "./candidates";
 import { sourcePath } from "./source-lines";
 import type { Task } from "../model/types";
 import type { Commit, RepoFacts } from "./repo-facts";
 
 const CREATED = "2026-09-11T10:00:00+03:00";
 
-const codeCandidates = (tasks: readonly Task[], repoFacts: RepoFacts) => codeReview(tasks, repoFacts).candidates;
+const review = (tasks: readonly Task[], repoFacts: RepoFacts) => codeReview(tasks, repoFacts, new Map(), anchorStates(tasks, repoFacts));
+const codeCandidates = (tasks: readonly Task[], repoFacts: RepoFacts) => review(tasks, repoFacts).candidates;
 
 function commit(sha: string, date: string, files: Commit["files"]): Commit {
   return { sha, date, parents: [], subject: `Коммит ${sha}`, files };
@@ -132,66 +133,6 @@ describe("codeCandidates", () => {
   });
 });
 
-describe("duplicateCandidates", () => {
-  const upload = makeTask({ id: "SPA-1", title: "Таймаут загрузки не учитывает размер файла", created: CREATED });
-
-  it("похожие заголовки и одно место в source; кандидат — более новая задача", () => {
-    const sameTitle = makeTask({ id: "SPA-2", title: "Загрузка: таймаут не учитывает большие файлы", created: CREATED });
-    const samePlaceA = makeTask({ id: "SPA-3", title: "Очередь", source: "src/queue.ts:40", created: CREATED });
-    const samePlaceB = makeTask({ id: "SPA-4", title: "Повтор", source: "src/queue.ts:40", created: CREATED });
-
-    expect(duplicateCandidates([upload, sameTitle, samePlaceA, samePlaceB])).toEqual([
-      { kind: "duplicate", task: { id: "SPA-2", title: sameTitle.title }, other: { id: "SPA-1", title: upload.title }, match: "title" },
-      { kind: "duplicate", task: { id: "SPA-4", title: "Повтор" }, other: { id: "SPA-3", title: "Очередь" }, match: "source" },
-    ]);
-  });
-
-  it("две задачи в одном символе — дубль, даже когда строки разные", () => {
-    const first = makeTask({ id: "SPA-3", title: "Очередь висит", source: "src/queue.ts:12", created: CREATED });
-    const second = makeTask({ id: "SPA-4", title: "Повторная отправка", source: "src/queue.ts:20", created: CREATED });
-    const symbolOf = (task: Task) => (task.source?.startsWith("src/queue.ts") === true ? "src/queue.ts::drainQueue" : null);
-
-    expect(duplicateCandidates([first, second], symbolOf)).toEqual([
-      { kind: "duplicate", task: { id: "SPA-4", title: "Повторная отправка" }, other: { id: "SPA-3", title: "Очередь висит" }, match: "symbol" },
-    ]);
-  });
-
-  it("задачи в разных символах дублями не считаются", () => {
-    const first = makeTask({ id: "SPA-3", title: "Очередь висит", source: "src/queue.ts:12", created: CREATED });
-    const second = makeTask({ id: "SPA-4", title: "Повторная отправка", source: "src/queue.ts:80", created: CREATED });
-    const symbolOf = (task: Task) => (task.source === "src/queue.ts:12" ? "src/queue.ts::drainQueue" : "src/queue.ts::retry");
-
-    expect(duplicateCandidates([first, second], symbolOf)).toEqual([]);
-  });
-
-  it("одно место в source сравнивается по нормализованному пути и той же строке", () => {
-    const dotted = makeTask({ id: "SPA-3", title: "Очередь", source: "./src/queue.ts:40", created: CREATED });
-    const plain = makeTask({ id: "SPA-4", title: "Повтор", source: "src/queue.ts:40", created: CREATED });
-    const otherLine = makeTask({ id: "SPA-5", title: "Кэш", source: "src/queue.ts:41", created: CREATED });
-
-    expect(duplicateCandidates([dotted, plain, otherLine])).toEqual([
-      { kind: "duplicate", task: { id: "SPA-4", title: "Повтор" }, other: { id: "SPA-3", title: "Очередь" }, match: "source" },
-    ]);
-  });
-
-  it("тот же файл, но другая строка — не дубль: в большом файле много разных проблем", () => {
-    const first = makeTask({ id: "SPA-3", title: "Очередь", source: "src/queue.ts:1", created: CREATED });
-    const second = makeTask({ id: "SPA-4", title: "Повтор", source: "src/queue.ts:40", created: CREATED });
-    expect(duplicateCandidates([first, second])).toEqual([]);
-  });
-
-  it("связанные через related и подтверждённые обе после создания пары не предлагаются", () => {
-    const linked = makeTask({ id: "SPA-2", title: "Загрузка: таймаут не учитывает большие файлы", related: ["SPA-1"], created: CREATED });
-    expect(duplicateCandidates([upload, linked])).toEqual([]);
-
-    const later = "2026-09-12T10:00:00+03:00";
-    const confirmedA = { ...upload, verified: later };
-    const confirmedB = makeTask({ id: "SPA-2", title: "Загрузка: таймаут не учитывает большие файлы", created: CREATED, verified: later });
-    expect(duplicateCandidates([confirmedA, confirmedB])).toEqual([]);
-    expect(duplicateCandidates([upload, confirmedB])).toHaveLength(1);
-  });
-});
-
 describe("якорь фрагмента в проверке", () => {
   const text = ["const alpha = 1;", "const beta = 2;", "const gamma = 3;", "const delta = 4;", "const epsilon = 5;", "const zeta = 6;", "const eta = 7;"].join("\n");
   const anchored = makeTask({ id: "SPA-5", title: "Якорь", created: CREATED, source: "src/a.ts:4", anchor: anchorOf(text, "src/a.ts:4") ?? "" });
@@ -199,13 +140,13 @@ describe("якорь фрагмента в проверке", () => {
   const withText = (content: string) => facts({ commits: laterCommit, existing: new Set(["src/a.ts"]), texts: new Map([["src/a.ts", content]]) });
 
   it("фрагмент на месте — не кандидат, хотя файл менялся", () => {
-    expect(codeReview([anchored], withText(text.replace("alpha", "ALPHA")))).toEqual({ candidates: [], plans: [] });
+    expect(review([anchored], withText(text.replace("alpha", "ALPHA")))).toEqual({ candidates: [], plans: [] });
   });
 
   it("фрагмент сдвинулся — не кандидат, source и якорь переносятся", () => {
     const shiftedText = ["// a", "// b", text].join("\n");
 
-    expect(codeReview([anchored], withText(shiftedText))).toEqual({
+    expect(review([anchored], withText(shiftedText))).toEqual({
       candidates: [],
       plans: [{ id: "SPA-5", changes: { source: "src/a.ts:6", anchor: anchorOf(shiftedText, "src/a.ts:6") }, moved: { kind: "source-moved", taskId: "SPA-5", from: "src/a.ts:4", to: "src/a.ts:6" } }],
     });
@@ -222,7 +163,7 @@ describe("якорь фрагмента в проверке", () => {
     const plain = makeTask({ id: "SPA-6", title: "Без якоря", created: CREATED, verified, source: "src/a.ts:4" });
     const handEdited = makeTask({ id: "SPA-7", title: "Правка руками", created: CREATED, verified, source: "src/a.ts:6", anchor: anchored.anchor });
 
-    expect(codeReview([plain, handEdited], withText(text))).toEqual({
+    expect(review([plain, handEdited], withText(text))).toEqual({
       candidates: [],
       plans: [
         { id: "SPA-6", changes: { anchor: anchorOf(text, "src/a.ts:4") } },
