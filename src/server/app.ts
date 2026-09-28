@@ -48,7 +48,7 @@ export function createApp({ root, readLanguage, changes, allowedHosts, home, sta
 
   app.onError(async (error, c) => {
     if (!(error instanceof FileBusyError)) return c.json({ errors: [errorText(error)] }, 500);
-    return c.json({ errors: [coreMessages(await readLanguage()).fileBusy(error.path, error.lock, error.seconds)] }, 503);
+    return c.json({ errors: [coreMessages(await readLanguage()).fileBusy(error)] }, 503);
   });
 
   if (staticDir !== undefined) {

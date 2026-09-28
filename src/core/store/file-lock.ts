@@ -9,7 +9,9 @@ const RETRY_MS = 10;
 const WAIT_LIMIT_MS = 5_000;
 const ABANDONED_AFTER_MS = 30_000;
 
-export class FileBusyError extends Error {
+export type LockBusy = { path: string; lock: string; seconds: number };
+
+export class FileBusyError extends Error implements LockBusy {
   constructor(
     readonly path: string,
     readonly lock: string,

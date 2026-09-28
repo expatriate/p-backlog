@@ -107,7 +107,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
     const messages = serverMessages(body.language);
     if (result.reason === "not-found") return c.json({ errors: [messages.taskNotFound(id)] }, 404);
     if (result.reason === "conflict") return c.json({ errors: [messages.taskChangedOnDisk], current: result.current }, 409);
-    if (result.reason === "busy") return c.json({ errors: [coreMessages(body.language).fileBusy(result.path, result.lock, result.seconds)] }, 503);
+    if (result.reason === "busy") return c.json({ errors: [coreMessages(body.language).fileBusy(result)] }, 503);
     return invalidResponse(c, result, coreMessages(body.language));
   });
 

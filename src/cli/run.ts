@@ -90,7 +90,7 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<Exit
       io.warn(error.message);
       return EXIT.invalid;
     }
-    const reason = error instanceof FileBusyError ? coreMessages(language).fileBusy(error.path, error.lock, error.seconds) : errorText(error);
+    const reason = error instanceof FileBusyError ? coreMessages(language).fileBusy(error) : errorText(error);
     io.warn(cliMessages(language).commandFailed(name ?? "", reason));
     return failureExit;
   }

@@ -7,6 +7,7 @@ import { countRu, NBSP, pluralRu } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus } from "../model/types";
+import type { LockBusy } from "../store/file-lock";
 import type { FlowForecast, Signal } from "../stats/types";
 import type { CountUnit } from "./index";
 import { forecastOutlook, forecastSpan, type SpanUnit } from "./forecast";
@@ -279,7 +280,7 @@ export const coreRu = {
   forecastTail,
   signal,
   epicDoneReason,
-  fileBusy: (path: string, lock: string, seconds: number): string => `${path} занят другим процессом дольше ${seconds} с (${lock})`,
+  fileBusy: ({ path, lock, seconds }: LockBusy): string => `${path} занят другим процессом дольше ${seconds} с (${lock})`,
   checkFix,
   checkProblem,
   runsNotTrimmed: (error: string): string => `Не удалось обрезать журнал запусков: ${error}`,
