@@ -67,7 +67,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
     app,
     usage,
     memory,
-    emitChange: async (paths = []) => {
+    emitChange: async (paths = [root]) => {
       await Promise.all([...listeners].map((listener) => listener(paths)));
     },
     request,

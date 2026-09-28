@@ -34,7 +34,7 @@ describe("кэш отчётов статистики и смена снимка 
         const read = current;
         if (read === before) {
           current = after;
-          stats.forget();
+          stats.forgetAll();
         }
         return read;
       },
