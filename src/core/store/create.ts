@@ -3,7 +3,7 @@ import { basename, join } from "node:path";
 import { formatLocalIso } from "../model/dates";
 import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
-import { derivePrefix, deriveProjectId, formatId, parseId, type ParsedId } from "../model/ids";
+import { derivePrefix, deriveProjectId, formatId, parseId, PREFIX_PATTERN, type ParsedId } from "../model/ids";
 import { createdEvent, type ChangeSource, type Provenance } from "../journal/events";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { OptionalFields, Project, Task } from "../model/types";
@@ -11,6 +11,7 @@ import { hasErrorCode } from "../errors";
 import { createFileAtomic, listDir, readTextOrNull } from "./fs-utils";
 import { appendJournal } from "./journal";
 import { PROJECT_FILE, taskFileName } from "./paths";
+import { taskIdsOnDisk } from "./load";
 import { issuedUpToOnDisk, readProjectFile } from "./projects";
 import { taskText } from "./task-text";
 import { reopenEpicOfOpenedTask } from "./update";
@@ -100,15 +101,15 @@ async function maxTaskNumber(dir: string, prefix: string): Promise<number> {
   return Math.max(0, ...numbers);
 }
 
-const PREFIX_LINE = /^prefix:\s*["']?([A-Z][A-Z0-9]*)/m;
+const PREFIX_LINE = /^prefix:\s*["']?([^\s"']+)/m;
 
 async function takenPrefixes(dir: string): Promise<string[]> {
   const declared = PREFIX_LINE.exec((await readTextOrNull(join(dir, PROJECT_FILE))) ?? "")?.[1];
-  return [...(declared === undefined ? [] : [declared]), ...(await taskFileIds(dir)).map((parsed) => parsed.prefix)];
+  return [...(declared !== undefined && PREFIX_PATTERN.test(declared) ? [declared] : []), ...(await taskFileIds(dir)).map((parsed) => parsed.prefix)];
 }
 
 async function taskFileIds(dir: string): Promise<ParsedId[]> {
-  return (await listDir(dir)).flatMap((entry) => parseId(entry.name.replace(/\.md$/, "")) ?? []);
+  return [...(await taskIdsOnDisk(dir))].flatMap((id) => parseId(id) ?? []);
 }
 
 function draftTask(id: string, path: string, { project, input, now }: CreateTaskRequest): Task {

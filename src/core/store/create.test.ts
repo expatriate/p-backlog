@@ -48,6 +48,17 @@ describe("createTask", () => {
     expect(result.ok && result.task.id).toBe("SPA-8");
   });
 
+  it("каталог и файл без .md с именем-ID не сдвигают номер новой задачи", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/SPA-12": "заметка" });
+    await mkdir(join(root, "spa/SPA-9"));
+    const { loaded, project } = await loadProject(root, "spa");
+
+    const result = await createTask(root, { project, input: { title: "Следующая" }, existingTasks: loaded.tasks, now: NOW, via: "cli" });
+
+    expect(result.ok && result.task.id).toBe("SPA-2");
+  });
+
   it("не выдаёт номер задачи, которую sweep удалил после загрузки снимка", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
