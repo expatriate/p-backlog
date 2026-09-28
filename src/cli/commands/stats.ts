@@ -8,7 +8,7 @@ import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo, type ExitCode } from "../io";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { statsSummary } from "../stats-summary";
-import { webPort } from "../service/managers";
+import { servicePortOf } from "../service/managers";
 import { statsPath } from "../../core/api/web-paths";
 
 export const statsCommand: CliCommand = {
@@ -46,13 +46,14 @@ async function runStats(args: string[], io: CliIo): Promise<ExitCode> {
   }
   io.print(
     statsSummary({
-      language: io.language,
+      cli: io.cli,
+      core: io.core,
       scopeName: project?.name ?? io.cli.projectsFallbackName,
       head: base.head,
       totals,
       forecast,
       signals,
-      url: `http://localhost:${await webPort(io)}${statsPath(project?.id)}`,
+      url: `http://localhost:${await servicePortOf(io)}${statsPath(project?.id)}`,
     }),
   );
   return EXIT.ok;

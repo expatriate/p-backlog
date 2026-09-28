@@ -2,7 +2,7 @@ import { buildIndex } from "../../core/model/graph";
 import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
 import { TASK_STATUSES } from "../../core/model/types";
 import { loadBacklog } from "../../core/store/load";
-import { describeTask, toJson } from "../describe";
+import { taskJson } from "../describe";
 import { formatTaskLine } from "../format";
 import type { CliCommand } from "../command";
 import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo, type ExitCode } from "../io";
@@ -45,7 +45,7 @@ async function runList(args: string[], io: CliIo): Promise<ExitCode> {
   );
   const tasks = sortTasks(filtered, { key: "priority", direction: "desc" }, index, io.language);
 
-  if (values.json) io.print(JSON.stringify(tasks.map((task) => toJson(describeTask(task, index))), null, 2));
+  if (values.json) io.print(JSON.stringify(tasks.map((task) => taskJson(task, index)), null, 2));
   else io.print(tasks.length === 0 ? io.cli.noTasksFound : tasks.map((task) => formatTaskLine(io.cli, task, index)).join("\n"));
   return EXIT.ok;
 }

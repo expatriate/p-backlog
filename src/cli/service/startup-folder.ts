@@ -111,7 +111,7 @@ export function startupFolderManager(context: ServiceContext): ServiceManager {
   const file = join(startupFolder(context), SCRIPT_NAME);
   return {
     file,
-    logs: logPath(context),
+    logsHint: logPath(context),
     async install() {
       await stopRunningServer(context);
       await mkdir(dirname(file), { recursive: true });

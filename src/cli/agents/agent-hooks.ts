@@ -1,9 +1,9 @@
 import { HOOK_STOP_COMMAND } from "../../core/hook-signature";
 import type { CliIo } from "../io";
-import { addStopHook, commandOfHook, guardedPosixCommand, removeStopHook } from "../stop-hook";
 import { AGENT_SPECS, type Agent, type AgentPlaces } from "./agent";
+import { addClaudeStopHook, removeClaudeStopHook } from "./claude-hooks";
 import { addCursorStopHook, removeCursorStopHook } from "./cursor-hooks";
-import { addGroupedStopHook, removeGroupedStopHook, type HookInstallResult, type HookRemoveResult, type IsOurHook, type OurHook } from "./grouped-stop-hooks";
+import { addGroupedStopHook, commandOfHook, guardedPosixCommand, removeGroupedStopHook, type HookInstallResult, type HookRemoveResult, type IsOurHook, type OurHook } from "./grouped-stop-hooks";
 
 type HookSite = AgentPlaces & Pick<CliIo, "platform" | "cliPath">;
 
@@ -13,14 +13,14 @@ export function installAgentHook(agent: Agent, site: HookSite): Promise<HookInst
   const path = AGENT_SPECS[agent].hookConfigPath(site);
   switch (agent) {
     case "claude":
-      return addStopHook(path, site.platform);
+      return addClaudeStopHook(path, site.platform);
     case "codex": {
       const hook = { type: "command", command: posixCommand(agent), commandWindows: windowsCommand(agent, site.cliPath), timeout: CODEX_HOOK_TIMEOUT_SECONDS };
-      return addGroupedStopHook(path, hook, ourCurrentHook(agent, site.cliPath, hook));
+      return addGroupedStopHook(path, hook, ourCurrentHook(agent, hook));
     }
     case "cursor": {
       const hook = { command: site.platform === "win32" ? windowsCommand(agent, site.cliPath) : posixCommand(agent) };
-      return addCursorStopHook(path, hook, ourCurrentHook(agent, site.cliPath, hook));
+      return addCursorStopHook(path, hook, ourCurrentHook(agent, hook));
     }
   }
 }
@@ -29,7 +29,7 @@ export function removeAgentHook(agent: Agent, site: AgentPlaces): Promise<HookRe
   const path = AGENT_SPECS[agent].hookConfigPath(site);
   switch (agent) {
     case "claude":
-      return removeStopHook(path);
+      return removeClaudeStopHook(path);
     case "codex":
       return removeGroupedStopHook(path, ourHookOf(agent));
     case "cursor":
@@ -50,20 +50,20 @@ function windowsCommand(agent: Agent, cliPath: string): string {
 }
 
 function windowsCommandPattern(agent: Agent): RegExp {
-  return new RegExp(`^node "[^"]*cli\\.js" ${agentStopCommand(agent)}$`);
+  return new RegExp(`^node "[^"]+" ${agentStopCommand(agent)}$`);
 }
 
-function ourHookOf(agent: Agent, cliPath?: string): IsOurHook {
+function ourHookOf(agent: Agent): IsOurHook {
   return (hook) => {
     const command = commandOfHook(hook);
     if (command === undefined) return false;
-    return command === posixCommand(agent) || (cliPath !== undefined && command === windowsCommand(agent, cliPath)) || windowsCommandPattern(agent).test(command);
+    return command === posixCommand(agent) || windowsCommandPattern(agent).test(command);
   };
 }
 
-function ourCurrentHook(agent: Agent, cliPath: string, wanted: Record<string, unknown>): OurHook {
+function ourCurrentHook(agent: Agent, wanted: Record<string, unknown>): OurHook {
   return {
-    isOurs: ourHookOf(agent, cliPath),
+    isOurs: ourHookOf(agent),
     isCurrent: (hook) => Object.entries(wanted).every(([key, value]) => (hook as Record<string, unknown>)[key] === value),
   };
 }

@@ -48,7 +48,7 @@ export function systemdManager(context: ServiceContext): ServiceManager {
   const file = join(context.home, ".config/systemd/user", UNIT);
   return {
     file,
-    logs: `journalctl --user -u ${SERVICE_NAME}`,
+    logsHint: `journalctl --user -u ${SERVICE_NAME}`,
     async install() {
       await mkdir(dirname(file), { recursive: true });
       await writeFile(file, systemdUnit(context));

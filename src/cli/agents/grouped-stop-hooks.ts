@@ -9,6 +9,15 @@ export type IsOurHook = (hook: unknown) => boolean;
 
 export type OurHook = { isOurs: IsOurHook; isCurrent: IsOurHook };
 
+export function guardedPosixCommand(backlogArgs: string): string {
+  return `command -v backlog >/dev/null && backlog ${backlogArgs} || true`;
+}
+
+export function commandOfHook(hook: unknown): string | undefined {
+  const command = typeof hook === "object" && hook !== null ? (hook as { command?: unknown }).command : undefined;
+  return typeof command === "string" ? command : undefined;
+}
+
 const stopGroupSchema = z.object({ hooks: z.array(z.unknown()).optional() }).passthrough();
 const groupedConfigSchema = z
   .object({ hooks: z.object({ Stop: z.array(stopGroupSchema).optional() }).passthrough().optional() })

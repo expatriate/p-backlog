@@ -47,7 +47,7 @@ export const cliEn: CliMessages = {
   removeHookConfigInvalid: (path) => `${path} is not a JSON object, the hook was not removed. Fix the file and try again.`,
 
   serviceInstalled: (file) => `Service installed: ${file}`,
-  serviceLogs: (path) => `Logs: ${path}`,
+  serviceLogs: (hint) => `Logs: ${hint}`,
   serviceUninstalled: "Service removed",
   servicePidUnverified: (pid, pidFile) => `Could not check process ${pid} from ${pidFile}: if it is an old p-backlog server, stop it manually. The PID file was kept.`,
   serviceNotInstalled: "Service is not installed",
@@ -58,6 +58,7 @@ export const cliEn: CliMessages = {
 
   taskNotFound: (id) => `Task ${id} not found`,
   fileConflict: (id) => `Task file ${id} changed while writing, retry the command`,
+  epicReopened: (id) => `Epic ${id} is open again — it has an open task now`,
 
   statsTitle: (scopeName) => `${scopeName} · stats`,
   statsOpenLine: ({ open, weight, net, created, closed }) => `Open: ${open} (weight ${weight}) · this week: ${net} (created ${created}, closed ${closed})`,
@@ -117,9 +118,9 @@ export const cliEn: CliMessages = {
   candidateDescribeRenamed: (path, to) => `file ${path} is missing — renamed to ${to}`,
   candidateDescribeDuplicate: (otherId, match) => `looks like a duplicate of ${otherId} (${match})`,
 
-  projectUsage: () => [
+  projectUsage: (states) => [
     "list",
-    "status <id> active|inactive   (inactive projects are excluded from the combined scope)",
+    `status <id> ${states}   (inactive projects are excluded from the combined scope)`,
     "delete <id> --confirm <id>    (deletes the project directory with all its tasks)",
   ],
   noProjects: "No projects",
@@ -164,10 +165,10 @@ export const cliEn: CliMessages = {
   alertsShownWriteFailed: (error) => `Could not save the shown alerts: ${error}`,
   hookTurnClaimFailed: (error) => `Could not record the turn for the double-hook guard: ${error}`,
 
-  newUsage: (types, priorities, found) =>
+  newUsage: (types, priorities, found, defaultFound) =>
     [
       `--title <title> [--type ${types}] [--priority ${priorities}] [--tags a,b]`,
-      `--category <category> (required for tasks) [--found ${found}]`,
+      `--category <category> (required for tasks) [--found ${found}, default ${defaultFound}]`,
       "[--source file:line] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]",
       "[--force — create anyway even if a similar open task already exists]",
       "(task description is read from stdin)",

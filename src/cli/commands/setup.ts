@@ -1,4 +1,4 @@
-import { AGENT_SPECS, AGENTS, detectAgents, type Agent } from "../agents/agent";
+import { AGENT_SPECS, AGENTS, agentVoice, detectAgents, type Agent, type AgentVoice } from "../agents/agent";
 import { installAgentHook, removeAgentHook } from "../agents/agent-hooks";
 import { linkAgentSkill } from "../agents/agent-skill";
 import { agentPlugin } from "../agents/claude-plugin";
@@ -7,8 +7,6 @@ import type { CliCommand } from "../command";
 import { EXIT, parseChoice, parseOptions, UsageError, type CliIo, type ExitCode } from "../io";
 import { linkSkillFor, skillLinkPath, skillSourceDir, unlinkOurSkill } from "../skill-link";
 import { installService } from "./service";
-
-type AgentVoice = { print: (line: string) => void; warn: (line: string) => void };
 
 export const setupCommand: CliCommand = {
   name: "setup",
@@ -31,11 +29,6 @@ async function targetAgents(option: string | undefined, io: CliIo): Promise<Agen
   const detection = await detectAgents(io);
   for (const { agent, dir } of detection.missing) agentVoice(agent, io).print(io.cli.agentNotFound(dir));
   return detection.found;
-}
-
-function agentVoice(agent: Agent, io: CliIo): AgentVoice {
-  const { label } = AGENT_SPECS[agent];
-  return { print: (line) => io.print(`${label}: ${line}`), warn: (line) => io.warn(`${label}: ${line}`) };
 }
 
 async function setUpAgent(agent: Agent, io: CliIo): Promise<boolean> {

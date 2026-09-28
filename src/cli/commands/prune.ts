@@ -20,9 +20,9 @@ async function runPrune(args: string[], io: CliIo): Promise<ExitCode> {
   const loaded = await loadBacklog(io.backlogRoot);
   const scope = resolveScope(loaded, io, values);
   if (scope === null) return EXIT.notFound;
-  const { projectIds } = scope;
+  const { activeIds } = scope;
   const stale = staleLowTasks(
-    loaded.tasks.filter((task) => projectIds.includes(task.projectId)),
+    loaded.tasks.filter((task) => activeIds.includes(task.projectId)),
     io.now(),
   );
   if (stale.length === 0) {

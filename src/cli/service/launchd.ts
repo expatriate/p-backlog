@@ -62,7 +62,7 @@ export function launchdManager(context: ServiceContext, delay: (ms: number) => P
   const bootstrap = () => context.exec("launchctl", ["bootstrap", domain, file]);
   return {
     file,
-    logs: launchdLogPath(context.home),
+    logsHint: launchdLogPath(context.home),
     async install() {
       await bootout();
       await mkdir(dirname(file), { recursive: true });

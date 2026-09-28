@@ -56,6 +56,13 @@ export const AGENT_SPECS: Record<Agent, AgentSpec> = {
   cursor: hooksJsonAgent("Cursor", ({ home }) => join(home, ".cursor"), { hookApprovalCommand: null }),
 };
 
+export type AgentVoice = { print: (line: string) => void; warn: (line: string) => void };
+
+export function agentVoice(agent: Agent, output: AgentVoice): AgentVoice {
+  const { label } = AGENT_SPECS[agent];
+  return { print: (line) => output.print(`${label}: ${line}`), warn: (line) => output.warn(`${label}: ${line}`) };
+}
+
 type AgentDetection = { found: Agent[]; missing: { agent: Agent; dir: string }[] };
 
 export async function detectAgents(places: AgentPlaces): Promise<AgentDetection> {

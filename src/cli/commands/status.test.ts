@@ -16,6 +16,20 @@ describe("backlog status", () => {
     expect((await loadBacklog(root)).tasks[0]?.status).toBe("done");
   });
 
+  it("сообщает, что эпик, закрытый сам, снова открыт, когда его задачу открыли", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--type", "epic", "--title", "Эпик"]);
+    await run(["new", "--category", "bug", "--title", "Задача эпика", "--epic", "SPA-1"]);
+    await run(["status", "SPA-2", "done"]);
+    await run(["check"]);
+    expect((await loadBacklog(root)).tasks[0]).toMatchObject({ status: "done", resolution: "epic-done" });
+
+    const reopened = await run(["status", "SPA-2", "backlog"]);
+
+    expect(reopened).toEqual({ code: EXIT.ok, out: "SPA-2: done → backlog", err: "Эпик SPA-1 снова открыт — в нём появилась открытая задача" });
+    expect((await loadBacklog(root)).tasks[0]?.status).toBe("backlog");
+  });
+
   it("проверяет аргументы и существование задачи", async () => {
     const { run } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "X"]);

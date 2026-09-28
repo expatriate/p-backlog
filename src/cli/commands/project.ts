@@ -6,9 +6,13 @@ import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { cliMessages, type CliMessages } from "../messages";
 
+const ACTIVE_BY_STATE = { active: true, inactive: false } as const;
+
+type ProjectState = keyof typeof ACTIVE_BY_STATE;
+
 export const projectCommand: CliCommand = {
   name: "project",
-  usage: (language) => cliMessages(language).projectUsage(),
+  usage: (language) => cliMessages(language).projectUsage(Object.keys(ACTIVE_BY_STATE).join("|")),
   run: runProject,
 };
 
@@ -38,8 +42,8 @@ async function listProjects(io: CliIo): Promise<ExitCode> {
 
 async function changeStatus(positionals: string[], io: CliIo): Promise<ExitCode> {
   const [id, state, ...rest] = positionals;
-  if (id === undefined || (state !== "active" && state !== "inactive") || rest.length > 0) throw usageError(projectCommand, io.language);
-  const active = state === "active";
+  if (id === undefined || !isProjectState(state) || rest.length > 0) throw usageError(projectCommand, io.language);
+  const active = ACTIVE_BY_STATE[state];
   const result = await setProjectActive(io.backlogRoot, id, active);
   if (!result.ok && result.reason === "invalid") {
     io.warn(`${id}: ${io.core.problems(result.problems)}`);
@@ -66,6 +70,10 @@ async function removeProject(positionals: string[], confirm: string | undefined,
   }
   io.print(io.cli.projectDeleted(id, taskCount));
   return EXIT.ok;
+}
+
+function isProjectState(value: string | undefined): value is ProjectState {
+  return value !== undefined && Object.hasOwn(ACTIVE_BY_STATE, value);
 }
 
 function statusWord(cli: CliMessages, active: boolean): string {

@@ -58,6 +58,21 @@ describe("backlog setup", () => {
     expect(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8")).hooks.Stop).toHaveLength(1);
   });
 
+  it("прежняя форма хука для PowerShell заменяется текущей, а не дублируется", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    const previous = { type: "command", shell: "powershell", command: "if (Get-Command backlog -ErrorAction SilentlyContinue) { $input | backlog hook stop }" };
+    await mkdir(dirname(env.CLAUDE_SETTINGS_PATH), { recursive: true });
+    await writeFile(env.CLAUDE_SETTINGS_PATH, JSON.stringify({ hooks: { Stop: [{ hooks: [previous] }] } }));
+
+    const result = await run(["setup"], { env, platform: "win32" });
+
+    expect(result.out).toContain("Хук Stop обновлён");
+    expect(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8"))).toEqual({
+      hooks: { Stop: [{ hooks: [{ type: "command", shell: "powershell", command: POWERSHELL_COMMAND }] }] },
+    });
+  });
+
   it("чужой каталог скилла не трогает и возвращает отказ, хук при этом не пишет", async () => {
     const { home, run } = await makeCliSandbox();
     const env = claudeEnv(home);

@@ -1,20 +1,19 @@
+import type { Language } from "../core/i18n/language";
 import { coreMessages } from "../core/messages";
 import { compactJournalsWhenDue } from "../core/store/journal-compaction";
 import { invalidTasksText, runMaintenance, type MaintenancePlan } from "../core/store/maintenance";
 import { trimRunsWhenStale } from "../core/store/runs";
-import { localeLanguage, readLanguage } from "../core/store/settings";
 import { sweepClosedWhenDue, type SweepReport } from "../core/store/sweep";
 import { hookCommand } from "./commands/hook";
 import { cliMessages, type CliMessages } from "./messages";
 
-type HousekeepingRun = { backlogRoot: string; argv: readonly string[]; env: NodeJS.ProcessEnv; now: Date; warn: (line: string) => void };
+type HousekeepingRun = { backlogRoot: string; argv: readonly string[]; language: Language; now: Date; warn: (line: string) => void };
 
 const AFTER_HOOK: MaintenancePlan = { trimRuns: trimRunsWhenStale, sweepClosed: null, compactJournals: null, serviceLog: null };
 
 const AFTER_COMMAND: MaintenancePlan = { trimRuns: trimRunsWhenStale, sweepClosed: sweepClosedWhenDue, compactJournals: compactJournalsWhenDue, serviceLog: null };
 
-export async function tidyAfterCommand({ backlogRoot, argv, env, now, warn }: HousekeepingRun): Promise<void> {
-  const language = await readLanguage(backlogRoot, env).catch(() => localeLanguage(env));
+export async function tidyAfterCommand({ backlogRoot, argv, language, now, warn }: HousekeepingRun): Promise<void> {
   const plan = argv[0] === hookCommand.name ? AFTER_HOOK : AFTER_COMMAND;
   const report = await runMaintenance(plan, { root: backlogRoot, now, messages: coreMessages(language), warn });
   if (report !== null) warnAboutSweep(report, cliMessages(language), warn);

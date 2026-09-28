@@ -47,7 +47,7 @@ export const cliRu = {
   removeHookConfigInvalid: (path: string): string => `${path} — не объект JSON, хук не снят. Исправьте файл и повторите.`,
 
   serviceInstalled: (file: string): string => `Служба установлена: ${file}`,
-  serviceLogs: (path: string): string => `Логи: ${path}`,
+  serviceLogs: (hint: string): string => `Логи: ${hint}`,
   serviceUninstalled: "Служба удалена",
   servicePidUnverified: (pid: number, pidFile: string): string =>
     `Не удалось проверить процесс ${pid} из ${pidFile}: если это прежний сервер p-backlog, остановите его вручную. Файл PID оставлен.`,
@@ -59,6 +59,7 @@ export const cliRu = {
 
   taskNotFound: (id: string): string => `Задача ${id} не найдена`,
   fileConflict: (id: string): string => `Файл задачи ${id} изменился во время записи, повторите команду`,
+  epicReopened: (id: string): string => `Эпик ${id} снова открыт — в нём появилась открытая задача`,
 
   statsTitle: (scopeName: string): string => `${scopeName} · статистика`,
   statsOpenLine: ({ open, weight, net, created, closed }: { open: number; weight: number; net: string; created: number; closed: number }): string =>
@@ -131,9 +132,9 @@ export const cliRu = {
   candidateDescribeRenamed: (path: string, to: string): string => `файла ${path} нет — переименован в ${to}`,
   candidateDescribeDuplicate: (otherId: string, match: string): string => `похоже на дубль ${otherId} (${match})`,
 
-  projectUsage: (): readonly string[] => [
+  projectUsage: (states: string): readonly string[] => [
     "list",
-    "status <id> active|inactive   (неактивные не входят в общую область)",
+    `status <id> ${states}   (неактивные не входят в общую область)`,
     "delete <id> --confirm <id>    (удаляет каталог проекта со всеми задачами)",
   ],
   noProjects: "Проектов нет",
@@ -191,10 +192,10 @@ export const cliRu = {
   alertsShownWriteFailed: (error: string): string => `Не удалось сохранить показанные тревоги: ${error}`,
   hookTurnClaimFailed: (error: string): string => `Не удалось отметить ход в защите от двойного хука: ${error}`,
 
-  newUsage: (types: string, priorities: string, found: string): string =>
+  newUsage: (types: string, priorities: string, found: string, defaultFound: string): string =>
     [
       `--title <заголовок> [--type ${types}] [--priority ${priorities}] [--tags a,b]`,
-      `--category <категория> (для задач обязателен) [--found ${found}]`,
+      `--category <категория> (для задач обязателен) [--found ${found}, по умолчанию ${defaultFound}]`,
       "[--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]",
       "[--force — создать, даже если похожая открытая задача уже есть]",
       "(описание задачи читается из stdin)",

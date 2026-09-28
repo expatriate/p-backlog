@@ -12,7 +12,7 @@ function platformManager(platform: NodeJS.Platform, context: ServiceContext): Se
   return null;
 }
 
-export async function serviceManagerFor(platform: NodeJS.Platform, context: ServiceContext): Promise<ServiceManager | null> {
+export async function availableServiceManager(platform: NodeJS.Platform, context: ServiceContext): Promise<ServiceManager | null> {
   if (platform === "linux" && !(await systemdAvailable(context.exec))) return null;
   return platformManager(platform, context);
 }
@@ -22,14 +22,14 @@ function serviceContextOf(io: CliIo): ServiceContext {
 }
 
 export function serviceManagerOf(io: CliIo): Promise<ServiceManager | null> {
-  return serviceManagerFor(io.platform, serviceContextOf(io));
+  return availableServiceManager(io.platform, serviceContextOf(io));
 }
 
-export async function portOf(manager: ServiceManager | null, io: CliIo): Promise<number> {
+export async function servicePort(manager: ServiceManager | null, io: CliIo): Promise<number> {
   const installed = await manager?.installedPort().catch(() => null);
   return installed ?? readPort(io.env.PORT);
 }
 
-export function webPort(io: CliIo): Promise<number> {
-  return portOf(platformManager(io.platform, serviceContextOf(io)), io);
+export function servicePortOf(io: CliIo): Promise<number> {
+  return servicePort(platformManager(io.platform, serviceContextOf(io)), io);
 }

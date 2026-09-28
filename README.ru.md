@@ -158,7 +158,7 @@
 | `backlog check [--changed] [--project id \| --all-projects] [--json]` | Чинит висячие ссылки и завершённые эпики, находит задачи, которые пора перепроверить |
 | `backlog close <ID> --as fixed\|obsolete\|duplicate --reason <улика> [--duplicate-of ID]` | Закрывает задачу с причиной; `fixed` — только с хешем коммита из репозитория проекта |
 | `backlog verify <ID> [<ID> …] [--source файл:строка]` | Отмечает, что задачи ещё актуальны, и запоминает фрагмент кода |
-| `backlog prune [--project id \| --all-projects] [--apply]` | Задачи с низким приоритетом старше 30 дней; `--apply` отменяет их |
+| `backlog prune [--project id \| --all-projects] [--apply]` | Задачи с низким приоритетом старше 30 дней; `--apply` отменяет их; `--all-projects` — только активные проекты |
 | `backlog stats [--project id \| --all-projects] [--json]` | Сводка статистики и тревоги |
 | `backlog project list \| status <id> active\|inactive \| delete <id> --confirm <id>` | Активность проектов и удаление проекта вместе с задачами |
 | `backlog hook stop [--agent claude\|codex\|cursor]` | Хук Stop для Claude Code, Codex или Cursor: просит агента перепроверить задачи, чей код изменился |

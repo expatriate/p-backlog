@@ -9,3 +9,7 @@ export function taskPath(projectId: string | undefined, taskId: string): string 
 export function statsPath(projectId?: string): string {
   return projectId === undefined ? "/stats" : `/p/${projectId}/stats`;
 }
+
+export function statsTabPath(segment: string, projectId?: string): string {
+  return segment === "" ? statsPath(projectId) : `${statsPath(projectId)}/${segment}`;
+}

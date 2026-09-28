@@ -42,7 +42,7 @@ export class ArgumentsError extends UsageError {}
 
 type ArgumentProblem = { kind: "unknownOption" | "missingValue" | "takesNoValue"; option: string };
 
-const END_OF_OPTIONS = "--";
+export const END_OF_OPTIONS = "--";
 
 export function parseCommandArgs<const T extends ParseArgsOptionsConfig>(language: Language, args: string[], options: T) {
   try {
