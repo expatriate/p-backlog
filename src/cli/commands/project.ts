@@ -4,7 +4,7 @@ import { filterTasks, OPEN_STATUSES } from "../../core/model/query";
 import { loadBacklog } from "../../core/store/load";
 import { deleteProject, setProjectActive } from "../../core/store/projects";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
+import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { cliMessages, type CliMessages } from "../messages";
 
 export const projectCommand: CliCommand = {
@@ -13,7 +13,7 @@ export const projectCommand: CliCommand = {
   run: runProject,
 };
 
-async function runProject(args: string[], io: CliIo): Promise<number> {
+async function runProject(args: string[], io: CliIo): Promise<ExitCode> {
   const { values, positionals } = parseCommandArgs(io.language, args, { confirm: { type: "string" } });
   const [action, ...rest] = positionals;
   if (action === "delete") return removeProject(rest, values.confirm, io);
@@ -23,7 +23,7 @@ async function runProject(args: string[], io: CliIo): Promise<number> {
   throw usageError(projectCommand, io.language);
 }
 
-async function listProjects(io: CliIo): Promise<number> {
+async function listProjects(io: CliIo): Promise<ExitCode> {
   const cli = cliMessages(io.language);
   const loaded = await loadBacklog(io.backlogRoot);
   if (loaded.projects.length === 0) {
@@ -38,7 +38,7 @@ async function listProjects(io: CliIo): Promise<number> {
   return EXIT.ok;
 }
 
-async function changeStatus(positionals: string[], io: CliIo): Promise<number> {
+async function changeStatus(positionals: string[], io: CliIo): Promise<ExitCode> {
   const cli = cliMessages(io.language);
   const [id, state, ...rest] = positionals;
   if (id === undefined || (state !== "active" && state !== "inactive") || rest.length > 0) throw usageError(projectCommand, io.language);
@@ -56,7 +56,7 @@ async function changeStatus(positionals: string[], io: CliIo): Promise<number> {
   return EXIT.ok;
 }
 
-async function removeProject(positionals: string[], confirm: string | undefined, io: CliIo): Promise<number> {
+async function removeProject(positionals: string[], confirm: string | undefined, io: CliIo): Promise<ExitCode> {
   const cli = cliMessages(io.language);
   const [id, ...rest] = positionals;
   if (id === undefined || rest.length > 0) throw usageError(projectCommand, io.language);

@@ -4,11 +4,11 @@ import { requestedPort } from "../../server/port";
 import { PID_FILE_ENV } from "../../core/store/paths";
 import { BUNDLED_WEB_DIR, closeOnStopSignal, startServer } from "../../server/start";
 import type { CliCommand } from "../command";
-import { EXIT, parseOptions, UsageError, type CliIo } from "../io";
+import { EXIT, parseOptions, UsageError, type CliIo, type ExitCode } from "../io";
 
 export const serveCommand: CliCommand = { name: "serve", usage: () => ["[--port N]"], run: runServe };
 
-async function runServe(args: string[], io: CliIo): Promise<number> {
+async function runServe(args: string[], io: CliIo): Promise<ExitCode> {
   const values = parseOptions(io.language, args, { port: { type: "string" } });
   const [source, value] = values.port === undefined ? ["PORT", io.env.PORT] : ["--port", values.port];
   const port = requestedPort(value);

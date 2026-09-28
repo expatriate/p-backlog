@@ -2,10 +2,10 @@ import { buildIndex } from "../core/model/graph";
 import type { Closure } from "../core/model/lifecycle";
 import type { Task } from "../core/model/types";
 import { updateTaskInIndex, type TaskChanges } from "../core/store/update";
-import type { CliIo } from "./io";
+import type { CliIo, ExitCode } from "./io";
 import { reportUpdateFailure } from "./update-failure";
 
-export type TaskWrite = { ok: true; task: Task } | { ok: false; exitCode: number };
+export type TaskWrite = { ok: true; task: Task } | { ok: false; exitCode: ExitCode };
 
 export type TaskWriter = (task: Task, changes: TaskChanges, closure?: Closure) => Promise<TaskWrite>;
 

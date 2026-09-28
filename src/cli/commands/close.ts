@@ -6,7 +6,7 @@ import { findRepo, hasCommit } from "../../core/check/project-repo";
 import { reasonHashes } from "../../core/stats/code/fixes";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, parseChoice, UsageError, parseCommandArgs, type CliIo } from "../io";
+import { EXIT, parseChoice, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { projectOf, findTaskOrWarn } from "../lookups";
 import { cliMessages, type CliMessages } from "../messages";
 import { taskWriter } from "../task-write";
@@ -19,7 +19,7 @@ export const closeCommand: CliCommand = {
   run: runClose,
 };
 
-async function runClose(args: string[], io: CliIo): Promise<number> {
+async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
   const cli = cliMessages(io.language);
   const { values, positionals } = parseCommandArgs(io.language, args, { as: { type: "string" }, reason: { type: "string" }, "duplicate-of": { type: "string" } });
   const [id, ...rest] = positionals;

@@ -4,7 +4,7 @@ import { writeSettings } from "../../core/store/settings";
 import { AGENT_SPECS, detectAgents, type Agent } from "../agents/agent";
 import { agentPlugin, pluginToSwitchTo } from "../agents/claude-plugin";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, parseChoice, parseCommandArgs, type CliIo } from "../io";
+import { EXIT, parseChoice, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { cliMessages } from "../messages";
 import { linkSkillFor, relinkExistingSkill, skillLinkPath } from "../skill-link";
 
@@ -14,14 +14,14 @@ export const configCommand: CliCommand = {
   run: runConfig,
 };
 
-async function runConfig(args: string[], io: CliIo): Promise<number> {
+async function runConfig(args: string[], io: CliIo): Promise<ExitCode> {
   const { positionals } = parseCommandArgs(io.language, args, {});
   const [key, ...rest] = positionals;
   if (key === "language") return runLanguage(rest, io);
   throw usageError(configCommand, io.language);
 }
 
-async function runLanguage(positionals: string[], io: CliIo): Promise<number> {
+async function runLanguage(positionals: string[], io: CliIo): Promise<ExitCode> {
   const [value, ...rest] = positionals;
   if (rest.length > 0) throw usageError(configCommand, io.language);
   if (value === undefined) {

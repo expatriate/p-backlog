@@ -5,7 +5,7 @@ import { statsSignals } from "../../core/stats/signals/signals";
 import { readJournals } from "../../core/store/journal";
 import { loadBacklog, unparsedTasks } from "../../core/store/load";
 import type { CliCommand } from "../command";
-import { EXIT, parseOptions, type CliIo } from "../io";
+import { EXIT, parseOptions, type CliIo, type ExitCode } from "../io";
 import { cliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { statsSummary } from "../stats-summary";
@@ -17,7 +17,7 @@ export const statsCommand: CliCommand = {
   run: runStats,
 };
 
-async function runStats(args: string[], io: CliIo): Promise<number> {
+async function runStats(args: string[], io: CliIo): Promise<ExitCode> {
   const values = parseOptions(io.language, args, { ...SCOPE_OPTIONS, json: { type: "boolean", default: false } });
 
   const loaded = await loadBacklog(io.backlogRoot);

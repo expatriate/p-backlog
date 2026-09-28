@@ -4,7 +4,7 @@ import { installAgentHook, removeAgentHook } from "../agents/agent-hooks";
 import { agentPlugin } from "../agents/claude-plugin";
 import type { HookInstallResult, HookRemoveResult } from "../agents/grouped-stop-hooks";
 import type { CliCommand } from "../command";
-import { EXIT, parseChoice, parseOptions, UsageError, type CliIo } from "../io";
+import { EXIT, parseChoice, parseOptions, UsageError, type CliIo, type ExitCode } from "../io";
 import { cliMessages } from "../messages";
 import { linkSkillFor, skillLinkPath, skillSourceDir, unlinkOurSkill, type SkillLinkResult } from "../skill-link";
 import { installService } from "./service";
@@ -17,7 +17,7 @@ export const setupCommand: CliCommand = {
   run: runSetup,
 };
 
-async function runSetup(args: string[], io: CliIo): Promise<number> {
+async function runSetup(args: string[], io: CliIo): Promise<ExitCode> {
   const options = parseOptions(io.language, args, { service: { type: "boolean" }, agent: { type: "string" }, "remove-manual": { type: "boolean" } });
   if (options["remove-manual"] && options.service) throw new UsageError(cliMessages(io.language).removeManualWithService);
   const agents = await targetAgents(options.agent, io);

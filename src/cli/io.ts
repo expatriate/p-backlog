@@ -28,6 +28,8 @@ export type CliIo = CliEnv & { language: Language };
 
 export const EXIT = { ok: 0, invalid: 1, notFound: 2, refused: 3, failed: 4, needsReview: 5 } as const;
 
+export type ExitCode = (typeof EXIT)[keyof typeof EXIT];
+
 export class UsageError extends Error {}
 
 export class ArgumentsError extends UsageError {}

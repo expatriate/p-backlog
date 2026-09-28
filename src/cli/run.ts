@@ -24,7 +24,7 @@ import { statsCommand } from "./commands/stats";
 import { statusCommand } from "./commands/status";
 import { takeCommand } from "./commands/take";
 import { verifyCommand } from "./commands/verify";
-import { ArgumentsError, EXIT, UsageError, type CliEnv } from "./io";
+import { ArgumentsError, EXIT, UsageError, type CliEnv, type ExitCode } from "./io";
 
 export const CLI_COMMANDS: readonly CliCommand[] = [
   newCommand,
@@ -54,7 +54,7 @@ const END_OF_OPTIONS = "--";
 
 const COMMANDS = new Map(CLI_COMMANDS.map((command) => [command.name, command]));
 
-export async function runCli(argv: readonly string[], env: CliEnv): Promise<number> {
+export async function runCli(argv: readonly string[], env: CliEnv): Promise<ExitCode> {
   const [name, ...args] = argv;
   const command = name === undefined ? undefined : COMMANDS.get(name);
   const failureExit = command?.failureExit ?? EXIT.failed;

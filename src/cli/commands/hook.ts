@@ -18,7 +18,7 @@ import type { Project, Task } from "../../core/model/types";
 import { AGENTS, type Agent } from "../agents/agent";
 import { carriesSystemMessage, formatStopAnswer, parseStopEvent, type StopEvent } from "../agents/stop-event";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, parseChoice, parseCommandArgs, type CliIo } from "../io";
+import { EXIT, parseChoice, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { cliMessages } from "../messages";
 import { stopReason } from "../stop-reason";
 
@@ -33,7 +33,7 @@ export const hookCommand: CliCommand = {
   failureExit: EXIT.ok,
 };
 
-async function runHook(args: string[], io: CliIo): Promise<number> {
+async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   const { values, positionals } = parseCommandArgs(io.language, args, { agent: { type: "string" } });
   if (positionals.length !== 1 || positionals[0] !== HOOK_STOP_EVENT) throw usageError(hookCommand, io.language);
   const agent = values.agent === undefined ? DEFAULT_AGENT : parseChoice(io.language, values.agent, AGENTS, cliMessages(io.language).optionLabel.agent);

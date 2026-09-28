@@ -7,7 +7,7 @@ import { findProjectForDir } from "../../core/store/resolve-project";
 import { createTask } from "../../core/store/create";
 import { loadBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
-import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo } from "../io";
+import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo, type ExitCode } from "../io";
 import { ensureProject } from "../lookups";
 import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
@@ -19,7 +19,7 @@ export const newCommand: CliCommand = {
   run: runNew,
 };
 
-async function runNew(args: string[], io: CliIo): Promise<number> {
+async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   const cli = cliMessages(io.language);
   const values = parseOptions(io.language, args, {
     title: { type: "string" },

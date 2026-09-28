@@ -2,7 +2,7 @@ import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import type { Task } from "../../core/model/types";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
+import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { findTaskOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 import { taskWriter, type TaskWriter } from "../task-write";
@@ -17,7 +17,7 @@ export const epicCommand: CliCommand = {
 
 type Move = { loaded: LoadedBacklog; epic: Task | null; write: TaskWriter; io: CliIo };
 
-async function runEpic(args: string[], io: CliIo): Promise<number> {
+async function runEpic(args: string[], io: CliIo): Promise<ExitCode> {
   const { values, positionals } = parseCommandArgs(io.language, args, { to: { type: "string" } });
   if (positionals.length === 0 || values.to === undefined) throw usageError(epicCommand, io.language);
 
@@ -36,7 +36,7 @@ function findEpicOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Task | un
   return target;
 }
 
-async function moveOne(id: string, { loaded, epic, write, io }: Move): Promise<number> {
+async function moveOne(id: string, { loaded, epic, write, io }: Move): Promise<ExitCode> {
   const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
   const cli = cliMessages(io.language);

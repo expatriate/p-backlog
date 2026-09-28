@@ -1,9 +1,9 @@
 import type { UpdateTaskFailure } from "../core/store/write-result";
 import { coreMessages } from "../core/messages";
-import { EXIT, type CliIo } from "./io";
+import { EXIT, type CliIo, type ExitCode } from "./io";
 import { cliMessages } from "./messages";
 
-export function reportUpdateFailure(io: CliIo, id: string, result: UpdateTaskFailure): number {
+export function reportUpdateFailure(io: CliIo, id: string, result: UpdateTaskFailure): ExitCode {
   switch (result.reason) {
     case "not-found":
       io.warn(cliMessages(io.language).taskNotFound(id));

@@ -9,7 +9,7 @@ import { findGitRoots, findProjectForDir } from "../../core/store/resolve-projec
 import { formatTaskRef } from "../format";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
+import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { findProjectOrWarn, findTaskOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 import { relativeInside } from "../path-inside";
@@ -23,11 +23,11 @@ export const takeCommand: CliCommand = {
   run: runTake,
 };
 
-type Refusal = { code: number; lines: string[] };
+type Refusal = { code: ExitCode; lines: string[] };
 
-type Selection = { ok: true; task: Task } | { ok: false; exitCode: number };
+type Selection = { ok: true; task: Task } | { ok: false; exitCode: ExitCode };
 
-async function runTake(args: string[], io: CliIo): Promise<number> {
+async function runTake(args: string[], io: CliIo): Promise<ExitCode> {
   const { values, positionals } = parseCommandArgs(io.language, args, {
       next: { type: "boolean", default: false },
       force: { type: "boolean", default: false },
@@ -66,7 +66,7 @@ function takeMode(io: CliIo, values: { path?: string | undefined; next: boolean 
   return { kind: "id", id };
 }
 
-async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projectId: string | undefined, { json }: { json: boolean }): Promise<number> {
+async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projectId: string | undefined, { json }: { json: boolean }): Promise<ExitCode> {
   const project = findProjectOrWarn(loaded, io, projectId);
   if (!project) return EXIT.notFound;
   const target = repoRelativePath(io, project, path);
@@ -106,7 +106,7 @@ function repoRelativePath(io: CliIo, project: Project, path: string): string {
   return relativeInside(roots.worktree, resolve(realpathSync(io.cwd), sourcePath(path))) ?? sourcePath(path);
 }
 
-type Taken = { code: number; taken: Task[]; tasks: readonly Task[] };
+type Taken = { code: ExitCode; taken: Task[]; tasks: readonly Task[] };
 
 async function takeAll(loadedTasks: readonly Task[], chosen: readonly Task[], io: CliIo): Promise<Taken> {
   const write = taskWriter(io, loadedTasks);

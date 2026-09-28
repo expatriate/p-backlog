@@ -6,7 +6,7 @@ import { loadBacklog } from "../../core/store/load";
 import { describeTask, toJson } from "../describe";
 import { formatTaskLine } from "../format";
 import type { CliCommand } from "../command";
-import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo } from "../io";
+import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo, type ExitCode } from "../io";
 import { cliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 
@@ -16,7 +16,7 @@ export const listCommand: CliCommand = {
   run: runList,
 };
 
-async function runList(args: string[], io: CliIo): Promise<number> {
+async function runList(args: string[], io: CliIo): Promise<ExitCode> {
   const cli = cliMessages(io.language);
   const values = parseOptions(io.language, args, {
     query: { type: "string" },

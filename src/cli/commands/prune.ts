@@ -2,7 +2,7 @@ import { formatDayMonth } from "../../core/i18n/format";
 import { staleLowTasks, STALE_LOW_DAYS } from "../../core/model/query";
 import { loadBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
-import { EXIT, parseOptions, type CliIo } from "../io";
+import { EXIT, parseOptions, type CliIo, type ExitCode } from "../io";
 import { applyAll } from "../apply-all";
 import { cliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
@@ -14,7 +14,7 @@ export const pruneCommand: CliCommand = {
   run: runPrune,
 };
 
-async function runPrune(args: string[], io: CliIo): Promise<number> {
+async function runPrune(args: string[], io: CliIo): Promise<ExitCode> {
   const cli = cliMessages(io.language);
   const values = parseOptions(io.language, args, { ...SCOPE_OPTIONS, apply: { type: "boolean", default: false } });
 

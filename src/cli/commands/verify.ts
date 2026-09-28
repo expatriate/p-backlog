@@ -4,7 +4,7 @@ import { isClosed } from "../../core/model/graph";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, UsageError, parseCommandArgs, type CliIo } from "../io";
+import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { projectOf, findTaskOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 import { taskWriter, type TaskWriter } from "../task-write";
@@ -17,7 +17,7 @@ export const verifyCommand: CliCommand = {
 
 type Verification = { loaded: LoadedBacklog; source: string | undefined; write: TaskWriter; io: CliIo };
 
-async function runVerify(args: string[], io: CliIo): Promise<number> {
+async function runVerify(args: string[], io: CliIo): Promise<ExitCode> {
   const { values, positionals } = parseCommandArgs(io.language, args, { source: { type: "string" } });
   if (positionals.length === 0) throw usageError(verifyCommand, io.language);
   const source = values.source?.trim();
@@ -29,7 +29,7 @@ async function runVerify(args: string[], io: CliIo): Promise<number> {
   return applyAll(new Set(positionals), (id) => verifyOne(id, verification));
 }
 
-async function verifyOne(id: string, { loaded, source, write, io }: Verification): Promise<number> {
+async function verifyOne(id: string, { loaded, source, write, io }: Verification): Promise<ExitCode> {
   const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
   const cli = cliMessages(io.language);

@@ -6,7 +6,7 @@ import { loadBacklog } from "../../core/store/load";
 import { describeTask, taskJson } from "../describe";
 import { formatTaskDetails } from "../format";
 import { usageError, type CliCommand } from "../command";
-import { EXIT, parseCommandArgs, type CliIo } from "../io";
+import { EXIT, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { findTaskOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 
@@ -16,7 +16,7 @@ export const showCommand: CliCommand = {
   run: runShow,
 };
 
-async function runShow(args: string[], io: CliIo): Promise<number> {
+async function runShow(args: string[], io: CliIo): Promise<ExitCode> {
   const { values, positionals } = parseCommandArgs(io.language, args, { json: { type: "boolean", default: false } });
   const [id, ...rest] = positionals;
   if (id === undefined || rest.length > 0) throw usageError(showCommand, io.language);
