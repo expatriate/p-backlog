@@ -10,6 +10,7 @@ import { findProjectForDir } from "../../core/store/resolve-project";
 import { readSignalsShown, rememberSignalsShown } from "../../core/store/signals-shown";
 import { readSessionShown, rememberSessionShown } from "../../core/store/session-shown";
 import { HOOK_STOP_EVENT, hookMessage } from "../../core/hook-signature";
+import { reportContext } from "../../core/stats/scope";
 import { statsSignals } from "../../core/stats/signals/signals";
 import { signalsToShow } from "../../core/stats/signals/shown";
 import type { Signal } from "../../core/stats/types";
@@ -109,7 +110,7 @@ async function freshSignals(project: Project, tasks: readonly Task[], extra: rea
   try {
     const journal = await readJournal(projectDir, project.id);
     const shown = await readSignalsShown(projectDir);
-    const fresh = signalsToShow([...statsSignals({ tasks, journals: [journal], now: io.now(), projectId: project.id }), ...extra], shown, today);
+    const fresh = signalsToShow([...statsSignals(reportContext({ tasks, journals: [journal], now: io.now(), projectId: project.id })), ...extra], shown, today);
     return { fresh, remember: fresh.length === 0 ? rememberNothing : () => rememberShown(projectDir, fresh, today, io) };
   } catch (error) {
     io.warn(io.cli.alertsComputeFailed(errorText(error)));

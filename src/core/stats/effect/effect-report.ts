@@ -8,15 +8,13 @@ import { median, smallest, sum } from "../../numbers";
 import { countBy } from "../../collections";
 import { period, type Period } from "../period";
 import { grainPeriods } from "../report-periods";
-import { reportBase, type ReportBase, type StatsInput } from "../scope";
+import { reportContext, type ReportContext } from "../scope";
 import type { CollectedCode, CommitUnit, ProjectCode } from "../../code/types";
 import type { EffectProject, EffectReport, EffectTotals, EffectPeriod } from "../types";
 import { dayWindows } from "../days";
 import { statsPeriod, weekWindows } from "../weeks";
 
 export const MIN_FIXES_FOR_ESTIMATE = 5;
-
-export type EffectInput = StatsInput & { code: CollectedCode };
 
 type OpenDeferred = { kind: "open"; history: TaskHistory };
 type FixedDeferred = { kind: "fixed"; history: TaskHistory; lines: number; testLines: number; at: number };
@@ -26,12 +24,11 @@ type FixSample = FixSize & { category: Recorded<TaskCategory> | undefined };
 type Estimate = (category: Recorded<TaskCategory> | undefined) => FixSize | null;
 
 export function effectReport(
-  { code, ...input }: EffectInput,
-  base: ReportBase = reportBase(input),
-  wholeBacklog: ReportBase = input.projectId === undefined ? base : reportBase({ ...input, projectId: undefined }),
+  context: ReportContext,
+  code: CollectedCode,
+  wholeBacklog: ReportContext = context.input.projectId === undefined ? context : reportContext({ ...context.input, projectId: undefined }),
 ): EffectReport {
-  const { now, projectId } = input;
-  const { histories } = base;
+  const { input: { now, projectId }, histories } = context;
   const statsWindow = statsPeriod(now);
   const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
   const deferredByAgent = createdIn(histories, statsWindow).filter((history) => history.found === "incidental");
@@ -51,7 +48,7 @@ export function effectReport(
       });
   const periodUnits = projects.flatMap(unitsOf).filter((unit) => statsWindow.contains(Date.parse(unit.date)));
   return {
-    ...base.head,
+    ...context.head,
     periods: grainPeriods(now),
     unavailableRepos: code.unavailableRepos,
     totals: totalsOf(deferred, unitsForTotals(), estimate),

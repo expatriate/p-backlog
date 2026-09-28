@@ -2,7 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { candidateEvents, episodeStates, filteredEvents } from "../journal/episodes";
-import { reportBase } from "../stats/scope";
+import { reportContext } from "../stats/scope";
 import type { CollectedCode, FixCommit } from "../code/types";
 import { JOURNAL_FILE, readJournal, readJournals } from "./journal";
 import { compactJournal } from "./journal-compaction";
@@ -203,7 +203,7 @@ describe("уплотнение журнала проекта", () => {
     ]);
     const journalSince = async () => {
       const { tasks } = await loadBacklog(root);
-      return reportBase({ tasks, journals: await readJournals(root, ["spa"]), now: NOW }).head.journalSince;
+      return reportContext({ tasks, journals: await readJournals(root, ["spa"]), now: NOW }).head.journalSince;
     };
     const before = await journalSince();
 

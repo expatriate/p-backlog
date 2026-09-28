@@ -5,7 +5,7 @@ import { sum, toPercent } from "../../numbers";
 import { trailingPeriod, type Period } from "../period";
 import type { CandidateEvidence, CheckMethod } from "../../journal/events";
 import { accuracy, decidedOf, isMeasuredEvidence, methodAccuracy } from "../quality/accuracy";
-import { reportBase, type ReportBase, type StatsInput } from "../scope";
+import type { ReportContext } from "../scope";
 import type { AccuracyRow, FlowPeriod, Signal } from "../types";
 import { weeklyFlow } from "../weeks";
 import { DAY_MS } from "../../model/dates";
@@ -19,14 +19,14 @@ const NOISY_MIN_DECIDED = 10;
 const NOISY_MAX_PERCENT = 20;
 const NOISY_WINDOW_DAYS = 14;
 
-export function statsSignals(input: StatsInput, base: ReportBase = reportBase(input)): Signal[] {
-  const { now } = input;
+export function statsSignals(context: ReportContext): Signal[] {
+  const { now } = context.input;
   return [
-    ...debtGrowing(weeklyFlow(base.histories, now)),
-    ...urgentStale(urgentStaleCount(base.openTasks, now)),
-    ...stuck(base, now),
-    ...noisyChecks(base, now),
-    ...staleLow(base, now),
+    ...debtGrowing(weeklyFlow(context.histories, now)),
+    ...urgentStale(urgentStaleCount(context.openTasks, now)),
+    ...stuck(context),
+    ...noisyChecks(context),
+    ...staleLow(context),
   ];
 }
 
@@ -42,7 +42,7 @@ function urgentStale(count: number): Signal[] {
   return count === 0 ? [] : [{ kind: "urgent-stale", params: { days: STALE_URGENT_DAYS, count } }];
 }
 
-function stuck({ scope, tasks }: ReportBase, now: Date): Signal[] {
+function stuck({ scope, tasks, input: { now } }: ReportContext): Signal[] {
   const stuckTasks = inWorkTasks(tasks, scope.historiesWithEpics, now).filter(
     (item) => item.days > (item.status === "blocked" ? STUCK_BLOCKED_DAYS : STUCK_IN_PROGRESS_DAYS),
   );
@@ -51,12 +51,12 @@ function stuck({ scope, tasks }: ReportBase, now: Date): Signal[] {
   return [{ kind: "stuck", params: { count: stuckTasks.length, id: longest.id, days: longest.days } }];
 }
 
-function staleLow({ scope }: ReportBase, now: Date): Signal[] {
+function staleLow({ scope, input: { now } }: ReportContext): Signal[] {
   const stale = staleLowTasks(scope.tasksWithEpics, now);
   return stale.length === 0 ? [] : [{ kind: "stale-low", params: { days: STALE_LOW_DAYS, count: stale.length } }];
 }
 
-function noisyChecks({ histories }: ReportBase, now: Date): Signal[] {
+function noisyChecks({ histories, input: { now } }: ReportContext): Signal[] {
   return checkGauges(histories, trailingPeriod(now.getTime(), NOISY_WINDOW_DAYS * DAY_MS)).flatMap((gauge) => {
     const decided = decidedOf(gauge);
     if (decided < NOISY_MIN_DECIDED || gauge.precision === null) return [];
@@ -66,7 +66,7 @@ function noisyChecks({ histories }: ReportBase, now: Date): Signal[] {
   });
 }
 
-function checkGauges(histories: ReportBase["histories"], window: Period): CheckGauge[] {
+function checkGauges(histories: ReportContext["histories"], window: Period): CheckGauge[] {
   const byEvidence = accuracy(histories, window)
     .filter((row): row is AccuracyRow & { evidence: CandidateEvidence } => measuredByClosing(row.evidence) && row.evidence !== "source-changed")
     .map((row) => ({ ...row, method: null }));

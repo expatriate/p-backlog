@@ -1,5 +1,5 @@
 import { flowForecast } from "../../core/stats/flow/forecast";
-import { reportBase } from "../../core/stats/scope";
+import { reportContext } from "../../core/stats/scope";
 import { statsReport } from "../../core/stats/report";
 import { statsSignals } from "../../core/stats/signals/signals";
 import { readJournals } from "../../core/store/journal";
@@ -29,15 +29,15 @@ async function runStats(args: string[], io: CliIo): Promise<ExitCode> {
   const inScope = new Set(scope.activeIds);
   const scoped = (task: { projectId: string }) => inScope.has(task.projectId);
   const input = { tasks: loaded.tasks.filter(scoped), journals, now: io.now(), projectId: project?.id, unparsedTasks: unparsedTasks(loaded.errors).filter(scoped) };
-  const base = reportBase(input);
-  const { totals } = statsReport(input, base);
-  const forecast = flowForecast(base.histories, totals.open, io.now());
-  const signals = statsSignals(input, base);
+  const context = reportContext(input);
+  const { totals } = statsReport(context);
+  const forecast = flowForecast(context.histories, totals.open, io.now());
+  const signals = statsSignals(context);
 
   if (values.json) {
     io.print(
       JSON.stringify(
-        { totals, forecast, signals, unparsedTasks: base.head.unparsedTasks, invalidJournalLines: base.head.invalidJournalLines, unknownJournalLines: base.head.unknownJournalLines },
+        { totals, forecast, signals, unparsedTasks: context.head.unparsedTasks, invalidJournalLines: context.head.invalidJournalLines, unknownJournalLines: context.head.unknownJournalLines },
         null,
         2,
       ),
@@ -49,7 +49,7 @@ async function runStats(args: string[], io: CliIo): Promise<ExitCode> {
       cli: io.cli,
       core: io.core,
       scopeName: project?.name ?? io.cli.projectsFallbackName,
-      head: base.head,
+      head: context.head,
       totals,
       forecast,
       signals,

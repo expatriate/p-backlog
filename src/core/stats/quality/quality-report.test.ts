@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
-import { reportBase } from "../scope";
+import { reportContext } from "../scope";
 import { qualityReport } from "./quality-report";
 
 const NOW = new Date(2026, 8, 18, 12);
@@ -18,7 +18,7 @@ describe("отчёт «Качество»", () => {
 
     const input = { tasks, journals, now: NOW, projectId: "spa" };
 
-    const report = qualityReport(input, reportBase(input), []);
+    const report = qualityReport(reportContext(input), []);
 
     expect(report.taskCount).toBe(1);
     expect(report.accuracy.at(-1)).toEqual({ evidence: "total", candidates: 1, closed: 0, verified: 0, open: 1, precision: null });
@@ -30,7 +30,7 @@ describe("отчёт «Качество»", () => {
   it("границы окон в отчёте совпадают с окнами расчёта", () => {
     const input = { tasks: [], journals: [], now: NOW };
 
-    const report = qualityReport(input, reportBase(input), []);
+    const report = qualityReport(reportContext(input), []);
 
     expect(report.periods.weeks.from).toBe(report.accuracyWeeks[0]?.start);
     expect(report.periods.days.from).toBe(report.accuracyDays[0]?.start);

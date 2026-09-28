@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { JournalEvent } from "../../journal/events";
 import { formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
+import { reportContext } from "../scope";
 import { statsSignals } from "./signals";
 
 const NOW = new Date(2026, 8, 18, 12);
@@ -18,7 +19,7 @@ describe("тревоги", () => {
     ];
     const events: JournalEvent[] = [{ at: iso(8, 3), task: "SPA-4", via: "cli", kind: "status", from: "backlog", to: "blocked" }];
 
-    expect(statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).toEqual([
+    expect(statsSignals(reportContext({ tasks, journals: journal(events), now: NOW, projectId: "spa" }))).toEqual([
       { kind: "debt-growing", params: { weeks: 3, created: 3, closed: 0 } },
       { kind: "urgent-stale", params: { days: 7, count: 1 } },
       { kind: "stuck", params: { count: 1, id: "SPA-4", days: 15 } },
@@ -33,7 +34,7 @@ describe("тревоги", () => {
       makeTask({ id: "SPA-3", created: formatLocalIso(new Date(2026, 8, 21, 8)) }),
     ];
 
-    expect(statsSignals({ tasks, journals: journal([]), now: mondayMorning, projectId: "spa" })).toEqual([]);
+    expect(statsSignals(reportContext({ tasks, journals: journal([]), now: mondayMorning, projectId: "spa" }))).toEqual([]);
   });
 
   it("на пороге тревог нет: неделя без роста, срочное ровно 6 дней, в работе 7 дней, блокировка 14 дней", () => {
@@ -48,7 +49,7 @@ describe("тревоги", () => {
       { at: iso(8, 4), task: "SPA-3", via: "cli", kind: "status", from: "backlog", to: "blocked" },
     ];
 
-    expect(statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).toEqual([]);
+    expect(statsSignals(reportContext({ tasks, journals: journal(events), now: NOW, projectId: "spa" }))).toEqual([]);
   });
 
   it("шумная проверка: вид улики с 10 решёнными и точностью ниже 20%", () => {
@@ -60,7 +61,7 @@ describe("тревоги", () => {
         : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
     ]);
 
-    expect(statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check")).toEqual([
+    expect(statsSignals(reportContext({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).filter((signal) => signal.kind === "noisy-check")).toEqual([
       { kind: "noisy-check", params: { evidence: "source-changed", method: "file", percent: 10, decided: 10, windowDays: 14 } },
     ]);
   });
@@ -74,7 +75,7 @@ describe("тревоги", () => {
           ? { at: iso(8, 16), task: task.id, via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" }
           : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
       ]);
-      return statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check");
+      return statsSignals(reportContext({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).filter((signal) => signal.kind === "noisy-check");
     };
 
     expect(noisy(19)).toEqual([]);
@@ -94,7 +95,7 @@ describe("тревоги", () => {
       ];
     });
 
-    const noisy = statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check");
+    const noisy = statsSignals(reportContext({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).filter((signal) => signal.kind === "noisy-check");
 
     expect(noisy).toEqual([{ kind: "noisy-check", params: { evidence: "source-changed", method: "file", percent: 0, decided: 10, windowDays: 14 } }]);
   });
@@ -106,7 +107,7 @@ describe("тревоги", () => {
       { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
     ]);
 
-    const noisy = statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check");
+    const noisy = statsSignals(reportContext({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).filter((signal) => signal.kind === "noisy-check");
 
     expect(noisy).toEqual([]);
   });
@@ -118,7 +119,7 @@ describe("тревоги", () => {
       { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
     ]);
 
-    expect(statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "noisy-check")).toEqual([]);
+    expect(statsSignals(reportContext({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).filter((signal) => signal.kind === "noisy-check")).toEqual([]);
   });
 
   it("старый всплеск кандидатов не держит тревогу: за две недели решений мало", () => {
@@ -128,7 +129,7 @@ describe("тревоги", () => {
       { at: iso(7, 3), task: task.id, via: "cli", kind: "verified" },
     ]);
 
-    const signals = statsSignals({ tasks: old, journals: journal(events), now: NOW, projectId: "spa" });
+    const signals = statsSignals(reportContext({ tasks: old, journals: journal(events), now: NOW, projectId: "spa" }));
 
     expect(signals.filter((signal) => signal.kind === "noisy-check")).toEqual([]);
   });
@@ -140,7 +141,7 @@ describe("тревоги", () => {
       { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
     ]);
 
-    const signals = statsSignals({ tasks, journals: journal(events), now: NOW, projectId: "spa" });
+    const signals = statsSignals(reportContext({ tasks, journals: journal(events), now: NOW, projectId: "spa" }));
 
     expect(signals.filter((signal) => signal.kind === "noisy-check")).toEqual([]);
   });
@@ -148,7 +149,7 @@ describe("тревоги", () => {
   it("«не меньше»: задача в работе без перехода в журнале и старше 7 дней — тревога есть", () => {
     const tasks = [makeTask({ id: "SPA-1", created: iso(8, 9), status: "in-progress" })];
 
-    expect(statsSignals({ tasks, journals: journal([]), now: NOW, projectId: "spa" }).filter((signal) => signal.kind === "stuck")).toEqual([
+    expect(statsSignals(reportContext({ tasks, journals: journal([]), now: NOW, projectId: "spa" })).filter((signal) => signal.kind === "stuck")).toEqual([
       { kind: "stuck", params: { count: 1, id: "SPA-1", days: 9 } },
     ]);
   });
@@ -160,7 +161,7 @@ describe("тревоги", () => {
       makeTask({ id: "SPA-3", created: iso(8, 10), priority: "low" }),
     ];
 
-    expect(statsSignals({ tasks, journals: journal([]), now: NOW, projectId: "spa" })).toContainEqual({
+    expect(statsSignals(reportContext({ tasks, journals: journal([]), now: NOW, projectId: "spa" }))).toContainEqual({
       kind: "stale-low",
       params: { days: 30, count: 1 },
     });

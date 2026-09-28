@@ -5,7 +5,7 @@ import { closingsIn, closingsOfIn, createdIn, isOpenAt, type TaskHistory } from 
 import { median, nearestRank, sum } from "../numbers";
 import { trailingPeriod, type Period } from "./period";
 import { grainPeriods, lastDaysSpan } from "./report-periods";
-import { reportBase, type ReportBase, type StatsInput } from "./scope";
+import type { ReportContext } from "./scope";
 import { PRIORITY_WEIGHT } from "./weights";
 import type { PreviousTotals, StatsReport, StatsTotals } from "./types";
 import { dailyFlow } from "./days";
@@ -15,15 +15,14 @@ import { statsPeriod, weeklyFlow } from "./weeks";
 const STALE_DAYS = 30;
 const TAIL_FRACTION = 0.9;
 
-export function statsReport(input: StatsInput, base: ReportBase = reportBase(input)): StatsReport {
-  const { now, projectId } = input;
-  const { histories, openTasks } = base;
+export function statsReport(context: ReportContext): StatsReport {
+  const { input: { now, projectId }, histories, openTasks } = context;
   const period = statsPeriod(now);
 
   return {
-    ...base.head,
+    ...context.head,
     periods: grainPeriods(now),
-    totals: totals(histories, now, period, base.scope.journalStart),
+    totals: totals(histories, now, period, context.scope.journalStart),
     weeks: weeklyFlow(histories, now),
     days: dailyFlow(histories, now),
     hotspots: hotspots(openTasks, scopeLabel(projectId)),

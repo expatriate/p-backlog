@@ -42,13 +42,14 @@ function statsScope({ tasks, journals, projectId, unparsedTasks = [] }: StatsInp
   };
 }
 
-export type ReportBase = { scope: StatsScope; histories: TaskHistory[]; tasks: Task[]; openTasks: Task[]; head: ReportHead };
+export type ReportContext = { input: StatsInput; scope: StatsScope; histories: TaskHistory[]; tasks: Task[]; openTasks: Task[]; head: ReportHead };
 
-export function reportBase(input: StatsInput): ReportBase {
+export function reportContext(input: StatsInput): ReportContext {
   const scope = statsScope(input);
   const histories = scope.historiesWithEpics.filter((history) => history.type === "task");
   const tasks = scope.tasksWithEpics.filter((task) => task.type === "task");
   return {
+    input,
     scope,
     histories,
     tasks,

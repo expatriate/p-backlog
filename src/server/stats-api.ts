@@ -12,7 +12,7 @@ import { fixRequests } from "../core/stats/code/fixes";
 import { effectReport } from "../core/stats/effect/effect-report";
 import { qualityReport } from "../core/stats/quality/quality-report";
 import { statsReport } from "../core/stats/report";
-import type { ReportBase, StatsInput } from "../core/stats/scope";
+import type { ReportContext, StatsInput } from "../core/stats/scope";
 import { statsSignals } from "../core/stats/signals/signals";
 import type { CodeReport, EffectReport, ProjectGraphRow, QualityReport } from "../core/stats/types";
 import { unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/store/load";
@@ -46,7 +46,7 @@ type StatsApi = { routes: Hono; forgetAll: () => void; forgetChanged: (paths: re
 
 type RequestScope = { projectId: string | undefined; projects: Project[]; tasks: Task[]; unparsedTasks: UnparsedTask[]; snapshot: BacklogSnapshot };
 
-type ReportSources = { input: StatsInput; base: ReportBase; projects: readonly Project[]; snapshot: BacklogSnapshot; wholeBacklogBase: () => ReportBase };
+type ReportSources = { context: ReportContext; projects: readonly Project[]; snapshot: BacklogSnapshot; wholeBacklogContext: () => ReportContext };
 
 type ScopedReport<R> = (sources: ReportSources) => R | Promise<R>;
 
@@ -98,36 +98,37 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
       const key = [kind, scope.projectId ?? "*", formatLocalDay(moment), sourceKey === undefined ? "" : await sourceKey(scope.projects, scope.snapshot)].join("|");
       const tags = wholeBacklog ? [WHOLE_BACKLOG_TAG] : [scope.projectId === undefined ? ALL_PROJECTS_TAG : projectTag(scope.projectId)];
       const compute = async () => {
-        const { journals, baseOf } = await journalSources.read(scope.snapshot, scope.projects.map((project) => project.id));
+        const { journals, contextOf } = await journalSources.read(scope.snapshot, scope.projects.map((project) => project.id));
         const input: StatsInput = { tasks: scope.tasks, journals, now: moment, projectId: scope.projectId, unparsedTasks: scope.unparsedTasks };
-        const wholeBacklogBase = () => baseOf({ ...input, projectId: undefined });
-        return report({ input, base: baseOf(input), projects: scope.projects, snapshot: scope.snapshot, wholeBacklogBase });
+        const wholeBacklogContext = () => contextOf({ ...input, projectId: undefined });
+        return report({ context: contextOf(input), projects: scope.projects, snapshot: scope.snapshot, wholeBacklogContext });
       };
       const scopeOutdated = forgetCount !== forgetCountAtRead;
       return c.json(await (scopeOutdated ? compute() : reports.get(key, compute, tags)));
     });
 
-  const statsOfCode: ScopedReport<CodeReport> = async ({ input, base, projects }) => codeReport({ ...input, code: await codeSource.collect(projects, input.now) }, base);
+  const statsOfCode: ScopedReport<CodeReport> = async ({ context, projects }) => codeReport(context, await codeSource.collect(projects, context.input.now));
 
-  const statsOfEffect: ScopedReport<EffectReport> = async ({ input, base, projects, wholeBacklogBase }) => {
-    const backlogBase = input.projectId === undefined ? base : wholeBacklogBase();
-    const code = await codeSource.collect(projectsInScope(projects, input.projectId, { wholeBacklog: false }), input.now);
-    const fixCommits = await codeSource.fixCommits(projects, fixRequests(backlogBase.histories, input.now), input.now);
-    return effectReport({ ...input, code: { ...code, fixCommits } }, base, backlogBase);
+  const statsOfEffect: ScopedReport<EffectReport> = async ({ context, projects, wholeBacklogContext }) => {
+    const { projectId, now } = context.input;
+    const backlogContext = projectId === undefined ? context : wholeBacklogContext();
+    const code = await codeSource.collect(projectsInScope(projects, projectId, { wholeBacklog: false }), now);
+    const fixCommits = await codeSource.fixCommits(projects, fixRequests(backlogContext.histories, now), now);
+    return effectReport(context, { ...code, fixCommits }, backlogContext);
   };
 
   const graphRowsOf = (projects: readonly Project[], snapshot: BacklogSnapshot) =>
     Promise.all(projects.map(async (project): Promise<ProjectGraphRow> => ({ projectId: project.id, name: project.name, ...(await graphHealth(snapshot, project)) })));
 
-  const statsOfQuality: ScopedReport<QualityReport> = async ({ input, base, projects, snapshot }) => qualityReport(input, base, await graphRowsOf(projects, snapshot));
+  const statsOfQuality: ScopedReport<QualityReport> = async ({ context, projects, snapshot }) => qualityReport(context, await graphRowsOf(projects, snapshot));
 
   const codeState = { sourceKey: (projects: readonly Project[]) => codeSource.stateKey(projects) };
   const graphState = { sourceKey: async (projects: readonly Project[], snapshot: BacklogSnapshot) => JSON.stringify(await graphRowsOf(projects, snapshot)) };
-  serveScoped("overview", ({ input, base }) => statsReport(input, base));
+  serveScoped("overview", ({ context }) => statsReport(context));
   serveScoped("code", statsOfCode, codeState);
   serveScoped("effect", statsOfEffect, { ...codeState, wholeBacklog: true });
   serveScoped("quality", statsOfQuality, graphState);
-  serveScoped("signals", ({ input, base }) => ({ signals: statsSignals(input, base) }));
+  serveScoped("signals", ({ context }) => ({ signals: statsSignals(context) }));
   routes.get(STATS_REPORT_ROUTES.cost, async (c) => {
     const scope = await requestScopeOf(c, await backlogPruningCaches(), { wholeBacklog: true });
     if (scope instanceof Response) return scope;

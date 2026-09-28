@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { StatsReport } from "../core/api/contract";
 import { projectGraphHealth } from "../core/check/graph-health";
 import { statsReport } from "../core/stats/report";
+import { reportContext } from "../core/stats/scope";
 import { readJournals } from "../core/store/journal";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
@@ -44,7 +45,7 @@ describe("кэш отчётов статистики и смена снимка 
     await stats.routes.request("/stats");
     const report = (await (await stats.routes.request("/stats")).json()) as StatsReport;
 
-    const fromScratch = statsReport({ tasks: after.tasks, journals: await readJournals(root, ["spa"]), now: TEST_NOW, unparsedTasks: [] });
+    const fromScratch = statsReport(reportContext({ tasks: after.tasks, journals: await readJournals(root, ["spa"]), now: TEST_NOW, unparsedTasks: [] }));
     expect(report).toEqual(JSON.parse(JSON.stringify(fromScratch)));
   });
 });

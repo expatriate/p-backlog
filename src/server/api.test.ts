@@ -8,6 +8,7 @@ import { appendJournal, readJournal, readJournals } from "../core/store/journal"
 import { loadBacklog, unparsedTasks } from "../core/store/load";
 import { costReport } from "../core/stats/cost/cost-report";
 import { statsReport } from "../core/stats/report";
+import { reportContext } from "../core/stats/scope";
 import type { UsageCache } from "../core/usage/usage-cache";
 import { readRuns } from "../core/store/testing/runs";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
@@ -573,7 +574,7 @@ describe("статистика после изменений равна собр
     const ids = projects.filter((project) => project.active).map((project) => project.id);
     const inScope = (task: { projectId: string }) => ids.includes(task.projectId);
     const journals = await readJournals(root, ids);
-    const report = statsReport({ tasks: tasks.filter(inScope), journals, now: TEST_NOW, projectId, unparsedTasks: unparsedTasks(errors).filter(inScope) });
+    const report = statsReport(reportContext({ tasks: tasks.filter(inScope), journals, now: TEST_NOW, projectId, unparsedTasks: unparsedTasks(errors).filter(inScope) }));
     return JSON.parse(JSON.stringify(report)) as StatsReport;
   }
 

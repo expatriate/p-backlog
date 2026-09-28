@@ -3,6 +3,7 @@ import type { JournalEvent } from "../journal/events";
 import { formatLocalIso } from "../model/dates";
 import { makeTask } from "../model/testing/make-task";
 import { statsReport } from "./report";
+import { reportContext } from "./scope";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 const NOW = at(18);
@@ -21,7 +22,7 @@ describe("отчёт статистики", () => {
   ];
 
   it("числа сверху по проекту: открытые без эпиков, вес, неделя, возраст и время до закрытия", () => {
-    const report = statsReport({ tasks, journals, now: NOW, projectId: "spa" });
+    const report = statsReport(reportContext({ tasks, journals, now: NOW, projectId: "spa" }));
 
     expect(report.taskCount).toBe(3);
     expect(report.totals).toMatchObject({ open: 2, openWeight: 5, createdLastWeek: 1, closedLastWeek: 1, olderThan30Days: 0 });
@@ -38,14 +39,14 @@ describe("отчёт статистики", () => {
       { projectId: "spa", events: [{ at: formatLocalIso(at(16)), task: "SPA-2", via: "cli", kind: "category", from: "bug", to: "unknown" }] as JournalEvent[], invalidLines: 0 },
     ];
 
-    const report = statsReport({ tasks, journals: withUnknownValue, now: NOW, projectId: "spa" });
+    const report = statsReport(reportContext({ tasks, journals: withUnknownValue, now: NOW, projectId: "spa" }));
 
     expect(report.invalidJournalLines).toBe(0);
     expect(report.unknownJournalLines).toBe(1);
   });
 
   it("все проекты: задачи обоих проектов, папки с именем проекта", () => {
-    const report = statsReport({ tasks, journals, now: NOW });
+    const report = statsReport(reportContext({ tasks, journals, now: NOW }));
 
     expect(report.totals.open).toBe(3);
     expect(report.totals.openWeight).toBe(13);
@@ -59,7 +60,7 @@ describe("отчёт статистики", () => {
       { at: formatLocalIso(at(16)), task: "SPA-5", via: "web", kind: "status", from: "done", to: "cancelled" },
     ];
 
-    const report = statsReport({ tasks: [task], journals: [{ projectId: "spa", events, invalidLines: 0 }], now: NOW, projectId: "spa" });
+    const report = statsReport(reportContext({ tasks: [task], journals: [{ projectId: "spa", events, invalidLines: 0 }], now: NOW, projectId: "spa" }));
 
     expect(report.totals.closedLastWeek).toBe(1);
   });
@@ -87,7 +88,7 @@ describe("отчёт статистики", () => {
       },
     ];
 
-    const report = statsReport({ tasks: [], journals: [{ projectId: "spa", events, invalidLines: 0 }], now: NOW, projectId: "spa" });
+    const report = statsReport(reportContext({ tasks: [], journals: [{ projectId: "spa", events, invalidLines: 0 }], now: NOW, projectId: "spa" }));
 
     expect(report.totals.createdLastWeek).toBe(0);
     expect(report.totals.closedLastWeek).toBe(1);
@@ -101,13 +102,13 @@ describe("отчёт статистики", () => {
       { at: formatLocalIso(at(17)), task: "SPA-7", via: "cli", kind: "status", from: "backlog", to: "in-progress" },
     ];
 
-    const report = statsReport({
+    const report = statsReport(reportContext({
       tasks: [],
       journals: [{ projectId: "spa", events, invalidLines: 0 }],
       now: at(17, 18),
       projectId: "spa",
       unparsedTasks: [{ projectId: "spa", id: "SPA-7" }, { projectId: "ti", id: "TI-3" }],
-    });
+    }));
 
     expect(report.unparsedTasks).toBe(1);
     expect(report.totals).toMatchObject({ open: 1, openWeight: 2, closedToday: 0, closedLastWeek: 0 });
@@ -116,7 +117,7 @@ describe("отчёт статистики", () => {
   });
 
   it("пустая область — ноль задач и пустые медианы", () => {
-    const report = statsReport({ tasks: [], journals: [], now: NOW });
+    const report = statsReport(reportContext({ tasks: [], journals: [], now: NOW }));
 
     expect(report.taskCount).toBe(0);
     expect(report.totals).toMatchObject({ open: 0, ageMedianDays: null, leadTimeMedianDays: null });
@@ -139,7 +140,7 @@ describe("отчёт статистики", () => {
     ];
     const journalsWithHistory = [{ projectId: "spa", events, invalidLines: 0 }];
 
-    const previous = statsReport({ tasks: older, journals: journalsWithHistory, now: NOW, projectId: "spa" }).totals.previous;
+    const previous = statsReport(reportContext({ tasks: older, journals: journalsWithHistory, now: NOW, projectId: "spa" })).totals.previous;
 
     expect(previous).toEqual({
       open: 1,
@@ -147,7 +148,7 @@ describe("отчёт статистики", () => {
       ageMedianDays: (weekAgo.getTime() - at(2).getTime()) / (24 * 60 * 60 * 1000),
       leadTimeMedianDays: 4,
     });
-    expect(statsReport({ tasks: older, journals: [{ projectId: "spa", events: events.slice(3), invalidLines: 0 }], now: NOW, projectId: "spa" }).totals.previous).toBeNull();
+    expect(statsReport(reportContext({ tasks: older, journals: [{ projectId: "spa", events: events.slice(3), invalidLines: 0 }], now: NOW, projectId: "spa" })).totals.previous).toBeNull();
   });
 });
 
@@ -165,7 +166,7 @@ describe("заведённые задачи по дням", () => {
   ];
 
   it("последний день — сегодняшний, дни без задач остаются нулями", () => {
-    const report = statsReport({ tasks: dayTasks, journals: empty, now: NOW, projectId: "spa" });
+    const report = statsReport(reportContext({ tasks: dayTasks, journals: empty, now: NOW, projectId: "spa" }));
 
     expect(report.days).toHaveLength(30);
     expect(report.days.at(-1)).toEqual({ start: formatLocalIso(new Date(2026, 8, 18)), created: 2, closed: 0, openAtEnd: 3 });
@@ -180,15 +181,15 @@ describe("заведённые задачи по дням", () => {
       makeTask({ id: "SPA-6", created: formatLocalIso(at(10)), status: "done", closed: formatLocalIso(at(17)) }),
       makeTask({ id: "TI-2", projectId: "ti", created: formatLocalIso(at(10)), status: "done", closed: formatLocalIso(at(18)) }),
     ];
-    const own = statsReport({ tasks: closedToday, journals: empty, now: NOW, projectId: "spa" });
-    const all = statsReport({ tasks: closedToday, journals: empty, now: NOW });
+    const own = statsReport(reportContext({ tasks: closedToday, journals: empty, now: NOW, projectId: "spa" }));
+    const all = statsReport(reportContext({ tasks: closedToday, journals: empty, now: NOW }));
 
     expect(own.totals).toMatchObject({ createdToday: 2, closedToday: 1 });
     expect(all.totals).toMatchObject({ createdToday: 3, closedToday: 2 });
   });
 
   it("границы окон в отчёте совпадают с окнами расчёта", () => {
-    const report = statsReport({ tasks: [], journals: [], now: NOW });
+    const report = statsReport(reportContext({ tasks: [], journals: [], now: NOW }));
 
     expect(report.periods.weeks.from).toBe(report.weeks[0]?.start);
     expect(report.periods.days.from).toBe(report.days[0]?.start);
