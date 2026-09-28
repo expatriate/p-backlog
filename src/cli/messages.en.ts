@@ -26,7 +26,7 @@ export const cliEn: CliMessages = {
   installHookExists: (settingsPath) => `Stop hook is already present in ${settingsPath}`,
   installHookAdded: (settingsPath) => `Stop hook added to ${settingsPath}`,
   installHookUpdated: (settingsPath) => `Stop hook updated in ${settingsPath}`,
-  codexHookApproval: "approve the hook in Codex: /hooks",
+  hookApproval: (agent, command) => `approve the hook in ${agent}: ${command}`,
   installHookConfigUnreadable: (path, detail) => `Could not read ${path} (${detail}), Stop hook not added.`,
   installHookConfigInvalid: (path) => `${path} is not a JSON object, Stop hook not added. Fix the file and try again.`,
   agentNotFound: (dir) => `not found (${dir})`,

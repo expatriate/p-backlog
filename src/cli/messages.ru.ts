@@ -25,7 +25,7 @@ export const cliRu = {
   installHookExists: (settingsPath: string): string => `Хук Stop уже есть в ${settingsPath}`,
   installHookAdded: (settingsPath: string): string => `Хук Stop добавлен в ${settingsPath}`,
   installHookUpdated: (settingsPath: string): string => `Хук Stop обновлён в ${settingsPath}`,
-  codexHookApproval: "одобрите хук в Codex: /hooks",
+  hookApproval: (agent: string, command: string): string => `одобрите хук в ${agent}: ${command}`,
   installHookConfigUnreadable: (path: string, detail: string): string => `${path} не прочитать (${detail}), хук Stop не добавлен.`,
   installHookConfigInvalid: (path: string): string => `${path} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`,
   agentNotFound: (dir: string): string => `не найден (${dir})`,

@@ -5,14 +5,14 @@ import { AGENT_SPECS, type Agent } from "./agent";
 
 type SkillSite = Pick<CliEnv, "env" | "home" | "packageRoot" | "platform">;
 
-type AgentSkillLink<R> = { target: string; result: R | { failed: string } };
+type AgentSkillLink<R> = { target: string } & ({ ok: true; result: R } | { ok: false; failed: string });
 
 export async function linkAgentSkill<R>(agent: Agent, site: SkillSite, link: (options: SkillLinkOptions) => Promise<R>): Promise<AgentSkillLink<R>> {
   const skillsDir = AGENT_SPECS[agent].skillsDir(site);
   const target = skillLinkPath(skillsDir);
   try {
-    return { target, result: await link({ skillsDir, packageRoot: site.packageRoot, platform: site.platform }) };
+    return { target, ok: true, result: await link({ skillsDir, packageRoot: site.packageRoot, platform: site.platform }) };
   } catch (error) {
-    return { target, result: { failed: errorCodeOrText(error) } };
+    return { target, ok: false, failed: errorCodeOrText(error) };
   }
 }

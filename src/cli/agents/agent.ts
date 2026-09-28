@@ -19,14 +19,14 @@ type AgentSpec = {
   pluginSettingsPath: PlacePath | null;
   alwaysInstalled: boolean;
   skillOnLanguageChange: "link" | "relinkExisting";
-  hookNeedsApproval: boolean;
+  hookApprovalCommand: string | null;
 };
 
 const AGENT_HOOKS_FILE = "hooks.json";
 
 const claudeSettings: PlacePath = ({ env, home }) => claudeSettingsPath(env, home);
 
-function hooksJsonAgent(label: string, homeDir: PlacePath, { hookNeedsApproval }: { hookNeedsApproval: boolean }): AgentSpec {
+function hooksJsonAgent(label: string, homeDir: PlacePath, { hookApprovalCommand }: { hookApprovalCommand: string | null }): AgentSpec {
   return {
     label,
     homeDir,
@@ -36,7 +36,7 @@ function hooksJsonAgent(label: string, homeDir: PlacePath, { hookNeedsApproval }
     pluginSettingsPath: null,
     alwaysInstalled: false,
     skillOnLanguageChange: "relinkExisting",
-    hookNeedsApproval,
+    hookApprovalCommand,
   };
 }
 
@@ -50,10 +50,10 @@ export const AGENT_SPECS: Record<Agent, AgentSpec> = {
     pluginSettingsPath: claudeSettings,
     alwaysInstalled: true,
     skillOnLanguageChange: "link",
-    hookNeedsApproval: false,
+    hookApprovalCommand: null,
   },
-  codex: hooksJsonAgent("Codex", ({ env, home }) => env.CODEX_HOME || join(home, ".codex"), { hookNeedsApproval: true }),
-  cursor: hooksJsonAgent("Cursor", ({ home }) => join(home, ".cursor"), { hookNeedsApproval: false }),
+  codex: hooksJsonAgent("Codex", ({ env, home }) => env.CODEX_HOME || join(home, ".codex"), { hookApprovalCommand: "/hooks" }),
+  cursor: hooksJsonAgent("Cursor", ({ home }) => join(home, ".cursor"), { hookApprovalCommand: null }),
 };
 
 type AgentDetection = { found: Agent[]; missing: { agent: Agent; dir: string }[] };

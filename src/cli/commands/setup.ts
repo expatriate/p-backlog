@@ -48,22 +48,23 @@ async function setUpAgent(agent: Agent, io: CliIo): Promise<boolean> {
   if (!(await installAgentSkill(agent, io, voice))) return false;
   const hook = await installAgentHook(agent, io);
   const reported = reportHook(hook, AGENT_SPECS[agent].hookConfigPath(io), io, voice);
-  if (AGENT_SPECS[agent].hookNeedsApproval && (hook === "added" || hook === "updated")) voice.print(io.cli.codexHookApproval);
+  const { label, hookApprovalCommand } = AGENT_SPECS[agent];
+  if (hookApprovalCommand !== null && (hook === "added" || hook === "updated")) voice.print(io.cli.hookApproval(label, hookApprovalCommand));
   return reported;
 }
 
 async function installAgentSkill(agent: Agent, io: CliIo, voice: AgentVoice): Promise<boolean> {
   const source = skillSourceDir(io.packageRoot, io.language);
-  const { target, result: link } = await linkAgentSkill(agent, io, (options) => linkSkillFor(io.language, options));
-  if (typeof link === "object") {
-    voice.warn(io.cli.installSkillLinkFailed(target, link.failed));
+  const link = await linkAgentSkill(agent, io, (options) => linkSkillFor(io.language, options));
+  if (!link.ok) {
+    voice.warn(io.cli.installSkillLinkFailed(link.target, link.failed));
     return false;
   }
-  if (link === "foreign") {
-    voice.warn(io.cli.installSkillForeign(target, source));
+  if (link.result === "foreign") {
+    voice.warn(io.cli.installSkillForeign(link.target, source));
     return false;
   }
-  voice.print(link === "linked" ? io.cli.installSkillLinked(target, source) : io.cli.installSkillKept(target));
+  voice.print(link.result === "linked" ? io.cli.installSkillLinked(link.target, source) : io.cli.installSkillKept(link.target));
   await removeLegacySkillLinks(agent, io, voice);
   return true;
 }

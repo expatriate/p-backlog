@@ -47,7 +47,7 @@ async function relinkSkill(agent: Agent, language: Language, io: CliIo): Promise
     return;
   }
   const relink = spec.skillOnLanguageChange === "link" ? linkSkillFor : relinkExistingSkill;
-  const { target, result } = await linkAgentSkill(agent, io, (options) => relink(language, options));
-  if (result === "foreign") io.warn(`${label}: ${cli.skillForeign(target)}`);
-  if (typeof result === "object") io.warn(`${label}: ${cli.installSkillLinkFailed(target, result.failed)}`);
+  const link = await linkAgentSkill(agent, io, (options) => relink(language, options));
+  if (!link.ok) io.warn(`${label}: ${cli.installSkillLinkFailed(link.target, link.failed)}`);
+  else if (link.result === "foreign") io.warn(`${label}: ${cli.skillForeign(link.target)}`);
 }
