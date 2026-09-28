@@ -1,6 +1,6 @@
 import { formatLocalDay, formatLocalIso } from "../../model/dates";
 import type { CliRun } from "../../store/runs";
-import type { CostCommand, CostDay, CostModel, CostPeriod, CostReport, CostTotals, ScanProgress } from "../types";
+import type { CostCommand, CostDay, CostModel, CostNumbers, CostPeriod, CostReport, CostTotals, ScanProgress } from "../types";
 import { totalTokens } from "./token-counts";
 import { COST_REPORT_DAYS, type UsageBucket } from "./usage-state";
 import { HOOK_STOP_COMMAND } from "../../hook-signature";
@@ -95,13 +95,7 @@ function sinceWithin(buckets: readonly UsageBucket[], window: Period): string | 
 }
 
 function totalsOf(buckets: readonly UsageBucket[], runs: readonly CliRun[]): CostTotals {
-  return {
-    tokens: tokensTotalOf(buckets),
-    cost: costOfBuckets(buckets),
-    hasUnpricedTokens: hasUnpricedTokens(buckets),
-    hookTurns: sum(buckets.map((bucket) => bucket.hookTurns)),
-    ...runCounts(runs),
-  };
+  return { tokens: tokensTotalOf(buckets), ...costNumbers(buckets, runs) };
 }
 
 function runCounts(runs: readonly CliRun[]): { cliRuns: number; hookRuns: number } {
@@ -109,9 +103,7 @@ function runCounts(runs: readonly CliRun[]): { cliRuns: number; hookRuns: number
   return { cliRuns: runs.length - hookRuns, hookRuns };
 }
 
-type CostRowNumbers = Omit<CostPeriod, "start">;
-
-function costRowNumbers(buckets: readonly UsageBucket[], runs: readonly CliRun[]): CostRowNumbers {
+function costNumbers(buckets: readonly UsageBucket[], runs: readonly CliRun[]): CostNumbers {
   const hookBuckets = buckets.filter((bucket) => bucket.kind === "hook");
   const cliBuckets = buckets.filter((bucket) => bucket.kind === "cli" || bucket.kind === "skill");
   return {
@@ -125,11 +117,11 @@ function costRowNumbers(buckets: readonly UsageBucket[], runs: readonly CliRun[]
 }
 
 function dayRow(day: string, dayBuckets: readonly UsageBucket[], dayRuns: readonly CliRun[]): CostDay {
-  return { day, ...costRowNumbers(dayBuckets, dayRuns) };
+  return { day, ...costNumbers(dayBuckets, dayRuns) };
 }
 
 function periodRow(start: string, periodBuckets: readonly UsageBucket[], periodRuns: readonly CliRun[]): CostPeriod {
-  return { start, ...costRowNumbers(periodBuckets, periodRuns) };
+  return { start, ...costNumbers(periodBuckets, periodRuns) };
 }
 
 function modelsOf(buckets: readonly UsageBucket[]): CostModel[] {

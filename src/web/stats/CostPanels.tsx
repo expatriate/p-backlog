@@ -1,7 +1,5 @@
 import { formatMoney } from "../../core/i18n/format";
-import { COST_TOTALS_DAYS } from "../../core/stats/cost/cost-report";
-import type { CostCommand, CostDay, CostModel, CostTotals, ReportPeriod } from "../../core/api/contract";
-import { sum } from "../../core/stats/numbers";
+import type { CostCommand, CostModel, CostTotals, ReportPeriod } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
 import { costValue } from "./cost-format";
 import { Figure, FigureGroup } from "./Figure";
@@ -11,17 +9,14 @@ import { usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
 import { formatWhole } from "./value-format";
 
-export function CostFigures({ totals, days, period }: { totals: CostTotals; days: CostDay[]; period: ReportPeriod }) {
+export function CostFigures({ totals, period }: { totals: CostTotals; period: ReportPeriod }) {
   const { stats } = useMessages();
   const language = useLanguage();
   const caption = usePeriodCaption();
-  const lastWeek = days.slice(-COST_TOTALS_DAYS);
-  const hookTokens = sum(lastWeek.map((day) => day.hookTokens));
-  const cliTokens = sum(lastWeek.map((day) => day.cliTokens));
   const whole = (value: number) => formatWhole(language, value);
   return (
     <FigureGroup period={caption.of("lastWeek", period)}>
-      <Figure label={stats.backlogTokens} value={whole(totals.tokens)} note={stats.backlogTokensNote(whole(hookTokens), whole(cliTokens))} />
+      <Figure label={stats.backlogTokens} value={whole(totals.tokens)} note={stats.backlogTokensNote(whole(totals.hookTokens), whole(totals.cliTokens))} />
       <Figure label={stats.apiPrice} value={costValue(language, totals.cost)} note={totals.hasUnpricedTokens ? stats.unpricedNote : undefined} />
       <Figure label={stats.hookTurns} value={whole(totals.hookTurns)} note={stats.hookRunsNote(whole(totals.hookRuns))} />
       <Figure label={stats.cliCalls} value={whole(totals.cliRuns)} />

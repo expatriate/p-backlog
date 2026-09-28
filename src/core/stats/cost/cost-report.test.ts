@@ -48,7 +48,7 @@ describe("отчёт о стоимости", () => {
 
     const report = costReport({ buckets, runs, projectOf: PROJECT_OF, now: NOW, scan: SCAN });
 
-    expect(report.totals).toEqual({ tokens: 1500, cost: (1000 * 2 + 200 * 10 + 300 * 2 * 1.25) / 1_000_000, hasUnpricedTokens: false, hookTurns: 0, cliRuns: 0, hookRuns: 1 });
+    expect(report.totals).toEqual({ tokens: 1500, hookTokens: 1200, cliTokens: 300, cost: (1000 * 2 + 200 * 10 + 300 * 2 * 1.25) / 1_000_000, hasUnpricedTokens: false, hookTurns: 0, cliRuns: 0, hookRuns: 1 });
     expect(report.days).toHaveLength(30);
     expect(report.days[29]).toMatchObject({ day: dayAt(0), hookTokens: 1200, cliTokens: 0 });
     expect(report.days[23]).toMatchObject({ day: dayAt(6), hookTokens: 0, cliTokens: 300 });
