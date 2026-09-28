@@ -15,7 +15,8 @@ import { makeTempDir, projectFile, writeFiles } from "./testing/temp-dirs";
 const NOW = new Date("2026-09-27T12:00:00+03:00");
 const TEN_DAYS_LATER = new Date(NOW.getTime() + 10 * DAY_MS);
 const HOUR_MS = 60 * 60 * 1000;
-const SEEDS = Array.from({ length: 120 }, (_, index) => index + 1);
+const SEED_BATCH_SIZE = 12;
+const SEED_BATCHES = Array.from({ length: 10 }, (_, batch) => Array.from({ length: SEED_BATCH_SIZE }, (_, index) => batch * SEED_BATCH_SIZE + index + 1));
 const PROJECTS = [
   { id: "gen", prefix: "GEN" },
   { id: "alt", prefix: "ALT" },
@@ -174,9 +175,9 @@ async function snapshot(root: string, code: CollectedCode) {
 }
 
 describe("уплотнение журнала на случайных журналах", () => {
-  it("отчёты сейчас и через 10 дней и открытые эпизоды проверки не меняются", { timeout: 30_000 }, async () => {
+  it.each(SEED_BATCHES)("отчёты сейчас и через 10 дней и открытые эпизоды проверки не меняются, сиды %i…", async (...seeds) => {
     let removedTotal = 0;
-    for (const seed of SEEDS) {
+    for (const seed of seeds) {
       const { root, code } = await generatedBacklog(seed);
       const before = await snapshot(root, code);
 
@@ -184,6 +185,6 @@ describe("уплотнение журнала на случайных журна
 
       expect(await snapshot(root, code), `seed ${seed}`).toEqual(before);
     }
-    expect(removedTotal).toBeGreaterThan(SEEDS.length);
+    expect(removedTotal).toBeGreaterThan(seeds.length);
   });
 });
