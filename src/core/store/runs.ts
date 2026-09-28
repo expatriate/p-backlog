@@ -28,10 +28,6 @@ export async function appendRun(root: string, run: CliRun): Promise<void> {
   await withFileLock(path, () => appendJsonLines(path, [run]));
 }
 
-export async function readRuns(root: string): Promise<readonly CliRun[]> {
-  return (await readJsonLines(join(root, RUNS_FILE), cliRunSchema)).values;
-}
-
 export async function trimRuns(root: string, now: Date): Promise<number> {
   const path = join(root, RUNS_FILE);
   return withFileLock(path, async () => {

@@ -1,7 +1,8 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { appendRun, readRuns, RUNS_FILE, trimRuns, trimRunsWhenStale, type CliRun } from "./runs";
+import { appendRun, RUNS_FILE, trimRuns, trimRunsWhenStale, type CliRun } from "./runs";
+import { readRuns } from "./testing/runs";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
 
 const RUN: CliRun = { at: "2026-09-20T10:00:00+03:00", command: "list", cwd: "/tmp/repo", ms: 12, rssMb: 80.5, exitCode: 0 };

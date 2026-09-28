@@ -8,8 +8,8 @@ import { appendJournal, readJournal, readJournals } from "../core/store/journal"
 import { loadBacklog, unparsedTasks } from "../core/store/load";
 import { costReport } from "../core/stats/cost/cost-report";
 import { statsReport } from "../core/stats/report";
-import { readRuns } from "../core/store/runs";
 import type { UsageCache } from "../core/usage/usage-cache";
+import { readRuns } from "../core/store/testing/runs";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
