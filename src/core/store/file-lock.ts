@@ -6,8 +6,16 @@ import { hasErrorCode } from "../errors";
 import { readTextOrNull } from "./fs-utils";
 
 const RETRY_MS = 10;
-export const lockWaitLimit = { ms: 5_000 };
 const ABANDONED_AFTER_MS = 30_000;
+let waitLimitMs = 5_000;
+
+export function overrideLockWaitLimit(ms: number): () => void {
+  const previous = waitLimitMs;
+  waitLimitMs = ms;
+  return () => {
+    waitLimitMs = previous;
+  };
+}
 
 export type LockBusy = { path: string; lock: string; seconds: number };
 
@@ -52,7 +60,7 @@ export async function withAvailableLocks<T>(paths: readonly string[], action: (l
 async function acquire(path: string): Promise<HeldLock> {
   const lock = join(dirname(path), `.${basename(path)}.lock`);
   const token = `${process.pid} ${randomUUID()}`;
-  const waitMs = lockWaitLimit.ms;
+  const waitMs = waitLimitMs;
   const giveUpAt = Date.now() + waitMs;
   for (;;) {
     if (await tryCreate(lock, token)) return { path, lock, token };
