@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { CodeGraph, GraphSymbol } from "../graph/code-graph";
+import type { CodeGraph, GraphSymbol } from "../code-review-graph/graph-db";
 import type { FilteredSighting } from "../journal/events";
 import type { Task } from "../model/types";
 import { sourceRange, type LineRange } from "./anchor";

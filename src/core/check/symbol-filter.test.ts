@@ -4,13 +4,13 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
 import type { Task } from "../model/types";
-import { openCodeGraph } from "../graph/code-graph";
-import { makeGraph } from "../graph/testing/make-graph";
+import { openCodeGraph } from "../code-review-graph/graph-db";
+import { makeGraphDb } from "../code-review-graph/testing/make-graph-db";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import type { Candidate } from "./candidates";
 import { duplicateCandidates } from "./duplicates";
 import { fileHashes, filterBySymbol, symbolLookup, symbolNames, type SymbolLookup } from "./symbol-filter";
-import type { CodeGraph } from "../graph/code-graph";
+import type { CodeGraph } from "../code-review-graph/graph-db";
 import { diffsSince, type DiffSince } from "./repo-facts";
 
 const SYMBOLS = [
@@ -31,7 +31,7 @@ async function repoWithChange({ inSymbol }: { inSymbol: boolean }): Promise<stri
   const hash = createHash("sha256")
     .update(await readFile(join(repo, "src/upload.ts")))
     .digest("hex");
-  await makeGraph(repo, [{ path: "src/upload.ts", hash, symbols: SYMBOLS }]);
+  await makeGraphDb(repo, [{ path: "src/upload.ts", hash, symbols: SYMBOLS }]);
   return repo;
 }
 
@@ -124,7 +124,7 @@ describe("symbolNames", () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     const text = ["class Upload {", "  size = 0;", "  retries = 3;", "  send() {", "    return 1;", "  }", "}", ""].join("\n");
     await writeFiles(repo, { "src/upload.ts": text });
-    await makeGraph(repo, [
+    await makeGraphDb(repo, [
       {
         path: "src/upload.ts",
         hash: createHash("sha256").update(text).digest("hex"),
@@ -146,7 +146,7 @@ describe("symbolNames", () => {
     const text = ["class A {", "  render() {", "    return 1;", "  }", "}", "class B {", "  render() {", "    return 2;", "  }", "}", ""].join("\n");
     await writeFiles(repo, { "src/view.ts": text });
     const hash = createHash("sha256").update(text).digest("hex");
-    await makeGraph(repo, [
+    await makeGraphDb(repo, [
       {
         path: "src/view.ts",
         hash,

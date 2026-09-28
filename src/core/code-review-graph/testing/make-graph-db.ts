@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 export type GraphFile = { path: string; hash: string; symbols: { name: string; owner?: string; kind: string; from: number; to: number }[] };
 
-export async function makeGraph(
+export async function makeGraphDb(
   repo: string,
   files: readonly GraphFile[],
   { schemaVersion = 13, repoRoot = repo }: { schemaVersion?: number; repoRoot?: string } = {},

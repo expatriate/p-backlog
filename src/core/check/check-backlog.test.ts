@@ -7,7 +7,7 @@ import { coreMessages } from "../messages";
 import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
 import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
-import { makeGraph } from "../graph/testing/make-graph";
+import { makeGraphDb } from "../code-review-graph/testing/make-graph-db";
 import { anchorOf } from "./anchor";
 import { checkBacklog } from "./check-backlog";
 
@@ -125,7 +125,7 @@ describe("checkBacklog", () => {
       { name: "uploadFile", kind: "Function", from: 1, to: 3 },
       { name: "retry", kind: "Function", from: 5, to: 7 },
     ];
-    await makeGraph(repo, [{ path: "src/upload.ts", hash, symbols }]);
+    await makeGraphDb(repo, [{ path: "src/upload.ts", hash, symbols }]);
     const anchorOfSpa1 = async () => (await loadBacklog(root)).tasks.find((item) => item.id === "SPA-1")?.anchor;
     return { home, root, after, anchorOfSpa1 };
   }
@@ -179,7 +179,7 @@ describe("checkBacklog", () => {
       { name: "beta", kind: "Function", from: 11, to: 13 },
       { name: "gamma", kind: "Function", from: 15, to: 17 },
     ];
-    await makeGraph(repo, [{ path: "src/code.ts", hash: createHash("sha256").update(after).digest("hex"), symbols }]);
+    await makeGraphDb(repo, [{ path: "src/code.ts", hash: createHash("sha256").update(after).digest("hex"), symbols }]);
     const spa1 = async () => (await loadBacklog(root)).tasks.find((item) => item.id === "SPA-1");
     const check = async () => checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "changed", now: NOW, home, messages: RU, warn: ignoreWarning });
     return { after, spa1, check };

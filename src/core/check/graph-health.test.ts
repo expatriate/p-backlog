@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { makeGraph } from "../graph/testing/make-graph";
+import { makeGraphDb } from "../code-review-graph/testing/make-graph-db";
 import { makeTask } from "../model/testing/make-task";
 import { makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { graphHealth } from "./graph-health";
@@ -15,7 +15,7 @@ const tasks = FILES.map((path, index) => makeTask({ id: `SPA-${index + 1}`, sour
 async function repoWithGraph(editedAfterBuild: readonly string[]): Promise<string> {
   const repo = await makeTempDir();
   await writeFiles(repo, Object.fromEntries(FILES.map((path) => [path, editedAfterBuild.includes(path) ? `${CODE}// правка\n` : CODE])));
-  await makeGraph(repo, FILES.map((path) => ({ path, hash: sha(CODE), symbols: SYMBOLS })));
+  await makeGraphDb(repo, FILES.map((path) => ({ path, hash: sha(CODE), symbols: SYMBOLS })));
   return repo;
 }
 
@@ -35,7 +35,7 @@ describe("graphHealth", () => {
   it("без графа и с графом чужой версии — отдельные состояния, задачи с source всё равно посчитаны", async () => {
     const withoutGraph = await makeTempDir();
     const foreign = await makeTempDir();
-    await makeGraph(foreign, [], { schemaVersion: 99 });
+    await makeGraphDb(foreign, [], { schemaVersion: 99 });
 
     expect(graphHealth(withoutGraph, tasks)).toEqual({ state: "none", pinned: 3, resolved: 0 });
     expect(graphHealth(foreign, tasks)).toEqual({ state: "unreadable", pinned: 3, resolved: 0 });

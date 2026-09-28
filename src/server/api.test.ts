@@ -14,7 +14,7 @@ import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFil
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
 import { runGit } from "../core/git/run";
-import { makeGraph } from "../core/graph/testing/make-graph";
+import { makeGraphDb } from "../core/code-review-graph/testing/make-graph-db";
 import { makeTestApp, SAMPLE_FILES, TEST_NOW, type TestApp } from "./testing/test-app";
 
 describe("GET /api/projects и /api/tasks", () => {
@@ -39,7 +39,7 @@ describe("GET /api/projects: граф кода", () => {
     const home = await makeTempDir();
     const withGraph = await makeGitRepo(home, "projects/spa");
     const withoutGraph = await makeGitRepo(home, "projects/torg-io");
-    await makeGraph(withGraph, []);
+    await makeGraphDb(withGraph, []);
     const backlog = await makeTestApp({
       ...SAMPLE_FILES,
       "spa/project.md": projectFile("SPA", [withGraph]),

@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { openCodeGraph, type CodeGraph } from "../graph/code-graph";
+import { openCodeGraph, type CodeGraph } from "../code-review-graph/graph-db";
 import type { CandidateEvidence, CheckMode, FilteredSighting, TaskOrigin } from "../journal/events";
 import type { Project, Task } from "../model/types";
 import { readJournal } from "../store/journal";

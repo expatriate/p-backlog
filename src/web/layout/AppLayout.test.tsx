@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { makeGraph } from "../../core/graph/testing/make-graph";
+import { makeGraphDb } from "../../core/code-review-graph/testing/make-graph-db";
 import { loadBacklog } from "../../core/store/load";
 import { settingsFilePath } from "../../core/store/settings";
 import { makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
@@ -154,7 +154,7 @@ describe("уведомление про граф кода", () => {
     const repo = await makeGitRepo(home, "projects/spa");
     await writeFiles(repo, { "src/a.ts": "const a = 1;\n" });
     const builtFrom = graph === "stale" ? "const a = 0;\n" : "const a = 1;\n";
-    if (graph !== "none") await makeGraph(repo, [{ path: "src/a.ts", hash: createHash("sha256").update(builtFrom).digest("hex"), symbols: [] }]);
+    if (graph !== "none") await makeGraphDb(repo, [{ path: "src/a.ts", hash: createHash("sha256").update(builtFrom).digest("hex"), symbols: [] }]);
     return { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": taskFile("SPA-1", "source: src/a.ts:1\n") };
   }
 

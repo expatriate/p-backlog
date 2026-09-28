@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { makeTempDir } from "../store/testing/temp-dirs";
-import { makeGraph } from "./testing/make-graph";
-import { openCodeGraph } from "./code-graph";
+import { makeGraphDb } from "./testing/make-graph-db";
+import { openCodeGraph } from "./graph-db";
 
 const FILE = { path: "src/upload.ts", hash: "a".repeat(64) };
 
 async function repoWithGraph(options?: { schemaVersion?: number; repoRoot?: string }): Promise<string> {
   const repo = await makeTempDir();
-  await makeGraph(
+  await makeGraphDb(
     repo,
     [
       {

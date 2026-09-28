@@ -1,4 +1,4 @@
-import { hasCodeGraph, openCodeGraph, type CodeGraph } from "../graph/code-graph";
+import { hasCodeGraph, openCodeGraph, type CodeGraph } from "../code-review-graph/graph-db";
 import type { Project, Task } from "../model/types";
 import { sourceRange } from "./anchor";
 import { isReviewable, sourcePaths } from "./candidates";
