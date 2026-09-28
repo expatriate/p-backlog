@@ -1,8 +1,10 @@
 import { HOOK_STOP_COMMAND } from "../core/hook-signature";
-import { addGroupedStopHook, removeGroupedStopHook, type HookInstallResult, type HookRemoveResult } from "./agents/grouped-stop-hooks";
+import { addGroupedStopHook, removeGroupedStopHook, type HookInstallResult, type HookRemoveResult, type IsOurHook } from "./agents/grouped-stop-hooks";
 
 const POSIX_COMMAND = guardedPosixCommand(HOOK_STOP_COMMAND);
 const POWERSHELL_COMMAND = "if (Get-Command backlog.cmd -ErrorAction SilentlyContinue) { backlog.cmd hook stop }";
+const CURRENT_COMMANDS = [POSIX_COMMAND, POWERSHELL_COMMAND];
+const RETIRED_COMMANDS = ["if (Get-Command backlog -ErrorAction SilentlyContinue) { $input | backlog hook stop }"];
 
 type StopHook = { type: "command"; command: string; shell?: "powershell" };
 
@@ -19,13 +21,19 @@ export function commandOfHook(hook: unknown): string | undefined {
   return typeof command === "string" ? command : undefined;
 }
 
-export function isOurStopHook(hook: unknown): boolean {
-  const command = commandOfHook(hook);
-  return command === POSIX_COMMAND || command === POWERSHELL_COMMAND;
+function hasCommandOf(commands: readonly string[]): IsOurHook {
+  return (hook) => {
+    const command = commandOfHook(hook);
+    return command !== undefined && commands.includes(command);
+  };
 }
 
+const isCurrentStopHook = hasCommandOf(CURRENT_COMMANDS);
+
+export const isOurStopHook = hasCommandOf([...CURRENT_COMMANDS, ...RETIRED_COMMANDS]);
+
 export function addStopHook(settingsPath: string, platform: NodeJS.Platform): Promise<HookInstallResult> {
-  return addGroupedStopHook(settingsPath, stopHookFor(platform), { isOurs: isOurStopHook, isCurrent: isOurStopHook });
+  return addGroupedStopHook(settingsPath, stopHookFor(platform), { isOurs: isOurStopHook, isCurrent: isCurrentStopHook });
 }
 
 export function removeStopHook(settingsPath: string): Promise<HookRemoveResult> {
