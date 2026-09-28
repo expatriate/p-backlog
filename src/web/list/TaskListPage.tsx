@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import { useId, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import type { TasksResponse } from "../../core/api/contract";
 import { listPath, taskPath } from "../app/paths";
@@ -7,15 +7,14 @@ import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { toneOf } from "../ui/epic-tone";
 import { useSettledValue } from "../ui/use-settled-value";
+import { useDocumentTitle } from "../ui/use-document-title";
 import { useStatusFocus } from "../ui/use-status-focus";
 import { TaskPanel } from "../task/TaskPanel";
 import type { ListMessages } from "./messages.ru";
-import { BatchNotice, useBatchResult } from "./BatchNotice";
 import { actionsShortcutLabel, useKeyboardHints } from "./actions-shortcut";
-import { BulkActions } from "./BulkActions";
+import { ListFooter } from "./ListFooter";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
-import { useScrollSpaceFor } from "./use-scroll-space";
 import { useSeenTasks } from "./use-seen-tasks";
 import { useSelectedTask } from "./use-selected-task";
 import { useTaskSelection } from "./use-task-selection";
@@ -35,24 +34,16 @@ export function TaskListPage() {
   const searchKey = search.toString();
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
   const view = useTaskListView(params, projectId);
-  const { isNew, markSeen } = useSeenTasks(view.loaded ? view.allTasks : undefined);
   const { selectedTask, gone, missingTaskId } = useSelectedTask(view.allTasks, taskId, view.loaded);
+  const { isNew } = useSeenTasks(view.loaded ? view.allTasks : undefined, selectedTask);
   const visibleIds = useMemo(() => view.visibleTasks.map((task) => task.id), [view.visibleTasks]);
   const loadedIds = useMemo(() => new Set(view.allTasks.map((task) => task.id)), [view.allTasks]);
   const selection = useTaskSelection(visibleIds, projectId ?? "", loadedIds);
-  const batchResult = useBatchResult(projectId ?? "");
-  const footer = useRef<HTMLDivElement>(null);
   const keysHintId = useId();
   const keyboardHints = useKeyboardHints();
-  useScrollSpaceFor(footer);
 
   const viewTitle = viewTitleFor(list, view.projectName, params.filter.onlyAutoClosed === true);
-  useEffect(() => {
-    document.title = selectedTask === undefined ? list.docTitle(viewTitle) : list.taskDocTitle(selectedTask.id, selectedTask.title);
-  }, [list, viewTitle, selectedTask]);
-  useEffect(() => {
-    if (selectedTask !== undefined) markSeen(selectedTask);
-  }, [selectedTask, markSeen]);
+  useDocumentTitle(selectedTask === undefined ? list.docTitle(viewTitle) : list.taskDocTitle(selectedTask.id, selectedTask.title));
 
   const setParams = (next: ListParams) => setSearch(writeListParams(next), { replace: true });
   const taskHref = (id: string) => ({ pathname: taskPath(projectId, id), search: searchKey });
@@ -122,19 +113,7 @@ export function TaskListPage() {
             />
           )}
         </div>
-        <div ref={footer} className={styles.footer}>
-          <BatchNotice key={`notice-${projectId ?? ""}`} result={batchResult.result} serial={batchResult.serial} onResult={batchResult.show} taskHref={taskHref} />
-          <BulkActions
-            key={`actions-${projectId ?? ""}`}
-            selection={selection}
-            tasks={view.allTasks}
-            tones={view.tones}
-            onDone={(result) => {
-              selection.clear();
-              batchResult.show(result);
-            }}
-          />
-        </div>
+        <ListFooter projectId={projectId} selection={selection} tasks={view.allTasks} tones={view.tones} taskHref={taskHref} />
       </div>
 
       {selectedTask && (

@@ -1,0 +1,6 @@
+.footer {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-dropdown);
+  margin-top: auto;
+}

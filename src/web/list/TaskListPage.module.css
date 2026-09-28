@@ -50,13 +50,6 @@
   padding-left: var(--space-4);
 }
 
-.footer {
-  position: sticky;
-  bottom: 0;
-  z-index: var(--z-dropdown);
-  margin-top: auto;
-}
-
 .keysHint {
   margin: var(--space-3) var(--space-5) var(--space-1);
   color: var(--ink-muted);
