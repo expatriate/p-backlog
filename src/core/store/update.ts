@@ -29,7 +29,11 @@ export type UpdateTaskRequest = WriteOrigin & {
   closure?: Closure | undefined;
 };
 
-const CHANGE_FIELDS = ["title", "type", "priority", "tags", "blockedBy", "related", "body", "source", "verified"] as const;
+type AppliedSeparately = "status" | "epic" | "category" | "anchor";
+
+const COPIED_CHANGES = { title: true, type: true, priority: true, tags: true, blockedBy: true, related: true, body: true, source: true, verified: true } satisfies Record<Exclude<keyof TaskChanges, AppliedSeparately>, true>;
+
+const CHANGE_FIELDS = Object.keys(COPIED_CHANGES) as (keyof typeof COPIED_CHANGES)[];
 
 export async function updateTaskInIndex(index: BacklogIndex, request: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const before = index.byId.get(request.id);
