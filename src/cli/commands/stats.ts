@@ -8,7 +8,7 @@ import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo, type ExitCode } from "../io";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { statsSummary } from "../stats-summary";
-import { webPort } from "../service/managers";
+import { servicePortOf } from "../service/managers";
 import { statsPath } from "../../core/api/web-paths";
 
 export const statsCommand: CliCommand = {
@@ -53,7 +53,7 @@ async function runStats(args: string[], io: CliIo): Promise<ExitCode> {
       totals,
       forecast,
       signals,
-      url: `http://localhost:${await webPort(io)}${statsPath(project?.id)}`,
+      url: `http://localhost:${await servicePortOf(io)}${statsPath(project?.id)}`,
     }),
   );
   return EXIT.ok;

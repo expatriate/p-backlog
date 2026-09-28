@@ -306,6 +306,6 @@ describe("startupFolderManager", () => {
     const manager = startupFolderManager(contextFor(roots));
 
     expect(manager.file).toBe(scriptPath(roots.appData));
-    expect(manager.logs).toBe(logPath(roots.localAppData));
+    expect(manager.logsHint).toBe(logPath(roots.localAppData));
   });
 });

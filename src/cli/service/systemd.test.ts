@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { makeTempDir } from "../../core/store/testing/temp-dirs";
 import type { CliEnv } from "../io";
 import { fakeExec } from "../testing/cli-harness";
-import { serviceManagerFor } from "./managers";
+import { availableServiceManager } from "./managers";
 import type { ServiceContext } from "./service";
 import { systemdManager, systemdUnit } from "./systemd";
 
@@ -97,12 +97,12 @@ describe("systemdManager", () => {
   });
 });
 
-describe("serviceManagerFor", () => {
+describe("availableServiceManager", () => {
   it("на Linux без systemctl служба не поддерживается", async () => {
     const home = await makeTempDir();
     const fake = fakeExec((command) => (command === "systemctl --user show-environment" ? { code: 127, output: "" } : { code: 0, output: "" }));
 
-    expect(await serviceManagerFor("linux", contextFor(home, fake.exec))).toBeNull();
+    expect(await availableServiceManager("linux", contextFor(home, fake.exec))).toBeNull();
   });
 
   it("на Linux без пользовательской шины systemd (WSL, контейнер) служба не поддерживается, хотя systemctl --version отвечает", async () => {
@@ -113,12 +113,12 @@ describe("serviceManagerFor", () => {
       return { code: 0, output: "" };
     });
 
-    expect(await serviceManagerFor("linux", contextFor(home, fake.exec))).toBeNull();
+    expect(await availableServiceManager("linux", contextFor(home, fake.exec))).toBeNull();
   });
 
   it("на Linux с systemctl служба — unit systemd --user", async () => {
     const home = await makeTempDir();
 
-    expect((await serviceManagerFor("linux", contextFor(home)))?.file).toBe(unitPath(home));
+    expect((await availableServiceManager("linux", contextFor(home)))?.file).toBe(unitPath(home));
   });
 });

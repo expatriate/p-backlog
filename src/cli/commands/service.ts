@@ -2,7 +2,7 @@ import { usageError, type CliCommand } from "../command";
 import { serverMessages } from "../../server/messages";
 import { requestedPort } from "../../server/port";
 import { EXIT, parseCommandArgs, UsageError, type CliIo, type ExitCode } from "../io";
-import { portOf, serviceManagerOf } from "../service/managers";
+import { serviceManagerOf, servicePort } from "../service/managers";
 import { localOrigin, serverResponds } from "../service/server-probe";
 import type { ServiceFailure, ServiceManager } from "../service/service";
 
@@ -48,7 +48,7 @@ async function installWith(manager: ServiceManager, io: CliIo): Promise<ExitCode
   const outcome = await manager.install();
   if (typeof outcome === "object") return reportFailure(outcome, io);
   io.print(io.cli.serviceInstalled(manager.file));
-  io.print(io.cli.serviceLogs(manager.logs));
+  io.print(io.cli.serviceLogs(manager.logsHint));
   return EXIT.ok;
 }
 
@@ -60,7 +60,7 @@ async function uninstallWith(manager: ServiceManager, io: CliIo): Promise<ExitCo
 }
 
 async function statusWith(manager: ServiceManager, io: CliIo): Promise<ExitCode> {
-  const port = await portOf(manager, io);
+  const port = await servicePort(manager, io);
   const [registered, responding] = await Promise.all([manager.registered(), serverResponds(localOrigin(port), STATUS_TIMEOUT_MS)]);
   io.print(io.cli.serviceStatus(registered, responding, port));
   return EXIT.ok;

@@ -47,7 +47,7 @@ export const cliRu = {
   removeHookConfigInvalid: (path: string): string => `${path} — не объект JSON, хук не снят. Исправьте файл и повторите.`,
 
   serviceInstalled: (file: string): string => `Служба установлена: ${file}`,
-  serviceLogs: (path: string): string => `Логи: ${path}`,
+  serviceLogs: (hint: string): string => `Логи: ${hint}`,
   serviceUninstalled: "Служба удалена",
   servicePidUnverified: (pid: number, pidFile: string): string =>
     `Не удалось проверить процесс ${pid} из ${pidFile}: если это прежний сервер p-backlog, остановите его вручную. Файл PID оставлен.`,

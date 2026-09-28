@@ -47,7 +47,7 @@ export const cliEn: CliMessages = {
   removeHookConfigInvalid: (path) => `${path} is not a JSON object, the hook was not removed. Fix the file and try again.`,
 
   serviceInstalled: (file) => `Service installed: ${file}`,
-  serviceLogs: (path) => `Logs: ${path}`,
+  serviceLogs: (hint) => `Logs: ${hint}`,
   serviceUninstalled: "Service removed",
   servicePidUnverified: (pid, pidFile) => `Could not check process ${pid} from ${pidFile}: if it is an old p-backlog server, stop it manually. The PID file was kept.`,
   serviceNotInstalled: "Service is not installed",

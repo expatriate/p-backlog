@@ -13,7 +13,7 @@ export type ServiceOutcome = "done" | "absent" | ServiceFailure;
 
 export type ServiceManager = {
   file: string;
-  logs: string;
+  logsHint: string;
   install(): Promise<ServiceOutcome>;
   uninstall(): Promise<ServiceOutcome>;
   registered(): Promise<boolean>;
