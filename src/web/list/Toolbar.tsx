@@ -3,7 +3,7 @@ import { normalizeText } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 import { useMessages } from "../i18n";
 import { ToggleChip } from "../ui/Chip";
-import { toggledTags } from "./tag-filter";
+import { emptyToUndefined, toggled, toggledTags } from "./filter-toggle";
 import { Popover, POPOVER_INITIAL_FOCUS } from "../ui/Popover";
 import { EpicPicker } from "./EpicPicker";
 import type { EpicChoices } from "./epic-choices";
@@ -47,7 +47,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
               key={status}
               pressed={pressedStatuses.includes(status)}
               locked={status === onlyPressedStatus}
-              onToggle={() => setFilter({ statuses: allOrSome(toggle(pressedStatuses, status)) })}
+              onToggle={() => setFilter({ statuses: allOrSome(toggled(pressedStatuses, status)) })}
             >
               {core.statusLabel(status)}
             </ToggleChip>
@@ -58,7 +58,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
             <ToggleChip
               key={priority}
               pressed={filter.priorities?.includes(priority) ?? false}
-              onToggle={() => setFilter({ priorities: emptyToUndefined(toggle(filter.priorities ?? [], priority)) })}
+              onToggle={() => setFilter({ priorities: emptyToUndefined(toggled(filter.priorities ?? [], priority)) })}
             >
               {core.priorityLabel(priority)}
             </ToggleChip>
@@ -94,7 +94,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
   );
 }
 
-type SearchEditing = { text: string; sent: ReadonlySet<string> };
+type SearchEditing = { text: string; unechoed: readonly string[] };
 
 function useFocusAfterEpicPickerLeaves(shown: boolean, nextTarget: () => HTMLElement | null): void {
   const wasShown = useRef(shown);
@@ -111,7 +111,7 @@ function SearchField({ ref, query, onChange }: { ref: RefObject<HTMLInputElement
   const [seenQuery, setSeenQuery] = useState(query);
   if (query !== seenQuery) {
     setSeenQuery(query);
-    if (editing !== undefined && !editing.sent.has(query)) setEditing({ text: query, sent: new Set() });
+    if (editing !== undefined) setEditing(withEcho(editing, query));
   }
 
   return (
@@ -122,11 +122,11 @@ function SearchField({ ref, query, onChange }: { ref: RefObject<HTMLInputElement
       value={editing?.text ?? query}
       placeholder={list.searchPlaceholder}
       aria-label={list.searchLabel}
-      onFocus={() => setEditing({ text: query, sent: new Set() })}
+      onFocus={() => setEditing({ text: query, unechoed: [] })}
       onBlur={() => setEditing(undefined)}
       onChange={(event) => {
         const text = event.target.value;
-        setEditing((current) => ({ text, sent: new Set([...(current?.sent ?? []), text]) }));
+        setEditing((current) => ({ text, unechoed: [...(current?.unechoed ?? []), text] }));
         onChange(text);
       }}
     />
@@ -170,14 +170,11 @@ function TagPicker({ tags, selected, onToggle }: { tags: string[]; selected: rea
   );
 }
 
-function toggle<T extends string>(values: readonly T[], value: T): T[] {
-  return values.includes(value) ? values.filter((candidate) => candidate !== value) : [...values, value];
+function withEcho(editing: SearchEditing, query: string): SearchEditing {
+  const echoed = editing.unechoed.indexOf(query);
+  return echoed === -1 ? { text: query, unechoed: [] } : { text: editing.text, unechoed: editing.unechoed.slice(echoed + 1) };
 }
 
 function allOrSome(statuses: TaskStatus[]): TaskStatus[] | undefined {
   return statuses.length === TASK_STATUSES.length ? undefined : statuses;
-}
-
-function emptyToUndefined<T>(values: T[]): T[] | undefined {
-  return values.length > 0 ? values : undefined;
 }

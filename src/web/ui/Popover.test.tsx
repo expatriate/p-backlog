@@ -5,11 +5,7 @@ import { Popover, POPOVER_INITIAL_FOCUS } from "./Popover";
 
 function stubViewport(clientWidth: number): void {
   const clientWidthSpy = vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(clientWidth);
-  document.documentElement.style.setProperty("--space-4", "16px");
-  onTestFinished(() => {
-    clientWidthSpy.mockRestore();
-    document.documentElement.style.removeProperty("--space-4");
-  });
+  onTestFinished(() => clientWidthSpy.mockRestore());
 }
 
 function stubMenuRect(rect: { left: number; right: number; width: number }): void {

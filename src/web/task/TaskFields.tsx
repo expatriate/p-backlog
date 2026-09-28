@@ -1,16 +1,18 @@
 import { useId, useState, type RefObject } from "react";
 import type { TaskChangesRequest } from "../../core/api/contract";
+import type { BacklogIndex } from "../../core/model/graph";
 import { epicProblems } from "../../core/model/integrity";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, type Task } from "../../core/model/types";
 import { useMessages } from "../i18n";
 import type { Draft } from "../ui/use-draft";
 import { normalizeTaskId } from "./normalize-task-id";
+import { parseTagInput } from "./tag-input";
 import styles from "./TaskFields.module.css";
 
 export type TaskFieldsProps = {
   task: Task;
   epicListId: string;
-  knownTasks: readonly Task[];
+  index: BacklogIndex;
   onChange: (changes: TaskChangesRequest) => Promise<boolean>;
   tags: Draft;
   tagsRef: RefObject<HTMLInputElement | null>;
@@ -18,43 +20,42 @@ export type TaskFieldsProps = {
   epicRef: RefObject<HTMLInputElement | null>;
 };
 
-export function TaskFields({ task, epicListId, knownTasks, onChange, tags, tagsRef, epic, epicRef }: TaskFieldsProps) {
-  const { core, task: t } = useMessages();
+export function TaskFields({ task, epicListId, index, onChange, tags, tagsRef, epic, epicRef }: TaskFieldsProps) {
+  const { core, task: taskMessages } = useMessages();
   const [epicError, setEpicError] = useState<string | null>(null);
   const epicErrorId = useId();
 
   const saveEpic = () => {
     const value = normalizeTaskId(epic.value);
-    const resolve = (id: string) => knownTasks.find((known) => known.id === id);
-    const problems = value === "" ? [] : epicProblems({ ...task, epic: value }, resolve);
+    const problems = value === "" ? [] : epicProblems({ ...task, epic: value }, (id) => index.byId.get(id));
     setEpicError(problems.length === 0 ? null : core.problems(problems));
     if (problems.length > 0) return;
     epic.commit((next) => onChange({ epic: next === "" ? null : next }));
   };
 
-  const saveTags = () => tags.commit(() => onChange({ tags: parseTags(tags.value) }));
+  const saveTags = () => tags.commit(() => onChange({ tags: parseTagInput(tags.value) }));
 
   return (
     <>
       <div className={styles.grid}>
-        <ChoiceSelect label={t.statusField} value={task.status} choices={TASK_STATUSES} labelFor={core.statusLabel} onChange={(status) => status !== null && void onChange({ status })} />
-        <ChoiceSelect label={t.priorityField} value={task.priority} choices={PRIORITIES} labelFor={core.priorityLabel} onChange={(priority) => priority !== null && void onChange({ priority })} />
+        <ChoiceSelect label={taskMessages.statusField} value={task.status} choices={TASK_STATUSES} labelFor={core.statusLabel} onChange={(status) => status !== null && void onChange({ status })} />
+        <ChoiceSelect label={taskMessages.priorityField} value={task.priority} choices={PRIORITIES} labelFor={core.priorityLabel} onChange={(priority) => priority !== null && void onChange({ priority })} />
         <ChoiceSelect
-          label={t.categoryField}
+          label={taskMessages.categoryField}
           value={task.category}
           choices={TASK_CATEGORIES}
           labelFor={core.categoryLabel}
           emptyLabel={core.categoryLabel(undefined)}
           onChange={(category) => void onChange({ category })}
         />
-        <ChoiceSelect label={t.typeField} value={task.type} choices={TASK_TYPES} labelFor={(type) => t.typeLabels[type]} onChange={(type) => type !== null && void onChange({ type })} />
+        <ChoiceSelect label={taskMessages.typeField} value={task.type} choices={TASK_TYPES} labelFor={(type) => taskMessages.typeLabels[type]} onChange={(type) => type !== null && void onChange({ type })} />
         <label>
-          {t.epicField}
+          {taskMessages.epicField}
           <input
             ref={epicRef}
             list={epicListId}
             value={epic.value}
-            placeholder={t.epicPlaceholder}
+            placeholder={taskMessages.epicPlaceholder}
             aria-invalid={epicError !== null}
             aria-describedby={epicError === null ? undefined : epicErrorId}
             onChange={(event) => {
@@ -72,7 +73,7 @@ export function TaskFields({ task, epicListId, knownTasks, onChange, tags, tagsR
       </div>
 
       <label className={styles.tags}>
-        {t.tagsField}
+        {taskMessages.tagsField}
         <input ref={tagsRef} value={tags.value} onChange={(event) => tags.set(event.target.value)} onBlur={saveTags} />
       </label>
     </>
@@ -102,15 +103,4 @@ function ChoiceSelect<T extends string>({ label, value, choices, labelFor, empty
       </select>
     </label>
   );
-}
-
-export function canonicalTags(value: string): string {
-  return parseTags(value).join(", ");
-}
-
-function parseTags(value: string): string[] {
-  return value
-    .split(",")
-    .map((tag) => tag.trim().toLowerCase())
-    .filter(Boolean);
 }

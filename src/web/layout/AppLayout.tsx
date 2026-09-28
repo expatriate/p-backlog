@@ -7,7 +7,9 @@ import { useMessages } from "../i18n";
 import { useProjects, useSignals, useTasks } from "../app/queries";
 import { OPEN_STATUSES } from "../../core/model/query";
 import { countBy } from "../../core/stats/numbers";
-import { activeProjectIds, scopeNote, tasksInScope } from "../app/scope";
+import { RequestFailure } from "../app/RequestFailure";
+import { scopeNote, taskScope, type TaskScope } from "../app/scope";
+import { NO_VALUE } from "../labels";
 import { cx } from "../ui/cx";
 import type { GraphTrouble, HintPart } from "./messages.ru";
 import { LanguageSwitch } from "./LanguageSwitch";
@@ -15,28 +17,18 @@ import { ProjectCheckbox, ProjectDeleteButton } from "./ProjectControls";
 import styles from "./AppLayout.module.css";
 
 const PROJECT_LIST_ID = "sidebar-projects";
-const UNKNOWN_COUNT = "—";
 const GRAPH_TROUBLES: readonly GraphTrouble[] = ["none", "stale", "unreadable"];
 
 export function AppLayout() {
-  const { app, layout, core } = useMessages();
-  const projects = useProjects();
-  const tasks = useTasks();
+  const { layout } = useMessages();
   const { pathname, search } = useLocation();
 
-  const allProjects = useMemo(() => projects.data ?? [], [projects.data]);
-  const activeIds = useMemo(() => activeProjectIds(allProjects), [allProjects]);
-  const counts = useMemo(() => (tasks.data === undefined ? undefined : taskCounts(tasks.data.tasks, activeIds)), [tasks.data, activeIds]);
   const projectId = matchPath("/p/:projectId/*", pathname)?.params.projectId;
   const signals = useSignals(projectId);
   const signalCount = signals.data?.signals.length ?? 0;
   const statsTab = (matchPath("/stats/*", pathname) ?? matchPath("/p/:projectId/stats/*", pathname))?.params["*"];
   const onStats = statsTab !== undefined;
   const scopePath = (id?: string) => (onStats ? `${statsPath(id)}${statsTab === "" ? "" : `/${statsTab}`}` : listPath(id));
-  const graphTroubles = useMemo(() => graphTroubleCounts(allProjects), [allProjects]);
-  const [listOpen, setListOpen] = useState(true);
-  const scopeLink = useRef<HTMLAnchorElement>(null);
-  const navigate = useNavigate();
 
   return (
     <div className={styles.shell}>
@@ -66,74 +58,106 @@ export function AppLayout() {
             </Link>
           </li>
         </ul>
-        <div className={styles.scope}>
-          <div className={cx(styles.row, styles.scopeRow, projectId === undefined && styles.scopeCurrent)}>
-            <button
-              type="button"
-              className={styles.disclosure}
-              aria-expanded={listOpen}
-              aria-controls={listOpen ? PROJECT_LIST_ID : undefined}
-              aria-label={listOpen ? layout.collapseProjects : layout.expandProjects}
-              onClick={() => setListOpen(!listOpen)}
-            >
-              <Chevron open={listOpen} />
-            </button>
-            <NavLink ref={scopeLink} to={{ pathname: scopePath(), search: onStats ? "" : search }} end aria-current="true" className={cx(styles.rowLink, styles.scopeName)}>
-              {layout.projects}
-            </NavLink>
-            <span className={styles.count}>
-              {counts === undefined ? (
-                UNKNOWN_COUNT
-              ) : (
-                <>
-                  <span className={styles.number}>{counts.scopeOpen}</span> {layout.taskWord(counts.scopeOpen)}
-                </>
-              )}
-            </span>
-          </div>
-          {projects.data !== undefined && (
-            <p className={styles.scopeNote}>
-              {scopeNote(allProjects, app)}
-              {listOpen && layout.checkedSuffix}
-            </p>
-          )}
-          {listOpen && (
-            <ul className={styles.projects} id={PROJECT_LIST_ID} aria-label={layout.projects}>
-              {allProjects.map((project) => (
-                <ProjectRow
-                  key={project.id}
-                  project={project}
-                  to={scopePath(project.id)}
-                  search={onStats ? "" : search}
-                  openTasks={counts === undefined ? undefined : (counts.openByProject.get(project.id) ?? 0)}
-                  taskCount={counts === undefined ? undefined : (counts.totalByProject.get(project.id) ?? 0)}
-                  onDeleted={() => {
-                    if (project.id === projectId) void navigate(scopePath());
-                    scopeLink.current?.focus();
-                  }}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-        {graphTroubles.length > 0 && (
-          <div className={styles.graphNotes}>
-            {graphTroubles.map(([state, count]) => {
-              const note = layout.graphNotes[state];
-              return (
-                <p key={state} className={styles.graphNote}>
-                  {note.title}: {core.count(count, "project")}
-                  <span>
-                    <GraphHint parts={note.hint} />
-                  </span>
-                </p>
-              );
-            })}
-          </div>
-        )}
+        <ProjectsScope projectId={projectId} scopePath={scopePath} search={onStats ? "" : search} />
+        <GraphNotes />
         <LanguageSwitch />
       </nav>
       <Outlet />
+    </div>
+  );
+}
+
+type ProjectsScopeProps = { projectId: string | undefined; scopePath: (id?: string) => string; search: string };
+
+function ProjectsScope({ projectId, scopePath, search }: ProjectsScopeProps) {
+  const { app, layout } = useMessages();
+  const projects = useProjects();
+  const tasks = useTasks();
+  const allProjects = useMemo(() => projects.data ?? [], [projects.data]);
+  const inScope = useMemo(() => taskScope(projects.data, undefined), [projects.data]);
+  const counts = useMemo(() => (tasks.data === undefined ? undefined : taskCounts(tasks.data.tasks, inScope)), [tasks.data, inScope]);
+  const [listOpen, setListOpen] = useState(true);
+  const scopeLink = useRef<HTMLAnchorElement>(null);
+  const navigate = useNavigate();
+
+  return (
+    <div className={styles.scope}>
+      <div className={cx(styles.row, styles.scopeRow, projectId === undefined && styles.scopeCurrent)}>
+        <button
+          type="button"
+          className={styles.disclosure}
+          aria-expanded={listOpen}
+          aria-controls={listOpen ? PROJECT_LIST_ID : undefined}
+          aria-label={listOpen ? layout.collapseProjects : layout.expandProjects}
+          onClick={() => setListOpen(!listOpen)}
+        >
+          <Chevron open={listOpen} />
+        </button>
+        <NavLink ref={scopeLink} to={{ pathname: scopePath(), search }} end aria-current="true" className={cx(styles.rowLink, styles.scopeName)}>
+          {layout.projects}
+        </NavLink>
+        <span className={styles.count}>
+          {counts?.scopeOpen === undefined ? (
+            NO_VALUE
+          ) : (
+            <>
+              <span className={styles.number}>{counts.scopeOpen}</span> {layout.taskWord(counts.scopeOpen)}
+            </>
+          )}
+        </span>
+      </div>
+      {projects.data !== undefined && (
+        <p className={styles.scopeNote}>
+          {scopeNote(allProjects, app)}
+          {listOpen && layout.checkedSuffix}
+        </p>
+      )}
+      {projects.error !== null && (
+        <div className={styles.projectsFailure}>
+          <RequestFailure error={projects.error} fetching={projects.isFetching} onRetry={() => void projects.refetch()} />
+        </div>
+      )}
+      {listOpen && (
+        <ul className={styles.projects} id={PROJECT_LIST_ID} aria-label={layout.projects}>
+          {allProjects.map((project) => (
+            <ProjectRow
+              key={project.id}
+              project={project}
+              to={scopePath(project.id)}
+              search={search}
+              openTasks={counts === undefined ? undefined : (counts.openByProject.get(project.id) ?? 0)}
+              taskCount={counts === undefined ? undefined : (counts.totalByProject.get(project.id) ?? 0)}
+              onDeleted={() => {
+                if (project.id === projectId) void navigate(scopePath());
+                scopeLink.current?.focus();
+              }}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function GraphNotes() {
+  const { layout, core } = useMessages();
+  const projects = useProjects();
+  const graphTroubles = useMemo(() => graphTroubleCounts(projects.data ?? []), [projects.data]);
+  if (graphTroubles.length === 0) return null;
+
+  return (
+    <div className={styles.graphNotes}>
+      {graphTroubles.map(([state, count]) => {
+        const note = layout.graphNotes[state];
+        return (
+          <p key={state} className={styles.graphNote}>
+            {note.title}: {core.count(count, "project")}
+            <span>
+              <GraphHint parts={note.hint} />
+            </span>
+          </p>
+        );
+      })}
     </div>
   );
 }
@@ -149,7 +173,7 @@ function ProjectRow({ to, search, openTasks, taskCount, project, onDeleted }: Pr
           {project.name}
         </span>
       </NavLink>
-      <span className={styles.count}>{openTasks ?? UNKNOWN_COUNT}</span>
+      <span className={styles.count}>{openTasks ?? NO_VALUE}</span>
       <ProjectDeleteButton project={project} taskCount={taskCount} onDeleted={onDeleted} />
     </li>
   );
@@ -165,12 +189,12 @@ function GraphHint({ parts }: { parts: readonly HintPart[] }) {
   );
 }
 
-type TaskCounts = { scopeOpen: number; openByProject: ReadonlyMap<string, number>; totalByProject: ReadonlyMap<string, number> };
+type TaskCounts = { scopeOpen: number | undefined; openByProject: ReadonlyMap<string, number>; totalByProject: ReadonlyMap<string, number> };
 
-function taskCounts(tasks: readonly Task[], activeIds: ReadonlySet<string>): TaskCounts {
+function taskCounts(tasks: readonly Task[], inScope: TaskScope | undefined): TaskCounts {
   const open = tasks.filter((task) => OPEN_STATUSES.includes(task.status));
   return {
-    scopeOpen: tasksInScope(open, undefined, activeIds).length,
+    scopeOpen: inScope === undefined ? undefined : open.filter(inScope).length,
     openByProject: countBy(open, (task) => task.projectId),
     totalByProject: countBy(tasks, (task) => task.projectId),
   };

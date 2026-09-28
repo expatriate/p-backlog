@@ -1,18 +1,14 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient, type UseMutationResult, type UseQueryOptions } from "@tanstack/react-query";
-import { useEffect } from "react";
-import {
-  BATCH_TASKS_LIMIT,
-  type BatchAction,
-  type BatchOutcome,
-  type BatchRequest,
-  type BatchResponse,
-  type MemorySamplesResponse,
-  type ProjectsResponse,
-  type ProjectView,
-  type Revision,
-  type SettingsResponse,
-  type TaskChangesRequest,
-  type TasksResponse,
+import type {
+  BatchRequest,
+  BatchResponse,
+  MemorySamplesResponse,
+  ProjectsResponse,
+  ProjectView,
+  ScanProgress,
+  SettingsResponse,
+  TaskChangesRequest,
+  TasksResponse,
 } from "../../core/api/contract";
 import { MEMORY_SAMPLE_INTERVAL_MS } from "../../core/api/memory";
 import type { StatsReportKind, StatsReports } from "../../core/api/stats-routes";
@@ -20,11 +16,8 @@ import type { Language } from "../../core/i18n/language";
 import type { Project, Task } from "../../core/model/types";
 import { ApiError, type ApiClient } from "../api/client";
 import { useBacklogApi } from "./backlog-api";
-
-const PROJECTS_KEY = ["projects"];
-const TASKS_KEY = ["tasks"];
-const STATS_KEY = ["stats"];
-const SETTINGS_KEY = ["settings"];
+import { batchInChunks } from "./batch-chunks";
+import { invalidateBacklogAndStats, invalidateBacklogOnly, PROJECTS_KEY, SETTINGS_KEY, STATS_KEY, TASKS_KEY } from "./query-keys";
 
 const STATS_STALE_MS = 60_000;
 const COST_SCAN_POLL_MS = 10_000;
@@ -83,16 +76,18 @@ export function useSignals(projectId: string | undefined) {
 export function useCostStats(projectId: string | undefined) {
   return useStatsReport("cost", projectId, {
     staleTime: 0,
-    refetchInterval: (query) => {
-      const scan = query.state.data?.scan;
-      return scan !== undefined && (!scan.listed || scan.bytesLeft > 0) ? COST_SCAN_POLL_MS : false;
-    },
+    refetchInterval: (query) => (scanInProgress(query.state.data?.scan) ? COST_SCAN_POLL_MS : false),
   });
 }
 
 export function useMemorySamples() {
   const { client } = useBacklogApi();
   return useQuery<MemorySamplesResponse>({ queryKey: [...STATS_KEY, "memory"], queryFn: client.memorySamples, refetchInterval: MEMORY_SAMPLE_INTERVAL_MS });
+}
+
+function scanInProgress(scan: ScanProgress | undefined): boolean {
+  if (scan === undefined) return false;
+  return !scan.listed || scan.bytesLeft > 0;
 }
 
 function useStatsReport<K extends StatsReportKind>(kind: K, projectId: string | undefined, overrides: Partial<UseQueryOptions<StatsReports[K]>> = {}) {
@@ -120,16 +115,6 @@ export function useDeleteProject(): UseMutationResult<void, Error, DeleteProject
     mutationFn: ({ id, confirm }: DeleteProjectVariables) => client.deleteProject(id, confirm),
     onSuccess: () => invalidateBacklogAndStats(queryClient),
   });
-}
-
-const REVISIONED_KEYS = [TASKS_KEY, PROJECTS_KEY];
-
-function invalidateBacklogAndStats(queryClient: QueryClient): void {
-  for (const queryKey of [...REVISIONED_KEYS, STATS_KEY]) void queryClient.invalidateQueries({ queryKey });
-}
-
-function invalidateBacklogOnly(queryClient: QueryClient): Promise<unknown> {
-  return Promise.all(REVISIONED_KEYS.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
 }
 
 export type TaskChange = (task: Task) => TaskChangesRequest;
@@ -171,42 +156,6 @@ export function useBatchTasks(): UseMutationResult<BatchResponse, Error, BatchRe
   });
 }
 
-export class PartialBatchError extends Error {
-  constructor(
-    readonly done: BatchResponse,
-    readonly rest: BatchRequest,
-    readonly failure: Error,
-  ) {
-    super(failure.message);
-    this.name = "PartialBatchError";
-  }
-}
-
-async function batchInChunks(client: ApiClient, { tasks, action }: BatchRequest): Promise<BatchResponse> {
-  const results: BatchOutcome[] = [];
-  for (let start = 0; start < tasks.length; start += BATCH_TASKS_LIMIT) {
-    const chunk = tasks.slice(start, start + BATCH_TASKS_LIMIT);
-    try {
-      const response = await client.batchTasks(requestForChunk(action, chunk));
-      results.push(...response.results);
-    } catch (error) {
-      if (start === 0 || !(error instanceof Error)) throw error;
-      throw new PartialBatchError({ results }, requestForChunk(action, tasks.slice(start)), error);
-    }
-  }
-  return { results };
-}
-
-function requestForChunk(action: BatchAction, chunk: BatchRequest["tasks"]): BatchRequest {
-  return { tasks: chunk, action: actionForChunk(action, chunk) };
-}
-
-function actionForChunk(action: BatchAction, chunk: BatchRequest["tasks"]): BatchAction {
-  if (action.kind !== "restore") return action;
-  const ids = new Set(chunk.map(({ id }) => id));
-  return { kind: "restore", changes: Object.fromEntries(Object.entries(action.changes).filter(([id]) => ids.has(id))) };
-}
-
 async function saveEditedBody(client: ApiClient, id: string, changes: TaskChangesRequest, edit: BodyEdit): Promise<Task> {
   try {
     return await client.updateTask(id, edit.version, changes);
@@ -214,43 +163,6 @@ async function saveEditedBody(client: ApiClient, id: string, changes: TaskChange
     if (!(error instanceof ApiError) || error.current?.body !== edit.body) throw error;
     return await client.updateTask(id, error.current.version, changes);
   }
-}
-
-export function useLiveUpdates(): void {
-  const { openEvents } = useBacklogApi();
-  const queryClient = useQueryClient();
-  useEffect(() => {
-    const stream = openEvents();
-    if (!stream) return;
-    stream.addEventListener("change", (event) => {
-      const revision = parseRevision(event.data);
-      if (revision === null) return invalidateBacklogAndStats(queryClient);
-      void queryClient.invalidateQueries({ queryKey: STATS_KEY });
-      for (const queryKey of REVISIONED_KEYS) void refreshIfBehind(queryClient, queryKey, revision);
-    });
-    stream.addEventListener("open", () => invalidateBacklogAndStats(queryClient));
-    return () => stream.close();
-  }, [openEvents, queryClient]);
-}
-
-async function refreshIfBehind(queryClient: QueryClient, queryKey: readonly string[], revision: Revision): Promise<void> {
-  await queryClient.getQueryCache().find({ queryKey, exact: true })?.promise?.catch(() => undefined);
-  const known = queryClient.getQueryData<{ revision?: Revision }>(queryKey)?.revision;
-  if (known === undefined || known.boot !== revision.boot || known.seq < revision.seq) await queryClient.invalidateQueries({ queryKey, exact: true });
-}
-
-function parseRevision(data: unknown): Revision | null {
-  if (typeof data !== "string") return null;
-  try {
-    const parsed: unknown = JSON.parse(data);
-    return isRevision(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function isRevision(value: unknown): value is Revision {
-  return typeof value === "object" && value !== null && "boot" in value && typeof value.boot === "string" && "seq" in value && typeof value.seq === "number";
 }
 
 function freshestTask(queryClient: QueryClient, id: string): Task | undefined {

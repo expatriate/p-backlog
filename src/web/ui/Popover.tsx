@@ -18,7 +18,6 @@ export type PopoverProps = {
   trigger: ReactNode;
   triggerProps?: Pick<ComponentProps<"button">, "aria-label" | "title" | "className">;
   triggerRef?: RefObject<HTMLButtonElement | null>;
-  panelClassName?: string | undefined;
   placement?: "below" | "above";
   width?: "wide" | "content";
   busy?: boolean;
@@ -26,6 +25,8 @@ export type PopoverProps = {
 };
 
 const INITIAL_FOCUS_ATTRIBUTE = "data-popover-focus";
+
+const VIEWPORT_SIDE_MARGIN_PX = 16;
 
 export const POPOVER_INITIAL_FOCUS = { [INITIAL_FOCUS_ATTRIBUTE]: "" } as const;
 
@@ -37,7 +38,7 @@ export function useClosePopover(): () => void {
   return closePopover;
 }
 
-export function Popover({ trigger, triggerProps, triggerRef, panelClassName, placement = "below", width = "wide", busy = false, children }: PopoverProps) {
+export function Popover({ trigger, triggerProps, triggerRef, placement = "below", width = "wide", busy = false, children }: PopoverProps) {
   const [open, setOpen] = useState(false);
   const triggerId = useId();
   const panelId = useId();
@@ -46,17 +47,13 @@ export function Popover({ trigger, triggerProps, triggerRef, panelClassName, pla
   const ownTrigger = useRef<HTMLButtonElement>(null);
   const button = triggerRef ?? ownTrigger;
 
-  const closePopover = () => {
-    setOpen(false);
-    button.current?.focus();
-  };
+  const closePopover = () => closeAndRefocus(setOpen, button);
 
   useLayoutEffect(() => {
     if (!open) return;
     const menu = panel.current;
     if (!menu) return;
-    const sideMargin = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4"));
-    const overflow = menu.getBoundingClientRect().right - (document.documentElement.clientWidth - sideMargin);
+    const overflow = menu.getBoundingClientRect().right - (document.documentElement.clientWidth - VIEWPORT_SIDE_MARGIN_PX);
     menu.style.transform = overflow > 0 ? `translateX(-${overflow}px)` : "";
     menu.scrollIntoView({ block: "nearest" });
     menu.querySelector<HTMLElement>(`[${INITIAL_FOCUS_ATTRIBUTE}]`)?.focus({ preventScroll: true });
@@ -86,8 +83,7 @@ export function Popover({ trigger, triggerProps, triggerRef, panelClassName, pla
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.stopPropagation();
-      setOpen(false);
-      button.current?.focus();
+      closeAndRefocus(setOpen, button);
     };
     document.addEventListener("keydown", closeOnEscape, true);
     return () => document.removeEventListener("keydown", closeOnEscape, true);
@@ -107,10 +103,15 @@ export function Popover({ trigger, triggerProps, triggerRef, panelClassName, pla
         {trigger}
       </Button>
       {open && (
-        <div ref={panel} id={panelId} role="group" aria-labelledby={triggerId} className={cx(styles.panel, placement === "above" && styles.above, width === "content" && styles.fitContent, panelClassName)}>
+        <div ref={panel} id={panelId} role="group" aria-labelledby={triggerId} className={cx(styles.panel, placement === "above" && styles.above, width === "content" && styles.fitContent)}>
           <ClosePopoverContext value={closePopover}>{children}</ClosePopoverContext>
         </div>
       )}
     </div>
   );
+}
+
+function closeAndRefocus(setOpen: (open: boolean) => void, trigger: RefObject<HTMLButtonElement | null>): void {
+  setOpen(false);
+  trigger.current?.focus();
 }

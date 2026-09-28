@@ -4,7 +4,7 @@ import { AppLayout } from "../layout/AppLayout";
 import { TaskListPage } from "../list/TaskListPage";
 import { STATS_TABS } from "../stats/stats-tabs";
 import styles from "./App.module.css";
-import { useLiveUpdates } from "./queries";
+import { useLiveUpdates } from "./live-updates";
 
 const STATS_TAB_ROUTES: RouteObject[] = [
   ...STATS_TABS.map((tab): RouteObject => (tab.segment === "" ? { index: true, lazy: tab.load } : { path: tab.segment, lazy: tab.load })),

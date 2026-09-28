@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { Link, type To } from "react-router";
+import type { BacklogIndex } from "../../core/model/graph";
 import { formatId, ID_PATTERN } from "../../core/model/ids";
 import type { Task } from "../../core/model/types";
 import { useMessages } from "../i18n";
@@ -14,7 +15,7 @@ export type TaskHref = (id: string) => To;
 export type TaskRefsProps = {
   label: string;
   ids: readonly string[];
-  tasks: readonly Task[];
+  index: BacklogIndex;
   listId: string;
   taskHref: TaskHref;
   idPrefix: string;
@@ -23,14 +24,15 @@ export type TaskRefsProps = {
 
 export type RefsSaveResult = { saved: true } | { saved: false; fieldError: string | null };
 
+const EXAMPLE_TASK_NUMBER = 12;
+
 type FieldNotice = { text: string; duplicateOf?: string };
 
-export function TaskRefs({ label, ids, tasks, listId, taskHref, idPrefix, onChange }: TaskRefsProps) {
-  const { task: t } = useMessages();
+export function TaskRefs({ label, ids, index, listId, taskHref, idPrefix, onChange }: TaskRefsProps) {
+  const { task: taskMessages } = useMessages();
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState<FieldNotice | null>(null);
   const errorId = useId();
-  const byId = new Map(tasks.map((task) => [task.id, task]));
   const shownError = notice === null || (notice.duplicateOf !== undefined && !ids.includes(notice.duplicateOf)) ? null : notice.text;
   const showRejection = (result: RefsSaveResult) => {
     if (!result.saved) setNotice(result.fieldError === null ? null : { text: result.fieldError });
@@ -39,11 +41,11 @@ export function TaskRefs({ label, ids, tasks, listId, taskHref, idPrefix, onChan
   const add = () => {
     const id = normalizeTaskId(draft);
     if (!ID_PATTERN.test(id)) {
-      setNotice({ text: t.invalidRefId(formatId(idPrefix, 12)) });
+      setNotice({ text: taskMessages.invalidRefId(formatId(idPrefix, EXAMPLE_TASK_NUMBER)) });
       return;
     }
     if (ids.includes(id)) {
-      setNotice({ text: t.duplicateRef(id), duplicateOf: id });
+      setNotice({ text: taskMessages.duplicateRef(id), duplicateOf: id });
       setDraft("");
       return;
     }
@@ -58,7 +60,7 @@ export function TaskRefs({ label, ids, tasks, listId, taskHref, idPrefix, onChan
       <h2 className={styles.heading}>{label}</h2>
       <ul className={styles.items}>
         {ids.map((id) => {
-          const task = byId.get(id);
+          const task = index.byId.get(id);
           return (
             <li key={id} className={styles.item}>
               <span className={styles.id}>{id}</span>
@@ -67,10 +69,10 @@ export function TaskRefs({ label, ids, tasks, listId, taskHref, idPrefix, onChan
                   {task.title}
                 </Link>
               ) : (
-                <span className={styles.title}>{t.refNotFound}</span>
+                <span className={styles.title}>{taskMessages.refNotFound}</span>
               )}
               {task && <StatusBadge status={task.status} />}
-              <button type="button" className={styles.remove} aria-label={t.removeRef(id)} onClick={() => void onChange((current) => current.filter((value) => value !== id)).then(showRejection)}>
+              <button type="button" className={styles.remove} aria-label={taskMessages.removeRef(id)} onClick={() => void onChange((current) => current.filter((value) => value !== id)).then(showRejection)}>
                 <CloseIcon />
               </button>
             </li>
@@ -81,8 +83,8 @@ export function TaskRefs({ label, ids, tasks, listId, taskHref, idPrefix, onChan
         <input
           list={listId}
           value={draft}
-          placeholder={t.addRefPlaceholder}
-          aria-label={t.addRefLabel(label)}
+          placeholder={taskMessages.addRefPlaceholder}
+          aria-label={taskMessages.addRefLabel(label)}
           aria-invalid={shownError !== null}
           aria-describedby={shownError === null ? undefined : errorId}
           onChange={(event) => {
@@ -96,7 +98,7 @@ export function TaskRefs({ label, ids, tasks, listId, taskHref, idPrefix, onChan
             }
           }}
         />
-        <Button onClick={add}>{t.addRef}</Button>
+        <Button onClick={add}>{taskMessages.addRef}</Button>
       </div>
       {shownError !== null && (
         <span id={errorId} className={styles.fieldError} role="alert">
