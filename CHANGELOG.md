@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.1
 
 - Effect counts every task recorded as `incidental` again, including tasks recorded by earlier versions, where
   `incidental` was the default. Without such tasks the tab explains why there is nothing to measure, and the share of
