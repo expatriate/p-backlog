@@ -28,13 +28,17 @@ export async function traceSources(tasks: readonly Task[], facts: RepoFacts, dif
 }
 
 export function currentSourcesOf(traces: SourceTraces): CurrentSources {
-  return new Map([...traces].map(([id, trace]) => [id, trace.kind === "traced" ? trace.current : null]));
+  return new Map([...traces].map(([id, trace]) => [id, currentOf(trace)]));
 }
 
 export async function currentSourceIn(repo: string, task: Task): Promise<string | null> {
   if (task.source === undefined) return null;
   const facts = await collectRepoFacts(repo, new Map([[sourcePath(task.source), reviewMark(task)]]));
-  return currentSourcesOf(await traceSources([task], facts, repoDiffs(repo))).get(task.id) ?? null;
+  return currentOf(await traceSource(task, facts, repoDiffs(repo)));
+}
+
+function currentOf(trace: SourceTrace): string | null {
+  return trace.kind === "traced" ? trace.current : null;
 }
 
 type Reference = { hunks: readonly Hunk[]; source: string };
