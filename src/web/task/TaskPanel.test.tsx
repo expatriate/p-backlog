@@ -435,7 +435,7 @@ describe("правка агента, пока поле в фокусе", () => {
   });
 
   it("незаписанный после конфликта текст переживает сохранение другого поля и не даёт молча закрыть карточку", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1");
     const { panel, title } = await conflictOnTitle(app);
 
