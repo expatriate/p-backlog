@@ -16,7 +16,8 @@ export function useGrainPanel<T>(chart: ChartId, defaultGrain: Grain, series: Gr
     setStoredGrain(next);
     writeGrain(key, next);
   };
-  return { grain, periods: series[GRAIN_WINDOWS[grain]], period: caption.ofGrain(grain, windows), toggle: <GrainToggle chart={chart} grain={grain} onChange={setGrain} /> };
+  const periodWindow = GRAIN_WINDOWS[grain];
+  return { grain, periods: series[periodWindow], period: caption.of(periodWindow, windows[periodWindow]), toggle: <GrainToggle chart={chart} grain={grain} onChange={setGrain} /> };
 }
 
 function readGrain(key: string): Grain | undefined {
