@@ -33,8 +33,5 @@ jobs:
         run: bash scripts/await-ci-success.sh "$GITHUB_SHA"
       - run: npm install -g "npm@$NPM_VERSION"
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npx vitest run
       - run: npm run test:package
       - run: npm publish --access public
