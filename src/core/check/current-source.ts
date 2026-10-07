@@ -5,7 +5,7 @@ import { baseText, currentLine, modifiesLines, type Hunk } from "./diff-hunks";
 import { collectRepoFacts, diffsFrom, diffsSince, headsOnThisLine, type Commit, type DiffFrom, type DiffSince, type HeadAt, type RepoFacts } from "./repo-facts";
 import { hasLines, sourcePath } from "../model/source";
 
-export type FileDiffs = { since: DiffSince; from: DiffFrom; headAt: HeadAt };
+type FileDiffs = { since: DiffSince; from: DiffFrom; headAt: HeadAt };
 
 type SourceTrace = { kind: "traced"; current: string | null; linesChanged: boolean } | { kind: "not-on-branch" } | { kind: "untraced" };
 
@@ -45,14 +45,16 @@ async function traceSource(task: Task, facts: RepoFacts, diffs: FileDiffs): Prom
   const text = facts.texts.get(sourcePath(source));
   if (text === undefined) return UNTRACED;
   const { commits, uncommitted } = changesSince(facts, sourcePath(source), reviewMark(task));
-  if (commits.length === 0 && !uncommitted && (anchor === undefined || anchorOf(text, source) === anchor)) return { kind: "traced", current: source, linesChanged: false };
+  const anchorHolds = anchor === undefined || anchorOf(text, source) === anchor;
+  if (commits.length === 0 && !uncommitted && anchorHolds) return { kind: "traced", current: source, linesChanged: false };
   const reference = await referenceOf({ ...task, source }, text, commits, diffs);
   if (reference === "not-on-branch") return { kind: "not-on-branch" };
   if (reference === null) return UNTRACED;
   const current = remappedSource(reference.source, (line) => currentLine(reference.hunks, line));
   const located = current !== null && anchorOf(text, current) !== null ? current : null;
+  const unanchoredShift = anchor === undefined && located !== source;
   const lines = anchorRange(reference.source);
-  return { kind: "traced", current: anchor === undefined && located !== source ? null : located, linesChanged: lines === null || modifiesLines(reference.hunks, lines) };
+  return { kind: "traced", current: unanchoredShift ? null : located, linesChanged: lines === null || modifiesLines(reference.hunks, lines) };
 }
 
 async function referenceOf(task: Traced, text: string, laterCommits: readonly Commit[], diffs: FileDiffs): Promise<Reference | "not-on-branch" | null> {
@@ -70,8 +72,8 @@ async function referenceOf(task: Traced, text: string, laterCommits: readonly Co
     .map((commit) => () => diffs.from(path, commit.sha));
   const references = anchor === undefined ? [lastCommitBeforeMark] : [headAtMark, lastCommitBeforeMark, ...afterMark];
   let compared = false;
-  for (const diffOf of references) {
-    const hunks = (await diffOf())?.hunks ?? null;
+  for (const diffFromReference of references) {
+    const hunks = (await diffFromReference())?.hunks ?? null;
     if (hunks === null) continue;
     compared = true;
     const source = anchor === undefined ? task.source : locateAnchor(baseText(hunks, text), task.source, anchor);
