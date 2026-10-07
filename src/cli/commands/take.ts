@@ -49,9 +49,8 @@ async function runTake(args: string[], io: CliIo): Promise<ExitCode> {
     for (const line of refusal.lines) io.warn(line);
     return refusal.code;
   }
-  const { code, taken, tasks } = await takeAll(loaded.tasks, [selected.task], io);
-  const takenIndex = buildIndex(tasks);
-  for (const task of taken) await printTask(io, task, takenIndex, { json: values.json });
+  const { code, taken, index } = await takeAll(loaded.tasks, [selected.task], io);
+  for (const task of taken) await printTask(io, task, index, { json: values.json });
   return code;
 }
 
@@ -81,8 +80,7 @@ async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projec
     io.warn(io.cli.noOpenTasksAt(path));
     return EXIT.notFound;
   }
-  const { code, taken, tasks } = await takeAll(loaded.tasks, takeable, io);
-  const takenIndex = buildIndex(tasks);
+  const { code, taken, index: takenIndex } = await takeAll(loaded.tasks, takeable, io);
   if (json) {
     io.print(
       JSON.stringify(
@@ -115,7 +113,7 @@ function repoRelativePath(io: CliIo, project: Project, path: string): string {
   return relativeInside(roots.worktree, resolve(realpathSync(io.cwd), sourcePath(path))) ?? sourcePath(path);
 }
 
-type Taken = { code: ExitCode; taken: Task[]; tasks: readonly Task[] };
+type Taken = { code: ExitCode; taken: Task[]; index: BacklogIndex };
 
 async function takeAll(loadedTasks: readonly Task[], chosen: readonly Task[], io: CliIo): Promise<Taken> {
   const write = taskWriter(io, loadedTasks);
@@ -128,7 +126,7 @@ async function takeAll(loadedTasks: readonly Task[], chosen: readonly Task[], io
     taken.push(written.task);
     return EXIT.ok;
   });
-  return { code, taken, tasks };
+  return { code, taken, index: buildIndex(tasks) };
 }
 
 function selectById(loaded: LoadedBacklog, io: CliIo, id: string): Selection {
