@@ -80,11 +80,11 @@ export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAU
       running = true;
       void tick();
     },
-    stop: () => {
+    stop: async () => {
       running = false;
       if (timer !== null) clearTimeout(timer);
       timer = null;
-      return inFlight === null ? Promise.resolve() : inFlight.then(() => undefined);
+      await inFlight;
     },
     scanOnce,
     scanIfNeverListed: () => {
