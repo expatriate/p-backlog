@@ -7,7 +7,7 @@ export default tseslint.config(
   { ignores: [".claude", "dist", "node_modules", "playwright-report", "test-results"] },
   js.configs.recommended,
   ...tseslint.configs.strict,
-  { languageOptions: { globals: globals.node } },
+  { languageOptions: { globals: globals.node }, rules: { "no-duplicate-imports": ["error", { allowSeparateTypeImports: true }] } },
   {
     files: ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts"],
     languageOptions: { parserOptions: { projectService: true } },

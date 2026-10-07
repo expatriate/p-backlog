@@ -1,10 +1,9 @@
 import { homedir } from "node:os";
 import { errorText } from "../core/errors";
 import { suppressSqliteExperimentalWarning } from "../core/sqlite-warning";
-import { resolveBacklogRoot } from "../core/store/paths";
+import { PID_FILE_ENV, resolveBacklogRoot } from "../core/store/paths";
 import { serverLanguage, serverMessages } from "./messages";
 import { requestedPort } from "./port";
-import { PID_FILE_ENV } from "../core/store/paths";
 import { BUNDLED_WEB_DIR, closeOnStopSignal, startServer } from "./start";
 
 suppressSqliteExperimentalWarning();
