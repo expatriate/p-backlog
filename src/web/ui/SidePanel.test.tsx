@@ -1,22 +1,8 @@
 import { render, screen } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it } from "vitest";
 import { TestMessagesProvider } from "../testing/messages-provider";
+import { applyPanelStyles } from "../testing/side-panel";
 import { SidePanel } from "./SidePanel";
-import styles from "./SidePanel.module.css";
-
-const NARROW_WINDOW_QUERY = "@media (max-width: 1160px)";
-
-function applyPanelStyles(windowIsNarrow: boolean): void {
-  const source = readFileSync(join(import.meta.dirname, "SidePanel.module.css"), "utf8");
-  expect(source).toContain(NARROW_WINDOW_QUERY);
-  const scoped = source.replace(/\.drawer(?![\w-])/g, `.${styles.drawer}`);
-  // jsdom evaluates no media queries and applies only rules under @media screen.
-  const sheet = document.head.appendChild(document.createElement("style"));
-  sheet.textContent = scoped.replaceAll(NARROW_WINDOW_QUERY, windowIsNarrow ? "@media screen" : "@media print");
-  onTestFinished(() => sheet.remove());
-}
 
 function renderPanelBesideList(): HTMLElement {
   render(
@@ -34,13 +20,13 @@ function renderPanelBesideList(): HTMLElement {
 
 describe("боковая панель по стилям из SidePanel.module.css", () => {
   it("в узком окне ложится поверх страницы: список под ней недоступен с клавиатуры", () => {
-    applyPanelStyles(true);
+    applyPanelStyles("narrow");
 
     expect(renderPanelBesideList().hasAttribute("inert")).toBe(true);
   });
 
   it("в широком окне стоит рядом со списком, и список остаётся доступным", () => {
-    applyPanelStyles(false);
+    applyPanelStyles("wide");
 
     expect(renderPanelBesideList().hasAttribute("inert")).toBe(false);
   });

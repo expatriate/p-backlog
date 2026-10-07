@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it } from "vitest";
 import { renderApp } from "../testing/render-app";
+import { applyPanelStyles } from "../testing/side-panel";
 import { LIST_FILES, rowTitles } from "../testing/task-list";
 
 describe("карточка поверх списка", () => {
@@ -39,9 +40,7 @@ describe("карточка поверх списка", () => {
   });
 
   it("карточка поверх страницы: под ней ничего не доступно с клавиатуры, после закрытия — снова доступно", async () => {
-    const overlayLayout = document.head.appendChild(document.createElement("style"));
-    overlayLayout.textContent = "aside { --drawer-modal: 1; }";
-    onTestFinished(() => overlayLayout.remove());
+    applyPanelStyles("narrow");
     const app = await renderApp(LIST_FILES);
     const link = await screen.findByRole("link", { name: "Таймауты загрузки" });
     const nav = screen.getByRole("navigation", { name: "Навигация" });
@@ -61,9 +60,7 @@ describe("карточка поверх списка", () => {
   });
 
   it("карточка поверх страницы закрывается нажатием на затемнённый фон", async () => {
-    const overlayLayout = document.head.appendChild(document.createElement("style"));
-    overlayLayout.textContent = "aside { --drawer-modal: 1; }";
-    onTestFinished(() => overlayLayout.remove());
+    applyPanelStyles("narrow");
     const app = await renderApp(LIST_FILES, "/t/SPA-1");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
 
@@ -81,9 +78,7 @@ describe("карточка поверх списка", () => {
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
     await app.user.click(screen.getByRole("searchbox", { name: "Поиск задач" }));
 
-    const overlayLayout = document.head.appendChild(document.createElement("style"));
-    overlayLayout.textContent = "aside { --drawer-modal: 1; }";
-    onTestFinished(() => overlayLayout.remove());
+    applyPanelStyles("narrow");
     act(() => {
       window.dispatchEvent(new Event("resize"));
     });
