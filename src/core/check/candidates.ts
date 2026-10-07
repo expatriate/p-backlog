@@ -3,7 +3,7 @@ import type { Task } from "../model/types";
 import { anchorOf, findMoved, isAnchorFor } from "./anchor";
 import type { CheckFix } from "./findings";
 import type { Commit, RepoFacts } from "./repo-facts";
-import { hasLines, sourcePath } from "../model/source";
+import { hasLines, lineSuffix, sourcePath } from "../model/source";
 
 export type TaskRef = { id: string; title: string };
 type CommitRef = { sha: string; subject: string };
@@ -31,7 +31,9 @@ export type CodeReview = { candidates: Candidate[]; plans: AnchorPlan[] };
 
 export type KnownMerges = ReadonlyMap<string, ReadonlySet<string>>;
 
-type AnchorState = { kind: "none" } | { kind: "same" } | { kind: "moved"; source: string; anchor: string } | { kind: "changed" };
+type AnchoredSource = { source: string; anchor: string };
+
+type AnchorState = { kind: "none" } | { kind: "same"; anchor: string } | ({ kind: "moved" } & AnchoredSource) | { kind: "changed" };
 
 export type AnchorStates = ReadonlyMap<string, AnchorState>;
 
@@ -78,22 +80,30 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts, knownM
 
 function anchorPlan(task: Task, anchor: AnchorState, facts: RepoFacts): AnchorPlan[] {
   if (task.source === undefined) return [];
-  if (anchor.kind === "moved") {
-    const moved: CheckFix = { kind: "source-moved", taskId: task.id, from: task.source, to: anchor.source };
-    return [{ id: task.id, changes: { source: anchor.source, anchor: anchor.anchor }, moved }];
-  }
+  if (anchor.kind === "moved") return [movedPlan(task.id, task.source, anchor)];
   if (anchor.kind === "same") return [];
   const text = facts.texts.get(sourcePath(task.source));
   const fresh = text === undefined ? null : anchorOf(text, task.source);
   return fresh === null || fresh === task.anchor ? [] : [{ id: task.id, changes: { anchor: fresh } }];
 }
 
+export function renamePlan(task: Task, renamedTo: string, text: string): AnchorPlan | null {
+  if (task.source === undefined) return null;
+  const renamed = `${renamedTo}${lineSuffix(task.source)}`;
+  const anchor = anchorStateIn({ ...task, source: renamed }, text);
+  if (anchor.kind === "same") return movedPlan(task.id, task.source, { source: renamed, anchor: anchor.anchor });
+  return anchor.kind === "moved" ? movedPlan(task.id, task.source, anchor) : null;
+}
+
 export function relocationPlan(task: Task, current: string, facts: RepoFacts): AnchorPlan | null {
   if (task.source === undefined || current === task.source) return null;
   const text = facts.texts.get(sourcePath(current));
   const anchor = text === undefined ? null : anchorOf(text, current);
-  if (anchor === null) return null;
-  return { id: task.id, changes: { source: current, anchor }, moved: { kind: "source-moved", taskId: task.id, from: task.source, to: current } };
+  return anchor === null ? null : movedPlan(task.id, task.source, { source: current, anchor });
+}
+
+function movedPlan(id: string, from: string, to: AnchoredSource): AnchorPlan {
+  return { id, changes: { source: to.source, anchor: to.anchor }, moved: { kind: "source-moved", taskId: id, from, to: to.source } };
 }
 
 export function changesSince(facts: RepoFacts, path: string, mark: number): { commits: Commit[]; uncommitted: boolean } {
@@ -107,10 +117,13 @@ export function judgedByCommits(task: Task, anchors: AnchorStates): boolean {
 }
 
 function anchorState(task: Task, facts: RepoFacts): AnchorState {
+  return anchorStateIn(task, task.source === undefined ? undefined : facts.texts.get(sourcePath(task.source)));
+}
+
+function anchorStateIn(task: Task, text: string | undefined): AnchorState {
   if (task.anchor === undefined || task.source === undefined || !hasLines(task.source) || !isAnchorFor(task.anchor, task.source)) return { kind: "none" };
-  const text = facts.texts.get(sourcePath(task.source));
   if (text === undefined) return { kind: "none" };
-  if (anchorOf(text, task.source) === task.anchor) return { kind: "same" };
+  if (anchorOf(text, task.source) === task.anchor) return { kind: "same", anchor: task.anchor };
   const moved = findMoved(text, task.source, task.anchor);
   const movedAnchor = moved === null ? null : anchorOf(text, moved);
   return moved === null || movedAnchor === null ? { kind: "changed" } : { kind: "moved", source: moved, anchor: movedAnchor };

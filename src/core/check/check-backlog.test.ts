@@ -354,6 +354,30 @@ describe("checkBacklog", () => {
     ]);
   });
 
+  it("файл переименован: строки задачи целы — source переезжает сам, строки изменились — кандидат «файл пропал» с новым именем", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    const lines = (name: string) => [1, 2, 3, 4, 5, 6].map((index) => `export const ${name}${index} = ${index};`).join("\n");
+    await writeFiles(repo, { "src/intact.ts": lines("intact"), "src/edited.ts": lines("edited") });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": task("SPA-1", `source: src/intact.ts:3\nanchor: ${anchorOf(lines("intact"), "src/intact.ts:3")}\n`),
+      "spa/SPA-2.md": task("SPA-2", `source: src/edited.ts:3\nanchor: ${anchorOf(lines("edited"), "src/edited.ts:3")}\n`),
+    });
+    await rm(join(repo, "src/intact.ts"));
+    await rm(join(repo, "src/edited.ts"));
+    await writeFiles(repo, { "src/renamed.ts": lines("intact"), "src/reworked.ts": lines("edited").replace("edited3 = 3", "edited3 = 30") });
+    gitCommitAll(repo, "Переименовать", "2026-09-12T10:00:00+03:00");
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-missing", task: expect.objectContaining({ id: "SPA-2" }), renamedTo: "src/reworked.ts" })]);
+    expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-1: файл задачи переименован, source src/intact.ts:3 → src/renamed.ts:3"]);
+    expect((await loadBacklog(root)).tasks.find((item) => item.id === "SPA-1")?.source).toBe("src/renamed.ts:3");
+  });
+
   it("дубль задачи не слитой ветки показан и записан в журнал, хотя её кандидаты по коду ждут слияния", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");

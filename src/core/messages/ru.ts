@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { CheckFix, CheckProblem } from "../check/findings";
 import type { GraphState } from "../check/graph-health";
-import { lineSuffix } from "../model/source";
+import { lineSuffix, sourcePath } from "../model/source";
 import { formatDayMonth, formatDecimal } from "../i18n/format";
 import { countRu, NBSP, pluralRu } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
@@ -222,7 +222,9 @@ function checkFix(fix: CheckFix): string {
     case "epic-reopened":
       return `${fix.taskId}: эпик снова открыт — в нём открытые задачи: ${fix.childIds.join(", ")}`;
     case "source-moved":
-      return `${fix.taskId}: source сдвинулся ${lineSuffix(fix.from)} → ${lineSuffix(fix.to)}`;
+      return sourcePath(fix.from) === sourcePath(fix.to)
+        ? `${fix.taskId}: source сдвинулся ${lineSuffix(fix.from)} → ${lineSuffix(fix.to)}`
+        : `${fix.taskId}: файл задачи переименован, source ${fix.from} → ${fix.to}`;
   }
 }
 

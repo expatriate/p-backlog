@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { openCodeGraph, type CodeGraph } from "../code-review-graph/graph-db";
 import type { CandidateEvidence, CheckMode, FilteredSighting, TaskOrigin } from "../journal/events";
@@ -5,7 +6,7 @@ import type { Project, Task } from "../model/types";
 import { readJournal } from "../store/journal";
 import { snippetOf } from "./anchor";
 import { mergesKnownAtCreation } from "./known-merges";
-import { anchorStates, codeReview, isReviewable, relocationPlan, reviewMark, type AnchorPlan, type Candidate, type CodeReview } from "./candidates";
+import { anchorStates, codeReview, isReviewable, relocationPlan, renamePlan, reviewMark, type AnchorPlan, type Candidate, type CodeReview } from "./candidates";
 import { duplicateCandidates } from "./duplicates";
 import { currentSources } from "./current-source";
 import type { CheckProblem } from "./findings";
@@ -48,7 +49,7 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
 
   const facts = await collectRepoFacts(repo, earliestMarks(tasks));
   const anchors = anchorStates(tasks, facts);
-  const review = codeReview(tasks, facts, await mergesKnownAtCreation({ repo, tasks, facts, anchors, origins: creationCommits(origins) }), anchors);
+  const review = await withRenamesFollowed(codeReview(tasks, facts, await mergesKnownAtCreation({ repo, tasks, facts, anchors, origins: creationCommits(origins) }), anchors), tasks, repo);
   const graph = openCodeGraph(repo);
   try {
     const sighted = await sightedBySymbol(tasks, review, { repo, facts, graph, mode });
@@ -80,6 +81,23 @@ async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, { rep
   const context: ProjectContext = { tasksById: new Map(tasks.map((task) => [task.id, task])), located, facts, diffOf, symbolAt };
   const { kept, filtered } = await filterBySymbol(review.candidates, context);
   return { kept, filtered, plans: settledPlans(review.plans, { kept, filtered }, context), duplicates, context };
+}
+
+async function withRenamesFollowed(review: CodeReview, tasks: readonly Task[], repo: string): Promise<CodeReview> {
+  const tasksById = new Map(tasks.map((task) => [task.id, task]));
+  const followed = await Promise.all(
+    review.candidates.map(async (candidate) => {
+      const task = tasksById.get(candidate.task.id);
+      if (candidate.kind !== "source-missing" || candidate.renamedTo === undefined || task === undefined) return { candidate };
+      const text = await readFile(join(repo, candidate.renamedTo), "utf8").catch(() => null);
+      const plan = text === null ? null : renamePlan(task, candidate.renamedTo, text);
+      return plan === null ? { candidate } : { plan };
+    }),
+  );
+  return {
+    candidates: followed.flatMap((item) => ("candidate" in item ? [item.candidate] : [])),
+    plans: [...review.plans, ...followed.flatMap((item) => ("plan" in item ? [item.plan] : []))],
+  };
 }
 
 function involvedTaskIds({ kept, filtered, plans }: SymbolSightings): string[] {
