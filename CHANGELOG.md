@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `backlog new` and `backlog check` treat two open tasks as a possible duplicate only when their `source` is in the
+  same file and their titles share several words, or when the titles are nearly the same (version numbers and dates
+  are compared whole). Shared words alone — review-nit groups, one area of the code — and the same line or function
+  with unrelated titles no longer count. On a real backlog, check offered 6 pairs instead of 159 and `new` refused 5
+  times instead of 73, still catching the known duplicates it caught before.
 - The web list "Closed by the agent" and its chip count no longer include tasks a person closed in the web UI (the bulk
   "Close as obsolete" action and epics that closed after it); tasks closed through the CLI stay there. `GET /api/tasks`
   gains a `closedInWeb` field. An unreadable project journal no longer breaks the board — the server warns instead.
