@@ -7,7 +7,7 @@ import type { CheckMode } from "../journal/events";
 import { coreMessages } from "../messages";
 import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
-import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeFastForward, gitMergeNoFastForward, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
 import { makeGraphDb } from "../code-review-graph/testing/make-graph-db";
 import { anchorOf } from "./anchor";
 import { checkBacklog } from "./check-backlog";
@@ -255,6 +255,94 @@ describe("checkBacklog", () => {
 
     expect(report.candidates.map((candidate) => candidate.task.id)).toEqual(["SPA-1"]);
     expect((await spa1())?.anchor).toBe(anchorBefore);
+  });
+
+  describe("кандидат «код изменился» по якорю — только когда менялись строки задачи", () => {
+    const numbered = (name: string) => [1, 2, 3, 4, 5, 6, 7, 8].map((index) => `export const ${name}${index} = ${index};`).join("\n");
+
+    async function anchoredRepo() {
+      const home = await makeTempDir();
+      const root = join(home, "backlog");
+      const repo = await makeGitRepo(home, "projects/spa");
+      const spa1 = async () => (await loadBacklog(root)).tasks.find((item) => item.id === "SPA-1");
+      return { home, root, repo, spa1 };
+    }
+
+    it("на старой ветке без правок задачи после отметки кандидата нет и якорь прежний — правка строк задачи после возврата остаётся кандидатом", async () => {
+      const { home, root, repo, spa1 } = await anchoredRepo();
+      const before = numbered("a");
+      await writeFiles(repo, { "src/a.ts": before });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      gitCheckout(repo, "old", { create: true });
+      gitCheckout(repo, "master");
+      const verified = before.replace("a3 = 3", "a3 = 33");
+      await writeFiles(repo, { "src/a.ts": verified });
+      gitCommitAll(repo, "Правка строки задачи", "2026-09-10T10:00:00+03:00");
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3\nanchor: ${anchorOf(verified, "src/a.ts:3")}\n`) });
+
+      gitCheckout(repo, "old");
+      const onOldBranch = await check(root, home, "changed");
+      const anchorOnOldBranch = (await spa1())?.anchor;
+      gitCheckout(repo, "master");
+      await writeFiles(repo, { "src/a.ts": verified.replace("a3 = 33", "a3 = 333") });
+      gitCommitAll(repo, "Снова правка строки задачи", "2026-09-13T10:00:00+03:00");
+      const backOnMaster = await check(root, home, "changed");
+
+      expect(onOldBranch.candidates).toEqual([]);
+      expect(anchorOnOldBranch).toBe(anchorOf(verified, "src/a.ts:3"));
+      expect(backOnMaster.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), method: "anchor" })]);
+    });
+
+    it("задача заведена по незакоммиченной правке, строки задачи потом изменил коммит — кандидат", async () => {
+      const { home, root, repo } = await anchoredRepo();
+      const committed = numbered("a");
+      await writeFiles(repo, { "src/a.ts": committed });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      const dirty = committed.replace("a3 = 3", "a3 = 30");
+      await writeFiles(repo, { "src/a.ts": dirty });
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3\nanchor: ${anchorOf(dirty, "src/a.ts:3")}\n`) });
+      gitCommitAll(repo, "Правка, по которой заведена задача", "2026-09-11T12:00:00+03:00");
+      await writeFiles(repo, { "src/a.ts": dirty.replace("a3 = 30", "a3 = 300") });
+      gitCommitAll(repo, "Правка строки задачи", "2026-09-12T10:00:00+03:00");
+
+      const report = await check(root, home, "changed");
+
+      expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), method: "anchor" })]);
+    });
+
+    it("правка строк задачи, сделанная на ветке до отметки и влитая перемоткой после, — кандидат", async () => {
+      const { home, root, repo } = await anchoredRepo();
+      const before = numbered("a");
+      await writeFiles(repo, { "src/a.ts": before });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      gitCheckout(repo, "feat", { create: true, at: "2026-09-09T11:00:00+03:00" });
+      await writeFiles(repo, { "src/a.ts": before.replace("a3 = 3", "a3 = 33") });
+      gitCommitAll(repo, "Правка строки задачи на ветке", "2026-09-10T10:00:00+03:00");
+      gitCheckout(repo, "master", { at: "2026-09-10T11:00:00+03:00" });
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3\nanchor: ${anchorOf(before, "src/a.ts:3")}\n`) });
+      gitMergeFastForward(repo, "feat", "2026-09-12T10:00:00+03:00");
+
+      const report = await check(root, home, "changed");
+
+      expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), method: "anchor" })]);
+    });
+
+    it("строки задачи целы, фрагмент повторяется в файле и сдвинулся — кандидата нет, source переезжает", async () => {
+      const { home, root, repo, spa1 } = await anchoredRepo();
+      const block = numbered("a");
+      const before = [block, block].join("\n");
+      await writeFiles(repo, { "src/a.ts": before });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:12\nanchor: ${anchorOf(before, "src/a.ts:12")}\n`) });
+      const after = ["export const top = 0;", before].join("\n");
+      await writeFiles(repo, { "src/a.ts": after });
+      gitCommitAll(repo, "Строка сверху", "2026-09-12T10:00:00+03:00");
+
+      const report = await check(root, home, "changed");
+
+      expect(report.candidates).toEqual([]);
+      expect(await spa1()).toMatchObject({ source: "src/a.ts:13", anchor: anchorOf(after, "src/a.ts:13") });
+    });
   });
 
   it("правка, сделанная на ветке до создания задачи и слитая merge-коммитом после, делает задачу кандидатом", async () => {

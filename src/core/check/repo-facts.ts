@@ -23,6 +23,8 @@ export type RepoFacts = {
 };
 
 const DIFF_LINE_LIMIT = 80;
+const REFLOG_MOMENT = /\{(\d+)\}$/;
+const MS_PER_SECOND = 1000;
 const STATUS_CODE_WIDTH = 3;
 
 export type PathMarks = ReadonlyMap<string, number>;
@@ -91,18 +93,55 @@ type FileDiff = { excerpt: DiffExcerpt | undefined; changed: LineRange[]; hunks:
 
 export type DiffSince = (path: string, since: Date) => Promise<FileDiff | null>;
 
+export type DiffFrom = (path: string, commit: string) => Promise<FileDiff | null>;
+
 export function diffsSince(repo: string, git: GitRunner = runGit): DiffSince {
   const bases = new Map<number, Promise<string | null>>();
-  const diffs = new Map<string, Promise<FileDiff | null>>();
+  const diffFrom = diffsFrom(repo, git);
   const baseBefore = (since: Date): Promise<string | null> =>
     remembered(bases, since.getTime(), async () => {
       const base = (await git(repo, ["rev-list", "-1", "--first-parent", `--before=${since.toISOString()}`, "HEAD"]))?.trim() ?? "";
       return base === "" ? null : base;
     });
-  return (path, since) =>
-    remembered(diffs, `${since.getTime()} ${path}`, async () => {
-      const base = await baseBefore(since);
-      const diff = base === null ? null : await git(repo, ["-c", "diff.suppressBlankEmpty=false", "diff", "--no-color", "--no-ext-diff", "--no-textconv", base, "--", path]);
+  return async (path, since) => {
+    const base = await baseBefore(since);
+    return base === null ? null : diffFrom(path, base);
+  };
+}
+
+export type HeadAt = (moment: Date) => Promise<string | null>;
+
+type HeadMove = { commit: string; at: number };
+
+export function headsOnThisLine(repo: string, git: GitRunner = runGit): HeadAt {
+  let moves: Promise<HeadMove[]> | null = null;
+  const onThisLine = new Map<string, Promise<boolean>>();
+  return async (moment) => {
+    moves ??= headMoves(repo, git);
+    const head = (await moves).findLast((move) => move.at <= moment.getTime())?.commit;
+    if (head === undefined) return null;
+    const ancestor = await remembered(onThisLine, head, async () => (await git(repo, ["merge-base", "--is-ancestor", head, "HEAD"])) !== null);
+    return ancestor ? head : null;
+  };
+}
+
+async function headMoves(repo: string, git: GitRunner): Promise<HeadMove[]> {
+  const reflog = await git(repo, ["log", "--walk-reflogs", "--date=unix", `--format=%H${FIELD}%gd`, "HEAD"]);
+  return (reflog ?? "")
+    .split("\n")
+    .flatMap((line): HeadMove[] => {
+      const [commit = "", selector = ""] = line.split(FIELD);
+      const seconds = REFLOG_MOMENT.exec(selector)?.[1];
+      return seconds === undefined ? [] : [{ commit, at: Number(seconds) * MS_PER_SECOND }];
+    })
+    .toReversed();
+}
+
+export function diffsFrom(repo: string, git: GitRunner = runGit): DiffFrom {
+  const diffs = new Map<string, Promise<FileDiff | null>>();
+  return (path, commit) =>
+    remembered(diffs, `${commit} ${path}`, async () => {
+      const diff = await git(repo, ["-c", "diff.suppressBlankEmpty=false", "diff", "--no-color", "--no-ext-diff", "--no-textconv", commit, "--", path]);
       if (diff === null) return null;
       const hunks = parseHunks(diff);
       return { excerpt: excerptOf(diff), changed: changedRanges(hunks ?? []), hunks };

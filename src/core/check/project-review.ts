@@ -8,10 +8,10 @@ import { snippetOf } from "./anchor";
 import { mergesKnownAtCreation } from "./known-merges";
 import { anchorStates, codeReview, isReviewable, relocationPlan, renamePlan, reviewMark, type AnchorPlan, type Candidate, type CodeReview } from "./candidates";
 import { duplicateCandidates } from "./duplicates";
-import { currentSources } from "./current-source";
+import { currentSourcesOf, repoDiffs, traceSources, type SourceTraces } from "./current-source";
 import type { CheckProblem } from "./findings";
 import { awaitingMerge } from "./awaiting-merge";
-import { collectRepoFacts, diffsSince, type DiffExcerpt, type GitHistory, type RepoFacts } from "./repo-facts";
+import { collectRepoFacts, type DiffExcerpt, type GitHistory, type RepoFacts } from "./repo-facts";
 import { sourcePath } from "../model/source";
 import { fileHashes, filterBySymbol, symbolLookup, symbolNames, type SymbolFilterContext, type SymbolFilterResult } from "./symbol-filter";
 
@@ -30,6 +30,8 @@ export type ProjectReview = {
 type ProjectContext = SymbolFilterContext & { facts: RepoFacts };
 
 type SymbolSightings = SymbolFilterResult & { context: ProjectContext; plans: AnchorPlan[]; duplicates: Candidate[] };
+
+type LineJudgement = { kept: Candidate[]; linesIntact: string[]; notOnBranch: string[] };
 
 type SightingScope = { repo: string; facts: RepoFacts; graph: CodeGraph | null; mode: CheckMode };
 
@@ -72,15 +74,28 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
 
 async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, { repo, facts, graph, mode }: SightingScope): Promise<SymbolSightings> {
   const full = mode === "full";
-  const diffOf = diffsSince(repo);
+  const diffs = repoDiffs(repo);
   const symbolAt = symbolLookup(graph, fileHashes(repo));
   const changedIds = new Set(review.candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? [candidate.task.id] : [])));
   const locating = full && graph !== null ? tasks : tasks.filter((task) => changedIds.has(task.id));
-  const located = await currentSources(locating, facts, diffOf);
+  const traces = await traceSources(locating, facts, diffs);
+  const located = currentSourcesOf(traces);
   const duplicates = full ? duplicateCandidates(tasks, symbolNames(symbolAt, located)) : [];
-  const context: ProjectContext = { tasksById: new Map(tasks.map((task) => [task.id, task])), located, facts, diffOf, symbolAt };
-  const { kept, filtered } = await filterBySymbol(review.candidates, context);
-  return { kept, filtered, plans: settledPlans(review.plans, { kept, filtered }, context), duplicates, context };
+  const context: ProjectContext = { tasksById: new Map(tasks.map((task) => [task.id, task])), located, facts, diffOf: diffs.since, symbolAt };
+  const byLines = judgedByLines(review.candidates, traces);
+  const { kept, filtered } = await filterBySymbol(byLines.kept, context);
+  return { kept, filtered, plans: settledPlans(review.plans, { ...byLines, kept, filtered }, context), duplicates, context };
+}
+
+function judgedByLines(candidates: readonly Candidate[], traces: SourceTraces): LineJudgement {
+  const judgement: LineJudgement = { kept: [], linesIntact: [], notOnBranch: [] };
+  for (const candidate of candidates) {
+    const trace = candidate.kind === "source-changed" && candidate.method === "anchor" ? traces.get(candidate.task.id) : undefined;
+    if (trace?.kind === "not-on-branch") judgement.notOnBranch.push(candidate.task.id);
+    else if (trace?.kind === "traced" && !trace.linesChanged) judgement.linesIntact.push(candidate.task.id);
+    else judgement.kept.push(candidate);
+  }
+  return judgement;
 }
 
 async function withRenamesFollowed(review: CodeReview, tasks: readonly Task[], repo: string): Promise<CodeReview> {
@@ -129,17 +144,17 @@ function creationCommits(origins: ReadonlyMap<string, TaskOrigin>): Map<string, 
   return new Map([...origins].map(([id, origin]) => [id, origin.commit]));
 }
 
-function settledPlans(plans: readonly AnchorPlan[], { kept, filtered }: SymbolFilterResult, { tasksById, located, facts }: ProjectContext): AnchorPlan[] {
-  const flagged = new Set(kept.map((candidate) => candidate.task.id));
+function settledPlans(plans: readonly AnchorPlan[], { kept, filtered, linesIntact, notOnBranch }: SymbolFilterResult & LineJudgement, { tasksById, located, facts }: ProjectContext): AnchorPlan[] {
+  const untouchable = new Set([...kept.map((candidate) => candidate.task.id), ...notOnBranch]);
   const relocations = new Map(
-    filtered.flatMap(({ task: id }): [string, AnchorPlan][] => {
+    [...filtered.map((sighting) => sighting.task), ...linesIntact].flatMap((id): [string, AnchorPlan][] => {
       const task = tasksById.get(id);
       const current = located.get(id);
       const plan = task === undefined || current === null || current === undefined ? null : relocationPlan(task, current, facts);
       return plan === null ? [] : [[id, plan]];
     }),
   );
-  return [...plans.filter((plan) => !flagged.has(plan.id) && !relocations.has(plan.id)), ...relocations.values()];
+  return [...plans.filter((plan) => !untouchable.has(plan.id) && !relocations.has(plan.id)), ...relocations.values()];
 }
 
 async function withContext(candidate: Candidate, { tasksById, located, facts, diffOf }: ProjectContext): Promise<Candidate> {

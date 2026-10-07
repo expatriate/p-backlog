@@ -23,6 +23,15 @@ export function sourceRange(source: string | undefined): LineRange | null {
   return span === null ? null : { from: span.first, to: span.last };
 }
 
+export function anchorRange(source: string): LineRange | null {
+  const span = sourceSpan(source);
+  return span === null ? null : { from: Math.max(1, span.first - span.context), to: span.last + span.context };
+}
+
+export function locateAnchor(text: string, source: string, anchor: string): string | null {
+  return anchorOf(text, source) === anchor ? source : findMoved(text, source, anchor);
+}
+
 export function isAnchorFor(anchor: string, source: string): boolean {
   const parsed = parseAnchor(anchor);
   const span = sourceSpan(source);

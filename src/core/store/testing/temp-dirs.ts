@@ -35,8 +35,12 @@ export function gitMergeSquash(repo: string, branch: string): void {
   execFileSync("git", ["-c", "user.name=backlog-test", "-c", "user.email=test@backlog.local", "merge", "--squash", "-q", branch], { cwd: repo });
 }
 
-export function gitCheckout(repo: string, branch: string, { create = false }: { create?: boolean } = {}): void {
-  execFileSync("git", ["checkout", "-q", ...(create ? ["-b"] : []), branch], { cwd: repo });
+export function gitCheckout(repo: string, branch: string, { create = false, at }: { create?: boolean; at?: string } = {}): void {
+  execFileSync("git", ["checkout", "-q", ...(create ? ["-b"] : []), branch], { cwd: repo, env: at === undefined ? process.env : { ...process.env, GIT_COMMITTER_DATE: at } });
+}
+
+export function gitMergeFastForward(repo: string, branch: string, isoDate: string): void {
+  execFileSync("git", ["merge", "-q", "--ff-only", branch], { cwd: repo, env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
 }
 
 export function gitAddWorktree(repo: string, path: string, branch: string): void {

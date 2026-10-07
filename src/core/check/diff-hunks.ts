@@ -68,6 +68,23 @@ function withAddedLine(run: ChangeRun | null, line: number): ChangeRun {
   return { range: { from: run?.added === true ? run.range.from : line, to: line }, added: true };
 }
 
+export function modifiesLines(hunks: readonly Hunk[], lines: LineRange): boolean {
+  return hunks.some((hunk) => {
+    let oldLine = hunk.oldFirst;
+    for (const line of hunk.lines) {
+      if (line.startsWith("-")) {
+        if (oldLine >= lines.from && oldLine <= lines.to) return true;
+        oldLine++;
+      } else if (line.startsWith("+")) {
+        if (oldLine > lines.from && oldLine <= lines.to) return true;
+      } else if (line.startsWith(" ")) {
+        oldLine++;
+      }
+    }
+    return false;
+  });
+}
+
 export function currentLine(hunks: readonly Hunk[], oldLine: number): number {
   let shift = 0;
   for (const hunk of hunks) {
