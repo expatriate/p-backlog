@@ -3,15 +3,13 @@ import { runGit, type GitRunner } from "../git/run";
 import { expandHome } from "../store/paths";
 import { remembered } from "../remembered";
 import { cachePersistence } from "./cache-persistence";
-import type { CodeCacheStore } from "./code-cache";
+import type { CodeCacheErrorKind, CodeCacheStore } from "./code-cache";
 import { emptyCodeMemory, fixCacheKey, forgetStaleFixes, keepOnlyRepos, needsReading, rememberFix, type CodeMemory } from "./code-memory";
 import { fixKey } from "./fix-key";
 import { readRefs, type RepoRefs } from "./git-code";
 import { readFixCommits } from "./git-fixes";
 import { repoCodeOf, scanRepo } from "./repo-scan";
 import type { FixCommit, FixRequest, ProjectCode, RepoCode, ScannedCode } from "./types";
-
-export type CodeCacheErrorKind = "read" | "write";
 
 export type CodeSourceOptions = { home: string; git?: GitRunner; store?: CodeCacheStore; onError?: (kind: CodeCacheErrorKind, error: unknown) => void };
 
@@ -26,7 +24,7 @@ type FixRepo = { repo: string; main: string | null };
 
 export function createCodeSource({ home, git = runGit, store, onError = () => {} }: CodeSourceOptions): CodeSource {
   const memory = emptyCodeMemory();
-  const cache = cachePersistence(memory, store, { read: (error) => onError("read", error), write: (error) => onError("write", error) });
+  const cache = cachePersistence(memory, store, onError);
   const repoCode = repoReader(git, memory);
   let retainedRepos: ReadonlySet<string> | null = null;
   const persist = () => {

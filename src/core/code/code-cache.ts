@@ -9,6 +9,8 @@ const CODE_CACHE_VERSION = 2;
 
 export type CodeCacheSnapshot = { repos: Record<string, RepoScan>; fixes: Record<string, FixCommit>; unsettled: Record<string, string | null> };
 
+export type CodeCacheErrorKind = "read" | "write";
+
 export type CodeCacheStore = { read: () => Promise<CodeCacheSnapshot>; write: (snapshot: CodeCacheSnapshot) => Promise<void> };
 
 const repoScanSchema: z.ZodType<RepoScan> = z.object({
