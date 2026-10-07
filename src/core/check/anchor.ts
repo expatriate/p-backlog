@@ -25,7 +25,7 @@ export function sourceRange(source: string | undefined): LineRange | null {
 
 export function anchorRange(source: string): LineRange | null {
   const span = sourceSpan(source);
-  return span === null ? null : { from: Math.max(1, span.first - span.context), to: span.last + span.context };
+  return span === null ? null : withContext(span);
 }
 
 export function locateAnchor(text: string, source: string, anchor: string): string | null {
@@ -36,7 +36,8 @@ export function isAnchorFor(anchor: string, source: string): boolean {
   const parsed = parseAnchor(anchor);
   const span = sourceSpan(source);
   if (parsed === null || span === null) return false;
-  return parsed.from === Math.max(1, span.first - span.context) && parsed.to >= span.first && parsed.to <= span.last + span.context;
+  const { from, to } = withContext(span);
+  return parsed.from === from && parsed.to >= span.first && parsed.to <= to;
 }
 
 export function findMoved(text: string, source: string, anchor: string): string | null {
@@ -86,7 +87,12 @@ function sourceSpan(source: string): SourceSpan | null {
 
 function windowOf(span: SourceSpan, lineCount: number): LineRange | null {
   if (span.first > lineCount) return null;
-  return { from: Math.max(1, span.first - span.context), to: Math.min(lineCount, span.last + span.context) };
+  const { from, to } = withContext(span);
+  return { from, to: Math.min(lineCount, to) };
+}
+
+function withContext(span: SourceSpan): LineRange {
+  return { from: Math.max(1, span.first - span.context), to: span.last + span.context };
 }
 
 function parseAnchor(anchor: string): (LineRange & { hash: string }) | null {
