@@ -1,9 +1,9 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import type { BatchRequest } from "../../core/api/contract";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import type { TestApp } from "../../server/testing/test-app";
-import { accessDenied, interceptApi, renderApp, type RenderedApp } from "../testing/render-app";
+import { renderApp, type RenderedApp } from "../testing/render-app";
+import { recordBatches, select } from "../testing/task-list";
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),
@@ -12,24 +12,6 @@ const FILES = {
   "spa/SPA-7.md": taskFile("SPA-7", { title: "Кэш превью" }),
   "spa/SPA-10.md": taskFile("SPA-10", { title: "Загрузка файлов", type: "epic" }),
 };
-
-type FailWhen = (body: BatchRequest, attempt: number) => boolean;
-
-function recordBatches(failWhen: FailWhen = () => false) {
-  const sent: BatchRequest[] = [];
-  const beforeRender = interceptApi(async (path, init, passOn) => {
-    if (path !== "/api/tasks/batch") return passOn();
-    const body = JSON.parse(String(init?.body)) as BatchRequest;
-    sent.push(body);
-    return failWhen(body, sent.length) ? accessDenied() : passOn();
-  });
-  return { sent, beforeRender };
-}
-
-async function select(app: RenderedApp, ...ids: string[]) {
-  await screen.findAllByRole("row");
-  for (const id of ids) await app.user.click(screen.getByRole("checkbox", { name: `Выбрать ${id}` }));
-}
 
 async function changeBehindTheList(app: RenderedApp, id: string) {
   await app.json(`/api/tasks/${id}`, "PATCH", { version: await app.taskVersion(id), changes: { title: "Правка агента" } });

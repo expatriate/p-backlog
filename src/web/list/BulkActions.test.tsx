@@ -2,13 +2,13 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { BatchRequest } from "../../core/api/contract";
 import { EXIT } from "../../cli/io";
 import { runCli } from "../../cli/run";
 import { baseCliEnv } from "../../cli/testing/cli-harness";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import type { TestApp } from "../../server/testing/test-app";
-import { accessDenied, interceptApi, renderApp, type RenderedApp } from "../testing/render-app";
+import { accessDenied, interceptApi, renderApp } from "../testing/render-app";
+import { recordBatches, select } from "../testing/task-list";
 import { hoverNone } from "../testing/setup";
 
 const FILES = {
@@ -32,20 +32,6 @@ function holdBatches(answer: "ok" | "server-error") {
     return response;
   });
   return { release, answered, beforeRender };
-}
-
-function recordBatches() {
-  const sent: BatchRequest[] = [];
-  const beforeRender = interceptApi(async (path, init, passOn) => {
-    if (path === "/api/tasks/batch") sent.push(JSON.parse(String(init?.body)) as BatchRequest);
-    return passOn();
-  });
-  return { sent, beforeRender };
-}
-
-async function select(app: RenderedApp, ...ids: string[]) {
-  await screen.findAllByRole("row");
-  for (const id of ids) await app.user.click(screen.getByRole("checkbox", { name: `Выбрать ${id}` }));
 }
 
 const panel = (name = "Действия с выбранными") => screen.getByRole("region", { name });
