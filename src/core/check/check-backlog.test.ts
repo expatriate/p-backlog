@@ -26,6 +26,10 @@ function task(id: string, fields = ""): string {
   return `---\nid: ${id}\ntitle: Задача ${id}\ncreated: 2026-09-11T10:00:00+03:00\n${fields}---\n`;
 }
 
+function sameProblemTask(id: string, fields = ""): string {
+  return task(id, fields).replace(`Задача ${id}`, "Таймаут загрузки не учитывает размер файла");
+}
+
 async function setup() {
   const home = await makeTempDir();
   const root = join(home, "backlog");
@@ -41,8 +45,8 @@ async function setup() {
     "spa/SPA-1.md": task("SPA-1", "source: src/upload.ts:10\n"),
     "spa/SPA-2.md": task("SPA-2", "source: src/legacy.ts:5\n"),
     "spa/SPA-3.md": task("SPA-3", "source: src/queue.ts:1\n"),
-    "spa/SPA-4.md": task("SPA-4").replace("Задача SPA-4", "Таймаут загрузки не учитывает размер файла"),
-    "spa/SPA-5.md": task("SPA-5").replace("Задача SPA-5", '"Загрузка: таймаут не учитывает большие файлы"'),
+    "spa/SPA-4.md": sameProblemTask("SPA-4"),
+    "spa/SPA-5.md": task("SPA-5").replace("Задача SPA-5", '"Загрузка: таймаут не учитывает размер файла"'),
     "spa/SPA-6.md": task("SPA-6", "status: in-progress\nsource: src/upload.ts:1\n"),
     "spa/SPA-7.md": task("SPA-7", "type: epic\n"),
     "spa/SPA-8.md": task("SPA-8", "epic: SPA-7\nstatus: done\nclosed: 2026-09-12T10:00:00+03:00\n"),
@@ -322,8 +326,8 @@ describe("checkBacklog", () => {
     const created = (id: string) => JSON.stringify({ at: "2026-09-11T10:00:00+03:00", task: id, via: "cli", kind: "created", type: "task", priority: "medium", tags: [], source: "src/n.ts:1", origin });
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA", [repo]),
-      "spa/SPA-1.md": task("SPA-1", "source: src/n.ts:1\n"),
-      "spa/SPA-2.md": task("SPA-2", "source: src/n.ts:1\n"),
+      "spa/SPA-1.md": sameProblemTask("SPA-1", "source: src/n.ts:1\n"),
+      "spa/SPA-2.md": sameProblemTask("SPA-2", "source: src/n.ts:1\n"),
       "spa/journal.jsonl": `${created("SPA-1")}\n${created("SPA-2")}\n`,
     });
 
@@ -388,7 +392,7 @@ describe("checkBacklog", () => {
       { kind: "source-missing", task: { id: "SPA-2", title: "Задача SPA-2" }, path: "src/legacy.ts" },
       {
         kind: "duplicate",
-        task: { id: "SPA-5", title: "Загрузка: таймаут не учитывает большие файлы" },
+        task: { id: "SPA-5", title: "Загрузка: таймаут не учитывает размер файла" },
         other: { id: "SPA-4", title: "Таймаут загрузки не учитывает размер файла" },
         match: "title",
       },
@@ -486,8 +490,8 @@ describe("checkBacklog", () => {
     const root = join(home, "backlog");
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),
-      "spa/SPA-1.md": task("SPA-1", "source: src/a.ts:1\n"),
-      "spa/SPA-2.md": task("SPA-2", "source: src/a.ts:1\n"),
+      "spa/SPA-1.md": sameProblemTask("SPA-1", "source: src/a.ts:1\n"),
+      "spa/SPA-2.md": sameProblemTask("SPA-2", "source: src/a.ts:1\n"),
     });
 
     const first = await check(root, home, "full");
@@ -516,9 +520,9 @@ describe("checkBacklog", () => {
     const root = join(home, "backlog");
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),
-      "spa/SPA-1.md": task("SPA-1", "source: src/a.ts:1\n"),
-      "spa/SPA-2.md": task("SPA-2", "source: src/a.ts:1\n"),
-      "spa/SPA-3.md": task("SPA-3", "source: src/a.ts:1\n"),
+      "spa/SPA-1.md": sameProblemTask("SPA-1", "source: src/a.ts:1\n"),
+      "spa/SPA-2.md": sameProblemTask("SPA-2", "source: src/a.ts:1\n"),
+      "spa/SPA-3.md": sameProblemTask("SPA-3", "source: src/a.ts:1\n"),
     });
 
     await check(root, home, "full");

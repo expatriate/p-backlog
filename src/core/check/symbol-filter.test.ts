@@ -112,7 +112,7 @@ describe("symbolNames", () => {
       },
       close: () => undefined,
     };
-    const tasks = ["SPA-1", "SPA-2", "SPA-3"].map((id, index) => makeTask({ id, title: `Задача ${id}`, source: `src/upload.ts:${index + 1}` }));
+    const tasks = ["SPA-1", "SPA-2", "SPA-3"].map((id, index) => makeTask({ id, title: "Загрузка обрывается на последнем шаге", source: `src/upload.ts:${index + 1}` }));
 
     const duplicates = duplicateCandidates(tasks, symbolNames(symbolLookup(counting, fileHashes(repo)), declaredSources(tasks)));
 
@@ -120,7 +120,7 @@ describe("symbolNames", () => {
     expect(asked).toBe(3);
   });
 
-  it("строки тела класса вне его методов — не дубль по символу: класс слишком широк", async () => {
+  it("строки тела класса вне его методов — не один символ: класс слишком широк", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     const text = ["class Upload {", "  size = 0;", "  retries = 3;", "  send() {", "    return 1;", "  }", "}", ""].join("\n");
     await writeFiles(repo, { "src/upload.ts": text });
@@ -135,13 +135,16 @@ describe("symbolNames", () => {
       },
     ]);
     const graph = openCodeGraph(repo);
-    const tasks = [makeTask({ id: "SPA-1", title: "Размер не сбрасывается", source: "src/upload.ts:2" }), makeTask({ id: "SPA-2", title: "Число повторов захардкожено", source: "src/upload.ts:3" })];
+    const tasks = [
+      makeTask({ id: "SPA-1", title: "Размер загрузки не сбрасывается между попытками", source: "src/upload.ts:2" }),
+      makeTask({ id: "SPA-2", title: "Размер загрузки остаётся от прошлой попытки", source: "src/upload.ts:3" }),
+    ];
 
-    expect(duplicateCandidates(tasks, symbolNames(symbolLookup(graph, fileHashes(repo)), declaredSources(tasks)))).toEqual([]);
+    expect(duplicateCandidates(tasks, symbolNames(symbolLookup(graph, fileHashes(repo)), declaredSources(tasks)))).toMatchObject([{ match: "title" }]);
     graph?.close();
   });
 
-  it("одноимённые методы разных классов одного файла — разные символы, а не дубль", async () => {
+  it("одноимённые методы разных классов одного файла — разные символы", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     const text = ["class A {", "  render() {", "    return 1;", "  }", "}", "class B {", "  render() {", "    return 2;", "  }", "}", ""].join("\n");
     await writeFiles(repo, { "src/view.ts": text });
@@ -157,9 +160,12 @@ describe("symbolNames", () => {
       },
     ]);
     const graph = openCodeGraph(repo);
-    const tasks = [makeTask({ id: "SPA-1", title: "Отрисовка A", source: "src/view.ts:3" }), makeTask({ id: "SPA-2", title: "Счётчик B", source: "src/view.ts:8" })];
+    const tasks = [
+      makeTask({ id: "SPA-1", title: "Отрисовка списка теряет выделенную строку", source: "src/view.ts:3" }),
+      makeTask({ id: "SPA-2", title: "Отрисовка списка сбрасывает выделенную строку", source: "src/view.ts:8" }),
+    ];
 
-    expect(duplicateCandidates(tasks, symbolNames(symbolLookup(graph, fileHashes(repo)), declaredSources(tasks)))).toEqual([]);
+    expect(duplicateCandidates(tasks, symbolNames(symbolLookup(graph, fileHashes(repo)), declaredSources(tasks)))).toMatchObject([{ match: "title" }]);
     graph?.close();
   });
 });

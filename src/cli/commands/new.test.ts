@@ -13,13 +13,14 @@ describe("backlog new", () => {
     const { run } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Таймаут загрузки не учитывает размер файла", "--source", "src/upload.ts:88"]);
 
-    const sameSource = await run(["new", "--category", "bug", "--title", "Совсем другое описание", "--source", "src/upload.ts:88"]);
+    const sameSourceArgs = ["new", "--category", "bug", "--title", "Таймаут загрузки фиксирован и не учитывает размер", "--source", "src/upload.ts:88"];
+    const sameSource = await run(sameSourceArgs);
     const sameTitle = await run(["new", "--category", "bug", "--title", "Загрузка: таймаут не учитывает размер файла"]);
 
     expect(sameSource).toMatchObject({ code: EXIT.refused, out: "" });
     expect(sameSource.err).toBe("Похоже на SPA-1 — «Таймаут загрузки не учитывает размер файла» (тот же source). Если это другая задача — добавьте --force");
     expect(sameTitle.err).toContain("(похожий заголовок)");
-    expect((await run(["new", "--category", "bug", "--title", "Совсем другое описание", "--source", "src/upload.ts:88", "--force"])).code).toBe(EXIT.ok);
+    expect((await run([...sameSourceArgs, "--force"])).code).toBe(EXIT.ok);
 
     await run(["status", "SPA-1", "cancelled"]);
     expect((await run(["new", "--category", "bug", "--title", "Загрузка: таймаут не учитывает размер файла"])).code).toBe(EXIT.ok);
