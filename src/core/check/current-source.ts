@@ -1,3 +1,4 @@
+import { runGit } from "../git/run";
 import type { Task } from "../model/types";
 import { anchorOf, anchorRange, locateAnchor, remappedSource } from "./anchor";
 import { changesSince, reviewMark } from "./candidates";
@@ -18,7 +19,8 @@ const LATER_COMMITS_TO_SEARCH = 5;
 const UNTRACED: SourceTrace = { kind: "untraced" };
 
 export function repoDiffs(repo: string): FileDiffs {
-  return { since: diffsSince(repo), from: diffsFrom(repo), headAt: headsOnThisLine(repo) };
+  const from = diffsFrom(repo);
+  return { since: diffsSince(repo, runGit, from), from, headAt: headsOnThisLine(repo) };
 }
 
 export async function traceSources(tasks: readonly Task[], facts: RepoFacts, diffs: FileDiffs): Promise<SourceTraces> {

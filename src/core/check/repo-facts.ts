@@ -95,9 +95,8 @@ export type DiffSince = (path: string, since: Date) => Promise<FileDiff | null>;
 
 export type DiffFrom = (path: string, commit: string) => Promise<FileDiff | null>;
 
-export function diffsSince(repo: string, git: GitRunner = runGit): DiffSince {
+export function diffsSince(repo: string, git: GitRunner = runGit, diffFrom: DiffFrom = diffsFrom(repo, git)): DiffSince {
   const bases = new Map<number, Promise<string | null>>();
-  const diffFrom = diffsFrom(repo, git);
   const baseBefore = (since: Date): Promise<string | null> =>
     remembered(bases, since.getTime(), async () => {
       const base = (await git(repo, ["rev-list", "-1", "--first-parent", `--before=${since.toISOString()}`, "HEAD"]))?.trim() ?? "";
