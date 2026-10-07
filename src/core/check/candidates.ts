@@ -66,7 +66,7 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts, knownM
   const path = sourcePath(task.source);
   const mark = reviewMark(task);
   if (!facts.existing.has(path)) {
-    return [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.renames, mark) }];
+    return livesOnAnotherBranch(path, facts, mark) ? [] : [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.renames, mark) }];
   }
   if (anchor.kind === "same" || anchor.kind === "moved") return [];
   const { commits: changed, uncommitted } = changesSince(facts, path, mark);
@@ -114,6 +114,11 @@ function anchorState(task: Task, facts: RepoFacts): AnchorState {
   const moved = findMoved(text, task.source, task.anchor);
   const movedAnchor = moved === null ? null : anchorOf(text, moved);
   return moved === null || movedAnchor === null ? { kind: "changed" } : { kind: "moved", source: moved, anchor: movedAnchor };
+}
+
+function livesOnAnotherBranch(path: string, facts: RepoFacts, mark: number): boolean {
+  const removedHere = changesSince(facts, path, mark).commits.length > 0 || [...facts.removedInWorktree].some((file) => isWithin(file, path));
+  return !removedHere && [...facts.inHistory].some((file) => isWithin(file, path));
 }
 
 function followRenames(path: string, commits: readonly Commit[], mark: number): string | undefined {

@@ -312,6 +312,48 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", commits: expect.arrayContaining([expect.objectContaining({ subject: "Слить feat" })]) })]);
   });
 
+  it("файла задачи нет только в текущей ветке — кандидата «файл пропал» нет", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFiles(repo, { "src/n.ts": "n1\n" });
+    gitCommitAll(repo, "Фича добавляет n", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/n.ts:1\n") });
+    gitCheckout(repo, "master");
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([]);
+  });
+
+  it("файл удалён коммитом после отметки, удалён в рабочем дереве или никогда не был в git — кандидат «файл пропал»", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/deleted.ts": "d1\n", "src/dirty.ts": "w1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    await rm(join(repo, "src/deleted.ts"));
+    gitCommitAll(repo, "Удалить deleted", "2026-09-12T10:00:00+03:00");
+    await rm(join(repo, "src/dirty.ts"));
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": task("SPA-1", "source: src/deleted.ts:1\n"),
+      "spa/SPA-2.md": task("SPA-2", "source: src/dirty.ts:1\n"),
+      "spa/SPA-3.md": task("SPA-3", "source: src/never.ts:1\n"),
+    });
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates.map((candidate) => [candidate.kind, candidate.task.id])).toEqual([
+      ["source-missing", "SPA-1"],
+      ["source-missing", "SPA-2"],
+      ["source-missing", "SPA-3"],
+    ]);
+  });
+
   it("дубль задачи не слитой ветки показан и записан в журнал, хотя её кандидаты по коду ждут слияния", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");

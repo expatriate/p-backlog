@@ -83,7 +83,16 @@ describe("collectRepoFacts", () => {
 
     const facts = await collectRepoFacts(dir, marksSince("2026-09-11T00:00:00Z", ["src/a.ts", "src/b.ts"]));
 
-    expect(facts).toEqual({ history: "not-a-repo", commits: [], renames: [], dirtyModifiedAt: new Map(), existing: new Set(["src/a.ts"]), texts: new Map([["src/a.ts", ""]]) });
+    expect(facts).toEqual({
+      history: "not-a-repo",
+      commits: [],
+      renames: [],
+      dirtyModifiedAt: new Map(),
+      removedInWorktree: new Set(),
+      inHistory: new Set(),
+      existing: new Set(["src/a.ts"]),
+      texts: new Map([["src/a.ts", ""]]),
+    });
   });
 
   it("не переписывает индекс git: сбор фактов не берёт index.lock, пока с репозиторием работает пользователь", async () => {

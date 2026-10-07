@@ -16,7 +16,7 @@ function commit(sha: string, date: string, files: Commit["files"]): Commit {
 }
 
 function facts(overrides: Partial<RepoFacts>): RepoFacts {
-  return { history: "read", commits: [], renames: [], dirtyModifiedAt: new Map(), existing: new Set(), texts: new Map(), ...overrides };
+  return { history: "read", commits: [], renames: [], dirtyModifiedAt: new Map(), removedInWorktree: new Set(), inHistory: new Set(), existing: new Set(), texts: new Map(), ...overrides };
 }
 
 describe("isReviewable и sourcePath", () => {
