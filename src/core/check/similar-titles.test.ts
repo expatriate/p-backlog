@@ -24,6 +24,10 @@ describe("similarTitles", () => {
   it("короткие слова не считаются", () => {
     expect(similar("Нет API для CSV", "Нет API для XML")).toBe(false);
   });
+
+  it("дата или версия — не слово: группы ревью одного дня не похожи из-за неё", () => {
+    expect(similar("Мелочи ревью 28.09: сервер и статистика", "Мелочи ревью 28.09: проверка и тесты")).toBe(false);
+  });
 });
 
 describe("nearlySameTitles", () => {
@@ -35,5 +39,10 @@ describe("nearlySameTitles", () => {
   it("короткие слова различают почти одинаковые заголовки", () => {
     expect(nearlySame("Мелочи ревью: CLI", "Мелочи ревью: API")).toBe(false);
     expect(nearlySame("Задача SPA-3", "Задача SPA-9")).toBe(false);
+  });
+
+  it("номер версии сравнивается целиком: группы ревью соседних версий — разные заголовки", () => {
+    expect(nearlySame("Мелочи ревью: grafana-faro-wrapper 0.3.0", "Мелочи ревью: grafana-faro-wrapper 0.3.1")).toBe(false);
+    expect(nearlySame("Мелочи ревью: grafana-faro-wrapper 1.2.10", "Мелочи ревью: grafana-faro-wrapper 1.2.11")).toBe(false);
   });
 });
