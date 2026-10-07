@@ -54,23 +54,14 @@ const exitCode = await runCli(argv, {
 });
 process.exitCode = exitCode;
 
-async function recordRun(): Promise<string | null> {
-  try {
-    await appendRun(backlogRoot, {
-      at: formatLocalIso(new Date()),
-      command: commandName(argv),
-      cwd: process.cwd(),
-      ms: Math.round(performance.now()),
-      rssMb: megabytesOf(process.resourceUsage().maxRSS * BYTES_PER_KILOBYTE),
-      exitCode,
-    });
-    return null;
-  } catch (error) {
-    return errorText(error);
-  }
-}
-
-const runFailure = await recordRun();
+const run = {
+  at: formatLocalIso(new Date()),
+  command: commandName(argv),
+  cwd: process.cwd(),
+  ms: Math.round(performance.now()),
+  rssMb: megabytesOf(process.resourceUsage().maxRSS * BYTES_PER_KILOBYTE),
+  exitCode,
+};
 const language = await readLanguageOrLocale(backlogRoot, process.env);
-if (runFailure !== null) warn(cliMessages(language).runNotRecorded(runFailure));
+await appendRun(backlogRoot, run).catch((error: unknown) => warn(cliMessages(language).runNotRecorded(errorText(error))));
 await tidyAfterCommand({ backlogRoot, argv, language, now: new Date(), warn });
