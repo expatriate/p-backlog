@@ -4,7 +4,7 @@ import { expandHome } from "../store/paths";
 import { remembered } from "../remembered";
 import { cachePersistence } from "./cache-persistence";
 import type { CodeCacheStore } from "./code-cache";
-import { dropStaleFixes, emptyCodeMemory, fixCacheKey, keepOnlyRepos, needsReading, rememberFix, type CodeMemory } from "./code-memory";
+import { emptyCodeMemory, fixCacheKey, forgetStaleFixes, keepOnlyRepos, needsReading, rememberFix, type CodeMemory } from "./code-memory";
 import { fixKey } from "./fix-key";
 import { readRefs, type RepoRefs } from "./git-code";
 import { readFixCommits } from "./git-fixes";
@@ -71,7 +71,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
           if (commit !== undefined) found.set(fixKey(projectId, hash), commit);
         }
       }
-      dropStaleFixes(memory, now, requested);
+      forgetStaleFixes(memory, now, requested);
       await persist();
       return found;
     },

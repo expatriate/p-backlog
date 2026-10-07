@@ -40,7 +40,7 @@ export function rememberFix({ fixes, unsettledCheckedAt }: CodeMemory, key: stri
   fixes.set(key, commit);
 }
 
-export function dropStaleFixes(memory: CodeMemory, now: Date, requested: ReadonlySet<string>): void {
+export function forgetStaleFixes(memory: CodeMemory, now: Date, requested: ReadonlySet<string>): void {
   const oldest = churnWindowStart(now).getTime();
   for (const [key, commit] of memory.fixes) {
     if (requested.has(key) || Date.parse(commit.date) >= oldest) continue;
