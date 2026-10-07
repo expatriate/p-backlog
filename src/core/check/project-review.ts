@@ -100,18 +100,17 @@ function judgedByLines(candidates: readonly Candidate[], traces: SourceTraces): 
 
 async function withRenamesFollowed(review: CodeReview, tasks: readonly Task[], repo: string): Promise<CodeReview> {
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
-  const followed = await Promise.all(
+  const renamePlans = await Promise.all(
     review.candidates.map(async (candidate) => {
       const task = tasksById.get(candidate.task.id);
-      if (candidate.kind !== "source-missing" || candidate.renamedTo === undefined || task === undefined) return { candidate };
+      if (candidate.kind !== "source-missing" || candidate.renamedTo === undefined || task === undefined) return null;
       const text = await readFile(join(repo, candidate.renamedTo), "utf8").catch(() => null);
-      const plan = text === null ? null : renamePlan(task, candidate.renamedTo, text);
-      return plan === null ? { candidate } : { plan };
+      return text === null ? null : renamePlan(task, candidate.renamedTo, text);
     }),
   );
   return {
-    candidates: followed.flatMap((item) => ("candidate" in item ? [item.candidate] : [])),
-    plans: [...review.plans, ...followed.flatMap((item) => ("plan" in item ? [item.plan] : []))],
+    candidates: review.candidates.filter((_, index) => renamePlans[index] === null),
+    plans: [...review.plans, ...renamePlans.filter((plan) => plan !== null)],
   };
 }
 
