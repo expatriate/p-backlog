@@ -5,7 +5,7 @@ import { readJsonFile, writeFileAtomic } from "../store/fs-utils";
 import type { RepoScan } from "./repo-scan";
 
 export const CODE_CACHE_FILE = ".code-cache.json";
-const CODE_CACHE_VERSION = 2;
+const CODE_CACHE_VERSION = 3;
 
 export type CodeCacheSnapshot = { repos: Record<string, RepoScan>; fixes: Record<string, FixCommit>; unsettled: Record<string, string | null> };
 

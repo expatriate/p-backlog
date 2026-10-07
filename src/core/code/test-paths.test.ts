@@ -13,4 +13,8 @@ describe("тестовые файлы", () => {
       expect(isTestPath(path), path).toBe(false);
     }
   });
+
+  it("узнаёт тест с несколькими расширениями, как обещает маска *.test.*", () => {
+    expect(isTestPath("src/__snapshots__/button.test.tsx.snap")).toBe(true);
+  });
 });
