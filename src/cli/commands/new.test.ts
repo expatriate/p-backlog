@@ -23,6 +23,7 @@ describe("backlog new", () => {
     expect((await run([...sameSourceArgs, "--force"])).code).toBe(EXIT.ok);
 
     await run(["status", "SPA-1", "cancelled"]);
+    await run(["status", "SPA-2", "cancelled"]);
     expect((await run(["new", "--category", "bug", "--title", "Загрузка: таймаут не учитывает размер файла"])).code).toBe(EXIT.ok);
   });
 
