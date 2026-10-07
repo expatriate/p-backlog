@@ -3,7 +3,7 @@ import type { CheckFix, CheckProblem } from "../check/findings";
 import type { GraphState } from "../check/graph-health";
 import { lineSuffix } from "../model/source";
 import { formatDayMonth, formatDecimal } from "../i18n/format";
-import { countEn, NBSP, pluralEn } from "../i18n/plural";
+import { countEn, pluralEn } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
@@ -88,8 +88,7 @@ function count(n: number, unit: CountUnit): string {
 function days(value: number | null): string {
   if (value === null) return "—";
   if (value < 1) return "less than a day";
-  const rounded = Math.round(value);
-  return `${rounded}${NBSP}${pluralEn(rounded, ...COUNT_FORMS.day)}`;
+  return count(Math.round(value), "day");
 }
 
 function p90(value: number | null): string {
