@@ -85,7 +85,10 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
     for (const problem of result.problems) io.warn(io.core.problem(problem));
     return EXIT.invalid;
   }
-  io.print(values.json ? JSON.stringify(taskJson(result.task, buildIndex([...loaded.tasks, result.task])), null, 2) : `${result.task.id} ${result.task.path}`);
+  const { task, reopenedEpic } = result;
+  if (reopenedEpic !== undefined) io.warn(io.cli.epicReopened(reopenedEpic.id));
+  const tasks = [...loaded.tasks.map((candidate) => (candidate.id === reopenedEpic?.id ? reopenedEpic : candidate)), task];
+  io.print(values.json ? JSON.stringify(taskJson(task, buildIndex(tasks)), null, 2) : `${task.id} ${task.path}`);
   return EXIT.ok;
 }
 

@@ -44,8 +44,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
     try {
       await createFileAtomic(path, text);
       await appendJournal(dir, [createdEvent(task, request.now, request.via, request.provenance)]);
-      await reopenEpicOfOpenedTask(index, { before: undefined, after: task }, request);
-      return { ok: true, task };
+      return { ok: true, task, reopenedEpic: await reopenEpicOfOpenedTask(index, { before: undefined, after: task }, request) };
     } catch (error) {
       if (!hasErrorCode(error, "EEXIST")) throw error;
     }

@@ -239,4 +239,18 @@ describe("backlog new", () => {
     expect(created.err).toContain("У бага нет --source");
     expect((await run(["new", "--category", "bug", "--title", "Другой", "--source", "src/a.ts:1"])).err).toBe("");
   });
+
+  it("задача в эпике, закрытом самим, сообщает, что эпик снова открыт, и --json показывает его открытым", async () => {
+    const { run } = await makeCliSandbox();
+    await run(["new", "--type", "epic", "--title", "Эпик"]);
+    await run(["new", "--category", "dispensables", "--title", "Задача эпика", "--epic", "SPA-1"]);
+    await run(["status", "SPA-2", "done"]);
+    await run(["check"]);
+
+    const created = await run(["new", "--category", "dispensables", "--title", "Ещё одна задача", "--epic", "SPA-1", "--json"]);
+
+    expect(created).toMatchObject({ code: EXIT.ok, err: "Эпик SPA-1 снова открыт — в нём появилась открытая задача" });
+    expect(JSON.parse(created.out)).toMatchObject({ epicTask: { id: "SPA-1", status: "backlog" } });
+    expect(JSON.parse(created.out)).toEqual(JSON.parse((await run(["show", "SPA-3", "--json"])).out));
+  });
 });
