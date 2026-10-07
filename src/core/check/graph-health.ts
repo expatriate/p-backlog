@@ -1,4 +1,4 @@
-import { hasCodeGraph, openCodeGraph, type CodeGraph } from "../code-review-graph/graph-db";
+import { hasCodeGraph, openCodeGraph, type CodeGraph, type GraphFileState } from "../code-review-graph/graph-db";
 import type { Project, Task } from "../model/types";
 import { sourceRange } from "./anchor";
 import { isReviewable, sourcePaths } from "./candidates";
@@ -8,8 +8,6 @@ import { fileHashes, symbolLookup, symbolOfSource, type FileHashes } from "./sym
 export type GraphState = "none" | "unreadable" | "stale" | "fresh";
 
 export type GraphHealth = { state: GraphState; pinned: number; resolved: number };
-
-type SourceFileState = ReturnType<CodeGraph["fileState"]>;
 
 export async function projectGraphHealth(project: Project, tasks: readonly Task[], home: string): Promise<GraphHealth> {
   return graphHealth(
@@ -35,10 +33,10 @@ export function graphHealth(repo: string | undefined, tasks: readonly Task[]): G
 }
 
 function isStale(graph: CodeGraph, pinned: readonly Task[], hashOf: FileHashes): boolean {
-  const states = sourcePaths(pinned).map((path): SourceFileState => {
+  const states = sourcePaths(pinned).map((path): GraphFileState => {
     const hash = hashOf(path);
     return hash === null ? "absent" : graph.fileState(path, hash);
   });
-  const count = (state: SourceFileState) => states.filter((candidate) => candidate === state).length;
+  const count = (state: GraphFileState) => states.filter((candidate) => candidate === state).length;
   return count("changed") > count("fresh");
 }

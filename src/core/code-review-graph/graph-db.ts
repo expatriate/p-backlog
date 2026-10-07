@@ -4,7 +4,7 @@ import type { DatabaseSync, StatementSync } from "node:sqlite";
 
 export type GraphSymbol = { qualifiedName: string; kind: string; from: number; to: number };
 
-type GraphFileState = "fresh" | "changed" | "absent";
+export type GraphFileState = "fresh" | "changed" | "absent";
 
 export type CodeGraph = {
   fileState(path: string, fileHash: string): GraphFileState;
