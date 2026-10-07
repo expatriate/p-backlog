@@ -8,7 +8,7 @@ import { baseCliEnv } from "../../cli/testing/cli-harness";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import type { TestApp } from "../../server/testing/test-app";
 import { accessDenied, interceptApi, renderApp } from "../testing/render-app";
-import { recordBatches, select } from "../testing/task-list";
+import { closeSelected, recordBatches, select } from "../testing/task-list";
 import { hoverNone } from "../testing/setup";
 
 const FILES = {
@@ -126,10 +126,7 @@ describe("панель массовых действий", () => {
     };
     const app = await renderApp(FILES, "/", undefined, { beforeRender: closeViaCli });
     await select(app, "SPA-1", "SPA-3");
-    await app.user.click(within(panel()).getByRole("button", { name: "Закрыть как неактуальные" }));
-    const dialog = screen.getByRole("dialog");
-    await app.user.type(within(dialog).getByRole("textbox", { name: "Причина" }), "не нужно");
-    await app.user.click(within(dialog).getByRole("button", { name: "Закрыть 2" }));
+    await closeSelected(app, "не нужно");
     await waitFor(() => expect(screen.queryByText("Разобрать очередь")).toBeNull());
 
     const autoChip = within(screen.getByRole("group", { name: "Тип" })).getByRole("button", { name: /закрыты агентом/ });

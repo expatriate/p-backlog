@@ -3,7 +3,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import type { TestApp } from "../../server/testing/test-app";
 import { renderApp, type RenderedApp } from "../testing/render-app";
-import { recordBatches, select } from "../testing/task-list";
+import { closeSelected, recordBatches, select } from "../testing/task-list";
 
 const FILES = {
   "spa/project.md": projectFile("SPA"),
@@ -15,14 +15,6 @@ const FILES = {
 
 async function changeBehindTheList(app: RenderedApp, id: string) {
   await app.json(`/api/tasks/${id}`, "PATCH", { version: await app.taskVersion(id), changes: { title: "Правка агента" } });
-}
-
-async function closeSelected(app: RenderedApp, reason: string) {
-  const panel = screen.getByRole("region", { name: "Действия с выбранными" });
-  await app.user.click(within(panel).getByRole("button", { name: "Закрыть как неактуальные" }));
-  const dialog = screen.getByRole("dialog");
-  await app.user.type(within(dialog).getByRole("textbox", { name: "Причина" }), reason);
-  await app.user.click(within(dialog).getByRole("button", { name: /^Закрыть \d+$/ }));
 }
 
 const CHUNK_SIZE = 3;

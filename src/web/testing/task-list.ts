@@ -34,3 +34,11 @@ export async function select(app: RenderedApp, ...ids: string[]) {
   await screen.findAllByRole("row");
   for (const id of ids) await app.user.click(screen.getByRole("checkbox", { name: `Выбрать ${id}` }));
 }
+
+export async function closeSelected(app: RenderedApp, reason: string) {
+  const panel = screen.getByRole("region", { name: "Действия с выбранными" });
+  await app.user.click(within(panel).getByRole("button", { name: "Закрыть как неактуальные" }));
+  const dialog = screen.getByRole("dialog");
+  await app.user.type(within(dialog).getByRole("textbox", { name: "Причина" }), reason);
+  await app.user.click(within(dialog).getByRole("button", { name: /^Закрыть \d+$/ }));
+}
