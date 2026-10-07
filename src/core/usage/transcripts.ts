@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto";
-import { z } from "zod";
 import { stat } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { attributeLine, flushEstimates, newTranscriptState } from "../stats/cost/attribute";
+import { attributeLine, flushEstimates, newTranscriptState, transcriptLineSchema } from "../stats/cost/attribute";
 import { sum } from "../numbers";
 import { statsPeriod } from "../stats/weeks";
 import { addTokens } from "../stats/cost/token-counts";
@@ -24,7 +23,6 @@ export type ScanTranscriptsResult = { cache: UsageCache; bytesRead: number; byte
 
 const FINGERPRINT_BYTES = 256;
 const ABANDONED_LINE_MS = 10 * 60 * 1000;
-const anyJsonSchema = z.unknown();
 const COUNTED_LINE_MARKERS = ['"type":"assistant"', '"type":"user"'];
 
 export async function listTranscripts(claudeProjectsDir: string): Promise<TranscriptFile[]> {
@@ -121,7 +119,7 @@ async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: numb
   const bucketsByKey = new Map(start.buckets.map((bucket) => [bucketKey(bucket), bucket]));
   for (const line of chunk.subarray(0, readableLength).toString("utf8").split("\n")) {
     if (!COUNTED_LINE_MARKERS.some((marker) => line.includes(marker))) continue;
-    const parsed = parseJson(line, anyJsonSchema);
+    const parsed = parseJson(line, transcriptLineSchema);
     if (parsed === null) continue;
     for (const addition of attributeLine(parsed, start.state)) addBucket(bucketsByKey, addition);
   }

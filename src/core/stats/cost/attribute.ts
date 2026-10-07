@@ -54,16 +54,17 @@ const textBlockSchema = z.object({ type: z.literal("text"), text: z.string() }).
 
 const bashInputSchema = z.object({ command: z.string() }).passthrough();
 
-const lineSchema = z.object({ type: z.string().optional(), timestamp: z.string().optional(), cwd: z.string().optional(), isMeta: z.boolean().optional(), message: z.unknown().optional() }).passthrough();
+export const transcriptLineSchema = z
+  .object({ type: z.string().optional(), timestamp: z.string().optional(), cwd: z.string().optional(), isMeta: z.boolean().optional(), message: z.unknown().optional() })
+  .passthrough();
+
+type TranscriptLine = z.infer<typeof transcriptLineSchema>;
 
 export function newTranscriptState(): TranscriptState {
   return { hookOpen: false, lastModel: null, lastMessageId: null, lastMessageTokens: null, pending: {}, pendingEstimates: [] };
 }
 
-export function attributeLine(line: unknown, state: TranscriptState): UsageBucket[] {
-  const parsed = lineSchema.safeParse(line);
-  if (!parsed.success) return [];
-  const { type, timestamp, cwd, isMeta, message } = parsed.data;
+export function attributeLine({ type, timestamp, cwd, isMeta, message }: TranscriptLine, state: TranscriptState): UsageBucket[] {
   const context: LineContext = { slot: typeof timestamp === "string" ? slotOf(timestamp) : "", cwd: cwd ?? "" };
 
   if (type === "assistant") return attributeAssistant(message, state, context);
