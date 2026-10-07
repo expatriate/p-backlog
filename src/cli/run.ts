@@ -1,6 +1,5 @@
 import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/hook-signature";
 import { errorText } from "../core/errors";
-import { coreMessages } from "../core/messages";
 import { FileBusyError } from "../core/store/file-lock";
 import { localeLanguage, settingsFilePath, settleLanguage } from "../core/store/settings";
 import { cliMessages } from "./messages";
@@ -64,7 +63,7 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<Exit
   }
   const { language } = settled;
   const io = cliIo(env, language);
-  if (settled.invalidSettingsFile) io.warn(cliMessages(language).settingsFileInvalid(settingsFilePath(env.backlogRoot)));
+  if (settled.invalidSettingsFile) io.warn(io.cli.settingsFileInvalid(settingsFilePath(env.backlogRoot)));
   if (!command) {
     const askedForHelp = name === undefined || HELP_ARGUMENTS.has(name);
     if (!askedForHelp) {
@@ -89,8 +88,8 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<Exit
       io.warn(error.message);
       return EXIT.invalid;
     }
-    const reason = error instanceof FileBusyError ? coreMessages(language).fileBusy(error) : errorText(error);
-    io.warn(cliMessages(language).commandFailed(name ?? "", reason));
+    const reason = error instanceof FileBusyError ? io.core.fileBusy(error) : errorText(error);
+    io.warn(io.cli.commandFailed(name ?? "", reason));
     return failureExit;
   }
 }
