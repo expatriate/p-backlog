@@ -7,7 +7,10 @@ export type EpicChoice = { id: string; title: string; tone: number | undefined; 
 export type EpicChoices = { epics: EpicChoice[]; withoutEpicCount: number };
 
 export function epicChoices(tasks: readonly Task[], tones: EpicTones): EpicChoices {
-  const childCounts = countBy(tasks.flatMap((task) => task.epic ?? []), (epic) => epic);
+  const childCounts = countBy(
+    tasks.flatMap((task) => task.epic ?? []),
+    (epic) => epic,
+  );
   const epics = tasks
     .filter((task) => task.type === "epic")
     .sort((a, b) => compareIds(a.id, b.id))

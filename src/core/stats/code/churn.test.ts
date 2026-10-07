@@ -16,7 +16,10 @@ describe("меняется × долг", () => {
     ];
     const projects = [
       project("spa", [
-        [["src/api/client.ts", "src/api/retry.ts"], ["src/api/client.ts", "src/ui/button.tsx"]],
+        [
+          ["src/api/client.ts", "src/api/retry.ts"],
+          ["src/api/client.ts", "src/ui/button.tsx"],
+        ],
         [["src/api/other.ts"]],
       ]),
     ];

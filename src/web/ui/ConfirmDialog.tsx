@@ -39,14 +39,7 @@ function OpenDialog({ title, description, fieldLabel, canConfirm, confirmLabel, 
   }, []);
 
   return (
-    <dialog
-      ref={dialog}
-      className={styles.dialog}
-      aria-labelledby={titleId}
-      onCancel={onCancel}
-      onClose={cancelIfStillClosed}
-      onKeyDown={(event) => event.key === "Escape" && event.stopPropagation()}
-    >
+    <dialog ref={dialog} className={styles.dialog} aria-labelledby={titleId} onCancel={onCancel} onClose={cancelIfStillClosed} onKeyDown={(event) => event.key === "Escape" && event.stopPropagation()}>
       <h2 id={titleId} className={styles.title}>
         {title}
       </h2>

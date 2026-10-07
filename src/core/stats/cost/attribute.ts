@@ -36,18 +36,13 @@ const usageSchema = z
     cache_read_input_tokens: z.number().optional(),
     cache_creation_input_tokens: z.number().optional(),
     speed: z.string().optional(),
-    cache_creation: z
-      .object({ ephemeral_5m_input_tokens: z.number().optional(), ephemeral_1h_input_tokens: z.number().optional() })
-      .passthrough()
-      .optional(),
+    cache_creation: z.object({ ephemeral_5m_input_tokens: z.number().optional(), ephemeral_1h_input_tokens: z.number().optional() }).passthrough().optional(),
   })
   .passthrough();
 
 type Usage = z.infer<typeof usageSchema>;
 
-const assistantMessageSchema = z
-  .object({ id: z.string().optional(), model: z.string().optional(), usage: usageSchema.optional(), content: z.array(z.unknown()).optional() })
-  .passthrough();
+const assistantMessageSchema = z.object({ id: z.string().optional(), model: z.string().optional(), usage: usageSchema.optional(), content: z.array(z.unknown()).optional() }).passthrough();
 
 const userMessageSchema = z.object({ content: z.unknown().optional() }).passthrough();
 
@@ -59,10 +54,7 @@ const textBlockSchema = z.object({ type: z.literal("text"), text: z.string() }).
 
 const bashInputSchema = z.object({ command: z.string() }).passthrough();
 
-
-const lineSchema = z
-  .object({ type: z.string().optional(), timestamp: z.string().optional(), cwd: z.string().optional(), isMeta: z.boolean().optional(), message: z.unknown().optional() })
-  .passthrough();
+const lineSchema = z.object({ type: z.string().optional(), timestamp: z.string().optional(), cwd: z.string().optional(), isMeta: z.boolean().optional(), message: z.unknown().optional() }).passthrough();
 
 export function newTranscriptState(): TranscriptState {
   return { hookOpen: false, lastModel: null, lastMessageId: null, lastMessageTokens: null, pending: {}, pendingEstimates: [] };
@@ -164,16 +156,14 @@ export function flushEstimates(state: TranscriptState): UsageBucket[] {
 }
 
 function drainEstimates(state: TranscriptState, model: string): UsageBucket[] {
-  const buckets = state.pendingEstimates.map(
-    (estimate): UsageBucket => ({
-      slot: estimate.slot,
-      cwd: estimate.cwd,
-      model,
-      kind: estimate.kind,
-      tokens: { ...ZERO_TOKENS, cacheWrite5m: Math.ceil(estimate.chars / CHARS_PER_TOKEN) },
-      hookTurns: 0,
-    }),
-  );
+  const buckets = state.pendingEstimates.map((estimate): UsageBucket => ({
+    slot: estimate.slot,
+    cwd: estimate.cwd,
+    model,
+    kind: estimate.kind,
+    tokens: { ...ZERO_TOKENS, cacheWrite5m: Math.ceil(estimate.chars / CHARS_PER_TOKEN) },
+    hookTurns: 0,
+  }));
   state.pendingEstimates = [];
   return buckets;
 }

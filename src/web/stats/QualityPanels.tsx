@@ -1,5 +1,18 @@
 import { formatShare } from "../../core/stats/format";
-import type { AccuracyPeriod, AccuracyRow, BranchRow, CategoryRow, FoundRow, GrainPeriods, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow, ReportPeriod } from "../../core/api/contract";
+import type {
+  AccuracyPeriod,
+  AccuracyRow,
+  BranchRow,
+  CategoryRow,
+  FoundRow,
+  GrainPeriods,
+  GraphReport,
+  MatchAccuracyRow,
+  MethodAccuracyRow,
+  OutcomeCounts,
+  ProjectGraphRow,
+  ReportPeriod,
+} from "../../core/api/contract";
 import { useMessages } from "../i18n";
 import { AccuracyChart } from "./AccuracyChart";
 import type { StatsMessages } from "./messages.ru";
@@ -20,10 +33,8 @@ export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRow
   const { grain, periods, period, toggle } = useGrainPanel("accuracy", "week", { weeks, days }, windows);
   const tablePeriod = caption.of("weeks", windows.weeks);
   const splitOf = (evidence: AccuracyRow["evidence"]): StatsTableRow[] => {
-    if (evidence === "source-changed")
-      return methodRows.map((split) => splitRow(stats, split, split.by === "unknown" ? stats.beforeMethodRecorded : stats.checkedBy(core.checkMethodLabel(split.by))));
-    if (evidence === "duplicate")
-      return matchRows.map((split) => splitRow(stats, split, split.by === "unknown" ? stats.beforeMatchRecorded : stats.matchedBy(core.duplicateMatchLabel(split.by))));
+    if (evidence === "source-changed") return methodRows.map((split) => splitRow(stats, split, split.by === "unknown" ? stats.beforeMethodRecorded : stats.checkedBy(core.checkMethodLabel(split.by))));
+    if (evidence === "duplicate") return matchRows.map((split) => splitRow(stats, split, split.by === "unknown" ? stats.beforeMatchRecorded : stats.matchedBy(core.duplicateMatchLabel(split.by))));
     return [];
   };
   return (
@@ -64,7 +75,11 @@ export function GraphPanel({ graph, period }: { graph: GraphReport; period: Repo
   if (filter.filtered === 0 && projects.every((project) => project.state === "none")) {
     return (
       <Panel title={stats.graphTitle}>
-        <p className={rowStyles.muted}>{stats.graphMissing((text) => <code key={text}>{text}</code>)}</p>
+        <p className={rowStyles.muted}>
+          {stats.graphMissing((text) => (
+            <code key={text}>{text}</code>
+          ))}
+        </p>
       </Panel>
     );
   }
@@ -136,22 +151,14 @@ export function OriginPanel({ found, branches, period }: { found: FoundRow[]; br
     <Panel title={stats.originTitle} period={caption.of("weeks", period)}>
       <div>
         <h3 className={rowStyles.subTitle}>{stats.foundTitle}</h3>
-        <StatsTable
-          label={stats.foundTitle}
-          head={stats.foundHead}
-          rows={found.map((row) => ({ key: row.found ?? "not-recorded", cells: [foundText(row), row.created, row.open, row.fixed] }))}
-        />
+        <StatsTable label={stats.foundTitle} head={stats.foundHead} rows={found.map((row) => ({ key: row.found ?? "not-recorded", cells: [foundText(row), row.created, row.open, row.fixed] }))} />
       </div>
       <div>
         <h3 className={rowStyles.subTitle}>{stats.branchesTitle}</h3>
         {branches.length === 0 ? (
           <p className={rowStyles.muted}>{stats.branchesEmpty}</p>
         ) : (
-          <StatsTable
-            label={stats.branchesTitle}
-            head={stats.branchesHead}
-            rows={branches.map((row) => ({ key: row.label, cells: [<code>{row.label}</code>, row.created, row.open] }))}
-          />
+          <StatsTable label={stats.branchesTitle} head={stats.branchesHead} rows={branches.map((row) => ({ key: row.label, cells: [<code>{row.label}</code>, row.created, row.open] }))} />
         )}
       </div>
     </Panel>

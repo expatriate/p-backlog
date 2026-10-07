@@ -4,8 +4,11 @@
   border-radius: var(--radius-control);
   font-weight: 500;
   cursor: pointer;
-  transition: background var(--duration) var(--ease-out), border-color var(--duration) var(--ease-out),
-    color var(--duration) var(--ease-out), scale var(--duration) var(--ease-out);
+  transition:
+    background var(--duration) var(--ease-out),
+    border-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    scale var(--duration) var(--ease-out);
 }
 
 .button:active:not(:disabled, [aria-disabled="true"]) {

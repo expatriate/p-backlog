@@ -150,7 +150,11 @@ describe("чтение расшифровок по частям", () => {
     const path = join(root, "session.jsonl");
     const original = await transcriptFile(
       path,
-      jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 }), assistantLine("2026-09-19T09:01:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]),
+      jsonl([
+        hookFeedbackLine("2026-09-19T08:59:00.000Z"),
+        assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 }),
+        assistantLine("2026-09-19T09:01:00.000Z", "claude-sonnet-5", { input: 100, output: 20 }),
+      ]),
     );
     const pass1 = await scanTranscripts({ files: [original], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
     expect(totalTokens(pass1.cache.files)).toBe(240);
@@ -252,7 +256,10 @@ describe("чтение расшифровок по частям", () => {
 
   it("удалённая расшифровка сохраняет вклад, пока он попадает в окно из 12 недель истории", async () => {
     const root = await makeTempDir();
-    const file = await transcriptFile(join(root, "session.jsonl"), jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
+    const file = await transcriptFile(
+      join(root, "session.jsonl"),
+      jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]),
+    );
     const pass1 = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: new Date("2026-09-19T12:00:00Z") });
 
     const soonAfter = await scanTranscripts({ files: [], cache: pass1.cache, byteBudget: BIG_BUDGET, now: new Date("2026-10-10T12:00:00Z") });
@@ -310,7 +317,14 @@ describe("чтение расшифровок по частям", () => {
 
 describe("обрезка корзин старше окна хранения", () => {
   function bucketAt(daysAgo: number, input: number): UsageBucket {
-    return { slot: new Date(NOW.getTime() - daysAgo * DAY_MS).toISOString(), cwd: CWD, model: "claude-sonnet-5", kind: "hook", tokens: { input, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 }, hookTurns: 0 };
+    return {
+      slot: new Date(NOW.getTime() - daysAgo * DAY_MS).toISOString(),
+      cwd: CWD,
+      model: "claude-sonnet-5",
+      kind: "hook",
+      tokens: { input, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 },
+      hookTurns: 0,
+    };
   }
 
   function reportOf(buckets: readonly UsageBucket[]) {
@@ -321,7 +335,14 @@ describe("обрезка корзин старше окна хранения", (
     const path = join(root, "session.jsonl");
     const file = await transcriptFile(path, jsonl([assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
     const freshBucket = bucketAt(1, 5);
-    const previous: UsageCacheEntry = { size: file.size, mtimeMs: file.mtimeMs, offset: file.size, fingerprint: "unchanged-fingerprint", state: newTranscriptState(), buckets: [bucketAt(100, 1000), freshBucket] };
+    const previous: UsageCacheEntry = {
+      size: file.size,
+      mtimeMs: file.mtimeMs,
+      offset: file.size,
+      fingerprint: "unchanged-fingerprint",
+      state: newTranscriptState(),
+      buckets: [bucketAt(100, 1000), freshBucket],
+    };
     const cache: UsageCache = { version: USAGE_CACHE_VERSION, files: { [path]: previous } };
     return { path, file, previous, cache, freshBucket };
   }

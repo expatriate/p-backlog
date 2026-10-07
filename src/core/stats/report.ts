@@ -16,7 +16,11 @@ const STALE_DAYS = 30;
 const TAIL_FRACTION = 0.9;
 
 export function statsReport(context: ReportContext): StatsReport {
-  const { input: { now, projectId }, histories, openTasks } = context;
+  const {
+    input: { now, projectId },
+    histories,
+    openTasks,
+  } = context;
   const period = statsPeriod(now);
 
   return {

@@ -67,6 +67,9 @@ export function EffectChart({ periods, totals, grain }: { periods: EffectPeriod[
 function effectSummary(stats: StatsMessages, grain: Grain, periods: EffectPeriod[], totals: EffectTotals): string {
   if (grain === "week") return stats.effectSummary(totals.realLines, stats.linesText(totals.deferredLines, totals.estimatedLines), formatNoiseShare(totals.noiseShare, totals.estimatedLines));
   const total = (pick: (period: EffectPeriod) => number) => sum(periods.map(pick));
-  const deferred = stats.linesText(total((period) => period.deferredLines), total((period) => period.estimatedLines ?? 0));
+  const deferred = stats.linesText(
+    total((period) => period.deferredLines),
+    total((period) => period.estimatedLines ?? 0),
+  );
   return stats.effectDaysSummary(periods.length, Math.round(total((period) => period.onTopicLines)), deferred);
 }

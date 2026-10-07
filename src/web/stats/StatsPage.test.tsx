@@ -236,7 +236,11 @@ describe("страница статистики", () => {
     const panel = await screen.findByRole("region", { name: "Где болит" });
 
     expect(within(panel).getByText("src/upload")).toBeDefined();
-    expect(within(panel).getByRole("link", { name: /#upload/ }).getAttribute("href")).toBe("/p/spa?tag=upload");
+    expect(
+      within(panel)
+        .getByRole("link", { name: /#upload/ })
+        .getAttribute("href"),
+    ).toBe("/p/spa?tag=upload");
   });
 
   it("возраст открытых: корзины и критичные с высокими старше недели", async () => {
@@ -314,7 +318,14 @@ describe("вкладка «Код»", () => {
       {
         ...FILES,
         "spa/project.md": projectFile("SPA", [repo, "/nope/repo"]),
-        "spa/SPA-4.md": taskFile("SPA-4", { title: "Починили загрузку", status: "done", resolution: "fixed", reason: `"Исправлено в ${sha}"`, created: "2026-09-11T10:00:00+03:00", closed: "2026-09-13T10:00:00+03:00" }),
+        "spa/SPA-4.md": taskFile("SPA-4", {
+          title: "Починили загрузку",
+          status: "done",
+          resolution: "fixed",
+          reason: `"Исправлено в ${sha}"`,
+          created: "2026-09-11T10:00:00+03:00",
+          closed: "2026-09-13T10:00:00+03:00",
+        }),
       },
       "/p/spa/stats",
     );
@@ -341,7 +352,12 @@ describe("вкладка «Код»", () => {
 });
 
 describe("вкладка «Качество»", () => {
-  const cells = (row: HTMLElement) => [within(row).getByRole("rowheader").textContent, ...within(row).getAllByRole("cell").map((cell) => cell.textContent)];
+  const cells = (row: HTMLElement) => [
+    within(row).getByRole("rowheader").textContent,
+    ...within(row)
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent),
+  ];
 
   it("точность, категории и происхождение", async () => {
     const event = (fields: Record<string, unknown>) => JSON.stringify({ via: "check", ...fields });

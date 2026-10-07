@@ -347,17 +347,18 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     const transcriptsDir = await makeTempDir();
     const at = "2026-09-18T09:00:00.000Z";
     await writeFiles(transcriptsDir, {
-      "proj1/session.jsonl": [
-        { type: "user", isMeta: true, timestamp: at, cwd: repo, message: { content: "Stop hook feedback:\nБеклог spa: тест" } },
-        {
-          type: "assistant",
-          timestamp: at,
-          cwd: repo,
-          message: { model: "claude-opus-5", usage: { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
-        },
-      ]
-        .map((line) => JSON.stringify(line))
-        .join("\n") + "\n",
+      "proj1/session.jsonl":
+        [
+          { type: "user", isMeta: true, timestamp: at, cwd: repo, message: { content: "Stop hook feedback:\nБеклог spa: тест" } },
+          {
+            type: "assistant",
+            timestamp: at,
+            cwd: repo,
+            message: { model: "claude-opus-5", usage: { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
+          },
+        ]
+          .map((line) => JSON.stringify(line))
+          .join("\n") + "\n",
     });
 
     const backlog = await makeTestApp({ "spa/project.md": projectFile("SPA", [repo]) }, { transcriptsDir });
@@ -425,11 +426,7 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     const sharedRepo = await makeGitRepo(home, "shared");
     const backlog = await makeTestApp({ "spa/project.md": projectFile("SPA", [primaryRepo]) });
     await backlog.usage.scanOnce();
-    await writeFile(
-      join(backlog.root, ".runs.jsonl"),
-      `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd: sharedRepo, ms: 10, rssMb: 50, exitCode: 0 })}\n`,
-      "utf8",
-    );
+    await writeFile(join(backlog.root, ".runs.jsonl"), `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd: sharedRepo, ms: 10, rssMb: 50, exitCode: 0 })}\n`, "utf8");
 
     const before = (await (await backlog.request("/api/stats/cost?project=spa")).json()) as CostReport;
     expect(before.totals.cliRuns).toBe(0);

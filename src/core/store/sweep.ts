@@ -82,7 +82,10 @@ async function removeWithReferences(tasks: readonly Task[], removable: readonly 
       const locked = removable.filter((task) => lockedPaths.has(task.path));
       const unchanged = await unchangedOnDisk(locked);
       const updates = await repairRemainingTasks(tasks, { skipped: removable, removed: unchanged }, now);
-      const removal = await removeLocked(unchanged.filter((task) => !updates.stillReferenced.has(task.id)), now);
+      const removal = await removeLocked(
+        unchanged.filter((task) => !updates.stillReferenced.has(task.id)),
+        now,
+      );
       const untouched = removable.filter((task) => !unchanged.includes(task)).map(conflict);
       return { deleted: removal.deleted, failures: [...updates.failures, ...untouched, ...removal.failures] };
     },

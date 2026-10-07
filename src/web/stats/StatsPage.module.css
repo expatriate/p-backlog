@@ -51,7 +51,9 @@
   color: var(--ink-muted);
   text-decoration: none;
   white-space: nowrap;
-  transition: color var(--duration) var(--ease-out), border-color var(--duration) var(--ease-out);
+  transition:
+    color var(--duration) var(--ease-out),
+    border-color var(--duration) var(--ease-out);
 }
 
 .tab:hover {

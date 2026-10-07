@@ -10,8 +10,11 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--duration) var(--ease-out), border-color var(--duration) var(--ease-out),
-    color var(--duration) var(--ease-out), scale var(--duration) var(--ease-out);
+  transition:
+    background var(--duration) var(--ease-out),
+    border-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    scale var(--duration) var(--ease-out);
 }
 
 .chip:not(.static, [aria-disabled="true"]):active {

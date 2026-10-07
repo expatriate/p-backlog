@@ -1,16 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useId,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ComponentProps,
-  type CSSProperties,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { createContext, useContext, useId, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { Button } from "./Button";
 import { cx } from "./cx";
 import styles from "./Popover.module.css";
@@ -94,19 +82,18 @@ export function Popover({ trigger, triggerProps, triggerRef, placement = "below"
 
   return (
     <div ref={anchor} className={styles.anchor}>
-      <Button
-        {...triggerProps}
-        id={triggerId}
-        ref={button}
-        busy={busy}
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        onClick={() => setOpen(!open)}
-      >
+      <Button {...triggerProps} id={triggerId} ref={button} busy={busy} aria-expanded={open} aria-controls={open ? panelId : undefined} onClick={() => setOpen(!open)}>
         {trigger}
       </Button>
       {open && (
-        <div ref={panel} id={panelId} role="group" aria-labelledby={triggerId} className={cx(styles.panel, placement === "above" && styles.above, width === "content" && styles.fitContent)} style={VIEWPORT_MARGIN_STYLE}>
+        <div
+          ref={panel}
+          id={panelId}
+          role="group"
+          aria-labelledby={triggerId}
+          className={cx(styles.panel, placement === "above" && styles.above, width === "content" && styles.fitContent)}
+          style={VIEWPORT_MARGIN_STYLE}
+        >
           <ClosePopoverContext value={closePopover}>{children}</ClosePopoverContext>
         </div>
       )}

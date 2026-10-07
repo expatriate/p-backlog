@@ -35,8 +35,7 @@ export function useSeenTasks(tasks: readonly Task[] | undefined, openedTask: Tas
 
   return useMemo(() => {
     const seen = new Set(record?.ids);
-    const isNew = (task: Task) =>
-      record !== undefined && !isClosed(task.status) && createdAfter(task, record) && !seen.has(task.id);
+    const isNew = (task: Task) => record !== undefined && !isClosed(task.status) && createdAfter(task, record) && !seen.has(task.id);
     return { isNew };
   }, [record]);
 }

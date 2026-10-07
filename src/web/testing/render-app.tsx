@@ -89,7 +89,11 @@ function serverEvents(request: TestApp["request"]): () => EventStream {
 }
 
 function fireMessage(message: string, fire: (type: string, data: string) => void): void {
-  const field = (name: string) => message.split("\n").find((line) => line.startsWith(`${name}: `))?.slice(name.length + 2);
+  const field = (name: string) =>
+    message
+      .split("\n")
+      .find((line) => line.startsWith(`${name}: `))
+      ?.slice(name.length + 2);
   const type = field("event");
   if (type !== undefined) fire(type, field("data") ?? "");
 }

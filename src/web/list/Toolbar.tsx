@@ -44,23 +44,14 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
       <div className={styles.line}>
         <div className={styles.group} role="group" aria-label={list.status}>
           {TASK_STATUSES.map((status) => (
-            <ToggleChip
-              key={status}
-              pressed={pressedStatuses.includes(status)}
-              locked={status === onlyPressedStatus}
-              onToggle={() => setFilter({ statuses: allOrSome(toggled(pressedStatuses, status)) })}
-            >
+            <ToggleChip key={status} pressed={pressedStatuses.includes(status)} locked={status === onlyPressedStatus} onToggle={() => setFilter({ statuses: allOrSome(toggled(pressedStatuses, status)) })}>
               {core.statusLabel(status)}
             </ToggleChip>
           ))}
         </div>
         <div className={styles.group} role="group" aria-label={list.priority}>
           {PRIORITIES.map((priority) => (
-            <ToggleChip
-              key={priority}
-              pressed={filter.priorities?.includes(priority) ?? false}
-              onToggle={() => setFilter({ priorities: toggledOrUnset(filter.priorities, priority) })}
-            >
+            <ToggleChip key={priority} pressed={filter.priorities?.includes(priority) ?? false} onToggle={() => setFilter({ priorities: toggledOrUnset(filter.priorities, priority) })}>
               {core.priorityLabel(priority)}
             </ToggleChip>
           ))}
@@ -74,10 +65,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
           <ToggleChip pressed={filter.onlyUnblocked === true} onToggle={() => setFilter({ onlyUnblocked: filter.onlyUnblocked ? undefined : true })}>
             {list.withoutBlockers}
           </ToggleChip>
-          <ToggleChip
-            pressed={filter.onlyAutoClosed === true}
-            onToggle={toggleAutoClosed}
-          >
+          <ToggleChip pressed={filter.onlyAutoClosed === true} onToggle={toggleAutoClosed}>
             {list.autoClosedChip} <span className={styles.count}>{autoClosedCount}</span>
           </ToggleChip>
         </div>
@@ -85,9 +73,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
 
       {(showEpicPicker || tags.length > 0) && (
         <div ref={epicAndTags} className={styles.line} role="group" aria-label={list.epicAndTags}>
-          {showEpicPicker && (
-            <EpicPicker choices={epicChoices} selected={filter.epic} onSelect={(epic) => setFilter({ epic })} />
-          )}
+          {showEpicPicker && <EpicPicker choices={epicChoices} selected={filter.epic} onSelect={(epic) => setFilter({ epic })} />}
           {tags.length > 0 && <TagPicker tags={tags} selected={filter.tags ?? []} onToggle={toggleTag} />}
         </div>
       )}
@@ -143,15 +129,7 @@ function TagPicker({ tags, selected, onToggle }: { tags: string[]; selected: rea
   return (
     <div className={styles.tagPicker}>
       <Popover trigger={summary}>
-        <input
-          type="search"
-          {...POPOVER_INITIAL_FOCUS}
-          className={styles.tagSearch}
-          value={query}
-          placeholder={list.findTag}
-          aria-label={list.findTag}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+        <input type="search" {...POPOVER_INITIAL_FOCUS} className={styles.tagSearch} value={query} placeholder={list.findTag} aria-label={list.findTag} onChange={(event) => setQuery(event.target.value)} />
         <div className={styles.tagOptions} role="group" aria-label={list.tags}>
           {tags
             .filter((tag) => normalizeText(tag).includes(needle))

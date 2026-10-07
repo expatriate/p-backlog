@@ -51,12 +51,9 @@ export const statsRu = {
   tabsLabel: "Разделы статистики",
   tabs: { overview: "Обзор", code: "Код", quality: "Качество", effect: "Эффект", cost: "Стоимость" },
 
-  invalidJournalLines: (n: number): string =>
-    `Не удалось разобрать строк журнала: ${n}. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.`,
-  unknownJournalLines: (n: number): string =>
-    `Строк журнала с неизвестным значением: ${n}. Переименованное значение (категория, «как найдена», резолюция) показано как «неизвестно», но учтено в разбивках.`,
-  unparsedTasks: (n: number): string =>
-    `Не удалось разобрать файлов задач: ${n}. Для них в статистике — последний статус из журнала; исправьте файлы, команда backlog check покажет ошибки.`,
+  invalidJournalLines: (n: number): string => `Не удалось разобрать строк журнала: ${n}. Они не входят в статистику — проверьте формат строк в journal.jsonl проекта.`,
+  unknownJournalLines: (n: number): string => `Строк журнала с неизвестным значением: ${n}. Переименованное значение (категория, «как найдена», резолюция) показано как «неизвестно», но учтено в разбивках.`,
+  unparsedTasks: (n: number): string => `Не удалось разобрать файлов задач: ${n}. Для них в статистике — последний статус из журнала; исправьте файлы, команда backlog check покажет ошибки.`,
   noTasks: "Задач пока нет.",
   projectNotFound: "Проект не найден.",
   loading: "Считаем статистику…",
@@ -94,8 +91,7 @@ export const statsRu = {
   flowClosed: "закрыто",
   flowOpen: "открыто",
   flowOpenAtEnd: { week: "открыто на конец недели", day: "открыто на конец дня" } satisfies Record<Grain, string>,
-  flowSummary: ({ grain, periodCount, created, closed, openNow }: FlowSummary): string =>
-    `${periods(grain, periodCount)}: создано ${created}, закрыто ${closed}, открыто сейчас ${openNow}`,
+  flowSummary: ({ grain, periodCount, created, closed, openNow }: FlowSummary): string => `${periods(grain, periodCount)}: создано ${created}, закрыто ${closed}, открыто сейчас ${openNow}`,
   createdBy: { week: "Создано по неделям", day: "Создано по дням" } satisfies Record<Grain, string>,
   createdTasks: "создано задач",
   intakeSummary: (grain: Grain, periodCount: number, created: number): string => {
@@ -140,11 +136,9 @@ export const statsRu = {
   decidedCandidates: "решено кандидатов",
   precision: "точность",
   accuracySummary: ({ grain, periodCount, decided, latestPrecision }: AccuracySummary): string =>
-    latestPrecision === null
-      ? `${periods(grain, periodCount)}: решённых кандидатов нет`
-      : `${periods(grain, periodCount)}: решено ${decided}, точность ${LAST_PERIOD[grain]} ${latestPrecision}`,
+    latestPrecision === null ? `${periods(grain, periodCount)}: решённых кандидатов нет` : `${periods(grain, periodCount)}: решено ${decided}, точность ${LAST_PERIOD[grain]} ${latestPrecision}`,
   graphTitle: "Граф кода",
-  graphMissing: <T,>(code: (text: string) => T): Array<string | T> => [
+  graphMissing: <T>(code: (text: string) => T): Array<string | T> => [
     "Графа кода нет: проверка сравнивает строки source и файл целиком. ",
     code("code-review-graph build"),
     " в репозитории проекта включит проверку по символу",

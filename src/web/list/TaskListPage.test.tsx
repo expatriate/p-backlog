@@ -266,14 +266,16 @@ describe("список задач", () => {
   });
 
   it("чип «закрыты агентом» со счётчиком показывает автозакрытые задачи проекта, свежие сверху", async () => {
-    const auto = (id: string, title: string, closed: string) =>
-      taskFile(id, { title, status: "done", closed, resolution: "fixed", reason: "есть" });
-    const app = await renderApp({
-      ...LIST_FILES,
-      "spa/SPA-5.md": auto("SPA-5", "Старое исправление", "2026-09-12T10:00:00+03:00"),
-      "spa/SPA-6.md": auto("SPA-6", "Свежее исправление", "2026-09-14T10:00:00+03:00"),
-      "torg-io/TI-2.md": auto("TI-2", "Чужой проект", "2026-09-14T10:00:00+03:00"),
-    }, "/p/spa");
+    const auto = (id: string, title: string, closed: string) => taskFile(id, { title, status: "done", closed, resolution: "fixed", reason: "есть" });
+    const app = await renderApp(
+      {
+        ...LIST_FILES,
+        "spa/SPA-5.md": auto("SPA-5", "Старое исправление", "2026-09-12T10:00:00+03:00"),
+        "spa/SPA-6.md": auto("SPA-6", "Свежее исправление", "2026-09-14T10:00:00+03:00"),
+        "torg-io/TI-2.md": auto("TI-2", "Чужой проект", "2026-09-14T10:00:00+03:00"),
+      },
+      "/p/spa",
+    );
     await screen.findAllByRole("row");
 
     expect(screen.queryByRole("link", { name: /Закрыты агентом/ })).toBeNull();

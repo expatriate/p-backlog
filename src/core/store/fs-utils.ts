@@ -163,7 +163,10 @@ export async function removeTemporariesBefore(dir: string, cutoff: Date): Promis
   for (const entry of await listDir(dir)) {
     if (!entry.isFile() || !TEMPORARY_FILE.test(entry.name)) continue;
     const path = join(dir, entry.name);
-    const modified = await stat(path).then(({ mtimeMs }) => mtimeMs, () => null);
+    const modified = await stat(path).then(
+      ({ mtimeMs }) => mtimeMs,
+      () => null,
+    );
     if (modified !== null && modified < cutoff.getTime()) await rm(path, { force: true });
   }
 }

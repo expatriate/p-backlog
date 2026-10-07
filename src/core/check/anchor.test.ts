@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { anchorOf, findMoved, isAnchorFor, snippetOf } from "./anchor";
 
-const FILE = ["const alpha = createAlpha();", "const beta = createBeta();", "const gamma = createGamma();  ", "const delta = createDelta();", "const epsilon = 5;", "const zeta = 6;", "const eta = 7;", "const theta = 8;"].join("\n");
+const FILE = [
+  "const alpha = createAlpha();",
+  "const beta = createBeta();",
+  "const gamma = createGamma();  ",
+  "const delta = createDelta();",
+  "const epsilon = 5;",
+  "const zeta = 6;",
+  "const eta = 7;",
+  "const theta = 8;",
+].join("\n");
 
 describe("якорь фрагмента", () => {
   it("строка — окно ±2 с обрезкой у краёв, диапазон — сам диапазон", () => {

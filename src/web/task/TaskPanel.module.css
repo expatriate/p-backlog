@@ -134,7 +134,9 @@
 
 .saving:not(:empty) {
   background: var(--surface-raised);
-  box-shadow: 0 var(--space-2) 0 var(--surface-raised), 0 calc(var(--space-2) + 1px) 0 var(--line);
+  box-shadow:
+    0 var(--space-2) 0 var(--surface-raised),
+    0 calc(var(--space-2) + 1px) 0 var(--line);
 }
 
 :has(> .conflict) {

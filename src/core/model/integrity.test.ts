@@ -13,11 +13,7 @@ describe("integrityErrors", () => {
 
   it("запрещает ссылки на саму себя", () => {
     const task = makeTask({ id: "SPA-1", blockedBy: ["SPA-1"], related: ["SPA-1"], epic: "SPA-1" });
-    expect(integrityErrors(task, buildIndex([]))).toEqual([
-      { code: "self-block" },
-      { code: "self-related" },
-      { code: "epic-self" },
-    ]);
+    expect(integrityErrors(task, buildIndex([]))).toEqual([{ code: "self-block" }, { code: "self-related" }, { code: "epic-self" }]);
   });
 
   it("эпик должен существовать и быть эпиком", () => {
@@ -53,9 +49,7 @@ describe("integrityErrors", () => {
     expect(integrityErrors(makeTask({ id: "SPA-1", status: "done", resolution: "duplicate", reason: "есть" }), index)).toEqual([
       { code: "resolution-needs-status", resolution: "duplicate", status: "cancelled" },
     ]);
-    expect(integrityErrors(makeTask({ id: "SPA-1", resolution: "fixed", reason: "есть" }), index)).toEqual([
-      { code: "resolution-needs-status", resolution: "fixed", status: "done" },
-    ]);
+    expect(integrityErrors(makeTask({ id: "SPA-1", resolution: "fixed", reason: "есть" }), index)).toEqual([{ code: "resolution-needs-status", resolution: "fixed", status: "done" }]);
     expect(integrityErrors(makeTask({ id: "SPA-1", status: "done", reason: "без причины" }), index)).toEqual([{ code: "reason-without-resolution" }]);
   });
 

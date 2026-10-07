@@ -49,7 +49,12 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   const project = await ensureProject(loaded, io, values.project);
   if (!project) return EXIT.notFound;
 
-  const similar = values.force ? null : findSimilarTask({ title: values.title, source: values.source }, loaded.tasks.filter((task) => task.projectId === project.id));
+  const similar = values.force
+    ? null
+    : findSimilarTask(
+        { title: values.title, source: values.source },
+        loaded.tasks.filter((task) => task.projectId === project.id),
+      );
   if (similar !== null) {
     const why = similar.match === "source" ? io.cli.sameSource : io.cli.similarTitle;
     io.warn(io.cli.similarTaskWarning(similar.task.id, similar.task.title, why));

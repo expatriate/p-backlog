@@ -24,9 +24,7 @@ describe("duplicateCandidates", () => {
     const second = makeTask({ id: "SPA-4", title: "Повторная отправка", source: "src/queue.ts:20", created: CREATED });
     const symbolOf = (task: Task) => (task.source?.startsWith("src/queue.ts") === true ? "src/queue.ts::drainQueue" : null);
 
-    expect(duplicateCandidates([first, second], symbolOf)).toEqual([
-      { kind: "duplicate", task: { id: "SPA-4", title: "Повторная отправка" }, other: { id: "SPA-3", title: "Очередь висит" }, match: "symbol" },
-    ]);
+    expect(duplicateCandidates([first, second], symbolOf)).toEqual([{ kind: "duplicate", task: { id: "SPA-4", title: "Повторная отправка" }, other: { id: "SPA-3", title: "Очередь висит" }, match: "symbol" }]);
   });
 
   it("задачи в разных символах дублями не считаются", () => {
@@ -42,9 +40,7 @@ describe("duplicateCandidates", () => {
     const plain = makeTask({ id: "SPA-4", title: "Повтор", source: "src/queue.ts:40", created: CREATED });
     const otherLine = makeTask({ id: "SPA-5", title: "Кэш", source: "src/queue.ts:41", created: CREATED });
 
-    expect(duplicateCandidates([dotted, plain, otherLine])).toEqual([
-      { kind: "duplicate", task: { id: "SPA-4", title: "Повтор" }, other: { id: "SPA-3", title: "Очередь" }, match: "source" },
-    ]);
+    expect(duplicateCandidates([dotted, plain, otherLine])).toEqual([{ kind: "duplicate", task: { id: "SPA-4", title: "Повтор" }, other: { id: "SPA-3", title: "Очередь" }, match: "source" }]);
   });
 
   it("тот же файл, но другая строка — не дубль: в большом файле много разных проблем", () => {

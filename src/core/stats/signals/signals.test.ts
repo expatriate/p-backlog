@@ -28,11 +28,7 @@ describe("тревоги", () => {
 
   it("рост долга считается по полным неделям: задача, созданная в понедельник утром, его не создаёт", () => {
     const mondayMorning = new Date(2026, 8, 21, 9);
-    const tasks = [
-      makeTask({ id: "SPA-1", created: iso(8, 9) }),
-      makeTask({ id: "SPA-2", created: iso(8, 16) }),
-      makeTask({ id: "SPA-3", created: formatLocalIso(new Date(2026, 8, 21, 8)) }),
-    ];
+    const tasks = [makeTask({ id: "SPA-1", created: iso(8, 9) }), makeTask({ id: "SPA-2", created: iso(8, 16) }), makeTask({ id: "SPA-3", created: formatLocalIso(new Date(2026, 8, 21, 8)) })];
 
     expect(statsSignals(reportContext({ tasks, journals: journal([]), now: mondayMorning, projectId: "spa" }))).toEqual([]);
   });
@@ -56,9 +52,7 @@ describe("тревоги", () => {
     const tasks = Array.from({ length: 10 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(8, 14) }));
     const events: JournalEvent[] = tasks.flatMap((task, index) => [
       { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", method: "file" },
-      index === 0
-        ? { at: iso(8, 16), task: task.id, via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" }
-        : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
+      index === 0 ? { at: iso(8, 16), task: task.id, via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" } : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
     ]);
 
     expect(statsSignals(reportContext({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).filter((signal) => signal.kind === "noisy-check")).toEqual([
@@ -71,9 +65,7 @@ describe("тревоги", () => {
       const tasks = Array.from({ length: 97 }, (_, index) => makeTask({ id: `SPA-${index + 1}`, created: iso(8, 14) }));
       const events: JournalEvent[] = tasks.flatMap((task, index) => [
         { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", method: "file" },
-        index < closedCount
-          ? { at: iso(8, 16), task: task.id, via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" }
-          : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
+        index < closedCount ? { at: iso(8, 16), task: task.id, via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" } : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
       ]);
       return statsSignals(reportContext({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).filter((signal) => signal.kind === "noisy-check");
     };
@@ -89,9 +81,7 @@ describe("тревоги", () => {
       const fixed = byAnchor && index % 4 === 0;
       return [
         { at: iso(8, 15), task: task.id, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", method: byAnchor ? "anchor" : "file" },
-        fixed
-          ? { at: iso(8, 16), task: task.id, via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" }
-          : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
+        fixed ? { at: iso(8, 16), task: task.id, via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" } : { at: iso(8, 16), task: task.id, via: "cli", kind: "verified" },
       ];
     });
 

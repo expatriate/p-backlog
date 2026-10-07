@@ -53,8 +53,7 @@ export function BatchNotice({ result, serial, onResult, taskHref }: BatchNoticeP
   const runUndo = () => {
     if (isPending || result === null || undoRequest === undefined) return;
     const base: BatchResult = isUndoResult(result) ? result : { request: undoRequest, response: { results: [] } };
-    const settle = (response: BatchResponse, failure?: BatchFailure) =>
-      onResult({ request: base.request, response: { results: [...base.response.results, ...response.results] }, ...(failure && { failure }) });
+    const settle = (response: BatchResponse, failure?: BatchFailure) => onResult({ request: base.request, response: { results: [...base.response.results, ...response.results] }, ...(failure && { failure }) });
     undo.mutate(undoRequest, {
       onSuccess: (response) => settle(response),
       onError: (error) => {
@@ -85,11 +84,7 @@ export function BatchNotice({ result, serial, onResult, taskHref }: BatchNoticeP
             </Button>
           )}
           {undo.error === null && result.failure !== undefined && (
-            <ActionFailure
-              className={footer.error}
-              action={isUndoResult(result) ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)}
-              error={result.failure.error}
-            />
+            <ActionFailure className={footer.error} action={isUndoResult(result) ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)} error={result.failure.error} />
           )}
           {!(undo.error instanceof PartialBatchError) && <ActionFailure className={footer.error} action={list.undoFailed} error={undo.error} />}
         </>

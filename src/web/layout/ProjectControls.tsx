@@ -13,12 +13,7 @@ export function ProjectCheckbox({ project }: { project: Project }) {
   return (
     <>
       <label className={styles.checkbox}>
-        <input
-          type="checkbox"
-          checked={project.active}
-          aria-label={layout.checkboxLabel(project.name)}
-          onChange={(event) => setActive.mutate({ id: project.id, active: event.target.checked })}
-        />
+        <input type="checkbox" checked={project.active} aria-label={layout.checkboxLabel(project.name)} onChange={(event) => setActive.mutate({ id: project.id, active: event.target.checked })} />
       </label>
       <ActionFailure className={styles.error} action={layout.setActiveFailed(setActive.variables?.active ?? false)} error={setActive.error} />
     </>

@@ -17,9 +17,23 @@ const fixed = (index: number, lines: number): { task: Task; commit: [string, Fix
 });
 const createdOf = (tasks: readonly Task[], found: FoundHow | undefined) => tasks.map((task) => createdEvent(task, new Date(task.created), "cli", { found }));
 const journalsOf = (tasks: readonly Task[], found: FoundHow | undefined): ProjectJournal[] =>
-  [...new Set(tasks.map((task) => task.projectId))].map((projectId) => ({ projectId, invalidLines: 0, events: createdOf(tasks.filter((task) => task.projectId === projectId), found) }));
+  [...new Set(tasks.map((task) => task.projectId))].map((projectId) => ({
+    projectId,
+    invalidLines: 0,
+    events: createdOf(
+      tasks.filter((task) => task.projectId === projectId),
+      found,
+    ),
+  }));
 const incidental = (tasks: readonly Task[]) => ({ tasks, journals: journalsOf(tasks, "incidental") });
-const code = (commits: [string, FixCommit][], units = [{ date: iso(8, 15), lines: 300 }, { date: iso(8, 2), lines: 100 }, { date: iso(5, 1), lines: 999 }]): CollectedCode => ({
+const code = (
+  commits: [string, FixCommit][],
+  units = [
+    { date: iso(8, 15), lines: 300 },
+    { date: iso(8, 2), lines: 100 },
+    { date: iso(5, 1), lines: 999 },
+  ],
+): CollectedCode => ({
   projects: [{ projectId: "spa", name: "Проект spa", repos: [{ commits: [], lines: [], units }] }],
   unavailableRepos: [],
   fixCommits: new Map(commits),
@@ -52,7 +66,10 @@ describe("эффект беклога", () => {
     const byAgent = makeTask({ id: "SPA-9", created: iso(8, 16), category: "bug" });
     const events = [...createdOf(review, "review"), ...createdOf([manual], "manual"), ...createdOf([unrecorded], undefined), ...createdOf([byAgent], "incidental")];
 
-    const report = effectReport(reportContext({ tasks: [...review, manual, unrecorded, byAgent], journals: [{ projectId: "spa", invalidLines: 0, events }], now: NOW, projectId: "spa" }), code(fixes.map((fix) => fix.commit)));
+    const report = effectReport(
+      reportContext({ tasks: [...review, manual, unrecorded, byAgent], journals: [{ projectId: "spa", invalidLines: 0, events }], now: NOW, projectId: "spa" }),
+      code(fixes.map((fix) => fix.commit)),
+    );
 
     expect(report.totals).toMatchObject({ fixedTasks: 0, fixedLines: 0, openTasks: 1, estimatedLines: 35 });
     expect(report.projects[0]?.deferredTasks).toBe(1);
@@ -112,7 +129,13 @@ describe("эффект беклога", () => {
     const bigFixes = [100, 100, 100, 100, 200].map((lines, index) => fixed(index + 1, lines));
     const units = [{ date: iso(8, 15), lines: 50 }];
 
-    const report = effectReport(reportContext({ ...incidental(bigFixes.map((fix) => fix.task)), now: NOW, projectId: "spa" }), code(bigFixes.map((fix) => fix.commit), units));
+    const report = effectReport(
+      reportContext({ ...incidental(bigFixes.map((fix) => fix.task)), now: NOW, projectId: "spa" }),
+      code(
+        bigFixes.map((fix) => fix.commit),
+        units,
+      ),
+    );
 
     expect(report.totals).toMatchObject({ realLines: 50, fixedLines: 600, openTasks: 0, noiseShare: 1 });
   });
@@ -126,7 +149,13 @@ describe("эффект беклога", () => {
   });
 
   it("без коммитов после внедрения сравнивать не с чем — доля шума пустая", () => {
-    const report = effectReport(reportContext({ ...incidental([...fixes.map((fix) => fix.task), ...others]), now: NOW, projectId: "spa" }), code(fixes.map((fix) => fix.commit), []));
+    const report = effectReport(
+      reportContext({ ...incidental([...fixes.map((fix) => fix.task), ...others]), now: NOW, projectId: "spa" }),
+      code(
+        fixes.map((fix) => fix.commit),
+        [],
+      ),
+    );
 
     expect(report.totals.realLines).toBe(0);
     expect(report.totals.noiseShare).toBeNull();

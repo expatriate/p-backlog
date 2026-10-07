@@ -121,11 +121,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
       />
 
       <ReadonlyRefs label={taskMessages.dependentsLabel} tasks={dependentTasks(task, index)} taskHref={taskHref} />
-      <ReadonlyRefs
-        label={taskMessages.referrersLabel}
-        tasks={relatedTasks(task, index).filter((other) => !task.related.includes(other.id))}
-        taskHref={taskHref}
-      />
+      <ReadonlyRefs label={taskMessages.referrersLabel} tasks={relatedTasks(task, index).filter((other) => !task.related.includes(other.id))} taskHref={taskHref} />
       <ReadonlyRefs label={taskMessages.epicChildrenLabel} tasks={children} taskHref={taskHref} />
 
       {refOptions}

@@ -45,26 +45,10 @@ export function AccuracyChart({ periods, grain }: { periods: AccuracyPeriod[]; g
         <CartesianGrid vertical={false} />
         <XAxis dataKey="start" tickFormatter={(day: string) => axisDay(language, day)} {...DATE_AXIS_PROPS} />
         <YAxis yAxisId="decided" allowDecimals={false} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
-        <YAxis
-          yAxisId="precision"
-          orientation="right"
-          domain={[0, 1]}
-          tickFormatter={formatShare}
-          width={VALUE_AXIS_WIDTH}
-          {...AXIS_PROPS}
-        />
+        <YAxis yAxisId="precision" orientation="right" domain={[0, 1]} tickFormatter={formatShare} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
         <Tooltip content={tooltip} {...TOOLTIP_PROPS} />
         <Bar yAxisId="decided" dataKey="decided" fill={DECIDED} radius={BAR_RADIUS} isAnimationActive={false} />
-        <Line
-          yAxisId="precision"
-          type="monotone"
-          dataKey="precision"
-          stroke={PRECISION}
-          strokeWidth={LINE_WIDTH}
-          connectNulls
-          dot={valueDot(PRECISION)}
-          isAnimationActive={false}
-        />
+        <Line yAxisId="precision" type="monotone" dataKey="precision" stroke={PRECISION} strokeWidth={LINE_WIDTH} connectNulls dot={valueDot(PRECISION)} isAnimationActive={false} />
       </ComposedChart>
     </ChartFrame>
   );

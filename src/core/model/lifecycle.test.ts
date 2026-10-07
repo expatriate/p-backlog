@@ -71,9 +71,7 @@ describe("завершённый эпик", () => {
   const cancelled = makeTask({ id: "SPA-3", epic: "SPA-1", status: "cancelled", closed: CLOSED_AT });
 
   it("открытый эпик, у которого все задачи закрыты, завершён; план перечисляет задачи", () => {
-    expect(completedEpics([epic, done, cancelled])).toEqual([
-      { epic, childIds: ["SPA-2", "SPA-3"] },
-    ]);
+    expect(completedEpics([epic, done, cancelled])).toEqual([{ epic, childIds: ["SPA-2", "SPA-3"] }]);
   });
 
   it("эпик без задач, с открытой задачей или уже закрытый не завершён; обычная задача — не эпик", () => {

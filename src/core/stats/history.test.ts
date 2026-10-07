@@ -42,7 +42,20 @@ describe("история задачи", () => {
         task: "SPA-2",
         via: "sweep",
         kind: "deleted",
-        snapshot: { id: "SPA-2", title: "x", type: "task", status: "cancelled", priority: "low", tags: [], blockedBy: [], related: [], created: iso(1), closed: iso(2), resolution: "duplicate", source: "src/a.ts:1" },
+        snapshot: {
+          id: "SPA-2",
+          title: "x",
+          type: "task",
+          status: "cancelled",
+          priority: "low",
+          tags: [],
+          blockedBy: [],
+          related: [],
+          created: iso(1),
+          closed: iso(2),
+          resolution: "duplicate",
+          source: "src/a.ts:1",
+        },
       },
     ];
 
@@ -101,7 +114,7 @@ describe("история задачи", () => {
 
     const [history] = taskHistories([task], journal(events));
 
-    expect(closingsOf(history ?? { transitions: [] } as never)).toMatchObject([{ to: "done", via: "unknown" }]);
+    expect(closingsOf(history ?? ({ transitions: [] } as never))).toMatchObject([{ to: "done", via: "unknown" }]);
     expect(isOpenAt(history as never, at(5).getTime())).toBe(false);
   });
 

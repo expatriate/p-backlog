@@ -85,7 +85,11 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
   z.object({ ...eventBase, kind: z.literal("deleted"), snapshot: taskSnapshotSchema }),
   z.object({ ...eventBase, kind: z.literal("category"), from: recordedEnum(TASK_CATEGORIES).optional(), to: recordedEnum(TASK_CATEGORIES).optional() }),
   z.object({ ...eventBase, kind: z.literal("verified"), source: z.string().optional() }),
-  z.object({ ...eventBase, kind: z.literal("candidate"), evidence: z.enum(CANDIDATE_EVIDENCE), mode: recordedEnum(CHECK_MODES),
+  z.object({
+    ...eventBase,
+    kind: z.literal("candidate"),
+    evidence: z.enum(CANDIDATE_EVIDENCE),
+    mode: recordedEnum(CHECK_MODES),
     method: recordedEnum(CHECK_METHODS).optional(),
     bySymbol: z.boolean().optional(),
     byAnchor: z.boolean().optional(),

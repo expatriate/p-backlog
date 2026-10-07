@@ -15,11 +15,7 @@ export const listEn: ListMessages = {
   unknownProject: "Project not found.",
   hiddenOpenNote: (n) => `${n} more open ${pluralEn(n, "task", "tasks")} — in projects without the checkbox.`,
   noTasksInScope: (note) => `No tasks in the included projects. ${note}`,
-  noTasksYet: (code) => [
-    "No tasks yet. The backlog is filled by the agent: it records tasks with ",
-    code("backlog new"),
-    " while it works on the code.",
-  ],
+  noTasksYet: (code) => ["No tasks yet. The backlog is filled by the agent: it records tasks with ", code("backlog new"), " while it works on the code."],
   noOpenTasksInScope: (note) => `No open tasks in the included projects. ${note}`,
   noOpenTasks: "No open tasks.",
   showAllStatuses: "Show all statuses",

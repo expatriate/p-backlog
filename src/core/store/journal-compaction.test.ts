@@ -95,7 +95,10 @@ const TI_JOURNAL = [
 ];
 
 const TI_BUG_FIXES = Object.fromEntries(
-  [1, 2, 3, 4].map((index) => [join("ti", `TI-${index + 3}.md`), taskText(`TI-${index + 3}`, "2026-07-15", `category: bug\nstatus: done\nclosed: ${at("2026-09-01")}\nresolution: fixed\nreason: aaa000${index}\n`)]),
+  [1, 2, 3, 4].map((index) => [
+    join("ti", `TI-${index + 3}.md`),
+    taskText(`TI-${index + 3}`, "2026-07-15", `category: bug\nstatus: done\nclosed: ${at("2026-09-01")}\nresolution: fixed\nreason: aaa000${index}\n`),
+  ]),
 );
 
 async function spaProject(journal: readonly unknown[] = SPA_JOURNAL): Promise<{ root: string; dir: string }> {
@@ -181,7 +184,10 @@ describe("уплотнение журнала проекта", () => {
     await compact(dir);
 
     const { events } = await readJournal(dir, "spa");
-    const sightings = [{ task: "SPA-2", evidence: "source-changed" as const }, { task: "SPA-8", evidence: "source-changed" as const }];
+    const sightings = [
+      { task: "SPA-2", evidence: "source-changed" as const },
+      { task: "SPA-8", evidence: "source-changed" as const },
+    ];
     expect(candidateEvents(sightings, episodeStates(events), NOW, "changed")).toEqual([]);
   });
 

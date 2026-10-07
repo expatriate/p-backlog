@@ -51,7 +51,10 @@ function formatReport(cli: CliMessages, core: CoreMessages, { fixed, problems, c
   const sections = [
     section(cli.fixedHeader, fixed.map(core.checkFix)),
     section(cli.problemsHeader, problems.map(core.checkProblem)),
-    section(cli.candidatesHeader, candidates.map((candidate) => describeCandidate(cli, candidate))),
+    section(
+      cli.candidatesHeader,
+      candidates.map((candidate) => describeCandidate(cli, candidate)),
+    ),
   ].filter((text) => text !== "");
   return sections.length === 0 ? cli.backlogOk : sections.join("\n");
 }

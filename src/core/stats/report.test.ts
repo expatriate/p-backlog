@@ -35,9 +35,7 @@ describe("отчёт статистики", () => {
   });
 
   it("строка журнала с неизвестным значением считается отдельно от неразобранных", () => {
-    const withUnknownValue = [
-      { projectId: "spa", events: [{ at: formatLocalIso(at(16)), task: "SPA-2", via: "cli", kind: "category", from: "bug", to: "unknown" }] as JournalEvent[], invalidLines: 0 },
-    ];
+    const withUnknownValue = [{ projectId: "spa", events: [{ at: formatLocalIso(at(16)), task: "SPA-2", via: "cli", kind: "category", from: "bug", to: "unknown" }] as JournalEvent[], invalidLines: 0 }];
 
     const report = statsReport(reportContext({ tasks, journals: withUnknownValue, now: NOW, projectId: "spa" }));
 
@@ -102,13 +100,18 @@ describe("отчёт статистики", () => {
       { at: formatLocalIso(at(17)), task: "SPA-7", via: "cli", kind: "status", from: "backlog", to: "in-progress" },
     ];
 
-    const report = statsReport(reportContext({
-      tasks: [],
-      journals: [{ projectId: "spa", events, invalidLines: 0 }],
-      now: at(17, 18),
-      projectId: "spa",
-      unparsedTasks: [{ projectId: "spa", id: "SPA-7" }, { projectId: "ti", id: "TI-3" }],
-    }));
+    const report = statsReport(
+      reportContext({
+        tasks: [],
+        journals: [{ projectId: "spa", events, invalidLines: 0 }],
+        now: at(17, 18),
+        projectId: "spa",
+        unparsedTasks: [
+          { projectId: "spa", id: "SPA-7" },
+          { projectId: "ti", id: "TI-3" },
+        ],
+      }),
+    );
 
     expect(report.unparsedTasks).toBe(1);
     expect(report.totals).toMatchObject({ open: 1, openWeight: 2, closedToday: 0, closedLastWeek: 0 });

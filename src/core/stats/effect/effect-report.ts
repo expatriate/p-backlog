@@ -28,7 +28,10 @@ export function effectReport(
   code: CollectedCode,
   wholeBacklog: ReportContext = context.input.projectId === undefined ? context : reportContext({ ...context.input, projectId: undefined }),
 ): EffectReport {
-  const { input: { now, projectId }, histories } = context;
+  const {
+    input: { now, projectId },
+    histories,
+  } = context;
   const statsWindow = statsPeriod(now);
   const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
   const deferredByAgent = createdIn(histories, statsWindow).filter((history) => history.found === "incidental");
@@ -55,7 +58,11 @@ export function effectReport(
     weeks: bucketsOf(weekWindows(now), deferred, periodUnits, estimate),
     days: bucketsOf(dayWindows(now), deferred, periodUnits, estimate),
     projects: projects.map((project): EffectProject => {
-      const own = totalsOf(deferred.filter((item) => item.history.projectId === project.projectId), unitsForTotals(project.projectId), estimate);
+      const own = totalsOf(
+        deferred.filter((item) => item.history.projectId === project.projectId),
+        unitsForTotals(project.projectId),
+        estimate,
+      );
       return {
         projectId: project.projectId,
         name: project.name,

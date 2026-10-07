@@ -38,12 +38,7 @@ describe("filterTasks", () => {
   });
 
   it("проект и статусы; пустой список значений не пропускает ничего, отсутствующий — пропускает всё", () => {
-    expect(ids(filterTasks(tasks, { projectId: "spa", statuses: ["backlog", "in-progress"] }, context))).toEqual([
-      "SPA-1",
-      "SPA-3",
-      "SPA-4",
-      "SPA-5",
-    ]);
+    expect(ids(filterTasks(tasks, { projectId: "spa", statuses: ["backlog", "in-progress"] }, context))).toEqual(["SPA-1", "SPA-3", "SPA-4", "SPA-5"]);
     expect(ids(filterTasks(tasks, { projectId: "spa", priorities: [] }, context))).toEqual([]);
     expect(ids(filterTasks(tasks, { priorities: ["high", "low"] }, context))).toEqual(["SPA-1", "SPA-3"]);
   });

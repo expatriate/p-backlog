@@ -23,9 +23,7 @@ export function candidateEvents(sightings: readonly CandidateSighting[], states:
 export function filteredEvents(filtered: readonly FilteredSighting[], states: EpisodeStates, now: Date): JournalEvent[] {
   const at = formatLocalIso(now);
   const byKey = new Map(filtered.map((sighting) => [filteredKey(sighting.task, sighting.symbol), sighting]));
-  return [...byKey.entries()]
-    .filter(([key]) => states.get(key) !== "open")
-    .map(([, { task, symbol }]) => ({ at, task, via: "check", kind: "candidate-filtered", symbol }));
+  return [...byKey.entries()].filter(([key]) => states.get(key) !== "open").map(([, { task, symbol }]) => ({ at, task, via: "check", kind: "candidate-filtered", symbol }));
 }
 
 type ReviewedTasks = { sightings: readonly CandidateSighting[]; reviewed: readonly string[]; checked?: readonly CandidateEvidence[] };
@@ -61,7 +59,11 @@ export function episodeStates(journal: readonly JournalEvent[]): EpisodeStates {
       restoreEpisodes(beforeClosing.get(event.task) ?? [], states);
     } else if (endsEpisodes(event)) {
       const keys = [...CANDIDATE_EVIDENCE.map((evidence) => episodeKey(event.task, evidence)), ...(filteredKeysByTask.get(event.task) ?? [])];
-      if (event.kind === "status") beforeClosing.set(event.task, keys.map((key) => [key, states.get(key)]));
+      if (event.kind === "status")
+        beforeClosing.set(
+          event.task,
+          keys.map((key) => [key, states.get(key)]),
+        );
       endEpisodes(keys, states);
     }
   }

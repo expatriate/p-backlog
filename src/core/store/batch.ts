@@ -13,11 +13,7 @@ type SkipReason = Exclude<BatchSkipReason, "failed">;
 
 type BatchPrevious = { status: TaskStatus; priority: Priority; epic: string | null };
 
-type BatchAction =
-  | { kind: "close"; reason: string }
-  | { kind: "priority"; priority: Priority }
-  | { kind: "epic"; epic: string | null }
-  | { kind: "restore"; changes: Readonly<Record<string, BatchPrevious>> };
+type BatchAction = { kind: "close"; reason: string } | { kind: "priority"; priority: Priority } | { kind: "epic"; epic: string | null } | { kind: "restore"; changes: Readonly<Record<string, BatchPrevious>> };
 
 type BatchRequest = { tasks: readonly { id: string; version: string }[]; action: BatchAction; now: Date };
 

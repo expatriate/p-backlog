@@ -1,15 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient, type UseMutationResult, type UseQueryOptions } from "@tanstack/react-query";
-import type {
-  BatchRequest,
-  BatchResponse,
-  MemorySamplesResponse,
-  ProjectsResponse,
-  ProjectView,
-  ScanProgress,
-  SettingsResponse,
-  TaskChangesRequest,
-  TasksResponse,
-} from "../../core/api/contract";
+import type { BatchRequest, BatchResponse, MemorySamplesResponse, ProjectsResponse, ProjectView, ScanProgress, SettingsResponse, TaskChangesRequest, TasksResponse } from "../../core/api/contract";
 import { MEMORY_SAMPLE_INTERVAL_MS } from "../../core/api/memory";
 import type { StatsReportKind, StatsReports } from "../../core/api/stats-routes";
 import type { Language } from "../../core/i18n/language";
@@ -154,9 +144,5 @@ function freshestTask(queryClient: QueryClient, id: string): Task | undefined {
 }
 
 function putTask(queryClient: QueryClient, task: Task): void {
-  queryClient.setQueryData<TasksResponse>(TASKS_KEY, (current) =>
-    current === undefined
-      ? current
-      : { ...current, tasks: current.tasks.map((candidate) => (candidate.id === task.id ? task : candidate)) },
-  );
+  queryClient.setQueryData<TasksResponse>(TASKS_KEY, (current) => (current === undefined ? current : { ...current, tasks: current.tasks.map((candidate) => (candidate.id === task.id ? task : candidate)) }));
 }

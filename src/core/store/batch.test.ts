@@ -269,7 +269,10 @@ describe("batchRequestSchema", () => {
 
   it("отклоняет повторяющиеся id и больше 500 задач", () => {
     const duplicate = batchRequestSchema.safeParse({
-      tasks: [{ id: "SPA-1", version: "v" }, { id: "SPA-1", version: "v2" }],
+      tasks: [
+        { id: "SPA-1", version: "v" },
+        { id: "SPA-1", version: "v2" },
+      ],
       action: { kind: "priority", priority: "high" },
     });
     expect(duplicate.success).toBe(false);

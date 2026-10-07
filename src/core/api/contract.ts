@@ -49,7 +49,13 @@ export const batchRequestSchema = z.strictObject({
     .max(BATCH_TASKS_LIMIT)
     .refine((tasks) => new Set(tasks.map((task) => task.id)).size === tasks.length),
   action: z.discriminatedUnion("kind", [
-    z.strictObject({ kind: z.literal("close"), reason: z.string().transform((reason) => reason.replace(/\s*\n\s*/g, " ").trim()).pipe(z.string().min(1)) }),
+    z.strictObject({
+      kind: z.literal("close"),
+      reason: z
+        .string()
+        .transform((reason) => reason.replace(/\s*\n\s*/g, " ").trim())
+        .pipe(z.string().min(1)),
+    }),
     z.strictObject({ kind: z.literal("priority"), priority: z.enum(PRIORITIES) }),
     z.strictObject({ kind: z.literal("epic"), epic: taskIdSchema.nullable() }),
     z.strictObject({ kind: z.literal("restore"), changes: z.record(taskIdSchema, batchPreviousSchema) }),
@@ -59,9 +65,7 @@ export const batchRequestSchema = z.strictObject({
 export type BatchRequest = z.infer<typeof batchRequestSchema>;
 export type BatchAction = BatchRequest["action"];
 type BatchPrevious = z.infer<typeof batchPreviousSchema>;
-export type BatchOutcome =
-  | { id: string; outcome: "done"; version: string; previous: BatchPrevious }
-  | { id: string; outcome: "skipped"; reason: BatchSkipReason; message: string };
+export type BatchOutcome = { id: string; outcome: "done"; version: string; previous: BatchPrevious } | { id: string; outcome: "skipped"; reason: BatchSkipReason; message: string };
 export type BatchResponse = { results: BatchOutcome[] };
 
 type ParseErrorView = Omit<ParseError, "problems"> & { message: string };

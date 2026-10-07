@@ -51,8 +51,7 @@ function Totals({ totals }: { totals: StatsTotals }) {
         label={stats.tasksToday}
         value={
           <>
-            <span className={totals.createdToday > 0 ? styles.growth : undefined}>+{totals.createdToday}</span>{" "}
-            <span className={totals.closedToday > 0 ? styles.decline : undefined}>−{totals.closedToday}</span>
+            <span className={totals.createdToday > 0 ? styles.growth : undefined}>+{totals.createdToday}</span> <span className={totals.closedToday > 0 ? styles.decline : undefined}>−{totals.closedToday}</span>
           </>
         }
         note={stats.createdAndClosed}

@@ -7,8 +7,7 @@ export const uiEn: UiMessages = {
   retry: "Retry",
   retrying: "Retrying…",
   deletionDelayed: "deletion delayed",
-  deletionDelayedTitle: (dayMonth) =>
-    `was due to be deleted ${dayMonth}; the deletion pass holds the task until its epic is closed or the backlog is fixed`,
+  deletionDelayedTitle: (dayMonth) => `was due to be deleted ${dayMonth}; the deletion pass holds the task until its epic is closed or the backlog is fixed`,
   deletesToday: "deletes today",
   deletesInDays: (days) => `deletes in ${days} d.`,
   deletesOn: (dayMonth) => `deletes ${dayMonth}`,

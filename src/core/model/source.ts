@@ -9,8 +9,5 @@ export function hasLines(source: string): boolean {
 }
 
 export function sourcePath(source: string): string {
-  return source
-    .replace(SOURCE_LINES, "")
-    .replace(/^\.\//, "")
-    .replace(/\/+$/, "");
+  return source.replace(SOURCE_LINES, "").replace(/^\.\//, "").replace(/\/+$/, "");
 }

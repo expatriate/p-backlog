@@ -144,7 +144,11 @@ function diffFields(excerpt: DiffExcerpt | undefined): { diff?: string; diffOmit
 }
 
 function firstParagraph(body: string): string | undefined {
-  const paragraph = body.trim().split(/\n\s*\n/)[0]?.trim() ?? "";
+  const paragraph =
+    body
+      .trim()
+      .split(/\n\s*\n/)[0]
+      ?.trim() ?? "";
   if (paragraph === "") return undefined;
   return paragraph.length <= PROBLEM_LIMIT ? paragraph : `${paragraph.slice(0, PROBLEM_LIMIT)}…`;
 }

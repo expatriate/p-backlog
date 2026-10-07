@@ -90,7 +90,17 @@ export type QualityReport = ReportHead & {
   branches: BranchRow[];
 };
 
-export type EffectTotals = { realLines: number; fixedTasks: number; fixedLines: number; openTasks: number; deferredTasks: number; estimatedLines: number | null; deferredLines: number; deferredTestLines: number; noiseShare: number | null };
+export type EffectTotals = {
+  realLines: number;
+  fixedTasks: number;
+  fixedLines: number;
+  openTasks: number;
+  deferredTasks: number;
+  estimatedLines: number | null;
+  deferredLines: number;
+  deferredTestLines: number;
+  noiseShare: number | null;
+};
 export type EffectPeriod = { start: string; onTopicLines: number; deferredLines: number; deferredTestLines: number; estimatedLines: number | null; deferredTasks: number };
 export type EffectProject = { projectId: string; name: string; realLines: number; deferredTasks: number; fixedLines: number; estimatedLines: number | null; noiseShare: number | null };
 export type EffectReport = ReportHead & {
@@ -123,6 +133,15 @@ export type CostDay = CostNumbers & { day: string };
 export type CostPeriod = CostNumbers & { start: string };
 export type CostModel = { model: string; fast: boolean; tokens: number; cost: number | null };
 export type CostCommand = { command: string; runs: number; avgMs: number; avgRssMb: number; maxRssMb: number };
-export type CostReport = { periods: GrainPeriods & { totals: ReportPeriod }; scan: ScanProgress; since: string | null; totals: CostTotals; days: CostDay[]; weeks: CostPeriod[]; models: CostModel[]; commands: CostCommand[] };
+export type CostReport = {
+  periods: GrainPeriods & { totals: ReportPeriod };
+  scan: ScanProgress;
+  since: string | null;
+  totals: CostTotals;
+  days: CostDay[];
+  weeks: CostPeriod[];
+  models: CostModel[];
+  commands: CostCommand[];
+};
 
 export type MemorySample = { at: string; rssMb: number; heapUsedMb: number };

@@ -43,8 +43,7 @@ export const statsEn: StatsMessages = {
   tabs: { overview: "Overview", code: "Code", quality: "Quality", effect: "Effect", cost: "Cost" },
 
   invalidJournalLines: (n) => `Could not parse journal lines: ${n}. They are left out of the statistics — check the line format in the project's journal.jsonl.`,
-  unknownJournalLines: (n) =>
-    `Journal lines with an unknown value: ${n}. A renamed value (category, how found, resolution) is shown as "unknown", but is counted in the breakdowns.`,
+  unknownJournalLines: (n) => `Journal lines with an unknown value: ${n}. A renamed value (category, how found, resolution) is shown as "unknown", but is counted in the breakdowns.`,
   unparsedTasks: (n) => `Could not parse task files: ${n}. The statistics use their last status from the journal; fix the files — backlog check shows the errors.`,
   noTasks: "No tasks yet.",
   projectNotFound: "Project not found.",
@@ -122,15 +121,9 @@ export const statsEn: StatsMessages = {
   decidedCandidates: "candidates decided",
   precision: "precision",
   accuracySummary: ({ grain, periodCount, decided, latestPrecision }) =>
-    latestPrecision === null
-      ? `${periods(grain, periodCount)}: no decided candidates`
-      : `${periods(grain, periodCount)}: decided ${decided}, precision ${LAST_PERIOD[grain]} ${latestPrecision}`,
+    latestPrecision === null ? `${periods(grain, periodCount)}: no decided candidates` : `${periods(grain, periodCount)}: decided ${decided}, precision ${LAST_PERIOD[grain]} ${latestPrecision}`,
   graphTitle: "Code graph",
-  graphMissing: (code) => [
-    "No code graph: the check compares source lines and the whole file. ",
-    code("code-review-graph build"),
-    " in the project repository enables the check by symbol",
-  ],
+  graphMissing: (code) => ["No code graph: the check compares source lines and the whole file. ", code("code-review-graph build"), " in the project repository enables the check by symbol"],
   graphHint: 'The graph drops the "code changed" candidate when an edit touched another symbol of the same file, so the agent does not have to re-read the task',
   filteredTitle: `Filtered out over ${STATS_PERIOD}`,
   nothingFiltered: "The graph has not filtered out any candidates",

@@ -21,13 +21,7 @@ const NOISY_WINDOW_DAYS = 14;
 
 export function statsSignals(context: ReportContext): Signal[] {
   const { now } = context.input;
-  return [
-    ...debtGrowing(weeklyFlow(context.histories, now)),
-    ...urgentStale(urgentStaleCount(context.openTasks, now)),
-    ...stuck(context),
-    ...noisyChecks(context),
-    ...staleLow(context),
-  ];
+  return [...debtGrowing(weeklyFlow(context.histories, now)), ...urgentStale(urgentStaleCount(context.openTasks, now)), ...stuck(context), ...noisyChecks(context), ...staleLow(context)];
 }
 
 function debtGrowing(weeks: readonly FlowPeriod[]): Signal[] {
@@ -43,9 +37,7 @@ function urgentStale(count: number): Signal[] {
 }
 
 function stuck({ scope, tasks, input: { now } }: ReportContext): Signal[] {
-  const stuckTasks = inWorkTasks(tasks, scope.historiesWithEpics, now).filter(
-    (item) => item.days > (item.status === "blocked" ? STUCK_BLOCKED_DAYS : STUCK_IN_PROGRESS_DAYS),
-  );
+  const stuckTasks = inWorkTasks(tasks, scope.historiesWithEpics, now).filter((item) => item.days > (item.status === "blocked" ? STUCK_BLOCKED_DAYS : STUCK_IN_PROGRESS_DAYS));
   const longest = stuckTasks[0];
   if (longest === undefined) return [];
   return [{ kind: "stuck", params: { count: stuckTasks.length, id: longest.id, days: longest.days } }];
@@ -70,9 +62,7 @@ function checkGauges(histories: ReportContext["histories"], window: Period): Che
   const byEvidence = accuracy(histories, window)
     .filter((row): row is AccuracyRow & { evidence: CandidateEvidence } => measuredByClosing(row.evidence) && row.evidence !== "source-changed")
     .map((row) => ({ ...row, method: null }));
-  const byFile = methodAccuracy(histories, window).flatMap((row) =>
-    row.by === "file" ? [{ ...row, evidence: "source-changed" as const, method: "file" as const }] : [],
-  );
+  const byFile = methodAccuracy(histories, window).flatMap((row) => (row.by === "file" ? [{ ...row, evidence: "source-changed" as const, method: "file" as const }] : []));
   return [...byFile, ...byEvidence];
 }
 

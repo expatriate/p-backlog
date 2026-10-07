@@ -35,9 +35,7 @@ export function StatsPage() {
       <h1 ref={headingRef} tabIndex={-1} className={styles.heading}>
         {heading}
       </h1>
-      {projectId === undefined && projects.data !== undefined && (
-        <p className={styles.scopeNote}>{scopeNote(projects.data, app)}</p>
-      )}
+      {projectId === undefined && projects.data !== undefined && <p className={styles.scopeNote}>{scopeNote(projects.data, app)}</p>}
       {(signals.data?.signals.length ?? 0) > 0 && (
         <div className={styles.signals} role="status" aria-labelledby="stats-signals-heading">
           <strong id="stats-signals-heading" className={styles.signalsTitle}>
@@ -52,12 +50,7 @@ export function StatsPage() {
       )}
       <nav className={styles.tabs} aria-label={stats.tabsLabel}>
         {STATS_TABS.map((tab) => (
-          <Link
-            key={tab.key}
-            to={tabPath(tab.segment)}
-            className={cx(styles.tab, tab === active && styles.tabActive, tab === pending && styles.tabPending)}
-            aria-current={tab === active ? "page" : undefined}
-          >
+          <Link key={tab.key} to={tabPath(tab.segment)} className={cx(styles.tab, tab === active && styles.tabActive, tab === pending && styles.tabPending)} aria-current={tab === active ? "page" : undefined}>
             {stats.tabs[tab.key]}
           </Link>
         ))}

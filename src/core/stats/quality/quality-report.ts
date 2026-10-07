@@ -9,7 +9,11 @@ import { branchBreakdown, foundBreakdown } from "./origin";
 import { scopeLabel } from "../format";
 
 export function qualityReport(context: ReportContext, graphs: ProjectGraphRow[]): QualityReport {
-  const { input: { now, projectId }, histories, openTasks } = context;
+  const {
+    input: { now, projectId },
+    histories,
+    openTasks,
+  } = context;
   const period = statsPeriod(now);
   return {
     ...context.head,

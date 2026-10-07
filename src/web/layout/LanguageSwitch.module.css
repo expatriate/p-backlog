@@ -28,7 +28,9 @@
   font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--duration) var(--ease-out), color var(--duration) var(--ease-out);
+  transition:
+    background var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out);
 }
 
 .button:hover {

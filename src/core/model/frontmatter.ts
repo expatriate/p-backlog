@@ -8,10 +8,7 @@ const DELIMITER = "---";
 
 export type FrontmatterParts<T> = { data: T; extra: Record<string, unknown>; body: string };
 
-export function parseFrontmatter<Shape extends z.core.$ZodShape>(
-  text: string,
-  schema: z.ZodObject<Shape>,
-): ParseResult<FrontmatterParts<z.output<z.ZodObject<Shape>>>> {
+export function parseFrontmatter<Shape extends z.core.$ZodShape>(text: string, schema: z.ZodObject<Shape>): ParseResult<FrontmatterParts<z.output<z.ZodObject<Shape>>>> {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
   if (lines[0] !== DELIMITER) return { ok: false, problems: [{ code: "no-frontmatter" }] };
   const closing = lines.indexOf(DELIMITER, 1);
@@ -29,7 +26,10 @@ export function parseFrontmatter<Shape extends z.core.$ZodShape>(
 
   const knownFields = Object.keys(schema.shape);
   const extra = Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([key]) => !knownFields.includes(key)));
-  const body = lines.slice(closing + 1).join("\n").replace(/^\n+/, "");
+  const body = lines
+    .slice(closing + 1)
+    .join("\n")
+    .replace(/^\n+/, "");
   return { ok: true, value: { data: parsed.value, extra, body } };
 }
 

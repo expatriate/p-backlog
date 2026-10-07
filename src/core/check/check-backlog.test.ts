@@ -166,7 +166,22 @@ describe("checkBacklog", () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
     const repo = await makeGitRepo(home, "projects/spa");
-    const before = ['import { a } from "a";', "", "export function alpha() {", '  return "alpha";', "}", "", "export function beta() {", '  return "v1";', "}", "", "export function gamma() {", '  return "gamma";', "}", ""].join("\n");
+    const before = [
+      'import { a } from "a";',
+      "",
+      "export function alpha() {",
+      '  return "alpha";',
+      "}",
+      "",
+      "export function beta() {",
+      '  return "v1";',
+      "}",
+      "",
+      "export function gamma() {",
+      '  return "gamma";',
+      "}",
+      "",
+    ].join("\n");
     const imports = ['import { b } from "b";', 'import { c } from "c";', 'import { d } from "d";', 'import { e } from "e";'];
     const after = [...imports, edit(before)].join("\n");
     await writeFiles(repo, { "src/code.ts": before });

@@ -173,22 +173,20 @@ function ListStatus({ statusRef, content, shownCount, request, onRetry, empty }:
   );
 }
 
-function EmptyList({
-  hasTasks,
-  hiddenOpen,
-  filter,
-  onFilterChange,
-}: {
-  hasTasks: boolean;
-  hiddenOpen: number;
-  filter: ListParams["filter"];
-  onFilterChange: (filter: ListParams["filter"]) => void;
-}) {
+function EmptyList({ hasTasks, hiddenOpen, filter, onFilterChange }: { hasTasks: boolean; hiddenOpen: number; filter: ListParams["filter"]; onFilterChange: (filter: ListParams["filter"]) => void }) {
   const { list } = useMessages();
   const hiddenNote = list.hiddenOpenNote(hiddenOpen);
   if (!hasTasks) {
     if (hiddenOpen > 0) return <p>{list.noTasksInScope(hiddenNote)}</p>;
-    return <p>{list.noTasksYet((text) => <code key={text} className="inline-code">{text}</code>)}</p>;
+    return (
+      <p>
+        {list.noTasksYet((text) => (
+          <code key={text} className="inline-code">
+            {text}
+          </code>
+        ))}
+      </p>
+    );
   }
   if (isDefaultFilter(filter)) {
     return (

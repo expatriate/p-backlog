@@ -53,8 +53,7 @@ export const cliEn: CliMessages = {
   serviceNotInstalled: "Service is not installed",
   serviceUnsupported: "Autostart is not supported on this system — run the web UI with backlog serve",
   serviceCommandFailed: (command, code, output) => `${command} exited with code ${code}: ${output}`,
-  serviceStatus: (registered, responding, port) =>
-    `Service: ${registered ? "installed" : "not installed"} · server on port ${port}: ${responding ? "responding" : "not responding"}`,
+  serviceStatus: (registered, responding, port) => `Service: ${registered ? "installed" : "not installed"} · server on port ${port}: ${responding ? "responding" : "not responding"}`,
 
   taskNotFound: (id) => `Task ${id} not found`,
   fileConflict: (id) => `Task file ${id} changed while writing, retry the command`,
@@ -75,8 +74,7 @@ export const cliEn: CliMessages = {
 
   blockedSuffix: " [blocked]",
   fileLine: (path) => `File: ${path}`,
-  summaryLine: ({ type, status, priority, progress, categoryTail }) =>
-    `Type: ${type} · Status: ${status} · Priority: ${priority} · Progress: ${progress}${categoryTail}`,
+  summaryLine: ({ type, status, priority, progress, categoryTail }) => `Type: ${type} · Status: ${status} · Priority: ${priority} · Progress: ${progress}${categoryTail}`,
   categoryTail: (label) => ` · Category: ${label}`,
   closedLine: (closed, deletesAt) => `Closed: ${closed} · will be deleted ${deletesAt}`,
   reasonLine: (resolution, reason) => `Closed as: ${resolution} — ${reason}`,
@@ -92,8 +90,7 @@ export const cliEn: CliMessages = {
   warningsLine: (list) => `Warnings: ${list}`,
 
   stopReasonMore: (hidden) => ` and ${hidden} more`,
-  stopReasonBody: (items, more) =>
-    `code changed for tasks since the last check — ${items}${more}. Re-check them using the backlog skill, section "Re-check tasks".`,
+  stopReasonBody: (items, more) => `code changed for tasks since the last check — ${items}${more}. Re-check them using the backlog skill, section "Re-check tasks".`,
   candidateChanged: (path) => `changed ${path}`,
   candidateMissing: (path) => `file ${path} missing`,
   candidateRenamed: (path, to) => `${path} renamed to ${to}`,
@@ -104,8 +101,7 @@ export const cliEn: CliMessages = {
   projectNotFound: (id) => `Project ${id} not found`,
   notInGitRepo: (cwd) => `${cwd} is not inside a git repository: project not created. Pass --project <id> or run the command from a repository`,
   projectCreated: (id, prefix) => `Created project ${id} (${prefix})`,
-  projectNotCreatedFileUnparsed: (path, problems) =>
-    `Project not created: ${path} could not be parsed (${problems}). Fix the file, otherwise a new project could repeat its prefix and task numbers`,
+  projectNotCreatedFileUnparsed: (path, problems) => `Project not created: ${path} could not be parsed (${problems}). Fix the file, otherwise a new project could repeat its prefix and task numbers`,
 
   needProjectOrAllProjects: "Pass either --project or --all-projects",
 
@@ -118,11 +114,7 @@ export const cliEn: CliMessages = {
   candidateDescribeRenamed: (path, to) => `file ${path} is missing — renamed to ${to}`,
   candidateDescribeDuplicate: (otherId, match) => `looks like a duplicate of ${otherId} (${match})`,
 
-  projectUsage: (states) => [
-    "list",
-    `status <id> ${states}   (inactive projects are excluded from the combined scope)`,
-    "delete <id> --confirm <id>    (deletes the project directory with all its tasks)",
-  ],
+  projectUsage: (states) => ["list", `status <id> ${states}   (inactive projects are excluded from the combined scope)`, "delete <id> --confirm <id>    (deletes the project directory with all its tasks)"],
   noProjects: "No projects",
   projectListLine: ({ id, name, prefix, statusWord, open }) => `${id} · ${name} · ${prefix} · ${statusWord} · open ${open}`,
   confirmProjectDelete: (id) => `Confirm the deletion: backlog project delete ${id} --confirm ${id}`,
@@ -145,11 +137,7 @@ export const cliEn: CliMessages = {
   verified: (id) => `${id}: confirmed`,
   verifiedWithSource: (id, source) => `${id}: confirmed, source → ${source}`,
 
-  takeUsage: () => [
-    "<ID> [--force] [--json]",
-    "--next [--project id] [--json]",
-    "--path <file|directory> [--project id] [--json]   (all open tasks inside the path)",
-  ],
+  takeUsage: () => ["<ID> [--force] [--json]", "--next [--project id] [--json]", "--path <file|directory> [--project id] [--json]   (all open tasks inside the path)"],
   chooseOnlyOne: (chosen) => `Pass only one of: ${chosen}`,
   noOpenTasksAt: (path) => `No open tasks at ${path}`,
   epicTakeChildren: (id) => `${id} is an epic. Take one of its tasks instead:`,

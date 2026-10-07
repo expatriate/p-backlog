@@ -30,9 +30,7 @@ describe("launchdPlist", () => {
     const plist = launchdPlist(contextFor(home));
 
     expect(plist).toContain("<key>Label</key>\n  <string>local.p-backlog</string>");
-    expect(plist).toContain(
-      "<key>ProgramArguments</key>\n  <array>\n    <string>/opt/node/bin/node</string>\n    <string>/opt/p-backlog/dist/cli.js</string>\n    <string>serve</string>\n  </array>",
-    );
+    expect(plist).toContain("<key>ProgramArguments</key>\n  <array>\n    <string>/opt/node/bin/node</string>\n    <string>/opt/p-backlog/dist/cli.js</string>\n    <string>serve</string>\n  </array>");
     expect(plist).toContain("<key>BACKLOG_DIR</key>\n    <string>/Users/ann/backlog</string>");
     expect(plist).toContain("<key>PORT</key>\n    <string>4400</string>");
     expect(plist).toContain("<key>PATH</key>\n    <string>/usr/local/bin:/usr/bin:/bin</string>");
@@ -86,7 +84,9 @@ describe("launchdManager", () => {
     });
     const delays: number[] = [];
 
-    const outcome = await launchdManager(contextFor(home, fake.exec), async (ms) => { delays.push(ms); }).install();
+    const outcome = await launchdManager(contextFor(home, fake.exec), async (ms) => {
+      delays.push(ms);
+    }).install();
 
     expect(outcome).toBe("done");
     expect(bootstrapCalls).toBe(2);
@@ -95,12 +95,12 @@ describe("launchdManager", () => {
 
   it("устойчивый отказ 5 у bootstrap исчерпывает попытки и возвращает вывод и код launchctl, plist остаётся для разбора", async () => {
     const home = await makeTempDir();
-    const fake = fakeExec((command) =>
-      command.startsWith("launchctl bootstrap") ? { code: 5, output: "Bootstrap failed: 5: Input/output error" } : { code: 0, output: "" },
-    );
+    const fake = fakeExec((command) => (command.startsWith("launchctl bootstrap") ? { code: 5, output: "Bootstrap failed: 5: Input/output error" } : { code: 0, output: "" }));
     const delays: number[] = [];
 
-    const outcome = await launchdManager(contextFor(home, fake.exec), async (ms) => { delays.push(ms); }).install();
+    const outcome = await launchdManager(contextFor(home, fake.exec), async (ms) => {
+      delays.push(ms);
+    }).install();
 
     expect(outcome).toEqual({ failed: "launchctl bootstrap", code: 5, output: "Bootstrap failed: 5: Input/output error" });
     expect(fake.calls.filter((call) => call.startsWith("launchctl bootstrap"))).toHaveLength(5);

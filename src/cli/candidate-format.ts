@@ -13,9 +13,7 @@ function evidence(cli: CliMessages, candidate: Candidate): string {
       return cli.candidateDescribeChanged(candidate.path, [...commits, ...uncommitted].join("; "));
     }
     case "source-missing":
-      return candidate.renamedTo === undefined
-        ? cli.candidateDescribeMissing(candidate.path)
-        : cli.candidateDescribeRenamed(candidate.path, candidate.renamedTo);
+      return candidate.renamedTo === undefined ? cli.candidateDescribeMissing(candidate.path) : cli.candidateDescribeRenamed(candidate.path, candidate.renamedTo);
     case "duplicate": {
       const duplicateMatch = { source: cli.candidateEvidenceSameLocation, title: cli.candidateEvidenceSimilarTitles, symbol: cli.candidateEvidenceSameSymbol };
       return cli.candidateDescribeDuplicate(candidate.other.id, duplicateMatch[candidate.match]);

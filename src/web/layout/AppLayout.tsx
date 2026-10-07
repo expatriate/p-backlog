@@ -51,7 +51,9 @@ export function AppLayout() {
               <span className={styles.projectName}>{layout.statsNav}</span>
               {signalCount > 0 && (
                 <>
-                  <span className={cx(styles.count, styles.signalCount)} aria-hidden="true">{signalCount}</span>
+                  <span className={cx(styles.count, styles.signalCount)} aria-hidden="true">
+                    {signalCount}
+                  </span>
                   <span className="visually-hidden">{layout.signalsHidden(signalCount)}</span>
                 </>
               )}

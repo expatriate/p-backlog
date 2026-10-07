@@ -7,11 +7,7 @@ const projectDir = join(E2E_BACKLOG_DIR, "spa");
 
 async function writeTask(id: string, title: string): Promise<void> {
   await mkdir(projectDir, { recursive: true });
-  await writeFile(
-    join(projectDir, `${id}.md`),
-    `---\nid: ${id}\ntitle: ${title}\ncreated: 2026-09-17T10:00:00+03:00\n---\n\nОписание.\n`,
-    "utf8",
-  );
+  await writeFile(join(projectDir, `${id}.md`), `---\nid: ${id}\ntitle: ${title}\ncreated: 2026-09-17T10:00:00+03:00\n---\n\nОписание.\n`, "utf8");
 }
 
 async function writeProject(): Promise<void> {

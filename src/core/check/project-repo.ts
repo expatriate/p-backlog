@@ -36,7 +36,13 @@ export async function projectCheckout(project: Project, home: string, workingRoo
 
 async function firstExistingRepo(project: Project, home: string): Promise<string | undefined> {
   for (const repo of project.repos.map((path) => expandHome(path, home))) {
-    if (await access(repo).then(() => true, () => false)) return repo;
+    if (
+      await access(repo).then(
+        () => true,
+        () => false,
+      )
+    )
+      return repo;
   }
   return undefined;
 }

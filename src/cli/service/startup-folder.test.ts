@@ -15,12 +15,7 @@ async function tempRoots(): Promise<Roots> {
   return { home: await makeTempDir(), appData: await makeTempDir(), localAppData: await makeTempDir() };
 }
 
-function contextFor(
-  roots: Roots,
-  exec: CliEnv["exec"] = fakeExec().exec,
-  stopProcess: CliEnv["stopProcess"] = () => true,
-  onUnverifiedPid: ServiceContext["onUnverifiedPid"] = () => undefined,
-): ServiceContext {
+function contextFor(roots: Roots, exec: CliEnv["exec"] = fakeExec().exec, stopProcess: CliEnv["stopProcess"] = () => true, onUnverifiedPid: ServiceContext["onUnverifiedPid"] = () => undefined): ServiceContext {
   return {
     home: roots.home,
     env: { PATH: "/usr/local/bin;/usr/bin", APPDATA: roots.appData, LOCALAPPDATA: roots.localAppData },

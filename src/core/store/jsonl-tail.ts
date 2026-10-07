@@ -76,5 +76,7 @@ function nothingPending<T>(): Pending<T> {
 async function headFingerprintAt(handle: FileHandle, offset: number): Promise<string> {
   const length = Math.min(offset, HEAD_FINGERPRINT_BYTES);
   if (length === 0) return EMPTY_FINGERPRINT;
-  return createHash("sha1").update(await readAt(handle, 0, length)).digest("hex");
+  return createHash("sha1")
+    .update(await readAt(handle, 0, length))
+    .digest("hex");
 }

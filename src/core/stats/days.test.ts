@@ -19,10 +19,7 @@ describe("дни", () => {
   });
 
   it("создано, закрыто и открыто на конец дня", () => {
-    const tasks = [
-      makeTask({ id: "SPA-1", created: formatLocalIso(at(8, 16)), status: "done", closed: formatLocalIso(at(8, 17)) }),
-      makeTask({ id: "SPA-2", created: formatLocalIso(at(8, 17)) }),
-    ];
+    const tasks = [makeTask({ id: "SPA-1", created: formatLocalIso(at(8, 16)), status: "done", closed: formatLocalIso(at(8, 17)) }), makeTask({ id: "SPA-2", created: formatLocalIso(at(8, 17)) })];
 
     const days = dailyFlow(taskHistories(tasks, []), NOW);
 

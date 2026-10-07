@@ -21,10 +21,12 @@ type EpicStatusFix = { status: TaskStatus; closure?: Closure | undefined; done: 
 export async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, { now, messages }: { now: Date; messages: FixTexts }): Promise<FixOutcome> {
   const isGone = goneTaskCheck(loaded);
   const epicFixes = await epicStatusFixes(loaded, inScope, messages);
-  const planned = loaded.tasks.filter((task) => inScope(task.projectId)).flatMap((task): PlannedFix[] => {
-    const fix = planFix(task, isGone, epicFixes.get(task.id));
-    return fix === null ? [] : [{ task, ...fix }];
-  });
+  const planned = loaded.tasks
+    .filter((task) => inScope(task.projectId))
+    .flatMap((task): PlannedFix[] => {
+      const fix = planFix(task, isGone, epicFixes.get(task.id));
+      return fix === null ? [] : [{ task, ...fix }];
+    });
   return applyPlanned(buildIndex(loaded.tasks), planned, now);
 }
 

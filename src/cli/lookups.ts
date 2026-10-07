@@ -76,7 +76,5 @@ function homeRelative(path: string, home: string): string {
 }
 
 function findProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Project | undefined {
-  return explicitId === undefined
-    ? findProjectForDir(loaded.projects, io.cwd, io.home)
-    : loaded.projects.find((project) => project.id === explicitId);
+  return explicitId === undefined ? findProjectForDir(loaded.projects, io.cwd, io.home) : loaded.projects.find((project) => project.id === explicitId);
 }

@@ -15,7 +15,10 @@ const tasks = FILES.map((path, index) => makeTask({ id: `SPA-${index + 1}`, sour
 async function repoWithGraph(editedAfterBuild: readonly string[]): Promise<string> {
   const repo = await makeTempDir();
   await writeFiles(repo, Object.fromEntries(FILES.map((path) => [path, editedAfterBuild.includes(path) ? `${CODE}// правка\n` : CODE])));
-  await makeGraphDb(repo, FILES.map((path) => ({ path, hash: sha(CODE), symbols: SYMBOLS })));
+  await makeGraphDb(
+    repo,
+    FILES.map((path) => ({ path, hash: sha(CODE), symbols: SYMBOLS })),
+  );
   return repo;
 }
 

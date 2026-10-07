@@ -87,21 +87,14 @@ export function isQueuedTask(task: Task): boolean {
 
 export function pickNextTask(tasks: readonly Task[], projectId: string, index: BacklogIndex): Task | undefined {
   const candidates = tasks.filter((task) => task.projectId === projectId && isQueuedTask(task) && !isBlocked(task, index));
-  return candidates.sort(
-    (a, b) =>
-      priorityRank(b.priority) - priorityRank(a.priority) ||
-      Date.parse(a.created) - Date.parse(b.created) ||
-      compareIds(a.id, b.id),
-  )[0];
+  return candidates.sort((a, b) => priorityRank(b.priority) - priorityRank(a.priority) || Date.parse(a.created) - Date.parse(b.created) || compareIds(a.id, b.id))[0];
 }
 
 export const STALE_LOW_DAYS = 30;
 
 export function staleLowTasks(tasks: readonly Task[], now: Date): Task[] {
   const cutoff = now.getTime() - STALE_LOW_DAYS * DAY_MS;
-  return tasks
-    .filter((task) => isQueuedTask(task) && task.priority === "low" && Date.parse(task.created) < cutoff)
-    .sort((a, b) => Date.parse(a.created) - Date.parse(b.created));
+  return tasks.filter((task) => isQueuedTask(task) && task.priority === "low" && Date.parse(task.created) < cutoff).sort((a, b) => Date.parse(a.created) - Date.parse(b.created));
 }
 
 function isAutoClosed(task: Task, closedInWeb: ReadonlySet<string>): boolean {

@@ -26,7 +26,10 @@ export function derivePrefix(basename: string, taken: ReadonlySet<string>): stri
 }
 
 export function deriveProjectId(basename: string, taken: ReadonlySet<string>): string {
-  const slug = basename.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const slug = basename
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   const base = slug === "" ? "project" : slug;
   return firstFree(base, taken, (n) => `${base}-${n}`);
 }

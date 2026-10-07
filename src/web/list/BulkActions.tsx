@@ -139,7 +139,10 @@ function PriorityOptions({ onChoose }: { onChoose: (priority: Priority) => void 
 function assignableEpicsOf(chosen: readonly Task[], tasks: readonly Task[], tones: EpicTones): EpicChoice[] | null {
   const projectIds = new Set(chosen.map((task) => task.projectId));
   if (projectIds.size > 1) return null;
-  return epicChoices(tasks.filter((task) => projectIds.has(task.projectId)), tones).epics;
+  return epicChoices(
+    tasks.filter((task) => projectIds.has(task.projectId)),
+    tones,
+  ).epics;
 }
 
 type EpicActionProps = { epics: EpicChoice[] | null; busy: boolean; onChoose: (epic: string | null) => void };

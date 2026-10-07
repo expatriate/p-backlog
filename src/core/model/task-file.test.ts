@@ -133,9 +133,7 @@ links:
   it("не пишет пустое тело и отсутствующие необязательные поля", () => {
     const parsed = parseTaskFile("---\nid: SPA-1\ntitle: X\ncreated: 2026-09-17T10:00:00Z\n---\n", location);
     if (!parsed.ok) throw new Error(JSON.stringify(parsed.problems));
-    expect(serializeTask(parsed.value)).toBe(
-      "---\nid: SPA-1\ntitle: X\ntype: task\nstatus: backlog\npriority: medium\ntags: []\nblockedBy: []\nrelated: []\ncreated: 2026-09-17T10:00:00Z\n---\n",
-    );
+    expect(serializeTask(parsed.value)).toBe("---\nid: SPA-1\ntitle: X\ntype: task\nstatus: backlog\npriority: medium\ntags: []\nblockedBy: []\nrelated: []\ncreated: 2026-09-17T10:00:00Z\n---\n");
   });
 });
 

@@ -98,9 +98,7 @@ describe("createTask", () => {
     await writeFiles(root, { "spa/project.md": projectFile("SPA") });
     const { loaded, project } = await loadProject(root, "spa");
 
-    const results = await Promise.all(
-      Array.from({ length: 10 }, (_, n) => createTask(root, { project, input: { title: `Задача ${n}` }, existingTasks: loaded.tasks, now: NOW, via: "cli" })),
-    );
+    const results = await Promise.all(Array.from({ length: 10 }, (_, n) => createTask(root, { project, input: { title: `Задача ${n}` }, existingTasks: loaded.tasks, now: NOW, via: "cli" })));
 
     const ids = results.map((result) => (result.ok ? result.task.id : "ошибка"));
     expect(new Set(ids).size).toBe(10);

@@ -33,7 +33,9 @@ describe("сбор данных git по проектам", () => {
     const code = await source.collect(projects, NOW);
     const fixCommits = await source.fixCommits(projects, [{ projectId: "spa", hashes: [head, "deadbee"] }], NOW);
 
-    expect(code.projects).toEqual([{ projectId: "spa", name: "Проект spa", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 1 }], units: [{ date: "2026-09-10T10:00:00+03:00", lines: 1 }] }] }]);
+    expect(code.projects).toEqual([
+      { projectId: "spa", name: "Проект spa", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 1 }], units: [{ date: "2026-09-10T10:00:00+03:00", lines: 1 }] }] },
+    ]);
     expect(code.unavailableRepos).toEqual(["/nope/repo"]);
     expect(fixCommits.get(fixKey("spa", head))?.byAgent).toBe(false);
     expect(fixCommits.has(fixKey("spa", "deadbee"))).toBe(false);
@@ -48,7 +50,9 @@ describe("сбор данных git по проектам", () => {
 
     const code = await source.collect([projectOf("spa", ["~/spa"])], NOW);
 
-    expect(code.projects).toEqual([{ projectId: "spa", name: "Проект spa", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 1 }], units: [{ date: "2026-09-10T10:00:00+03:00", lines: 1 }] }] }]);
+    expect(code.projects).toEqual([
+      { projectId: "spa", name: "Проект spa", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 1 }], units: [{ date: "2026-09-10T10:00:00+03:00", lines: 1 }] }] },
+    ]);
     expect(code.unavailableRepos).toEqual([]);
   });
 

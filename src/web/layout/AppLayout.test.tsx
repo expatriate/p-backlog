@@ -26,7 +26,11 @@ describe("боковая панель", () => {
     const ti = (await screen.findByRole("checkbox", { name: "Учитывать проект ti в области «Проекты»" })) as HTMLInputElement;
     const list = screen.getByRole("list", { name: "Проекты" });
 
-    expect(within(list).getAllByRole("link").map((link) => link.textContent)).toEqual(["spa", "ti"]);
+    expect(
+      within(list)
+        .getAllByRole("link")
+        .map((link) => link.textContent),
+    ).toEqual(["spa", "ti"]);
     expect(ti.checked).toBe(false);
     await waitFor(() => expect(screen.getByRole("link", { name: "Проекты" }).closest("div")?.textContent).toContain("1 задача"));
   });

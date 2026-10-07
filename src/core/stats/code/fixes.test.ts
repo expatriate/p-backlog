@@ -8,15 +8,11 @@ import { fixRequests, reasonHashes } from "./fixes";
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 const iso = (day: number, hour = 12) => formatLocalIso(at(day, hour));
 const NOW = at(18);
-const fixed = (id: string, created: number, closed: number, reason: string) =>
-  makeTask({ id, created: iso(created), status: "done", closed: iso(closed), resolution: "fixed", reason });
+const fixed = (id: string, created: number, closed: number, reason: string) => makeTask({ id, created: iso(created), status: "done", closed: iso(closed), resolution: "fixed", reason });
 
 describe("хеши из причины", () => {
   it("короткие и полные хеши по порядку, слова из hex-букв и числа внутри слов не берутся", () => {
-    expect(reasonHashes("Исправлено в 8fde4fb (ветка feat/x), см. также 0123456789abcdef0123456789abcdef01234567")).toEqual([
-      "8fde4fb",
-      "0123456789abcdef0123456789abcdef01234567",
-    ]);
+    expect(reasonHashes("Исправлено в 8fde4fb (ветка feat/x), см. также 0123456789abcdef0123456789abcdef01234567")).toEqual(["8fde4fb", "0123456789abcdef0123456789abcdef01234567"]);
     expect(reasonHashes("deadline, facade, abc12345x, версия v1a2b3c4d")).toEqual([]);
     expect(reasonHashes(undefined)).toEqual([]);
   });
@@ -36,7 +32,20 @@ describe("запросы к коммитам исправлений", () => {
       task: "SPA-5",
       via: "sweep",
       kind: "deleted",
-      snapshot: { id: snapshot.id, title: snapshot.title, type: "task", status: "done", priority: "medium", tags: [], blockedBy: [], related: [], created: snapshot.created, closed: snapshot.closed, resolution: "fixed", reason: snapshot.reason },
+      snapshot: {
+        id: snapshot.id,
+        title: snapshot.title,
+        type: "task",
+        status: "done",
+        priority: "medium",
+        tags: [],
+        blockedBy: [],
+        related: [],
+        created: snapshot.created,
+        closed: snapshot.closed,
+        resolution: "fixed",
+        reason: snapshot.reason,
+      },
     };
     const histories = taskHistories(tasks, [{ projectId: "spa", events: [deleted], invalidLines: 0 }]);
 
@@ -44,7 +53,14 @@ describe("запросы к коммитам исправлений", () => {
   });
 
   it("закрытия до окна хранения истории не считаются", () => {
-    const closedLongAgo = makeTask({ id: "SPA-1", created: formatLocalIso(new Date(2026, 5, 1, 12)), status: "done", closed: formatLocalIso(new Date(2026, 5, 18, 12)), resolution: "fixed", reason: "Исправлено в aaaaaaa" });
+    const closedLongAgo = makeTask({
+      id: "SPA-1",
+      created: formatLocalIso(new Date(2026, 5, 1, 12)),
+      status: "done",
+      closed: formatLocalIso(new Date(2026, 5, 18, 12)),
+      resolution: "fixed",
+      reason: "Исправлено в aaaaaaa",
+    });
     const histories = taskHistories([closedLongAgo], []);
 
     expect(fixRequests(histories, NOW)).toEqual([]);
@@ -60,5 +76,4 @@ describe("запросы к коммитам исправлений", () => {
 
     expect(fixRequests(histories, NOW)).toEqual([]);
   });
-
 });

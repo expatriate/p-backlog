@@ -29,10 +29,10 @@ describe("backlog new", () => {
     const { run, root, repo } = await makeCliSandbox();
     await mkdir(join(repo, "src"));
 
-    const result = await run(
-      ["new", "--category", "bug", "--title", "Таймауты загрузки", "--priority", "high", "--tags", "upload, network", "--source", "src/a.ts:10"],
-      { cwd: join(repo, "src"), stdin: "Описание\n\n## Чеклист\n- [ ] шаг\n" },
-    );
+    const result = await run(["new", "--category", "bug", "--title", "Таймауты загрузки", "--priority", "high", "--tags", "upload, network", "--source", "src/a.ts:10"], {
+      cwd: join(repo, "src"),
+      stdin: "Описание\n\n## Чеклист\n- [ ] шаг\n",
+    });
 
     expect(result).toEqual({ code: EXIT.ok, out: `SPA-1 ${join(root, "spa/SPA-1.md")}`, err: "Создан проект spa (SPA)" });
     const text = await readFile(join(root, "spa/SPA-1.md"), "utf8");

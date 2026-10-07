@@ -1,14 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildIndex,
-  dependentTasks,
-  epicChildren,
-  isBlocked,
-  missingReferences,
-  openBlockers,
-  relatedTasks,
-  taskProgress,
-} from "./graph";
+import { buildIndex, dependentTasks, epicChildren, isBlocked, missingReferences, openBlockers, relatedTasks, taskProgress } from "./graph";
 import { makeTask } from "./testing/make-task";
 
 const ids = (tasks: readonly { id: string }[]) => tasks.map((task) => task.id);

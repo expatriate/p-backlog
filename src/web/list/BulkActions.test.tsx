@@ -66,9 +66,7 @@ describe("панель массовых действий", () => {
     const app = await renderApp(FILES);
     await screen.findAllByRole("row");
     const table = screen.getByRole("table");
-    expect(document.getElementById(table.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
-      "Пробел на задаче — выбрать её, Shift+Пробел — выбрать диапазон, Alt+A — к действиям с выбранными",
-    );
+    expect(document.getElementById(table.getAttribute("aria-describedby") ?? "")?.textContent).toBe("Пробел на задаче — выбрать её, Shift+Пробел — выбрать диапазон, Alt+A — к действиям с выбранными");
 
     screen.getByRole("link", { name: "Разобрать очередь" }).focus();
     await app.user.keyboard(" ");
@@ -152,7 +150,14 @@ describe("панель массовых действий", () => {
     expect(autoChip.textContent).toMatch(/\s1$/);
     await app.user.click(autoChip);
 
-    await waitFor(() => expect(screen.getAllByRole("row").slice(1).map((row) => within(row).getAllByRole("link")[0]?.textContent)).toEqual(["TI-1"]));
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole("row")
+          .slice(1)
+          .map((row) => within(row).getAllByRole("link")[0]?.textContent),
+      ).toEqual(["TI-1"]),
+    );
   });
 
   it("«Приоритет» ставит выбранное значение всем выбранным", async () => {
@@ -161,7 +166,11 @@ describe("панель массовых действий", () => {
 
     await app.user.click(within(panel()).getByRole("button", { name: "Приоритет" }));
     const menu = within(panel()).getByRole("group", { name: "Приоритет" });
-    expect(within(menu).getAllByRole("button").map((option) => option.textContent)).toEqual(["низкий", "средний", "высокий", "критичный"]);
+    expect(
+      within(menu)
+        .getAllByRole("button")
+        .map((option) => option.textContent),
+    ).toEqual(["низкий", "средний", "высокий", "критичный"]);
     await app.user.click(within(menu).getByRole("button", { name: "критичный" }));
 
     await waitFor(async () => expect([(await app.taskOnDisk("SPA-1")).priority, (await app.taskOnDisk("TI-1")).priority]).toEqual(["critical", "critical"]));
@@ -230,9 +239,7 @@ describe("панель массовых действий", () => {
     const actions = panel("Actions on selected");
     await waitFor(() => expect(actions.textContent).toContain("3 selected"));
     expect(actions.textContent).toContain("(1 hidden by filter)");
-    expect(document.getElementById(within(actions).getByRole("button", { name: "Epic" }).getAttribute("aria-describedby") ?? "")?.textContent).toBe(
-      "Tasks from different projects",
-    );
+    expect(document.getElementById(within(actions).getByRole("button", { name: "Epic" }).getAttribute("aria-describedby") ?? "")?.textContent).toBe("Tasks from different projects");
     await app.user.click(within(actions).getByRole("button", { name: "Close as obsolete" }));
     expect(within(screen.getByRole("dialog", { name: /^Close 3\stasks as obsolete\?$/ })).getByRole("button", { name: "Close 3" })).toBeDefined();
   });

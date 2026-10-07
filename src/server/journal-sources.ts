@@ -35,15 +35,17 @@ export function createJournalSources(root: string): JournalSources {
     return { journal: projectJournal(projectId, lines), position: `${projectId}=${generation}:${length}` };
   };
 
-  const rememberedContext = (snapshot: object, tailed: readonly TailedJournal[]) => (input: StatsInput): ReportContext => {
-    const slotKey = input.projectId ?? "*";
-    const positions = tailed.filter(({ journal }) => input.projectId === undefined || journal.projectId === input.projectId).map(({ position }) => position);
-    const key = `${snapshotIdOf(snapshot)}|${slotKey}|${positions.join(",")}`;
-    const known = remembered.get(slotKey);
-    const data = known?.key === key ? known.data : scopedReportData(input);
-    remembered.set(slotKey, { projectId: input.projectId, key, data });
-    return { ...data, input };
-  };
+  const rememberedContext =
+    (snapshot: object, tailed: readonly TailedJournal[]) =>
+    (input: StatsInput): ReportContext => {
+      const slotKey = input.projectId ?? "*";
+      const positions = tailed.filter(({ journal }) => input.projectId === undefined || journal.projectId === input.projectId).map(({ position }) => position);
+      const key = `${snapshotIdOf(snapshot)}|${slotKey}|${positions.join(",")}`;
+      const known = remembered.get(slotKey);
+      const data = known?.key === key ? known.data : scopedReportData(input);
+      remembered.set(slotKey, { projectId: input.projectId, key, data });
+      return { ...data, input };
+    };
 
   return {
     journals: async (projectIds) => (await Promise.all(projectIds.map(readTailed))).map(({ journal }) => journal),

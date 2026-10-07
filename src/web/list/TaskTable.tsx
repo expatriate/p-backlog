@@ -102,12 +102,7 @@ export function TaskTable({ tasks, index, openedId, sort, onSort, taskHref, date
             >
               <td className={styles.pick}>
                 <label className={styles.pickTarget}>
-                  <input
-                    type="checkbox"
-                    checked={selection.selected.has(task.id)}
-                    aria-label={list.selectTask(task.id)}
-                    onChange={(event) => selection.toggle(task.id, { range: isShiftClick(event) })}
-                  />
+                  <input type="checkbox" checked={selection.selected.has(task.id)} aria-label={list.selectTask(task.id)} onChange={(event) => selection.toggle(task.id, { range: isShiftClick(event) })} />
                 </label>
               </td>
               <td>

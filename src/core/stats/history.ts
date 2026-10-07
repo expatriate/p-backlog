@@ -1,4 +1,18 @@
-import { isClosingChange, recordedMethodOf, withoutUndoneClosings, UNKNOWN, type Recorded, type CandidateEvidence, type ChangeSource, type RecordedMatch, type RecordedMethod, type FoundHow, type JournalEvent, type ProjectJournal, type TaskSnapshot } from "../journal/events";
+import {
+  isClosingChange,
+  recordedMethodOf,
+  withoutUndoneClosings,
+  UNKNOWN,
+  type Recorded,
+  type CandidateEvidence,
+  type ChangeSource,
+  type RecordedMatch,
+  type RecordedMethod,
+  type FoundHow,
+  type JournalEvent,
+  type ProjectJournal,
+  type TaskSnapshot,
+} from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Priority, Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
 import type { Period } from "./period";
@@ -150,11 +164,7 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, prio
   ];
 }
 
-function categoryOf(
-  final: Task | TaskSnapshot | undefined,
-  created: Extract<JournalEvent, { kind: "created" }> | undefined,
-  categoryEvents: readonly CategoryEvent[],
-): Recorded<TaskCategory> | undefined {
+function categoryOf(final: Task | TaskSnapshot | undefined, created: Extract<JournalEvent, { kind: "created" }> | undefined, categoryEvents: readonly CategoryEvent[]): Recorded<TaskCategory> | undefined {
   if (final !== undefined) return final.category;
   const lastCategoryEvent = [...categoryEvents].sort((a, b) => a.at - b.at).at(-1);
   return lastCategoryEvent !== undefined ? lastCategoryEvent.to : created?.category;

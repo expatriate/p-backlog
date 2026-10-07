@@ -10,7 +10,10 @@ export function inWorkTasks(tasks: readonly Task[], histories: readonly TaskHist
   return tasks
     .flatMap((task) => (isWorkStatus(task.status) ? [{ task, status: task.status }] : []))
     .map(({ task, status }): LongestInWork => {
-      const entered = historyById.get(task.id)?.transitions.filter((transition) => transition.to === status && transition.at <= nowMs).at(-1)?.at;
+      const entered = historyById
+        .get(task.id)
+        ?.transitions.filter((transition) => transition.to === status && transition.at <= nowMs)
+        .at(-1)?.at;
       return {
         id: task.id,
         projectId: task.projectId,

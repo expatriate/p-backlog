@@ -147,7 +147,14 @@ async function generatedBacklog(seed: number): Promise<{ root: string; code: Col
   for (const { id, prefix } of PROJECTS) {
     const lives = Array.from({ length: rng.int(2, 9) }, (_, index) => ({ id: `${prefix}-${index + 1}`, life: taskLife(rng, `${prefix}-${index + 1}`) }));
     const files = Object.fromEntries(lives.flatMap(({ id: taskId, life }) => (life.file === null ? [] : [[join(id, `${taskId}.md`), life.file]])));
-    await writeFiles(root, { [join(id, PROJECT_FILE)]: projectFile(prefix), [join(id, JOURNAL_FILE)]: journalOf(rng, lives.map(({ life }) => life)), ...files });
+    await writeFiles(root, {
+      [join(id, PROJECT_FILE)]: projectFile(prefix),
+      [join(id, JOURNAL_FILE)]: journalOf(
+        rng,
+        lives.map(({ life }) => life),
+      ),
+      ...files,
+    });
   }
   return { root, code: codeOf(rng) };
 }

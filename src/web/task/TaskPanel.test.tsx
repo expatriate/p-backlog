@@ -417,7 +417,10 @@ describe("правка агента, пока поле в фокусе", () => {
     return { panel, title };
   }
 
-  const alertTexts = (panel: HTMLElement) => within(panel).queryAllByRole("alert").map((alert) => alert.textContent ?? "");
+  const alertTexts = (panel: HTMLElement) =>
+    within(panel)
+      .queryAllByRole("alert")
+      .map((alert) => alert.textContent ?? "");
 
   it("новая правка агента после конфликта не заменяет свой текст молча: он остаётся, предупреждение тоже", async () => {
     const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1");
@@ -603,7 +606,12 @@ describe("черновик описания при уходе с задачи", 
 
     await waitFor(() => expect(patches.sent).toHaveLength(2));
     await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe(""));
-    expect(within(panel).getAllByRole("alert").map((alert) => alert.textContent).join()).toContain("Описание изменилось на диске");
+    expect(
+      within(panel)
+        .getAllByRole("alert")
+        .map((alert) => alert.textContent)
+        .join(),
+    ).toContain("Описание изменилось на диске");
   });
 
   it("задача исчезла с диска во время черновика — карточка остаётся с черновиком и предупреждением", async () => {
@@ -770,7 +778,6 @@ describe("черновик описания при уходе с задачи", 
     expect(await screen.findByRole("complementary", { name: "Задача SPA-4" })).toBeDefined();
     expect(confirm).not.toHaveBeenCalled();
   });
-
 });
 
 describe("отклик на сохранение", () => {

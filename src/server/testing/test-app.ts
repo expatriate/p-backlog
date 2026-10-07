@@ -92,8 +92,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
       await Promise.all([...listeners].map((listener) => listener(paths)));
     },
     request,
-    json: (path, method, body) =>
-      request(path, { method, body: JSON.stringify(body), headers: { "content-type": "application/json" } }),
+    json: (path, method, body) => request(path, { method, body: JSON.stringify(body), headers: { "content-type": "application/json" } }),
     taskOnDisk,
     taskVersion: async (id) => (await taskOnDisk(id)).version,
   };

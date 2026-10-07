@@ -55,4 +55,3 @@ export async function resolveCommits(git: GitRunner, repo: string, revisions: re
 function ignoreStdinOfExitedGit(): undefined {
   return undefined;
 }
-

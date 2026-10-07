@@ -12,9 +12,7 @@ import { appendJournal, readJournal, type JournalWriter } from "./journal";
 import { taskText } from "./task-text";
 import { invalid, type UpdateTaskFailure, type UpdateTaskResult } from "./write-result";
 
-export type TaskChanges = OptionalFields<
-  Pick<Task, "title" | "type" | "status" | "priority" | "tags" | "blockedBy" | "related" | "body" | "source" | "verified">
-> & {
+export type TaskChanges = OptionalFields<Pick<Task, "title" | "type" | "status" | "priority" | "tags" | "blockedBy" | "related" | "body" | "source" | "verified">> & {
   epic?: string | null | undefined;
   category?: TaskCategory | null | undefined;
   anchor?: string | null | undefined;
@@ -31,7 +29,10 @@ export type UpdateTaskRequest = WriteOrigin & {
 
 type AppliedSeparately = "status" | "epic" | "category" | "anchor";
 
-const COPIED_CHANGES = { title: true, type: true, priority: true, tags: true, blockedBy: true, related: true, body: true, source: true, verified: true } satisfies Record<Exclude<keyof TaskChanges, AppliedSeparately>, true>;
+const COPIED_CHANGES = { title: true, type: true, priority: true, tags: true, blockedBy: true, related: true, body: true, source: true, verified: true } satisfies Record<
+  Exclude<keyof TaskChanges, AppliedSeparately>,
+  true
+>;
 
 const CHANGE_FIELDS = Object.keys(COPIED_CHANGES) as (keyof typeof COPIED_CHANGES)[];
 

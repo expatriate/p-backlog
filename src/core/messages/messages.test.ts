@@ -61,9 +61,9 @@ describe("тревоги", () => {
   });
 
   it("шумная проверка называет улику и способ", () => {
-    expect(
-      coreMessages("ru").signal({ kind: "noisy-check", params: { evidence: "source-changed", method: "file", percent: 10, decided: 10, windowDays: 14 } }),
-    ).toBe(`Проверка «код изменился» по файлу почти всегда ошибается: точность 10% на 10 решённых за 14${NBSP}дней`);
+    expect(coreMessages("ru").signal({ kind: "noisy-check", params: { evidence: "source-changed", method: "file", percent: 10, decided: 10, windowDays: 14 } })).toBe(
+      `Проверка «код изменился» по файлу почти всегда ошибается: точность 10% на 10 решённых за 14${NBSP}дней`,
+    );
   });
 });
 

@@ -74,4 +74,3 @@ function sightingOf(candidate: Candidate): CandidateSighting {
   if (candidate.kind === "duplicate") return { ...sighting, match: candidate.match };
   return sighting;
 }
-

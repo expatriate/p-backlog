@@ -4,7 +4,13 @@ import { addStopHookIn, removeStopHookIn, type HookInstallResult, type HookRemov
 const CURSOR_HOOKS_VERSION = 1;
 
 const cursorConfigSchema = z
-  .object({ version: z.number().optional(), hooks: z.object({ stop: z.array(z.unknown()).optional() }).passthrough().optional() })
+  .object({
+    version: z.number().optional(),
+    hooks: z
+      .object({ stop: z.array(z.unknown()).optional() })
+      .passthrough()
+      .optional(),
+  })
   .passthrough();
 
 export function addCursorStopHook(path: string, hook: { command: string }, ourHook: OurHook): Promise<HookInstallResult> {

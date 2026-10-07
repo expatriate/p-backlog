@@ -58,7 +58,13 @@ export function createCostSource(root: string, home: string): CostSource {
 
 async function costOf({ usage: { cache, scan }, runs, scope: { projects, projectId }, now }: CostInputs, home: string, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
   const buckets = bucketsOf(cache);
-  const repoRoots = projectId === undefined ? new Map<string, GitRoots | null>() : await resolveRepoRoots(lookupRepoRoot, [...buckets, ...runs].map((entry) => entry.cwd));
+  const repoRoots =
+    projectId === undefined
+      ? new Map<string, GitRoots | null>()
+      : await resolveRepoRoots(
+          lookupRepoRoot,
+          [...buckets, ...runs].map((entry) => entry.cwd),
+        );
   const projectOf = (cwd: string) => {
     const roots = repoRoots.get(cwd) ?? null;
     return roots === null ? null : (findProjectForRoots(projects, roots, home)?.id ?? null);

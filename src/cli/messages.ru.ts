@@ -6,8 +6,7 @@ export const cliRu = {
     missingValue: (option: string): string => `У параметра ${option} нет значения`,
     takesNoValue: (option: string): string => `Параметр ${option} не принимает значения`,
   },
-  invalidChoice: (label: string, allowed: readonly string[], value: string): string =>
-    `${label}: ожидается одно из ${allowed.join(", ")}, получено «${value}»`,
+  invalidChoice: (label: string, allowed: readonly string[], value: string): string => `${label}: ожидается одно из ${allowed.join(", ")}, получено «${value}»`,
   commandFailed: (name: string, reason: string): string => `Команда ${name} не выполнена: ${reason}`,
   runNotRecorded: (error: string): string => `Не удалось записать запуск: ${error}`,
   sweepConflicts: (ids: string): string => `Задачи менялись во время уборки закрытых, она повторится через сутки: ${ids}`,
@@ -30,8 +29,7 @@ export const cliRu = {
   installHookConfigInvalid: (path: string): string => `${path} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`,
   agentNotFound: (dir: string): string => `не найден (${dir})`,
   pluginManages: (plugin: string): string => `скилл и хук подключает плагин ${plugin}. Ручные можно убрать: backlog setup --remove-manual`,
-  pluginLanguageHint: (installed: string, wanted: string): string =>
-    `скилл даёт плагин ${installed}; для этого языка поставьте другой: /plugin uninstall ${installed}, затем /plugin install ${wanted}`,
+  pluginLanguageHint: (installed: string, wanted: string): string => `скилл даёт плагин ${installed}; для этого языка поставьте другой: /plugin uninstall ${installed}, затем /plugin install ${wanted}`,
   removeManualWithService: "--remove-manual не сочетается с --service: службу снимает backlog service uninstall",
   manualSkillRemoval: {
     removed: (target: string): string => `ссылка на скилл снята: ${target}`,
@@ -49,8 +47,7 @@ export const cliRu = {
   serviceInstalled: (file: string): string => `Служба установлена: ${file}`,
   serviceLogs: (hint: string): string => `Логи: ${hint}`,
   serviceUninstalled: "Служба удалена",
-  servicePidUnverified: (pid: number, pidFile: string): string =>
-    `Не удалось проверить процесс ${pid} из ${pidFile}: если это прежний сервер p-backlog, остановите его вручную. Файл PID оставлен.`,
+  servicePidUnverified: (pid: number, pidFile: string): string => `Не удалось проверить процесс ${pid} из ${pidFile}: если это прежний сервер p-backlog, остановите его вручную. Файл PID оставлен.`,
   serviceNotInstalled: "Служба не установлена",
   serviceUnsupported: "Автозапуск на этой системе не поддерживается — запускайте веб командой backlog serve",
   serviceCommandFailed: (command: string, code: number, output: string): string => `${command} завершился с кодом ${code}: ${output}`,
@@ -64,8 +61,7 @@ export const cliRu = {
   statsTitle: (scopeName: string): string => `${scopeName} · статистика`,
   statsOpenLine: ({ open, weight, net, created, closed }: { open: number; weight: number; net: string; created: number; closed: number }): string =>
     `Открыто: ${open} (вес ${weight}) · за неделю: ${net} (создано ${created}, закрыто ${closed})`,
-  statsAgeLine: (ageMedian: string, leadMedian: string, tail: string): string =>
-    `Возраст, медиана: ${ageMedian} · до закрытия, медиана: ${leadMedian}${tail}`,
+  statsAgeLine: (ageMedian: string, leadMedian: string, tail: string): string => `Возраст, медиана: ${ageMedian} · до закрытия, медиана: ${leadMedian}${tail}`,
   statsP90Tail: (p90: string): string => ` (90% — ${p90})`,
   statsForecastLine: (forecast: string, tail: string): string => `Прогноз: ${forecast} (${tail})`,
   statsUnparsedTasks: (n: number): string => `Не разобрано файлов задач: ${n} — в статистике их последний статус из журнала; ошибки покажет backlog check`,
@@ -78,19 +74,8 @@ export const cliRu = {
 
   blockedSuffix: " [заблокирована]",
   fileLine: (path: string): string => `Файл: ${path}`,
-  summaryLine: ({
-    type,
-    status,
-    priority,
-    progress,
-    categoryTail,
-  }: {
-    type: string;
-    status: string;
-    priority: string;
-    progress: string;
-    categoryTail: string;
-  }): string => `Тип: ${type} · Статус: ${status} · Приоритет: ${priority} · Прогресс: ${progress}${categoryTail}`,
+  summaryLine: ({ type, status, priority, progress, categoryTail }: { type: string; status: string; priority: string; progress: string; categoryTail: string }): string =>
+    `Тип: ${type} · Статус: ${status} · Приоритет: ${priority} · Прогресс: ${progress}${categoryTail}`,
   categoryTail: (label: string): string => ` · Категория: ${label}`,
   closedLine: (closed: string, deletesAt: string): string => `Закрыта: ${closed} · удалится ${deletesAt}`,
   reasonLine: (resolution: string, reason: string): string => `Причина закрытия: ${resolution} — ${reason}`,
@@ -106,8 +91,7 @@ export const cliRu = {
   warningsLine: (list: string): string => `Предупреждения: ${list}`,
 
   stopReasonMore: (hidden: number): string => ` и ещё ${hidden}`,
-  stopReasonBody: (items: string, more: string): string =>
-    `после последней проверки менялся код задач — ${items}${more}. Перепроверь их по скиллу backlog, раздел «Перепроверить задачи».`,
+  stopReasonBody: (items: string, more: string): string => `после последней проверки менялся код задач — ${items}${more}. Перепроверь их по скиллу backlog, раздел «Перепроверить задачи».`,
   candidateChanged: (path: string): string => `изменён ${path}`,
   candidateMissing: (path: string): string => `нет файла ${path}`,
   candidateRenamed: (path: string, to: string): string => `${path} переименован в ${to}`,
@@ -132,25 +116,10 @@ export const cliRu = {
   candidateDescribeRenamed: (path: string, to: string): string => `файла ${path} нет — переименован в ${to}`,
   candidateDescribeDuplicate: (otherId: string, match: string): string => `похоже на дубль ${otherId} (${match})`,
 
-  projectUsage: (states: string): readonly string[] => [
-    "list",
-    `status <id> ${states}   (неактивные не входят в общую область)`,
-    "delete <id> --confirm <id>    (удаляет каталог проекта со всеми задачами)",
-  ],
+  projectUsage: (states: string): readonly string[] => ["list", `status <id> ${states}   (неактивные не входят в общую область)`, "delete <id> --confirm <id>    (удаляет каталог проекта со всеми задачами)"],
   noProjects: "Проектов нет",
-  projectListLine: ({
-    id,
-    name,
-    prefix,
-    statusWord,
-    open,
-  }: {
-    id: string;
-    name: string;
-    prefix: string;
-    statusWord: string;
-    open: number;
-  }): string => `${id} · ${name} · ${prefix} · ${statusWord} · открытых ${open}`,
+  projectListLine: ({ id, name, prefix, statusWord, open }: { id: string; name: string; prefix: string; statusWord: string; open: number }): string =>
+    `${id} · ${name} · ${prefix} · ${statusWord} · открытых ${open}`,
   confirmProjectDelete: (id: string): string => `Подтвердите удаление: backlog project delete ${id} --confirm ${id}`,
   projectDeleted: (id: string, taskCount: number): string => `${id} удалён: задач ${taskCount}`,
   projectActive: "активен",
@@ -171,11 +140,7 @@ export const cliRu = {
   verified: (id: string): string => `${id}: подтверждена`,
   verifiedWithSource: (id: string, source: string): string => `${id}: подтверждена, source → ${source}`,
 
-  takeUsage: (): readonly string[] => [
-    "<ID> [--force] [--json]",
-    "--next [--project id] [--json]",
-    "--path <файл|каталог> [--project id] [--json]   (все открытые задачи внутри пути)",
-  ],
+  takeUsage: (): readonly string[] => ["<ID> [--force] [--json]", "--next [--project id] [--json]", "--path <файл|каталог> [--project id] [--json]   (все открытые задачи внутри пути)"],
   chooseOnlyOne: (chosen: string): string => `Укажите что-то одно: ${chosen}`,
   noOpenTasksAt: (path: string): string => `Открытых задач по ${path} нет`,
   epicTakeChildren: (id: string): string => `${id} — эпик. Возьмите в работу одну из его задач:`,
@@ -184,8 +149,7 @@ export const cliRu = {
   blockedByOpenTasks: (id: string): string => `${id} заблокирована открытыми задачами:`,
   noTakeableInProject: (id: string): string => `В проекте ${id} нет задач, которые можно взять в работу`,
 
-  hookUsage: (stopEvent: string, agents: readonly string[]): string =>
-    `${stopEvent} [--agent ${agents.join("|")}]   (для хука Stop в Claude Code, Codex или Cursor, событие читается из stdin)`,
+  hookUsage: (stopEvent: string, agents: readonly string[]): string => `${stopEvent} [--agent ${agents.join("|")}]   (для хука Stop в Claude Code, Codex или Cursor, событие читается из stdin)`,
   sessionShownReadFailed: (error: string): string => `Не удалось прочитать показанные задачи сессии: ${error}`,
   sessionShownWriteFailed: (error: string): string => `Не удалось запомнить показанные задачи сессии: ${error}`,
   alertsComputeFailed: (error: string): string => `Не удалось посчитать тревоги: ${error}`,
@@ -205,8 +169,7 @@ export const cliRu = {
   bugNeedsSourceWarning: "У бага нет --source: без файла:строки проверка не увидит, что код задачи изменился",
   sameSource: "тот же source",
   similarTitle: "похожий заголовок",
-  similarTaskWarning: (id: string, title: string, why: string): string =>
-    `Похоже на ${id} — «${title}» (${why}). Если это другая задача — добавьте --force`,
+  similarTaskWarning: (id: string, title: string, why: string): string => `Похоже на ${id} — «${title}» (${why}). Если это другая задача — добавьте --force`,
 
   epicUsage: (noEpic: string): string => `<ID> [<ID> …] --to <ID эпика|${noEpic}>   (переносит задачи в эпик или вынимает из него)`,
   notAnEpic: (id: string): string => `${id} не эпик — перенести задачи можно только в эпик`,

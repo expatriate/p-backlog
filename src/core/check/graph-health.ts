@@ -12,7 +12,10 @@ export type GraphHealth = { state: GraphState; pinned: number; resolved: number 
 type SourceFileState = ReturnType<CodeGraph["fileState"]>;
 
 export async function projectGraphHealth(project: Project, tasks: readonly Task[], home: string): Promise<GraphHealth> {
-  return graphHealth(await findRepo(project, home), tasks.filter((task) => task.projectId === project.id));
+  return graphHealth(
+    await findRepo(project, home),
+    tasks.filter((task) => task.projectId === project.id),
+  );
 }
 
 export function graphHealth(repo: string | undefined, tasks: readonly Task[]): GraphHealth {

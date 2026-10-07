@@ -76,7 +76,11 @@ describe("systemdManager", () => {
     const home = await makeTempDir();
     let unitGoneAtReload = false;
     const fake = fakeExec(async (command) => {
-      if (command === "systemctl --user daemon-reload") unitGoneAtReload = await access(unitPath(home)).then(() => false, () => true);
+      if (command === "systemctl --user daemon-reload")
+        unitGoneAtReload = await access(unitPath(home)).then(
+          () => false,
+          () => true,
+        );
       return { code: 0, output: "" };
     });
     const manager = systemdManager(contextFor(home, fake.exec));

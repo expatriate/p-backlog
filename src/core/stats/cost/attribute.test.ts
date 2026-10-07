@@ -10,7 +10,14 @@ function assistantLine(timestamp: string, model: string, usage: Record<string, u
 }
 
 function usage(inputTokens: number, outputTokens: number) {
-  return { input_tokens: inputTokens, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: outputTokens, cache_creation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 0 }, speed: "standard" };
+  return {
+    input_tokens: inputTokens,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+    output_tokens: outputTokens,
+    cache_creation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 0 },
+    speed: "standard",
+  };
 }
 
 function hookFeedbackLine(timestamp: string) {
@@ -187,7 +194,13 @@ describe("отнесение строк расшифровки к накладн
       return state.pending.toolu_1 === "cli";
     };
 
-    expect(["(cd x; backlog list)", "echo $(backlog list --json)", "npx p-backlog stats", "npx -y p-backlog list", "backlog new --title x <<'EOF'\nтело\nEOF"].map(counted)).toEqual([true, true, true, true, true]);
+    expect(["(cd x; backlog list)", "echo $(backlog list --json)", "npx p-backlog stats", "npx -y p-backlog list", "backlog new --title x <<'EOF'\nтело\nEOF"].map(counted)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
     expect(["cat <<'EOF' > notes.md\nbacklog list\nEOF", 'git commit -m "fix\n\nbacklog list"', "echo 'a; backlog list'"].map(counted)).toEqual([false, false, false]);
   });
 
@@ -227,12 +240,7 @@ describe("отнесение строк расшифровки к накладн
       "pnpm exec backlog list",
       "yarn backlog list",
     ];
-    const notInvoking = [
-      "command -v backlog",
-      "npx eslint p-backlog",
-      "git commit -m \"$(cat <<'EOF'\nfix: one \" quote\nbacklog list now\nEOF\n)\"",
-      "echo x # ; backlog list",
-    ];
+    const notInvoking = ["command -v backlog", "npx eslint p-backlog", 'git commit -m "$(cat <<\'EOF\'\nfix: one " quote\nbacklog list now\nEOF\n)"', "echo x # ; backlog list"];
 
     expect(invoking.filter((command) => !counted(command))).toEqual([]);
     expect(notInvoking.filter(counted)).toEqual([]);

@@ -1,16 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checklistItems, toggleChecklistItem } from "./checklist";
 
-const BODY = [
-  "Описание",
-  "- [ ] первый",
-  "  * [x] второй",
-  "```md",
-  "- [ ] в примере кода",
-  "```",
-  "+ [X] третий",
-  "- [] не пункт",
-].join("\n");
+const BODY = ["Описание", "- [ ] первый", "  * [x] второй", "```md", "- [ ] в примере кода", "```", "+ [X] третий", "- [] не пункт"].join("\n");
 
 describe("checklistItems", () => {
   it("находит пункты вне блоков кода", () => {

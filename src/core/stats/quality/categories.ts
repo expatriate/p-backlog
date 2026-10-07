@@ -24,11 +24,5 @@ export function categoryBreakdown(openTasks: readonly Task[], histories: readonl
   for (const history of histories) row(history.category).closed += closingsOfIn(history, period).length;
   return [...rows.values()]
     .filter((entry) => entry.open + entry.created + entry.closed > 0)
-    .sort(
-      (a, b) =>
-        Number(a.category === null) - Number(b.category === null) ||
-        b.weight - a.weight ||
-        b.created - a.created ||
-        (a.category ?? "").localeCompare(b.category ?? ""),
-    );
+    .sort((a, b) => Number(a.category === null) - Number(b.category === null) || b.weight - a.weight || b.created - a.created || (a.category ?? "").localeCompare(b.category ?? ""));
 }

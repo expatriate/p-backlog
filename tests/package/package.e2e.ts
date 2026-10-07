@@ -18,8 +18,7 @@ let work: string;
 beforeAll(async () => {
   work = await realpath(await mkdtemp(join(tmpdir(), "backlog-package-test-")));
   const npmEnv = { ...process.env, HOME: join(work, "npm-home"), USERPROFILE: join(work, "npm-home"), npm_config_cache: join(work, "npm-cache") };
-  const npm = (args: string[], options: { cwd?: string } = {}) =>
-    execFileSync("npm", isWindows ? args.map(quoteForWindowsShell) : args, { ...options, encoding: "utf8", shell: isWindows, env: npmEnv });
+  const npm = (args: string[], options: { cwd?: string } = {}) => execFileSync("npm", isWindows ? args.map(quoteForWindowsShell) : args, { ...options, encoding: "utf8", shell: isWindows, env: npmEnv });
   const packed = npm(["pack", "--pack-destination", work, "--json"], { cwd: repoRoot });
   const tarball = join(work, JSON.parse(packed.slice(packed.search(/^\[\r?$/m)))[0].filename);
   prefix = join(work, "prefix");
@@ -87,9 +86,7 @@ describe("путь нового пользователя из tarball", () => {
     expect(runHook("s1")).toMatchObject({ decision: "block" });
 
     const port = await freePort();
-    const server = isWindows
-      ? spawn(process.execPath, [join(packageDir, "dist", "cli.js"), "serve", "--port", String(port)], { env })
-      : spawn(backlogBin, ["serve", "--port", String(port)], { env });
+    const server = isWindows ? spawn(process.execPath, [join(packageDir, "dist", "cli.js"), "serve", "--port", String(port)], { env }) : spawn(backlogBin, ["serve", "--port", String(port)], { env });
     try {
       const deadline = Date.now() + 20_000;
       let settingsResponse: { language: string } | undefined;

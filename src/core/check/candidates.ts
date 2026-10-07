@@ -9,8 +9,20 @@ export type TaskRef = { id: string; title: string };
 type CommitRef = { sha: string; subject: string };
 
 export type Candidate =
-  | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string  | undefined}
-  | { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; source?: string; problem?: string; snippet?: string; diff?: string; diffOmittedLines?: number; method: CheckMethod }
+  | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string | undefined }
+  | {
+      kind: "source-changed";
+      task: TaskRef;
+      path: string;
+      commits: CommitRef[];
+      uncommitted: boolean;
+      source?: string;
+      problem?: string;
+      snippet?: string;
+      diff?: string;
+      diffOmittedLines?: number;
+      method: CheckMethod;
+    }
   | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: DuplicateMatch };
 
 export type AnchorPlan = { id: string; changes: { source?: string; anchor: string }; moved?: CheckFix };

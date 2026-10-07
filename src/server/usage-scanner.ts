@@ -32,14 +32,7 @@ const DEFAULT_INTERVAL_MS = 60_000;
 export const CATCH_UP_DELAY_MS = 100;
 const NOT_LISTED: ScanProgress = { listed: false, filesTotal: 0, filesDone: 0, bytesLeft: 0 };
 
-export function createUsageScanner({
-  root,
-  claudeProjectsDir,
-  byteBudget = DEFAULT_BYTE_BUDGET,
-  intervalMs = DEFAULT_INTERVAL_MS,
-  warn,
-  now = () => new Date(),
-}: UsageScannerOptions): UsageScanner {
+export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAULT_BYTE_BUDGET, intervalMs = DEFAULT_INTERVAL_MS, warn, now = () => new Date() }: UsageScannerOptions): UsageScanner {
   let cache: UsageCache | null = null;
   let scan: ScanProgress = NOT_LISTED;
   let revision = 0;

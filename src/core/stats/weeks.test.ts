@@ -18,10 +18,7 @@ describe("недели", () => {
   });
 
   it("создано, закрыто и открыто на конец недели", () => {
-    const tasks = [
-      makeTask({ id: "SPA-1", created: formatLocalIso(at(8, 8)), status: "done", closed: formatLocalIso(at(8, 15)) }),
-      makeTask({ id: "SPA-2", created: formatLocalIso(at(8, 15)) }),
-    ];
+    const tasks = [makeTask({ id: "SPA-1", created: formatLocalIso(at(8, 8)), status: "done", closed: formatLocalIso(at(8, 15)) }), makeTask({ id: "SPA-2", created: formatLocalIso(at(8, 15)) })];
     const events: JournalEvent[] = [];
 
     const weeks = weeklyFlow(taskHistories(tasks, [{ projectId: "spa", events, invalidLines: 0 }]), NOW);

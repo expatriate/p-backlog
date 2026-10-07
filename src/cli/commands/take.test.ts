@@ -11,11 +11,7 @@ async function statusOf(root: string, id: string): Promise<string | undefined> {
 }
 
 describe("backlog take", () => {
-  it.each([
-    [["SPA-1", "--project", "spa"]],
-    [["--next", "--force"]],
-    [["--path", "src", "--force"]],
-  ])("неприменимый флаг %j отклоняет кодом 1, а не игнорирует", async (argv) => {
+  it.each([[["SPA-1", "--project", "spa"]], [["--next", "--force"]], [["--path", "src", "--force"]]])("неприменимый флаг %j отклоняет кодом 1, а не игнорирует", async (argv) => {
     const { run } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
 

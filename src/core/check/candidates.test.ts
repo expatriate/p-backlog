@@ -85,15 +85,10 @@ describe("codeCandidates", () => {
   });
 
   it("пропавший файл — кандидат и после подтверждения; переименование прослеживается по цепочке", () => {
-    const commits = [
-      commit("c3", "2026-09-14T10:00:00+03:00", [{ path: "src/c.ts", renamedFrom: "src/b.ts" }]),
-      commit("b2", "2026-09-13T10:00:00+03:00", [{ path: "src/b.ts", renamedFrom: "src/a.ts" }]),
-    ];
+    const commits = [commit("c3", "2026-09-14T10:00:00+03:00", [{ path: "src/c.ts", renamedFrom: "src/b.ts" }]), commit("b2", "2026-09-13T10:00:00+03:00", [{ path: "src/b.ts", renamedFrom: "src/a.ts" }])];
     const verified = { ...task, verified: "2026-09-12T10:00:00+03:00" };
 
-    expect(codeCandidates([verified], facts({ renames: commits }))).toEqual([
-      { kind: "source-missing", task: { id: "SPA-1", title: "Таймаут" }, path: "src/a.ts", renamedTo: "src/c.ts" },
-    ]);
+    expect(codeCandidates([verified], facts({ renames: commits }))).toEqual([{ kind: "source-missing", task: { id: "SPA-1", title: "Таймаут" }, path: "src/a.ts", renamedTo: "src/c.ts" }]);
     expect(codeCandidates([task], facts({}))).toEqual([{ kind: "source-missing", task: { id: "SPA-1", title: "Таймаут" }, path: "src/a.ts" }]);
   });
 
@@ -121,9 +116,7 @@ describe("codeCandidates", () => {
     ]);
 
     const dirty = new Map([["src/shared/model/a.ts", Date.parse("2026-09-12T10:00:00Z")]]);
-    expect(codeCandidates([folder], facts({ existing, dirtyModifiedAt: dirty }))).toMatchObject([
-      { kind: "source-changed", path: "src/shared", commits: [], uncommitted: true },
-    ]);
+    expect(codeCandidates([folder], facts({ existing, dirtyModifiedAt: dirty }))).toMatchObject([{ kind: "source-changed", path: "src/shared", commits: [], uncommitted: true }]);
     const dirtyNeighbour = new Map([["src/shared-extra/b.ts", Date.parse("2026-09-12T10:00:00Z")]]);
     expect(codeCandidates([folder], facts({ existing, dirtyModifiedAt: dirtyNeighbour }))).toEqual([]);
   });

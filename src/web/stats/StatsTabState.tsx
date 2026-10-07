@@ -17,22 +17,9 @@ type ReportQuery<T> = Pick<UseQueryResult<T>, "error" | "data" | "isFetching" | 
 
 type EmptyReport<T> = { isEmpty: (report: T) => boolean; message: string };
 
-type RequestView<T> =
-  | { kind: "notFound" }
-  | { kind: "loading" }
-  | { kind: "failed"; error: Error; report: T | undefined }
-  | { kind: "empty"; message: string }
-  | { kind: "ready"; report: T };
+type RequestView<T> = { kind: "notFound" } | { kind: "loading" } | { kind: "failed"; error: Error; report: T | undefined } | { kind: "empty"; message: string } | { kind: "ready"; report: T };
 
-export function StatsRequestState<T>({
-  query,
-  empty,
-  children,
-}: {
-  query: ReportQuery<T>;
-  empty?: EmptyReport<T> | undefined;
-  children: (report: T) => ReactNode;
-}) {
+export function StatsRequestState<T>({ query, empty, children }: { query: ReportQuery<T>; empty?: EmptyReport<T> | undefined; children: (report: T) => ReactNode }) {
   const { stats } = useMessages();
   const view = requestView(query, empty);
   const message = statusMessage(stats, view);
@@ -47,13 +34,7 @@ export function StatsRequestState<T>({
 
   return (
     <>
-      <div
-        ref={status}
-        tabIndex={-1}
-        role="status"
-        aria-live="polite"
-        className={message === null && failure === null ? "visually-hidden" : cx(styles.hint, view.kind === "loading" && styles.hintLoading)}
-      >
+      <div ref={status} tabIndex={-1} role="status" aria-live="polite" className={message === null && failure === null ? "visually-hidden" : cx(styles.hint, view.kind === "loading" && styles.hintLoading)}>
         {message !== null && <p>{message}</p>}
         {failure !== null && <RequestFailure error={failure} fetching={query.isFetching} onRetry={retry} />}
       </div>

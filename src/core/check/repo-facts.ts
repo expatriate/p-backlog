@@ -92,7 +92,14 @@ function excerptOf(diff: string): DiffExcerpt | undefined {
 }
 
 async function fileTexts(repo: string, paths: readonly string[]): Promise<Map<string, string>> {
-  const entries = await Promise.all(paths.map((path) => readFile(join(repo, path), "utf8").then((text): [string, string] => [path, text], () => null)));
+  const entries = await Promise.all(
+    paths.map((path) =>
+      readFile(join(repo, path), "utf8").then(
+        (text): [string, string] => [path, text],
+        () => null,
+      ),
+    ),
+  );
   return new Map(entries.filter((entry) => entry !== null));
 }
 
@@ -103,13 +110,24 @@ function parseLog(output: string): Commit[] {
     .map((record) => {
       const headerEnd = record.includes("\0") ? record.indexOf("\0") : record.length;
       const [sha = "", date = "", parents = "", subject = ""] = record.slice(0, headerEnd).trim().split(FIELD);
-      return { sha, date, parents: parents.split(" ").filter((parent) => parent !== ""), subject, files: parseNameStatus(record.slice(headerEnd + 1).replace(/^\n/, "").split("\0")) };
+      return {
+        sha,
+        date,
+        parents: parents.split(" ").filter((parent) => parent !== ""),
+        subject,
+        files: parseNameStatus(
+          record
+            .slice(headerEnd + 1)
+            .replace(/^\n/, "")
+            .split("\0"),
+        ),
+      };
     });
 }
 
 function parseNameStatus(tokens: readonly string[]): FileChange[] {
   const files: FileChange[] = [];
-  for (let index = 0; index < tokens.length; ) {
+  for (let index = 0; index < tokens.length;) {
     const status = tokens[index] ?? "";
     const first = tokens[index + 1] ?? "";
     if (status === "" || first === "") break;
@@ -142,12 +160,24 @@ function withinRepo(gitRootPaths: readonly string[], prefix: string): string[] {
 
 async function modificationTimes(repo: string, paths: readonly string[]): Promise<Map<string, number>> {
   const entries = await Promise.all(
-    paths.map((path) => stat(join(repo, path)).then((info): [string, number] => [path, info.mtimeMs], () => null)),
+    paths.map((path) =>
+      stat(join(repo, path)).then(
+        (info): [string, number] => [path, info.mtimeMs],
+        () => null,
+      ),
+    ),
   );
   return new Map(entries.filter((entry) => entry !== null));
 }
 
 async function existingPaths(repo: string, paths: readonly string[]): Promise<Set<string>> {
-  const found = await Promise.all(paths.map((path) => access(join(repo, path)).then(() => path, () => null)));
+  const found = await Promise.all(
+    paths.map((path) =>
+      access(join(repo, path)).then(
+        () => path,
+        () => null,
+      ),
+    ),
+  );
   return new Set(found.filter((path) => path !== null));
 }

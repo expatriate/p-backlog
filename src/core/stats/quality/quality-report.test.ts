@@ -14,7 +14,9 @@ describe("отчёт «Качество»", () => {
       makeTask({ id: "SPA-2", created: iso(2), type: "epic" }),
       makeTask({ id: "TI-1", projectId: "ti", created: iso(2), category: "bug" }),
     ];
-    const journals = [{ projectId: "spa", events: [{ at: iso(3), task: "SPA-1", via: "check" as const, kind: "candidate" as const, evidence: "source-changed" as const, mode: "full" as const }], invalidLines: 0 }];
+    const journals = [
+      { projectId: "spa", events: [{ at: iso(3), task: "SPA-1", via: "check" as const, kind: "candidate" as const, evidence: "source-changed" as const, mode: "full" as const }], invalidLines: 0 },
+    ];
 
     const input = { tasks, journals, now: NOW, projectId: "spa" };
 

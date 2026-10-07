@@ -21,14 +21,22 @@ describe("ячейка тегов", () => {
   it("показывает теги, которые влезают целиком, остальные — в «+N» с подсказкой", () => {
     stubLayout(200);
 
-    render(<TestMessagesProvider><TagCell tags={["dev-env", "mock-backend", "upload"]} selected={[]} onToggle={() => undefined} /></TestMessagesProvider>);
+    render(
+      <TestMessagesProvider>
+        <TagCell tags={["dev-env", "mock-backend", "upload"]} selected={[]} onToggle={() => undefined} />
+      </TestMessagesProvider>,
+    );
 
     expect(visibleChips()).toEqual(["#dev-env", "+2"]);
     expect(screen.getByText("+2").getAttribute("title")).toBe("dev-env, mock-backend, upload");
   });
 
   it("если всё влезает, «+N» нет", () => {
-    render(<TestMessagesProvider><TagCell tags={["upload"]} selected={[]} onToggle={() => undefined} /></TestMessagesProvider>);
+    render(
+      <TestMessagesProvider>
+        <TagCell tags={["upload"]} selected={[]} onToggle={() => undefined} />
+      </TestMessagesProvider>,
+    );
 
     expect(visibleChips()).toEqual(["#upload"]);
   });
@@ -52,7 +60,11 @@ describe("ячейка тегов", () => {
       vi.stubGlobal("ResizeObserver", originalResizeObserver);
     });
 
-    render(<TestMessagesProvider><TagCell tags={["dev-env", "mock-backend", "upload"]} selected={[]} onToggle={() => undefined} /></TestMessagesProvider>);
+    render(
+      <TestMessagesProvider>
+        <TagCell tags={["dev-env", "mock-backend", "upload"]} selected={[]} onToggle={() => undefined} />
+      </TestMessagesProvider>,
+    );
 
     expect(visibleChips()).toEqual(["+3"]);
 
@@ -65,7 +77,11 @@ describe("ячейка тегов", () => {
   });
 
   it("без тегов ячейка пустая, без линейки для измерения", () => {
-    const { container } = render(<TestMessagesProvider><TagCell tags={[]} selected={[]} onToggle={() => undefined} /></TestMessagesProvider>);
+    const { container } = render(
+      <TestMessagesProvider>
+        <TagCell tags={[]} selected={[]} onToggle={() => undefined} />
+      </TestMessagesProvider>,
+    );
 
     expect(visibleChips()).toEqual([]);
     expect(container.querySelector('[aria-hidden="true"]')).toBeNull();
@@ -73,7 +89,11 @@ describe("ячейка тегов", () => {
 
   it("клик по тегу переключает фильтр, выбранный тег нажат", async () => {
     const toggled: string[] = [];
-    render(<TestMessagesProvider><TagCell tags={["upload"]} selected={["upload"]} onToggle={(tag) => toggled.push(tag)} /></TestMessagesProvider>);
+    render(
+      <TestMessagesProvider>
+        <TagCell tags={["upload"]} selected={["upload"]} onToggle={(tag) => toggled.push(tag)} />
+      </TestMessagesProvider>,
+    );
 
     const chip = screen.getByRole("button", { name: "#upload" });
     expect(chip.getAttribute("aria-pressed")).toBe("true");
@@ -84,7 +104,11 @@ describe("ячейка тегов", () => {
 
   it("«+N» раскрывает спрятанные теги, «свернуть» возвращает обратно", async () => {
     stubLayout(200);
-    render(<TestMessagesProvider><TagCell tags={["dev-env", "mock-backend", "upload"]} selected={[]} onToggle={() => undefined} /></TestMessagesProvider>);
+    render(
+      <TestMessagesProvider>
+        <TagCell tags={["dev-env", "mock-backend", "upload"]} selected={[]} onToggle={() => undefined} />
+      </TestMessagesProvider>,
+    );
     expect(visibleChips()).toEqual(["#dev-env", "+2"]);
 
     await userEvent.click(screen.getByRole("button", { name: "Показать ещё 2" }));

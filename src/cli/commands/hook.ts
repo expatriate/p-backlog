@@ -52,7 +52,12 @@ async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   const blocking = worthTelling.filter((candidate) => !session.told.has(candidate.task.id));
 
   const signals = carriesSystemMessage(agent)
-    ? await freshSignals(project, loaded.tasks.filter((task) => task.projectId === project.id), lowChangedSignals(lowCount), io)
+    ? await freshSignals(
+        project,
+        loaded.tasks.filter((task) => task.projectId === project.id),
+        lowChangedSignals(lowCount),
+        io,
+      )
     : NO_SIGNALS;
   const answer = formatStopAnswer(agent, {
     reason: blocking.length > 0 ? stopReason(io.language, project.id, blocking) : null,

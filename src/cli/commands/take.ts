@@ -29,12 +29,12 @@ type Selection = { ok: true; task: Task } | { ok: false; exitCode: ExitCode };
 
 async function runTake(args: string[], io: CliIo): Promise<ExitCode> {
   const { values, positionals } = parseCommandArgs(io.language, args, {
-      next: { type: "boolean", default: false },
-      force: { type: "boolean", default: false },
-      project: { type: "string" },
-      path: { type: "string" },
-      json: { type: "boolean", default: false },
-    });
+    next: { type: "boolean", default: false },
+    force: { type: "boolean", default: false },
+    project: { type: "string" },
+    path: { type: "string" },
+    json: { type: "boolean", default: false },
+  });
   const mode = takeMode(io, values, positionals);
   const projectWithId = mode.kind === "id" && values.project !== undefined;
   const forceWithoutId = mode.kind !== "id" && values.force;
@@ -84,7 +84,13 @@ async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projec
   const { code, taken, tasks } = await takeAll(loaded.tasks, takeable, io);
   const takenIndex = buildIndex(tasks);
   if (json) {
-    io.print(JSON.stringify(taken.map((task) => taskJson(task, takenIndex)), null, 2));
+    io.print(
+      JSON.stringify(
+        taken.map((task) => taskJson(task, takenIndex)),
+        null,
+        2,
+      ),
+    );
   } else {
     for (const [position, task] of taken.entries()) {
       if (position > 0) io.print("---");

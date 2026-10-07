@@ -66,7 +66,9 @@ export async function captureShots(origin: string, language: Language, shots: re
       await page.goto(`${origin}${shot.path}`);
       await settle(page);
       const file = join(outDir, `${shot.name}.png`);
-      await sharp(await page.screenshot()).png(QUANTIZED_PNG).toFile(file);
+      await sharp(await page.screenshot())
+        .png(QUANTIZED_PNG)
+        .toFile(file);
       files.push(file);
       await context.close();
     }

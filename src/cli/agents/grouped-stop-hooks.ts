@@ -20,7 +20,12 @@ export function commandOfHook(hook: unknown): string | undefined {
 
 const stopGroupSchema = z.object({ hooks: z.array(z.unknown()).optional() }).passthrough();
 const groupedConfigSchema = z
-  .object({ hooks: z.object({ Stop: z.array(stopGroupSchema).optional() }).passthrough().optional() })
+  .object({
+    hooks: z
+      .object({ Stop: z.array(stopGroupSchema).optional() })
+      .passthrough()
+      .optional(),
+  })
   .passthrough();
 
 type StopGroup = z.infer<typeof stopGroupSchema>;

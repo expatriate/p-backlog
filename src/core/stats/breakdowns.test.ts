@@ -57,14 +57,15 @@ describe("возраст открытых", () => {
 
 describe("как закрываются", () => {
   it("причины, кто закрыл, шум и возвраты за период", () => {
-    const history = (id: string, transitions: TaskHistory["transitions"], source?: string): TaskHistory => makeHistory({
-      id,
-      projectId: "spa",
-      createdAt: at(2).getTime(),
-      source,
-      finalStatus: transitions.at(-1)?.to ?? "backlog",
-      transitions,
-    });
+    const history = (id: string, transitions: TaskHistory["transitions"], source?: string): TaskHistory =>
+      makeHistory({
+        id,
+        projectId: "spa",
+        createdAt: at(2).getTime(),
+        source,
+        finalStatus: transitions.at(-1)?.to ?? "backlog",
+        transitions,
+      });
     const histories = [
       history("SPA-1", [{ at: at(5).getTime(), from: "backlog", to: "done", via: "cli" }], "src/a.ts:1"),
       history("SPA-2", [{ at: at(6).getTime(), from: "backlog", to: "done", resolution: "fixed", via: "check" }], "src/a.ts:2"),

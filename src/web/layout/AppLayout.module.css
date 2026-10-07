@@ -72,7 +72,9 @@
   padding: 6px var(--space-2);
   border-radius: var(--radius-control);
   color: var(--ink-muted);
-  transition: background var(--duration) var(--ease-out), color var(--duration) var(--ease-out);
+  transition:
+    background var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out);
 }
 
 .scope {
@@ -176,7 +178,9 @@
   border-radius: var(--radius-control);
   color: var(--ink-muted);
   text-decoration: none;
-  transition: background var(--duration) var(--ease-out), color var(--duration) var(--ease-out);
+  transition:
+    background var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out);
 }
 
 .project:hover {

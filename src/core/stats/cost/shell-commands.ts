@@ -24,7 +24,20 @@ const BIN_RUNNERS = new Set(["yarn"]);
 const ARITHMETIC_START = "$((";
 const ARITHMETIC_END = "))";
 const COMMAND_SUBSTITUTION = "$(";
-const UNQUOTED_STEPS: readonly Step[] = [skipSingleQuoted, openDoubleQuotes, takeEscaped, skipArithmetic, skipComment, takeHereString, startHeredoc, skipHeredocBodies, openSubstitution, openSubshell, closeGroup, splitAtSeparator];
+const UNQUOTED_STEPS: readonly Step[] = [
+  skipSingleQuoted,
+  openDoubleQuotes,
+  takeEscaped,
+  skipArithmetic,
+  skipComment,
+  takeHereString,
+  startHeredoc,
+  skipHeredocBodies,
+  openSubstitution,
+  openSubshell,
+  closeGroup,
+  splitAtSeparator,
+];
 
 export function invokesBacklog(script: string): boolean {
   return simpleCommands(script).some((command) => {

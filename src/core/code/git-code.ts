@@ -97,7 +97,12 @@ export function records(output: string): string[] {
 }
 
 export function numstatLines(rows: readonly string[]): number {
-  return sum(rows.filter((row) => row.trim() !== "").map(numstatRowLines).filter((lines) => !Number.isNaN(lines)));
+  return sum(
+    rows
+      .filter((row) => row.trim() !== "")
+      .map(numstatRowLines)
+      .filter((lines) => !Number.isNaN(lines)),
+  );
 }
 
 function numstatRowLines(row: string): number {

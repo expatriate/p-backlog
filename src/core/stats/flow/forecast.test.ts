@@ -13,12 +13,7 @@ const OLD = formatLocalIso(new Date(2026, 7, 1, 12));
 
 describe("прогноз", () => {
   it("долг уменьшается: недели вверх и дата", () => {
-    const tasks = [
-      ...["SPA-1", "SPA-2", "SPA-3", "SPA-4", "SPA-5"].map((id) => closed(id, OLD, iso(10))),
-      open("SPA-6", iso(12)),
-      open("SPA-7", OLD),
-      open("SPA-8", OLD),
-    ];
+    const tasks = [...["SPA-1", "SPA-2", "SPA-3", "SPA-4", "SPA-5"].map((id) => closed(id, OLD, iso(10))), open("SPA-6", iso(12)), open("SPA-7", OLD), open("SPA-8", OLD)];
 
     const forecast = flowForecast(taskHistories(tasks, []), 3, NOW);
 
@@ -41,13 +36,12 @@ describe("прогноз", () => {
   });
 
   it("округление вверх до целого числа недель", () => {
-    const exact = flowForecast(
-      taskHistories([...["SPA-1", "SPA-2", "SPA-3"].map((id) => closed(id, OLD, iso(10))), open("SPA-4", iso(11))], []),
-      3,
-      NOW,
-    );
+    const exact = flowForecast(taskHistories([...["SPA-1", "SPA-2", "SPA-3"].map((id) => closed(id, OLD, iso(10))), open("SPA-4", iso(11))], []), 3, NOW);
     const fractional = flowForecast(
-      taskHistories(["SPA-1", "SPA-2", "SPA-3", "SPA-4", "SPA-5"].map((id) => closed(id, OLD, iso(10))), []),
+      taskHistories(
+        ["SPA-1", "SPA-2", "SPA-3", "SPA-4", "SPA-5"].map((id) => closed(id, OLD, iso(10))),
+        [],
+      ),
       3,
       NOW,
     );

@@ -20,8 +20,7 @@ async function changedTaskSandbox() {
   return sandbox;
 }
 
-const EXPECTED_REASON =
-  "Беклог spa: после последней проверки менялся код задач — SPA-1 (изменён src/a.ts). Перепроверь их по скиллу backlog, раздел «Перепроверить задачи».";
+const EXPECTED_REASON = "Беклог spa: после последней проверки менялся код задач — SPA-1 (изменён src/a.ts). Перепроверь их по скиллу backlog, раздел «Перепроверить задачи».";
 
 describe("backlog hook stop", () => {
   it("просит перепроверить задачи, чей код менялся", async () => {

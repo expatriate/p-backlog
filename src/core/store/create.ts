@@ -18,8 +18,7 @@ import { taskText } from "./task-text";
 import { reopenEpicOfOpenedTask, type WriteOrigin } from "./update";
 import { invalid, type CreateTaskResult } from "./write-result";
 
-type NewTaskInput = Pick<Task, "title"> &
-  OptionalFields<Pick<Task, "type" | "priority" | "tags" | "epic" | "blockedBy" | "related" | "source" | "anchor" | "body" | "category">>;
+type NewTaskInput = Pick<Task, "title"> & OptionalFields<Pick<Task, "type" | "priority" | "tags" | "epic" | "blockedBy" | "related" | "source" | "anchor" | "body" | "category">>;
 
 export type CreateTaskRequest = Pick<WriteOrigin, "now" | "via"> & {
   project: Project;

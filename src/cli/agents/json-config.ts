@@ -25,7 +25,10 @@ export async function readJsonConfig<T>(path: string, schema: z.ZodType<T>): Pro
 export async function writeJsonConfig(path: string, config: unknown): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const target = await writeTargetOf(path);
-  const mode = await stat(target).then(({ mode }) => mode & 0o777, () => undefined);
+  const mode = await stat(target).then(
+    ({ mode }) => mode & 0o777,
+    () => undefined,
+  );
   await writeFileAtomic(target, `${JSON.stringify(config, null, 2)}\n`, mode);
 }
 

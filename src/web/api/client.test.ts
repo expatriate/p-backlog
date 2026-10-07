@@ -51,7 +51,9 @@ describe("ApiError", () => {
   });
 
   it("ошибка сервера без текста несёт код статуса, а не «не отвечает»", async () => {
-    const error = await clientReturning(respond(500, {})).tasks().catch((caught: unknown) => caught);
+    const error = await clientReturning(respond(500, {}))
+      .tasks()
+      .catch((caught: unknown) => caught);
 
     expect(isServerUnreachable(error)).toBe(false);
     expect((error as ApiError).status).toBe(500);
@@ -59,7 +61,9 @@ describe("ApiError", () => {
 
   it("503 с текстом ошибки — занятый файл, а не «сервер не отвечает»", async () => {
     const busy = "Файл SPA-1.md занят другим процессом";
-    const error = await clientReturning(respond(503, { errors: [busy] })).tasks().catch((caught: unknown) => caught);
+    const error = await clientReturning(respond(503, { errors: [busy] }))
+      .tasks()
+      .catch((caught: unknown) => caught);
 
     expect(isServerUnreachable(error)).toBe(false);
     expect(error).toMatchObject({ status: 503, errors: [busy] });

@@ -29,10 +29,7 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const epicFilterChoices = useMemo(() => epicChoices(scopedTasks, tones), [scopedTasks, tones]);
   const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, filterContext).length, [scopedTasks, filterContext]);
   const tags = useMemo(() => collectTags(scopedTasks, language), [scopedTasks, language]);
-  const hiddenOpen = useMemo(
-    () => (projectId === undefined && inScope !== undefined ? allTasks.filter((task) => !inScope(task) && !isClosed(task.status)).length : 0),
-    [allTasks, inScope, projectId],
-  );
+  const hiddenOpen = useMemo(() => (projectId === undefined && inScope !== undefined ? allTasks.filter((task) => !inScope(task) && !isClosed(task.status)).length : 0), [allTasks, inScope, projectId]);
 
   const failedQueries = [tasks, projects].filter((query) => query.error !== null);
   const error = tasks.error ?? projects.error;

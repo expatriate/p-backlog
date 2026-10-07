@@ -98,7 +98,10 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
       const key = [kind, scope.projectId ?? "*", formatLocalDay(moment), sourceKey === undefined ? "" : await sourceKey(scope.projects, scope.snapshot)].join("|");
       const tags = wholeBacklog ? [WHOLE_BACKLOG_TAG] : [scope.projectId === undefined ? ALL_PROJECTS_TAG : projectTag(scope.projectId)];
       const compute = async () => {
-        const { journals, contextOf } = await journalSources.read(scope.snapshot, scope.projects.map((project) => project.id));
+        const { journals, contextOf } = await journalSources.read(
+          scope.snapshot,
+          scope.projects.map((project) => project.id),
+        );
         const input: StatsInput = { tasks: scope.tasks, journals, now: moment, projectId: scope.projectId, unparsedTasks: scope.unparsedTasks };
         const wholeBacklogContext = () => contextOf({ ...input, projectId: undefined });
         return report({ context: contextOf(input), projects: scope.projects, snapshot: scope.snapshot, wholeBacklogContext });

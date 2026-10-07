@@ -19,7 +19,8 @@ async function backlogWithStaleJournal(): Promise<{ root: string; journalPath: s
 }
 
 function tidyIn(root: string, warnings: string[] = []) {
-  return (argv: readonly string[], hoursLater = 0) => tidyAfterCommand({ backlogRoot: root, argv, language: "ru", now: new Date(NOW.getTime() + hoursLater * HOUR_MS), warn: (line) => void warnings.push(line) });
+  return (argv: readonly string[], hoursLater = 0) =>
+    tidyAfterCommand({ backlogRoot: root, argv, language: "ru", now: new Date(NOW.getTime() + hoursLater * HOUR_MS), warn: (line) => void warnings.push(line) });
 }
 
 describe("уборка после команды CLI", () => {

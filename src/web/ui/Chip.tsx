@@ -6,13 +6,7 @@ type ToggleChipProps = { pressed: boolean; locked?: boolean; onToggle: () => voi
 
 export function ToggleChip({ pressed, locked = false, onToggle, children }: ToggleChipProps) {
   return (
-    <button
-      type="button"
-      className={cx(styles.chip, pressed && styles.pressed)}
-      aria-pressed={pressed}
-      aria-disabled={locked || undefined}
-      onClick={locked ? undefined : onToggle}
-    >
+    <button type="button" className={cx(styles.chip, pressed && styles.pressed)} aria-pressed={pressed} aria-disabled={locked || undefined} onClick={locked ? undefined : onToggle}>
       <ChipLabel>{children}</ChipLabel>
     </button>
   );

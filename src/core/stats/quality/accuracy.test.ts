@@ -12,7 +12,14 @@ const FROM = at(1).getTime();
 const TO = at(18).getTime();
 const journal = (events: JournalEvent[]) => [{ projectId: "spa", events, invalidLines: 0 }];
 
-const candidate = (task: string, day: number, evidence: "source-changed" | "source-missing" | "duplicate" | "no-source"): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence, mode: "changed" });
+const candidate = (task: string, day: number, evidence: "source-changed" | "source-missing" | "duplicate" | "no-source"): JournalEvent => ({
+  at: iso(day),
+  task,
+  via: "check",
+  kind: "candidate",
+  evidence,
+  mode: "changed",
+});
 const symbolCandidate = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", bySymbol: true });
 const anchorCandidate = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", method: "anchor" });
 const fileCandidate = (task: string, day: number): JournalEvent => ({ at: iso(day), task, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", method: "file" });
@@ -54,11 +61,7 @@ describe("точность проверки", () => {
   });
 
   it("по неделям: точность считается без улики «нет source»", () => {
-    const tasks = [
-      makeTask({ id: "SPA-1", created: iso(1), status: "done", closed: iso(16), resolution: "fixed" }),
-      makeTask({ id: "SPA-2", created: iso(1) }),
-      makeTask({ id: "SPA-3", created: iso(1) }),
-    ];
+    const tasks = [makeTask({ id: "SPA-1", created: iso(1), status: "done", closed: iso(16), resolution: "fixed" }), makeTask({ id: "SPA-2", created: iso(1) }), makeTask({ id: "SPA-3", created: iso(1) })];
     const events: JournalEvent[] = [
       candidate("SPA-1", 15, "source-changed"),
       { at: iso(16), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" },
@@ -76,11 +79,7 @@ describe("точность проверки", () => {
   });
 
   it("по дням: решённые кандидаты попадают в свой день с верной точностью", () => {
-    const tasks = [
-      makeTask({ id: "SPA-1", created: iso(1), status: "done", closed: iso(17, 15), resolution: "fixed" }),
-      makeTask({ id: "SPA-2", created: iso(1) }),
-      makeTask({ id: "SPA-3", created: iso(1) }),
-    ];
+    const tasks = [makeTask({ id: "SPA-1", created: iso(1), status: "done", closed: iso(17, 15), resolution: "fixed" }), makeTask({ id: "SPA-2", created: iso(1) }), makeTask({ id: "SPA-3", created: iso(1) })];
     const events: JournalEvent[] = [
       { at: iso(17, 9), task: "SPA-1", via: "check", kind: "candidate", evidence: "source-changed", mode: "changed" },
       { at: iso(17, 15), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" },
