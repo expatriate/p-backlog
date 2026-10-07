@@ -188,6 +188,10 @@ requires typing the project id to confirm.
 - When the agent finishes a turn in a repository where open tasks reference code that changed, the Stop
   hook asks it to re-check those tasks. On request ("check the backlog"), it goes through the whole
   project.
+- Two open tasks are a possible duplicate — the check offers the pair, and `backlog new` refuses a new task
+  (code 3) — when their `source` is in the same file and their titles share at least three words (every
+  word of a short title), or when the titles are nearly the same, short words included. Shared words
+  alone don't count: review-nit groups and tasks from one area of the code share them all the time.
 - The agent closes a task that's no longer needed with `backlog close` and evidence; in the UI such tasks
   are visible under the "Closed by agent" link, and can be reopened.
 - An epic whose tasks are all closed is closed by the server on its own, at startup and once an hour; such
@@ -207,7 +211,8 @@ it when it's there — read-only:
   Stop hook and `backlog check` then flag the task only when that symbol changed, not when any line of the file
   moved — fewer needless re-checks. Without the graph the check falls back to the task's source lines, then to the
   whole file.
-- **Duplicates by symbol.** Two tasks pointing into the same function are offered as possible duplicates.
+- **Duplicates by symbol.** A duplicate pair whose tasks point into the same function is marked as found by
+  symbol, so the Quality tab shows how often that signal is right.
 - **Graph state in the web UI.** The sidebar warns when a project has no graph, when it's stale, or when it can't be
   read (built by a different version or for a different path), with the command that fixes it.
 - **Check precision.** The Quality tab in statistics shows how often each check method (by symbol, by source lines,
