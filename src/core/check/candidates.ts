@@ -33,7 +33,7 @@ export type KnownMerges = ReadonlyMap<string, ReadonlySet<string>>;
 
 type AnchoredSource = { source: string; anchor: string };
 
-type AnchorState = { kind: "none" } | { kind: "same"; anchor: string } | ({ kind: "moved" } & AnchoredSource) | { kind: "changed" };
+type AnchorState = { kind: "none" } | ({ kind: "same" | "moved" } & AnchoredSource) | { kind: "changed" };
 
 export type AnchorStates = ReadonlyMap<string, AnchorState>;
 
@@ -89,10 +89,8 @@ function anchorPlan(task: Task, anchor: AnchorState, facts: RepoFacts): AnchorPl
 
 export function renamePlan(task: Task, renamedTo: string, text: string): AnchorPlan | null {
   if (task.source === undefined) return null;
-  const renamed = `${renamedTo}${lineSuffix(task.source)}`;
-  const anchor = anchorStateIn({ ...task, source: renamed }, text);
-  if (anchor.kind === "same") return movedPlan(task.id, task.source, { source: renamed, anchor: anchor.anchor });
-  return anchor.kind === "moved" ? movedPlan(task.id, task.source, anchor) : null;
+  const anchor = anchorStateIn({ ...task, source: `${renamedTo}${lineSuffix(task.source)}` }, text);
+  return anchor.kind === "same" || anchor.kind === "moved" ? movedPlan(task.id, task.source, anchor) : null;
 }
 
 export function relocationPlan(task: Task, current: string, facts: RepoFacts): AnchorPlan | null {
@@ -123,7 +121,7 @@ function anchorState(task: Task, facts: RepoFacts): AnchorState {
 function anchorStateIn(task: Task, text: string | undefined): AnchorState {
   if (task.anchor === undefined || task.source === undefined || !hasLines(task.source) || !isAnchorFor(task.anchor, task.source)) return { kind: "none" };
   if (text === undefined) return { kind: "none" };
-  if (anchorOf(text, task.source) === task.anchor) return { kind: "same", anchor: task.anchor };
+  if (anchorOf(text, task.source) === task.anchor) return { kind: "same", source: task.source, anchor: task.anchor };
   const moved = findMoved(text, task.source, task.anchor);
   const movedAnchor = moved === null ? null : anchorOf(text, moved);
   return moved === null || movedAnchor === null ? { kind: "changed" } : { kind: "moved", source: moved, anchor: movedAnchor };
