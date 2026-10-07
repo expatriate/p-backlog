@@ -44,7 +44,6 @@ function Totals({ totals }: { totals: StatsTotals }) {
   const { stats } = useMessages();
   const language = useLanguage();
   const net = totals.createdLastWeek - totals.closedLastWeek;
-  const previous = totals.previous;
   return (
     <div className={cx(styles.totals, styles.totalsPair)}>
       <Figure
@@ -61,7 +60,7 @@ function Totals({ totals }: { totals: StatsTotals }) {
         value={formatSigned(net)}
         tone={netTone(net)}
         note={stats.weekNote(totals.createdLastWeek, totals.closedLastWeek)}
-        trend={trendOf(stats, language, net, previous?.net ?? null)}
+        trend={trendOf(stats, language, net, totals.previous?.net)}
       />
     </div>
   );
@@ -73,11 +72,11 @@ function netTone(net: number): FigureTone | undefined {
   return undefined;
 }
 
-function trendOf(stats: StatsMessages, language: Language, current: number | null, previous: number | null): FigureTrend | undefined {
-  if (current === null || previous === null) return undefined;
-  const change = current - previous;
-  if (change === 0) return undefined;
-  const tone: FigureTone = change < 0 ? "decline" : "growth";
+function trendOf(stats: StatsMessages, language: Language, net: number, previous: number | undefined): FigureTrend | undefined {
+  if (previous === undefined) return undefined;
+  const change = net - previous;
+  const tone = netTone(change);
+  if (tone === undefined) return undefined;
   const size = formatWhole(language, Math.abs(change));
   return { text: stats.weekTrend(TREND_ARROWS[tone], size), speech: stats.weekTrendSpeech[tone](size), tone };
 }
