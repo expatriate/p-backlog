@@ -8,7 +8,7 @@ import { costOf, splitFastModel } from "./pricing";
 import { dayWindows } from "../days";
 import { statsPeriod, weekWindows } from "../weeks";
 import type { Period } from "../period";
-import { sum } from "../../numbers";
+import { smallest, sum } from "../../numbers";
 import { groupBy } from "../../collections";
 import { lastDays, lastDaysSpan, reportPeriod } from "../report-periods";
 import { remembered } from "../../remembered";
@@ -43,7 +43,7 @@ export function costReport({ buckets, runs, projectOf, projectId, now, scan }: C
   return {
     periods: { weeks: reportPeriod(statsPeriod(now)), days: lastDays(now, COST_REPORT_DAYS), totals: lastDays(now, COST_TOTALS_DAYS) },
     scan,
-    since: sinceOf(itemsWithin(timedBuckets, statsPeriod(now))),
+    since: sinceOf(timedBuckets, statsPeriod(now)),
     totals: totalsOf(within(lastDaysSpan(now, COST_TOTALS_DAYS))),
     days: dayWindows(now, COST_REPORT_DAYS).map((day): CostDay => ({ day: formatLocalDay(new Date(day.from)), ...costNumbers(within(day)) })),
     weeks: weekWindows(now).map((week): CostPeriod => ({ start: formatLocalIso(new Date(week.from)), ...costNumbers(within(week)) })),
@@ -58,11 +58,6 @@ function timed<T>(items: readonly T[], momentOf: (item: T) => string): Timed<T>[
 
 function itemsWithin<T>(timedItems: readonly Timed<T>[], span: Period): T[] {
   return timedItems.filter(({ at }) => span.contains(at)).map(({ item }) => item);
-}
-
-function localDay(at: string): string {
-  const moment = Date.parse(at);
-  return Number.isNaN(moment) ? "" : formatLocalDay(new Date(moment));
 }
 
 function tokensTotalOf(buckets: readonly UsageBucket[]): number {
@@ -82,9 +77,9 @@ function hasUnpricedTokens(buckets: readonly UsageBucket[]): boolean {
   return buckets.some((bucket) => totalTokens(bucket.tokens) > 0 && costOf(bucket.model, bucket.tokens) === null);
 }
 
-function sinceOf(buckets: readonly UsageBucket[]): string | null {
-  const days = buckets.map((bucket) => localDay(bucket.slot)).filter((day) => day !== "");
-  return days.length === 0 ? null : days.reduce((earliest, day) => (day < earliest ? day : earliest));
+function sinceOf(timedBuckets: readonly Timed<UsageBucket>[], span: Period): string | null {
+  const earliest = smallest(timedBuckets.map(({ at }) => at).filter((at) => span.contains(at)));
+  return earliest === null ? null : formatLocalDay(new Date(earliest));
 }
 
 function totalsOf(usage: UsageInSpan): CostTotals {
