@@ -1,13 +1,13 @@
-const PROJECT_ROUTE = "/p/:projectId";
-const TASK_ROUTE = "/t/:taskId";
-const STATS_ROUTE = "/stats";
+const PROJECT = "/p";
+const TASK = "/t";
+const STATS = "/stats";
 
 export const ROUTE_PATTERNS = {
-  task: TASK_ROUTE,
-  projectList: PROJECT_ROUTE,
-  projectTask: `${PROJECT_ROUTE}${TASK_ROUTE}`,
-  stats: STATS_ROUTE,
-  projectStats: `${PROJECT_ROUTE}${STATS_ROUTE}`,
+  task: `${TASK}/:taskId`,
+  projectList: `${PROJECT}/:projectId`,
+  projectTask: `${PROJECT}/:projectId${TASK}/:taskId`,
+  stats: STATS,
+  projectStats: `${PROJECT}/:projectId${STATS}`,
 } as const;
 
 export function listPath(projectId?: string): string {
@@ -15,19 +15,15 @@ export function listPath(projectId?: string): string {
 }
 
 export function taskPath(projectId: string | undefined, taskId: string): string {
-  return projectPrefix(projectId) + withTrailingParam(TASK_ROUTE, taskId);
+  return `${projectPrefix(projectId)}${TASK}/${taskId}`;
 }
 
 export function statsPath(projectId?: string): string {
-  return projectPrefix(projectId) + STATS_ROUTE;
+  return projectPrefix(projectId) + STATS;
 }
 
 function projectPrefix(projectId: string | undefined): string {
-  return projectId === undefined ? "" : withTrailingParam(PROJECT_ROUTE, projectId);
-}
-
-function withTrailingParam(route: string, value: string): string {
-  return route.replace(/:\w+$/, () => value);
+  return projectId === undefined ? "" : `${PROJECT}/${projectId}`;
 }
 
 export function statsTabPath(segment: string, projectId?: string): string {
