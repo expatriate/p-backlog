@@ -33,11 +33,13 @@ export function needsReading({ fixes, unsettledCheckedAt }: CodeMemory, key: str
 }
 
 export function rememberFix({ fixes, unsettledCheckedAt }: CodeMemory, key: string, main: string | null, commit: FixCommit): void {
-  const checkedAt = commit.landedAt === undefined ? main : undefined;
-  if (checkedAt === undefined) unsettledCheckedAt.delete(key);
-  else unsettledCheckedAt.set(key, checkedAt);
-  if (fixes.has(key) && commit.landedAt === undefined) return;
-  fixes.set(key, commit);
+  if (commit.landedAt === undefined) {
+    unsettledCheckedAt.set(key, main);
+    if (!fixes.has(key)) fixes.set(key, commit);
+  } else {
+    unsettledCheckedAt.delete(key);
+    fixes.set(key, commit);
+  }
 }
 
 export function forgetStaleFixes(memory: CodeMemory, now: Date, requested: ReadonlySet<string>): void {
