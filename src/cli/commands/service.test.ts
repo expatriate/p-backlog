@@ -1,23 +1,14 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
 import { join, posix } from "node:path";
 import { describe, expect, it } from "vitest";
 import { startServer } from "../../server/start";
 import { EXIT } from "../io";
 import { fakeExec, makeCliSandbox } from "../testing/cli-harness";
+import { freePort } from "../testing/free-port";
 
 const plistPath = (home: string) => join(home, "Library/LaunchAgents/local.p-backlog.plist");
 const vbsPath = (home: string) => join(home, "AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup/p-backlog.vbs");
 const vbsPidFile = (home: string) => join(home, "AppData/Local/p-backlog/server.pid");
-
-async function closedPort(): Promise<number> {
-  const probe = createServer();
-  await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
-  const address = probe.address();
-  await new Promise((resolve) => probe.close(resolve));
-  if (address === null || typeof address === "string") throw new Error("no port");
-  return address.port;
-}
 
 const sandboxCliPath = join(import.meta.dirname, "../../../dist/cli.js");
 
@@ -119,7 +110,7 @@ describe("backlog service", () => {
 
   it("status без службы проверяет порт из PORT", async () => {
     const { run } = await makeCliSandbox();
-    const port = await closedPort();
+    const port = await freePort();
 
     const result = await run(["service", "status"], { env: { PORT: String(port) } });
 

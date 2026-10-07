@@ -4,8 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { claudeStopHookFor } from "../../src/cli/agents/claude-hooks";
+import { freePort } from "../../src/cli/testing/free-port";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../../src/core/store/testing/temp-dirs";
-import { freePort, isolatedHomeEnv } from "../isolated-process";
+import { isolatedHomeEnv } from "../isolated-process";
 
 const repoRoot = join(import.meta.dirname, "../..");
 const isWindows = process.platform === "win32";

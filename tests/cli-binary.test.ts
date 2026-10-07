@@ -3,8 +3,9 @@ import { once } from "node:events";
 import { access } from "node:fs/promises";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
+import { freePort } from "../src/cli/testing/free-port";
 import { makeGitRepo, makeTempDir } from "../src/core/store/testing/temp-dirs";
-import { freePort, isolatedHomeEnv } from "./isolated-process";
+import { isolatedHomeEnv } from "./isolated-process";
 
 const buildDir = join(import.meta.dirname, "../dist/test");
 const cli = join(buildDir, "cli.js");
