@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import type { Task } from "../../core/model/types";
-import { ApiError } from "../api/client";
+import { ApiError, isConflict } from "../api/client";
 import type { AppMessages } from "../app/messages.ru";
 import { TaskGoneError, useUpdateTask, type BodyEdit, type TaskChange, type UpdateTaskVariables } from "../app/queries";
 import { requestErrorMessage } from "../app/RequestFailure";
@@ -99,10 +99,6 @@ function saveErrorText(error: Error, app: AppMessages, taskMessages: TaskMessage
   if (isConflict(error)) return taskMessages.taskConflict;
   if (error instanceof TaskGoneError) return taskMessages.taskGone(error.taskId);
   return requestErrorMessage(app, error);
-}
-
-function isConflict(error: Error): boolean {
-  return error instanceof ApiError && error.isConflict;
 }
 
 function asError(error: unknown): Error {

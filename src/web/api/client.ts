@@ -15,9 +15,6 @@ import type { Project, Task } from "../../core/model/types";
 
 export type ApiFetch = (path: string, init?: RequestInit) => Promise<Response>;
 
-const CONFLICT_STATUS = 409;
-const SERVER_FAILURE_STATUS = 500;
-
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -26,14 +23,6 @@ export class ApiError extends Error {
   ) {
     super(errors.length > 0 ? errors.join("; ") : `backlog api error, status ${status}`);
     this.name = "ApiError";
-  }
-
-  get isConflict(): boolean {
-    return this.status === CONFLICT_STATUS;
-  }
-
-  get isServerFailure(): boolean {
-    return this.status >= SERVER_FAILURE_STATUS;
   }
 }
 
@@ -51,11 +40,26 @@ export type ApiClient = {
 };
 
 const UNREACHABLE_STATUS = 0;
+const NOT_FOUND_STATUS = 404;
+const CONFLICT_STATUS = 409;
+const SERVER_FAILURE_STATUS = 500;
 const GATEWAY_STATUSES = new Set([502, 504]);
 const SERVICE_UNAVAILABLE_STATUS = 503;
 
 export function isServerUnreachable(error: unknown): boolean {
   return error instanceof ApiError && error.status === UNREACHABLE_STATUS;
+}
+
+export function isNotFound(error: unknown): boolean {
+  return error instanceof ApiError && error.status === NOT_FOUND_STATUS;
+}
+
+export function isConflict(error: unknown): boolean {
+  return error instanceof ApiError && error.status === CONFLICT_STATUS;
+}
+
+export function isServerFailure(error: unknown): boolean {
+  return error instanceof ApiError && error.status >= SERVER_FAILURE_STATUS;
 }
 
 export function createApiClient(apiFetch: ApiFetch): ApiClient {

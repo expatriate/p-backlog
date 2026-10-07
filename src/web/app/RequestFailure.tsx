@@ -1,5 +1,5 @@
 import { useMessages } from "../i18n";
-import { ApiError, isServerUnreachable } from "../api/client";
+import { ApiError, isServerFailure, isServerUnreachable } from "../api/client";
 import { RetryButton } from "../ui/RetryButton";
 import type { AppMessages } from "./messages.ru";
 
@@ -42,5 +42,5 @@ function requestErrorParts<T>(app: AppMessages, error: Error, command: (text: st
   if (isServerUnreachable(error)) return app.unreachableMessage(command);
   if (!(error instanceof ApiError)) return [error.message];
   if (error.errors.length === 0) return [app.serverStatusError(error.status)];
-  return [error.isServerFailure ? app.serverErrorPrefixed(error.message) : error.message];
+  return [isServerFailure(error) ? app.serverErrorPrefixed(error.message) : error.message];
 }

@@ -4,7 +4,7 @@ import { useOutletContext } from "react-router";
 import { formatDate } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { ReportHead } from "../../core/api/contract";
-import { ApiError } from "../api/client";
+import { isNotFound } from "../api/client";
 import { RequestFailure } from "../app/RequestFailure";
 import { useLanguage, useMessages } from "../i18n";
 import { useStatusFocus } from "../ui/use-status-focus";
@@ -72,7 +72,7 @@ export function StatsTabState<T extends ReportHead>({ query, children }: { query
 }
 
 function requestView<T>({ error, data }: ReportQuery<T>, empty: EmptyReport<T> | undefined): RequestView<T> {
-  if (error instanceof ApiError && error.status === 404) return { kind: "notFound" };
+  if (isNotFound(error)) return { kind: "notFound" };
   const shown = data !== undefined && empty?.isEmpty(data) !== true ? data : undefined;
   if (error !== null) return { kind: "failed", error, report: shown };
   if (data === undefined) return { kind: "loading" };
