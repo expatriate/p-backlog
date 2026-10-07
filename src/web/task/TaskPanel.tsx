@@ -9,7 +9,7 @@ import type { Task } from "../../core/model/types";
 import type { TaskHref } from "../app/task-href";
 import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
-import { Countdown } from "../ui/Deletion";
+import { DeletionCountdown } from "../ui/Deletion";
 import { ProgressBar } from "../ui/ProgressBar";
 import type { Draft } from "../ui/use-draft";
 import { useLeaveGuard } from "../ui/use-leave-guard";
@@ -159,7 +159,7 @@ function ClosureNote({ task, onRestore }: { task: Task; onRestore: () => void })
         {task.closed === undefined ? "" : ` ${formatDateTime(language, task.closed)}`}
         {task.resolution !== undefined && ` · ${core.resolutionLabel(task.resolution)} — ${task.reason ?? ""}`}
       </p>
-      <Countdown task={task} now={now} />
+      <DeletionCountdown task={task} now={now} />
       <Button className={styles.restore} onClick={onRestore}>
         {taskMessages.restoreToBacklog}
       </Button>

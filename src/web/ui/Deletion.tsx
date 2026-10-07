@@ -8,7 +8,7 @@ import styles from "./Deletion.module.css";
 
 type Deletion = { text: string; title: string; fraction: number; lastDay: boolean };
 
-export function Countdown({ task, now }: { task: Task; now: Date }) {
+export function DeletionCountdown({ task, now }: { task: Task; now: Date }) {
   const deletion = useDeletion(task, now);
   if (deletion === undefined) return null;
   return (
