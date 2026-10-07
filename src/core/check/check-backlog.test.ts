@@ -26,6 +26,10 @@ function task(id: string, fields = ""): string {
   return `---\nid: ${id}\ntitle: Задача ${id}\ncreated: 2026-09-11T10:00:00+03:00\n${fields}---\n`;
 }
 
+function numbered(name: string): string {
+  return [1, 2, 3, 4, 5, 6, 7, 8].map((index) => `export const ${name}${index} = ${index};`).join("\n");
+}
+
 function sameProblemTask(id: string, fields = ""): string {
   return task(id, fields).replace(`Задача ${id}`, "Таймаут загрузки не учитывает размер файла");
 }
@@ -258,8 +262,6 @@ describe("checkBacklog", () => {
   });
 
   describe("кандидат «код изменился» по якорю — только когда менялись строки задачи", () => {
-    const numbered = (name: string) => [1, 2, 3, 4, 5, 6, 7, 8].map((index) => `export const ${name}${index} = ${index};`).join("\n");
-
     async function anchoredRepo() {
       const home = await makeTempDir();
       const root = join(home, "backlog");
@@ -446,17 +448,16 @@ describe("checkBacklog", () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
     const repo = await makeGitRepo(home, "projects/spa");
-    const lines = (name: string) => [1, 2, 3, 4, 5, 6].map((index) => `export const ${name}${index} = ${index};`).join("\n");
-    await writeFiles(repo, { "src/intact.ts": lines("intact"), "src/edited.ts": lines("edited") });
+    await writeFiles(repo, { "src/intact.ts": numbered("intact"), "src/edited.ts": numbered("edited") });
     gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA", [repo]),
-      "spa/SPA-1.md": task("SPA-1", `source: src/intact.ts:3\nanchor: ${anchorOf(lines("intact"), "src/intact.ts:3")}\n`),
-      "spa/SPA-2.md": task("SPA-2", `source: src/edited.ts:3\nanchor: ${anchorOf(lines("edited"), "src/edited.ts:3")}\n`),
+      "spa/SPA-1.md": task("SPA-1", `source: src/intact.ts:3\nanchor: ${anchorOf(numbered("intact"), "src/intact.ts:3")}\n`),
+      "spa/SPA-2.md": task("SPA-2", `source: src/edited.ts:3\nanchor: ${anchorOf(numbered("edited"), "src/edited.ts:3")}\n`),
     });
     await rm(join(repo, "src/intact.ts"));
     await rm(join(repo, "src/edited.ts"));
-    await writeFiles(repo, { "src/renamed.ts": lines("intact"), "src/reworked.ts": lines("edited").replace("edited3 = 3", "edited3 = 30") });
+    await writeFiles(repo, { "src/renamed.ts": numbered("intact"), "src/reworked.ts": numbered("edited").replace("edited3 = 3", "edited3 = 30") });
     gitCommitAll(repo, "Переименовать", "2026-09-12T10:00:00+03:00");
 
     const report = await check(root, home, "changed");
