@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DAY_MS, formatLocalDay } from "../model/dates";
 import type { Project } from "../model/types";
-import { ISOLATED_GIT_ENV, gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { CODE_CACHE_FILE, createCodeCacheFile, type CodeCacheStore } from "./code-cache";
 import { createCodeSource, type CodeSource } from "./code-source";
 import { fixKey } from "./fix-key";
@@ -16,7 +16,7 @@ const projectOf = (id: string, repos: string[]): Project => ({ id, name: `Про
 const fullHead = async (repo: string): Promise<string> => (await runGit(repo, ["rev-parse", "HEAD"]))?.trim() ?? "";
 
 function gitAmendAll(repo: string, isoDate: string): void {
-  const env = { ...process.env, ...ISOLATED_GIT_ENV, GIT_AUTHOR_DATE: isoDate, GIT_COMMITTER_DATE: isoDate };
+  const env = { ...process.env, GIT_AUTHOR_DATE: isoDate, GIT_COMMITTER_DATE: isoDate };
   execFileSync("git", ["add", "-A"], { cwd: repo, env });
   execFileSync("git", ["-c", "user.name=backlog-test", "-c", "user.email=test@backlog.local", "-c", "commit.gpgsign=false", "commit", "-q", "--amend", "--no-edit"], { cwd: repo, env });
 }

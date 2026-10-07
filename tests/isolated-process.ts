@@ -1,12 +1,10 @@
 import { once } from "node:events";
 import { createServer } from "node:net";
 import { join } from "node:path";
-import { ISOLATED_GIT_ENV } from "../src/core/store/testing/temp-dirs";
 
 export function isolatedHomeEnv(home: string): NodeJS.ProcessEnv {
   return {
     ...process.env,
-    ...ISOLATED_GIT_ENV,
     HOME: home,
     USERPROFILE: home,
     BACKLOG_DIR: join(home, "store"),

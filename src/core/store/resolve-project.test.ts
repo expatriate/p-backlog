@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Project } from "../model/types";
 import { cachedRepoRoots, findGitRoots, findProjectForDir } from "./resolve-project";
-import { gitAddWorktree, gitCommitAll, ISOLATED_GIT_ENV, makeGitRepo, makeTempDir, writeFiles } from "./testing/temp-dirs";
+import { gitAddWorktree, gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "./testing/temp-dirs";
 
 function project(id: string, repos: string[]): Project {
   return { id, name: id, prefix: id.toUpperCase(), repos, active: true, extra: {}, body: "", path: `/backlog/${id}/project.md` };
@@ -33,7 +33,7 @@ describe("findGitRoots", () => {
     const home = await makeTempDir();
     const work = join(home, "work");
     await mkdir(join(home, "sep"));
-    execFileSync("git", ["init", "-q", "--separate-git-dir", join(home, "sep/.git"), work], { env: { ...process.env, ...ISOLATED_GIT_ENV } });
+    execFileSync("git", ["init", "-q", "--separate-git-dir", join(home, "sep/.git"), work]);
 
     expect(findGitRoots(work)).toEqual({ worktree: work, main: work });
   });

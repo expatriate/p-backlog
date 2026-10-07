@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ISOLATED_GIT_ENV, makeTempDir } from "../store/testing/temp-dirs";
+import { makeTempDir } from "../store/testing/temp-dirs";
 import { baseText, currentLine, parseHunks, type Hunk } from "./diff-hunks";
 
 async function hunksBetween(before: string, after: string): Promise<Hunk[]> {
@@ -11,7 +11,7 @@ async function hunksBetween(before: string, after: string): Promise<Hunk[]> {
   await writeFile(join(dir, "after"), after);
   let diff = "";
   try {
-    execFileSync("git", ["diff", "--no-index", "--no-color", "before", "after"], { cwd: dir, env: { ...process.env, ...ISOLATED_GIT_ENV }, encoding: "utf8" });
+    execFileSync("git", ["diff", "--no-index", "--no-color", "before", "after"], { cwd: dir, encoding: "utf8" });
   } catch (error) {
     diff = (error as { stdout: string }).stdout;
   }
