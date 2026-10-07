@@ -8,7 +8,7 @@ import { createSnapshotIds, pruneUnlessKept } from "./source-memos";
 type ScopeSources = { journals: ProjectJournal[]; contextOf: (input: StatsInput) => ReportContext };
 
 export type JournalSources = {
-  journals: (projectIds: readonly string[]) => Promise<ProjectJournal[]>;
+  journal: (projectId: string) => Promise<ProjectJournal>;
   read: (snapshot: object, projectIds: readonly string[]) => Promise<ScopeSources>;
   retain: (projectIds: readonly string[]) => void;
 };
@@ -48,7 +48,7 @@ export function createJournalSources(root: string): JournalSources {
     };
 
   return {
-    journals: async (projectIds) => (await Promise.all(projectIds.map(readTailed))).map(({ journal }) => journal),
+    journal: async (projectId) => (await readTailed(projectId)).journal,
     read: async (snapshot, projectIds) => {
       const tailed = await Promise.all(projectIds.map(readTailed));
       return { journals: tailed.map(({ journal }) => journal), contextOf: rememberedContext(snapshot, tailed) };

@@ -35,6 +35,7 @@ export const serverRu = {
 
   codeCacheReadFailed: (detail: string): string => `Не удалось прочитать кэш git: ${detail}`,
   codeCacheWriteFailed: (detail: string): string => `Не удалось сохранить кэш git: ${detail}`,
+  journalReadFailed: (path: string, detail: string): string => `Не удалось прочитать журнал ${path}, «Закрыты агентом» покажет и закрытые в вебе задачи проекта: ${detail}`,
 };
 
 export type ServerMessages = typeof serverRu;

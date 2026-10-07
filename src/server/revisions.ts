@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import type { Revision } from "../core/api/contract";
-import { contentVersion, readTextOrNull } from "../core/store/fs-utils";
+import { contentVersion } from "../core/store/fs-utils";
 
 export type OwnWrite = { path: string; version: string };
 
@@ -48,6 +48,6 @@ export function createRevisions(): Revisions {
 }
 
 async function markOf(path: string): Promise<FileMark | null> {
-  const [text, stats] = await Promise.all([readTextOrNull(path), stat(path).catch(() => null)]);
+  const [text, stats] = await Promise.all([readFile(path, "utf8").catch(() => null), stat(path).catch(() => null)]);
   return text === null || stats === null ? null : { version: contentVersion(text), mtimeMs: stats.mtimeMs };
 }

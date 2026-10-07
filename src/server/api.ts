@@ -19,7 +19,9 @@ import {
   type TasksResponse,
 } from "../core/api/contract";
 import { projectGraphHealth } from "../core/check/graph-health";
+import { errorText } from "../core/errors";
 import { tasksClosedInWeb } from "../core/journal/closed-in-web";
+import type { ProjectJournal } from "../core/journal/events";
 import { buildIndex, type BacklogIndex } from "../core/model/graph";
 import type { Project, Task } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
@@ -34,7 +36,7 @@ import type { Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
 import { errorResponse, fileBusyResponse } from "./error-response";
 import { createJournalSources, type JournalSources } from "./journal-sources";
-import { serverMessages, type ServerMessages } from "./messages";
+import { serverMessages, type LocalizedWarn, type ServerMessages } from "./messages";
 import { createTtlCache } from "./ttl-cache";
 import { createRevisions, type OwnWrite } from "./revisions";
 import { createStatsApi, type GraphHealthOf, type StatsServices } from "./stats-api";
@@ -52,7 +54,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
   let snapshot: Promise<IndexedBacklog> | null = null;
   const backlog = (): Promise<IndexedBacklog> => {
     if (snapshot !== null) return snapshot;
-    const loading = loadSnapshot(root, revisions.current(), journalSources).catch((error: unknown) => {
+    const loading = loadSnapshot(root, revisions.current(), journalSources, statsServices.warn).catch((error: unknown) => {
       if (snapshot === loading) snapshot = null;
       throw error;
     });
@@ -183,11 +185,16 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
   return api;
 }
 
-async function loadSnapshot(root: string, revision: Revision, journalSources: JournalSources): Promise<IndexedBacklog> {
+async function loadSnapshot(root: string, revision: Revision, journalSources: JournalSources, warn: LocalizedWarn): Promise<IndexedBacklog> {
   const loaded = await loadBacklog(root);
   const projectIds = loaded.projects.map((project) => project.id);
   journalSources.retain(projectIds);
-  const journals = await journalSources.journals(projectIds);
+  const readableJournal = (projectId: string): Promise<ProjectJournal> =>
+    journalSources.journal(projectId).catch(async (error: unknown) => {
+      await warn((messages) => messages.journalReadFailed(join(root, projectId, JOURNAL_FILE), errorText(error)));
+      return { projectId, events: [], invalidLines: 0 };
+    });
+  const journals = await Promise.all(projectIds.map(readableJournal));
   return { ...loaded, index: buildIndex(loaded.tasks), closedInWeb: tasksClosedInWeb(loaded.tasks, journals), revision };
 }
 

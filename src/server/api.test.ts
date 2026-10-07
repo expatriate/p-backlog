@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { BatchResponse, ConflictResponse, ProjectsResponse, Revision, ErrorResponse, StatsReport, TasksResponse } from "../core/api/contract";
 import { FileBusyError } from "../core/store/file-lock";
 import { appendJournal, readJournal } from "../core/store/journal";
@@ -26,6 +26,23 @@ describe("GET /api/projects и /api/tasks", () => {
     expect(tasks[0]).toMatchObject({ id: "SPA-1", priority: "high", tags: ["upload"], projectId: "spa" });
     expect(tasks[0]?.version).toHaveLength(40);
     expect(errors).toEqual([{ path: expect.stringContaining("SPA-9.md"), projectId: "spa", message: expect.any(String) }]);
+  });
+});
+
+describe("нечитаемый журнал проекта", () => {
+  it("не ломает список задач и правку: задачи отдаются, правка сохраняется", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    await mkdir(join(backlog.root, "spa", "journal.jsonl"));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect((await backlog.request("/api/projects")).status).toBe(200);
+    const listed = (await (await backlog.request("/api/tasks")).json()) as TasksResponse;
+    expect(listed.tasks.map((task) => task.id)).toEqual(["SPA-1", "SPA-2", "SPA-3", "TI-1"]);
+
+    const response = await backlog.json("/api/tasks/SPA-1", "PATCH", { version: await backlog.taskVersion("SPA-1"), changes: { priority: "low" } });
+
+    expect(response.status).toBe(200);
+    expect((await backlog.taskOnDisk("SPA-1")).priority).toBe("low");
   });
 });
 
