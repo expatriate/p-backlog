@@ -5,7 +5,6 @@ import { epicProblems } from "../../core/model/integrity";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, type Task } from "../../core/model/types";
 import { useMessages } from "../i18n";
 import type { Draft } from "../ui/use-draft";
-import { normalizeTaskId } from "./normalize-task-id";
 import { parseTagInput } from "./tag-input";
 import styles from "./TaskFields.module.css";
 
@@ -26,7 +25,7 @@ export function TaskFields({ task, epicListId, index, onChange, tags, tagsRef, e
   const epicErrorId = useId();
 
   const saveEpic = () => {
-    const value = normalizeTaskId(epic.value);
+    const value = epic.canonical;
     const problems = value === "" ? [] : epicProblems({ ...task, epic: value }, (id) => index.byId.get(id));
     setEpicError(problems.length === 0 ? null : core.problems(problems));
     if (problems.length > 0) return;
