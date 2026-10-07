@@ -1,12 +1,7 @@
-dist
-coverage
-test-results
-playwright-report
 docs/superpowers
 docs/screenshots
 .superpowers
 .impeccable
-.code-review-graph
 .claude
 plugins
 .claude-plugin/marketplace.json
