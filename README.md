@@ -17,9 +17,10 @@ what will break. Findings from audits and code reviews become tasks too, instead
 - **Context kept, tokens saved.** A task stores the context the agent needs to pick it up later. On a re-check the
   agent gets the task's summary, the current code around its line and the diff since the last check — usually
   enough to decide without re-reading the codebase.
-- **Stays current by itself.** A Stop hook asks the agent to re-check tasks whose code changed. The agent closes
-  fixed ones with the commit as evidence; line numbers follow the code as it moves. Closed tasks are cleaned up
-  after 7 days.
+- **Stays current by itself.** A Stop hook asks the agent to re-check tasks whose own lines changed since the last
+  check — not an edit elsewhere in the file, and not a file that is merely absent from the current branch. The agent
+  closes fixed ones with the commit as evidence; line numbers follow the code as it moves, and so do renamed files.
+  Closed tasks are cleaned up after 7 days.
 - **Local and autonomous.** Plain files in `~/backlog`, no account, no cloud. The agent drives it through the skill,
   so you don't have to touch the CLI — though you can.
 - **Charts when you want them.** Start the local web app to browse and triage tasks and follow the metrics: debt by
