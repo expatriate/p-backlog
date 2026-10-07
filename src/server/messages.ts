@@ -1,5 +1,4 @@
 import type { Language } from "../core/i18n/language";
-import { localeLanguage, readLanguage } from "../core/store/settings";
 import { serverEn } from "./messages.en";
 import { serverRu, type ServerMessages } from "./messages.ru";
 
@@ -13,8 +12,4 @@ export type LocalizedWarn = (text: (messages: ServerMessages) => string) => Prom
 
 export function localizedWarn(readLanguage: () => Promise<Language>, warn: (line: string) => void): LocalizedWarn {
   return async (text) => warn(text(serverMessages(await readLanguage())));
-}
-
-export function serverLanguage(root: string, env: NodeJS.ProcessEnv): Promise<Language> {
-  return readLanguage(root, env).catch(() => localeLanguage(env));
 }

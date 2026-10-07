@@ -11,13 +11,13 @@ import { serviceLogToTrim } from "../core/service-log";
 import { compactJournalsWhenDue } from "../core/store/journal-compaction";
 import { runMaintenance, type MaintenancePlan } from "../core/store/maintenance";
 import { trimRuns } from "../core/store/runs";
-import { settingsFilePath, settleLanguage } from "../core/store/settings";
+import { readLanguageOrLocale, settingsFilePath, settleLanguage } from "../core/store/settings";
 import { sweepClosedAndStamp, type SweepReport } from "../core/store/sweep";
 import { createApp } from "./app";
 import { CHANGE_DEBOUNCE_MS, createChangeFeed } from "./change-feed";
 import { localHosts } from "./guards";
 import { createMemorySampler, type MemorySampler } from "./memory-sampler";
-import { localizedWarn, serverLanguage, serverMessages, type ServerMessages } from "./messages";
+import { localizedWarn, serverMessages, type ServerMessages } from "./messages";
 import { listenFailure } from "./port";
 import { startSweeper } from "./sweeper";
 import { createUsageScanner, type UsageScanner } from "./usage-scanner";
@@ -47,7 +47,7 @@ export async function startServer({ root, port, home, env, pidFile, staticDir, n
   const startupMessages = serverMessages(settled.language);
   if (settled.invalidSettingsFile) warn(startupMessages.settingsFileInvalid(settingsFilePath(root)));
 
-  const readLanguage = () => serverLanguage(root, env);
+  const readLanguage = () => readLanguageOrLocale(root, env);
   const readMessages = () => readLanguage().then(serverMessages);
   const warnLocalized = localizedWarn(readLanguage, warn);
   const usage = createUsageScanner({ root, claudeProjectsDir: claudeProjectsDir(env, home), warn: warnLocalized, now });

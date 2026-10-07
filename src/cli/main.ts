@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { formatLocalIso } from "../core/model/dates";
 import { appendRun } from "../core/store/runs";
 import { resolveBacklogRoot } from "../core/store/paths";
-import { localeLanguage, readLanguage } from "../core/store/settings";
+import { readLanguageOrLocale } from "../core/store/settings";
 import { suppressSqliteExperimentalWarning } from "../core/sqlite-warning";
 import { hostCliEnv } from "./host-env";
 import { tidyAfterCommand } from "./housekeeping";
@@ -71,6 +71,6 @@ async function recordRun(): Promise<string | null> {
 }
 
 const runFailure = await recordRun();
-const language = await readLanguage(backlogRoot, process.env).catch(() => localeLanguage(process.env));
+const language = await readLanguageOrLocale(backlogRoot, process.env);
 if (runFailure !== null) warn(cliMessages(language).runNotRecorded(runFailure));
 await tidyAfterCommand({ backlogRoot, argv, language, now: new Date(), warn });

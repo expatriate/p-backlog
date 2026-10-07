@@ -1,7 +1,7 @@
-import { chmod, readFile } from "node:fs/promises";
+import { access, chmod, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
-import { settleLanguage, writeSettings } from "./settings";
+import { readLanguageOrLocale, settingsFilePath, settleLanguage, writeSettings } from "./settings";
 import { makeTempDir, projectFile, writeFiles } from "./testing/temp-dirs";
 
 describe("язык беклога", () => {
@@ -45,5 +45,22 @@ describe("язык беклога", () => {
 
     expect(await settleLanguage(root, { LANG: "en_US.UTF-8" })).toEqual({ language: "en", invalidSettingsFile: true });
     expect(await readFile(join(root, ".settings.json"), "utf8")).toBe('{"language":"EN"}');
+  });
+
+  it("чтение без .settings.json — то же правило, что у settleLanguage, но файл не создаётся", async () => {
+    const withProjects = await makeTempDir();
+    await writeFiles(withProjects, { "spa/project.md": projectFile("SPA") });
+    const empty = await makeTempDir();
+
+    expect(await readLanguageOrLocale(withProjects, { LANG: "en_US.UTF-8" })).toBe("ru");
+    expect(await readLanguageOrLocale(empty, { LANG: "en_US.UTF-8" })).toBe("en");
+    await expect(access(settingsFilePath(withProjects))).rejects.toThrow();
+  });
+
+  it("нечитаемый .settings.json при чтении не роняет вызывающего — язык по локали", async () => {
+    const root = await makeTempDir();
+    await mkdir(settingsFilePath(root));
+
+    expect(await readLanguageOrLocale(root, { LANG: "ru_RU.UTF-8" })).toBe("ru");
   });
 });

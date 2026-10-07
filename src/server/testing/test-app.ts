@@ -3,10 +3,9 @@ import { onTestFinished } from "vitest";
 import type { Language } from "../../core/i18n/language";
 import type { Task } from "../../core/model/types";
 import { loadBacklog } from "../../core/store/load";
-import { writeSettings } from "../../core/store/settings";
+import { readLanguageOrLocale, writeSettings } from "../../core/store/settings";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { createApp } from "../app";
-import { serverLanguage } from "../messages";
 import type { ChangeFeed, ChangeListener } from "../change-feed";
 import { createMemorySampler, type MemorySampler } from "../memory-sampler";
 import { createUsageScanner, type UsageScanner } from "../usage-scanner";
@@ -52,7 +51,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
 
   const app = createApp({
     root,
-    readLanguage: () => serverLanguage(root, {}),
+    readLanguage: () => readLanguageOrLocale(root, {}),
     changes,
     allowedHosts: new Set([TEST_HOST]),
     home: root,
