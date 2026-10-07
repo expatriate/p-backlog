@@ -29,8 +29,9 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
   const cache = cachePersistence(memory, store, { read: (error) => onError("read", error), write: (error) => onError("write", error) });
   const repoCode = repoReader(git, memory);
   let retainedRepos: ReadonlySet<string> | null = null;
-  const forgetUnretainedRepos = () => {
+  const persist = () => {
     if (retainedRepos !== null) keepOnlyRepos(memory, retainedRepos);
+    return cache.persist();
   };
   const expanded = (projects: readonly Project[]) => [...new Set(projects.flatMap((project) => project.repos.map((repo) => expandHome(repo, home))))];
 
@@ -52,8 +53,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       );
       const projectCodes = scanned.map(({ project, repos }): ProjectCode => ({ projectId: project.id, name: project.name, repos: repos.flatMap(({ read }) => (read === null ? [] : [read])) }));
       const unavailableRepos = [...new Set(scanned.flatMap(({ repos }) => repos.filter(({ read }) => read === null).map(({ repo }) => repo)))];
-      forgetUnretainedRepos();
-      await cache.persist();
+      await persist();
       return { projects: projectCodes, unavailableRepos };
     },
     fixCommits: async (projects, requests, now) => {
@@ -72,8 +72,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
         }
       }
       dropStaleFixes(memory, now, requested);
-      forgetUnretainedRepos();
-      await cache.persist();
+      await persist();
       return found;
     },
   };
