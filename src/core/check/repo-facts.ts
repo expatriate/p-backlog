@@ -117,24 +117,21 @@ export function headsOnThisLine(repo: string, git: GitRunner = runGit): HeadAt {
   let moves: Promise<HeadMove[]> | null = null;
   const onThisLine = new Map<string, Promise<boolean>>();
   return async (moment) => {
-    moves ??= headMoves(repo, git);
-    const head = (await moves).findLast((move) => move.at <= moment.getTime())?.commit;
+    moves ??= headMovesNewestFirst(repo, git);
+    const head = (await moves).find((move) => move.at <= moment.getTime())?.commit;
     if (head === undefined) return null;
     const ancestor = await remembered(onThisLine, head, async () => (await git(repo, ["merge-base", "--is-ancestor", head, "HEAD"])) !== null);
     return ancestor ? head : null;
   };
 }
 
-async function headMoves(repo: string, git: GitRunner): Promise<HeadMove[]> {
+async function headMovesNewestFirst(repo: string, git: GitRunner): Promise<HeadMove[]> {
   const reflog = await git(repo, ["log", "--walk-reflogs", "--date=unix", `--format=%H${FIELD}%gd`, "HEAD"]);
-  return (reflog ?? "")
-    .split("\n")
-    .flatMap((line): HeadMove[] => {
-      const [commit = "", selector = ""] = line.split(FIELD);
-      const seconds = REFLOG_MOMENT.exec(selector)?.[1];
-      return seconds === undefined ? [] : [{ commit, at: Number(seconds) * MS_PER_SECOND }];
-    })
-    .toReversed();
+  return (reflog ?? "").split("\n").flatMap((line): HeadMove[] => {
+    const [commit = "", selector = ""] = line.split(FIELD);
+    const seconds = REFLOG_MOMENT.exec(selector)?.[1];
+    return seconds === undefined ? [] : [{ commit, at: Number(seconds) * MS_PER_SECOND }];
+  });
 }
 
 export function diffsFrom(repo: string, git: GitRunner = runGit): DiffFrom {
