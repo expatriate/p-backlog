@@ -87,13 +87,7 @@ function repoReader(git: GitRunner, memory: CodeMemory): (repo: string, now: Dat
     memory.repos.set(repo, scan);
     return repoCodeOf(scan);
   };
-  return (repo, now) => {
-    const running = inFlight.get(repo);
-    if (running !== undefined) return running;
-    const started = readOnce(repo, now).finally(() => inFlight.delete(repo));
-    inFlight.set(repo, started);
-    return started;
-  };
+  return (repo, now) => remembered(inFlight, repo, () => readOnce(repo, now).finally(() => inFlight.delete(repo)));
 }
 
 async function readMissingFixes(git: GitRunner, memory: CodeMemory, { repo, main }: FixRepo, hashes: readonly string[]): Promise<void> {
