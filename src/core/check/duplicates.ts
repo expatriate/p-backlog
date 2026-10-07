@@ -44,14 +44,18 @@ function duplicateMatch(current: TaskFingerprint, older: TaskFingerprint, symbol
   if (linked(current.task, older.task) || bothConfirmedAfterCreation(current.task, older.task)) return null;
   const match = sourceTitleMatch(current, older);
   if (match === "source") return match;
-  return similarTitles(current.stems, older.stems) && inOneSymbol(current.task, older.task, symbolOf) ? "symbol" : match;
+  return titlesMatch(current, older) && inOneSymbol(current.task, older.task, symbolOf) ? "symbol" : match;
 }
 
 function sourceTitleMatch(left: Fingerprint, right: Fingerprint): SourceTitleMatch | null {
   const place = sharedPlace(left.source, right.source);
   if (place === null) return nearlySameTitles(left.stems, right.stems) ? "title" : null;
-  if (!similarTitles(left.stems, right.stems)) return null;
+  if (!titlesMatch(left, right)) return null;
   return place === "line" ? "source" : "title";
+}
+
+function titlesMatch(left: Fingerprint, right: Fingerprint): boolean {
+  return similarTitles(left.stems, right.stems) || nearlySameTitles(left.stems, right.stems);
 }
 
 function sharedPlace(a: string | undefined, b: string | undefined): "line" | "file" | null {

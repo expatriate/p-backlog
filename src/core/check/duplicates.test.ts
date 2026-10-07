@@ -56,10 +56,14 @@ describe("duplicateCandidates и findSimilarTask", () => {
     expect(candidateMatches(sameFile)).toEqual([]);
   });
 
-  it("настоящие дубли находятся: повтор с тем же заголовком и местом, пересказ в том же файле, тот же заголовок без source", () => {
+  it("настоящие дубли находятся: повтор с тем же заголовком и местом, даже коротким, пересказ в том же файле, тот же заголовок без source", () => {
     const retry: [Shape, Shape] = [
       { title: "Мелочи ревью: тесты проверяют реализацию, а не поведение", source: "src/api/mapper.spec.ts:48" },
       { title: "Мелочи ревью: тесты проверяют реализацию, а не поведение", source: "src/api/mapper.spec.ts:48" },
+    ];
+    const shortRetry: [Shape, Shape] = [
+      { title: "Утечка в API", source: "src/api/client.ts:12" },
+      { title: "Утечка в API", source: "src/api/client.ts:12" },
     ];
     const retold: [Shape, Shape] = [
       { title: "Клик по пункту меню хлебных крошек делает два перехода: к родителю и к выбранной папке", source: "src/nav/FolderNavigation.tsx:60" },
@@ -67,7 +71,8 @@ describe("duplicateCandidates и findSimilarTask", () => {
     ];
     const sameTitle: [Shape, Shape] = [{ title: "Таймаут загрузки не учитывает размер файла" }, { title: "Загрузка: таймаут не учитывает размер файла" }];
 
-    expect([retry, retold, sameTitle].map((pair) => ({ check: candidateMatches(pair), refusal: refusal(pair) }))).toEqual([
+    expect([retry, shortRetry, retold, sameTitle].map((pair) => ({ check: candidateMatches(pair), refusal: refusal(pair) }))).toEqual([
+      { check: ["source"], refusal: "source" },
       { check: ["source"], refusal: "source" },
       { check: ["title"], refusal: "title" },
       { check: ["title"], refusal: "title" },
