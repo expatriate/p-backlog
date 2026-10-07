@@ -25,7 +25,8 @@ export function StatsRequestState<T>({ query, empty, children }: { query: Report
   const message = statusMessage(stats, view);
   const failure = view.kind === "failed" ? view.error : null;
   const report = view.kind === "ready" || view.kind === "failed" ? view.report : undefined;
-  const { status, keepFocus } = useStatusFocus(message === null && failure === null, useOutletContext<StatsOutletContext | undefined>()?.heading);
+  const settled = view.kind === "ready";
+  const { status, keepFocus } = useStatusFocus(settled, useOutletContext<StatsOutletContext | undefined>()?.heading);
 
   const retry = () => {
     keepFocus();
@@ -34,7 +35,7 @@ export function StatsRequestState<T>({ query, empty, children }: { query: Report
 
   return (
     <>
-      <div ref={status} tabIndex={-1} role="status" aria-live="polite" className={message === null && failure === null ? "visually-hidden" : cx(styles.hint, view.kind === "loading" && styles.hintLoading)}>
+      <div ref={status} tabIndex={-1} role="status" aria-live="polite" className={settled ? "visually-hidden" : cx(styles.hint, view.kind === "loading" && styles.hintLoading)}>
         {message !== null && <p>{message}</p>}
         {failure !== null && <RequestFailure error={failure} fetching={query.isFetching} onRetry={retry} />}
       </div>
