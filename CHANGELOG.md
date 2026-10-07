@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased
+
+- The web list "Closed by the agent" and its chip count no longer include tasks a person closed in the web UI (the bulk
+  "Close as obsolete" action and epics that closed after it); tasks closed through the CLI stay there. `GET /api/tasks`
+  gains a `closedInWeb` field. An unreadable project journal no longer breaks the board — the server warns instead.
+- `backlog new` keeps `manual` as the default for `--found`, and `--help` says so; the skill tells the agent to always
+  pass `--found` (without it the task does not count in Effect). The skill's exit-code table for `take` explains that
+  code 1 also means a write conflict or a validation error.
+- `backlog prune --all-projects` considers only active projects, like `list` and `stats`.
+- `backlog setup` recognizes the earlier PowerShell form of the Claude Stop hook and replaces it instead of adding a
+  second hook; `setup --remove-manual` removes it too. Codex and Cursor Windows hooks are recognized whatever the CLI
+  bundle file is named.
+- CLI commands that reopen an epic that had closed by itself (including `backlog new --epic`) say so on stderr, and
+  `new --json` shows the epic's current status.
+- `backlog new` in a new repository no longer reuses a prefix declared in another project's `project.md` whose header is
+  broken.
+- Hotspots, churn × debt and debt density put tasks with a source like `./src/…` into `src` and files in the repository
+  root into `.`; a source pointing at a folder with a trailing slash counts in that folder again.
+- The Code tab counts files such as `X.test.tsx.snap` as tests, as its explanation says; the code cache version is
+  bumped, so the git history is read once more after updating.
+- Effect shows "≈" only for numbers that include an estimate of pending tasks — the same rule for tiles, the summary,
+  the chart tooltip and the projects table. The accuracy chart shows a point at 0 %. Chart tooltips and the weekly
+  trend group digits like the tables. English durations of 1000 days and more group digits too.
+- "Created today / closed today" count from local midnight to now, like the daily rows.
+- A duplicate candidate of a task from an unmerged branch is recorded in the journal exactly as it is shown, so check
+  accuracy no longer loses it; the "unknown journal lines" warning also counts candidate events with renamed values.
+- The language switch in the web UI unlocks as soon as the setting is saved instead of after every query refetches.
+- A failed task or project write in the web UI resets the server caches, so the UI never shows a half-written state.
+- `.hook-turns.json` and `.candidates-shown.json` store local times with an offset, like the other files.
+- Releases are published from a tag only after CI is green for that commit and `test:package` passes, with a pinned npm
+  version.
+
 ## 0.8.1
 
 - Effect counts every task recorded as `incidental` again, including tasks recorded by earlier versions, where
