@@ -6,11 +6,13 @@ import { EXIT } from "../io";
 import { commitIn, makeCliSandbox } from "../testing/cli-harness";
 
 describe("backlog status", () => {
-  it("меняет статус и предупреждает о неотмеченных пунктах при done", async () => {
+  it("меняет статус и предупреждает о неотмеченных пунктах при done; эпику подсказки о коммите нет", async () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "X"], { stdin: "- [ ] a\n- [x] b" });
+    await run(["new", "--type", "epic", "--title", "Эпик"]);
 
     const result = await run(["status", "SPA-1", "done"]);
+    const epic = await run(["status", "SPA-2", "done"]);
 
     expect(result).toEqual({
       code: EXIT.ok,
@@ -20,15 +22,20 @@ describe("backlog status", () => {
         'SPA-1 закрыта без коммита исправления — статистика не узнает, чем она исправлена. Когда правка будет в коммите: backlog close SPA-1 --as fixed --reason "Исправлено в <sha>: …"',
       ].join("\n"),
     });
+    expect(epic).toEqual({ code: EXIT.ok, out: "SPA-2: backlog → done", err: "" });
     expect((await loadBacklog(root)).tasks[0]?.status).toBe("done");
   });
 
-  it("возврат исправленной задачи в работу называет её прежние коммиты", async () => {
+  it("возврат исправленной задачи в работу называет её прежние коммиты; отменённой и снова закрытой — нет", async () => {
     const { run, repo } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "X"]);
+    await run(["new", "--category", "bug", "--title", "Устарела"]);
     const sha = await commitIn(repo);
     await run(["close", "SPA-1", "--as", "fixed", "--reason", `Исправлено в ${sha}: таймаут`]);
+    await run(["close", "SPA-2", "--as", "obsolete", "--reason", `Устарело: модуль удалён в ${sha}`]);
 
+    const closedAgain = await run(["status", "SPA-1", "done"]);
+    const obsoleteReopened = await run(["status", "SPA-2", "in-progress"]);
     const reopened = await run(["status", "SPA-1", "in-progress"]);
 
     expect(reopened).toEqual({
@@ -36,6 +43,8 @@ describe("backlog status", () => {
       out: "SPA-1: done → in-progress",
       err: `SPA-1 была исправлена в ${sha}: закрывая снова, начните --reason с этих коммитов ("Исправлено в ${sha}, <sha>: …") — статистика считает исправлением первый коммит из причины`,
     });
+    expect(closedAgain).toEqual({ code: EXIT.ok, out: "SPA-1: done → done", err: "" });
+    expect(obsoleteReopened).toEqual({ code: EXIT.ok, out: "SPA-2: cancelled → in-progress", err: "" });
   });
 
   it("сообщает, что эпик, закрытый сам, снова открыт, когда его задачу открыли", async () => {
