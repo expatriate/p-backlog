@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFile, rename, rm, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { countingGit } from "../git/testing/counting-git";
 import { collectRepoFacts, diffsSince } from "./repo-facts";
@@ -109,6 +109,29 @@ describe("collectRepoFacts", () => {
       existing: new Set(["src/a.ts"]),
       texts: new Map([["src/a.ts", ""]]),
     });
+  });
+
+  it("репозиторий без единого коммита: история прочитана и пуста, а не «нечитаема»", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "export const a = 1;\n" });
+
+    const facts = await collectRepoFacts(repo, marksSince("2026-09-11T00:00:00Z", ["src/a.ts", "src/b.ts"]));
+
+    expect({ history: facts.history, commits: facts.commits, renames: facts.renames }).toEqual({ history: "read", commits: [], renames: [] });
+  });
+
+  it("git не запускается: история нечитаема, а не «каталог без git»", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "export const a = 1;\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    vi.stubEnv("PATH", await makeTempDir());
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+
+    const facts = await collectRepoFacts(repo, marksSince("2026-09-11T00:00:00Z", ["src/a.ts"]));
+
+    expect(facts.history).toBe("unreadable");
   });
 
   it("не переписывает индекс git: сбор фактов не берёт index.lock, пока с репозиторием работает пользователь", async () => {

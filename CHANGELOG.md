@@ -5,6 +5,16 @@
 - `backlog serve` (the background service included) is no longer recorded as a command run: stopping or restarting the
   service no longer adds a `serve` row with an uptime of hours to the Commands table on the cost tab, or counts it in
   "other commands". `serve` records already in `.runs.jsonl` are ignored by the report too.
+- `backlog check` no longer leaves a task created on a branch "awaiting merge" forever when that branch was merged by
+  squash or rebase while the local branch still exists. The branch counts as merged once the current branch's history
+  has, for every file the branch changed, either the branch's version of the file, or the branch's whole change to it
+  in one commit (squash), or each of the branch's commits to it (rebase); changes are compared as `git patch-id` does,
+  so edits elsewhere in the same file on the current branch do not matter, and later edits do not undo it. A change
+  whose surrounding lines (3 on each side) were edited on the current branch in the meantime, or that was resolved by
+  hand in a conflict, is not recognized, and its task keeps waiting as before. A task whose creation commit is gone
+  from the repository is re-checked again too. A repository without commits yet is checked as
+  having an empty history instead of reporting it unreadable, and a failure to run git is reported as unreadable
+  history rather than "not a git repository".
 
 ## 0.9.0
 

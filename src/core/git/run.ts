@@ -5,6 +5,10 @@ import { createLimiter } from "./limit";
 
 export type GitRunner = (repo: string, args: string[], input?: string) => Promise<string | null>;
 
+export type GitOutcome = { status: "ok"; stdout: string } | { status: "exited"; exitCode: number } | { status: "unfinished" };
+
+export type GitOutcomeRunner = (repo: string, args: string[], input?: string) => Promise<GitOutcome>;
+
 export const RECORD = "\x1e";
 export const FIELD = "\x1f";
 
@@ -15,17 +19,27 @@ const GIT_PROCESS_LIMIT = 8;
 
 const gitProcessSlot = createLimiter(GIT_PROCESS_LIMIT);
 
-export const runGit: GitRunner = (repo, args, input) =>
+export const runGitOutcome: GitOutcomeRunner = (repo, args, input) =>
   gitProcessSlot(async () => {
     try {
       const running = runFile("git", gitArgs(repo, args), { maxBuffer: GIT_OUTPUT_LIMIT });
       running.child.stdin?.on("error", ignoreStdinOfExitedGit).end(input);
       const { stdout } = await running;
-      return stdout;
+      return { status: "ok", stdout };
     } catch (error) {
-      return args[0] === "grep" && errorCode(error) === GREP_NO_MATCH_EXIT ? "" : null;
+      const exitCode = errorCode(error);
+      return typeof exitCode === "number" ? { status: "exited", exitCode } : { status: "unfinished" };
     }
   });
+
+export const runGit: GitRunner = async (repo, args, input) => {
+  const outcome = await runGitOutcome(repo, args, input);
+  return args[0] === "grep" && outcome.status === "exited" && outcome.exitCode === GREP_NO_MATCH_EXIT ? "" : stdoutOf(outcome);
+};
+
+export function stdoutOf(outcome: GitOutcome): string | null {
+  return outcome.status === "ok" ? outcome.stdout : null;
+}
 
 export function runGitSync(repo: string, args: string[]): string | null {
   try {

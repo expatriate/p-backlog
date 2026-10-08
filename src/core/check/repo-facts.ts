@@ -1,6 +1,6 @@
 import { access, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, normalize, sep } from "node:path";
-import { FIELD, RECORD, runGit, type GitRunner } from "../git/run";
+import { FIELD, RECORD, runGit, runGitOutcome, type GitRunner } from "../git/run";
 import type { LineRange } from "./anchor";
 import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
 import { remembered } from "../remembered";
@@ -31,19 +31,22 @@ export type PathMarks = ReadonlyMap<string, number>;
 
 export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Promise<RepoFacts> {
   const paths = [...pathMarks.keys()];
-  const [prefix, existing] = await Promise.all([runGit(repo, ["rev-parse", "--show-prefix"]), existingPaths(repo, paths)]);
+  const [location, existing] = await Promise.all([runGitOutcome(repo, ["rev-parse", "--show-prefix", "--revs-only", "HEAD"]), existingPaths(repo, paths)]);
   const texts = await fileTexts(repo, [...existing]);
   const withoutHistory = (history: GitHistory): RepoFacts => ({ history, commits: [], renames: [], dirtyModifiedAt: new Map(), ...UNKNOWN_BRANCH_HISTORY, existing, texts });
-  if (prefix === null) return withoutHistory("not-a-repo");
+  if (location.status === "exited") return withoutHistory("not-a-repo");
+  if (location.status === "unfinished") return withoutHistory("unreadable");
+  const [prefix = "", head = ""] = location.stdout.split("\n").map((line) => line.trim());
+  const hasCommits = head !== "";
   const missing = paths.filter((path) => !existing.has(path));
   const [log, renames, status, branchHistory] = await Promise.all([
-    pathLog(repo, earliestMark(pathMarks, paths), paths),
-    missing.length === 0 ? "" : runGit(repo, [...logArgs(earliestMark(pathMarks, missing)), "--diff-filter=R"]),
+    hasCommits ? pathLog(repo, earliestMark(pathMarks, paths), paths) : "",
+    hasCommits && missing.length > 0 ? runGit(repo, [...logArgs(earliestMark(pathMarks, missing)), "--diff-filter=R"]) : "",
     runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
     branchHistoryOf(repo, missing),
   ]);
   if (log === null || renames === null || status === null) return withoutHistory("unreadable");
-  const dirty = withinRepo(parseStatus(status), prefix.trim());
+  const dirty = withinRepo(parseStatus(status), prefix);
   return { history: "read", commits: parseLog(log), renames: parseLog(renames), dirtyModifiedAt: await modificationTimes(repo, dirty), ...branchHistory, existing, texts };
 }
 

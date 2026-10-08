@@ -19,20 +19,25 @@ export async function makeGitRepo(parent: string, name: string): Promise<string>
   return dir;
 }
 
+const TEST_COMMITTER = ["-c", "user.name=backlog-test", "-c", "user.email=test@backlog.local", "-c", "commit.gpgsign=false"];
+
 export function gitCommitAll(repo: string, message: string, isoDate: string): void {
   const env = { ...process.env, GIT_AUTHOR_DATE: isoDate, GIT_COMMITTER_DATE: isoDate };
-  const identity = ["-c", "user.name=backlog-test", "-c", "user.email=test@backlog.local", "-c", "commit.gpgsign=false"];
   execFileSync("git", ["add", "-A"], { cwd: repo, env });
-  execFileSync("git", [...identity, "commit", "-q", "-m", message], { cwd: repo, env });
+  execFileSync("git", [...TEST_COMMITTER, "commit", "-q", "-m", message], { cwd: repo, env });
 }
 
 export function gitMergeNoFastForward(repo: string, branch: string, isoDate: string): void {
   const env = { ...process.env, GIT_AUTHOR_DATE: isoDate, GIT_COMMITTER_DATE: isoDate };
-  execFileSync("git", ["-c", "user.name=backlog-test", "-c", "user.email=test@backlog.local", "merge", "-q", "--no-ff", "-m", `Слить ${branch}`, branch], { cwd: repo, env });
+  execFileSync("git", [...TEST_COMMITTER, "merge", "-q", "--no-ff", "-m", `Слить ${branch}`, branch], { cwd: repo, env });
 }
 
 export function gitMergeSquash(repo: string, branch: string): void {
-  execFileSync("git", ["-c", "user.name=backlog-test", "-c", "user.email=test@backlog.local", "merge", "--squash", "-q", branch], { cwd: repo });
+  execFileSync("git", [...TEST_COMMITTER, "merge", "--squash", "-q", branch], { cwd: repo });
+}
+
+export function gitRebaseMerge(repo: string, branch: string, isoDate: string): void {
+  execFileSync("git", [...TEST_COMMITTER, "cherry-pick", `HEAD..${branch}`], { cwd: repo, env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
 }
 
 export function gitCheckout(repo: string, branch: string, { create = false, at }: { create?: boolean; at?: string } = {}): void {
