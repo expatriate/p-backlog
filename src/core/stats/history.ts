@@ -174,7 +174,7 @@ function withResolutionOf(final: Task | TaskSnapshot | undefined, transitions: T
   const last = transitions.at(-1);
   if (last === undefined || final?.resolution === undefined) return transitions;
   const closedWithoutResolution = isClosingChange(last) && last.resolution === undefined && last.to === final.status;
-  return closedWithoutResolution ? [...transitions.slice(0, -1), { ...last, resolution: final.resolution }] : transitions;
+  return closedWithoutResolution ? transitions.with(-1, { ...last, resolution: final.resolution }) : transitions;
 }
 
 function restoredTransitions(final: Task | TaskSnapshot | undefined, ordered: readonly Transition[], createdAt: number): Transition[] {
