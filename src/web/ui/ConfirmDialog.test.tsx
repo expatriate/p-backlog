@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { TestMessagesProvider } from "../testing/messages-provider";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 describe("подтверждение действия", () => {
@@ -16,17 +17,17 @@ describe("подтверждение действия", () => {
         fieldLabel="Введите id проекта: torg-io"
         canConfirm={(typed) => typed === "torg-io"}
         confirmLabel="Удалить"
-        cancelLabel="Отмена"
         onConfirm={onConfirm}
         onCancel={() => undefined}
       />,
+      { wrapper: TestMessagesProvider },
     );
 
-    const confirm = screen.getByRole("button", { name: "Удалить" }) as HTMLButtonElement;
-    expect(confirm.disabled).toBe(true);
+    const confirm = screen.getByRole("button", { name: "Удалить" });
+    expect(confirm.getAttribute("aria-disabled")).toBe("true");
 
     await user.type(screen.getByRole("textbox"), "torg-i{Enter}");
-    expect(confirm.disabled).toBe(true);
+    expect(confirm.getAttribute("aria-disabled")).toBe("true");
     expect(onConfirm).not.toHaveBeenCalled();
 
     await user.type(screen.getByRole("textbox"), "o{Enter}");
@@ -47,10 +48,10 @@ describe("подтверждение действия", () => {
         fieldLabel="Введите id проекта: torg-io"
         canConfirm={(typed) => typed === "torg-io"}
         confirmLabel="Удалить"
-        cancelLabel="Отмена"
         onConfirm={onConfirm}
         onCancel={onCancel}
       />,
+      { wrapper: TestMessagesProvider },
     );
 
     const dialog = document.querySelector("dialog");
@@ -62,7 +63,7 @@ describe("подтверждение действия", () => {
 
   it("после закрытия фокус возвращается на кнопку, открывшую диалог", async () => {
     const user = userEvent.setup();
-    render(<DialogOpener />);
+    render(<DialogOpener />, { wrapper: TestMessagesProvider });
 
     await user.click(screen.getByRole("button", { name: "Удалить проект" }));
     await user.click(screen.getByRole("button", { name: "Отмена" }));
@@ -86,7 +87,6 @@ function DialogOpener() {
         fieldLabel="Введите id проекта: torg-io"
         canConfirm={(typed) => typed === "torg-io"}
         confirmLabel="Удалить"
-        cancelLabel="Отмена"
         onConfirm={() => setOpen(false)}
         onCancel={() => setOpen(false)}
       />

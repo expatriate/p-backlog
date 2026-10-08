@@ -7,7 +7,9 @@ type LegendShape = "bar" | "line" | "dashed" | "hatch";
 export type Swatch = { shape: LegendShape; color: string };
 type LegendItem = { label: string } & Swatch;
 
-const INITIAL_DIMENSION = { width: 360, height: 180 };
+const PLOT_HEIGHT_PX = { regular: 220, compact: 180 };
+const INITIAL_DIMENSION = { width: 360, height: PLOT_HEIGHT_PX.regular };
+const PLOT_HEIGHTS = { "--plot-height": `${PLOT_HEIGHT_PX.regular}px`, "--plot-height-compact": `${PLOT_HEIGHT_PX.compact}px` } as CSSProperties;
 
 export function ChartFrame({ summary, legend, children }: { summary: string; legend: LegendItem[]; children: ReactElement }) {
   const summaryId = useId();
@@ -16,7 +18,7 @@ export function ChartFrame({ summary, legend, children }: { summary: string; leg
       <p id={summaryId} className={styles.summary}>
         {summary}
       </p>
-      <div className={styles.plot}>
+      <div className={styles.plot} style={PLOT_HEIGHTS}>
         <ResponsiveContainer width="100%" height="100%" initialDimension={INITIAL_DIMENSION}>
           {children}
         </ResponsiveContainer>

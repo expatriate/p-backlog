@@ -73,8 +73,8 @@ describe("боковая панель", () => {
     await user.click(await screen.findByRole("button", { name: "Удалить проект spa" }));
     expect(await screen.findByText(/^Задач: 2\./)).toBeDefined();
 
-    const confirm = screen.getByRole("button", { name: "Удалить" }) as HTMLButtonElement;
-    expect(confirm.disabled).toBe(true);
+    const confirm = screen.getByRole("button", { name: "Удалить" });
+    expect(confirm.getAttribute("aria-disabled")).toBe("true");
 
     await user.type(screen.getByRole("textbox"), "spa");
     await user.click(confirm);

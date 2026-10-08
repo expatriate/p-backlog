@@ -17,8 +17,3 @@
 .tags input {
   font-size: var(--text-base);
 }
-
-.fieldError {
-  color: var(--danger-ink);
-  font-size: var(--text-sm);
-}

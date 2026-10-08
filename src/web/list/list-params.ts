@@ -66,7 +66,11 @@ export function readListParams(search: URLSearchParams): ListParams {
 }
 
 export function isDefaultFilter(filter: ListParams["filter"]): boolean {
-  return writeListParams({ filter, sort: DEFAULT_SORT }).toString() === "";
+  return filterSearch(filter) === filterSearch(DEFAULT_FILTER);
+}
+
+export function filterSearch(filter: ListParams["filter"]): string {
+  return writeListParams({ filter, sort: DEFAULT_SORT }).toString();
 }
 
 export function writeListParams({ filter, sort }: ListParams): URLSearchParams {

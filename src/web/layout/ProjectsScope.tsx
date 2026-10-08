@@ -9,6 +9,7 @@ import { countOpenTasks, isOpenTask, scopeNote, taskScope, type TaskScope } from
 import { useMessages } from "../i18n";
 import { NO_VALUE } from "../labels";
 import { cx } from "../ui/cx";
+import { IconButton } from "../ui/IconButton";
 import { ProjectCheckbox, ProjectDeleteButton } from "./ProjectControls";
 import rows from "./SidebarRows.module.css";
 import styles from "./ProjectsScope.module.css";
@@ -22,8 +23,8 @@ export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopePro
   const projects = useProjects();
   const tasks = useTasks();
   const allProjects = useMemo(() => projects.data ?? [], [projects.data]);
-  const inScope = useMemo(() => taskScope(projects.data, undefined), [projects.data]);
-  const counts = useMemo(() => (tasks.data === undefined ? undefined : taskCounts(tasks.data.tasks, inScope)), [tasks.data, inScope]);
+  const isInScope = useMemo(() => taskScope(projects.data, undefined), [projects.data]);
+  const counts = useMemo(() => (tasks.data === undefined ? undefined : taskCounts(tasks.data.tasks, isInScope)), [tasks.data, isInScope]);
   const [listOpen, setListOpen] = useState(true);
   const scopeLink = useRef<HTMLAnchorElement>(null);
   const navigate = useNavigate();
@@ -31,16 +32,15 @@ export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopePro
   return (
     <div className={styles.scope}>
       <div className={cx(styles.row, styles.scopeRow, projectId === undefined && styles.scopeCurrent)}>
-        <button
-          type="button"
-          className={styles.disclosure}
+        <IconButton
+          label={listOpen ? layout.collapseProjects : layout.expandProjects}
+          tone="muted"
           aria-expanded={listOpen}
           aria-controls={listOpen ? PROJECT_LIST_ID : undefined}
-          aria-label={listOpen ? layout.collapseProjects : layout.expandProjects}
           onClick={() => setListOpen(!listOpen)}
         >
           <Chevron open={listOpen} />
-        </button>
+        </IconButton>
         <NavLink ref={scopeLink} to={{ pathname: scopePath(), search }} end aria-current="true" className={cx(styles.rowLink, styles.scopeName)}>
           {layout.projects}
         </NavLink>
@@ -106,10 +106,10 @@ function ProjectRow({ to, search, openTasks, taskCount, project, onDeleted }: Pr
 
 type TaskCounts = { scopeOpen: number | undefined; openByProject: ReadonlyMap<string, number>; totalByProject: ReadonlyMap<string, number> };
 
-function taskCounts(tasks: readonly Task[], inScope: TaskScope | undefined): TaskCounts {
+function taskCounts(tasks: readonly Task[], isInScope: TaskScope | undefined): TaskCounts {
   const open = tasks.filter(isOpenTask);
   return {
-    scopeOpen: inScope === undefined ? undefined : countOpenTasks(tasks, inScope).inScope,
+    scopeOpen: isInScope === undefined ? undefined : countOpenTasks(tasks, isInScope).inScope,
     openByProject: countBy(open, (task) => task.projectId),
     totalByProject: countBy(tasks, (task) => task.projectId),
   };

@@ -11,7 +11,7 @@
     scale var(--duration) var(--ease-out);
 }
 
-.button:active:not(:disabled, [aria-disabled="true"]) {
+.button:active:not([aria-disabled="true"]) {
   scale: 0.96;
 }
 
@@ -36,7 +36,6 @@
   background: var(--action-hover);
 }
 
-.button:disabled,
 .button[aria-disabled="true"] {
   background: var(--surface-sunken);
   border-color: var(--line);

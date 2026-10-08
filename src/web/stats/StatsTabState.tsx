@@ -4,14 +4,15 @@ import { useOutletContext } from "react-router";
 import { formatDate } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { ReportHead } from "../../core/api/contract";
-import { isNotFound } from "../api/client";
+import { apiErrorKind } from "../api/client";
 import { RequestFailure } from "../app/RequestFailure";
 import { useLanguage, useMessages } from "../i18n";
+import { Notice } from "../ui/Notice";
+import { PageHint } from "../ui/Page";
 import { useStatusFocus } from "../ui/use-status-focus";
-import { cx } from "../ui/cx";
 import type { StatsMessages } from "./messages.ru";
 import type { StatsOutletContext } from "./StatsPage";
-import styles from "./StatsPage.module.css";
+import layout from "./StatsLayout.module.css";
 
 type ReportQuery<T> = Pick<UseQueryResult<T>, "error" | "data" | "isFetching" | "refetch">;
 
@@ -35,11 +36,11 @@ export function StatsRequestState<T>({ query, empty, children }: { query: Report
 
   return (
     <>
-      <div ref={status} tabIndex={-1} role="status" aria-live="polite" className={settled ? "visually-hidden" : cx(styles.hint, view.kind === "loading" && styles.hintLoading)}>
+      <PageHint ref={status} settled={settled} waiting={view.kind === "loading"}>
         {message !== null && <p>{message}</p>}
         {failure !== null && <RequestFailure error={failure} fetching={query.isFetching} onRetry={retry} />}
-      </div>
-      {report !== undefined && <div className={styles.content}>{children(report)}</div>}
+      </PageHint>
+      {report !== undefined && <div className={layout.content}>{children(report)}</div>}
     </>
   );
 }
@@ -57,14 +58,14 @@ export function StatsTabState<T extends ReportHead>({ query, children }: { query
   ].filter((text) => text !== null);
   return (
     <>
-      <p className={warnings.length > 0 ? styles.warning : "visually-hidden"} role="status">
+      <Notice className={layout.warning} shown={warnings.length > 0} role="status">
         {warnings.join(" ")}
-      </p>
+      </Notice>
       <StatsRequestState query={query} empty={{ isEmpty: (report) => report.taskCount === 0, message: stats.noTasks }}>
         {(report) => (
           <>
             {children(report)}
-            <p className={styles.note}>{journalNote(stats, language, report.journalSince)}</p>
+            <p className={layout.note}>{journalNote(stats, language, report.journalSince)}</p>
           </>
         )}
       </StatsRequestState>
@@ -73,7 +74,7 @@ export function StatsTabState<T extends ReportHead>({ query, children }: { query
 }
 
 function requestView<T>({ error, data }: ReportQuery<T>, empty: EmptyReport<T> | undefined): RequestView<T> {
-  if (isNotFound(error)) return { kind: "notFound" };
+  if (apiErrorKind(error) === "notFound") return { kind: "notFound" };
   const shown = data !== undefined && empty?.isEmpty(data) !== true ? data : undefined;
   if (error !== null) return { kind: "failed", error, report: shown };
   if (data === undefined) return { kind: "loading" };

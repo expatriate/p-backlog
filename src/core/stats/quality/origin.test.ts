@@ -42,7 +42,7 @@ describe("происхождение", () => {
       { found: "incidental", created: 2, open: 1, fixed: 0 },
       { found: "manual", created: 0, open: 0, fixed: 0 },
       { found: "unknown", created: 0, open: 0, fixed: 0 },
-      { found: null, created: 1, open: 1, fixed: 0 },
+      { found: "unset", created: 1, open: 1, fixed: 0 },
     ]);
   });
 
@@ -56,7 +56,7 @@ describe("происхождение", () => {
       { found: "incidental", created: 0, open: 0, fixed: 0 },
       { found: "manual", created: 0, open: 0, fixed: 0 },
       { found: "unknown", created: 1, open: 1, fixed: 0 },
-      { found: null, created: 0, open: 0, fixed: 0 },
+      { found: "unset", created: 0, open: 0, fixed: 0 },
     ]);
   });
 
@@ -100,7 +100,7 @@ describe("происхождение", () => {
       { found: "incidental", created: 0, open: 0, fixed: 0 },
       { found: "manual", created: 0, open: 0, fixed: 0 },
       { found: "unknown", created: 0, open: 0, fixed: 0 },
-      { found: null, created: 1, open: 1, fixed: 0 },
+      { found: "unset", created: 1, open: 1, fixed: 0 },
     ]);
   });
 });

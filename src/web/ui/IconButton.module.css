@@ -1,0 +1,26 @@
+.button {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: var(--hit-target);
+  min-height: var(--hit-target);
+  padding: 0;
+  border: none;
+  border-radius: var(--icon-button-radius);
+  background: none;
+  color: var(--ink-subtle);
+  cursor: pointer;
+}
+
+.button:hover {
+  color: var(--ink);
+}
+
+.danger:hover {
+  color: var(--danger-ink);
+}
+
+.muted,
+.muted:hover {
+  color: var(--ink-muted);
+}

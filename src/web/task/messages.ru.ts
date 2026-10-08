@@ -6,6 +6,8 @@ export const taskRu = {
   leaveWithFieldEdits: "Уйти, не сохранив правку поля?",
   createdLabel: "создана",
   closedLabel: "Закрыта",
+  closedWithoutDate: "Закрыта, дата не записана",
+  reasonNotRecorded: "причина не записана",
   restoreToBacklog: "Вернуть в беклог",
   saving: "Сохраняем…",
   saved: "Сохранено",

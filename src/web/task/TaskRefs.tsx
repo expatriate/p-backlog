@@ -1,14 +1,13 @@
-import { useId, useState } from "react";
-import { Link } from "react-router";
+import { useState } from "react";
 import { formatId, ID_PATTERN } from "../../core/model/ids";
 import type { Task } from "../../core/model/types";
-import { useAllTasks } from "../app/all-tasks";
-import { useTaskHref } from "../app/use-task-href";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { CloseIcon } from "../ui/CloseIcon";
-import { StatusBadge } from "../ui/StatusBadge";
+import { FieldError, useFieldError } from "../ui/FieldError";
+import { IconButton } from "../ui/IconButton";
 import { normalizeTaskId } from "./normalize-task-id";
+import { TaskRef } from "./TaskRef";
 import type { RefsSaveResult } from "./use-task-saving";
 import styles from "./TaskRefs.module.css";
 
@@ -26,12 +25,9 @@ type FieldNotice = { text: string; duplicateOf?: string };
 
 export function TaskRefs({ label, ids, listId, idPrefix, onChange }: TaskRefsProps) {
   const { task: taskMessages } = useMessages();
-  const { index } = useAllTasks();
-  const taskHref = useTaskHref();
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState<FieldNotice | null>(null);
-  const errorId = useId();
-  const shownError = notice === null || (notice.duplicateOf !== undefined && !ids.includes(notice.duplicateOf)) ? null : notice.text;
+  const addField = useFieldError(shownNoticeText(notice, ids));
   const showRejection = (result: RefsSaveResult) => {
     if (!result.saved) setNotice(result.fieldError === null ? null : { text: result.fieldError });
   };
@@ -57,25 +53,14 @@ export function TaskRefs({ label, ids, listId, idPrefix, onChange }: TaskRefsPro
     <section className={styles.section} aria-label={label}>
       <h2 className={styles.heading}>{label}</h2>
       <ul className={styles.items}>
-        {ids.map((id) => {
-          const task = index.byId.get(id);
-          return (
-            <li key={id} className={styles.item}>
-              <span className={styles.id}>{id}</span>
-              {task ? (
-                <Link to={taskHref(id)} className={styles.title}>
-                  {task.title}
-                </Link>
-              ) : (
-                <span className={styles.title}>{taskMessages.refNotFound}</span>
-              )}
-              {task && <StatusBadge status={task.status} />}
-              <button type="button" className={styles.remove} aria-label={taskMessages.removeRef(id)} onClick={() => void onChange((current) => current.filter((value) => value !== id)).then(showRejection)}>
-                <CloseIcon />
-              </button>
-            </li>
-          );
-        })}
+        {ids.map((id) => (
+          <li key={id} className={styles.item}>
+            <TaskRef id={id} />
+            <IconButton label={taskMessages.removeRef(id)} tone="danger" onClick={() => void onChange((current) => current.filter((value) => value !== id)).then(showRejection)}>
+              <CloseIcon />
+            </IconButton>
+          </li>
+        ))}
       </ul>
       <div className={styles.add}>
         <input
@@ -83,8 +68,7 @@ export function TaskRefs({ label, ids, listId, idPrefix, onChange }: TaskRefsPro
           value={draft}
           placeholder={taskMessages.addRefPlaceholder}
           aria-label={taskMessages.addRefLabel(label)}
-          aria-invalid={shownError !== null}
-          aria-describedby={shownError === null ? undefined : errorId}
+          {...addField.inputProps}
           onChange={(event) => {
             setDraft(event.target.value);
             setNotice(null);
@@ -98,13 +82,15 @@ export function TaskRefs({ label, ids, listId, idPrefix, onChange }: TaskRefsPro
         />
         <Button onClick={add}>{taskMessages.addRef}</Button>
       </div>
-      {shownError !== null && (
-        <span id={errorId} className={styles.fieldError} role="alert">
-          {shownError}
-        </span>
-      )}
+      <FieldError {...addField.error} />
     </section>
   );
+}
+
+function shownNoticeText(notice: FieldNotice | null, ids: readonly string[]): string | null {
+  if (notice === null) return null;
+  const duplicateRemovedSince = notice.duplicateOf !== undefined && !ids.includes(notice.duplicateOf);
+  return duplicateRemovedSince ? null : notice.text;
 }
 
 export function TaskOptions({ id, tasks }: { id: string; tasks: readonly Task[] }) {

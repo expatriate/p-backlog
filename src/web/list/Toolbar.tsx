@@ -3,6 +3,7 @@ import { normalizeText } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 import { useMessages } from "../i18n";
 import { ToggleChip } from "../ui/Chip";
+import { TagChip } from "../ui/TagChip";
 import { focusDropped } from "../ui/focus-dropped";
 import { toggled, toggledOrUnset, withTagToggled } from "./filter-toggle";
 import { Popover, POPOVER_INITIAL_FOCUS } from "../ui/Popover";
@@ -44,7 +45,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
       <div className={styles.line}>
         <div className={styles.group} role="group" aria-label={list.status}>
           {TASK_STATUSES.map((status) => (
-            <ToggleChip key={status} pressed={pressedStatuses.includes(status)} locked={status === onlyPressedStatus} onToggle={() => setFilter({ statuses: allOrSome(toggled(pressedStatuses, status)) })}>
+            <ToggleChip key={status} pressed={pressedStatuses.includes(status)} unavailable={status === onlyPressedStatus} onToggle={() => setFilter({ statuses: allOrSome(toggled(pressedStatuses, status)) })}>
               {core.statusLabel(status)}
             </ToggleChip>
           ))}
@@ -81,7 +82,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
   );
 }
 
-type SearchEditing = { text: string; unechoed: readonly string[] };
+type SearchEditing = { text: string; awaitingEcho: readonly string[] };
 
 function useFocusAfterEpicPickerLeaves(shown: boolean, nextTarget: () => HTMLElement | null): void {
   const wasShown = useRef(shown);
@@ -98,7 +99,7 @@ function SearchField({ ref, query, onChange }: { ref: RefObject<HTMLInputElement
   const [seenQuery, setSeenQuery] = useState(query);
   if (query !== seenQuery) {
     setSeenQuery(query);
-    if (editing !== undefined) setEditing(withEcho(editing, query));
+    if (editing !== undefined) setEditing(withUrlQuery(editing, query));
   }
 
   return (
@@ -109,11 +110,11 @@ function SearchField({ ref, query, onChange }: { ref: RefObject<HTMLInputElement
       value={editing?.text ?? query}
       placeholder={list.searchPlaceholder}
       aria-label={list.searchLabel}
-      onFocus={() => setEditing({ text: query, unechoed: [] })}
+      onFocus={() => setEditing({ text: query, awaitingEcho: [] })}
       onBlur={() => setEditing(undefined)}
       onChange={(event) => {
         const text = event.target.value;
-        setEditing((current) => ({ text, unechoed: [...(current?.unechoed ?? []), text] }));
+        setEditing((current) => ({ text, awaitingEcho: [...(current?.awaitingEcho ?? []), text] }));
         onChange(text);
       }}
     />
@@ -134,24 +135,22 @@ function TagPicker({ tags, selected, onToggle }: { tags: string[]; selected: rea
           {tags
             .filter((tag) => normalizeText(tag).includes(needle))
             .map((tag) => (
-              <ToggleChip key={tag} pressed={selected.includes(tag)} onToggle={() => onToggle(tag)}>
-                #{tag}
-              </ToggleChip>
+              <TagChip key={tag} tag={tag} pressed={selected.includes(tag)} onToggle={() => onToggle(tag)} />
             ))}
         </div>
       </Popover>
       {selected.map((tag) => (
-        <ToggleChip key={tag} pressed onToggle={() => onToggle(tag)}>
-          #{tag}
-        </ToggleChip>
+        <TagChip key={tag} tag={tag} pressed onToggle={() => onToggle(tag)} />
       ))}
     </div>
   );
 }
 
-function withEcho(editing: SearchEditing, query: string): SearchEditing {
-  const echoed = editing.unechoed.indexOf(query);
-  return echoed === -1 ? { text: query, unechoed: [] } : { text: editing.text, unechoed: editing.unechoed.slice(echoed + 1) };
+function withUrlQuery(editing: SearchEditing, query: string): SearchEditing {
+  const echoIndex = editing.awaitingEcho.indexOf(query);
+  const changedElsewhere = echoIndex === -1;
+  if (changedElsewhere) return { text: query, awaitingEcho: [] };
+  return { text: editing.text, awaitingEcho: editing.awaitingEcho.slice(echoIndex + 1) };
 }
 
 function allOrSome(statuses: TaskStatus[]): TaskStatus[] | undefined {

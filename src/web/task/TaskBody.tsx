@@ -1,23 +1,26 @@
-import { Children, createContext, isValidElement, useContext, useEffect, useMemo, useRef, type ComponentProps, type ReactNode } from "react";
+import { Children, createContext, isValidElement, useContext, useMemo, useRef, type ComponentProps, type ReactNode } from "react";
 import Markdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { checklistItems, type ChecklistItem } from "../../core/model/checklist";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
-import { focusDropped } from "../ui/focus-dropped";
+import { useRestoreFocus } from "../ui/use-restore-focus";
+import type { BodyEditorView } from "./use-task-saving";
 import styles from "./TaskBody.module.css";
 
 export type TaskBodyProps = {
   body: string;
-  draft: string | null;
-  saving: boolean;
-  onDraftChange: (draft: string | null) => void;
+  editor: BodyEditorView;
+  onEdit: (draft: string) => void;
+  onCloseEditor: () => void;
   onToggleLine: (line: number) => void;
   onSave: (body: string) => Promise<boolean>;
 };
 
 type Checklist = { items: ChecklistItem[]; onToggleLine: (line: number) => void };
+
+const EDITOR_ROWS = 16;
 
 const ChecklistContext = createContext<Checklist>({ items: [], onToggleLine: () => undefined });
 
@@ -25,7 +28,7 @@ const InsideCodeBlock = createContext(false);
 
 const MARKDOWN_COMPONENTS: Components = { table: MarkdownTable, li: MarkdownItem, pre: MarkdownPre, code: MarkdownCode };
 
-export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onSave }: TaskBodyProps) {
+export function TaskBody({ body, editor, onEdit, onCloseEditor, onToggleLine, onSave }: TaskBodyProps) {
   const { ui, task: taskMessages } = useMessages();
   const items = useMemo(() => checklistItems(body), [body]);
   const markdown = useMemo(
@@ -37,30 +40,25 @@ export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onS
     [body],
   );
   const editButton = useRef<HTMLButtonElement>(null);
-  const editor = useRef<HTMLDivElement>(null);
-  const returnFocus = useRef(false);
-
-  useEffect(() => {
-    if (draft !== null || !returnFocus.current) return;
-    returnFocus.current = false;
-    editButton.current?.focus();
-  }, [draft]);
+  const editorBox = useRef<HTMLDivElement>(null);
+  const restoreFocusOnClose = useRestoreFocus(editButton, editorBox, editor.phase !== "closed");
 
   const closeEditor = () => {
-    returnFocus.current = focusFellWith(editor.current);
-    onDraftChange(null);
+    restoreFocusOnClose();
+    onCloseEditor();
   };
 
   const save = async (text: string) => {
     if (await onSave(text)) closeEditor();
   };
 
-  if (draft !== null) {
+  if (editor.phase !== "closed") {
+    const saving = editor.phase === "saving";
     return (
-      <div ref={editor} className={styles.editor}>
-        <textarea autoFocus value={draft} rows={16} aria-label={taskMessages.description} onChange={(event) => onDraftChange(event.target.value)} />
+      <div ref={editorBox} className={styles.editor}>
+        <textarea autoFocus value={editor.text} rows={EDITOR_ROWS} aria-label={taskMessages.description} onChange={(event) => onEdit(event.target.value)} />
         <div className={styles.editorActions}>
-          <Button variant="primary" busy={saving} onClick={() => void save(draft)}>
+          <Button variant="primary" busy={saving} onClick={() => void save(editor.text)}>
             {saving ? taskMessages.saving : taskMessages.save}
           </Button>
           <Button busy={saving} onClick={closeEditor}>
@@ -76,17 +74,11 @@ export function TaskBody({ body, draft, saving, onDraftChange, onToggleLine, onS
       <div className={styles.markdown}>
         <ChecklistContext value={{ items, onToggleLine }}>{markdown}</ChecklistContext>
       </div>
-      <Button ref={editButton} className={styles.edit} onClick={() => onDraftChange(body)}>
+      <Button ref={editButton} className={styles.edit} onClick={() => onEdit(body)}>
         {taskMessages.editDescription}
       </Button>
     </div>
   );
-}
-
-function focusFellWith(editor: HTMLElement | null): boolean {
-  const active = document.activeElement;
-  if (focusDropped() || active === null || editor === null) return true;
-  return editor.contains(active) || active.contains(editor);
 }
 
 function MarkdownTable({ children }: { children?: ReactNode }) {

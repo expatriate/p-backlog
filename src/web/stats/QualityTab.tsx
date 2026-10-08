@@ -3,7 +3,7 @@ import type { QualityReport } from "../../core/api/contract";
 import { useStatsReport } from "../app/queries";
 import { AccuracyPanel, CategoriesPanel, GraphPanel, OriginPanel } from "./QualityPanels";
 import rowStyles from "./PanelRows.module.css";
-import styles from "./StatsPage.module.css";
+import layout from "./StatsLayout.module.css";
 import { StatsTabState } from "./StatsTabState";
 
 export function QualityTab() {
@@ -14,7 +14,7 @@ export function QualityTab() {
 
 function Quality({ report }: { report: QualityReport }) {
   return (
-    <div className={styles.blocks}>
+    <div className={layout.blocks}>
       <div className={rowStyles.wide}>
         <AccuracyPanel rows={report.accuracy} weeks={report.accuracyWeeks} days={report.accuracyDays} windows={report.periods} methodRows={report.methodAccuracy} matchRows={report.matchAccuracy} />
       </div>

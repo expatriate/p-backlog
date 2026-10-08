@@ -63,6 +63,16 @@ describe("карточка закрытой задачи", () => {
     expect([reopened.closed, reopened.resolution, reopened.reason]).toEqual([undefined, undefined, undefined]);
   });
 
+  it.each([
+    { reason: "нет", fields: {} },
+    { reason: "из пробелов", fields: { reason: '"  "' } },
+  ])("без даты закрытия, причина в файле $reason — карточка называет пропуск, а не оставляет пустое место", async ({ fields }) => {
+    await renderApp({ "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1", { status: "done", resolution: "fixed", ...fields }) }, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    expect(within(panel).getByText("Закрыта, дата не записана · исправлено — причина не записана")).toBeDefined();
+  });
+
   it("в последние сутки вместо дней пишет «сегодня»", async () => {
     freezeDate("2026-09-23T06:00:00Z");
     await renderApp(CLOSED_FILES, "/p/spa/t/SPA-1");

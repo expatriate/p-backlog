@@ -1,5 +1,6 @@
 import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+import { forgetValuesKeptWithoutStorage } from "../ui/use-stored-value";
 
 class ResizeObserverStub {
   observe(): void {}
@@ -37,5 +38,6 @@ window.matchMedia ??= (query: string) =>
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  forgetValuesKeptWithoutStorage();
   hoverNone.matches = false;
 });

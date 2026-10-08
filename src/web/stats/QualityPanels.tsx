@@ -139,18 +139,13 @@ export function CategoriesPanel({ rows, period }: { rows: CategoryRow[]; period:
 }
 
 export function OriginPanel({ found, branches, period }: { found: FoundRow[]; branches: BranchRow[]; period: ReportPeriod }) {
-  const { stats } = useMessages();
+  const { stats, core } = useMessages();
   const caption = usePeriodCaption();
-  const foundText = (row: FoundRow): string => {
-    if (row.found === null) return stats.foundNotRecorded;
-    if (row.found === "unknown") return stats.foundUnknown;
-    return stats.foundLabels[row.found];
-  };
   return (
     <Panel title={stats.originTitle} period={caption.of("weeks", period)}>
       <div>
         <h3 className={rowStyles.subTitle}>{stats.foundTitle}</h3>
-        <StatsTable label={stats.foundTitle} head={stats.foundHead} rows={found.map((row) => ({ key: row.found ?? "not-recorded", cells: [foundText(row), row.created, row.open, row.fixed] }))} />
+        <StatsTable label={stats.foundTitle} head={stats.foundHead} rows={found.map((row) => ({ key: row.found, cells: [core.foundRowLabel(row.found), row.created, row.open, row.fixed] }))} />
       </div>
       <div>
         <h3 className={rowStyles.subTitle}>{stats.branchesTitle}</h3>

@@ -4,7 +4,7 @@ import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
 import type { LockBusy } from "../store/file-lock";
-import type { CategoryRow, FlowForecast, Signal } from "../stats/types";
+import type { CategoryRow, FlowForecast, FoundRow, Signal } from "../stats/types";
 import type { StoreMessages } from "./store-messages";
 
 export type CountUnit = "task" | "line" | "project" | "day" | "week" | "session";
@@ -16,6 +16,7 @@ export type CoreMessages = StoreMessages & {
   schemaIssue: (issue: SchemaIssue) => string;
   categoryLabel: (category: TaskCategory | undefined) => string;
   categoryRowLabel: (category: CategoryRow["category"]) => string;
+  foundRowLabel: (found: FoundRow["found"]) => string;
   statusLabel: (status: TaskStatus) => string;
   priorityLabel: (priority: Priority) => string;
   typeLabel: (type: TaskType) => string;

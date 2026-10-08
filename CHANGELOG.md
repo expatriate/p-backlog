@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- The statistics of a project whose directory is named `all` are no longer shown as the statistics of all projects (or
+  the other way round) after switching between the two in the web UI.
+- The card of a closed task whose file lacks the closing date or the reason (or has a blank one) now says "Closed,
+  date not recorded" / "reason not recorded" instead of leaving a blank after "Closed" or a dangling dash.
+- The chart scale (week / day) picked on the statistics page now applies to other open tabs at once. With browser
+  storage blocked, "new" badges also work for tasks created while the tab is open.
+- The confirm button of the delete-project and close-tasks dialogs stays reachable with Tab while it is not yet
+  available, like the other unavailable buttons; it is still announced as unavailable.
+- A tag with a comma inside, written by hand in a task file (`tags: ["ui, web"]`), is now read as separate tags (`ui`,
+  `web`), the way `backlog new --tags` and the web form already split it, and the next save of the task writes them
+  back to the file as separate tags. Before, such a tag showed up as one chip, and clicking it in the web list (or
+  following it from the statistics) showed no tasks.
+- On the statistics page of a project whose id has spaces or non-Latin letters, the tab being loaded is now highlighted
+  and the page is marked busy, as for other projects.
 - `backlog serve` (the background service included) is no longer recorded as a command run: stopping or restarting the
   service no longer adds a `serve` row with an uptime of hours to the Commands table on the cost tab, or counts it in
   "other commands". `serve` records already in `.runs.jsonl` are ignored by the report too.

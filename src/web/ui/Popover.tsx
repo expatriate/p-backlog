@@ -1,6 +1,7 @@
-import { createContext, useContext, useId, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode, type RefObject } from "react";
+import { createContext, useCallback, useContext, useId, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode, type RefObject } from "react";
 import { Button } from "./Button";
 import { cx } from "./cx";
+import { useRestoreFocus } from "./use-restore-focus";
 import styles from "./Popover.module.css";
 
 export type PopoverProps = {
@@ -35,8 +36,12 @@ export function Popover({ trigger, triggerProps, triggerRef, placement = "below"
   const panel = useRef<HTMLDivElement>(null);
   const ownTrigger = useRef<HTMLButtonElement>(null);
   const button = triggerRef ?? ownTrigger;
+  const restoreFocusOnClose = useRestoreFocus(button, panel, open);
 
-  const closePopover = () => closeAndRefocus(setOpen, button);
+  const closePopover = useCallback(() => {
+    restoreFocusOnClose();
+    setOpen(false);
+  }, [restoreFocusOnClose]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -73,11 +78,11 @@ export function Popover({ trigger, triggerProps, triggerRef, placement = "below"
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.stopPropagation();
-      closeAndRefocus(setOpen, button);
+      closePopover();
     };
     document.addEventListener("keydown", closeOnEscape, true);
     return () => document.removeEventListener("keydown", closeOnEscape, true);
-  }, [open, button]);
+  }, [open, closePopover]);
 
   return (
     <div ref={anchor} className={styles.anchor}>
@@ -91,9 +96,4 @@ export function Popover({ trigger, triggerProps, triggerRef, placement = "below"
       )}
     </div>
   );
-}
-
-function closeAndRefocus(setOpen: (open: boolean) => void, trigger: RefObject<HTMLButtonElement | null>): void {
-  setOpen(false);
-  trigger.current?.focus();
 }

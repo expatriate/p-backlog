@@ -1,0 +1,22 @@
+.heading {
+  margin: 0;
+  padding: var(--space-4) var(--space-5) 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.hint {
+  max-width: 60ch;
+  margin: var(--space-6) var(--space-5);
+  color: var(--ink-muted);
+}
+
+.hint p {
+  margin: 0 0 var(--space-3);
+  text-wrap: pretty;
+}
+
+.waiting {
+  color: var(--ink-subtle);
+}

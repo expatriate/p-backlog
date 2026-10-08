@@ -10,7 +10,7 @@ export const MEMORY_SAMPLES_KEY = [...STATS_KEY, "memory"];
 export const REVISIONED_KEYS = [TASKS_KEY, PROJECTS_KEY];
 
 export function statsReportKey(kind: StatsReportKind, projectId: string | undefined): QueryKey {
-  return [...STATS_KEY, kind, projectId ?? "all"];
+  return [...STATS_KEY, kind, { projectId }];
 }
 
 export function invalidateBacklogAndStats(queryClient: QueryClient): Promise<unknown> {

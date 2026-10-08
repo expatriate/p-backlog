@@ -17,13 +17,16 @@ const NOTICE_LIFETIME_MS = 15_000;
 type DoneOutcome = Extract<BatchOutcome, { outcome: "done" }>;
 type SkippedOutcome = Extract<BatchOutcome, { outcome: "skipped" }>;
 
+type UndoStep = { request: BatchRequest; undoneSoFar: BatchResult };
+type NoticeState = { kind: "firstRun" | "undo"; nextUndo: UndoStep | undefined };
+
 type BatchNoticeProps = {
   result: BatchResult | null;
-  serial: number;
+  noticeId: number;
   onResult: (result: BatchResult | null) => void;
 };
 
-export function BatchNotice({ result, serial, onResult }: BatchNoticeProps) {
+export function BatchNotice({ result, noticeId, onResult }: BatchNoticeProps) {
   const { list } = useMessages();
   const taskHref = useTaskHref();
   const undo = useBatchTasks();
@@ -48,13 +51,15 @@ export function BatchNotice({ result, serial, onResult }: BatchNoticeProps) {
 
   const done = result?.response.results.filter((outcome): outcome is DoneOutcome => outcome.outcome === "done") ?? [];
   const skipped = result?.response.results.filter((outcome): outcome is SkippedOutcome => outcome.outcome === "skipped") ?? [];
-  const undoRequest = result === null ? undefined : nextUndoRequest(result, done);
+  const notice = result === null ? null : noticeStateOf(result, done);
+  const nextUndo = notice?.nextUndo;
 
   const runUndo = () => {
-    if (isPending || result === null || undoRequest === undefined) return;
-    const base: BatchResult = isUndoResult(result) ? result : { request: undoRequest, response: { results: [] } };
-    const settle = (response: BatchResponse, failure?: BatchFailure) => onResult({ request: base.request, response: { results: [...base.response.results, ...response.results] }, ...(failure && { failure }) });
-    undo.mutate(undoRequest, {
+    if (isPending || nextUndo === undefined) return;
+    const { request, undoneSoFar } = nextUndo;
+    const settle = (response: BatchResponse, failure?: BatchFailure) =>
+      onResult({ request: undoneSoFar.request, response: { results: [...undoneSoFar.response.results, ...response.results] }, ...(failure && { failure }) });
+    undo.mutate(request, {
       onSuccess: (response) => settle(response),
       onError: (error) => {
         if (error instanceof PartialBatchError) settle(error.done, failureOf(error));
@@ -64,9 +69,9 @@ export function BatchNotice({ result, serial, onResult }: BatchNoticeProps) {
 
   return (
     <div role="status" className={result === null ? undefined : footer.panel} onFocus={() => setFocusInside(true)} onBlur={leave}>
-      {result !== null && (
+      {result !== null && notice !== null && (
         <>
-          <p key={serial} ref={summary} tabIndex={-1} className={footer.headline}>
+          <p key={noticeId} ref={summary} tabIndex={-1} className={footer.headline}>
             {list.batchSummary[result.request.action.kind](done.length, result.request.tasks.length)}
           </p>
           {skipped.length > 0 && (
@@ -78,13 +83,13 @@ export function BatchNotice({ result, serial, onResult }: BatchNoticeProps) {
               ))}
             </ul>
           )}
-          {undoRequest !== undefined && (
+          {nextUndo !== undefined && (
             <Button ref={undoButton} busy={isPending} onClick={runUndo}>
               {list.undo}
             </Button>
           )}
           {undo.error === null && result.failure !== undefined && (
-            <ActionFailure className={footer.error} action={isUndoResult(result) ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)} error={result.failure.error} />
+            <ActionFailure className={footer.error} action={notice.kind === "undo" ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)} error={result.failure.error} />
           )}
           {!(undo.error instanceof PartialBatchError) && <ActionFailure className={footer.error} action={list.undoFailed} error={undo.error} />}
         </>
@@ -93,9 +98,14 @@ export function BatchNotice({ result, serial, onResult }: BatchNoticeProps) {
   );
 }
 
-function nextUndoRequest(result: BatchResult, done: readonly DoneOutcome[]): BatchRequest | undefined {
-  if (isUndoResult(result)) return result.failure?.rest;
-  return done.length > 0 ? restoreRequestFor(done) : undefined;
+function noticeStateOf(result: BatchResult, done: readonly DoneOutcome[]): NoticeState {
+  if (isUndoResult(result)) {
+    const rest = result.failure?.rest;
+    return { kind: "undo", nextUndo: rest && { request: rest, undoneSoFar: result } };
+  }
+  if (done.length === 0) return { kind: "firstRun", nextUndo: undefined };
+  const request = restoreRequestFor(done);
+  return { kind: "firstRun", nextUndo: { request, undoneSoFar: { request, response: { results: [] } } } };
 }
 
 function restoreRequestFor(done: readonly DoneOutcome[]): BatchRequest {

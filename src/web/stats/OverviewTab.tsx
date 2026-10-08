@@ -5,17 +5,16 @@ import type { StatsReport, StatsTotals } from "../../core/api/contract";
 import { listPath } from "../../core/api/web-paths";
 import { useStatsReport } from "../app/queries";
 import { useLanguage, useMessages } from "../i18n";
-import { cx } from "../ui/cx";
 import { AgePanel } from "./AgePanel";
 import { ClosingPanel } from "./ClosingPanel";
-import { Figure, type FigureTone, type FigureTrend } from "./Figure";
+import { Figure, Figures, ToneText, type FigureTone, type FigureTrend } from "./Figure";
 import { HotspotsPanel } from "./HotspotsPanel";
 import { StatsTabState } from "./StatsTabState";
 import { FlowPanel } from "./FlowPanel";
 import { IntakePanel } from "./IntakePanel";
 import type { StatsMessages } from "./messages.ru";
 import { formatWhole } from "./value-format";
-import styles from "./StatsPage.module.css";
+import layout from "./StatsLayout.module.css";
 
 const TREND_ARROWS: Record<FigureTone, string> = { decline: "↓", growth: "↑" };
 
@@ -29,7 +28,7 @@ function Overview({ report, taskListPath }: { report: StatsReport; taskListPath:
   return (
     <>
       <Totals totals={report.totals} />
-      <div className={styles.blocks}>
+      <div className={layout.blocks}>
         <FlowPanel weeks={report.weeks} days={report.days} windows={report.periods} />
         <IntakePanel weeks={report.weeks} days={report.days} windows={report.periods} />
         <HotspotsPanel hotspots={report.hotspots} listPath={taskListPath} />
@@ -45,12 +44,12 @@ function Totals({ totals }: { totals: StatsTotals }) {
   const language = useLanguage();
   const net = totals.createdLastWeek - totals.closedLastWeek;
   return (
-    <div className={cx(styles.totals, styles.totalsPair)}>
+    <Figures columns={2}>
       <Figure
         label={stats.tasksToday}
         value={
           <>
-            <span className={totals.createdToday > 0 ? styles.growth : undefined}>+{totals.createdToday}</span> <span className={totals.closedToday > 0 ? styles.decline : undefined}>−{totals.closedToday}</span>
+            <ToneText tone={totals.createdToday > 0 ? "growth" : undefined}>+{totals.createdToday}</ToneText> <ToneText tone={totals.closedToday > 0 ? "decline" : undefined}>−{totals.closedToday}</ToneText>
           </>
         }
         note={stats.createdAndClosed}
@@ -62,7 +61,7 @@ function Totals({ totals }: { totals: StatsTotals }) {
         note={stats.weekNote(totals.createdLastWeek, totals.closedLastWeek)}
         trend={trendOf(stats, language, net, totals.previous?.net)}
       />
-    </div>
+    </Figures>
   );
 }
 

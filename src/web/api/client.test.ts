@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "../../core/model/types";
-import { ApiError, createApiClient, isServerUnreachable } from "./client";
+import { ApiError, apiErrorKind, createApiClient } from "./client";
 
 function respond(status: number, body: unknown, contentType = "application/json"): Response {
   const text = typeof body === "string" ? body : JSON.stringify(body);
@@ -46,7 +46,7 @@ describe("ApiError", () => {
 
     for (const client of failures) {
       const error = await client.tasks().catch((caught: unknown) => caught);
-      expect(isServerUnreachable(error)).toBe(true);
+      expect(apiErrorKind(error)).toBe("unreachable");
     }
   });
 
@@ -55,7 +55,7 @@ describe("ApiError", () => {
       .tasks()
       .catch((caught: unknown) => caught);
 
-    expect(isServerUnreachable(error)).toBe(false);
+    expect(apiErrorKind(error)).toBe("serverFailure");
     expect((error as ApiError).status).toBe(500);
   });
 
@@ -65,7 +65,7 @@ describe("ApiError", () => {
       .tasks()
       .catch((caught: unknown) => caught);
 
-    expect(isServerUnreachable(error)).toBe(false);
+    expect(apiErrorKind(error)).toBe("serverFailure");
     expect(error).toMatchObject({ status: 503, errors: [busy] });
   });
 });

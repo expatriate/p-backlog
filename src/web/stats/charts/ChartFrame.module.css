@@ -12,13 +12,13 @@
 }
 
 .plot {
-  height: 220px;
+  height: var(--plot-height);
   min-width: 0;
 }
 
 @media (max-width: 600px) {
   .plot {
-    height: 180px;
+    height: var(--plot-height-compact);
   }
 }
 

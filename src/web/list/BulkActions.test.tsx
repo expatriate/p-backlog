@@ -99,10 +99,10 @@ describe("панель массовых действий", () => {
 
     await app.user.click(within(panel()).getByRole("button", { name: "Закрыть как неактуальные" }));
     const dialog = screen.getByRole("dialog", { name: /^Закрыть 2\sзадачи как неактуальные\?$/ });
-    const confirm = within(dialog).getByRole<HTMLButtonElement>("button", { name: "Закрыть 2" });
-    expect(confirm.disabled).toBe(true);
+    const confirm = within(dialog).getByRole("button", { name: "Закрыть 2" });
+    expect(confirm.getAttribute("aria-disabled")).toBe("true");
     await app.user.type(within(dialog).getByRole("textbox", { name: "Причина" }), "   ");
-    expect(confirm.disabled).toBe(true);
+    expect(confirm.getAttribute("aria-disabled")).toBe("true");
 
     await app.user.type(within(dialog).getByRole("textbox", { name: "Причина" }), "дубль PB-1");
     await app.user.click(confirm);

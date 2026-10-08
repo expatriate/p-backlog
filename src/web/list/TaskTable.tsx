@@ -9,10 +9,11 @@ import { DIRECTION_MARKS, NO_VALUE } from "../labels";
 import { useLanguage, useMessages } from "../i18n";
 import { DeletionBar } from "../ui/Deletion";
 import { StatusBadge } from "../ui/StatusBadge";
+import { TaskIdLink } from "../ui/TaskId";
 import { useAllTasks } from "../app/all-tasks";
 import { useTaskHref } from "../app/use-task-href";
 import { cx } from "../ui/cx";
-import { toneOf } from "./epic-tone";
+import { toneOf } from "../ui/epic-tone";
 import { useNow } from "../ui/use-now";
 import type { DateColumn } from "./list-params";
 import { TagCell } from "./TagCell";
@@ -106,9 +107,7 @@ export function TaskTable({ tasks, sort, dateColumn, openedId, onSort, isNew, se
                 </label>
               </td>
               <td>
-                <Link to={taskHref(task.id)} className={styles.id}>
-                  {task.id}
-                </Link>
+                <TaskIdLink id={task.id} to={taskHref(task.id)} />
               </td>
               <td>
                 <DeletionBar task={task} now={now} />

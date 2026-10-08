@@ -12,7 +12,7 @@
   z-index: var(--z-dropdown);
   display: flex;
   flex-direction: column;
-  width: min(420px, calc(100vw - 2 * var(--viewport-margin)));
+  width: min(var(--panel-width), calc(100vw - 2 * var(--viewport-margin)));
   max-height: min(360px, 60vh);
   overflow: hidden;
   padding: var(--space-2);

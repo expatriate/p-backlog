@@ -48,6 +48,11 @@ describe("parseTaskFile", () => {
     });
   });
 
+  it("запятая внутри тега, записанного руками, делит его на теги, как при вводе в CLI и вебе", () => {
+    const result = parseTaskFile('---\nid: SPA-1\ntitle: X\ntags: ["UI, web", api]\ncreated: 2026-09-17T10:00:00Z\n---\n', location);
+    expect(result).toMatchObject({ ok: true, value: { tags: ["ui", "web", "api"] } });
+  });
+
   it("подставляет значения по умолчанию", () => {
     const result = parseTaskFile("---\nid: SPA-1\ntitle: X\ncreated: 2026-09-17T10:00:00Z\n---\n", location);
     expect(result).toMatchObject({

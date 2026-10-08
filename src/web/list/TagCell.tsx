@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useMessages } from "../i18n";
-import { Chip, ToggleChip } from "../ui/Chip";
+import { Chip } from "../ui/Chip";
+import { StaticTagChip, TagChip } from "../ui/TagChip";
 import { fittingTagCount } from "./fit-tags";
 import styles from "./TagCell.module.css";
 
@@ -39,9 +40,7 @@ export function TagCell({ tags, selected, onToggle }: TagCellProps) {
   return (
     <div ref={cell} className={styles.cell}>
       {shown.map((tag) => (
-        <ToggleChip key={tag} pressed={selected.includes(tag)} onToggle={() => onToggle(tag)}>
-          #{tag}
-        </ToggleChip>
+        <TagChip key={tag} tag={tag} pressed={selected.includes(tag)} onToggle={() => onToggle(tag)} />
       ))}
       {expanded ? (
         <button type="button" className={styles.more} onClick={() => setExpanded(false)} aria-expanded={true}>
@@ -57,7 +56,7 @@ export function TagCell({ tags, selected, onToggle }: TagCellProps) {
       <div className={styles.ruler} aria-hidden="true">
         <span ref={tagRuler} className={styles.rulerTags}>
           {tags.map((tag) => (
-            <Chip key={tag}>#{tag}</Chip>
+            <StaticTagChip key={tag} tag={tag} />
           ))}
         </span>
         <span ref={moreRuler}>

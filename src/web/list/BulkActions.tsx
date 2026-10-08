@@ -8,7 +8,7 @@ import { ActionFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import type { EpicTones } from "./epic-tone";
+import type { EpicTones } from "../ui/epic-tone";
 import { MenuOption, MenuOptions } from "../ui/Menu";
 import { Popover, useClosePopover } from "../ui/Popover";
 import { epicChoices, type EpicChoice } from "./epic-choices";
@@ -84,7 +84,7 @@ type SelectionActionsProps = {
 };
 
 function SelectionActions({ firstAction, chosen, assignableEpics, busy, onRun, onClear }: SelectionActionsProps) {
-  const { list, ui, core } = useMessages();
+  const { list, core } = useMessages();
   const [closing, setClosing] = useState(false);
 
   return (
@@ -104,7 +104,6 @@ function SelectionActions({ firstAction, chosen, assignableEpics, busy, onRun, o
         fieldLabel={list.closeReason}
         canConfirm={(reason) => reason.trim() !== ""}
         confirmLabel={list.closeConfirm(chosen.length)}
-        cancelLabel={ui.cancel}
         onCancel={() => setClosing(false)}
         onConfirm={(reason) => {
           setClosing(false);
@@ -153,7 +152,7 @@ function EpicAction({ epics, busy, onChoose }: EpicActionProps) {
   if (epics === null) {
     return (
       <span className={styles.unavailable}>
-        <Button aria-disabled="true" aria-describedby={hintId}>
+        <Button unavailable aria-describedby={hintId}>
           {list.epic}
         </Button>
         <span id={hintId} className={styles.hint}>

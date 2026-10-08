@@ -3,6 +3,7 @@ import { deletionDate, RETENTION_DAYS } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
 import { useLanguage, useMessages } from "../i18n";
 import { cx } from "./cx";
+import { Meter } from "./Meter";
 import { DAY_MS } from "../../core/model/dates";
 import styles from "./Deletion.module.css";
 
@@ -13,9 +14,7 @@ export function DeletionCountdown({ task, now }: { task: Task; now: Date }) {
   if (deletion === undefined) return null;
   return (
     <span className={cx(styles.wrap, deletion.lastDay && styles.lastDay)} title={deletion.title}>
-      <span className={styles.track} aria-hidden="true">
-        <span className={styles.fill} style={{ transform: `scaleX(${deletion.fraction})` }} />
-      </span>
+      <Meter fraction={deletion.fraction} aria-hidden="true" />
       <span className={styles.value}>{deletion.text}</span>
     </span>
   );

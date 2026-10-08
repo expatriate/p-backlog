@@ -6,7 +6,7 @@ import { ChurnPanel, DensityPanel } from "./CodePanels";
 import rowStyles from "./PanelRows.module.css";
 import { StatsTabState } from "./StatsTabState";
 import { UnavailableRepos } from "./UnavailableRepos";
-import styles from "./StatsPage.module.css";
+import layout from "./StatsLayout.module.css";
 
 export function CodeTab() {
   const { projectId } = useParams();
@@ -19,13 +19,13 @@ function Code({ report }: { report: CodeReport }) {
   return (
     <>
       <UnavailableRepos repos={report.unavailableRepos} />
-      <div className={styles.blocks}>
+      <div className={layout.blocks}>
         <div className={rowStyles.wide}>
           <ChurnPanel churn={report.churn} period={report.periods.churn} />
         </div>
         <DensityPanel density={report.density} />
       </div>
-      <p className={styles.note}>{stats.codeNote}</p>
+      <p className={layout.note}>{stats.codeNote}</p>
     </>
   );
 }

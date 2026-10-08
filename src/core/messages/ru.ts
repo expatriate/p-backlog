@@ -7,7 +7,7 @@ import { countRu, NBSP, pluralRu } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
-import type { CategoryRow, FlowForecast, Signal } from "../stats/types";
+import type { CategoryRow, FlowForecast, FoundRow, Signal } from "../stats/types";
 import { forecastOutlook, forecastSpan, type SpanUnit } from "./forecast";
 import { problemList } from "./problem-list";
 import type { CoreMessages, CountUnit } from "./types";
@@ -31,6 +31,8 @@ const CATEGORY_LABELS: Record<TaskCategory, string> = {
 const NO_CATEGORY_LABEL = "не указана";
 
 const CATEGORY_ROW_LABELS: Record<CategoryRow["category"], string> = { ...CATEGORY_LABELS, unset: NO_CATEGORY_LABEL, unknown: "неизвестна" };
+
+const FOUND_ROW_LABELS: Record<FoundRow["found"], string> = { review: "на ревью", incidental: "попутно", manual: "вручную", unknown: "неизвестно", unset: "не записано" };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   backlog: "в беклоге",
@@ -259,6 +261,7 @@ export const coreRu: CoreMessages = {
   schemaIssue,
   categoryLabel: (category) => (category === undefined ? NO_CATEGORY_LABEL : CATEGORY_LABELS[category]),
   categoryRowLabel: (category) => CATEGORY_ROW_LABELS[category],
+  foundRowLabel: (found) => FOUND_ROW_LABELS[found],
   statusLabel: (status) => STATUS_LABELS[status],
   priorityLabel: (priority) => PRIORITY_LABELS[priority],
   typeLabel: (type) => TYPE_LABELS[type],

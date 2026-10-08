@@ -7,7 +7,7 @@ import { EffectChartPanel, EffectFigures, ProjectsPanel } from "./EffectPanels";
 import rowStyles from "./PanelRows.module.css";
 import { StatsTabState } from "./StatsTabState";
 import { UnavailableRepos } from "./UnavailableRepos";
-import styles from "./StatsPage.module.css";
+import layout from "./StatsLayout.module.css";
 
 export function EffectTab() {
   const { projectId } = useParams();
@@ -21,9 +21,9 @@ function Effect({ report }: { report: EffectReport }) {
   return (
     <>
       <UnavailableRepos repos={report.unavailableRepos} />
-      {nothingDeferred && <p className={styles.note}>{stats.noDeferredTasks}</p>}
+      {nothingDeferred && <p className={layout.note}>{stats.noDeferredTasks}</p>}
       <EffectFigures totals={report.totals} period={report.periods.weeks} />
-      <div className={styles.blocks}>
+      <div className={layout.blocks}>
         <div className={rowStyles.wide}>
           <EffectChartPanel weeks={report.weeks} days={report.days} windows={report.periods} totals={report.totals} />
         </div>

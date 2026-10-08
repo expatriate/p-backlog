@@ -1,0 +1,6 @@
+.notice {
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-control);
+  background: var(--warn-soft);
+  color: var(--ink);
+}

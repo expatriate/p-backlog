@@ -1,5 +1,5 @@
 .dialog {
-  width: min(420px, calc(100vw - 2 * var(--space-4)));
+  width: min(var(--panel-width), calc(100vw - 2 * var(--viewport-margin)));
   padding: var(--space-4);
   border: 1px solid var(--line);
   border-radius: var(--radius-panel);

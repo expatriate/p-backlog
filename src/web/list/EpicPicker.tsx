@@ -2,6 +2,7 @@ import { useRef } from "react";
 import type { TaskFilter } from "../../core/model/query";
 import { useMessages } from "../i18n";
 import { CloseIcon } from "../ui/CloseIcon";
+import { IconButton } from "../ui/IconButton";
 import { MenuOption, MenuOptions } from "../ui/Menu";
 import { Popover, useClosePopover } from "../ui/Popover";
 import type { EpicChoices } from "./epic-choices";
@@ -41,17 +42,15 @@ export function EpicPicker({ choices, selected, onSelect }: EpicPickerProps) {
         <EpicOptions choices={choices} selected={selected} onSelect={onSelect} />
       </Popover>
       {selected !== undefined && (
-        <button
-          type="button"
-          className={styles.reset}
-          aria-label={list.resetEpic}
+        <IconButton
+          label={list.resetEpic}
           onClick={() => {
             onSelect(undefined);
             trigger.current?.focus();
           }}
         >
           <CloseIcon />
-        </button>
+        </IconButton>
       )}
     </div>
   );

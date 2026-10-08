@@ -3,8 +3,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--hit-target);
+  height: var(--hit-target);
   cursor: pointer;
 }
 
@@ -15,23 +15,11 @@
 }
 
 .delete {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--ink-subtle);
-  cursor: pointer;
+  --icon-button-radius: var(--radius-control);
 }
 
 .delete:hover {
   background: var(--surface-hover);
-  color: var(--danger-ink);
 }
 
 .error {
@@ -39,7 +27,7 @@
   contain: inline-size;
   order: 1;
   margin-inline-end: calc(var(--row-gap) * -1);
-  padding-inline-start: calc((24px + var(--row-gap)) * var(--project-error-indented));
+  padding-inline-start: calc((var(--hit-target) + var(--row-gap)) * var(--project-error-indented));
   text-wrap: pretty;
   color: var(--danger-ink);
   font-size: var(--text-sm);

@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { Hotspots } from "../../core/api/contract";
 import { useMessages } from "../i18n";
+import { tagLabel } from "../labels";
+import { DEFAULT_FILTER, filterSearch } from "../list/list-params";
 import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import { ShareBar } from "./ShareBar";
@@ -18,7 +20,7 @@ export function HotspotsPanel({ hotspots, listPath }: { hotspots: Hotspots; list
           empty={stats.noTags}
           items={hotspots.tags.map(({ tag, count }) => ({
             key: tag,
-            label: <Link to={{ pathname: listPath, search: `tag=${encodeURIComponent(tag)}` }}>#{tag}</Link>,
+            label: <Link to={{ pathname: listPath, search: filterSearch({ ...DEFAULT_FILTER, tags: [tag] }) }}>{tagLabel(tag)}</Link>,
             count,
           }))}
         />

@@ -5,6 +5,8 @@ import { useProjects, useStatsReport } from "../app/queries";
 import { projectNameOf, scopeNote } from "../app/scope";
 import { useMessages } from "../i18n";
 import { cx } from "../ui/cx";
+import { Notice } from "../ui/Notice";
+import { PageHeading } from "../ui/Page";
 import { useDocumentTitle } from "../ui/use-document-title";
 import { STATS_TABS } from "./stats-tabs";
 import { usePendingStatsTab, useStatsTab } from "./use-stats-tab";
@@ -29,12 +31,10 @@ export function StatsPage() {
 
   return (
     <main id="content" tabIndex={-1} className={styles.page} aria-busy={pending !== undefined || undefined}>
-      <h1 ref={headingRef} tabIndex={-1} className={styles.heading}>
-        {heading}
-      </h1>
+      <PageHeading ref={headingRef}>{heading}</PageHeading>
       {projectId === undefined && projects.data !== undefined && <p className={styles.scopeNote}>{scopeNote(projects.data, app)}</p>}
       {(signals.data?.signals.length ?? 0) > 0 && (
-        <div className={styles.signals} role="status" aria-labelledby="stats-signals-heading">
+        <Notice as="div" className={styles.signals} role="status" aria-labelledby="stats-signals-heading">
           <strong id="stats-signals-heading" className={styles.signalsTitle}>
             {stats.alerts}
           </strong>
@@ -43,7 +43,7 @@ export function StatsPage() {
               <li key={signal.kind}>{core.signal(signal)}</li>
             ))}
           </ul>
-        </div>
+        </Notice>
       )}
       <nav className={styles.tabs} aria-label={stats.tabsLabel}>
         {STATS_TABS.map((tab) => (

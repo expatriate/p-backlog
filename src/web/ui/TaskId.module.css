@@ -1,0 +1,22 @@
+.id {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.id[data-epic-tone] {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-chip);
+  background: var(--tone-soft);
+  box-shadow: inset 3px 0 0 var(--tone-line);
+  color: var(--tone-ink);
+}
+
+.link {
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.link:hover {
+  color: var(--accent-ink);
+}

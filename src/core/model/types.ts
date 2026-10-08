@@ -16,12 +16,21 @@ export type Priority = (typeof PRIORITIES)[number];
 export type TaskCategory = (typeof TASK_CATEGORIES)[number];
 export type Resolution = (typeof RESOLUTIONS)[number];
 
+const TAG_SEPARATOR = ",";
+
 export function normalizeTag(tag: string): string {
   return tag.trim().toLowerCase();
 }
 
 export function normalizeTags(tags: readonly string[]): string[] {
-  return [...new Set(tags.map(normalizeTag).filter(Boolean))];
+  return [
+    ...new Set(
+      tags
+        .flatMap((tag) => tag.split(TAG_SEPARATOR))
+        .map(normalizeTag)
+        .filter(Boolean),
+    ),
+  ];
 }
 
 export const taskIdSchema = z.string().regex(ID_PATTERN, schemaCode("bad-id"));

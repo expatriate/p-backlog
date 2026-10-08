@@ -7,3 +7,7 @@ export const DIRECTION_MARKS: Record<SortDirection, string> = { asc: "↑", desc
 export function formatProgress(progress: number | null): string {
   return progress === null ? NO_VALUE : `${progress}%`;
 }
+
+export function tagLabel(tag: string): string {
+  return `#${tag}`;
+}

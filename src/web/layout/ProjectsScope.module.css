@@ -32,24 +32,9 @@
 
 .scopeNote {
   margin: 0;
-  padding: 0 var(--space-2) 0 calc(var(--space-2) + 24px + var(--space-2));
+  padding: 0 var(--space-2) 0 calc(var(--space-2) + var(--hit-target) + var(--space-2));
   color: var(--ink-subtle);
   font-size: var(--text-sm);
-}
-
-.disclosure {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-chip);
-  background: transparent;
-  color: var(--ink-muted);
-  cursor: pointer;
 }
 
 .number {

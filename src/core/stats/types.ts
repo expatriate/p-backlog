@@ -73,7 +73,7 @@ export type GraphFilterEffect = { filtered: number; caught: number; missed: numb
 export type ProjectGraphRow = { projectId: string; name: string; state: GraphState; pinned: number; resolved: number };
 export type GraphReport = { projects: ProjectGraphRow[]; filter: GraphFilterEffect };
 export type CategoryRow = { category: Recorded<TaskCategory> | "unset"; open: number; weight: number; created: number; closed: number };
-export type FoundRow = { found: Recorded<FoundHow> | null; created: number; open: number; fixed: number };
+export type FoundRow = { found: Recorded<FoundHow> | "unset"; created: number; open: number; fixed: number };
 export type BranchRow = { label: string; created: number; open: number };
 export type QualityReport = ReportHead & {
   periods: GrainPeriods;

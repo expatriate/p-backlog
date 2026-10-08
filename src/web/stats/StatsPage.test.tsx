@@ -1,10 +1,10 @@
 import { focusManager } from "@tanstack/react-query";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RouteObject } from "react-router";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { routes } from "../app/App";
 import { freezeDate } from "../testing/freeze-date";
@@ -62,6 +62,15 @@ describe("страница статистики", () => {
     expect(within(week).getByText("создано 3, закрыто 1")).toBeDefined();
     expect(screen.getByRole("figure", { name: new RegExp(`12${NBSP}недель: создано 4, закрыто 1, открыто сейчас 3`) })).toBeDefined();
     expect(screen.getByText(/Журнал ещё пуст/)).toBeDefined();
+  });
+
+  it("статистика проекта с id «all» не выдаётся за статистику всех проектов", async () => {
+    const app = await renderApp({ ...FILES, "all/project.md": projectFile("ALL"), "all/ALL-1.md": taskFile("ALL-1", { title: "Своя", created: "2026-09-17T10:00:00+03:00" }) }, "/p/all/stats");
+    expect(within(await screen.findByRole("group", { name: "За неделю" })).getByText(/^создано 1,/)).toBeDefined();
+
+    await act(() => app.router.navigate("/stats"));
+
+    await waitFor(() => expect(within(screen.getByRole("group", { name: "За неделю" })).getByText("создано 4, закрыто 1")).toBeDefined());
   });
 
   it("«Задачи сегодня» считает заведённые и закрытые за день в выбранной области", async () => {
@@ -534,6 +543,22 @@ describe("масштаб графиков", () => {
 
     expect(pressed(await screen.findByRole("region", { name: "Долг по дням" }), "день")).toBe("true");
     expect(pressed(screen.getByRole("region", { name: "Создано по неделям" }), "неделя")).toBe("true");
+  });
+
+  it.each([
+    { refused: "чтение и запись", methods: ["getItem", "setItem"] as const },
+    { refused: "только запись", methods: ["setItem"] as const },
+  ])("localStorage отказывает ($refused) — масштаб всё равно переключается", async ({ methods }) => {
+    const denied = () => {
+      throw new Error("доступ запрещён");
+    };
+    for (const method of methods) vi.spyOn(Storage.prototype, method).mockImplementation(denied);
+    const app = await renderApp(FILES, "/stats");
+    const flow = await screen.findByRole("region", { name: "Долг по неделям" });
+
+    await pick(app, "Долг", "день");
+
+    expect(pressed(flow, "день")).toBe("true");
   });
 
   it("мусор в сохранённом масштабе — график в своём масштабе по умолчанию", async () => {

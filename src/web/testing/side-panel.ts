@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, onTestFinished } from "vitest";
+import { VIEWPORT_BREAKPOINTS } from "../styles/breakpoints";
 import styles from "../ui/SidePanel.module.css";
 
-const NARROW_WINDOW_QUERY = "@media (max-width: 1160px)";
+const NARROW_WINDOW_QUERY = `@media (max-width: ${VIEWPORT_BREAKPOINTS.taskPanelOverlay}px)`;
 
 export function applyPanelStyles(windowWidth: "narrow" | "wide"): void {
   const source = readFileSync(join(import.meta.dirname, "../ui/SidePanel.module.css"), "utf8");

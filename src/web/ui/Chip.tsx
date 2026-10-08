@@ -2,11 +2,11 @@ import { isValidElement, type ReactNode } from "react";
 import { cx } from "./cx";
 import styles from "./Chip.module.css";
 
-type ToggleChipProps = { pressed: boolean; locked?: boolean; onToggle: () => void; children: ReactNode };
+type ToggleChipProps = { pressed: boolean; unavailable?: boolean; onToggle: () => void; children: ReactNode };
 
-export function ToggleChip({ pressed, locked = false, onToggle, children }: ToggleChipProps) {
+export function ToggleChip({ pressed, unavailable = false, onToggle, children }: ToggleChipProps) {
   return (
-    <button type="button" className={cx(styles.chip, pressed && styles.pressed)} aria-pressed={pressed} aria-disabled={locked || undefined} onClick={locked ? undefined : onToggle}>
+    <button type="button" className={cx(styles.chip, pressed && styles.pressed)} aria-pressed={pressed} aria-disabled={unavailable || undefined} onClick={unavailable ? undefined : onToggle}>
       <ChipLabel>{children}</ChipLabel>
     </button>
   );

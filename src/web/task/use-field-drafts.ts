@@ -8,9 +8,9 @@ const trimTitle = (text: string) => text.trim();
 
 export function useFieldDrafts(task: Task) {
   const { task: taskMessages } = useMessages();
-  const [title, titleRef] = useDraft<HTMLTextAreaElement>(task.title, trimTitle);
-  const [tags, tagsRef] = useDraft(task.tags.join(", "), canonicalTags);
-  const [epic, epicRef] = useDraft(task.epic ?? "", normalizeTaskId);
+  const title = useDraft<HTMLTextAreaElement>(task.title, trimTitle);
+  const tags = useDraft(task.tags.join(", "), canonicalTags);
+  const epic = useDraft(task.epic ?? "", normalizeTaskId);
   const labelled = [
     { draft: title, label: taskMessages.title },
     { draft: tags, label: taskMessages.tagsField },
@@ -18,11 +18,8 @@ export function useFieldDrafts(task: Task) {
   ];
   return {
     title,
-    titleRef,
     tags,
-    tagsRef,
     epic,
-    epicRef,
     unsaved: labelled.some(({ draft }) => draft.unsaved),
     conflictAlerts: labelled.filter(({ draft }) => draft.conflicted).map(({ label }) => taskMessages.fieldConflict(label)),
   };

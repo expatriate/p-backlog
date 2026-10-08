@@ -1,14 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { useMessages } from "../i18n";
 import { CloseIcon } from "./CloseIcon";
+import { cx } from "./cx";
+import { IconButton } from "./IconButton";
 import styles from "./SidePanel.module.css";
 
-export type SidePanelProps = { label: string; heading: ReactNode; onClose: () => void; children: ReactNode };
+export type SidePanelProps = { label: string; heading: ReactNode; onClose: () => void; className?: string | undefined; children: ReactNode };
 
 const FORM_FIELDS = "input, textarea, select";
 const MODAL_FLAG = "--drawer-modal";
 
-export function SidePanel({ label, heading, onClose, children }: SidePanelProps) {
+export function SidePanel({ label, heading, onClose, className, children }: SidePanelProps) {
   const { ui } = useMessages();
   const panel = useRef<HTMLElement>(null);
   const close = useRef(onClose);
@@ -23,7 +25,8 @@ export function SidePanel({ label, heading, onClose, children }: SidePanelProps)
     let releaseBackground: (() => void) | null = null;
     const syncBackground = () => {
       const covers = drawer !== null && isModal(drawer);
-      if (covers === (releaseBackground !== null)) return;
+      const backgroundInert = releaseBackground !== null;
+      if (covers === backgroundInert) return;
       releaseBackground?.();
       releaseBackground = covers ? inertOutside(drawer) : null;
       if (covers && !drawer.contains(document.activeElement)) drawer.focus();
@@ -55,12 +58,12 @@ export function SidePanel({ label, heading, onClose, children }: SidePanelProps)
   }, []);
 
   return (
-    <aside ref={panel} className={styles.drawer} aria-label={label} tabIndex={-1}>
+    <aside ref={panel} className={cx(styles.drawer, className)} aria-label={label} tabIndex={-1}>
       <header className={styles.header}>
         {heading}
-        <button type="button" className={styles.close} aria-label={ui.close} onClick={() => close.current()}>
+        <IconButton label={ui.close} onClick={() => close.current()}>
           <CloseIcon />
-        </button>
+        </IconButton>
       </header>
       {children}
     </aside>

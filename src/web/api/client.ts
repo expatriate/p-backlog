@@ -46,20 +46,14 @@ const SERVER_FAILURE_STATUS = 500;
 const GATEWAY_STATUSES = new Set([502, 504]);
 const SERVICE_UNAVAILABLE_STATUS = 503;
 
-export function isServerUnreachable(error: unknown): boolean {
-  return error instanceof ApiError && error.status === UNREACHABLE_STATUS;
-}
+type ApiErrorKind = "unreachable" | "notFound" | "conflict" | "serverFailure" | "rejected";
 
-export function isNotFound(error: unknown): boolean {
-  return error instanceof ApiError && error.status === NOT_FOUND_STATUS;
-}
-
-export function isConflict(error: unknown): boolean {
-  return error instanceof ApiError && error.status === CONFLICT_STATUS;
-}
-
-export function isServerFailure(error: unknown): boolean {
-  return error instanceof ApiError && error.status >= SERVER_FAILURE_STATUS;
+export function apiErrorKind(error: unknown): ApiErrorKind | undefined {
+  if (!(error instanceof ApiError)) return undefined;
+  if (error.status === UNREACHABLE_STATUS) return "unreachable";
+  if (error.status === NOT_FOUND_STATUS) return "notFound";
+  if (error.status === CONFLICT_STATUS) return "conflict";
+  return error.status >= SERVER_FAILURE_STATUS ? "serverFailure" : "rejected";
 }
 
 export function createApiClient(apiFetch: ApiFetch): ApiClient {

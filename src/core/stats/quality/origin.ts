@@ -1,4 +1,4 @@
-import { FOUND_HOW, UNKNOWN, type FoundHow, type Recorded } from "../../journal/events";
+import { FOUND_HOW, UNKNOWN } from "../../journal/events";
 import { isClosed } from "../../model/graph";
 import type { ProjectLabel } from "../format";
 import { createdIn, isFixedNow, type TaskHistory } from "../history";
@@ -7,12 +7,12 @@ import type { BranchRow, FoundRow } from "../types";
 import { groupBy } from "../../collections";
 
 const BRANCH_LIMIT = 8;
-const FOUND_ORDER: readonly (Recorded<FoundHow> | null)[] = [...FOUND_HOW, UNKNOWN, null];
+const FOUND_ORDER: readonly FoundRow["found"][] = [...FOUND_HOW, UNKNOWN, "unset"];
 
 export function foundBreakdown(histories: readonly TaskHistory[], period: Period): FoundRow[] {
   const created = createdIn(histories, period);
   return FOUND_ORDER.map((found) => {
-    const own = created.filter((history) => (history.found ?? null) === found);
+    const own = created.filter((history) => (history.found ?? "unset") === found);
     return {
       found,
       created: own.length,

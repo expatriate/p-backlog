@@ -327,7 +327,7 @@ describe("GET /api/stats/quality", () => {
     const unknown = await backlog.request("/api/stats/quality?project=nope");
 
     expect(spa.taskCount).toBe(2);
-    expect(spa.found.map((row) => row.found)).toEqual(["review", "incidental", "manual", "unknown", null]);
+    expect(spa.found.map((row) => row.found)).toEqual(["review", "incidental", "manual", "unknown", "unset"]);
     expect(unknown.status).toBe(404);
   });
 });

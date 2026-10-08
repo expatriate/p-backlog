@@ -3,11 +3,12 @@ import type { CostReport, ScanProgress } from "../../core/api/contract";
 import { useCostReport } from "../app/queries";
 import { formatDay, startOfLocalDay } from "../../core/i18n/format";
 import { useLanguage, useMessages } from "../i18n";
+import { Notice } from "../ui/Notice";
 import { CommandsPanel, CostFigures, ModelsPanel } from "./CostPanels";
 import rowStyles from "./PanelRows.module.css";
 import { MemoryPanel } from "./MemoryPanel";
 import { SpendPanel } from "./SpendPanel";
-import styles from "./StatsPage.module.css";
+import layout from "./StatsLayout.module.css";
 import type { StatsMessages } from "./messages.ru";
 import { StatsRequestState } from "./StatsTabState";
 
@@ -22,7 +23,7 @@ export function CostTab() {
         <>
           <ScanNotice scan={report.scan} />
           <Cost report={report} />
-          <p className={styles.note}>{stats.costNote}</p>
+          <p className={layout.note}>{stats.costNote}</p>
         </>
       )}
     </StatsRequestState>
@@ -33,9 +34,9 @@ function ScanNotice({ scan }: { scan: ScanProgress }) {
   const { stats } = useMessages();
   const text = scanNoticeText(stats, scan);
   return (
-    <p className={text === null ? "visually-hidden" : styles.warning} role="status">
+    <Notice className={layout.warning} shown={text !== null} role="status">
       {text}
-    </p>
+    </Notice>
   );
 }
 
@@ -53,8 +54,8 @@ function Cost({ report }: { report: CostReport }) {
   return (
     <>
       <CostFigures totals={report.totals} period={report.periods.totals} />
-      {since !== null && <p className={styles.note}>{stats.costSince(formatDay(language, since))}</p>}
-      <div className={styles.blocks}>
+      {since !== null && <p className={layout.note}>{stats.costSince(formatDay(language, since))}</p>}
+      <div className={layout.blocks}>
         <div className={rowStyles.wide}>
           <SpendPanel weeks={report.weeks} days={report.days} windows={report.periods} />
         </div>

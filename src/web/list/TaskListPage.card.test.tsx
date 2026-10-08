@@ -18,6 +18,15 @@ describe("карточка поверх списка", () => {
     expect(document.activeElement?.textContent).toBe("Таймауты загрузки");
   });
 
+  it("ссылка на задачу в списке сохраняет поиск и фильтры", async () => {
+    const listSearch = `?q=${encodeURIComponent("таймаут")}&priority=high`;
+    const app = await renderApp(LIST_FILES, `/${listSearch}`);
+
+    await app.user.click(await screen.findByRole("link", { name: "Таймауты загрузки" }));
+
+    await waitFor(() => expect(app.route()).toBe(`/t/SPA-1${listSearch}`));
+  });
+
   it("задача из адреса, которой нет, отмечена, а список остаётся", async () => {
     await renderApp(LIST_FILES, "/t/SPA-99");
 

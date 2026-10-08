@@ -8,6 +8,8 @@ export const taskEn: TaskMessages = {
   leaveWithFieldEdits: "Leave without saving your field edit?",
   createdLabel: "created",
   closedLabel: "Closed",
+  closedWithoutDate: "Closed, date not recorded",
+  reasonNotRecorded: "reason not recorded",
   restoreToBacklog: "Restore to backlog",
   saving: "Saving…",
   saved: "Saved",

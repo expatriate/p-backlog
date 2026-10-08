@@ -1,6 +1,5 @@
 import { formatDecimal } from "../../core/i18n/format";
 import { countRu, NBSP, pluralRu } from "../../core/i18n/plural";
-import type { FoundHow } from "../../core/journal/events";
 import type { Priority } from "../../core/model/types";
 import type { AgeBucket, ClosingReason } from "../../core/api/contract";
 import type { ChartId, ChartStep, Grain } from "./charts/chart-style";
@@ -150,9 +149,6 @@ export function createStatsRu(constants: StatsConstants) {
     originTitle: "Происхождение",
     foundTitle: "Как найдены",
     foundHead: ["Как найдена", "Создано", "Открыто", "Исправлено"],
-    foundLabels: { review: "на ревью", incidental: "попутно", manual: "вручную" } satisfies Record<FoundHow, string>,
-    foundNotRecorded: "не записано",
-    foundUnknown: "неизвестно",
     branchesTitle: "Ветки",
     branchesEmpty: "Ветки появятся у задач, заведённых через backlog new в репозитории",
     branchesHead: ["Ветка", "Создано", "Открыто"],

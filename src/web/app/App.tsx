@@ -7,12 +7,14 @@ import { STATS_TABS } from "../stats/stats-tabs";
 import styles from "./App.module.css";
 import { useLiveUpdates } from "./live-updates";
 
+const LEGACY_FLOW_TAB_ALIAS: RouteObject = { path: "flow", element: <Navigate to=".." relative="path" replace /> };
+
 const STATS_TAB_ROUTES: RouteObject[] = [
   ...STATS_TABS.map((tab): RouteObject => {
     const segment = statsTabSegment(tab.key);
     return segment === null ? { index: true, lazy: tab.load } : { path: segment, lazy: tab.load };
   }),
-  { path: "flow", element: <Navigate to=".." relative="path" replace /> },
+  LEGACY_FLOW_TAB_ALIAS,
 ];
 
 const loadStatsPage = async () => ({ Component: (await import("../stats/StatsPage")).StatsPage });

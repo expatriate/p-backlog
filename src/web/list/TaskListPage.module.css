@@ -14,35 +14,13 @@
   scroll-padding-bottom: var(--list-footer-height);
 }
 
-.heading {
-  margin: 0;
-  padding: var(--space-4) var(--space-5) 0;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  text-wrap: balance;
-}
-
 .tableWrap {
   padding-bottom: var(--space-6);
-}
-
-.hint {
-  max-width: 60ch;
-  margin: var(--space-6) var(--space-5);
-  color: var(--ink-muted);
-}
-
-.hint p {
-  margin: 0 0 var(--space-3);
 }
 
 .warning {
   margin: var(--space-3) var(--space-5) 0;
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--warn);
-  border-radius: var(--radius-control);
-  background: var(--warn-soft);
-  color: var(--ink);
 }
 
 .warning ul {

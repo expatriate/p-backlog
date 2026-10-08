@@ -6,9 +6,9 @@ export type BatchFailure = { error: Error; rest: BatchRequest };
 export type BatchResult = { request: BatchRequest; response: BatchResponse; failure?: BatchFailure };
 
 export function useBatchResult() {
-  const [state, setState] = useState<{ result: BatchResult | null; serial: number }>({ result: null, serial: 0 });
-  const show = useCallback((result: BatchResult | null) => setState((current) => ({ result, serial: current.serial + 1 })), []);
-  return { result: state.result, serial: state.serial, show };
+  const [state, setState] = useState<{ result: BatchResult | null; noticeId: number }>({ result: null, noticeId: 0 });
+  const show = useCallback((result: BatchResult | null) => setState((current) => ({ result, noticeId: current.noticeId + 1 })), []);
+  return { result: state.result, noticeId: state.noticeId, show };
 }
 
 export function partialBatchResult(request: BatchRequest, error: Error): BatchResult | null {

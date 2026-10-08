@@ -13,7 +13,7 @@ export function ListFooter({ selection }: { selection: TaskSelection }) {
 
   return (
     <div ref={footer} className={styles.footer}>
-      <BatchNotice result={batchResult.result} serial={batchResult.serial} onResult={batchResult.show} />
+      <BatchNotice result={batchResult.result} noticeId={batchResult.noticeId} onResult={batchResult.show} />
       <BulkActions
         selection={selection}
         onDone={(result) => {

@@ -1,0 +1,15 @@
+.title {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.muted {
+  color: var(--ink-subtle);
+}
+
+a.title:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

@@ -6,7 +6,7 @@ import { localeOf, type Language } from "../../core/i18n/language";
 import type { Task } from "../../core/model/types";
 import { useProjects, useTasks } from "../app/queries";
 import { useLanguage } from "../i18n";
-import { epicTones } from "./epic-tone";
+import { epicTones } from "../ui/epic-tone";
 import { epicChoices } from "./epic-choices";
 import { AUTO_CLOSED_VIEW, dateColumnFor, followDateColumn, type ListParams } from "./list-params";
 
@@ -20,8 +20,8 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const dateColumn = dateColumnFor(params.filter);
   const sort = useMemo(() => followDateColumn(params.sort, dateColumn), [params.sort, dateColumn]);
   const allTasks = useMemo(() => tasks.data?.tasks ?? [], [tasks.data]);
-  const inScope = useMemo(() => taskScope(projects.data, projectId), [projects.data, projectId]);
-  const scopedTasks = useMemo(() => (inScope === undefined ? [] : allTasks.filter(inScope)), [allTasks, inScope]);
+  const isInScope = useMemo(() => taskScope(projects.data, projectId), [projects.data, projectId]);
+  const scopedTasks = useMemo(() => (isInScope === undefined ? [] : allTasks.filter(isInScope)), [allTasks, isInScope]);
   const all = useMemo(() => ({ tasks: allTasks, index: buildIndex(allTasks), tones: epicTones(allTasks) }), [allTasks]);
   const { index, tones } = all;
   const filterContext = useMemo(() => ({ index, closedInWeb: new Set(tasks.data?.closedInWeb) }), [index, tasks.data]);
@@ -29,13 +29,13 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const epicFilterChoices = useMemo(() => epicChoices(scopedTasks, tones), [scopedTasks, tones]);
   const autoClosedCount = useMemo(() => filterListTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, filterContext).length, [scopedTasks, filterContext]);
   const tags = useMemo(() => collectTags(scopedTasks, language), [scopedTasks, language]);
-  const hiddenOpen = useMemo(() => (projectId === undefined && inScope !== undefined ? countOpenTasks(allTasks, inScope).outOfScope : 0), [allTasks, inScope, projectId]);
+  const hiddenOpen = useMemo(() => (projectId === undefined && isInScope !== undefined ? countOpenTasks(allTasks, isInScope).outOfScope : 0), [allTasks, isInScope, projectId]);
 
   const failedQueries = [tasks, projects].filter((query) => query.error !== null);
   const error = tasks.error ?? projects.error;
   const refetch = () => Promise.all(failedQueries.map((query) => query.refetch()));
   const unknownProject = projectId !== undefined && projects.data !== undefined && !projects.data.some((project) => project.id === projectId);
-  const content = listContentOf({ hasData: tasks.data !== undefined && inScope !== undefined, failed: error !== null, unknownProject, visibleCount: visibleTasks.length });
+  const content = listContentOf({ hasData: tasks.data !== undefined && isInScope !== undefined, failed: error !== null, unknownProject, visibleCount: visibleTasks.length });
 
   return {
     tasksLoaded: tasks.data !== undefined,
