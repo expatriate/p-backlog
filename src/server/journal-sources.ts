@@ -3,7 +3,7 @@ import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../c
 import { scopedReportData, type ReportContext, type ScopedReportData, type StatsInput } from "../core/stats/scope";
 import { JOURNAL_FILE, projectJournal } from "../core/store/journal";
 import { createJsonlTail, type JsonlTail } from "../core/store/jsonl-tail";
-import { createSnapshotIds, pruneUnlessKept } from "./source-memos";
+import { createScopeMemo, createSnapshotIds, pruneUnlessKept } from "./source-memos";
 
 type ScopeSources = { journals: ProjectJournal[]; contextOf: (input: StatsInput) => ReportContext };
 
@@ -15,11 +15,9 @@ export type JournalSources = {
 
 type TailedJournal = { journal: ProjectJournal; position: string };
 
-type RememberedData = { projectId: string | undefined; key: string; data: ScopedReportData };
-
 export function createJournalSources(root: string): JournalSources {
   const tails = new Map<string, JsonlTail<JournalEvent>>();
-  const remembered = new Map<string, RememberedData>();
+  const remembered = createScopeMemo<ScopedReportData>();
   const snapshotIdOf = createSnapshotIds();
 
   const tailOf = (projectId: string) => {
@@ -38,13 +36,9 @@ export function createJournalSources(root: string): JournalSources {
   const rememberedContext =
     (snapshot: object, tailed: readonly TailedJournal[]) =>
     (input: StatsInput): ReportContext => {
-      const slotKey = input.projectId ?? "*";
       const positions = tailed.filter(({ journal }) => input.projectId === undefined || journal.projectId === input.projectId).map(({ position }) => position);
-      const key = `${snapshotIdOf(snapshot)}|${slotKey}|${positions.join(",")}`;
-      const known = remembered.get(slotKey);
-      const data = known?.key === key ? known.data : scopedReportData(input);
-      remembered.set(slotKey, { projectId: input.projectId, key, data });
-      return { ...data, input };
+      const key = `${snapshotIdOf(snapshot)}|${positions.join(",")}`;
+      return { ...remembered.get(key, () => scopedReportData(input), input.projectId), input };
     };
 
   return {
@@ -54,9 +48,8 @@ export function createJournalSources(root: string): JournalSources {
       return { journals: tailed.map(({ journal }) => journal), contextOf: rememberedContext(snapshot, tailed) };
     },
     retain: (projectIds) => {
-      const kept = new Set(projectIds);
-      pruneUnlessKept(tails, kept, (projectId) => projectId);
-      pruneUnlessKept(remembered, kept, (_, { projectId }) => projectId);
+      pruneUnlessKept(tails, projectIds);
+      remembered.retain(projectIds);
     },
   };
 }

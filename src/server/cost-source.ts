@@ -7,7 +7,7 @@ import { createJsonlTail } from "../core/store/jsonl-tail";
 import { cachedRepoRoots, findProjectForRoots, type GitRoots, type RepoRootLookup } from "../core/store/resolve-project";
 import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
 import type { UsageCache } from "../core/usage/usage-cache";
-import { createSnapshotIds, pruneUnlessKept } from "./source-memos";
+import { createScopeMemo, createSnapshotIds } from "./source-memos";
 import type { UsageSnapshot } from "./usage-scanner";
 
 type CostScope = { snapshot: object; projects: readonly Project[]; projectId: string | undefined };
@@ -21,38 +21,25 @@ type CostSource = {
   retain: (projectIds: readonly string[]) => void;
 };
 
-type RememberedCost = { key: string; report: Promise<CostReport> };
-
-const ALL_PROJECTS_SLOT = "*";
-
 export function createCostSource(root: string, home: string): CostSource {
   const runsTail = createJsonlTail<CliRun>(join(root, RUNS_FILE), cliRunSchema);
   const lookupRepoRoot = cachedRepoRoots();
-  const costMemos = new Map<string, RememberedCost>();
+  const costMemos = createScopeMemo<Promise<CostReport>>();
   const snapshotIdOf = createSnapshotIds();
 
   return {
     costReport: async (request) => {
       const { values: runs, length, generation } = await runsTail.read();
       const inputs: CostInputs = { ...request, runs };
-      const slot = inputs.scope.projectId ?? ALL_PROJECTS_SLOT;
       const keyParts: Record<keyof CostInputs, string> = {
         usage: `${inputs.usage.revision}`,
         runs: `${generation}:${length}`,
-        scope: `${snapshotIdOf(inputs.scope.snapshot)}/${slot}/${inputs.scope.projects.map((project) => project.id).join(",")}`,
+        scope: `${snapshotIdOf(inputs.scope.snapshot)}/${inputs.scope.projects.map((project) => project.id).join(",")}`,
         now: formatLocalDay(inputs.now),
       };
-      const key = Object.values(keyParts).join("|");
-      const remembered = costMemos.get(slot);
-      if (remembered?.key === key) return remembered.report;
-      const report = costOf(inputs, home, lookupRepoRoot);
-      costMemos.set(slot, { key, report });
-      report.catch(() => {
-        if (costMemos.get(slot)?.report === report) costMemos.delete(slot);
-      });
-      return report;
+      return costMemos.get(Object.values(keyParts).join("|"), () => costOf(inputs, home, lookupRepoRoot), inputs.scope.projectId);
     },
-    retain: (projectIds) => pruneUnlessKept(costMemos, new Set(projectIds), (slot) => (slot === ALL_PROJECTS_SLOT ? undefined : slot)),
+    retain: costMemos.retain,
   };
 }
 

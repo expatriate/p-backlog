@@ -1,3 +1,5 @@
+import { forgetIfRejected } from "./source-memos";
+
 export type TtlCache = {
   get: <T>(key: string, compute: () => Promise<T>, tags?: readonly string[]) => Promise<T>;
   clear: () => void;
@@ -6,7 +8,7 @@ export type TtlCache = {
 };
 
 export function createTtlCache({ ttlMs, now }: { ttlMs: number; now: () => number }): TtlCache {
-  let entries = new Map<string, { at: number; value: Promise<unknown>; tags: readonly string[] }>();
+  const entries = new Map<string, { at: number; value: Promise<unknown>; tags: readonly string[] }>();
   const evictExpired = (moment: number) => {
     for (const [key, entry] of entries) if (moment - entry.at > ttlMs) entries.delete(key);
   };
@@ -18,14 +20,10 @@ export function createTtlCache({ ttlMs, now }: { ttlMs: number; now: () => numbe
       if (cached !== undefined) return cached.value as Promise<T>;
       const value = compute();
       entries.set(key, { at: moment, value, tags });
-      value.catch(() => {
-        if (entries.get(key)?.value === value) entries.delete(key);
-      });
+      forgetIfRejected(entries, key, value);
       return value;
     },
-    clear: () => {
-      entries = new Map();
-    },
+    clear: () => entries.clear(),
     clearTagged: (tags) => {
       const tagged = new Set(tags);
       for (const [key, entry] of entries) if (entry.tags.some((tag) => tagged.has(tag))) entries.delete(key);

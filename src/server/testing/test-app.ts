@@ -6,9 +6,9 @@ import { loadBacklog } from "../../core/store/load";
 import { readLanguageOrLocale, writeSettings } from "../../core/store/settings";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { createApp } from "../app";
-import type { ChangeFeed, ChangeListener } from "../change-feed";
 import { createMemorySampler, type MemorySampler } from "../memory-sampler";
 import { createUsageScanner, type UsageScanner } from "../usage-scanner";
+import { makeTestChangeFeed } from "./change-feed";
 
 const TEST_HOST = "localhost:4317";
 export const TEST_NOW = new Date("2026-09-18T12:00:00Z");
@@ -32,19 +32,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
   await writeFiles(root, files);
   await writeSettings(root, { language: options.language ?? "ru" });
 
-  const listeners = new Set<ChangeListener>();
-  const { promise: closed, resolve: markClosed }: PromiseWithResolvers<void> = Promise.withResolvers();
-  const changes: ChangeFeed = {
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    closed,
-    close: async () => {
-      listeners.clear();
-      markClosed();
-    },
-  };
+  const { changes, emitChange } = makeTestChangeFeed();
 
   const usage = createUsageScanner({ root, claudeProjectsDir: options.transcriptsDir ?? (await makeTempDir()), warn: async () => undefined, now: () => TEST_NOW });
   const memory = createMemorySampler();
@@ -87,9 +75,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
     app,
     usage,
     memory,
-    emitChange: async (paths = [root]) => {
-      await Promise.all([...listeners].map((listener) => listener(paths)));
-    },
+    emitChange: (paths = [root]) => emitChange(paths),
     request,
     json: (path, method, body) => request(path, { method, body: JSON.stringify(body), headers: { "content-type": "application/json" } }),
     taskOnDisk,
