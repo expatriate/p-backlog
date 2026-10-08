@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Re-checks are quieter. "Code changed" for anchored tasks is raised only when the task's own lines (±2) changed
+  after the state the task was last verified in; switching to a branch without that state no longer raises it.
+  "File missing" is raised only when the file was deleted or renamed on the current branch, is deleted in the working
+  tree, or is unknown to git — a file that lives on another branch no longer counts. A renamed file whose task lines
+  are intact moves the task's `source` by itself (`source-moved`). Replayed on a real backlog, re-check candidates
+  went from 112 to 76 (precision 17 % → 23 %) without losing any task that a re-check led to close.
 - `backlog new` and `backlog check` treat two open tasks as a possible duplicate only when their `source` is in the
   same file and their titles share several words, or when the titles are nearly the same (version numbers and dates
   are compared whole). Shared words alone — review-nit groups, one area of the code — and the same line or function
