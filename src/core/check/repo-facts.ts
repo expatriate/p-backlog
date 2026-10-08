@@ -16,8 +16,8 @@ export type RepoFacts = {
   commits: Commit[];
   renames: Commit[];
   dirtyModifiedAt: ReadonlyMap<string, number>;
-  removedInWorktree: ReadonlySet<string>;
-  inHistory: ReadonlySet<string>;
+  committedHere: ReadonlySet<string>;
+  committedAnywhere: ReadonlySet<string>;
   existing: ReadonlySet<string>;
   texts: ReadonlyMap<string, string>;
 };
@@ -33,28 +33,27 @@ export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Prom
   const paths = [...pathMarks.keys()];
   const [prefix, existing] = await Promise.all([runGit(repo, ["rev-parse", "--show-prefix"]), existingPaths(repo, paths)]);
   const texts = await fileTexts(repo, [...existing]);
-  const withoutHistory = (history: GitHistory): RepoFacts => ({ history, commits: [], renames: [], dirtyModifiedAt: new Map(), removedInWorktree: new Set(), inHistory: new Set(), existing, texts });
+  const withoutHistory = (history: GitHistory): RepoFacts => ({ history, commits: [], renames: [], dirtyModifiedAt: new Map(), ...UNKNOWN_BRANCH_HISTORY, existing, texts });
   if (prefix === null) return withoutHistory("not-a-repo");
   const missing = paths.filter((path) => !existing.has(path));
-  const [log, renames, status, inHistory] = await Promise.all([
+  const [log, renames, status, branchHistory] = await Promise.all([
     pathLog(repo, earliestMark(pathMarks, paths), paths),
     missing.length === 0 ? "" : runGit(repo, [...logArgs(earliestMark(pathMarks, missing)), "--diff-filter=R"]),
     runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
-    committedPaths(repo, missing),
+    branchHistoryOf(repo, missing),
   ]);
   if (log === null || renames === null || status === null) return withoutHistory("unreadable");
-  const worktree = parseStatus(status);
-  const inRepo = (gitRootPaths: readonly string[]) => withinRepo(gitRootPaths, prefix.trim());
-  return {
-    history: "read",
-    commits: parseLog(log),
-    renames: parseLog(renames),
-    dirtyModifiedAt: await modificationTimes(repo, inRepo(worktree.changed)),
-    removedInWorktree: new Set(inRepo(worktree.removed)),
-    inHistory: new Set(inHistory ?? []),
-    existing,
-    texts,
-  };
+  const dirty = withinRepo(parseStatus(status), prefix.trim());
+  return { history: "read", commits: parseLog(log), renames: parseLog(renames), dirtyModifiedAt: await modificationTimes(repo, dirty), ...branchHistory, existing, texts };
+}
+
+type BranchHistory = Pick<RepoFacts, "committedHere" | "committedAnywhere">;
+
+const UNKNOWN_BRANCH_HISTORY: BranchHistory = { committedHere: new Set(), committedAnywhere: new Set() };
+
+async function branchHistoryOf(repo: string, paths: readonly string[]): Promise<BranchHistory> {
+  const [here, anywhere] = await Promise.all([committedPaths(repo, "HEAD", paths), committedPaths(repo, "--all", paths)]);
+  return here === null || anywhere === null ? UNKNOWN_BRANCH_HISTORY : { committedHere: new Set(here), committedAnywhere: new Set(anywhere) };
 }
 
 function earliestMark(marks: PathMarks, paths: readonly string[]): Date {
@@ -71,10 +70,10 @@ async function pathLog(repo: string, since: Date, paths: readonly string[]): Pro
   return runGit(repo, [...logArgs(since), "--", ...literalPathspecs(inside)]);
 }
 
-async function committedPaths(repo: string, paths: readonly string[]): Promise<string[] | null> {
+async function committedPaths(repo: string, revisions: string, paths: readonly string[]): Promise<string[] | null> {
   const inside = paths.filter(isInsideRepo);
   if (inside.length === 0) return [];
-  const names = await runGit(repo, ["log", "--all", "--relative", "--format=", "--name-only", "-z", "--", ...literalPathspecs(inside)]);
+  const names = await runGit(repo, ["log", revisions, "--relative", "--format=", "--name-only", "-z", "--", ...literalPathspecs(inside)]);
   return names === null ? null : names.split(/[\0\n]/).filter((name) => name !== "");
 }
 
@@ -201,21 +200,16 @@ function parseNameStatus(tokens: readonly string[]): FileChange[] {
   return files;
 }
 
-type WorktreeStatus = { changed: string[]; removed: string[] };
-
-function parseStatus(output: string): WorktreeStatus {
+function parseStatus(output: string): string[] {
   const entries = output.split("\0");
-  const status: WorktreeStatus = { changed: [], removed: [] };
+  const paths: string[] = [];
   for (let index = 0; index < entries.length; index++) {
     const entry = entries[index] ?? "";
     if (entry.length <= STATUS_CODE_WIDTH) continue;
-    const path = entry.slice(STATUS_CODE_WIDTH);
-    status.changed.push(path);
-    if (/^(?:D.|.D)/.test(entry)) status.removed.push(path);
-    if (/^(?:R.|.R)/.test(entry)) status.removed.push(entries[index + 1] ?? "");
+    paths.push(entry.slice(STATUS_CODE_WIDTH));
     if (/^(?:[RC].|.[RC])/.test(entry)) index++;
   }
-  return status;
+  return paths;
 }
 
 function withinRepo(gitRootPaths: readonly string[], prefix: string): string[] {

@@ -102,8 +102,8 @@ describe("collectRepoFacts", () => {
       commits: [],
       renames: [],
       dirtyModifiedAt: new Map(),
-      removedInWorktree: new Set(),
-      inHistory: new Set(),
+      committedHere: new Set(),
+      committedAnywhere: new Set(),
       existing: new Set(["src/a.ts"]),
       texts: new Map([["src/a.ts", ""]]),
     });

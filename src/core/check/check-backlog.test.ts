@@ -472,7 +472,7 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([]);
   });
 
-  it("файл удалён коммитом после отметки, удалён в рабочем дереве или никогда не был в git — кандидат «файл пропал»", async () => {
+  it("файл удалён в этой ветке — коммитом после отметки, коммитом до подтверждения задачи или в рабочем дереве — или никогда не был в git: кандидат «файл пропал»", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
     const repo = await makeGitRepo(home, "projects/spa");
@@ -486,6 +486,7 @@ describe("checkBacklog", () => {
       "spa/SPA-1.md": task("SPA-1", "source: src/deleted.ts:1\n"),
       "spa/SPA-2.md": task("SPA-2", "source: src/dirty.ts:1\n"),
       "spa/SPA-3.md": task("SPA-3", "source: src/never.ts:1\n"),
+      "spa/SPA-4.md": task("SPA-4", "source: src/deleted.ts:1\nverified: 2026-09-13T10:00:00+03:00\n"),
     });
 
     const report = await check(root, home, "changed");
@@ -494,7 +495,26 @@ describe("checkBacklog", () => {
       ["source-missing", "SPA-1"],
       ["source-missing", "SPA-2"],
       ["source-missing", "SPA-3"],
+      ["source-missing", "SPA-4"],
     ]);
+  });
+
+  it("удаление коммитом с датой до отметки, влитое перемоткой после неё, — кандидат «файл пропал»", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await rm(join(repo, "src/a.ts"));
+    gitCommitAll(repo, "Удалить a", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "master");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts:1\n") });
+    gitMergeFastForward(repo, "feat", "2026-09-12T10:00:00+03:00");
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-missing", task: expect.objectContaining({ id: "SPA-1" }) })]);
   });
 
   it("файл переименован: строки задачи целы — source переезжает сам, строки изменились — кандидат «файл пропал» с новым именем", async () => {
