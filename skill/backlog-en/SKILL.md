@@ -108,13 +108,18 @@ array) — fix them together, closing each one.
    path is in the `take` output). New steps came up — add them to the checklist. Don't edit the
    frontmatter by hand.
 3. Unrelated problems found along the way — through "Log a task" with `--related <ID>`.
-4. Before closing, verify the result with the project's own commands: tests, lint, types.
-5. Everything is done, verified, and committed → `backlog close <ID> --as fixed --reason "Fixed in <sha>:
-   <what exactly>"` — the hash lets stats know who fixed it and with what. No commit yet (changes aren't
-   committed) → `backlog status <ID> done`. If the CLI warned about unchecked items — check off the ones
-   that are done; if something isn't done, the task isn't finished.
-6. Not everything is done → leave the status `in-progress`, append a section to the end of the task file
-   and tell the user what's left:
+4. Close only verified work: the project's tests, lint, and types pass, and if the change is still going
+   to be reviewed — the review is done and its findings on the task are fixed. A task closed earlier and
+   put back to work (`backlog status <ID> in-progress`) counts as reopened; when closing it again, list
+   the earlier commits in `--reason` too — the CLI names them.
+5. Commit the change and close right away: `backlog close <ID> --as fixed --reason "Fixed in <sha>: <what
+   exactly>"` — the hash is in the `git commit` output, and it lets stats know who fixed it and with what;
+   a fix spread over several commits — list them all. The user will commit later, or there will be no
+   commit at all → `backlog status <ID> done`; once the commit exists, the same `backlog close <ID> --as
+   fixed …` attaches it without reopening the task. If the CLI warned about unchecked items — check off
+   the ones that are done; if something isn't done, the task isn't finished.
+6. Not everything is done, or the change awaits review → leave the status `in-progress`, append a section
+   to the end of the task file and tell the user what's left:
    ```markdown
    ## Notes
    - <today's date>: done …; left …, because …
