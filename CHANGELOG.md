@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.0
 
 - `backlog close <ID> --as fixed --reason "Fixed in <sha>: …"` on a task closed with `status <ID> done` now attaches the
   fix commit without reopening it (exit 0 instead of 3; status and closing date stay). Statistics then count that
