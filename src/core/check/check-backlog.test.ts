@@ -382,6 +382,27 @@ describe("checkBacklog", () => {
       expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), method: "anchor" })]);
     });
 
+    it("строку вставили между строками задачи или правят край окна в две строки вокруг них — кандидат", async () => {
+      const { home, root, repo } = await anchoredRepo();
+      const before = numbered("a");
+      await writeFiles(repo, { "src/a.ts": before, "src/b.ts": numbered("b") });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      await writeFiles(root, {
+        "spa/project.md": projectFile("SPA", [repo]),
+        "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3-5\nanchor: ${anchorOf(before, "src/a.ts:3-5")}\n`),
+        "spa/SPA-2.md": task("SPA-2", `source: src/b.ts:3\nanchor: ${anchorOf(numbered("b"), "src/b.ts:3")}\n`),
+      });
+      await writeFiles(repo, { "src/a.ts": before.replace("export const a4", "export const guard = true;\nexport const a4"), "src/b.ts": numbered("b").replace("b5 = 5", "b5 = 50") });
+      gitCommitAll(repo, "Вставка и правка рядом", "2026-09-12T10:00:00+03:00");
+
+      const report = await check(root, home, "changed");
+
+      expect(report.candidates.map((candidate) => [candidate.task.id, candidate.kind === "source-changed" ? candidate.method : null])).toEqual([
+        ["SPA-1", "anchor"],
+        ["SPA-2", "anchor"],
+      ]);
+    });
+
     it("строки задачи целы, фрагмент повторяется в файле и сдвинулся — кандидата нет, source переезжает", async () => {
       const { home, root, repo, spa1 } = await anchoredRepo();
       const block = numbered("a");
