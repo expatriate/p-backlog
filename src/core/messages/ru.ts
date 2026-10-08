@@ -2,14 +2,15 @@ import { z } from "zod";
 import type { CheckFix, CheckProblem } from "../check/findings";
 import type { GraphState } from "../check/graph-health";
 import { lineSuffix, sourcePath } from "../model/source";
-import { formatDayMonth, formatDecimal } from "../i18n/format";
+import { formatDayMonth, formatDecimal, formatNumber } from "../i18n/format";
 import { countRu, NBSP, pluralRu } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
-import type { LockBusy } from "../store/file-lock";
 import type { CategoryRow, FlowForecast, Signal } from "../stats/types";
 import { forecastOutlook, forecastSpan, type SpanUnit } from "./forecast";
+import { problemList } from "./problem-list";
+import type { CoreMessages, CountUnit } from "./types";
 import { zodIssueText } from "./zod";
 
 const zodRu = z.locales.ru().localeError;
@@ -59,8 +60,6 @@ const DUPLICATE_MATCH_LABELS: Record<DuplicateMatch, string> = { source: "по �
 
 const GRAPH_STATE_LABELS: Record<GraphState, string> = { none: "нет", unreadable: "не читается", stale: "устарел", fresh: "свежий" };
 
-export type CountUnit = "task" | "line" | "project" | "day" | "week" | "session";
-
 const COUNT_FORMS: Record<CountUnit, [string, string, string]> = {
   task: ["задача", "задачи", "задач"],
   line: ["строка", "строки", "строк"],
@@ -72,21 +71,7 @@ const COUNT_FORMS: Record<CountUnit, [string, string, string]> = {
 
 const SPAN_FORMS: Record<SpanUnit, [string, string, string]> = { week: ["неделю", "недели", "недель"], day: ["день", "дня", "дней"] };
 
-function evidenceLabel(evidence: CandidateEvidence | "total"): string {
-  return EVIDENCE_LABELS[evidence];
-}
-
-function checkMethodLabel(method: CheckMethod): string {
-  return CHECK_METHOD_LABELS[method];
-}
-
-function duplicateMatchLabel(match: DuplicateMatch): string {
-  return DUPLICATE_MATCH_LABELS[match];
-}
-
-function graphStateLabel(state: GraphState): string {
-  return GRAPH_STATE_LABELS[state];
-}
+const GENITIVE_FORMS: Record<"task" | "day", [string, string, string]> = { task: ["задачи", "задач", "задач"], day: ["дня", "дней", "дней"] };
 
 function count(n: number, unit: CountUnit): string {
   const [one, few, many] = COUNT_FORMS[unit];
@@ -97,8 +82,8 @@ function span(n: number, unit: SpanUnit): string {
   return countRu(n, ...SPAN_FORMS[unit]);
 }
 
-function genitiveDays(days: number): string {
-  return `${days} ${pluralRu(days, "дня", "дней", "дней")}`;
+function genitive(n: number, unit: keyof typeof GENITIVE_FORMS): string {
+  return countRu(n, ...GENITIVE_FORMS[unit]);
 }
 
 function days(value: number | null): string {
@@ -118,7 +103,7 @@ function forecast(flow: FlowForecast): string {
     case "no-open":
       return "Открытых задач нет";
     case "clears":
-      return `Долг разберётся примерно за ${outlook.weeks}${NBSP}нед. (к ${formatDayMonth("ru", outlook.until)})`;
+      return `Долг разберётся примерно за ${formatNumber("ru", outlook.weeks)}${NBSP}нед. (к ${formatDayMonth("ru", outlook.until)})`;
     case "not-shrinking":
       return "Долг не уменьшается";
     case "grows":
@@ -136,18 +121,18 @@ function signal(s: Signal): string {
     case "debt-growing":
       return `Долг растёт ${span(s.params.weeks, "week")} подряд: создано ${s.params.created}, закрыто ${s.params.closed}`;
     case "urgent-stale":
-      return `Срочные задачи ждут дольше ${genitiveDays(s.params.days)}: ${s.params.count}`;
+      return `Срочные задачи ждут дольше ${genitive(s.params.days, "day")}: ${s.params.count}`;
     case "stuck":
       return `Застряли в работе: ${s.params.count}, дольше всех ${s.params.id} — ${days(s.params.days)}`;
     case "noisy-check": {
       const { evidence, method, percent, decided, windowDays } = s.params;
-      const name = method === null ? `«${evidenceLabel(evidence)}»` : `«${evidenceLabel(evidence)}» ${checkMethodLabel(method)}`;
+      const name = method === null ? `«${EVIDENCE_LABELS[evidence]}»` : `«${EVIDENCE_LABELS[evidence]}» ${CHECK_METHOD_LABELS[method]}`;
       return `Проверка ${name} почти всегда ошибается: точность ${percent}% на ${decided} решённых за ${span(windowDays, "day")}`;
     }
     case "low-changed":
-      return `Код менялся у ${countRu(s.params.count, "задачи", "задач", "задач")} с низким приоритетом — перепроверьте при случае («почисти беклог»)`;
+      return `Код менялся у ${genitive(s.params.count, "task")} с низким приоритетом — перепроверьте при случае («почисти беклог»)`;
     case "stale-low":
-      return `Задач с низким приоритетом старше ${genitiveDays(s.params.days)}: ${s.params.count} — разберите (backlog prune)`;
+      return `Задач с низким приоритетом старше ${genitive(s.params.days, "day")}: ${s.params.count} — разберите (backlog prune)`;
   }
 }
 
@@ -209,9 +194,7 @@ function problem(p: Problem): string {
   }
 }
 
-function problems(list: readonly Problem[]): string {
-  return [...new Set(list.map(problem))].join("; ");
-}
+const problems = problemList(problem);
 
 function epicDoneReason(ids: readonly string[]): string {
   return `все задачи эпика закрыты: ${ids.join(", ")}`;
@@ -268,22 +251,22 @@ function fixFailureCause(p: Extract<CheckProblem, { kind: "fix-failed" }>): stri
   }
 }
 
-export const coreRu = {
+export const coreRu: CoreMessages = {
   hookMark: "Беклог",
   languageName: "Русский",
   problem,
   problems,
   schemaIssue,
-  categoryLabel: (category: TaskCategory | undefined): string => (category === undefined ? NO_CATEGORY_LABEL : CATEGORY_LABELS[category]),
-  categoryRowLabel: (category: CategoryRow["category"]): string => CATEGORY_ROW_LABELS[category],
-  statusLabel: (status: TaskStatus): string => STATUS_LABELS[status],
-  priorityLabel: (priority: Priority): string => PRIORITY_LABELS[priority],
-  typeLabel: (type: TaskType): string => TYPE_LABELS[type],
-  resolutionLabel: (resolution: Resolution): string => RESOLUTION_LABELS[resolution],
-  evidenceLabel,
-  checkMethodLabel,
-  duplicateMatchLabel,
-  graphStateLabel,
+  categoryLabel: (category) => (category === undefined ? NO_CATEGORY_LABEL : CATEGORY_LABELS[category]),
+  categoryRowLabel: (category) => CATEGORY_ROW_LABELS[category],
+  statusLabel: (status) => STATUS_LABELS[status],
+  priorityLabel: (priority) => PRIORITY_LABELS[priority],
+  typeLabel: (type) => TYPE_LABELS[type],
+  resolutionLabel: (resolution) => RESOLUTION_LABELS[resolution],
+  evidenceLabel: (evidence) => EVIDENCE_LABELS[evidence],
+  checkMethodLabel: (method) => CHECK_METHOD_LABELS[method],
+  duplicateMatchLabel: (match) => DUPLICATE_MATCH_LABELS[match],
+  graphStateLabel: (state) => GRAPH_STATE_LABELS[state],
   count,
   days,
   p90,
@@ -291,16 +274,14 @@ export const coreRu = {
   forecastTail,
   signal,
   epicDoneReason,
-  fileBusy: ({ path, lock, seconds }: LockBusy): string => `${path} занят другим процессом дольше ${seconds} с (${lock})`,
+  fileBusy: ({ path, lock, seconds }) => `${path} занят другим процессом дольше ${seconds} с (${lock})`,
   checkFix,
   checkProblem,
-  runsNotTrimmed: (error: string): string => `Не удалось обрезать журнал запусков: ${error}`,
-  journalNotCompacted: (dir: string, error: string): string => `Не удалось уплотнить журнал в ${dir}: ${error}`,
-  closedNotSwept: (error: string): string => `Не удалось удалить закрытые задачи: ${error}`,
-  serviceLogNotTrimmed: (error: string): string => `Не удалось обрезать лог службы: ${error}`,
-  candidatesRecordFailed: (projectId: string, detail: string): string => `Не удалось записать кандидатов в журнал ${projectId}: ${detail}`,
-  branchOriginsReadFailed: (projectId: string, detail: string): string => `Не удалось прочитать журнал ${projectId} — задачи из невлитых веток проверяются как обычные: ${detail}`,
-  unreadableSkipped: (path: string, detail: string): string => `Не удалось прочитать ${path}, он пропущен: ${detail}`,
+  runsNotTrimmed: (error) => `Не удалось обрезать журнал запусков: ${error}`,
+  journalNotCompacted: (dir, error) => `Не удалось уплотнить журнал в ${dir}: ${error}`,
+  closedNotSwept: (error) => `Не удалось удалить закрытые задачи: ${error}`,
+  serviceLogNotTrimmed: (error) => `Не удалось обрезать лог службы: ${error}`,
+  candidatesRecordFailed: (projectId, detail) => `Не удалось записать кандидатов в журнал ${projectId}: ${detail}`,
+  branchOriginsReadFailed: (projectId, detail) => `Не удалось прочитать журнал ${projectId} — задачи из невлитых веток проверяются как обычные: ${detail}`,
+  unreadableSkipped: (path, detail) => `Не удалось прочитать ${path}, он пропущен: ${detail}`,
 };
-
-export type CoreMessages = typeof coreRu;

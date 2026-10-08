@@ -15,9 +15,11 @@ import {
 } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Priority, Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
-import type { Period } from "./period";
+import { remembered } from "../remembered";
+import type { Span } from "./period";
 
 const CREATED_STATUS: TaskStatus = "backlog";
+const VANISHED_STATUS: TaskStatus = "cancelled";
 
 export type Transition = { at: number; from?: TaskStatus | undefined; to: TaskStatus; resolution?: Recorded<Resolution> | undefined; via: Recorded<ChangeSource>; undo?: true | undefined };
 
@@ -59,13 +61,7 @@ type Known = {
 
 export function taskHistories(tasks: readonly Task[], journals: readonly ProjectJournal[], unparsedIds: ReadonlySet<string> = new Set()): TaskHistory[] {
   const known = new Map<string, Known>();
-  const entry = (id: string, projectId: string): Known => {
-    const existing = known.get(id);
-    if (existing) return existing;
-    const created: Known = { projectId, categoryEvents: [], priorityEvents: [], transitions: [], candidates: [], verifications: [], filtered: [] };
-    known.set(id, created);
-    return created;
-  };
+  const entry = (id: string, projectId: string): Known => remembered(known, id, () => ({ projectId, categoryEvents: [], priorityEvents: [], transitions: [], candidates: [], verifications: [], filtered: [] }));
   for (const task of tasks) entry(task.id, task.projectId).final = task;
   for (const { projectId, events } of journals) {
     for (const event of events) {
@@ -117,15 +113,15 @@ export function closingsOf(history: TaskHistory): Transition[] {
   return history.transitions.filter(isClosingChange);
 }
 
-export function closingsOfIn(history: TaskHistory, span: Period): Transition[] {
+export function closingsOfIn(history: TaskHistory, span: Span): Transition[] {
   return closingsOf(history).filter((closing) => span.contains(closing.at));
 }
 
-export function closingsIn(histories: readonly TaskHistory[], span: Period): Transition[] {
+export function closingsIn(histories: readonly TaskHistory[], span: Span): Transition[] {
   return histories.flatMap((history) => closingsOfIn(history, span));
 }
 
-export function createdIn(histories: readonly TaskHistory[], span: Period): TaskHistory[] {
+export function createdIn(histories: readonly TaskHistory[], span: Span): TaskHistory[] {
   return histories.filter((history) => span.contains(history.createdAt));
 }
 
@@ -141,7 +137,7 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, prio
   const createdIso = final?.created ?? created?.at;
   const type = final?.type ?? created?.type;
   if (createdIso === undefined || type === undefined) return [];
-  const ordered = withoutUndoneClosings([...transitions].sort((a, b) => a.at - b.at));
+  const ordered = withoutUndoneClosings(chronological(transitions));
   const fateUnknown = final === undefined && unparsed;
   return [
     {
@@ -151,22 +147,26 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, prio
       createdAt: Date.parse(createdIso),
       source: final?.source ?? created?.source,
       reason: final?.reason,
-      finalStatus: final?.status ?? (fateUnknown ? (ordered.at(-1)?.to ?? CREATED_STATUS) : "cancelled"),
+      finalStatus: final?.status ?? (fateUnknown ? (ordered.at(-1)?.to ?? CREATED_STATUS) : VANISHED_STATUS),
       transitions: fateUnknown ? ordered : withResolutionOf(final, [...ordered, ...restoredTransitions(final, ordered, Date.parse(createdIso))]),
-      priority: final?.priority ?? [...priorityEvents].sort((a, b) => a.at - b.at).at(-1)?.to ?? created?.priority,
+      priority: final?.priority ?? chronological(priorityEvents).at(-1)?.to ?? created?.priority,
       category: categoryOf(final, created, categoryEvents),
       found: created?.found,
       branch: created?.origin?.branch,
-      candidates: [...candidates].sort((a, b) => a.at - b.at),
+      candidates: chronological(candidates),
       verifications: [...verifications].sort((a, b) => a - b),
       filtered: [...filtered].sort((a, b) => a - b),
     },
   ];
 }
 
+function chronological<T extends { at: number }>(events: readonly T[]): T[] {
+  return [...events].sort((a, b) => a.at - b.at);
+}
+
 function categoryOf(final: Task | TaskSnapshot | undefined, created: Extract<JournalEvent, { kind: "created" }> | undefined, categoryEvents: readonly CategoryEvent[]): Recorded<TaskCategory> | undefined {
   if (final !== undefined) return final.category;
-  const lastCategoryEvent = [...categoryEvents].sort((a, b) => a.at - b.at).at(-1);
+  const lastCategoryEvent = chronological(categoryEvents).at(-1);
   return lastCategoryEvent !== undefined ? lastCategoryEvent.to : created?.category;
 }
 
@@ -180,7 +180,7 @@ function withResolutionOf(final: Task | TaskSnapshot | undefined, transitions: T
 function restoredTransitions(final: Task | TaskSnapshot | undefined, ordered: readonly Transition[], createdAt: number): Transition[] {
   const last = ordered.at(-1);
   const lastClosed = last !== undefined && isClosed(last.to);
-  if (final === undefined) return lastClosed ? [] : [{ at: last?.at ?? createdAt, to: "cancelled", via: UNKNOWN }];
+  if (final === undefined) return lastClosed ? [] : [{ at: last?.at ?? createdAt, to: VANISHED_STATUS, via: UNKNOWN }];
   if (isClosed(final.status)) {
     if (lastClosed) return [];
     const at = final.closed === undefined ? (last?.at ?? createdAt) : Date.parse(final.closed);

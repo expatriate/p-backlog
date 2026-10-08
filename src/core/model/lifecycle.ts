@@ -1,4 +1,4 @@
-import type { CoreMessages } from "../messages";
+import type { StoreMessages } from "../messages/store-messages";
 import { DAY_MS, formatLocalIso } from "./dates";
 import { buildIndex, epicChildren, isClosed, type BacklogIndex, type ClosedStatus } from "./graph";
 import type { ParseError, Resolution, Task, TaskStatus } from "./types";
@@ -79,7 +79,7 @@ export function planEpicReopening(tasks: readonly Task[]): EpicWithChildren[] {
   });
 }
 
-export function epicDoneClosure(childIds: readonly string[], messages: Pick<CoreMessages, "epicDoneReason">): Closure {
+export function epicDoneClosure(childIds: readonly string[], messages: Pick<StoreMessages, "epicDoneReason">): Closure {
   return { resolution: "epic-done", reason: messages.epicDoneReason(childIds) };
 }
 

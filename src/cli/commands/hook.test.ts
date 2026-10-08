@@ -100,9 +100,9 @@ describe("backlog hook stop", () => {
     const again = await run(["hook", "stop"], { stdin, now: new Date(2026, 8, 17, 18) });
     const nextDay = await run(["hook", "stop"], { stdin, now: new Date(2026, 8, 18, 10) });
 
-    expect(JSON.parse(first.out)).toEqual({ systemMessage: "Беклог spa: Срочные задачи ждут дольше 7 дней: 1" });
+    expect(JSON.parse(first.out)).toEqual({ systemMessage: `Беклог spa: Срочные задачи ждут дольше 7${NBSP}дней: 1` });
     expect(again.out).toBe("");
-    expect(JSON.parse(nextDay.out)).toEqual({ systemMessage: "Беклог spa: Срочные задачи ждут дольше 7 дней: 1" });
+    expect(JSON.parse(nextDay.out)).toEqual({ systemMessage: `Беклог spa: Срочные задачи ждут дольше 7${NBSP}дней: 1` });
     expect(JSON.parse(await readFile(join(root, "spa", SIGNALS_SHOWN_FILE), "utf8"))).toEqual({ "urgent-stale": "2026-09-18" });
   });
 
@@ -118,7 +118,7 @@ describe("backlog hook stop", () => {
     const result = JSON.parse((await run(["hook", "stop"], { stdin })).out) as Record<string, string>;
 
     expect(result.decision).toBe("block");
-    expect(result.systemMessage).toBe("Беклог spa: Срочные задачи ждут дольше 7 дней: 1");
+    expect(result.systemMessage).toBe(`Беклог spa: Срочные задачи ждут дольше 7${NBSP}дней: 1`);
   });
 
   it("занятая память сессии не отменяет блокировку: код 0, решение напечатано, предупреждение в stderr", async () => {

@@ -1,5 +1,5 @@
 import { Navigate, type RouteObject } from "react-router";
-import { ROUTE_PATTERNS } from "../../core/api/web-paths";
+import { ROUTE_PATTERNS, statsTabSegment } from "../../core/api/web-paths";
 import { useMessages } from "../i18n";
 import { AppLayout } from "../layout/AppLayout";
 import { TaskListPage } from "../list/TaskListPage";
@@ -8,7 +8,10 @@ import styles from "./App.module.css";
 import { useLiveUpdates } from "./live-updates";
 
 const STATS_TAB_ROUTES: RouteObject[] = [
-  ...STATS_TABS.map((tab): RouteObject => (tab.segment === "" ? { index: true, lazy: tab.load } : { path: tab.segment, lazy: tab.load })),
+  ...STATS_TABS.map((tab): RouteObject => {
+    const segment = statsTabSegment(tab.key);
+    return segment === null ? { index: true, lazy: tab.load } : { path: segment, lazy: tab.load };
+  }),
   { path: "flow", element: <Navigate to=".." relative="path" replace /> },
 ];
 

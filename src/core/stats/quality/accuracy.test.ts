@@ -54,6 +54,18 @@ describe("точность проверки", () => {
     ]);
   });
 
+  it("«Всего» складывает все строки таблицы, включая «нет source», которую график и тревога не меряют", () => {
+    const tasks = [makeTask({ id: "SPA-1", created: iso(1), status: "done", closed: iso(5), resolution: "fixed" }), makeTask({ id: "SPA-2", created: iso(1) })];
+    const events: JournalEvent[] = [
+      candidate("SPA-1", 3, "source-changed"),
+      { at: iso(5), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" },
+      candidate("SPA-2", 3, "no-source"),
+      verified("SPA-2", 4),
+    ];
+
+    expect(accuracy(taskHistories(tasks, journal(events)), period(FROM, TO)).at(-1)).toEqual({ evidence: "total", candidates: 2, closed: 1, verified: 1, open: 0, precision: 0.5 });
+  });
+
   it("кандидаты вне периода не считаются, без эпизодов — пусто", () => {
     const tasks = [makeTask({ id: "SPA-1", created: iso(1) })];
 

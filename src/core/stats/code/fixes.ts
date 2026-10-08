@@ -2,6 +2,7 @@ import { closingsOf, isFixedNow, type TaskHistory } from "../history";
 import { projectFixKey, type ProjectFixKey } from "../../code/fix-key";
 import type { FixCommit, FixRequest } from "../../code/types";
 import { retainedSince } from "../../model/history-window";
+import { groupBy } from "../../collections";
 
 const HASH_PATTERN = /(?<![\p{L}\p{N}])[0-9a-f]{7,40}(?![\p{L}\p{N}])/gu;
 
@@ -10,13 +11,10 @@ export function reasonHashes(reason: string | undefined): string[] {
 }
 
 export function fixRequests(histories: readonly TaskHistory[], now: Date): FixRequest[] {
-  const byProject = new Map<string, Set<string>>();
-  for (const history of retainedFixes(histories, now)) {
-    const hashes = byProject.get(history.projectId) ?? new Set<string>();
-    for (const hash of reasonHashes(history.reason)) hashes.add(hash);
-    byProject.set(history.projectId, hashes);
-  }
-  return [...byProject.entries()].filter(([, hashes]) => hashes.size > 0).map(([projectId, hashes]) => ({ projectId, hashes: [...hashes] }));
+  return [...groupBy(retainedFixes(histories, now), (history) => history.projectId).entries()].flatMap(([projectId, fixes]) => {
+    const hashes = [...new Set(fixes.flatMap((history) => reasonHashes(history.reason)))];
+    return hashes.length === 0 ? [] : [{ projectId, hashes }];
+  });
 }
 
 export type FixCommitEntry = { key: ProjectFixKey; commit: FixCommit };

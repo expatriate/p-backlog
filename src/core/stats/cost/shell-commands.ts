@@ -1,6 +1,3 @@
-const SEPARATORS = ["&&", "||", ";", "|", "&", "\n", "`"];
-const HEREDOC_START = /^<<-?\s*(?<quote>['"]?)(?<delimiter>[^\s'"<>;&|()]+)\k<quote>/;
-const HERE_STRING = "<<<";
 const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const DURATION = /^\d+(\.\d+)?[smhd]?$/;
 const WINDOWS_EXECUTABLE = /\.(cmd|exe|ps1)$/i;
@@ -21,23 +18,6 @@ const COMMAND_LOOKUP_OPTIONS = ["-v", "-V"];
 const PACKAGE_RUNNERS = new Set(["npx", "bunx", "pnpx"]);
 const RUNNER_SUBCOMMANDS: Readonly<Record<string, readonly string[]>> = { pnpm: ["dlx", "exec"], yarn: ["dlx", "exec"], npm: ["exec", "x"], bun: ["x"] };
 const BIN_RUNNERS = new Set(["yarn"]);
-const ARITHMETIC_START = "$((";
-const ARITHMETIC_END = "))";
-const COMMAND_SUBSTITUTION = "$(";
-const UNQUOTED_STEPS: readonly Step[] = [
-  skipSingleQuoted,
-  openDoubleQuotes,
-  takeEscaped,
-  skipArithmetic,
-  skipComment,
-  takeHereString,
-  startHeredoc,
-  skipHeredocBodies,
-  openSubstitution,
-  openSubshell,
-  closeGroup,
-  splitAtSeparator,
-];
 
 export function invokesBacklog(script: string): boolean {
   return simpleCommands(script).some((command) => {
@@ -96,6 +76,13 @@ function runsBacklogPackage(args: readonly string[]): boolean {
   return false;
 }
 
+const SEPARATORS = ["&&", "||", ";", "|", "&", "\n", "`"];
+const HEREDOC_START = /^<<-?\s*(?<quote>['"]?)(?<delimiter>[^\s'"<>;&|()]+)\k<quote>/;
+const HERE_STRING = "<<<";
+const ARITHMETIC_START = "$((";
+const ARITHMETIC_END = "))";
+const COMMAND_SUBSTITUTION = "$(";
+
 type Context = { kind: "double" } | { kind: "group"; outer: string };
 
 type Scan = { script: string; position: number; current: string; commands: string[]; contexts: Context[]; pendingHeredocs: string[] };
@@ -126,6 +113,21 @@ function stepUnquoted(scan: Scan): void {
   scan.current += scan.script.charAt(scan.position);
   scan.position++;
 }
+
+const UNQUOTED_STEPS: readonly Step[] = [
+  skipSingleQuoted,
+  openDoubleQuotes,
+  takeEscaped,
+  skipArithmetic,
+  skipComment,
+  takeHereString,
+  startHeredoc,
+  skipHeredocBodies,
+  openSubstitution,
+  openSubshell,
+  closeGroup,
+  splitAtSeparator,
+];
 
 function finishCommand(scan: Scan): void {
   scan.commands.push(scan.current.trim());

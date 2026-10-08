@@ -48,7 +48,7 @@ export function createStatsEn(constants: StatsConstants): StatsMessages {
     folders: "Folders",
     projects: "Projects",
 
-    periodWindows: { weeks: statsPeriod, days: dayCount(constants.statsDays), lastWeek: dayCount(constants.costTotalsDays), costDays: dayCount(constants.costReportDays), churn: churnPeriod },
+    periodWindows: { weeks: statsPeriod, days: dayCount(constants.statsDays), lastWeek: dayCount(constants.costTotalsDays), churn: churnPeriod },
     periodCaption: (window, range) => `${window} · ${range}`,
     periodNow: "now",
     chartLabel: (name, step) => `${name}. Left and right arrows move by ${CHART_STEPS[step]}`,

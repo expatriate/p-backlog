@@ -1,3 +1,4 @@
+import { isoDatePart } from "../model/dates";
 import { roundToTenth } from "../numbers";
 import { localeOf, type Language } from "./language";
 
@@ -24,7 +25,7 @@ export function formatDayRange(language: Language, from: string, to: string): st
 }
 
 export function startOfLocalDay(iso: string): Date {
-  return new Date(`${iso.slice(0, 10)}T00:00:00`);
+  return new Date(`${isoDatePart(iso)}T00:00:00`);
 }
 
 export function formatDateTime(language: Language, iso: string): string {

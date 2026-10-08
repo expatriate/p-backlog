@@ -2,6 +2,7 @@ import type { Recorded } from "../../journal/events";
 import type { Task, TaskCategory } from "../../model/types";
 import { closingsOfIn, createdIn, type TaskHistory } from "../history";
 import type { Period } from "../period";
+import { remembered } from "../../remembered";
 import { PRIORITY_WEIGHT } from "../weights";
 import type { CategoryRow } from "../types";
 
@@ -9,11 +10,7 @@ export function categoryBreakdown(openTasks: readonly Task[], histories: readonl
   const rows = new Map<CategoryRow["category"], CategoryRow>();
   const row = (category: Recorded<TaskCategory> | undefined): CategoryRow => {
     const key = category ?? "unset";
-    const existing = rows.get(key);
-    if (existing !== undefined) return existing;
-    const created: CategoryRow = { category: key, open: 0, weight: 0, created: 0, closed: 0 };
-    rows.set(key, created);
-    return created;
+    return remembered(rows, key, () => ({ category: key, open: 0, weight: 0, created: 0, closed: 0 }));
   };
   for (const task of openTasks) {
     const target = row(task.category);

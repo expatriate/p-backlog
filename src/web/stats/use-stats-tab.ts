@@ -1,10 +1,10 @@
 import { matchPath, useLocation, useNavigation } from "react-router";
-import { ROUTE_PATTERNS } from "../../core/api/web-paths";
+import { ROUTE_PATTERNS, statsTabRoute } from "../../core/api/web-paths";
 import { STATS_TABS, type StatsTab } from "./stats-tabs";
 
 type StatsRoute = { tab: StatsTab; projectId: string | undefined };
 
-const STATS_TAB_PATTERNS = STATS_TABS.flatMap((tab) => [ROUTE_PATTERNS.stats, ROUTE_PATTERNS.projectStats].map((root) => ({ tab, path: tab.segment === "" ? root : `${root}/${tab.segment}` })));
+const STATS_TAB_PATTERNS = STATS_TABS.flatMap((tab) => [ROUTE_PATTERNS.stats, ROUTE_PATTERNS.projectStats].map((root) => ({ tab, path: statsTabRoute(root, tab.key) })));
 
 export function useStatsTab(): StatsTab | undefined {
   return statsRouteAt(useLocation().pathname)?.tab;

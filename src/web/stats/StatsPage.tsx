@@ -19,12 +19,11 @@ export function StatsPage() {
   const { app, core, stats } = useMessages();
   const scopeName = projectId === undefined ? stats.projects : projectNameOf(projects.data, projectId);
   const heading = stats.heading(scopeName);
-  const tabPath = (segment: string) => statsTabPath(segment, projectId);
   const active = useStatsTab() ?? STATS_TABS[0];
   const pending = usePendingStatsTab(projectId);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
-  const docTitle = stats.docTitle(active.segment === "" ? heading : `${stats.tabs[active.key]} · ${heading}`);
+  const docTitle = stats.docTitle(active.key === "overview" ? heading : `${stats.tabs[active.key]} · ${heading}`);
 
   useDocumentTitle(docTitle);
 
@@ -48,7 +47,12 @@ export function StatsPage() {
       )}
       <nav className={styles.tabs} aria-label={stats.tabsLabel}>
         {STATS_TABS.map((tab) => (
-          <Link key={tab.key} to={tabPath(tab.segment)} className={cx(styles.tab, tab === active && styles.tabActive, tab === pending && styles.tabPending)} aria-current={tab === active ? "page" : undefined}>
+          <Link
+            key={tab.key}
+            to={statsTabPath(tab.key, projectId)}
+            className={cx(styles.tab, tab === active && styles.tabActive, tab === pending && styles.tabPending)}
+            aria-current={tab === active ? "page" : undefined}
+          >
             {stats.tabs[tab.key]}
           </Link>
         ))}

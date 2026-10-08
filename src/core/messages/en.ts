@@ -2,14 +2,15 @@ import { z } from "zod";
 import type { CheckFix, CheckProblem } from "../check/findings";
 import type { GraphState } from "../check/graph-health";
 import { lineSuffix, sourcePath } from "../model/source";
-import { formatDayMonth, formatDecimal } from "../i18n/format";
+import { formatDayMonth, formatDecimal, formatNumber } from "../i18n/format";
 import { countEn, pluralEn } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
 import type { CategoryRow, FlowForecast, Signal } from "../stats/types";
-import type { CoreMessages, CountUnit } from "./ru";
 import { forecastOutlook, forecastSpan } from "./forecast";
+import { problemList } from "./problem-list";
+import type { CoreMessages, CountUnit } from "./types";
 import { zodIssueText } from "./zod";
 
 const zodEn = z.locales.en().localeError;
@@ -68,22 +69,6 @@ const COUNT_FORMS: Record<CountUnit, [string, string]> = {
   session: ["session", "sessions"],
 };
 
-function evidenceLabel(evidence: CandidateEvidence | "total"): string {
-  return EVIDENCE_LABELS[evidence];
-}
-
-function checkMethodLabel(method: CheckMethod): string {
-  return CHECK_METHOD_LABELS[method];
-}
-
-function duplicateMatchLabel(match: DuplicateMatch): string {
-  return DUPLICATE_MATCH_LABELS[match];
-}
-
-function graphStateLabel(state: GraphState): string {
-  return GRAPH_STATE_LABELS[state];
-}
-
 function count(n: number, unit: CountUnit): string {
   const [one, other] = COUNT_FORMS[unit];
   return countEn(n, one, other);
@@ -106,7 +91,7 @@ function forecast(flow: FlowForecast): string {
     case "no-open":
       return "No open tasks";
     case "clears":
-      return `Debt clears in about ${outlook.weeks} wk. (by ${formatDayMonth("en", outlook.until)})`;
+      return `Debt clears in about ${formatNumber("en", outlook.weeks)} wk. (by ${formatDayMonth("en", outlook.until)})`;
     case "not-shrinking":
       return "Debt is not shrinking";
     case "grows":
@@ -129,7 +114,7 @@ function signal(s: Signal): string {
       return `Stuck in progress: ${s.params.count}, longest ${s.params.id} — ${days(s.params.days)}`;
     case "noisy-check": {
       const { evidence, method, percent, decided, windowDays } = s.params;
-      const name = method === null ? `"${evidenceLabel(evidence)}"` : `"${evidenceLabel(evidence)}" ${checkMethodLabel(method)}`;
+      const name = method === null ? `"${EVIDENCE_LABELS[evidence]}"` : `"${EVIDENCE_LABELS[evidence]}" ${CHECK_METHOD_LABELS[method]}`;
       return `Check ${name} is almost always wrong: precision ${percent}% on ${decided} decided over ${count(windowDays, "day")}`;
     }
     case "low-changed":
@@ -197,9 +182,7 @@ function problem(p: Problem): string {
   }
 }
 
-function problems(list: readonly Problem[]): string {
-  return [...new Set(list.map(problem))].join("; ");
-}
+const problems = problemList(problem);
 
 function epicDoneReason(ids: readonly string[]): string {
   return `all tasks of the epic are closed: ${ids.join(", ")}`;
@@ -266,10 +249,10 @@ export const coreEn: CoreMessages = {
   priorityLabel: (priority) => PRIORITY_LABELS[priority],
   typeLabel: (type) => TYPE_LABELS[type],
   resolutionLabel: (resolution) => RESOLUTION_LABELS[resolution],
-  evidenceLabel,
-  checkMethodLabel,
-  duplicateMatchLabel,
-  graphStateLabel,
+  evidenceLabel: (evidence) => EVIDENCE_LABELS[evidence],
+  checkMethodLabel: (method) => CHECK_METHOD_LABELS[method],
+  duplicateMatchLabel: (match) => DUPLICATE_MATCH_LABELS[match],
+  graphStateLabel: (state) => GRAPH_STATE_LABELS[state],
   count,
   days,
   p90,

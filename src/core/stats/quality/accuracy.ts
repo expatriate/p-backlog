@@ -2,11 +2,13 @@ import { CANDIDATE_EVIDENCE, RECORDED_MATCHES, RECORDED_METHODS, type CandidateE
 import { closingsOf, type CandidateSeen, type TaskHistory } from "../history";
 import { formatLocalIso } from "../../model/dates";
 import { dayWindows } from "../days";
-import type { Period } from "../period";
+import type { Period, Span } from "../period";
 import { weekWindows } from "../weeks";
 import type { AccuracyPeriod, AccuracyRow, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts } from "../types";
 
 export const METHOD_EVIDENCE: MethodAccuracyRow["evidence"] = "source-changed";
+
+const MATCH_EVIDENCE: MatchAccuracyRow["evidence"] = "duplicate";
 
 type Outcome = "closed" | "verified" | "open";
 type Episode = { candidate: CandidateSeen; outcome: Outcome };
@@ -19,8 +21,8 @@ export function decidedOf(counts: Pick<OutcomeCounts, "closed" | "verified">): n
   return counts.closed + counts.verified;
 }
 
-export function accuracy(histories: readonly TaskHistory[], period: Period): AccuracyRow[] {
-  const episodes = episodesOf(histories, (candidate) => period.contains(candidate.at));
+export function accuracy(histories: readonly TaskHistory[], span: Span): AccuracyRow[] {
+  const episodes = episodesOf(histories, (candidate) => span.contains(candidate.at));
   if (episodes.length === 0) return [];
   const byEvidence = countsPerKey(episodes, CANDIDATE_EVIDENCE, (candidate) => candidate.evidence).map(([evidence, counts]) => ({ evidence, ...counts }));
   return [...byEvidence, { evidence: "total", ...outcomeCounts(episodes) }];
@@ -41,20 +43,19 @@ export function accuracyDays(histories: readonly TaskHistory[], now: Date): Accu
   return accuracyOver(dayWindows(now), histories);
 }
 
-export function methodAccuracy(histories: readonly TaskHistory[], period: Period): MethodAccuracyRow[] {
-  const rows = splitAccuracy(histories, period, { evidence: METHOD_EVIDENCE, keys: RECORDED_METHODS, keyOf: (candidate) => candidate.method });
-  return rows.map((row) => ({ evidence: METHOD_EVIDENCE, ...row }));
+export function methodAccuracy(histories: readonly TaskHistory[], span: Span): MethodAccuracyRow[] {
+  return splitAccuracy(histories, span, { evidence: METHOD_EVIDENCE, keys: RECORDED_METHODS, keyOf: (candidate) => candidate.method });
 }
 
-export function matchAccuracy(histories: readonly TaskHistory[], period: Period): MatchAccuracyRow[] {
-  return splitAccuracy(histories, period, { evidence: "duplicate", keys: RECORDED_MATCHES, keyOf: (candidate) => candidate.match });
+export function matchAccuracy(histories: readonly TaskHistory[], span: Span): MatchAccuracyRow[] {
+  return splitAccuracy(histories, span, { evidence: MATCH_EVIDENCE, keys: RECORDED_MATCHES, keyOf: (candidate) => candidate.match });
 }
 
-type AccuracySplit<K extends string> = { evidence: CandidateEvidence; keys: readonly K[]; keyOf: (candidate: CandidateSeen) => K };
+type AccuracySplit<E extends CandidateEvidence, K extends string> = { evidence: E; keys: readonly K[]; keyOf: (candidate: CandidateSeen) => K };
 
-function splitAccuracy<K extends string>(histories: readonly TaskHistory[], period: Period, { evidence, keys, keyOf }: AccuracySplit<K>): ({ by: K } & OutcomeCounts)[] {
-  const episodes = episodesOf(histories, (candidate) => candidate.evidence === evidence && period.contains(candidate.at));
-  return countsPerKey(episodes, keys, keyOf).map(([by, counts]) => ({ by, ...counts }));
+function splitAccuracy<E extends CandidateEvidence, K extends string>(histories: readonly TaskHistory[], span: Span, { evidence, keys, keyOf }: AccuracySplit<E, K>): ({ evidence: E; by: K } & OutcomeCounts)[] {
+  const episodes = episodesOf(histories, (candidate) => candidate.evidence === evidence && span.contains(candidate.at));
+  return countsPerKey(episodes, keys, keyOf).map(([by, counts]) => ({ evidence, by, ...counts }));
 }
 
 function episodesOf(histories: readonly TaskHistory[], include: (candidate: CandidateSeen) => boolean): Episode[] {

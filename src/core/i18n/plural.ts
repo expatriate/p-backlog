@@ -1,13 +1,18 @@
 import { formatNumber } from "./format";
+import { localeOf } from "./language";
+
+const RU_PLURAL_RULES = new Intl.PluralRules(localeOf("ru"));
 
 export function pluralRu(n: number, one: string, few: string, many: string): string {
   if (!Number.isInteger(n)) return few;
-  const abs = Math.abs(n);
-  const lastTwo = abs % 100;
-  if (lastTwo >= 11 && lastTwo <= 14) return many;
-  const last = abs % 10;
-  if (last === 1) return one;
-  return last >= 2 && last <= 4 ? few : many;
+  switch (RU_PLURAL_RULES.select(n)) {
+    case "one":
+      return one;
+    case "many":
+      return many;
+    default:
+      return few;
+  }
 }
 
 export function pluralEn(n: number, one: string, other: string): string {

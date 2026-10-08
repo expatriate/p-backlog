@@ -28,7 +28,7 @@ export function ModelsPanel({ models, period }: { models: CostModel[]; period: R
   const language = useLanguage();
   const caption = usePeriodCaption();
   return (
-    <Panel title={stats.byModel} period={caption.of("costDays", period)}>
+    <Panel title={stats.byModel} period={caption.of("days", period)}>
       {models.length === 0 ? (
         <p className={rowStyles.muted}>{stats.noModels}</p>
       ) : (
@@ -50,7 +50,7 @@ export function CommandsPanel({ commands, period }: { commands: CostCommand[]; p
   const language = useLanguage();
   const caption = usePeriodCaption();
   return (
-    <Panel title={stats.commandsTitle} period={caption.of("costDays", period)}>
+    <Panel title={stats.commandsTitle} period={caption.of("days", period)}>
       {commands.length === 0 ? (
         <p className={rowStyles.muted}>{stats.noCommands}</p>
       ) : (

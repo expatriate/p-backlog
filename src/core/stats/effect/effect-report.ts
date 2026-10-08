@@ -8,7 +8,7 @@ import { median, smallest, sum } from "../../numbers";
 import { countBy } from "../../collections";
 import { period, type Period } from "../period";
 import { grainPeriods } from "../report-periods";
-import { reportContext, type ReportContext } from "../scope";
+import { inProjectScope, type ReportContext } from "../scope";
 import type { CollectedCode, CommitUnit, ProjectCode } from "../../code/types";
 import type { EffectProject, EffectReport, EffectTotals, EffectPeriod } from "../types";
 import { dayWindows } from "../days";
@@ -23,57 +23,54 @@ type FixSize = { lines: number; testLines: number };
 type FixSample = FixSize & { category: Recorded<TaskCategory> | undefined };
 type Estimate = (category: Recorded<TaskCategory> | undefined) => FixSize | null;
 
-export function effectReport(
-  context: ReportContext,
-  code: CollectedCode,
-  wholeBacklog: ReportContext = context.input.projectId === undefined ? context : reportContext({ ...context.input, projectId: undefined }),
-): EffectReport {
+export function effectReport(context: ReportContext, code: CollectedCode, wholeBacklog: ReportContext): EffectReport {
   const {
     input: { now, projectId },
     histories,
   } = context;
   const statsWindow = statsPeriod(now);
-  const projects = code.projects.filter((project) => project.repos.length > 0 && (projectId === undefined || project.projectId === projectId));
+  const projects = inProjectScope(code.projects, projectId, (project) => project.projectId).filter((project) => project.repos.length > 0);
   const deferredByAgent = createdIn(histories, statsWindow).filter((history) => history.found === "incidental");
   const deferred = buildDeferred(deferredByAgent, retainedFixes(histories, now), code);
   const estimate = estimator(estimateSamples(retainedFixes(wholeBacklog.histories, now), code));
-  const adoptionStart = (id: string) => {
-    const firstCreated = smallest(histories.filter((history) => history.projectId === id).map((history) => history.createdAt));
-    return firstCreated === null ? statsWindow.from : Math.max(statsWindow.from, firstCreated);
-  };
-  const unitsOf = (project: ProjectCode) => project.repos.flatMap((repo) => repo.units);
-  const unitsForTotals = (id?: string) =>
-    projects
-      .filter((project) => id === undefined || project.projectId === id)
-      .flatMap((project) => {
-        const adopted = period(adoptionStart(project.projectId), statsWindow.to);
-        return unitsOf(project).filter((unit) => adopted.contains(Date.parse(unit.date)));
-      });
+  const adopted = projects.map((project) => ({ project, units: unitsSinceAdoption(project, histories, statsWindow) }));
   const periodUnits = projects.flatMap(unitsOf).filter((unit) => statsWindow.contains(Date.parse(unit.date)));
   return {
     ...context.head,
     periods: grainPeriods(now),
     unavailableRepos: code.unavailableRepos,
-    totals: totalsOf(deferred, unitsForTotals(), estimate),
+    totals: totalsOf(
+      deferred,
+      adopted.flatMap(({ units }) => units),
+      estimate,
+    ),
     weeks: bucketsOf(weekWindows(now), deferred, periodUnits, estimate),
     days: bucketsOf(dayWindows(now), deferred, periodUnits, estimate),
-    projects: projects.map((project): EffectProject => {
-      const own = totalsOf(
-        deferred.filter((item) => item.history.projectId === project.projectId),
-        unitsForTotals(project.projectId),
-        estimate,
-      );
-      return {
-        projectId: project.projectId,
-        name: project.name,
-        realLines: own.realLines,
-        deferredTasks: own.deferredTasks,
-        fixedLines: own.fixedLines,
-        estimatedLines: own.estimatedLines,
-        noiseShare: own.noiseShare,
-      };
-    }),
+    projects: adopted.map(({ project, units }) =>
+      projectEffect(
+        project,
+        totalsOf(
+          deferred.filter((item) => item.history.projectId === project.projectId),
+          units,
+          estimate,
+        ),
+      ),
+    ),
   };
+}
+
+function unitsOf(project: ProjectCode): CommitUnit[] {
+  return project.repos.flatMap((repo) => repo.units);
+}
+
+function unitsSinceAdoption(project: ProjectCode, histories: readonly TaskHistory[], statsWindow: Period): CommitUnit[] {
+  const firstCreated = smallest(histories.filter((history) => history.projectId === project.projectId).map((history) => history.createdAt));
+  const adopted = period(firstCreated === null ? statsWindow.from : Math.max(statsWindow.from, firstCreated), statsWindow.to);
+  return unitsOf(project).filter((unit) => adopted.contains(Date.parse(unit.date)));
+}
+
+function projectEffect({ projectId, name }: ProjectCode, { realLines, deferredTasks, fixedLines, estimatedLines, noiseShare }: EffectTotals): EffectProject {
+  return { projectId, name, realLines, deferredTasks, fixedLines, estimatedLines, noiseShare };
 }
 
 function fixEntryOf(history: TaskHistory, code: CollectedCode): FixCommitEntry | undefined {

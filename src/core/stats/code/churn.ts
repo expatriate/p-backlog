@@ -1,7 +1,8 @@
 import type { Task } from "../../model/types";
 import { folderOf } from "../folders";
 import type { ProjectLabel } from "../format";
-import { countBy } from "../../collections";
+import { countBy, groupBy } from "../../collections";
+import { sum } from "../../numbers";
 import { PRIORITY_WEIGHT } from "../weights";
 import type { ProjectCode } from "../../code/types";
 import type { ChurnRow } from "../types";
@@ -12,8 +13,7 @@ export function churn(openTasks: readonly Task[], projects: readonly ProjectCode
   return projects
     .flatMap((project) => {
       const commits = folderCommits(project);
-      const debt = folderDebt(openTasks.filter((task) => task.projectId === project.projectId));
-      return [...debt.entries()].map(([folder, { tasks, weight }]) => {
+      return folderDebt(openTasks.filter((task) => task.projectId === project.projectId)).map(({ folder, tasks, weight }) => {
         const folderChanges = commits.get(folder) ?? 0;
         return { label: projectLabel(project.projectId, folder), commits: folderChanges, tasks, weight, score: folderChanges * weight };
       });
@@ -28,13 +28,7 @@ function folderCommits(project: ProjectCode): Map<string, number> {
   return countBy(touched, (folder) => folder);
 }
 
-function folderDebt(tasks: readonly Task[]): Map<string, { tasks: number; weight: number }> {
-  const debt = new Map<string, { tasks: number; weight: number }>();
-  for (const task of tasks) {
-    if (task.source === undefined) continue;
-    const folder = folderOf(task.source);
-    const current = debt.get(folder) ?? { tasks: 0, weight: 0 };
-    debt.set(folder, { tasks: current.tasks + 1, weight: current.weight + PRIORITY_WEIGHT[task.priority] });
-  }
-  return debt;
+function folderDebt(tasks: readonly Task[]): { folder: string; tasks: number; weight: number }[] {
+  const sourced = tasks.flatMap((task) => (task.source === undefined ? [] : [{ folder: folderOf(task.source), weight: PRIORITY_WEIGHT[task.priority] }]));
+  return [...groupBy(sourced, ({ folder }) => folder).entries()].map(([folder, own]) => ({ folder, tasks: own.length, weight: sum(own.map(({ weight }) => weight)) }));
 }

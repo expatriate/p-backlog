@@ -1,6 +1,6 @@
 import { CHURN_DAYS } from "../../code/code-window";
 import { lastDays } from "../report-periods";
-import type { ReportContext } from "../scope";
+import { inProjectScope, type ReportContext } from "../scope";
 import type { ScannedCode } from "../../code/types";
 import type { CodeReport } from "../types";
 import { churn } from "./churn";
@@ -12,7 +12,7 @@ export function codeReport(context: ReportContext, code: ScannedCode): CodeRepor
     input: { now, projectId },
     openTasks,
   } = context;
-  const projects = code.projects.filter((project) => projectId === undefined || project.projectId === projectId);
+  const projects = inProjectScope(code.projects, projectId, (project) => project.projectId);
   return {
     ...context.head,
     periods: { churn: lastDays(now, CHURN_DAYS) },

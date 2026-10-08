@@ -8,6 +8,7 @@ import type { CodeDensity, DensityRow, FolderDensity, ProjectDensity } from "../
 const FOLDER_LIMIT = 8;
 const MIN_FOLDER_LINES = 500;
 const LINES_PER_UNIT = 1000;
+const UNMEASURED_PER_KLOC = -1;
 
 export function density(openTasks: readonly Task[], projects: readonly ProjectCode[], projectId: string | undefined): CodeDensity {
   const projectRows = projects
@@ -17,7 +18,7 @@ export function density(openTasks: readonly Task[], projects: readonly ProjectCo
       return { projectId: project.projectId, name: project.name, ...densityRow(lines, openTasks.filter((task) => task.projectId === project.projectId).length) };
     })
     .sort((a, b) => byDensity(a, b) || a.projectId.localeCompare(b.projectId));
-  const scoped = projectId === undefined ? undefined : projects.find((project) => project.projectId === projectId);
+  const scoped = projects.find((project) => project.projectId === projectId);
   return { projects: projectRows, folders: scoped === undefined ? [] : folderRows(scoped, openTasks) };
 }
 
@@ -43,5 +44,5 @@ function densityRow(lines: number, open: number): DensityRow {
 }
 
 function byDensity(a: DensityRow, b: DensityRow): number {
-  return (b.perKloc ?? -1) - (a.perKloc ?? -1);
+  return (b.perKloc ?? UNMEASURED_PER_KLOC) - (a.perKloc ?? UNMEASURED_PER_KLOC);
 }

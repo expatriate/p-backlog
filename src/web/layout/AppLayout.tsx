@@ -19,7 +19,7 @@ export function AppLayout() {
   const signalCount = signals.data?.signals.length ?? 0;
   const statsTab = useStatsTab();
   const onStats = statsTab !== undefined;
-  const scopePath = (id?: string) => (onStats ? statsTabPath(statsTab.segment, id) : listPath(id));
+  const scopePath = (id?: string) => (onStats ? statsTabPath(statsTab.key, id) : listPath(id));
 
   return (
     <div className={styles.shell}>

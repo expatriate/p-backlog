@@ -20,7 +20,7 @@ import { projectGraphHealth } from "../core/check/graph-health";
 import { warnPathErrors, type PathErrorHandler } from "../core/errors";
 import type { Project, Task } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
-import { parseWithLocale } from "../core/model/zod-issues";
+import { parseSchema } from "../core/model/zod-issues";
 import { applyBatch, type CoreBatchOutcome } from "../core/store/batch";
 import { writeSettings } from "../core/store/settings";
 import { deleteProject, setProjectActive } from "../core/store/projects";
@@ -171,8 +171,10 @@ type ParsedBody<T> = { ok: true; data: T; language: Language } | { ok: false; re
 async function readBody<T>(c: Context, schema: ZodType<T>, readLanguage: () => Promise<Language>): Promise<ParsedBody<T>> {
   const [body, language] = await Promise.all([readJson(c), readLanguage()]);
   if (body.ok === false) return { ok: false, response: errorResponse(c, 400, serverMessages(language).bodyNotParsed) };
-  const parsed = parseWithLocale(schema, body.value, language);
-  return parsed.ok ? { ok: true, data: parsed.value, language } : { ok: false, response: errorResponse(c, 422, ...parsed.errors) };
+  const parsed = parseSchema(schema, body.value);
+  if (parsed.ok) return { ok: true, data: parsed.value, language };
+  const { schemaIssue } = coreMessages(language);
+  return { ok: false, response: errorResponse(c, 422, ...new Set(parsed.problems.map(({ issue }) => schemaIssue(issue)))) };
 }
 
 async function readJson(c: Context): Promise<{ ok: true; value: unknown } | { ok: false }> {

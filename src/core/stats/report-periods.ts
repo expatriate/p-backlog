@@ -4,7 +4,7 @@ import { period, type Period } from "./period";
 import type { GrainPeriods, ReportPeriod } from "./types";
 import { statsPeriod } from "./weeks";
 
-export function reportPeriod(span: Period): ReportPeriod {
+function reportPeriod(span: Period): ReportPeriod {
   return { from: formatLocalIso(new Date(span.from)), to: formatLocalIso(new Date(span.to)) };
 }
 

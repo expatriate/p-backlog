@@ -60,7 +60,6 @@ export function createStatsRu(constants: StatsConstants) {
       weeks: countRu(constants.statsWeeks, "неделя", "недели", "недель"),
       days: dayCount(constants.statsDays),
       lastWeek: dayCount(constants.costTotalsDays),
-      costDays: dayCount(constants.costReportDays),
       churn: churnPeriod,
     },
     periodCaption: (window: string, range: string): string => `${window} · ${range}`,

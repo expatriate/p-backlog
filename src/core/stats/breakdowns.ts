@@ -6,11 +6,10 @@ import { folderOf } from "./folders";
 import type { ProjectLabel } from "./format";
 import { countBy } from "../collections";
 import type { Period } from "./period";
-import { daysBetween, DAYS_PER_WEEK } from "../model/dates";
+import { daysBetween, DAYS_PER_MONTH, DAYS_PER_WEEK } from "../model/dates";
 
 const HOTSPOT_LIMIT = 8;
 export const STALE_URGENT_DAYS = 7;
-const DAYS_PER_MONTH = 30;
 const DAYS_PER_QUARTER = 90;
 const AGE_LIMITS: readonly { bucket: AgeBucket; belowDays: number }[] = [
   { bucket: "week", belowDays: DAYS_PER_WEEK },

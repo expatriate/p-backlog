@@ -2,14 +2,19 @@ import { compareIds } from "../../model/ids";
 import type { Task, TaskStatus } from "../../model/types";
 import type { TaskHistory } from "../history";
 import { daysBetween } from "../../model/dates";
-import type { LongestInWork, WorkStatus } from "../types";
 
-export function inWorkTasks(tasks: readonly Task[], histories: readonly TaskHistory[], now: Date): LongestInWork[] {
+const WORK_STATUSES = ["in-progress", "blocked"] as const satisfies readonly TaskStatus[];
+
+export type WorkStatus = (typeof WORK_STATUSES)[number];
+
+type TaskInWork = { id: string; status: WorkStatus; days: number };
+
+export function inWorkTasks(tasks: readonly Task[], histories: readonly TaskHistory[], now: Date): TaskInWork[] {
   const nowMs = now.getTime();
   const historyById = new Map(histories.map((history) => [history.id, history]));
   return tasks
     .flatMap((task) => (isWorkStatus(task.status) ? [{ task, status: task.status }] : []))
-    .map(({ task, status }): LongestInWork => {
+    .map(({ task, status }): TaskInWork => {
       const entered = historyById
         .get(task.id)
         ?.transitions.filter((transition) => transition.to === status && transition.at <= nowMs)
@@ -24,5 +29,5 @@ export function inWorkTasks(tasks: readonly Task[], histories: readonly TaskHist
 }
 
 function isWorkStatus(status: TaskStatus): status is WorkStatus {
-  return status === "in-progress" || status === "blocked";
+  return WORK_STATUSES.some((workStatus) => workStatus === status);
 }

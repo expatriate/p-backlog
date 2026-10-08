@@ -6,15 +6,14 @@ import type { UsageBucket } from "./usage-state";
 import { HOOK_STOP_COMMAND } from "../../hook-signature";
 import { SERVE_COMMAND_NAME } from "../../serve-command";
 import { costOf, splitFastModel } from "./pricing";
-import { dayWindows } from "../days";
+import { dayWindows, STATS_DAYS } from "../days";
 import { statsPeriod, weekWindows } from "../weeks";
 import type { Period } from "../period";
 import { smallest, sum } from "../../numbers";
 import { groupBy } from "../../collections";
-import { lastDays, lastDaysSpan, reportPeriod } from "../report-periods";
+import { grainPeriods, lastDays, lastDaysSpan } from "../report-periods";
 import { remembered } from "../../remembered";
-
-export const COST_REPORT_DAYS = 30;
+import { inProjectScope } from "../scope";
 
 export const COST_TOTALS_DAYS = 7;
 
@@ -32,21 +31,25 @@ type UsageInSpan = { buckets: UsageBucket[]; runs: CliRun[] };
 type Timed<T> = { item: T; at: number };
 
 export function costReport({ buckets, runs, projectOf, projectId, now, scan }: CostInput): CostReport {
-  const projectOfCwd = new Map<string, string | null>();
-  const inScope = (cwd: string) => projectId === undefined || remembered(projectOfCwd, cwd, () => projectOf(cwd)) === projectId;
-  const scopedBuckets = buckets.filter((bucket) => inScope(bucket.cwd));
-  const scopedRuns = runs.filter((run) => run.command !== SERVE_COMMAND_NAME && inScope(run.cwd));
+  const projectByCwd = new Map<string, string | null>();
+  const projectOfCwd = (cwd: string) => remembered(projectByCwd, cwd, () => projectOf(cwd));
+  const scopedBuckets = inProjectScope(buckets, projectId, (bucket) => projectOfCwd(bucket.cwd));
+  const scopedRuns = inProjectScope(
+    runs.filter((run) => run.command !== SERVE_COMMAND_NAME),
+    projectId,
+    (run) => projectOfCwd(run.cwd),
+  );
   const timedBuckets = timed(scopedBuckets, (bucket) => bucket.slot);
   const timedRuns = timed(scopedRuns, (run) => run.at);
   const within = (span: Period): UsageInSpan => ({ buckets: itemsWithin(timedBuckets, span), runs: itemsWithin(timedRuns, span) });
-  const reported = within(lastDaysSpan(now, COST_REPORT_DAYS));
+  const reported = within(lastDaysSpan(now, STATS_DAYS));
 
   return {
-    periods: { weeks: reportPeriod(statsPeriod(now)), days: lastDays(now, COST_REPORT_DAYS), totals: lastDays(now, COST_TOTALS_DAYS) },
+    periods: { ...grainPeriods(now), totals: lastDays(now, COST_TOTALS_DAYS) },
     scan,
     since: sinceOf(timedBuckets, statsPeriod(now)),
     totals: totalsOf(within(lastDaysSpan(now, COST_TOTALS_DAYS))),
-    days: dayWindows(now, COST_REPORT_DAYS).map((day): CostDay => ({ day: formatLocalDay(new Date(day.from)), ...costNumbers(within(day)) })),
+    days: dayWindows(now).map((day): CostDay => ({ day: formatLocalDay(new Date(day.from)), ...costNumbers(within(day)) })),
     weeks: weekWindows(now).map((week): CostPeriod => ({ start: formatLocalIso(new Date(week.from)), ...costNumbers(within(week)) })),
     models: modelsOf(reported.buckets),
     commands: commandsOf(reported.runs),

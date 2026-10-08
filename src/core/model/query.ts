@@ -2,7 +2,7 @@ import { isBlocked, isClosed, taskProgress, type BacklogIndex } from "./graph";
 import { localeOf, type Language } from "../i18n/language";
 import { compareIds } from "./ids";
 import { normalizeTag, PRIORITIES, TASK_STATUSES, type Priority, type Task, type TaskStatus, type TaskType } from "./types";
-import { DAY_MS } from "./dates";
+import { DAY_MS, DAYS_PER_MONTH } from "./dates";
 
 export const OPEN_STATUSES: readonly TaskStatus[] = TASK_STATUSES.filter((status) => !isClosed(status));
 const STATUS_SORT_ORDER: readonly TaskStatus[] = ["in-progress", "blocked", "backlog", "done", "cancelled"];
@@ -90,7 +90,7 @@ export function pickNextTask(tasks: readonly Task[], projectId: string, index: B
   return candidates.sort((a, b) => priorityRank(b.priority) - priorityRank(a.priority) || Date.parse(a.created) - Date.parse(b.created) || compareIds(a.id, b.id))[0];
 }
 
-export const STALE_LOW_DAYS = 30;
+export const STALE_LOW_DAYS = DAYS_PER_MONTH;
 
 export function staleLowTasks(tasks: readonly Task[], now: Date): Task[] {
   const cutoff = now.getTime() - STALE_LOW_DAYS * DAY_MS;

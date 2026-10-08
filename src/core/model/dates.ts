@@ -6,14 +6,22 @@ export const DAY_MS = 24 * HOUR_MS;
 
 export const DAYS_PER_WEEK = 7;
 
+export const DAYS_PER_MONTH = 30;
+
 export const WEEK_MS = DAYS_PER_WEEK * DAY_MS;
 
 export function daysBetween(from: number, to: number): number {
   return (to - from) / DAY_MS;
 }
 
+const ISO_DATE_LENGTH = "YYYY-MM-DD".length;
+
+export function isoDatePart(iso: string): string {
+  return iso.slice(0, ISO_DATE_LENGTH);
+}
+
 export function formatLocalDay(date: Date): string {
-  return formatLocalIso(date).slice(0, 10);
+  return isoDatePart(formatLocalIso(date));
 }
 
 export function formatLocalIso(date: Date): string {

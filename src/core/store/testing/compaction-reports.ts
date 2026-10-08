@@ -13,16 +13,17 @@ const FILE_COUNTERS = { taskCount: 0, invalidJournalLines: 0, unknownJournalLine
 export async function reportsOf(root: string, projectIds: readonly string[], now: Date, code: CollectedCode) {
   const { tasks, errors } = await loadBacklog(root);
   const journals = await readJournals(root, projectIds);
+  const whole: StatsInput = { tasks, journals, now, unparsedTasks: unparsedTasks(errors) };
+  const wholeBacklog = reportContext(whole);
   return [undefined, ...projectIds].map((projectId) => {
-    const input: StatsInput = { tasks, journals, now, projectId, unparsedTasks: unparsedTasks(errors) };
-    const context = reportContext(input);
+    const context = reportContext({ ...whole, projectId });
     const stats = statsReport(context);
     return {
       stats: { ...stats, ...FILE_COUNTERS },
       forecast: flowForecast(context.histories, stats.totals.open, now),
       quality: { ...qualityReport(context, []), ...FILE_COUNTERS },
       signals: statsSignals(context),
-      effect: { ...effectReport(context, code), ...FILE_COUNTERS },
+      effect: { ...effectReport(context, code, wholeBacklog), ...FILE_COUNTERS },
     };
   });
 }

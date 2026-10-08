@@ -3,7 +3,7 @@ import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
 import { scopeLabel } from "./format";
 import { closingsIn, closingsOfIn, createdIn, isOpenAt, type TaskHistory } from "./history";
 import { median, nearestRank, sum } from "../numbers";
-import { trailingPeriod, type Period } from "./period";
+import { trailingSpan, type Period, type Span } from "./period";
 import { grainPeriods, lastDaysSpan } from "./report-periods";
 import type { ReportContext } from "./scope";
 import { PRIORITY_WEIGHT } from "./weights";
@@ -36,7 +36,7 @@ export function statsReport(context: ReportContext): StatsReport {
 
 function totals(histories: readonly TaskHistory[], now: Date, period: Period, journalStart: number | null): StatsTotals {
   const nowMs = now.getTime();
-  const lastWeek = trailingPeriod(nowMs, WEEK_MS);
+  const lastWeek = trailingSpan(nowMs, WEEK_MS);
   const openNow = histories.filter((history) => isOpenAt(history, nowMs));
   const ages = openNow.map((history) => daysBetween(history.createdAt, nowMs));
   const leadTimes = leadTimesIn(histories, period);
@@ -62,7 +62,7 @@ function priorityWeight({ priority }: TaskHistory): number {
 function previousTotals(histories: readonly TaskHistory[], nowMs: number, journalStart: number | null): PreviousTotals | null {
   const weekAgo = nowMs - WEEK_MS;
   if (journalStart === null || journalStart > weekAgo) return null;
-  const weekBefore = trailingPeriod(weekAgo, WEEK_MS);
+  const weekBefore = trailingSpan(weekAgo, WEEK_MS);
   const openThen = histories.filter((history) => isOpenAt(history, weekAgo));
   return {
     open: openThen.length,
@@ -72,6 +72,6 @@ function previousTotals(histories: readonly TaskHistory[], nowMs: number, journa
   };
 }
 
-function leadTimesIn(histories: readonly TaskHistory[], span: Period): number[] {
+function leadTimesIn(histories: readonly TaskHistory[], span: Span): number[] {
   return histories.flatMap((history) => closingsOfIn(history, span).map((closing) => daysBetween(history.createdAt, closing.at)));
 }

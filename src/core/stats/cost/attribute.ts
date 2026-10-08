@@ -162,11 +162,15 @@ function drainEstimates(state: TranscriptState, model: string): UsageBucket[] {
     cwd: estimate.cwd,
     model,
     kind: estimate.kind,
-    tokens: { ...ZERO_TOKENS, cacheWrite5m: Math.ceil(estimate.chars / CHARS_PER_TOKEN) },
+    tokens: promptCacheWriteOf(estimate.chars),
     hookTurns: 0,
   }));
   state.pendingEstimates = [];
   return buckets;
+}
+
+function promptCacheWriteOf(chars: number): TokenCounts {
+  return { ...ZERO_TOKENS, cacheWrite5m: Math.ceil(chars / CHARS_PER_TOKEN) };
 }
 
 function isToolResultOnly(content: unknown): content is unknown[] {

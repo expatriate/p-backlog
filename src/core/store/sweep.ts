@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { buildIndex, isClosed, type BacklogIndex } from "../model/graph";
 import { parseId } from "../model/ids";
 import type { PathErrorHandler } from "../errors";
-import type { CoreMessages } from "../messages";
+import type { StoreMessages } from "../messages/store-messages";
 import { epicDoneClosure, isExpired, planEpicClosing, planEpicReopening } from "../model/lifecycle";
 import { deletedEvent } from "../journal/events";
 import type { Problem } from "../model/problems";
@@ -39,15 +39,15 @@ type UpdateStep = { failures: SweepFailure[]; stillReferenced: ReadonlySet<strin
 
 export const SWEPT_AT_FILE = ".swept-at";
 
-export function sweepClosedWhenDue(root: string, now: Date, messages: CoreMessages, onError: PathErrorHandler): Promise<SweepReport | null> {
+export function sweepClosedWhenDue(root: string, now: Date, messages: StoreMessages, onError: PathErrorHandler): Promise<SweepReport | null> {
   return runWhenDue(join(root, SWEPT_AT_FILE), now, () => sweepClosed(root, now, messages, onError));
 }
 
-export function sweepClosedAndStamp(root: string, now: Date, messages: CoreMessages, onError: PathErrorHandler): Promise<SweepReport> {
+export function sweepClosedAndStamp(root: string, now: Date, messages: StoreMessages, onError: PathErrorHandler): Promise<SweepReport> {
   return runAndStamp(join(root, SWEPT_AT_FILE), now, () => sweepClosed(root, now, messages, onError));
 }
 
-export async function sweepClosed(root: string, now: Date, messages: CoreMessages, onError: PathErrorHandler): Promise<SweepReport> {
+export async function sweepClosed(root: string, now: Date, messages: StoreMessages, onError: PathErrorHandler): Promise<SweepReport> {
   const writes: WriteContext = { now, onError };
   const initial = await loadBacklog(root);
   const reopening = await reopenEpicsWithOpenTasks(initial, writes);
@@ -116,7 +116,7 @@ async function reopenEpicsWithOpenTasks(loaded: LoadedBacklog, writes: WriteCont
   return { reopened, failures };
 }
 
-async function closeCompletedEpics(loaded: LoadedBacklog, writes: WriteContext, messages: CoreMessages): Promise<EpicStep> {
+async function closeCompletedEpics(loaded: LoadedBacklog, writes: WriteContext, messages: StoreMessages): Promise<EpicStep> {
   const plan = planEpicClosing(loaded.tasks, loaded.errors);
   const index = buildIndex(loaded.tasks);
   const closed: string[] = [];
@@ -185,7 +185,7 @@ function sweepFailure(id: string, failure: UpdateTaskFailure): SweepFailure {
   }
 }
 
-function failureLists(failures: readonly SweepFailure[], messages: CoreMessages): Pick<SweepReport, "conflicts" | "invalid"> {
+function failureLists(failures: readonly SweepFailure[], messages: StoreMessages): Pick<SweepReport, "conflicts" | "invalid"> {
   const firstPerTask = failures.filter((failure, position) => failures.findIndex(({ id }) => id === failure.id) === position);
   return {
     conflicts: firstPerTask.filter((failure) => failure.reason === "conflict").map(({ id }) => id),
