@@ -1,7 +1,8 @@
 import { useId, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import type { TasksResponse } from "../../core/api/contract";
-import { listPath, taskPath } from "../../core/api/web-paths";
+import { listPath } from "../../core/api/web-paths";
+import { AllTasksProvider } from "../app/all-tasks";
 import { RequestFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
@@ -34,10 +35,10 @@ export function TaskListPage() {
   const searchKey = search.toString();
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
   const view = useTaskListView(params, projectId);
-  const { selectedTask, gone, missingTaskId } = useSelectedTask(view.allTasks, taskId, view.tasksLoaded);
-  const { isNew } = useSeenTasks(view.tasksLoaded ? view.allTasks : undefined, selectedTask);
-  const visibleIds = useMemo(() => view.visibleTasks.map((task) => task.id), [view.visibleTasks]);
-  const loadedIds = useMemo(() => new Set(view.allTasks.map((task) => task.id)), [view.allTasks]);
+  const { selectedTask, gone, missingTaskId } = useSelectedTask(view.all.tasks, taskId, view.tasksLoaded);
+  const { isNew } = useSeenTasks(view.tasksLoaded ? view.all.tasks : undefined, selectedTask);
+  const visibleIds = useMemo(() => view.table.tasks.map((task) => task.id), [view.table.tasks]);
+  const loadedIds = useMemo(() => new Set(view.all.tasks.map((task) => task.id)), [view.all.tasks]);
   const selection = useTaskSelection(visibleIds, projectId ?? "", loadedIds);
   const keysHintId = useId();
   const keyboardHints = useKeyboardHints();
@@ -46,86 +47,72 @@ export function TaskListPage() {
   useDocumentTitle(selectedTask === undefined ? list.docTitle(viewTitle) : list.taskDocTitle(selectedTask.id, selectedTask.title));
 
   const setParams = (next: ListParams) => setSearch(writeListParams(next), { replace: true });
-  const taskHref = (id: string) => ({ pathname: taskPath(projectId, id), search: searchKey });
   const heading = useRef<HTMLHeadingElement>(null);
   const { status, keepFocus } = useStatusFocus(view.settled, heading);
 
   return (
-    <main id="content" tabIndex={-1} className={styles.page}>
-      <div className={styles.list}>
-        <h1 ref={heading} tabIndex={-1} className={styles.heading}>
-          {viewTitle}
-        </h1>
-        <Toolbar params={params} onChange={setParams} tags={view.tags} epicChoices={view.epicFilterChoices} autoClosedCount={view.autoClosedCount} />
+    <AllTasksProvider value={view.all}>
+      <main id="content" tabIndex={-1} className={styles.page}>
+        <div className={styles.list}>
+          <h1 ref={heading} tabIndex={-1} className={styles.heading}>
+            {viewTitle}
+          </h1>
+          <Toolbar params={params} onChange={setParams} {...view.filterChoices} />
 
-        <p className={missingTaskId !== undefined ? styles.warning : "visually-hidden"} role="status">
-          {missingTaskId !== undefined && list.missingTask(missingTaskId)}
-        </p>
-
-        <ParseErrorsNote parseErrors={view.parseErrors} />
-
-        {view.content === "table" && keyboardHints && (
-          <p id={keysHintId} className={styles.keysHint}>
-            {list.selectionKeysHint(actionsShortcutLabel())}
+          <p className={missingTaskId !== undefined ? styles.warning : "visually-hidden"} role="status">
+            {missingTaskId !== undefined && list.missingTask(missingTaskId)}
           </p>
-        )}
 
-        <div className={styles.tableWrap}>
-          <ListStatus
-            statusRef={status}
-            content={view.content}
-            shownCount={view.settled ? view.visibleTasks.length : null}
-            request={view.request}
-            onRetry={() => {
-              keepFocus();
-              void view.request.refetch();
-            }}
-            empty={
-              <EmptyList
-                hasTasks={view.scopedTasks.length > 0}
-                hiddenOpen={view.hiddenOpen}
-                filter={params.filter}
-                onFilterChange={(filter) => {
-                  keepFocus();
-                  setParams({ ...params, filter });
-                }}
-              />
-            }
-          />
-          {view.content === "table" && (
-            <TaskTable
-              tasks={view.visibleTasks}
-              index={view.index}
-              openedId={selectedTask?.id}
-              sort={view.sort}
-              dateColumn={view.dateColumn}
-              onSort={(key) => setParams({ ...params, sort: pickSortKey(view.sort, key) })}
-              taskHref={taskHref}
-              tones={view.tones}
-              isNew={isNew}
-              selectedTags={params.filter.tags ?? []}
-              onToggleTag={(tag) => setParams(withTagToggled(params, tag))}
-              selection={selection}
-              describedBy={keyboardHints ? keysHintId : undefined}
-            />
+          <ParseErrorsNote parseErrors={view.parseErrors} />
+
+          {view.content === "table" && keyboardHints && (
+            <p id={keysHintId} className={styles.keysHint}>
+              {list.selectionKeysHint(actionsShortcutLabel())}
+            </p>
           )}
-        </div>
-        <ListFooter key={projectId ?? ""} selection={selection} tasks={view.allTasks} tones={view.tones} taskHref={taskHref} />
-      </div>
 
-      {selectedTask && (
-        <TaskPanel
-          key={selectedTask.id}
-          task={selectedTask}
-          tasks={view.allTasks}
-          index={view.index}
-          taskHref={taskHref}
-          onClose={() => void navigate({ pathname: listPath(projectId), search: searchKey })}
-          tone={toneOf(selectedTask, view.tones)}
-          gone={gone}
-        />
-      )}
-    </main>
+          <div className={styles.tableWrap}>
+            <ListStatus
+              statusRef={status}
+              content={view.content}
+              shownCount={view.settled ? view.table.tasks.length : null}
+              request={view.request}
+              onRetry={() => {
+                keepFocus();
+                void view.request.refetch();
+              }}
+              empty={
+                <EmptyList
+                  {...view.empty}
+                  filter={params.filter}
+                  onFilterChange={(filter) => {
+                    keepFocus();
+                    setParams({ ...params, filter });
+                  }}
+                />
+              }
+            />
+            {view.content === "table" && (
+              <TaskTable
+                {...view.table}
+                openedId={selectedTask?.id}
+                onSort={(key) => setParams({ ...params, sort: pickSortKey(view.table.sort, key) })}
+                isNew={isNew}
+                selectedTags={params.filter.tags ?? []}
+                onToggleTag={(tag) => setParams(withTagToggled(params, tag))}
+                selection={selection}
+                describedBy={keyboardHints ? keysHintId : undefined}
+              />
+            )}
+          </div>
+          <ListFooter key={projectId ?? ""} selection={selection} />
+        </div>
+
+        {selectedTask && (
+          <TaskPanel key={selectedTask.id} task={selectedTask} onClose={() => void navigate({ pathname: listPath(projectId), search: searchKey })} tone={toneOf(selectedTask, view.all.tones)} gone={gone} />
+        )}
+      </main>
+    </AllTasksProvider>
   );
 }
 

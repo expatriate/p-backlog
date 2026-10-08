@@ -1,9 +1,9 @@
 import { useId, useState } from "react";
 import { Link } from "react-router";
-import type { BacklogIndex } from "../../core/model/graph";
 import { formatId, ID_PATTERN } from "../../core/model/ids";
 import type { Task } from "../../core/model/types";
-import type { TaskHref } from "../app/task-href";
+import { useAllTasks } from "../app/all-tasks";
+import { useTaskHref } from "../app/use-task-href";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { CloseIcon } from "../ui/CloseIcon";
@@ -15,9 +15,7 @@ import styles from "./TaskRefs.module.css";
 export type TaskRefsProps = {
   label: string;
   ids: readonly string[];
-  index: BacklogIndex;
   listId: string;
-  taskHref: TaskHref;
   idPrefix: string;
   onChange: (update: (ids: readonly string[]) => string[]) => Promise<RefsSaveResult>;
 };
@@ -26,8 +24,10 @@ const EXAMPLE_TASK_NUMBER = 12;
 
 type FieldNotice = { text: string; duplicateOf?: string };
 
-export function TaskRefs({ label, ids, index, listId, taskHref, idPrefix, onChange }: TaskRefsProps) {
+export function TaskRefs({ label, ids, listId, idPrefix, onChange }: TaskRefsProps) {
   const { task: taskMessages } = useMessages();
+  const { index } = useAllTasks();
+  const taskHref = useTaskHref();
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState<FieldNotice | null>(null);
   const errorId = useId();

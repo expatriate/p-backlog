@@ -7,7 +7,7 @@ import { ActionFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { focusDropped } from "../ui/focus-dropped";
-import type { TaskHref } from "../app/task-href";
+import { useTaskHref } from "../app/use-task-href";
 import { failureOf, isUndoResult, type BatchFailure, type BatchResult } from "./use-batch-result";
 import footer from "./FooterPanel.module.css";
 import styles from "./BatchNotice.module.css";
@@ -21,11 +21,11 @@ type BatchNoticeProps = {
   result: BatchResult | null;
   serial: number;
   onResult: (result: BatchResult | null) => void;
-  taskHref: TaskHref;
 };
 
-export function BatchNotice({ result, serial, onResult, taskHref }: BatchNoticeProps) {
+export function BatchNotice({ result, serial, onResult }: BatchNoticeProps) {
   const { list } = useMessages();
+  const taskHref = useTaskHref();
   const undo = useBatchTasks();
   const [focusInside, setFocusInside] = useState(false);
   const summary = useRef<HTMLParagraphElement>(null);

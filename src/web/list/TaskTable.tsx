@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ChangeEvent, type KeyboardEvent } from "react";
 import { Link } from "react-router";
-import { isBlocked, type BacklogIndex } from "../../core/model/graph";
+import { isBlocked } from "../../core/model/graph";
 import { formatDate } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { SortDirection, SortKey, TaskSort } from "../../core/model/query";
@@ -9,9 +9,10 @@ import { DIRECTION_MARKS, NO_VALUE } from "../labels";
 import { useLanguage, useMessages } from "../i18n";
 import { DeletionBar } from "../ui/Deletion";
 import { StatusBadge } from "../ui/StatusBadge";
-import type { TaskHref } from "../app/task-href";
+import { useAllTasks } from "../app/all-tasks";
+import { useTaskHref } from "../app/use-task-href";
 import { cx } from "../ui/cx";
-import { toneOf, type EpicTones } from "./epic-tone";
+import { toneOf } from "./epic-tone";
 import { useNow } from "../ui/use-now";
 import type { DateColumn } from "./list-params";
 import { TagCell } from "./TagCell";
@@ -20,15 +21,12 @@ import styles from "./TaskTable.module.css";
 
 export type TaskTableProps = {
   tasks: Task[];
-  index: BacklogIndex;
+  sort: TaskSort;
+  dateColumn: DateColumn;
   openedId?: string | undefined;
   selectedTags: readonly string[];
   onToggleTag: (tag: string) => void;
-  sort: TaskSort;
   onSort: (key: SortKey) => void;
-  taskHref: TaskHref;
-  dateColumn: DateColumn;
-  tones: EpicTones;
   isNew: (task: Task) => boolean;
   selection: Pick<TaskSelection, "selected" | "allVisibleState" | "toggle" | "setAllVisible">;
   describedBy?: string | undefined;
@@ -43,8 +41,10 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
   critical: styles.critical,
 };
 
-export function TaskTable({ tasks, index, openedId, sort, onSort, taskHref, dateColumn, tones, isNew, selectedTags, onToggleTag, selection, describedBy }: TaskTableProps) {
+export function TaskTable({ tasks, sort, dateColumn, openedId, onSort, isNew, selectedTags, onToggleTag, selection, describedBy }: TaskTableProps) {
   const { list, core } = useMessages();
+  const { index, tones } = useAllTasks();
+  const taskHref = useTaskHref();
   const language = useLanguage();
   const now = useNow();
   const openedRow = useRef<HTMLTableRowElement>(null);

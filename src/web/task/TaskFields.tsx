@@ -1,8 +1,8 @@
 import { useId, useState, type RefObject } from "react";
 import type { TaskChangesRequest } from "../../core/api/contract";
-import type { BacklogIndex } from "../../core/model/graph";
 import { epicProblems } from "../../core/model/integrity";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, type Task } from "../../core/model/types";
+import { useAllTasks } from "../app/all-tasks";
 import { useMessages } from "../i18n";
 import type { Draft } from "../ui/use-draft";
 import { parseTagInput } from "./tag-input";
@@ -11,7 +11,6 @@ import styles from "./TaskFields.module.css";
 export type TaskFieldsProps = {
   task: Task;
   epicListId: string;
-  index: BacklogIndex;
   onChange: (changes: TaskChangesRequest) => Promise<boolean>;
   tags: Draft;
   tagsRef: RefObject<HTMLInputElement | null>;
@@ -19,8 +18,9 @@ export type TaskFieldsProps = {
   epicRef: RefObject<HTMLInputElement | null>;
 };
 
-export function TaskFields({ task, epicListId, index, onChange, tags, tagsRef, epic, epicRef }: TaskFieldsProps) {
+export function TaskFields({ task, epicListId, onChange, tags, tagsRef, epic, epicRef }: TaskFieldsProps) {
   const { core, task: taskMessages } = useMessages();
+  const { index } = useAllTasks();
   const [epicError, setEpicError] = useState<string | null>(null);
   const epicErrorId = useId();
 

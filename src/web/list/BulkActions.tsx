@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type RefObject } from "rea
 import type { BatchAction, BatchRequest } from "../../core/api/contract";
 import { compareIds } from "../../core/model/ids";
 import { PRIORITIES, type Priority, type Task } from "../../core/model/types";
+import { useAllTasks } from "../app/all-tasks";
 import { useBatchTasks } from "../app/queries";
 import { ActionFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
@@ -20,13 +21,12 @@ import styles from "./BulkActions.module.css";
 
 export type BulkActionsProps = {
   selection: Pick<TaskSelection, "selected" | "hiddenCount" | "clear">;
-  tasks: readonly Task[];
-  tones: EpicTones;
   onDone: (result: BatchResult) => void;
 };
 
-export function BulkActions({ selection, tasks, tones, onDone }: BulkActionsProps) {
+export function BulkActions({ selection, onDone }: BulkActionsProps) {
   const { list } = useMessages();
+  const { tasks, tones } = useAllTasks();
   const firstAction = useRef<HTMLButtonElement>(null);
   const batch = useBatchTasks();
   const keyboardHints = useKeyboardHints();

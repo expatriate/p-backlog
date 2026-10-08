@@ -22,9 +22,9 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const allTasks = useMemo(() => tasks.data?.tasks ?? [], [tasks.data]);
   const inScope = useMemo(() => taskScope(projects.data, projectId), [projects.data, projectId]);
   const scopedTasks = useMemo(() => (inScope === undefined ? [] : allTasks.filter(inScope)), [allTasks, inScope]);
-  const index = useMemo(() => buildIndex(allTasks), [allTasks]);
+  const all = useMemo(() => ({ tasks: allTasks, index: buildIndex(allTasks), tones: epicTones(allTasks) }), [allTasks]);
+  const { index, tones } = all;
   const filterContext = useMemo(() => ({ index, closedInWeb: new Set(tasks.data?.closedInWeb) }), [index, tasks.data]);
-  const tones = useMemo(() => epicTones(allTasks), [allTasks]);
   const visibleTasks = useMemo(() => sortTasks(filterTasks(scopedTasks, params.filter, filterContext), sort, index, language), [scopedTasks, index, filterContext, params.filter, sort, language]);
   const epicFilterChoices = useMemo(() => epicChoices(scopedTasks, tones), [scopedTasks, tones]);
   const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, filterContext).length, [scopedTasks, filterContext]);
@@ -44,17 +44,10 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
     settled: content === "table" && error === null,
     projectName: projectId === undefined ? undefined : projectNameOf(projects.data, projectId),
     parseErrors: (tasks.data?.errors ?? []).filter((parseError) => projectId === undefined || parseError.projectId === projectId),
-    allTasks,
-    scopedTasks,
-    visibleTasks,
-    index,
-    tones,
-    sort,
-    dateColumn,
-    epicFilterChoices,
-    autoClosedCount,
-    tags,
-    hiddenOpen,
+    all,
+    table: { tasks: visibleTasks, sort, dateColumn },
+    filterChoices: { tags, epicChoices: epicFilterChoices, autoClosedCount },
+    empty: { hasTasks: scopedTasks.length > 0, hiddenOpen },
   };
 }
 

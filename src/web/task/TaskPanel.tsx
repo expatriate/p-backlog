@@ -6,7 +6,8 @@ import { dependentTasks, epicChildren, isClosed, relatedTasks, taskProgress, typ
 import { parseId } from "../../core/model/ids";
 import { taskWarnings } from "../../core/model/integrity";
 import type { Task } from "../../core/model/types";
-import type { TaskHref } from "../app/task-href";
+import { useAllTasks } from "../app/all-tasks";
+import { useTaskHref } from "../app/use-task-href";
 import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { DeletionCountdown } from "../ui/Deletion";
@@ -26,9 +27,6 @@ import styles from "./TaskPanel.module.css";
 
 export type TaskPanelProps = {
   task: Task;
-  tasks: readonly Task[];
-  index: BacklogIndex;
-  taskHref: TaskHref;
   onClose: () => void;
   tone: EpicTone | undefined;
   gone: boolean;
@@ -37,8 +35,9 @@ export type TaskPanelProps = {
 const TASK_LIST_ID = "task-ids";
 const EPIC_LIST_ID = "epic-ids";
 
-export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }: TaskPanelProps) {
+export function TaskPanel({ task, onClose, tone, gone }: TaskPanelProps) {
   const { core, task: taskMessages } = useMessages();
+  const { tasks, index } = useAllTasks();
   const saver = useTaskSaving(task);
   const fields = useFieldDrafts(task);
   const bodyEditing = saver.body.draft !== null;
@@ -70,7 +69,7 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
     >
       <TitleField draft={fields.title} titleRef={fields.titleRef} label={taskMessages.title} onSave={(next) => saver.apply({ title: next })} />
 
-      <TaskFields task={task} epicListId={EPIC_LIST_ID} index={index} onChange={saver.apply} tags={fields.tags} tagsRef={fields.tagsRef} epic={fields.epic} epicRef={fields.epicRef} />
+      <TaskFields task={task} epicListId={EPIC_LIST_ID} onChange={saver.apply} tags={fields.tags} tagsRef={fields.tagsRef} epic={fields.epic} epicRef={fields.epicRef} />
 
       <TaskMeta task={task} index={index} />
 
@@ -102,28 +101,12 @@ export function TaskPanel({ task, tasks, index, taskHref, onClose, tone, gone }:
         onSave={saver.body.save}
       />
 
-      <TaskRefs
-        label={taskMessages.blockedByLabel}
-        ids={task.blockedBy}
-        index={index}
-        listId={TASK_LIST_ID}
-        taskHref={taskHref}
-        idPrefix={idPrefix}
-        onChange={(update) => saver.saveRefs((fresh) => ({ blockedBy: update(fresh.blockedBy) }))}
-      />
-      <TaskRefs
-        label={taskMessages.relatedLabel}
-        ids={task.related}
-        index={index}
-        listId={TASK_LIST_ID}
-        taskHref={taskHref}
-        idPrefix={idPrefix}
-        onChange={(update) => saver.saveRefs((fresh) => ({ related: update(fresh.related) }))}
-      />
+      <TaskRefs label={taskMessages.blockedByLabel} ids={task.blockedBy} listId={TASK_LIST_ID} idPrefix={idPrefix} onChange={(update) => saver.saveRefs((fresh) => ({ blockedBy: update(fresh.blockedBy) }))} />
+      <TaskRefs label={taskMessages.relatedLabel} ids={task.related} listId={TASK_LIST_ID} idPrefix={idPrefix} onChange={(update) => saver.saveRefs((fresh) => ({ related: update(fresh.related) }))} />
 
-      <ReadonlyRefs label={taskMessages.dependentsLabel} tasks={dependentTasks(task, index)} taskHref={taskHref} />
-      <ReadonlyRefs label={taskMessages.referrersLabel} tasks={relatedTasks(task, index).filter((other) => !task.related.includes(other.id))} taskHref={taskHref} />
-      <ReadonlyRefs label={taskMessages.epicChildrenLabel} tasks={children} taskHref={taskHref} />
+      <ReadonlyRefs label={taskMessages.dependentsLabel} tasks={dependentTasks(task, index)} />
+      <ReadonlyRefs label={taskMessages.referrersLabel} tasks={relatedTasks(task, index).filter((other) => !task.related.includes(other.id))} />
+      <ReadonlyRefs label={taskMessages.epicChildrenLabel} tasks={children} />
 
       {refOptions}
     </SidePanel>
@@ -209,7 +192,8 @@ function TitleField({ draft: title, titleRef, label, onSave }: TitleFieldProps) 
   );
 }
 
-function ReadonlyRefs({ label, tasks, taskHref }: { label: string; tasks: readonly Task[]; taskHref: TaskHref }) {
+function ReadonlyRefs({ label, tasks }: { label: string; tasks: readonly Task[] }) {
+  const taskHref = useTaskHref();
   if (tasks.length === 0) return null;
   return (
     <section className={styles.readonlyRefs} aria-label={label}>
