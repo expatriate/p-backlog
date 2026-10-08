@@ -142,6 +142,17 @@ describe("ссылка «Статистика»", () => {
 
     await waitFor(() => expect(stats.getAttribute("aria-current")).toBe("true"));
   });
+
+  it("на статистике проекта, чей id кодируется в адресе, остаётся на вкладке и ведёт другие проекты на ту же вкладку", async () => {
+    await renderApp({ ...FILES, "my proj/project.md": projectFile("MP"), "my proj/MP-1.md": taskFile("MP-1") }, "/p/my%20proj/stats/code");
+
+    const stats = await screen.findByRole("link", { name: "Статистика" });
+    const spa = await screen.findByRole("link", { name: "spa" });
+
+    expect(stats.getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("link", { name: "Задачи" }).getAttribute("aria-current")).toBeNull();
+    expect(spa.getAttribute("href")).toBe("/p/spa/stats/code");
+  });
 });
 
 describe("уведомление про граф кода", () => {

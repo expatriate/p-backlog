@@ -1,0 +1,90 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--row-gap);
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-control);
+  color: var(--ink-muted);
+  transition:
+    background var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out);
+}
+
+.scope {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scopeRow {
+  color: var(--ink);
+}
+
+.scopeCurrent {
+  background: var(--surface-selected);
+  font-weight: 600;
+}
+
+.scopeName {
+  font-weight: 600;
+}
+
+.scopeNote {
+  margin: 0;
+  padding: 0 var(--space-2) 0 calc(var(--space-2) + 24px + var(--space-2));
+  color: var(--ink-subtle);
+  font-size: var(--text-sm);
+}
+
+.disclosure {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.number {
+  font-variant-numeric: tabular-nums;
+}
+
+.row:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.row:has(a[aria-current="true"]) {
+  background: var(--surface-selected);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.rowLink {
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.projectsFailure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.projectsFailure p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

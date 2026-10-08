@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { z } from "zod";
-import { isClosed } from "../../core/model/graph";
+import { isOpenTask } from "../app/scope";
 import type { Task } from "../../core/model/types";
 
 export const SEEN_TASKS_STORAGE_KEY = "p-backlog.seen";
@@ -35,7 +35,7 @@ export function useSeenTasks(tasks: readonly Task[] | undefined, openedTask: Tas
 
   return useMemo(() => {
     const seen = new Set(record?.ids);
-    const isNew = (task: Task) => record !== undefined && !isClosed(task.status) && createdAfter(task, record) && !seen.has(task.id);
+    const isNew = (task: Task) => record !== undefined && isOpenTask(task) && createdAfter(task, record) && !seen.has(task.id);
     return { isNew };
   }, [record]);
 }

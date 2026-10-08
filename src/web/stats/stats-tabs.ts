@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import type { StatsMessages } from "./messages.ru";
 
-type StatsTab = { key: keyof StatsMessages["tabs"]; segment: string; load: () => Promise<{ Component: ComponentType }> };
+export type StatsTab = { key: keyof StatsMessages["tabs"]; segment: string; load: () => Promise<{ Component: ComponentType }> };
 
 export const STATS_TABS = [
   { key: "overview", segment: "", load: async () => ({ Component: (await import("./OverviewTab")).OverviewTab }) },

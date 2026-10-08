@@ -54,120 +54,6 @@
   background: var(--accent);
 }
 
-.projects {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--row-gap);
-  padding: 6px var(--space-2);
-  border-radius: var(--radius-control);
-  color: var(--ink-muted);
-  transition:
-    background var(--duration) var(--ease-out),
-    color var(--duration) var(--ease-out);
-}
-
-.scope {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.scopeRow {
-  color: var(--ink);
-}
-
-.scopeCurrent {
-  background: var(--surface-selected);
-  font-weight: 600;
-}
-
-.scopeName {
-  font-weight: 600;
-}
-
-.scopeNote {
-  margin: 0;
-  padding: 0 var(--space-2) 0 calc(var(--space-2) + 24px + var(--space-2));
-  color: var(--ink-subtle);
-  font-size: var(--text-sm);
-}
-
-.graphNotes {
-  display: flex;
-  flex-direction: column;
-  margin: auto 0 0;
-}
-
-.graphNote {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: var(--space-2);
-  color: var(--ink-subtle);
-  font-size: var(--text-sm);
-}
-
-.graphNote code {
-  overflow-wrap: anywhere;
-}
-
-.disclosure {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-chip);
-  background: transparent;
-  color: var(--ink-muted);
-  cursor: pointer;
-}
-
-.muted .projectName,
-.muted .count {
-  color: var(--ink-subtle);
-}
-
-.number {
-  font-variant-numeric: tabular-nums;
-}
-
-.row:hover {
-  background: var(--surface-hover);
-  color: var(--ink);
-}
-
-.row:has(a[aria-current="true"]) {
-  background: var(--surface-selected);
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.scopeRow:hover {
-  background: var(--surface-hover);
-}
-
-.rowLink {
-  flex: 1;
-  min-width: 0;
-  color: inherit;
-  text-decoration: none;
-}
-
 .project {
   display: flex;
   align-items: center;
@@ -193,19 +79,7 @@
   font-weight: 600;
 }
 
-.projectName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.count {
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-subtle);
-}
-
-.signalCount {
+.project .signalCount {
   color: var(--warn);
   font-weight: 600;
 }
@@ -229,27 +103,4 @@
     border-right: none;
     border-bottom: 1px solid var(--line);
   }
-
-  .projects {
-    --project-error-indented: 0;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--space-2);
-  }
-}
-
-.projectsFailure {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  color: var(--ink-muted);
-  font-size: var(--text-sm);
-}
-
-.projectsFailure p {
-  margin: 0;
-  overflow-wrap: anywhere;
 }

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { projectNameOf, taskScope } from "../app/scope";
-import { buildIndex, isClosed } from "../../core/model/graph";
+import { countOpenTasks, projectNameOf, taskScope } from "../app/scope";
+import { buildIndex } from "../../core/model/graph";
 import { filterTasks, sortTasks } from "../../core/model/query";
 import { localeOf, type Language } from "../../core/i18n/language";
 import type { Task } from "../../core/model/types";
@@ -29,7 +29,7 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const epicFilterChoices = useMemo(() => epicChoices(scopedTasks, tones), [scopedTasks, tones]);
   const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, filterContext).length, [scopedTasks, filterContext]);
   const tags = useMemo(() => collectTags(scopedTasks, language), [scopedTasks, language]);
-  const hiddenOpen = useMemo(() => (projectId === undefined && inScope !== undefined ? allTasks.filter((task) => !inScope(task) && !isClosed(task.status)).length : 0), [allTasks, inScope, projectId]);
+  const hiddenOpen = useMemo(() => (projectId === undefined && inScope !== undefined ? countOpenTasks(allTasks, inScope).outOfScope : 0), [allTasks, inScope, projectId]);
 
   const failedQueries = [tasks, projects].filter((query) => query.error !== null);
   const error = tasks.error ?? projects.error;

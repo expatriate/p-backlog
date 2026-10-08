@@ -1,30 +1,28 @@
 import { useRef, type RefObject } from "react";
 import { statsTabPath } from "../../core/api/web-paths";
-import { Link, matchPath, Outlet, useLocation, useNavigation, useParams } from "react-router";
+import { Link, Outlet, useParams } from "react-router";
 import { useProjects, useStatsReport } from "../app/queries";
 import { projectNameOf, scopeNote } from "../app/scope";
 import { useMessages } from "../i18n";
 import { cx } from "../ui/cx";
 import { useDocumentTitle } from "../ui/use-document-title";
 import { STATS_TABS } from "./stats-tabs";
+import { usePendingStatsTab, useStatsTab } from "./use-stats-tab";
 import styles from "./StatsPage.module.css";
 
 export type StatsOutletContext = { heading: RefObject<HTMLHeadingElement | null> };
 
 export function StatsPage() {
   const { projectId } = useParams();
-  const { pathname } = useLocation();
   const projects = useProjects();
   const signals = useStatsReport("signals", projectId);
   const { app, core, stats } = useMessages();
   const scopeName = projectId === undefined ? stats.projects : projectNameOf(projects.data, projectId);
   const heading = stats.heading(scopeName);
   const tabPath = (segment: string) => statsTabPath(segment, projectId);
-  const isTabAt = (segment: string, at: string) => matchPath({ path: tabPath(segment), end: true }, at) !== null;
-  const active = STATS_TABS.find((tab) => tab.segment !== "" && isTabAt(tab.segment, pathname)) ?? STATS_TABS[0];
-  const pendingPathname = useNavigation().location?.pathname;
+  const active = useStatsTab() ?? STATS_TABS[0];
+  const pending = usePendingStatsTab(projectId);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const pending = pendingPathname === undefined ? undefined : STATS_TABS.find((tab) => isTabAt(tab.segment, pendingPathname));
 
   const docTitle = stats.docTitle(active.segment === "" ? heading : `${stats.tabs[active.key]} · ${heading}`);
 
