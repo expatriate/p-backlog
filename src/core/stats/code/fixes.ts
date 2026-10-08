@@ -1,5 +1,5 @@
 import { closingsOf, isFixedNow, type TaskHistory } from "../history";
-import { fixKey } from "../../code/fix-key";
+import { projectFixKey, type ProjectFixKey } from "../../code/fix-key";
 import type { FixCommit, FixRequest } from "../../code/types";
 import { retainedSince } from "../../model/history-window";
 
@@ -19,12 +19,15 @@ export function fixRequests(histories: readonly TaskHistory[], now: Date): FixRe
   return [...byProject.entries()].filter(([, hashes]) => hashes.size > 0).map(([projectId, hashes]) => ({ projectId, hashes: [...hashes] }));
 }
 
-export type FixCommitEntry = { key: string; commit: FixCommit };
+export type FixCommitEntry = { key: ProjectFixKey; commit: FixCommit };
 
-export function fixCommitEntry(history: TaskHistory, commits: ReadonlyMap<string, FixCommit>): FixCommitEntry | undefined {
+export function fixCommitEntry(history: TaskHistory, commits: ReadonlyMap<ProjectFixKey, FixCommit>): FixCommitEntry | undefined {
   return reasonHashes(history.reason)
-    .map((hash) => ({ key: fixKey(history.projectId, hash), commit: commits.get(fixKey(history.projectId, hash)) }))
-    .flatMap(({ key, commit }) => (commit === undefined ? [] : [{ key, commit }]))
+    .map((hash) => projectFixKey(history.projectId, hash))
+    .flatMap((key) => {
+      const commit = commits.get(key);
+      return commit === undefined ? [] : [{ key, commit }];
+    })
     .at(0);
 }
 

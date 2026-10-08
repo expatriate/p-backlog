@@ -7,7 +7,7 @@ import type { Project } from "../model/types";
 import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { CODE_CACHE_FILE, createCodeCacheFile, type CodeCacheStore } from "./code-cache";
 import { createCodeSource, type CodeSource } from "./code-source";
-import { fixKey } from "./fix-key";
+import { projectFixKey } from "./fix-key";
 import { runGit, type GitRunner } from "../git/run";
 import { countingGit } from "../git/testing/counting-git";
 
@@ -37,8 +37,8 @@ describe("сбор данных git по проектам", () => {
       { projectId: "spa", name: "Проект spa", repos: [{ commits: [["src/a.ts"]], lines: [{ path: "src/a.ts", lines: 1 }], units: [{ date: "2026-09-10T10:00:00+03:00", lines: 1 }] }] },
     ]);
     expect(code.unavailableRepos).toEqual(["/nope/repo"]);
-    expect(fixCommits.get(fixKey("spa", head))?.byAgent).toBe(false);
-    expect(fixCommits.has(fixKey("spa", "deadbee"))).toBe(false);
+    expect(fixCommits.get(projectFixKey("spa", head))?.byAgent).toBe(false);
+    expect(fixCommits.has(projectFixKey("spa", "deadbee"))).toBe(false);
   });
 
   it("репозиторий с `~` раскрывается в домашний каталог перед обращением к git", async () => {
@@ -107,7 +107,7 @@ describe("сбор данных git по проектам", () => {
     const restarted = await gathered(createCodeSource({ home: "/h", git: onlyRefs, store: createCodeCacheFile(cacheRoot) }));
 
     expect(restarted.code.projects).toEqual(first.code.projects);
-    expect(restarted.fixCommits.get(fixKey("spa", head))).toEqual(first.fixCommits.get(fixKey("spa", head)));
+    expect(restarted.fixCommits.get(projectFixKey("spa", head))).toEqual(first.fixCommits.get(projectFixKey("spa", head)));
     expect(JSON.parse(await readFile(join(cacheRoot, CODE_CACHE_FILE), "utf8")).fixes).not.toHaveProperty(`${repo} deadbee`);
 
     await writeFile(join(cacheRoot, CODE_CACHE_FILE), "{битый", "utf8");
@@ -173,11 +173,11 @@ describe("сбор данных git по проектам", () => {
     const source = createCodeSource({ home: "/h" });
     const request = [{ projectId: "spa", hashes: [hash] }];
 
-    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(fixKey("spa", hash))).toBe(false);
+    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(projectFixKey("spa", hash))).toBe(false);
 
     execFileSync("git", ["-C", repo, "fetch", "-q", clone, "HEAD"]);
 
-    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(fixKey("spa", hash))).toBe(true);
+    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(projectFixKey("spa", hash))).toBe(true);
   });
 
   it("коммит исправления, прочитанный до слияния ветки, после слияния получает дату попадания в основную ветку", async () => {
@@ -192,7 +192,7 @@ describe("сбор данных git по проектам", () => {
     const counting = countingGit();
     const source = createCodeSource({ home: "/h", git: counting.git });
     const request = [{ projectId: "spa", hashes: [hash] }];
-    const landedAt = async () => (await source.fixCommits([projectOf("spa", [repo])], request, NOW)).get(fixKey("spa", hash))?.landedAt;
+    const landedAt = async () => (await source.fixCommits([projectOf("spa", [repo])], request, NOW)).get(projectFixKey("spa", hash))?.landedAt;
 
     const beforeMerge = await landedAt();
     const processesBeforeMerge = counting.processes();
@@ -228,10 +228,10 @@ describe("сбор данных git по проектам", () => {
     const source = createCodeSource({ home: "/h", git: (dir, args, input) => git(dir, args, input) });
     const request = [{ projectId: "spa", hashes: [head] }];
 
-    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(fixKey("spa", head))).toBe(false);
+    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(projectFixKey("spa", head))).toBe(false);
     git = runGit;
 
-    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(fixKey("spa", head))).toBe(true);
+    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(projectFixKey("spa", head))).toBe(true);
   });
 
   it("сбой подсчёта строк коммита исправления не запоминает его с нулём строк", async () => {
@@ -246,10 +246,10 @@ describe("сбор данных git по проектам", () => {
     const source = createCodeSource({ home: "/h", git: (dir, args, input) => git(dir, args, input) });
     const request = [{ projectId: "spa", hashes: [head] }];
 
-    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(fixKey("spa", head))).toBe(false);
+    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).has(projectFixKey("spa", head))).toBe(false);
     git = runGit;
 
-    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).get(fixKey("spa", head))?.lines).toBe(1);
+    expect((await source.fixCommits([projectOf("spa", [repo])], request, NOW)).get(projectFixKey("spa", head))?.lines).toBe(1);
   });
 
   it("исправление по коммиту старше окна кода, пока его запрашивают, не перечитывается из git", async () => {
@@ -265,7 +265,7 @@ describe("сбор данных git по проектам", () => {
 
     const again = await source.fixCommits([projectOf("spa", [repo])], request, NOW);
 
-    expect(again.has(fixKey("spa", head))).toBe(true);
+    expect(again.has(projectFixKey("spa", head))).toBe(true);
     expect(counting.processes()).toBe(1);
   });
 
@@ -355,7 +355,7 @@ describe("сбор данных git по проектам", () => {
 
     const unchangedMain = await restarted.fixCommits(projects, request, NOW);
 
-    expect(unchangedMain.has(fixKey("spa", hash))).toBe(true);
+    expect(unchangedMain.has(projectFixKey("spa", hash))).toBe(true);
     expect(landingChecks).toBe(0);
 
     await writeFiles(repo, { "src/c.ts": "c\n" });

@@ -1,4 +1,6 @@
 import type { z } from "zod";
+import type { ClosedStatus } from "./graph";
+import type { Resolution } from "./types";
 
 export const CODED_SCHEMA_ISSUES = ["bad-id", "empty-title", "empty-name", "bad-prefix"] as const;
 type CodedSchemaIssue = (typeof CODED_SCHEMA_ISSUES)[number];
@@ -12,7 +14,7 @@ export type Problem =
   | { code: "self-related" }
   | { code: "referenced-as-epic"; children: readonly string[] }
   | { code: "blocker-cycle"; cycle: readonly string[] }
-  | { code: "resolution-needs-status"; resolution: string; status: string }
+  | { code: "resolution-needs-status"; resolution: Resolution; status: ClosedStatus }
   | { code: "reason-without-resolution" }
   | { code: "epic-self" }
   | { code: "epic-missing"; epic: string }

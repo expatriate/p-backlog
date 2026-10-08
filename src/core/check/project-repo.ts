@@ -8,11 +8,14 @@ import { anchorOf } from "./anchor";
 import { sourcePath } from "../model/source";
 import { currentSourceIn } from "./current-source";
 
-export async function sourceAnchor(project: Project, source: string, home: string, workingDir?: string): Promise<string | null | undefined> {
+export type SourceAnchor = { kind: "no-file" } | { kind: "uncomputable" } | { kind: "anchor"; anchor: string };
+
+export async function sourceAnchor(project: Project, source: string, home: string, workingDir?: string): Promise<SourceAnchor> {
   const repo = await findRepo(project, home, workingDir);
-  if (repo === undefined) return undefined;
-  const text = await readFile(join(repo, sourcePath(source)), "utf8").catch(() => null);
-  return text === null ? undefined : anchorOf(text, source);
+  const text = repo === undefined ? null : await readFile(join(repo, sourcePath(source)), "utf8").catch(() => null);
+  if (text === null) return { kind: "no-file" };
+  const anchor = anchorOf(text, source);
+  return anchor === null ? { kind: "uncomputable" } : { kind: "anchor", anchor };
 }
 
 export async function relocatedSource(project: Project, task: Task, home: string, workingDir?: string): Promise<string | undefined> {

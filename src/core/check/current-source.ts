@@ -41,7 +41,7 @@ function currentOf(trace: SourceTrace): string | null {
   return trace.kind === "traced" ? trace.current : null;
 }
 
-type Reference = { hunks: readonly Hunk[]; source: string };
+type ReferenceSearch = { kind: "found"; hunks: readonly Hunk[]; source: string } | { kind: "not-on-branch" } | { kind: "untraced" };
 
 type Traced = Task & { source: string };
 
@@ -54,8 +54,8 @@ async function traceSource(task: Task, facts: RepoFacts, diffs: FileDiffs): Prom
   const anchorHolds = anchor === undefined || anchorOf(text, source) === anchor;
   if (commits.length === 0 && !uncommitted && anchorHolds) return { kind: "traced", current: source, linesChanged: false };
   const reference = await referenceOf({ ...task, source }, text, commits, diffs);
-  if (reference === "not-on-branch") return commits.length === 0 && !uncommitted ? { kind: "not-on-branch" } : UNTRACED;
-  if (reference === null) return UNTRACED;
+  if (reference.kind === "not-on-branch") return commits.length === 0 && !uncommitted ? { kind: "not-on-branch" } : UNTRACED;
+  if (reference.kind === "untraced") return UNTRACED;
   const current = remappedSource(reference.source, (line) => currentLine(reference.hunks, line));
   const located = current !== null && anchorOf(text, current) !== null ? current : null;
   const unanchoredShift = anchor === undefined && located !== source;
@@ -63,7 +63,7 @@ async function traceSource(task: Task, facts: RepoFacts, diffs: FileDiffs): Prom
   return { kind: "traced", current: unanchoredShift ? null : located, linesChanged: lines === null || modifiesLines(reference.hunks, lines) };
 }
 
-async function referenceOf(task: Traced, text: string, laterCommits: readonly Commit[], diffs: FileDiffs): Promise<Reference | "not-on-branch" | null> {
+async function referenceOf(task: Traced, text: string, laterCommits: readonly Commit[], diffs: FileDiffs): Promise<ReferenceSearch> {
   const path = sourcePath(task.source);
   const { anchor } = task;
   const mark = new Date(reviewMark(task));
@@ -81,7 +81,7 @@ async function referenceOf(task: Traced, text: string, laterCommits: readonly Co
     if (hunks === null) continue;
     compared = true;
     const source = anchor === undefined ? task.source : locateAnchor(baseText(hunks, text), task.source, anchor);
-    if (source !== null) return { hunks, source };
+    if (source !== null) return { kind: "found", hunks, source };
   }
-  return compared && head?.onThisLine === false ? "not-on-branch" : null;
+  return compared && head?.onThisLine === false ? { kind: "not-on-branch" } : { kind: "untraced" };
 }

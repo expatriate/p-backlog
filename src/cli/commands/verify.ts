@@ -1,7 +1,8 @@
-import { relocatedSource, sourceAnchor } from "../../core/check/project-repo";
+import { relocatedSource, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
 import { formatLocalIso } from "../../core/model/dates";
 import { isClosed } from "../../core/model/graph";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
+import type { TaskChanges } from "../../core/store/update";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
@@ -40,9 +41,20 @@ async function verifyOne(id: string, { loaded, source, write, io }: Verification
   const project = projectOf(loaded, task);
   const target = source ?? (project === undefined ? undefined : await relocatedSource(project, task, io.home, io.cwd));
   const anchored = target ?? task.source;
-  const anchor = project === undefined || anchored === undefined ? undefined : await sourceAnchor(project, anchored, io.home, io.cwd);
+  const anchor = project === undefined || anchored === undefined ? undefined : anchorChange(await sourceAnchor(project, anchored, io.home, io.cwd));
   const written = await write(task, { verified: formatLocalIso(io.now()), source: target, anchor });
   if (!written.ok) return written.exitCode;
   io.print(target === undefined ? io.cli.verified(id) : io.cli.verifiedWithSource(id, target));
   return EXIT.ok;
+}
+
+function anchorChange(found: SourceAnchor): TaskChanges["anchor"] {
+  switch (found.kind) {
+    case "no-file":
+      return undefined;
+    case "uncomputable":
+      return null;
+    case "anchor":
+      return found.anchor;
+  }
 }

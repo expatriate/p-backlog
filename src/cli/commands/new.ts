@@ -61,6 +61,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
     return EXIT.refused;
   }
 
+  const atSource = values.source === undefined ? undefined : await sourceAnchor(project, values.source, io.home, io.cwd);
   const result = await createTask(io.backlogRoot, {
     project,
     input: {
@@ -70,7 +71,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
       category,
       tags: splitList(values.tags),
       source: values.source,
-      anchor: values.source === undefined ? undefined : ((await sourceAnchor(project, values.source, io.home, io.cwd)) ?? undefined),
+      anchor: atSource?.kind === "anchor" ? atSource.anchor : undefined,
       epic: values.epic,
       blockedBy: splitList(values["blocked-by"]),
       related: splitList(values.related),

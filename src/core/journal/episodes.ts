@@ -4,6 +4,10 @@ import { CANDIDATE_EVIDENCE, type CandidateEvidence, type CandidateSighting, typ
 
 type EpisodeState = "open" | "ended";
 
+declare const episodeKeyBrand: unique symbol;
+
+type EpisodeKey = string & { readonly [episodeKeyBrand]: true };
+
 export function candidateEvents(sightings: readonly CandidateSighting[], states: EpisodeStates, now: Date, mode: CheckMode): JournalEvent[] {
   const at = formatLocalIso(now);
   return dedupeSightings(sightings)
@@ -39,12 +43,12 @@ export function candidateGoneEvents({ sightings, reviewed, checked = CANDIDATE_E
   );
 }
 
-export type EpisodeStates = ReadonlyMap<string, EpisodeState>;
+export type EpisodeStates = ReadonlyMap<EpisodeKey, EpisodeState>;
 
 export function episodeStates(journal: readonly JournalEvent[]): EpisodeStates {
-  const states = new Map<string, EpisodeState>();
-  const filteredKeysByTask = new Map<string, Set<string>>();
-  const beforeClosing = new Map<string, Array<[string, EpisodeState | undefined]>>();
+  const states = new Map<EpisodeKey, EpisodeState>();
+  const filteredKeysByTask = new Map<string, Set<EpisodeKey>>();
+  const beforeClosing = new Map<string, Array<[EpisodeKey, EpisodeState | undefined]>>();
   for (const event of journal) {
     if (event.kind === "candidate") {
       openEpisode(episodeKey(event.task, event.evidence), states);
@@ -70,15 +74,15 @@ export function episodeStates(journal: readonly JournalEvent[]): EpisodeStates {
   return states;
 }
 
-function openEpisode(key: string, states: Map<string, EpisodeState>): void {
+function openEpisode(key: EpisodeKey, states: Map<EpisodeKey, EpisodeState>): void {
   states.set(key, "open");
 }
 
-function endEpisodes(keys: Iterable<string>, states: Map<string, EpisodeState>): void {
+function endEpisodes(keys: Iterable<EpisodeKey>, states: Map<EpisodeKey, EpisodeState>): void {
   for (const key of keys) states.set(key, "ended");
 }
 
-function restoreEpisodes(entries: ReadonlyArray<[string, EpisodeState | undefined]>, states: Map<string, EpisodeState>): void {
+function restoreEpisodes(entries: ReadonlyArray<[EpisodeKey, EpisodeState | undefined]>, states: Map<EpisodeKey, EpisodeState>): void {
   for (const [key, state] of entries) {
     if (state === undefined) states.delete(key);
     else states.set(key, state);
@@ -87,7 +91,7 @@ function restoreEpisodes(entries: ReadonlyArray<[string, EpisodeState | undefine
 
 export function episodeOpeners(journal: readonly JournalEvent[]): ReadonlySet<JournalEvent> {
   const states = episodeStates(journal);
-  const seenKeys = new Set<string>();
+  const seenKeys = new Set<EpisodeKey>();
   const openers = new Set<JournalEvent>();
   for (const event of journal.toReversed()) {
     const key = openingKey(event);
@@ -98,7 +102,7 @@ export function episodeOpeners(journal: readonly JournalEvent[]): ReadonlySet<Jo
   return openers;
 }
 
-function openingKey(event: JournalEvent): string | null {
+function openingKey(event: JournalEvent): EpisodeKey | null {
   if (event.kind === "candidate") return episodeKey(event.task, event.evidence);
   return event.kind === "candidate-filtered" ? filteredKey(event.task, event.symbol) : null;
 }
@@ -112,12 +116,12 @@ function endsEpisodes(event: JournalEvent): boolean {
   return event.kind === "status" && isClosed(event.to);
 }
 
-function episodeKey(task: string, evidence: CandidateEvidence): string {
-  return `${task}:${evidence}`;
+function episodeKey(task: string, evidence: CandidateEvidence): EpisodeKey {
+  return `${task}:${evidence}` as EpisodeKey;
 }
 
-function filteredKey(task: string, symbol: string): string {
-  return `filtered:${task}:${symbol}`;
+function filteredKey(task: string, symbol: string): EpisodeKey {
+  return `filtered:${task}:${symbol}` as EpisodeKey;
 }
 
 function dedupeSightings(sightings: readonly CandidateSighting[]): CandidateSighting[] {

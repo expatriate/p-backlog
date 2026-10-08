@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { candidateEvents, episodeStates, filteredEvents } from "../journal/episodes";
 import { reportContext } from "../stats/scope";
+import { projectFixKey, type ProjectFixKey } from "../code/fix-key";
 import type { CollectedCode, FixCommit } from "../code/types";
 import { JOURNAL_FILE, readJournal, readJournals } from "./journal";
 import { compactJournal } from "./journal-compaction";
@@ -20,9 +21,9 @@ const CODE: CollectedCode = {
   ],
   unavailableRepos: [],
   fixCommits: new Map([
-    ["spa abc1234", { date: "2026-09-05T09:00:00+03:00", byAgent: true, lines: 12, testLines: 4 }],
-    ...[1, 2, 3, 4].map((lines): [string, FixCommit] => [`ti aaa000${lines}`, { date: "2026-09-01T09:00:00+03:00", byAgent: true, lines, testLines: 0 }]),
-    ["ti bbb0008", { date: "2026-09-08T09:00:00+03:00", byAgent: true, lines: 100, testLines: 0 }],
+    [projectFixKey("spa", "abc1234"), { date: "2026-09-05T09:00:00+03:00", byAgent: true, lines: 12, testLines: 4 }],
+    ...[1, 2, 3, 4].map((lines): [ProjectFixKey, FixCommit] => [projectFixKey("ti", `aaa000${lines}`), { date: "2026-09-01T09:00:00+03:00", byAgent: true, lines, testLines: 0 }]),
+    [projectFixKey("ti", "bbb0008"), { date: "2026-09-08T09:00:00+03:00", byAgent: true, lines: 100, testLines: 0 }],
   ]),
 };
 

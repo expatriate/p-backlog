@@ -2,7 +2,11 @@ import { existsSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync, StatementSync } from "node:sqlite";
 
-export type GraphSymbol = { qualifiedName: string; kind: string; from: number; to: number };
+const SYMBOL_KINDS = ["Class", "Function", "Type", "Test"] as const;
+
+export type GraphSymbolKind = (typeof SYMBOL_KINDS)[number] | "other";
+
+export type GraphSymbol = { qualifiedName: string; kind: GraphSymbolKind; from: number; to: number };
 
 export type GraphFileState = "fresh" | "changed" | "absent";
 
@@ -62,12 +66,16 @@ function codeGraph(db: DatabaseSync, repo: string): CodeGraph {
       if (fileState(path, fileHash) !== "fresh") return null;
       const file = join(repo, path);
       const row = ask(enclosing, (statement) => statement.get(file, line, line) as SymbolRow | undefined, undefined);
-      return row === undefined ? null : { qualifiedName: row.qualified_name, kind: row.kind, from: row.line_start, to: row.line_end };
+      return row === undefined ? null : { qualifiedName: row.qualified_name, kind: symbolKindOf(row.kind), from: row.line_start, to: row.line_end };
     },
     close() {
       closeQuietly(db);
     },
   };
+}
+
+function symbolKindOf(stored: string): GraphSymbolKind {
+  return SYMBOL_KINDS.find((kind) => kind === stored) ?? "other";
 }
 
 function ask<T>(statement: StatementSync, run: (statement: StatementSync) => T, fallback: T): T {

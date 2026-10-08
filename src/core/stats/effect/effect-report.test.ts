@@ -5,15 +5,15 @@ import { makeTask } from "../../model/testing/make-task";
 import type { Task } from "../../model/types";
 import { fixRequests } from "../code/fixes";
 import { reportContext } from "../scope";
-import { fixKey } from "../../code/fix-key";
+import { projectFixKey, type ProjectFixKey } from "../../code/fix-key";
 import type { CollectedCode, FixCommit } from "../../code/types";
 import { effectReport } from "./effect-report";
 
 const NOW = new Date(2026, 8, 18, 12);
 const iso = (month: number, day: number) => formatLocalIso(new Date(2026, month, day, 12));
-const fixed = (index: number, lines: number): { task: Task; commit: [string, FixCommit] } => ({
+const fixed = (index: number, lines: number): { task: Task; commit: [ProjectFixKey, FixCommit] } => ({
   task: makeTask({ id: `SPA-${index}`, created: iso(8, index), status: "done", closed: iso(8, 10), resolution: "fixed", reason: `Исправлено в aaaaaa${index}`, category: "bug" }),
-  commit: [fixKey("spa", `aaaaaa${index}`), { date: iso(8, 10), byAgent: true, lines, testLines: lines / 2 }],
+  commit: [projectFixKey("spa", `aaaaaa${index}`), { date: iso(8, 10), byAgent: true, lines, testLines: lines / 2 }],
 });
 const createdOf = (tasks: readonly Task[], found: FoundHow | undefined) => tasks.map((task) => createdEvent(task, new Date(task.created), "cli", { found }));
 const journalsOf = (tasks: readonly Task[], found: FoundHow | undefined): ProjectJournal[] =>
@@ -27,7 +27,7 @@ const journalsOf = (tasks: readonly Task[], found: FoundHow | undefined): Projec
   }));
 const incidental = (tasks: readonly Task[]) => ({ tasks, journals: journalsOf(tasks, "incidental") });
 const code = (
-  commits: [string, FixCommit][],
+  commits: [ProjectFixKey, FixCommit][],
   units = [
     { date: iso(8, 15), lines: 300 },
     { date: iso(8, 2), lines: 100 },
@@ -97,7 +97,7 @@ describe("эффект беклога", () => {
   });
 
   it("строки исправления с ветки ложатся в неделю попадания в основную ветку, а не в неделю коммита", () => {
-    const branchFix: [string, FixCommit] = [fixKey("spa", "aaaaaa1"), { date: iso(8, 10), landedAt: iso(8, 15), byAgent: true, lines: 40, testLines: 0 }];
+    const branchFix: [ProjectFixKey, FixCommit] = [projectFixKey("spa", "aaaaaa1"), { date: iso(8, 10), landedAt: iso(8, 15), byAgent: true, lines: 40, testLines: 0 }];
 
     const report = effectReport(reportContext({ ...incidental(fixes.slice(0, 1).map((fix) => fix.task)), now: NOW, projectId: "spa" }), code([branchFix]));
 
@@ -117,7 +117,7 @@ describe("эффект беклога", () => {
     const tiFixes = [10, 20, 30, 40, 50].map((lines, index) =>
       makeTask({ id: `TI-${index + 1}`, projectId: "ti", created: iso(8, index + 1), status: "done", closed: iso(8, 10), resolution: "fixed", reason: `Исправлено в cccccc${index + 1}` }),
     );
-    const commits: [string, FixCommit][] = [10, 20, 30, 40, 50].map((lines, index) => [fixKey("ti", `cccccc${index + 1}`), { date: iso(8, 10), byAgent: true, lines, testLines: 0 }]);
+    const commits: [ProjectFixKey, FixCommit][] = [10, 20, 30, 40, 50].map((lines, index) => [projectFixKey("ti", `cccccc${index + 1}`), { date: iso(8, 10), byAgent: true, lines, testLines: 0 }]);
     const openInSpa = makeTask({ id: "SPA-7", created: iso(8, 15) });
 
     const report = effectReport(reportContext({ ...incidental([...tiFixes, openInSpa]), now: NOW, projectId: "spa" }), code(commits));
@@ -167,7 +167,7 @@ describe("эффект беклога", () => {
     const sharedTwo = sameFix("SPA-102", 2);
     const singles = [11, 22, 33, 44].map((lines, index) => fixed(index + 3, lines));
     const openTask = makeTask({ id: "SPA-108", created: iso(8, 16), category: "bug" });
-    const commits: [string, FixCommit][] = [[fixKey("spa", "bbbbbb1"), { date: iso(8, 10), byAgent: true, lines: 40, testLines: 10 }], ...singles.map((fix) => fix.commit)];
+    const commits: [ProjectFixKey, FixCommit][] = [[projectFixKey("spa", "bbbbbb1"), { date: iso(8, 10), byAgent: true, lines: 40, testLines: 10 }], ...singles.map((fix) => fix.commit)];
 
     const report = effectReport(reportContext({ ...incidental([sharedOne, sharedTwo, ...singles.map((fix) => fix.task), openTask]), now: NOW, projectId: "spa" }), code(commits, []));
 
@@ -180,7 +180,7 @@ describe("эффект беклога", () => {
 
   it("строки коммита делятся на все задачи, которые на него ссылаются, даже на созданную до периода", () => {
     const sameFix = (id: string, created: string) => makeTask({ id, created, status: "done", closed: iso(8, 10), resolution: "fixed", reason: "Исправлено в dddddd1" });
-    const commits: [string, FixCommit][] = [[fixKey("spa", "dddddd1"), { date: iso(8, 10), byAgent: true, lines: 100, testLines: 40 }]];
+    const commits: [ProjectFixKey, FixCommit][] = [[projectFixKey("spa", "dddddd1"), { date: iso(8, 10), byAgent: true, lines: 100, testLines: 40 }]];
 
     const report = effectReport(reportContext({ ...incidental([sameFix("SPA-201", iso(2, 1)), sameFix("SPA-202", iso(8, 5))]), now: NOW, projectId: "spa" }), code(commits));
 
@@ -189,7 +189,7 @@ describe("эффект беклога", () => {
 
   it("задача, закрытая до окна хранения, не делит с новой строки общего коммита — уплотнение журнала итог не меняет", () => {
     const sameFix = (id: string, created: string, closed: string) => makeTask({ id, created, status: "done", closed, resolution: "fixed", reason: "Исправлено в dddddd1" });
-    const commits: [string, FixCommit][] = [[fixKey("spa", "dddddd1"), { date: iso(8, 10), byAgent: true, lines: 100, testLines: 40 }]];
+    const commits: [ProjectFixKey, FixCommit][] = [[projectFixKey("spa", "dddddd1"), { date: iso(8, 10), byAgent: true, lines: 100, testLines: 40 }]];
 
     const report = effectReport(reportContext({ ...incidental([sameFix("SPA-201", iso(0, 5), iso(1, 10)), sameFix("SPA-202", iso(8, 5), iso(8, 10))]), now: NOW, projectId: "spa" }), code(commits));
 
@@ -198,11 +198,11 @@ describe("эффект беклога", () => {
 
   it("отчёт одинаков с пустым и заполненным кэшем коммитов: запрашиваются все исправления, которые учитывает оценка", () => {
     const closedEightyEightDaysAgo = makeTask({ id: "SPA-50", created: iso(5, 1), status: "done", closed: iso(5, 22), resolution: "fixed", reason: "Исправлено в eeeeee1", category: "bug" });
-    const oldFixCommit: [string, FixCommit] = [fixKey("spa", "eeeeee1"), { date: iso(5, 22), byAgent: true, lines: 70, testLines: 0 }];
+    const oldFixCommit: [ProjectFixKey, FixCommit] = [projectFixKey("spa", "eeeeee1"), { date: iso(5, 22), byAgent: true, lines: 70, testLines: 0 }];
     const recent = fixes.slice(0, 4);
     const input = { ...incidental([closedEightyEightDaysAgo, ...recent.map((fix) => fix.task), ...others]), now: NOW, projectId: "spa" };
-    const filledCache: [string, FixCommit][] = [oldFixCommit, ...recent.map((fix) => fix.commit)];
-    const requestedKeys = new Set(fixRequests(reportContext(input).histories, NOW).flatMap(({ projectId, hashes }) => hashes.map((hash) => fixKey(projectId, hash))));
+    const filledCache: [ProjectFixKey, FixCommit][] = [oldFixCommit, ...recent.map((fix) => fix.commit)];
+    const requestedKeys = new Set(fixRequests(reportContext(input).histories, NOW).flatMap(({ projectId, hashes }) => hashes.map((hash) => projectFixKey(projectId, hash))));
     const fetchedIntoEmptyCache = filledCache.filter(([key]) => requestedKeys.has(key));
 
     const fromEmptyCache = effectReport(reportContext(input), code(fetchedIntoEmptyCache));

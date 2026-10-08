@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { CodeGraph, GraphSymbol } from "../code-review-graph/graph-db";
+import type { CodeGraph, GraphSymbol, GraphSymbolKind } from "../code-review-graph/graph-db";
 import type { FilteredSighting } from "../journal/events";
 import type { Task } from "../model/types";
 import { sourceRange, type LineRange } from "./anchor";
@@ -31,7 +31,7 @@ export function symbolLookup(graph: CodeGraph | null, hashOf: FileHashes): Symbo
     });
 }
 
-const CALLABLE_KINDS = new Set(["Function", "Test"]);
+const CALLABLE_KINDS: ReadonlySet<GraphSymbolKind> = new Set(["Function", "Test"]);
 
 export function symbolNames(symbolAt: SymbolLookup, located: CurrentSources): SymbolOf {
   return (task) => {

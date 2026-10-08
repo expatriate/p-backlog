@@ -4,6 +4,7 @@ import { candidateEvents, episodeStates, filteredEvents } from "../journal/episo
 import { CANDIDATE_EVIDENCE } from "../journal/events";
 import { DAY_MS, formatLocalIso } from "../model/dates";
 import { PRIORITIES, TASK_CATEGORIES, type TaskStatus } from "../model/types";
+import { projectFixKey, type ProjectFixKey } from "../code/fix-key";
 import type { CollectedCode, FixCommit } from "../code/types";
 import { JOURNAL_FILE, readJournal } from "./journal";
 import { compactJournal } from "./journal-compaction";
@@ -132,7 +133,7 @@ function codeOf(rng: Rng): CollectedCode {
   const commitDay = () => iso(NOW.getTime() - rng.int(1, 150 * 24) * HOUR_MS);
   const units = Array.from({ length: 12 }, () => ({ date: commitDay(), lines: rng.int(1, 400) }));
   const fixCommits = PROJECTS.flatMap(({ id }) =>
-    HASHES.map((hash): [string, FixCommit] => [`${id} ${hash}`, { date: commitDay(), byAgent: rng.chance(0.8), lines: rng.int(1, 120), testLines: rng.int(0, 30) }]),
+    HASHES.map((hash): [ProjectFixKey, FixCommit] => [projectFixKey(id, hash), { date: commitDay(), byAgent: rng.chance(0.8), lines: rng.int(1, 120), testLines: rng.int(0, 30) }]),
   );
   return {
     projects: PROJECTS.map(({ id }) => ({ projectId: id, name: id, repos: [{ commits: [], lines: [], units }] })),
