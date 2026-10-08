@@ -42,7 +42,7 @@ export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Prom
     runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
     committedPaths(repo, missing),
   ]);
-  if (log === null || renames === null || status === null || inHistory === null) return withoutHistory("unreadable");
+  if (log === null || renames === null || status === null) return withoutHistory("unreadable");
   const worktree = parseStatus(status);
   const inRepo = (gitRootPaths: readonly string[]) => withinRepo(gitRootPaths, prefix.trim());
   return {
@@ -51,7 +51,7 @@ export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Prom
     renames: parseLog(renames),
     dirtyModifiedAt: await modificationTimes(repo, inRepo(worktree.changed)),
     removedInWorktree: new Set(inRepo(worktree.removed)),
-    inHistory: new Set(inHistory),
+    inHistory: new Set(inHistory ?? []),
     existing,
     texts,
   };

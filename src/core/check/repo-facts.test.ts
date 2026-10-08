@@ -77,6 +77,20 @@ describe("collectRepoFacts", () => {
     expect(facts.commits.map(({ files }) => files)).toEqual([[{ path: "src/a.ts" }]]);
   });
 
+  it("ссылка в refs на несуществующий объект ломает только поиск пропавшего файла по веткам, не историю проекта", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "export const a = 1;\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFile(join(repo, "src/a.ts"), "export const a = 2;\n");
+    gitCommitAll(repo, "Поправить a", "2026-09-12T10:00:00+03:00");
+    await writeFiles(repo, { ".git/refs/heads/broken": `${"1".repeat(40)}\n` });
+
+    const facts = await collectRepoFacts(repo, marksSince("2026-09-11T00:00:00Z", ["src/a.ts", "src/gone.ts"]));
+
+    expect(facts.history).toBe("read");
+    expect(facts.commits.map(({ subject }) => subject)).toEqual(["Поправить a"]);
+  });
+
   it("каталог без git: только существование файлов", async () => {
     const dir = await makeTempDir();
     await writeFiles(dir, { "src/a.ts": "" });
