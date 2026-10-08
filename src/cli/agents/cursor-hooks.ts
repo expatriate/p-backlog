@@ -18,8 +18,10 @@ export function addCursorStopHook(path: string, hook: { command: string }, ourHo
     path,
     cursorConfigSchema,
     (config) => {
-      const stop = ((config.hooks ??= {}).stop ??= []);
+      config.hooks ??= {};
+      config.hooks.stop ??= [];
       config.version ??= CURSOR_HOOKS_VERSION;
+      const stop = config.hooks.stop;
       return { lists: [stop], append: (added) => stop.push(added) };
     },
     hook,

@@ -25,12 +25,16 @@ export function derivePrefix(basename: string, taken: ReadonlySet<string>): stri
   return firstFree(base, taken, (n) => `${base}${n}`);
 }
 
-export function deriveProjectId(basename: string, taken: ReadonlySet<string>): string {
+export function projectIdBase(basename: string): string {
   const slug = basename
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  const base = slug === "" ? "project" : slug;
+  return slug === "" ? "project" : slug;
+}
+
+export function deriveProjectId(basename: string, taken: ReadonlySet<string>): string {
+  const base = projectIdBase(basename);
   return firstFree(base, taken, (n) => `${base}-${n}`);
 }
 

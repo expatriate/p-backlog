@@ -2,7 +2,8 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileExists } from "../../core/store/fs-utils";
 import type { CliEnv } from "../io";
-import { numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager, type ServiceOutcome } from "./service";
+import { SERVE_COMMAND_NAME } from "../../core/serve-command";
+import { numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceLaunch, type ServiceManager, type ServiceOutcome } from "./service";
 
 const SERVICE_NAME = "p-backlog";
 const UNIT = `${SERVICE_NAME}.service`;
@@ -15,15 +16,15 @@ function quotedArgument(value: string): string {
   return quoted(value).replaceAll("$", () => "$$");
 }
 
-export function systemdUnit(context: ServiceContext): string {
-  const environment = Object.entries(serviceEnvironment(context))
+export function systemdUnit(launch: ServiceLaunch): string {
+  const environment = Object.entries(serviceEnvironment(launch))
     .map(([key, value]) => `Environment=${quoted(`${key}=${value}`)}\n`)
     .join("");
   return `[Unit]
 Description=p-backlog web UI
 
 [Service]
-ExecStart=${quotedArgument(context.nodePath)} ${quotedArgument(context.cliPath)} serve
+ExecStart=${quotedArgument(launch.nodePath)} ${quotedArgument(launch.cliPath)} ${SERVE_COMMAND_NAME}
 ${environment}Restart=on-failure
 
 [Install]
@@ -49,9 +50,9 @@ export function systemdManager(context: ServiceContext): ServiceManager {
   return {
     file,
     logsHint: `journalctl --user -u ${SERVICE_NAME}`,
-    async install() {
+    async install(port) {
       await mkdir(dirname(file), { recursive: true });
-      await writeFile(file, systemdUnit(context));
+      await writeFile(file, systemdUnit({ ...context, port }));
       return systemctlSteps(context.exec, [["daemon-reload"], ["enable", UNIT], ["restart", UNIT]]);
     },
     async uninstall() {

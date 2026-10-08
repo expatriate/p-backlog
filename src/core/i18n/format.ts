@@ -40,3 +40,8 @@ export function formatMoney(language: Language, value: number | null): string {
   if (value === null) return "—";
   return `$${value.toLocaleString(localeOf(language), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
+export function joinAlternatives(items: readonly string[], or: string): string {
+  const last = items.at(-1) ?? "";
+  return items.length < 2 ? last : `${items.slice(0, -1).join(", ")} ${or} ${last}`;
+}

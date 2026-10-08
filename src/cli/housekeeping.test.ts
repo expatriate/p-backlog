@@ -19,8 +19,7 @@ async function backlogWithStaleJournal(): Promise<{ root: string; journalPath: s
 }
 
 function tidyIn(root: string, warnings: string[] = []) {
-  return (argv: readonly string[], hoursLater = 0) =>
-    tidyAfterCommand({ backlogRoot: root, argv, language: "ru", now: new Date(NOW.getTime() + hoursLater * HOUR_MS), warn: (line) => void warnings.push(line) });
+  return (command: string, hoursLater = 0) => tidyAfterCommand({ backlogRoot: root, command, language: "ru", now: new Date(NOW.getTime() + hoursLater * HOUR_MS), warn: (line) => void warnings.push(line) });
 }
 
 describe("уборка после команды CLI", () => {
@@ -29,14 +28,14 @@ describe("уборка после команды CLI", () => {
     const warnings: string[] = [];
     const tidy = tidyIn(root, warnings);
 
-    await tidy(["list"]);
+    await tidy("list");
     expect(await readFile(journalPath, "utf8")).not.toContain("SPA-3");
 
     await appendFile(journalPath, createdLine("SPA-4", NOW, 190));
-    await tidy(["list"], 1);
+    await tidy("list", 1);
     expect(await readFile(journalPath, "utf8")).toContain("SPA-4");
 
-    await tidy(["list"], 25);
+    await tidy("list", 25);
     expect(await readFile(journalPath, "utf8")).not.toContain("SPA-4");
     expect(warnings).toEqual([]);
   });
@@ -46,11 +45,11 @@ describe("уборка после команды CLI", () => {
     const before = await readFile(journalPath, "utf8");
     const tidy = tidyIn(root);
 
-    await tidy(["hook", "stop"]);
+    await tidy("hook stop");
     expect(await readFile(journalPath, "utf8")).toBe(before);
     expect(await readdir(join(root, "spa"))).not.toContain(".journal-compacted-at");
 
-    await tidy(["show", "SPA-1"]);
+    await tidy("show");
     expect(await readFile(journalPath, "utf8")).not.toContain("SPA-3");
   });
 
@@ -60,7 +59,7 @@ describe("уборка после команды CLI", () => {
     await appendRun(root, run(200, "old"));
     await appendRun(root, run(1, "recent"));
 
-    await tidyIn(root)(["hook", "stop"]);
+    await tidyIn(root)("hook stop");
 
     expect((await readRuns(root)).map(({ command }) => command)).toEqual(["recent"]);
   });
@@ -71,17 +70,17 @@ describe("уборка после команды CLI", () => {
     await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1", `status: done\nclosed: ${closedDaysAgo(10)}\n`) });
     const tidy = tidyIn(root);
 
-    await tidy(["list"]);
+    await tidy("list");
 
     await expect(readFile(join(root, "spa", "SPA-1.md"), "utf8")).rejects.toThrow();
     expect(await readFile(join(root, "spa", "journal.jsonl"), "utf8")).toContain('"kind":"deleted"');
     expect(await readdir(root)).toContain(SWEPT_AT_FILE);
 
     await writeFiles(root, { "spa/SPA-2.md": taskFile("SPA-2", `status: done\nclosed: ${closedDaysAgo(10)}\n`) });
-    await tidy(["list"], 1);
+    await tidy("list", 1);
     await expect(readFile(join(root, "spa", "SPA-2.md"), "utf8")).resolves.toContain("SPA-2");
 
-    await tidy(["list"], 25);
+    await tidy("list", 25);
     await expect(readFile(join(root, "spa", "SPA-2.md"), "utf8")).rejects.toThrow();
   });
 
@@ -96,7 +95,7 @@ describe("уборка после команды CLI", () => {
     });
     const warnings: string[] = [];
 
-    await tidyIn(root, warnings)(["list"]);
+    await tidyIn(root, warnings)("list");
 
     expect(warnings).toEqual([expect.stringContaining(join(root, "spa", "SPA-3.md")), expect.stringContaining("SPA-4 (задача не может блокировать саму себя)")]);
   });
@@ -107,7 +106,7 @@ describe("уборка после команды CLI", () => {
     await mkdir(join(root, "aaa", "journal.jsonl"));
     const warnings: string[] = [];
 
-    await tidyIn(root, warnings)(["list"]);
+    await tidyIn(root, warnings)("list");
 
     expect(await readFile(journalPath, "utf8")).not.toContain("SPA-3");
     expect(warnings).toEqual([expect.stringContaining(join(root, "aaa"))]);

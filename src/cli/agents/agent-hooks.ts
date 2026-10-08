@@ -7,34 +7,40 @@ import { addGroupedStopHook, commandOfHook, guardedPosixCommand, removeGroupedSt
 
 type HookSite = AgentPlaces & Pick<CliIo, "platform" | "cliPath">;
 
+type StopHookFile = {
+  install: (agent: Agent, path: string, site: HookSite) => Promise<HookInstallResult>;
+  remove: (agent: Agent, path: string) => Promise<HookRemoveResult>;
+};
+
 const CODEX_HOOK_TIMEOUT_SECONDS = 30;
 
-export function installAgentHook(agent: Agent, site: HookSite): Promise<HookInstallResult> {
-  const path = AGENT_SPECS[agent].hookConfigPath(site);
-  switch (agent) {
-    case "claude":
-      return addClaudeStopHook(path, site.platform);
-    case "codex": {
+const STOP_HOOK_FILES: Record<Agent, StopHookFile> = {
+  claude: {
+    install: (_agent, path, site) => addClaudeStopHook(path, site.platform),
+    remove: (_agent, path) => removeClaudeStopHook(path),
+  },
+  codex: {
+    install: (agent, path, site) => {
       const hook = { type: "command", command: posixCommand(agent), commandWindows: windowsCommand(agent, site.cliPath), timeout: CODEX_HOOK_TIMEOUT_SECONDS };
       return addGroupedStopHook(path, hook, ourCurrentHook(agent, hook));
-    }
-    case "cursor": {
+    },
+    remove: (agent, path) => removeGroupedStopHook(path, ourHookOf(agent)),
+  },
+  cursor: {
+    install: (agent, path, site) => {
       const hook = { command: site.platform === "win32" ? windowsCommand(agent, site.cliPath) : posixCommand(agent) };
       return addCursorStopHook(path, hook, ourCurrentHook(agent, hook));
-    }
-  }
+    },
+    remove: (agent, path) => removeCursorStopHook(path, ourHookOf(agent)),
+  },
+};
+
+export function installAgentHook(agent: Agent, site: HookSite): Promise<HookInstallResult> {
+  return STOP_HOOK_FILES[agent].install(agent, AGENT_SPECS[agent].hookConfigPath(site), site);
 }
 
 export function removeAgentHook(agent: Agent, site: AgentPlaces): Promise<HookRemoveResult> {
-  const path = AGENT_SPECS[agent].hookConfigPath(site);
-  switch (agent) {
-    case "claude":
-      return removeClaudeStopHook(path);
-    case "codex":
-      return removeGroupedStopHook(path, ourHookOf(agent));
-    case "cursor":
-      return removeCursorStopHook(path, ourHookOf(agent));
-  }
+  return STOP_HOOK_FILES[agent].remove(agent, AGENT_SPECS[agent].hookConfigPath(site));
 }
 
 function agentStopCommand(agent: Agent): string {

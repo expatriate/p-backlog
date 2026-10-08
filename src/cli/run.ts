@@ -1,5 +1,5 @@
 import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/hook-signature";
-import { errorText } from "../core/errors";
+import { errorText, warnOnFailure } from "../core/errors";
 import { FileBusyError } from "../core/store/file-lock";
 import { localeLanguage, settingsFilePath, settleLanguage } from "../core/store/settings";
 import { cliMessages } from "./messages";
@@ -56,11 +56,8 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<Exit
   const [name, ...args] = argv;
   const command = name === undefined ? undefined : COMMANDS.get(name);
   const failureExit = command?.failureExit ?? EXIT.failed;
-  const settled = await settleLanguage(env.backlogRoot, env.env).catch((error: unknown) => ({ unreadable: error }));
-  if ("unreadable" in settled) {
-    env.warn(cliMessages(localeLanguage(env.env)).commandFailed(name ?? "", errorText(settled.unreadable)));
-    return failureExit;
-  }
+  const settled = await warnOnFailure(settleLanguage(env.backlogRoot, env.env), env.warn, (error) => cliMessages(localeLanguage(env.env)).commandFailed(name ?? "", error));
+  if (settled === null) return failureExit;
   const { language } = settled;
   const io = cliIo(env, language);
   if (settled.invalidSettingsFile) io.warn(io.cli.settingsFileInvalid(settingsFilePath(env.backlogRoot)));

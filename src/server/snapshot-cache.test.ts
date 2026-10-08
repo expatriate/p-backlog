@@ -5,7 +5,7 @@ import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/te
 import { updateTask } from "../core/store/testing/update-task";
 import { createJournalSources } from "./journal-sources";
 import { createRevisions } from "./revisions";
-import { createInvalidation, createSnapshotCache, type IndexedBacklog } from "./snapshot-cache";
+import { createChangeHub, createSnapshotCache, type IndexedBacklog } from "./snapshot-cache";
 import { makeTestChangeFeed } from "./testing/change-feed";
 import { TEST_NOW } from "./testing/test-app";
 
@@ -13,8 +13,8 @@ function makeSnapshots(root: string) {
   const revisions = createRevisions();
   const snapshots = createSnapshotCache({ root, revisions, journalSources: createJournalSources(root), warn: async () => undefined });
   const { changes, emitChange } = makeTestChangeFeed();
-  const invalidation = createInvalidation({ revisions, snapshots, derived: { forgetAll: () => undefined, forgetChanged: () => undefined }, changes });
-  return { snapshots, invalidation, emitChange };
+  const changeHub = createChangeHub({ revisions, snapshots, derived: { forgetAll: () => undefined, forgetChanged: () => undefined }, changes });
+  return { snapshots, changeHub, emitChange };
 }
 
 async function backlogDir(): Promise<string> {
@@ -39,12 +39,11 @@ describe("снимок беклога в сервере", () => {
 
   it("после своей записи следующее чтение отдаёт диск", async () => {
     const root = await backlogDir();
-    const { snapshots, invalidation } = makeSnapshots(root);
+    const { snapshots, changeHub } = makeSnapshots(root);
     await snapshots.read();
 
-    const written = await updateTask(root, { id: "SPA-1", changes: { priority: "low" }, now: TEST_NOW, via: "web" });
+    const written = await changeHub.ownWrite(updateTask(root, { id: "SPA-1", changes: { priority: "low" }, now: TEST_NOW, via: "web" }), (result) => (result.ok ? [result.task] : []));
     if (!written.ok) throw new Error(`правка не прошла: ${written.reason}`);
-    await invalidation.recordOwnWrites([written.task]);
     expect(priorityOf(await snapshots.read(), "SPA-1")).toBe("low");
   });
 

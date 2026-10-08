@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildIndex } from "./graph";
-import { filterTasks, normalizeText, pickNextTask, sortTasks } from "./query";
+import { filterListTasks, filterTasks, normalizeText, pickNextTask, sortTasks } from "./query";
 import { makeTask } from "./testing/make-task";
-import type { Task } from "./types";
 
 const ids = (tasks: readonly { id: string }[]) => tasks.map((task) => task.id);
-const contextOf = (tasks: readonly Task[]) => ({ index: buildIndex(tasks), closedInWeb: new Set<string>() });
 
 describe("поиск", () => {
   it("нормализует регистр и ё", () => {
@@ -14,7 +12,7 @@ describe("поиск", () => {
 
   it("требует вхождения каждого слова в ID, заголовок или описание", () => {
     const tasks = [makeTask({ id: "SPA-12", title: "Таймауты загрузки", body: "Большие файлы ещё падают" })];
-    const found = (query: string) => ids(filterTasks(tasks, { query }, contextOf(tasks)));
+    const found = (query: string) => ids(filterTasks(tasks, { query }, buildIndex(tasks)));
     expect(found("таймауты еще")).toEqual(["SPA-12"]);
     expect(found("spa-12 файлы")).toEqual(["SPA-12"]);
     expect(found("таймауты сеть")).toEqual([]);
@@ -31,34 +29,35 @@ describe("filterTasks", () => {
     makeTask({ id: "SPA-5", type: "epic" }),
     makeTask({ id: "TI-1", projectId: "torg-io", tags: ["upload"] }),
   ];
-  const context = contextOf(tasks);
+  const index = buildIndex(tasks);
 
   it("теги — задача содержит все выбранные, без учёта регистра", () => {
-    expect(ids(filterTasks(tasks, { tags: ["Upload", "network"] }, context))).toEqual(["SPA-1"]);
+    expect(ids(filterTasks(tasks, { tags: ["Upload", "network"] }, index))).toEqual(["SPA-1"]);
   });
 
   it("проект и статусы; пустой список значений не пропускает ничего, отсутствующий — пропускает всё", () => {
-    expect(ids(filterTasks(tasks, { projectId: "spa", statuses: ["backlog", "in-progress"] }, context))).toEqual(["SPA-1", "SPA-3", "SPA-4", "SPA-5"]);
-    expect(ids(filterTasks(tasks, { projectId: "spa", priorities: [] }, context))).toEqual([]);
-    expect(ids(filterTasks(tasks, { priorities: ["high", "low"] }, context))).toEqual(["SPA-1", "SPA-3"]);
+    expect(ids(filterTasks(tasks, { projectId: "spa", statuses: ["backlog", "in-progress"] }, index))).toEqual(["SPA-1", "SPA-3", "SPA-4", "SPA-5"]);
+    expect(ids(filterTasks(tasks, { projectId: "spa", priorities: [] }, index))).toEqual([]);
+    expect(ids(filterTasks(tasks, { priorities: ["high", "low"] }, index))).toEqual(["SPA-1", "SPA-3"]);
   });
 
   it("эпик: конкретный или «без эпика»", () => {
-    expect(ids(filterTasks(tasks, { epic: "SPA-5" }, context))).toEqual(["SPA-1"]);
-    expect(ids(filterTasks(tasks, { epic: null, projectId: "spa" }, context))).toEqual(["SPA-2", "SPA-3", "SPA-4", "SPA-5"]);
+    expect(ids(filterTasks(tasks, { epic: "SPA-5" }, index))).toEqual(["SPA-1"]);
+    expect(ids(filterTasks(tasks, { epic: null, projectId: "spa" }, index))).toEqual(["SPA-2", "SPA-3", "SPA-4", "SPA-5"]);
   });
 
-  it("«закрыты агентом» — только задачи с причиной автозакрытия", () => {
+  it("«закрыты агентом» — только задачи с причиной автозакрытия, закрытые в вебе не в счёт", () => {
     const closed = [
       makeTask({ id: "SPA-1", status: "done", closed: "2026-09-12T10:00:00+03:00", resolution: "fixed", reason: "есть" }),
       makeTask({ id: "SPA-2", status: "done", closed: "2026-09-13T10:00:00+03:00" }),
+      makeTask({ id: "SPA-3", status: "done", closed: "2026-09-14T10:00:00+03:00", resolution: "fixed", reason: "в вебе" }),
     ];
-    expect(ids(filterTasks(closed, { onlyAutoClosed: true }, contextOf(closed)))).toEqual(["SPA-1"]);
+    expect(ids(filterListTasks(closed, { onlyAutoClosed: true }, { index: buildIndex(closed), closedInWeb: new Set(["SPA-3"]) }))).toEqual(["SPA-1"]);
   });
 
   it("тип и «только незаблокированные»", () => {
-    expect(ids(filterTasks(tasks, { type: "epic" }, context))).toEqual(["SPA-5"]);
-    expect(ids(filterTasks(tasks, { onlyUnblocked: true, projectId: "spa" }, context))).toEqual(["SPA-1", "SPA-3", "SPA-5"]);
+    expect(ids(filterTasks(tasks, { type: "epic" }, index))).toEqual(["SPA-5"]);
+    expect(ids(filterTasks(tasks, { onlyUnblocked: true, projectId: "spa" }, index))).toEqual(["SPA-1", "SPA-3", "SPA-5"]);
   });
 });
 

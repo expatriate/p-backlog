@@ -1,5 +1,4 @@
-import { readPort } from "../../server/port";
-import type { CliIo } from "../io";
+import { envPort, type CliIo } from "../io";
 import { launchdManager } from "./launchd";
 import type { ServiceContext, ServiceManager } from "./service";
 import { startupFolderManager } from "./startup-folder";
@@ -18,7 +17,7 @@ export async function availableServiceManager(platform: NodeJS.Platform, context
 }
 
 function serviceContextOf(io: CliIo): ServiceContext {
-  return { ...io, port: readPort(io.env.PORT), onUnverifiedPid: (pid, pidFile) => io.warn(io.cli.servicePidUnverified(pid, pidFile)) };
+  return { ...io, onUnverifiedPid: (pid, pidFile) => io.warn(io.cli.servicePidUnverified(pid, pidFile)) };
 }
 
 export function serviceManagerOf(io: CliIo): Promise<ServiceManager | null> {
@@ -26,10 +25,9 @@ export function serviceManagerOf(io: CliIo): Promise<ServiceManager | null> {
 }
 
 export async function servicePort(manager: ServiceManager | null, io: CliIo): Promise<number> {
-  const installed = await manager?.installedPort().catch(() => null);
-  return installed ?? readPort(io.env.PORT);
+  return (await manager?.installedPort().catch(() => null)) ?? envPort(io);
 }
 
-export function servicePortOf(io: CliIo): Promise<number> {
+export function webUiPort(io: CliIo): Promise<number> {
   return servicePort(platformManager(io.platform, serviceContextOf(io)), io);
 }

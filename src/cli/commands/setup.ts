@@ -4,6 +4,7 @@ import { linkAgentSkill } from "../agents/agent-skill";
 import { agentPlugin } from "../agents/claude-plugin";
 import type { HookInstallResult, HookRemoveResult } from "../agents/grouped-stop-hooks";
 import type { CliCommand } from "../command";
+import { isFailure } from "../failure";
 import { EXIT, parseChoice, parseOptions, UsageError, type CliIo, type ExitCode } from "../io";
 import { linkSkillFor, skillLinkPath, skillSourceDir, unlinkOurSkill } from "../skill-link";
 import { installService } from "./service";
@@ -69,17 +70,13 @@ async function removeLegacySkillLinks(agent: Agent, io: CliIo, voice: AgentVoice
 }
 
 function reportHook(result: HookInstallResult, configPath: string, io: CliIo, voice: AgentVoice): boolean {
-  if (typeof result === "string") {
-    const report = { added: io.cli.installHookAdded, exists: io.cli.installHookExists, updated: io.cli.installHookUpdated }[result];
-    voice.print(report(configPath));
-    return true;
-  }
-  if (result.failed === "unreadable") {
-    voice.warn(io.cli.installHookConfigUnreadable(configPath, result.code));
+  if (isFailure(result)) {
+    voice.warn(result.failed === "unreadable" ? io.cli.installHookConfigUnreadable(configPath, result.code) : io.cli.installHookConfigInvalid(configPath));
     return false;
   }
-  voice.warn(io.cli.installHookConfigInvalid(configPath));
-  return false;
+  const report = { added: io.cli.installHookAdded, exists: io.cli.installHookExists, updated: io.cli.installHookUpdated }[result];
+  voice.print(report(configPath));
+  return true;
 }
 
 async function removeManualSetup(agent: Agent, removing: readonly Agent[], io: CliIo): Promise<boolean> {
@@ -99,10 +96,10 @@ async function remainingSkillDirUser(agent: Agent, removing: readonly Agent[], i
 }
 
 function reportHookRemoval(result: HookRemoveResult, configPath: string, io: CliIo, voice: AgentVoice): boolean {
-  if (result === "removed" || result === "absent") {
-    voice.print(io.cli.manualHookRemoval[result](configPath));
-    return true;
+  if (isFailure(result)) {
+    voice.warn(result.failed === "unreadable" ? io.cli.removeHookConfigUnreadable(configPath, result.code) : io.cli.removeHookConfigInvalid(configPath));
+    return false;
   }
-  voice.warn(result.failed === "unreadable" ? io.cli.removeHookConfigUnreadable(configPath, result.code) : io.cli.removeHookConfigInvalid(configPath));
-  return false;
+  voice.print(io.cli.manualHookRemoval[result](configPath));
+  return true;
 }

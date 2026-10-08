@@ -3,7 +3,8 @@ import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { launchdLogPath } from "../../core/service-log";
 import { fileExists } from "../../core/store/fs-utils";
-import { numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
+import { SERVE_COMMAND_NAME } from "../../core/serve-command";
+import { numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceLaunch, type ServiceManager } from "./service";
 
 const LABEL = "local.p-backlog";
 const BOOTSTRAP_RETRY_ATTEMPTS = 5;
@@ -19,11 +20,11 @@ function xml(text: string): string {
   return text.replace(/[&<>"']/g, (char) => XML_ENTITIES[char] ?? char);
 }
 
-export function launchdPlist(context: ServiceContext): string {
-  const entries = Object.entries(serviceEnvironment(context))
+export function launchdPlist(launch: ServiceLaunch): string {
+  const entries = Object.entries(serviceEnvironment(launch))
     .map(([key, value]) => `    <key>${xml(key)}</key>\n    <string>${xml(value)}</string>`)
     .join("\n");
-  const log = xml(launchdLogPath(context.home));
+  const log = xml(launchdLogPath(launch.home));
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -32,9 +33,9 @@ export function launchdPlist(context: ServiceContext): string {
   <string>${LABEL}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${xml(context.nodePath)}</string>
-    <string>${xml(context.cliPath)}</string>
-    <string>serve</string>
+    <string>${xml(launch.nodePath)}</string>
+    <string>${xml(launch.cliPath)}</string>
+    <string>${SERVE_COMMAND_NAME}</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
@@ -63,11 +64,11 @@ export function launchdManager(context: ServiceContext, delay: (ms: number) => P
   return {
     file,
     logsHint: launchdLogPath(context.home),
-    async install() {
+    async install(port) {
       await bootout();
       await mkdir(dirname(file), { recursive: true });
       await mkdir(dirname(launchdLogPath(context.home)), { recursive: true });
-      await writeFile(file, launchdPlist(context));
+      await writeFile(file, launchdPlist({ ...context, port }));
       let result = await bootstrap();
       for (let attempt = 1; result.code === PREVIOUS_BOOTOUT_UNFINISHED_CODE && attempt < BOOTSTRAP_RETRY_ATTEMPTS; attempt++) {
         await delay(BOOTSTRAP_RETRY_DELAY_MS);

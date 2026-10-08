@@ -5,10 +5,10 @@ import { makeTempDir } from "../../core/store/testing/temp-dirs";
 import type { CliEnv } from "../io";
 import { fakeExec } from "../testing/cli-harness";
 import { availableServiceManager } from "./managers";
-import type { ServiceContext } from "./service";
+import type { ServiceContext, ServiceLaunch } from "./service";
 import { systemdManager, systemdUnit } from "./systemd";
 
-function contextFor(home: string, exec: CliEnv["exec"] = fakeExec().exec): ServiceContext {
+function contextFor(home: string, exec: CliEnv["exec"] = fakeExec().exec): ServiceContext & ServiceLaunch {
   return {
     home,
     env: { PATH: "/usr/local/bin:/usr/bin" },
@@ -56,7 +56,7 @@ describe("systemdManager", () => {
     });
     const context = contextFor(home, fake.exec);
 
-    expect(await systemdManager(context).install()).toBe("done");
+    expect(await systemdManager(context).install(4400)).toBe("done");
     expect(fake.calls).toEqual(["systemctl --user daemon-reload", "systemctl --user enable p-backlog.service", "systemctl --user restart p-backlog.service"]);
     expect(unitAtReload).toBe(systemdUnit(context));
   });
@@ -65,7 +65,7 @@ describe("systemdManager", () => {
     const home = await makeTempDir();
     const fake = fakeExec((command) => (command.includes(" enable ") ? { code: 1, output: "Failed to connect to bus" } : { code: 0, output: "" }));
 
-    const outcome = await systemdManager(contextFor(home, fake.exec)).install();
+    const outcome = await systemdManager(contextFor(home, fake.exec)).install(4400);
 
     expect(outcome).toEqual({ failed: "systemctl --user enable p-backlog.service", code: 1, output: "Failed to connect to bus" });
     expect(fake.calls).not.toContain("systemctl --user restart p-backlog.service");
@@ -84,7 +84,7 @@ describe("systemdManager", () => {
       return { code: 0, output: "" };
     });
     const manager = systemdManager(contextFor(home, fake.exec));
-    await manager.install();
+    await manager.install(4400);
     fake.calls.length = 0;
 
     expect(await manager.uninstall()).toBe("done");

@@ -1,6 +1,6 @@
 import { findSimilarTask } from "../../core/check/duplicates";
 import { warnPathErrors } from "../../core/errors";
-import { findRepo, sourceAnchor } from "../../core/check/project-repo";
+import { findRepo, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
 import { buildIndex } from "../../core/model/graph";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project } from "../../core/model/types";
@@ -13,6 +13,8 @@ import { ensureProject, repoLookup } from "../lookups";
 import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
 import { taskJson } from "../describe";
+import { formatJson } from "../format";
+import { tasksAfterWrite } from "../task-write";
 
 const DEFAULT_FOUND: FoundHow = "manual";
 
@@ -62,8 +64,11 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
     return EXIT.refused;
   }
 
-  const lookup = repoLookup(io);
-  const atSource = values.source === undefined ? undefined : await sourceAnchor(await findRepo(project, lookup), values.source, lookup.onUnreadable);
+  const [atSource, body, origin] = await Promise.all([
+    values.source === undefined ? undefined : anchorOf(project, values.source, io),
+    io.readStdin(),
+    cwdBelongsTo(project, loaded.projects, io) ? readOrigin(io.cwd) : undefined,
+  ]);
   const result = await createTask(io.backlogRoot, {
     project,
     input: {
@@ -77,13 +82,13 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
       epic: values.epic,
       blockedBy: splitList(values["blocked-by"]),
       related: splitList(values.related),
-      body: await io.readStdin(),
+      body,
     },
     existingTasks: loaded.tasks,
     now: io.now(),
     via: "cli",
     onError: warnPathErrors(io.warn),
-    provenance: { found, origin: cwdBelongsTo(project, loaded.projects, io) ? await readOrigin(io.cwd) : undefined },
+    provenance: { found, origin },
   });
   if (!result.ok) {
     for (const problem of result.problems) io.warn(io.core.problem(problem));
@@ -91,9 +96,13 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   }
   const { task, reopenedEpic } = result;
   if (reopenedEpic !== undefined) io.warn(io.cli.epicReopened(reopenedEpic.id));
-  const tasks = [...loaded.tasks.map((candidate) => (candidate.id === reopenedEpic?.id ? reopenedEpic : candidate)), task];
-  io.print(values.json ? JSON.stringify(taskJson(task, buildIndex(tasks)), null, 2) : `${task.id} ${task.path}`);
+  io.print(values.json ? formatJson(taskJson(task, buildIndex(tasksAfterWrite(loaded.tasks, result)))) : `${task.id} ${task.path}`);
   return EXIT.ok;
+}
+
+async function anchorOf(project: Project, source: string, io: CliIo): Promise<SourceAnchor> {
+  const lookup = repoLookup(io);
+  return sourceAnchor(await findRepo(project, lookup), source, lookup.onUnreadable);
 }
 
 function cwdBelongsTo(project: Project, knownProjects: readonly Project[], io: CliIo): boolean {

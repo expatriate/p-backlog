@@ -10,8 +10,11 @@ export type AgentPlaces = { env: NodeJS.ProcessEnv; home: string };
 
 type PlacePath = (places: AgentPlaces) => string;
 
+type StopProtocol = "claude" | "cursor";
+
 type AgentSpec = {
   label: string;
+  stopProtocol: StopProtocol;
   homeDir: PlacePath;
   skillsDir: PlacePath;
   legacySkillsDirs: (places: AgentPlaces) => string[];
@@ -26,9 +29,12 @@ const AGENT_HOOKS_FILE = "hooks.json";
 
 const claudeSettings: PlacePath = ({ env, home }) => claudeSettingsPath(env, home);
 
-function hooksJsonAgent(label: string, homeDir: PlacePath, { hookApprovalCommand }: { hookApprovalCommand: string | null }): AgentSpec {
+type HooksJsonTraits = Pick<AgentSpec, "stopProtocol" | "hookApprovalCommand">;
+
+function hooksJsonAgent(label: string, homeDir: PlacePath, { stopProtocol, hookApprovalCommand }: HooksJsonTraits): AgentSpec {
   return {
     label,
+    stopProtocol,
     homeDir,
     skillsDir: ({ home }) => join(home, ".agents", "skills"),
     legacySkillsDirs: (places) => [join(homeDir(places), "skills")],
@@ -43,6 +49,7 @@ function hooksJsonAgent(label: string, homeDir: PlacePath, { hookApprovalCommand
 export const AGENT_SPECS: Record<Agent, AgentSpec> = {
   claude: {
     label: "Claude Code",
+    stopProtocol: "claude",
     homeDir: ({ env, home }) => claudeDir(env, home),
     skillsDir: ({ env, home }) => claudeSkillsDir(env, home),
     legacySkillsDirs: () => [],
@@ -52,8 +59,8 @@ export const AGENT_SPECS: Record<Agent, AgentSpec> = {
     skillOnLanguageChange: "link",
     hookApprovalCommand: null,
   },
-  codex: hooksJsonAgent("Codex", ({ env, home }) => env.CODEX_HOME || join(home, ".codex"), { hookApprovalCommand: "/hooks" }),
-  cursor: hooksJsonAgent("Cursor", ({ home }) => join(home, ".cursor"), { hookApprovalCommand: null }),
+  codex: hooksJsonAgent("Codex", ({ env, home }) => env.CODEX_HOME || join(home, ".codex"), { stopProtocol: "claude", hookApprovalCommand: "/hooks" }),
+  cursor: hooksJsonAgent("Cursor", ({ home }) => join(home, ".cursor"), { stopProtocol: "cursor", hookApprovalCommand: null }),
 };
 
 export type AgentVoice = { print: (line: string) => void; warn: (line: string) => void };

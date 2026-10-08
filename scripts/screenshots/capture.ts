@@ -7,8 +7,10 @@ import { chromium, type Page } from "@playwright/test";
 import sharp from "sharp";
 import type { Language } from "../../src/core/i18n/language";
 import { localeOf } from "../../src/core/i18n/language";
-import { localOrigin, serverResponds } from "../../src/cli/service/server-probe";
+import { serverResponds } from "../../src/cli/service/server-probe";
+import { loopbackOrigin } from "../../src/server/port";
 import { DAY_MS } from "../../src/core/model/dates";
+import { SERVE_COMMAND_NAME } from "../../src/core/serve-command";
 import { SEEN_TASKS_STORAGE_KEY } from "../../src/web/list/use-seen-tasks";
 
 export type Shot = { name: string; path: string; viewport?: { width: number; height: number } };
@@ -25,9 +27,9 @@ const SEEN_SINCE_DAYS = 1;
 const QUANTIZED_PNG = { palette: true, quality: 90, effort: 10, compressionLevel: 9 } as const;
 
 export async function startDemoServer(repoRoot: string, home: string, backlogRoot: string, port: number): Promise<DemoServer> {
-  const origin = localOrigin(port);
+  const origin = loopbackOrigin(port);
   if (await serverResponds(origin, SERVER_PROBE_TIMEOUT_MS)) throw new Error(`Port ${port} is already taken; set SCREENSHOTS_PORT to a free port`);
-  const child: ChildProcess = spawn(process.execPath, [join(repoRoot, "dist/server.js")], {
+  const child: ChildProcess = spawn(process.execPath, [join(repoRoot, "dist/cli.js"), SERVE_COMMAND_NAME], {
     env: { PATH: process.env.PATH, HOME: home, BACKLOG_DIR: backlogRoot, CLAUDE_CONFIG_DIR: join(home, ".claude"), PORT: String(port) },
     stdio: ["ignore", "ignore", "inherit"],
   });

@@ -15,7 +15,7 @@ export function pruneUnlessKept<K extends string | undefined>(map: Map<K, unknow
   for (const projectId of map.keys()) if (projectId !== undefined && !kept.has(projectId)) map.delete(projectId);
 }
 
-export function forgetIfRejected<K>(entries: Map<K, { value: unknown }>, key: K, value: unknown): void {
+export function forgetIfRejected<K>(entries: Pick<Map<K, { value: unknown }>, "get" | "delete">, key: K, value: unknown): void {
   if (!(value instanceof Promise)) return;
   value.catch(() => {
     if (entries.get(key)?.value === value) entries.delete(key);

@@ -1,8 +1,8 @@
 import { isClosed } from "../../core/model/graph";
-import { OPEN_STATUSES, SORT_KEYS, type SortDirection, type SortKey, type TaskFilter, type TaskSort } from "../../core/model/query";
+import { OPEN_STATUSES, SORT_KEYS, type ListFilter, type SortDirection, type SortKey, type TaskSort } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 
-export type ListParams = { filter: Omit<TaskFilter, "projectId">; sort: TaskSort };
+export type ListParams = { filter: Omit<ListFilter, "projectId">; sort: TaskSort };
 
 export const DEFAULT_SORT: TaskSort = { key: "created", direction: "desc" };
 export const DEFAULT_FILTER: ListParams["filter"] = { statuses: OPEN_STATUSES };

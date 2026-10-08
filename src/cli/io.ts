@@ -2,6 +2,7 @@ import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 import { errorText } from "../core/errors";
 import type { Language } from "../core/i18n/language";
 import { coreMessages, type CoreMessages } from "../core/messages";
+import { requestedPort } from "../server/port";
 import { cliMessages, type CliMessages } from "./messages";
 
 export type ExecResult = { code: number; output: string };
@@ -89,4 +90,14 @@ export function parseChoice<T extends string>(language: Language, value: string,
   const match = allowed.find((candidate) => candidate === value);
   if (match === undefined) throw new UsageError(cliMessages(language).invalidChoice(label, allowed, value));
   return match;
+}
+
+export function parsePort(language: Language, source: string, value: string | undefined): number {
+  const port = requestedPort(value);
+  if (port === null) throw new UsageError(cliMessages(language).invalidPort(source, value ?? ""));
+  return port;
+}
+
+export function envPort(io: Pick<CliIo, "language" | "env">): number {
+  return parsePort(io.language, "PORT", io.env.PORT);
 }

@@ -1,6 +1,6 @@
 import { hasUnknownValue, type ProjectJournal } from "../journal/events";
 import { formatLocalIso } from "../model/dates";
-import type { Task } from "../model/types";
+import type { Project, Task } from "../model/types";
 import type { UnparsedTask } from "../store/load";
 import { isClosed } from "../model/graph";
 import { taskHistories, type TaskHistory } from "./history";
@@ -24,6 +24,10 @@ type StatsScope = {
   unknownJournalLines: number;
   unparsedTasks: number;
 };
+
+export function projectsInScope(projects: readonly Project[], projectId: string | undefined, { wholeBacklog = false }: { wholeBacklog?: boolean } = {}): Project[] {
+  return projects.filter((project) => project.id === projectId || ((projectId === undefined || wholeBacklog) && project.active));
+}
 
 export function inProjectScope<T>(items: readonly T[], projectId: string | undefined, projectOf: (item: T) => string | null): T[] {
   return items.filter((item) => projectId === undefined || projectOf(item) === projectId);

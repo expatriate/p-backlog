@@ -5,6 +5,9 @@
 - `backlog serve` (the background service included) is no longer recorded as a command run: stopping or restarting the
   service no longer adds a `serve` row with an uptime of hours to the Commands table on the cost tab, or counts it in
   "other commands". `serve` records already in `.runs.jsonl` are ignored by the report too.
+- An invalid `PORT` (not a number from 1 to 65535) is no longer silently replaced with 4317 when no service is
+  installed: `backlog stats` warns about it and prints the summary without the web link, and `backlog service status`
+  rejects it with exit code 1, as `serve` and `service install` already did.
 - `backlog check` no longer leaves a task created on a branch "awaiting merge" forever when that branch was merged by
   squash or rebase while the local branch still exists. The branch counts as merged once the current branch's history
   has, for every file the branch changed, either the branch's version of the file, or the branch's whole change to it

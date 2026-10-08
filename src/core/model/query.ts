@@ -16,8 +16,9 @@ export type TaskFilter = {
   epic?: string | null | undefined;
   type?: TaskType | undefined;
   onlyUnblocked?: boolean | undefined;
-  onlyAutoClosed?: boolean | undefined;
 };
+
+export type ListFilter = TaskFilter & { onlyAutoClosed?: boolean | undefined };
 
 export const SORT_KEYS = ["created", "closed", "priority", "progress", "title", "status", "id"] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
@@ -39,9 +40,9 @@ function matchesQuery(task: Task, query: string): boolean {
     .every((word) => haystack.includes(word));
 }
 
-type FilterContext = { index: BacklogIndex; closedInWeb: ReadonlySet<string> };
+type ListFilterContext = { index: BacklogIndex; closedInWeb: ReadonlySet<string> };
 
-export function filterTasks(tasks: readonly Task[], filter: TaskFilter, { index, closedInWeb }: FilterContext): Task[] {
+export function filterTasks(tasks: readonly Task[], filter: TaskFilter, index: BacklogIndex): Task[] {
   const tags = (filter.tags ?? []).map(normalizeTag);
   return tasks.filter(
     (task) =>
@@ -52,9 +53,13 @@ export function filterTasks(tasks: readonly Task[], filter: TaskFilter, { index,
       tags.every((tag) => task.tags.includes(tag)) &&
       matchesEpic(task, filter.epic) &&
       (filter.type === undefined || task.type === filter.type) &&
-      (!filter.onlyUnblocked || !isBlocked(task, index)) &&
-      (!filter.onlyAutoClosed || isAutoClosed(task, closedInWeb)),
+      (!filter.onlyUnblocked || !isBlocked(task, index)),
   );
+}
+
+export function filterListTasks(tasks: readonly Task[], filter: ListFilter, { index, closedInWeb }: ListFilterContext): Task[] {
+  const matching = filterTasks(tasks, filter, index);
+  return filter.onlyAutoClosed ? matching.filter((task) => isAutoClosed(task, closedInWeb)) : matching;
 }
 
 export function sortTasks(tasks: readonly Task[], sort: TaskSort, index: BacklogIndex, language: Language): Task[] {

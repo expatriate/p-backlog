@@ -61,6 +61,18 @@ describe("backlog stats", () => {
     expect((await run(["stats"])).out).toContain("Подробнее: http://localhost:5000/p/spa/stats");
   });
 
+  it("неверный PORT без службы: предупреждение о PORT и сводка без ссылки, а не ссылка на 4317", async () => {
+    const { run } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Одна"]);
+
+    const result = await run(["stats"], { env: { PORT: "abc" } });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(result.err).toContain("PORT: ожидается число от 1 до 65535, получено «abc»");
+    expect(result.out).toContain("Открыто: 1");
+    expect(result.out).not.toContain("Подробнее");
+  });
+
   it("неразобранные файлы задач и строки журнала видны и в тексте, и в JSON", async () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Сломается"]);

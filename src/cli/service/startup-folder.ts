@@ -3,7 +3,8 @@ import { dirname, join, win32 } from "node:path";
 import { SERVICE_LOG_LIMIT_BYTES } from "../../core/service-log";
 import { fileExists } from "../../core/store/fs-utils";
 import { PID_FILE_ENV } from "../../core/store/paths";
-import { numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceManager } from "./service";
+import { SERVE_COMMAND_NAME } from "../../core/serve-command";
+import { numberRecordedIn, serviceEnvironment, type ServiceContext, type ServiceLaunch, type ServiceManager, type ServiceSite } from "./service";
 
 const SCRIPT_NAME = "p-backlog.vbs";
 const COMMAND_LINE_ARGUMENT = /"[^"]*"|\S+/g;
@@ -15,37 +16,37 @@ function vbsString(value: string): string {
   return `"${value.replaceAll('"', '""')}"`;
 }
 
-function appDataDir(context: ServiceContext): string {
-  return join(context.env.LOCALAPPDATA ?? join(context.home, "AppData", "Local"), "p-backlog");
+function appDataDir(site: ServiceSite): string {
+  return join(site.env.LOCALAPPDATA ?? join(site.home, "AppData", "Local"), "p-backlog");
 }
 
-function startupFolder(context: ServiceContext): string {
-  return join(context.env.APPDATA ?? join(context.home, "AppData", "Roaming"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
+function startupFolder(site: ServiceSite): string {
+  return join(site.env.APPDATA ?? join(site.home, "AppData", "Roaming"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
 }
 
-function logPath(context: ServiceContext): string {
-  return join(appDataDir(context), "p-backlog.log");
+function logPath(site: ServiceSite): string {
+  return join(appDataDir(site), "p-backlog.log");
 }
 
-function pidFilePath(context: ServiceContext): string {
-  return join(appDataDir(context), "server.pid");
+function pidFilePath(site: ServiceSite): string {
+  return join(appDataDir(site), "server.pid");
 }
 
 const NODE_PATH_ENV = "P_BACKLOG_NODE";
 const CLI_PATH_ENV = "P_BACKLOG_CLI";
 const LOG_PATH_ENV = "P_BACKLOG_LOG";
 // Run and cmd expand %NAME% even inside quotes; values substituted by !NAME! delayed expansion are never re-expanded.
-const SERVE_COMMAND = `cmd /v:on /c ""!${NODE_PATH_ENV}!" "!${CLI_PATH_ENV}!" serve >> "!${LOG_PATH_ENV}!" 2>&1"`;
+const SERVE_COMMAND = `cmd /v:on /c ""!${NODE_PATH_ENV}!" "!${CLI_PATH_ENV}!" ${SERVE_COMMAND_NAME} >> "!${LOG_PATH_ENV}!" 2>&1"`;
 
-function rotatedLogPath(context: ServiceContext): string {
-  return `${logPath(context)}.old`;
+function rotatedLogPath(site: ServiceSite): string {
+  return `${logPath(site)}.old`;
 }
 
-function logRotation(context: ServiceContext): string[] {
+function logRotation(site: ServiceSite): string[] {
   return [
     'Set fso = CreateObject("Scripting.FileSystemObject")',
-    `logFile = ${vbsString(logPath(context))}`,
-    `rotatedLogFile = ${vbsString(rotatedLogPath(context))}`,
+    `logFile = ${vbsString(logPath(site))}`,
+    `rotatedLogFile = ${vbsString(rotatedLogPath(site))}`,
     "On Error Resume Next",
     "logSize = 0",
     "If fso.FileExists(logFile) Then logSize = fso.GetFile(logFile).Size",
@@ -57,19 +58,19 @@ function logRotation(context: ServiceContext): string[] {
   ];
 }
 
-export function startupScript(context: ServiceContext): string {
+export function startupScript(launch: ServiceLaunch): string {
   const env = {
-    ...serviceEnvironment(context),
-    [PID_FILE_ENV]: pidFilePath(context),
-    [NODE_PATH_ENV]: context.nodePath,
-    [CLI_PATH_ENV]: context.cliPath,
-    [LOG_PATH_ENV]: logPath(context),
+    ...serviceEnvironment(launch),
+    [PID_FILE_ENV]: pidFilePath(launch),
+    [NODE_PATH_ENV]: launch.nodePath,
+    [CLI_PATH_ENV]: launch.cliPath,
+    [LOG_PATH_ENV]: logPath(launch),
   };
   return [
     'Set shell = CreateObject("WScript.Shell")',
     'Set env = shell.Environment("Process")',
     ...Object.entries(env).map(([key, value]) => `env(${vbsString(key)}) = ${vbsString(value)}`),
-    ...logRotation(context),
+    ...logRotation(launch),
     `shell.Run ${vbsString(SERVE_COMMAND)}, 0, False`,
     "",
   ].join("\r\n");
@@ -100,7 +101,7 @@ function runsServerScript(commandLine: string, cliPath: string): boolean {
   const args = (commandLine.match(COMMAND_LINE_ARGUMENT) ?? []).map((arg) => arg.replaceAll('"', ""));
   if (args.length !== 3) return false;
   const [program = "", script = "", command] = args;
-  return /^node(\.exe)?$/i.test(win32.basename(program)) && sameWindowsPath(script, cliPath) && command === "serve";
+  return /^node(\.exe)?$/i.test(win32.basename(program)) && sameWindowsPath(script, cliPath) && command === SERVE_COMMAND_NAME;
 }
 
 function sameWindowsPath(left: string, right: string): boolean {
@@ -112,11 +113,11 @@ export function startupFolderManager(context: ServiceContext): ServiceManager {
   return {
     file,
     logsHint: logPath(context),
-    async install() {
+    async install(port) {
       await stopRunningServer(context);
       await mkdir(dirname(file), { recursive: true });
       await mkdir(appDataDir(context), { recursive: true });
-      await writeFile(file, `\ufeff${startupScript(context)}`, "utf16le");
+      await writeFile(file, `\ufeff${startupScript({ ...context, port })}`, "utf16le");
       const { code, output } = await context.exec("wscript.exe", [file]);
       return code === 0 ? "done" : { failed: "wscript.exe", code, output };
     },

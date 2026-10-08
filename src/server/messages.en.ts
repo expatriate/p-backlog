@@ -18,7 +18,7 @@ export const serverEn: ServerMessages = {
   hostRejected: (host) => `Requests from host ${host} are not accepted`,
   jsonContentTypeExpected: "Content-Type: application/json is expected",
 
-  serverStarted: (port, root) => `p-backlog: http://localhost:${port}\nBacklog directory: ${root}`,
+  serverStarted: (origin, root) => `p-backlog: ${origin}\nBacklog directory: ${root}`,
   settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 
   closedEpics: (ids) => `Closed completed epics: ${ids}`,
@@ -31,7 +31,6 @@ export const serverEn: ServerMessages = {
   transcriptsScanFailed: (detail) => `Could not read Claude Code transcripts: ${detail}`,
   watcherError: (root, detail) => `Watcher for directory ${root}: ${detail}`,
 
-  invalidPort: (source, value) => `${source}: expected a number from 1 to 65535, got "${value}"`,
   listenFailed: (reason) => `p-backlog failed to start: ${reason}`,
   portBusy: (port) => `port ${port} is already in use`,
 

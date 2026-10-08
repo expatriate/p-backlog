@@ -7,7 +7,7 @@ import { execProgram } from "../exec";
 import type { CliEnv, ExecResult } from "../io";
 import { fakeExec } from "../testing/cli-harness";
 import { startupFolderManager, startupScript } from "./startup-folder";
-import type { ServiceContext } from "./service";
+import type { ServiceContext, ServiceLaunch } from "./service";
 
 type Roots = { home: string; appData: string; localAppData: string };
 
@@ -15,7 +15,12 @@ async function tempRoots(): Promise<Roots> {
   return { home: await makeTempDir(), appData: await makeTempDir(), localAppData: await makeTempDir() };
 }
 
-function contextFor(roots: Roots, exec: CliEnv["exec"] = fakeExec().exec, stopProcess: CliEnv["stopProcess"] = () => true, onUnverifiedPid: ServiceContext["onUnverifiedPid"] = () => undefined): ServiceContext {
+function contextFor(
+  roots: Roots,
+  exec: CliEnv["exec"] = fakeExec().exec,
+  stopProcess: CliEnv["stopProcess"] = () => true,
+  onUnverifiedPid: ServiceContext["onUnverifiedPid"] = () => undefined,
+): ServiceContext & ServiceLaunch {
   return {
     home: roots.home,
     env: { PATH: "/usr/local/bin;/usr/bin", APPDATA: roots.appData, LOCALAPPDATA: roots.localAppData },
@@ -119,7 +124,7 @@ describe("startupFolderManager", () => {
     const fake = fakeExec();
     const context = contextFor(roots, fake.exec);
 
-    const outcome = await startupFolderManager(context).install();
+    const outcome = await startupFolderManager(context).install(4400);
 
     expect(outcome).toBe("done");
     expect(fake.calls).toEqual([`wscript.exe ${scriptPath(roots.appData)}`]);
@@ -132,7 +137,7 @@ describe("startupFolderManager", () => {
     const roots = await tempRoots();
     const context = { ...contextFor(roots), home: "C:\\Users\\Дмитрий", backlogRoot: "C:\\Users\\Дмитрий\\backlog" };
 
-    await startupFolderManager(context).install();
+    await startupFolderManager(context).install(4400);
 
     const bytes = await readFile(scriptPath(roots.appData));
     expect(bytes.subarray(0, 2)).toEqual(Buffer.from([0xff, 0xfe]));
@@ -147,7 +152,7 @@ describe("startupFolderManager", () => {
     const stopped: number[] = [];
     const context = contextFor(roots, execAnswering(ourServerCommandLine), recordInto(stopped));
 
-    await startupFolderManager(context).install();
+    await startupFolderManager(context).install(4400);
 
     expect(stopped).toEqual([4242]);
     await expect(access(pidFilePath(roots.localAppData))).rejects.toMatchObject({ code: "ENOENT" });
@@ -163,7 +168,7 @@ describe("startupFolderManager", () => {
     await writePidFile(roots, "4242");
     const stopped: number[] = [];
 
-    await startupFolderManager(contextFor(roots, exec, recordInto(stopped))).install();
+    await startupFolderManager(contextFor(roots, exec, recordInto(stopped))).install(4400);
 
     expect(stopped).toEqual([]);
     await expect(access(pidFilePath(roots.localAppData))).rejects.toMatchObject({ code: "ENOENT" });
@@ -174,7 +179,7 @@ describe("startupFolderManager", () => {
     await writePidFile(roots, "4242");
     const stopped: number[] = [];
 
-    await startupFolderManager(contextFor(roots, execAnswering('"C:\\NODE\\node.exe" "c:\\P-Backlog\\dist\\CLI.JS" serve '), recordInto(stopped))).install();
+    await startupFolderManager(contextFor(roots, execAnswering('"C:\\NODE\\node.exe" "c:\\P-Backlog\\dist\\CLI.JS" serve '), recordInto(stopped))).install(4400);
 
     expect(stopped).toEqual([4242]);
   });
@@ -188,7 +193,7 @@ describe("startupFolderManager", () => {
     const stopped: number[] = [];
     const unverified: string[] = [];
 
-    const outcome = await startupFolderManager(contextFor(roots, exec, recordInto(stopped), (pid, file) => unverified.push(`${pid} ${file}`))).install();
+    const outcome = await startupFolderManager(contextFor(roots, exec, recordInto(stopped), (pid, file) => unverified.push(`${pid} ${file}`))).install(4400);
 
     expect(outcome).toBe("done");
     expect(stopped).toEqual([]);
@@ -201,7 +206,7 @@ describe("startupFolderManager", () => {
     await writePidFile(roots, "4242");
     const context = contextFor(roots, execAnswering(ourServerCommandLine), () => false);
 
-    await startupFolderManager(context).install();
+    await startupFolderManager(context).install(4400);
 
     await expect(access(pidFilePath(roots.localAppData))).rejects.toMatchObject({ code: "ENOENT" });
   });
@@ -211,7 +216,7 @@ describe("startupFolderManager", () => {
     const fake = fakeExec(() => ({ code: 5, output: "Не удалось запустить сценарий" }));
     const context = contextFor(roots, fake.exec);
 
-    const outcome = await startupFolderManager(context).install();
+    const outcome = await startupFolderManager(context).install(4400);
 
     expect(outcome).toEqual({ failed: "wscript.exe", code: 5, output: "Не удалось запустить сценарий" });
     await expect(access(scriptPath(roots.appData))).resolves.toBeUndefined();
@@ -231,7 +236,7 @@ describe("startupFolderManager", () => {
 
   it("uninstall останавливает сервер по PID, удаляет скрипт и оставляет лог", async () => {
     const roots = await tempRoots();
-    await startupFolderManager(contextFor(roots)).install();
+    await startupFolderManager(contextFor(roots)).install(4400);
     await writePidFile(roots, "4242");
     await writeFile(logPath(roots.localAppData), "лог за прошлый запуск\n");
     const stopped: number[] = [];
@@ -251,7 +256,7 @@ describe("startupFolderManager", () => {
 
     expect(await manager.registered()).toBe(false);
 
-    await manager.install();
+    await manager.install(4400);
 
     expect(await manager.registered()).toBe(true);
   });
@@ -262,7 +267,7 @@ describe("startupFolderManager", () => {
 
     expect(await manager.installedPort()).toBeNull();
 
-    await manager.install();
+    await manager.install(4400);
 
     expect(await manager.installedPort()).toBe(4400);
   });
@@ -280,7 +285,7 @@ describe("startupFolderManager", () => {
     });
     const context = { ...contextFor(roots, execRunningScriptsInConsole()), env: { ...process.env, LOCALAPPDATA: roots.localAppData }, nodePath, cliPath };
 
-    expect(await startupFolderManager(context).install()).toBe("done");
+    expect(await startupFolderManager(context).install(4400)).toBe("done");
 
     const launched: unknown = JSON.parse(await contentOnceWritten(logPath(roots.localAppData)));
     expect(launched).toEqual({ node: nodePath, argv: [cliPath, "serve"], pidFile: pidFilePath(roots.localAppData) });
@@ -295,7 +300,7 @@ describe("startupFolderManager", () => {
     await writeFiles(base, { "cli.js": "console.log('started');\n", [join("local", "p-backlog", "p-backlog.log")]: oversized });
     const context = { ...contextFor(roots, execRunningScriptsInConsole()), env: { ...process.env, LOCALAPPDATA: roots.localAppData }, nodePath: process.execPath, cliPath };
 
-    expect(await startupFolderManager(context).install()).toBe("done");
+    expect(await startupFolderManager(context).install(4400)).toBe("done");
 
     expect(await contentOnceWritten(logPath(roots.localAppData))).toBe("started\n");
     expect(await readFile(`${logPath(roots.localAppData)}.old`, "utf8")).toBe(oversized);

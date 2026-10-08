@@ -1,15 +1,12 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { parseJson } from "../../core/store/fs-utils";
-import type { Agent } from "./agent";
+import { AGENT_SPECS, type Agent } from "./agent";
 
 export type StopEvent = { cwd: string; session: string | undefined; turn: string | undefined; skip: boolean };
 
 type StopAnswer = { reason: string | null; systemMessage: string | null };
 
-type StopProtocol = "claude" | "cursor";
-
-const STOP_PROTOCOL: Record<Agent, StopProtocol> = { claude: "claude", codex: "claude", cursor: "cursor" };
 const TURN_DIGEST_LENGTH = 16;
 const CURSOR_COMPLETED = "completed";
 
@@ -30,15 +27,15 @@ const cursorEventSchema = z.object({
 });
 
 export function parseStopEvent(agent: Agent, text: string): StopEvent | null {
-  return STOP_PROTOCOL[agent] === "cursor" ? parseCursorEvent(text) : parseClaudeEvent(text);
+  return AGENT_SPECS[agent].stopProtocol === "cursor" ? parseCursorEvent(text) : parseClaudeEvent(text);
 }
 
 export function carriesSystemMessage(agent: Agent): boolean {
-  return STOP_PROTOCOL[agent] === "claude";
+  return AGENT_SPECS[agent].stopProtocol === "claude";
 }
 
 export function formatStopAnswer(agent: Agent, answer: StopAnswer): string | null {
-  if (STOP_PROTOCOL[agent] === "cursor") return answer.reason === null ? null : JSON.stringify({ followup_message: answer.reason });
+  if (AGENT_SPECS[agent].stopProtocol === "cursor") return answer.reason === null ? null : JSON.stringify({ followup_message: answer.reason });
   const response = {
     ...(answer.reason !== null ? { decision: "block", reason: answer.reason } : {}),
     ...(answer.systemMessage !== null ? { systemMessage: answer.systemMessage } : {}),

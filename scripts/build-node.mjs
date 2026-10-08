@@ -5,7 +5,7 @@ import { build } from "esbuild";
 const { values } = parseArgs({ options: { outdir: { type: "string", default: "dist" } } });
 
 await build({
-  entryPoints: { cli: "src/cli/main.ts", server: "src/server/main.ts" },
+  entryPoints: { cli: "src/cli/main.ts" },
   outdir: values.outdir,
   bundle: true,
   platform: "node",

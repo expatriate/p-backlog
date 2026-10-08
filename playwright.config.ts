@@ -8,7 +8,7 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   use: { baseURL: `http://127.0.0.1:${E2E_PORT}` },
   webServer: {
-    command: "npm run build && node dist/server.js",
+    command: "npm run build && node dist/cli.js serve",
     url: `http://127.0.0.1:${E2E_PORT}/api/projects`,
     env: { BACKLOG_DIR: E2E_BACKLOG_DIR, PORT: String(E2E_PORT), HOME: E2E_HOME },
     timeout: 120_000,

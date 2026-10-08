@@ -67,7 +67,9 @@ export function addGroupedStopHook(path: string, hook: object, ourHook: OurHook)
 }
 
 function groupedSlots(config: GroupedConfig): StopHookSlots {
-  const stopGroups = ((config.hooks ??= {}).Stop ??= []);
+  config.hooks ??= {};
+  config.hooks.Stop ??= [];
+  const stopGroups = config.hooks.Stop;
   return { lists: stopGroups.flatMap((group) => (group.hooks === undefined ? [] : [group.hooks])), append: (hook) => stopGroups.push({ hooks: [hook] }) };
 }
 

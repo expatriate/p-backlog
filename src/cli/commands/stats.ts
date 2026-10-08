@@ -4,12 +4,14 @@ import { statsReport } from "../../core/stats/report";
 import { statsSignals } from "../../core/stats/signals/signals";
 import { readJournals } from "../../core/store/journal";
 import { loadBacklog, unparsedTasks } from "../../core/store/load";
+import { statsPath } from "../../core/api/web-paths";
+import { browserOrigin } from "../../server/port";
 import type { CliCommand } from "../command";
-import { EXIT, parseOptions, type CliIo, type ExitCode } from "../io";
+import { formatJson } from "../format";
+import { EXIT, parseOptions, UsageError, type CliIo, type ExitCode } from "../io";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 import { statsSummary } from "../stats-summary";
-import { servicePortOf } from "../service/managers";
-import { statsPath } from "../../core/api/web-paths";
+import { webUiPort } from "../service/managers";
 
 export const statsCommand: CliCommand = {
   name: "stats",
@@ -35,13 +37,7 @@ async function runStats(args: string[], io: CliIo): Promise<ExitCode> {
   const signals = statsSignals(context);
 
   if (values.json) {
-    io.print(
-      JSON.stringify(
-        { totals, forecast, signals, unparsedTasks: context.head.unparsedTasks, invalidJournalLines: context.head.invalidJournalLines, unknownJournalLines: context.head.unknownJournalLines },
-        null,
-        2,
-      ),
-    );
+    io.print(formatJson({ totals, forecast, signals, unparsedTasks: context.head.unparsedTasks, invalidJournalLines: context.head.invalidJournalLines, unknownJournalLines: context.head.unknownJournalLines }));
     return EXIT.ok;
   }
   io.print(
@@ -53,8 +49,18 @@ async function runStats(args: string[], io: CliIo): Promise<ExitCode> {
       totals,
       forecast,
       signals,
-      url: `http://localhost:${await servicePortOf(io)}${statsPath(project?.id)}`,
+      url: await statsUrl(io, project?.id),
     }),
   );
   return EXIT.ok;
+}
+
+async function statsUrl(io: CliIo, projectId: string | undefined): Promise<string | null> {
+  try {
+    return `${browserOrigin(await webUiPort(io))}${statsPath(projectId)}`;
+  } catch (error) {
+    if (!(error instanceof UsageError)) throw error;
+    io.warn(error.message);
+    return null;
+  }
 }

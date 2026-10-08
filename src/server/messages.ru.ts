@@ -16,7 +16,7 @@ export const serverRu = {
   hostRejected: (host: string): string => `Запросы с хоста ${host} не принимаются`,
   jsonContentTypeExpected: "Ожидается Content-Type: application/json",
 
-  serverStarted: (port: number, root: string): string => `p-backlog: http://localhost:${port}\nКаталог беклога: ${root}`,
+  serverStarted: (origin: string, root: string): string => `p-backlog: ${origin}\nКаталог беклога: ${root}`,
   settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 
   closedEpics: (ids: string): string => `Закрыты завершённые эпики: ${ids}`,
@@ -29,7 +29,6 @@ export const serverRu = {
   transcriptsScanFailed: (detail: string): string => `Не удалось прочитать расшифровки Claude Code: ${detail}`,
   watcherError: (root: string, detail: string): string => `Наблюдатель за каталогом ${root}: ${detail}`,
 
-  invalidPort: (source: string, value: string): string => `${source}: ожидается число от 1 до 65535, получено «${value}»`,
   listenFailed: (reason: string): string => `p-backlog не запустился: ${reason}`,
   portBusy: (port: number): string => `порт ${port} уже занят`,
 

@@ -1,9 +1,9 @@
+import { loopbackOrigin } from "../../server/port";
 import { usageError, type CliCommand } from "../command";
-import { serverMessages } from "../../server/messages";
-import { requestedPort } from "../../server/port";
-import { EXIT, parseCommandArgs, UsageError, type CliIo, type ExitCode } from "../io";
+import { isFailure } from "../failure";
+import { envPort, EXIT, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { serviceManagerOf, servicePort } from "../service/managers";
-import { localOrigin, serverResponds } from "../service/server-probe";
+import { serverResponds } from "../service/server-probe";
 import type { ServiceFailure, ServiceManager } from "../service/service";
 
 const STATUS_TIMEOUT_MS = 1000;
@@ -44,9 +44,8 @@ async function withServiceManager(io: CliIo, action: ServiceAction): Promise<Exi
 }
 
 async function installWith(manager: ServiceManager, io: CliIo): Promise<ExitCode> {
-  if (requestedPort(io.env.PORT) === null) throw new UsageError(serverMessages(io.language).invalidPort("PORT", io.env.PORT ?? ""));
-  const outcome = await manager.install();
-  if (typeof outcome === "object") return reportFailure(outcome, io);
+  const outcome = await manager.install(envPort(io));
+  if (isFailure(outcome)) return reportFailure(outcome, io);
   io.print(io.cli.serviceInstalled(manager.file));
   io.print(io.cli.serviceLogs(manager.logsHint));
   return EXIT.ok;
@@ -54,14 +53,14 @@ async function installWith(manager: ServiceManager, io: CliIo): Promise<ExitCode
 
 async function uninstallWith(manager: ServiceManager, io: CliIo): Promise<ExitCode> {
   const outcome = await manager.uninstall();
-  if (typeof outcome === "object") return reportFailure(outcome, io);
+  if (isFailure(outcome)) return reportFailure(outcome, io);
   io.print(outcome === "absent" ? io.cli.serviceNotInstalled : io.cli.serviceUninstalled);
   return EXIT.ok;
 }
 
 async function statusWith(manager: ServiceManager, io: CliIo): Promise<ExitCode> {
   const port = await servicePort(manager, io);
-  const [registered, responding] = await Promise.all([manager.registered(), serverResponds(localOrigin(port), STATUS_TIMEOUT_MS)]);
+  const [registered, responding] = await Promise.all([manager.registered(), serverResponds(loopbackOrigin(port), STATUS_TIMEOUT_MS)]);
   io.print(io.cli.serviceStatus(registered, responding, port));
   return EXIT.ok;
 }

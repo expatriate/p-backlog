@@ -3,6 +3,7 @@ import type { CheckProblem } from "../../core/check/findings";
 import type { CoreMessages } from "../../core/messages";
 import { loadBacklog } from "../../core/store/load";
 import { describeCandidate } from "../candidate-format";
+import { formatJson } from "../format";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo, type ExitCode } from "../io";
 import type { CliMessages } from "../messages";
@@ -27,7 +28,7 @@ async function runCheck(args: string[], io: CliIo): Promise<ExitCode> {
   const { projectIds } = scope;
 
   const report = await checkBacklog(io.backlogRoot, loaded, { projectIds, mode: values.changed ? "changed" : "full", now: io.now(), home: io.home, messages: io.core, warn: io.warn, workingDir: io.cwd });
-  io.print(values.json ? JSON.stringify(report, null, 2) : formatReport(io.cli, io.core, report));
+  io.print(values.json ? formatJson(report) : formatReport(io.cli, io.core, report));
   return needsReview(report) ? EXIT.needsReview : EXIT.ok;
 }
 

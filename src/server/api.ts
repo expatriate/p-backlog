@@ -18,28 +18,29 @@ import {
 } from "../core/api/contract";
 import { projectGraphHealth } from "../core/check/graph-health";
 import { warnPathErrors, type PathErrorHandler } from "../core/errors";
-import type { Project, Task } from "../core/model/types";
+import { MINUTE_MS } from "../core/model/dates";
+import type { Project } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { parseSchema } from "../core/model/zod-issues";
 import { applyBatch, type CoreBatchOutcome } from "../core/store/batch";
 import { writeSettings } from "../core/store/settings";
 import { deleteProject, setProjectActive } from "../core/store/projects";
 import { updateTaskInIndex } from "../core/store/update";
-import type { Invalid } from "../core/store/write-result";
+import { writtenTasks, type Invalid } from "../core/store/write-result";
 import type { ChangeFeed } from "./change-feed";
-import { errorResponse, fileBusyResponse } from "./error-response";
+import { errorResponse, fileBusyResponse, type Refused } from "./error-response";
 import { createJournalSources } from "./journal-sources";
 import { serverMessages, type ServerMessages } from "./messages";
 import { createTtlCache } from "./ttl-cache";
 import { createRevisions } from "./revisions";
-import { createInvalidation, createSnapshotCache, type IndexedBacklog, type Invalidation } from "./snapshot-cache";
+import { createChangeHub, createSnapshotCache, type ChangeHub, type IndexedBacklog } from "./snapshot-cache";
 import { createStatsApi, type GraphHealthOf, type StatsServices } from "./stats-api";
 
 export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; statsServices: StatsServices };
 
-type ApiDeps = Pick<ApiOptions, "root" | "readLanguage" | "now"> & { backlog: () => Promise<IndexedBacklog>; graphHealth: GraphHealthOf; invalidation: Invalidation; onWriteError: PathErrorHandler };
+type ApiDeps = Pick<ApiOptions, "root" | "readLanguage" | "now"> & { backlog: () => Promise<IndexedBacklog>; graphHealth: GraphHealthOf; changeHub: ChangeHub; onWriteError: PathErrorHandler };
 
-const GRAPH_STATE_TTL_MS = 60 * 1000;
+const GRAPH_STATE_TTL_MS = MINUTE_MS;
 
 export function createApi({ root, readLanguage, changes, now, home, statsServices }: ApiOptions): Hono {
   const revisions = createRevisions();
@@ -47,9 +48,9 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
   const snapshots = createSnapshotCache({ root, revisions, journalSources, warn: statsServices.warn });
   const graphHealth = rememberedGraphHealth(home, now);
   const stats = createStatsApi({ root, readLanguage, now, home, services: statsServices, backlog: snapshots.read, graphHealth, journalSources });
-  const invalidation = createInvalidation({ revisions, snapshots, derived: stats, changes });
+  const changeHub = createChangeHub({ revisions, snapshots, derived: stats, changes });
   const onWriteError = warnPathErrors((line) => void statsServices.warn(() => line));
-  const deps: ApiDeps = { root, readLanguage, now, backlog: snapshots.read, graphHealth, invalidation, onWriteError };
+  const deps: ApiDeps = { root, readLanguage, now, backlog: snapshots.read, graphHealth, changeHub, onWriteError };
 
   const api = new Hono();
   api.get("/projects", (c) => listProjects(c, deps));
@@ -61,7 +62,7 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
   api.post("/tasks/batch", (c) => updateTaskBatch(c, deps));
   api.patch("/projects/:id", (c) => setProjectActivity(c, c.req.param("id"), deps));
   api.delete("/projects/:id", (c) => removeProject(c, c.req.param("id"), deps));
-  api.get("/events", (c) => revisionEvents(c, invalidation, changes.closed));
+  api.get("/events", (c) => revisionEvents(c, changeHub, changes.closed));
   return api;
 }
 
@@ -95,13 +96,13 @@ async function updateSettings(c: Context, { root, readLanguage }: ApiDeps) {
   return c.json<SettingsResponse>({ language: body.data.language });
 }
 
-async function updateTask(c: Context, id: string, { readLanguage, backlog, now, invalidation, onWriteError }: ApiDeps) {
+async function updateTask(c: Context, id: string, { readLanguage, backlog, now, changeHub, onWriteError }: ApiDeps) {
   const body = await readBody(c, updateTaskRequestSchema, readLanguage);
   if (!body.ok) return body.response;
 
   const { index } = await backlog();
-  const result = await invalidation.forgettingOnFailure(updateTaskInIndex(index, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now(), via: "web", onError: onWriteError }));
-  await invalidation.recordOwnWrites(result.ok ? writtenTasks(result) : []);
+  const update = updateTaskInIndex(index, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now(), via: "web", onError: onWriteError });
+  const result = await changeHub.ownWrite(update, (updated) => (updated.ok ? writtenTasks(updated) : []));
   if (result.ok) return c.json(result.task);
   const messages = serverMessages(body.language);
   if (result.reason === "not-found") return errorResponse(c, 404, messages.taskNotFound(id));
@@ -110,41 +111,41 @@ async function updateTask(c: Context, id: string, { readLanguage, backlog, now, 
   return invalidResponse(c, result, coreMessages(body.language));
 }
 
-async function updateTaskBatch(c: Context, { readLanguage, backlog, now, invalidation, onWriteError }: ApiDeps) {
+async function updateTaskBatch(c: Context, { readLanguage, backlog, now, changeHub, onWriteError }: ApiDeps) {
   const body = await readBody(c, batchRequestSchema, readLanguage);
   if (!body.ok) return body.response;
 
   const { index } = await backlog();
-  const outcomes = await invalidation.forgettingOnFailure(applyBatch(index, { ...body.data, now: now(), onError: onWriteError }));
-  await invalidation.recordOwnWrites(outcomes.flatMap((outcome) => (outcome.outcome === "done" ? writtenTasks(outcome) : [])));
+  const batch = applyBatch(index, { ...body.data, now: now(), onError: onWriteError });
+  const outcomes = await changeHub.ownWrite(batch, (applied) => applied.flatMap((outcome) => (outcome.outcome === "done" ? writtenTasks(outcome) : [])));
   const messages = serverMessages(body.language);
   const core = coreMessages(body.language);
   return c.json<BatchResponse>({ results: outcomes.map((outcome) => viewOf(outcome, messages, core)) });
 }
 
-async function setProjectActivity(c: Context, id: string, { root, readLanguage, invalidation }: ApiDeps) {
+async function setProjectActivity(c: Context, id: string, { root, readLanguage, changeHub }: ApiDeps) {
   const body = await readBody(c, projectActiveSchema, readLanguage);
   if (!body.ok) return body.response;
 
-  const result = await setProjectActive(root, id, body.data.active).finally(invalidation.forgetAll);
+  const result = await setProjectActive(root, id, body.data.active).finally(changeHub.forgetAll);
   if (result.ok) return c.json(result.project);
   if (result.reason === "invalid") return errorResponse(c, 422, coreMessages(body.language).problems(result.problems));
   return errorResponse(c, 404, serverMessages(body.language).projectNotFound(id));
 }
 
-async function removeProject(c: Context, id: string, { root, readLanguage, invalidation }: ApiDeps) {
+async function removeProject(c: Context, id: string, { root, readLanguage, changeHub }: ApiDeps) {
   const body = await readBody(c, projectDeleteSchema, readLanguage);
   if (!body.ok) return body.response;
 
   const messages = serverMessages(body.language);
   if (body.data.confirm !== id) return errorResponse(c, 422, messages.confirmMismatch);
-  const result = await deleteProject(root, id).finally(invalidation.forgetAll);
+  const result = await deleteProject(root, id).finally(changeHub.forgetAll);
   return result.ok ? c.json({ deleted: id }) : errorResponse(c, 404, messages.projectNotFound(id));
 }
 
-function revisionEvents(c: Context, invalidation: Invalidation, closed: Promise<void>) {
+function revisionEvents(c: Context, changeHub: ChangeHub, closed: Promise<void>) {
   return streamSSE(c, async (stream) => {
-    const stopSending = invalidation.onRevision((revision) => void stream.writeSSE({ event: "change", data: JSON.stringify(revision) }));
+    const stopSending = changeHub.onRevision((revision) => void stream.writeSSE({ event: "change", data: JSON.stringify(revision) }));
     const clientGone = new Promise<void>((resolve) => stream.onAbort(resolve));
     await Promise.race([clientGone, closed]);
     stopSending();
@@ -155,10 +156,6 @@ function invalidResponse(c: Context, result: Invalid, messages: CoreMessages) {
   return errorResponse(c, 422, ...result.problems.map(messages.problem));
 }
 
-function writtenTasks({ task, reopenedEpic }: { task: Task; reopenedEpic?: Task | undefined }): Task[] {
-  return reopenedEpic === undefined ? [task] : [task, reopenedEpic];
-}
-
 function viewOf(outcome: CoreBatchOutcome, messages: ServerMessages, core: CoreMessages): BatchOutcome {
   if (outcome.outcome === "done") return { id: outcome.id, outcome: "done", version: outcome.task.version, previous: outcome.previous };
   if (outcome.reason === "failed") return { id: outcome.id, outcome: "skipped", reason: outcome.reason, message: messages.batchFailed(outcome.id, outcome.detail) };
@@ -166,7 +163,7 @@ function viewOf(outcome: CoreBatchOutcome, messages: ServerMessages, core: CoreM
   return { id: outcome.id, outcome: "skipped", reason: outcome.reason, message };
 }
 
-type ParsedBody<T> = { ok: true; data: T; language: Language } | { ok: false; response: Response };
+type ParsedBody<T> = { ok: true; data: T; language: Language } | Refused;
 
 async function readBody<T>(c: Context, schema: ZodType<T>, readLanguage: () => Promise<Language>): Promise<ParsedBody<T>> {
   const [body, language] = await Promise.all([readJson(c), readLanguage()]);

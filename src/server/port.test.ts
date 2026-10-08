@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { serverRu } from "./messages.ru";
-import { listenFailure, readPort, requestedPort } from "./port";
+import { listenFailure, requestedPort } from "./port";
 
 describe("порт сервера", () => {
-  it("берёт число из переменной, иначе значение по умолчанию", () => {
-    expect(readPort("5000")).toBe(5000);
-    expect(readPort("ерунда")).toBe(4317);
-    expect(readPort(undefined)).toBe(4317);
+  it("берёт число из переменной, без значения — порт по умолчанию, иное не принимает", () => {
+    expect(requestedPort("5000")).toBe(5000);
+    expect(requestedPort("ерунда")).toBeNull();
+    expect(requestedPort(undefined)).toBe(4317);
     expect([requestedPort("0x10"), requestedPort("1e3"), requestedPort(" 80 "), requestedPort("80.0")]).toEqual([null, null, null, null]);
   });
 

@@ -33,16 +33,15 @@ type DerivedCaches = { forgetAll: () => void; forgetChanged: (paths: readonly st
 
 type RevisionListener = (revision: Revision) => void;
 
-export type Invalidation = {
+export type ChangeHub = {
   forgetAll: () => void;
-  forgettingOnFailure: <T>(write: Promise<T>) => Promise<T>;
-  recordOwnWrites: (writes: readonly OwnWrite[]) => Promise<void>;
+  ownWrite: <T>(write: Promise<T>, writtenBy: (result: T) => readonly OwnWrite[]) => Promise<T>;
   onRevision: (listener: RevisionListener) => () => void;
 };
 
-type InvalidationOptions = { revisions: Revisions; snapshots: SnapshotCache; derived: DerivedCaches; changes: ChangeFeed };
+type ChangeHubOptions = { revisions: Revisions; snapshots: SnapshotCache; derived: DerivedCaches; changes: ChangeFeed };
 
-export function createInvalidation({ revisions, snapshots, derived, changes }: InvalidationOptions): Invalidation {
+export function createChangeHub({ revisions, snapshots, derived, changes }: ChangeHubOptions): ChangeHub {
   const listeners = new Set<RevisionListener>();
   const forgetAll = () => {
     snapshots.forget();
@@ -58,17 +57,20 @@ export function createInvalidation({ revisions, snapshots, derived, changes }: I
     const revision = revisions.current();
     for (const listener of listeners) listener(revision);
   });
+  const recordOwnWrites = async (writes: readonly OwnWrite[]): Promise<void> => {
+    if (writes.length === 0) return snapshots.forget();
+    await revisions.recordOwnWrites(writes, [...new Set(writes.map((write) => join(dirname(write.path), JOURNAL_FILE)))]);
+    forgetChanged(writes.map((write) => write.path));
+  };
   return {
     forgetAll,
-    forgettingOnFailure: (write) =>
-      write.catch((error: unknown) => {
+    ownWrite: async (write, writtenBy) => {
+      const result = await write.catch((error: unknown) => {
         forgetAll();
         throw error;
-      }),
-    recordOwnWrites: async (writes) => {
-      if (writes.length === 0) return snapshots.forget();
-      await revisions.recordOwnWrites(writes, [...new Set(writes.map((write) => join(dirname(write.path), JOURNAL_FILE)))]);
-      forgetChanged(writes.map((write) => write.path));
+      });
+      await recordOwnWrites(writtenBy(result));
+      return result;
     },
     onRevision: (listener) => {
       listeners.add(listener);

@@ -3,7 +3,7 @@ import { buildIndex, type BacklogIndex } from "../../core/model/graph";
 import type { Task } from "../../core/model/types";
 import { loadBacklog } from "../../core/store/load";
 import { describeTask, taskJson } from "../describe";
-import { formatTaskDetails } from "../format";
+import { formatJson, formatTaskDetails } from "../format";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { findTaskOrWarn } from "../lookups";
@@ -28,7 +28,7 @@ async function runShow(args: string[], io: CliIo): Promise<ExitCode> {
 
 export async function printTask(io: CliIo, task: Task, index: BacklogIndex, { json }: { json: boolean }): Promise<void> {
   if (json) {
-    io.print(JSON.stringify(taskJson(task, index), null, 2));
+    io.print(formatJson(taskJson(task, index)));
     return;
   }
   const description = describeTask(task, index);

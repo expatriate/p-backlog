@@ -67,5 +67,5 @@ if (command !== SERVE_COMMAND_NAME) {
   };
   const language = await readLanguageOrLocale(backlogRoot, process.env);
   await appendRun(backlogRoot, run).catch((error: unknown) => warn(cliMessages(language).runNotRecorded(errorText(error))));
-  await tidyAfterCommand({ backlogRoot, argv, language, now: new Date(), warn });
+  await tidyAfterCommand({ backlogRoot, command, language, now: new Date(), warn });
 }

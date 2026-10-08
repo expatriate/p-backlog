@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { errorText } from "../core/errors";
+import { MINUTE_MS } from "../core/model/dates";
 import { sum } from "../core/numbers";
 import type { ScanProgress } from "../core/stats/types";
 import { listTranscripts, scanTranscripts, type TranscriptFile } from "../core/usage/transcripts";
@@ -19,6 +20,8 @@ export type UsageSnapshot = { cache: UsageCache; scan: ScanProgress; revision: n
 
 type PassEnd = "budget-spent" | "settled";
 
+type Schedule = { running: false } | { running: true; timer?: ReturnType<typeof setTimeout> };
+
 export type UsageScanner = {
   start: () => void;
   stop: () => Promise<void>;
@@ -28,17 +31,17 @@ export type UsageScanner = {
 };
 
 const DEFAULT_BYTE_BUDGET = 16 * 1024 * 1024;
-const DEFAULT_INTERVAL_MS = 60_000;
+const DEFAULT_INTERVAL_MS = MINUTE_MS;
 export const CATCH_UP_DELAY_MS = 100;
 const NOT_LISTED: ScanProgress = { listed: false, filesTotal: 0, filesDone: 0, bytesLeft: 0 };
+const STOPPED: Schedule = { running: false };
 
 export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAULT_BYTE_BUDGET, intervalMs = DEFAULT_INTERVAL_MS, warn, now = () => new Date() }: UsageScannerOptions): UsageScanner {
   let cache: UsageCache | null = null;
   let scan: ScanProgress = NOT_LISTED;
   let revision = 0;
   let inFlight: Promise<PassEnd> | null = null;
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let running = false;
+  let schedule: Schedule = STOPPED;
 
   const setScan = (next: ScanProgress): void => {
     if (!scanEquals(scan, next)) revision += 1;
@@ -72,18 +75,17 @@ export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAU
 
   const tick = async (): Promise<void> => {
     const end = await scanOnce();
-    if (running) timer = setTimeout(() => void tick(), end === "budget-spent" ? CATCH_UP_DELAY_MS : intervalMs);
+    if (schedule.running) schedule = { running: true, timer: setTimeout(() => void tick(), end === "budget-spent" ? CATCH_UP_DELAY_MS : intervalMs) };
   };
 
   return {
     start: () => {
-      running = true;
+      schedule = { running: true };
       void tick();
     },
     stop: async () => {
-      running = false;
-      if (timer !== null) clearTimeout(timer);
-      timer = null;
+      if (schedule.running) clearTimeout(schedule.timer);
+      schedule = STOPPED;
       await inFlight;
     },
     scanOnce,

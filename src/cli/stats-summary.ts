@@ -11,7 +11,7 @@ type StatsSummary = {
   totals: StatsTotals;
   forecast: FlowForecast;
   signals: Signal[];
-  url: string;
+  url: string | null;
 };
 
 export function statsSummary({ cli, core, scopeName, head, totals, forecast, signals, url }: StatsSummary): string {
@@ -26,6 +26,6 @@ export function statsSummary({ cli, core, scopeName, head, totals, forecast, sig
     cli.statsAgeLine(core.days(totals.ageMedianDays), core.days(totals.leadTimeMedianDays), tail),
     cli.statsForecastLine(core.forecast(forecast), core.forecastTail(forecast)),
     ...(signals.length === 0 ? [cli.noAlerts] : [cli.alertsHeader, ...signals.map((signal) => `- ${core.signal(signal)}`)]),
-    cli.moreAt(url),
+    ...(url === null ? [] : [cli.moreAt(url)]),
   ].join("\n");
 }

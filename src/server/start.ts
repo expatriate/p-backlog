@@ -18,7 +18,7 @@ import { CHANGE_DEBOUNCE_MS, createChangeFeed } from "./change-feed";
 import { localHosts } from "./guards";
 import { createMemorySampler, type MemorySampler } from "./memory-sampler";
 import { localizedWarn, serverMessages, type ServerMessages } from "./messages";
-import { listenFailure } from "./port";
+import { browserOrigin, listenFailure, LOOPBACK_HOST } from "./port";
 import { startSweeper } from "./sweeper";
 import { createUsageScanner, type UsageScanner } from "./usage-scanner";
 
@@ -29,18 +29,26 @@ export const BUNDLED_WEB_DIR = join(import.meta.dirname, "web");
 
 export type RunningServer = { port: number; close: () => Promise<void> };
 
-export type StartServerOptions = { root: string; port: number; home: string; env: NodeJS.ProcessEnv; pidFile?: string | undefined; staticDir?: string | undefined; now?: () => Date };
+type ServerOutput = { log: (line: string) => void; warn: (line: string) => void };
+
+export type StartServerOptions = ServerOutput & {
+  root: string;
+  port: number;
+  home: string;
+  env: NodeJS.ProcessEnv;
+  platform: NodeJS.Platform;
+  pidFile?: string | undefined;
+  staticDir?: string | undefined;
+  now?: () => Date;
+};
 
 type HttpServer = ReturnType<typeof serve>;
 
 type Listening = { server: HttpServer; port: number };
 
-type BackgroundJobs = { usage: UsageScanner; memory: MemorySampler; maintain: () => Promise<SweepReport | null>; messages: () => Promise<ServerMessages> };
+type BackgroundJobs = ServerOutput & { usage: UsageScanner; memory: MemorySampler; maintain: () => Promise<SweepReport | null>; messages: () => Promise<ServerMessages> };
 
-const log = (line: string): void => void process.stdout.write(`${line}\n`);
-const warn = (line: string): void => void process.stderr.write(`${line}\n`);
-
-export async function startServer({ root, port, home, env, pidFile, staticDir, now = () => new Date() }: StartServerOptions): Promise<RunningServer> {
+export async function startServer({ root, port, home, env, platform, log, warn, pidFile, staticDir, now = () => new Date() }: StartServerOptions): Promise<RunningServer> {
   await mkdir(root, { recursive: true });
 
   const settled = await settleLanguage(root, env);
@@ -56,7 +64,7 @@ export async function startServer({ root, port, home, env, pidFile, staticDir, n
   const allowedHosts = new Set<string>();
   const app = createApp({ root, readLanguage, changes, allowedHosts, home, statsServices: { usage, memory, warn: warnLocalized }, staticDir, now });
 
-  const maintenancePlan: MaintenancePlan = { trimRuns, sweepClosed: sweepClosedAndStamp, compactJournals: compactJournalsWhenDue, serviceLog: serviceLogToTrim(process.platform, home) };
+  const maintenancePlan: MaintenancePlan = { trimRuns, sweepClosed: sweepClosedAndStamp, compactJournals: compactJournalsWhenDue, serviceLog: serviceLogToTrim(platform, home) };
   const maintain = async (): Promise<SweepReport | null> => runMaintenance(maintenancePlan, { root, now: now(), messages: coreMessages(await readLanguage()), warn });
 
   const { server, port: actualPort } = await listen(app, port).catch(async (error: NodeJS.ErrnoException) => {
@@ -65,7 +73,7 @@ export async function startServer({ root, port, home, env, pidFile, staticDir, n
   });
   server.on("error", (error) => warn(errorText(error)));
   for (const host of localHosts(actualPort)) allowedHosts.add(host);
-  const stopBackground = startBackground({ usage, memory, maintain, messages: readMessages });
+  const stopBackground = startBackground({ usage, memory, maintain, messages: readMessages, log, warn });
 
   const close = async (): Promise<void> => {
     await stopBackground();
@@ -80,7 +88,7 @@ export async function startServer({ root, port, home, env, pidFile, staticDir, n
       throw error;
     });
   }
-  log(startupMessages.serverStarted(actualPort, root));
+  log(startupMessages.serverStarted(browserOrigin(actualPort), root));
   return { port: actualPort, close };
 }
 
@@ -96,7 +104,7 @@ export function closeOnStopSignal(server: RunningServer): Promise<void> {
 
 function listen(app: Hono, port: number): Promise<Listening> {
   return new Promise((resolve, reject) => {
-    const server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port }, (info) => {
+    const server = serve({ fetch: app.fetch, hostname: LOOPBACK_HOST, port }, (info) => {
       server.off("error", reject);
       resolve({ server, port: info.port });
     });
@@ -114,7 +122,7 @@ function closeServer(server: HttpServer): Promise<void> {
   return new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 }
 
-function startBackground({ usage, memory, maintain, messages }: BackgroundJobs): () => Promise<void> {
+function startBackground({ usage, memory, maintain, messages, log, warn }: BackgroundJobs): () => Promise<void> {
   usage.start();
   memory.start();
   const stopSweeper = startSweeper({ maintain, intervalMs: SWEEP_INTERVAL_MS, log, warn, messages });

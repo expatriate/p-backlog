@@ -14,10 +14,6 @@ writeFileSync(
     port: 4317,
     nodePath: process.execPath,
     cliPath: join(import.meta.dirname, "..", "dist", "cli.js"),
-    exec: async () => ({ code: 0, output: "" }),
-    uid: 1000,
-    stopProcess: () => true,
-    onUnverifiedPid: () => undefined,
   }),
 );
 process.stdout.write(unitFile);

@@ -5,19 +5,19 @@ import { STATS_MEMORY_ROUTE, STATS_REPORT_ROUTES, type StatsReportKind, type Sta
 import type { GraphHealth } from "../core/check/graph-health";
 import { createCodeCacheFile, type CodeCacheErrorKind } from "../core/code/code-cache";
 import { createCodeSource } from "../core/code/code-source";
-import { formatLocalDay } from "../core/model/dates";
+import { formatLocalDay, MINUTE_MS } from "../core/model/dates";
 import type { Project, Task } from "../core/model/types";
 import { codeReport } from "../core/stats/code/code-report";
 import { fixRequests } from "../core/stats/code/fixes";
 import { effectReport } from "../core/stats/effect/effect-report";
 import { qualityReport } from "../core/stats/quality/quality-report";
 import { statsReport } from "../core/stats/report";
-import type { ReportContext, StatsInput } from "../core/stats/scope";
+import { projectsInScope, type ReportContext, type StatsInput } from "../core/stats/scope";
 import { statsSignals } from "../core/stats/signals/signals";
 import type { CodeReport, EffectReport, ProjectGraphRow, QualityReport } from "../core/stats/types";
 import { unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/store/load";
 import type { Language } from "../core/i18n/language";
-import { errorResponse } from "./error-response";
+import { errorResponse, type Refused } from "./error-response";
 import { serverMessages, type LocalizedWarn } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createCostSource } from "./cost-source";
@@ -44,7 +44,7 @@ export type GraphHealthOf = (snapshot: BacklogSnapshot, project: Project) => Pro
 
 type StatsApi = { routes: Hono; forgetAll: () => void; forgetChanged: (paths: readonly string[]) => void };
 
-type RequestScope = { projectId: string | undefined; projects: Project[]; tasks: Task[]; unparsedTasks: UnparsedTask[]; snapshot: BacklogSnapshot };
+type RequestScope = { ok: true; projectId: string | undefined; projects: Project[]; tasks: Task[]; unparsedTasks: UnparsedTask[]; snapshot: BacklogSnapshot };
 
 type ReportSources = { context: ReportContext; projects: readonly Project[]; snapshot: BacklogSnapshot; wholeBacklogContext: () => ReportContext };
 
@@ -54,7 +54,7 @@ type ScopedReportOptions = { sourceKey?: (projects: readonly Project[], snapshot
 
 type ScopedReportKind = Exclude<StatsReportKind, "cost">;
 
-const REPORT_TTL_MS = 5 * 60 * 1000;
+const REPORT_TTL_MS = 5 * MINUTE_MS;
 const ALL_PROJECTS_TAG = "project:*";
 const WHOLE_BACKLOG_TAG = "whole-backlog";
 const projectTag = (projectId: string) => `project:${projectId}`;
@@ -77,23 +77,23 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
     return snapshot;
   };
 
-  const requestScopeOf = async (c: Context, snapshot: BacklogSnapshot, { wholeBacklog }: { wholeBacklog: boolean }): Promise<RequestScope | Response> => {
+  const requestScopeOf = async (c: Context, snapshot: BacklogSnapshot, { wholeBacklog }: { wholeBacklog: boolean }): Promise<RequestScope | Refused> => {
     const projectId = c.req.query("project") || undefined;
     const { projects, tasks, errors } = snapshot;
     if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
-      return errorResponse(c, 404, serverMessages(await readLanguage()).projectNotFound(projectId));
+      return { ok: false, response: errorResponse(c, 404, serverMessages(await readLanguage()).projectNotFound(projectId)) };
     }
     const scoped = projectsInScope(projects, projectId, { wholeBacklog });
     const scopedIds = new Set(scoped.map((project) => project.id));
     const inScope = (task: { projectId: string }) => scopedIds.has(task.projectId);
-    return { projectId, projects: scoped, tasks: tasks.filter(inScope), unparsedTasks: unparsedTasks(errors).filter(inScope), snapshot };
+    return { ok: true, projectId, projects: scoped, tasks: tasks.filter(inScope), unparsedTasks: unparsedTasks(errors).filter(inScope), snapshot };
   };
 
   const serveScoped = <K extends ScopedReportKind>(kind: K, report: ScopedReport<StatsReports[K]>, { sourceKey, wholeBacklog = false }: ScopedReportOptions = {}) =>
     routes.get(STATS_REPORT_ROUTES[kind], async (c) => {
       const forgetCountAtRead = forgetCount;
       const scope = await requestScopeOf(c, await backlogPruningCaches(), { wholeBacklog });
-      if (scope instanceof Response) return scope;
+      if (!scope.ok) return scope.response;
       const moment = now();
       const key = [kind, scope.projectId ?? "*", formatLocalDay(moment), sourceKey === undefined ? "" : await sourceKey(scope.projects, scope.snapshot)].join("|");
       const tags = wholeBacklog ? [WHOLE_BACKLOG_TAG] : [scope.projectId === undefined ? ALL_PROJECTS_TAG : projectTag(scope.projectId)];
@@ -115,7 +115,7 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
   const statsOfEffect: ScopedReport<EffectReport> = async ({ context, projects, wholeBacklogContext }) => {
     const { projectId, now } = context.input;
     const backlogContext = projectId === undefined ? context : wholeBacklogContext();
-    const code = await codeSource.collect(projectsInScope(projects, projectId, { wholeBacklog: false }), now);
+    const code = await codeSource.collect(projectsInScope(projects, projectId), now);
     const fixCommits = await codeSource.fixCommits(projects, fixRequests(backlogContext.histories, now), now);
     return effectReport(context, { ...code, fixCommits }, backlogContext);
   };
@@ -134,7 +134,7 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
   serveScoped("signals", ({ context }) => ({ signals: statsSignals(context) }));
   routes.get(STATS_REPORT_ROUTES.cost, async (c) => {
     const scope = await requestScopeOf(c, await backlogPruningCaches(), { wholeBacklog: true });
-    if (scope instanceof Response) return scope;
+    if (!scope.ok) return scope.response;
     usage.scanIfNeverListed();
     const { snapshot, projects, projectId } = scope;
     return c.json(await costSource.costReport({ usage: usage.snapshot(), scope: { snapshot, projects, projectId }, now: now() }));
@@ -159,8 +159,4 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
   };
 
   return { routes, forgetAll, forgetChanged };
-}
-
-function projectsInScope(projects: readonly Project[], projectId: string | undefined, { wholeBacklog }: { wholeBacklog: boolean }): Project[] {
-  return projects.filter((project) => project.id === projectId || ((projectId === undefined || wholeBacklog) && project.active));
 }

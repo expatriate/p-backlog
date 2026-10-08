@@ -6,15 +6,15 @@ import { isQueuedTask, pickNextTask } from "../../core/model/query";
 import type { Project, Task } from "../../core/model/types";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { findGitRoots, findProjectForDir } from "../../core/store/resolve-project";
-import { formatTaskRef } from "../format";
+import { formatJson, formatTaskRef } from "../format";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { findProjectOrWarn, findTaskOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 import { relativeInside } from "../path-inside";
-import { taskWriter, type TaskWrite } from "../task-write";
-import { taskJson } from "../describe";
+import { tasksAfterWrite, taskWriter, type TaskWrite } from "../task-write";
+import { tasksJson } from "../describe";
 import { printTask } from "./show";
 
 export const takeCommand: CliCommand = {
@@ -82,13 +82,7 @@ async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projec
   }
   const { code, taken, index: takenIndex } = await takeAll(loaded.tasks, takeable, io);
   if (json) {
-    io.print(
-      JSON.stringify(
-        taken.map((task) => taskJson(task, takenIndex)),
-        null,
-        2,
-      ),
-    );
+    io.print(formatJson(tasksJson(taken, takenIndex)));
   } else {
     for (const [position, task] of taken.entries()) {
       if (position > 0) io.print("---");
@@ -122,7 +116,7 @@ async function takeAll(loadedTasks: readonly Task[], chosen: readonly Task[], io
   const code = await applyAll(chosen, async (task) => {
     const written: TaskWrite = task.status === "in-progress" ? { ok: true, task } : await write(task, { status: "in-progress" });
     if (!written.ok) return written.exitCode;
-    tasks = tasks.map((candidate) => (candidate.id === written.task.id ? written.task : candidate));
+    tasks = tasksAfterWrite(tasks, written);
     taken.push(written.task);
     return EXIT.ok;
   });

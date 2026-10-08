@@ -5,6 +5,8 @@ import type { Language } from "../core/i18n/language";
 import { coreMessages } from "../core/messages";
 import type { LockBusy } from "../core/store/file-lock";
 
+export type Refused = { ok: false; response: Response };
+
 export function errorResponse(c: Context, status: ContentfulStatusCode, ...errors: string[]): Response {
   const body: ErrorResponse = { errors };
   return c.json(body, status);

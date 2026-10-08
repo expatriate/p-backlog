@@ -1,7 +1,7 @@
 import { basename, dirname } from "node:path";
 import type { RepoLookup } from "../core/check/project-repo";
 import { warnPathErrors } from "../core/errors";
-import { deriveProjectId } from "../core/model/ids";
+import { projectIdBase } from "../core/model/ids";
 import type { ParseError, Project, Task } from "../core/model/types";
 import { createProject } from "../core/store/create";
 import type { LoadedBacklog } from "../core/store/load";
@@ -55,7 +55,7 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
 
 async function brokenProjectFilesOf(loaded: LoadedBacklog, roots: GitRoots, home: string): Promise<ParseError[]> {
   const repoPaths = [roots.main, roots.worktree].flatMap((path) => [path, homeRelative(path, home)]);
-  const ownId = deriveProjectId(basename(roots.main), new Set());
+  const ownId = projectIdBase(basename(roots.main));
   const broken = loaded.errors.filter((error) => basename(error.path) === PROJECT_FILE);
   const texts = await Promise.all(broken.map(async (error) => (await readTextOrNull(error.path)) ?? ""));
   return broken.filter((error, position) => basename(dirname(error.path)) === ownId || repoPaths.some((path) => mentionsPath(texts[position] ?? "", path)));

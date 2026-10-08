@@ -56,3 +56,7 @@ function deletesAtIso(task: Task): string | undefined {
 export function taskJson(task: Task, index: BacklogIndex): object {
   return descriptionJson(describeTask(task, index));
 }
+
+export function tasksJson(tasks: readonly Task[], index: BacklogIndex): object[] {
+  return tasks.map((task) => taskJson(task, index));
+}

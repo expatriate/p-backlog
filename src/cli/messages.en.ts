@@ -1,3 +1,4 @@
+import { joinAlternatives } from "../core/i18n/format";
 import type { CliMessages } from "./messages.ru";
 
 export const cliEn: CliMessages = {
@@ -9,6 +10,7 @@ export const cliEn: CliMessages = {
     takesNoValue: (option) => `Option ${option} does not take a value`,
   },
   invalidChoice: (label, allowed, value) => `${label}: expected one of ${allowed.join(", ")}, got "${value}"`,
+  invalidPort: (source, value) => `${source}: expected a number from 1 to 65535, got "${value}"`,
   commandFailed: (name, reason) => `Command ${name} failed: ${reason}`,
   runNotRecorded: (error) => `Could not record the run: ${error}`,
   sweepConflicts: (ids) => `Tasks changed while closed tasks were swept, the sweep will run again in a day: ${ids}`,
@@ -149,7 +151,7 @@ export const cliEn: CliMessages = {
   blockedByOpenTasks: (id) => `${id} is blocked by open tasks:`,
   noTakeableInProject: (id) => `Project ${id} has no tasks that can be taken`,
 
-  hookUsage: (stopEvent, agents) => `${stopEvent} [--agent ${agents.join("|")}]   (for the Stop hook in Claude Code, Codex or Cursor, reads the event from stdin)`,
+  hookUsage: (stopEvent, agents, agentLabels) => `${stopEvent} [--agent ${agents.join("|")}]   (for the Stop hook in ${joinAlternatives(agentLabels, "or")}, reads the event from stdin)`,
   sessionShownReadFailed: (error) => `Could not read the tasks already shown this session: ${error}`,
   sessionShownWriteFailed: (error) => `Could not remember the tasks shown this session: ${error}`,
   alertsComputeFailed: (error) => `Could not compute alerts: ${error}`,

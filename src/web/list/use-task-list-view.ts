@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { countOpenTasks, projectNameOf, taskScope } from "../app/scope";
 import { buildIndex } from "../../core/model/graph";
-import { filterTasks, sortTasks } from "../../core/model/query";
+import { filterListTasks, sortTasks } from "../../core/model/query";
 import { localeOf, type Language } from "../../core/i18n/language";
 import type { Task } from "../../core/model/types";
 import { useProjects, useTasks } from "../app/queries";
@@ -25,9 +25,9 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const all = useMemo(() => ({ tasks: allTasks, index: buildIndex(allTasks), tones: epicTones(allTasks) }), [allTasks]);
   const { index, tones } = all;
   const filterContext = useMemo(() => ({ index, closedInWeb: new Set(tasks.data?.closedInWeb) }), [index, tasks.data]);
-  const visibleTasks = useMemo(() => sortTasks(filterTasks(scopedTasks, params.filter, filterContext), sort, index, language), [scopedTasks, index, filterContext, params.filter, sort, language]);
+  const visibleTasks = useMemo(() => sortTasks(filterListTasks(scopedTasks, params.filter, filterContext), sort, index, language), [scopedTasks, index, filterContext, params.filter, sort, language]);
   const epicFilterChoices = useMemo(() => epicChoices(scopedTasks, tones), [scopedTasks, tones]);
-  const autoClosedCount = useMemo(() => filterTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, filterContext).length, [scopedTasks, filterContext]);
+  const autoClosedCount = useMemo(() => filterListTasks(scopedTasks, AUTO_CLOSED_VIEW.filter, filterContext).length, [scopedTasks, filterContext]);
   const tags = useMemo(() => collectTags(scopedTasks, language), [scopedTasks, language]);
   const hiddenOpen = useMemo(() => (projectId === undefined && inScope !== undefined ? countOpenTasks(allTasks, inScope).outOfScope : 0), [allTasks, inScope, projectId]);
 

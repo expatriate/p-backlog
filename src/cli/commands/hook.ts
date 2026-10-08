@@ -15,7 +15,7 @@ import { statsSignals } from "../../core/stats/signals/signals";
 import { signalsToShow } from "../../core/stats/signals/shown";
 import type { Signal } from "../../core/stats/types";
 import type { Project, Task } from "../../core/model/types";
-import { AGENTS, type Agent } from "../agents/agent";
+import { AGENT_SPECS, AGENTS, type Agent } from "../agents/agent";
 import { carriesSystemMessage, formatStopAnswer, parseStopEvent, type StopEvent } from "../agents/stop-event";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, parseCommandArgs, type CliIo, type ExitCode } from "../io";
@@ -28,7 +28,13 @@ const rememberNothing = (): Promise<void> => Promise.resolve();
 
 export const hookCommand: CliCommand = {
   name: "hook",
-  usage: (language) => [cliMessages(language).hookUsage(HOOK_STOP_EVENT, AGENTS)],
+  usage: (language) => [
+    cliMessages(language).hookUsage(
+      HOOK_STOP_EVENT,
+      AGENTS,
+      AGENTS.map((agent) => AGENT_SPECS[agent].label),
+    ),
+  ],
   run: runHook,
   failureExit: EXIT.ok,
 };

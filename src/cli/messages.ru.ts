@@ -1,3 +1,5 @@
+import { joinAlternatives } from "../core/i18n/format";
+
 export const cliRu = {
   usageHeader: "Использование:",
   extraArguments: (args: readonly string[]): string => `Лишние аргументы: ${args.join(" ")}`,
@@ -7,6 +9,7 @@ export const cliRu = {
     takesNoValue: (option: string): string => `Параметр ${option} не принимает значения`,
   },
   invalidChoice: (label: string, allowed: readonly string[], value: string): string => `${label}: ожидается одно из ${allowed.join(", ")}, получено «${value}»`,
+  invalidPort: (source: string, value: string): string => `${source}: ожидается число от 1 до 65535, получено «${value}»`,
   commandFailed: (name: string, reason: string): string => `Команда ${name} не выполнена: ${reason}`,
   runNotRecorded: (error: string): string => `Не удалось записать запуск: ${error}`,
   sweepConflicts: (ids: string): string => `Задачи менялись во время уборки закрытых, она повторится через сутки: ${ids}`,
@@ -153,7 +156,8 @@ export const cliRu = {
   blockedByOpenTasks: (id: string): string => `${id} заблокирована открытыми задачами:`,
   noTakeableInProject: (id: string): string => `В проекте ${id} нет задач, которые можно взять в работу`,
 
-  hookUsage: (stopEvent: string, agents: readonly string[]): string => `${stopEvent} [--agent ${agents.join("|")}]   (для хука Stop в Claude Code, Codex или Cursor, событие читается из stdin)`,
+  hookUsage: (stopEvent: string, agents: readonly string[], agentLabels: readonly string[]): string =>
+    `${stopEvent} [--agent ${agents.join("|")}]   (для хука Stop в ${joinAlternatives(agentLabels, "или")}, событие читается из stdin)`,
   sessionShownReadFailed: (error: string): string => `Не удалось прочитать показанные задачи сессии: ${error}`,
   sessionShownWriteFailed: (error: string): string => `Не удалось запомнить показанные задачи сессии: ${error}`,
   alertsComputeFailed: (error: string): string => `Не удалось посчитать тревоги: ${error}`,

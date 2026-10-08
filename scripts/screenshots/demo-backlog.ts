@@ -14,7 +14,7 @@ import { PROJECT_FILE } from "../../src/core/store/paths";
 import { writeSettings } from "../../src/core/store/settings";
 import { sweepClosed } from "../../src/core/store/sweep";
 import { DemoRepo, pick, seededRandom, type Random } from "./demo-repo";
-import { DAY_MS } from "../../src/core/model/dates";
+import { DAY_MS, MINUTE_MS } from "../../src/core/model/dates";
 
 const eventSchema = z.discriminatedUnion("do", [
   z.object({ at: z.number(), do: z.enum(["take", "done", "cancel", "block", "reopen", "verify", "touch", "obsolete"]) }),
@@ -68,7 +68,6 @@ const WORK_START_HOUR = 10;
 const WORK_HOURS = 8;
 const CLOSING_HOUR = 20;
 const MINUTES_PER_HOUR = 60;
-const MINUTE_MS = 60_000;
 const CHECK_AFTER_TOUCH_DAYS = 0.02;
 const SEED = 20260924;
 const CHECK_EXIT_CODES = [EXIT.ok, EXIT.needsReview];

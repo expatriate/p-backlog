@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, posix } from "node:path";
 import { describe, expect, it } from "vitest";
 import { startServer } from "../../server/start";
+import { QUIET_HOST } from "../../server/testing/quiet-host";
 import { EXIT } from "../io";
 import { fakeExec, makeCliSandbox } from "../testing/cli-harness";
 import { freePort } from "../testing/free-port";
@@ -95,7 +96,7 @@ describe("backlog service", () => {
 
   it("status проверяет сервер на порту, записанном в службе", async () => {
     const { home, root, run } = await makeCliSandbox();
-    const server = await startServer({ root, port: 0, home, env: {} });
+    const server = await startServer({ ...QUIET_HOST, root, port: 0, home, env: {} });
     try {
       await run(["service", "install"], { env: { PORT: String(server.port) } });
 
@@ -115,6 +116,16 @@ describe("backlog service", () => {
     const result = await run(["service", "status"], { env: { PORT: String(port) } });
 
     expect(result.out).toBe(`Служба: не установлена · сервер на порту ${port}: не отвечает`);
+  });
+
+  it("status с неверным PORT без службы отклоняется, а не проверяет 4317", async () => {
+    const { run } = await makeCliSandbox();
+
+    const result = await run(["service", "status"], { env: { PORT: "abc" } });
+
+    expect(result.code).toBe(EXIT.invalid);
+    expect(result.err).toContain("PORT: ожидается число от 1 до 65535, получено «abc»");
+    expect(result.out).toBe("");
   });
 
   it("uninstall удаляет агент, без агента сообщает, что службы нет, с кодом 0", async () => {
