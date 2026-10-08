@@ -5,7 +5,7 @@ import styles from "./ChartFrame.module.css";
 
 type LegendShape = "bar" | "line" | "dashed" | "hatch";
 export type Swatch = { shape: LegendShape; color: string };
-export type LegendItem = { label: string } & Swatch;
+type LegendItem = { label: string } & Swatch;
 
 const INITIAL_DIMENSION = { width: 360, height: 180 };
 

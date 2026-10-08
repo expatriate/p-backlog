@@ -1,31 +1,31 @@
 import type { ReactNode } from "react";
-import type { TooltipContentProps, TooltipValueType } from "recharts";
-import { SwatchMark, type Swatch } from "./ChartFrame";
+import type { TooltipContentProps } from "recharts";
+import { SwatchMark } from "./ChartFrame";
 import styles from "./ChartFrame.module.css";
+import { isPlotted, tooltipValue, type SeriesEntry } from "./series";
 
-type TooltipRow = { label: string; value: string } & (Swatch | { shape?: never; color?: never });
-export type TooltipView = { title: string; rows: TooltipRow[] };
+type SeriesTooltipProps<Row> = { title: (row: Row) => string; series: SeriesEntry<Row>[] } & Partial<Pick<TooltipContentProps, "active" | "payload">>;
 
-export function rowTooltip<Row>(describe: (row: Row) => TooltipView) {
-  return function RowTooltip({ active, payload }: TooltipContentProps<TooltipValueType, number | string>): ReactNode {
-    const row: unknown = payload?.[0]?.payload;
-    if (!active || row === undefined) return null;
-    const { title, rows } = describe(row as Row);
-    return (
-      <div className={styles.tooltip}>
-        <p className={styles.tooltipTitle}>{title}</p>
-        <dl className={styles.tooltipRows}>
-          {rows.map((item) => (
-            <div key={item.label} className={styles.tooltipRow}>
+export function SeriesTooltip<Row>({ title, series, active, payload }: SeriesTooltipProps<Row>): ReactNode {
+  const row = payload?.[0]?.payload as Row | undefined;
+  if (active !== true || row === undefined) return null;
+  return (
+    <div className={styles.tooltip}>
+      <p className={styles.tooltipTitle}>{title(row)}</p>
+      <dl className={styles.tooltipRows}>
+        {series.map((entry) => {
+          const label = entry.tooltipLabel ?? entry.label;
+          return (
+            <div key={label} className={styles.tooltipRow}>
               <dt>
-                {item.shape !== undefined && <SwatchMark shape={item.shape} color={item.color} />}
-                {item.label}
+                {isPlotted(entry) && <SwatchMark shape={entry.shape} color={entry.color} />}
+                {label}
               </dt>
-              <dd>{item.value}</dd>
+              <dd>{tooltipValue(entry, row)}</dd>
             </div>
-          ))}
-        </dl>
-      </div>
-    );
-  };
+          );
+        })}
+      </dl>
+    </div>
+  );
 }
