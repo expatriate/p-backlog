@@ -1,7 +1,9 @@
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
+import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -12,8 +14,32 @@ describe("backlog status", () => {
 
     const result = await run(["status", "SPA-1", "done"]);
 
-    expect(result).toEqual({ code: EXIT.ok, out: "SPA-1: backlog → done", err: "Внимание: не отмечено пунктов чеклиста — 1" });
+    expect(result).toEqual({
+      code: EXIT.ok,
+      out: "SPA-1: backlog → done",
+      err: [
+        "Внимание: не отмечено пунктов чеклиста — 1",
+        'SPA-1 закрыта без коммита исправления — статистика не узнает, чем она исправлена. Когда правка будет в коммите: backlog close SPA-1 --as fixed --reason "Исправлено в <sha>: …"',
+      ].join("\n"),
+    });
     expect((await loadBacklog(root)).tasks[0]?.status).toBe("done");
+  });
+
+  it("возврат исправленной задачи в работу называет её прежние коммиты", async () => {
+    const { run, repo } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "X"]);
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "Исправление", "2026-09-17T10:00:00Z");
+    const sha = execFileSync("git", ["rev-parse", "--short=7", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
+    await run(["close", "SPA-1", "--as", "fixed", "--reason", `Исправлено в ${sha}: таймаут`]);
+
+    const reopened = await run(["status", "SPA-1", "in-progress"]);
+
+    expect(reopened).toEqual({
+      code: EXIT.ok,
+      out: "SPA-1: done → in-progress",
+      err: `SPA-1 была исправлена в ${sha}: закрывая снова, укажите в --reason и эти коммиты — иначе статистика не учтёт первое исправление`,
+    });
   });
 
   it("сообщает, что эпик, закрытый сам, снова открыт, когда его задачу открыли", async () => {

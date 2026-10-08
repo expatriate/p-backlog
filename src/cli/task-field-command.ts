@@ -13,7 +13,7 @@ type TaskFieldSpec<T> = {
   parse: (language: Language, value: string) => T;
   changes: (value: T) => TaskChanges;
   label: (task: Task, language: Language) => string;
-  afterWrite?: (task: Task, io: CliIo) => void;
+  afterWrite?: (task: Task, io: CliIo, before: Task) => void;
 };
 
 export function taskFieldCommand<T>(spec: TaskFieldSpec<T>): CliCommand {
@@ -31,7 +31,7 @@ export function taskFieldCommand<T>(spec: TaskFieldSpec<T>): CliCommand {
       if (!task) return EXIT.notFound;
       const written = await taskWriter(io, loaded.tasks)(task, spec.changes(value));
       if (!written.ok) return written.exitCode;
-      spec.afterWrite?.(written.task, io);
+      spec.afterWrite?.(written.task, io, task);
       io.print(`${id}: ${spec.label(task, io.language)} → ${spec.label(written.task, io.language)}`);
       return EXIT.ok;
     },
