@@ -1,14 +1,14 @@
-import { lstat, mkdir, readlink, symlink, unlink } from "node:fs/promises";
+import { mkdir, readlink, symlink, unlink } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import type { Language } from "../core/i18n/language";
-import { parseJson, readTextOrNull } from "../core/store/fs-utils";
+import { lstatOrNull, parseJson, readTextOrNull } from "../core/store/fs-utils";
 import { SKILL_NAME } from "../core/skill-name";
 import { SKILL_SOURCES_DIR, SKILL_VARIANTS } from "./skill-variants";
 
 type SkillLinkResult = "linked" | "kept" | "foreign";
 
-type SkillUnlinkResult = "removed" | "absent" | "foreign";
+export type SkillUnlinkResult = "removed" | "absent" | "foreign";
 
 export type SkillLinkOptions = { skillsDir: string; packageRoot: string; platform: NodeJS.Platform };
 
@@ -31,13 +31,13 @@ async function isPBacklogSkill(path: string): Promise<boolean> {
 }
 
 async function pathExists(path: string): Promise<boolean> {
-  return (await lstat(path).catch(() => null)) !== null;
+  return (await lstatOrNull(path)) !== null;
 }
 
 export async function linkSkillFor(language: Language, { skillsDir, packageRoot, platform }: SkillLinkOptions): Promise<SkillLinkResult> {
   const target = skillLinkPath(skillsDir);
   const source = skillSourceDir(packageRoot, language);
-  const existing = await lstat(target).catch(() => null);
+  const existing = await lstatOrNull(target);
   if (existing !== null && !existing.isSymbolicLink()) return "foreign";
   if (existing !== null) {
     const resolved = resolve(skillsDir, await readlink(target));
@@ -57,7 +57,7 @@ export async function relinkExistingSkill(language: Language, options: SkillLink
 
 export async function unlinkOurSkill(skillsDir: string): Promise<SkillUnlinkResult> {
   const target = skillLinkPath(skillsDir);
-  const existing = await lstat(target).catch(() => null);
+  const existing = await lstatOrNull(target);
   if (existing === null) return "absent";
   if (!existing.isSymbolicLink() || !(await isPBacklogSkill(resolve(skillsDir, await readlink(target))))) return "foreign";
   await unlink(target);

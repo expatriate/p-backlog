@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { Dirent } from "node:fs";
-import { access, appendFile, chmod, link, open, readdir, readFile, rename, rm, stat, writeFile, type FileHandle } from "node:fs/promises";
+import { realpathSync, type Dirent, type Stats } from "node:fs";
+import { access, appendFile, chmod, link, lstat, open, readdir, readFile, readlink, rename, rm, stat, writeFile, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { z } from "zod";
@@ -35,14 +35,40 @@ export async function readReportingFailure<T>(path: string, read: (path: string)
 }
 
 const NO_FILE_CODES = ["ENOENT", "ENOTDIR"];
+const NO_LINK_CODES = [...NO_FILE_CODES, "EINVAL"];
 
 function isNoFile(error: unknown): boolean {
   return hasAnyErrorCode(error, NO_FILE_CODES);
 }
 
-export async function readBytesOrNull(path: string): Promise<Buffer | null> {
+async function nullWhenMissing<T>(work: Promise<T>, missingCodes = NO_FILE_CODES): Promise<T | null> {
   try {
-    return await readFile(path);
+    return await work;
+  } catch (error) {
+    if (hasAnyErrorCode(error, missingCodes)) return null;
+    throw error;
+  }
+}
+
+export function readBytesOrNull(path: string): Promise<Buffer | null> {
+  return nullWhenMissing(readFile(path));
+}
+
+export function statOrNull(path: string): Promise<Stats | null> {
+  return nullWhenMissing(stat(path));
+}
+
+export function lstatOrNull(path: string): Promise<Stats | null> {
+  return nullWhenMissing(lstat(path));
+}
+
+export function linkTargetOrNull(path: string): Promise<string | null> {
+  return nullWhenMissing(readlink(path), NO_LINK_CODES);
+}
+
+export function realpathOrNull(path: string): string | null {
+  try {
+    return realpathSync.native(path);
   } catch (error) {
     if (isNoFile(error)) return null;
     throw error;
@@ -102,10 +128,7 @@ export async function fileExists(path: string): Promise<boolean> {
 }
 
 export async function withExistingFile<T>(path: string, use: (handle: FileHandle) => Promise<T>, flags = "r"): Promise<T | null> {
-  const handle = await open(path, flags).catch((error: unknown) => {
-    if (isNoFile(error)) return null;
-    throw error;
-  });
+  const handle = await nullWhenMissing(open(path, flags));
   return handle === null ? null : closingAfter(handle, use);
 }
 
@@ -195,6 +218,7 @@ async function replaceFile(temporary: string, path: string, prepareRename: () =>
     await rename(temporary, path);
     return true;
   };
+  // eslint-disable-next-line no-restricted-properties -- the retry answers to the running OS, not to a caller
   if (process.platform !== "win32") return attempt();
   for (const delayMs of REPLACE_RETRY_DELAYS_MS) {
     try {
@@ -217,11 +241,8 @@ export async function removeTemporariesBefore(dir: string, cutoff: Date): Promis
   for (const entry of await listDir(dir)) {
     if (!entry.isFile() || !TEMPORARY_FILE.test(entry.name)) continue;
     const path = join(dir, entry.name);
-    const modified = await stat(path).then(
-      ({ mtimeMs }) => mtimeMs,
-      () => null,
-    );
-    if (modified !== null && modified < cutoff.getTime()) await rm(path, { force: true });
+    const info = await statOrNull(path);
+    if (info !== null && info.mtimeMs < cutoff.getTime()) await rm(path, { force: true });
   }
 }
 

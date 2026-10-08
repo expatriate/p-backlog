@@ -67,12 +67,17 @@
   min-width: 1ch;
 }
 
+.opened td {
+  background: var(--surface-selected);
+}
+
 .row:hover td {
   background: var(--surface-hover);
 }
 
-.opened td {
-  background: var(--surface-selected);
+.table th:first-child,
+.table td:first-child {
+  padding-inline-start: var(--space-5);
 }
 
 .title {
@@ -158,11 +163,6 @@
   .priorityCell {
     display: none;
   }
-}
-
-.table th:first-child,
-.table td:first-child {
-  padding-inline-start: var(--space-5);
 }
 
 .table .date {

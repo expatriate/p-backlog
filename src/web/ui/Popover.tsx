@@ -33,7 +33,7 @@ export function Popover({ trigger, triggerProps, triggerRef, placement = "below"
   const triggerId = useId();
   const panelId = useId();
   const anchor = useRef<HTMLDivElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
+  const panel = useOpenedPanelInView(open);
   const ownTrigger = useRef<HTMLButtonElement>(null);
   const button = triggerRef ?? ownTrigger;
   const restoreFocusOnClose = useRestoreFocus(button, panel, open);
@@ -42,17 +42,6 @@ export function Popover({ trigger, triggerProps, triggerRef, placement = "below"
     restoreFocusOnClose();
     setOpen(false);
   }, [restoreFocusOnClose]);
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    const menu = panel.current;
-    if (!menu) return;
-    const viewportMargin = Number.parseFloat(getComputedStyle(menu).getPropertyValue(VIEWPORT_MARGIN_PROPERTY));
-    const overflow = menu.getBoundingClientRect().right - (document.documentElement.clientWidth - viewportMargin);
-    menu.style.transform = overflow > 0 ? `translateX(-${overflow}px)` : "";
-    menu.scrollIntoView({ block: "nearest" });
-    menu.querySelector<HTMLElement>(`[${INITIAL_FOCUS_ATTRIBUTE}]`)?.focus({ preventScroll: true });
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -96,4 +85,19 @@ export function Popover({ trigger, triggerProps, triggerRef, placement = "below"
       )}
     </div>
   );
+}
+
+function useOpenedPanelInView(open: boolean): RefObject<HTMLDivElement | null> {
+  const panel = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const menu = panel.current;
+    if (!menu) return;
+    const viewportMargin = Number.parseFloat(getComputedStyle(menu).getPropertyValue(VIEWPORT_MARGIN_PROPERTY));
+    const overflow = menu.getBoundingClientRect().right - (document.documentElement.clientWidth - viewportMargin);
+    menu.style.transform = overflow > 0 ? `translateX(-${overflow}px)` : "";
+    menu.scrollIntoView({ block: "nearest" });
+    menu.querySelector<HTMLElement>(`[${INITIAL_FOCUS_ATTRIBUTE}]`)?.focus({ preventScroll: true });
+  }, [open]);
+  return panel;
 }

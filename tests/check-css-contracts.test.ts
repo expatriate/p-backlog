@@ -1,13 +1,9 @@
-import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeTempDir, writeFiles } from "../src/core/store/testing/temp-dirs";
+import { runCheckScript } from "./check-script";
 
-const script = join(import.meta.dirname, "../scripts/check-css-contracts.mjs");
-
-function run(cwd: string) {
-  return spawnSync("node", [script], { cwd, encoding: "utf8" });
-}
+const run = (cwd: string) => runCheckScript("check-css-contracts.mjs", cwd);
 
 describe("check-css-contracts", () => {
   it("переменная, прочитанная в модуле и нигде не объявленная, — код 1, путь, строка и имя в выводе", async () => {

@@ -24,6 +24,7 @@ export const cliRu = {
   installSkillKept: (target: string): string => `Скилл уже установлен: ${target}`,
   installSkillForeign: (target: string, source: string): string => `${target} уже существует и не ведёт в ${source}. Уберите его вручную и повторите.`,
   installSkillLinkFailed: (target: string, detail: string): string => `Не удалось создать ссылку ${target} (${detail}).`,
+  removeSkillLinkFailed: (target: string, detail: string): string => `Не удалось снять ссылку ${target} (${detail}).`,
   installHookExists: (settingsPath: string): string => `Хук Stop уже есть в ${settingsPath}`,
   installHookAdded: (settingsPath: string): string => `Хук Stop добавлен в ${settingsPath}`,
   installHookUpdated: (settingsPath: string): string => `Хук Stop обновлён в ${settingsPath}`,

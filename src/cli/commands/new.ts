@@ -3,13 +3,13 @@ import { warnPathErrors } from "../../core/errors";
 import { findRepo, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
 import { buildIndex } from "../../core/model/graph";
-import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project } from "../../core/model/types";
+import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project, type Task } from "../../core/model/types";
 import { findProjectForDir } from "../../core/store/resolve-project";
 import { createTask } from "../../core/store/create";
 import { loadBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
 import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo, type ExitCode } from "../io";
-import { ensureProject, repoLookup } from "../lookups";
+import { ensureProject, repoLookup, repoPlaces } from "../lookups";
 import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
 import { taskJson } from "../describe";
@@ -24,22 +24,24 @@ export const newCommand: CliCommand = {
   run: runNew,
 };
 
+const NEW_OPTIONS = {
+  title: { type: "string" },
+  type: { type: "string" },
+  priority: { type: "string" },
+  tags: { type: "string" },
+  category: { type: "string" },
+  found: { type: "string" },
+  source: { type: "string" },
+  epic: { type: "string" },
+  "blocked-by": { type: "string" },
+  related: { type: "string" },
+  project: { type: "string" },
+  json: { type: "boolean", default: false },
+  force: { type: "boolean", default: false },
+} as const;
+
 async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
-  const values = parseOptions(io.language, args, {
-    title: { type: "string" },
-    type: { type: "string" },
-    priority: { type: "string" },
-    tags: { type: "string" },
-    category: { type: "string" },
-    found: { type: "string" },
-    source: { type: "string" },
-    epic: { type: "string" },
-    "blocked-by": { type: "string" },
-    related: { type: "string" },
-    project: { type: "string" },
-    json: { type: "boolean", default: false },
-    force: { type: "boolean", default: false },
-  });
+  const values = parseOptions(io.language, args, NEW_OPTIONS);
   if (values.title === undefined) throw new UsageError(io.cli.titleRequired);
   const type = values.type === undefined ? undefined : parseChoice(io.language, values.type, TASK_TYPES, "--type");
   const priority = values.priority === undefined ? undefined : parseChoice(io.language, values.priority, PRIORITIES, "--priority");
@@ -52,22 +54,13 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   const project = await ensureProject(loaded, io, values.project);
   if (!project) return EXIT.notFound;
 
-  const similar = values.force
-    ? null
-    : findSimilarTask(
-        { title: values.title, source: values.source },
-        loaded.tasks.filter((task) => task.projectId === project.id),
-      );
-  if (similar !== null) {
-    const why = similar.match === "source" ? io.cli.sameSource : io.cli.similarTitle;
-    io.warn(io.cli.similarTaskWarning(similar.task.id, similar.task.title, why));
-    return EXIT.refused;
-  }
+  const projectTasks = loaded.tasks.filter((task) => task.projectId === project.id);
+  if (!values.force && warnedOfSimilarTask({ title: values.title, source: values.source }, projectTasks, io)) return EXIT.refused;
 
   const [atSource, body, origin] = await Promise.all([
     values.source === undefined ? undefined : anchorOf(project, values.source, io),
     io.readStdin(),
-    cwdBelongsTo(project, loaded.projects, io) ? readOrigin(io.cwd) : undefined,
+    values.project === undefined || cwdBelongsTo(project, loaded.projects, io) ? readOrigin(io.cwd) : undefined,
   ]);
   const result = await createTask(io.backlogRoot, {
     project,
@@ -100,11 +93,19 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   return EXIT.ok;
 }
 
+function warnedOfSimilarTask(draft: { title: string; source?: string | undefined }, projectTasks: readonly Task[], io: CliIo): boolean {
+  const similar = findSimilarTask(draft, projectTasks);
+  if (similar === null) return false;
+  const why = similar.match === "source" ? io.cli.sameSource : io.cli.similarTitle;
+  io.warn(io.cli.similarTaskWarning(similar.task.id, similar.task.title, why));
+  return true;
+}
+
 async function anchorOf(project: Project, source: string, io: CliIo): Promise<SourceAnchor> {
   const lookup = repoLookup(io);
   return sourceAnchor(await findRepo(project, lookup), source, lookup.onUnreadable);
 }
 
 function cwdBelongsTo(project: Project, knownProjects: readonly Project[], io: CliIo): boolean {
-  return findProjectForDir([...knownProjects, project], io.cwd, io.home)?.id === project.id;
+  return findProjectForDir([...knownProjects, project], io.cwd, repoPlaces(io))?.id === project.id;
 }

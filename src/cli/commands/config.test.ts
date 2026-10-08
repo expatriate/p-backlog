@@ -1,6 +1,6 @@
-import { lstat, mkdir, realpath, symlink, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, realpath, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -53,6 +53,21 @@ describe("backlog config language", () => {
 
     expect(await realpath(codexLink)).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
     await expect(lstat(join(withoutLink.home, ".agents/skills/backlog"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it.skipIf(process.platform === "win32")("недоступный каталог Codex назван в предупреждении, а скилл Claude Code переставлен (на Windows chmod не закрывает каталог)", async () => {
+    const { home, run } = await makeCliSandbox();
+    const locked = join(home, "locked");
+    await mkdir(join(locked, ".codex"), { recursive: true });
+    await chmod(locked, 0o000);
+    onTestFinished(() => chmod(locked, 0o700));
+    const skillsDir = join(home, "skills");
+
+    const result = await run(["config", "language", "en"], { env: { CLAUDE_SKILLS_DIR: skillsDir, CODEX_HOME: join(locked, ".codex") } });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(result.err).toContain(`Could not read ${join(locked, ".codex")}`);
+    expect(await realpath(join(skillsDir, "backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
   });
 
   it("сбой ссылки у одного агента не мешает переставить скилл остальным", async () => {

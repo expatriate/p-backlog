@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ChangeEvent, type KeyboardEvent } from "react";
-import { Link } from "react-router";
+import { Link, type To } from "react-router";
 import { isBlocked } from "../../core/model/graph";
 import { formatDate } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
@@ -44,7 +44,7 @@ const PRIORITY_CLASS: Record<Priority, string | undefined> = {
 
 export function TaskTable({ tasks, sort, dateColumn, openedId, onSort, isNew, selectedTags, onToggleTag, selection, describedBy }: TaskTableProps) {
   const { list, core } = useMessages();
-  const { index, tones } = useAllTasks();
+  const { tones } = useAllTasks();
   const taskHref = useTaskHref();
   const language = useLanguage();
   const now = useNow();
@@ -52,42 +52,12 @@ export function TaskTable({ tasks, sort, dateColumn, openedId, onSort, isNew, se
   useEffect(() => {
     openedRow.current?.scrollIntoView({ block: "nearest" });
   }, [openedId]);
-  const dateColumnLabels: Record<DateColumn, string> = { created: list.created, closed: list.closed };
-  const sortableHeader = (key: SortKey, label: string, className?: string) => {
-    const active = sort.key === key;
-    return (
-      <th className={className} scope="col" aria-sort={active ? ARIA_SORT[sort.direction] : undefined}>
-        <button type="button" className={cx(styles.sortButton, active && styles.sorted)} onClick={() => onSort(key)}>
-          {label}
-          <span className={styles.sortMark} aria-hidden="true">
-            {active && DIRECTION_MARKS[sort.direction]}
-          </span>
-        </button>
-      </th>
-    );
-  };
 
   return (
     <table className={styles.table} aria-describedby={describedBy}>
-      <thead>
-        <tr>
-          <th className={styles.pick} scope="col">
-            <SelectAllCheckbox state={selection.allVisibleState} label={list.selectAllVisible} onChange={selection.setAllVisible} />
-          </th>
-          {sortableHeader("id", "ID")}
-          {sortableHeader("title", list.task)}
-          <th className={styles.tags} scope="col">
-            {list.tags}
-          </th>
-          {sortableHeader("status", list.status, styles.statusCell)}
-          {sortableHeader("priority", list.priority, styles.priorityCell)}
-          {sortableHeader(dateColumn, dateColumnLabels[dateColumn], styles.date)}
-        </tr>
-      </thead>
+      <TaskTableHead sort={sort} onSort={onSort} dateColumn={dateColumn} selection={selection} />
       <tbody>
         {tasks.map((task) => {
-          const blocked = isBlocked(task, index);
-          const epic = task.epic === undefined ? undefined : index.byId.get(task.epic);
           const opened = task.id === openedId;
           return (
             <tr
@@ -109,30 +79,7 @@ export function TaskTable({ tasks, sort, dateColumn, openedId, onSort, isNew, se
               <td>
                 <TaskIdLink id={task.id} to={taskHref(task.id)} />
               </td>
-              <td>
-                <DeletionBar task={task} now={now} />
-                {isNew(task) && <span className={styles.newBadge}>{list.newBadge}</span>}
-                <Link to={taskHref(task.id)} className={styles.title} aria-current={opened ? "true" : undefined}>
-                  {task.title}
-                </Link>
-                {task.type === "epic" && <span className={cx(styles.marker, styles.epicMarker)}>{list.epicBadge}</span>}
-                {blocked && task.status !== "blocked" && (
-                  <span className={styles.marker} title={list.blockedTitle}>
-                    {list.blockedBadge}
-                  </span>
-                )}
-                {task.resolution !== undefined && (
-                  <span className={styles.marker} title={task.reason}>
-                    {core.resolutionLabel(task.resolution)}
-                    {task.reason !== undefined && <span className="visually-hidden">: {task.reason}</span>}
-                  </span>
-                )}
-                {epic && (
-                  <span className={cx(styles.marker, styles.epicMarker)} title={epic.title}>
-                    {epic.id}
-                  </span>
-                )}
-              </td>
+              <TaskTitleCell task={task} href={taskHref(task.id)} opened={opened} isNew={isNew(task)} now={now} />
               <td className={styles.tags}>
                 <TagCell tags={task.tags} selected={selectedTags} onToggle={onToggleTag} />
               </td>
@@ -146,6 +93,75 @@ export function TaskTable({ tasks, sort, dateColumn, openedId, onSort, isNew, se
         })}
       </tbody>
     </table>
+  );
+}
+
+function TaskTableHead({ sort, onSort, dateColumn, selection }: Pick<TaskTableProps, "sort" | "onSort" | "dateColumn" | "selection">) {
+  const { list } = useMessages();
+  const dateColumnLabels: Record<DateColumn, string> = { created: list.created, closed: list.closed };
+  const sortableHeader = (key: SortKey, label: string, className?: string) => {
+    const active = sort.key === key;
+    return (
+      <th className={className} scope="col" aria-sort={active ? ARIA_SORT[sort.direction] : undefined}>
+        <button type="button" className={cx(styles.sortButton, active && styles.sorted)} onClick={() => onSort(key)}>
+          {label}
+          <span className={styles.sortMark} aria-hidden="true">
+            {active && DIRECTION_MARKS[sort.direction]}
+          </span>
+        </button>
+      </th>
+    );
+  };
+
+  return (
+    <thead>
+      <tr>
+        <th className={styles.pick} scope="col">
+          <SelectAllCheckbox state={selection.allVisibleState} label={list.selectAllVisible} onChange={selection.setAllVisible} />
+        </th>
+        {sortableHeader("id", "ID")}
+        {sortableHeader("title", list.task)}
+        <th className={styles.tags} scope="col">
+          {list.tags}
+        </th>
+        {sortableHeader("status", list.status, styles.statusCell)}
+        {sortableHeader("priority", list.priority, styles.priorityCell)}
+        {sortableHeader(dateColumn, dateColumnLabels[dateColumn], styles.date)}
+      </tr>
+    </thead>
+  );
+}
+
+function TaskTitleCell({ task, href, opened, isNew, now }: { task: Task; href: To; opened: boolean; isNew: boolean; now: Date }) {
+  const { list, core } = useMessages();
+  const { index } = useAllTasks();
+  const blocked = isBlocked(task, index);
+  const epic = task.epic === undefined ? undefined : index.byId.get(task.epic);
+  return (
+    <td>
+      <DeletionBar task={task} now={now} />
+      {isNew && <span className={styles.newBadge}>{list.newBadge}</span>}
+      <Link to={href} className={styles.title} aria-current={opened ? "true" : undefined}>
+        {task.title}
+      </Link>
+      {task.type === "epic" && <span className={cx(styles.marker, styles.epicMarker)}>{list.epicBadge}</span>}
+      {blocked && task.status !== "blocked" && (
+        <span className={styles.marker} title={list.blockedTitle}>
+          {list.blockedBadge}
+        </span>
+      )}
+      {task.resolution !== undefined && (
+        <span className={styles.marker} title={task.reason}>
+          {core.resolutionLabel(task.resolution)}
+          {task.reason !== undefined && <span className="visually-hidden">: {task.reason}</span>}
+        </span>
+      )}
+      {epic && (
+        <span className={cx(styles.marker, styles.epicMarker)} title={epic.title}>
+          {epic.id}
+        </span>
+      )}
+    </td>
   );
 }
 

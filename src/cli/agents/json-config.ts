@@ -1,8 +1,8 @@
-import { mkdir, readFile, readlink, realpath, stat } from "node:fs/promises";
+import { mkdir, readFile, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { z } from "zod";
 import { errorCodeOrText, hasErrorCode } from "../../core/errors";
-import { writeFileAtomic } from "../../core/store/fs-utils";
+import { linkTargetOrNull, statOrNull, writeFileAtomic } from "../../core/store/fs-utils";
 
 const MAX_LINK_HOPS = 40;
 
@@ -25,11 +25,8 @@ export async function readJsonConfig<T>(path: string, schema: z.ZodType<T>): Pro
 export async function writeJsonConfig(path: string, config: unknown): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const target = await writeTargetOf(path);
-  const mode = await stat(target).then(
-    ({ mode }) => mode & 0o777,
-    () => undefined,
-  );
-  await writeFileAtomic(target, `${JSON.stringify(config, null, 2)}\n`, mode);
+  const existing = await statOrNull(target);
+  await writeFileAtomic(target, `${JSON.stringify(config, null, 2)}\n`, existing === null ? undefined : existing.mode & 0o777);
 }
 
 async function readConfigText(path: string): Promise<string | JsonConfigFailure> {
@@ -53,7 +50,7 @@ async function writeTargetOf(path: string): Promise<string> {
 async function danglingLinkTarget(path: string): Promise<string> {
   let current = path;
   for (let hop = 0; hop < MAX_LINK_HOPS; hop++) {
-    const link = await readlink(current).catch(() => null);
+    const link = await linkTargetOrNull(current);
     if (link === null) return current;
     current = resolve(dirname(current), link);
   }

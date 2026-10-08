@@ -118,6 +118,17 @@ describe("backlog service", () => {
     expect(result.out).toBe(`Служба: не установлена · сервер на порту ${port}: не отвечает`);
   });
 
+  it("status с нечитаемым файлом службы называет этот файл и проверяет порт из PORT", async () => {
+    const { home, run } = await makeCliSandbox();
+    const port = await freePort();
+    await mkdir(plistPath(home), { recursive: true });
+
+    const result = await run(["service", "status"], { env: { PORT: String(port) } });
+
+    expect(result.err).toContain(`Не удалось прочитать ${plistPath(home)}`);
+    expect(result.out).toContain(`сервер на порту ${port}: не отвечает`);
+  });
+
   it("status с неверным PORT без службы отклоняется, а не проверяет 4317", async () => {
     const { run } = await makeCliSandbox();
 

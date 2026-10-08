@@ -1,4 +1,6 @@
-import { AGENT_SPECS, AGENTS, agentVoice, detectAgents, type Agent, type AgentVoice } from "../agents/agent";
+import { errorCodeOrText, warnPathErrors } from "../../core/errors";
+import { readReportingFailure } from "../../core/store/fs-utils";
+import { AGENT_SPECS, AGENTS, agentVoice, detectAgents, type Agent, type AgentDetection, type AgentVoice } from "../agents/agent";
 import { installAgentHook, removeAgentHook } from "../agents/agent-hooks";
 import { linkAgentSkill } from "../agents/agent-skill";
 import { agentPlugin } from "../agents/claude-plugin";
@@ -6,7 +8,7 @@ import type { HookInstallResult, HookRemoveResult } from "../agents/grouped-stop
 import type { CliCommand } from "../command";
 import { isFailure } from "../failure";
 import { EXIT, parseChoice, parseOptions, UsageError, type CliIo, type ExitCode } from "../io";
-import { linkSkillFor, skillLinkPath, skillSourceDir, unlinkOurSkill } from "../skill-link";
+import { linkSkillFor, skillLinkPath, skillSourceDir, unlinkOurSkill, type SkillUnlinkResult } from "../skill-link";
 import { installService } from "./service";
 
 export const setupCommand: CliCommand = {
@@ -18,16 +20,24 @@ export const setupCommand: CliCommand = {
 async function runSetup(args: string[], io: CliIo): Promise<ExitCode> {
   const options = parseOptions(io.language, args, { service: { type: "boolean" }, agent: { type: "string" }, "remove-manual": { type: "boolean" } });
   if (options["remove-manual"] && options.service) throw new UsageError(io.cli.removeManualWithService);
-  const agents = await targetAgents(options.agent, io);
+  const installed = installedAgents(io);
+  const agents = await targetAgents(options.agent, installed, io);
   const outcomes: boolean[] = [];
-  for (const agent of agents) outcomes.push(options["remove-manual"] ? await removeManualSetup(agent, agents, io) : await setUpAgent(agent, io));
+  for (const agent of agents) outcomes.push(options["remove-manual"] ? await removeManualSetup(agent, { removing: agents, installed }, io) : await setUpAgent(agent, io));
   const serviceCode = options.service ? await installService(io) : EXIT.ok;
   return outcomes.every(Boolean) ? serviceCode : EXIT.failed;
 }
 
-async function targetAgents(option: string | undefined, io: CliIo): Promise<Agent[]> {
+type InstalledAgents = () => Promise<AgentDetection>;
+
+function installedAgents(io: CliIo): InstalledAgents {
+  let detection: Promise<AgentDetection> | undefined;
+  return () => (detection ??= detectAgents(io, warnPathErrors(io.warn, io.core.unreadableSkipped)));
+}
+
+async function targetAgents(option: string | undefined, installed: InstalledAgents, io: CliIo): Promise<Agent[]> {
   if (option !== undefined) return [parseChoice(io.language, option, AGENTS, io.cli.optionLabel.agent)];
-  const detection = await detectAgents(io);
+  const detection = await installed();
   for (const { agent, dir } of detection.missing) agentVoice(agent, io).print(io.cli.agentNotFound(dir));
   return detection.found;
 }
@@ -65,8 +75,16 @@ async function installAgentSkill(agent: Agent, io: CliIo, voice: AgentVoice): Pr
 
 async function removeLegacySkillLinks(agent: Agent, io: CliIo, voice: AgentVoice): Promise<void> {
   for (const legacyDir of AGENT_SPECS[agent].legacySkillsDirs(io)) {
-    if ((await unlinkOurSkill(legacyDir)) === "removed") voice.print(io.cli.manualSkillRemoval.removed(skillLinkPath(legacyDir)));
+    if ((await unlinkReportingFailure(legacyDir, io, voice)) === "removed") voice.print(io.cli.manualSkillRemoval.removed(skillLinkPath(legacyDir)));
   }
+}
+
+function unlinkReportingFailure(skillsDir: string, io: CliIo, voice: AgentVoice): Promise<SkillUnlinkResult | null> {
+  return readReportingFailure(
+    skillLinkPath(skillsDir),
+    () => unlinkOurSkill(skillsDir),
+    (target, error) => voice.warn(io.cli.removeSkillLinkFailed(target, errorCodeOrText(error))),
+  );
 }
 
 function reportHook(result: HookInstallResult, configPath: string, io: CliIo, voice: AgentVoice): boolean {
@@ -79,19 +97,33 @@ function reportHook(result: HookInstallResult, configPath: string, io: CliIo, vo
   return true;
 }
 
-async function removeManualSetup(agent: Agent, removing: readonly Agent[], io: CliIo): Promise<boolean> {
+type ManualRemoval = { removing: readonly Agent[]; installed: InstalledAgents };
+
+async function removeManualSetup(agent: Agent, removal: ManualRemoval, io: CliIo): Promise<boolean> {
+  const voice = agentVoice(agent, io);
+  const skillSettled = await removeSkillLinkUnlessShared(agent, removal, io);
+  await removeLegacySkillLinks(agent, io, voice);
+  const hookRemoved = reportHookRemoval(await removeAgentHook(agent, io), AGENT_SPECS[agent].hookConfigPath(io), io, voice);
+  return skillSettled && hookRemoved;
+}
+
+async function removeSkillLinkUnlessShared(agent: Agent, removal: ManualRemoval, io: CliIo): Promise<boolean> {
   const voice = agentVoice(agent, io);
   const skillsDir = AGENT_SPECS[agent].skillsDir(io);
   const target = skillLinkPath(skillsDir);
-  const sharer = await remainingSkillDirUser(agent, removing, io);
-  voice.print(sharer === null ? io.cli.manualSkillRemoval[await unlinkOurSkill(skillsDir)](target) : io.cli.manualSkillShared(target, AGENT_SPECS[sharer].label));
-  await removeLegacySkillLinks(agent, io, voice);
-  return reportHookRemoval(await removeAgentHook(agent, io), AGENT_SPECS[agent].hookConfigPath(io), io, voice);
+  const sharer = await remainingSkillDirUser(agent, removal, io);
+  if (sharer !== null) {
+    voice.print(io.cli.manualSkillShared(target, AGENT_SPECS[sharer].label));
+    return true;
+  }
+  const unlinked = await unlinkReportingFailure(skillsDir, io, voice);
+  if (unlinked !== null) voice.print(io.cli.manualSkillRemoval[unlinked](target));
+  return unlinked !== null;
 }
 
-async function remainingSkillDirUser(agent: Agent, removing: readonly Agent[], io: CliIo): Promise<Agent | null> {
+async function remainingSkillDirUser(agent: Agent, { removing, installed }: ManualRemoval, io: CliIo): Promise<Agent | null> {
   const skillsDir = AGENT_SPECS[agent].skillsDir(io);
-  const { found } = await detectAgents(io);
+  const { found } = await installed();
   return found.find((other) => !removing.includes(other) && AGENT_SPECS[other].skillsDir(io) === skillsDir) ?? null;
 }
 

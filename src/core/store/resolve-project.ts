@@ -1,10 +1,13 @@
-import { realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import type { PathErrorHandler } from "../errors";
 import { runGit, runGitSync } from "../git/run";
 import type { Project } from "../model/types";
+import { readReportingFailure, realpathOrNull } from "./fs-utils";
 import { expandHome } from "./paths";
 
 export type GitRoots = { worktree: string; main: string };
+
+export type RepoPlaces = { home: string; onUnreadable: PathErrorHandler };
 
 export type RepoRootLookup = (dir: string) => Promise<GitRoots | null>;
 
@@ -26,14 +29,16 @@ async function findGitRootsAsync(dir: string): Promise<GitRoots | null> {
   return rootsOf(parsed, parsed.isMainWorktree ? null : await runGit(dir, LIST_WORKTREES));
 }
 
-export function cachedRepoRoots({ ttlMs = REPO_ROOT_TTL_MS, now = Date.now }: { ttlMs?: number; now?: () => number } = {}): RepoRootLookup {
+type RepoRootCacheOptions = { onUnreadable: PathErrorHandler; ttlMs?: number; now?: () => number };
+
+export function cachedRepoRoots({ onUnreadable, ttlMs = REPO_ROOT_TTL_MS, now = Date.now }: RepoRootCacheOptions): RepoRootLookup {
   const known = new Map<string, { roots: Promise<GitRoots | null>; checkedAt: number }>();
   const isFresh = ({ checkedAt }: { checkedAt: number }) => now() - checkedAt < ttlMs;
   return (dir) => {
     const cached = known.get(dir);
     if (cached !== undefined && isFresh(cached)) return cached.roots;
     for (const [knownDir, entry] of known) if (!isFresh(entry)) known.delete(knownDir);
-    const roots = findGitRootsAsync(dir).then((found) => found ?? plainDirRoots(dir));
+    const roots = readReportingFailure(dir, async (path) => (await findGitRootsAsync(path)) ?? plainDirRoots(path), onUnreadable);
     known.set(dir, { roots, checkedAt: now() });
     return roots;
   };
@@ -68,15 +73,15 @@ function canonicalRoots(worktreePath: string, mainPath: string): GitRoots | null
   return worktree === null || main === null ? null : { worktree, main };
 }
 
-export function findProjectForDir(projects: readonly Project[], dir: string, home: string): Project | undefined {
+export function findProjectForDir(projects: readonly Project[], dir: string, places: RepoPlaces): Project | undefined {
   const roots = findGitRoots(dir) ?? plainDirRoots(dir);
-  return roots === null ? undefined : findProjectForRoots(projects, roots, home);
+  return roots === null ? undefined : findProjectForRoots(projects, roots, places);
 }
 
-export function findProjectForRoots(projects: readonly Project[], { worktree, main }: GitRoots, home: string): Project | undefined {
+export function findProjectForRoots(projects: readonly Project[], { worktree, main }: GitRoots, places: RepoPlaces): Project | undefined {
   const matches = projects.flatMap((project) =>
     project.repos.flatMap((repo) => {
-      const repoPath = realpathOrNull(expandHome(repo, home));
+      const repoPath = resolvedRepo(repo, places);
       return repoPath !== null && (isSameOrInside(worktree, repoPath) || isSameOrInside(main, repoPath)) ? [{ project, repoPath }] : [];
     }),
   );
@@ -88,10 +93,12 @@ function isSameOrInside(path: string, container: string): boolean {
   return relation === "" || (!isAbsolute(relation) && relation.split(sep)[0] !== "..");
 }
 
-export function realpathOrNull(path: string): string | null {
+function resolvedRepo(repo: string, { home, onUnreadable }: RepoPlaces): string | null {
+  const path = expandHome(repo, home);
   try {
-    return realpathSync.native(path);
-  } catch {
+    return realpathOrNull(path);
+  } catch (error) {
+    onUnreadable(path, error);
     return null;
   }
 }

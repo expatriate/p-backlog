@@ -28,7 +28,6 @@ type BatchNoticeProps = {
 
 export function BatchNotice({ result, noticeId, onResult }: BatchNoticeProps) {
   const { list } = useMessages();
-  const taskHref = useTaskHref();
   const undo = useBatchTasks();
   const [focusInside, setFocusInside] = useState(false);
   const summary = useRef<HTMLParagraphElement>(null);
@@ -74,15 +73,7 @@ export function BatchNotice({ result, noticeId, onResult }: BatchNoticeProps) {
           <p key={noticeId} ref={summary} tabIndex={-1} className={footer.headline}>
             {list.batchSummary[result.request.action.kind](done.length, result.request.tasks.length)}
           </p>
-          {skipped.length > 0 && (
-            <ul className={styles.skipped}>
-              {skipped.map((outcome) => (
-                <li key={outcome.id}>
-                  <Link to={taskHref(outcome.id)}>{outcome.message}</Link>
-                </li>
-              ))}
-            </ul>
-          )}
+          {skipped.length > 0 && <SkippedTasks skipped={skipped} />}
           {nextUndo !== undefined && (
             <Button ref={undoButton} busy={isPending} onClick={runUndo}>
               {list.undo}
@@ -95,6 +86,19 @@ export function BatchNotice({ result, noticeId, onResult }: BatchNoticeProps) {
         </>
       )}
     </div>
+  );
+}
+
+function SkippedTasks({ skipped }: { skipped: readonly SkippedOutcome[] }) {
+  const taskHref = useTaskHref();
+  return (
+    <ul className={styles.skipped}>
+      {skipped.map((outcome) => (
+        <li key={outcome.id}>
+          <Link to={taskHref(outcome.id)}>{outcome.message}</Link>
+        </li>
+      ))}
+    </ul>
   );
 }
 

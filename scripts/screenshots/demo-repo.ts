@@ -1,7 +1,8 @@
 import { execFile } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { promisify } from "node:util";
+import { readTextOrNull } from "../../src/core/store/fs-utils";
 
 const runFile = promisify(execFile);
 
@@ -108,7 +109,7 @@ export class DemoRepo {
   }
 
   private async read(path: string): Promise<string[]> {
-    const text = await readFile(join(this.dir, path), "utf8").catch(() => null);
+    const text = await readTextOrNull(join(this.dir, path));
     return text === null ? [] : text.replace(/\n$/, "").split("\n");
   }
 

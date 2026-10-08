@@ -1,6 +1,7 @@
 import { lstat, mkdir, realpath, symlink, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { lstatOrNull } from "../core/store/fs-utils";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
 import { linkSkillFor, unlinkOurSkill } from "./skill-link";
 
@@ -50,7 +51,7 @@ describe("unlinkOurSkill", () => {
     await mkdir(join(theirs, "backlog"), { recursive: true });
 
     expect(await unlinkOurSkill(ours)).toBe("removed");
-    expect(await lstat(join(ours, "backlog")).catch(() => null)).toBeNull();
+    expect(await lstatOrNull(join(ours, "backlog"))).toBeNull();
     expect(await unlinkOurSkill(ours)).toBe("absent");
     expect(await unlinkOurSkill(theirs)).toBe("foreign");
     expect((await lstat(join(theirs, "backlog"))).isDirectory()).toBe(true);

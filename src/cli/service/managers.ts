@@ -1,3 +1,5 @@
+import { warnPathErrors } from "../../core/errors";
+import { readReportingFailure } from "../../core/store/fs-utils";
 import { envPort, type CliIo } from "../io";
 import { launchdManager } from "./launchd";
 import type { ServiceContext, ServiceManager } from "./service";
@@ -25,7 +27,8 @@ export function serviceManagerOf(io: CliIo): Promise<ServiceManager | null> {
 }
 
 export async function servicePort(manager: ServiceManager | null, io: CliIo): Promise<number> {
-  return (await manager?.installedPort().catch(() => null)) ?? envPort(io);
+  const installed = manager === null ? null : await readReportingFailure(manager.file, () => manager.installedPort(), warnPathErrors(io.warn, io.core.unreadableSkipped));
+  return installed ?? envPort(io);
 }
 
 export function webUiPort(io: CliIo): Promise<number> {

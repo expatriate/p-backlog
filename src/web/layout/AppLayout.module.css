@@ -88,6 +88,7 @@
   .shell {
     --main-overflow: visible;
     --main-frame-overflow: visible;
+
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto 1fr;
     height: auto;
@@ -96,8 +97,7 @@
 
   .sidebar {
     overflow-y: visible;
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-flow: row wrap;
     align-items: center;
     gap: var(--space-2);
     border-right: none;

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFile, rename, rm, utimes, writeFile } from "node:fs/promises";
+import { readFile, rename, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
@@ -51,6 +51,20 @@ describe("collectRepoFacts", () => {
     expect(facts.commits.map(({ files }) => files)).toEqual([[{ path: "src/a.ts" }]]);
     expect([...facts.dirtyModifiedAt.keys()]).toEqual(["src/a.ts"]);
     expect({ here: facts.committedHere, anywhere: facts.committedAnywhere }).toEqual({ here: new Set(["src/gone.ts"]), anywhere: new Set(["src/gone.ts"]) });
+  });
+
+  it.skipIf(process.platform === "win32")("изменённая ссылка, ведущая сама на себя, — незакоммиченная правка со своим временем, а не сбой сбора фактов (ссылки на Windows требуют прав)", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "export const a = 1;\n", "target.txt": "x\n" });
+    await symlink("target.txt", join(repo, "link"));
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await rm(join(repo, "link"));
+    await symlink("link", join(repo, "link"));
+
+    const facts = await collectRepoFacts(repo, marksSince("2026-09-11T00:00:00Z", ["src/a.ts"]));
+
+    expect(facts.history).toBe("read");
+    expect([...facts.dirtyModifiedAt.keys()]).toEqual(["link"]);
   });
 
   it.skipIf(process.platform === "win32")("путь с кавычкой и табуляцией приходит из истории как есть, а не в C-кавычках (кавычка и табуляция недопустимы в именах файлов Windows)", async () => {

@@ -8,11 +8,10 @@ import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import styles from "./StatsPanels.module.css";
 
+const MOST_URGENT_FIRST = PRIORITIES.toReversed();
+
 function priorityBreakdown(stats: StatsMessages, byPriority: Record<Priority, number>): string {
-  const parts = [...PRIORITIES]
-    .reverse()
-    .filter((priority) => byPriority[priority] > 0)
-    .map((priority) => `${stats.priorityCounts[priority]} ${byPriority[priority]}`);
+  const parts = MOST_URGENT_FIRST.filter((priority) => byPriority[priority] > 0).map((priority) => `${stats.priorityCounts[priority]} ${byPriority[priority]}`);
   return parts.length === 0 ? "" : ` (${parts.join(", ")})`;
 }
 
@@ -38,7 +37,7 @@ export function AgePanel({ age }: { age: AgeBreakdown }) {
         ))}
       </div>
       <p className={styles.legend}>
-        {[...PRIORITIES].reverse().map((priority) => (
+        {MOST_URGENT_FIRST.map((priority) => (
           <span key={priority} className={cx(styles.legendItem, styles[priority])}>
             {core.priorityLabel(priority)}
           </span>

@@ -52,6 +52,7 @@ function hunkLineOf(line: string): HunkLine | null {
       return { kind: "removed", text };
     case " ":
       return { kind: "context", text };
+    case undefined:
     default:
       return null;
   }

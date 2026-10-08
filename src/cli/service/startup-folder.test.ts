@@ -59,6 +59,7 @@ function execRunningScriptsInConsole(): CliEnv["exec"] {
 
 async function contentOnceWritten(path: string): Promise<string> {
   for (let attempt = 0; attempt < 100; attempt++) {
+    // eslint-disable-next-line no-restricted-syntax -- polls a file the Windows script is still writing: any read failure means "not yet"
     const content = await readFile(path, "utf8").catch(() => "");
     if (content.endsWith("\n")) return content;
     await delay(100);

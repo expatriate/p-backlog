@@ -430,7 +430,7 @@ describe("правка агента, пока поле в фокусе", () => {
   const alertTexts = (panel: HTMLElement) =>
     within(panel)
       .queryAllByRole("alert")
-      .map((alert) => alert.textContent ?? "");
+      .map((alert) => alert.textContent);
 
   it("новая правка агента после конфликта не заменяет свой текст молча: он остаётся, предупреждение тоже", async () => {
     const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1");

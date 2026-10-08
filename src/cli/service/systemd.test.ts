@@ -1,6 +1,7 @@
 import { access, readFile } from "node:fs/promises";
 import { join, posix } from "node:path";
 import { describe, expect, it } from "vitest";
+import { fileExists } from "../../core/store/fs-utils";
 import { makeTempDir } from "../../core/store/testing/temp-dirs";
 import type { CliEnv } from "../io";
 import { fakeExec } from "../testing/cli-harness";
@@ -76,11 +77,7 @@ describe("systemdManager", () => {
     const home = await makeTempDir();
     let unitGoneAtReload = false;
     const fake = fakeExec(async (command) => {
-      if (command === "systemctl --user daemon-reload")
-        unitGoneAtReload = await access(unitPath(home)).then(
-          () => false,
-          () => true,
-        );
+      if (command === "systemctl --user daemon-reload") unitGoneAtReload = !(await fileExists(unitPath(home)));
       return { code: 0, output: "" };
     });
     const manager = systemdManager(contextFor(home, fake.exec));

@@ -25,6 +25,7 @@ export const cliEn: CliMessages = {
   installSkillKept: (target) => `Skill already installed: ${target}`,
   installSkillForeign: (target, source) => `${target} already exists and does not point to ${source}. Remove it manually and try again.`,
   installSkillLinkFailed: (target, detail) => `Could not create the symlink ${target} (${detail}).`,
+  removeSkillLinkFailed: (target, detail) => `Could not remove the symlink ${target} (${detail}).`,
   installHookExists: (settingsPath) => `Stop hook is already present in ${settingsPath}`,
   installHookAdded: (settingsPath) => `Stop hook added to ${settingsPath}`,
   installHookUpdated: (settingsPath) => `Stop hook updated in ${settingsPath}`,

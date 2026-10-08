@@ -44,15 +44,7 @@ export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopePro
         <NavLink ref={scopeLink} to={{ pathname: scopePath(), search }} end aria-current="true" className={cx(styles.rowLink, styles.scopeName)}>
           {layout.projects}
         </NavLink>
-        <span className={rows.count}>
-          {counts?.scopeOpen === undefined ? (
-            NO_VALUE
-          ) : (
-            <>
-              <span className={styles.number}>{counts.scopeOpen}</span> {layout.taskWord(counts.scopeOpen)}
-            </>
-          )}
-        </span>
+        <ScopeOpenCount count={counts?.scopeOpen} />
       </div>
       {projects.data !== undefined && (
         <p className={styles.scopeNote}>
@@ -66,24 +58,54 @@ export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopePro
         </div>
       )}
       {listOpen && (
-        <ul className={rows.list} id={PROJECT_LIST_ID} aria-label={layout.projects}>
-          {allProjects.map((project) => (
-            <ProjectRow
-              key={project.id}
-              project={project}
-              to={scopePath(project.id)}
-              search={search}
-              openTasks={counts === undefined ? undefined : (counts.openByProject.get(project.id) ?? 0)}
-              taskCount={counts === undefined ? undefined : (counts.totalByProject.get(project.id) ?? 0)}
-              onDeleted={() => {
-                if (project.id === projectId) void navigate(scopePath());
-                scopeLink.current?.focus();
-              }}
-            />
-          ))}
-        </ul>
+        <ProjectList
+          projects={allProjects}
+          counts={counts}
+          scopePath={scopePath}
+          search={search}
+          onDeleted={(project) => {
+            if (project.id === projectId) void navigate(scopePath());
+            scopeLink.current?.focus();
+          }}
+        />
       )}
     </div>
+  );
+}
+
+function ScopeOpenCount({ count }: { count: number | undefined }) {
+  const { layout } = useMessages();
+  return (
+    <span className={rows.count}>
+      {count === undefined ? (
+        NO_VALUE
+      ) : (
+        <>
+          <span className={styles.number}>{count}</span> {layout.taskWord(count)}
+        </>
+      )}
+    </span>
+  );
+}
+
+type ProjectListProps = Pick<ProjectsScopeProps, "scopePath" | "search"> & { projects: readonly ProjectView[]; counts: TaskCounts | undefined; onDeleted: (project: ProjectView) => void };
+
+function ProjectList({ projects, counts, scopePath, search, onDeleted }: ProjectListProps) {
+  const { layout } = useMessages();
+  return (
+    <ul className={rows.list} id={PROJECT_LIST_ID} aria-label={layout.projects}>
+      {projects.map((project) => (
+        <ProjectRow
+          key={project.id}
+          project={project}
+          to={scopePath(project.id)}
+          search={search}
+          openTasks={counts === undefined ? undefined : (counts.openByProject.get(project.id) ?? 0)}
+          taskCount={counts === undefined ? undefined : (counts.totalByProject.get(project.id) ?? 0)}
+          onDeleted={() => onDeleted(project)}
+        />
+      ))}
+    </ul>
   );
 }
 

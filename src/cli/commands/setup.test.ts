@@ -1,6 +1,6 @@
 import { chmod, lstat, mkdir, readFile, realpath, stat, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -172,6 +172,22 @@ describe("backlog setup", () => {
     await expect(lstat(join(home, ".cursor"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it.skipIf(process.platform === "win32")("недоступный каталог Codex назван в предупреждении, а Claude Code настраивается (на Windows chmod не закрывает каталог)", async () => {
+    const { home, run } = await makeCliSandbox();
+    const locked = join(home, "locked");
+    await mkdir(join(locked, ".codex"), { recursive: true });
+    await chmod(locked, 0o000);
+    onTestFinished(() => chmod(locked, 0o700));
+    const env = { ...claudeEnv(home), CODEX_HOME: join(locked, ".codex") };
+
+    const result = await run(["setup"], { env });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(result.err).toContain(`Не удалось прочитать ${join(locked, ".codex")}`);
+    expect(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8")).hooks.Stop).toHaveLength(1);
+    expect(await realpath(join(env.CLAUDE_SKILLS_DIR, "backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog")));
+  });
+
   it("новый хук Codex просит одобрить в /hooks, уже стоящий — нет", async () => {
     const { home, run } = await makeCliSandbox();
     await mkdir(join(home, ".codex"), { recursive: true });
@@ -222,6 +238,21 @@ describe("backlog setup", () => {
     expect(result.out).toContain("backlog setup --remove-manual");
     expect(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8"))).toEqual(settings);
     await expect(lstat(join(env.CLAUDE_SKILLS_DIR, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it.skipIf(process.platform === "win32")("--remove-manual с недоступным каталогом скиллов называет ссылку и всё равно снимает хук (на Windows chmod не закрывает каталог)", async () => {
+    const { home, run } = await makeCliSandbox();
+    const locked = join(home, "locked");
+    const env = { CLAUDE_SKILLS_DIR: join(locked, "skills"), CLAUDE_SETTINGS_PATH: join(home, "claude/settings.json") };
+    await run(["setup", "--agent", "claude"], { env });
+    await chmod(locked, 0o000);
+    onTestFinished(() => chmod(locked, 0o700));
+
+    const result = await run(["setup", "--remove-manual", "--agent", "claude"], { env });
+
+    expect(result.code).toBe(EXIT.failed);
+    expect(result.err).toContain(`Не удалось снять ссылку ${join(locked, "skills", "backlog")}`);
+    expect(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8"))).toEqual({ hooks: {} });
   });
 
   it("--remove-manual снимает только наши скиллы и хуки у всех агентов", async () => {

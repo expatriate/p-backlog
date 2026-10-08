@@ -27,8 +27,8 @@
 @media (max-width: 900px) {
   .list {
     --project-error-indented: 0;
-    flex-direction: row;
-    flex-wrap: wrap;
+
+    flex-flow: row wrap;
     align-items: flex-start;
     gap: var(--space-2);
   }

@@ -1,5 +1,6 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join, parse, sep } from "node:path";
+import { readFile } from "node:fs/promises";
+import { join, parse } from "node:path";
+import { isShippedSource, reportHits, walk } from "./lib/check-files.mjs";
 
 const DEFAULT_ROOTS = ["src/web"];
 const TOKENS_SEGMENTS = ["styles", "tokens.css"];
@@ -11,15 +12,11 @@ const QUOTED_NAME = /["'`](--[a-z][\w-]*)["'`]/g;
 const SCRIPT_OBJECT_KEY = /["'`](--[a-z][\w-]*)["'`]\s*:/g;
 const SCRIPT_SET_PROPERTY = /setProperty\(\s*["'`](--[a-z][\w-]*)["'`]/g;
 
-const roots = process.argv.slice(2);
-const hits = (await Promise.all((roots.length > 0 ? roots : DEFAULT_ROOTS).map(findBrokenContractsIn))).flat();
-
-for (const hit of hits) console.log(hit);
-process.exit(hits.length > 0 ? 1 : 0);
+await reportHits(DEFAULT_ROOTS, findBrokenContractsIn);
 
 async function findBrokenContractsIn(root) {
   const files = new Map();
-  for await (const path of walk(root)) files.set(path, await readFile(path, "utf8"));
+  for await (const path of walk(root, (path) => isShippedSource(path, CHECKED_EXTENSIONS))) files.set(path, await readFile(path, "utf8"));
   const tokens = declarationsIn(files.get(join(root, ...TOKENS_SEGMENTS)) ?? "");
   return [...files].flatMap(([path, source]) => undeclaredIn(path, source, partnerSource(path, files), tokens));
 }
@@ -55,27 +52,4 @@ function settersIn(script) {
 
 function namesIn(source, pattern) {
   return [...source.matchAll(pattern)].map((match) => match[1]);
-}
-
-async function* walk(dir) {
-  let entries;
-  try {
-    entries = await readdir(dir, { withFileTypes: true });
-  } catch (error) {
-    if (error.code === "ENOENT") return;
-    throw error;
-  }
-  for (const entry of entries) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) yield* walk(path);
-    else if (shouldCheck(path)) yield path;
-  }
-}
-
-function shouldCheck(path) {
-  const segments = path.split(sep);
-  const basename = segments.at(-1);
-  if (!CHECKED_EXTENSIONS.has(basename.split(".").pop())) return false;
-  if (segments.includes("testing")) return false;
-  return !/\.test\.tsx?$/.test(basename);
 }

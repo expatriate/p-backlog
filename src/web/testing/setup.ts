@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- jsdom lacks these DOM methods although the DOM types declare them */
 import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import { forgetValuesKeptWithoutStorage } from "../ui/use-stored-value";

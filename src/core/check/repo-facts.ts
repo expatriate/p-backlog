@@ -1,11 +1,10 @@
-import { stat } from "node:fs/promises";
 import { isAbsolute, join, normalize, sep } from "node:path";
 import { FIELD, outputLine, RECORD, runGit, runGitOutcome, type GitRunner } from "../git/run";
 import type { LineRange } from "./anchor";
 import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
 import { SECOND_MS } from "../model/dates";
 import { remembered } from "../remembered";
-import { fileExists, readReportingFailure, readTextIfFile } from "../store/fs-utils";
+import { fileExists, lstatOrNull, readReportingFailure, readTextIfFile } from "../store/fs-utils";
 
 type FileChange = { path: string; renamedFrom?: string };
 
@@ -233,12 +232,10 @@ function withinRepo(gitRootPaths: readonly string[], prefix: string): string[] {
 
 async function modificationTimes(repo: string, paths: readonly string[]): Promise<Map<string, number>> {
   const entries = await Promise.all(
-    paths.map((path) =>
-      stat(join(repo, path)).then(
-        (info): [string, number] => [path, info.mtimeMs],
-        () => null,
-      ),
-    ),
+    paths.map(async (path): Promise<[string, number][]> => {
+      const info = await lstatOrNull(join(repo, path));
+      return info === null ? [] : [[path, info.mtimeMs]];
+    }),
   );
-  return new Map(entries.filter((entry) => entry !== null));
+  return new Map(entries.flat());
 }

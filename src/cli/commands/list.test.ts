@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { chmod, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { writeSettings } from "../../core/store/settings";
 import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { updateTask } from "../../core/store/testing/update-task";
@@ -30,6 +32,21 @@ describe("backlog list", () => {
     expect((await run(["list", "--tag", "UI"])).out).toContain("Низкий");
     expect((await run(["list", "--query", "критичн"])).out).not.toContain("Низкий");
     expect((await run(["list", "--query", "нет такого"])).out).toBe("Задач не найдено");
+  });
+
+  it.skipIf(process.platform === "win32")("недоступный репозиторий другого проекта назван в предупреждении, а свой проект находится (на Windows chmod не закрывает каталог)", async () => {
+    const { run, root, home } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Своя"]);
+    const locked = join(home, "locked");
+    await mkdir(join(locked, "web"), { recursive: true });
+    await writeFiles(root, { "web/project.md": projectFile("WEB", [join(locked, "web")]) });
+    await chmod(locked, 0o000);
+    onTestFinished(() => chmod(locked, 0o700));
+
+    const result = await run(["list"]);
+
+    expect(result.out).toContain("Своя");
+    expect(result.err).toContain(`Не удалось прочитать ${join(locked, "web")}`);
   });
 
   it("вне проекта требует --project или --all-projects и выводит ошибки разбора", async () => {

@@ -7,12 +7,12 @@ import { TagCell } from "./TagCell";
 const CHIP_WIDTHS: Record<string, number> = { "#dev-env": 72, "#mock-backend": 110, "#upload": 64, "+3": 31 };
 
 function visibleChips(): string[] {
-  return screen.queryAllByText(/^[#+]/, { ignore: '[aria-hidden="true"] *' }).map((chip) => chip.textContent ?? "");
+  return screen.queryAllByText(/^[#+]/, { ignore: '[aria-hidden="true"] *' }).map((chip) => chip.textContent);
 }
 
 function stubLayout(cellWidth: number) {
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
-    return { width: CHIP_WIDTHS[this.textContent ?? ""] ?? 0 } as DOMRect;
+    return { width: CHIP_WIDTHS[this.textContent] ?? 0 } as DOMRect;
   });
   return vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(cellWidth);
 }

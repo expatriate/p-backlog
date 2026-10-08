@@ -52,16 +52,7 @@ export function TaskRefs({ label, ids, listId, idPrefix, onChange }: TaskRefsPro
   return (
     <section className={styles.section} aria-label={label}>
       <h2 className={styles.heading}>{label}</h2>
-      <ul className={styles.items}>
-        {ids.map((id) => (
-          <li key={id} className={styles.item}>
-            <TaskRef id={id} />
-            <IconButton label={taskMessages.removeRef(id)} tone="danger" onClick={() => void onChange((current) => current.filter((value) => value !== id)).then(showRejection)}>
-              <CloseIcon />
-            </IconButton>
-          </li>
-        ))}
-      </ul>
+      <RefItems ids={ids} onRemove={(removed) => void onChange((current) => current.filter((id) => id !== removed)).then(showRejection)} />
       <div className={styles.add}>
         <input
           list={listId}
@@ -84,6 +75,22 @@ export function TaskRefs({ label, ids, listId, idPrefix, onChange }: TaskRefsPro
       </div>
       <FieldError {...addField.error} />
     </section>
+  );
+}
+
+function RefItems({ ids, onRemove }: { ids: readonly string[]; onRemove: (id: string) => void }) {
+  const { task: taskMessages } = useMessages();
+  return (
+    <ul className={styles.items}>
+      {ids.map((id) => (
+        <li key={id} className={styles.item}>
+          <TaskRef id={id} />
+          <IconButton label={taskMessages.removeRef(id)} tone="danger" onClick={() => onRemove(id)}>
+            <CloseIcon />
+          </IconButton>
+        </li>
+      ))}
+    </ul>
   );
 }
 

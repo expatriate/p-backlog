@@ -7,12 +7,16 @@ import { createProject } from "../core/store/create";
 import type { LoadedBacklog } from "../core/store/load";
 import { PROJECT_FILE } from "../core/store/paths";
 import { readTextOrNull } from "../core/store/fs-utils";
-import { findGitRoots, findProjectForDir, type GitRoots } from "../core/store/resolve-project";
+import { findGitRoots, findProjectForDir, type GitRoots, type RepoPlaces } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
 import { relativeInside } from "./path-inside";
 
+export function repoPlaces(io: CliIo): RepoPlaces {
+  return { home: io.home, onUnreadable: warnPathErrors(io.warn, io.core.unreadableSkipped) };
+}
+
 export function repoLookup(io: CliIo): RepoLookup {
-  return { home: io.home, workingDir: io.cwd, onUnreadable: warnPathErrors(io.warn, io.core.unreadableSkipped) };
+  return { ...repoPlaces(io), workingDir: io.cwd };
 }
 
 export function findTaskOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
@@ -82,5 +86,5 @@ function homeRelative(path: string, home: string): string {
 }
 
 function findProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Project | undefined {
-  return explicitId === undefined ? findProjectForDir(loaded.projects, io.cwd, io.home) : loaded.projects.find((project) => project.id === explicitId);
+  return explicitId === undefined ? findProjectForDir(loaded.projects, io.cwd, repoPlaces(io)) : loaded.projects.find((project) => project.id === explicitId);
 }

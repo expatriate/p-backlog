@@ -27,12 +27,6 @@
   white-space: nowrap;
 }
 
-.table th:first-child,
-.table td:first-child {
-  padding-inline-start: 0;
-  text-align: start;
-}
-
 .table thead th {
   color: var(--ink-subtle);
   font-weight: 500;
@@ -41,6 +35,12 @@
 .table tbody th {
   color: var(--ink);
   font-weight: 400;
+}
+
+.table th:first-child,
+.table td:first-child {
+  padding-inline-start: 0;
+  text-align: start;
 }
 
 .table tbody .child > * {

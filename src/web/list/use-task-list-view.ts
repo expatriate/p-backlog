@@ -10,7 +10,9 @@ import { epicTones } from "../ui/epic-tone";
 import { epicChoices } from "./epic-choices";
 import { AUTO_CLOSED_VIEW, dateColumnFor, followDateColumn, type ListParams } from "./list-params";
 
-export type ListContent = "failed" | "loading" | "unknownProject" | "empty" | "table";
+type ListContent = "failed" | "loading" | "unknownProject" | "empty" | "table";
+
+export type TaskListView = ReturnType<typeof useTaskListView>;
 
 export function useTaskListView(params: ListParams, projectId: string | undefined) {
   const language = useLanguage();

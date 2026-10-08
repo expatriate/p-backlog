@@ -98,6 +98,8 @@ function collectEvent(item: Known, event: JournalEvent): void {
     case "verified":
       item.verifications.push(at);
       return;
+    case "candidate-gone":
+      return;
   }
 }
 

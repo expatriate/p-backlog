@@ -1,6 +1,7 @@
-import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { claudeDir, claudeSettingsPath, claudeSkillsDir } from "../../core/claude-dir";
+import type { PathErrorHandler } from "../../core/errors";
+import { readReportingFailure, statOrNull } from "../../core/store/fs-utils";
 
 export const AGENTS = ["claude", "codex", "cursor"] as const;
 
@@ -70,16 +71,20 @@ export function agentVoice(agent: Agent, output: AgentVoice): AgentVoice {
   return { print: (line) => output.print(`${label}: ${line}`), warn: (line) => output.warn(`${label}: ${line}`) };
 }
 
-type AgentDetection = { found: Agent[]; missing: { agent: Agent; dir: string }[] };
+export type AgentDetection = { found: Agent[]; missing: { agent: Agent; dir: string }[] };
 
-export async function detectAgents(places: AgentPlaces): Promise<AgentDetection> {
+export async function detectAgents(places: AgentPlaces, onUnreadable: PathErrorHandler): Promise<AgentDetection> {
   const detection: AgentDetection = { found: [], missing: [] };
   for (const agent of AGENTS) {
     const spec = AGENT_SPECS[agent];
     const dir = spec.homeDir(places);
-    const present = spec.alwaysInstalled || ((await stat(dir).catch(() => null))?.isDirectory() ?? false);
-    if (present) detection.found.push(agent);
-    else detection.missing.push({ agent, dir });
+    const present = spec.alwaysInstalled || (await readReportingFailure(dir, isDirectory, onUnreadable));
+    if (present === true) detection.found.push(agent);
+    else if (present === false) detection.missing.push({ agent, dir });
   }
   return detection;
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+  return (await statOrNull(path))?.isDirectory() ?? false;
 }

@@ -5,12 +5,12 @@ import { buildIndex, epicChildren, isClosed, openBlockers, type BacklogIndex } f
 import { isQueuedTask, pickNextTask } from "../../core/model/query";
 import type { Project, Task } from "../../core/model/types";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
-import { findGitRoots, findProjectForDir } from "../../core/store/resolve-project";
+import { findGitRoots, findProjectForRoots } from "../../core/store/resolve-project";
 import { formatJson, formatTaskRef } from "../format";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
-import { findProjectOrWarn, findTaskOrWarn } from "../lookups";
+import { findProjectOrWarn, findTaskOrWarn, repoPlaces } from "../lookups";
 import { cliMessages } from "../messages";
 import { relativeInside } from "../path-inside";
 import { tasksAfterWrite, taskWriter, type TaskWrite } from "../task-write";
@@ -103,7 +103,7 @@ function isInside(file: string, path: string): boolean {
 
 function repoRelativePath(io: CliIo, project: Project, path: string): string {
   const roots = findGitRoots(io.cwd);
-  if (roots === null || findProjectForDir([project], io.cwd, io.home) === undefined) return sourcePath(path);
+  if (roots === null || findProjectForRoots([project], roots, repoPlaces(io)) === undefined) return sourcePath(path);
   return relativeInside(roots.worktree, resolve(realpathSync(io.cwd), sourcePath(path))) ?? sourcePath(path);
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import type { TasksResponse } from "../../core/api/contract";
 import { listPath } from "../../core/api/web-paths";
@@ -20,7 +20,7 @@ import { TaskTable } from "./TaskTable";
 import { useSeenTasks } from "./use-seen-tasks";
 import { useSelectedTask } from "./use-selected-task";
 import { useTaskSelection } from "./use-task-selection";
-import { useTaskListView, type ListContent } from "./use-task-list-view";
+import { useTaskListView, type TaskListView } from "./use-task-list-view";
 import { withTagToggled } from "./filter-toggle";
 import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
 import styles from "./TaskListPage.module.css";
@@ -54,7 +54,7 @@ export function TaskListPage() {
 
   const setParams = (next: ListParams) => setSearch(writeListParams(next), { replace: true });
   const heading = useRef<HTMLHeadingElement>(null);
-  const { status, keepFocus } = useStatusFocus(view.settled, heading);
+  const statusFocus = useStatusFocus(view.settled, heading);
 
   return (
     <AllTasksProvider value={view.all}>
@@ -63,40 +63,14 @@ export function TaskListPage() {
           <PageHeading ref={heading}>{viewTitle}</PageHeading>
           <Toolbar params={params} onChange={setParams} {...view.filterChoices} />
 
-          <Notice className={styles.warning} shown={missingTaskId !== undefined} role="status">
-            {missingTaskId !== undefined && list.missingTask(missingTaskId)}
-          </Notice>
+          <MissingTaskNote taskId={missingTaskId} />
 
           <ParseErrorsNote parseErrors={view.parseErrors} />
 
-          {view.content === "table" && keyboardHints && (
-            <p id={keysHintId} className={styles.keysHint}>
-              {list.selectionKeysHint(actionsShortcutLabel())}
-            </p>
-          )}
+          {view.content === "table" && keyboardHints && <KeysHint id={keysHintId} />}
 
           <div className={styles.tableWrap}>
-            <ListStatus
-              statusRef={status}
-              content={view.content}
-              settled={view.settled}
-              shownCount={view.table.tasks.length}
-              request={view.request}
-              onRetry={() => {
-                keepFocus();
-                void view.request.refetch();
-              }}
-              empty={
-                <EmptyList
-                  {...view.empty}
-                  filter={params.filter}
-                  onFilterChange={(filter) => {
-                    keepFocus();
-                    setParams({ ...params, filter });
-                  }}
-                />
-              }
-            />
+            <ListStatus view={view} filter={params.filter} onFilterChange={(filter) => setParams({ ...params, filter })} statusFocus={statusFocus} />
             {view.content === "table" && (
               <TaskTable
                 {...view.table}
@@ -116,6 +90,24 @@ export function TaskListPage() {
         {selectedTask && <TaskPanel key={selectedTask.id} task={selectedTask} onClose={() => void navigate({ pathname: listAddress, search: searchKey })} gone={gone} />}
       </main>
     </AllTasksProvider>
+  );
+}
+
+function MissingTaskNote({ taskId }: { taskId: string | undefined }) {
+  const { list } = useMessages();
+  return (
+    <Notice className={styles.warning} shown={taskId !== undefined} role="status">
+      {taskId !== undefined && list.missingTask(taskId)}
+    </Notice>
+  );
+}
+
+function KeysHint({ id }: { id: string }) {
+  const { list } = useMessages();
+  return (
+    <p id={id} className={styles.keysHint}>
+      {list.selectionKeysHint(actionsShortcutLabel())}
+    </p>
   );
 }
 
@@ -140,24 +132,30 @@ function ParseErrorsNote({ parseErrors }: { parseErrors: TasksResponse["errors"]
 }
 
 type ListStatusProps = {
-  statusRef: RefObject<HTMLDivElement | null>;
-  content: ListContent;
-  settled: boolean;
-  shownCount: number;
-  request: { error: Error | null; isFetching: boolean };
-  onRetry: () => void;
-  empty: ReactNode;
+  view: TaskListView;
+  filter: ListParams["filter"];
+  onFilterChange: (filter: ListParams["filter"]) => void;
+  statusFocus: ReturnType<typeof useStatusFocus>;
 };
 
-function ListStatus({ statusRef, content, settled, shownCount, request, onRetry, empty }: ListStatusProps) {
+function ListStatus({ view: { content, settled, request, empty, table }, filter, onFilterChange, statusFocus: { status, keepFocus } }: ListStatusProps) {
   const { list } = useMessages();
+  const shownCount = table.tasks.length;
   const announcedCount = useSettledValue(settled ? shownCount : null, COUNT_ANNOUNCE_DELAY_MS) ?? shownCount;
+  const retry = () => {
+    keepFocus();
+    void request.refetch();
+  };
+  const changeFilter = (next: ListParams["filter"]) => {
+    keepFocus();
+    onFilterChange(next);
+  };
   return (
-    <PageHint ref={statusRef} settled={settled}>
-      {request.error !== null && <RequestFailure error={request.error} fetching={request.isFetching} onRetry={onRetry} />}
+    <PageHint ref={status} settled={settled}>
+      {request.error !== null && <RequestFailure error={request.error} fetching={request.isFetching} onRetry={retry} />}
       {content === "loading" && <p>{list.loadingTasks}</p>}
       {content === "unknownProject" && <p>{list.unknownProject}</p>}
-      {content === "empty" && empty}
+      {content === "empty" && <EmptyList {...empty} filter={filter} onFilterChange={changeFilter} />}
       {settled && <p>{list.taskCount(announcedCount)}</p>}
     </PageHint>
   );

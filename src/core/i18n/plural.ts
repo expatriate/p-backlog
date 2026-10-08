@@ -10,7 +10,10 @@ export function pluralRu(n: number, one: string, few: string, many: string): str
       return one;
     case "many":
       return many;
-    default:
+    case "zero":
+    case "two":
+    case "few":
+    case "other":
       return few;
   }
 }

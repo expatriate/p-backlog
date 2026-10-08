@@ -1,4 +1,6 @@
+import { warnPathErrors } from "../../core/errors";
 import { LANGUAGES, type Language } from "../../core/i18n/language";
+import { coreMessages } from "../../core/messages";
 import { writeSettings } from "../../core/store/settings";
 import { AGENT_SPECS, agentVoice, detectAgents, type Agent } from "../agents/agent";
 import { linkAgentSkill } from "../agents/agent-skill";
@@ -31,7 +33,7 @@ async function runLanguage(positionals: string[], io: CliIo): Promise<ExitCode> 
   const language = parseChoice(io.language, value, LANGUAGES, io.cli.optionLabel.language);
   await writeSettings(io.backlogRoot, { language });
   io.print(`${io.language} → ${language}`);
-  const { found } = await detectAgents(io);
+  const { found } = await detectAgents(io, warnPathErrors(io.warn, coreMessages(language).unreadableSkipped));
   for (const agent of found) await relinkSkill(agent, language, io);
   return EXIT.ok;
 }

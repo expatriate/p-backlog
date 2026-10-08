@@ -19,6 +19,7 @@ import { AGENT_SPECS, AGENTS, type Agent } from "../agents/agent";
 import { carriesSystemMessage, formatStopAnswer, parseStopEvent, type StopEvent } from "../agents/stop-event";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, parseCommandArgs, type CliIo, type ExitCode } from "../io";
+import { repoPlaces } from "../lookups";
 import { cliMessages } from "../messages";
 import { stopReason } from "../stop-reason";
 
@@ -47,7 +48,7 @@ async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   if (event === null || event.skip) return EXIT.ok;
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const project = findProjectForDir(loaded.projects, event.cwd, io.home);
+  const project = findProjectForDir(loaded.projects, event.cwd, repoPlaces(io));
   if (!project) return EXIT.ok;
   if (!(await isFirstHookOfTurn(agent, event, io))) return EXIT.ok;
   const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home, messages: io.core, warn: io.warn, workingDir: event.cwd });

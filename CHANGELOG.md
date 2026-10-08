@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- A repository path in a `project.md` that exists but cannot be read (no permission, for example) is now named in a
+  warning when the CLI or the Stop hook looks up the project of the current directory; before, it was silently treated
+  as a missing path. The same goes for an installed service file that `backlog service status` or `backlog stats`
+  cannot read: they warn and use `PORT`. An agent directory that `backlog setup` or `backlog config` cannot read (for
+  example, `CODEX_HOME` without permission) is named in a warning and that agent is skipped, while the other agents are
+  set up as usual; before, it was reported as "not found". A skill link that `backlog setup --remove-manual` cannot
+  remove is named in a warning, the agent's hook is still removed, and the command exits with code 4.
 - The statistics of a project whose directory is named `all` are no longer shown as the statistics of all projects (or
   the other way round) after switching between the two in the web UI.
 - The card of a closed task whose file lacks the closing date or the reason (or has a blank one) now says "Closed,
