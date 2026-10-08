@@ -10,10 +10,11 @@ import { readJournal } from "./journal";
 import { loadBacklog } from "./load";
 import { reserveIssuedUpTo } from "./projects";
 import { sweepClosed } from "./sweep";
-import { shortenLockWait } from "./testing/lock-wait";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 
 const RU = coreMessages("ru");
+
+vi.mock("./file-lock", async (importOriginal) => (await import("./testing/lock-wait")).fileLockWithShortWait(await importOriginal<typeof import("./file-lock")>()));
 
 vi.mock("./projects", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./projects")>();
@@ -308,7 +309,6 @@ describe("sweepClosed", () => {
   });
 
   it("занятая задача не мешает удалить остальные просроченные, а ссылки на неё остаются", async () => {
-    shortenLockWait();
     const root = await makeTempDir();
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),
@@ -325,7 +325,6 @@ describe("sweepClosed", () => {
   });
 
   it("занятый эпик, который пора закрыть, не мешает удалить остальные просроченные", async () => {
-    shortenLockWait();
     const root = await makeTempDir();
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),

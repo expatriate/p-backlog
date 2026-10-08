@@ -7,15 +7,9 @@ import { readTextOrNull } from "./fs-utils";
 
 const RETRY_MS = 10;
 const ABANDONED_AFTER_MS = 30_000;
-let waitLimitMs = 5_000;
+const DEFAULT_WAIT_LIMIT_MS = 5_000;
 
-export function overrideLockWaitLimit(ms: number): () => void {
-  const previous = waitLimitMs;
-  waitLimitMs = ms;
-  return () => {
-    waitLimitMs = previous;
-  };
-}
+export type LockOptions = { waitLimitMs?: number | undefined };
 
 export type LockBusy = { path: string; lock: string; seconds: number };
 
@@ -32,8 +26,8 @@ export class FileBusyError extends Error implements LockBusy {
 
 type HeldLock = { path: string; lock: string; token: string };
 
-export async function withFileLock<T>(path: string, action: () => Promise<T>): Promise<T> {
-  const held = await acquire(path);
+export async function withFileLock<T>(path: string, action: () => Promise<T>, options: LockOptions = {}): Promise<T> {
+  const held = await acquire(path, options);
   try {
     return await action();
   } finally {
@@ -41,12 +35,12 @@ export async function withFileLock<T>(path: string, action: () => Promise<T>): P
   }
 }
 
-export async function withAvailableLocks<T>(paths: readonly string[], action: (locked: ReadonlySet<string>) => Promise<T>): Promise<T> {
+export async function withAvailableLocks<T>(paths: readonly string[], action: (locked: ReadonlySet<string>) => Promise<T>, options: LockOptions = {}): Promise<T> {
   const held: HeldLock[] = [];
   try {
     for (const path of [...paths].sort()) {
       try {
-        held.push(await acquire(path));
+        held.push(await acquire(path, options));
       } catch (error) {
         if (!(error instanceof FileBusyError)) throw error;
       }
@@ -57,16 +51,15 @@ export async function withAvailableLocks<T>(paths: readonly string[], action: (l
   }
 }
 
-async function acquire(path: string): Promise<HeldLock> {
+async function acquire(path: string, { waitLimitMs = DEFAULT_WAIT_LIMIT_MS }: LockOptions): Promise<HeldLock> {
   const lock = join(dirname(path), `.${basename(path)}.lock`);
   const token = `${process.pid} ${randomUUID()}`;
-  const waitMs = waitLimitMs;
-  const giveUpAt = Date.now() + waitMs;
+  const giveUpAt = Date.now() + waitLimitMs;
   for (;;) {
     if (await tryCreate(lock, token)) return { path, lock, token };
     const abandoned = await abandonedToken(lock);
     if (abandoned !== null && (await breakAbandoned(lock, abandoned))) continue;
-    if (Date.now() > giveUpAt) throw new FileBusyError(path, lock, waitMs / 1000);
+    if (Date.now() > giveUpAt) throw new FileBusyError(path, lock, waitLimitMs / 1000);
     await sleep(RETRY_MS);
   }
 }

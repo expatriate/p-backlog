@@ -5,12 +5,13 @@ import type { BatchResponse, ConflictResponse, ProjectsResponse, Revision, Error
 import { FileBusyError } from "../core/store/file-lock";
 import { appendJournal, readJournal } from "../core/store/journal";
 import { loadBacklog } from "../core/store/load";
-import { shortenLockWait } from "../core/store/testing/lock-wait";
 import { makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
 import { makeGraphDb } from "../core/code-review-graph/testing/make-graph-db";
 import { makeTestApp, SAMPLE_FILES, TEST_NOW, type TestApp } from "./testing/test-app";
+
+vi.mock("../core/store/file-lock", async (importOriginal) => (await import("../core/store/testing/lock-wait")).fileLockWithShortWait(await importOriginal<typeof import("../core/store/file-lock")>()));
 
 describe("GET /api/projects и /api/tasks", () => {
   it("отдают проекты, задачи и ошибки разбора", async () => {
@@ -273,7 +274,6 @@ describe("POST /api/tasks/batch", () => {
   });
 
   it("задача, занятая другим процессом, пропускается как busy, остальные меняются", async () => {
-    shortenLockWait();
     const backlog = await makeTestApp(SAMPLE_FILES);
     const tasks = [
       { id: "SPA-1", version: await backlog.taskVersion("SPA-1") },

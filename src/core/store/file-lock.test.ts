@@ -2,7 +2,7 @@ import { readFile, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FileBusyError, withFileLock } from "./file-lock";
-import { shortenLockWait } from "./testing/lock-wait";
+import { SHORT_LOCK_WAIT } from "./testing/lock-wait";
 import { makeTempDir } from "./testing/temp-dirs";
 
 describe("блокировка файла", () => {
@@ -17,7 +17,6 @@ describe("блокировка файла", () => {
   });
 
   it("брошенную блокировку ломает один ожидающий: второй не вмешивается, пока первый её снимает", async () => {
-    shortenLockWait();
     const dir = await makeTempDir();
     const lock = join(dir, ".SPA-1.md.lock");
     await writeFile(lock, "12345");
@@ -25,7 +24,7 @@ describe("блокировка файла", () => {
     await utimes(lock, longAgo, longAgo);
     await writeFile(`${lock}.break`, "12345");
 
-    await expect(withFileLock(join(dir, "SPA-1.md"), async () => "записано")).rejects.toThrow(FileBusyError);
+    await expect(withFileLock(join(dir, "SPA-1.md"), async () => "записано", SHORT_LOCK_WAIT)).rejects.toThrow(FileBusyError);
     expect(await readFile(lock, "utf8")).toBe("12345");
   });
 

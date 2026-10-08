@@ -1,14 +1,15 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { NBSP } from "../../core/i18n/plural";
 import { readJournal } from "../../core/store/journal";
 import { SIGNALS_SHOWN_FILE } from "../../core/store/signals-shown";
-import { shortenLockWait } from "../../core/store/testing/lock-wait";
 import { gitAddWorktree, gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { writeSettings } from "../../core/store/settings";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
+
+vi.mock("../../core/store/file-lock", async (importOriginal) => (await import("../../core/store/testing/lock-wait")).fileLockWithShortWait(await importOriginal<typeof import("../../core/store/file-lock")>()));
 
 async function changedTaskSandbox() {
   const sandbox = await makeCliSandbox();
@@ -121,7 +122,6 @@ describe("backlog hook stop", () => {
   });
 
   it("занятая память сессии не отменяет блокировку: код 0, решение напечатано, предупреждение в stderr", async () => {
-    shortenLockWait();
     const { run, repo, root } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n" });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
