@@ -1,8 +1,9 @@
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { writeSettings } from "../../core/store/settings";
 import type { CliEnv, ExecResult } from "../io";
 import { runCli } from "../run";
-import { makeGitRepo, makeTempDir } from "../../core/store/testing/temp-dirs";
+import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../../core/store/testing/temp-dirs";
 
 type CliRun = { code: number; out: string; err: string };
 
@@ -80,4 +81,10 @@ export async function makeCliSandbox(): Promise<CliSandbox> {
     return { code, out: out.join("\n"), err: err.join("\n") };
   };
   return { home, root, repo, run };
+}
+
+export async function commitIn(repo: string): Promise<string> {
+  await writeFiles(repo, { "src/a.ts": "a\n" });
+  gitCommitAll(repo, "Исправление", "2026-09-17T10:00:00Z");
+  return execFileSync("git", ["rev-parse", "--short=7", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
 }

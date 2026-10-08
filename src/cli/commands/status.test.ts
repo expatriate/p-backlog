@@ -1,11 +1,9 @@
-import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
-import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
-import { makeCliSandbox } from "../testing/cli-harness";
+import { commitIn, makeCliSandbox } from "../testing/cli-harness";
 
 describe("backlog status", () => {
   it("меняет статус и предупреждает о неотмеченных пунктах при done", async () => {
@@ -28,9 +26,7 @@ describe("backlog status", () => {
   it("возврат исправленной задачи в работу называет её прежние коммиты", async () => {
     const { run, repo } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "X"]);
-    await writeFiles(repo, { "src/a.ts": "a\n" });
-    gitCommitAll(repo, "Исправление", "2026-09-17T10:00:00Z");
-    const sha = execFileSync("git", ["rev-parse", "--short=7", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
+    const sha = await commitIn(repo);
     await run(["close", "SPA-1", "--as", "fixed", "--reason", `Исправлено в ${sha}: таймаут`]);
 
     const reopened = await run(["status", "SPA-1", "in-progress"]);

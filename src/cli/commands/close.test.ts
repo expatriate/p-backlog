@@ -1,21 +1,13 @@
-import { execFileSync } from "node:child_process";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../../core/model/dates";
 import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
-import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
-import { makeCliSandbox, SANDBOX_NOW } from "../testing/cli-harness";
+import { commitIn, makeCliSandbox, SANDBOX_NOW } from "../testing/cli-harness";
 
 const DELETION_DAY = formatLocalIso(new Date("2026-09-24T14:50:00Z")).slice(0, 10);
-
-async function commitIn(repo: string): Promise<string> {
-  await writeFiles(repo, { "src/a.ts": "a\n" });
-  gitCommitAll(repo, "Исправление", "2026-09-17T10:00:00Z");
-  return execFileSync("git", ["rev-parse", "--short=7", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
-}
 
 async function task(root: string, id: string) {
   const found = (await loadBacklog(root)).tasks.find((candidate) => candidate.id === id);
