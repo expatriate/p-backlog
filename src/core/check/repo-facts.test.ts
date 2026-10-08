@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFile, rename, utimes, writeFile } from "node:fs/promises";
+import { readFile, rename, rm, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
@@ -37,18 +37,20 @@ describe("collectRepoFacts", () => {
     expect(facts.existing).toEqual(new Set(["src/a.ts", "src/new.ts", "src/загрузка.ts"]));
   });
 
-  it("репозиторий проекта — подкаталог git: пути коммитов и незакоммиченных правок от каталога проекта", async () => {
+  it("репозиторий проекта — подкаталог git: пути коммитов, незакоммиченных правок и истории пропавшего файла от каталога проекта", async () => {
     const mono = await makeGitRepo(await makeTempDir(), "mono");
-    await writeFiles(mono, { "app/src/a.ts": "export const a = 1;\n", "lib/b.ts": "export const b = 1;\n" });
+    await writeFiles(mono, { "app/src/a.ts": "export const a = 1;\n", "app/src/gone.ts": "export const gone = 1;\n", "lib/b.ts": "export const b = 1;\n" });
     gitCommitAll(mono, "Начало", "2026-09-10T10:00:00+03:00");
     await writeFiles(mono, { "app/src/a.ts": "export const a = 2;\n", "lib/b.ts": "export const b = 2;\n" });
     gitCommitAll(mono, "Поправить a и b", "2026-09-12T10:00:00+03:00");
     await writeFiles(mono, { "app/src/a.ts": "export const a = 3;\n", "lib/b.ts": "export const b = 3;\n" });
+    await rm(join(mono, "app/src/gone.ts"));
 
-    const facts = await collectRepoFacts(join(mono, "app"), marksSince("2026-09-11T00:00:00Z", ["src/a.ts"]));
+    const facts = await collectRepoFacts(join(mono, "app"), marksSince("2026-09-11T00:00:00Z", ["src/a.ts", "src/gone.ts"]));
 
     expect(facts.commits.map(({ files }) => files)).toEqual([[{ path: "src/a.ts" }]]);
     expect([...facts.dirtyModifiedAt.keys()]).toEqual(["src/a.ts"]);
+    expect({ here: facts.committedHere, anywhere: facts.committedAnywhere }).toEqual({ here: new Set(["src/gone.ts"]), anywhere: new Set(["src/gone.ts"]) });
   });
 
   it.skipIf(process.platform === "win32")("путь с кавычкой и табуляцией приходит из истории как есть, а не в C-кавычках (кавычка и табуляция недопустимы в именах файлов Windows)", async () => {
