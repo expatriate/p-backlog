@@ -96,9 +96,12 @@ describe("backlog close", () => {
     await run(["new", "--title", "Эпик", "--type", "epic"]);
     await run(["new", "--category", "bug", "--title", "Закрытая"]);
     await run(["status", "SPA-3", "done"]);
+    await run(["new", "--category", "bug", "--title", "Отменённая"]);
+    await run(["status", "SPA-4", "cancelled"]);
 
     const close = (...args: string[]) => run(["close", ...args]);
     expect((await close("SPA-3", "--as", "obsolete", "--reason", "x")).code).toBe(EXIT.refused);
+    expect((await close("SPA-4", "--as", "fixed", "--reason", "x")).code).toBe(EXIT.refused);
     expect((await close("SPA-2", "--as", "obsolete", "--reason", "x")).code).toBe(EXIT.invalid);
     expect((await close("SPA-40", "--as", "fixed", "--reason", "x")).code).toBe(EXIT.notFound);
     expect((await close("SPA-1", "--as", "duplicate", "--duplicate-of", "SPA-40", "--reason", "x")).code).toBe(EXIT.notFound);
