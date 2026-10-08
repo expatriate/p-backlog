@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `backlog close <ID> --as fixed --reason "Fixed in <sha>: …"` on a task closed with `status <ID> done` now attaches the
+  fix commit without reopening it (exit 0 instead of 3; status and closing date stay). Statistics then count that
+  closing as fixed, so Effect sees the commit. `status <ID> done` suggests this command, and returning a fixed task to
+  work prints its earlier commits so the next `--reason` starts with them (statistics count the first commit).
+- The skill asks the agent to close a task only after tests, checks and review, right after committing, with the hash
+  from `git commit`; `status done` is for changes that the user will commit later or that have no commit.
 - Re-checks are quieter. "Code changed" for anchored tasks is raised only when the task's own lines (±2) changed
   after the state the task was last verified in; switching to a branch without that state no longer raises it.
   "File missing" is raised only when the file was deleted or renamed on the current branch, is deleted in the working
