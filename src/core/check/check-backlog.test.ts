@@ -247,7 +247,7 @@ describe("checkBacklog", () => {
     expect((await spa1())?.source).toBe("src/code.ts:12");
   });
 
-  it("якорь не совпадает с файлом на момент отметки — перевести строки нельзя: кандидат остаётся, якорь не трогается", async () => {
+  it("якорь найден в файле на момент отметки только со сдвигом, строки задачи изменились — кандидат остаётся, якорь не трогается", async () => {
     const shiftedSource = (before: string) => {
       const moved = ['import { b } from "b";', 'import { c } from "c";', 'import { d } from "d";', 'import { e } from "e";', before].join("\n");
       return `source: src/code.ts:12\nanchor: ${anchorOf(moved, "src/code.ts:12")}\n`;
