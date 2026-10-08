@@ -7,7 +7,7 @@ import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
 import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
-import { makeCliSandbox } from "../testing/cli-harness";
+import { makeCliSandbox, SANDBOX_NOW } from "../testing/cli-harness";
 
 const DELETION_DAY = formatLocalIso(new Date("2026-09-24T14:50:00Z")).slice(0, 10);
 
@@ -59,6 +59,24 @@ describe("backlog close", () => {
     expect((await run(["close", "SPA-2", "--as", "fixed", "--reason", "Поправил"], { cwd: home })).code).toBe(EXIT.ok);
   });
 
+  it("задаче, закрытой через status done, привязывает коммит, не открывая её снова", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Таймаут"]);
+    await run(["status", "SPA-1", "done"]);
+    const sha = await commitIn(repo);
+    const later = new Date(SANDBOX_NOW.getTime() + 2 * 60 * 60_000);
+
+    const noHash = await run(["close", "SPA-1", "--as", "fixed", "--reason", "Поправил таймаут"], { now: later });
+    const attached = await run(["close", "SPA-1", "--as", "fixed", "--reason", `Исправлено в ${sha}: таймаут`], { now: later });
+
+    expect(noHash.code).toBe(EXIT.invalid);
+    expect(attached).toMatchObject({ code: EXIT.ok, out: `SPA-1: done (fixed). Удалится ${DELETION_DAY}` });
+    expect(await task(root, "SPA-1")).toMatchObject({ status: "done", resolution: "fixed", reason: `Исправлено в ${sha}: таймаут`, closed: formatLocalIso(SANDBOX_NOW) });
+    const statusEvents = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "status");
+    expect(statusEvents).toMatchObject([{ from: "backlog", to: "done" }]);
+    expect((await run(["close", "SPA-1", "--as", "fixed", "--reason", `Исправлено в ${sha}: ещё раз`], { now: later })).code).toBe(EXIT.refused);
+  });
+
   it("пишет событие статуса в журнал проекта", async () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Устарело"]);
@@ -88,7 +106,7 @@ describe("backlog close", () => {
     await run(["status", "SPA-3", "done"]);
 
     const close = (...args: string[]) => run(["close", ...args]);
-    expect((await close("SPA-3", "--as", "fixed", "--reason", "x")).code).toBe(EXIT.refused);
+    expect((await close("SPA-3", "--as", "obsolete", "--reason", "x")).code).toBe(EXIT.refused);
     expect((await close("SPA-2", "--as", "obsolete", "--reason", "x")).code).toBe(EXIT.invalid);
     expect((await close("SPA-40", "--as", "fixed", "--reason", "x")).code).toBe(EXIT.notFound);
     expect((await close("SPA-1", "--as", "duplicate", "--duplicate-of", "SPA-40", "--reason", "x")).code).toBe(EXIT.notFound);

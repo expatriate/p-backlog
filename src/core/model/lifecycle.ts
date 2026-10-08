@@ -19,7 +19,7 @@ export type EpicWithChildren = { epic: Task; childIds: string[] };
 export type EpicClosingPlan = { close: EpicWithChildren[]; waiting: EpicWithChildren[] };
 
 export function changeStatus(task: Task, status: TaskStatus, now: Date, closure?: Closure): Task {
-  if (status === task.status) return task;
+  if (status === task.status) return closure === undefined ? task : { ...task, ...closure };
   return { ...task, status, closed: closedAt(task, status, now), resolution: closure?.resolution, reason: closure?.reason };
 }
 

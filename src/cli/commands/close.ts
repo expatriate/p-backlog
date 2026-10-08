@@ -38,7 +38,9 @@ async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
     io.warn(io.cli.epicClosesOnItsOwn(id));
     return EXIT.invalid;
   }
-  if (isClosed(task.status)) {
+  const status = RESOLUTION_STATUS[resolution];
+  const attachesFix = resolution === "fixed" && task.status === status && task.resolution === undefined;
+  if (isClosed(task.status) && !attachesFix) {
     io.warn(io.cli.alreadyInStatus(id, task.status));
     return EXIT.refused;
   }
@@ -60,11 +62,11 @@ async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
     return EXIT.invalid;
   }
 
-  const status = RESOLUTION_STATUS[resolution];
   const written = await taskWriter(io, loaded.tasks)(task, { status, related }, { resolution, reason });
   if (!written.ok) return written.exitCode;
   const deletesAt = deletionDate(written.task);
-  io.print(`${id}: ${task.status} → ${status} (${resolution})${deletesAt === undefined ? "" : io.cli.deletesAtTail(formatLocalDay(deletesAt))}`);
+  const change = attachesFix ? status : `${task.status} → ${status}`;
+  io.print(`${id}: ${change} (${resolution})${deletesAt === undefined ? "" : io.cli.deletesAtTail(formatLocalDay(deletesAt))}`);
   return EXIT.ok;
 }
 

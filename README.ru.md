@@ -158,7 +158,7 @@
 | `backlog category <ID> <категория\|none>` | Меняет категорию или убирает её |
 | `backlog epic <ID> [<ID> …] --to <ID эпика\|none>` | Переносит задачи в эпик или вынимает из него |
 | `backlog check [--changed] [--project id \| --all-projects] [--json]` | Чинит висячие ссылки и завершённые эпики, находит задачи, которые пора перепроверить |
-| `backlog close <ID> --as fixed\|obsolete\|duplicate --reason <улика> [--duplicate-of ID]` | Закрывает задачу с причиной; `fixed` — только с хешем коммита из репозитория проекта |
+| `backlog close <ID> --as fixed\|obsolete\|duplicate --reason <улика> [--duplicate-of ID]` | Закрывает задачу с причиной; `fixed` — только с хешем коммита из репозитория проекта; задаче, закрытой через `status <ID> done`, `fixed` привязывает коммит, не открывая её снова |
 | `backlog verify <ID> [<ID> …] [--source файл:строка]` | Отмечает, что задачи ещё актуальны, и запоминает фрагмент кода |
 | `backlog prune [--project id \| --all-projects] [--apply]` | Задачи с низким приоритетом старше 30 дней; `--apply` отменяет их; `--all-projects` — только активные проекты |
 | `backlog stats [--project id \| --all-projects] [--json]` | Сводка статистики и тревоги |
