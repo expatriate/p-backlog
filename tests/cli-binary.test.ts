@@ -4,6 +4,7 @@ import { access } from "node:fs/promises";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { freePort } from "../src/cli/testing/free-port";
+import { readRuns } from "../src/core/store/testing/runs";
 import { makeGitRepo, makeTempDir } from "../src/core/store/testing/temp-dirs";
 import { isolatedHomeEnv } from "./isolated-process";
 
@@ -33,14 +34,12 @@ describe("собранный бинарник backlog", () => {
     expect(run(["status", "DA-1", "done"]).stderr).toContain("не отмечено пунктов чеклиста — 1");
   });
 
-  it.skipIf(process.platform === "win32")("serve по SIGTERM закрывается при открытом /api/events и удаляет PID-файл", async () => {
+  it.skipIf(process.platform === "win32")("serve по SIGTERM закрывается при открытом /api/events, удаляет PID-файл и не попадает в журнал запусков", async () => {
     const home = await makeTempDir();
     const pidFile = join(home, "server.pid");
     const port = await freePort();
-    const server = spawn(process.execPath, [cli, "serve", "--port", String(port)], {
-      env: { ...isolatedHomeEnv(home), P_BACKLOG_PID_FILE: pidFile },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const env = { ...isolatedHomeEnv(home), P_BACKLOG_PID_FILE: pidFile };
+    const server = spawn(process.execPath, [cli, "serve", "--port", String(port)], { env, stdio: ["ignore", "pipe", "pipe"] });
     try {
       await once(server.stdout, "data");
       await access(pidFile);
@@ -52,6 +51,8 @@ describe("собранный бинарник backlog", () => {
 
       expect(code).toBe(0);
       await expect(access(pidFile)).rejects.toThrow();
+      spawnSync(process.execPath, [cli, "list", "--help"], { cwd: home, env });
+      expect((await readRuns(join(home, "store"))).map(({ command }) => command)).toEqual(["list"]);
     } finally {
       server.kill("SIGKILL");
     }

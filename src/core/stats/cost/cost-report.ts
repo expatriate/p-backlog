@@ -4,6 +4,7 @@ import type { CostCommand, CostDay, CostModel, CostNumbers, CostPeriod, CostRepo
 import { totalTokens } from "./token-counts";
 import type { UsageBucket } from "./usage-state";
 import { HOOK_STOP_COMMAND } from "../../hook-signature";
+import { SERVE_COMMAND_NAME } from "../../serve-command";
 import { costOf, splitFastModel } from "./pricing";
 import { dayWindows } from "../days";
 import { statsPeriod, weekWindows } from "../weeks";
@@ -34,7 +35,7 @@ export function costReport({ buckets, runs, projectOf, projectId, now, scan }: C
   const projectOfCwd = new Map<string, string | null>();
   const inScope = (cwd: string) => projectId === undefined || remembered(projectOfCwd, cwd, () => projectOf(cwd)) === projectId;
   const scopedBuckets = buckets.filter((bucket) => inScope(bucket.cwd));
-  const scopedRuns = runs.filter((run) => inScope(run.cwd));
+  const scopedRuns = runs.filter((run) => run.command !== SERVE_COMMAND_NAME && inScope(run.cwd));
   const timedBuckets = timed(scopedBuckets, (bucket) => bucket.slot);
   const timedRuns = timed(scopedRuns, (run) => run.at);
   const within = (span: Period): UsageInSpan => ({ buckets: itemsWithin(timedBuckets, span), runs: itemsWithin(timedRuns, span) });

@@ -1,5 +1,6 @@
 import { megabytesOf } from "../core/api/memory";
 import { errorText } from "../core/errors";
+import { SERVE_COMMAND_NAME } from "../core/serve-command";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -54,14 +55,17 @@ const exitCode = await runCli(argv, {
 });
 process.exitCode = exitCode;
 
-const run = {
-  at: formatLocalIso(new Date()),
-  command: commandName(argv),
-  cwd: process.cwd(),
-  ms: Math.round(performance.now()),
-  rssMb: megabytesOf(process.resourceUsage().maxRSS * BYTES_PER_KILOBYTE),
-  exitCode,
-};
-const language = await readLanguageOrLocale(backlogRoot, process.env);
-await appendRun(backlogRoot, run).catch((error: unknown) => warn(cliMessages(language).runNotRecorded(errorText(error))));
-await tidyAfterCommand({ backlogRoot, argv, language, now: new Date(), warn });
+const command = commandName(argv);
+if (command !== SERVE_COMMAND_NAME) {
+  const run = {
+    at: formatLocalIso(new Date()),
+    command,
+    cwd: process.cwd(),
+    ms: Math.round(performance.now()),
+    rssMb: megabytesOf(process.resourceUsage().maxRSS * BYTES_PER_KILOBYTE),
+    exitCode,
+  };
+  const language = await readLanguageOrLocale(backlogRoot, process.env);
+  await appendRun(backlogRoot, run).catch((error: unknown) => warn(cliMessages(language).runNotRecorded(errorText(error))));
+  await tidyAfterCommand({ backlogRoot, argv, language, now: new Date(), warn });
+}

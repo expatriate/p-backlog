@@ -1,4 +1,5 @@
 import { errorText } from "../../core/errors";
+import { SERVE_COMMAND_NAME } from "../../core/serve-command";
 import { serverMessages } from "../../server/messages";
 import { requestedPort } from "../../server/port";
 import { PID_FILE_ENV } from "../../core/store/paths";
@@ -6,7 +7,7 @@ import { BUNDLED_WEB_DIR, closeOnStopSignal, startServer } from "../../server/st
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, UsageError, type CliIo, type ExitCode } from "../io";
 
-export const serveCommand: CliCommand = { name: "serve", usage: () => ["[--port N]"], run: runServe };
+export const serveCommand: CliCommand = { name: SERVE_COMMAND_NAME, usage: () => ["[--port N]"], run: runServe };
 
 async function runServe(args: string[], io: CliIo): Promise<ExitCode> {
   const values = parseOptions(io.language, args, { port: { type: "string" } });

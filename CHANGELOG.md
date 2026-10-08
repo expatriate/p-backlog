@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `backlog serve` (the background service included) is no longer recorded as a command run: stopping or restarting the
+  service no longer adds a `serve` row with an uptime of hours to the Commands table on the cost tab, or counts it in
+  "other commands". `serve` records already in `.runs.jsonl` are ignored by the report too.
+
 ## 0.9.0
 
 - `backlog close <ID> --as fixed --reason "Fixed in <sha>: …"` on a task closed with `status <ID> done` now attaches the

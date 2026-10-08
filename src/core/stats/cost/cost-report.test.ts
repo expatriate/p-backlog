@@ -143,6 +143,15 @@ describe("отчёт о стоимости", () => {
     ]);
   });
 
+  it("запуски serve из старого журнала не попадают ни в таблицу команд, ни в счётчики запусков", () => {
+    const runs = [run({ at: atAt(1) }), run({ command: "serve", ms: 86_400_000, rssMb: 900, at: atAt(1) })];
+
+    const report = costReport({ buckets: [], runs, projectOf: PROJECT_OF, now: NOW, scan: SCAN });
+
+    expect(report.commands).toEqual([{ command: "list", runs: 1, avgMs: 100, avgRssMb: 80, maxRssMb: 80 }]);
+    expect(report.totals.cliRuns).toBe(1);
+  });
+
   it("недели: значения недели равны сумме дней этой недели", () => {
     const buckets = [
       bucket({ slot: slotAt(6), tokens: tokens({ input: 400, output: 100 }) }),
