@@ -3,6 +3,7 @@ import { rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { hasErrorCode } from "../errors";
+import { SECOND_MS } from "../model/dates";
 import { readTextOrNull } from "./fs-utils";
 
 const RETRY_MS = 10;
@@ -59,7 +60,7 @@ async function acquire(path: string, { waitLimitMs = DEFAULT_WAIT_LIMIT_MS }: Lo
     if (await tryCreate(lock, token)) return { path, lock, token };
     const abandoned = await abandonedToken(lock);
     if (abandoned !== null && (await breakAbandoned(lock, abandoned))) continue;
-    if (Date.now() > giveUpAt) throw new FileBusyError(path, lock, waitLimitMs / 1000);
+    if (Date.now() > giveUpAt) throw new FileBusyError(path, lock, waitLimitMs / SECOND_MS);
     await sleep(RETRY_MS);
   }
 }

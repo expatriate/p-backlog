@@ -1,5 +1,5 @@
 import type { TaskOrigin } from "../core/journal/events";
-import { runGit } from "../core/git/run";
+import { outputLine, runGit } from "../core/git/run";
 
 const DETACHED_HEAD = "HEAD";
 
@@ -10,6 +10,5 @@ export async function readOrigin(dir: string): Promise<TaskOrigin | undefined> {
 }
 
 async function gitLine(dir: string, args: string[]): Promise<string | null> {
-  const line = (await runGit(dir, args))?.trim();
-  return line === undefined || line === "" ? null : line;
+  return outputLine(await runGit(dir, args));
 }

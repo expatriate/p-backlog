@@ -6,9 +6,9 @@ import { parseTaskFile } from "../model/task-file";
 import type { OptionalFields, Task, TaskCategory, TaskStatus } from "../model/types";
 import { changeEvents, statusBeforeAutoClose, type ChangeSource } from "../journal/events";
 import { contentVersion, readTextOrNull, writeFileAtomic } from "./fs-utils";
-import { errorText } from "../errors";
+import type { PathErrorHandler } from "../errors";
 import { FileBusyError, withFileLock } from "./file-lock";
-import { appendJournal, readJournal, type JournalWriter } from "./journal";
+import { appendingJournal, readJournal, type JournalWriter } from "./journal";
 import { taskText } from "./task-text";
 import { invalid, type UpdateTaskFailure, type UpdateTaskResult } from "./write-result";
 
@@ -18,7 +18,9 @@ export type TaskChanges = OptionalFields<Pick<Task, "title" | "type" | "status" 
   anchor?: string | null | undefined;
 };
 
-export type WriteOrigin = { now: Date; via: ChangeSource; undo?: boolean | undefined; journal?: JournalWriter | undefined };
+export type WriteOrigin = { now: Date; via: ChangeSource; onError: PathErrorHandler; journal?: JournalWriter | undefined };
+
+export type WriteContext = Pick<WriteOrigin, "now" | "onError">;
 
 export type UpdateTaskRequest = WriteOrigin & {
   id: string;
@@ -51,22 +53,22 @@ export async function statusToReopen(epic: Task): Promise<TaskStatus> {
 
 type OpenedTask = { before: Task | undefined; after: Task };
 
-export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, after }: OpenedTask, { now, via, undo, journal }: WriteOrigin): Promise<Task | undefined> {
+export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, after }: OpenedTask, { now, via, onError, journal }: WriteOrigin): Promise<Task | undefined> {
   if (after.epic === undefined || isClosed(after.status)) return undefined;
   const becameOpenInEpic = before === undefined || isClosed(before.status) || before.epic !== after.epic;
   const epic = index.byId.get(after.epic);
   if (!becameOpenInEpic || epic === undefined || !isAutoClosedEpic(epic)) return undefined;
   try {
     if ((await diskChange(epic, epic.version)) !== null) return undefined;
-    const reopened = await writeChanges(index, { id: epic.id, changes: { status: await statusToReopen(epic) }, expectedVersion: epic.version, now, via, undo, journal });
+    const reopened = await writeChanges(index, { id: epic.id, changes: { status: await statusToReopen(epic) }, expectedVersion: epic.version, now, via, onError, journal });
     return reopened.ok ? reopened.task : undefined;
   } catch (error) {
-    console.error(`${epic.path}: ${errorText(error)}`);
+    onError(epic.path, error);
     return undefined;
   }
 }
 
-async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion, now, closure, via, undo = false, journal = appendJournal }: UpdateTaskRequest): Promise<UpdateTaskResult> {
+async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion, now, closure, via, onError, journal = appendingJournal(onError) }: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const current = index.byId.get(id);
   if (!current) return { ok: false, reason: "not-found" };
   if (expectedVersion !== current.version) return { ok: false, reason: "conflict", current };
@@ -81,8 +83,7 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
     const changedOnDisk = await diskChange(current, expectedVersion);
     if (changedOnDisk !== null) return changedOnDisk;
     await writeFileAtomic(current.path, text);
-    const events = changeEvents(current, task, now, via);
-    await journal(dirname(current.path), undo ? events.map((event) => ({ ...event, undo: true })) : events);
+    await journal(dirname(current.path), changeEvents(current, task, now, via));
     return { ok: true, task };
   });
 }

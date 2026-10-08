@@ -300,6 +300,7 @@ export const coreRu = {
   serviceLogNotTrimmed: (error: string): string => `Не удалось обрезать лог службы: ${error}`,
   candidatesRecordFailed: (projectId: string, detail: string): string => `Не удалось записать кандидатов в журнал ${projectId}: ${detail}`,
   branchOriginsReadFailed: (projectId: string, detail: string): string => `Не удалось прочитать журнал ${projectId} — задачи из невлитых веток проверяются как обычные: ${detail}`,
+  unreadableSkipped: (path: string, detail: string): string => `Не удалось прочитать ${path}, он пропущен: ${detail}`,
 };
 
 export type CoreMessages = typeof coreRu;

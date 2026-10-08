@@ -1,6 +1,7 @@
 import { dirname, join } from "node:path";
 import { buildIndex, isClosed, type BacklogIndex } from "../model/graph";
 import { parseId } from "../model/ids";
+import type { PathErrorHandler } from "../errors";
 import type { CoreMessages } from "../messages";
 import { epicDoneClosure, isExpired, planEpicClosing, planEpicReopening } from "../model/lifecycle";
 import { deletedEvent } from "../journal/events";
@@ -13,7 +14,7 @@ import { appendJournal } from "./journal";
 import { loadBacklog, projectDirNames, type LoadedBacklog } from "./load";
 import { reserveIssuedUpTo } from "./projects";
 import { referenceCleanup } from "./references";
-import { statusToReopen, updateTaskInIndex, type TaskChanges } from "./update";
+import { statusToReopen, updateTaskInIndex, type TaskChanges, type WriteContext } from "./update";
 import type { UpdateTaskFailure } from "./write-result";
 import { DAY_MS } from "../model/dates";
 
@@ -38,18 +39,19 @@ type UpdateStep = { failures: SweepFailure[]; stillReferenced: ReadonlySet<strin
 
 export const SWEPT_AT_FILE = ".swept-at";
 
-export function sweepClosedWhenDue(root: string, now: Date, messages: CoreMessages): Promise<SweepReport | null> {
-  return runWhenDue(join(root, SWEPT_AT_FILE), now, () => sweepClosed(root, now, messages));
+export function sweepClosedWhenDue(root: string, now: Date, messages: CoreMessages, onError: PathErrorHandler): Promise<SweepReport | null> {
+  return runWhenDue(join(root, SWEPT_AT_FILE), now, () => sweepClosed(root, now, messages, onError));
 }
 
-export function sweepClosedAndStamp(root: string, now: Date, messages: CoreMessages): Promise<SweepReport> {
-  return runAndStamp(join(root, SWEPT_AT_FILE), now, () => sweepClosed(root, now, messages));
+export function sweepClosedAndStamp(root: string, now: Date, messages: CoreMessages, onError: PathErrorHandler): Promise<SweepReport> {
+  return runAndStamp(join(root, SWEPT_AT_FILE), now, () => sweepClosed(root, now, messages, onError));
 }
 
-export async function sweepClosed(root: string, now: Date, messages: CoreMessages): Promise<SweepReport> {
+export async function sweepClosed(root: string, now: Date, messages: CoreMessages, onError: PathErrorHandler): Promise<SweepReport> {
+  const writes: WriteContext = { now, onError };
   const initial = await loadBacklog(root);
-  const reopening = await reopenEpicsWithOpenTasks(initial, now);
-  const epics = await closeCompletedEpics(initial, now, messages);
+  const reopening = await reopenEpicsWithOpenTasks(initial, writes);
+  const epics = await closeCompletedEpics(initial, writes, messages);
   const { projects, tasks } = epics.closed.length > 0 || reopening.reopened.length > 0 ? await loadBacklog(root) : initial;
 
   const waitsForEpic = (task: Task) => task.epic !== undefined && epics.leftOpen.has(task.epic);
@@ -57,7 +59,7 @@ export async function sweepClosed(root: string, now: Date, messages: CoreMessage
   const expired = tasks.filter((task) => isExpired(task, now) && !waitsForEpic(task) && !stillHoldsOpenTasks.has(task.id));
   const reserved = await reserveNumbers(projects, expired);
   const removable = expired.filter((task) => reserved.has(task.projectId));
-  const removal = await removeWithReferences(tasks, removable, now);
+  const removal = await removeWithReferences(tasks, removable, writes);
   await removeAbandonedTemporaries(root, now);
   return {
     closedEpics: epics.closed,
@@ -74,17 +76,17 @@ async function removeAbandonedTemporaries(root: string, now: Date): Promise<void
   for (const dir of [root, ...projectDirs]) await removeTemporariesBefore(dir, cutoff);
 }
 
-async function removeWithReferences(tasks: readonly Task[], removable: readonly Task[], now: Date): Promise<RemovalStep> {
+async function removeWithReferences(tasks: readonly Task[], removable: readonly Task[], writes: WriteContext): Promise<RemovalStep> {
   const conflict = (task: Task): SweepFailure => ({ id: task.id, reason: "conflict" });
   return withAvailableLocks(
     removable.map((task) => task.path),
     async (lockedPaths) => {
       const locked = removable.filter((task) => lockedPaths.has(task.path));
       const unchanged = await unchangedOnDisk(locked);
-      const updates = await repairRemainingTasks(tasks, { skipped: removable, removed: unchanged }, now);
+      const updates = await repairRemainingTasks(tasks, { skipped: removable, removed: unchanged }, writes);
       const removal = await removeLocked(
         unchanged.filter((task) => !updates.stillReferenced.has(task.id)),
-        now,
+        writes,
       );
       const untouched = removable.filter((task) => !unchanged.includes(task)).map(conflict);
       return { deleted: removal.deleted, failures: [...updates.failures, ...untouched, ...removal.failures] };
@@ -102,26 +104,26 @@ async function unchangedOnDisk(tasks: readonly Task[]): Promise<Task[]> {
   return tasks.filter((_, position) => checked[position]);
 }
 
-async function reopenEpicsWithOpenTasks(loaded: LoadedBacklog, now: Date): Promise<ReopenStep> {
+async function reopenEpicsWithOpenTasks(loaded: LoadedBacklog, writes: WriteContext): Promise<ReopenStep> {
   const index = buildIndex(loaded.tasks);
   const reopened: string[] = [];
   const failures: SweepFailure[] = [];
   for (const { epic } of planEpicReopening(loaded.tasks)) {
-    const failure = await repairFailure(index, epic, { status: await statusToReopen(epic) }, now);
+    const failure = await repairFailure(index, epic, { status: await statusToReopen(epic) }, writes);
     if (failure === null) reopened.push(epic.id);
     else failures.push(failure);
   }
   return { reopened, failures };
 }
 
-async function closeCompletedEpics(loaded: LoadedBacklog, now: Date, messages: CoreMessages): Promise<EpicStep> {
+async function closeCompletedEpics(loaded: LoadedBacklog, writes: WriteContext, messages: CoreMessages): Promise<EpicStep> {
   const plan = planEpicClosing(loaded.tasks, loaded.errors);
   const index = buildIndex(loaded.tasks);
   const closed: string[] = [];
   const failures: SweepFailure[] = [];
   for (const { epic, childIds } of plan.close) {
     const closure = epicDoneClosure(childIds, messages);
-    const result = await updateTaskInIndex(index, { id: epic.id, changes: { status: "done" }, expectedVersion: epic.version, now, closure, via: "sweep" });
+    const result = await updateTaskInIndex(index, { id: epic.id, changes: { status: "done" }, expectedVersion: epic.version, ...writes, closure, via: "sweep" });
     if (result.ok) closed.push(epic.id);
     else failures.push(sweepFailure(epic.id, result));
   }
@@ -133,7 +135,7 @@ async function closeCompletedEpics(loaded: LoadedBacklog, now: Date, messages: C
 
 type Removal = { skipped: readonly Task[]; removed: readonly Task[] };
 
-async function repairRemainingTasks(tasks: readonly Task[], { skipped, removed }: Removal, now: Date): Promise<UpdateStep> {
+async function repairRemainingTasks(tasks: readonly Task[], { skipped, removed }: Removal, writes: WriteContext): Promise<UpdateStep> {
   const index = buildIndex(tasks);
   const skippedIds = new Set(skipped.map((task) => task.id));
   const removedIds = new Set(removed.map((task) => task.id));
@@ -142,7 +144,7 @@ async function repairRemainingTasks(tasks: readonly Task[], { skipped, removed }
   for (const task of tasks.filter((candidate) => !skippedIds.has(candidate.id))) {
     const cleanup = referenceCleanup(task, (id) => removedIds.has(id));
     if (cleanup === null && !lacksClosedDate(task)) continue;
-    const failure = await repairFailure(index, task, cleanup ?? {}, now);
+    const failure = await repairFailure(index, task, cleanup ?? {}, writes);
     if (failure === null) continue;
     failures.push(failure);
     for (const id of referencedIds(task)) if (removedIds.has(id)) stillReferenced.add(id);
@@ -150,8 +152,8 @@ async function repairRemainingTasks(tasks: readonly Task[], { skipped, removed }
   return { failures, stillReferenced };
 }
 
-async function repairFailure(index: BacklogIndex, task: Task, changes: TaskChanges, now: Date): Promise<SweepFailure | null> {
-  const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now, via: "sweep" });
+async function repairFailure(index: BacklogIndex, task: Task, changes: TaskChanges, writes: WriteContext): Promise<SweepFailure | null> {
+  const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, ...writes, via: "sweep" });
   return result.ok ? null : sweepFailure(task.id, result);
 }
 
@@ -159,7 +161,7 @@ function referencedIds(task: Task): string[] {
   return [...(task.epic === undefined ? [] : [task.epic]), ...task.blockedBy, ...task.related];
 }
 
-async function removeLocked(expired: readonly Task[], now: Date): Promise<RemovalStep> {
+async function removeLocked(expired: readonly Task[], { now, onError }: WriteContext): Promise<RemovalStep> {
   const deleted: string[] = [];
   const failures: SweepFailure[] = [];
   for (const task of expired) {
@@ -167,7 +169,7 @@ async function removeLocked(expired: readonly Task[], now: Date): Promise<Remova
     if (outcome === "changed") failures.push({ id: task.id, reason: "conflict" });
     if (outcome !== "removed") continue;
     deleted.push(task.id);
-    await appendJournal(dirname(task.path), [deletedEvent(task, now, "sweep")]);
+    await appendJournal(dirname(task.path), [deletedEvent(task, now, "sweep")], onError);
   }
   return { deleted, failures };
 }

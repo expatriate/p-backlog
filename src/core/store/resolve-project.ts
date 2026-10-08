@@ -1,5 +1,4 @@
 import { realpathSync } from "node:fs";
-import { realpath } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { runGit, runGitSync } from "../git/run";
 import type { Project } from "../model/types";
@@ -21,6 +20,12 @@ export function findGitRoots(dir: string): GitRoots | null {
   return rootsOf(parsed, parsed.isMainWorktree ? null : runGitSync(dir, LIST_WORKTREES));
 }
 
+async function findGitRootsAsync(dir: string): Promise<GitRoots | null> {
+  const parsed = parseRevParse(dir, await runGit(dir, SHOW_ROOTS));
+  if (parsed === null) return null;
+  return rootsOf(parsed, parsed.isMainWorktree ? null : await runGit(dir, LIST_WORKTREES));
+}
+
 export function cachedRepoRoots({ ttlMs = REPO_ROOT_TTL_MS, now = Date.now }: { ttlMs?: number; now?: () => number } = {}): RepoRootLookup {
   const known = new Map<string, { roots: Promise<GitRoots | null>; checkedAt: number }>();
   const isFresh = ({ checkedAt }: { checkedAt: number }) => now() - checkedAt < ttlMs;
@@ -28,23 +33,18 @@ export function cachedRepoRoots({ ttlMs = REPO_ROOT_TTL_MS, now = Date.now }: { 
     const cached = known.get(dir);
     if (cached !== undefined && isFresh(cached)) return cached.roots;
     for (const [knownDir, entry] of known) if (!isFresh(entry)) known.delete(knownDir);
-    const roots = rootsOrPlainDir(dir);
+    const roots = findGitRootsAsync(dir).then((found) => found ?? plainDirRoots(dir));
     known.set(dir, { roots, checkedAt: now() });
     return roots;
   };
-}
-
-async function rootsOrPlainDir(dir: string): Promise<GitRoots | null> {
-  const parsed = parseRevParse(dir, await runGit(dir, SHOW_ROOTS));
-  if (parsed === null) return plainDirRoots(await realpath(dir).catch(() => null));
-  return rootsOf(parsed, parsed.isMainWorktree ? null : await runGit(dir, LIST_WORKTREES));
 }
 
 function rootsOf({ topLevel }: RevParse, worktreeList: string | null): GitRoots | null {
   return canonicalRoots(topLevel, mainWorktreeIn(worktreeList) ?? topLevel);
 }
 
-function plainDirRoots(path: string | null): GitRoots | null {
+function plainDirRoots(dir: string): GitRoots | null {
+  const path = realpathOrNull(dir);
   return path === null ? null : { worktree: path, main: path };
 }
 
@@ -69,7 +69,7 @@ function canonicalRoots(worktreePath: string, mainPath: string): GitRoots | null
 }
 
 export function findProjectForDir(projects: readonly Project[], dir: string, home: string): Project | undefined {
-  const roots = findGitRoots(dir) ?? plainDirRoots(realpathOrNull(dir));
+  const roots = findGitRoots(dir) ?? plainDirRoots(dir);
   return roots === null ? undefined : findProjectForRoots(projects, roots, home);
 }
 

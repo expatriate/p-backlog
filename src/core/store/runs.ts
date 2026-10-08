@@ -43,19 +43,21 @@ export async function trimRuns(root: string, now: Date): Promise<number> {
 export async function trimRunsWhenStale(root: string, now: Date): Promise<number> {
   const first = await firstRun(join(root, RUNS_FILE));
   const staleBefore = retainedSince(now) - STALE_RUN_SLACK_DAYS * DAY_MS;
-  const needsTrim = first === "unparsable" || (typeof first === "number" && first < staleBefore);
+  const needsTrim = first.kind === "unparsable" || (first.kind === "run" && first.at < staleBefore);
   return needsTrim ? trimRuns(root, now) : 0;
 }
 
-type FirstRun = "none" | "unparsable" | number;
+type FirstRun = { kind: "none" } | { kind: "unparsable" } | { kind: "run"; at: number };
+
+const NO_RUN: FirstRun = { kind: "none" };
 
 async function firstRun(path: string): Promise<FirstRun> {
-  return (await withExistingFile(path, firstRunIn)) ?? "none";
+  return (await withExistingFile(path, firstRunIn)) ?? NO_RUN;
 }
 
 async function firstRunIn(handle: FileHandle): Promise<FirstRun> {
   const [firstLine = ""] = (await readAt(handle, 0, FIRST_LINE_BYTES)).toString("utf8").split("\n");
-  if (firstLine.trim() === "") return "none";
+  if (firstLine.trim() === "") return NO_RUN;
   const run = parseJson(firstLine, cliRunSchema);
-  return run === null ? "unparsable" : Date.parse(run.at);
+  return run === null ? { kind: "unparsable" } : { kind: "run", at: Date.parse(run.at) };
 }

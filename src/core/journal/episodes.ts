@@ -45,33 +45,44 @@ export function candidateGoneEvents({ sightings, reviewed, checked = CANDIDATE_E
 
 export type EpisodeStates = ReadonlyMap<EpisodeKey, EpisodeState>;
 
+type EpisodeBook = {
+  states: Map<EpisodeKey, EpisodeState>;
+  filteredKeysByTask: Map<string, Set<EpisodeKey>>;
+  beforeClosing: Map<string, Array<[EpisodeKey, EpisodeState | undefined]>>;
+};
+
 export function episodeStates(journal: readonly JournalEvent[]): EpisodeStates {
-  const states = new Map<EpisodeKey, EpisodeState>();
-  const filteredKeysByTask = new Map<string, Set<EpisodeKey>>();
-  const beforeClosing = new Map<string, Array<[EpisodeKey, EpisodeState | undefined]>>();
-  for (const event of journal) {
-    if (event.kind === "candidate") {
-      openEpisode(episodeKey(event.task, event.evidence), states);
-      if (event.evidence === "source-changed") endEpisodes(filteredKeysByTask.get(event.task) ?? [], states);
-    } else if (event.kind === "candidate-gone") {
-      endEpisodes([episodeKey(event.task, event.evidence)], states);
-    } else if (event.kind === "candidate-filtered") {
-      const key = filteredKey(event.task, event.symbol);
-      filteredKeysByTask.set(event.task, (filteredKeysByTask.get(event.task) ?? new Set()).add(key));
-      openEpisode(key, states);
-    } else if (undoesClosing(event)) {
-      restoreEpisodes(beforeClosing.get(event.task) ?? [], states);
-    } else if (endsEpisodes(event)) {
-      const keys = [...CANDIDATE_EVIDENCE.map((evidence) => episodeKey(event.task, evidence)), ...(filteredKeysByTask.get(event.task) ?? [])];
-      if (event.kind === "status")
-        beforeClosing.set(
-          event.task,
-          keys.map((key) => [key, states.get(key)]),
-        );
-      endEpisodes(keys, states);
-    }
+  const book: EpisodeBook = { states: new Map(), filteredKeysByTask: new Map(), beforeClosing: new Map() };
+  for (const event of journal) recordEpisodeEvent(book, event);
+  return book.states;
+}
+
+function recordEpisodeEvent(book: EpisodeBook, event: JournalEvent): void {
+  const { states, filteredKeysByTask, beforeClosing } = book;
+  if (event.kind === "candidate") {
+    openEpisode(episodeKey(event.task, event.evidence), states);
+    if (event.evidence === "source-changed") endEpisodes(filteredKeysByTask.get(event.task) ?? [], states);
+  } else if (event.kind === "candidate-gone") {
+    endEpisodes([episodeKey(event.task, event.evidence)], states);
+  } else if (event.kind === "candidate-filtered") {
+    const key = filteredKey(event.task, event.symbol);
+    filteredKeysByTask.set(event.task, (filteredKeysByTask.get(event.task) ?? new Set()).add(key));
+    openEpisode(key, states);
+  } else if (undoesClosing(event)) {
+    restoreEpisodes(beforeClosing.get(event.task) ?? [], states);
+  } else if (endsEpisodes(event)) {
+    endTaskEpisodes(book, event);
   }
-  return states;
+}
+
+function endTaskEpisodes({ states, filteredKeysByTask, beforeClosing }: EpisodeBook, event: JournalEvent): void {
+  const keys = [...CANDIDATE_EVIDENCE.map((evidence) => episodeKey(event.task, evidence)), ...(filteredKeysByTask.get(event.task) ?? [])];
+  if (event.kind === "status")
+    beforeClosing.set(
+      event.task,
+      keys.map((key) => [key, states.get(key)]),
+    );
+  endEpisodes(keys, states);
 }
 
 function openEpisode(key: EpisodeKey, states: Map<EpisodeKey, EpisodeState>): void {

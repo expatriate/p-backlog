@@ -7,7 +7,7 @@ import type { Project } from "../model/types";
 import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { CODE_CACHE_FILE, createCodeCacheFile, type CodeCacheStore } from "./code-cache";
 import { createCodeSource, type CodeSource } from "./code-source";
-import { projectFixKey } from "./fix-key";
+import { projectFixKey, repoFixKey } from "./fix-key";
 import { runGit, type GitRunner } from "../git/run";
 import { countingGit } from "../git/testing/counting-git";
 
@@ -108,7 +108,7 @@ describe("сбор данных git по проектам", () => {
 
     expect(restarted.code.projects).toEqual(first.code.projects);
     expect(restarted.fixCommits.get(projectFixKey("spa", head))).toEqual(first.fixCommits.get(projectFixKey("spa", head)));
-    expect(JSON.parse(await readFile(join(cacheRoot, CODE_CACHE_FILE), "utf8")).fixes).not.toHaveProperty(`${repo} deadbee`);
+    expect(JSON.parse(await readFile(join(cacheRoot, CODE_CACHE_FILE), "utf8")).fixes).not.toHaveProperty([repoFixKey(repo, "deadbee")]);
 
     await writeFile(join(cacheRoot, CODE_CACHE_FILE), "{битый", "utf8");
     const fromGit = await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }).collect(projects, NOW);

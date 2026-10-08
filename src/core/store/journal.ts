@@ -1,12 +1,12 @@
 import { join } from "node:path";
 import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../journal/events";
-import { errorText } from "../errors";
+import type { PathErrorHandler } from "../errors";
 import { FileBusyError, withFileLock } from "./file-lock";
 import { appendJsonLines, readJsonLines, type JsonLines } from "./fs-utils";
 
 export const JOURNAL_FILE = "journal.jsonl";
 
-export async function appendJournal(projectDir: string, events: readonly JournalEvent[], onError: (path: string, error: unknown) => void = reportToStderr): Promise<void> {
+export async function appendJournal(projectDir: string, events: readonly JournalEvent[], onError: PathErrorHandler): Promise<void> {
   if (events.length === 0) return;
   const path = join(projectDir, JOURNAL_FILE);
   try {
@@ -28,14 +28,26 @@ async function appendWaitingForLock(path: string, events: readonly JournalEvent[
 
 export type JournalWriter = (projectDir: string, events: readonly JournalEvent[]) => Promise<void>;
 
-export function bufferedJournal(): { write: JournalWriter; flush: () => Promise<void> } {
+export function appendingJournal(onError: PathErrorHandler): JournalWriter {
+  return (projectDir, events) => appendJournal(projectDir, events, onError);
+}
+
+export function undoJournal(write: JournalWriter): JournalWriter {
+  return (projectDir, events) => write(projectDir, events.map(markedUndo));
+}
+
+function markedUndo(event: JournalEvent): JournalEvent {
+  return { ...event, undo: true };
+}
+
+export function bufferedJournal(target: JournalWriter): { write: JournalWriter; flush: () => Promise<void> } {
   const pending = new Map<string, JournalEvent[]>();
   return {
     write: async (projectDir, events) => {
       pending.set(projectDir, [...(pending.get(projectDir) ?? []), ...events]);
     },
     flush: async () => {
-      for (const [projectDir, events] of pending) await appendJournal(projectDir, events);
+      for (const [projectDir, events] of pending) await target(projectDir, events);
       pending.clear();
     },
   };
@@ -51,8 +63,4 @@ export function projectJournal(projectId: string, { values, invalidLines }: Json
 
 export async function readJournals(root: string, projectIds: readonly string[]): Promise<ProjectJournal[]> {
   return Promise.all(projectIds.map((projectId) => readJournal(join(root, projectId), projectId)));
-}
-
-function reportToStderr(path: string, error: unknown): void {
-  console.error(`${path}: ${errorText(error)}`);
 }

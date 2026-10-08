@@ -2,6 +2,7 @@ import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { describe, expect, it, vi } from "vitest";
+import type { PathErrorHandler } from "../errors";
 import { createdEvent, type JournalEvent } from "../journal/events";
 import { makeTask } from "../model/testing/make-task";
 import { withFileLock } from "./file-lock";
@@ -9,6 +10,7 @@ import { readBytesOrNull, readTextOrNull } from "./fs-utils";
 import { appendJournal, JOURNAL_FILE, readJournal, readJournals } from "./journal";
 import { compactJournal } from "./journal-compaction";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
+import { failOnWriteError } from "./testing/update-task";
 
 vi.mock("./fs-utils", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./fs-utils")>();
@@ -17,7 +19,7 @@ vi.mock("./fs-utils", async (importOriginal) => {
 
 const NOW = new Date(2026, 8, 18, 12, 0, 0);
 
-async function appendAfterLockWaitRunsOut(dir: string, events: readonly JournalEvent[], onError?: (path: string, error: unknown) => void): Promise<void> {
+async function appendAfterLockWaitRunsOut(dir: string, events: readonly JournalEvent[], onError: PathErrorHandler = failOnWriteError): Promise<void> {
   vi.useFakeTimers({ toFake: ["Date"] });
   try {
     const appended = appendJournal(dir, events, onError);
@@ -32,8 +34,8 @@ describe("файл журнала", () => {
   it("дописывает события строками и читает их обратно", async () => {
     const dir = await makeTempDir();
 
-    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")]);
-    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-2" }), NOW, "cli")]);
+    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")], failOnWriteError);
+    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-2" }), NOW, "cli")], failOnWriteError);
 
     expect((await readFile(join(dir, JOURNAL_FILE), "utf8")).trim().split("\n")).toHaveLength(2);
     const journal = await readJournal(dir, "spa");
@@ -81,7 +83,7 @@ describe("файл журнала", () => {
     const dir = await makeTempDir();
     await writeFiles(dir, { [JOURNAL_FILE]: JSON.stringify(createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")) });
 
-    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-2" }), NOW, "cli")]);
+    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-2" }), NOW, "cli")], failOnWriteError);
 
     const journal = await readJournal(dir, "spa");
     expect(journal.events.map((event) => event.task)).toEqual(["SPA-1", "SPA-2"]);
@@ -104,20 +106,10 @@ describe("файл журнала", () => {
     expect(failures).toHaveLength(1);
   });
 
-  it("без onError ошибка записи видна в stderr с путём журнала", async () => {
-    const dir = await makeTempDir();
-    await mkdir(join(dir, JOURNAL_FILE));
-    const stderr = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")]);
-
-    expect(stderr.mock.calls.flat().join("\n")).toContain(join(dir, JOURNAL_FILE));
-  });
-
   it("читает журналы нескольких проектов", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
-    await appendJournal(join(root, "spa"), [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")]);
+    await appendJournal(join(root, "spa"), [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")], failOnWriteError);
 
     const journals = await readJournals(root, ["spa", "ti"]);
 
@@ -133,7 +125,7 @@ describe("файл журнала", () => {
     let appended: Promise<void> = Promise.resolve();
 
     await withFileLock(path, async () => {
-      appended = appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")]);
+      appended = appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")], failOnWriteError);
       await sleep(50);
       expect(await readTextOrNull(path)).toBeNull();
     });
@@ -156,10 +148,10 @@ describe("файл журнала", () => {
   it("строки, дописанные во время уплотнения, не теряются", async () => {
     const dir = await makeTempDir();
     const old = new Date(2026, 0, 5, 12, 0, 0);
-    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-3" }), old, "cli"), createdEvent(makeTask({ id: "SPA-4" }), old, "cli")]);
+    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-3" }), old, "cli"), createdEvent(makeTask({ id: "SPA-4" }), old, "cli")], failOnWriteError);
     const appendedIds = Array.from({ length: 10 }, (_, index) => `SPA-9${index}`);
 
-    await Promise.all([compactJournal(dir, new Set(), NOW), ...appendedIds.map((id) => appendJournal(dir, [createdEvent(makeTask({ id }), NOW, "cli")]))]);
+    await Promise.all([compactJournal(dir, new Set(), NOW), ...appendedIds.map((id) => appendJournal(dir, [createdEvent(makeTask({ id }), NOW, "cli")], failOnWriteError))]);
 
     const tasks = (await readJournal(dir, "spa")).events.map((event) => event.task);
     expect(tasks.filter((task) => appendedIds.includes(task)).sort()).toEqual(appendedIds);
@@ -168,7 +160,7 @@ describe("файл журнала", () => {
   it("событие, дописанное без блокировки, пока уплотнение держит журнал, переживает замену файла", async () => {
     const dir = await makeTempDir();
     const old = new Date(2026, 0, 5, 12, 0, 0);
-    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-3" }), old, "cli"), createdEvent(makeTask({ id: "SPA-4" }), old, "cli")]);
+    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-3" }), old, "cli"), createdEvent(makeTask({ id: "SPA-4" }), old, "cli")], failOnWriteError);
     vi.mocked(readBytesOrNull).mockImplementationOnce(async (path) => {
       const journal = await readFile(path);
       await appendAfterLockWaitRunsOut(dir, [createdEvent(makeTask({ id: "SPA-5" }), NOW, "cli")]);
@@ -186,7 +178,7 @@ describe("файл журнала", () => {
     const dir = await makeTempDir();
     const path = join(dir, JOURNAL_FILE);
     const old = new Date(2026, 0, 5, 12, 0, 0);
-    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-3" }), old, "cli"), createdEvent(makeTask({ id: "SPA-4" }), old, "cli")]);
+    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-3" }), old, "cli"), createdEvent(makeTask({ id: "SPA-4" }), old, "cli")], failOnWriteError);
     const late = JSON.stringify(createdEvent(makeTask({ id: "SPA-5" }), NOW, "cli"));
     await appendFile(path, late.slice(0, 20));
     vi.mocked(readBytesOrNull).mockImplementationOnce(async () => {

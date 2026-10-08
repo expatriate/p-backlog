@@ -41,6 +41,11 @@ export function stdoutOf(outcome: GitOutcome): string | null {
   return outcome.status === "ok" ? outcome.stdout : null;
 }
 
+export function outputLine(stdout: string | null): string | null {
+  const line = stdout?.trim();
+  return line === undefined || line === "" ? null : line;
+}
+
 export function runGitSync(repo: string, args: string[]): string | null {
   try {
     return execFileSync("git", gitArgs(repo, args), { encoding: "utf8", maxBuffer: GIT_OUTPUT_LIMIT, stdio: ["ignore", "pipe", "ignore"] });

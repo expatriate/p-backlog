@@ -5,6 +5,7 @@ import { hostCliEnv } from "../../src/cli/host-env";
 import { EXIT, type ExitCode } from "../../src/cli/io";
 import { runCli } from "../../src/cli/run";
 import type { Language } from "../../src/core/i18n/language";
+import { warnPathErrors } from "../../src/core/errors";
 import { coreMessages } from "../../src/core/messages";
 import { FOUND_HOW } from "../../src/core/journal/events";
 import { serializeProject } from "../../src/core/model/project-file";
@@ -162,7 +163,7 @@ class DemoRun {
     const steps: Step[] = [];
     for (let day = Math.floor(scenario.startDaysAgo); day >= 1; day--) {
       const evening = eveningOf(this.now, day);
-      steps.push({ at: evening, run: () => sweepClosed(this.paths.backlogRoot, new Date(evening), messages) });
+      steps.push({ at: evening, run: () => sweepClosed(this.paths.backlogRoot, new Date(evening), messages, warnPathErrors(console.error)) });
       if (day % scenario.checkEveryDays === 0) {
         steps.push({ at: evening + 1, run: () => this.check() });
       }

@@ -9,6 +9,7 @@ import { localeLanguage, settingsFilePath } from "../core/store/settings";
 import { sweepClosedWhenDue } from "../core/store/sweep";
 import { journalWithTaskGoneLongAgo } from "../core/store/testing/stale-journal";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
+import { failOnWriteError } from "../core/store/testing/update-task";
 import { startServer } from "./start";
 
 const NOW = new Date("2026-09-18T12:00:00+03:00");
@@ -177,7 +178,7 @@ describe("startServer", () => {
     const server = await startServer({ root, port: 0, home, env: {}, now: () => NOW });
     await server.close();
 
-    expect(await sweepClosedWhenDue(root, NOW, coreMessages("ru"))).toBeNull();
+    expect(await sweepClosedWhenDue(root, NOW, coreMessages("ru"), failOnWriteError)).toBeNull();
   });
 
   it.runIf(process.platform === "darwin")("служба при старте обрезает свой лог", async () => {

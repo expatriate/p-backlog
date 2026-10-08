@@ -19,6 +19,12 @@
   while compaction is rewriting the journal, compaction now carries such lines over into the compacted file, including
   a line that was still being written when compaction read the file. If the journal was replaced by a different file
   in the meantime, compaction leaves it as is.
+- A task source or project repository path that cannot be read (no permission, a name too long, a symlink loop) is
+  reported and skipped instead of being treated as missing: `backlog check` and the Stop hook print a warning with the
+  path and the error and leave the tasks with that source out of this run (no `source-missing` or `source-changed`
+  for them, other tasks are checked as usual); `new --source` and `verify` warn and save the task without a new anchor;
+  `close` warns and skips that repository. A source that is a directory, does not exist or runs through a file
+  (`src/a.ts/b.ts`) is still treated as having no file to read.
 
 ## 0.9.0
 

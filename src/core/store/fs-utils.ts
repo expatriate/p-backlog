@@ -4,7 +4,7 @@ import { access, appendFile, chmod, link, open, readdir, readFile, rename, rm, s
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { z } from "zod";
-import { hasErrorCode } from "../errors";
+import { hasErrorCode, type PathErrorHandler } from "../errors";
 
 export function contentVersion(text: string): string {
   return createHash("sha1").update(text).digest("hex");
@@ -16,13 +16,41 @@ export async function readTextOrNull(path: string): Promise<string | null> {
   return (await readBytesOrNull(path))?.toString("utf8") ?? null;
 }
 
+export async function readTextIfFile(path: string): Promise<string | null> {
+  try {
+    return await readTextOrNull(path);
+  } catch (error) {
+    if (hasErrorCode(error, "EISDIR")) return null;
+    throw error;
+  }
+}
+
+export async function readReportingFailure<T>(path: string, read: (path: string) => Promise<T>, onError: PathErrorHandler): Promise<T | null> {
+  try {
+    return await read(path);
+  } catch (error) {
+    onError(path, error);
+    return null;
+  }
+}
+
+const NO_FILE_CODES = ["ENOENT", "ENOTDIR"];
+
+function isNoFile(error: unknown): boolean {
+  return hasAnyErrorCode(error, NO_FILE_CODES);
+}
+
 export async function readBytesOrNull(path: string): Promise<Buffer | null> {
   try {
     return await readFile(path);
   } catch (error) {
-    if (hasErrorCode(error, "ENOENT")) return null;
+    if (isNoFile(error)) return null;
     throw error;
   }
+}
+
+function hasAnyErrorCode(error: unknown, codes: readonly string[]): boolean {
+  return codes.some((code) => hasErrorCode(error, code));
 }
 
 export type JsonLines<T> = { values: readonly T[]; invalidLines: number };
@@ -67,7 +95,7 @@ export async function fileExists(path: string): Promise<boolean> {
   return access(path).then(
     () => true,
     (error: unknown) => {
-      if (hasErrorCode(error, "ENOENT")) return false;
+      if (isNoFile(error)) return false;
       throw error;
     },
   );
@@ -75,7 +103,7 @@ export async function fileExists(path: string): Promise<boolean> {
 
 export async function withExistingFile<T>(path: string, use: (handle: FileHandle) => Promise<T>, flags = "r"): Promise<T | null> {
   const handle = await open(path, flags).catch((error: unknown) => {
-    if (hasErrorCode(error, "ENOENT")) return null;
+    if (isNoFile(error)) return null;
     throw error;
   });
   return handle === null ? null : closingAfter(handle, use);
@@ -131,6 +159,7 @@ export async function listDir(path: string, { recursive = false }: { recursive?:
   try {
     return await readdir(path, { withFileTypes: true, recursive });
   } catch (error) {
+    // readdir also reports a file at `path` itself as ENOTDIR, and that must stay an error.
     if (hasErrorCode(error, "ENOENT")) return [];
     throw error;
   }
@@ -171,7 +200,7 @@ async function replaceFile(temporary: string, path: string, prepareRename: () =>
     try {
       return await attempt();
     } catch (error) {
-      if (!REPLACE_BLOCKED_CODES.some((code) => hasErrorCode(error, code))) throw error;
+      if (!hasAnyErrorCode(error, REPLACE_BLOCKED_CODES)) throw error;
       await sleep(delayMs);
     }
   }

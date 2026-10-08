@@ -1,5 +1,6 @@
 import { findSimilarTask } from "../../core/check/duplicates";
-import { sourceAnchor } from "../../core/check/project-repo";
+import { warnPathErrors } from "../../core/errors";
+import { findRepo, sourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
 import { buildIndex } from "../../core/model/graph";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project } from "../../core/model/types";
@@ -8,7 +9,7 @@ import { createTask } from "../../core/store/create";
 import { loadBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
 import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo, type ExitCode } from "../io";
-import { ensureProject } from "../lookups";
+import { ensureProject, repoLookup } from "../lookups";
 import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
 import { taskJson } from "../describe";
@@ -61,7 +62,8 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
     return EXIT.refused;
   }
 
-  const atSource = values.source === undefined ? undefined : await sourceAnchor(project, values.source, io.home, io.cwd);
+  const lookup = repoLookup(io);
+  const atSource = values.source === undefined ? undefined : await sourceAnchor(await findRepo(project, lookup), values.source, lookup.onUnreadable);
   const result = await createTask(io.backlogRoot, {
     project,
     input: {
@@ -80,6 +82,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
     existingTasks: loaded.tasks,
     now: io.now(),
     via: "cli",
+    onError: warnPathErrors(io.warn),
     provenance: { found, origin: cwdBelongsTo(project, loaded.projects, io) ? await readOrigin(io.cwd) : undefined },
   });
   if (!result.ok) {

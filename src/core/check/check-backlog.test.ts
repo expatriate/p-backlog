@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import type { CheckMode } from "../journal/events";
 import { coreMessages } from "../messages";
 import { readJournal } from "../store/journal";
@@ -10,7 +10,7 @@ import { loadBacklog } from "../store/load";
 import { gitCheckout, gitCommitAll, gitMergeFastForward, gitMergeNoFastForward, gitMergeSquash, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
 import { makeGraphDb } from "../code-review-graph/testing/make-graph-db";
 import { anchorOf } from "./anchor";
-import { checkBacklog } from "./check-backlog";
+import { checkBacklog, type CheckReport } from "./check-backlog";
 
 const RU = coreMessages("ru");
 
@@ -61,6 +61,42 @@ async function setup() {
 }
 
 describe("checkBacklog", () => {
+  it.skipIf(process.platform === "win32")("нечитаемый source пропускает только свою задачу: остальные кандидаты есть, путь в предупреждении (на Windows chmod не запрещает чтение)", async () => {
+    const { home, root, repo } = await setup();
+    const unreadable = join(repo, "src/queue.ts");
+    await writeFile(unreadable, "q2\n");
+    gitCommitAll(repo, "Очередь", "2026-09-13T10:00:00+03:00");
+    await chmod(unreadable, 0o000);
+    onTestFinished(() => chmod(unreadable, 0o600));
+    const warnings: string[] = [];
+
+    const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode: "full", now: NOW, home, messages: RU, warn: (line) => warnings.push(line) });
+
+    const candidates = report.candidates.map((candidate) => candidate.task.id);
+    expect(candidates).toEqual(expect.arrayContaining(["SPA-1", "SPA-2"]));
+    expect(candidates).not.toContain("SPA-3");
+    expect(warnings).toEqual([expect.stringContaining(unreadable)]);
+  });
+
+  it.skipIf(process.platform === "win32")("нечитаемый source старшей из пары дублей не снимает кандидата с младшей и не закрывает её эпизод (на Windows chmod не запрещает чтение)", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a\n", "src/b.ts": "b\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": sameProblemTask("SPA-1", "source: src/a.ts:1\n"), "spa/SPA-2.md": sameProblemTask("SPA-2", "source: src/b.ts:1\n") });
+    const duplicates = (report: CheckReport) => report.candidates.map((candidate) => [candidate.kind, candidate.task.id]);
+    expect(duplicates(await check(root, home, "full"))).toEqual([["duplicate", "SPA-2"]]);
+    const locked = join(repo, "src/a.ts");
+    await chmod(locked, 0o000);
+    onTestFinished(() => chmod(locked, 0o600));
+
+    const report = await check(root, home, "full");
+
+    expect(duplicates(report)).toEqual([["duplicate", "SPA-2"]]);
+    expect((await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate-gone")).toEqual([]);
+  });
+
   it("нечитаемый журнал не роняет проверку: кандидаты есть, ошибка в stderr", async () => {
     const { home, root } = await setup();
     await rm(join(root, "spa", "journal.jsonl"), { force: true });

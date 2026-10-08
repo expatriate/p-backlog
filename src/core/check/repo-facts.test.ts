@@ -108,6 +108,7 @@ describe("collectRepoFacts", () => {
       committedAnywhere: new Set(),
       existing: new Set(["src/a.ts"]),
       texts: new Map([["src/a.ts", ""]]),
+      unreadable: new Map(),
     });
   });
 

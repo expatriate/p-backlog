@@ -51,10 +51,15 @@ export type CandidateSighting = { task: string; evidence: CandidateEvidence; met
 
 export type FilteredSighting = { task: string; symbol: string };
 
-type MethodMarks = { method?: RecordedMethod | undefined; bySymbol?: boolean | undefined; byAnchor?: boolean | undefined };
+const legacyMethodFlagsSchema = z.object({ bySymbol: z.boolean().optional(), byAnchor: z.boolean().optional() });
 
-export function recordedMethodOf({ method, bySymbol, byAnchor }: MethodMarks): RecordedMethod {
-  if (method !== undefined) return method;
+type LegacyMethodFlags = z.infer<typeof legacyMethodFlagsSchema>;
+
+export function recordedMethodOf(marks: { method?: RecordedMethod | undefined } & LegacyMethodFlags): RecordedMethod {
+  return marks.method ?? methodOfLegacyFlags(marks);
+}
+
+function methodOfLegacyFlags({ bySymbol, byAnchor }: LegacyMethodFlags): RecordedMethod {
   if (bySymbol === true) return "symbol";
   return byAnchor === true ? "anchor" : UNKNOWN;
 }
@@ -91,8 +96,7 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
     evidence: z.enum(CANDIDATE_EVIDENCE),
     mode: recordedEnum(CHECK_MODES),
     method: recordedEnum(CHECK_METHODS).optional(),
-    bySymbol: z.boolean().optional(),
-    byAnchor: z.boolean().optional(),
+    ...legacyMethodFlagsSchema.shape,
     match: recordedEnum(DUPLICATE_MATCHES).optional(),
   }),
   z.object({ ...eventBase, kind: z.literal("candidate-gone"), evidence: z.enum(CANDIDATE_EVIDENCE) }),

@@ -11,10 +11,12 @@ export type GraphHealth = { state: GraphState; pinned: number; resolved: number 
 
 export async function projectGraphHealth(project: Project, tasks: readonly Task[], home: string): Promise<GraphHealth> {
   return graphHealth(
-    await findRepo(project, home),
+    await findRepo(project, { home, onUnreadable: unreadableRepoHasNoGraph }),
     tasks.filter((task) => task.projectId === project.id),
   );
 }
+
+function unreadableRepoHasNoGraph(): void {}
 
 export function graphHealth(repo: string | undefined, tasks: readonly Task[]): GraphHealth {
   const pinned = tasks.filter((task) => isReviewable(task) && sourceRange(task.source) !== null);

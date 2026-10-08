@@ -1,10 +1,10 @@
 import { isClosed, type BacklogIndex } from "../model/graph";
-import { errorText } from "../errors";
+import { errorText, type PathErrorHandler } from "../errors";
 import { compareIds } from "../model/ids";
 import type { Closure } from "../model/lifecycle";
 import type { Problem } from "../model/problems";
 import type { Priority, Task, TaskStatus } from "../model/types";
-import { bufferedJournal, type JournalWriter } from "./journal";
+import { appendingJournal, bufferedJournal, undoJournal, type JournalWriter } from "./journal";
 import { updateTaskInIndex, type TaskChanges } from "./update";
 
 export type BatchSkipReason = "changed" | "not-found" | "already-closed" | "invalid" | "busy" | "failed";
@@ -15,7 +15,7 @@ type BatchPrevious = { status: TaskStatus; priority: Priority; epic: string | nu
 
 type BatchAction = { kind: "close"; reason: string } | { kind: "priority"; priority: Priority } | { kind: "epic"; epic: string | null } | { kind: "restore"; changes: Readonly<Record<string, BatchPrevious>> };
 
-type BatchRequest = { tasks: readonly { id: string; version: string }[]; action: BatchAction; now: Date };
+type BatchRequest = { tasks: readonly { id: string; version: string }[]; action: BatchAction; now: Date; onError: PathErrorHandler };
 
 export type CoreBatchOutcome =
   | { id: string; outcome: "done"; task: Task; reopenedEpic?: Task | undefined; previous: BatchPrevious }
@@ -24,23 +24,24 @@ export type CoreBatchOutcome =
 
 type Plan = { skip: SkipReason } | { changes: TaskChanges; closure?: Closure | undefined };
 
-export async function applyBatch(index: BacklogIndex, { tasks, action, now }: BatchRequest): Promise<CoreBatchOutcome[]> {
+export async function applyBatch(index: BacklogIndex, { tasks, action, now, onError }: BatchRequest): Promise<CoreBatchOutcome[]> {
   const ordered = [...tasks].sort((left, right) => compareIds(left.id, right.id));
-  const journal = bufferedJournal();
+  const journal = bufferedJournal(appendingJournal(onError));
+  const write = action.kind === "restore" ? undoJournal(journal.write) : journal.write;
   const outcomes: CoreBatchOutcome[] = [];
-  for (const task of ordered) outcomes.push(await applyOne(index, task, { action, now, journal: journal.write }).catch((error: unknown) => failed(task.id, error)));
+  for (const task of ordered) outcomes.push(await applyOne(index, task, { action, now, onError, journal: write }).catch((error: unknown) => failed(task.id, error)));
   await journal.flush();
   return outcomes;
 }
 
-type BatchStep = { action: BatchAction; now: Date; journal: JournalWriter };
+type BatchStep = { action: BatchAction; now: Date; onError: PathErrorHandler; journal: JournalWriter };
 
-async function applyOne(index: BacklogIndex, { id, version }: { id: string; version: string }, { action, now, journal }: BatchStep): Promise<CoreBatchOutcome> {
+async function applyOne(index: BacklogIndex, { id, version }: { id: string; version: string }, { action, now, onError, journal }: BatchStep): Promise<CoreBatchOutcome> {
   const current = index.byId.get(id);
   if (!current) return { id, outcome: "skipped", reason: "not-found" };
   const plan = planFor(current, action);
   if ("skip" in plan) return { id, outcome: "skipped", reason: plan.skip };
-  const result = await updateTaskInIndex(index, { id, changes: plan.changes, closure: plan.closure, expectedVersion: version, now, via: "web", undo: action.kind === "restore", journal });
+  const result = await updateTaskInIndex(index, { id, changes: plan.changes, closure: plan.closure, expectedVersion: version, now, via: "web", onError, journal });
   if (result.ok) return { id, outcome: "done", task: result.task, reopenedEpic: result.reopenedEpic, previous: previousOf(current) };
   if (result.reason === "conflict") return { id, outcome: "skipped", reason: "changed" };
   if (result.reason === "not-found") return { id, outcome: "skipped", reason: "not-found" };

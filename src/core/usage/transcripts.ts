@@ -63,15 +63,9 @@ export async function scanTranscripts({ files, cache, byteBudget, now }: ScanTra
   const listedFiles: Record<string, UsageCacheEntry> = {};
 
   for (const file of files) {
-    const previous = cache.files[file.path];
-    const resumable = previous !== undefined && (await continues(file, previous));
-    const start: ScanStart = resumable ? { offset: previous.offset, state: structuredClone(previous.state), buckets: previous.buckets } : { offset: 0, state: newTranscriptState(), buckets: [] };
-
-    const chunkSize = Math.min(file.size - start.offset, remainingBudget);
-    const scanned = await scanChunk(file, start, chunkSize, { longestReadableLine: byteBudget, now });
-    const unmoved = resumable && scanned.offset === previous.offset;
-    listedFiles[file.path] = { ...scanned, mtimeMs: file.mtimeMs, fingerprint: unmoved ? previous.fingerprint : await fingerprintOf(file.path, scanned.offset) };
-    if (chunkSize > 0) remainingBudget -= chunkSize;
+    const { entry, budgetUsed } = await scanFile(file, cache.files[file.path], remainingBudget, { longestReadableLine: byteBudget, now });
+    listedFiles[file.path] = entry;
+    remainingBudget -= budgetUsed;
     await yieldToEventLoop();
   }
 
@@ -85,6 +79,18 @@ export async function scanTranscripts({ files, cache, byteBudget, now }: ScanTra
     filesDone: Object.values(listedFiles).filter((entry) => entry.offset === entry.size).length,
     prunedBuckets: pruned.prunedBuckets,
   };
+}
+
+type FileScan = { entry: UsageCacheEntry; budgetUsed: number };
+
+async function scanFile(file: TranscriptFile, previous: UsageCacheEntry | undefined, budget: number, limits: ChunkLimits): Promise<FileScan> {
+  const resumable = previous !== undefined && (await continues(file, previous));
+  const start: ScanStart = resumable ? { offset: previous.offset, state: structuredClone(previous.state), buckets: previous.buckets } : { offset: 0, state: newTranscriptState(), buckets: [] };
+  const chunkSize = Math.min(file.size - start.offset, budget);
+  const scanned = await scanChunk(file, start, chunkSize, limits);
+  const unmoved = resumable && scanned.offset === previous.offset;
+  const fingerprint = unmoved ? previous.fingerprint : await fingerprintOf(file.path, scanned.offset);
+  return { entry: { ...scanned, mtimeMs: file.mtimeMs, fingerprint }, budgetUsed: Math.max(chunkSize, 0) };
 }
 
 function pruneStaleBuckets(entries: Readonly<Record<string, UsageCacheEntry>>, now: Date): { files: Record<string, UsageCacheEntry>; prunedBuckets: number } {

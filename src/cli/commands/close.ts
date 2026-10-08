@@ -7,7 +7,7 @@ import { reasonHashes } from "../../core/stats/code/fixes";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
-import { projectOf, findTaskOrWarn } from "../lookups";
+import { projectOf, findTaskOrWarn, repoLookup } from "../lookups";
 import { cliMessages, type CliMessages } from "../messages";
 import { taskWriter } from "../task-write";
 
@@ -79,7 +79,7 @@ function originalProblem(cli: CliMessages, task: Task, original: Task): string |
 
 async function fixCommitFound(loaded: LoadedBacklog, task: Task, reason: string, io: CliIo): Promise<boolean> {
   const project = projectOf(loaded, task);
-  const repo = project === undefined ? undefined : await findRepo(project, io.home);
+  const repo = project === undefined ? undefined : await findRepo(project, repoLookup(io));
   if (repo === undefined) return true;
   for (const sha of reasonHashes(reason)) if (await hasCommit(repo, sha)) return true;
   return false;

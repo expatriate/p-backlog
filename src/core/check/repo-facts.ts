@@ -1,9 +1,11 @@
-import { access, readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { isAbsolute, join, normalize, sep } from "node:path";
-import { FIELD, RECORD, runGit, runGitOutcome, type GitRunner } from "../git/run";
+import { FIELD, outputLine, RECORD, runGit, runGitOutcome, type GitRunner } from "../git/run";
 import type { LineRange } from "./anchor";
 import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
+import { SECOND_MS } from "../model/dates";
 import { remembered } from "../remembered";
+import { fileExists, readReportingFailure, readTextIfFile } from "../store/fs-utils";
 
 type FileChange = { path: string; renamedFrom?: string };
 
@@ -20,25 +22,26 @@ export type RepoFacts = {
   committedAnywhere: ReadonlySet<string>;
   existing: ReadonlySet<string>;
   texts: ReadonlyMap<string, string>;
+  unreadable: ReadonlyMap<string, unknown>;
 };
 
 const DIFF_LINE_LIMIT = 80;
 const REFLOG_MOMENT = /\{(\d+)\}$/;
-const MS_PER_SECOND = 1000;
 const STATUS_CODE_WIDTH = 3;
+const RENAME_OR_COPY = /^[RC]/;
+const ORIGINAL_PATH_FOLLOWS = /^(?:[RC].|.[RC])/;
 
 export type PathMarks = ReadonlyMap<string, number>;
 
 export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Promise<RepoFacts> {
   const paths = [...pathMarks.keys()];
-  const [location, existing] = await Promise.all([runGitOutcome(repo, ["rev-parse", "--show-prefix", "--revs-only", "HEAD"]), existingPaths(repo, paths)]);
-  const texts = await fileTexts(repo, [...existing]);
-  const withoutHistory = (history: GitHistory): RepoFacts => ({ history, commits: [], renames: [], dirtyModifiedAt: new Map(), ...UNKNOWN_BRANCH_HISTORY, existing, texts });
+  const [location, files] = await Promise.all([runGitOutcome(repo, ["rev-parse", "--show-prefix", "--revs-only", "HEAD"]), sourceFiles(repo, paths)]);
+  const withoutHistory = (history: GitHistory): RepoFacts => ({ history, commits: [], renames: [], dirtyModifiedAt: new Map(), ...UNKNOWN_BRANCH_HISTORY, ...files });
   if (location.status === "exited") return withoutHistory("not-a-repo");
   if (location.status === "unfinished") return withoutHistory("unreadable");
   const [prefix = "", head = ""] = location.stdout.split("\n").map((line) => line.trim());
   const hasCommits = head !== "";
-  const missing = paths.filter((path) => !existing.has(path));
+  const missing = paths.filter((path) => !files.existing.has(path) && !files.unreadable.has(path));
   const [log, renames, status, branchHistory] = await Promise.all([
     hasCommits ? pathLog(repo, earliestMark(pathMarks, paths), paths) : "",
     hasCommits && missing.length > 0 ? runGit(repo, [...logArgs(earliestMark(pathMarks, missing)), "--diff-filter=R"]) : "",
@@ -47,7 +50,7 @@ export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Prom
   ]);
   if (log === null || renames === null || status === null) return withoutHistory("unreadable");
   const dirty = withinRepo(parseStatus(status), prefix);
-  return { history: "read", commits: parseLog(log), renames: parseLog(renames), dirtyModifiedAt: await modificationTimes(repo, dirty), ...branchHistory, existing, texts };
+  return { history: "read", commits: parseLog(log), renames: parseLog(renames), dirtyModifiedAt: await modificationTimes(repo, dirty), ...branchHistory, ...files };
 }
 
 type BranchHistory = Pick<RepoFacts, "committedHere" | "committedAnywhere">;
@@ -100,10 +103,7 @@ export type DiffFrom = (path: string, commit: string) => Promise<FileDiff | null
 export function diffsSince(repo: string, git: GitRunner = runGit, diffFrom: DiffFrom = diffsFrom(repo, git)): DiffSince {
   const bases = new Map<number, Promise<string | null>>();
   const baseBefore = (since: Date): Promise<string | null> =>
-    remembered(bases, since.getTime(), async () => {
-      const base = (await git(repo, ["rev-list", "-1", "--first-parent", `--before=${since.toISOString()}`, "HEAD"]))?.trim() ?? "";
-      return base === "" ? null : base;
-    });
+    remembered(bases, since.getTime(), async () => outputLine(await git(repo, ["rev-list", "-1", "--first-parent", `--before=${since.toISOString()}`, "HEAD"])));
   return async (path, since) => {
     const base = await baseBefore(since);
     return base === null ? null : diffFrom(path, base);
@@ -131,7 +131,7 @@ async function headMovesNewestFirst(repo: string, git: GitRunner): Promise<HeadM
   return (reflog ?? "").split("\n").flatMap((line): HeadMove[] => {
     const [commit = "", selector = ""] = line.split(FIELD);
     const seconds = REFLOG_MOMENT.exec(selector)?.[1];
-    return seconds === undefined ? [] : [{ commit, at: Number(seconds) * MS_PER_SECOND }];
+    return seconds === undefined ? [] : [{ commit, at: Number(seconds) * SECOND_MS }];
   });
 }
 
@@ -152,16 +152,28 @@ function excerptOf(diff: string): DiffExcerpt | undefined {
   return { text: lines.slice(0, DIFF_LINE_LIMIT).join("\n"), omittedLines: Math.max(0, lines.length - DIFF_LINE_LIMIT) };
 }
 
-async function fileTexts(repo: string, paths: readonly string[]): Promise<Map<string, string>> {
-  const entries = await Promise.all(
-    paths.map((path) =>
-      readFile(join(repo, path), "utf8").then(
-        (text): [string, string] => [path, text],
-        () => null,
-      ),
-    ),
-  );
-  return new Map(entries.filter((entry) => entry !== null));
+type SourceFiles = Pick<RepoFacts, "existing" | "texts" | "unreadable">;
+
+type SourceFile = { kind: "missing"; path: string } | { kind: "present"; path: string; text: string | null };
+
+async function sourceFiles(repo: string, paths: readonly string[]): Promise<SourceFiles> {
+  const unreadable = new Map<string, unknown>();
+  const recordUnreadable = (path: string, error: unknown) => {
+    unreadable.set(path, error);
+  };
+  const read = await Promise.all(paths.map((path) => readReportingFailure(path, (relative) => sourceFile(repo, relative), recordUnreadable)));
+  const present = read.flatMap((file) => (file?.kind === "present" ? [file] : []));
+  return {
+    existing: new Set(present.map((file) => file.path)),
+    texts: new Map(present.flatMap((file): [string, string][] => (file.text === null ? [] : [[file.path, file.text]]))),
+    unreadable,
+  };
+}
+
+async function sourceFile(repo: string, path: string): Promise<SourceFile> {
+  const absolute = join(repo, path);
+  if (!(await fileExists(absolute))) return { kind: "missing", path };
+  return { kind: "present", path, text: await readTextIfFile(absolute) };
 }
 
 function parseLog(output: string): Commit[] {
@@ -192,7 +204,7 @@ function parseNameStatus(tokens: readonly string[]): FileChange[] {
     const status = tokens[index] ?? "";
     const first = tokens[index + 1] ?? "";
     if (status === "" || first === "") break;
-    if (/^[RC]/.test(status)) {
+    if (RENAME_OR_COPY.test(status)) {
       files.push({ path: tokens[index + 2] ?? first, renamedFrom: first });
       index += 3;
     } else {
@@ -210,7 +222,7 @@ function parseStatus(output: string): string[] {
     const entry = entries[index] ?? "";
     if (entry.length <= STATUS_CODE_WIDTH) continue;
     paths.push(entry.slice(STATUS_CODE_WIDTH));
-    if (/^(?:[RC].|.[RC])/.test(entry)) index++;
+    if (ORIGINAL_PATH_FOLLOWS.test(entry)) index++;
   }
   return paths;
 }
@@ -229,16 +241,4 @@ async function modificationTimes(repo: string, paths: readonly string[]): Promis
     ),
   );
   return new Map(entries.filter((entry) => entry !== null));
-}
-
-async function existingPaths(repo: string, paths: readonly string[]): Promise<Set<string>> {
-  const found = await Promise.all(
-    paths.map((path) =>
-      access(join(repo, path)).then(
-        () => path,
-        () => null,
-      ),
-    ),
-  );
-  return new Set(found.filter((path) => path !== null));
 }

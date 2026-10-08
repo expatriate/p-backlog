@@ -1,4 +1,4 @@
-import { runGitOutcome, stdoutOf, type GitOutcome, type GitOutcomeRunner } from "../git/run";
+import { outputLine, runGitOutcome, stdoutOf, type GitOutcome, type GitOutcomeRunner } from "../git/run";
 import type { TaskOrigin } from "../journal/events";
 import { remembered } from "../remembered";
 
@@ -89,6 +89,5 @@ function fileVersions(rawDiff: GitOutcome): FileVersion[] | null {
 }
 
 function lineOf(outcome: GitOutcome): string | null {
-  const line = stdoutOf(outcome)?.trim();
-  return line === undefined || line === "" ? null : line;
+  return outputLine(stdoutOf(outcome));
 }

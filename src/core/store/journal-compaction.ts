@@ -62,21 +62,21 @@ function retainedLines(lines: readonly JournalLine[], liveTaskIds: ReadonlySet<s
   const isRecent = (event: JournalEvent) => Date.parse(event.at) >= since;
   const lastSeen = lastMomentByTask(events);
   const keepsHistory = (task: string) => liveTaskIds.has(task) || (lastSeen.get(task) ?? 0) >= since;
-  const anchors = anchorEvents(events, keepsHistory);
+  const reportStarts = reportStartEvents(events, keepsHistory);
   const openers = episodeOpeners(events);
   const firstRecent = lines.findIndex(({ event }) => event !== null && isRecent(event));
   return lines.filter(({ event }, position) => {
     if (event === null) return firstRecent !== -1 && position > firstRecent;
-    if (anchors.has(event) || (openers.has(event) && liveTaskIds.has(event.task))) return true;
+    if (reportStarts.has(event) || (openers.has(event) && liveTaskIds.has(event.task))) return true;
     return EPISODE_KINDS.has(event.kind) ? isRecent(event) : keepsHistory(event.task);
   });
 }
 
-function anchorEvents(events: readonly JournalEvent[], keepsHistory: (task: string) => boolean): Set<JournalEvent> {
-  const earliest = earliestEvent(events);
-  const oldestDropped = oldestTask(events.filter((event) => !keepsHistory(event.task)));
-  const oldestDroppedLife = events.filter((event) => event.task === oldestDropped && (event.kind === "created" || event.kind === "deleted"));
-  return new Set([...(earliest === undefined ? [] : [earliest]), ...oldestDroppedLife]);
+function reportStartEvents(events: readonly JournalEvent[], keepsHistory: (task: string) => boolean): Set<JournalEvent> {
+  const journalSince = earliestEvent(events);
+  const adoptionStart = oldestTask(events.filter((event) => !keepsHistory(event.task)));
+  const adoptionStartLife = events.filter((event) => event.task === adoptionStart && (event.kind === "created" || event.kind === "deleted"));
+  return new Set([...(journalSince === undefined ? [] : [journalSince]), ...adoptionStartLife]);
 }
 
 type CreatedTask = { task: string; createdAt: number };

@@ -9,12 +9,13 @@ import { createTask } from "./create";
 import { readJournal } from "./journal";
 import { loadBacklog } from "./load";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
+import { failOnWriteError } from "./testing/update-task";
 
 const NOW = new Date("2026-09-25T12:00:00Z");
 
 async function create(root: string, project: Project, input: Parameters<typeof createTask>[1]["input"]): Promise<Task> {
   const existingTasks = (await loadBacklog(root)).tasks;
-  const result = await createTask(root, { project, input, existingTasks, now: NOW, via: "cli" });
+  const result = await createTask(root, { project, input, existingTasks, now: NOW, via: "cli", onError: failOnWriteError });
   if (!result.ok) throw new Error("не удалось создать задачу в тесте");
   return result.task;
 }
@@ -57,6 +58,7 @@ describe("applyBatch", () => {
       tasks: [t1, t2, t3].map((task) => ({ id: task.id, version: versionOf(index, task.id) })),
       action: { kind: "close", reason: "Не актуально" },
       now: NOW,
+      onError: failOnWriteError,
     });
 
     expect(outcomes.every((outcome) => outcome.outcome === "done")).toBe(true);
@@ -88,6 +90,7 @@ describe("applyBatch", () => {
       tasks: [t1, t2, t3].map((task) => ({ id: task.id, version: versionOf(index, task.id) })),
       action: { kind: "priority", priority: "critical" },
       now: NOW,
+      onError: failOnWriteError,
     });
 
     expect(outcomes.find((outcome) => outcome.id === t2.id)).toMatchObject({ outcome: "skipped", reason: "changed" });
@@ -105,6 +108,7 @@ describe("applyBatch", () => {
       tasks: [t1, t2, t3].map((task) => ({ id: task.id, version: versionOf(index, task.id) })),
       action: { kind: "priority", priority: "critical" },
       now: NOW,
+      onError: failOnWriteError,
     });
 
     expect(outcomes).toMatchObject([
@@ -118,13 +122,14 @@ describe("applyBatch", () => {
   it("закрытая задача при закрытии — already-closed", async () => {
     const { root, t1 } = await setup();
     const index1 = await freshIndex(root);
-    await applyBatch(index1, { tasks: [{ id: t1.id, version: versionOf(index1, t1.id) }], action: { kind: "close", reason: "Причина" }, now: NOW });
+    await applyBatch(index1, { tasks: [{ id: t1.id, version: versionOf(index1, t1.id) }], action: { kind: "close", reason: "Причина" }, now: NOW, onError: failOnWriteError });
 
     const index2 = await freshIndex(root);
     const outcomes = await applyBatch(index2, {
       tasks: [{ id: t1.id, version: versionOf(index2, t1.id) }],
       action: { kind: "close", reason: "Ещё причина" },
       now: NOW,
+      onError: failOnWriteError,
     });
 
     expect(outcomes).toEqual([{ id: t1.id, outcome: "skipped", reason: "already-closed" }]);
@@ -134,7 +139,7 @@ describe("applyBatch", () => {
     const { root } = await setup();
     const index = await freshIndex(root);
 
-    const outcomes = await applyBatch(index, { tasks: [{ id: "SPA-999", version: "x" }], action: { kind: "priority", priority: "low" }, now: NOW });
+    const outcomes = await applyBatch(index, { tasks: [{ id: "SPA-999", version: "x" }], action: { kind: "priority", priority: "low" }, now: NOW, onError: failOnWriteError });
 
     expect(outcomes).toEqual([{ id: "SPA-999", outcome: "skipped", reason: "not-found" }]);
   });
@@ -145,7 +150,7 @@ describe("applyBatch", () => {
     const before = index.byId.get(t2.id);
     if (!before) throw new Error("нет задачи в тесте");
 
-    const outcomes = await applyBatch(index, { tasks: [{ id: t2.id, version: before.version }], action: { kind: "epic", epic: otherEpic.id }, now: NOW });
+    const outcomes = await applyBatch(index, { tasks: [{ id: t2.id, version: before.version }], action: { kind: "epic", epic: otherEpic.id }, now: NOW, onError: failOnWriteError });
 
     expect(outcomes).toEqual([{ id: t2.id, outcome: "skipped", reason: "invalid", problems: [{ code: "epic-foreign-project", epic: otherEpic.id }] }]);
     const after = (await loadBacklog(root)).tasks.find((task) => task.id === t2.id);
@@ -161,6 +166,7 @@ describe("applyBatch", () => {
       tasks: [{ id: epic.id, version: versionOf(index, epic.id) }],
       action: { kind: "epic", epic: otherEpic.id },
       now: NOW,
+      onError: failOnWriteError,
     });
 
     expect(outcomes).toEqual([{ id: epic.id, outcome: "skipped", reason: "invalid" }]);
@@ -174,6 +180,7 @@ describe("applyBatch", () => {
       tasks: [t1, t2].map((task) => ({ id: task.id, version: versionOf(index1, task.id) })),
       action: { kind: "close", reason: "Не актуально" },
       now: NOW,
+      onError: failOnWriteError,
     });
     const done = closeOutcomes.filter(isDone);
     expect(done).toHaveLength(2);
@@ -186,6 +193,7 @@ describe("applyBatch", () => {
       tasks: done.map((outcome) => ({ id: outcome.id, version: outcome.task.version })),
       action: { kind: "restore", changes },
       now: NOW,
+      onError: failOnWriteError,
     });
 
     expect(restoreOutcomes.find((outcome) => outcome.id === t1.id)).toMatchObject({ outcome: "skipped", reason: "changed" });
@@ -204,12 +212,13 @@ describe("applyBatch", () => {
     const { root, epic, t1, t2 } = await setup();
     const undo = async (action: { kind: "priority"; priority: "critical" } | { kind: "epic"; epic: null }) => {
       const before = await freshIndex(root);
-      const done = (await applyBatch(before, { tasks: [t1, t2].map((task) => ({ id: task.id, version: versionOf(before, task.id) })), action, now: NOW })).filter(isDone);
+      const done = (await applyBatch(before, { tasks: [t1, t2].map((task) => ({ id: task.id, version: versionOf(before, task.id) })), action, now: NOW, onError: failOnWriteError })).filter(isDone);
       const changed = await freshIndex(root);
       await applyBatch(changed, {
         tasks: done.map((outcome) => ({ id: outcome.id, version: outcome.task.version })),
         action: { kind: "restore", changes: Object.fromEntries(done.map((outcome) => [outcome.id, outcome.previous])) },
         now: NOW,
+        onError: failOnWriteError,
       });
       return { changed, restored: await freshIndex(root) };
     };
@@ -245,6 +254,7 @@ describe("applyBatch", () => {
         },
       },
       now: NOW,
+      onError: failOnWriteError,
     });
 
     expect(outcomes).toEqual([

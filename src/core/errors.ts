@@ -2,6 +2,12 @@ export function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+export type PathErrorHandler = (path: string, error: unknown) => void;
+
+export function warnPathErrors(warn: (line: string) => void, describe: (path: string, detail: string) => string = (path, detail) => `${path}: ${detail}`): PathErrorHandler {
+  return (path, error) => warn(describe(path, errorText(error)));
+}
+
 export function warnOnFailure<T>(work: Promise<T>, warn: (line: string) => void, message: (error: string) => string): Promise<T | null> {
   return work.catch((error: unknown) => {
     warn(message(errorText(error)));

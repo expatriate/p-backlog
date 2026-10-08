@@ -6,6 +6,7 @@ import type { FixCommit } from "./types";
 const AGENT_TRAILER = /^claude/i;
 const RENAME_ARROW = " => ";
 const REGEX_SPECIAL = /[.*+?^${}()|[\]\\]/g;
+// git log --extended-regexp is POSIX ERE: no \s, \d or (?:), so classes are spelled [[:space:]] and [0-9].
 const LIST_BULLET = "([*-][[:space:]]+)?";
 const PULL_REQUEST_SUFFIX = "([[:space:]]*\\(#[0-9]+\\))?";
 

@@ -17,6 +17,7 @@ import {
   type TasksResponse,
 } from "../core/api/contract";
 import { projectGraphHealth } from "../core/check/graph-health";
+import { warnPathErrors, type PathErrorHandler } from "../core/errors";
 import type { Project, Task } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { parseWithLocale } from "../core/model/zod-issues";
@@ -36,7 +37,7 @@ import { createStatsApi, type GraphHealthOf, type StatsServices } from "./stats-
 
 export type ApiOptions = { root: string; readLanguage: () => Promise<Language>; changes: ChangeFeed; now: () => Date; home: string; statsServices: StatsServices };
 
-type ApiDeps = Pick<ApiOptions, "root" | "readLanguage" | "now"> & { backlog: () => Promise<IndexedBacklog>; graphHealth: GraphHealthOf; invalidation: Invalidation };
+type ApiDeps = Pick<ApiOptions, "root" | "readLanguage" | "now"> & { backlog: () => Promise<IndexedBacklog>; graphHealth: GraphHealthOf; invalidation: Invalidation; onWriteError: PathErrorHandler };
 
 const GRAPH_STATE_TTL_MS = 60 * 1000;
 
@@ -47,7 +48,8 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
   const graphHealth = rememberedGraphHealth(home, now);
   const stats = createStatsApi({ root, readLanguage, now, home, services: statsServices, backlog: snapshots.read, graphHealth, journalSources });
   const invalidation = createInvalidation({ revisions, snapshots, derived: stats, changes });
-  const deps: ApiDeps = { root, readLanguage, now, backlog: snapshots.read, graphHealth, invalidation };
+  const onWriteError = warnPathErrors((line) => void statsServices.warn(() => line));
+  const deps: ApiDeps = { root, readLanguage, now, backlog: snapshots.read, graphHealth, invalidation, onWriteError };
 
   const api = new Hono();
   api.get("/projects", (c) => listProjects(c, deps));
@@ -93,12 +95,12 @@ async function updateSettings(c: Context, { root, readLanguage }: ApiDeps) {
   return c.json<SettingsResponse>({ language: body.data.language });
 }
 
-async function updateTask(c: Context, id: string, { readLanguage, backlog, now, invalidation }: ApiDeps) {
+async function updateTask(c: Context, id: string, { readLanguage, backlog, now, invalidation, onWriteError }: ApiDeps) {
   const body = await readBody(c, updateTaskRequestSchema, readLanguage);
   if (!body.ok) return body.response;
 
   const { index } = await backlog();
-  const result = await invalidation.forgettingOnFailure(updateTaskInIndex(index, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now(), via: "web" }));
+  const result = await invalidation.forgettingOnFailure(updateTaskInIndex(index, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now(), via: "web", onError: onWriteError }));
   await invalidation.recordOwnWrites(result.ok ? writtenTasks(result) : []);
   if (result.ok) return c.json(result.task);
   const messages = serverMessages(body.language);
@@ -108,12 +110,12 @@ async function updateTask(c: Context, id: string, { readLanguage, backlog, now, 
   return invalidResponse(c, result, coreMessages(body.language));
 }
 
-async function updateTaskBatch(c: Context, { readLanguage, backlog, now, invalidation }: ApiDeps) {
+async function updateTaskBatch(c: Context, { readLanguage, backlog, now, invalidation, onWriteError }: ApiDeps) {
   const body = await readBody(c, batchRequestSchema, readLanguage);
   if (!body.ok) return body.response;
 
   const { index } = await backlog();
-  const outcomes = await invalidation.forgettingOnFailure(applyBatch(index, { ...body.data, now: now() }));
+  const outcomes = await invalidation.forgettingOnFailure(applyBatch(index, { ...body.data, now: now(), onError: onWriteError }));
   await invalidation.recordOwnWrites(outcomes.flatMap((outcome) => (outcome.outcome === "done" ? writtenTasks(outcome) : [])));
   const messages = serverMessages(body.language);
   const core = coreMessages(body.language);

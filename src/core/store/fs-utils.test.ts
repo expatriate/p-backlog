@@ -4,7 +4,7 @@ import { appendFile, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { describe, expect, it, vi } from "vitest";
-import { contentVersion, removeIfUnchanged, replacePrefixAtomic, writeFileAtomic } from "./fs-utils";
+import { contentVersion, fileExists, readTextIfFile, removeIfUnchanged, replacePrefixAtomic, writeFileAtomic } from "./fs-utils";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
@@ -21,6 +21,18 @@ async function onWindows<T>(action: () => Promise<T>): Promise<T> {
     Object.defineProperty(process, "platform", { value: platform });
   }
 }
+
+describe("readTextIfFile и fileExists", () => {
+  it("каталог и путь сквозь файл — файла нет, а не ошибка: source задачи бывает каталогом или опечаткой", async () => {
+    const dir = await makeTempDir();
+    await writeFiles(dir, { "src/a.ts": "a\n" });
+
+    expect(await readTextIfFile(join(dir, "src"))).toBeNull();
+    expect(await readTextIfFile(join(dir, "src/a.ts/b.ts"))).toBeNull();
+    expect(await fileExists(join(dir, "src/a.ts/b.ts"))).toBe(false);
+    expect(await fileExists(join(dir, "src"))).toBe(true);
+  });
+});
 
 describe("removeIfUnchanged", () => {
   it("удаляет файл, только если его содержимое не менялось; уже удалённый другим процессом файл не выдаёт за своё удаление", async () => {

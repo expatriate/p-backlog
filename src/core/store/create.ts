@@ -20,7 +20,7 @@ import { invalid, type CreateTaskResult } from "./write-result";
 
 type NewTaskInput = Pick<Task, "title"> & OptionalFields<Pick<Task, "type" | "priority" | "tags" | "epic" | "blockedBy" | "related" | "source" | "anchor" | "body" | "category">>;
 
-export type CreateTaskRequest = Pick<WriteOrigin, "now" | "via"> & {
+export type CreateTaskRequest = Pick<WriteOrigin, "now" | "via" | "onError"> & {
   project: Project;
   input: NewTaskInput;
   existingTasks: readonly Task[];
@@ -43,7 +43,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
     if (problems.length > 0) return invalid(problems);
     try {
       await createFileAtomic(path, text);
-      await appendJournal(dir, [createdEvent(task, request.now, request.via, request.provenance)]);
+      await appendJournal(dir, [createdEvent(task, request.now, request.via, request.provenance)], request.onError);
       return { ok: true, task, reopenedEpic: await reopenEpicOfOpenedTask(index, { before: undefined, after: task }, request) };
     } catch (error) {
       if (!hasErrorCode(error, "EEXIST")) throw error;
@@ -98,6 +98,7 @@ async function maxTaskNumber(dir: string, prefix: string): Promise<number> {
   return Math.max(0, ...numbers);
 }
 
+// A project.md with broken YAML still reserves its prefix, so the prefix line is read without parsing the file.
 const PREFIX_LINE = /^prefix:\s*["']?([^\s"']+)/m;
 
 async function takenPrefixes(dir: string): Promise<string[]> {

@@ -1,16 +1,17 @@
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { warnPathErrors } from "../errors";
 import { coreMessages } from "../messages";
 import { formatLocalIso } from "../model/dates";
 import { buildIndex } from "../model/graph";
-import { JOURNAL_FILE, readJournal } from "./journal";
+import { appendingJournal, JOURNAL_FILE, readJournal, undoJournal } from "./journal";
 import { loadBacklog } from "./load";
 import { closingsOf, reopeningsOf, taskHistories } from "../stats/history";
 import { createTask } from "./create";
 import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
-import { updateTask } from "./testing/update-task";
+import { failOnWriteError, updateTask } from "./testing/update-task";
 import { updateTaskInIndex, type TaskChanges } from "./update";
 
 const NOW = new Date("2026-09-18T12:00:00Z");
@@ -68,7 +69,7 @@ describe("updateTask", () => {
     await writeFiles(root, { "spa/SPA-2.md": edited });
     const snapshotVersion = tasks.find((task) => task.id === "SPA-2")?.version ?? "";
 
-    const result = await updateTaskInIndex(buildIndex(tasks), { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: snapshotVersion, now: NOW, via: "cli" });
+    const result = await updateTaskInIndex(buildIndex(tasks), { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: snapshotVersion, now: NOW, via: "cli", onError: failOnWriteError });
 
     expect(result).toMatchObject({ ok: false, reason: "conflict", current: { id: "SPA-2", status: "in-progress" } });
     expect(await readFile(join(root, "spa/SPA-2.md"), "utf8")).toBe(edited);
@@ -80,8 +81,8 @@ describe("updateTask", () => {
     const expectedVersion = index.byId.get("SPA-2")?.version ?? "";
 
     const results = await Promise.all([
-      updateTaskInIndex(index, { id: "SPA-2", changes: { status: "in-progress" }, expectedVersion, now: NOW, via: "web" }),
-      updateTaskInIndex(index, { id: "SPA-2", changes: { priority: "high" }, expectedVersion, now: NOW, via: "cli" }),
+      updateTaskInIndex(index, { id: "SPA-2", changes: { status: "in-progress" }, expectedVersion, now: NOW, via: "web", onError: failOnWriteError }),
+      updateTaskInIndex(index, { id: "SPA-2", changes: { priority: "high" }, expectedVersion, now: NOW, via: "cli", onError: failOnWriteError }),
     ]);
 
     expect(results.map((result) => (result.ok ? "ok" : result.reason)).sort()).toEqual(["conflict", "ok"]);
@@ -98,11 +99,11 @@ describe("updateTask", () => {
     await rm(join(root, "spa/SPA-3.md"));
     await writeFiles(root, { "spa/SPA-2.md": "сломано" });
 
-    expect(await updateTaskInIndex(index, { id: "SPA-3", changes: { title: "Новое" }, expectedVersion: version("SPA-3"), now: NOW, via: "cli" })).toEqual({
+    expect(await updateTaskInIndex(index, { id: "SPA-3", changes: { title: "Новое" }, expectedVersion: version("SPA-3"), now: NOW, via: "cli", onError: failOnWriteError })).toEqual({
       ok: false,
       reason: "not-found",
     });
-    expect(await updateTaskInIndex(index, { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: version("SPA-2"), now: NOW, via: "cli" })).toMatchObject({
+    expect(await updateTaskInIndex(index, { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: version("SPA-2"), now: NOW, via: "cli", onError: failOnWriteError })).toMatchObject({
       ok: false,
       reason: "conflict",
       current: { id: "SPA-2", version: version("SPA-2") },
@@ -218,11 +219,12 @@ describe("журнал правок", () => {
   it("ошибка записи журнала не отменяет правку", async () => {
     const root = await setup();
     await mkdir(join(root, "spa", JOURNAL_FILE));
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const failedPaths: string[] = [];
 
-    const result = await updateTask(root, { id: "SPA-3", changes: { status: "done" }, now: NOW, via: "cli" });
+    const result = await updateTask(root, { id: "SPA-3", changes: { status: "done" }, now: NOW, via: "cli", onError: (path) => failedPaths.push(path) });
 
     expect(result).toMatchObject({ ok: true, task: { status: "done" } });
+    expect(failedPaths).toEqual([join(root, "spa", JOURNAL_FILE)]);
   });
 
   it("категория ставится и убирается, в журнале события category", async () => {
@@ -281,7 +283,7 @@ describe("эпик, закрытый автоматически", () => {
   it("снова открывается прежним статусом, когда его задачу открыли, и журнал пишет, кто это сделал", async () => {
     const root = await epicWithOneTask("status: in-progress\n");
     await updateTask(root, { id: "SPA-2", changes: { status: "done" }, now: NOW, via: "cli", closure: { resolution: "fixed", reason: "готово" } });
-    await sweepClosed(root, NOW, coreMessages("ru"));
+    await sweepClosed(root, NOW, coreMessages("ru"), failOnWriteError);
     expect(await taskById(root, "SPA-1")).toMatchObject({ status: "done", resolution: "epic-done" });
 
     await updateTask(root, { id: "SPA-2", changes: { status: "backlog" }, now: NOW, via: "web" });
@@ -295,9 +297,9 @@ describe("эпик, закрытый автоматически", () => {
   it("отмена массового закрытия не оставляет в статистике ни закрытия, ни переоткрытия — ни у задачи, ни у эпика", async () => {
     const root = await epicWithOneTask("status: in-progress\n");
     await updateTask(root, { id: "SPA-2", changes: { status: "cancelled" }, now: NOW, via: "web", closure: { resolution: "obsolete", reason: "дубль" } });
-    await sweepClosed(root, NOW, coreMessages("ru"));
+    await sweepClosed(root, NOW, coreMessages("ru"), failOnWriteError);
 
-    await updateTask(root, { id: "SPA-2", changes: { status: "in-progress" }, now: NOW, via: "web", undo: true });
+    await updateTask(root, { id: "SPA-2", changes: { status: "in-progress" }, now: NOW, via: "web", journal: undoJournal(appendingJournal(failOnWriteError)) });
 
     const { tasks } = await loadBacklog(root);
     const histories = taskHistories(tasks, [await readJournal(join(root, "spa"), "spa")]);
@@ -314,22 +316,23 @@ describe("эпик, закрытый автоматически", () => {
     const [project] = projects;
     if (!project) throw new Error("нет проекта");
 
-    await createTask(root, { project, input: { title: "Ещё одна", epic: "SPA-1" }, existingTasks: tasks, now: NOW, via: "cli" });
+    await createTask(root, { project, input: { title: "Ещё одна", epic: "SPA-1" }, existingTasks: tasks, now: NOW, via: "cli", onError: failOnWriteError });
 
     expect((await taskById(root, "SPA-1"))?.status).toBe("backlog");
   });
 
-  it("сбой записи эпика не отменяет сохранённую правку задачи и созданную задачу: он уходит в stderr", async () => {
+  it("сбой записи эпика не отменяет сохранённую правку задачи и созданную задачу: он уходит вызвавшему", async () => {
     const root = await epicWithOneTask(`status: done\nclosed: ${formatLocalIso(NOW)}\nresolution: epic-done\nreason: готово\n`);
     await writeFiles(root, { "spa/SPA-2.md": taskFile("SPA-2", "epic: SPA-1\nstatus: done\n") });
     await mkdir(join(root, "spa", JOURNAL_FILE));
-    const stderr = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const failures: string[] = [];
+    const onError = warnPathErrors((line) => failures.push(line));
 
-    const reopened = await updateTask(root, { id: "SPA-2", changes: { status: "backlog" }, now: NOW, via: "web" });
+    const reopened = await updateTask(root, { id: "SPA-2", changes: { status: "backlog" }, now: NOW, via: "web", onError });
     const { projects, tasks } = await loadBacklog(root);
     const [project] = projects;
     if (!project) throw new Error("нет проекта");
-    const created = await createTask(root, { project, input: { title: "Ещё одна", epic: "SPA-1" }, existingTasks: tasks, now: NOW, via: "cli" });
+    const created = await createTask(root, { project, input: { title: "Ещё одна", epic: "SPA-1" }, existingTasks: tasks, now: NOW, via: "cli", onError });
 
     expect([reopened.ok, created.ok]).toEqual([true, true]);
     expect((await loadBacklog(root)).tasks.map((task) => [task.id, task.status])).toEqual([
@@ -337,7 +340,7 @@ describe("эпик, закрытый автоматически", () => {
       ["SPA-2", "backlog"],
       ["SPA-3", "backlog"],
     ]);
-    expect(stderr).toHaveBeenCalledWith(expect.stringContaining("EISDIR"));
+    expect(failures).toEqual(expect.arrayContaining([expect.stringMatching(/SPA-1\.md: .*EISDIR/)]));
   });
 
   it("закрытый вручную остаётся закрытым", async () => {

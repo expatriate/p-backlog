@@ -8,22 +8,13 @@ import { hasLines, lineSuffix, sourcePath } from "../model/source";
 export type TaskRef = { id: string; title: string };
 type CommitRef = { sha: string; subject: string };
 
-export type Candidate =
-  | { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string | undefined }
-  | {
-      kind: "source-changed";
-      task: TaskRef;
-      path: string;
-      commits: CommitRef[];
-      uncommitted: boolean;
-      source?: string;
-      problem?: string;
-      snippet?: string;
-      diff?: string;
-      diffOmittedLines?: number;
-      method: CheckMethod;
-    }
-  | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: DuplicateMatch };
+type SourceChange = { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; method: CheckMethod };
+
+export type Candidate = { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string | undefined } | SourceChange | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: DuplicateMatch };
+
+export type ChangeContext = { source?: string; problem?: string; snippet?: string; diff?: string; diffOmittedLines?: number };
+
+export type ReportedCandidate = Candidate | (SourceChange & ChangeContext);
 
 export type AnchorPlan = { id: string; changes: { source?: string; anchor: string }; moved?: CheckFix };
 
@@ -134,7 +125,7 @@ function livesOnAnotherBranch(path: string, facts: RepoFacts): boolean {
 
 function followRenames(path: string, commits: readonly Commit[], mark: number): string | undefined {
   let current = path;
-  for (const commit of commitsAfter(commits, mark).reverse()) {
+  for (const commit of commitsAfter(commits, mark).toReversed()) {
     const move = commit.files.find((file) => file.renamedFrom === current);
     if (move) current = move.path;
   }

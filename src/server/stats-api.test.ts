@@ -12,6 +12,7 @@ import { appendJournal, readJournals } from "../core/store/journal";
 import { loadBacklog, unparsedTasks, type LoadedBacklog } from "../core/store/load";
 import { readRuns } from "../core/store/testing/runs";
 import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
+import { failOnWriteError } from "../core/store/testing/update-task";
 import type { UsageCache } from "../core/usage/usage-cache";
 import { createJournalSources } from "./journal-sources";
 import { createMemorySampler } from "./memory-sampler";
@@ -195,13 +196,17 @@ describe("статистика после изменений равна собр
     const allBefore = await stats();
     const spaBefore = await stats("?project=spa");
 
-    await appendJournal(join(backlog.root, "spa"), [
-      event("2026-09-11T10:00:00+03:00", { task: "SPA-9", kind: "created", type: "task", priority: "high", tags: [] }),
-      event("2026-09-12T10:00:00+03:00", { task: "SPA-9", kind: "status", from: "backlog", to: "done", resolution: "fixed" }),
-      event("2026-09-13T10:00:00+03:00", { task: "SPA-1", kind: "priority", from: "medium", to: "high" }),
-    ]);
+    await appendJournal(
+      join(backlog.root, "spa"),
+      [
+        event("2026-09-11T10:00:00+03:00", { task: "SPA-9", kind: "created", type: "task", priority: "high", tags: [] }),
+        event("2026-09-12T10:00:00+03:00", { task: "SPA-9", kind: "status", from: "backlog", to: "done", resolution: "fixed" }),
+        event("2026-09-13T10:00:00+03:00", { task: "SPA-1", kind: "priority", from: "medium", to: "high" }),
+      ],
+      failOnWriteError,
+    );
     await appendFile(join(backlog.root, "spa", "journal.jsonl"), "сломано\n");
-    await appendJournal(join(backlog.root, "torg-io"), [event("2026-09-14T10:00:00+03:00", { task: "TI-1", kind: "status", from: "backlog", to: "in-progress" })]);
+    await appendJournal(join(backlog.root, "torg-io"), [event("2026-09-14T10:00:00+03:00", { task: "TI-1", kind: "status", from: "backlog", to: "in-progress" })], failOnWriteError);
     await backlog.emitChange([join(backlog.root, "spa", "journal.jsonl"), join(backlog.root, "torg-io", "journal.jsonl")]);
 
     const all = await stats();

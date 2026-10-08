@@ -27,7 +27,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
   const cache = cachePersistence(memory, store, onError);
   const repoCode = repoReader(git, memory);
   let retainedRepos: ReadonlySet<string> | null = null;
-  const persist = () => {
+  const pruneAndPersist = () => {
     if (retainedRepos !== null) keepOnlyRepos(memory, retainedRepos);
     return cache.persist();
   };
@@ -51,7 +51,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       );
       const projectCodes = scanned.map(({ project, repos }): ProjectCode => ({ projectId: project.id, name: project.name, repos: repos.flatMap(({ read }) => (read === null ? [] : [read])) }));
       const unavailableRepos = [...new Set(scanned.flatMap(({ repos }) => repos.filter(({ read }) => read === null).map(({ repo }) => repo)))];
-      await persist();
+      await pruneAndPersist();
       return { projects: projectCodes, unavailableRepos };
     },
     fixCommits: async (projects, requests, now) => {
@@ -59,18 +59,10 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       const reposOf = await fixReposOf(git, projects, home);
       const reposOfProject = (projectId: string) => reposOf.get(projectId) ?? [];
       await Promise.all(requests.flatMap(({ projectId, hashes }) => reposOfProject(projectId).map((fixRepo) => readMissingFixes(git, memory, fixRepo, hashes))));
-      const found = new Map<ProjectFixKey, FixCommit>();
-      const requested = new Set<RepoFixKey>();
-      for (const { projectId, hashes } of requests) {
-        for (const hash of hashes) {
-          const keys = reposOfProject(projectId).map(({ repo }) => repoFixKey(repo, hash));
-          for (const key of keys) requested.add(key);
-          const commit = keys.map((key) => memory.fixes.get(key)).find((cached) => cached !== undefined);
-          if (commit !== undefined) found.set(projectFixKey(projectId, hash), commit);
-        }
-      }
-      forgetStaleFixes(memory, now, requested);
-      await persist();
+      const lookups = fixLookups(requests, reposOfProject);
+      const found = new Map(lookups.flatMap(({ key, repoKeys }) => cachedFixEntries(memory, key, repoKeys)));
+      forgetStaleFixes(memory, now, new Set(lookups.flatMap(({ repoKeys }) => repoKeys)));
+      await pruneAndPersist();
       return found;
     },
   };
@@ -85,6 +77,17 @@ function repoReader(git: GitRunner, memory: CodeMemory): (repo: string, now: Dat
     return repoCodeOf(scan);
   };
   return (repo, now) => remembered(inFlight, repo, () => readOnce(repo, now).finally(() => inFlight.delete(repo)));
+}
+
+type FixLookup = { key: ProjectFixKey; repoKeys: RepoFixKey[] };
+
+function fixLookups(requests: readonly FixRequest[], reposOfProject: (projectId: string) => readonly FixRepo[]): FixLookup[] {
+  return requests.flatMap(({ projectId, hashes }) => hashes.map((hash) => ({ key: projectFixKey(projectId, hash), repoKeys: reposOfProject(projectId).map(({ repo }) => repoFixKey(repo, hash)) })));
+}
+
+function cachedFixEntries(memory: CodeMemory, key: ProjectFixKey, repoKeys: readonly RepoFixKey[]): [ProjectFixKey, FixCommit][] {
+  const commit = repoKeys.map((repoKey) => memory.fixes.get(repoKey)).find((cached) => cached !== undefined);
+  return commit === undefined ? [] : [[key, commit]];
 }
 
 async function readMissingFixes(git: GitRunner, memory: CodeMemory, { repo, main }: FixRepo, hashes: readonly string[]): Promise<void> {

@@ -1,4 +1,6 @@
 import { basename, dirname } from "node:path";
+import type { RepoLookup } from "../core/check/project-repo";
+import { warnPathErrors } from "../core/errors";
 import { deriveProjectId } from "../core/model/ids";
 import type { ParseError, Project, Task } from "../core/model/types";
 import { createProject } from "../core/store/create";
@@ -8,6 +10,10 @@ import { readTextOrNull } from "../core/store/fs-utils";
 import { findGitRoots, findProjectForDir, type GitRoots } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
 import { relativeInside } from "./path-inside";
+
+export function repoLookup(io: CliIo): RepoLookup {
+  return { home: io.home, workingDir: io.cwd, onUnreadable: warnPathErrors(io.warn, io.core.unreadableSkipped) };
+}
 
 export function findTaskOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
   const task = loaded.tasks.find((candidate) => candidate.id === id);

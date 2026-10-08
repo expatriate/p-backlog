@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, readdir, readFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
 import { gitAddWorktree, gitCommitAll, makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
@@ -230,6 +230,34 @@ describe("backlog new", () => {
 
     expect((await run(["new", "--title", "X", "--category", "spaghetti"])).code).toBe(1);
     expect((await run(["new", "--category", "bug", "--title", "X", "--found", "maybe"])).code).toBe(1);
+  });
+
+  it("сбой записи журнала не отменяет задачу: путь журнала и ошибка в stderr", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
+    const journal = join(root, "spa", "journal.jsonl");
+    await rm(journal);
+    await mkdir(journal);
+
+    const created = await run(["new", "--category", "bug", "--title", "Вторая", "--source", "src/b.ts:1"]);
+
+    expect(created.code).toBe(EXIT.ok);
+    expect(created.err).toContain(`${journal}: EISDIR`);
+  });
+
+  it.skipIf(process.platform === "win32")("нечитаемый --source не мешает создать задачу: она без якоря, путь в stderr (на Windows chmod не запрещает чтение)", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    const locked = join(repo, "src/locked.ts");
+    await writeFiles(repo, { "src/locked.ts": "export const locked = 1;\n" });
+    await chmod(locked, 0o000);
+    onTestFinished(() => chmod(locked, 0o600));
+
+    const created = await run(["new", "--category", "bug", "--title", "Закрытый файл", "--source", "src/locked.ts:1"]);
+
+    expect(created.code).toBe(EXIT.ok);
+    expect(created.err).toContain(locked);
+    const [task] = (await loadBacklog(root)).tasks;
+    expect([task?.source, task?.anchor]).toEqual(["src/locked.ts:1", undefined]);
   });
 
   it("баг без --source создаётся, но с предупреждением", async () => {

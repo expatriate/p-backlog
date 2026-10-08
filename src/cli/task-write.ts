@@ -1,3 +1,4 @@
+import { warnPathErrors } from "../core/errors";
 import { buildIndex } from "../core/model/graph";
 import type { Closure } from "../core/model/lifecycle";
 import type { Task } from "../core/model/types";
@@ -11,8 +12,9 @@ export type TaskWriter = (task: Task, changes: TaskChanges, closure?: Closure) =
 
 export function taskWriter(io: CliIo, loadedTasks: readonly Task[]): TaskWriter {
   const index = buildIndex(loadedTasks);
+  const onError = warnPathErrors(io.warn);
   return async (task, changes, closure) => {
-    const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now: io.now(), via: "cli", closure });
+    const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now: io.now(), via: "cli", onError, closure });
     if (!result.ok) return { ok: false, exitCode: reportUpdateFailure(io, task.id, result) };
     if (result.reopenedEpic !== undefined) io.warn(io.cli.epicReopened(result.reopenedEpic.id));
     return { ok: true, task: result.task };

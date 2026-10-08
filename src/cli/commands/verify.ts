@@ -1,4 +1,4 @@
-import { relocatedSource, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
+import { findRepo, relocatedSource, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
 import { formatLocalIso } from "../../core/model/dates";
 import { isClosed } from "../../core/model/graph";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
@@ -6,7 +6,7 @@ import type { TaskChanges } from "../../core/store/update";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
-import { projectOf, findTaskOrWarn } from "../lookups";
+import { projectOf, findTaskOrWarn, repoLookup } from "../lookups";
 import { cliMessages } from "../messages";
 import { taskWriter, type TaskWriter } from "../task-write";
 
@@ -39,9 +39,11 @@ async function verifyOne(id: string, { loaded, source, write, io }: Verification
   }
 
   const project = projectOf(loaded, task);
-  const target = source ?? (project === undefined ? undefined : await relocatedSource(project, task, io.home, io.cwd));
+  const lookup = repoLookup(io);
+  const repo = project === undefined ? undefined : await findRepo(project, lookup);
+  const target = source ?? (await relocatedSource(repo, task));
   const anchored = target ?? task.source;
-  const anchor = project === undefined || anchored === undefined ? undefined : anchorChange(await sourceAnchor(project, anchored, io.home, io.cwd));
+  const anchor = anchored === undefined ? undefined : anchorChange(await sourceAnchor(repo, anchored, lookup.onUnreadable));
   const written = await write(task, { verified: formatLocalIso(io.now()), source: target, anchor });
   if (!written.ok) return written.exitCode;
   io.print(target === undefined ? io.cli.verified(id) : io.cli.verifiedWithSource(id, target));

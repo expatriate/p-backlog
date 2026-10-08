@@ -6,6 +6,7 @@ import { FileBusyError } from "../core/store/file-lock";
 import { appendJournal, readJournal } from "../core/store/journal";
 import { loadBacklog } from "../core/store/load";
 import { makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
+import { failOnWriteError } from "../core/store/testing/update-task";
 import type { Project, Task } from "../core/model/types";
 import { formatLocalIso } from "../core/model/dates";
 import { makeGraphDb } from "../core/code-review-graph/testing/make-graph-db";
@@ -451,7 +452,7 @@ describe("ревизия данных в ответах и событиях", ()
     await writeFiles(backlog.root, { "spa/SPA-1.md": taskFile("SPA-1", `status: done\nclosed: ${formatLocalIso(closedAt)}\nresolution: fixed\nreason: готово\n`) });
     await change([path(backlog, "SPA-1.md")]);
     expect((await tasksResponse()).closedInWeb).toEqual(["SPA-1"]);
-    await appendJournal(join(backlog.root, "spa"), [{ at: formatLocalIso(closedAt), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" }]);
+    await appendJournal(join(backlog.root, "spa"), [{ at: formatLocalIso(closedAt), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done", resolution: "fixed" }], failOnWriteError);
     const afterJournal = await change([path(backlog, "journal.jsonl")]);
 
     expect(await tasksResponse()).toMatchObject({ closedInWeb: [], revision: afterJournal });

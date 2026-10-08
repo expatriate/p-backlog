@@ -286,4 +286,5 @@ export const coreEn: CoreMessages = {
   serviceLogNotTrimmed: (error) => `Could not trim the service log: ${error}`,
   candidatesRecordFailed: (projectId, detail) => `Could not record candidates to the ${projectId} journal: ${detail}`,
   branchOriginsReadFailed: (projectId, detail) => `Could not read the ${projectId} journal — tasks from unmerged branches are checked as usual: ${detail}`,
+  unreadableSkipped: (path, detail) => `Could not read ${path}, skipped: ${detail}`,
 };

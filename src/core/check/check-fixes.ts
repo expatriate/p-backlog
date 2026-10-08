@@ -5,7 +5,7 @@ import { epicDoneClosure, planEpicClosing, planEpicReopening, type Closure } fro
 import type { Task, TaskStatus } from "../model/types";
 import { unparsedTasks, type LoadedBacklog } from "../store/load";
 import { referenceCleanup } from "../store/references";
-import { statusToReopen, updateTaskInIndex, type TaskChanges } from "../store/update";
+import { statusToReopen, updateTaskInIndex, type TaskChanges, type WriteContext } from "../store/update";
 import type { UpdateTaskFailure } from "../store/write-result";
 import type { AnchorPlan } from "./candidates";
 import type { CheckFix, CheckProblem } from "./findings";
@@ -18,7 +18,7 @@ type Fix = { changes: TaskChanges; closure?: Closure | undefined; done: CheckFix
 type PlannedFix = Fix & { task: Task };
 type EpicStatusFix = { status: TaskStatus; closure?: Closure | undefined; done: CheckFix };
 
-export async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, { now, messages }: { now: Date; messages: FixTexts }): Promise<FixOutcome> {
+export async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, { messages, ...writes }: WriteContext & { messages: FixTexts }): Promise<FixOutcome> {
   const isGone = goneTaskCheck(loaded);
   const epicFixes = await epicStatusFixes(loaded, inScope, messages);
   const planned = loaded.tasks
@@ -27,23 +27,23 @@ export async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: str
       const fix = planFix(task, isGone, epicFixes.get(task.id));
       return fix === null ? [] : [{ task, ...fix }];
     });
-  return applyPlanned(buildIndex(loaded.tasks), planned, now);
+  return applyPlanned(buildIndex(loaded.tasks), planned, writes);
 }
 
-export async function applyAnchorPlans(tasks: readonly Task[], plans: readonly AnchorPlan[], now: Date): Promise<FixOutcome> {
+export async function applyAnchorPlans(tasks: readonly Task[], plans: readonly AnchorPlan[], writes: WriteContext): Promise<FixOutcome> {
   const index = buildIndex(tasks);
   const planned = plans.flatMap((plan): PlannedFix[] => {
     const task = index.byId.get(plan.id);
     return task === undefined ? [] : [{ task, changes: plan.changes, done: plan.moved === undefined ? [] : [plan.moved] }];
   });
-  return applyPlanned(index, planned, now);
+  return applyPlanned(index, planned, writes);
 }
 
-async function applyPlanned(index: BacklogIndex, planned: readonly PlannedFix[], now: Date): Promise<FixOutcome> {
+async function applyPlanned(index: BacklogIndex, planned: readonly PlannedFix[], writes: WriteContext): Promise<FixOutcome> {
   const fixed: CheckFix[] = [];
   const failed: CheckProblem[] = [];
   for (const { task, changes, closure, done } of planned) {
-    const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now, closure, via: "check" });
+    const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, closure, ...writes, via: "check" });
     if (result.ok) fixed.push(...done);
     else failed.push(fixFailure(task.id, result));
   }

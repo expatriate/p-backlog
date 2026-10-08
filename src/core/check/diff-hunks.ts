@@ -1,13 +1,16 @@
 import type { LineRange } from "./anchor";
 
-export type Hunk = { oldFirst: number; oldCount: number; newFirst: number; newCount: number; lines: readonly string[] };
+type HunkLine = { kind: "added" | "removed" | "context"; text: string };
+
+export type Hunk = { oldFirst: number; oldCount: number; newFirst: number; newCount: number; lines: readonly HunkLine[] };
 
 const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 const FILE_HEADER = "diff ";
+const EMPTY_OLD_SIDE = 0;
 
 export function parseHunks(diff: string): Hunk[] | null {
   const hunks: Hunk[] = [];
-  let lines: string[] | null = null;
+  let lines: HunkLine[] | null = null;
   for (const line of diff.split("\n")) {
     const header = HUNK_HEADER.exec(line);
     if (header !== null) {
@@ -15,22 +18,24 @@ export function parseHunks(diff: string): Hunk[] | null {
       hunks.push(hunkOf(header, lines));
     } else if (line.startsWith(FILE_HEADER)) {
       lines = null;
-    } else if (lines !== null && /^[-+ \\]/.test(line)) {
-      lines.push(line);
+    } else if (lines !== null) {
+      const hunkLine = hunkLineOf(line);
+      if (hunkLine !== null) lines.push(hunkLine);
     }
   }
   const unparsed = hunks.length === 0 && diff.trim() !== "";
-  const createdFile = hunks.some((hunk) => hunk.oldFirst === 0);
-  return unparsed || createdFile ? null : hunks;
+  const fromEmptyFile = hunks.some((hunk) => hunk.oldFirst === EMPTY_OLD_SIDE);
+  return unparsed || fromEmptyFile ? null : hunks;
 }
 
-function hunkOf(header: RegExpExecArray, lines: string[]): Hunk {
+function hunkOf(header: RegExpExecArray, lines: HunkLine[]): Hunk {
   const oldCount = Number(header[2] ?? 1);
   const newCount = Number(header[4] ?? 1);
   const oldStart = Number(header[1]);
   const newStart = Number(header[3]);
+  // A hunk side with no lines names the line before it (`-5,0` inserts after line 5); `-0,0` is an empty old side: a new or empty file.
   return {
-    oldFirst: oldCount === 0 && oldStart > 0 ? oldStart + 1 : oldStart,
+    oldFirst: oldCount === 0 && oldStart !== EMPTY_OLD_SIDE ? oldStart + 1 : oldStart,
     oldCount,
     newFirst: newCount === 0 ? newStart + 1 : newStart,
     newCount,
@@ -38,22 +43,36 @@ function hunkOf(header: RegExpExecArray, lines: string[]): Hunk {
   };
 }
 
+function hunkLineOf(line: string): HunkLine | null {
+  const text = line.slice(1);
+  switch (line[0]) {
+    case "+":
+      return { kind: "added", text };
+    case "-":
+      return { kind: "removed", text };
+    case " ":
+      return { kind: "context", text };
+    default:
+      return null;
+  }
+}
+
 export function changedRanges(hunks: readonly Hunk[]): LineRange[] {
   const ranges: LineRange[] = [];
   for (const hunk of hunks) {
     let nextLine = hunk.newFirst;
     let run: ChangeRun | null = null;
-    for (const line of hunk.lines) {
-      if (run !== null && line.startsWith(" ")) {
+    for (const { kind } of hunk.lines) {
+      if (run !== null && kind === "context") {
         ranges.push(run.range);
         run = null;
       }
-      if (line.startsWith("+")) {
+      if (kind === "added") {
         run = withAddedLine(run, nextLine);
         nextLine++;
-      } else if (line.startsWith("-")) {
+      } else if (kind === "removed") {
         run ??= { range: { from: nextLine - 1, to: nextLine }, added: false };
-      } else if (line.startsWith(" ")) {
+      } else if (kind === "context") {
         nextLine++;
       }
     }
@@ -71,13 +90,13 @@ function withAddedLine(run: ChangeRun | null, line: number): ChangeRun {
 export function modifiesLines(hunks: readonly Hunk[], lines: LineRange): boolean {
   return hunks.some((hunk) => {
     let oldLine = hunk.oldFirst;
-    for (const line of hunk.lines) {
-      if (line.startsWith("-")) {
+    for (const { kind } of hunk.lines) {
+      if (kind === "removed") {
         if (oldLine >= lines.from && oldLine <= lines.to) return true;
         oldLine++;
-      } else if (line.startsWith("+")) {
+      } else if (kind === "added") {
         if (oldLine > lines.from && oldLine <= lines.to) return true;
-      } else if (line.startsWith(" ")) {
+      } else if (kind === "context") {
         oldLine++;
       }
     }
@@ -101,13 +120,13 @@ export function currentLine(hunks: readonly Hunk[], oldLine: number): number {
 function lineInsideHunk(hunk: Hunk, oldLine: number): number {
   let oldAt = hunk.oldFirst;
   let newAt = hunk.newFirst;
-  for (const line of hunk.lines) {
-    if (line.startsWith("+")) {
+  for (const { kind } of hunk.lines) {
+    if (kind === "added") {
       newAt++;
-    } else if (line.startsWith("-") || line.startsWith(" ")) {
+    } else if (kind === "removed" || kind === "context") {
       if (oldAt === oldLine) return newAt;
       oldAt++;
-      if (line.startsWith(" ")) newAt++;
+      if (kind === "context") newAt++;
     }
   }
   return newAt;
@@ -120,9 +139,9 @@ export function baseText(hunks: readonly Hunk[], currentText: string): string {
   for (const hunk of hunks) {
     base.push(...current.slice(next - 1, hunk.newFirst - 1));
     next = hunk.newFirst;
-    for (const line of hunk.lines) {
-      if (line.startsWith(" ") || line.startsWith("-")) base.push(line.slice(1));
-      if (line.startsWith(" ") || line.startsWith("+")) next++;
+    for (const { kind, text } of hunk.lines) {
+      if (kind === "context" || kind === "removed") base.push(text);
+      if (kind === "context" || kind === "added") next++;
     }
   }
   base.push(...current.slice(next - 1));
