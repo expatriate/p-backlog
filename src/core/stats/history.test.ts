@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { JournalEvent, ProjectJournal } from "../journal/events";
 import { formatLocalIso } from "../model/dates";
 import { makeTask } from "../model/testing/make-task";
-import { closingsOf, isOpenAt, reopeningsOf, taskHistories } from "./history";
+import { closingsOf, isFixedNow, isOpenAt, reopeningsOf, taskHistories } from "./history";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 const iso = (day: number, hour = 12) => formatLocalIso(at(day, hour));
@@ -116,6 +116,24 @@ describe("история задачи", () => {
 
     expect(closingsOf(history ?? ({ transitions: [] } as never))).toMatchObject([{ to: "done", via: "unknown" }]);
     expect(isOpenAt(history as never, at(5).getTime())).toBe(false);
+  });
+
+  it("коммит привязан к задаче, закрытой без него, — последнее закрытие становится исправлением", () => {
+    const task = makeTask({ id: "SPA-1", created: iso(1), status: "done", closed: iso(3), resolution: "fixed", reason: "Исправлено в a1b2c3d" });
+    const events: JournalEvent[] = [
+      { at: iso(2), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done" },
+      { at: iso(2, 13), task: "SPA-1", via: "cli", kind: "status", from: "done", to: "in-progress" },
+      { at: iso(3), task: "SPA-1", via: "cli", kind: "status", from: "in-progress", to: "done" },
+    ];
+
+    const [history] = taskHistories([task], journal(events));
+    if (!history) throw new Error("нет истории");
+
+    expect(closingsOf(history)).toMatchObject([
+      { at: at(2).getTime(), resolution: undefined },
+      { at: at(3).getTime(), resolution: "fixed" },
+    ]);
+    expect(isFixedNow(history)).toBe(true);
   });
 
   it("файл открыт правкой после закрытия — задача снова открыта", () => {

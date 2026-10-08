@@ -152,7 +152,7 @@ function historyOf(id: string, { projectId, final, created, categoryEvents, prio
       source: final?.source ?? created?.source,
       reason: final?.reason,
       finalStatus: final?.status ?? (fateUnknown ? (ordered.at(-1)?.to ?? CREATED_STATUS) : "cancelled"),
-      transitions: fateUnknown ? ordered : [...ordered, ...restoredTransitions(final, ordered, Date.parse(createdIso))],
+      transitions: fateUnknown ? ordered : withResolutionOf(final, [...ordered, ...restoredTransitions(final, ordered, Date.parse(createdIso))]),
       priority: final?.priority ?? [...priorityEvents].sort((a, b) => a.at - b.at).at(-1)?.to ?? created?.priority,
       category: categoryOf(final, created, categoryEvents),
       found: created?.found,
@@ -168,6 +168,13 @@ function categoryOf(final: Task | TaskSnapshot | undefined, created: Extract<Jou
   if (final !== undefined) return final.category;
   const lastCategoryEvent = [...categoryEvents].sort((a, b) => a.at - b.at).at(-1);
   return lastCategoryEvent !== undefined ? lastCategoryEvent.to : created?.category;
+}
+
+function withResolutionOf(final: Task | TaskSnapshot | undefined, transitions: Transition[]): Transition[] {
+  const last = transitions.at(-1);
+  if (last === undefined || final?.resolution === undefined) return transitions;
+  const closedWithoutResolution = isClosingChange(last) && last.resolution === undefined && last.to === final.status;
+  return closedWithoutResolution ? [...transitions.slice(0, -1), { ...last, resolution: final.resolution }] : transitions;
 }
 
 function restoredTransitions(final: Task | TaskSnapshot | undefined, ordered: readonly Transition[], createdAt: number): Transition[] {
