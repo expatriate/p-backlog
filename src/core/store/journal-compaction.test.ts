@@ -218,6 +218,27 @@ describe("уплотнение журнала проекта", () => {
     expect(await journalSince()).toBe(before);
   });
 
+  it("из исчезнувших до окна задач остаётся жизнь самой старой по моменту создания: эпики не в счёт, порядок строк не важен", async () => {
+    const { dir } = await spaProject([
+      created("SPA-3", "2026-01-01", "epic"),
+      deleted("SPA-3", "2026-01-20", { type: "epic", status: "cancelled", created: at("2026-01-01"), closed: at("2026-01-20"), resolution: "obsolete", reason: "не нужен" }),
+      created("SPA-5", "2026-03-01"),
+      status("SPA-5", "2026-03-02", "backlog", "done", "fixed"),
+      deleted("SPA-5", "2026-03-05", { status: "done", created: at("2026-03-01"), closed: at("2026-03-02"), resolution: "fixed", reason: "готово" }),
+      status("SPA-4", "2026-03-06", "backlog", "done", "fixed"),
+      deleted("SPA-4", "2026-03-07", { status: "done", created: at("2026-02-01"), closed: at("2026-03-06"), resolution: "fixed", reason: "готово" }),
+      "",
+    ]);
+
+    await compact(dir);
+
+    const events = (await readJournal(dir, "spa")).events.map((event) => [event.task, event.kind]);
+    expect(events).toEqual([
+      ["SPA-3", "created"],
+      ["SPA-4", "deleted"],
+    ]);
+  });
+
   it("журнал без старого не переписывается", async () => {
     const { dir } = await spaProject([created("SPA-1", "2026-07-10"), candidate("SPA-1", "2026-09-01", "duplicate")]);
     const path = join(dir, JOURNAL_FILE);

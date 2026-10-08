@@ -9,7 +9,7 @@ describe("показанные тревоги", () => {
     const dir = await makeTempDir();
 
     expect(await readSignalsShown(dir)).toEqual({});
-    await rememberSignalsShown(dir, [{ kind: "urgent-stale", params: { days: 3, count: 1 } }], "2026-09-18");
+    await rememberSignalsShown(dir, [{ kind: "urgent-stale" }], "2026-09-18");
     expect(await readSignalsShown(dir)).toEqual({ "urgent-stale": "2026-09-18" });
     await writeFile(join(dir, SIGNALS_SHOWN_FILE), "не json");
     expect(await readSignalsShown(dir)).toEqual({});
@@ -20,10 +20,7 @@ describe("показанные тревоги", () => {
   it("одновременные отметки разных хуков не затирают друг друга", async () => {
     const dir = await makeTempDir();
 
-    await Promise.all([
-      rememberSignalsShown(dir, [{ kind: "urgent-stale", params: { days: 3, count: 1 } }], "2026-09-18"),
-      rememberSignalsShown(dir, [{ kind: "low-changed", params: { count: 2 } }], "2026-09-18"),
-    ]);
+    await Promise.all([rememberSignalsShown(dir, [{ kind: "urgent-stale" }], "2026-09-18"), rememberSignalsShown(dir, [{ kind: "low-changed" }], "2026-09-18")]);
 
     expect(await readSignalsShown(dir)).toEqual({ "urgent-stale": "2026-09-18", "low-changed": "2026-09-18" });
   });

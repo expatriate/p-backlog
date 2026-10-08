@@ -18,6 +18,11 @@ export default tseslint.config(
     rules: { "no-restricted-imports": ["error", { patterns: ["node:*"] }] },
   },
   {
+    files: ["src/core/store/**/*.ts"],
+    ignores: ["src/core/store/**/*.test.ts", "src/core/store/testing/**"],
+    rules: { "no-restricted-imports": ["error", { patterns: [{ group: ["**/stats/**", "**/check/**"], message: "The store sits below stats and check; move the shared piece down to model or store." }] }] },
+  },
+  {
     files: ["src/web/**/*.ts", "src/web/**/*.tsx"],
     plugins: { "react-hooks": reactHooks },
     rules: {

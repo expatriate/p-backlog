@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { markShown, signalsToShow } from "./shown";
+import { markShown } from "../../model/signals-shown";
+import { signalsToShow } from "./shown";
 
 const debt = { kind: "debt-growing" as const, params: { weeks: 3, created: 3, closed: 0 } };
 const urgent = { kind: "urgent-stale" as const, params: { days: 7, count: 1 } };

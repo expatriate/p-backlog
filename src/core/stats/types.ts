@@ -1,5 +1,6 @@
 import type { GraphState } from "../check/graph-health";
 import type { CandidateEvidence, CheckMethod, FoundHow, Recorded, RecordedMatch, RecordedMethod } from "../journal/events";
+import type { SignalKind } from "../model/signals-shown";
 import type { Priority, TaskCategory } from "../model/types";
 
 export type ClosingReason = "done" | "fixed" | "obsolete" | "duplicate" | "cancelled" | "unknown";
@@ -111,8 +112,6 @@ export type EffectReport = ReportHead & {
   days: EffectPeriod[];
   projects: EffectProject[];
 };
-
-type SignalKind = "debt-growing" | "urgent-stale" | "stuck" | "noisy-check" | "low-changed" | "stale-low";
 
 type SignalParams = {
   "debt-growing": { weeks: number; created: number; closed: number };
