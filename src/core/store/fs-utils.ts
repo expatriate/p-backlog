@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { access, chmod, link, open, readdir, readFile, rename, rm, stat, writeFile, type FileHandle } from "node:fs/promises";
+import { access, appendFile, chmod, link, open, readdir, readFile, rename, rm, stat, writeFile, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { z } from "zod";
@@ -13,8 +13,12 @@ export function contentVersion(text: string): string {
 export const EMPTY_FINGERPRINT = createHash("sha1").digest("hex");
 
 export async function readTextOrNull(path: string): Promise<string | null> {
+  return (await readBytesOrNull(path))?.toString("utf8") ?? null;
+}
+
+export async function readBytesOrNull(path: string): Promise<Buffer | null> {
   try {
-    return await readFile(path, "utf8");
+    return await readFile(path);
   } catch (error) {
     if (hasErrorCode(error, "ENOENT")) return null;
     throw error;
@@ -139,18 +143,39 @@ export async function writeFileAtomic(path: string, content: string, mode?: numb
   await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path), mode);
 }
 
+export async function replacePrefixAtomic(path: string, prefix: Buffer, content: string): Promise<boolean> {
+  let seen = prefix;
+  const carryAppended = async (temporary: string): Promise<boolean> => {
+    const live = (await readBytesOrNull(path)) ?? Buffer.alloc(0);
+    if (!startsWithBytes(live, seen)) return false;
+    await appendFile(temporary, live.subarray(seen.length));
+    seen = live;
+    return true;
+  };
+  return viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path, () => carryAppended(temporary)));
+}
+
+function startsWithBytes(bytes: Buffer, prefix: Buffer): boolean {
+  return bytes.length >= prefix.length && bytes.subarray(0, prefix.length).equals(prefix);
+}
+
 // Windows refuses to rename over a file while another handle (a watcher's read, antivirus) keeps it open.
-async function replaceFile(temporary: string, path: string): Promise<void> {
-  if (process.platform !== "win32") return rename(temporary, path);
+async function replaceFile(temporary: string, path: string, prepareRename: () => Promise<boolean> = async () => true): Promise<boolean> {
+  const attempt = async (): Promise<boolean> => {
+    if (!(await prepareRename())) return false;
+    await rename(temporary, path);
+    return true;
+  };
+  if (process.platform !== "win32") return attempt();
   for (const delayMs of REPLACE_RETRY_DELAYS_MS) {
     try {
-      return await rename(temporary, path);
+      return await attempt();
     } catch (error) {
       if (!REPLACE_BLOCKED_CODES.some((code) => hasErrorCode(error, code))) throw error;
       await sleep(delayMs);
     }
   }
-  await rename(temporary, path);
+  return attempt();
 }
 
 export async function createFileAtomic(path: string, content: string): Promise<void> {
@@ -175,12 +200,12 @@ export function temporaryPathFor(path: string): string {
   return join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
 }
 
-async function viaTemporaryFile(path: string, content: string, publish: (temporary: string) => Promise<void>, mode?: number): Promise<void> {
+async function viaTemporaryFile<T>(path: string, content: string, publish: (temporary: string) => Promise<T>, mode?: number): Promise<T> {
   const temporary = temporaryPathFor(path);
   try {
     await writeFile(temporary, content, { encoding: "utf8", mode });
     if (mode !== undefined) await chmod(temporary, mode);
-    await publish(temporary);
+    return await publish(temporary);
   } finally {
     await rm(temporary, { force: true });
   }

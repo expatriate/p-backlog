@@ -4,7 +4,7 @@ import { journalEventSchema, type JournalEvent } from "../journal/events";
 import { taskHistories, type TaskHistory } from "../stats/history";
 import { runWhenDue } from "./daily";
 import { withFileLock } from "./file-lock";
-import { fileExists, parseJson, readTextOrNull, writeFileAtomic } from "./fs-utils";
+import { fileExists, NEWLINE, parseJson, readBytesOrNull, replacePrefixAtomic } from "./fs-utils";
 import { JOURNAL_FILE } from "./journal";
 import { projectDirNames, taskIdsOnDisk } from "./load";
 import { retainedSince } from "../model/history-window";
@@ -39,11 +39,13 @@ export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySe
   const path = join(projectDir, JOURNAL_FILE);
   if (!(await fileExists(path))) return 0;
   return withFileLock(path, async () => {
-    const lines = journalLines((await readTextOrNull(path)) ?? "");
+    const journal = (await readBytesOrNull(path)) ?? Buffer.alloc(0);
+    const completeLines = journal.subarray(0, journal.lastIndexOf(NEWLINE) + 1);
+    const lines = journalLines(completeLines.toString("utf8"));
     const kept = retainedLines(lines, liveTaskIds, retainedSince(now));
     const removed = lines.length - kept.length;
-    if (removed > 0) await writeFileAtomic(path, kept.map(({ text }) => `${text}\n`).join(""));
-    return removed;
+    const replaced = removed > 0 && (await replacePrefixAtomic(path, completeLines, kept.map(({ text }) => `${text}\n`).join("")));
+    return replaced ? removed : 0;
   });
 }
 

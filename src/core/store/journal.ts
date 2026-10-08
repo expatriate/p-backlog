@@ -21,6 +21,7 @@ async function appendWaitingForLock(path: string, events: readonly JournalEvent[
     await withFileLock(path, () => appendJsonLines(path, events));
   } catch (error) {
     if (!(error instanceof FileBusyError)) throw error;
+    // A command must not hang or fail on a busy journal; journal rewriters keep lines appended past what they read.
     await appendJsonLines(path, events);
   }
 }

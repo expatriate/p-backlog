@@ -15,6 +15,10 @@
   from the repository is re-checked again too. A repository without commits yet is checked as
   having an empty history instead of reporting it unreadable, and a failure to run git is reported as unreadable
   history rather than "not a git repository".
+- A command that waits 5 seconds for a busy `journal.jsonl` appends its events without the lock; when that happens
+  while compaction is rewriting the journal, compaction now carries such lines over into the compacted file, including
+  a line that was still being written when compaction read the file. If the journal was replaced by a different file
+  in the meantime, compaction leaves it as is.
 
 ## 0.9.0
 

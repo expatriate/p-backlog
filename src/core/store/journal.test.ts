@@ -1,16 +1,32 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { describe, expect, it, vi } from "vitest";
-import { createdEvent } from "../journal/events";
+import { createdEvent, type JournalEvent } from "../journal/events";
 import { makeTask } from "../model/testing/make-task";
 import { withFileLock } from "./file-lock";
-import { readTextOrNull } from "./fs-utils";
+import { readBytesOrNull, readTextOrNull } from "./fs-utils";
 import { appendJournal, JOURNAL_FILE, readJournal, readJournals } from "./journal";
 import { compactJournal } from "./journal-compaction";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
 
+vi.mock("./fs-utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./fs-utils")>();
+  return { ...actual, readBytesOrNull: vi.fn(actual.readBytesOrNull) };
+});
+
 const NOW = new Date(2026, 8, 18, 12, 0, 0);
+
+async function appendAfterLockWaitRunsOut(dir: string, events: readonly JournalEvent[], onError?: (path: string, error: unknown) => void): Promise<void> {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  try {
+    const appended = appendJournal(dir, events, onError);
+    vi.setSystemTime(Date.now() + 10_000);
+    await appended;
+  } finally {
+    vi.useRealTimers();
+  }
+}
 
 describe("файл журнала", () => {
   it("дописывает события строками и читает их обратно", async () => {
@@ -131,16 +147,7 @@ describe("файл журнала", () => {
     const path = join(dir, JOURNAL_FILE);
     const failures: unknown[] = [];
 
-    await withFileLock(path, async () => {
-      vi.useFakeTimers({ toFake: ["Date"] });
-      try {
-        const appended = appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")], (_, error) => failures.push(error));
-        vi.setSystemTime(Date.now() + 10_000);
-        await appended;
-      } finally {
-        vi.useRealTimers();
-      }
-    });
+    await withFileLock(path, () => appendAfterLockWaitRunsOut(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")], (_, error) => failures.push(error)));
 
     expect(failures).toEqual([]);
     expect((await readJournal(dir, "spa")).events.map((event) => event.task)).toEqual(["SPA-1"]);
@@ -156,5 +163,44 @@ describe("файл журнала", () => {
 
     const tasks = (await readJournal(dir, "spa")).events.map((event) => event.task);
     expect(tasks.filter((task) => appendedIds.includes(task)).sort()).toEqual(appendedIds);
+  });
+
+  it("событие, дописанное без блокировки, пока уплотнение держит журнал, переживает замену файла", async () => {
+    const dir = await makeTempDir();
+    const old = new Date(2026, 0, 5, 12, 0, 0);
+    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-3" }), old, "cli"), createdEvent(makeTask({ id: "SPA-4" }), old, "cli")]);
+    vi.mocked(readBytesOrNull).mockImplementationOnce(async (path) => {
+      const journal = await readFile(path);
+      await appendAfterLockWaitRunsOut(dir, [createdEvent(makeTask({ id: "SPA-5" }), NOW, "cli")]);
+      return journal;
+    });
+
+    await compactJournal(dir, new Set(), NOW);
+
+    const tasks = (await readJournal(dir, "spa")).events.map((event) => event.task);
+    expect(tasks).not.toContain("SPA-4");
+    expect(tasks.filter((task) => task === "SPA-5")).toHaveLength(1);
+  });
+
+  it("строка, которую дописывали без блокировки как раз во время чтения, после уплотнения остаётся целой", async () => {
+    const dir = await makeTempDir();
+    const path = join(dir, JOURNAL_FILE);
+    const old = new Date(2026, 0, 5, 12, 0, 0);
+    await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-3" }), old, "cli"), createdEvent(makeTask({ id: "SPA-4" }), old, "cli")]);
+    const late = JSON.stringify(createdEvent(makeTask({ id: "SPA-5" }), NOW, "cli"));
+    await appendFile(path, late.slice(0, 20));
+    vi.mocked(readBytesOrNull).mockImplementationOnce(async () => {
+      const journal = await readFile(path);
+      await appendFile(path, `${late.slice(20)}\n`);
+      return journal;
+    });
+
+    await compactJournal(dir, new Set(), NOW);
+
+    const journal = await readJournal(dir, "spa");
+    const tasks = journal.events.map((event) => event.task);
+    expect(tasks).not.toContain("SPA-4");
+    expect(tasks.filter((task) => task === "SPA-5")).toHaveLength(1);
+    expect(journal.invalidLines).toBe(0);
   });
 });
