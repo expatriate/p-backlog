@@ -7,7 +7,7 @@ import type { CheckMode } from "../journal/events";
 import { coreMessages } from "../messages";
 import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
-import { gitCheckout, gitCommitAll, gitMergeFastForward, gitMergeNoFastForward, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeFastForward, gitMergeNoFastForward, gitMergeSquash, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
 import { makeGraphDb } from "../code-review-graph/testing/make-graph-db";
 import { anchorOf } from "./anchor";
 import { checkBacklog } from "./check-backlog";
@@ -323,6 +323,59 @@ describe("checkBacklog", () => {
       gitCheckout(repo, "master", { at: "2026-09-10T11:00:00+03:00" });
       await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3\nanchor: ${anchorOf(before, "src/a.ts:3")}\n`) });
       gitMergeFastForward(repo, "feat", "2026-09-12T10:00:00+03:00");
+
+      const report = await check(root, home, "changed");
+
+      expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), method: "anchor" })]);
+    });
+
+    it("задача заведена по незакоммиченной правке, её строку правят снова до коммита — кандидат и до коммита, и после", async () => {
+      const { home, root, repo } = await anchoredRepo();
+      const committed = numbered("a");
+      await writeFiles(repo, { "src/a.ts": committed });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      const dirty = committed.replace("a3 = 3", "a3 = 30");
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3\nanchor: ${anchorOf(dirty, "src/a.ts:3")}\n`) });
+      await writeFiles(repo, { "src/a.ts": dirty.replace("a3 = 30", "a3 = 300") });
+
+      const beforeCommit = await check(root, home, "changed");
+      gitCommitAll(repo, "Правка строки задачи", "2026-09-12T10:00:00+03:00");
+      const afterCommit = await check(root, home, "changed");
+
+      const candidate = [expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), method: "anchor" })];
+      expect({ beforeCommit: beforeCommit.candidates, afterCommit: afterCommit.candidates }).toEqual({ beforeCommit: candidate, afterCommit: candidate });
+    });
+
+    it("незакоммиченную правку, по которой заведена задача, откатили — кандидат", async () => {
+      const { home, root, repo } = await anchoredRepo();
+      const committed = numbered("a");
+      await writeFiles(repo, { "src/a.ts": committed });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      const dirty = committed.replace("a3 = 3", "a3 = 30");
+      await writeFiles(repo, { "src/a.ts": dirty });
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3\nanchor: ${anchorOf(dirty, "src/a.ts:3")}\n`) });
+      execFileSync("git", ["checkout", "--", "src/a.ts"], { cwd: repo });
+
+      const report = await check(root, home, "changed");
+
+      expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), method: "anchor" })]);
+    });
+
+    it("ветку, где проверена задача, влили squash-слиянием вместе с поздней правкой строки задачи — кандидат", async () => {
+      const { home, root, repo } = await anchoredRepo();
+      const before = numbered("a");
+      await writeFiles(repo, { "src/a.ts": before });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      gitCheckout(repo, "feat", { create: true, at: "2026-09-09T11:00:00+03:00" });
+      const verified = before.replace("a3 = 3", "a3 = 30");
+      await writeFiles(repo, { "src/a.ts": verified });
+      gitCommitAll(repo, "Правка строки задачи на ветке", "2026-09-10T10:00:00+03:00");
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3\nanchor: ${anchorOf(verified, "src/a.ts:3")}\n`) });
+      await writeFiles(repo, { "src/a.ts": verified.replace("a3 = 30", "a3 = 300") });
+      gitCommitAll(repo, "Снова правка строки задачи на ветке", "2026-09-12T10:00:00+03:00");
+      gitCheckout(repo, "master", { at: "2026-09-13T09:00:00+03:00" });
+      gitMergeSquash(repo, "feat");
+      gitCommitAll(repo, "Слить feat одним коммитом", "2026-09-13T10:00:00+03:00");
 
       const report = await check(root, home, "changed");
 

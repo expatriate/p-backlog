@@ -108,19 +108,19 @@ export function diffsSince(repo: string, git: GitRunner = runGit, diffFrom: Diff
   };
 }
 
-export type HeadAt = (moment: Date) => Promise<string | null>;
+export type HeadAt = (moment: Date) => Promise<{ commit: string; onThisLine: boolean } | null>;
 
 type HeadMove = { commit: string; at: number };
 
-export function headsOnThisLine(repo: string, git: GitRunner = runGit): HeadAt {
+export function headsAt(repo: string, git: GitRunner = runGit): HeadAt {
   let moves: Promise<HeadMove[]> | null = null;
-  const onThisLine = new Map<string, Promise<boolean>>();
+  const ancestors = new Map<string, Promise<boolean>>();
   return async (moment) => {
     moves ??= headMovesNewestFirst(repo, git);
-    const head = (await moves).find((move) => move.at <= moment.getTime())?.commit;
-    if (head === undefined) return null;
-    const ancestor = await remembered(onThisLine, head, async () => (await git(repo, ["merge-base", "--is-ancestor", head, "HEAD"])) !== null);
-    return ancestor ? head : null;
+    const commit = (await moves).find((move) => move.at <= moment.getTime())?.commit;
+    if (commit === undefined) return null;
+    const onThisLine = await remembered(ancestors, commit, async () => (await git(repo, ["merge-base", "--is-ancestor", commit, "HEAD"])) !== null);
+    return { commit, onThisLine };
   };
 }
 
