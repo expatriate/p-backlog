@@ -538,27 +538,39 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-missing", task: expect.objectContaining({ id: "SPA-1" }) })]);
   });
 
-  it("файл переименован: строки задачи целы — source переезжает сам, строки изменились — кандидат «файл пропал» с новым именем", async () => {
+  it("файл переименован: строки задачи целы, на месте или со сдвигом, — source переезжает сам, строки изменились — кандидат «файл пропал» с новым именем", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
     const repo = await makeGitRepo(home, "projects/spa");
-    await writeFiles(repo, { "src/intact.ts": numbered("intact"), "src/edited.ts": numbered("edited") });
+    await writeFiles(repo, { "src/intact.ts": numbered("intact"), "src/edited.ts": numbered("edited"), "src/shifted.ts": numbered("shifted") });
     gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA", [repo]),
       "spa/SPA-1.md": task("SPA-1", `source: src/intact.ts:3\nanchor: ${anchorOf(numbered("intact"), "src/intact.ts:3")}\n`),
       "spa/SPA-2.md": task("SPA-2", `source: src/edited.ts:3\nanchor: ${anchorOf(numbered("edited"), "src/edited.ts:3")}\n`),
+      "spa/SPA-3.md": task("SPA-3", `source: src/shifted.ts:3\nanchor: ${anchorOf(numbered("shifted"), "src/shifted.ts:3")}\n`),
     });
     await rm(join(repo, "src/intact.ts"));
     await rm(join(repo, "src/edited.ts"));
-    await writeFiles(repo, { "src/renamed.ts": numbered("intact"), "src/reworked.ts": numbered("edited").replace("edited3 = 3", "edited3 = 30") });
+    await rm(join(repo, "src/shifted.ts"));
+    await writeFiles(repo, {
+      "src/renamed.ts": numbered("intact"),
+      "src/reworked.ts": numbered("edited").replace("edited3 = 3", "edited3 = 30"),
+      "src/moved.ts": ["// a", "// b", numbered("shifted")].join("\n"),
+    });
     gitCommitAll(repo, "Переименовать", "2026-09-12T10:00:00+03:00");
 
     const report = await check(root, home, "changed");
 
     expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-missing", task: expect.objectContaining({ id: "SPA-2" }), renamedTo: "src/reworked.ts" })]);
-    expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-1: файл задачи переименован, source src/intact.ts:3 → src/renamed.ts:3"]);
-    expect((await loadBacklog(root)).tasks.find((item) => item.id === "SPA-1")?.source).toBe("src/renamed.ts:3");
+    expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-1: файл задачи переименован, source src/intact.ts:3 → src/renamed.ts:3", "SPA-3: файл задачи переименован, source src/shifted.ts:3 → src/moved.ts:5"]);
+    const sources = (await loadBacklog(root)).tasks.map((item) => [item.id, item.source]);
+    expect(sources).toEqual(
+      expect.arrayContaining([
+        ["SPA-1", "src/renamed.ts:3"],
+        ["SPA-3", "src/moved.ts:5"],
+      ]),
+    );
   });
 
   it("дубль задачи не слитой ветки показан и записан в журнал, хотя её кандидаты по коду ждут слияния", async () => {
