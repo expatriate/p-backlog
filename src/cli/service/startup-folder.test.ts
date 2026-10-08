@@ -61,6 +61,10 @@ async function contentOnceWritten(path: string): Promise<string> {
   throw new Error(`${path} так и не записан`);
 }
 
+async function removeOnceReleased(path: string): Promise<void> {
+  await rm(path, { force: true, maxRetries: 50, retryDelay: 100 });
+}
+
 function recordInto(stopped: number[]): CliEnv["stopProcess"] {
   return (pid) => {
     stopped.push(pid);
@@ -280,6 +284,7 @@ describe("startupFolderManager", () => {
 
     const launched: unknown = JSON.parse(await contentOnceWritten(logPath(roots.localAppData)));
     expect(launched).toEqual({ node: nodePath, argv: [cliPath, "serve"], pidFile: pidFilePath(roots.localAppData) });
+    await removeOnceReleased(logPath(roots.localAppData));
   });
 
   it.runIf(process.platform === "win32")("на Windows лог больше 1 МБ перед запуском уходит в .old, новый лог начинается с нуля", async () => {
@@ -294,6 +299,7 @@ describe("startupFolderManager", () => {
 
     expect(await contentOnceWritten(logPath(roots.localAppData))).toBe("started\n");
     expect(await readFile(`${logPath(roots.localAppData)}.old`, "utf8")).toBe(oversized);
+    await removeOnceReleased(logPath(roots.localAppData));
   });
 
   it("file и logs указывают на скрипт в «Автозагрузке» и лог в LOCALAPPDATA", async () => {
