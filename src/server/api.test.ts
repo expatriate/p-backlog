@@ -218,6 +218,18 @@ describe("POST /api/tasks/batch", () => {
     expect(tasks.find((task) => task.id === "TI-1")).toMatchObject({ status: "cancelled", resolution: "obsolete", reason: "Неактуально" });
   });
 
+  it("склеивает переносы в причине закрытия так же, как команда close", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+
+    await backlog.json("/api/tasks/batch", "POST", {
+      tasks: [{ id: "SPA-1", version: await backlog.taskVersion("SPA-1") }],
+      action: { kind: "close", reason: "  Дубль:\n   то же, что TI-1  " },
+    });
+
+    const { tasks } = (await (await backlog.request("/api/tasks")).json()) as TasksResponse;
+    expect(tasks.find((task) => task.id === "SPA-1")?.reason).toBe("Дубль: то же, что TI-1");
+  });
+
   it("устаревшая версия — skipped changed, текст на языке настройки", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES, { language: "en" });
     const version = await backlog.taskVersion("SPA-1");

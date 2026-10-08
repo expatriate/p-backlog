@@ -385,6 +385,15 @@ describe("вкладка «Качество»", () => {
     expect(within(originPanel).getByText("Ветки появятся у задач, заведённых через backlog new в репозитории")).toBeDefined();
   });
 
+  it("категория, которой нет в списке, — строка «неизвестна»", async () => {
+    const created = JSON.stringify({ at: "2026-09-16T10:00:00+03:00", task: "SPA-9", via: "cli", kind: "created", type: "task", priority: "medium", tags: [], category: "old-name" });
+    await renderApp({ ...FILES, "spa/journal.jsonl": `${created}\n` }, "/stats/quality");
+
+    const categoriesPanel = await screen.findByRole("region", { name: "Категории" });
+
+    expect(within(categoriesPanel).getByRole("rowheader", { name: "неизвестна" })).toBeDefined();
+  });
+
   it("без кандидатов — пустое состояние точности", async () => {
     await renderApp(FILES, "/stats/quality");
 

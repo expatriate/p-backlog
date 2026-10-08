@@ -123,7 +123,6 @@ function resolvedCell({ state, pinned, resolved }: ProjectGraphRow): string {
 export function CategoriesPanel({ rows, period }: { rows: CategoryRow[]; period: ReportPeriod }) {
   const { stats, core } = useMessages();
   const caption = usePeriodCaption();
-  const categoryText = (row: CategoryRow): string => (row.category === "unknown" ? stats.categoryUnknown : core.categoryLabel(row.category ?? undefined));
   return (
     <Panel title={stats.categoriesTitle} period={caption.of("weeks", period)}>
       {rows.length === 0 ? (
@@ -132,7 +131,7 @@ export function CategoriesPanel({ rows, period }: { rows: CategoryRow[]; period:
         <StatsTable
           label={stats.categoriesTitle}
           head={stats.categoriesHead}
-          rows={rows.map((row) => ({ key: row.category ?? "none", cells: [categoryText(row), row.open, row.weight, row.created, row.closed] }))}
+          rows={rows.map((row) => ({ key: row.category, cells: [core.categoryRowLabel(row.category), row.open, row.weight, row.created, row.closed] }))}
         />
       )}
     </Panel>

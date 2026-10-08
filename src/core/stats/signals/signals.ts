@@ -4,7 +4,7 @@ import { inWorkTasks } from "../flow/current";
 import { sum, toPercent } from "../../numbers";
 import { trailingPeriod, type Period } from "../period";
 import type { CandidateEvidence, CheckMethod } from "../../journal/events";
-import { accuracy, decidedOf, isMeasuredEvidence, methodAccuracy } from "../quality/accuracy";
+import { accuracy, decidedOf, isMeasuredEvidence, METHOD_EVIDENCE, methodAccuracy } from "../quality/accuracy";
 import type { ReportContext } from "../scope";
 import type { AccuracyRow, FlowPeriod, Signal } from "../types";
 import { weeklyFlow } from "../weeks";
@@ -60,9 +60,9 @@ function noisyChecks({ histories, input: { now } }: ReportContext): Signal[] {
 
 function checkGauges(histories: ReportContext["histories"], window: Period): CheckGauge[] {
   const byEvidence = accuracy(histories, window)
-    .filter((row): row is AccuracyRow & { evidence: CandidateEvidence } => measuredByClosing(row.evidence) && row.evidence !== "source-changed")
+    .filter((row): row is AccuracyRow & { evidence: CandidateEvidence } => measuredByClosing(row.evidence) && row.evidence !== METHOD_EVIDENCE)
     .map((row) => ({ ...row, method: null }));
-  const byFile = methodAccuracy(histories, window).flatMap((row) => (row.by === "file" ? [{ ...row, evidence: "source-changed" as const, method: "file" as const }] : []));
+  const byFile = methodAccuracy(histories, window).flatMap((row) => (row.by === "file" ? [{ ...row, method: row.by }] : []));
   return [...byFile, ...byEvidence];
 }
 

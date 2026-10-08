@@ -44,7 +44,7 @@ describe("категории", () => {
       { category: "bloaters", open: 1, weight: 4, created: 2, closed: 1 },
       { category: "bug", open: 2, weight: 2, created: 2, closed: 0 },
       { category: "couplers", open: 0, weight: 0, created: 1, closed: 1 },
-      { category: null, open: 1, weight: 2, created: 1, closed: 0 },
+      { category: "unset", open: 1, weight: 2, created: 1, closed: 0 },
     ]);
   });
 
@@ -55,7 +55,7 @@ describe("категории", () => {
       { at: iso(5), task: "SPA-1", via: "cli", kind: "category", from: "bug" },
     ];
 
-    expect(categoryBreakdown(tasks, taskHistories(tasks, journal(events)), period(FROM, TO))).toEqual([{ category: null, open: 1, weight: 2, created: 1, closed: 0 }]);
+    expect(categoryBreakdown(tasks, taskHistories(tasks, journal(events)), period(FROM, TO))).toEqual([{ category: "unset", open: 1, weight: 2, created: 1, closed: 0 }]);
   });
 
   it("задача только из журнала берёт категорию из последнего события category", () => {

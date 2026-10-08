@@ -6,9 +6,9 @@ import { PRIORITY_WEIGHT } from "../weights";
 import type { CategoryRow } from "../types";
 
 export function categoryBreakdown(openTasks: readonly Task[], histories: readonly TaskHistory[], period: Period): CategoryRow[] {
-  const rows = new Map<Recorded<TaskCategory> | null, CategoryRow>();
+  const rows = new Map<CategoryRow["category"], CategoryRow>();
   const row = (category: Recorded<TaskCategory> | undefined): CategoryRow => {
-    const key = category ?? null;
+    const key = category ?? "unset";
     const existing = rows.get(key);
     if (existing !== undefined) return existing;
     const created: CategoryRow = { category: key, open: 0, weight: 0, created: 0, closed: 0 };
@@ -24,5 +24,5 @@ export function categoryBreakdown(openTasks: readonly Task[], histories: readonl
   for (const history of histories) row(history.category).closed += closingsOfIn(history, period).length;
   return [...rows.values()]
     .filter((entry) => entry.open + entry.created + entry.closed > 0)
-    .sort((a, b) => Number(a.category === null) - Number(b.category === null) || b.weight - a.weight || b.created - a.created || (a.category ?? "").localeCompare(b.category ?? ""));
+    .sort((a, b) => Number(a.category === "unset") - Number(b.category === "unset") || b.weight - a.weight || b.created - a.created || a.category.localeCompare(b.category));
 }

@@ -12,7 +12,6 @@ import { dailyFlow } from "./days";
 import { daysBetween, WEEK_MS } from "../model/dates";
 import { statsPeriod, weeklyFlow } from "./weeks";
 
-const STALE_DAYS = 30;
 const TAIL_FRACTION = 0.9;
 
 export function statsReport(context: ReportContext): StatsReport {
@@ -50,7 +49,6 @@ function totals(histories: readonly TaskHistory[], now: Date, period: Period, jo
     createdLastWeek: createdIn(histories, lastWeek).length,
     closedLastWeek: closingsIn(histories, lastWeek).length,
     ageMedianDays: median(ages),
-    olderThan30Days: ages.filter((age) => age >= STALE_DAYS).length,
     leadTimeMedianDays: median(leadTimes),
     leadTimeP90Days: nearestRank(leadTimes, TAIL_FRACTION),
     previous: previousTotals(histories, nowMs, journalStart),

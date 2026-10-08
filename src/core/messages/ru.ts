@@ -8,7 +8,7 @@ import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
 import type { LockBusy } from "../store/file-lock";
-import type { FlowForecast, Signal } from "../stats/types";
+import type { CategoryRow, FlowForecast, Signal } from "../stats/types";
 import { forecastOutlook, forecastSpan, type SpanUnit } from "./forecast";
 import { zodIssueText } from "./zod";
 
@@ -26,6 +26,10 @@ const CATEGORY_LABELS: Record<TaskCategory, string> = {
   obfuscators: "Запутанность",
   bug: "Ошибка",
 };
+
+const NO_CATEGORY_LABEL = "не указана";
+
+const CATEGORY_ROW_LABELS: Record<CategoryRow["category"], string> = { ...CATEGORY_LABELS, unset: NO_CATEGORY_LABEL, unknown: "неизвестна" };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   backlog: "в беклоге",
@@ -270,7 +274,8 @@ export const coreRu = {
   problem,
   problems,
   schemaIssue,
-  categoryLabel: (category: TaskCategory | undefined): string => (category === undefined ? "не указана" : CATEGORY_LABELS[category]),
+  categoryLabel: (category: TaskCategory | undefined): string => (category === undefined ? NO_CATEGORY_LABEL : CATEGORY_LABELS[category]),
+  categoryRowLabel: (category: CategoryRow["category"]): string => CATEGORY_ROW_LABELS[category],
   statusLabel: (status: TaskStatus): string => STATUS_LABELS[status],
   priorityLabel: (priority: Priority): string => PRIORITY_LABELS[priority],
   typeLabel: (type: TaskType): string => TYPE_LABELS[type],

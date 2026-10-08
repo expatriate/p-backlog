@@ -6,6 +6,8 @@ import type { Period } from "../period";
 import { weekWindows } from "../weeks";
 import type { AccuracyPeriod, AccuracyRow, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts } from "../types";
 
+export const METHOD_EVIDENCE: MethodAccuracyRow["evidence"] = "source-changed";
+
 type Outcome = "closed" | "verified" | "open";
 type Episode = { candidate: CandidateSeen; outcome: Outcome };
 
@@ -40,7 +42,8 @@ export function accuracyDays(histories: readonly TaskHistory[], now: Date): Accu
 }
 
 export function methodAccuracy(histories: readonly TaskHistory[], period: Period): MethodAccuracyRow[] {
-  return splitAccuracy(histories, period, { evidence: "source-changed", keys: RECORDED_METHODS, keyOf: (candidate) => candidate.method });
+  const rows = splitAccuracy(histories, period, { evidence: METHOD_EVIDENCE, keys: RECORDED_METHODS, keyOf: (candidate) => candidate.method });
+  return rows.map((row) => ({ evidence: METHOD_EVIDENCE, ...row }));
 }
 
 export function matchAccuracy(histories: readonly TaskHistory[], period: Period): MatchAccuracyRow[] {

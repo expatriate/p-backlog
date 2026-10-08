@@ -1,5 +1,5 @@
 import { isClosed } from "../../core/model/graph";
-import { deletionDate, RESOLUTION_STATUS } from "../../core/model/lifecycle";
+import { deletionDate, normalizeClosingReason, RESOLUTION_STATUS } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
 import { formatLocalDay } from "../../core/model/dates";
 import { findRepo, hasCommit } from "../../core/check/project-repo";
@@ -24,7 +24,7 @@ async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
   const [id, ...rest] = positionals;
   if (id === undefined || rest.length > 0 || values.as === undefined) throw usageError(closeCommand, io.language);
   const resolution = parseChoice(io.language, values.as, CLOSE_RESOLUTIONS, "--as");
-  const reason = (values.reason ?? "").replace(/\s*\n\s*/g, " ").trim();
+  const reason = normalizeClosingReason(values.reason ?? "");
   if (reason === "") throw new UsageError(io.cli.reasonRequired);
   const duplicateOf = values["duplicate-of"];
   const closesAsDuplicate = resolution === "duplicate";

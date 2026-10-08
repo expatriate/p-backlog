@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { GraphState } from "../check/graph-health";
 import type { Language } from "../i18n/language";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskIdSchema, type ParseError, type Project, type Task } from "../model/types";
+import { normalizeClosingReason } from "../model/lifecycle";
 import { settingsSchema } from "../model/settings";
 import type { BatchSkipReason } from "../store/batch";
 import type { MemorySample } from "../stats/types";
@@ -51,10 +52,7 @@ export const batchRequestSchema = z.strictObject({
   action: z.discriminatedUnion("kind", [
     z.strictObject({
       kind: z.literal("close"),
-      reason: z
-        .string()
-        .transform((reason) => reason.replace(/\s*\n\s*/g, " ").trim())
-        .pipe(z.string().min(1)),
+      reason: z.string().transform(normalizeClosingReason).pipe(z.string().min(1)),
     }),
     z.strictObject({ kind: z.literal("priority"), priority: z.enum(PRIORITIES) }),
     z.strictObject({ kind: z.literal("epic"), epic: taskIdSchema.nullable() }),

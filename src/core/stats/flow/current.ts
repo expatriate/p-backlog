@@ -16,11 +16,8 @@ export function inWorkTasks(tasks: readonly Task[], histories: readonly TaskHist
         .at(-1)?.at;
       return {
         id: task.id,
-        projectId: task.projectId,
-        title: task.title,
         status,
         days: daysBetween(entered ?? Date.parse(task.created), nowMs),
-        atLeast: entered === undefined,
       };
     })
     .sort((a, b) => b.days - a.days || compareIds(a.id, b.id));

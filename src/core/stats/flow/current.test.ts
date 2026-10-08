@@ -24,10 +24,10 @@ describe("задачи в работе", () => {
 
     const inWork = inWorkTasks(tasks, histories, NOW);
 
-    expect(inWork.map(({ id, status: taskStatus, atLeast }) => ({ id, status: taskStatus, atLeast }))).toEqual([
-      { id: "SPA-2", status: "blocked", atLeast: true },
-      { id: "SPA-1", status: "in-progress", atLeast: false },
-      { id: "SPA-3", status: "in-progress", atLeast: false },
+    expect(inWork.map(({ id, status: taskStatus }) => ({ id, status: taskStatus }))).toEqual([
+      { id: "SPA-2", status: "blocked" },
+      { id: "SPA-1", status: "in-progress" },
+      { id: "SPA-3", status: "in-progress" },
     ]);
     expect(inWork[0]?.days).toBeCloseTo(13);
     expect(inWork[1]?.days).toBeCloseTo(8);

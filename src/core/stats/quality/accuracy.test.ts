@@ -122,10 +122,10 @@ describe("точность по способу проверки", () => {
     ];
 
     expect(methodAccuracy(taskHistories(tasks, journal(events)), period(FROM, TO))).toEqual([
-      { by: "symbol", candidates: 2, closed: 1, verified: 1, open: 0, precision: 0.5 },
-      { by: "anchor", candidates: 1, closed: 1, verified: 0, open: 0, precision: 1 },
-      { by: "file", candidates: 1, closed: 0, verified: 1, open: 0, precision: 0 },
-      { by: "unknown", candidates: 1, closed: 0, verified: 1, open: 0, precision: 0 },
+      { evidence: "source-changed", by: "symbol", candidates: 2, closed: 1, verified: 1, open: 0, precision: 0.5 },
+      { evidence: "source-changed", by: "anchor", candidates: 1, closed: 1, verified: 0, open: 0, precision: 1 },
+      { evidence: "source-changed", by: "file", candidates: 1, closed: 0, verified: 1, open: 0, precision: 0 },
+      { evidence: "source-changed", by: "unknown", candidates: 1, closed: 0, verified: 1, open: 0, precision: 0 },
     ]);
   });
 

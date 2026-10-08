@@ -157,7 +157,6 @@ export const statsRu = {
   categoriesTitle: "Категории",
   categoriesEmpty: `За ${STATS_PERIOD} задач не было`,
   categoriesHead: ["Категория", "Открыто", "Вес", "Создано", "Закрыто"],
-  categoryUnknown: "неизвестна",
   originTitle: "Происхождение",
   foundTitle: "Как найдены",
   foundHead: ["Как найдена", "Создано", "Открыто", "Исправлено"],

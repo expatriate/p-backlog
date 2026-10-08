@@ -16,7 +16,6 @@ export type StatsTotals = {
   createdLastWeek: number;
   closedLastWeek: number;
   ageMedianDays: number | null;
-  olderThan30Days: number;
   leadTimeMedianDays: number | null;
   leadTimeP90Days: number | null;
   createdToday: number;
@@ -51,7 +50,7 @@ export type StatsReport = ReportHead & {
 };
 
 export type WorkStatus = "in-progress" | "blocked";
-export type LongestInWork = { id: string; projectId: string; title: string; status: WorkStatus; days: number; atLeast: boolean };
+export type LongestInWork = { id: string; status: WorkStatus; days: number };
 export type FlowForecast = { closed: number; created: number; open: number; weeklyNet: number; weeks: number | null; until: string | null; windowDays: number };
 
 export type ChurnRow = { label: string; commits: number; tasks: number; weight: number; score: number };
@@ -70,12 +69,12 @@ export type AccuracyPeriod = { start: string; decided: number; precision: number
 
 export type OutcomeCounts = { candidates: number; closed: number; verified: number; open: number; precision: number | null };
 export type AccuracyRow = { evidence: CandidateEvidence | "total" } & OutcomeCounts;
-export type MethodAccuracyRow = { by: RecordedMethod } & OutcomeCounts;
+export type MethodAccuracyRow = { evidence: "source-changed"; by: RecordedMethod } & OutcomeCounts;
 export type MatchAccuracyRow = { by: RecordedMatch } & OutcomeCounts;
 export type GraphFilterEffect = { filtered: number; caught: number; missed: number; quiet: number };
 export type ProjectGraphRow = { projectId: string; name: string; state: GraphState; pinned: number; resolved: number };
 export type GraphReport = { projects: ProjectGraphRow[]; filter: GraphFilterEffect };
-export type CategoryRow = { category: Recorded<TaskCategory> | null; open: number; weight: number; created: number; closed: number };
+export type CategoryRow = { category: Recorded<TaskCategory> | "unset"; open: number; weight: number; created: number; closed: number };
 export type FoundRow = { found: Recorded<FoundHow> | null; created: number; open: number; fixed: number };
 export type BranchRow = { label: string; created: number; open: number };
 export type QualityReport = ReportHead & {

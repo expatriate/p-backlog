@@ -138,7 +138,6 @@ export const statsEn: StatsMessages = {
   categoriesTitle: "Categories",
   categoriesEmpty: `No tasks over ${STATS_PERIOD}`,
   categoriesHead: ["Category", "Open", "Weight", "Created", "Closed"],
-  categoryUnknown: "unknown",
   originTitle: "Origin",
   foundTitle: "How found",
   foundHead: ["How found", "Created", "Open", "Fixed"],

@@ -7,7 +7,7 @@ import { countEn, pluralEn } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
-import type { FlowForecast, Signal } from "../stats/types";
+import type { CategoryRow, FlowForecast, Signal } from "../stats/types";
 import type { CoreMessages, CountUnit } from "./ru";
 import { forecastOutlook, forecastSpan } from "./forecast";
 import { zodIssueText } from "./zod";
@@ -26,6 +26,10 @@ const CATEGORY_LABELS: Record<TaskCategory, string> = {
   obfuscators: "Obfuscators",
   bug: "Bug",
 };
+
+const NO_CATEGORY_LABEL = "not set";
+
+const CATEGORY_ROW_LABELS: Record<CategoryRow["category"], string> = { ...CATEGORY_LABELS, unset: NO_CATEGORY_LABEL, unknown: "unknown" };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   backlog: "backlog",
@@ -256,7 +260,8 @@ export const coreEn: CoreMessages = {
   problem,
   problems,
   schemaIssue,
-  categoryLabel: (category) => (category === undefined ? "not set" : CATEGORY_LABELS[category]),
+  categoryLabel: (category) => (category === undefined ? NO_CATEGORY_LABEL : CATEGORY_LABELS[category]),
+  categoryRowLabel: (category) => CATEGORY_ROW_LABELS[category],
   statusLabel: (status) => STATUS_LABELS[status],
   priorityLabel: (priority) => PRIORITY_LABELS[priority],
   typeLabel: (type) => TYPE_LABELS[type],
