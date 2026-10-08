@@ -6,6 +6,7 @@ import { formatLines, formatNoiseShare } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
 import styles from "./EffectExplainer.module.css";
+import { codeAndTestsLines, linesAmount, summarizePending } from "./summaries";
 import { formatWhole } from "./value-format";
 
 export function EffectExplainer({ totals }: { totals: EffectTotals }) {
@@ -17,15 +18,15 @@ export function EffectExplainer({ totals }: { totals: EffectTotals }) {
         <li>{stats.explainerTask}</li>
         <li>
           {stats.explainerFixed}
-          <Now>{stats.fixedNow(totals.fixedTasks, totals.fixedLines)}</Now>
+          <Now>{stats.fixedNow(totals.fixedTasks, linesAmount(language, totals.fixedLines))}</Now>
         </li>
         <li>
           {stats.explainerPending}
-          <Now>{pendingText(stats, totals)}</Now>
+          <Now>{pendingText(stats, language, totals)}</Now>
         </li>
         <li>
           {stats.explainerTests}
-          <Now>{stats.codeAndTests(totals)}</Now>
+          <Now>{stats.codeAndTests(codeAndTestsLines(language, totals))}</Now>
         </li>
         <li>
           {stats.explainerNoise}
@@ -45,10 +46,10 @@ function Now({ children }: { children: ReactNode }) {
   );
 }
 
-function pendingText(stats: StatsMessages, totals: EffectTotals): string {
+function pendingText(stats: StatsMessages, language: Language, totals: EffectTotals): string {
   if (totals.openTasks === 0) return stats.noPending;
   if (totals.estimatedLines === null) return stats.pendingWithoutEstimate(totals.openTasks);
-  return stats.pendingEstimated(totals.openTasks, totals.estimatedLines, totals.estimatedLines / totals.openTasks);
+  return stats.pendingEstimated(summarizePending(language, totals.openTasks, totals.estimatedLines));
 }
 
 function noiseText(stats: StatsMessages, language: Language, totals: EffectTotals): string {

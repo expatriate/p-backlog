@@ -4,7 +4,6 @@ import { formatDay } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { CoreMessages } from "../../core/messages";
 import type { FlowPeriod, GrainPeriods } from "../../core/api/contract";
-import { sum } from "../../core/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay, compactNumber } from "./charts/chart-format";
@@ -12,6 +11,7 @@ import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, DATE_AXIS_PROPS, TOOLTIP_PROPS, V
 import { rowTooltip } from "./charts/ChartTooltip";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
+import { summarizeIntake } from "./summaries";
 import { useGrainPanel } from "./use-grain-panel";
 
 const CREATED = "var(--chart-bar-warm)";
@@ -32,7 +32,7 @@ export function IntakePanel({ weeks, days, windows }: { weeks: FlowPeriod[]; day
   const title = stats.createdBy[grain];
   return (
     <Panel title={title} period={period} aside={toggle}>
-      <ChartFrame summary={stats.intakeSummary(grain, periods.length, sum(periods.map((period) => period.created)))} legend={legend}>
+      <ChartFrame summary={stats.intakeSummary(summarizeIntake(grain, periods))} legend={legend}>
         <ComposedChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(title, grain)}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="start" tickFormatter={(day: string) => axisDay(language, day)} {...DATE_AXIS_PROPS} />

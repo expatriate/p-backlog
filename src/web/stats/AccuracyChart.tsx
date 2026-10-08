@@ -4,7 +4,6 @@ import { formatDay } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import { formatShare } from "../../core/stats/format";
 import type { AccuracyPeriod } from "../../core/api/contract";
-import { sum } from "../../core/numbers";
 import { useLanguage, useMessages } from "../i18n";
 import { ChartFrame, type LegendItem } from "./charts/ChartFrame";
 import { axisDay } from "./charts/chart-format";
@@ -12,6 +11,7 @@ import { AXIS_PROPS, BAR_RADIUS, CHART_MARGIN, LINE_WIDTH, DATE_AXIS_PROPS, TOOL
 import { rowTooltip } from "./charts/ChartTooltip";
 import { valueDot } from "./charts/value-dot";
 import type { StatsMessages } from "./messages.ru";
+import { summarizeAccuracy } from "./summaries";
 import { formatWhole } from "./value-format";
 
 const DECIDED = "var(--chart-bar-neutral)";
@@ -35,9 +35,7 @@ export function AccuracyChart({ periods, grain }: { periods: AccuracyPeriod[]; g
     { label: stats.decidedCandidates, shape: "bar", color: DECIDED },
     { label: stats.precision, shape: "line", color: PRECISION },
   ];
-  const decided = sum(periods.map((period) => period.decided));
-  const latest = periods.filter((period) => period.precision !== null).at(-1);
-  const summary = stats.accuracySummary({ grain, periodCount: periods.length, decided, latestPrecision: latest === undefined ? null : formatShare(latest.precision) });
+  const summary = stats.accuracySummary(summarizeAccuracy(grain, periods));
 
   return (
     <ChartFrame summary={summary} legend={legend}>

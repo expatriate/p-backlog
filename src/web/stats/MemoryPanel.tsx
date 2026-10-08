@@ -11,6 +11,7 @@ import { rowTooltip } from "./charts/ChartTooltip";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
 import rowStyles from "./PanelRows.module.css";
+import { NO_VALUE } from "../labels";
 
 const RSS = "var(--chart-line-bright)";
 const HEAP = "var(--chart-line-blue)";
@@ -37,10 +38,11 @@ export function MemoryPanel() {
   const samples = memory.data?.samples ?? [];
   const current = samples.at(-1)?.rssMb ?? null;
   const max = samples.length === 0 ? null : Math.max(...samples.map((sample) => sample.rssMb));
+  const megabytes = (value: number | null) => (value === null ? NO_VALUE : stats.megabytes(value));
   return (
     <Panel title={stats.serverMemory}>
       <p className={rowStyles.muted}>{stats.memoryRestartNote}</p>
-      <ChartFrame summary={stats.memorySummary(stats.megabytes(current), stats.megabytes(max))} legend={legend}>
+      <ChartFrame summary={stats.memorySummary(megabytes(current), megabytes(max))} legend={legend}>
         <AreaChart data={samples} margin={CHART_MARGIN} aria-label={stats.chartLabel(stats.serverMemory, "sample")}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="at" tickFormatter={(at: string) => axisTime(language, at)} {...DATE_AXIS_PROPS} />

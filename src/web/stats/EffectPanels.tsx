@@ -9,6 +9,7 @@ import { Figure, FigureGroup } from "./Figure";
 import { Panel } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
+import { codeAndTestsLines, linesAmount } from "./summaries";
 import { useGrainPanel } from "./use-grain-panel";
 import { formatWhole } from "./value-format";
 import { NO_VALUE } from "../labels";
@@ -19,7 +20,11 @@ export function EffectFigures({ totals, period }: { totals: EffectTotals; period
   const caption = usePeriodCaption();
   return (
     <FigureGroup period={caption.labelled(stats.effectWindow, period)}>
-      <Figure label={stats.keptOut} value={stats.linesText(totals.deferredLines, totals.estimatedLines)} note={`${keptOutNote(stats, language, totals)} · ${stats.codeAndTests(totals)}`} />
+      <Figure
+        label={stats.keptOut}
+        value={stats.linesText(linesAmount(language, totals.deferredLines, totals.estimatedLines))}
+        note={`${keptOutNote(stats, language, totals)} · ${stats.codeAndTests(codeAndTestsLines(language, totals))}`}
+      />
       <Figure label={stats.noiseWithoutBacklog} value={formatNoiseShare(totals.noiseShare, totals.estimatedLines)} note={stats.noiseNote} />
       <Figure label={stats.deferredToBacklog} value={formatWhole(language, totals.deferredTasks)} note={stats.deferredNote(totals.fixedTasks, totals.openTasks)} />
       <Figure label={stats.pullRequestLines} value={formatWhole(language, totals.realLines)} />

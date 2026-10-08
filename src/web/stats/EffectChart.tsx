@@ -13,6 +13,7 @@ import { rowTooltip } from "./charts/ChartTooltip";
 import { deferredCodeLines, formatLines, formatNoiseShare } from "./effect-format";
 import { formatWhole } from "./value-format";
 import type { StatsMessages } from "./messages.ru";
+import { linesAmount } from "./summaries";
 
 const REAL = "var(--chart-bar-neutral)";
 const DEFERRED = "var(--accent-ink)";
@@ -45,7 +46,7 @@ export function EffectChart({ periods, totals, grain }: { periods: EffectPeriod[
     { label: stats.deferredSeries, shape: "hatch", color: DEFERRED },
   ];
   return (
-    <ChartFrame summary={effectSummary(stats, grain, periods, totals)} legend={legend}>
+    <ChartFrame summary={effectSummary(stats, language, grain, periods, totals)} legend={legend}>
       <BarChart data={periods} margin={CHART_MARGIN} aria-label={stats.chartLabel(stats.effectTitle, grain)}>
         <defs>
           <pattern id={patternId} width={HATCH_SIZE} height={HATCH_SIZE} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -64,10 +65,11 @@ export function EffectChart({ periods, totals, grain }: { periods: EffectPeriod[
   );
 }
 
-function effectSummary(stats: StatsMessages, grain: Grain, periods: EffectPeriod[], totals: EffectTotals): string {
-  if (grain === "week") return stats.effectSummary(totals.realLines, stats.linesText(totals.deferredLines, totals.estimatedLines), formatNoiseShare(totals.noiseShare, totals.estimatedLines));
+function effectSummary(stats: StatsMessages, language: Language, grain: Grain, periods: EffectPeriod[], totals: EffectTotals): string {
+  const deferredText = (lines: number, estimatedPart: number | null) => stats.linesText(linesAmount(language, lines, estimatedPart));
+  if (grain === "week") return stats.effectSummary(totals.realLines, deferredText(totals.deferredLines, totals.estimatedLines), formatNoiseShare(totals.noiseShare, totals.estimatedLines));
   const total = (pick: (period: EffectPeriod) => number) => sum(periods.map(pick));
-  const deferred = stats.linesText(
+  const deferred = deferredText(
     total((period) => period.deferredLines),
     total((period) => period.estimatedLines ?? 0),
   );

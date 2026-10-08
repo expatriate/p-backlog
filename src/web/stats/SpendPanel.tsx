@@ -13,7 +13,7 @@ import { nonZeroDot } from "./charts/value-dot";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
 import { useGrainPanel } from "./use-grain-panel";
-import { costValue, formatWhole } from "./value-format";
+import { approx, costValue, formatWhole } from "./value-format";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
 const CLI_TOKENS = "var(--chart-bar-neutral)";
@@ -78,7 +78,7 @@ function spendSummary(stats: StatsMessages, language: Language, grain: Grain, pe
     periodCount: periods.length,
     hookTokens: total((period) => period.hookTokens),
     cliTokens: whole(total((period) => period.cliTokens)),
-    money: formatMoney(language, totalMoney(periods)),
+    approxMoney: approx(formatMoney(language, totalMoney(periods))),
     hookRuns: whole(total((period) => period.hookRuns)),
     cliRuns: whole(total((period) => period.cliRuns)),
   });

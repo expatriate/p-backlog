@@ -59,7 +59,7 @@ export function CommandsPanel({ commands, period }: { commands: CostCommand[]; p
           head={stats.commandsHead}
           rows={commands.map((command) => ({
             key: command.command,
-            cells: [command.command, formatWhole(language, command.runs), stats.milliseconds(command.avgMs), stats.megabytes(command.avgRssMb), stats.megabytes(command.maxRssMb)],
+            cells: [command.command, formatWhole(language, command.runs), stats.milliseconds(formatWhole(language, command.avgMs)), stats.megabytes(command.avgRssMb), stats.megabytes(command.maxRssMb)],
           }))}
         />
       )}
