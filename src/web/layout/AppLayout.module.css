@@ -64,7 +64,6 @@
 }
 
 .row {
-  --row-gap: var(--space-2);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -214,6 +213,7 @@
 @media (max-width: 900px) {
   .shell {
     --main-overflow: visible;
+    --main-frame-overflow: visible;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto 1fr;
     height: auto;
@@ -231,7 +231,7 @@
   }
 
   .projects {
-    --project-error-indent: 0;
+    --project-error-indented: 0;
     flex-direction: row;
     flex-wrap: wrap;
     align-items: flex-start;

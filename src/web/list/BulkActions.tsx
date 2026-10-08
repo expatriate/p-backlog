@@ -182,8 +182,8 @@ function AssignEpicOptions({ epics, onChoose }: { epics: EpicChoice[]; onChoose:
         {list.removeFromEpic}
       </MenuOption>
       {epics.map((epic) => (
-        <MenuOption key={epic.id} tone={epic.tone} onChoose={() => choose(epic.id)}>
-          <EpicLabel id={epic.id} title={epic.title} count={epic.taskCount} />
+        <MenuOption key={epic.id} onChoose={() => choose(epic.id)}>
+          <EpicLabel id={epic.id} title={epic.title} tone={epic.tone} count={epic.taskCount} />
         </MenuOption>
       ))}
     </MenuOptions>

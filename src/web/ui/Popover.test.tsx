@@ -1,10 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { Popover, POPOVER_INITIAL_FOCUS } from "./Popover";
 
 function stubViewport(clientWidth: number): void {
   vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(clientWidth);
+  document.documentElement.style.setProperty("--viewport-margin", "16px");
+  onTestFinished(() => {
+    document.documentElement.style.removeProperty("--viewport-margin");
+  });
 }
 
 function stubMenuRect(rect: { left: number; right: number; width: number }): void {

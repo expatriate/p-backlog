@@ -38,8 +38,8 @@
   flex-basis: 100%;
   contain: inline-size;
   order: 1;
-  margin-inline-end: calc(var(--row-gap, 0px) * -1);
-  padding-inline-start: var(--project-error-indent, calc(24px + var(--row-gap, 0px)));
+  margin-inline-end: calc(var(--row-gap) * -1);
+  padding-inline-start: calc((24px + var(--row-gap)) * var(--project-error-indented));
   text-wrap: pretty;
   color: var(--danger-ink);
   font-size: var(--text-sm);

@@ -47,6 +47,10 @@
   --epic-tone-5-ink: oklch(0.82 0.1 115);
   --epic-tone-5-soft: oklch(0.34 0.06 115);
 
+  --tone-line: var(--ink-subtle);
+  --tone-ink: var(--ink-muted);
+  --tone-soft: var(--surface-hover);
+
   --chart-bar-warm: oklch(0.6 0.11 27.2);
   --chart-bar-neutral: oklch(0.54 0 0);
   --chart-bar-green: oklch(0.6 0.09 152);
@@ -87,6 +91,15 @@
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --duration: 160ms;
+
+  --main-overflow: auto;
+  --main-frame-overflow: hidden;
+  --list-footer-height: 0px;
+  --drawer-pad-block-start: var(--space-4);
+  --drawer-modal: 0;
+  --row-gap: var(--space-2);
+  --project-error-indented: 1;
+  --viewport-margin: 16px;
 
   color-scheme: dark;
 }

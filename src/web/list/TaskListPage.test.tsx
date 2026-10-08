@@ -375,7 +375,7 @@ describe("список задач", () => {
       const epic = within(options).getByRole("button", { name: /SPA-1/ });
       expect(epic.textContent).toContain("Эпик загрузки");
       expect(epic.textContent).toContain("2");
-      expect(epic.getAttribute("data-epic-tone")).toBe("1");
+      expect(epic.querySelector("[data-epic-tone]")?.getAttribute("data-epic-tone")).toBe("1");
 
       await app.user.click(epic);
 

@@ -78,12 +78,12 @@ function EpicOptions({ choices, selected, onSelect }: EpicPickerProps) {
         <div className={styles.epics}>
           {foreignEpic !== undefined && (
             <MenuOption pressed onChoose={() => choose(foreignEpic)}>
-              <EpicLabel id={foreignEpic} title={list.epicNotFound} />
+              <EpicLabel id={foreignEpic} title={list.epicNotFound} tone={undefined} />
             </MenuOption>
           )}
           {choices.epics.map((epic) => (
-            <MenuOption key={epic.id} pressed={selected === epic.id} tone={epic.tone} onChoose={() => choose(epic.id)}>
-              <EpicLabel id={epic.id} title={epic.title} count={epic.taskCount} />
+            <MenuOption key={epic.id} pressed={selected === epic.id} onChoose={() => choose(epic.id)}>
+              <EpicLabel id={epic.id} title={epic.title} tone={epic.tone} count={epic.taskCount} />
             </MenuOption>
           ))}
         </div>

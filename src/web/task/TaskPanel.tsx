@@ -10,6 +10,7 @@ import type { TaskHref } from "../app/task-href";
 import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { DeletionCountdown } from "../ui/Deletion";
+import type { EpicTone } from "../ui/epic-tone";
 import { ProgressBar } from "../ui/ProgressBar";
 import type { Draft } from "../ui/use-draft";
 import { useLeaveGuard } from "../ui/use-leave-guard";
@@ -29,7 +30,7 @@ export type TaskPanelProps = {
   index: BacklogIndex;
   taskHref: TaskHref;
   onClose: () => void;
-  tone: number | undefined;
+  tone: EpicTone | undefined;
   gone: boolean;
 };
 

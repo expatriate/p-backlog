@@ -2,7 +2,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   min-height: 0;
-  overflow: var(--main-overflow, hidden);
+  overflow: var(--main-frame-overflow);
 }
 
 .list {
@@ -10,8 +10,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  overflow-y: var(--main-overflow, auto);
-  scroll-padding-bottom: var(--list-footer-height, 0px);
+  overflow-y: var(--main-overflow);
+  scroll-padding-bottom: var(--list-footer-height);
 }
 
 .heading {

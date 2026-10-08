@@ -3,7 +3,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--tone-line, var(--ink-subtle));
+  background: var(--tone-line);
 }
 
 .id {

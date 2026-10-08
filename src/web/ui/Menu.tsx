@@ -14,21 +14,13 @@ export function MenuOptions({ label, children }: { label?: string; children: Rea
 export type MenuOptionProps = {
   pressed?: boolean | undefined;
   initialFocus?: boolean | undefined;
-  tone?: number | undefined;
   onChoose: () => void;
   children: ReactNode;
 };
 
-export function MenuOption({ pressed, initialFocus = pressed, tone, onChoose, children }: MenuOptionProps) {
+export function MenuOption({ pressed, initialFocus = pressed, onChoose, children }: MenuOptionProps) {
   return (
-    <button
-      type="button"
-      className={cx(styles.option, pressed === true && styles.pressed)}
-      aria-pressed={pressed}
-      data-epic-tone={tone}
-      {...(initialFocus === true ? POPOVER_INITIAL_FOCUS : {})}
-      onClick={onChoose}
-    >
+    <button type="button" className={cx(styles.option, pressed === true && styles.pressed)} aria-pressed={pressed} {...(initialFocus === true ? POPOVER_INITIAL_FOCUS : {})} onClick={onChoose}>
       {children}
     </button>
   );
