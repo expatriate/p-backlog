@@ -129,7 +129,7 @@ export const cliRu = {
   closedWithoutFixCommit: (id: string): string =>
     `${id} закрыта без коммита исправления — статистика не узнает, чем она исправлена. Когда правка будет в коммите: backlog close ${id} --as fixed --reason "Исправлено в <sha>: …"`,
   earlierFixCommits: (id: string, hashes: readonly string[]): string =>
-    `${id} была исправлена в ${hashes.join(", ")}: закрывая снова, укажите в --reason и эти коммиты — иначе статистика не учтёт первое исправление`,
+    `${id} была исправлена в ${hashes.join(", ")}: закрывая снова, начните --reason с этих коммитов ("Исправлено в ${hashes.join(", ")}, <sha>: …") — статистика считает исправлением первый коммит из причины`,
 
   pruneUsage: (days: number): string => `[--project id | --all-projects] [--apply]   (задачи с низким приоритетом старше ${days} дней)`,
   pruneReason: (days: number): string => `Низкий приоритет, не брали в работу ${days}+ дней (backlog prune)`,

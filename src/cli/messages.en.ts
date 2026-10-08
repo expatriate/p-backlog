@@ -124,7 +124,8 @@ export const cliEn: CliMessages = {
 
   checklistWarning: (count) => `Note: unchecked checklist items — ${count}`,
   closedWithoutFixCommit: (id) => `${id} is closed without a fix commit — stats won't know what fixed it. Once the change is committed: backlog close ${id} --as fixed --reason "Fixed in <sha>: …"`,
-  earlierFixCommits: (id, hashes) => `${id} was fixed in ${hashes.join(", ")}: when closing it again, list these commits in --reason too — otherwise stats miss the first fix`,
+  earlierFixCommits: (id, hashes) =>
+    `${id} was fixed in ${hashes.join(", ")}: when closing it again, start --reason with these commits ("Fixed in ${hashes.join(", ")}, <sha>: …") — stats count the first commit in the reason as the fix`,
 
   pruneUsage: (days) => `[--project id | --all-projects] [--apply]   (tasks with low priority older than ${days} days)`,
   pruneReason: (days) => `Low priority, not taken up in ${days}+ days (backlog prune)`,
