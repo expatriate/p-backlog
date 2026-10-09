@@ -1,10 +1,10 @@
 import { warnPathErrors } from "../../core/errors";
 import { LANGUAGES, type Language } from "../../core/i18n/language";
-import { coreMessages } from "../../core/messages";
+import { coreMessages, type CoreMessages } from "../../core/messages";
 import { writeSettings } from "../../core/store/settings";
 import { AGENT_SPECS, agentVoice, detectAgents, type Agent } from "../agents/agent";
 import { linkAgentSkill } from "../agents/agent-skill";
-import { agentPlugin, pluginToSwitchTo } from "../agents/claude-plugin";
+import { agentPluginReportingFailure, pluginToSwitchTo } from "../agents/claude-plugin";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { cliMessages } from "../messages";
@@ -33,23 +33,24 @@ async function runLanguage(positionals: string[], io: CliIo): Promise<ExitCode> 
   const language = parseChoice(io.language, value, LANGUAGES, io.cli.optionLabel.language);
   await writeSettings(io.backlogRoot, { language });
   io.print(`${io.language} → ${language}`);
-  const { found } = await detectAgents(io, warnPathErrors(io.warn, coreMessages(language).unreadableSkipped));
-  for (const agent of found) await relinkSkill(agent, language, io);
+  const { unreadableSkipped } = coreMessages(language);
+  const { found } = await detectAgents(io, warnPathErrors(io.warn, unreadableSkipped));
+  for (const agent of found) await relinkSkill(agent, language, unreadableSkipped, io);
   return EXIT.ok;
 }
 
-async function relinkSkill(agent: Agent, language: Language, io: CliIo): Promise<void> {
+async function relinkSkill(agent: Agent, language: Language, unreadableSkipped: CoreMessages["unreadableSkipped"], io: CliIo): Promise<void> {
   const cli = cliMessages(language);
-  const spec = AGENT_SPECS[agent];
   const voice = agentVoice(agent, io);
-  const plugin = await agentPlugin(agent, io);
-  if (plugin !== null) {
-    const wanted = pluginToSwitchTo(plugin, language);
-    if (wanted !== null) voice.print(cli.pluginLanguageHint(plugin, wanted));
+  const lookup = await agentPluginReportingFailure(agent, io, warnPathErrors(voice.warn, unreadableSkipped));
+  if (lookup?.plugin) {
+    const wanted = pluginToSwitchTo(lookup.plugin, language);
+    if (wanted !== null) voice.print(cli.pluginLanguageHint(lookup.plugin, wanted));
     return;
   }
-  const relink = spec.skillOnLanguageChange === "link" ? linkSkillFor : relinkExistingSkill;
+  const relink = lookup !== null && AGENT_SPECS[agent].skillOnLanguageChange === "link" ? linkSkillFor : relinkExistingSkill;
   const link = await linkAgentSkill(agent, io, (options) => relink(language, options));
   if (!link.ok) voice.warn(cli.installSkillLinkFailed(link.target, link.failed));
   else if (link.result === "foreign") voice.warn(cli.skillForeign(link.target));
+  else if (lookup === null && link.result === "absent") voice.warn(cli.skillLeftUnverified(language));
 }

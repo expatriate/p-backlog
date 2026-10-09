@@ -70,6 +70,49 @@ describe("backlog config language", () => {
     expect(await realpath(join(skillsDir, "backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
   });
 
+  describe.skipIf(process.platform === "win32")("нечитаемый файл настроек Claude Code (на Windows chmod не закрывает файл)", () => {
+    async function sandboxWithLockedSettings() {
+      const sandbox = await makeCliSandbox();
+      const settingsPath = join(sandbox.home, "claude/settings.json");
+      await mkdir(dirname(settingsPath), { recursive: true });
+      await writeFile(settingsPath, "{}");
+      await chmod(settingsPath, 0o000);
+      onTestFinished(() => chmod(settingsPath, 0o600));
+      return { ...sandbox, settingsPath, skillsDir: join(sandbox.home, "skills") };
+    }
+
+    it("названо в предупреждении; ссылки Claude Code нет — она не заводится, предупреждение просит повторить, а язык и ссылка Codex меняются", async () => {
+      const { home, run, settingsPath, skillsDir } = await sandboxWithLockedSettings();
+      const codexLink = join(home, ".agents/skills/backlog");
+      await mkdir(join(home, ".codex"), { recursive: true });
+      await mkdir(dirname(codexLink), { recursive: true });
+      await symlink(join(repoRoot, "skill/backlog"), codexLink, "dir");
+
+      const result = await run(["config", "language", "en"], { env: { CLAUDE_SETTINGS_PATH: settingsPath, CLAUDE_SKILLS_DIR: skillsDir } });
+
+      expect(result.code).toBe(EXIT.ok);
+      expect(result.err).toContain(`Claude Code: Could not read ${settingsPath}`);
+      expect(result.err).toContain("Claude Code: the skill link was left unchanged");
+      expect(result.err).toContain("backlog config language en");
+      expect((await run(["config", "language"])).out).toBe("en");
+      expect(await realpath(codexLink)).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
+      await expect(lstat(join(skillsDir, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });
+    });
+
+    it("уже стоящая ссылка Claude Code на прежний язык переставляется, повторить не просят", async () => {
+      const { run, settingsPath, skillsDir } = await sandboxWithLockedSettings();
+      await mkdir(skillsDir, { recursive: true });
+      await symlink(join(repoRoot, "skill/backlog"), join(skillsDir, "backlog"), "dir");
+
+      const result = await run(["config", "language", "en"], { env: { CLAUDE_SETTINGS_PATH: settingsPath, CLAUDE_SKILLS_DIR: skillsDir } });
+
+      expect(result.code).toBe(EXIT.ok);
+      expect(result.err).toContain(`Could not read ${settingsPath}`);
+      expect(result.err).not.toContain("left unchanged");
+      expect(await realpath(join(skillsDir, "backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
+    });
+  });
+
   it("сбой ссылки у одного агента не мешает переставить скилл остальным", async () => {
     const { home, run } = await makeCliSandbox();
     const codexLink = join(home, ".agents/skills/backlog");

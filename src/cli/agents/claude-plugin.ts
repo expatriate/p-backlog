@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Language } from "../../core/i18n/language";
-import { readJsonFile } from "../../core/store/fs-utils";
+import type { PathErrorHandler } from "../../core/errors";
+import { readJsonFile, readReportingFailure } from "../../core/store/fs-utils";
 import { SKILL_VARIANTS } from "../skill-variants";
 import { AGENT_SPECS, type Agent, type AgentPlaces } from "./agent";
 
@@ -9,12 +10,18 @@ const MARKETPLACE_SEPARATOR = "@";
 
 const enabledPluginsSchema = z.object({ enabledPlugins: z.record(z.string(), z.unknown()).optional() });
 
-export async function agentPlugin(agent: Agent, places: AgentPlaces): Promise<string | null> {
+type PluginLookup = { plugin: string | null };
+
+export async function agentPluginReportingFailure(agent: Agent, places: AgentPlaces, onUnreadable: PathErrorHandler): Promise<PluginLookup | null> {
   const settingsPath = AGENT_SPECS[agent].pluginSettingsPath;
-  if (settingsPath === null) return null;
-  const settings = await readJsonFile(settingsPath(places), enabledPluginsSchema);
+  if (settingsPath === null) return { plugin: null };
+  return readReportingFailure(settingsPath(places), readEnabledPlugin, onUnreadable);
+}
+
+async function readEnabledPlugin(path: string): Promise<PluginLookup> {
+  const settings = await readJsonFile(path, enabledPluginsSchema);
   const enabled = Object.entries(settings?.enabledPlugins ?? {}).find(([id, on]) => on === true && PLUGIN_NAMES.has(pluginName(id)));
-  return enabled?.[0] ?? null;
+  return { plugin: enabled?.[0] ?? null };
 }
 
 export function pluginToSwitchTo(pluginId: string, language: Language): string | null {

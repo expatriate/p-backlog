@@ -188,6 +188,29 @@ describe("backlog setup", () => {
     expect(await realpath(join(env.CLAUDE_SKILLS_DIR, "backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog")));
   });
 
+  it.skipIf(process.platform === "win32")(
+    "нечитаемый файл настроек Claude Code назван в предупреждении, Claude пропущен с отказом в коде выхода, а Codex и Cursor настроены (на Windows chmod не закрывает файл)",
+    async () => {
+      const { home, run } = await makeCliSandbox();
+      const env = claudeEnv(home);
+      await mkdir(dirname(env.CLAUDE_SETTINGS_PATH), { recursive: true });
+      await writeFile(env.CLAUDE_SETTINGS_PATH, "{}");
+      await chmod(env.CLAUDE_SETTINGS_PATH, 0o000);
+      onTestFinished(() => chmod(env.CLAUDE_SETTINGS_PATH, 0o600));
+      await mkdir(join(home, ".codex"), { recursive: true });
+      await mkdir(join(home, ".cursor"), { recursive: true });
+
+      const result = await run(["setup"], { env });
+
+      expect(result.code).toBe(EXIT.failed);
+      expect(result.err).toContain(`Claude Code: Не удалось прочитать ${env.CLAUDE_SETTINGS_PATH}`);
+      expect(JSON.parse(await readFile(join(home, ".codex/hooks.json"), "utf8")).hooks.Stop).toHaveLength(1);
+      expect(JSON.parse(await readFile(join(home, ".cursor/hooks.json"), "utf8")).hooks.stop).toHaveLength(1);
+      expect(await realpath(join(home, ".agents/skills/backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog")));
+      await expect(lstat(join(env.CLAUDE_SKILLS_DIR, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });
+    },
+  );
+
   it("новый хук Codex просит одобрить в /hooks, уже стоящий — нет", async () => {
     const { home, run } = await makeCliSandbox();
     await mkdir(join(home, ".codex"), { recursive: true });
@@ -253,6 +276,23 @@ describe("backlog setup", () => {
     expect(result.code).toBe(EXIT.failed);
     expect(result.err).toContain(`Не удалось снять ссылку ${join(locked, "skills", "backlog")}`);
     expect(JSON.parse(await readFile(env.CLAUDE_SETTINGS_PATH, "utf8"))).toEqual({ hooks: {} });
+  });
+
+  it.skipIf(process.platform === "win32")("--remove-manual с неснимаемой прежней ссылкой Cursor называет её, снимает хук и отвечает отказом (на Windows chmod не закрывает каталог)", async () => {
+    const { home, run } = await makeCliSandbox();
+    const legacyDir = join(home, ".cursor/skills");
+    await run(["setup", "--agent", "cursor"]);
+    await mkdir(legacyDir, { recursive: true });
+    await symlink(join(repoRoot, "skill/backlog"), join(legacyDir, "backlog"), "dir");
+    await chmod(legacyDir, 0o500);
+    onTestFinished(() => chmod(legacyDir, 0o700));
+
+    const result = await run(["setup", "--remove-manual", "--agent", "cursor"]);
+
+    expect(result.code).toBe(EXIT.failed);
+    expect(result.err).toContain(`Cursor: Не удалось снять ссылку ${join(legacyDir, "backlog")}`);
+    expect(JSON.parse(await readFile(join(home, ".cursor/hooks.json"), "utf8"))).toEqual({ hooks: {}, version: 1 });
+    await expect(lstat(join(home, ".agents/skills/backlog"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("--remove-manual снимает только наши скиллы и хуки у всех агентов", async () => {

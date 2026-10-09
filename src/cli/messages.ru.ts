@@ -19,6 +19,8 @@ export const cliRu = {
 
   optionLabel: { status: "статус", category: "категория", priority: "приоритет", language: "язык", agent: "агент" },
   skillForeign: (target: string): string => `${target} — чужой каталог, скилл не переставлен`,
+  skillLeftUnverified: (language: string): string =>
+    `ссылка на скилл не менялась: файл настроек не прочитать, подключён ли плагин — неизвестно. Исправьте доступ и повторите: backlog config language ${language}`,
 
   installSkillLinked: (target: string, source: string): string => `Скилл установлен: ${target} → ${source}`,
   installSkillKept: (target: string): string => `Скилл уже установлен: ${target}`,

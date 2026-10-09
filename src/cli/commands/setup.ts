@@ -3,7 +3,7 @@ import { readReportingFailure } from "../../core/store/fs-utils";
 import { AGENT_SPECS, AGENTS, agentVoice, detectAgents, type Agent, type AgentDetection, type AgentVoice } from "../agents/agent";
 import { installAgentHook, removeAgentHook } from "../agents/agent-hooks";
 import { linkAgentSkill } from "../agents/agent-skill";
-import { agentPlugin } from "../agents/claude-plugin";
+import { agentPluginReportingFailure } from "../agents/claude-plugin";
 import type { HookInstallResult, HookRemoveResult } from "../agents/grouped-stop-hooks";
 import type { CliCommand } from "../command";
 import { isFailure } from "../failure";
@@ -44,9 +44,10 @@ async function targetAgents(option: string | undefined, installed: InstalledAgen
 
 async function setUpAgent(agent: Agent, io: CliIo): Promise<boolean> {
   const voice = agentVoice(agent, io);
-  const plugin = await agentPlugin(agent, io);
-  if (plugin !== null) {
-    voice.print(io.cli.pluginManages(plugin));
+  const lookup = await agentPluginReportingFailure(agent, io, warnPathErrors(voice.warn, io.core.unreadableSkipped));
+  if (lookup === null) return false;
+  if (lookup.plugin !== null) {
+    voice.print(io.cli.pluginManages(lookup.plugin));
     return true;
   }
   if (!(await installAgentSkill(agent, io, voice))) return false;
@@ -73,10 +74,14 @@ async function installAgentSkill(agent: Agent, io: CliIo, voice: AgentVoice): Pr
   return true;
 }
 
-async function removeLegacySkillLinks(agent: Agent, io: CliIo, voice: AgentVoice): Promise<void> {
+async function removeLegacySkillLinks(agent: Agent, io: CliIo, voice: AgentVoice): Promise<boolean> {
+  let allSettled = true;
   for (const legacyDir of AGENT_SPECS[agent].legacySkillsDirs(io)) {
-    if ((await unlinkReportingFailure(legacyDir, io, voice)) === "removed") voice.print(io.cli.manualSkillRemoval.removed(skillLinkPath(legacyDir)));
+    const unlinked = await unlinkReportingFailure(legacyDir, io, voice);
+    if (unlinked === "removed") voice.print(io.cli.manualSkillRemoval.removed(skillLinkPath(legacyDir)));
+    if (unlinked === null) allSettled = false;
   }
+  return allSettled;
 }
 
 function unlinkReportingFailure(skillsDir: string, io: CliIo, voice: AgentVoice): Promise<SkillUnlinkResult | null> {
@@ -102,9 +107,9 @@ type ManualRemoval = { removing: readonly Agent[]; installed: InstalledAgents };
 async function removeManualSetup(agent: Agent, removal: ManualRemoval, io: CliIo): Promise<boolean> {
   const voice = agentVoice(agent, io);
   const skillSettled = await removeSkillLinkUnlessShared(agent, removal, io);
-  await removeLegacySkillLinks(agent, io, voice);
+  const legacySettled = await removeLegacySkillLinks(agent, io, voice);
   const hookRemoved = reportHookRemoval(await removeAgentHook(agent, io), AGENT_SPECS[agent].hookConfigPath(io), io, voice);
-  return skillSettled && hookRemoved;
+  return skillSettled && legacySettled && hookRemoved;
 }
 
 async function removeSkillLinkUnlessShared(agent: Agent, removal: ManualRemoval, io: CliIo): Promise<boolean> {

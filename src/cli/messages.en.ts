@@ -20,6 +20,8 @@ export const cliEn: CliMessages = {
 
   optionLabel: { status: "status", category: "category", priority: "priority", language: "language", agent: "agent" },
   skillForeign: (target) => `${target} is a foreign directory, the skill link was not moved`,
+  skillLeftUnverified: (language) =>
+    `the skill link was left unchanged: the settings file could not be read, so it is unknown whether a plugin provides the skill. Fix the access and re-run: backlog config language ${language}`,
 
   installSkillLinked: (target, source) => `Skill installed: ${target} → ${source}`,
   installSkillKept: (target) => `Skill already installed: ${target}`,

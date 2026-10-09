@@ -13,8 +13,15 @@
   as a missing path. The same goes for an installed service file that `backlog service status` or `backlog stats`
   cannot read: they warn and use `PORT`. An agent directory that `backlog setup` or `backlog config` cannot read (for
   example, `CODEX_HOME` without permission) is named in a warning and that agent is skipped, while the other agents are
-  set up as usual; before, it was reported as "not found". A skill link that `backlog setup --remove-manual` cannot
-  remove is named in a warning, the agent's hook is still removed, and the command exits with code 4.
+  set up as usual; before, it was reported as "not found". The same goes for a Claude Code settings file that cannot be
+  read: before, `backlog setup` stopped there without setting up Cursor or Codex, and `backlog config language` saved
+  the language but did not relink any skill. Now Claude Code is named in a warning (`backlog setup` skips it and still
+  exits with code 4), and the other agents are set up or relinked as usual. `backlog config language` still repoints
+  an existing Claude Code skill link to the new language (it cannot tell whether a plugin provides the skill, so it
+  never creates a link there); without such a link it says the link was left unchanged and asks to re-run the command
+  once the file is readable. A skill link, or a legacy skill link of Cursor or Codex, that `backlog setup
+  --remove-manual` cannot remove is named in a warning, the agent's hook is still removed, and the command exits with
+  code 4.
 - The statistics of a project whose directory is named `all` are no longer shown as the statistics of all projects (or
   the other way round) after switching between the two in the web UI.
 - The card of a closed task whose file lacks the closing date or the reason (or has a blank one) now says "Closed,
