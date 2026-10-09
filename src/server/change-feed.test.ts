@@ -5,45 +5,59 @@ import { writeFileAtomic } from "../core/store/fs-utils";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
 import { createChangeFeed, createDebouncer, isHiddenPath, type ChangeFeed } from "./change-feed";
 
-const PROBE_FILE = "probe.md";
+const PROBE_PREFIX = "probe-";
+let probes = 0;
+
+const isProbe = (path: string): boolean => basename(path).startsWith(PROBE_PREFIX);
 
 async function watchedBacklog(root: string, debounceMs: number): Promise<ChangeFeed> {
   const feed = createChangeFeed({ root, debounceMs, warn: async () => undefined });
   onTestFinished(() => feed.close());
-  const probe = join(root, PROBE_FILE);
-  let writes = 0;
   await vi.waitFor(
     async () => {
-      const seen = firstChange(feed, (paths) => paths.includes(probe) || undefined, debounceMs + 200);
-      await writeFile(probe, String(++writes), "utf8");
-      await seen;
+      const probeArrived = probeArrivesWithin(feed, debounceMs + 200);
+      await writeFile(join(root, "spa", `${PROBE_PREFIX}${++probes}.md`), "", "utf8");
+      await probeArrived;
     },
     { timeout: 5_000, interval: 0 },
   );
   return feed;
 }
 
-function firstChange<T>(feed: ChangeFeed, pick: (paths: readonly string[]) => T | undefined, timeoutMs = 2000): Promise<T> {
+function probeArrivesWithin(feed: ChangeFeed, windowMs: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       unsubscribe();
       reject(new Error("изменение не пришло"));
-    }, timeoutMs);
+    }, windowMs);
     const unsubscribe = feed.subscribe((paths) => {
-      const picked = pick(paths);
-      if (picked === undefined) return;
+      if (!paths.some(isProbe)) return;
       clearTimeout(timer);
       unsubscribe();
-      resolve(picked);
+      resolve();
     });
   });
 }
 
-function nextChange(feed: ChangeFeed): Promise<readonly string[]> {
-  return firstChange(feed, (paths) => {
-    const changed = paths.filter((path) => basename(path) !== PROBE_FILE);
-    return changed.length > 0 ? changed : undefined;
+function recordChanges(feed: ChangeFeed) {
+  const events: string[][] = [];
+  const seen = new Set<string>();
+  let arrival: PromiseWithResolvers<void> = Promise.withResolvers();
+  feed.subscribe((paths) => {
+    const changed = paths.filter((path) => !isProbe(path));
+    if (changed.length === 0) return;
+    events.push(changed);
+    for (const path of changed) seen.add(path);
+    arrival.resolve();
+    arrival = Promise.withResolvers();
   });
+  return {
+    events,
+    seen,
+    reached: async (...paths: string[]) => {
+      while (!paths.every((path) => seen.has(path))) await arrival.promise;
+    },
+  };
 }
 
 describe("createChangeFeed", () => {
@@ -52,26 +66,28 @@ describe("createChangeFeed", () => {
     await mkdir(join(root, "spa"), { recursive: true });
     await writeFile(join(root, "spa/SPA-2.md"), "задача", "utf8");
     const feed = await watchedBacklog(root, 20);
+    const changes = recordChanges(feed);
 
-    const created = nextChange(feed);
     await writeFile(join(root, "spa/SPA-1.md"), "задача", "utf8");
-    await expect(created).resolves.toEqual([join(root, "spa/SPA-1.md")]);
-
-    const replaced = nextChange(feed);
+    await changes.reached(join(root, "spa/SPA-1.md"));
     await writeFileAtomic(join(root, "spa/SPA-2.md"), "правка");
-    await expect(replaced).resolves.toEqual([join(root, "spa/SPA-2.md")]);
+    await changes.reached(join(root, "spa/SPA-2.md"));
+
+    expect([...changes.seen].sort()).toEqual([join(root, "spa/SPA-1.md"), join(root, "spa/SPA-2.md")]);
   });
 
-  it("схлопывает пачку файловых изменений в одно событие", async () => {
+  it("схлопывает пачку быстрых файловых изменений: хотя бы одно событие несёт несколько файлов, и все файлы названы", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
     const feed = await watchedBacklog(root, 300);
+    const changes = recordChanges(feed);
     const paths = ["SPA-1", "SPA-2", "SPA-3"].map((id) => join(root, `spa/${id}.md`));
 
-    const first = nextChange(feed);
     await Promise.all(paths.map((path) => writeFile(path, path, "utf8")));
+    await changes.reached(...paths);
 
-    expect([...(await first)].sort()).toEqual(paths);
+    expect([...changes.seen].sort()).toEqual(paths);
+    expect(changes.events.some((event) => event.length > 1)).toBe(true);
   });
 
   it("после close не зовёт подписчиков", async () => {
@@ -79,15 +95,15 @@ describe("createChangeFeed", () => {
     await mkdir(join(root, "spa"), { recursive: true });
     const witness = await watchedBacklog(root, 300);
     const feed = await watchedBacklog(root, 20);
+    const witnessed = recordChanges(witness);
 
     let calls = 0;
     feed.subscribe(() => {
       calls++;
     });
     await feed.close();
-    const witnessed = firstChange(witness, (paths) => paths.includes(join(root, "spa/SPA-1.md")) || undefined);
     await writeFile(join(root, "spa/SPA-1.md"), "задача", "utf8");
-    await witnessed;
+    await witnessed.reached(join(root, "spa/SPA-1.md"));
 
     expect(calls).toBe(0);
   });
