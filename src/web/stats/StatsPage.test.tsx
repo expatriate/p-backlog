@@ -386,6 +386,7 @@ describe("вкладка «Качество»", () => {
     await waitFor(() => expect(app.route()).toBe("/stats/quality"));
     await waitFor(() => expect(document.title).toBe("Качество · Статистика · Проекты — Беклог"));
     expect(cells(within(accuracyPanel).getByRole("row", { name: /код изменился/ }))).toEqual(["код изменился", "1", "0", "1", "0", "0%"]);
+    expect(cells(within(accuracyPanel).getByRole("row", { name: /до записи способа/ }))).toEqual(["└ из них до записи способа", "1", "0", "1", "0", "0%"]);
     const categoriesPanel = screen.getByRole("region", { name: "Категории" });
     expect(cells(within(categoriesPanel).getByRole("row", { name: /не указана/ }))).toEqual(["не указана", "3", "8", "4", "1"]);
     const originPanel = screen.getByRole("region", { name: "Происхождение" });

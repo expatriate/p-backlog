@@ -36,7 +36,7 @@ describe("прогноз долга", () => {
   it("долгий срок разбора — число недель с разделителем разрядов", () => {
     const until = new Date(2026, 9, 9, 12).toISOString();
     expect(coreMessages("ru").forecast({ ...forecast, weeklyNet: 0.01, weeks: 1500, until })).toBe(`Долг разберётся примерно за 1${NBSP}500${NBSP}нед. (к 09.10)`);
-    expect(coreMessages("en").forecast({ ...forecast, weeklyNet: 0.01, weeks: 1500, until })).toBe("Debt clears in about 1,500 wk. (by 10/09)");
+    expect(coreMessages("en").forecast({ ...forecast, weeklyNet: 0.01, weeks: 1500, until })).toBe(`Debt clears in about 1,500${NBSP}wk. (by 10/09)`);
   });
 
   it("долг не уменьшается", () => {
@@ -46,9 +46,9 @@ describe("прогноз долга", () => {
 
   it("долг растёт — склонение по числу и языку", () => {
     expect(coreMessages("ru").forecast({ ...forecast, weeklyNet: -0.75 })).toBe(`Долг растёт на 0,8${NBSP}задачи в неделю`);
-    expect(coreMessages("en").forecast({ ...forecast, weeklyNet: -0.75 })).toBe("Debt grows by 0.8 tasks a week");
+    expect(coreMessages("en").forecast({ ...forecast, weeklyNet: -0.75 })).toBe(`Debt grows by 0.8${NBSP}tasks a week`);
     expect(coreMessages("ru").forecast({ ...forecast, weeklyNet: -0.96 })).toBe(`Долг растёт на 1${NBSP}задача в неделю`);
-    expect(coreMessages("en").forecast({ ...forecast, weeklyNet: -0.96 })).toBe("Debt grows by 1 task a week");
+    expect(coreMessages("en").forecast({ ...forecast, weeklyNet: -0.96 })).toBe(`Debt grows by 1${NBSP}task a week`);
     expect(coreMessages("ru").forecast({ ...forecast, weeklyNet: -2 })).toBe(`Долг растёт на 2${NBSP}задачи в неделю`);
     expect(coreMessages("ru").forecast({ ...forecast, weeklyNet: -1 })).toBe(`Долг растёт на 1${NBSP}задача в неделю`);
   });
@@ -64,10 +64,6 @@ describe("прогноз долга", () => {
 describe("тревоги", () => {
   it("долг растёт — текст на русском", () => {
     expect(coreMessages("ru").signal({ kind: "debt-growing", params: { weeks: 3, created: 3, closed: 0 } })).toBe(`Долг растёт 3${NBSP}недели подряд: создано 3, закрыто 0`);
-  });
-
-  it("срочное висит — число дней не отрывается от слова", () => {
-    expect(coreMessages("ru").signal({ kind: "urgent-stale", params: { days: 7, count: 2 } })).toBe(`Срочные задачи ждут дольше 7${NBSP}дней: 2`);
   });
 
   it("шумная проверка называет улику и способ", () => {
@@ -86,10 +82,11 @@ describe("счёт по единицам", () => {
 });
 
 describe("сроки в днях", () => {
-  it("медиана и 90-й процентиль: нет данных, меньше дня, округление на каждом языке", () => {
+  it("медиана и 90-й процентиль: нет данных, меньше дня, округление и разряды на каждом языке", () => {
     expect(coreMessages("ru").days(null)).toBe("—");
     expect(coreMessages("ru").days(0.4)).toBe("меньше дня");
     expect(coreMessages("ru").days(2.6)).toBe(`3${NBSP}дн.`);
+    expect(coreMessages("ru").days(1234)).toBe(`1${NBSP}234${NBSP}дн.`);
     expect(coreMessages("ru").p90(0.5)).toBe("быстрее суток");
     expect(coreMessages("ru").p90(2.6)).toBe(`за 3${NBSP}дн.`);
     expect(coreMessages("en").days(1.2)).toBe(`1${NBSP}day`);

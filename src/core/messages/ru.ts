@@ -91,7 +91,7 @@ function genitive(n: number, unit: keyof typeof GENITIVE_FORMS): string {
 function days(value: number | null): string {
   if (value === null) return "—";
   if (value < 1) return "меньше дня";
-  return `${Math.round(value)}${NBSP}дн.`;
+  return `${formatNumber("ru", Math.round(value))}${NBSP}дн.`;
 }
 
 function p90(value: number | null): string {

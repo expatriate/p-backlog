@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Ages and times to close in days (median, 90th percentile, a stuck task) are now printed in Russian with the thousands
+  separator, like every other count (`1 234 дн.`, not `1234 дн.`). In English, the debt forecast ("about 1,500 wk.",
+  "0.8 tasks a week") now keeps the number and its unit together with a no-break space, as the other counts do.
 - `backlog check` no longer asks to re-check a task without an anchor because of a cherry-pick of the task's branch
   commit into the main branch made before the branch itself was merged: once the branch is merged, that copy still
   counts as known, as it did while the branch was waiting for the merge, even when the branch went on with other

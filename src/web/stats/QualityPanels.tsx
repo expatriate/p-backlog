@@ -1,18 +1,5 @@
 import { formatShare } from "../../core/stats/format";
-import type {
-  AccuracyPeriod,
-  AccuracyRow,
-  BranchRow,
-  CategoryRow,
-  FoundRow,
-  GrainPeriods,
-  GraphReport,
-  MatchAccuracyRow,
-  MethodAccuracyRow,
-  OutcomeCounts,
-  ProjectGraphRow,
-  ReportPeriod,
-} from "../../core/api/contract";
+import type { AccuracyPeriod, AccuracyRow, BranchRow, CategoryRow, FoundRow, GrainPeriods, GraphReport, MatchAccuracyRow, MethodAccuracyRow, ProjectGraphRow, ReportPeriod } from "../../core/api/contract";
 import { useMessages } from "../i18n";
 import { AccuracyChart } from "./AccuracyChart";
 import type { StatsMessages } from "./messages.ru";
@@ -23,7 +10,7 @@ import { StatsTable, type StatsTableRow } from "./StatsTable";
 import { useGrainPanel } from "./use-grain-panel";
 import { NO_VALUE } from "../labels";
 
-type SplitRow = { by: string } & OutcomeCounts;
+type AccuracySplitRow = MethodAccuracyRow | MatchAccuracyRow;
 
 type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyPeriod[]; days: AccuracyPeriod[]; windows: GrainPeriods; methodRows: MethodAccuracyRow[]; matchRows: MatchAccuracyRow[] };
 
@@ -32,11 +19,16 @@ export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRow
   const caption = usePeriodCaption();
   const { grain, periods, period, toggle } = useGrainPanel("accuracy", "week", { weeks, days }, windows);
   const tablePeriod = caption.of("weeks", windows.weeks);
-  const splitOf = (evidence: AccuracyRow["evidence"]): StatsTableRow[] => {
-    if (evidence === "source-changed") return methodRows.map((split) => splitRow(stats, split, split.by === "unknown" ? stats.beforeMethodRecorded : stats.checkedBy(core.checkMethodLabel(split.by))));
-    if (evidence === "duplicate") return matchRows.map((split) => splitRow(stats, split, split.by === "unknown" ? stats.beforeMatchRecorded : stats.matchedBy(core.duplicateMatchLabel(split.by))));
-    return [];
+  const splits = [...methodRows, ...matchRows];
+  const splitLabel = (split: AccuracySplitRow): string => {
+    switch (split.evidence) {
+      case "source-changed":
+        return split.by === "unknown" ? stats.beforeMethodRecorded : stats.checkedBy(core.checkMethodLabel(split.by));
+      case "duplicate":
+        return split.by === "unknown" ? stats.beforeMatchRecorded : stats.matchedBy(core.duplicateMatchLabel(split.by));
+    }
   };
+  const splitOf = (evidence: AccuracyRow["evidence"]): StatsTableRow[] => splits.filter((split) => split.evidence === evidence).map((split) => splitRow(stats, split, splitLabel(split)));
   return (
     <Panel title={stats.accuracyTitle} period={period} aside={rows.length === 0 ? undefined : toggle}>
       {rows.length === 0 ? (
@@ -64,7 +56,7 @@ export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRow
   );
 }
 
-function splitRow(stats: StatsMessages, split: SplitRow, label: string): StatsTableRow {
+function splitRow(stats: StatsMessages, split: AccuracySplitRow, label: string): StatsTableRow {
   return { key: split.by, tone: "child", cells: [stats.splitRow(label), split.candidates, split.closed, split.verified, split.open, formatShare(split.precision)] };
 }
 

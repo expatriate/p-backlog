@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../core/journal/events";
-import { scopedReportData, type ReportContext, type ScopedReportData, type StatsInput } from "../core/stats/scope";
+import { inProjectScope, scopedReportData, type ReportContext, type ScopedReportData, type StatsInput } from "../core/stats/scope";
 import { JOURNAL_FILE, projectJournal } from "../core/store/journal";
 import { createJsonlTail, type JsonlTail } from "../core/store/jsonl-tail";
 import { createScopeMemo, createSnapshotIds, pruneUnlessKept } from "./source-memos";
@@ -36,7 +36,7 @@ export function createJournalSources(root: string): JournalSources {
   const rememberedContext =
     (snapshot: object, tailed: readonly TailedJournal[]) =>
     (input: StatsInput): ReportContext => {
-      const positions = tailed.filter(({ journal }) => input.projectId === undefined || journal.projectId === input.projectId).map(({ position }) => position);
+      const positions = inProjectScope(tailed, input.projectId, ({ journal }) => journal.projectId).map(({ position }) => position);
       const key = `${snapshotIdOf(snapshot)}|${positions.join(",")}`;
       return { ...remembered.get(key, () => scopedReportData(input), input.projectId), input };
     };

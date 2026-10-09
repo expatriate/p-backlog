@@ -4,7 +4,7 @@ import { scopeLabel } from "./format";
 import { closingsIn, closingsOfIn, createdIn, isOpenAt, type TaskHistory } from "./history";
 import { median, nearestRank, sum } from "../numbers";
 import { trailingSpan, type Period, type Span } from "./period";
-import { grainPeriods, lastDaysSpan } from "./report-periods";
+import { grainPeriods, lastDaysPeriod } from "./report-periods";
 import type { ReportContext } from "./scope";
 import { PRIORITY_WEIGHT } from "./weights";
 import type { PreviousTotals, StatsReport, StatsTotals } from "./types";
@@ -40,7 +40,7 @@ function totals(histories: readonly TaskHistory[], now: Date, period: Period, jo
   const openNow = histories.filter((history) => isOpenAt(history, nowMs));
   const ages = openNow.map((history) => daysBetween(history.createdAt, nowMs));
   const leadTimes = leadTimesIn(histories, period);
-  const today = lastDaysSpan(now, 1);
+  const today = lastDaysPeriod(now, 1);
   return {
     open: ages.length,
     createdToday: createdIn(histories, today).length,

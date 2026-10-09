@@ -3,7 +3,7 @@ import type { CheckFix, CheckProblem } from "../check/findings";
 import type { GraphState } from "../check/graph-health";
 import { lineSuffix, sourcePath } from "../model/source";
 import { formatDayMonth, formatDecimal, formatNumber } from "../i18n/format";
-import { countEn, pluralEn } from "../i18n/plural";
+import { countEn, NBSP, pluralEn } from "../i18n/plural";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
 import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
@@ -93,11 +93,11 @@ function forecast(flow: FlowForecast): string {
     case "no-open":
       return "No open tasks";
     case "clears":
-      return `Debt clears in about ${formatNumber("en", outlook.weeks)} wk. (by ${formatDayMonth("en", outlook.until)})`;
+      return `Debt clears in about ${formatNumber("en", outlook.weeks)}${NBSP}wk. (by ${formatDayMonth("en", outlook.until)})`;
     case "not-shrinking":
       return "Debt is not shrinking";
     case "grows":
-      return `Debt grows by ${formatDecimal("en", outlook.perWeek)} ${pluralEn(outlook.perWeek, ...COUNT_FORMS.task)} a week`;
+      return `Debt grows by ${formatDecimal("en", outlook.perWeek)}${NBSP}${pluralEn(outlook.perWeek, ...COUNT_FORMS.task)} a week`;
   }
 }
 

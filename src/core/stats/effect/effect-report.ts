@@ -153,15 +153,15 @@ function estimatedSizeOf(open: readonly OpenDeferred[], estimate: Estimate): Fix
 
 function bucketsOf(windows: readonly Period[], deferred: readonly Deferred[], periodUnits: readonly CommitUnit[], estimate: Estimate): EffectPeriod[] {
   const { fixed, open } = byKind(deferred);
-  return windows.map((span) => {
-    const rawRealLines = sum(periodUnits.filter((unit) => span.contains(Date.parse(unit.date))).map((unit) => unit.lines));
-    const fixedInWindow = fixed.filter((item) => span.contains(item.at));
-    const openInWindow = open.filter((item) => span.contains(item.history.createdAt));
+  return windows.map((window) => {
+    const rawRealLines = sum(periodUnits.filter((unit) => window.contains(Date.parse(unit.date))).map((unit) => unit.lines));
+    const fixedInWindow = fixed.filter((item) => window.contains(item.at));
+    const openInWindow = open.filter((item) => window.contains(item.history.createdAt));
     const fixedLinesInWindow = sum(fixedInWindow.map((item) => item.lines));
     const estimatedInWindow = estimatedSizeOf(openInWindow, estimate);
     const deferredLines = fixedLinesInWindow + (estimatedInWindow?.lines ?? 0);
     return {
-      start: formatLocalIso(new Date(span.from)),
+      start: formatLocalIso(new Date(window.from)),
       onTopicLines: Math.max(0, rawRealLines - fixedLinesInWindow),
       deferredLines,
       deferredTestLines: sum(fixedInWindow.map((item) => item.testLines)) + (estimatedInWindow?.testLines ?? 0),

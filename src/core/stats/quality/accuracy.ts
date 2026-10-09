@@ -29,9 +29,9 @@ export function accuracy(histories: readonly TaskHistory[], span: Span): Accurac
 }
 
 function accuracyOver(periods: readonly Period[], histories: readonly TaskHistory[]): AccuracyPeriod[] {
-  return periods.map((span) => {
-    const counts = outcomeCounts(episodesOf(histories, (candidate) => span.contains(candidate.at) && isMeasuredEvidence(candidate.evidence)));
-    return { start: formatLocalIso(new Date(span.from)), decided: decidedOf(counts), precision: counts.precision };
+  return periods.map((period) => {
+    const counts = outcomeCounts(episodesOf(histories, (candidate) => period.contains(candidate.at) && isMeasuredEvidence(candidate.evidence)));
+    return { start: formatLocalIso(new Date(period.from)), decided: decidedOf(counts), precision: counts.precision };
   });
 }
 
