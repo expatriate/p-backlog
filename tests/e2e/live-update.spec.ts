@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
 
@@ -10,13 +10,14 @@ async function writeTask(id: string, title: string): Promise<void> {
   await writeFile(join(projectDir, `${id}.md`), `---\nid: ${id}\ntitle: ${title}\ncreated: 2026-09-17T10:00:00+03:00\n---\n\nОписание.\n`, "utf8");
 }
 
-async function writeProject(): Promise<void> {
+async function resetProject(): Promise<void> {
   await mkdir(projectDir, { recursive: true });
+  for (const file of await readdir(projectDir)) await rm(join(projectDir, file), { force: true, maxRetries: 5, retryDelay: 100 });
   await writeFile(join(projectDir, "project.md"), "---\nname: spa\nprefix: SPA\nrepos: []\n---\n", "utf8");
 }
 
 test("задача, созданную агентом в каталоге, видно без перезагрузки страницы", async ({ page }) => {
-  await writeProject();
+  await resetProject();
   await writeTask("SPA-1", "Первая задача");
 
   await page.goto("/");
@@ -30,7 +31,7 @@ test("задача, созданную агентом в каталоге, ви�
 
 test("семь вкладок делят одну ленту: все загружаются, изменения доходят до каждой и после закрытия ведущей", async ({ context }) => {
   const TABS = 7;
-  await writeProject();
+  await resetProject();
   await writeTask("SPA-3", "Много вкладок");
 
   const pages = [];

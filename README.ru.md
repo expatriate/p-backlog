@@ -316,7 +316,9 @@ npm run typecheck
 npm run lint
 
 npx playwright install chromium   # один раз, перед первым запуском e2e
-npm run test:e2e                  # Playwright: живое обновление списка
+npm run test:e2e                  # Playwright в Chromium: живое обновление списка
+npx playwright install webkit     # по желанию: тот же набор ещё и в WebKit
+npx playwright test               # Chromium, затем WebKit
 
 npm run test:package              # весь путь установки из tarball на этой ОС (медленный)
 npm run screenshots               # скриншоты для README на демо-данных, в docs/screenshots
