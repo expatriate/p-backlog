@@ -61,7 +61,7 @@ function titlesMatch(left: Fingerprint, right: Fingerprint): boolean {
 }
 
 function placeOf(source: string | undefined): Place | undefined {
-  return source === undefined ? undefined : { path: sourcePath(source.replaceAll("\\", "/")), lines: lineSuffix(source) };
+  return source === undefined ? undefined : { path: sourcePath(source), lines: lineSuffix(source) };
 }
 
 function sharedPlace(a: Place | undefined, b: Place | undefined): "line" | "file" | null {

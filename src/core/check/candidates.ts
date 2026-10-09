@@ -3,7 +3,7 @@ import type { Task } from "../model/types";
 import { anchorOf, findMoved, isAnchorFor } from "./anchor";
 import type { CheckFix } from "./findings";
 import type { Commit, RepoFacts } from "./repo-facts";
-import { hasLines, lineSuffix, sourcePath } from "../model/source";
+import { hasLines, isWithin, lineSuffix, sourcePath } from "../model/source";
 
 export type TaskRef = { id: string; title: string };
 type CommitRef = { sha: string; subject: string };
@@ -138,10 +138,6 @@ export function commitsAfter(commits: readonly Commit[], mark: number): Commit[]
 
 export function touches(commit: Commit, path: string): boolean {
   return commit.files.some((file) => isWithin(file.path, path) || (file.renamedFrom !== undefined && isWithin(file.renamedFrom, path)));
-}
-
-function isWithin(file: string, path: string): boolean {
-  return file === path || file.startsWith(`${path}/`);
 }
 
 export function taskRef(task: Task): TaskRef {

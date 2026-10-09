@@ -1,6 +1,6 @@
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
-import { sourcePath } from "../../core/model/source";
+import { isWithin, sourcePath } from "../../core/model/source";
 import { buildIndex, epicChildren, isClosed, openBlockers, type BacklogIndex } from "../../core/model/graph";
 import { isQueuedTask, pickNextTask } from "../../core/model/query";
 import type { Project, Task } from "../../core/model/types";
@@ -94,11 +94,7 @@ async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projec
 
 function isOpenTaskAt(task: Task, path: string): boolean {
   const workable = task.type === "task" && !isClosed(task.status) && task.status !== "blocked";
-  return workable && task.source !== undefined && isInside(sourcePath(task.source), path);
-}
-
-function isInside(file: string, path: string): boolean {
-  return path === "" || file === path || file.startsWith(`${path}/`);
+  return workable && task.source !== undefined && (path === "" || isWithin(sourcePath(task.source), path));
 }
 
 function repoRelativePath(io: CliIo, project: Project, path: string): string {

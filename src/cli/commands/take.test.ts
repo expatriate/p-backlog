@@ -154,6 +154,15 @@ describe("backlog take", () => {
     expect(await statusOf(root, "SPA-2")).toBe("in-progress");
   });
 
+  it("--path находит задачу, у которой source записан через обратные косые черты", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Виндовая", "--source", "src\\lib\\a.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Другая", "--source", "src/other/b.ts:1"]);
+
+    expect((await run(["take", "--path", "src/lib"])).code).toBe(EXIT.ok);
+    expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2")]).toEqual(["in-progress", "backlog"]);
+  });
+
   it("режимы не сочетаются, а «все заблокированы» отличается от «нет задач»", async () => {
     const { run } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Блокер", "--source", "src/b.ts:1"]);

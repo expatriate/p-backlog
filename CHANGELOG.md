@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A task's `source` written with Windows backslashes (`src\lib\a.ts:12`) now matches repository paths in `backlog check`,
+  in statistics and in `backlog take --path`; drive (`C:/`) and network (`\\server\share`) roots of a path are kept.
 - A task file created in the first moments after `backlog serve` starts (for example by an agent while the service is
   starting) now reaches an open web interface without waiting for another edit. The file watcher could miss files that
   appeared before it finished its initial scan; now the server reloads the backlog once when the watcher is ready.
