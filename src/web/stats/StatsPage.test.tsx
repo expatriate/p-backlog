@@ -1,11 +1,10 @@
 import { focusManager } from "@tanstack/react-query";
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RouteObject } from "react-router";
 import { describe, expect, it, vi } from "vitest";
-import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitCommitAll, gitShortHead, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { routes } from "../app/App";
 import { freezeDate } from "../testing/freeze-date";
 import { interceptApi, renderApp, type RenderedApp } from "../testing/render-app";
@@ -322,7 +321,7 @@ describe("вкладка «Код»", () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/upload/client.ts": "a\nb\n" });
     gitCommitAll(repo, "fix: upload\n\nCo-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>", "2026-09-12T10:00:00+03:00");
-    const sha = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
+    const sha = gitShortHead(repo);
     const app = await renderApp(
       {
         ...FILES,

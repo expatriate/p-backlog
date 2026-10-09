@@ -2,7 +2,7 @@ import { literalPathspecs, runGit, type GitRunner } from "../git/run";
 import type { TaskOrigin } from "../journal/events";
 import type { Task } from "../model/types";
 import { remembered } from "../remembered";
-import { commitsAfter, judgedByCommits, reviewMark, touches, type AnchorStates, type KnownCommits } from "./candidates";
+import { commitsTouchingSince, judgedByCommits, reviewMark, type AnchorStates, type KnownCommits } from "./candidates";
 import { commitsCarryingContent } from "./landed-content";
 import { sourcePath } from "../model/source";
 import type { Commit, RepoFacts } from "./repo-facts";
@@ -18,7 +18,7 @@ export async function commitsKnownAtCreation({ repo, tasks, facts, anchors, orig
     const origin = origins.get(task.id);
     if (origin === undefined || task.verified !== undefined || task.source === undefined || !judgedByCommits(task, anchors)) return [];
     const path = sourcePath(task.source);
-    return [{ taskId: task.id, creation: origin.commit, path, changes: commitsAfter(facts.commits, reviewMark(task)).filter((commit) => touches(commit, path)) }];
+    return [{ taskId: task.id, creation: origin.commit, path, changes: commitsTouchingSince(facts.commits, path, reviewMark(task)) }];
   });
   const branchCommitsByMerge = new Map<string, Promise<string[] | null>>();
   const commitsBroughtBy = (merge: Commit, creation: string, path: string) =>
@@ -26,8 +26,9 @@ export async function commitsKnownAtCreation({ repo, tasks, facts, anchors, orig
       const shas = await git(repo, ["rev-list", `${merge.sha}^2`, `^${merge.sha}^1`, `^${creation}`, "--", ...literalPathspecs([path])]);
       return shas === null ? null : shas.split("\n").filter((sha) => sha !== "");
     });
+  const carryingContent = commitsCarryingContent(repo, git);
   const copyAnswers = new Map<string, Promise<readonly string[]>>();
-  const copiesOfCreation = (creation: string, path: string) => remembered(copyAnswers, `${creation} ${path}`, () => commitsCarryingContent(repo, creation, literalPathspecs([path]), git));
+  const copiesOfCreation = (creation: string, path: string) => remembered(copyAnswers, `${creation} ${path}`, () => carryingContent(creation, literalPathspecs([path])));
   const isCopy = (copies: readonly string[], sha: string) => copies.some((fullSha) => fullSha.startsWith(sha));
   const mergeBringsOnlyCopies = async (merge: Commit, creation: string, path: string) => {
     const brought = await commitsBroughtBy(merge, creation, path);

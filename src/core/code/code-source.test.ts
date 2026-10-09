@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DAY_MS, formatLocalDay } from "../model/dates";
 import type { Project } from "../model/types";
-import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeNoFastForward, gitShortHead, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { CODE_CACHE_FILE, createCodeCacheFile, type CodeCacheStore } from "./code-cache";
 import { createCodeSource, type CodeSource } from "./code-source";
 import { projectFixKey, repoFixKey } from "./fix-key";
@@ -26,7 +26,7 @@ describe("сбор данных git по проектам", () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a\n" });
     gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
-    const head = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const head = gitShortHead(repo);
     const source: CodeSource = createCodeSource({ home: "/home/backlog-test" });
 
     const projects = [projectOf("spa", [repo, "/nope/repo"])];
@@ -96,7 +96,7 @@ describe("сбор данных git по проектам", () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a\n" });
     gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
-    const head = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const head = gitShortHead(repo);
     const cacheRoot = await makeTempDir();
     const projects = [projectOf("spa", [repo])];
     const requests = [{ projectId: "spa", hashes: [head, "deadbee"] }];
@@ -124,7 +124,7 @@ describe("сбор данных git по проектам", () => {
       return repo;
     };
     const [a, b, c] = [await committedRepo("a"), await committedRepo("b"), await committedRepo("c")];
-    const bHead = (await runGit(b, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const bHead = gitShortHead(b);
     const removedFix = `${b} ${bHead}`;
     const cacheRoot = await makeTempDir();
     const cached = async () => JSON.parse(await readFile(join(cacheRoot, CODE_CACHE_FILE), "utf8")) as { repos: object; fixes: object };
@@ -169,7 +169,7 @@ describe("сбор данных git по проектам", () => {
     execFileSync("git", ["clone", "-q", repo, clone]);
     await writeFiles(clone, { "src/a.ts": "b\n" });
     gitCommitAll(clone, "fix elsewhere", "2026-09-11T10:00:00+03:00");
-    const hash = (await runGit(clone, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const hash = gitShortHead(clone);
     const source = createCodeSource({ home: "/h" });
     const request = [{ projectId: "spa", hashes: [hash] }];
 
@@ -187,7 +187,7 @@ describe("сбор данных git по проектам", () => {
     gitCheckout(repo, "fix", { create: true });
     await writeFiles(repo, { "src/a.ts": "a\nb\n" });
     gitCommitAll(repo, "fix: b", "2026-09-11T10:00:00+03:00");
-    const hash = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const hash = gitShortHead(repo);
     gitCheckout(repo, "master");
     const counting = countingGit();
     const source = createCodeSource({ home: "/h", git: counting.git });
@@ -222,7 +222,7 @@ describe("сбор данных git по проектам", () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a\n" });
     gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
-    const head = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const head = gitShortHead(repo);
     const fixLogFails: GitRunner = (dir, args, input) => (args[0] === "log" && args[1] === "--no-walk=unsorted" ? Promise.resolve(null) : runGit(dir, args, input));
     let git = fixLogFails;
     const source = createCodeSource({ home: "/h", git: (dir, args, input) => git(dir, args, input) });
@@ -240,7 +240,7 @@ describe("сбор данных git по проектам", () => {
     gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
     await writeFiles(repo, { "src/a.ts": "a\nb\n" });
     gitCommitAll(repo, "fix", "2026-09-11T10:00:00+03:00");
-    const head = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const head = gitShortHead(repo);
     const numstatFails: GitRunner = (dir, args, input) => (args.includes("--numstat") ? Promise.resolve(null) : runGit(dir, args, input));
     let git = numstatFails;
     const source = createCodeSource({ home: "/h", git: (dir, args, input) => git(dir, args, input) });
@@ -256,7 +256,7 @@ describe("сбор данных git по проектам", () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a\n" });
     gitCommitAll(repo, "давнее исправление", "2026-05-01T10:00:00+03:00");
-    const head = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const head = gitShortHead(repo);
     const counting = countingGit();
     const source = createCodeSource({ home: "/h", git: counting.git });
     const request = [{ projectId: "spa", hashes: [head] }];
@@ -340,7 +340,7 @@ describe("сбор данных git по проектам", () => {
     gitCheckout(repo, "fix", { create: true });
     await writeFiles(repo, { "src/a.ts": "a\nb\n" });
     gitCommitAll(repo, "fix: b", "2026-09-11T10:00:00+03:00");
-    const hash = (await runGit(repo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const hash = gitShortHead(repo);
     gitCheckout(repo, "master");
     const cacheRoot = await makeTempDir();
     const projects = [projectOf("spa", [repo])];

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- `backlog check` no longer asks to re-check a task without an anchor because of a cherry-pick of the task's branch
+  commit into the main branch made before the branch itself was merged: once the branch is merged, that copy still
+  counts as known, as it did while the branch was waiting for the merge, even when the branch went on with other
+  commits or came in through another branch. Copies of several branch commits picked into another branch now count as
+  known too when merging that branch back left the file unchanged; before, only a copy that brought the file to the
+  task's creation version did. Branch edits and their copies are now compared with git's default diff algorithm even
+  when `diff.algorithm` is set in git config (for example to `histogram`): with `histogram`, a copy on a main branch
+  that already had one of the branch's new lines elsewhere in the file used to be missed.
 - A task's `source` written with Windows backslashes (`src\lib\a.ts:12`) now matches repository paths in `backlog check`,
   in statistics and in `backlog take --path`; drive (`C:/`) and network (`\\server\share`) roots of a path are kept.
 - A task file created in the first moments after `backlog serve` starts (for example by an agent while the service is

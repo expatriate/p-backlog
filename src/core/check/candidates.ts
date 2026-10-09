@@ -96,7 +96,7 @@ function movedPlan(id: string, from: string, to: AnchoredSource): AnchorPlan {
 }
 
 export function changesSince(facts: RepoFacts, path: string, mark: number): { commits: Commit[]; uncommitted: boolean } {
-  const commits = commitsAfter(facts.commits, mark).filter((commit) => touches(commit, path));
+  const commits = commitsTouchingSince(facts.commits, path, mark);
   const uncommitted = [...facts.dirtyModifiedAt].some(([file, modifiedAt]) => isWithin(file, path) && modifiedAt > mark);
   return { commits, uncommitted };
 }
@@ -132,11 +132,15 @@ function followRenames(path: string, commits: readonly Commit[], mark: number): 
   return current === path ? undefined : current;
 }
 
-export function commitsAfter(commits: readonly Commit[], mark: number): Commit[] {
+export function commitsTouchingSince(commits: readonly Commit[], path: string, mark: number): Commit[] {
+  return commitsAfter(commits, mark).filter((commit) => touches(commit, path));
+}
+
+function commitsAfter(commits: readonly Commit[], mark: number): Commit[] {
   return commits.filter((commit) => Date.parse(commit.date) > mark);
 }
 
-export function touches(commit: Commit, path: string): boolean {
+function touches(commit: Commit, path: string): boolean {
   return commit.files.some((file) => isWithin(file.path, path) || (file.renamedFrom !== undefined && isWithin(file.renamedFrom, path)));
 }
 

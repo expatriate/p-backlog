@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { BatchResponse, CodeReport, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport } from "../core/api/contract";
 import { projectGraphHealth } from "../core/check/graph-health";
-import { runGit } from "../core/git/run";
 import type { JournalEvent } from "../core/journal/events";
 import { costReport } from "../core/stats/cost/cost-report";
 import { statsReport } from "../core/stats/report";
@@ -11,7 +10,7 @@ import { reportContext } from "../core/stats/scope";
 import { appendJournal, readJournals } from "../core/store/journal";
 import { loadBacklog, unparsedTasks, type LoadedBacklog } from "../core/store/load";
 import { readRuns } from "../core/store/testing/runs";
-import { gitCommitAll, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
+import { gitCommitAll, gitShortHead, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import { failOnWriteError } from "../core/store/testing/update-task";
 import type { UsageCache } from "../core/usage/usage-cache";
 import { createJournalSources } from "./journal-sources";
@@ -271,7 +270,7 @@ async function spaWithFixedNeighbour({ neighbourActive }: { neighbourActive: boo
   for (const index of [1, 2, 3, 4, 5]) {
     await writeFiles(tiRepo, { "src/b.ts": `${"x\n".repeat(index * 3)}` });
     gitCommitAll(tiRepo, `fix ${index}`, "2026-09-17T11:00:00+03:00");
-    const sha = (await runGit(tiRepo, ["rev-parse", "--short", "HEAD"]))?.trim() ?? "";
+    const sha = gitShortHead(tiRepo);
     tiFixes[`ti/TI-${index}.md`] = taskFile(`TI-${index}`, `status: done\nclosed: 2026-09-17T12:00:00+03:00\nresolution: fixed\nreason: Исправлено в ${sha}\n`);
   }
   return {

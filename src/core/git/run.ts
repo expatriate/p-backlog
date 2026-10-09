@@ -62,15 +62,23 @@ function gitArgs(repo: string, args: readonly string[]): string[] {
   return ["-C", repo, "--no-optional-locks", "-c", "core.quotePath=false", ...args];
 }
 
-export async function resolveCommits(git: GitRunner, repo: string, revisions: readonly string[]): Promise<Map<string, string> | null> {
+export function resolveCommits(git: GitRunner, repo: string, revisions: readonly string[]): Promise<Map<string, string> | null> {
+  return resolveObjects(git, repo, revisions, "commit");
+}
+
+export function resolveTrees(git: GitRunner, repo: string, revisions: readonly string[]): Promise<Map<string, string> | null> {
+  return resolveObjects(git, repo, revisions, "tree");
+}
+
+async function resolveObjects(git: GitRunner, repo: string, revisions: readonly string[], type: "commit" | "tree"): Promise<Map<string, string> | null> {
   if (revisions.length === 0) return new Map();
-  const output = await git(repo, ["cat-file", "--batch-check"], revisions.map((revision) => `${revision}^{commit}\n`).join(""));
+  const output = await git(repo, ["cat-file", "--batch-check"], revisions.map((revision) => `${revision}^{${type}}\n`).join(""));
   if (output === null) return null;
   const lines = output.split("\n");
   return new Map(
     revisions.flatMap((revision, index): [string, string][] => {
       const [objectName = "", objectType] = lines[index]?.split(" ") ?? [];
-      return objectType === "commit" ? [[revision, objectName]] : [];
+      return objectType === type ? [[revision, objectName]] : [];
     }),
   );
 }

@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -39,6 +40,23 @@ async function featureEditingA(): Promise<{ repo: string; origin: TaskOrigin }> 
   return { repo, origin };
 }
 
+async function featurePickedIntoRelease(): Promise<{ repo: string; origin: TaskOrigin }> {
+  const repo = await makeGitRepo(await makeTempDir(), "spa");
+  await writeFiles(repo, { "src/a.ts": fileOf(LINES) });
+  gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+  gitCheckout(repo, "feat", { create: true });
+  await writeFiles(repo, { "src/a.ts": fileOf(withValues(LINES, { 10: 1000 })) });
+  gitCommitAll(repo, "Фича правит value10", "2026-09-10T10:00:00+03:00");
+  await writeFiles(repo, { "src/a.ts": fileOf(withValues(LINES, { 10: 1000, 30: 3000 })) });
+  gitCommitAll(repo, "Фича правит value30", "2026-09-10T11:00:00+03:00");
+  const origin = { branch: "feat", commit: gitShortHead(repo) };
+  gitCheckout(repo, "master");
+  gitCheckout(repo, "release", { create: true });
+  gitRebaseMerge(repo, "feat", "2026-09-12T10:00:00+03:00");
+  gitCheckout(repo, "master");
+  return { repo, origin };
+}
+
 describe("коммиты, уже известные задаче при создании", () => {
   it("git спрашивается только о задачах без якоря: один раз на слияние, коммит создания и путь и один раз о копиях коммита создания по пути", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
@@ -64,7 +82,7 @@ describe("коммиты, уже известные задаче при созд
     const tasks = [anchored("SPA-1", 2), anchored("SPA-2", 5), makeTask({ id: "SPA-3", created: CREATED, source: "src/a.ts" }), makeTask({ id: "SPA-4", created: CREATED, source: "src/a.ts" })];
     const facts = await collectRepoFacts(repo, new Map([["src/a.ts", Date.parse(CREATED)]]));
     const copiesQuestion = countingGit();
-    await commitsCarryingContent(repo, origin.commit, literalPathspecs(["src/a.ts"]), copiesQuestion.git);
+    await commitsCarryingContent(repo, copiesQuestion.git)(origin.commit, literalPathspecs(["src/a.ts"]));
     const counting = countingGit();
 
     const known = await commitsKnownAtCreation({ repo, tasks, facts, anchors: anchorStates(tasks, facts), origins: new Map(tasks.map((task) => [task.id, origin])), git: counting.git });
@@ -166,19 +184,7 @@ describe("коммиты, уже известные задаче при созд
   });
 
   it("коммиты ветки задачи сначала взяли cherry-pick в релизную ветку, потом основная ветка сама повторила первую правку и слилась с релизной — кандидатом задачу делает повтор, а не слияние", async () => {
-    const repo = await makeGitRepo(await makeTempDir(), "spa");
-    await writeFiles(repo, { "src/a.ts": fileOf(LINES) });
-    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
-    gitCheckout(repo, "feat", { create: true });
-    await writeFiles(repo, { "src/a.ts": fileOf(withValues(LINES, { 10: 1000 })) });
-    gitCommitAll(repo, "Фича правит value10", "2026-09-10T10:00:00+03:00");
-    await writeFiles(repo, { "src/a.ts": fileOf(withValues(LINES, { 10: 1000, 30: 3000 })) });
-    gitCommitAll(repo, "Фича правит value30", "2026-09-10T11:00:00+03:00");
-    const origin = { branch: "feat", commit: gitShortHead(repo) };
-    gitCheckout(repo, "master");
-    gitCheckout(repo, "release", { create: true });
-    gitRebaseMerge(repo, "feat", "2026-09-12T10:00:00+03:00");
-    gitCheckout(repo, "master");
+    const { repo, origin } = await featurePickedIntoRelease();
     await writeFiles(repo, { "src/a.ts": fileOf(withValues(LINES, { 38: 3800 })) });
     gitCommitAll(repo, "Основная ветка правит value38", "2026-09-10T12:00:00+03:00");
     await writeFiles(repo, { "src/a.ts": fileOf(withValues(LINES, { 10: 1000, 38: 3800 })) });
@@ -186,5 +192,47 @@ describe("коммиты, уже известные задаче при созд
     gitMergeNoFastForward(repo, "release", "2026-09-14T10:00:00+03:00");
 
     expect(await changedCommitSubjects(repo, origin)).toEqual(["Основная ветка повторяет правку value10"]);
+  });
+
+  it("коммит создания задачи взяли cherry-pick в основную ветку, а потом влили merge-коммитом саму ветку, ушедшую дальше другим файлом, — копия не делает задачу кандидатом", async () => {
+    const { repo, origin } = await featureEditingA();
+    gitCheckout(repo, "feat");
+    await writeFiles(repo, { "src/c.ts": "c1\n" });
+    gitCommitAll(repo, "Фича добавляет c", "2026-09-11T12:00:00+03:00");
+    gitCheckout(repo, "master");
+    await writeFiles(repo, { "src/b.ts": "b2\n" });
+    gitCommitAll(repo, "Основная ветка правит b", "2026-09-10T12:00:00+03:00");
+    gitRebaseMerge(repo, "feat~1", "2026-09-12T10:00:00+03:00");
+    gitMergeNoFastForward(repo, "feat", "2026-09-13T10:00:00+03:00");
+
+    expect(await changedCommitSubjects(repo, origin)).toEqual([]);
+  });
+
+  it("оба коммита ветки задачи взяли cherry-pick в релизную ветку, основную ветку слили со своей веткой и с релизной — копии из релизной ветки не делают задачу кандидатом, хотя слияние с основной отбросило их из упрощённой истории файла", async () => {
+    const { repo, origin } = await featurePickedIntoRelease();
+    gitMergeSquash(repo, "feat");
+    gitCommitAll(repo, "Слить feat одним коммитом", "2026-09-13T10:00:00+03:00");
+    gitMergeNoFastForward(repo, "release", "2026-09-14T10:00:00+03:00");
+
+    expect(await changedCommitSubjects(repo, origin)).toEqual([]);
+  });
+
+  it("в репозитории с diff.algorithm=histogram коммит ветки задачи взяли cherry-pick в основную ветку, которая уже добавила такую же строку в конце файла, — копия не делает задачу кандидатом", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    execFileSync("git", ["config", "diff.algorithm", "histogram"], { cwd: repo });
+    const linesSteeringHistogram = ["done();", "", "", "{", "{", "}", "}", "done();"];
+    const base = ["  start();", "}", ...linesSteeringHistogram];
+    await writeFiles(repo, { "src/a.ts": fileOf(base) });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFiles(repo, { "src/a.ts": fileOf(["stop();", "}", "  start();", "} // started", ...linesSteeringHistogram]) });
+    gitCommitAll(repo, "Фича оборачивает start", "2026-09-10T10:00:00+03:00");
+    const origin = { branch: "feat", commit: gitShortHead(repo) };
+    gitCheckout(repo, "master");
+    await writeFiles(repo, { "src/a.ts": fileOf([...base, "stop();"]) });
+    gitCommitAll(repo, "Основная ветка добавляет stop", "2026-09-10T12:00:00+03:00");
+    gitRebaseMerge(repo, "feat", "2026-09-12T10:00:00+03:00");
+
+    expect(await changedCommitSubjects(repo, origin)).toEqual([]);
   });
 });
