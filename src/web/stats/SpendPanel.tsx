@@ -4,14 +4,13 @@ import type { Language } from "../../core/i18n/language";
 import type { CostDay, CostPeriod, GrainPeriods } from "../../core/api/contract";
 import { sum } from "../../core/numbers";
 import { useLanguage, useMessages } from "../i18n";
-import { compactNumber } from "./charts/chart-format";
-import type { Grain } from "./charts/chart-style";
+import { COUNT_AXIS, type Grain } from "./charts/chart-style";
 import { PeriodChart } from "./charts/PeriodChart";
 import type { SeriesEntry } from "./charts/series";
 import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
 import { useGrainPanel } from "./use-grain-panel";
-import { approx, costValue, formatWhole } from "./value-format";
+import { approx, costValue, wholeFormatter } from "./value-format";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
 const CLI_TOKENS = "var(--chart-bar-neutral)";
@@ -28,8 +27,7 @@ export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days
   const dayPeriods = useMemo(() => days.map(dayPeriod), [days]);
   const { grain, periods, period, toggle } = useGrainPanel("spend", "day", { weeks, days: dayPeriods }, windows);
   const title = stats.spendBy[grain];
-  const whole = (value: number) => formatWhole(language, value);
-  const compact = (value: number) => compactNumber(language, value);
+  const whole = wholeFormatter(language);
   const series: SeriesEntry<CostPeriod>[] = [
     { key: "hookTokens", label: stats.hookTurnTokens, tooltipLabel: stats.hookTurnsTooltip, shape: "bar", color: HOOK_TOKENS, stack: "tokens", format: stats.tokens },
     { key: "cliTokens", label: stats.cliOutputTokens, tooltipLabel: stats.cliOutput, shape: "bar", color: CLI_TOKENS, stack: "tokens", format: stats.tokens },
@@ -39,21 +37,14 @@ export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days
   ];
   return (
     <Panel title={title} period={period} aside={toggle}>
-      <PeriodChart
-        name={title}
-        grain={grain}
-        summary={spendSummary(stats, language, grain, periods)}
-        data={periods}
-        series={series}
-        axes={{ left: { tickFormatter: compact }, right: { allowDecimals: false, tickFormatter: compact } }}
-      />
+      <PeriodChart name={title} grain={grain} summary={spendSummary(stats, language, grain, periods)} data={periods} series={series} axes={{ right: COUNT_AXIS }} />
     </Panel>
   );
 }
 
 function spendSummary(stats: StatsMessages, language: Language, grain: Grain, periods: CostPeriod[]): string {
   const total = (pick: (period: CostPeriod) => number) => sum(periods.map(pick));
-  const whole = (value: number) => formatWhole(language, value);
+  const whole = wholeFormatter(language);
   return stats.spendSummary({
     grain,
     periodCount: periods.length,

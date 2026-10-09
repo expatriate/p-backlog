@@ -6,13 +6,13 @@ import rowStyles from "./PanelRows.module.css";
 import { Panel } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
-import { costValue, formatWhole } from "./value-format";
+import { costValue, formatWhole, wholeFormatter } from "./value-format";
 
 export function CostFigures({ totals, period }: { totals: CostTotals; period: ReportPeriod }) {
   const { stats } = useMessages();
   const language = useLanguage();
   const caption = usePeriodCaption();
-  const whole = (value: number) => formatWhole(language, value);
+  const whole = wholeFormatter(language);
   return (
     <FigureGroup period={caption.of("lastWeek", period)}>
       <Figure label={stats.backlogTokens} value={whole(totals.tokens)} note={stats.backlogTokensNote(whole(totals.hookTokens), whole(totals.cliTokens))} />

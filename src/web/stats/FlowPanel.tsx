@@ -1,10 +1,10 @@
 import type { FlowPeriod, GrainPeriods } from "../../core/api/contract";
 import { sum } from "../../core/numbers";
 import { useLanguage, useMessages } from "../i18n";
-import { compactNumber } from "./charts/chart-format";
+import { COUNT_AXIS } from "./charts/chart-style";
 import { PeriodChart } from "./charts/PeriodChart";
 import type { SeriesEntry } from "./charts/series";
-import { formatWhole } from "./value-format";
+import { wholeFormatter } from "./value-format";
 import { Panel } from "./Panel";
 import { useGrainPanel } from "./use-grain-panel";
 
@@ -16,8 +16,7 @@ export function FlowPanel({ weeks, days, windows }: { weeks: FlowPeriod[]; days:
   const { stats } = useMessages();
   const language = useLanguage();
   const { grain, periods, period, toggle } = useGrainPanel("flow", "week", { weeks, days }, windows);
-  const whole = (value: number) => formatWhole(language, value);
-  const countAxis = { allowDecimals: false, tickFormatter: (value: number) => compactNumber(language, value) };
+  const whole = wholeFormatter(language);
   const series: SeriesEntry<FlowPeriod>[] = [
     { key: "created", label: stats.flowCreated, shape: "bar", color: CREATED, format: whole },
     { key: "closed", label: stats.flowClosed, shape: "bar", color: CLOSED, format: whole },
@@ -33,7 +32,7 @@ export function FlowPanel({ weeks, days, windows }: { weeks: FlowPeriod[]; days:
   });
   return (
     <Panel title={title} period={period} aside={toggle}>
-      <PeriodChart name={title} grain={grain} summary={summary} data={periods} series={series} axes={{ left: countAxis, right: countAxis }} />
+      <PeriodChart name={title} grain={grain} summary={summary} data={periods} series={series} axes={{ left: COUNT_AXIS, right: COUNT_AXIS }} />
     </Panel>
   );
 }

@@ -2,7 +2,6 @@ import type { Language } from "../../core/i18n/language";
 import type { EffectPeriod, EffectTotals } from "../../core/api/contract";
 import { sum } from "../../core/numbers";
 import { useLanguage, useMessages } from "../i18n";
-import { compactNumber } from "./charts/chart-format";
 import type { Grain } from "./charts/chart-style";
 import { PeriodChart } from "./charts/PeriodChart";
 import type { SeriesEntry } from "./charts/series";
@@ -25,17 +24,7 @@ export function EffectChart({ periods, totals, grain }: { periods: EffectPeriod[
     { label: stats.testLines, format: (period) => codeAndTestsLines(language, period).tests },
     { label: stats.deferredTasks, format: (period) => formatWhole(language, period.deferredTasks) },
   ];
-  return (
-    <PeriodChart
-      name={stats.effectTitle}
-      grain={grain}
-      hoverBand
-      summary={effectSummary(stats, language, grain, periods, totals)}
-      data={periods}
-      series={series}
-      axes={{ left: { tickFormatter: (value: number) => compactNumber(language, value) } }}
-    />
-  );
+  return <PeriodChart name={stats.effectTitle} grain={grain} summary={effectSummary(stats, language, grain, periods, totals)} data={periods} series={series} />;
 }
 
 function effectSummary(stats: StatsMessages, language: Language, grain: Grain, periods: EffectPeriod[], totals: EffectTotals): string {

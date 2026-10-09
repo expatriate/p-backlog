@@ -11,6 +11,10 @@ export function formatWhole(language: Language, value: number): string {
   return formatNumber(language, Math.round(value));
 }
 
+export function wholeFormatter(language: Language): (value: number) => string {
+  return (value) => formatWhole(language, value);
+}
+
 export function costValue(language: Language, cost: number | null): string {
   return cost === null ? NO_VALUE : approx(formatMoney(language, cost));
 }

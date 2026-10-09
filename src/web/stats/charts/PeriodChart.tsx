@@ -3,7 +3,7 @@ import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Line, Tooltip, XAxis
 import { formatDay } from "../../../core/i18n/format";
 import { useLanguage, useMessages } from "../../i18n";
 import { ChartFrame } from "./ChartFrame";
-import { axisDay, axisTime, tooltipTime } from "./chart-format";
+import { axisDay, axisTime, compactNumber, tooltipTime } from "./chart-format";
 import {
   AREA_FILL_OPACITY,
   AXIS_PROPS,
@@ -12,12 +12,10 @@ import {
   DASHED_LINE,
   DASHED_LINE_WIDTH,
   DATE_AXIS_PROPS,
-  GRID_AXIS_ID,
   HATCH_SIZE,
   HATCH_STROKE_WIDTH,
+  HOVER_CURSOR,
   LINE_WIDTH,
-  PERIOD_CURSOR,
-  SAMPLE_CURSOR,
   VALUE_AXIS_WIDTH,
   type ChartStep,
   type Grain,
@@ -26,46 +24,50 @@ import { SeriesTooltip } from "./ChartTooltip";
 import { isPlotted, type Series, type SeriesEntry } from "./series";
 import { nonZeroDot, valueDot } from "./value-dot";
 
+const LEFT_AXIS = "left";
+
 type ValueAxis = Pick<YAxisProps, "allowDecimals" | "tickFormatter" | "domain">;
 
-type ChartProps<Row> = { name: string; summary: string; data: Row[]; series: SeriesEntry<Row>[]; axes: { left: ValueAxis; right?: ValueAxis } };
+type ChartProps<Row> = { name: string; summary: string; data: Row[]; series: SeriesEntry<Row>[]; axes?: { left?: ValueAxis; right?: ValueAxis } };
 
-type Plot = "lines" | "hoverBand" | "areas";
+type TimeChartProps<Row> = ChartProps<Row> & { step: ChartStep; timeKey: string; tick: (time: string) => string; tooltipTitle: (row: Row) => string };
 
-type TimeChartProps<Row> = ChartProps<Row> & { step: ChartStep; timeKey: string; tick: (time: string) => string; tooltipTitle: (row: Row) => string; plot: Plot };
-
-export function PeriodChart<Row extends { start: string }>({ grain, hoverBand = false, ...chart }: ChartProps<Row> & { grain: Grain; hoverBand?: boolean }) {
+export function PeriodChart<Row extends { start: string }>({ grain, ...chart }: ChartProps<Row> & { grain: Grain }) {
   const { stats } = useMessages();
   const language = useLanguage();
   const tooltipTitle = (row: Row) => stats.periodOf(grain, formatDay(language, row.start));
-  return <TimeChart {...chart} step={grain} timeKey="start" tick={(day) => axisDay(language, day)} tooltipTitle={tooltipTitle} plot={hoverBand ? "hoverBand" : "lines"} />;
+  return <TimeChart {...chart} step={grain} timeKey="start" tick={(day) => axisDay(language, day)} tooltipTitle={tooltipTitle} />;
 }
 
 export function SampleChart<Row extends { at: string }>(chart: ChartProps<Row>) {
   const language = useLanguage();
   const tooltipTitle = (row: Row) => tooltipTime(language, row.at);
-  return <TimeChart {...chart} step="sample" timeKey="at" tick={(at) => axisTime(language, at)} tooltipTitle={tooltipTitle} plot="areas" />;
+  return <TimeChart {...chart} step="sample" timeKey="at" tick={(at) => axisTime(language, at)} tooltipTitle={tooltipTitle} />;
 }
 
-function TimeChart<Row>({ name, summary, data, series, axes, step, timeKey, tick, tooltipTitle, plot }: TimeChartProps<Row>) {
+function TimeChart<Row>({ name, summary, data, series, axes = {}, step, timeKey, tick, tooltipTitle }: TimeChartProps<Row>) {
   const { stats } = useMessages();
+  const language = useLanguage();
   const patternPrefix = useId();
   const plotted = series.filter(isPlotted);
   const hatched = plotted.filter((entry) => entry.shape === "hatch");
   const patternId = (entry: Series<Row>) => `${patternPrefix}${entry.key}`;
   const isStackTop = (entry: Series<Row>) => entry.stack === undefined || plotted.findLast((other) => other.stack === entry.stack) === entry;
-  const Chart = plot === "hoverBand" ? BarChart : ComposedChart;
-  const leftAxisId = axes.right === undefined ? GRID_AXIS_ID : "left";
+  const hasRightAxis = plotted.some((entry) => entry.axis === "right");
+  const compact = (value: number) => compactNumber(language, value);
+  const sampled = step === "sample";
+  // recharts draws the hover band only in BarChart and renders Area only in AreaChart or ComposedChart
+  const Chart = sampled ? ComposedChart : BarChart;
 
   const mark = (entry: Series<Row>): ReactElement => {
-    const yAxisId = entry.axis ?? leftAxisId;
+    const yAxisId = entry.axis ?? LEFT_AXIS;
     if (entry.shape === "bar" || entry.shape === "hatch") {
       const fill = entry.shape === "hatch" ? `url(#${patternId(entry)})` : entry.color;
       const stacking = entry.stack === undefined ? {} : { stackId: entry.stack };
       return <Bar key={entry.key} yAxisId={yAxisId} dataKey={entry.key} {...stacking} fill={fill} radius={isStackTop(entry) ? BAR_RADIUS : 0} isAnimationActive={false} />;
     }
     const stroke = entry.shape === "dashed" ? { strokeWidth: DASHED_LINE_WIDTH, strokeDasharray: DASHED_LINE } : { strokeWidth: LINE_WIDTH };
-    if (plot === "areas") {
+    if (sampled) {
       const fill = entry.shape === "dashed" ? { fill: "none" } : { fill: entry.color, fillOpacity: AREA_FILL_OPACITY };
       return <Area key={entry.key} yAxisId={yAxisId} dataKey={entry.key} stroke={entry.color} {...stroke} {...fill} dot={false} isAnimationActive={false} />;
     }
@@ -87,11 +89,11 @@ function TimeChart<Row>({ name, summary, data, series, axes, step, timeKey, tick
             ))}
           </defs>
         )}
-        <CartesianGrid vertical={false} />
+        <CartesianGrid vertical={false} yAxisId={LEFT_AXIS} />
         <XAxis dataKey={timeKey} tickFormatter={tick} {...DATE_AXIS_PROPS} />
-        <YAxis yAxisId={leftAxisId} {...axes.left} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
-        {axes.right !== undefined && <YAxis yAxisId="right" orientation="right" {...axes.right} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />}
-        <Tooltip content={<SeriesTooltip title={tooltipTitle} series={series} />} isAnimationActive={false} cursor={plot === "areas" ? SAMPLE_CURSOR : PERIOD_CURSOR} />
+        <YAxis yAxisId={LEFT_AXIS} tickFormatter={compact} {...axes.left} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
+        {hasRightAxis && <YAxis yAxisId="right" orientation="right" tickFormatter={compact} {...axes.right} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />}
+        <Tooltip content={<SeriesTooltip title={tooltipTitle} series={series} />} isAnimationActive={false} cursor={HOVER_CURSOR} />
         {plotted.map(mark)}
       </Chart>
     </ChartFrame>

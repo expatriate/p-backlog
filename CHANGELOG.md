@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Statistics charts now look the same: every chart has horizontal grid lines (the debt, spend and accuracy charts with
+  two value axes had only the top and bottom border), the hover cursor is one shape in theme colours (a framed band
+  under the hovered period on bar charts, a line on the memory chart; before, every chart except the effect chart drew
+  recharts' fixed light-grey line), and the "decided" axis of the accuracy chart is shortened like the other count axes
+  (`1.2K` and `1,2 тыс.`, not `1200`).
 - `backlog serve --port ""` now fails with "--port: expected a number from 1 to 65535" and exit code 1, like any
   other invalid port, instead of silently starting on the default port 4317. An empty `PORT` environment variable still
   means "not set".
