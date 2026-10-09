@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.0
 
 - In Safari and Firefox, after a bulk action done with the mouse, focus now moves to Undo, and after the epic filter
   disappears it moves to the next toolbar control, as it already did in Chrome and with the keyboard. Before, the click
