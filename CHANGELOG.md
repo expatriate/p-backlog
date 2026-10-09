@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Clean-up of old closed tasks after a command no longer stalls it for 5 seconds per busy task file: when several of
+  those files are locked by another process (a parallel command, an editor), the whole set now waits for the locks
+  once, up to 5 seconds in total, instead of 5 seconds for each locked file. Files that are free are still locked and
+  processed.
 - A task's `source` with `.`, `..` or a doubled `/` inside the path (`src/./a.ts`, `src/x/../a.ts`, `src//a.ts`) now
   means the file git knows (`src/a.ts`) everywhere, not only in the duplicate search. Such a task never became a "code
   changed" candidate in `backlog check` when its file changed, its function was not found in the code graph,

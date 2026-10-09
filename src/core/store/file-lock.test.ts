@@ -1,7 +1,7 @@
 import { readFile, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { FileBusyError, withFileLock } from "./file-lock";
+import { FileBusyError, withAvailableLocks, withFileLock } from "./file-lock";
 import { SHORT_LOCK_WAIT } from "./testing/lock-wait";
 import { makeTempDir } from "./testing/temp-dirs";
 
@@ -37,5 +37,19 @@ describe("блокировка файла", () => {
     });
 
     expect(await readFile(lock, "utf8")).toBe("другой процесс");
+  });
+
+  it("несколько занятых файлов набора вместе ждут один предел, а свободные всё равно берутся", async () => {
+    const dir = await makeTempDir();
+    const waitLimitMs = 300;
+    const busy = ["T-1.md", "T-2.md", "T-3.md", "T-4.md"];
+    const free = ["T-0.md", "T-5.md"].map((name) => join(dir, name));
+    for (const name of busy) await writeFile(join(dir, `.${name}.lock`), "другой процесс");
+
+    const startedAt = Date.now();
+    const locked = await withAvailableLocks([...busy.map((name) => join(dir, name)), ...free], async (acquired) => acquired, { waitLimitMs });
+
+    expect(locked).toEqual(new Set(free));
+    expect(Date.now() - startedAt).toBeLessThan(busy.length * waitLimitMs);
   });
 });

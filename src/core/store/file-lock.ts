@@ -36,12 +36,13 @@ export async function withFileLock<T>(path: string, action: () => Promise<T>, op
   }
 }
 
-export async function withAvailableLocks<T>(paths: readonly string[], action: (locked: ReadonlySet<string>) => Promise<T>, options: LockOptions = {}): Promise<T> {
+export async function withAvailableLocks<T>(paths: readonly string[], action: (locked: ReadonlySet<string>) => Promise<T>, { waitLimitMs = DEFAULT_WAIT_LIMIT_MS }: LockOptions = {}): Promise<T> {
   const held: HeldLock[] = [];
+  const giveUpAt = Date.now() + waitLimitMs;
   try {
     for (const path of [...paths].sort()) {
       try {
-        held.push(await acquire(path, options));
+        held.push(await acquire(path, { waitLimitMs: giveUpAt - Date.now() }));
       } catch (error) {
         if (!(error instanceof FileBusyError)) throw error;
       }
