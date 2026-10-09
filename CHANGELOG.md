@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A task file created in the first moments after `backlog serve` starts (for example by an agent while the service is
+  starting) now reaches an open web interface without waiting for another edit. The file watcher could miss files that
+  appeared before it finished its initial scan; now the server reloads the backlog once when the watcher is ready.
 - The web API now rejects a request body larger than 1 MiB with `413` and "Request body is larger than 1 MiB" instead of
   reading it whole; a task description edited in the web UI is far below that. A closing reason made of a very long run of
   spaces or line breaks (about 100,000 characters, from `backlog close --reason` or the batch close in the web UI) no

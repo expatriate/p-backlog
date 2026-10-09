@@ -90,6 +90,16 @@ describe("createChangeFeed", () => {
     expect(changes.events.some((event) => event.length > 1)).toBe(true);
   });
 
+  it("когда наблюдатель готов, подписчики получают изменение корня беклога — файлы, созданные до готовности, перечитываются", async () => {
+    const root = await makeTempDir();
+    await mkdir(join(root, "spa"), { recursive: true });
+    const feed = createChangeFeed({ root, debounceMs: 20, warn: async () => undefined });
+    onTestFinished(() => feed.close());
+    const changes = recordChanges(feed);
+
+    await changes.reached(root);
+  });
+
   it("после close не зовёт подписчиков", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });

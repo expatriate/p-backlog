@@ -44,11 +44,15 @@ export function createChangeFeed({ root, debounceMs, warn }: ChangeFeedOptions):
     for (const listener of listeners) void listener(paths);
   });
 
-  const watcher = watch(root, { ignoreInitial: true, ignored: (path) => isHiddenPath(root, path) });
-  watcher.on("all", (_event, path) => {
+  const reportChange = (path: string) => {
     changedPaths.add(path);
     debouncer.schedule();
-  });
+  };
+
+  const watcher = watch(root, { ignoreInitial: true, ignored: (path) => isHiddenPath(root, path) });
+  watcher.on("all", (_event, path) => reportChange(path));
+  // chokidar does not report files created before its directory watchers are registered; the root path makes the hub reload everything
+  watcher.on("ready", () => reportChange(root));
   watcher.on("error", (error) => {
     void warn((messages) => messages.watcherError(root, errorText(error)));
   });
