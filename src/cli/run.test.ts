@@ -1,8 +1,9 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { chmod, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/hook-signature";
+import { settingsFilePath } from "../core/store/settings";
 import { CLI_COMMANDS, commandName, runCli } from "./run";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { EXIT, type CliEnv } from "./io";
 import { baseCliEnv, makeCliSandbox } from "./testing/cli-harness";
 
@@ -55,6 +56,18 @@ describe("runCli", () => {
     warnings.length = 0;
     expect(await runCli(["hook", "stop"], io)).toBe(EXIT.ok);
     expect(warnings.join("\n")).toContain("ENOTDIR");
+  });
+
+  it.skipIf(process.platform === "win32")("язык не запомнился из-за каталога без записи — команда работает, а в stderr сказано, что и почему (на Windows chmod не закрывает каталог)", async () => {
+    const { root, run } = await makeCliSandbox();
+    await rm(settingsFilePath(root));
+    await chmod(root, 0o500);
+    onTestFinished(() => chmod(root, 0o700));
+
+    const result = await run(["project", "list"], { env: { LANG: "ru_RU.UTF-8" } });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(result.err).toContain(`Не удалось сохранить язык в ${settingsFilePath(root)}: EACCES`);
   });
 
   it("неожиданная ошибка команды не уходит стеком: текст в stderr и отдельный код", async () => {

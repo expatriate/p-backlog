@@ -55,13 +55,19 @@ function leadWhenPossible(url: string, broadcast: Broadcast): () => void {
       closed.signal.addEventListener("abort", stepDown, { once: true });
     });
   const seekLeadership = () => {
-    navigator.locks.request(LEADER_LOCK, { signal: closed.signal }, lead).catch(() => undefined);
+    navigator.locks.request(LEADER_LOCK, { signal: closed.signal }, lead).catch((error: unknown) => {
+      if (!isAbort(error)) throw error;
+    });
   };
   seekLeadership();
   return () => {
     clearTimeout(retry);
     closed.abort();
   };
+}
+
+function isAbort(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function relayedSource(url: string, broadcast: Broadcast): EventSource {

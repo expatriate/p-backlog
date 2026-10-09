@@ -1,9 +1,9 @@
-import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import { request as httpRequest, type IncomingMessage } from "node:http";
 import { connect } from "node:net";
 import { dirname, join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { coreMessages } from "../core/messages";
 import { localeLanguage, settingsFilePath } from "../core/store/settings";
 import { sweepClosedWhenDue } from "../core/store/sweep";
@@ -98,6 +98,20 @@ describe("startServer", () => {
     }
   });
 
+  it.skipIf(process.platform === "win32")("язык не запомнился из-за каталога без записи — сервер запускается, а в warn сказано, что и почему (на Windows chmod не закрывает каталог)", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    await mkdir(root);
+    await chmod(root, 0o500);
+    onTestFinished(() => chmod(root, 0o700));
+    const warnings: string[] = [];
+
+    const server = await startServer({ ...QUIET_HOST, warn: (line) => warnings.push(line), root, port: 0, home, env: { LANG: "ru_RU.UTF-8" } });
+    await server.close();
+
+    expect(warnings).toContainEqual(expect.stringContaining(`Не удалось сохранить язык в ${settingsFilePath(root)}: EACCES`));
+  });
+
   it("записывает PID в файл, если он задан, и удаляет его при закрытии", async () => {
     const home = await makeTempDir();
     const pidFile = join(home, "server.pid");
@@ -117,7 +131,7 @@ describe("startServer", () => {
     await server.close();
 
     await expect(access(pidFile)).rejects.toThrow();
-    await events.body?.cancel().catch(() => undefined);
+    await Promise.allSettled([events.body?.cancel()]);
   });
 
   it("дожидается правки, пришедшей до остановки, и не ждёт таймаута keep-alive после её ответа", async () => {

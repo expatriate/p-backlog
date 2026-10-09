@@ -63,7 +63,7 @@ describe("кэш со сроком жизни", () => {
     const fresh = await cache.get("k", async () => ++computed, ["tag"]);
 
     rejectStale(new Error("устарел"));
-    await staleResult.catch(() => undefined);
+    await expect(staleResult).rejects.toThrow("устарел");
 
     expect(await cache.get("k", async () => ++computed)).toBe(fresh);
   });

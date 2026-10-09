@@ -32,11 +32,13 @@ const LIST_PAGE = { group: ["**/list/**"], message: "Only the router mounts the 
 const webImports = (...patterns) => ({ "no-restricted-imports": ["error", { patterns: [REPORT_TYPES, ...patterns] }] });
 const REVERSE_IN_PLACE = { selector: "CallExpression[callee.property.name='reverse'][arguments.length=0]", message: "reverse() mutates the array; use toReversed()." };
 const ERROR_SWALLOWING_HANDLERS = [
-  "CallExpression[callee.property.name='catch'] > ArrowFunctionExpression[params.length=0][body.type='Literal']",
-  "CallExpression[callee.property.name='then'] > ArrowFunctionExpression:nth-child(2)[params.length=0]:not([body.type='BlockStatement'])",
+  "CallExpression[callee.property.name='catch'] > ArrowFunctionExpression[params.length=0]:matches([body.type='Literal'], [body.type='Identifier'][body.name='undefined'], [body.type='BlockStatement'][body.body.length=0])",
+  "CallExpression[callee.property.name='then'] > ArrowFunctionExpression:nth-child(2)[params.length=0]:not([body.type='BlockStatement'][body.body.length>0])",
 ];
 const swallowedErrors = (message) => ERROR_SWALLOWING_HANDLERS.map((selector) => ({ selector, message }));
-const NODE_SWALLOWED_ERRORS = swallowedErrors("Swallows every error as a missing file; use readTextOrNull, fileExists, statOrNull or another fs-utils helper.");
+const NODE_SWALLOWED_ERRORS = swallowedErrors(
+  "Swallows every error. Expect a missing file through readTextOrNull, fileExists, statOrNull or another fs-utils helper; hand any other failure to the caller (onError) or catch the one you expect.",
+);
 const BROWSER_SWALLOWED_ERRORS = swallowedErrors("Swallows every error as a fallback value; handle the failure you expect and let the rest surface.");
 
 export default tseslint.config(

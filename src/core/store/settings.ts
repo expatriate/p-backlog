@@ -1,5 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { errorText } from "../errors";
 import { languageFromLocale, type Language } from "../i18n/language";
 import { settingsSchema, type Settings } from "../model/settings";
 import { parseJson, readTextOrNull, writeJsonFile } from "./fs-utils";
@@ -25,7 +26,7 @@ export async function writeSettings(root: string, settings: Settings): Promise<v
   await writeJsonFile(settingsFilePath(root), settings);
 }
 
-export type SettledLanguage = { language: Language; invalidSettingsFile: boolean };
+export type SettledLanguage = { language: Language; invalidSettingsFile: boolean; saveFailure: string | null };
 
 type LanguageSource = "settings" | "unset" | "invalid-settings";
 
@@ -33,8 +34,8 @@ const LANGUAGE_OF_BACKLOGS_BEFORE_SETTINGS: Language = "ru";
 
 export async function settleLanguage(root: string, env: NodeJS.ProcessEnv): Promise<SettledLanguage> {
   const { language, source } = await decideLanguage(root, env);
-  if (source === "unset") await rememberLanguageWhenWritable(root, language);
-  return { language, invalidSettingsFile: source === "invalid-settings" };
+  const saveFailure = source === "unset" ? await saveLanguageOrFailure(root, language) : null;
+  return { language, invalidSettingsFile: source === "invalid-settings", saveFailure };
 }
 
 export async function readLanguageOrLocale(root: string, env: NodeJS.ProcessEnv): Promise<Language> {
@@ -51,8 +52,13 @@ async function decideLanguage(root: string, env: NodeJS.ProcessEnv): Promise<{ l
   return file.valid ? { language: file.settings.language, source: "settings" } : { language: localeLanguage(env), source: "invalid-settings" };
 }
 
-async function rememberLanguageWhenWritable(root: string, language: Language): Promise<void> {
-  await writeSettings(root, { language }).catch(() => undefined);
+async function saveLanguageOrFailure(root: string, language: Language): Promise<string | null> {
+  try {
+    await writeSettings(root, { language });
+    return null;
+  } catch (error) {
+    return errorText(error);
+  }
 }
 
 export function localeLanguage(env: NodeJS.ProcessEnv): Language {

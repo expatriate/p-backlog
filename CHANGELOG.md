@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- When the backlog directory cannot be written to (no permission, read-only file system, full disk) and `.settings.json`
+  does not exist yet, every command and `backlog serve` now say so once on stderr: "Could not save the language to
+  .../.settings.json: EACCES ...". Before, the failed write was swallowed without a trace and the language was silently
+  detected afresh on each run, so it could flip with the shell's locale. The command or the server still runs.
 - Clean-up of old closed tasks after a command no longer stalls it for 5 seconds per busy task file: when several of
   those files are locked by another process (a parallel command, an editor), the whole set now waits for the locks
   once, up to 5 seconds in total, instead of 5 seconds for each locked file. Files that are free are still locked and

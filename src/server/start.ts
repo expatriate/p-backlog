@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { claudeProjectsDir } from "../core/claude-dir";
 import { HOUR_MS } from "../core/model/dates";
 import { errorText } from "../core/errors";
+import type { Language } from "../core/i18n/language";
 import { coreMessages } from "../core/messages";
 import { serviceLogToTrim } from "../core/service-log";
 import { compactJournalsWhenDue } from "../core/store/journal-compaction";
@@ -39,6 +40,7 @@ export type StartServerOptions = ServerOutput & {
   platform: NodeJS.Platform;
   pidFile?: string | undefined;
   staticDir?: string | undefined;
+  settledLanguage?: Language | undefined;
   now?: () => Date;
 };
 
@@ -48,12 +50,10 @@ type Listening = { server: HttpServer; port: number };
 
 type BackgroundJobs = ServerOutput & { usage: UsageScanner; memory: MemorySampler; maintain: () => Promise<SweepReport | null>; messages: () => Promise<ServerMessages> };
 
-export async function startServer({ root, port, home, env, platform, log, warn, pidFile, staticDir, now = () => new Date() }: StartServerOptions): Promise<RunningServer> {
+export async function startServer({ root, port, home, env, platform, log, warn, pidFile, staticDir, settledLanguage, now = () => new Date() }: StartServerOptions): Promise<RunningServer> {
   await mkdir(root, { recursive: true });
 
-  const settled = await settleLanguage(root, env);
-  const startupMessages = serverMessages(settled.language);
-  if (settled.invalidSettingsFile) warn(startupMessages.settingsFileInvalid(settingsFilePath(root)));
+  const startupMessages = serverMessages(settledLanguage ?? (await settleAndWarn(root, env, warn)));
 
   const readLanguage = () => readLanguageOrLocale(root, env);
   const readMessages = () => readLanguage().then(serverMessages);
@@ -90,6 +90,13 @@ export async function startServer({ root, port, home, env, platform, log, warn, 
   }
   log(startupMessages.serverStarted(browserOrigin(actualPort), root));
   return { port: actualPort, close };
+}
+
+async function settleAndWarn(root: string, env: NodeJS.ProcessEnv, warn: (line: string) => void): Promise<Language> {
+  const { language, invalidSettingsFile, saveFailure } = await settleLanguage(root, env);
+  if (invalidSettingsFile) warn(serverMessages(language).settingsFileInvalid(settingsFilePath(root)));
+  if (saveFailure !== null) warn(coreMessages(language).settingsNotSaved(settingsFilePath(root), saveFailure));
+  return language;
 }
 
 export function closeOnStopSignal(server: RunningServer): Promise<void> {

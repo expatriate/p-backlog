@@ -275,4 +275,5 @@ export const coreEn: CoreMessages = {
   candidatesRecordFailed: (projectId, detail) => `Could not record candidates to the ${projectId} journal: ${detail}`,
   branchOriginsReadFailed: (projectId, detail) => `Could not read the ${projectId} journal — tasks from unmerged branches are checked as usual: ${detail}`,
   unreadableSkipped: (path, detail) => `Could not read ${path}, skipped: ${detail}`,
+  settingsNotSaved: (path, detail) => `Could not save the language to ${path}: ${detail}. It is detected again on every run — make the backlog directory writable.`,
 };

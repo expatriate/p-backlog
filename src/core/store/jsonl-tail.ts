@@ -20,7 +20,7 @@ export function createJsonlTail<T>(path: string, schema: z.ZodType<T>): JsonlTai
 
   function read(): Promise<TailRead<T>> {
     const result = queue.then(doRead);
-    queue = result.catch(() => undefined);
+    queue = Promise.allSettled([result]);
     return result;
   }
 

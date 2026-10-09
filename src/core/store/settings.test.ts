@@ -32,18 +32,20 @@ describe("язык беклога", () => {
     expect(JSON.parse(await readFile(join(root, ".settings.json"), "utf8"))).toEqual({ language: "en" });
   });
 
-  it("не сохраняется — определённый язык всё равно возвращается в этот раз", async () => {
+  it.skipIf(process.platform === "win32")("не сохраняется — язык всё равно определён на этот раз, а причина сбоя возвращается вызывающему (на Windows chmod не закрывает каталог)", async () => {
     const root = await makeTempDir();
     await chmod(root, 0o500);
     onTestFinished(() => chmod(root, 0o700));
-    expect((await settleLanguage(root, { LANG: "en_US.UTF-8" })).language).toBe("en");
+
+    expect(await settleLanguage(root, { LANG: "en_US.UTF-8" })).toEqual({ language: "en", invalidSettingsFile: false, saveFailure: expect.stringContaining("EACCES") });
+    await expect(access(settingsFilePath(root))).rejects.toThrow();
   });
 
   it("битый файл настройки не перезаписывается, язык определяется по локали на этот запуск", async () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": projectFile("SPA"), ".settings.json": '{"language":"EN"}' });
 
-    expect(await settleLanguage(root, { LANG: "en_US.UTF-8" })).toEqual({ language: "en", invalidSettingsFile: true });
+    expect(await settleLanguage(root, { LANG: "en_US.UTF-8" })).toEqual({ language: "en", invalidSettingsFile: true, saveFailure: null });
     expect(await readFile(join(root, ".settings.json"), "utf8")).toBe('{"language":"EN"}');
   });
 

@@ -21,6 +21,7 @@ async function runServe(args: string[], io: CliIo): Promise<ExitCode> {
       warn: io.warn,
       pidFile: io.env[PID_FILE_ENV],
       staticDir: BUNDLED_WEB_DIR,
+      settledLanguage: io.language,
     });
     await closeOnStopSignal(server);
   } catch (error) {

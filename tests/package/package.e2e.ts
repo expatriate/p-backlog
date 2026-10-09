@@ -32,6 +32,16 @@ afterAll(async () => {
   await rm(work, { recursive: true, force: true });
 });
 
+async function settingsOnceServing(port: number): Promise<{ language: string } | undefined> {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/settings`);
+    return response.status === 200 ? ((await response.json()) as { language: string }) : undefined;
+  } catch (error) {
+    if (error instanceof TypeError) return undefined;
+    throw error;
+  }
+}
+
 function quoteForWindowsShell(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
@@ -92,9 +102,7 @@ describe("путь нового пользователя из tarball", () => {
       const deadline = Date.now() + 20_000;
       let settingsResponse: { language: string } | undefined;
       while (Date.now() < deadline && settingsResponse === undefined) {
-        settingsResponse = await fetch(`http://127.0.0.1:${port}/api/settings`)
-          .then((response) => (response.status === 200 ? response.json() : undefined))
-          .catch(() => undefined);
+        settingsResponse = await settingsOnceServing(port);
         if (settingsResponse === undefined) await new Promise((resolve) => setTimeout(resolve, 200));
       }
       expect(settingsResponse).toEqual({ language: "en" });

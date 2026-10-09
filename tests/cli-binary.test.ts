@@ -1,8 +1,8 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { access } from "node:fs/promises";
+import { access, chmod, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 import { freePort } from "../src/cli/testing/free-port";
 import { readRuns } from "../src/core/store/testing/runs";
 import { makeGitRepo, makeTempDir } from "../src/core/store/testing/temp-dirs";
@@ -56,5 +56,26 @@ describe("собранный бинарник backlog", () => {
     } finally {
       server.kill("SIGKILL");
     }
+  });
+
+  it.skipIf(process.platform === "win32")("serve в каталоге без записи говорит, что язык не сохранён, один раз, а не ещё и из сервера (на Windows chmod не закрывает каталог)", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "store");
+    await mkdir(root);
+    await chmod(root, 0o500);
+    onTestFinished(() => chmod(root, 0o700));
+    const port = await freePort();
+    const server = spawn(process.execPath, [cli, "serve", "--port", String(port)], { env: { ...isolatedHomeEnv(home), LC_ALL: "ru_RU.UTF-8" }, stdio: ["ignore", "pipe", "pipe"] });
+    let stderr = "";
+    server.stderr.on("data", (chunk: Buffer) => (stderr += chunk.toString()));
+    try {
+      await once(server.stdout, "data");
+      server.kill("SIGTERM");
+      await once(server, "close");
+    } finally {
+      server.kill("SIGKILL");
+    }
+
+    expect(stderr.match(/Не удалось сохранить язык/g)).toHaveLength(1);
   });
 });

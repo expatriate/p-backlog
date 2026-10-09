@@ -61,6 +61,7 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<Exit
   const { language } = settled;
   const io = cliIo(env, language);
   if (settled.invalidSettingsFile) io.warn(io.cli.settingsFileInvalid(settingsFilePath(env.backlogRoot)));
+  if (settled.saveFailure !== null) io.warn(io.core.settingsNotSaved(settingsFilePath(env.backlogRoot), settled.saveFailure));
   if (!command) {
     const askedForHelp = name === undefined || HELP_ARGUMENTS.has(name);
     if (!askedForHelp) {

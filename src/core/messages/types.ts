@@ -37,4 +37,5 @@ export type CoreMessages = StoreMessages & {
   candidatesRecordFailed: (projectId: string, detail: string) => string;
   branchOriginsReadFailed: (projectId: string, detail: string) => string;
   unreadableSkipped: (path: string, detail: string) => string;
+  settingsNotSaved: (path: string, detail: string) => string;
 };

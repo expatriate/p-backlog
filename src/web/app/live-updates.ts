@@ -24,10 +24,7 @@ export function useLiveUpdates(): void {
 }
 
 async function refreshIfBehind(queryClient: QueryClient, queryKey: readonly string[], revision: Revision): Promise<void> {
-  await queryClient
-    .getQueryCache()
-    .find({ queryKey, exact: true })
-    ?.promise?.catch(() => undefined);
+  await Promise.allSettled([queryClient.getQueryCache().find({ queryKey, exact: true })?.promise]);
   const known = queryClient.getQueryData<{ revision?: Revision }>(queryKey)?.revision;
   if (known === undefined || known.boot !== revision.boot || known.seq < revision.seq) await queryClient.invalidateQueries({ queryKey, exact: true });
 }
