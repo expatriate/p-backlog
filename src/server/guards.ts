@@ -1,10 +1,10 @@
 import type { MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { Language } from "../core/i18n/language";
+import { BYTES_PER_MEBIBYTE } from "../core/numbers";
 import { errorResponse } from "./error-response";
 import { serverMessages } from "./messages";
 
-const BYTES_PER_MEBIBYTE = 1024 * 1024;
 const REQUEST_BODY_LIMIT_MEBIBYTES = 1;
 
 const MUTATING_METHODS: ReadonlySet<string> = new Set(["POST", "PATCH", "PUT", "DELETE"]);

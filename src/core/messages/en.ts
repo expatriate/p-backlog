@@ -276,4 +276,5 @@ export const coreEn: CoreMessages = {
   branchOriginsReadFailed: (projectId, detail) => `Could not read the ${projectId} journal — tasks from unmerged branches are checked as usual: ${detail}`,
   unreadableSkipped: (path, detail) => `Could not read ${path}, skipped: ${detail}`,
   settingsNotSaved: (path, detail) => `Could not save the language to ${path}: ${detail}. It is detected again on every run — make the backlog directory writable.`,
+  settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 };

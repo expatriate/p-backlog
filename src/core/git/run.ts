@@ -1,6 +1,7 @@
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import { errorCode } from "../errors";
+import { BYTES_PER_MEBIBYTE } from "../numbers";
 import { createLimiter } from "./limit";
 
 export type GitRunner = (repo: string, args: string[], input?: string) => Promise<string | null>;
@@ -13,7 +14,7 @@ export const RECORD = "\x1e";
 export const FIELD = "\x1f";
 
 const runFile = promisify(execFile);
-const GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
+const GIT_OUTPUT_LIMIT = 64 * BYTES_PER_MEBIBYTE;
 const GREP_NO_MATCH_EXIT = 1;
 const GIT_PROCESS_LIMIT = 8;
 

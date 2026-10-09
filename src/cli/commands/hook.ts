@@ -1,5 +1,6 @@
 import { errorText } from "../../core/errors";
 import { dirname } from "node:path";
+import { parseArgs } from "node:util";
 import { checkBacklog } from "../../core/check/check-backlog";
 import { formatLocalDay } from "../../core/model/dates";
 import { FileBusyError } from "../../core/store/file-lock";
@@ -25,6 +26,8 @@ import { stopReason } from "../stop-reason";
 
 const DEFAULT_AGENT: Agent = "claude";
 
+const HOOK_OPTIONS = { agent: { type: "string" } } as const;
+
 const rememberNothing = (): Promise<void> => Promise.resolve();
 
 export const hookCommand: CliCommand = {
@@ -32,16 +35,20 @@ export const hookCommand: CliCommand = {
   usage: (language) => [
     cliMessages(language).hookUsage(
       HOOK_STOP_EVENT,
-      AGENTS,
-      AGENTS.map((agent) => AGENT_SPECS[agent].label),
+      AGENTS.map((agent) => ({ agent, label: AGENT_SPECS[agent].label })),
     ),
   ],
   run: runHook,
   failureExit: EXIT.ok,
 };
 
+export function namesStopEvent(args: string[]): boolean {
+  const { positionals } = parseArgs({ args, options: HOOK_OPTIONS, allowPositionals: true, strict: false });
+  return positionals[0] === HOOK_STOP_EVENT;
+}
+
 async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
-  const { values, positionals } = parseCommandArgs(io.language, args, { agent: { type: "string" } });
+  const { values, positionals } = parseCommandArgs(io.language, args, HOOK_OPTIONS);
   if (positionals.length !== 1 || positionals[0] !== HOOK_STOP_EVENT) throw usageError(hookCommand, io.language);
   const agent = values.agent === undefined ? DEFAULT_AGENT : parseChoice(io.language, values.agent, AGENTS, io.cli.optionLabel.agent);
   const event = parseStopEvent(agent, await io.readStdin());

@@ -8,18 +8,20 @@ import { HOUR_MS } from "../core/model/dates";
 import { errorText } from "../core/errors";
 import type { Language } from "../core/i18n/language";
 import { coreMessages } from "../core/messages";
+import { browserOrigin, LOOPBACK_HOST } from "../core/server-address";
+import { settleLanguageReportingProblems } from "../core/settle-language";
 import { serviceLogToTrim } from "../core/service-log";
 import { compactJournalsWhenDue } from "../core/store/journal-compaction";
 import { runMaintenance, type MaintenancePlan } from "../core/store/maintenance";
 import { trimRuns } from "../core/store/runs";
-import { readLanguageOrLocale, settingsFilePath, settleLanguage } from "../core/store/settings";
+import { readLanguageOrLocale } from "../core/store/settings";
 import { sweepClosedAndStamp, type SweepReport } from "../core/store/sweep";
 import { createApp } from "./app";
 import { CHANGE_DEBOUNCE_MS, createChangeFeed } from "./change-feed";
 import { localHosts } from "./guards";
 import { createMemorySampler, type MemorySampler } from "./memory-sampler";
 import { localizedWarn, serverMessages, type ServerMessages } from "./messages";
-import { browserOrigin, listenFailure, LOOPBACK_HOST } from "./port";
+import { listenFailure } from "./port";
 import { startSweeper } from "./sweeper";
 import { createUsageScanner, type UsageScanner } from "./usage-scanner";
 
@@ -53,7 +55,7 @@ type BackgroundJobs = ServerOutput & { usage: UsageScanner; memory: MemorySample
 export async function startServer({ root, port, home, env, platform, log, warn, pidFile, staticDir, settledLanguage, now = () => new Date() }: StartServerOptions): Promise<RunningServer> {
   await mkdir(root, { recursive: true });
 
-  const startupMessages = serverMessages(settledLanguage ?? (await settleAndWarn(root, env, warn)));
+  const startupMessages = serverMessages(settledLanguage ?? (await settleLanguageReportingProblems(root, env, warn)));
 
   const readLanguage = () => readLanguageOrLocale(root, env);
   const readMessages = () => readLanguage().then(serverMessages);
@@ -90,13 +92,6 @@ export async function startServer({ root, port, home, env, platform, log, warn, 
   }
   log(startupMessages.serverStarted(browserOrigin(actualPort), root));
   return { port: actualPort, close };
-}
-
-async function settleAndWarn(root: string, env: NodeJS.ProcessEnv, warn: (line: string) => void): Promise<Language> {
-  const { language, invalidSettingsFile, saveFailure } = await settleLanguage(root, env);
-  if (invalidSettingsFile) warn(serverMessages(language).settingsFileInvalid(settingsFilePath(root)));
-  if (saveFailure !== null) warn(coreMessages(language).settingsNotSaved(settingsFilePath(root), saveFailure));
-  return language;
 }
 
 export function closeOnStopSignal(server: RunningServer): Promise<void> {

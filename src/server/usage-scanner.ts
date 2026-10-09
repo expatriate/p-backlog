@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { errorText } from "../core/errors";
 import { MINUTE_MS } from "../core/model/dates";
-import { sum } from "../core/numbers";
+import { BYTES_PER_MEBIBYTE, sum } from "../core/numbers";
 import type { ScanProgress } from "../core/stats/types";
 import { listTranscripts, scanTranscripts, type TranscriptFile } from "../core/usage/transcripts";
 import { emptyUsageCache, readUsageCache, writeUsageCache, type UsageCache, type UsageCacheEntry } from "../core/usage/usage-cache";
@@ -30,7 +30,7 @@ export type UsageScanner = {
   snapshot: () => UsageSnapshot;
 };
 
-const DEFAULT_BYTE_BUDGET = 16 * 1024 * 1024;
+const DEFAULT_BYTE_BUDGET = 16 * BYTES_PER_MEBIBYTE;
 const DEFAULT_INTERVAL_MS = MINUTE_MS;
 export const CATCH_UP_DELAY_MS = 100;
 const NOT_LISTED: ScanProgress = { listed: false, filesTotal: 0, filesDone: 0, bytesLeft: 0 };

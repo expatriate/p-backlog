@@ -1,5 +1,5 @@
+import { activeProjects } from "../core/model/project-scope";
 import type { Project } from "../core/model/types";
-import { projectsInScope } from "../core/stats/scope";
 import type { LoadedBacklog } from "../core/store/load";
 import { UsageError, type CliIo } from "./io";
 import { findProjectOrWarn } from "./lookups";
@@ -17,7 +17,7 @@ export function resolveScope(loaded: LoadedBacklog, io: CliIo, values: ScopeValu
   if (values.project !== undefined && values["all-projects"] === true) throw new UsageError(io.cli.needProjectOrAllProjects);
   if (values["all-projects"] === true) {
     const projectIds = loaded.projects.map((project) => project.id);
-    return { projectIds, activeIds: projectsInScope(loaded.projects, undefined).map((project) => project.id) };
+    return { projectIds, activeIds: activeProjects(loaded.projects).map((project) => project.id) };
   }
   const project = findProjectOrWarn(loaded, io, values.project);
   return project === undefined ? null : { projectIds: [project.id], activeIds: [project.id], project };

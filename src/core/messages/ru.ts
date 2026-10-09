@@ -290,4 +290,5 @@ export const coreRu: CoreMessages = {
   branchOriginsReadFailed: (projectId, detail) => `Не удалось прочитать журнал ${projectId} — задачи из невлитых веток проверяются как обычные: ${detail}`,
   unreadableSkipped: (path, detail) => `Не удалось прочитать ${path}, он пропущен: ${detail}`,
   settingsNotSaved: (path, detail) => `Не удалось сохранить язык в ${path}: ${detail}. Он определяется заново при каждом запуске — разрешите запись в каталог беклога.`,
+  settingsFileInvalid: (path) => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 };

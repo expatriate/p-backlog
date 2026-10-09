@@ -1,7 +1,8 @@
-import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/hook-signature";
+import { HOOK_STOP_COMMAND } from "../core/hook-signature";
 import { errorText, warnOnFailure } from "../core/errors";
 import { FileBusyError } from "../core/store/file-lock";
-import { localeLanguage, settingsFilePath, settleLanguage } from "../core/store/settings";
+import { settleLanguageReportingProblems } from "../core/settle-language";
+import { localeLanguage } from "../core/store/settings";
 import { cliMessages } from "./messages";
 import { usageText, type CliCommand } from "./command";
 import { categoryCommand } from "./commands/category";
@@ -9,7 +10,7 @@ import { checkCommand } from "./commands/check";
 import { closeCommand } from "./commands/close";
 import { configCommand } from "./commands/config";
 import { epicCommand } from "./commands/epic";
-import { hookCommand } from "./commands/hook";
+import { hookCommand, namesStopEvent } from "./commands/hook";
 import { listCommand } from "./commands/list";
 import { newCommand } from "./commands/new";
 import { priorityCommand } from "./commands/priority";
@@ -56,12 +57,9 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<Exit
   const [name, ...args] = argv;
   const command = name === undefined ? undefined : COMMANDS.get(name);
   const failureExit = command?.failureExit ?? EXIT.failed;
-  const settled = await warnOnFailure(settleLanguage(env.backlogRoot, env.env), env.warn, (error) => cliMessages(localeLanguage(env.env)).commandFailed(name ?? "", error));
-  if (settled === null) return failureExit;
-  const { language } = settled;
+  const language = await warnOnFailure(settleLanguageReportingProblems(env.backlogRoot, env.env, env.warn), env.warn, (error) => cliMessages(localeLanguage(env.env)).commandFailed(name ?? "", error));
+  if (language === null) return failureExit;
   const io = cliIo(env, language);
-  if (settled.invalidSettingsFile) io.warn(io.cli.settingsFileInvalid(settingsFilePath(env.backlogRoot)));
-  if (settled.saveFailure !== null) io.warn(io.core.settingsNotSaved(settingsFilePath(env.backlogRoot), settled.saveFailure));
   if (!command) {
     const askedForHelp = name === undefined || HELP_ARGUMENTS.has(name);
     if (!askedForHelp) {
@@ -98,7 +96,7 @@ function asksForCommandHelp(args: readonly string[]): boolean {
 }
 
 export function commandName(argv: readonly string[]): string {
-  const [name, sub] = argv;
+  const [name, ...args] = argv;
   if (name === undefined || !COMMANDS.has(name)) return "help";
-  return name === hookCommand.name && sub === HOOK_STOP_EVENT ? HOOK_STOP_COMMAND : name;
+  return name === hookCommand.name && namesStopEvent(args) ? HOOK_STOP_COMMAND : name;
 }

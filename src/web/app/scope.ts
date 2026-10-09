@@ -1,4 +1,5 @@
 import { isClosed } from "../../core/model/graph";
+import { activeProjects } from "../../core/model/project-scope";
 import type { Project, Task } from "../../core/model/types";
 import type { AppMessages } from "./messages.ru";
 
@@ -36,5 +37,5 @@ export function scopeNote(projects: readonly Project[], messages: AppMessages): 
 }
 
 function activeProjectIds(projects: readonly Project[]): Set<string> {
-  return new Set(projects.filter((project) => project.active).map((project) => project.id));
+  return new Set(activeProjects(projects).map((project) => project.id));
 }

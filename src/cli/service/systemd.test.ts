@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { fileExists } from "../../core/store/fs-utils";
 import { makeTempDir } from "../../core/store/testing/temp-dirs";
 import type { CliEnv } from "../io";
-import { fakeExec } from "../testing/cli-harness";
+import { fakeExec, SERVICE_PORT } from "../testing/cli-harness";
 import { availableServiceManager } from "./managers";
 import type { ServiceContext, ServiceLaunch } from "./service";
 import { systemdManager, systemdUnit } from "./systemd";
@@ -14,7 +14,7 @@ function contextFor(home: string, exec: CliEnv["exec"] = fakeExec().exec): Servi
     home,
     env: { PATH: "/usr/local/bin:/usr/bin" },
     backlogRoot: posix.join(home, "backlog"),
-    port: 4400,
+    port: SERVICE_PORT,
     nodePath: "/opt/node/bin/node",
     cliPath: "/opt/p-backlog/dist/cli.js",
     exec,
@@ -32,7 +32,7 @@ describe("systemdUnit", () => {
 
     expect(unit).toContain('ExecStart="/opt/node/bin/node" "/opt/p-backlog/dist/cli.js" serve\n');
     expect(unit).toContain('Environment="BACKLOG_DIR=/home/ann/backlog"\n');
-    expect(unit).toContain('Environment="PORT=4400"\n');
+    expect(unit).toContain(`Environment="PORT=${SERVICE_PORT}"\n`);
     expect(unit).toContain('Environment="PATH=/usr/local/bin:/usr/bin"\n');
     expect(unit).toContain('Environment="HOME=/home/ann"\n');
     expect(unit).toContain("Restart=on-failure\n");
@@ -57,7 +57,7 @@ describe("systemdManager", () => {
     });
     const context = contextFor(home, fake.exec);
 
-    expect(await systemdManager(context).install(4400)).toBe("done");
+    expect(await systemdManager(context).install(SERVICE_PORT)).toBe("done");
     expect(fake.calls).toEqual(["systemctl --user daemon-reload", "systemctl --user enable p-backlog.service", "systemctl --user restart p-backlog.service"]);
     expect(unitAtReload).toBe(systemdUnit(context));
   });
@@ -66,7 +66,7 @@ describe("systemdManager", () => {
     const home = await makeTempDir();
     const fake = fakeExec((command) => (command.includes(" enable ") ? { code: 1, output: "Failed to connect to bus" } : { code: 0, output: "" }));
 
-    const outcome = await systemdManager(contextFor(home, fake.exec)).install(4400);
+    const outcome = await systemdManager(contextFor(home, fake.exec)).install(SERVICE_PORT);
 
     expect(outcome).toEqual({ failed: "systemctl --user enable p-backlog.service", code: 1, output: "Failed to connect to bus" });
     expect(fake.calls).not.toContain("systemctl --user restart p-backlog.service");
@@ -81,7 +81,7 @@ describe("systemdManager", () => {
       return { code: 0, output: "" };
     });
     const manager = systemdManager(contextFor(home, fake.exec));
-    await manager.install(4400);
+    await manager.install(SERVICE_PORT);
     fake.calls.length = 0;
 
     expect(await manager.uninstall()).toBe("done");

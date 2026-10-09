@@ -4,6 +4,7 @@ import { access, chmod, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 import { freePort } from "../src/cli/testing/free-port";
+import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../src/core/hook-signature";
 import { readRuns } from "../src/core/store/testing/runs";
 import { makeGitRepo, makeTempDir } from "../src/core/store/testing/temp-dirs";
 import { isolatedHomeEnv } from "./isolated-process";
@@ -32,6 +33,14 @@ describe("собранный бинарник backlog", () => {
 
     expect(run(["take", "DA-404"]).status).toBe(2);
     expect(run(["status", "DA-1", "done"]).stderr).toContain("не отмечено пунктов чеклиста — 1");
+  });
+
+  it("хук Stop с параметром перед событием записывается в журнал запусков как хук, а не как обычная команда", async () => {
+    const home = await makeTempDir();
+
+    spawnSync(process.execPath, [cli, "hook", "--agent", "codex", HOOK_STOP_EVENT], { cwd: home, env: isolatedHomeEnv(home), input: "" });
+
+    expect((await readRuns(join(home, "store"))).map(({ command }) => command)).toEqual([HOOK_STOP_COMMAND]);
   });
 
   it.skipIf(process.platform === "win32")("serve по SIGTERM закрывается при открытом /api/events, удаляет PID-файл и не попадает в журнал запусков", async () => {

@@ -16,12 +16,11 @@ export const cliEn: CliMessages = {
   sweepConflicts: (ids) => `Tasks changed while closed tasks were swept, the sweep will run again in a day: ${ids}`,
   sweepInvalid: (detail) => `The closed-task sweep could not update tasks, fix the files: ${detail}`,
   sweepEpicsBlocked: (paths) => `Epics will not close until these files are fixed: ${paths}`,
-  settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 
   optionLabel: { status: "status", category: "category", priority: "priority", language: "language", agent: "agent" },
   skillForeign: (target) => `${target} is a foreign directory, the skill link was not moved`,
   skillLeftUnverified: (language) =>
-    `the skill link was left unchanged: the settings file could not be read, so it is unknown whether a plugin provides the skill. Fix the access and re-run: backlog config language ${language}`,
+    `the skill link was not moved: the settings file could not be read, so it is unknown whether a plugin provides the skill. Fix the access and re-run: backlog config language ${language}`,
 
   installSkillLinked: (target, source) => `Skill installed: ${target} → ${source}`,
   installSkillKept: (target) => `Skill already installed: ${target}`,
@@ -154,7 +153,11 @@ export const cliEn: CliMessages = {
   blockedByOpenTasks: (id) => `${id} is blocked by open tasks:`,
   noTakeableInProject: (id) => `Project ${id} has no tasks that can be taken`,
 
-  hookUsage: (stopEvent, agents, agentLabels) => `${stopEvent} [--agent ${agents.join("|")}]   (for the Stop hook in ${joinAlternatives(agentLabels, "or")}, reads the event from stdin)`,
+  hookUsage: (stopEvent, agents) =>
+    `${stopEvent} [--agent ${agents.map(({ agent }) => agent).join("|")}]   (for the Stop hook in ${joinAlternatives(
+      agents.map(({ label }) => label),
+      "or",
+    )}, reads the event from stdin)`,
   sessionShownReadFailed: (error) => `Could not read the tasks already shown this session: ${error}`,
   sessionShownWriteFailed: (error) => `Could not remember the tasks shown this session: ${error}`,
   alertsComputeFailed: (error) => `Could not compute alerts: ${error}`,

@@ -15,12 +15,10 @@ export const cliRu = {
   sweepConflicts: (ids: string): string => `Задачи менялись во время уборки закрытых, она повторится через сутки: ${ids}`,
   sweepInvalid: (detail: string): string => `Уборка закрытых не смогла обновить задачи, исправьте файлы: ${detail}`,
   sweepEpicsBlocked: (paths: string): string => `Эпики не закрываются, пока не разобраны файлы: ${paths}`,
-  settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 
   optionLabel: { status: "статус", category: "категория", priority: "приоритет", language: "язык", agent: "агент" },
   skillForeign: (target: string): string => `${target} — чужой каталог, скилл не переставлен`,
-  skillLeftUnverified: (language: string): string =>
-    `ссылка на скилл не менялась: файл настроек не прочитать, подключён ли плагин — неизвестно. Исправьте доступ и повторите: backlog config language ${language}`,
+  skillLeftUnverified: (language: string): string => `скилл не переставлен: файл настроек не прочитан, подключён ли плагин — неизвестно. Исправьте доступ и повторите: backlog config language ${language}`,
 
   installSkillLinked: (target: string, source: string): string => `Скилл установлен: ${target} → ${source}`,
   installSkillKept: (target: string): string => `Скилл уже установлен: ${target}`,
@@ -159,8 +157,11 @@ export const cliRu = {
   blockedByOpenTasks: (id: string): string => `${id} заблокирована открытыми задачами:`,
   noTakeableInProject: (id: string): string => `В проекте ${id} нет задач, которые можно взять в работу`,
 
-  hookUsage: (stopEvent: string, agents: readonly string[], agentLabels: readonly string[]): string =>
-    `${stopEvent} [--agent ${agents.join("|")}]   (для хука Stop в ${joinAlternatives(agentLabels, "или")}, событие читается из stdin)`,
+  hookUsage: (stopEvent: string, agents: readonly { agent: string; label: string }[]): string =>
+    `${stopEvent} [--agent ${agents.map(({ agent }) => agent).join("|")}]   (для хука Stop в ${joinAlternatives(
+      agents.map(({ label }) => label),
+      "или",
+    )}, событие читается из stdin)`,
   sessionShownReadFailed: (error: string): string => `Не удалось прочитать показанные задачи сессии: ${error}`,
   sessionShownWriteFailed: (error: string): string => `Не удалось запомнить показанные задачи сессии: ${error}`,
   alertsComputeFailed: (error: string): string => `Не удалось посчитать тревоги: ${error}`,

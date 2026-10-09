@@ -1,4 +1,4 @@
-import { loopbackOrigin } from "../../server/port";
+import { loopbackOrigin } from "../../core/server-address";
 import { usageError, type CliCommand } from "../command";
 import { isFailure } from "../failure";
 import { envPort, EXIT, parseCommandArgs, type CliIo, type ExitCode } from "../io";

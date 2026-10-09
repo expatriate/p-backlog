@@ -8,7 +8,7 @@ import sharp from "sharp";
 import type { Language } from "../../src/core/i18n/language";
 import { localeOf } from "../../src/core/i18n/language";
 import { serverResponds } from "../../src/cli/service/server-probe";
-import { loopbackOrigin } from "../../src/server/port";
+import { loopbackOrigin } from "../../src/core/server-address";
 import { DAY_MS } from "../../src/core/model/dates";
 import { SERVE_COMMAND_NAME } from "../../src/core/serve-command";
 import { SEEN_TASKS_STORAGE_KEY } from "../../src/web/list/use-seen-tasks";

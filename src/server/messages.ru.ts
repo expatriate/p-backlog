@@ -18,7 +18,6 @@ export const serverRu = {
   jsonContentTypeExpected: "Ожидается Content-Type: application/json",
 
   serverStarted: (origin: string, root: string): string => `p-backlog: ${origin}\nКаталог беклога: ${root}`,
-  settingsFileInvalid: (path: string): string => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,
 
   closedEpics: (ids: string): string => `Закрыты завершённые эпики: ${ids}`,
   reopenedEpics: (ids: string): string => `Снова открыты эпики, в которых открыли задачу: ${ids}`,

@@ -3,7 +3,7 @@ import { dirname, join, posix } from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeTempDir } from "../../core/store/testing/temp-dirs";
 import type { CliEnv } from "../io";
-import { fakeExec } from "../testing/cli-harness";
+import { fakeExec, SERVICE_PORT } from "../testing/cli-harness";
 import { launchdManager, launchdPlist } from "./launchd";
 import type { ServiceContext, ServiceLaunch } from "./service";
 
@@ -12,7 +12,7 @@ function contextFor(home: string, exec: CliEnv["exec"] = fakeExec().exec): Servi
     home,
     env: { PATH: "/usr/local/bin:/usr/bin:/bin" },
     backlogRoot: posix.join(home, "backlog"),
-    port: 4400,
+    port: SERVICE_PORT,
     nodePath: "/opt/node/bin/node",
     cliPath: "/opt/p-backlog/dist/cli.js",
     exec,
@@ -32,7 +32,7 @@ describe("launchdPlist", () => {
     expect(plist).toContain("<key>Label</key>\n  <string>local.p-backlog</string>");
     expect(plist).toContain("<key>ProgramArguments</key>\n  <array>\n    <string>/opt/node/bin/node</string>\n    <string>/opt/p-backlog/dist/cli.js</string>\n    <string>serve</string>\n  </array>");
     expect(plist).toContain("<key>BACKLOG_DIR</key>\n    <string>/Users/ann/backlog</string>");
-    expect(plist).toContain("<key>PORT</key>\n    <string>4400</string>");
+    expect(plist).toContain(`<key>PORT</key>\n    <string>${SERVICE_PORT}</string>`);
     expect(plist).toContain("<key>PATH</key>\n    <string>/usr/local/bin:/usr/bin:/bin</string>");
     expect(plist).toContain("<key>HOME</key>\n    <string>/Users/ann</string>");
     expect(plist).toContain("<key>StandardOutPath</key>\n  <string>/Users/ann/Library/Logs/p-backlog.log</string>");
@@ -57,7 +57,7 @@ describe("launchdManager", () => {
     });
     const context = contextFor(home, fake.exec);
 
-    const outcome = await launchdManager(context).install(4400);
+    const outcome = await launchdManager(context).install(SERVICE_PORT);
 
     expect(outcome).toBe("done");
     expect(fake.calls).toEqual(["launchctl bootout gui/501/local.p-backlog", `launchctl bootstrap gui/501 ${plistPath(home)}`]);
@@ -70,7 +70,7 @@ describe("launchdManager", () => {
     await writeFile(plistPath(home), "<plist>из клона</plist>");
     const context = contextFor(home);
 
-    expect(await launchdManager(context).install(4400)).toBe("done");
+    expect(await launchdManager(context).install(SERVICE_PORT)).toBe("done");
     expect(await readFile(plistPath(home), "utf8")).toBe(launchdPlist(context));
   });
 
@@ -86,7 +86,7 @@ describe("launchdManager", () => {
 
     const outcome = await launchdManager(contextFor(home, fake.exec), async (ms) => {
       delays.push(ms);
-    }).install(4400);
+    }).install(SERVICE_PORT);
 
     expect(outcome).toBe("done");
     expect(bootstrapCalls).toBe(2);
@@ -100,7 +100,7 @@ describe("launchdManager", () => {
 
     const outcome = await launchdManager(contextFor(home, fake.exec), async (ms) => {
       delays.push(ms);
-    }).install(4400);
+    }).install(SERVICE_PORT);
 
     expect(outcome).toEqual({ failed: "launchctl bootstrap", code: 5, output: "Bootstrap failed: 5: Input/output error" });
     expect(fake.calls.filter((call) => call.startsWith("launchctl bootstrap"))).toHaveLength(5);
@@ -112,7 +112,7 @@ describe("launchdManager", () => {
     const home = await makeTempDir();
     const fake = fakeExec((command) => (command.startsWith("launchctl bootstrap") ? { code: 1, output: "Bootstrap failed: 1: Operation not permitted" } : { code: 0, output: "" }));
 
-    const outcome = await launchdManager(contextFor(home, fake.exec)).install(4400);
+    const outcome = await launchdManager(contextFor(home, fake.exec)).install(SERVICE_PORT);
 
     expect(outcome).toEqual({ failed: "launchctl bootstrap", code: 1, output: "Bootstrap failed: 1: Operation not permitted" });
     expect(fake.calls.filter((call) => call.startsWith("launchctl bootstrap"))).toHaveLength(1);
@@ -130,7 +130,7 @@ describe("launchdManager", () => {
     const home = await makeTempDir();
     const fake = fakeExec();
     const manager = launchdManager(contextFor(home, fake.exec));
-    await manager.install(4400);
+    await manager.install(SERVICE_PORT);
     fake.calls.length = 0;
 
     expect(await manager.uninstall()).toBe("done");
@@ -141,7 +141,7 @@ describe("launchdManager", () => {
   it("uninstall считает bootout «не загружен» (код 3 или 113) не отказом и всё равно удаляет plist", async () => {
     for (const code of [3, 113]) {
       const home = await makeTempDir();
-      await launchdManager(contextFor(home)).install(4400);
+      await launchdManager(contextFor(home)).install(SERVICE_PORT);
       const fake = fakeExec((command) => (command.startsWith("launchctl bootout") ? { code, output: "Boot-out failed" } : { code: 0, output: "" }));
 
       expect(await launchdManager(contextFor(home, fake.exec)).uninstall()).toBe("done");
@@ -151,7 +151,7 @@ describe("launchdManager", () => {
 
   it("отказ bootout, не означающий «не загружен», отказывает uninstall и оставляет plist", async () => {
     const home = await makeTempDir();
-    await launchdManager(contextFor(home)).install(4400);
+    await launchdManager(contextFor(home)).install(SERVICE_PORT);
     const fake = fakeExec((command) => (command.startsWith("launchctl bootout") ? { code: 1, output: "Operation not permitted" } : { code: 0, output: "" }));
 
     const outcome = await launchdManager(contextFor(home, fake.exec)).uninstall();

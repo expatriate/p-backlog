@@ -31,15 +31,25 @@ const RECHARTS = { group: ["recharts"], message: "Draw charts through the wrappe
 const LIST_PAGE = { group: ["**/list/**"], message: "Only the router mounts the list page; the task panel and the shared app, ui and api modules must not depend on it. Move the shared piece to ui/ or app/." };
 const webImports = (...patterns) => ({ "no-restricted-imports": ["error", { patterns: [REPORT_TYPES, ...patterns] }] });
 const REVERSE_IN_PLACE = { selector: "CallExpression[callee.property.name='reverse'][arguments.length=0]", message: "reverse() mutates the array; use toReversed()." };
-const ERROR_SWALLOWING_HANDLERS = [
-  "CallExpression[callee.property.name='catch'] > ArrowFunctionExpression[params.length=0]:matches([body.type='Literal'], [body.type='Identifier'][body.name='undefined'], [body.type='BlockStatement'][body.body.length=0])",
-  "CallExpression[callee.property.name='then'] > ArrowFunctionExpression:nth-child(2)[params.length=0]:not([body.type='BlockStatement'][body.body.length>0])",
+const constantAt = (path) =>
+  [
+    `[${path}.type='Literal']`,
+    `[${path}.type='Identifier'][${path}.name='undefined']`,
+    `[${path}.type='ArrayExpression'][${path}.elements.length=0]`,
+    `[${path}.type='UnaryExpression'][${path}.operator='void'][${path}.argument.type='Literal']`,
+  ].join(", ");
+const EMPTY_BODY = "[body.type='BlockStatement'][body.body.length=0]";
+const RETURNS_CONSTANT = `[body.type='BlockStatement'][body.body.length=1][body.body.0.type='ReturnStatement']:matches(${constantAt("body.body.0.argument")}, :not([body.body.0.argument]))`;
+const HANDLER_WITHOUT_ERROR = ":matches(ArrowFunctionExpression, FunctionExpression)[params.length=0]";
+const CATCH_FALLBACK = `CallExpression[callee.property.name='catch'] > ${HANDLER_WITHOUT_ERROR}:matches(${constantAt("body")}, ${EMPTY_BODY}, ${RETURNS_CONSTANT})`;
+const THEN_REJECTION_HANDLER = `CallExpression[callee.property.name='then'] > ${HANDLER_WITHOUT_ERROR}:nth-child(2):matches([body.type!='BlockStatement'], ${EMPTY_BODY}, ${RETURNS_CONSTANT})`;
+const IGNORES_ERROR = "The handler takes no error, so it cannot tell the failure it expects from the rest";
+const swallowedErrors = (advice) => [
+  { selector: CATCH_FALLBACK, message: `${IGNORES_ERROR}; ${advice} A zod schema takes its fallback as a value: schema.catch(value).` },
+  { selector: THEN_REJECTION_HANDLER, message: `${IGNORES_ERROR}; ${advice}` },
 ];
-const swallowedErrors = (message) => ERROR_SWALLOWING_HANDLERS.map((selector) => ({ selector, message }));
-const NODE_SWALLOWED_ERRORS = swallowedErrors(
-  "Swallows every error. Expect a missing file through readTextOrNull, fileExists, statOrNull or another fs-utils helper; hand any other failure to the caller (onError) or catch the one you expect.",
-);
-const BROWSER_SWALLOWED_ERRORS = swallowedErrors("Swallows every error as a fallback value; handle the failure you expect and let the rest surface.");
+const NODE_SWALLOWED_ERRORS = swallowedErrors("expect a missing file through readTextOrNull, fileExists, statOrNull or another fs-utils helper, and hand other failures to the caller (onError).");
+const BROWSER_SWALLOWED_ERRORS = swallowedErrors("handle the failure you expect and let the others surface.");
 
 export default tseslint.config(
   { ignores: [".claude", "dist", "node_modules", "playwright-report", "test-results"] },

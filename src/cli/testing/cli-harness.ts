@@ -18,6 +18,7 @@ type CliRunOptions = {
 };
 
 export const SANDBOX_NOW = new Date("2026-09-17T14:50:00Z");
+export const SERVICE_PORT = 4400;
 const REPO_ROOT = join(import.meta.dirname, "../../..");
 
 export type FakeExec = { exec: CliEnv["exec"]; calls: string[] };

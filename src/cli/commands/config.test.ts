@@ -92,7 +92,7 @@ describe("backlog config language", () => {
 
       expect(result.code).toBe(EXIT.ok);
       expect(result.err).toContain(`Claude Code: Could not read ${settingsPath}`);
-      expect(result.err).toContain("Claude Code: the skill link was left unchanged");
+      expect(result.err).toContain("Claude Code: the skill link was not moved: the settings file could not be read");
       expect(result.err).toContain("backlog config language en");
       expect((await run(["config", "language"])).out).toBe("en");
       expect(await realpath(codexLink)).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
@@ -108,7 +108,7 @@ describe("backlog config language", () => {
 
       expect(result.code).toBe(EXIT.ok);
       expect(result.err).toContain(`Could not read ${settingsPath}`);
-      expect(result.err).not.toContain("left unchanged");
+      expect(result.err).not.toContain("the settings file could not be read");
       expect(await realpath(join(skillsDir, "backlog"))).toBe(await realpath(join(repoRoot, "skill/backlog-en")));
     });
   });

@@ -1,6 +1,6 @@
 import { warnPathErrors } from "../../core/errors";
 import { LANGUAGES, type Language } from "../../core/i18n/language";
-import { coreMessages, type CoreMessages } from "../../core/messages";
+import { coreMessages } from "../../core/messages";
 import { writeSettings } from "../../core/store/settings";
 import { AGENT_SPECS, agentVoice, detectAgents, type Agent } from "../agents/agent";
 import { linkAgentSkill } from "../agents/agent-skill";
@@ -35,12 +35,13 @@ async function runLanguage(positionals: string[], io: CliIo): Promise<ExitCode> 
   io.print(`${io.language} → ${language}`);
   const { unreadableSkipped } = coreMessages(language);
   const { found } = await detectAgents(io, warnPathErrors(io.warn, unreadableSkipped));
-  for (const agent of found) await relinkSkill(agent, language, unreadableSkipped, io);
+  for (const agent of found) await relinkSkill(agent, language, io);
   return EXIT.ok;
 }
 
-async function relinkSkill(agent: Agent, language: Language, unreadableSkipped: CoreMessages["unreadableSkipped"], io: CliIo): Promise<void> {
+async function relinkSkill(agent: Agent, language: Language, io: CliIo): Promise<void> {
   const cli = cliMessages(language);
+  const { unreadableSkipped } = coreMessages(language);
   const voice = agentVoice(agent, io);
   const lookup = await agentPluginReportingFailure(agent, io, warnPathErrors(voice.warn, unreadableSkipped));
   if (lookup?.plugin) {
@@ -48,9 +49,11 @@ async function relinkSkill(agent: Agent, language: Language, unreadableSkipped: 
     if (wanted !== null) voice.print(cli.pluginLanguageHint(lookup.plugin, wanted));
     return;
   }
-  const relink = lookup !== null && AGENT_SPECS[agent].skillOnLanguageChange === "link" ? linkSkillFor : relinkExistingSkill;
+  const pluginUnknown = lookup === null;
+  const mayCreateLink = !pluginUnknown && AGENT_SPECS[agent].skillOnLanguageChange === "link";
+  const relink = mayCreateLink ? linkSkillFor : relinkExistingSkill;
   const link = await linkAgentSkill(agent, io, (options) => relink(language, options));
   if (!link.ok) voice.warn(cli.installSkillLinkFailed(link.target, link.failed));
   else if (link.result === "foreign") voice.warn(cli.skillForeign(link.target));
-  else if (lookup === null && link.result === "absent") voice.warn(cli.skillLeftUnverified(language));
+  else if (pluginUnknown && link.result === "absent") voice.warn(cli.skillLeftUnverified(language));
 }

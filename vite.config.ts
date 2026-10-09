@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { builtinModules } from "node:module";
 import { defineConfig, type Plugin, type ProxyOptions } from "vite";
-import { loopbackOrigin, requestedPort } from "./src/server/port";
+import { envPortOrDefault, loopbackOrigin } from "./src/core/server-address";
 
 const FRONTEND_MODULE = /\.(?:ts|tsx|js|jsx|css)(?:\?|$)/;
 const NODE_BUILTINS = new Set(builtinModules);
@@ -16,7 +16,7 @@ const browserOnly: Plugin = {
 };
 
 function apiProxy(): ProxyOptions {
-  const port = requestedPort(process.env.PORT);
+  const port = envPortOrDefault(process.env.PORT);
   if (port === null) throw new Error(`PORT is not a valid port number: "${process.env.PORT}"`);
   return { target: loopbackOrigin(port), changeOrigin: true, bypass: (request) => (FRONTEND_MODULE.test(request.url ?? "") ? request.url : undefined) };
 }

@@ -1,5 +1,7 @@
 const PERCENT = 100;
 
+export const BYTES_PER_MEBIBYTE = 1024 * 1024;
+
 export function roundToTenth(value: number): number {
   return Math.round(value * 10) / 10;
 }

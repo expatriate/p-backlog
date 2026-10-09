@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { makeTempDir } from "../../core/store/testing/temp-dirs";
 import { startServer } from "../../server/start";
 import { QUIET_HOST } from "../../server/testing/quiet-host";
-import { cliIo, EXIT } from "../io";
+import { cliIo, EXIT, parsePort } from "../io";
 import { baseCliEnv, makeCliSandbox } from "../testing/cli-harness";
 import { serveCommand } from "./serve";
 
@@ -15,6 +15,10 @@ describe("backlog serve", () => {
 
     expect(result.code).toBe(EXIT.invalid);
     expect(result.err).toContain(port);
+  });
+
+  it("пустой --port — неверный порт, а не порт по умолчанию", () => {
+    expect(() => parsePort("ru", "")).toThrow("--port: ожидается число от 1 до 65535, получено «»");
   });
 
   it("неверный PORT из окружения отклоняется с именем переменной, а не заменяется на 4317", async () => {

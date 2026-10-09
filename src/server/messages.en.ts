@@ -20,7 +20,6 @@ export const serverEn: ServerMessages = {
   jsonContentTypeExpected: "Content-Type: application/json is expected",
 
   serverStarted: (origin, root) => `p-backlog: ${origin}\nBacklog directory: ${root}`,
-  settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,
 
   closedEpics: (ids) => `Closed completed epics: ${ids}`,
   reopenedEpics: (ids) => `Reopened epics that got an open task again: ${ids}`,

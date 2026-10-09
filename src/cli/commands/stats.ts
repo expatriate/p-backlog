@@ -5,7 +5,7 @@ import { statsSignals } from "../../core/stats/signals/signals";
 import { readJournals } from "../../core/store/journal";
 import { loadBacklog, unparsedTasks } from "../../core/store/load";
 import { statsPath } from "../../core/api/web-paths";
-import { browserOrigin } from "../../server/port";
+import { browserOrigin } from "../../core/server-address";
 import type { CliCommand } from "../command";
 import { formatJson } from "../format";
 import { EXIT, parseOptions, UsageError, type CliIo, type ExitCode } from "../io";

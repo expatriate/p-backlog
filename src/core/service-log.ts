@@ -1,8 +1,9 @@
 import type { FileHandle } from "node:fs/promises";
 import { posix } from "node:path";
+import { BYTES_PER_MEBIBYTE } from "./numbers";
 import { NEWLINE, readAt, withExistingFile } from "./store/fs-utils";
 
-export const SERVICE_LOG_LIMIT_BYTES = 1024 * 1024;
+export const SERVICE_LOG_LIMIT_BYTES = BYTES_PER_MEBIBYTE;
 export const SERVICE_LOG_KEPT_BYTES = 256 * 1024;
 
 export function launchdLogPath(home: string): string {

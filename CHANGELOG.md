@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- `backlog serve --port ""` now fails with "--port: expected a number from 1 to 65535" and exit code 1, like any
+  other invalid port, instead of silently starting on the default port 4317. An empty `PORT` environment variable still
+  means "not set".
+- A Stop hook command with options before the event (`backlog hook --agent codex stop`) is now recorded in the run log
+  and statistics as a Stop hook run and gets the light after-hook clean-up. Before, it counted as an ordinary `hook`
+  command and, at the end of an agent turn, ran an ordinary command's clean-up (the sweep of closed tasks and journal
+  compaction when they are due).
 - Ages and times to close in days (median, 90th percentile, a stuck task) are now printed in Russian with the thousands
   separator, like every other count (`1 234 дн.`, not `1234 дн.`). In English, the debt forecast ("about 1,500 wk.",
   "0.8 tasks a week") now keeps the number and its unit together with a no-break space, as the other counts do.

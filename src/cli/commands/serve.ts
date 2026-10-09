@@ -9,7 +9,7 @@ export const serveCommand: CliCommand = { name: SERVE_COMMAND_NAME, usage: () =>
 
 async function runServe(args: string[], io: CliIo): Promise<ExitCode> {
   const values = parseOptions(io.language, args, { port: { type: "string" } });
-  const port = values.port === undefined ? envPort(io) : parsePort(io.language, "--port", values.port);
+  const port = values.port === undefined ? envPort(io) : parsePort(io.language, values.port);
   try {
     const server = await startServer({
       root: io.backlogRoot,
