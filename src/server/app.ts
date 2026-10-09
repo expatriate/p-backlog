@@ -8,7 +8,7 @@ import { FileBusyError } from "../core/store/file-lock";
 import { createApi } from "./api";
 import type { ChangeFeed } from "./change-feed";
 import { errorResponse, fileBusyResponse } from "./error-response";
-import { allowLocalHostsOnly, requireJsonBody } from "./guards";
+import { allowLocalHostsOnly, limitRequestBody, requireJsonBody } from "./guards";
 import { serverMessages } from "./messages";
 import type { StatsServices } from "./stats-api";
 
@@ -43,6 +43,7 @@ export function createApp({ root, readLanguage, changes, allowedHosts, home, sta
   app.use("*", APP_SECURITY_HEADERS);
   app.use("*", allowLocalHostsOnly(allowedHosts, readLanguage));
   app.use("/api/*", requireJsonBody(readLanguage));
+  app.use("/api/*", limitRequestBody(readLanguage));
   app.route("/api", createApi({ root, readLanguage, changes, now, home, statsServices }));
   app.all("/api/*", async (c) => errorResponse(c, 404, serverMessages(await readLanguage()).unknownRoute(new URL(c.req.url).pathname)));
 

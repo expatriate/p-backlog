@@ -1,7 +1,11 @@
 import type { MiddlewareHandler } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import type { Language } from "../core/i18n/language";
 import { errorResponse } from "./error-response";
 import { serverMessages } from "./messages";
+
+const BYTES_PER_MEBIBYTE = 1024 * 1024;
+const REQUEST_BODY_LIMIT_MEBIBYTES = 1;
 
 const MUTATING_METHODS: ReadonlySet<string> = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 
@@ -30,4 +34,11 @@ export function requireJsonBody(readLanguage: () => Promise<Language>): Middlewa
     await next();
     return undefined;
   };
+}
+
+export function limitRequestBody(readLanguage: () => Promise<Language>): MiddlewareHandler {
+  return bodyLimit({
+    maxSize: REQUEST_BODY_LIMIT_MEBIBYTES * BYTES_PER_MEBIBYTE,
+    onError: async (c) => errorResponse(c, 413, serverMessages(await readLanguage()).bodyTooLarge(REQUEST_BODY_LIMIT_MEBIBYTES)),
+  });
 }

@@ -6,6 +6,7 @@ export const serverEn: ServerMessages = {
   projectNotFound: (id) => `Project ${id} not found`,
   confirmMismatch: "Confirmation does not match the project id",
   bodyNotParsed: "Request body could not be parsed: JSON expected",
+  bodyTooLarge: (mebibytes) => `Request body is larger than ${mebibytes} MiB`,
   batchSkipped: {
     changed: (id) => `${id} changed on disk`,
     "not-found": (id) => `${id} not found`,

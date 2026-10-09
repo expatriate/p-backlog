@@ -65,6 +65,22 @@ describe("startServer", () => {
     }
   });
 
+  it("слишком большое тело по HTTP отвергается 413", async () => {
+    const home = await makeTempDir();
+    const server = await startServer({ ...QUIET_HOST, root: join(home, "backlog"), port: 0, home, env: {} });
+    try {
+      const response = await fetch(`http://127.0.0.1:${server.port}/api/tasks/SPA-1`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: "x".repeat(2 * 1024 * 1024),
+      });
+
+      expect(response.status).toBe(413);
+    } finally {
+      await server.close();
+    }
+  });
+
   it("отвечает на Host localhost, 127.0.0.1 и [::1] своего порта, чужой Host — 403", async () => {
     const home = await makeTempDir();
     const server = await startServer({ ...QUIET_HOST, root: join(home, "backlog"), port: 0, home, env: {} });

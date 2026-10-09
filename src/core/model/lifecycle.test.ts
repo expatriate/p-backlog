@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "./dates";
-import { changeStatus, deletionDate, isExpired, planEpicClosing, settleLifecycle } from "./lifecycle";
+import { changeStatus, deletionDate, isExpired, normalizeClosingReason, planEpicClosing, settleLifecycle } from "./lifecycle";
 import { makeTask } from "./testing/make-task";
 import type { ParseError, Task } from "./types";
 
@@ -90,5 +90,27 @@ describe("завершённый эпик", () => {
     const completed = [{ epic, childIds: ["SPA-2", "SPA-3"] }];
     expect(planEpicClosing([epic, done, cancelled], [])).toEqual({ close: completed, waiting: [] });
     expect(planEpicClosing([epic, done, cancelled], [parseError])).toEqual({ close: [], waiting: completed });
+  });
+});
+
+describe("normalizeClosingReason", () => {
+  it.each([
+    ["  Дубль:\n   то же, что TI-1  ", "Дубль: то же, что TI-1"],
+    ["первая\r\nвторая\r\n\r\nтретья", "первая вторая третья"],
+    ["\n\n  начало\n\n\nконец\n\n", "начало конец"],
+    ["строка\n \u00a0 \nстрока", "строка строка"],
+    ["слова  через   пробелы\tи\rвозврат каретки", "слова  через   пробелы\tи\rвозврат каретки"],
+    ["  \n \r\n\t ", ""],
+  ])("%j → %j", (reason, expected) => {
+    expect(normalizeClosingReason(reason)).toBe(expected);
+  });
+
+  it("длинная цепочка пробельных символов не занимает процесс", () => {
+    const reason = `${" ".repeat(100_000)}причина${"\r".repeat(100_000)}`;
+    const startedAt = performance.now();
+
+    expect(normalizeClosingReason(reason)).toBe("причина");
+
+    expect(performance.now() - startedAt).toBeLessThan(1000);
   });
 });

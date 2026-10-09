@@ -551,6 +551,21 @@ describe("тело запроса", () => {
     const wrongShape = await backlog.json("/api/tasks/SPA-1", "PATCH", { version: 1 });
     expect(wrongShape.status).toBe(422);
   });
+
+  it("тело больше 1 МиБ — 413, файл задачи не меняется; длинное описание в пределах лимита сохраняется", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const version = await backlog.taskVersion("SPA-1");
+
+    const oversized = await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { body: "я".repeat(1024 * 1024) } });
+    expect(oversized.status).toBe(413);
+    expect(((await oversized.json()) as ErrorResponse).errors).toEqual(["Тело запроса больше 1 МиБ"]);
+    expect(await backlog.taskVersion("SPA-1")).toBe(version);
+
+    const longDescription = "строка описания\n".repeat(20_000);
+    const accepted = await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { body: longDescription } });
+    expect(accepted.status).toBe(200);
+    expect((await backlog.taskOnDisk("SPA-1")).body.trim()).toBe(longDescription.trim());
+  });
 });
 
 describe("язык", () => {

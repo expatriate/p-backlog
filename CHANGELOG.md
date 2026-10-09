@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The web API now rejects a request body larger than 1 MiB with `413` and "Request body is larger than 1 MiB" instead of
+  reading it whole; a task description edited in the web UI is far below that. A closing reason made of a very long run of
+  spaces or line breaks (about 100,000 characters, from `backlog close --reason` or the batch close in the web UI) no
+  longer keeps the process busy for seconds: it is normalized in linear time, with the same result as before.
 - When the backlog directory cannot be written to (no permission, read-only file system, full disk) and `.settings.json`
   does not exist yet, every command and `backlog serve` now say so once on stderr: "Could not save the language to
   .../.settings.json: EACCES ...". Before, the failed write was swallowed without a trace and the language was silently

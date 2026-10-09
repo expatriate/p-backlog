@@ -4,6 +4,7 @@ export const serverRu = {
   projectNotFound: (id: string): string => `Проект ${id} не найден`,
   confirmMismatch: "Подтверждение не совпадает с id проекта",
   bodyNotParsed: "Тело запроса не разобрано: ожидается JSON",
+  bodyTooLarge: (mebibytes: number): string => `Тело запроса больше ${mebibytes} МиБ`,
   batchSkipped: {
     changed: (id: string): string => `${id} изменилась на диске`,
     "not-found": (id: string): string => `${id} не найдена`,

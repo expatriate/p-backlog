@@ -15,7 +15,11 @@ export const RESOLUTION_STATUS: Record<Resolution, ClosedStatus> = {
 export type Closure = { resolution: Resolution; reason: string };
 
 export function normalizeClosingReason(reason: string): string {
-  return reason.replace(/\s*\n\s*/g, " ").trim();
+  return reason
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "")
+    .join(" ");
 }
 
 export type EpicWithChildren = { epic: Task; childIds: string[] };
