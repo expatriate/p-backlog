@@ -154,6 +154,8 @@ function historyProblems(project: Project, repo: string, history: GitHistory): C
       return [];
     case "not-a-repo":
       return [{ kind: "project-repo-not-git", projectId: project.id, repo }];
+    case "unsafe-repo":
+      return [{ kind: "project-repo-unsafe", projectId: project.id, repo }];
     case "unreadable":
       return [{ kind: "project-history-unreadable", projectId: project.id, repo }];
   }

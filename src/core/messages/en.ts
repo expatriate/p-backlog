@@ -219,6 +219,8 @@ function checkProblem(p: CheckProblem): string {
       return `Project ${p.projectId}: none of the repos paths exist (${p.repos.join(", ")}) — its tasks' code cannot be checked`;
     case "project-repo-not-git":
       return `Project ${p.projectId}: ${p.repo} is not a git repository — commits and code edits of its tasks are not checked`;
+    case "project-repo-unsafe":
+      return `Project ${p.projectId}: git does not trust ${p.repo} (the directory belongs to another user) — commits and code edits of its tasks are not checked. Fix: git config --global --add safe.directory "${p.repo}"`;
     case "project-history-unreadable":
       return `Project ${p.projectId}: could not read the git history in ${p.repo} — commits and code edits of its tasks were not checked`;
     case "prefix-shared":

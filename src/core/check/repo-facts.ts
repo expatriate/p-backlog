@@ -10,7 +10,7 @@ type FileChange = { path: string; renamedFrom?: string };
 
 export type Commit = { sha: string; date: string; parents: string[]; subject: string; files: FileChange[] };
 
-export type GitHistory = "read" | "not-a-repo" | "unreadable";
+export type GitHistory = "read" | "not-a-repo" | "unsafe-repo" | "unreadable";
 
 export type RepoFacts = {
   history: GitHistory;
@@ -24,6 +24,8 @@ export type RepoFacts = {
   unreadable: ReadonlyMap<string, unknown>;
 };
 
+// git's dubious-ownership wording varies by version and locale; only the safe.directory hint is stable
+const SAFE_DIRECTORY_HINT = "safe.directory";
 const DIFF_LINE_LIMIT = 80;
 const REFLOG_MOMENT = /\{(\d+)\}$/;
 const STATUS_CODE_WIDTH = 3;
@@ -36,7 +38,7 @@ export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Prom
   const paths = [...pathMarks.keys()];
   const [location, files] = await Promise.all([runGitOutcome(repo, ["rev-parse", "--show-prefix", "--revs-only", "HEAD"]), sourceFiles(repo, paths)]);
   const withoutHistory = (history: GitHistory): RepoFacts => ({ history, commits: [], renames: [], dirtyModifiedAt: new Map(), ...UNKNOWN_BRANCH_HISTORY, ...files });
-  if (location.status === "exited") return withoutHistory("not-a-repo");
+  if (location.status === "exited") return withoutHistory(location.stderr.includes(SAFE_DIRECTORY_HINT) ? "unsafe-repo" : "not-a-repo");
   if (location.status === "unfinished") return withoutHistory("unreadable");
   const [prefix = "", head = ""] = location.stdout.split("\n").map((line) => line.trim());
   const hasCommits = head !== "";

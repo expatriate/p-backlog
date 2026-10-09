@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `backlog check` no longer reports a project repository that belongs to another user (git's "dubious ownership") as
+  "not a git repository", which sent people to edit `repos` in `project.md`. It now reports `project-repo-unsafe` and
+  names the fix, `git config --global --add safe.directory <path>`. git's error is recognized by the untranslated
+  `safe.directory` hint in it, not by its wording, which differs between git versions and languages.
 - With git older than 2.39 (2.34 on Ubuntu 22.04, for example), `backlog check` no longer takes a different edit of the
   same binary file on the main branch for the branch's own edit: tasks from the branch keep waiting for the merge, and
   the main branch's edit makes a task without an anchor a candidate, as it does with newer git. Those git versions

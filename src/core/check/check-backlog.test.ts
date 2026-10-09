@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmod, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { CheckMode } from "../journal/events";
 import { coreMessages } from "../messages";
 import { readJournal } from "../store/journal";
@@ -924,6 +924,24 @@ describe("checkBacklog", () => {
         { kind: "project-history-unreadable", projectId: "br", repo: broken },
       ]),
     );
+  });
+
+  it("каталог другого владельца (dubious ownership) — своя проблема с лекарством, а не «не git-репозиторий»", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts:1\n") });
+    vi.stubEnv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1");
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+
+    const report = await check(root, home, "full");
+
+    expect(report.problems).toEqual([{ kind: "project-repo-unsafe", projectId: "spa", repo }]);
+    expect(report.problems.map((problem) => RU.checkProblem(problem))).toEqual([expect.stringContaining(`git config --global --add safe.directory "${repo}"`)]);
   });
 
   it("сообщает о проекте без репозитория и проверяет только выбранные проекты", async () => {

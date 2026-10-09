@@ -5,7 +5,7 @@ import { createLimiter } from "./limit";
 
 export type GitRunner = (repo: string, args: string[], input?: string) => Promise<string | null>;
 
-export type GitOutcome = { status: "ok"; stdout: string } | { status: "exited"; exitCode: number } | { status: "unfinished" };
+export type GitOutcome = { status: "ok"; stdout: string } | { status: "exited"; exitCode: number; stderr: string } | { status: "unfinished" };
 
 export type GitOutcomeRunner = (repo: string, args: string[], input?: string) => Promise<GitOutcome>;
 
@@ -28,7 +28,7 @@ export const runGitOutcome: GitOutcomeRunner = (repo, args, input) =>
       return { status: "ok", stdout };
     } catch (error) {
       const exitCode = errorCode(error);
-      return typeof exitCode === "number" ? { status: "exited", exitCode } : { status: "unfinished" };
+      return typeof exitCode === "number" ? { status: "exited", exitCode, stderr: stderrOf(error) } : { status: "unfinished" };
     }
   });
 
@@ -73,6 +73,10 @@ export async function resolveCommits(git: GitRunner, repo: string, revisions: re
       return objectType === "commit" ? [[revision, objectName]] : [];
     }),
   );
+}
+
+function stderrOf(error: unknown): string {
+  return typeof error === "object" && error !== null && "stderr" in error && typeof error.stderr === "string" ? error.stderr : "";
 }
 
 function ignoreStdinOfExitedGit(): undefined {

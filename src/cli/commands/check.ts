@@ -40,6 +40,7 @@ const PROBLEM_NEEDS_REVIEW: Record<CheckProblem["kind"], boolean> = {
   "project-without-repos": false,
   "project-repos-missing": false,
   "project-repo-not-git": false,
+  "project-repo-unsafe": false,
   "project-history-unreadable": false,
   "prefix-shared": false,
 };

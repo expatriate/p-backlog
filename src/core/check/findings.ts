@@ -15,5 +15,6 @@ export type CheckProblem =
   | { kind: "project-without-repos"; projectId: string }
   | { kind: "project-repos-missing"; projectId: string; repos: string[] }
   | { kind: "project-repo-not-git"; projectId: string; repo: string }
+  | { kind: "project-repo-unsafe"; projectId: string; repo: string }
   | { kind: "project-history-unreadable"; projectId: string; repo: string }
   | { kind: "prefix-shared"; prefix: string; projectIds: string[] };
