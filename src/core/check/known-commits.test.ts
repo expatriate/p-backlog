@@ -19,9 +19,9 @@ const fileOf = (lines: readonly string[]) => `${lines.join("\n")}\n`;
 
 const withValues = (lines: readonly string[], values: Record<number, number>) => lines.map((line, index) => (values[index + 1] === undefined ? line : `export const value${index + 1} = ${values[index + 1]};`));
 
-async function changedCommitSubjects(repo: string, origin: TaskOrigin): Promise<string[]> {
-  const tasks = [makeTask({ id: "SPA-1", created: CREATED, source: "src/a.ts" })];
-  const facts = await collectRepoFacts(repo, new Map([["src/a.ts", Date.parse(CREATED)]]));
+async function changedCommitSubjects(repo: string, origin: TaskOrigin, source = "src/a.ts"): Promise<string[]> {
+  const tasks = [makeTask({ id: "SPA-1", created: CREATED, source })];
+  const facts = await collectRepoFacts(repo, new Map([[source, Date.parse(CREATED)]]));
   const anchors = anchorStates(tasks, facts);
   const known = await commitsKnownAtCreation({ repo, tasks, facts, anchors, origins: new Map([["SPA-1", origin]]) });
   return codeReview(tasks, facts, known, anchors).candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? candidate.commits.map((commit) => commit.subject) : []));
@@ -145,6 +145,24 @@ describe("коммиты, уже известные задаче при созд
     gitMergeNoFastForward(repo, "release", "2026-09-14T10:00:00+03:00");
 
     expect(await changedCommitSubjects(repo, origin)).toEqual([]);
+  });
+
+  it("ветку задачи, дважды менявшую бинарный файл, перебазировали на основную — копии её коммитов не делают задачу кандидатом", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "assets/logo.png": "\0логотип", "src/b.ts": "b1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFiles(repo, { "assets/logo.png": "\0черновик логотипа" });
+    gitCommitAll(repo, "Фича меняет логотип", "2026-09-10T10:00:00+03:00");
+    await writeFiles(repo, { "assets/logo.png": "\0новый логотип" });
+    gitCommitAll(repo, "Фича доводит логотип", "2026-09-10T11:00:00+03:00");
+    const origin = { branch: "feat", commit: gitShortHead(repo) };
+    gitCheckout(repo, "master");
+    await writeFiles(repo, { "src/b.ts": "b2\n" });
+    gitCommitAll(repo, "Основная ветка правит b", "2026-09-10T12:00:00+03:00");
+    gitRebaseMerge(repo, "feat", "2026-09-12T10:00:00+03:00");
+
+    expect(await changedCommitSubjects(repo, origin, "assets/logo.png")).toEqual([]);
   });
 
   it("коммиты ветки задачи сначала взяли cherry-pick в релизную ветку, потом основная ветка сама повторила первую правку и слилась с релизной — кандидатом задачу делает повтор, а не слияние", async () => {

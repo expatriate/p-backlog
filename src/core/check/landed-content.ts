@@ -13,9 +13,11 @@ type BranchChanges = { fork: Fork; changed: FileVersion[] };
 
 type HeadHistory = "simplified" | "full";
 
-type PatchShape = { preimageBlob: string | undefined; changeStarts: number[]; changedText: string };
+type BlobPair = { preimage: string; postimage: string };
 
-type Patch = { id: string; commit: string; preimage: string; preimageKey: string; changeStarts: readonly number[]; changedText: string };
+type PatchShape = { blobs: BlobPair | undefined; changeStarts: number[]; changedText: string };
+
+type Patch = { id: string; commit: string; preimage: string; preimageKey: string; blobs: BlobPair | undefined; changeStarts: readonly number[]; changedText: string };
 
 type HunkWalk = { oldLine: number; changing: boolean };
 
@@ -28,7 +30,7 @@ type PatchCopies = { squashed: string[]; commitByCommit: string[][] };
 const PATCH_OPTIONS = ["-p", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--no-relative", "--full-index"];
 const COMMIT_HEADER = "--format=commit %H";
 const COMMIT_LINE = /^commit (?<commit>[0-9a-f]+)$/;
-const INDEX_LINE = /^index (?<preimage>[0-9a-f]+)\.\./;
+const INDEX_LINE = /^index (?<preimage>[0-9a-f]+)\.\.(?<postimage>[0-9a-f]+)/;
 const NO_COMMIT = /^0+$/;
 const NO_NEWLINE_MARK = "\\";
 const RAW_RECORD = /commit (?<commit>[0-9a-f]+)\0|:\d+ (?<mode>\d+) [0-9a-f]+ (?<object>[0-9a-f]+) [A-Z]\d*\0(?<path>[^\0]*)\0/g;
@@ -117,7 +119,7 @@ async function patchCopies(repo: string, { base, tip }: Fork, path: string, git:
   if (squashedPatch === null || branchPatches === null || headPatches === null) return null;
   const shiftsBetween = shiftsBetweenPreimages(repo, path, git);
   const copiesOf = async (change: Patch) => {
-    const sameChange = headPatches.filter(({ id, changedText }) => id === change.id && changedText === change.changedText);
+    const sameChange = headPatches.filter((copy) => isSameChange(change, copy));
     const copiesAtSamePlace = await Promise.all(sameChange.map(async (copy) => ((await atSamePlace(change, copy, shiftsBetween)) ? [copy.commit] : [])));
     return copiesAtSamePlace.flat();
   };
@@ -138,8 +140,8 @@ async function patchesOf(repo: string, patchArgs: string[], preimageOf: (commit:
       const [id = "", label = ""] = line.split(" ");
       const commit = NO_COMMIT.test(label) ? "" : label;
       const preimage = preimageOf(commit);
-      const { preimageBlob, changeStarts, changedText } = shapes.get(commit) ?? emptyShape();
-      return { id, commit, preimage, preimageKey: preimageBlob ?? preimage, changeStarts, changedText };
+      const { blobs, changeStarts, changedText } = shapes.get(commit) ?? emptyShape();
+      return { id, commit, preimage, preimageKey: blobs?.preimage ?? preimage, blobs, changeStarts, changedText };
     });
 }
 
@@ -157,10 +159,15 @@ function patchShapesByCommit(patches: string): Map<string, PatchShape> {
       hunk = undefined;
     } else if (line.startsWith(FILE_HEADER)) hunk = undefined;
     else if (header !== null) hunk = { oldLine: firstLineOf(header.oldStart, header.oldCount), changing: false };
-    else if (hunk === undefined) shape.preimageBlob ??= INDEX_LINE.exec(line)?.groups?.preimage;
+    else if (hunk === undefined) shape.blobs ??= blobPairOf(line);
     else walkHunkLine(hunk, line, shape);
   }
   return shapes;
+}
+
+function blobPairOf(line: string): BlobPair | undefined {
+  const blobs = INDEX_LINE.exec(line)?.groups;
+  return blobs === undefined ? undefined : { preimage: blobs.preimage ?? "", postimage: blobs.postimage ?? "" };
 }
 
 function walkHunkLine(hunk: HunkWalk, line: string, shape: PatchShape): void {
@@ -174,7 +181,7 @@ function walkHunkLine(hunk: HunkWalk, line: string, shape: PatchShape): void {
 }
 
 function emptyShape(): PatchShape {
-  return { preimageBlob: undefined, changeStarts: [], changedText: "" };
+  return { blobs: undefined, changeStarts: [], changedText: "" };
 }
 
 function shiftsBetweenPreimages(repo: string, path: string, git: GitRunner): ShiftsBetween {
@@ -186,6 +193,16 @@ function shiftsBetweenPreimages(repo: string, path: string, git: GitRunner): Shi
           const preimageDiff = await git(repo, ["diff", ...PATCH_OPTIONS, "--unified=0", "--inter-hunk-context=0", change.preimage, copy.preimage, "--", pathspecOf(path)]);
           return preimageDiff === null ? null : preimageDiff.split("\n").flatMap((line) => lineShiftsOf(hunkHeaderOf(line)));
         });
+}
+
+function isSameChange(change: Patch, copy: Patch): boolean {
+  // git patch-id before 2.39 hashes none of a binary diff's content.
+  const changeShownByHunks = change.changeStarts.length > 0;
+  return copy.id === change.id && copy.changedText === change.changedText && (changeShownByHunks || sameBlobs(change.blobs, copy.blobs));
+}
+
+function sameBlobs(change: BlobPair | undefined, copy: BlobPair | undefined): boolean {
+  return change?.preimage === copy?.preimage && change?.postimage === copy?.postimage;
 }
 
 async function atSamePlace(change: Patch, copy: Patch, shiftsBetween: ShiftsBetween): Promise<boolean> {

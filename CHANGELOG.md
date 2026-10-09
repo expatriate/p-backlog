@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- With git older than 2.39 (2.34 on Ubuntu 22.04, for example), `backlog check` no longer takes a different edit of the
+  same binary file on the main branch for the branch's own edit: tasks from the branch keep waiting for the merge, and
+  the main branch's edit makes a task without an anchor a candidate, as it does with newer git. Those git versions
+  leave the contents of binary files out of `git patch-id`.
 - `backlog check` makes fewer needless re-check requests for tasks without an anchor: a cherry-pick of the task's
   branch commit into another branch counts as known even when merging that branch back left the file unchanged, and a
   task created on a detached HEAD gets its squash or rebase copies recognized like a task created on a branch. When a

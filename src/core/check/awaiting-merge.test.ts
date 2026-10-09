@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { runGitOutcome, type GitOutcomeRunner } from "../git/run";
 import type { TaskOrigin } from "../journal/events";
 import { gitCheckout, gitCommitAll, gitMergeSquash, gitRebaseMerge, gitShortHead, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { awaitingMerge } from "./awaiting-merge";
@@ -83,7 +84,9 @@ const FUNCTION_A = "function a() {\n  return 1;\n}\n";
 
 const functionB = (returned: string) => `function b() {\n  const x = 1;\n  return ${returned};\n}\n`;
 
-const awaiting = (repo: string, origins: Record<string, TaskOrigin>) => awaitingMerge({ repo, taskIds: Object.keys(origins), origins: new Map(Object.entries(origins)) });
+const awaiting = (repo: string, origins: Record<string, TaskOrigin>, git = runGitOutcome) => awaitingMerge({ repo, taskIds: Object.keys(origins), origins: new Map(Object.entries(origins)), git });
+
+const gitWithBlobIdsMaskedForPatchId: GitOutcomeRunner = (repo, args, input) => runGitOutcome(repo, args, args[0] === "patch-id" ? input?.replace(/^index [0-9a-f]+\.\.[0-9a-f]+/gm, "index 0..0") : input);
 
 describe("awaitingMerge", () => {
   it("ветка влита squash-слиянием и жива локально — задача с неё не ждёт слияния и после правки её строк в основной ветке", async () => {
@@ -163,6 +166,21 @@ describe("awaitingMerge", () => {
     gitCommitAll(repo, "Основная ветка пишет в журнал последний элемент", "2026-09-11T10:00:00+03:00");
 
     expect(await awaiting(repo, { "SPA-1": feat })).toEqual(new Set(["SPA-1"]));
+  });
+
+  it("на git до 2.39, чей patch-id не видит содержимого бинарных правок, основная ветка по-своему изменила тот же бинарный файл, что и ветка, — задача ждёт слияния", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "assets/logo.png": "\0логотип" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFiles(repo, { "assets/logo.png": "\0логотип фичи" });
+    gitCommitAll(repo, "Фича меняет логотип", "2026-09-10T10:00:00+03:00");
+    const feat = { branch: "feat", commit: gitShortHead(repo) };
+    gitCheckout(repo, "master");
+    await writeFiles(repo, { "assets/logo.png": "\0логотип основной ветки" });
+    gitCommitAll(repo, "Основная ветка меняет логотип по-своему", "2026-09-11T10:00:00+03:00");
+
+    expect(await awaiting(repo, { "SPA-1": feat }, gitWithBlobIdsMaskedForPatchId)).toEqual(new Set(["SPA-1"]));
   });
 
   it("коммита создания нет в репозитории — задача не ждёт слияния вечно, хотя её ветка жива и не влита", async () => {
