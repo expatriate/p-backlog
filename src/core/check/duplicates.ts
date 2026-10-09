@@ -1,4 +1,3 @@
-import { posix } from "node:path";
 import type { DuplicateMatch } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Task } from "../model/types";
@@ -62,11 +61,7 @@ function titlesMatch(left: Fingerprint, right: Fingerprint): boolean {
 }
 
 function placeOf(source: string | undefined): Place | undefined {
-  return source === undefined ? undefined : { path: normalizedPath(source), lines: lineSuffix(source) };
-}
-
-function normalizedPath(source: string): string {
-  return posix.normalize(sourcePath(source.replaceAll("\\", "/")));
+  return source === undefined ? undefined : { path: sourcePath(source.replaceAll("\\", "/")), lines: lineSuffix(source) };
 }
 
 function sharedPlace(a: Place | undefined, b: Place | undefined): "line" | "file" | null {

@@ -50,6 +50,12 @@ describe("isReviewable и sourcePath", () => {
     expect(sourcePath("src/shared/")).toBe("src/shared");
     expect(sourcePath("./src/shared/")).toBe("src/shared");
   });
+
+  it("путь схлопывается: . и // пропадают, .. снимает папку перед собой, а выходящий за начало пути остаётся", () => {
+    expect(sourcePath(".//src/x/../a.ts:3")).toBe("src/a.ts");
+    expect(sourcePath("src/../../shared/a.ts")).toBe("../shared/a.ts");
+    expect(sourcePath("/repo/src/../a.ts")).toBe("/repo/a.ts");
+  });
 });
 
 describe("codeCandidates", () => {

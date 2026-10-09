@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- A task's `source` with `.`, `..` or a doubled `/` inside the path (`src/./a.ts`, `src/x/../a.ts`, `src//a.ts`) now
+  means the file git knows (`src/a.ts`) everywhere, not only in the duplicate search. Such a task never became a "code
+  changed" candidate in `backlog check` when its file changed, its function was not found in the code graph,
+  statistics put it in a folder of its own (`src/.`, `src/x/..`) outside hot spots, churn and debt density, and
+  `backlog take --path` missed it or, for `src/../lib/a.ts`, took it for `src`. A source ending in `.` or `..` names a
+  folder in statistics (`src/shared/.` is `src/shared`, `src/shared/..` is `src`). The duplicate search also matches
+  `.//src/a.ts` with `src/a.ts` now. Leading `..` segments are kept (`src/../../shared/a.ts` is `../shared/a.ts`).
+  `backlog take --path .` run outside the project's repository now takes all open tasks of the project that have a
+  source, as `--path ./` already did.
 - When looking for duplicates, `backlog check` and `backlog new` now treat different spellings of one file's path
   (`src/./queue.ts`, `src\queue.ts`, `src/x/../queue.ts` next to `src/queue.ts`) as the same place. Such a duplicate
   in one function was missed or found only through the code graph: its candidate episode closed when the graph was

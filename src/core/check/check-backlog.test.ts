@@ -172,6 +172,21 @@ describe("checkBacklog", () => {
     ]);
   });
 
+  it.each(["src/./a.ts", "src//a.ts", "src/x/../a.ts", ".//src/a.ts"])("правка файла, путь к которому в source записан как %s, делает задачу кандидатом «код изменился»", async (spelled) => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: '${spelled}:1'\n`) });
+    await writeFiles(repo, { "src/a.ts": "a2\n" });
+    gitCommitAll(repo, "Правка", "2026-09-12T10:00:00+03:00");
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toMatchObject([{ kind: "source-changed", task: { id: "SPA-1" }, path: "src/a.ts" }]);
+  });
+
   async function symbolFixture(taskFields: (before: string) => string, edit: (code: string) => string) {
     const home = await makeTempDir();
     const root = join(home, "backlog");

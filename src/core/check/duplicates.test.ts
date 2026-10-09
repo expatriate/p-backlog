@@ -101,6 +101,15 @@ describe("duplicateCandidates и findSimilarTask", () => {
     ]);
   });
 
+  it("source с .// в начале — то же место, что без него", () => {
+    const pair: [Shape, Shape] = [
+      { title: "Очередь отправки висит после обрыва сети", source: ".//src/queue.ts:40" },
+      { title: "Очередь отправки висит при обрыве сети", source: "src/queue.ts:40" },
+    ];
+
+    expect({ check: candidateMatches(pair), refusal: refusal(pair) }).toEqual({ check: ["source"], refusal: "source" });
+  });
+
   it("связанные через related и подтверждённые обе после создания пары не предлагаются", () => {
     const upload = makeTask({ id: "SPA-1", title: "Таймаут загрузки не учитывает размер файла", source: "src/upload.ts:88", created: CREATED });
     const linked = makeTask({ id: "SPA-2", title: "Загрузка: таймаут не учитывает большие файлы", source: "src/upload.ts:90", related: ["SPA-1"], created: CREATED });

@@ -143,6 +143,17 @@ describe("backlog take", () => {
     expect(await statusOf(root, "SPA-2")).toBe("in-progress");
   });
 
+  it("--path сравнивает с путём source после схлопывания . и ..", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Через точку", "--source", "src/./a.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Через родителя", "--source", "src/../lib/b.ts:1"]);
+
+    expect((await run(["take", "--path", "src"])).code).toBe(EXIT.ok);
+    expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2")]).toEqual(["in-progress", "backlog"]);
+    expect((await run(["take", "--path", "lib"])).code).toBe(EXIT.ok);
+    expect(await statusOf(root, "SPA-2")).toBe("in-progress");
+  });
+
   it("режимы не сочетаются, а «все заблокированы» отличается от «нет задач»", async () => {
     const { run } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Блокер", "--source", "src/b.ts:1"]);

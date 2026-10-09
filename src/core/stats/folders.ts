@@ -1,4 +1,4 @@
-import { SOURCE_LINES, sourcePath } from "../model/source";
+import { namesFolder, sourcePath } from "../model/source";
 
 const REPOSITORY_ROOT = ".";
 
@@ -7,8 +7,4 @@ export function folderOf(source: string): string {
   if (namesFolder(source)) return path === "" ? REPOSITORY_ROOT : path;
   const slash = path.lastIndexOf("/");
   return slash === -1 ? REPOSITORY_ROOT : path.slice(0, slash);
-}
-
-function namesFolder(source: string): boolean {
-  return source.replace(SOURCE_LINES, "").endsWith("/");
 }
