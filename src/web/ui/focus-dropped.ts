@@ -1,3 +1,4 @@
 export function focusDropped(): boolean {
-  return document.activeElement === null || document.activeElement === document.body;
+  const active = document.activeElement;
+  return active === null || active === document.body || active.matches("main");
 }

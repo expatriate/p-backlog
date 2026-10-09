@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- In Safari and Firefox, after a bulk action done with the mouse, focus now moves to Undo, and after the epic filter
+  disappears it moves to the next toolbar control, as it already did in Chrome and with the keyboard. Before, the click
+  left focus on the page content.
 - Statistics charts now look the same: every chart has horizontal grid lines (the debt, spend and accuracy charts with
   two value axes had only the top and bottom border), the hover cursor is one shape in theme colours (a framed band
   under the hovered period on bar charts, a line on the memory chart; before, every chart except the effect chart drew

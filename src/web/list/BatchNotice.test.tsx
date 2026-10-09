@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import type { TestApp } from "../../server/testing/test-app";
-import { renderApp, type RenderedApp } from "../testing/render-app";
+import { interceptApi, renderApp, type RenderedApp } from "../testing/render-app";
 import { closeSelected, recordBatches, select } from "../testing/task-list";
 
 const FILES = {
@@ -87,6 +87,23 @@ describe("уведомление об итоге массового действ
     expect([restored.status, restored.resolution, restored.reason]).toEqual(["backlog", undefined, undefined]);
     expect(within(noticeWith("Возвращено 2 из 2") as HTMLElement).queryByRole("button", { name: "Отменить" })).toBeNull();
     expect(noticeWith("Возвращено 2 из 2")?.contains(document.activeElement)).toBe(true);
+  });
+
+  it("если после щелчка мышью фокус остался на контейнере страницы, как в Safari и Firefox, он всё равно уходит на «Отменить»", async () => {
+    const { promise: released, resolve: release }: PromiseWithResolvers<void> = Promise.withResolvers();
+    const beforeRender = interceptApi(async (path, _init, passOn) => {
+      if (path === "/api/tasks/batch") await released;
+      return passOn();
+    });
+    const app = await renderApp(FILES, "/", undefined, { beforeRender });
+    await select(app, "SPA-1");
+    await closeSelected(app, "дубль");
+
+    screen.getByRole("main").focus();
+    release();
+
+    const undo = within(await findNotice("Закрыта 1 из 1")).getByRole("button", { name: "Отменить" });
+    expect(document.activeElement).toBe(undo);
   });
 
   it("приоритет и эпик — «Изменено», с числом в нужной форме, и «Отменить» возвращает прежние значения", async () => {

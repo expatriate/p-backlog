@@ -70,7 +70,7 @@ async function measureFocusedControls(page: Page): Promise<FocusStop[]> {
 
 test.beforeEach(writeBacklog);
 
-test("три задачи закрываются с причиной и возвращаются кнопкой «Отменить»", async ({ page }) => {
+test("три задачи закрываются мышью с причиной, фокус уходит на «Отменить», и кнопка возвращает их", async ({ page }) => {
   const violations = await collectCspViolations(page);
   await page.goto("/p/triage");
   await select(page, 1, 2, 3);
@@ -82,8 +82,10 @@ test("три задачи закрываются с причиной и возв
   await expect(page.getByRole("status").filter({ hasText: "Закрыто 3 из 3" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Разбор 1", exact: true })).toBeHidden();
   expect(await Promise.all([1, 2, 3].map(closureOnDisk))).toEqual(Array(3).fill("cancelled obsolete"));
+  const undo = page.getByRole("status").getByRole("button", { name: "Отменить" });
+  await expect(undo).toBeFocused();
 
-  await page.getByRole("status").getByRole("button", { name: "Отменить" }).click();
+  await undo.click();
 
   await expect(page.getByRole("status").filter({ hasText: "Возвращено 3 из 3" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Разбор 1", exact: true })).toBeVisible();
