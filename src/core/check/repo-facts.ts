@@ -1,5 +1,5 @@
 import { isAbsolute, join, normalize, sep } from "node:path";
-import { FIELD, outputLine, RECORD, runGit, runGitOutcome, type GitRunner } from "../git/run";
+import { FIELD, literalPathspecs, outputLine, RECORD, runGit, runGitOutcome, type GitRunner } from "../git/run";
 import type { LineRange } from "./anchor";
 import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
 import { SECOND_MS } from "../model/dates";
@@ -66,7 +66,7 @@ function earliestMark(marks: PathMarks, paths: readonly string[]): Date {
 }
 
 function logArgs(since: Date): string[] {
-  return ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%p${FIELD}%s`, "--name-status", "-M", "--diff-merges=first-parent", "-z"];
+  return ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%p${FIELD}%s`, "--name-status", "-M", "--diff-merges=first-parent", "--full-history", "-z"];
 }
 
 async function pathLog(repo: string, since: Date, paths: readonly string[]): Promise<string | null> {
@@ -80,10 +80,6 @@ async function committedPaths(repo: string, revisions: string, paths: readonly s
   if (inside.length === 0) return [];
   const names = await runGit(repo, ["log", revisions, "--relative", "--format=", "--name-only", "-z", "--", ...literalPathspecs(inside)]);
   return names === null ? null : names.split(/[\0\n]/).filter((name) => name !== "");
-}
-
-function literalPathspecs(paths: readonly string[]): string[] {
-  return paths.map((path) => `:(literal)${path}`);
 }
 
 function isInsideRepo(path: string): boolean {

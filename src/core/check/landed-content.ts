@@ -1,6 +1,7 @@
 import { groupBy } from "../collections";
 import { outputLine, type GitRunner } from "../git/run";
 import { remembered } from "../remembered";
+import { FILE_HEADER, firstLineOf, hunkHeaderOf, type HunkHeader } from "./diff-hunks";
 
 type FileVersion = { path: string; version: string };
 
@@ -10,21 +11,25 @@ type Fork = { base: string; tip: string };
 
 type BranchChanges = { fork: Fork; changed: FileVersion[] };
 
-type Patch = { id: string; commit: string; preimage: string; changeStarts: readonly number[] };
+type HeadHistory = "simplified" | "full";
 
-type Hunk = { commit: string; header: Record<string, string | undefined>; body: string[] };
+type PatchShape = { preimageBlob: string | undefined; changeStarts: number[]; changedText: string };
+
+type Patch = { id: string; commit: string; preimage: string; preimageKey: string; changeStarts: readonly number[]; changedText: string };
+
+type HunkWalk = { oldLine: number; changing: boolean };
 
 type LineShift = { shiftsLinesAfter: number; delta: number };
 
+type ShiftsBetween = (change: Patch, copy: Patch) => Promise<readonly LineShift[] | null>;
+
 type PatchCopies = { squashed: string[]; commitByCommit: string[][] };
 
-const PATCH_OPTIONS = ["-p", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--no-relative"];
+const PATCH_OPTIONS = ["-p", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--no-relative", "--full-index"];
 const COMMIT_HEADER = "--format=commit %H";
 const COMMIT_LINE = /^commit (?<commit>[0-9a-f]+)$/;
-const FILE_HEADER = "diff ";
-const HUNK_HEADER = /^@@ -(?<oldStart>\d+)(?:,(?<oldCount>\d+))? \+\d+(?:,(?<newCount>\d+))? @@/;
+const INDEX_LINE = /^index (?<preimage>[0-9a-f]+)\.\./;
 const NO_COMMIT = /^0+$/;
-const OMITTED_HUNK_COUNT = "1";
 const NO_NEWLINE_MARK = "\\";
 const RAW_RECORD = /commit (?<commit>[0-9a-f]+)\0|:\d+ (?<mode>\d+) [0-9a-f]+ (?<object>[0-9a-f]+) [A-Z]\d*\0(?<path>[^\0]*)\0/g;
 
@@ -33,7 +38,7 @@ export async function contentLanded(repo: string, tip: string, git: GitRunner): 
   if (branch === null) return false;
   if (branch.changed.length === 0) return true;
   const pathspecs = branch.changed.map(({ path }) => pathspecOf(path));
-  const landed = await headChanges(repo, branch.fork, pathspecs, git);
+  const landed = await headChanges(repo, branch.fork, pathspecs, "simplified", git);
   if (landed === null) return false;
   const landedVersions = new Set(landed.map(({ version }) => version));
   for (const { path, version } of branch.changed) {
@@ -42,10 +47,11 @@ export async function contentLanded(repo: string, tip: string, git: GitRunner): 
   return true;
 }
 
-export async function commitsCarryingContent(repo: string, tip: string, scope: string, git: GitRunner): Promise<string[]> {
-  const branch = await branchChanges(repo, tip, [scope], git);
+export async function commitsCarryingContent(repo: string, tip: string, scope: readonly string[], git: GitRunner): Promise<string[]> {
+  const branch = await branchChanges(repo, tip, scope, git);
   if (branch === null || branch.changed.length === 0) return [];
-  const head = await headChanges(repo, branch.fork, [scope], git);
+  // The commits judged here are the ones repo-facts lists, and it reads history with --full-history.
+  const head = await headChanges(repo, branch.fork, scope, "full", git);
   if (head === null) return [];
   const tipVersions = new Set(branch.changed.map(({ version }) => version));
   const branchPaths = new Set(branch.changed.map(({ path }) => path));
@@ -71,8 +77,9 @@ async function branchChanges(repo: string, tip: string, scope: readonly string[]
   return changed === null ? null : { fork, changed: rawChanges(changed) };
 }
 
-async function headChanges(repo: string, { base }: Fork, pathspecs: readonly string[], git: GitRunner): Promise<CommitChange[] | null> {
-  const rawLog = await git(repo, ["log", "--stdin", COMMIT_HEADER, "--raw", "-z", "--no-renames", "--no-abbrev", "--no-relative"], `${base}..HEAD\n--\n${pathspecs.join("\n")}\n`);
+async function headChanges(repo: string, { base }: Fork, pathspecs: readonly string[], history: HeadHistory, git: GitRunner): Promise<CommitChange[] | null> {
+  const historyOptions = history === "full" ? ["--full-history"] : [];
+  const rawLog = await git(repo, ["log", "--stdin", COMMIT_HEADER, "--raw", "-z", "--no-renames", "--no-abbrev", "--no-relative", ...historyOptions], `${base}..HEAD\n--\n${pathspecs.join("\n")}\n`);
   return rawLog === null ? null : rawChanges(rawLog);
 }
 
@@ -105,12 +112,13 @@ async function patchCopies(repo: string, { base, tip }: Fork, path: string, git:
   const [squashedPatch, branchPatches, headPatches] = await Promise.all([
     patchesOf(repo, ["diff", ...PATCH_OPTIONS, base, tip, ...onlyPath], () => base, git),
     patchesOf(repo, ["log", ...PATCH_OPTIONS, COMMIT_HEADER, `${base}..${tip}`, ...onlyPath], parentOf, git),
-    patchesOf(repo, ["log", ...PATCH_OPTIONS, COMMIT_HEADER, "--topo-order", `${base}..HEAD`, ...onlyPath], parentOf, git),
+    patchesOf(repo, ["log", ...PATCH_OPTIONS, COMMIT_HEADER, "--date-order", `${base}..HEAD`, ...onlyPath], parentOf, git),
   ]);
   if (squashedPatch === null || branchPatches === null || headPatches === null) return null;
+  const shiftsBetween = shiftsBetweenPreimages(repo, path, git);
   const copiesOf = async (change: Patch) => {
-    const sameChange = headPatches.filter(({ id }) => id === change.id);
-    const copiesAtSamePlace = await Promise.all(sameChange.map(async (copy) => ((await atSamePlace(repo, path, change, copy, git)) ? [copy.commit] : [])));
+    const sameChange = headPatches.filter(({ id, changedText }) => id === change.id && changedText === change.changedText);
+    const copiesAtSamePlace = await Promise.all(sameChange.map(async (copy) => ((await atSamePlace(change, copy, shiftsBetween)) ? [copy.commit] : [])));
     return copiesAtSamePlace.flat();
   };
   const [squashed, commitByCommit] = await Promise.all([Promise.all(squashedPatch.map(copiesOf)), Promise.all(branchPatches.map(copiesOf))]);
@@ -122,67 +130,72 @@ async function patchesOf(repo: string, patchArgs: string[], preimageOf: (commit:
   if (patches === null) return null;
   const ids = await git(repo, ["patch-id", "--stable"], patches);
   if (ids === null) return null;
-  const changeStarts = changeStartsByCommit(patches);
+  const shapes = patchShapesByCommit(patches);
   return ids
     .split("\n")
     .filter((line) => line !== "")
     .map((line) => {
       const [id = "", label = ""] = line.split(" ");
       const commit = NO_COMMIT.test(label) ? "" : label;
-      return { id, commit, preimage: preimageOf(commit), changeStarts: changeStarts.get(commit) ?? [] };
+      const preimage = preimageOf(commit);
+      const { preimageBlob, changeStarts, changedText } = shapes.get(commit) ?? emptyShape();
+      return { id, commit, preimage, preimageKey: preimageBlob ?? preimage, changeStarts, changedText };
     });
 }
 
-function changeStartsByCommit(patches: string): Map<string, number[]> {
-  const hunks: Hunk[] = [];
-  let currentCommit = "";
-  let currentHunk: Hunk | undefined;
+function patchShapesByCommit(patches: string): Map<string, PatchShape> {
+  const shapes = new Map<string, PatchShape>();
+  let shape = emptyShape();
+  shapes.set("", shape);
+  let hunk: HunkWalk | undefined;
   for (const line of patches.split("\n")) {
-    const commitOfLine = COMMIT_LINE.exec(line)?.groups?.commit;
-    const header = HUNK_HEADER.exec(line)?.groups;
-    if (commitOfLine !== undefined) currentCommit = commitOfLine;
-    if (commitOfLine !== undefined || line.startsWith(FILE_HEADER)) currentHunk = undefined;
-    else if (header !== undefined) {
-      currentHunk = { commit: currentCommit, header, body: [] };
-      hunks.push(currentHunk);
-    } else currentHunk?.body.push(line);
+    const commit = COMMIT_LINE.exec(line)?.groups?.commit;
+    const header = hunkHeaderOf(line);
+    if (commit !== undefined) {
+      shape = emptyShape();
+      shapes.set(commit, shape);
+      hunk = undefined;
+    } else if (line.startsWith(FILE_HEADER)) hunk = undefined;
+    else if (header !== null) hunk = { oldLine: firstLineOf(header.oldStart, header.oldCount), changing: false };
+    else if (hunk === undefined) shape.preimageBlob ??= INDEX_LINE.exec(line)?.groups?.preimage;
+    else walkHunkLine(hunk, line, shape);
   }
-  return new Map([...groupBy(hunks, ({ commit }) => commit)].map(([commit, commitHunks]) => [commit, commitHunks.flatMap(changeStartsOf)]));
+  return shapes;
 }
 
-function changeStartsOf({ header: { oldStart, oldCount = OMITTED_HUNK_COUNT }, body }: Hunk): number[] {
-  const starts: number[] = [];
-  let oldLine = firstOldLine(oldStart, oldCount);
-  let changing = false;
-  for (const mark of body.map((line) => line.charAt(0))) {
-    if (mark === NO_NEWLINE_MARK) continue;
-    const changed = mark === "-" || mark === "+";
-    if (changed && !changing) starts.push(oldLine);
-    changing = changed;
-    if (mark !== "+") oldLine += 1;
-  }
-  return starts;
+function walkHunkLine(hunk: HunkWalk, line: string, shape: PatchShape): void {
+  const mark = line.charAt(0);
+  if (mark === NO_NEWLINE_MARK) return;
+  const changed = mark === "-" || mark === "+";
+  if (changed && !hunk.changing) shape.changeStarts.push(hunk.oldLine);
+  if (changed) shape.changedText += `${line}\n`;
+  hunk.changing = changed;
+  if (mark !== "+") hunk.oldLine += 1;
 }
 
-async function atSamePlace(repo: string, path: string, change: Patch, copy: Patch, git: GitRunner): Promise<boolean> {
+function emptyShape(): PatchShape {
+  return { preimageBlob: undefined, changeStarts: [], changedText: "" };
+}
+
+function shiftsBetweenPreimages(repo: string, path: string, git: GitRunner): ShiftsBetween {
+  const shiftsByPreimages = new Map<string, Promise<LineShift[] | null>>();
+  return (change, copy) =>
+    change.preimageKey === copy.preimageKey
+      ? Promise.resolve([])
+      : remembered(shiftsByPreimages, `${change.preimageKey} ${copy.preimageKey}`, async () => {
+          const preimageDiff = await git(repo, ["diff", ...PATCH_OPTIONS, "--unified=0", "--inter-hunk-context=0", change.preimage, copy.preimage, "--", pathspecOf(path)]);
+          return preimageDiff === null ? null : preimageDiff.split("\n").flatMap((line) => lineShiftsOf(hunkHeaderOf(line)));
+        });
+}
+
+async function atSamePlace(change: Patch, copy: Patch, shiftsBetween: ShiftsBetween): Promise<boolean> {
   if (change.changeStarts.length !== copy.changeStarts.length) return false;
-  const preimageDiff = await git(repo, ["diff", ...PATCH_OPTIONS, "--unified=0", "--inter-hunk-context=0", change.preimage, copy.preimage, "--", pathspecOf(path)]);
-  if (preimageDiff === null) return false;
-  const shifts = preimageDiff.split("\n").flatMap((line) => {
-    const header = HUNK_HEADER.exec(line)?.groups;
-    return header === undefined ? [] : [lineShiftOf(header)];
-  });
-  return change.changeStarts.every((start, index) => shiftedLine(start, shifts) === copy.changeStarts[index]);
+  const shifts = await shiftsBetween(change, copy);
+  return shifts !== null && change.changeStarts.every((start, index) => shiftedLine(start, shifts) === copy.changeStarts[index]);
 }
 
-function lineShiftOf({ oldStart, oldCount = OMITTED_HUNK_COUNT, newCount = OMITTED_HUNK_COUNT }: Record<string, string | undefined> = {}): LineShift {
-  const removed = Number(oldCount);
-  return { shiftsLinesAfter: firstOldLine(oldStart, oldCount) + removed - 1, delta: Number(newCount) - removed };
-}
-
-function firstOldLine(oldStart: string | undefined, oldCount: string): number {
-  const insertedAfterOldStart = Number(oldCount) === 0;
-  return insertedAfterOldStart ? Number(oldStart) + 1 : Number(oldStart);
+function lineShiftsOf(header: HunkHeader | null): LineShift[] {
+  return header === null ? [] : [{ shiftsLinesAfter: firstLineOf(header.oldStart, header.oldCount) + header.oldCount - 1, delta: header.newCount - header.oldCount }];
 }
 
 function shiftedLine(line: number, shifts: readonly LineShift[]): number {

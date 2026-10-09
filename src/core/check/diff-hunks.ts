@@ -4,15 +4,31 @@ type HunkLine = { kind: "added" | "removed" | "context"; text: string };
 
 export type Hunk = { oldFirst: number; oldCount: number; newFirst: number; newCount: number; lines: readonly HunkLine[] };
 
+export type HunkHeader = { oldStart: number; oldCount: number; newStart: number; newCount: number };
+
 const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
-const FILE_HEADER = "diff ";
+const OMITTED_COUNT = 1;
+export const FILE_HEADER = "diff ";
 const EMPTY_OLD_SIDE = 0;
+
+export function hunkHeaderOf(line: string): HunkHeader | null {
+  const header = HUNK_HEADER.exec(line);
+  if (header === null) return null;
+  const [, oldStart, oldCount, newStart, newCount] = header;
+  return { oldStart: Number(oldStart), oldCount: Number(oldCount ?? OMITTED_COUNT), newStart: Number(newStart), newCount: Number(newCount ?? OMITTED_COUNT) };
+}
+
+export function firstLineOf(start: number, count: number): number {
+  // A hunk side with no lines names the line before it: `-5,0` inserts after line 5.
+  return count === 0 ? start + 1 : start;
+}
 
 export function parseHunks(diff: string): Hunk[] | null {
   const hunks: Hunk[] = [];
   let lines: HunkLine[] | null = null;
   for (const line of diff.split("\n")) {
-    const header = HUNK_HEADER.exec(line);
+    const header = hunkHeaderOf(line);
+    if (header?.oldStart === EMPTY_OLD_SIDE) return null;
     if (header !== null) {
       lines = [];
       hunks.push(hunkOf(header, lines));
@@ -24,23 +40,11 @@ export function parseHunks(diff: string): Hunk[] | null {
     }
   }
   const unparsed = hunks.length === 0 && diff.trim() !== "";
-  const fromEmptyFile = hunks.some((hunk) => hunk.oldFirst === EMPTY_OLD_SIDE);
-  return unparsed || fromEmptyFile ? null : hunks;
+  return unparsed ? null : hunks;
 }
 
-function hunkOf(header: RegExpExecArray, lines: HunkLine[]): Hunk {
-  const oldCount = Number(header[2] ?? 1);
-  const newCount = Number(header[4] ?? 1);
-  const oldStart = Number(header[1]);
-  const newStart = Number(header[3]);
-  // A hunk side with no lines names the line before it (`-5,0` inserts after line 5); `-0,0` is an empty old side: a new or empty file.
-  return {
-    oldFirst: oldCount === 0 && oldStart !== EMPTY_OLD_SIDE ? oldStart + 1 : oldStart,
-    oldCount,
-    newFirst: newCount === 0 ? newStart + 1 : newStart,
-    newCount,
-    lines,
-  };
+function hunkOf({ oldStart, oldCount, newStart, newCount }: HunkHeader, lines: HunkLine[]): Hunk {
+  return { oldFirst: firstLineOf(oldStart, oldCount), oldCount, newFirst: firstLineOf(newStart, newCount), newCount, lines };
 }
 
 function hunkLineOf(line: string): HunkLine | null {

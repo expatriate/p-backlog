@@ -52,6 +52,10 @@ export function gitMergeFastForward(repo: string, branch: string, isoDate: strin
   execFileSync("git", ["merge", "-q", "--ff-only", branch], { cwd: repo, env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
 }
 
+export function gitShortHead(repo: string): string {
+  return execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
+}
+
 export function gitAddWorktree(repo: string, path: string, branch: string): void {
   execFileSync("git", ["worktree", "add", "-q", "-b", branch, path], { cwd: repo });
 }

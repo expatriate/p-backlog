@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- `backlog check` makes fewer needless re-check requests for tasks without an anchor: a cherry-pick of the task's
+  branch commit into another branch counts as known even when merging that branch back left the file unchanged, and a
+  task created on a detached HEAD gets its squash or rebase copies recognized like a task created on a branch. When a
+  branch edit lands twice, the earlier copy counts as the landing, so the later repeat (not the merge that only brings
+  the earlier copy) is what makes the task a candidate. An edit on the main branch that differs from the branch's edit
+  only in whitespace (indentation in Python, for example) no longer counts as the branch being merged, so tasks from
+  that branch keep waiting for the merge.
 - `backlog check` no longer asks to re-check a task without an anchor just because its own branch was merged by squash
   or rebase: the squash commit, or the rebased copies of the branch's commits, count as known when they bring only what
   the task's creation commit already had, as a merge commit of that branch already did. So does a merge commit that

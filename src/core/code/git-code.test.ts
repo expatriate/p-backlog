@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { gitCheckout, gitCommitAll, gitMergeNoFastForward, gitMergeSquash, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeNoFastForward, gitMergeSquash, gitShortHead, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { CHURN_DAYS } from "./code-window";
 import { readRefs } from "./git-code";
 import { readFixCommits } from "./git-fixes";
@@ -26,8 +26,6 @@ const readCode = async (git: GitRunner, repo: string, since: Date) => {
   return scan === null ? null : repoCodeOf(scan);
 };
 
-const shortHead = (repo: string) => execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
-
 const FIX_DATE = "2026-09-11T10:00:00+03:00";
 const MERGE_DATE = "2026-09-15T10:00:00+03:00";
 
@@ -38,7 +36,7 @@ async function fixOnBranch(): Promise<{ repo: string; fix: string }> {
   gitCheckout(repo, "fix", { create: true });
   await writeFiles(repo, { "src/a.ts": "one\ntwo\n" });
   gitCommitAll(repo, "fix: таймаут загрузки", FIX_DATE);
-  const fix = shortHead(repo);
+  const fix = gitShortHead(repo);
   gitCheckout(repo, "master");
   await writeFiles(repo, { "src/b.ts": "b\nc\n" });
   gitCommitAll(repo, "main: b", "2026-09-12T10:00:00+03:00");
@@ -54,7 +52,7 @@ describe("когда исправление попало в основную в�
   it("коммит основной ветки — в свою дату", async () => {
     const repo = await sampleRepo();
 
-    expect(await landedAt(repo, shortHead(repo))).toBe(Date.parse("2026-09-10T10:00:00+03:00"));
+    expect(await landedAt(repo, gitShortHead(repo))).toBe(Date.parse("2026-09-10T10:00:00+03:00"));
   });
 
   it("коммит ветки, слитой merge-коммитом, — в дату слияния", async () => {
@@ -113,7 +111,7 @@ describe("чтение git для вкладки «Код»", () => {
   it("коммит исправления: дата и агент по трейлеру без учёта регистра, неизвестный хеш — null", async () => {
     const repo = await sampleRepo();
 
-    const commit = (await readFixCommits(runGit, repo, { hashes: [shortHead(repo)], mainCommit: null }))?.get(shortHead(repo));
+    const commit = (await readFixCommits(runGit, repo, { hashes: [gitShortHead(repo)], mainCommit: null }))?.get(gitShortHead(repo));
 
     expect(commit?.byAgent).toBe(true);
     expect(Date.parse(commit?.date ?? "")).toBe(Date.parse("2026-09-10T10:00:00+03:00"));
@@ -170,7 +168,7 @@ describe("чтение git для вкладки «Код»", () => {
   it("размер коммита исправления", async () => {
     const repo = await sampleRepo();
 
-    const commit = (await readFixCommits(runGit, repo, { hashes: [shortHead(repo)], mainCommit: null }))?.get(shortHead(repo));
+    const commit = (await readFixCommits(runGit, repo, { hashes: [gitShortHead(repo)], mainCommit: null }))?.get(gitShortHead(repo));
 
     expect(commit?.lines).toBe(2);
   });
@@ -182,7 +180,7 @@ describe("чтение git для вкладки «Код»", () => {
     await writeFiles(repo, { "src/a.ts": "one\ntwo\nthree\n", "src/a.test.ts": "a\nb\nc\n" });
     gitCommitAll(repo, "fix: with test", "2026-09-10T10:00:00+03:00");
 
-    const commit = (await readFixCommits(runGit, repo, { hashes: [shortHead(repo)], mainCommit: null }))?.get(shortHead(repo));
+    const commit = (await readFixCommits(runGit, repo, { hashes: [gitShortHead(repo)], mainCommit: null }))?.get(gitShortHead(repo));
 
     expect(commit).toMatchObject({ lines: 5, testLines: 3 });
   });
@@ -194,7 +192,7 @@ describe("чтение git для вкладки «Код»", () => {
     await writeFiles(repo, { "package-lock.json": "{\n}\n" });
     gitCommitAll(repo, "fix: lockfile only", "2026-09-10T10:00:00+03:00");
 
-    const commit = (await readFixCommits(runGit, repo, { hashes: [shortHead(repo)], mainCommit: null }))?.get(shortHead(repo));
+    const commit = (await readFixCommits(runGit, repo, { hashes: [gitShortHead(repo)], mainCommit: null }))?.get(gitShortHead(repo));
 
     expect(Date.parse(commit?.date ?? "")).toBe(Date.parse("2026-09-10T10:00:00+03:00"));
     expect(commit?.lines).toBe(0);
@@ -244,10 +242,10 @@ describe("чтение git для вкладки «Код»", () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a\n" });
     gitCommitAll(repo, "init", "2026-09-10T10:00:00+03:00");
-    const first = shortHead(repo);
+    const first = gitShortHead(repo);
     await writeFiles(repo, { "src/a.ts": "a\nb\n" });
     gitCommitAll(repo, "second", "2026-09-11T10:00:00+03:00");
-    const second = shortHead(repo);
+    const second = gitShortHead(repo);
 
     const commits = await readFixCommits(runGit, repo, { hashes: [first, "deadbee", second, "0123456789abcdef"], mainCommit: null });
 
@@ -257,7 +255,7 @@ describe("чтение git для вкладки «Код»", () => {
 
   it("чужие хеши проверяются одним процессом git, а не по процессу на хеш", async () => {
     const repo = await sampleRepo();
-    const own = shortHead(repo);
+    const own = gitShortHead(repo);
     const alien = Array.from({ length: 20 }, (_, index) => `dead${String(index).padStart(3, "0")}`);
     const counting = countingGit();
 

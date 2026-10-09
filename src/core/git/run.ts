@@ -46,6 +46,10 @@ export function outputLine(stdout: string | null): string | null {
   return line === undefined || line === "" ? null : line;
 }
 
+export function literalPathspecs(paths: readonly string[]): string[] {
+  return paths.map((path) => `:(literal)${path}`);
+}
+
 export function runGitSync(repo: string, args: string[]): string | null {
   try {
     return execFileSync("git", gitArgs(repo, args), { encoding: "utf8", maxBuffer: GIT_OUTPUT_LIMIT, stdio: ["ignore", "pipe", "ignore"] });

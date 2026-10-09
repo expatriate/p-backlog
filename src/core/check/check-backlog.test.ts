@@ -7,7 +7,20 @@ import type { CheckMode } from "../journal/events";
 import { coreMessages } from "../messages";
 import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
-import { gitCheckout, gitCommitAll, gitMergeFastForward, gitMergeNoFastForward, gitMergeSquash, gitRebaseMerge, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../store/testing/temp-dirs";
+import {
+  gitCheckout,
+  gitCommitAll,
+  gitMergeFastForward,
+  gitMergeNoFastForward,
+  gitMergeSquash,
+  gitRebaseMerge,
+  gitShortHead,
+  makeGitRepo,
+  makeTempDir,
+  projectFile,
+  taskFile,
+  writeFiles,
+} from "../store/testing/temp-dirs";
 import { makeGraphDb } from "../code-review-graph/testing/make-graph-db";
 import { anchorOf } from "./anchor";
 import { checkBacklog, type CheckReport } from "./check-backlog";
@@ -504,8 +517,6 @@ describe("checkBacklog", () => {
     }
   }
 
-  const shortHead = (repo: string) => execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
-
   const createdOnFeat = (id: string, at: string, commit: string) => ({
     at,
     task: id,
@@ -520,7 +531,7 @@ describe("checkBacklog", () => {
 
   async function taskCreatedOnBranch({ branchEditAfterCreation, landing = "merge-commit" }: { branchEditAfterCreation: boolean; landing?: BranchLanding }) {
     const { home, root, repo } = await featRepo();
-    const created = createdOnFeat("SPA-1", "2026-09-11T10:00:00+03:00", shortHead(repo));
+    const created = createdOnFeat("SPA-1", "2026-09-11T10:00:00+03:00", gitShortHead(repo));
     await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\n"), "spa/journal.jsonl": `${JSON.stringify(created)}\n` });
     if (branchEditAfterCreation) {
       await writeFile(join(repo, "src/a.ts"), "a3\n");
@@ -541,10 +552,10 @@ describe("checkBacklog", () => {
     { landing: "rebase", landedEdit: "Фича снова правит a" },
   ] as const)("ветку влили через $landing — кандидатом задачу делают правки source, которых не было в её коммите создания, включая правку после слияния", async ({ landing, landedEdit }) => {
     const { home, root, repo } = await featRepo();
-    const beforeSecondEdit = createdOnFeat("SPA-1", "2026-09-11T10:00:00+03:00", shortHead(repo));
+    const beforeSecondEdit = createdOnFeat("SPA-1", "2026-09-11T10:00:00+03:00", gitShortHead(repo));
     await writeFile(join(repo, "src/a.ts"), "a3\n");
     gitCommitAll(repo, "Фича снова правит a", "2026-09-11T12:00:00+03:00");
-    const afterSecondEdit = createdOnFeat("SPA-2", "2026-09-11T13:00:00+03:00", shortHead(repo));
+    const afterSecondEdit = createdOnFeat("SPA-2", "2026-09-11T13:00:00+03:00", gitShortHead(repo));
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA", [repo]),
       "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\n"),
@@ -675,7 +686,7 @@ describe("checkBacklog", () => {
     gitCheckout(repo, "feat", { create: true });
     await writeFiles(repo, { "src/n.ts": "n1\n" });
     gitCommitAll(repo, "Фича добавляет n", "2026-09-10T10:00:00+03:00");
-    const origin = { branch: "feat", commit: execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim() };
+    const origin = { branch: "feat", commit: gitShortHead(repo) };
     gitCheckout(repo, "master");
     const created = (id: string) => JSON.stringify({ at: "2026-09-11T10:00:00+03:00", task: id, via: "cli", kind: "created", type: "task", priority: "medium", tags: [], source: "src/n.ts:1", origin });
     await writeFiles(root, {

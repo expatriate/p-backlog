@@ -1,4 +1,4 @@
-import { FIELD, RECORD, resolveCommits, type GitRunner } from "../git/run";
+import { FIELD, literalPathspecs, RECORD, resolveCommits, type GitRunner } from "../git/run";
 import { CHURN_EXCLUDES, numstatLines, records } from "./git-code";
 import { isTestPath } from "./test-paths";
 import type { FixCommit } from "./types";
@@ -62,7 +62,7 @@ async function landingDate(git: GitRunner, repo: string, { fix, paths, mainCommi
   const [parents = "", mergedAt = ""] = lastLine(descendants).split(FIELD);
   if (mergedAt !== "") return parents.split(" ")[0] === fix.full ? fix.date : mergedAt;
   if (fix.subject === "" || paths.length === 0) return undefined;
-  const pathspecs = paths.map((path) => `:(literal)${path}`);
+  const pathspecs = literalPathspecs(paths);
   const squashes = await git(repo, ["log", mainCommit, "--first-parent", `--since=${fix.date}`, "--extended-regexp", `--grep=${subjectLinePattern(fix.subject)}`, "--format=tformat:%cI", "--", ...pathspecs]);
   return lastLine(squashes) || undefined;
 }

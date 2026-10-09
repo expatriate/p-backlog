@@ -1,10 +1,7 @@
-import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import type { TaskOrigin } from "../journal/events";
-import { gitCheckout, gitCommitAll, gitMergeSquash, gitRebaseMerge, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeSquash, gitRebaseMerge, gitShortHead, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { awaitingMerge } from "./awaiting-merge";
-
-const shortHead = (repo: string) => execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
 
 const LINES = Array.from({ length: 40 }, (_, index) => `строка ${index + 1}`);
 
@@ -17,12 +14,12 @@ async function featureOfTwoCommits(): Promise<{ repo: string; feat: TaskOrigin; 
   gitCheckout(repo, "next", { create: true });
   await writeFiles(repo, { "src/c.ts": "c2\n" });
   gitCommitAll(repo, "Ещё не слитая правка c", "2026-09-10T09:00:00+03:00");
-  const next = { branch: "next", commit: shortHead(repo) };
+  const next = { branch: "next", commit: gitShortHead(repo) };
   gitCheckout(repo, "master");
   gitCheckout(repo, "feat", { create: true });
   await writeFiles(repo, { "src/a.ts": "a2\n" });
   gitCommitAll(repo, "Фича правит a", "2026-09-10T10:00:00+03:00");
-  const feat = { branch: "feat", commit: shortHead(repo) };
+  const feat = { branch: "feat", commit: gitShortHead(repo) };
   await writeFiles(repo, { "src/b.ts": "b2\n" });
   gitCommitAll(repo, "Фича правит b", "2026-09-11T10:00:00+03:00");
   gitCheckout(repo, "master");
@@ -36,12 +33,12 @@ async function featureEditingOneFileTwiceWhileMainEditsItsEnd(): Promise<{ repo:
   gitCheckout(repo, "next", { create: true });
   await writeFiles(repo, { "src/c.ts": "c2\n" });
   gitCommitAll(repo, "Ещё не слитая правка c", "2026-09-10T09:00:00+03:00");
-  const next = { branch: "next", commit: shortHead(repo) };
+  const next = { branch: "next", commit: gitShortHead(repo) };
   gitCheckout(repo, "master");
   gitCheckout(repo, "feat", { create: true });
   await writeFiles(repo, { "src/long.ts": withLines({ 1: "первая" }) });
   gitCommitAll(repo, "Фича правит начало файла", "2026-09-10T10:00:00+03:00");
-  const feat = { branch: "feat", commit: shortHead(repo) };
+  const feat = { branch: "feat", commit: gitShortHead(repo) };
   await writeFiles(repo, { "src/long.ts": withLines({ 1: "первая", 5: "пятая" }) });
   gitCommitAll(repo, "Фича снова правит начало файла", "2026-09-11T10:00:00+03:00");
   gitCheckout(repo, "master");
@@ -59,7 +56,7 @@ async function featureEditingFirstOfTwinBlocksWhileMainEditsSecond(lineEnd: stri
   gitCheckout(repo, "feat", { create: true });
   await writeFiles(repo, { "src/twins.ts": twins("a * b", "a + b") });
   gitCommitAll(repo, "Фича правит первый блок", "2026-09-10T10:00:00+03:00");
-  const feat = { branch: "feat", commit: shortHead(repo) };
+  const feat = { branch: "feat", commit: gitShortHead(repo) };
   gitCheckout(repo, "master");
   await writeFiles(repo, { "src/twins.ts": twins("a + b", "a * b") });
   gitCommitAll(repo, "Основная ветка так же правит второй блок", "2026-09-11T10:00:00+03:00");
@@ -73,7 +70,7 @@ async function featureSquashedAfterMainEdit({ start, feature, main }: { start: s
   gitCheckout(repo, "feat", { create: true });
   await writeFiles(repo, { "src/long.ts": feature });
   gitCommitAll(repo, "Фича правит файл", "2026-09-10T10:00:00+03:00");
-  const feat = { branch: "feat", commit: shortHead(repo) };
+  const feat = { branch: "feat", commit: gitShortHead(repo) };
   gitCheckout(repo, "master");
   await writeFiles(repo, { "src/long.ts": main });
   gitCommitAll(repo, "Основная ветка тем временем правит тот же файл", "2026-09-11T12:00:00+03:00");
@@ -148,6 +145,22 @@ describe("awaitingMerge", () => {
     { endings: "CRLF", lineEnd: "\r\n" },
   ])("основная ветка сделала ту же правку, что и ветка, но во втором из двух одинаковых блоков файла со строками $endings — задача ждёт слияния", async ({ lineEnd }) => {
     const { repo, feat } = await featureEditingFirstOfTwinBlocksWhileMainEditsSecond(lineEnd);
+
+    expect(await awaiting(repo, { "SPA-1": feat })).toEqual(new Set(["SPA-1"]));
+  });
+
+  it("основная ветка сделала ту же правку, что и ветка, на том же месте, но с другим отступом — задача ждёт слияния", async () => {
+    const loop = (logged: string) => `def total(items):\n    result = 0\n    for item in items:\n        result += item\n${logged}    return result\n`;
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/total.py": loop("") });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFiles(repo, { "src/total.py": loop("        log(item)\n") });
+    gitCommitAll(repo, "Фича пишет в журнал каждый элемент", "2026-09-10T10:00:00+03:00");
+    const feat = { branch: "feat", commit: gitShortHead(repo) };
+    gitCheckout(repo, "master");
+    await writeFiles(repo, { "src/total.py": loop("    log(item)\n") });
+    gitCommitAll(repo, "Основная ветка пишет в журнал последний элемент", "2026-09-11T10:00:00+03:00");
 
     expect(await awaiting(repo, { "SPA-1": feat })).toEqual(new Set(["SPA-1"]));
   });

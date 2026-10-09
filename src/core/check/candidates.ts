@@ -20,7 +20,7 @@ export type AnchorPlan = { id: string; changes: { source?: string; anchor: strin
 
 export type CodeReview = { candidates: Candidate[]; plans: AnchorPlan[] };
 
-export type KnownMerges = ReadonlyMap<string, ReadonlySet<string>>;
+export type KnownCommits = ReadonlyMap<string, ReadonlySet<string>>;
 
 type AnchoredSource = { source: string; anchor: string };
 
@@ -47,14 +47,14 @@ export function anchorStates(tasks: readonly Task[], facts: RepoFacts): AnchorSt
   return new Map(tasks.map((task) => [task.id, anchorState(task, facts)]));
 }
 
-export function codeReview(tasks: readonly Task[], facts: RepoFacts, knownMerges: KnownMerges, anchors: AnchorStates): CodeReview {
+export function codeReview(tasks: readonly Task[], facts: RepoFacts, knownCommits: KnownCommits, anchors: AnchorStates): CodeReview {
   const reviewed = tasks.map((task) => ({ task, anchor: anchors.get(task.id) ?? anchorState(task, facts) }));
-  const candidates = reviewed.flatMap(({ task, anchor }) => codeCandidate(task, anchor, facts, knownMerges.get(task.id)));
+  const candidates = reviewed.flatMap(({ task, anchor }) => codeCandidate(task, anchor, facts, knownCommits.get(task.id)));
   const plans = reviewed.flatMap(({ task, anchor }) => anchorPlan(task, anchor, facts));
   return { candidates, plans };
 }
 
-function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts, knownMerges: ReadonlySet<string> = new Set()): Candidate[] {
+function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts, knownCommits: ReadonlySet<string> = new Set()): Candidate[] {
   if (task.source === undefined) return [];
   const path = sourcePath(task.source);
   const mark = reviewMark(task);
@@ -63,7 +63,7 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts, knownM
   }
   if (anchor.kind === "same" || anchor.kind === "moved") return [];
   const { commits: changed, uncommitted } = changesSince(facts, path, mark);
-  const commits = changed.filter((commit) => !knownMerges.has(commit.sha));
+  const commits = changed.filter((commit) => !knownCommits.has(commit.sha));
   if (anchor.kind === "none" && commits.length === 0 && !uncommitted) return [];
   const method: CheckMethod = anchor.kind === "changed" ? "anchor" : "file";
   return [{ kind: "source-changed", task: taskRef(task), path, commits: commits.slice(0, MAX_COMMITS).map(commitRef), uncommitted, method }];

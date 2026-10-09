@@ -6,7 +6,7 @@ import type { Project, Task } from "../model/types";
 import { readReportingFailure, readTextIfFile } from "../store/fs-utils";
 import { readJournal } from "../store/journal";
 import { snippetOf } from "./anchor";
-import { mergesKnownAtCreation } from "./known-merges";
+import { commitsKnownAtCreation } from "./known-commits";
 import { anchorStates, codeReview, isReviewable, relocationPlan, renamePlan, reviewMark, type AnchorPlan, type Candidate, type ChangeContext, type CodeReview, type ReportedCandidate } from "./candidates";
 import { duplicateCandidates } from "./duplicates";
 import { currentSourcesOf, repoDiffs, traceSources, type SourceTraces } from "./current-source";
@@ -81,8 +81,8 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
 async function reviewedCode(tasks: readonly Task[], scope: MergeScope): Promise<CodeReview> {
   const { repo, facts, origins } = scope;
   const anchors = anchorStates(tasks, facts);
-  const knownMerges = await mergesKnownAtCreation({ repo, tasks, facts, anchors, origins });
-  return withRenamesFollowed(codeReview(tasks, facts, knownMerges, anchors), tasks, scope);
+  const knownCommits = await commitsKnownAtCreation({ repo, tasks, facts, anchors, origins });
+  return withRenamesFollowed(codeReview(tasks, facts, knownCommits, anchors), tasks, scope);
 }
 
 async function projectContext(tasks: readonly Task[], review: CodeReview, { repo, facts, graph, mode }: SightingScope): Promise<ProjectContext> {
