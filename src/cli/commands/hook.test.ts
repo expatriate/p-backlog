@@ -1,6 +1,6 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { NBSP } from "../../core/i18n/plural";
 import { readJournal } from "../../core/store/journal";
 import { SIGNALS_SHOWN_FILE } from "../../core/store/signals-shown";
@@ -52,6 +52,21 @@ describe("backlog hook stop", () => {
     const result = await run(["hook", "stop"], { stdin: JSON.stringify({ session_id: "s", cwd: join(home, "projects/removed-worktree") }) });
 
     expect(result).toMatchObject({ code: EXIT.ok, out: "", err: "" });
+  });
+
+  it.skipIf(process.platform === "win32")("каталог сессии под нечитаемым родителем не валит хук: каталог назван в предупреждении, код 0 (на Windows chmod не закрывает каталог)", async () => {
+    const { run, home } = await makeCliSandbox();
+    const locked = join(home, "locked");
+    const cwd = join(locked, "session");
+    await mkdir(cwd, { recursive: true });
+    await chmod(locked, 0o000);
+    onTestFinished(() => chmod(locked, 0o700));
+
+    const result = await run(["hook", "stop"], { stdin: JSON.stringify({ session_id: "s", cwd }) });
+
+    expect(result).toMatchObject({ code: EXIT.ok, out: "" });
+    expect(result.err).toContain(`Не удалось прочитать ${cwd}, он пропущен: EACCES`);
+    expect(result.err).not.toContain("не выполнена");
   });
 
   it("сбой чтения беклога не валит хук: предупреждение в stderr и код 0, чтобы Windows не показывал ошибку хука", async () => {

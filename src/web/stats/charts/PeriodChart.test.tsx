@@ -29,14 +29,22 @@ function renderChart(series: SeriesEntry<Row>[]) {
 
 const tickLabels = (container: HTMLElement) => [...container.querySelectorAll(".recharts-yAxis-tick-labels")].map((axis) => axis.textContent);
 
-describe("оси значений графика", () => {
-  beforeEach(() => {
-    const measured = HTMLElement.prototype.getBoundingClientRect;
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
-      return this.classList.contains("recharts-responsive-container") ? new DOMRect(0, 0, 360, 220) : measured.call(this);
-    });
+beforeEach(() => {
+  const measured = HTMLElement.prototype.getBoundingClientRect;
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    return this.classList.contains("recharts-responsive-container") ? new DOMRect(0, 0, 360, 220) : measured.call(this);
   });
+});
 
+describe("серии графика по периодам", () => {
+  it("линейная серия рисуется рядом со столбцами", () => {
+    const { container } = renderChart([CREATED, OPEN]);
+
+    expect(container.querySelectorAll(".recharts-line-curve")).toHaveLength(1);
+  });
+});
+
+describe("оси значений графика", () => {
   it("ось «решено» точности подписана компактно, как оси остальных счётчиков", () => {
     const periods: AccuracyPeriod[] = [{ start: "2026-09-14", decided: 1200, precision: 0.5 }];
 

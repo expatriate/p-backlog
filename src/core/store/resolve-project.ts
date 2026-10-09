@@ -2,7 +2,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { PathErrorHandler } from "../errors";
 import { runGit, runGitSync } from "../git/run";
 import type { Project } from "../model/types";
-import { readReportingFailure, realpathOrNull } from "./fs-utils";
+import { readReportingFailure, readReportingFailureSync, realpathOrNull } from "./fs-utils";
 import { expandHome } from "./paths";
 
 export type GitRoots = { worktree: string; main: string };
@@ -74,7 +74,7 @@ function canonicalRoots(worktreePath: string, mainPath: string): GitRoots | null
 }
 
 export function findProjectForDir(projects: readonly Project[], dir: string, places: RepoPlaces): Project | undefined {
-  const roots = findGitRoots(dir) ?? plainDirRoots(dir);
+  const roots = readReportingFailureSync(dir, (path) => findGitRoots(path) ?? plainDirRoots(path), places.onUnreadable);
   return roots === null ? undefined : findProjectForRoots(projects, roots, places);
 }
 
@@ -94,11 +94,5 @@ function isSameOrInside(path: string, container: string): boolean {
 }
 
 function resolvedRepo(repo: string, { home, onUnreadable }: RepoPlaces): string | null {
-  const path = expandHome(repo, home);
-  try {
-    return realpathOrNull(path);
-  } catch (error) {
-    onUnreadable(path, error);
-    return null;
-  }
+  return readReportingFailureSync(expandHome(repo, home), realpathOrNull, onUnreadable);
 }

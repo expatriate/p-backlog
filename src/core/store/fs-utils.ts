@@ -34,6 +34,15 @@ export async function readReportingFailure<T>(path: string, read: (path: string)
   }
 }
 
+export function readReportingFailureSync<T>(path: string, read: (path: string) => T, onError: PathErrorHandler): T | null {
+  try {
+    return read(path);
+  } catch (error) {
+    onError(path, error);
+    return null;
+  }
+}
+
 const NO_FILE_CODES = ["ENOENT", "ENOTDIR"];
 const NO_LINK_CODES = [...NO_FILE_CODES, "EINVAL"];
 

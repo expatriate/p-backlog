@@ -5,95 +5,89 @@
 - In Safari and Firefox, after a bulk action done with the mouse, focus now moves to Undo, and after the epic filter
   disappears it moves to the next toolbar control, as it already did in Chrome and with the keyboard. Before, the click
   left focus on the page content.
-- Statistics charts now look the same: every chart has horizontal grid lines (the debt, spend and accuracy charts with
-  two value axes had only the top and bottom border), the hover cursor is one shape in theme colours (a framed band
-  under the hovered period on bar charts, a line on the memory chart; before, every chart except the effect chart drew
-  recharts' fixed light-grey line), and the "decided" axis of the accuracy chart is shortened like the other count axes
-  (`1.2K` and `1,2 тыс.`, not `1200`).
+- Statistics charts now look the same: every chart has horizontal grid lines (the Debt, Usage and Check precision
+  charts with two value axes had only the top and bottom border), the hover cursor of the period charts is one framed
+  band in theme colors under the hovered period (before, the Debt, Created, Check precision and Usage charts drew
+  recharts' fixed light-gray line, and the Effectiveness chart a band without a frame), and the "decided" axis of the
+  Check precision chart is shortened like the other count axes (`1.2K` and `1,2 тыс.`, not `1200`).
 - `backlog serve --port ""` now fails with "--port: expected a number from 1 to 65535" and exit code 1, like any
   other invalid port, instead of silently starting on the default port 4317. An empty `PORT` environment variable still
   means "not set".
 - A Stop hook command with options before the event (`backlog hook --agent codex stop`) is now recorded in the run log
-  and statistics as a Stop hook run and gets the light after-hook clean-up. Before, it counted as an ordinary `hook`
-  command and, at the end of an agent turn, ran an ordinary command's clean-up (the sweep of closed tasks and journal
-  compaction when they are due).
+  and statistics as a Stop hook run; before, it counted as an ordinary `hook` command.
 - Ages and times to close in days (median, 90th percentile, a stuck task) are now printed in Russian with the thousands
-  separator, like every other count (`1 234 дн.`, not `1234 дн.`). In English, the debt forecast ("about 1,500 wk.",
-  "0.8 tasks a week") now keeps the number and its unit together with a no-break space, as the other counts do.
-- `backlog check` no longer asks to re-check a task without an anchor because of a cherry-pick of the task's branch
-  commit into the main branch made before the branch itself was merged: once the branch is merged, that copy still
-  counts as known, as it did while the branch was waiting for the merge, even when the branch went on with other
-  commits or came in through another branch. Copies of several branch commits picked into another branch now count as
-  known too when merging that branch back left the file unchanged; before, only a copy that brought the file to the
-  task's creation version did. Branch edits and their copies are now compared with git's default diff algorithm even
-  when `diff.algorithm` is set in git config (for example to `histogram`): with `histogram`, a copy on a main branch
-  that already had one of the branch's new lines elsewhere in the file used to be missed.
-- A task's `source` written with Windows backslashes (`src\lib\a.ts:12`) now matches repository paths in `backlog check`,
-  in statistics and in `backlog take --path`; drive (`C:/`) and network (`\\server\share`) roots of a path are kept.
+  separator, like every other count (`1 234 дн.`, not `1234 дн.`), and so are the weeks of the debt forecast in both
+  languages (`1 500 нед.`, `1,500 wk.`). In English, the forecast ("about 1,500 wk.", "0.8 tasks a week") now keeps
+  the number and its unit together with a no-break space, as the other counts do.
+- `backlog check` no longer leaves a task created on a branch "awaiting merge" forever when that branch was merged by
+  squash or rebase while the local branch still exists; in 0.9.0 the wait ended only once the task's creation commit
+  itself was in the current branch. The branch now counts as merged once the current branch's history has, for every
+  file the branch changed, the branch's version of the file, or a copy of the branch's whole change to it in one commit
+  (squash), or a copy of each of the branch's commits to it (rebase); edits elsewhere in the same file do not matter,
+  and later edits do not undo it. A task whose creation commit is gone from the repository no longer waits either.
+- `backlog check` makes fewer needless re-check requests for a task without an anchor. In 0.9.0 only a merge commit
+  that brought nothing beyond the task's creation commit was ignored; now commits that only repeat what the creation
+  commit already had are ignored too: the squash commit of the task's branch, copies of each of the branch's commits
+  to the file (a rebase, or cherry-picks into the main branch or into another branch merged later), a commit that
+  brings the file to its version at the task's creation, and a merge commit that brings only such commits. This works
+  for a task created on a detached HEAD as well. Of the copies of an edit only the earliest counts: a later repeat of
+  it, edits made after the task was created and later edits of the file still make the task a candidate, even when
+  they repeat a branch edit that was undone before the task was created. A commit that brings the file back to its
+  version at the task's creation is ignored wherever it is.
+- `backlog check` recognizes such a copy by `git patch-id` together with the exact text of the changed lines, so an
+  edit that differs only in whitespace (indentation in Python, for example) is not a copy, and the copy has to sit at
+  the same place in the file: the same edit made to another, identical part of the file does not count, while lines
+  added or removed elsewhere in the file in the meantime do not matter. A change whose surrounding lines (3 on each
+  side) were edited in the meantime, or that was resolved by hand in a conflict, is not recognized, and its task is
+  treated as in 0.9.0. An edit of a binary file counts as a copy only with the same contents before and after it, on
+  git older than 2.39 too.
+- A repository without commits yet is checked as having an empty history instead of reporting it unreadable, and a
+  failure to run git is reported as unreadable history rather than "not a git repository".
+- A task's `source` written with Windows backslashes (`src\lib\a.ts:12`) or with `.`, `..` or a doubled `/` inside the
+  path (`src/./a.ts`, `src/x/../a.ts`, `src//a.ts`) now means the file git knows (`src/lib/a.ts`, `src/a.ts`)
+  everywhere. 0.9.0 only dropped a leading `./` and trailing slashes, so such a source did not match the paths git
+  reports: the task got no "code changed" re-check in `backlog check` when its file changed, its function was not
+  found in the code graph, statistics put it in a folder of its own (`src/.`, `src/x/..`) outside hot spots, churn and
+  debt density, and `backlog take --path` missed it or, for `src/../lib/a.ts`, took it for `src`. Leading `..` segments
+  are kept (`src/../../shared/a.ts` is `../shared/a.ts`), and so are drive (`C:/`) and network (`\\server\share`)
+  roots; a source ending in `.` or `..` names a folder in statistics (`src/shared/.` is `src/shared`, `src/shared/..`
+  is `src`). `backlog take --path .` run outside the project's repository now takes all open tasks of the project that
+  have a source, as `--path ./` already did.
+- When looking for duplicates, `backlog check` and `backlog new` now treat these spellings of one file's path
+  (`src/./queue.ts`, `src\queue.ts`, `src/x/../queue.ts`, `.//src/queue.ts` next to `src/queue.ts`) as the same place.
+  Such a duplicate in one function was missed or found only through the code graph: its candidate episode closed when
+  the graph was missing and opened again once it came back, so statistics counted that duplicate signal twice.
 - A task file created in the first moments after `backlog serve` starts (for example by an agent while the service is
   starting) now reaches an open web interface without waiting for another edit. The file watcher could miss files that
   appeared before it finished its initial scan; now the server reloads the backlog once when the watcher is ready.
 - The web API now rejects a request body larger than 1 MiB with `413` and "Request body is larger than 1 MiB" instead of
-  reading it whole; a task description edited in the web UI is far below that. A closing reason made of a very long run of
-  spaces or line breaks (about 100,000 characters, from `backlog close --reason` or the batch close in the web UI) no
-  longer keeps the process busy for seconds: it is normalized in linear time, with the same result as before.
+  reading it whole; a task description edited in the web UI is far below that. A closing reason made of a very long
+  run of spaces or line breaks (about 100,000 characters, from `backlog close --reason` or the batch close in the web
+  UI) no longer keeps the process busy for seconds: it is normalized in linear time, with the same result as before.
 - When the backlog directory cannot be written to (no permission, read-only file system, full disk) and `.settings.json`
   does not exist yet, every command and `backlog serve` now say so once on stderr: "Could not save the language to
   .../.settings.json: EACCES ...". Before, the failed write was swallowed without a trace and the language was silently
   detected afresh on each run, so it could flip with the shell's locale. The command or the server still runs.
+  `backlog serve` also reports an unparsable `.settings.json` once, not twice as before.
 - Clean-up of old closed tasks after a command no longer stalls it for 5 seconds per busy task file: when several of
   those files are locked by another process (a parallel command, an editor), the whole set now waits for the locks
   once, up to 5 seconds in total, instead of 5 seconds for each locked file. Files that are free are still locked and
   processed.
-- A task's `source` with `.`, `..` or a doubled `/` inside the path (`src/./a.ts`, `src/x/../a.ts`, `src//a.ts`) now
-  means the file git knows (`src/a.ts`) everywhere, not only in the duplicate search. Such a task never became a "code
-  changed" candidate in `backlog check` when its file changed, its function was not found in the code graph,
-  statistics put it in a folder of its own (`src/.`, `src/x/..`) outside hot spots, churn and debt density, and
-  `backlog take --path` missed it or, for `src/../lib/a.ts`, took it for `src`. A source ending in `.` or `..` names a
-  folder in statistics (`src/shared/.` is `src/shared`, `src/shared/..` is `src`). The duplicate search also matches
-  `.//src/a.ts` with `src/a.ts` now. Leading `..` segments are kept (`src/../../shared/a.ts` is `../shared/a.ts`).
-  `backlog take --path .` run outside the project's repository now takes all open tasks of the project that have a
-  source, as `--path ./` already did.
-- When looking for duplicates, `backlog check` and `backlog new` now treat different spellings of one file's path
-  (`src/./queue.ts`, `src\queue.ts`, `src/x/../queue.ts` next to `src/queue.ts`) as the same place. Such a duplicate
-  in one function was missed or found only through the code graph: its candidate episode closed when the graph was
-  missing and opened again once it came back, so statistics counted that duplicate signal twice.
 - `backlog check` no longer reports a project repository that belongs to another user (git's "dubious ownership") as
   "not a git repository", which sent people to edit `repos` in `project.md`. It now reports `project-repo-unsafe` and
   names the fix, `git config --global --add safe.directory <path>`. git's error is recognized by the untranslated
   `safe.directory` hint in it, not by its wording, which differs between git versions and languages.
-- With git older than 2.39 (2.34 on Ubuntu 22.04, for example), `backlog check` no longer takes a different edit of the
-  same binary file on the main branch for the branch's own edit: tasks from the branch keep waiting for the merge, and
-  the main branch's edit makes a task without an anchor a candidate, as it does with newer git. Those git versions
-  leave the contents of binary files out of `git patch-id`.
-- `backlog check` makes fewer needless re-check requests for tasks without an anchor: a cherry-pick of the task's
-  branch commit into another branch counts as known even when merging that branch back left the file unchanged, and a
-  task created on a detached HEAD gets its squash or rebase copies recognized like a task created on a branch. When a
-  branch edit lands twice, the earlier copy counts as the landing, so the later repeat (not the merge that only brings
-  the earlier copy) is what makes the task a candidate. An edit on the main branch that differs from the branch's edit
-  only in whitespace (indentation in Python, for example) no longer counts as the branch being merged, so tasks from
-  that branch keep waiting for the merge.
-- `backlog check` no longer asks to re-check a task without an anchor just because its own branch was merged by squash
-  or rebase: the squash commit, or the rebased copies of the branch's commits, count as known when they bring only what
-  the task's creation commit already had, as a merge commit of that branch already did. So does a merge commit that
-  brings only such copies (the branch rebased before `merge --no-ff`, or squashed into another branch that is merged
-  later). Edits the branch made after the task was created, and later edits of the file, still make the task a
-  candidate, even when they repeat a branch edit that was undone before the task was created, or make the branch's
-  edit in another, identical part of the file.
-- A repository path in a `project.md` that exists but cannot be read (no permission, for example) is now named in a
-  warning when the CLI or the Stop hook looks up the project of the current directory; before, it was silently treated
-  as a missing path. The same goes for an installed service file that `backlog service status` or `backlog stats`
-  cannot read: they warn and use `PORT`. An agent directory that `backlog setup` or `backlog config` cannot read (for
-  example, `CODEX_HOME` without permission) is named in a warning and that agent is skipped, while the other agents are
-  set up as usual; before, it was reported as "not found". The same goes for a Claude Code settings file that cannot be
-  read: before, `backlog setup` stopped there without setting up Cursor or Codex, and `backlog config language` saved
-  the language but did not relink any skill. Now Claude Code is named in a warning (`backlog setup` skips it and still
-  exits with code 4), and the other agents are set up or relinked as usual. `backlog config language` still repoints
-  an existing Claude Code skill link to the new language (it cannot tell whether a plugin provides the skill, so it
-  never creates a link there); without such a link it says the link was left unchanged and asks to re-run the command
-  once the file is readable. A skill link, or a legacy skill link of Cursor or Codex, that `backlog setup
-  --remove-manual` cannot remove is named in a warning, the agent's hook is still removed, and the command exits with
-  code 4.
+- An installed service file that `backlog service status` or `backlog stats` cannot read is named in a warning, and
+  they use `PORT`. An agent directory that `backlog setup` or `backlog config` cannot read (for example, `CODEX_HOME`
+  without permission) is named in a warning and that agent is skipped, while the other agents are set up as usual;
+  before, it was reported as "not found". The same goes for a Claude Code settings file that cannot be read: before,
+  `backlog setup` stopped there without setting up Cursor or Codex, and `backlog config language` saved the language
+  but did not relink any skill. Now Claude Code is named in a warning (`backlog setup` skips it and still exits with
+  code 4), and the other agents are set up or relinked as usual. `backlog config language` still repoints an existing
+  Claude Code skill link to the new language (it cannot tell whether a plugin provides the skill, so it never creates
+  a link there); without such a link it says the link was left unchanged and asks to re-run the command once the file
+  is readable. A skill link, or a legacy skill link of Cursor or Codex, that `backlog setup --remove-manual` cannot
+  remove is named in a warning, the agent's hook is still removed, and the command exits with code 4.
 - The statistics of a project whose directory is named `all` are no longer shown as the statistics of all projects (or
   the other way round) after switching between the two in the web UI.
 - The card of a closed task whose file lacks the closing date or the reason (or has a blank one) now says "Closed,
@@ -114,17 +108,6 @@
 - An invalid `PORT` (not a number from 1 to 65535) is no longer silently replaced with 4317 when no service is
   installed: `backlog stats` warns about it and prints the summary without the web link, and `backlog service status`
   rejects it with exit code 1, as `serve` and `service install` already did.
-- `backlog check` no longer leaves a task created on a branch "awaiting merge" forever when that branch was merged by
-  squash or rebase while the local branch still exists. The branch counts as merged once the current branch's history
-  has, for every file the branch changed, either the branch's version of the file, or the branch's whole change to it
-  in one commit (squash), or each of the branch's commits to it (rebase); changes are compared as `git patch-id` does,
-  so edits elsewhere in the same file on the current branch do not matter, and later edits do not undo it, but a change
-  must sit at the same place in the file: the same edit made on the current branch to another, identical part of the
-  file does not count as the branch's. A change whose surrounding lines (3 on each side) were edited on the current
-  branch in the meantime, or that was resolved by hand in a conflict, is not recognized, and its task keeps waiting as
-  before. A task whose creation commit is gone from the repository is re-checked again too. A repository without commits
-  yet is checked as having an empty history instead of reporting it unreadable, and a failure to run git is reported as
-  unreadable history rather than "not a git repository".
 - A command that waits 5 seconds for a busy `journal.jsonl` appends its events without the lock; when that happens
   while compaction is rewriting the journal, compaction now carries such lines over into the compacted file, including
   a line that was still being written when compaction read the file. If the journal was replaced by a different file
@@ -133,8 +116,10 @@
   reported and skipped instead of being treated as missing: `backlog check` and the Stop hook print a warning with the
   path and the error and leave the tasks with that source out of this run (no `source-missing` or `source-changed`
   for them, other tasks are checked as usual); `new --source` and `verify` warn and save the task without a new anchor;
-  `close` warns and skips that repository. A source that is a directory, does not exist or runs through a file
-  (`src/a.ts/b.ts`) is still treated as having no file to read.
+  `close` warns and skips that repository. A repository path in a `project.md`, or the current directory itself, that
+  cannot be read is named in a warning when the CLI or the Stop hook looks up the project of the current directory. A
+  source that is a directory, does not exist or runs through a file (`src/a.ts/b.ts`) is still treated as having no
+  file to read.
 
 ## 0.9.0
 

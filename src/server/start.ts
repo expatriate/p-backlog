@@ -9,7 +9,6 @@ import { errorText } from "../core/errors";
 import type { Language } from "../core/i18n/language";
 import { coreMessages } from "../core/messages";
 import { browserOrigin, LOOPBACK_HOST } from "../core/server-address";
-import { settleLanguageReportingProblems } from "../core/settle-language";
 import { serviceLogToTrim } from "../core/service-log";
 import { compactJournalsWhenDue } from "../core/store/journal-compaction";
 import { runMaintenance, type MaintenancePlan } from "../core/store/maintenance";
@@ -42,7 +41,7 @@ export type StartServerOptions = ServerOutput & {
   platform: NodeJS.Platform;
   pidFile?: string | undefined;
   staticDir?: string | undefined;
-  settledLanguage?: Language | undefined;
+  settledLanguage: Language;
   now?: () => Date;
 };
 
@@ -55,7 +54,7 @@ type BackgroundJobs = ServerOutput & { usage: UsageScanner; memory: MemorySample
 export async function startServer({ root, port, home, env, platform, log, warn, pidFile, staticDir, settledLanguage, now = () => new Date() }: StartServerOptions): Promise<RunningServer> {
   await mkdir(root, { recursive: true });
 
-  const startupMessages = serverMessages(settledLanguage ?? (await settleLanguageReportingProblems(root, env, warn)));
+  const startupMessages = serverMessages(settledLanguage);
 
   const readLanguage = () => readLanguageOrLocale(root, env);
   const readMessages = () => readLanguage().then(serverMessages);
