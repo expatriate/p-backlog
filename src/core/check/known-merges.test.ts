@@ -75,6 +75,25 @@ describe("слияния, уже известные задаче при созд
     expect(await changedCommitSubjects(repo, origin)).toEqual(["Вернуть foo в основной ветке"]);
   });
 
+  it("основная ветка сделала ту же правку, что и ветка задачи, но во втором из двух одинаковых блоков файла — после squash-слияния ветки кандидатом задачу делает эта правка, а не squash-коммит", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    const block = (sum: string) => ["function twin() {", "  const a = 1;", "  const b = 2;", `  return ${sum};`, "  const c = 3;", "  const d = 4;", "}"];
+    const twins = (first: string, second: string) => fileOf([...block(first), "", "const between = 0;", "", ...block(second)]);
+    await writeFiles(repo, { "src/a.ts": twins("a + b", "a + b") });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFiles(repo, { "src/a.ts": twins("a * b", "a + b") });
+    gitCommitAll(repo, "Фича правит первый блок", "2026-09-10T10:00:00+03:00");
+    const origin = { branch: "feat", commit: shortHead(repo) };
+    gitCheckout(repo, "master");
+    await writeFiles(repo, { "src/a.ts": twins("a + b", "a * b") });
+    gitCommitAll(repo, "Основная ветка так же правит второй блок", "2026-09-12T10:00:00+03:00");
+    gitMergeSquash(repo, "feat");
+    gitCommitAll(repo, "Слить feat одним коммитом", "2026-09-13T10:00:00+03:00");
+
+    expect(await changedCommitSubjects(repo, origin)).toEqual(["Основная ветка так же правит второй блок"]);
+  });
+
   it("ветку задачи перебазировали на основную и влили merge-коммитом — ни копия её коммита, ни merge-коммит не делают задачу кандидатом", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "a1\n", "src/b.ts": "b1\n" });

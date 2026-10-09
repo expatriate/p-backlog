@@ -10,12 +10,22 @@ type Fork = { base: string; tip: string };
 
 type BranchChanges = { fork: Fork; changed: FileVersion[] };
 
-type PatchId = { id: string; commit: string };
+type Patch = { id: string; commit: string; preimage: string; changeStarts: readonly number[] };
+
+type Hunk = { commit: string; header: Record<string, string | undefined>; body: string[] };
+
+type LineShift = { shiftsLinesAfter: number; delta: number };
 
 type PatchCopies = { squashed: string[]; commitByCommit: string[][] };
 
 const PATCH_OPTIONS = ["-p", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--no-relative"];
 const COMMIT_HEADER = "--format=commit %H";
+const COMMIT_LINE = /^commit (?<commit>[0-9a-f]+)$/;
+const FILE_HEADER = "diff ";
+const HUNK_HEADER = /^@@ -(?<oldStart>\d+)(?:,(?<oldCount>\d+))? \+\d+(?:,(?<newCount>\d+))? @@/;
+const NO_COMMIT = /^0+$/;
+const OMITTED_HUNK_COUNT = "1";
+const NO_NEWLINE_MARK = "\\";
 const RAW_RECORD = /commit (?<commit>[0-9a-f]+)\0|:\d+ (?<mode>\d+) [0-9a-f]+ (?<object>[0-9a-f]+) [A-Z]\d*\0(?<path>[^\0]*)\0/g;
 
 export async function contentLanded(repo: string, tip: string, git: GitRunner): Promise<boolean> {
@@ -93,26 +103,94 @@ function earliestCopies(copies: PatchCopies): string[] {
 async function patchCopies(repo: string, { base, tip }: Fork, path: string, git: GitRunner): Promise<PatchCopies | null> {
   const onlyPath = ["--", pathspecOf(path)];
   const [squashedPatch, branchPatches, headPatches] = await Promise.all([
-    patchIdsOf(repo, ["diff", ...PATCH_OPTIONS, base, tip, ...onlyPath], git),
-    patchIdsOf(repo, ["log", ...PATCH_OPTIONS, COMMIT_HEADER, `${base}..${tip}`, ...onlyPath], git),
-    patchIdsOf(repo, ["log", ...PATCH_OPTIONS, COMMIT_HEADER, "--topo-order", `${base}..HEAD`, ...onlyPath], git),
+    patchesOf(repo, ["diff", ...PATCH_OPTIONS, base, tip, ...onlyPath], () => base, git),
+    patchesOf(repo, ["log", ...PATCH_OPTIONS, COMMIT_HEADER, `${base}..${tip}`, ...onlyPath], parentOf, git),
+    patchesOf(repo, ["log", ...PATCH_OPTIONS, COMMIT_HEADER, "--topo-order", `${base}..HEAD`, ...onlyPath], parentOf, git),
   ]);
   if (squashedPatch === null || branchPatches === null || headPatches === null) return null;
-  const copiesOf = ({ id }: PatchId) => headPatches.filter((patch) => patch.id === id).map(({ commit }) => commit);
-  return { squashed: squashedPatch.flatMap(copiesOf), commitByCommit: branchPatches.map(copiesOf) };
+  const copiesOf = async (change: Patch) => {
+    const sameChange = headPatches.filter(({ id }) => id === change.id);
+    const copiesAtSamePlace = await Promise.all(sameChange.map(async (copy) => ((await atSamePlace(repo, path, change, copy, git)) ? [copy.commit] : [])));
+    return copiesAtSamePlace.flat();
+  };
+  const [squashed, commitByCommit] = await Promise.all([Promise.all(squashedPatch.map(copiesOf)), Promise.all(branchPatches.map(copiesOf))]);
+  return { squashed: squashed.flat(), commitByCommit };
 }
 
-async function patchIdsOf(repo: string, patchArgs: string[], git: GitRunner): Promise<PatchId[] | null> {
+async function patchesOf(repo: string, patchArgs: string[], preimageOf: (commit: string) => string, git: GitRunner): Promise<Patch[] | null> {
   const patches = await git(repo, patchArgs);
-  const ids = patches === null ? null : await git(repo, ["patch-id", "--stable"], patches);
+  if (patches === null) return null;
+  const ids = await git(repo, ["patch-id", "--stable"], patches);
   if (ids === null) return null;
+  const changeStarts = changeStartsByCommit(patches);
   return ids
     .split("\n")
     .filter((line) => line !== "")
     .map((line) => {
-      const [id = "", commit = ""] = line.split(" ");
-      return { id, commit };
+      const [id = "", label = ""] = line.split(" ");
+      const commit = NO_COMMIT.test(label) ? "" : label;
+      return { id, commit, preimage: preimageOf(commit), changeStarts: changeStarts.get(commit) ?? [] };
     });
+}
+
+function changeStartsByCommit(patches: string): Map<string, number[]> {
+  const hunks: Hunk[] = [];
+  let currentCommit = "";
+  let currentHunk: Hunk | undefined;
+  for (const line of patches.split("\n")) {
+    const commitOfLine = COMMIT_LINE.exec(line)?.groups?.commit;
+    const header = HUNK_HEADER.exec(line)?.groups;
+    if (commitOfLine !== undefined) currentCommit = commitOfLine;
+    if (commitOfLine !== undefined || line.startsWith(FILE_HEADER)) currentHunk = undefined;
+    else if (header !== undefined) {
+      currentHunk = { commit: currentCommit, header, body: [] };
+      hunks.push(currentHunk);
+    } else currentHunk?.body.push(line);
+  }
+  return new Map([...groupBy(hunks, ({ commit }) => commit)].map(([commit, commitHunks]) => [commit, commitHunks.flatMap(changeStartsOf)]));
+}
+
+function changeStartsOf({ header: { oldStart, oldCount = OMITTED_HUNK_COUNT }, body }: Hunk): number[] {
+  const starts: number[] = [];
+  let oldLine = firstOldLine(oldStart, oldCount);
+  let changing = false;
+  for (const mark of body.map((line) => line.charAt(0))) {
+    if (mark === NO_NEWLINE_MARK) continue;
+    const changed = mark === "-" || mark === "+";
+    if (changed && !changing) starts.push(oldLine);
+    changing = changed;
+    if (mark !== "+") oldLine += 1;
+  }
+  return starts;
+}
+
+async function atSamePlace(repo: string, path: string, change: Patch, copy: Patch, git: GitRunner): Promise<boolean> {
+  if (change.changeStarts.length !== copy.changeStarts.length) return false;
+  const preimageDiff = await git(repo, ["diff", ...PATCH_OPTIONS, "--unified=0", "--inter-hunk-context=0", change.preimage, copy.preimage, "--", pathspecOf(path)]);
+  if (preimageDiff === null) return false;
+  const shifts = preimageDiff.split("\n").flatMap((line) => {
+    const header = HUNK_HEADER.exec(line)?.groups;
+    return header === undefined ? [] : [lineShiftOf(header)];
+  });
+  return change.changeStarts.every((start, index) => shiftedLine(start, shifts) === copy.changeStarts[index]);
+}
+
+function lineShiftOf({ oldStart, oldCount = OMITTED_HUNK_COUNT, newCount = OMITTED_HUNK_COUNT }: Record<string, string | undefined> = {}): LineShift {
+  const removed = Number(oldCount);
+  return { shiftsLinesAfter: firstOldLine(oldStart, oldCount) + removed - 1, delta: Number(newCount) - removed };
+}
+
+function firstOldLine(oldStart: string | undefined, oldCount: string): number {
+  const insertedAfterOldStart = Number(oldCount) === 0;
+  return insertedAfterOldStart ? Number(oldStart) + 1 : Number(oldStart);
+}
+
+function shiftedLine(line: number, shifts: readonly LineShift[]): number {
+  return shifts.reduce((shifted, { shiftsLinesAfter, delta }) => (shiftsLinesAfter < line ? shifted + delta : shifted), line);
+}
+
+function parentOf(commit: string): string {
+  return `${commit}^`;
 }
 
 function pathspecOf(path: string): string {

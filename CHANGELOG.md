@@ -7,7 +7,8 @@
   the task's creation commit already had, as a merge commit of that branch already did. So does a merge commit that
   brings only such copies (the branch rebased before `merge --no-ff`, or squashed into another branch that is merged
   later). Edits the branch made after the task was created, and later edits of the file, still make the task a
-  candidate, even when they repeat a branch edit that was undone before the task was created.
+  candidate, even when they repeat a branch edit that was undone before the task was created, or make the branch's
+  edit in another, identical part of the file.
 - A repository path in a `project.md` that exists but cannot be read (no permission, for example) is now named in a
   warning when the CLI or the Stop hook looks up the project of the current directory; before, it was silently treated
   as a missing path. The same goes for an installed service file that `backlog service status` or `backlog stats`
@@ -46,12 +47,13 @@
   squash or rebase while the local branch still exists. The branch counts as merged once the current branch's history
   has, for every file the branch changed, either the branch's version of the file, or the branch's whole change to it
   in one commit (squash), or each of the branch's commits to it (rebase); changes are compared as `git patch-id` does,
-  so edits elsewhere in the same file on the current branch do not matter, and later edits do not undo it. A change
-  whose surrounding lines (3 on each side) were edited on the current branch in the meantime, or that was resolved by
-  hand in a conflict, is not recognized, and its task keeps waiting as before. A task whose creation commit is gone
-  from the repository is re-checked again too. A repository without commits yet is checked as
-  having an empty history instead of reporting it unreadable, and a failure to run git is reported as unreadable
-  history rather than "not a git repository".
+  so edits elsewhere in the same file on the current branch do not matter, and later edits do not undo it, but a change
+  must sit at the same place in the file: the same edit made on the current branch to another, identical part of the
+  file does not count as the branch's. A change whose surrounding lines (3 on each side) were edited on the current
+  branch in the meantime, or that was resolved by hand in a conflict, is not recognized, and its task keeps waiting as
+  before. A task whose creation commit is gone from the repository is re-checked again too. A repository without commits
+  yet is checked as having an empty history instead of reporting it unreadable, and a failure to run git is reported as
+  unreadable history rather than "not a git repository".
 - A command that waits 5 seconds for a busy `journal.jsonl` appends its events without the lock; when that happens
   while compaction is rewriting the journal, compaction now carries such lines over into the compacted file, including
   a line that was still being written when compaction read the file. If the journal was replaced by a different file
