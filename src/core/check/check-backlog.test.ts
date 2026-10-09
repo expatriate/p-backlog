@@ -875,6 +875,31 @@ describe("checkBacklog", () => {
     expect(events.map((event) => event.kind)).toEqual(["candidate"]);
   });
 
+  it.each(["src/./queue.ts:3", "src\\queue.ts:3", "src/retry/../queue.ts:3"])("дубль в одной функции, где путь одной задачи записан как %s, — один эпизод, даже пока граф кода недоступен", async (spelled) => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    const code = numbered("step");
+    await writeFiles(repo, { "src/queue.ts": code });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await makeGraphDb(repo, [{ path: "src/queue.ts", hash: createHash("sha256").update(code).digest("hex"), symbols: [{ name: "drainQueue", kind: "Function", from: 1, to: 8 }] }]);
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": task("SPA-1", `source: '${spelled}'\n`).replace("Задача SPA-1", "Очередь отправки висит после обрыва сети"),
+      "spa/SPA-2.md": task("SPA-2", "source: src/queue.ts:5\n").replace("Задача SPA-2", "Очередь отправки зависает при обрыве сети"),
+    });
+    const graph = join(repo, ".code-review-graph");
+
+    await check(root, home, "full");
+    await rename(graph, `${graph}-away`);
+    await check(root, home, "full");
+    await rename(`${graph}-away`, graph);
+    await check(root, home, "full");
+
+    const events = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.task === "SPA-2");
+    expect(events.map((event) => event.kind)).toEqual(["candidate"]);
+  });
+
   it("три задачи с одним source — по одному кандидату duplicate на задачу, без повторов", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");

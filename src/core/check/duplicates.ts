@@ -1,3 +1,4 @@
+import { posix } from "node:path";
 import type { DuplicateMatch } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Task } from "../model/types";
@@ -9,12 +10,14 @@ type SourceTitleMatch = Exclude<DuplicateMatch, "symbol">;
 
 export type SimilarTask = { task: TaskRef; match: SourceTitleMatch };
 
-type Fingerprint = { source: string | undefined; stems: TitleStems };
+type Place = { path: string; lines: string };
+
+type Fingerprint = { place: Place | undefined; stems: TitleStems };
 
 type TaskFingerprint = Fingerprint & { task: Task };
 
 export function findSimilarTask(draft: { title: string; source?: string | undefined }, tasks: readonly Task[]): SimilarTask | null {
-  const draftFingerprint = { source: draft.source, stems: titleStems(draft.title) };
+  const draftFingerprint = { place: placeOf(draft.source), stems: titleStems(draft.title) };
   const similar = tasks
     .filter((task) => task.type === "task" && !isClosed(task.status))
     .flatMap((task): SimilarTask[] => {
@@ -37,7 +40,7 @@ export function duplicateCandidates(tasks: readonly Task[], symbolOf: SymbolOf =
 }
 
 function fingerprintOf(task: Task): TaskFingerprint {
-  return { task, source: task.source, stems: titleStems(task.title) };
+  return { task, place: placeOf(task.source), stems: titleStems(task.title) };
 }
 
 function duplicateMatch(current: TaskFingerprint, older: TaskFingerprint, symbolOf: SymbolOf): DuplicateMatch | null {
@@ -48,7 +51,7 @@ function duplicateMatch(current: TaskFingerprint, older: TaskFingerprint, symbol
 }
 
 function sourceTitleMatch(left: Fingerprint, right: Fingerprint): SourceTitleMatch | null {
-  const place = sharedPlace(left.source, right.source);
+  const place = sharedPlace(left.place, right.place);
   if (place === null) return nearlySameTitles(left.stems, right.stems) ? "title" : null;
   if (!titlesMatch(left, right)) return null;
   return place === "line" ? "source" : "title";
@@ -58,9 +61,17 @@ function titlesMatch(left: Fingerprint, right: Fingerprint): boolean {
   return similarTitles(left.stems, right.stems) || nearlySameTitles(left.stems, right.stems);
 }
 
-function sharedPlace(a: string | undefined, b: string | undefined): "line" | "file" | null {
-  if (a === undefined || b === undefined || sourcePath(a) !== sourcePath(b)) return null;
-  return lineSuffix(a) === lineSuffix(b) ? "line" : "file";
+function placeOf(source: string | undefined): Place | undefined {
+  return source === undefined ? undefined : { path: normalizedPath(source), lines: lineSuffix(source) };
+}
+
+function normalizedPath(source: string): string {
+  return posix.normalize(sourcePath(source.replaceAll("\\", "/")));
+}
+
+function sharedPlace(a: Place | undefined, b: Place | undefined): "line" | "file" | null {
+  if (a === undefined || b === undefined || a.path !== b.path) return null;
+  return a.lines === b.lines ? "line" : "file";
 }
 
 function inOneSymbol(a: Task, b: Task, symbolOf: SymbolOf): boolean {

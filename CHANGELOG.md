@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- When looking for duplicates, `backlog check` and `backlog new` now treat different spellings of one file's path
+  (`src/./queue.ts`, `src\queue.ts`, `src/x/../queue.ts` next to `src/queue.ts`) as the same place. Such a duplicate
+  in one function was missed or found only through the code graph: its candidate episode closed when the graph was
+  missing and opened again once it came back, so statistics counted that duplicate signal twice.
 - `backlog check` no longer reports a project repository that belongs to another user (git's "dubious ownership") as
   "not a git repository", which sent people to edit `repos` in `project.md`. It now reports `project-repo-unsafe` and
   names the fix, `git config --global --add safe.directory <path>`. git's error is recognized by the untranslated
