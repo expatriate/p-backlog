@@ -5,7 +5,6 @@ import { formatDay, startOfLocalDay } from "../../core/i18n/format";
 import { useLanguage, useMessages } from "../i18n";
 import { Notice } from "../ui/Notice";
 import { CommandsPanel, CostFigures, ModelsPanel } from "./CostPanels";
-import rowStyles from "./PanelRows.module.css";
 import { MemoryPanel } from "./MemoryPanel";
 import { SpendPanel } from "./SpendPanel";
 import layout from "./StatsLayout.module.css";
@@ -56,12 +55,12 @@ function Cost({ report }: { report: CostReport }) {
       <CostFigures totals={report.totals} period={report.periods.totals} />
       {since !== null && <p className={layout.note}>{stats.costSince(formatDay(language, since))}</p>}
       <div className={layout.blocks}>
-        <div className={rowStyles.wide}>
+        <div className={layout.wide}>
           <SpendPanel weeks={report.weeks} days={report.days} windows={report.periods} />
         </div>
         <ModelsPanel models={report.models} period={report.periods.days} />
         <MemoryPanel />
-        <div className={rowStyles.wide}>
+        <div className={layout.wide}>
           <CommandsPanel commands={report.commands} period={report.periods.days} />
         </div>
       </div>

@@ -48,10 +48,11 @@ export function BatchNotice({ result, noticeId, onResult }: BatchNoticeProps) {
     if (!event.currentTarget.contains(event.relatedTarget)) setFocusInside(false);
   };
 
-  const done = result?.response.results.filter((outcome): outcome is DoneOutcome => outcome.outcome === "done") ?? [];
-  const skipped = result?.response.results.filter((outcome): outcome is SkippedOutcome => outcome.outcome === "skipped") ?? [];
-  const notice = result === null ? null : noticeStateOf(result, done);
-  const nextUndo = notice?.nextUndo;
+  if (result === null) return <div role="status" />;
+
+  const done = result.response.results.filter((outcome): outcome is DoneOutcome => outcome.outcome === "done");
+  const skipped = result.response.results.filter((outcome): outcome is SkippedOutcome => outcome.outcome === "skipped");
+  const { kind, nextUndo } = noticeStateOf(result, done);
 
   const runUndo = () => {
     if (isPending || nextUndo === undefined) return;
@@ -67,24 +68,20 @@ export function BatchNotice({ result, noticeId, onResult }: BatchNoticeProps) {
   };
 
   return (
-    <div role="status" className={result === null ? undefined : footer.panel} onFocus={() => setFocusInside(true)} onBlur={leave}>
-      {result !== null && notice !== null && (
-        <>
-          <p key={noticeId} ref={summary} tabIndex={-1} className={footer.headline}>
-            {list.batchSummary[result.request.action.kind](done.length, result.request.tasks.length)}
-          </p>
-          {skipped.length > 0 && <SkippedTasks skipped={skipped} />}
-          {nextUndo !== undefined && (
-            <Button ref={undoButton} busy={isPending} onClick={runUndo}>
-              {list.undo}
-            </Button>
-          )}
-          {undo.error === null && result.failure !== undefined && (
-            <ActionFailure className={footer.error} action={notice.kind === "undo" ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)} error={result.failure.error} />
-          )}
-          {!(undo.error instanceof PartialBatchError) && <ActionFailure className={footer.error} action={list.undoFailed} error={undo.error} />}
-        </>
+    <div role="status" className={footer.panel} onFocus={() => setFocusInside(true)} onBlur={leave}>
+      <p key={noticeId} ref={summary} tabIndex={-1} className={footer.headline}>
+        {list.batchSummary[result.request.action.kind](done.length, result.request.tasks.length)}
+      </p>
+      {skipped.length > 0 && <SkippedTasks skipped={skipped} />}
+      {nextUndo !== undefined && (
+        <Button ref={undoButton} busy={isPending} onClick={runUndo}>
+          {list.undo}
+        </Button>
       )}
+      {undo.error === null && result.failure !== undefined && (
+        <ActionFailure className={footer.error} action={kind === "undo" ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)} error={result.failure.error} />
+      )}
+      {!(undo.error instanceof PartialBatchError) && <ActionFailure className={footer.error} action={list.undoFailed} error={undo.error} />}
     </div>
   );
 }

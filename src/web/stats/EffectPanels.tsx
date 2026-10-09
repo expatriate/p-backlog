@@ -4,9 +4,8 @@ import { useLanguage, useMessages } from "../i18n";
 import { EffectChart } from "./EffectChart";
 import { formatLines, formatNoiseShare } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
-import rowStyles from "./PanelRows.module.css";
 import { Figure, FigureGroup } from "./Figure";
-import { Panel } from "./Panel";
+import { Panel, PanelNote } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
 import { codeAndTestsLines, linesAmount } from "./summaries";
@@ -55,7 +54,7 @@ export function ProjectsPanel({ projects, period }: { projects: EffectProject[];
   return (
     <Panel title={stats.byProject} period={caption.labelled(stats.effectWindow, period)}>
       {projects.length === 0 ? (
-        <p className={rowStyles.muted}>{stats.noCodeData}</p>
+        <PanelNote>{stats.noCodeData}</PanelNote>
       ) : (
         <StatsTable
           label={stats.byProject}

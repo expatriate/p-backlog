@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { MessagesProvider } from "../i18n";
 import { Button } from "../ui/Button";
+import { PageMessage } from "../ui/Page";
 import { inBothLanguages } from "./both-languages";
 import { useSettings } from "./queries";
 import styles from "./LanguageLoader.module.css";
@@ -19,9 +20,9 @@ export function LanguageLoader({ children }: { children: ReactNode }) {
 
 function SettingsLoadError({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className={styles.settingsError} role="alert">
+    <PageMessage className={styles.settingsError} role="alert">
       <p>{SETTINGS_ERROR_TEXT}</p>
       <Button onClick={onRetry}>{SETTINGS_RETRY_TEXT}</Button>
-    </div>
+    </PageMessage>
   );
 }

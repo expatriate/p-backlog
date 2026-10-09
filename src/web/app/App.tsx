@@ -4,6 +4,7 @@ import { useMessages } from "../i18n";
 import { AppLayout } from "../layout/AppLayout";
 import { TaskListPage } from "../list/TaskListPage";
 import { STATS_TABS } from "../stats/stats-tabs";
+import { PageMessage } from "../ui/Page";
 import styles from "./App.module.css";
 import { useLiveUpdates } from "./live-updates";
 
@@ -42,9 +43,9 @@ function LiveApp() {
 function CrashScreen() {
   const { app } = useMessages();
   return (
-    <main className={styles.crash} role="alert">
+    <PageMessage as="main" className={styles.crash} role="alert">
       <h1>{app.crashTitle}</h1>
       <p>{app.crashHint}</p>
-    </main>
+    </PageMessage>
   );
 }

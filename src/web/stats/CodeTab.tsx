@@ -3,7 +3,6 @@ import type { CodeReport } from "../../core/api/contract";
 import { useStatsReport } from "../app/queries";
 import { useMessages } from "../i18n";
 import { ChurnPanel, DensityPanel } from "./CodePanels";
-import rowStyles from "./PanelRows.module.css";
 import { StatsTabState } from "./StatsTabState";
 import { UnavailableRepos } from "./UnavailableRepos";
 import layout from "./StatsLayout.module.css";
@@ -20,7 +19,7 @@ function Code({ report }: { report: CodeReport }) {
     <>
       <UnavailableRepos repos={report.unavailableRepos} />
       <div className={layout.blocks}>
-        <div className={rowStyles.wide}>
+        <div className={layout.wide}>
           <ChurnPanel churn={report.churn} period={report.periods.churn} />
         </div>
         <DensityPanel density={report.density} />

@@ -6,9 +6,12 @@
   text-wrap: balance;
 }
 
-.hint {
+.message {
   max-width: 60ch;
   margin: var(--space-6) var(--space-5);
+}
+
+.hint {
   color: var(--ink-muted);
 }
 

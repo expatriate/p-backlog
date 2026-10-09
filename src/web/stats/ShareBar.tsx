@@ -1,6 +1,6 @@
 import { Meter } from "../ui/Meter";
-import rowStyles from "./PanelRows.module.css";
+import styles from "./ShareBar.module.css";
 
 export function ShareBar({ share }: { share: number }) {
-  return <Meter fraction={share} className={rowStyles.share} aria-hidden="true" />;
+  return <Meter fraction={share} className={styles.share} aria-hidden="true" />;
 }

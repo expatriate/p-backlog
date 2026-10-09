@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from "react";
+import type { HTMLAttributes, ReactNode, RefObject } from "react";
 import { cx } from "./cx";
 import styles from "./Page.module.css";
 
@@ -10,11 +10,25 @@ export function PageHeading({ ref, children }: { ref: RefObject<HTMLHeadingEleme
   );
 }
 
-export type PageHintProps = { ref: RefObject<HTMLDivElement | null>; settled: boolean; waiting?: boolean; children: ReactNode };
+export type PageMessageProps = HTMLAttributes<HTMLElement> & { as?: "div" | "main" };
 
-export function PageHint({ ref, settled, waiting = false, children }: PageHintProps) {
+export function PageMessage({ as: Element = "div", className, ...props }: PageMessageProps) {
+  return <Element className={cx(styles.message, className)} {...props} />;
+}
+
+export type PageHintState = "hidden" | "shown" | "waiting";
+
+const HINT_CLASS: Record<PageHintState, string> = {
+  hidden: "visually-hidden",
+  shown: cx(styles.message, styles.hint),
+  waiting: cx(styles.message, styles.hint, styles.waiting),
+};
+
+export type PageHintProps = { ref: RefObject<HTMLDivElement | null>; state: PageHintState; children: ReactNode };
+
+export function PageHint({ ref, state, children }: PageHintProps) {
   return (
-    <div ref={ref} tabIndex={-1} role="status" aria-live="polite" className={settled ? "visually-hidden" : cx(styles.hint, waiting && styles.waiting)}>
+    <div ref={ref} tabIndex={-1} role="status" aria-live="polite" className={HINT_CLASS[state]}>
       {children}
     </div>
   );

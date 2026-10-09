@@ -1,4 +1,6 @@
 .wrap {
+  --language-error-max-width: 220px;
+
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -52,7 +54,7 @@
 }
 
 .error {
-  max-width: 220px;
+  max-width: var(--language-error-max-width);
   text-wrap: pretty;
   color: var(--danger-ink);
   font-size: var(--text-sm);

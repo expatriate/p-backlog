@@ -8,7 +8,7 @@ import { apiErrorKind } from "../api/client";
 import { RequestFailure } from "../app/RequestFailure";
 import { useLanguage, useMessages } from "../i18n";
 import { Notice } from "../ui/Notice";
-import { PageHint } from "../ui/Page";
+import { PageHint, type PageHintState } from "../ui/Page";
 import { useStatusFocus } from "../ui/use-status-focus";
 import type { StatsMessages } from "./messages.ru";
 import type { StatsOutletContext } from "./StatsPage";
@@ -26,7 +26,8 @@ export function StatsRequestState<T>({ query, empty, children }: { query: Report
   const message = statusMessage(stats, view);
   const failure = view.kind === "failed" ? view.error : null;
   const report = view.kind === "ready" || view.kind === "failed" ? view.report : undefined;
-  const settled = view.kind === "ready";
+  const hintState = hintStateOf(view);
+  const settled = hintState === "hidden";
   const { status, keepFocus } = useStatusFocus(settled, useOutletContext<StatsOutletContext | undefined>()?.heading);
 
   const retry = () => {
@@ -36,7 +37,7 @@ export function StatsRequestState<T>({ query, empty, children }: { query: Report
 
   return (
     <>
-      <PageHint ref={status} settled={settled} waiting={view.kind === "loading"}>
+      <PageHint ref={status} state={hintState}>
         {message !== null && <p>{message}</p>}
         {failure !== null && <RequestFailure error={failure} fetching={query.isFetching} onRetry={retry} />}
       </PageHint>
@@ -80,6 +81,19 @@ function requestView<T>({ error, data }: ReportQuery<T>, empty: EmptyReport<T> |
   if (data === undefined) return { kind: "loading" };
   if (shown === undefined && empty !== undefined) return { kind: "empty", message: empty.message };
   return { kind: "ready", report: data };
+}
+
+function hintStateOf(view: RequestView<unknown>): PageHintState {
+  switch (view.kind) {
+    case "ready":
+      return "hidden";
+    case "loading":
+      return "waiting";
+    case "notFound":
+    case "failed":
+    case "empty":
+      return "shown";
+  }
 }
 
 function statusMessage(stats: StatsMessages, view: RequestView<unknown>): string | null {

@@ -5,7 +5,7 @@ import { useMessages } from "../i18n";
 import { tagLabel } from "../labels";
 import { DEFAULT_FILTER, filterSearch } from "../list/list-params";
 import rowStyles from "./PanelRows.module.css";
-import { Panel } from "./Panel";
+import { Panel, PanelNote } from "./Panel";
 import { ShareBar } from "./ShareBar";
 import styles from "./StatsPanels.module.css";
 
@@ -35,7 +35,7 @@ function CountList({ title, empty, items }: { title: string; empty: string; item
     <div className={styles.countList}>
       <h3 className={rowStyles.subTitle}>{title}</h3>
       {items.length === 0 ? (
-        <p className={rowStyles.muted}>{empty}</p>
+        <PanelNote>{empty}</PanelNote>
       ) : (
         <ul className={rowStyles.rows}>
           {items.map((item) => (

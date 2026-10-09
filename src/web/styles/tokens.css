@@ -60,6 +60,8 @@
   --chart-line-bright: oklch(0.96 0 0);
 
   --panel-width: 420px;
+  --popover-width: 420px;
+  --dialog-width: 420px;
   --hit-target: 24px;
 
   --radius-chip: 4px;

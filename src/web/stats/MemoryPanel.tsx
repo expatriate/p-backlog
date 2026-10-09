@@ -3,8 +3,7 @@ import { useMemorySamples } from "../app/queries";
 import { useMessages } from "../i18n";
 import { SampleChart } from "./charts/PeriodChart";
 import type { SeriesEntry } from "./charts/series";
-import { Panel } from "./Panel";
-import rowStyles from "./PanelRows.module.css";
+import { Panel, PanelNote } from "./Panel";
 import { NO_VALUE } from "../labels";
 
 const RSS = "var(--chart-line-bright)";
@@ -23,7 +22,7 @@ export function MemoryPanel() {
   const megabytes = (value: number | null) => (value === null ? NO_VALUE : stats.megabytes(value));
   return (
     <Panel title={stats.serverMemory}>
-      <p className={rowStyles.muted}>{stats.memoryRestartNote}</p>
+      <PanelNote>{stats.memoryRestartNote}</PanelNote>
       <SampleChart name={stats.serverMemory} summary={stats.memorySummary(megabytes(current), megabytes(max))} data={samples} series={series} axes={{ left: { tickFormatter: stats.megabytes } }} />
     </Panel>
   );

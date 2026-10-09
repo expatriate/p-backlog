@@ -26,7 +26,8 @@
   min-width: 0;
 }
 
-.period {
+.period,
+.note {
   margin: 0;
   color: var(--ink-subtle);
   font-size: var(--text-sm);

@@ -4,7 +4,6 @@ import { useStatsReport } from "../app/queries";
 import { useMessages } from "../i18n";
 import { EffectExplainer } from "./EffectExplainer";
 import { EffectChartPanel, EffectFigures, ProjectsPanel } from "./EffectPanels";
-import rowStyles from "./PanelRows.module.css";
 import { StatsTabState } from "./StatsTabState";
 import { UnavailableRepos } from "./UnavailableRepos";
 import layout from "./StatsLayout.module.css";
@@ -24,13 +23,13 @@ function Effect({ report }: { report: EffectReport }) {
       {nothingDeferred && <p className={layout.note}>{stats.noDeferredTasks}</p>}
       <EffectFigures totals={report.totals} period={report.periods.weeks} />
       <div className={layout.blocks}>
-        <div className={rowStyles.wide}>
+        <div className={layout.wide}>
           <EffectChartPanel weeks={report.weeks} days={report.days} windows={report.periods} totals={report.totals} />
         </div>
-        <div className={rowStyles.wide}>
+        <div className={layout.wide}>
           <ProjectsPanel projects={report.projects} period={report.periods.weeks} />
         </div>
-        <div className={rowStyles.wide}>
+        <div className={layout.wide}>
           <EffectExplainer totals={report.totals} />
         </div>
       </div>

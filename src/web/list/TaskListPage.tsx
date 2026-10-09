@@ -151,7 +151,7 @@ function ListStatus({ view: { content, settled, request, empty, table }, filter,
     onFilterChange(next);
   };
   return (
-    <PageHint ref={status} settled={settled}>
+    <PageHint ref={status} state={settled ? "hidden" : "shown"}>
       {request.error !== null && <RequestFailure error={request.error} fetching={request.isFetching} onRetry={retry} />}
       {content === "loading" && <p>{list.loadingTasks}</p>}
       {content === "unknownProject" && <p>{list.unknownProject}</p>}

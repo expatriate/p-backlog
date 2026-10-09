@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { ChurnRow, CodeDensity, DensityRow, ReportPeriod } from "../../core/api/contract";
 import { useMessages } from "../i18n";
-import { Panel } from "./Panel";
+import { Panel, PanelNote } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import rowStyles from "./PanelRows.module.css";
 import { ShareBar } from "./ShareBar";
@@ -14,9 +14,9 @@ export function ChurnPanel({ churn, period }: { churn: ChurnRow[]; period: Repor
   const top = churn[0]?.score ?? 1;
   return (
     <Panel title={stats.churnTitle} period={caption.of("churn", period)}>
-      <p className={rowStyles.muted}>{stats.churnHint}</p>
+      <PanelNote>{stats.churnHint}</PanelNote>
       {churn.length === 0 ? (
-        <p className={rowStyles.muted}>{stats.churnEmpty}</p>
+        <PanelNote>{stats.churnEmpty}</PanelNote>
       ) : (
         <ul className={rowStyles.rows}>
           {churn.map((row) => (
@@ -38,7 +38,7 @@ export function DensityPanel({ density }: { density: CodeDensity }) {
   return (
     <Panel title={stats.densityTitle} period={stats.periodNow}>
       {density.projects.length === 0 ? (
-        <p className={rowStyles.muted}>{stats.noCodeData}</p>
+        <PanelNote>{stats.noCodeData}</PanelNote>
       ) : (
         <>
           <DensityRows rows={density.projects.map((row) => ({ key: row.projectId, label: row.name, row }))} />

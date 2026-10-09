@@ -1,4 +1,6 @@
 .toolbar {
+  --search-min-width: 220px;
+
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -15,7 +17,7 @@
 
 .search {
   flex: 1;
-  min-width: 220px;
+  min-width: var(--search-min-width);
 }
 
 .group {

@@ -8,7 +8,8 @@ export type Swatch = { shape: LegendShape; color: string };
 type LegendItem = { label: string } & Swatch;
 
 const PLOT_HEIGHT_PX = { regular: 220, compact: 180 };
-const INITIAL_DIMENSION = { width: 360, height: PLOT_HEIGHT_PX.regular };
+const INITIAL_PLOT_WIDTH_PX = 360;
+const INITIAL_DIMENSION = { width: INITIAL_PLOT_WIDTH_PX, height: PLOT_HEIGHT_PX.regular };
 const PLOT_HEIGHTS = { "--plot-height": `${PLOT_HEIGHT_PX.regular}px`, "--plot-height-compact": `${PLOT_HEIGHT_PX.compact}px` } as CSSProperties;
 
 export function ChartFrame({ summary, legend, children }: { summary: string; legend: LegendItem[]; children: ReactElement }) {

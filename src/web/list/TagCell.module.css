@@ -1,9 +1,11 @@
 .cell {
+  --tag-cell-width: 200px;
+
   position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
-  width: 200px;
+  width: var(--tag-cell-width);
   overflow: clip;
 }
 

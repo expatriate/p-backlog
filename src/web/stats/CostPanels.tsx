@@ -2,8 +2,7 @@ import { formatMoney } from "../../core/i18n/format";
 import type { CostCommand, CostModel, CostTotals, ReportPeriod } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
 import { Figure, FigureGroup } from "./Figure";
-import rowStyles from "./PanelRows.module.css";
-import { Panel } from "./Panel";
+import { Panel, PanelNote } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
 import { costValue, formatWhole, wholeFormatter } from "./value-format";
@@ -30,7 +29,7 @@ export function ModelsPanel({ models, period }: { models: CostModel[]; period: R
   return (
     <Panel title={stats.byModel} period={caption.of("days", period)}>
       {models.length === 0 ? (
-        <p className={rowStyles.muted}>{stats.noModels}</p>
+        <PanelNote>{stats.noModels}</PanelNote>
       ) : (
         <StatsTable
           label={stats.byModel}
@@ -52,7 +51,7 @@ export function CommandsPanel({ commands, period }: { commands: CostCommand[]; p
   return (
     <Panel title={stats.commandsTitle} period={caption.of("days", period)}>
       {commands.length === 0 ? (
-        <p className={rowStyles.muted}>{stats.noCommands}</p>
+        <PanelNote>{stats.noCommands}</PanelNote>
       ) : (
         <StatsTable
           label={stats.commandsTitle}

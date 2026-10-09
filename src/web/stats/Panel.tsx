@@ -23,3 +23,7 @@ export function Panel({ title, period, aside, children }: { title: string; perio
     </section>
   );
 }
+
+export function PanelNote({ children }: { children: ReactNode }) {
+  return <p className={styles.note}>{children}</p>;
+}

@@ -11,7 +11,7 @@
   white-space: nowrap;
 }
 
-.lastDay {
+.wrap.lastDay {
   --meter-fill: var(--accent);
 }
 
@@ -34,10 +34,14 @@
   display: block;
   width: 100%;
   height: 100%;
-  background: var(--meter-fill);
+  background: var(--ink-subtle);
   transform-origin: bottom center;
 }
 
 .lastDay.bar {
   background: var(--accent-soft);
+}
+
+.lastDay .barFill {
+  background: var(--accent);
 }

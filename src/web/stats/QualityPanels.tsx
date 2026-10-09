@@ -4,7 +4,7 @@ import { useMessages } from "../i18n";
 import { AccuracyChart } from "./AccuracyChart";
 import type { StatsMessages } from "./messages.ru";
 import rowStyles from "./PanelRows.module.css";
-import { Panel } from "./Panel";
+import { Panel, PanelNote } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable, type StatsTableRow } from "./StatsTable";
 import { useGrainPanel } from "./use-grain-panel";
@@ -32,12 +32,12 @@ export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRow
   return (
     <Panel title={stats.accuracyTitle} period={period} aside={rows.length === 0 ? undefined : toggle}>
       {rows.length === 0 ? (
-        <p className={rowStyles.muted}>{stats.noCandidates}</p>
+        <PanelNote>{stats.noCandidates}</PanelNote>
       ) : (
         <>
-          <p className={rowStyles.muted}>{stats.accuracyHint}</p>
+          <PanelNote>{stats.accuracyHint}</PanelNote>
           <AccuracyChart periods={periods} grain={grain} />
-          <p className={rowStyles.muted}>{tablePeriod}</p>
+          <PanelNote>{tablePeriod}</PanelNote>
           <StatsTable
             label={stats.accuracyTable(tablePeriod)}
             head={stats.accuracyHead}
@@ -67,21 +67,21 @@ export function GraphPanel({ graph, period }: { graph: GraphReport; period: Repo
   if (filter.filtered === 0 && projects.every((project) => project.state === "none")) {
     return (
       <Panel title={stats.graphTitle}>
-        <p className={rowStyles.muted}>
+        <PanelNote>
           {stats.graphMissing((text) => (
             <code key={text}>{text}</code>
           ))}
-        </p>
+        </PanelNote>
       </Panel>
     );
   }
   return (
     <Panel title={stats.graphTitle}>
-      <p className={rowStyles.muted}>{stats.graphHint}</p>
+      <PanelNote>{stats.graphHint}</PanelNote>
       <div>
         <h3 className={rowStyles.subTitle}>{caption.labelled(stats.filteredTitle, period)}</h3>
         {filter.filtered === 0 ? (
-          <p className={rowStyles.muted}>{stats.nothingFiltered}</p>
+          <PanelNote>{stats.nothingFiltered}</PanelNote>
         ) : (
           <StatsTable
             label={stats.filteredTable}
@@ -118,7 +118,7 @@ export function CategoriesPanel({ rows, period }: { rows: CategoryRow[]; period:
   return (
     <Panel title={stats.categoriesTitle} period={caption.of("weeks", period)}>
       {rows.length === 0 ? (
-        <p className={rowStyles.muted}>{stats.categoriesEmpty}</p>
+        <PanelNote>{stats.categoriesEmpty}</PanelNote>
       ) : (
         <StatsTable
           label={stats.categoriesTitle}
@@ -142,7 +142,7 @@ export function OriginPanel({ found, branches, period }: { found: FoundRow[]; br
       <div>
         <h3 className={rowStyles.subTitle}>{stats.branchesTitle}</h3>
         {branches.length === 0 ? (
-          <p className={rowStyles.muted}>{stats.branchesEmpty}</p>
+          <PanelNote>{stats.branchesEmpty}</PanelNote>
         ) : (
           <StatsTable label={stats.branchesTitle} head={stats.branchesHead} rows={branches.map((row) => ({ key: row.label, cells: [<code>{row.label}</code>, row.created, row.open] }))} />
         )}

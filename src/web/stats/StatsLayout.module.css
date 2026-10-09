@@ -17,6 +17,10 @@
   gap: var(--space-3);
 }
 
+.wide {
+  grid-column: 1 / -1;
+}
+
 .note {
   max-width: 70ch;
   margin: 0;
