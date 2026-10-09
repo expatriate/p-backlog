@@ -81,7 +81,7 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
 async function reviewedCode(tasks: readonly Task[], scope: MergeScope): Promise<CodeReview> {
   const { repo, facts, origins } = scope;
   const anchors = anchorStates(tasks, facts);
-  const knownMerges = await mergesKnownAtCreation({ repo, tasks, facts, anchors, origins: creationCommits(origins) });
+  const knownMerges = await mergesKnownAtCreation({ repo, tasks, facts, anchors, origins });
   return withRenamesFollowed(codeReview(tasks, facts, knownMerges, anchors), tasks, scope);
 }
 
@@ -167,10 +167,6 @@ function earliestMarks(tasks: readonly Task[]): Map<string, number> {
     marks.set(path, Math.min(marks.get(path) ?? Number.POSITIVE_INFINITY, reviewMark(task)));
   }
   return marks;
-}
-
-function creationCommits(origins: ReadonlyMap<string, TaskOrigin>): Map<string, string> {
-  return new Map([...origins].map(([id, origin]) => [id, origin.commit]));
 }
 
 function settledPlans(plans: readonly AnchorPlan[], { untouchable, relocatable }: PlanSettlement, { tasksById, located, facts }: ProjectContext): AnchorPlan[] {

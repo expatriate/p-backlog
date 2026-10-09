@@ -33,7 +33,11 @@ export function gitMergeNoFastForward(repo: string, branch: string, isoDate: str
 }
 
 export function gitMergeSquash(repo: string, branch: string): void {
-  execFileSync("git", [...TEST_COMMITTER, "merge", "--squash", "-q", branch], { cwd: repo });
+  execFileSync("git", [...TEST_COMMITTER, "merge", "--squash", "-q", branch], { cwd: repo, stdio: "pipe" });
+}
+
+export function gitRebase(repo: string, onto: string, isoDate: string): void {
+  execFileSync("git", [...TEST_COMMITTER, "rebase", "-q", onto], { cwd: repo, stdio: "pipe", env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
 }
 
 export function gitRebaseMerge(repo: string, branch: string, isoDate: string): void {

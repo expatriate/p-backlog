@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `backlog check` no longer asks to re-check a task without an anchor just because its own branch was merged by squash
+  or rebase: the squash commit, or the rebased copies of the branch's commits, count as known when they bring only what
+  the task's creation commit already had, as a merge commit of that branch already did. So does a merge commit that
+  brings only such copies (the branch rebased before `merge --no-ff`, or squashed into another branch that is merged
+  later). Edits the branch made after the task was created, and later edits of the file, still make the task a
+  candidate, even when they repeat a branch edit that was undone before the task was created.
 - A repository path in a `project.md` that exists but cannot be read (no permission, for example) is now named in a
   warning when the CLI or the Stop hook looks up the project of the current directory; before, it was silently treated
   as a missing path. The same goes for an installed service file that `backlog service status` or `backlog stats`

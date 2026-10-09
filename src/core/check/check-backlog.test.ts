@@ -7,7 +7,7 @@ import type { CheckMode } from "../journal/events";
 import { coreMessages } from "../messages";
 import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
-import { gitCheckout, gitCommitAll, gitMergeFastForward, gitMergeNoFastForward, gitMergeSquash, makeGitRepo, makeTempDir, projectFile, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeFastForward, gitMergeNoFastForward, gitMergeSquash, gitRebaseMerge, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../store/testing/temp-dirs";
 import { makeGraphDb } from "../code-review-graph/testing/make-graph-db";
 import { anchorOf } from "./anchor";
 import { checkBacklog, type CheckReport } from "./check-backlog";
@@ -477,7 +477,9 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), commits: [expect.objectContaining({ subject: "Слить fix" })] })]);
   });
 
-  async function taskCreatedOnBranch({ branchEditAfterCreation }: { branchEditAfterCreation: boolean }) {
+  type BranchLanding = "merge-commit" | "squash" | "rebase";
+
+  async function featRepo() {
     const home = await makeTempDir();
     const root = join(home, "backlog");
     const repo = await makeGitRepo(home, "projects/spa");
@@ -486,24 +488,79 @@ describe("checkBacklog", () => {
     gitCheckout(repo, "feat", { create: true });
     await writeFile(join(repo, "src/a.ts"), "a2\n");
     gitCommitAll(repo, "Фича правит a", "2026-09-10T10:00:00+03:00");
-    const origin = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
-    const created = { at: "2026-09-11T10:00:00+03:00", task: "SPA-1", via: "cli", kind: "created", type: "task", priority: "medium", tags: [], source: "src/a.ts", origin: { branch: "feat", commit: origin } };
+    return { home, root, repo };
+  }
+
+  async function landFeat(repo: string, landing: BranchLanding): Promise<void> {
+    gitCheckout(repo, "master");
+    await writeFile(join(repo, "src/b.ts"), "b2\n");
+    gitCommitAll(repo, "main правит b", "2026-09-10T12:00:00+03:00");
+    const at = "2026-09-12T10:00:00+03:00";
+    if (landing === "merge-commit") gitMergeNoFastForward(repo, "feat", at);
+    else if (landing === "rebase") gitRebaseMerge(repo, "feat", at);
+    else {
+      gitMergeSquash(repo, "feat");
+      gitCommitAll(repo, "Слить feat одним коммитом", at);
+    }
+  }
+
+  const shortHead = (repo: string) => execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
+
+  const createdOnFeat = (id: string, at: string, commit: string) => ({
+    at,
+    task: id,
+    via: "cli",
+    kind: "created",
+    type: "task",
+    priority: "medium",
+    tags: [],
+    source: "src/a.ts",
+    origin: { branch: "feat", commit },
+  });
+
+  async function taskCreatedOnBranch({ branchEditAfterCreation, landing = "merge-commit" }: { branchEditAfterCreation: boolean; landing?: BranchLanding }) {
+    const { home, root, repo } = await featRepo();
+    const created = createdOnFeat("SPA-1", "2026-09-11T10:00:00+03:00", shortHead(repo));
     await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\n"), "spa/journal.jsonl": `${JSON.stringify(created)}\n` });
     if (branchEditAfterCreation) {
       await writeFile(join(repo, "src/a.ts"), "a3\n");
       gitCommitAll(repo, "Фича снова правит a", "2026-09-11T12:00:00+03:00");
     }
-    gitCheckout(repo, "master");
-    await writeFile(join(repo, "src/b.ts"), "b2\n");
-    gitCommitAll(repo, "main правит b", "2026-09-10T12:00:00+03:00");
-    gitMergeNoFastForward(repo, "feat", "2026-09-12T10:00:00+03:00");
+    await landFeat(repo, landing);
     return check(root, home, "changed");
   }
 
-  it("задача, заведённая на ветке после её правки, не становится кандидатом из-за merge-коммита этой ветки", async () => {
-    const report = await taskCreatedOnBranch({ branchEditAfterCreation: false });
+  it.each(["merge-commit", "squash", "rebase"] as const)("задача, заведённая на ветке после её правки, не становится кандидатом, когда ветку влили через %s", async (landing) => {
+    const report = await taskCreatedOnBranch({ branchEditAfterCreation: false, landing });
 
     expect(report.candidates).toEqual([]);
+  });
+
+  it.each([
+    { landing: "squash", landedEdit: "Слить feat одним коммитом" },
+    { landing: "rebase", landedEdit: "Фича снова правит a" },
+  ] as const)("ветку влили через $landing — кандидатом задачу делают правки source, которых не было в её коммите создания, включая правку после слияния", async ({ landing, landedEdit }) => {
+    const { home, root, repo } = await featRepo();
+    const beforeSecondEdit = createdOnFeat("SPA-1", "2026-09-11T10:00:00+03:00", shortHead(repo));
+    await writeFile(join(repo, "src/a.ts"), "a3\n");
+    gitCommitAll(repo, "Фича снова правит a", "2026-09-11T12:00:00+03:00");
+    const afterSecondEdit = createdOnFeat("SPA-2", "2026-09-11T13:00:00+03:00", shortHead(repo));
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\n"),
+      "spa/SPA-2.md": taskFile("SPA-2", { created: "2026-09-11T13:00:00+03:00", source: "src/a.ts" }),
+      "spa/journal.jsonl": `${JSON.stringify(beforeSecondEdit)}\n${JSON.stringify(afterSecondEdit)}\n`,
+    });
+    await landFeat(repo, landing);
+    await writeFile(join(repo, "src/a.ts"), "a4\n");
+    gitCommitAll(repo, "Правка a после слияния", "2026-09-13T10:00:00+03:00");
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates.map((candidate) => [candidate.task.id, candidate.kind === "source-changed" ? candidate.commits.map((commit) => commit.subject) : []])).toEqual([
+      ["SPA-1", ["Правка a после слияния", landedEdit]],
+      ["SPA-2", ["Правка a после слияния"]],
+    ]);
   });
 
   it("правка ветки после создания задачи, пришедшая merge-коммитом, делает задачу кандидатом", async () => {
