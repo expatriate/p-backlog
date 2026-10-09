@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { CheckMode } from "../journal/events";
 import { coreMessages } from "../messages";
+import { toJsonLines } from "../store/fs-utils";
 import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
 import {
@@ -678,22 +679,16 @@ describe("checkBacklog", () => {
   });
 
   it("дубль задачи не слитой ветки показан и записан в журнал, хотя её кандидаты по коду ждут слияния", async () => {
-    const home = await makeTempDir();
-    const root = join(home, "backlog");
-    const repo = await makeGitRepo(home, "projects/spa");
-    await writeFiles(repo, { "src/a.ts": "a1\n" });
-    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
-    gitCheckout(repo, "feat", { create: true });
-    await writeFiles(repo, { "src/n.ts": "n1\n" });
-    gitCommitAll(repo, "Фича добавляет n", "2026-09-10T10:00:00+03:00");
-    const origin = { branch: "feat", commit: gitShortHead(repo) };
+    const { home, root, repo } = await featRepo();
+    const created = toJsonLines(["SPA-1", "SPA-2"].map((id) => createdOnFeat(id, "2026-09-11T10:00:00+03:00", gitShortHead(repo))));
     gitCheckout(repo, "master");
-    const created = (id: string) => JSON.stringify({ at: "2026-09-11T10:00:00+03:00", task: id, via: "cli", kind: "created", type: "task", priority: "medium", tags: [], source: "src/n.ts:1", origin });
+    await writeFile(join(repo, "src/a.ts"), "a9\n");
+    gitCommitAll(repo, "main правит a", "2026-09-12T10:00:00+03:00");
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA", [repo]),
-      "spa/SPA-1.md": sameProblemTask("SPA-1", "source: src/n.ts:1\n"),
-      "spa/SPA-2.md": sameProblemTask("SPA-2", "source: src/n.ts:1\n"),
-      "spa/journal.jsonl": `${created("SPA-1")}\n${created("SPA-2")}\n`,
+      "spa/SPA-1.md": sameProblemTask("SPA-1", "source: src/a.ts\n"),
+      "spa/SPA-2.md": sameProblemTask("SPA-2", "source: src/a.ts\n"),
+      "spa/journal.jsonl": created,
     });
 
     const report = await check(root, home, "full");
