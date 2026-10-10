@@ -57,7 +57,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   const projectTasks = loaded.tasks.filter((task) => task.projectId === project.id);
   if (!values.force && warnedOfSimilarTask({ title: values.title, source: values.source }, projectTasks, io)) return EXIT.refused;
 
-  const [atSource, body, origin] = await Promise.all([
+  const [atSource, body, origin] = await allAfterSettling([
     values.source === undefined ? undefined : anchorOf(project, values.source, io),
     io.readStdin(),
     values.project === undefined || cwdBelongsTo(project, loaded.projects, io) ? readOrigin(io.cwd) : undefined,
@@ -108,4 +108,9 @@ async function anchorOf(project: Project, source: string, io: CliIo): Promise<So
 
 function cwdBelongsTo(project: Project, knownProjects: readonly Project[], io: CliIo): boolean {
   return findProjectForDir([...knownProjects, project], io.cwd, repoPlaces(io))?.id === project.id;
+}
+
+async function allAfterSettling<T extends readonly unknown[] | []>(work: T): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }> {
+  await Promise.allSettled(work);
+  return Promise.all(work);
 }

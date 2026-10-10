@@ -1,12 +1,19 @@
 import { execFileSync } from "node:child_process";
 import { chmod, mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { runGit } from "../../core/git/run";
 import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
 import { gitAddWorktree, gitCommitAll, gitShortHead, makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
-import { makeCliSandbox } from "../testing/cli-harness";
+import { runCli } from "../run";
+import { baseCliEnv, makeCliSandbox } from "../testing/cli-harness";
+
+vi.mock("../../core/git/run", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../core/git/run")>();
+  return { ...actual, runGit: vi.fn(actual.runGit) };
+});
 
 describe("backlog new", () => {
   it("похожая открытая задача — отказ с её ID, --force создаёт всё равно, закрытая не мешает", async () => {
@@ -282,5 +289,16 @@ describe("backlog new", () => {
     expect(created).toMatchObject({ code: EXIT.ok, err: "Эпик SPA-1 снова открыт — в нём появилась открытая задача" });
     expect(JSON.parse(created.out)).toMatchObject({ epicTask: { id: "SPA-1", status: "backlog" } });
     expect(JSON.parse(created.out)).toEqual(JSON.parse((await run(["show", "SPA-3", "--json"])).out));
+  });
+
+  it("при сбое чтения stdin сообщает ошибку только после того, как запущенные им git завершились", async () => {
+    const { root, repo, home } = await makeCliSandbox();
+    const env = baseCliEnv({ cwd: repo, home, backlogRoot: root, packageRoot: root, readStdin: () => Promise.reject(new Error("не прочитать stdin")), warn: () => undefined });
+
+    await runCli(["new", "--category", "bug", "--title", "Таймаут"], env);
+    const gitRuns = vi.mocked(runGit).mock.settledResults;
+
+    expect(gitRuns.length).toBeGreaterThan(0);
+    expect(gitRuns.filter(({ type }) => type === "incomplete")).toHaveLength(0);
   });
 });
