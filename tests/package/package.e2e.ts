@@ -97,7 +97,11 @@ describe("путь нового пользователя из tarball", () => {
     expect(runHook("s1")).toMatchObject({ decision: "block" });
 
     const port = await freePort();
-    const server = isWindows ? spawn(process.execPath, [join(packageDir, "dist", "cli.js"), "serve", "--port", String(port)], { env }) : spawn(backlogBin, ["serve", "--port", String(port)], { env });
+    const fallbackPort = await freePort();
+    const serveEnv = { ...env, PORT: String(fallbackPort) };
+    const server = isWindows
+      ? spawn(process.execPath, [join(packageDir, "dist", "cli.js"), "serve", "--port", String(port)], { env: serveEnv })
+      : spawn(backlogBin, ["serve", "--port", String(port)], { env: serveEnv });
     try {
       const deadline = Date.now() + 20_000;
       let settingsResponse: { language: string } | undefined;

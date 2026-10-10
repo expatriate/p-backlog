@@ -1,5 +1,6 @@
+import { Server } from "node:net";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { makeTempDir } from "../../core/store/testing/temp-dirs";
 import { startServer } from "../../server/start";
 import { QUIET_HOST } from "../../server/testing/quiet-host";
@@ -7,9 +8,16 @@ import { cliIo, EXIT, parsePort } from "../io";
 import { baseCliEnv, makeCliSandbox } from "../testing/cli-harness";
 import { serveCommand } from "./serve";
 
+function failIfServerStarts(): void {
+  vi.spyOn(Server.prototype, "listen").mockImplementation(() => {
+    throw new Error("serve запустил сервер");
+  });
+}
+
 describe("backlog serve", () => {
   it.each(["abc", "0", "99999"])("--port %s отклоняет кодом 1, а не запускает сервер на 4317", async (port) => {
     const { run } = await makeCliSandbox();
+    failIfServerStarts();
 
     const result = await run(["serve", "--port", port]);
 
@@ -23,6 +31,7 @@ describe("backlog serve", () => {
 
   it("неверный PORT из окружения отклоняется с именем переменной, а не заменяется на 4317", async () => {
     const { run } = await makeCliSandbox();
+    failIfServerStarts();
 
     const result = await run(["serve"], { env: { PORT: "abc" } });
 

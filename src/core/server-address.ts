@@ -1,4 +1,4 @@
-const DEFAULT_PORT = 4317;
+export const DEFAULT_PORT = 4317;
 
 const DECIMAL_DIGITS = /^\d+$/;
 

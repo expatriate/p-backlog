@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, posix } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { startServer } from "../../server/start";
 import { QUIET_HOST } from "../../server/testing/quiet-host";
 import { EXIT } from "../io";
@@ -100,7 +100,7 @@ describe("backlog service", () => {
     try {
       await run(["service", "install"], { env: { PORT: String(server.port) } });
 
-      const result = await run(["service", "status"]);
+      const result = await run(["service", "status"], { env: { PORT: String(await freePort()) } });
 
       expect(result.code).toBe(EXIT.ok);
       expect(result.out).toBe(`Служба: установлена · сервер на порту ${server.port}: отвечает`);
@@ -131,6 +131,7 @@ describe("backlog service", () => {
 
   it("status с неверным PORT без службы отклоняется, а не проверяет 4317", async () => {
     const { run } = await makeCliSandbox();
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("status опросил сервер"));
 
     const result = await run(["service", "status"], { env: { PORT: "abc" } });
 

@@ -2,6 +2,7 @@ import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import { ISOLATED_GIT_ENV } from "./src/core/store/testing/temp-dirs.ts";
+import { PORT_GUARD_ENV, PORT_GUARD_SETUP } from "./tests/port-guard-config.ts";
 
 // Node 22 omits node:sqlite from builtinModules, so vitest would hand it to Vite to bundle for jsdom.
 const nodeBuiltinsStayExternal: Plugin = {
@@ -30,7 +31,8 @@ export default defineConfig({
           name: "node",
           include: ["src/core/**/*.test.ts", "src/cli/**/*.test.ts", "src/server/**/*.test.ts", "tests/**/*.test.ts"],
           environment: "node",
-          env: TEST_ENV,
+          env: { ...TEST_ENV, ...PORT_GUARD_ENV },
+          setupFiles: [PORT_GUARD_SETUP],
           ...LONGER_TIMEOUT_ON_WINDOWS,
         },
       },

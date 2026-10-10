@@ -47,7 +47,8 @@ describe("собранный бинарник backlog", () => {
     const home = await makeTempDir();
     const pidFile = join(home, "server.pid");
     const port = await freePort();
-    const env = { ...isolatedHomeEnv(home), P_BACKLOG_PID_FILE: pidFile };
+    const fallbackPort = await freePort();
+    const env = { ...isolatedHomeEnv(home), P_BACKLOG_PID_FILE: pidFile, PORT: String(fallbackPort) };
     const server = spawn(process.execPath, [cli, "serve", "--port", String(port)], { env, stdio: ["ignore", "pipe", "pipe"] });
     try {
       await once(server.stdout, "data");
@@ -74,7 +75,8 @@ describe("собранный бинарник backlog", () => {
     await chmod(root, 0o500);
     onTestFinished(() => chmod(root, 0o700));
     const port = await freePort();
-    const server = spawn(process.execPath, [cli, "serve", "--port", String(port)], { env: { ...isolatedHomeEnv(home), LC_ALL: "ru_RU.UTF-8" }, stdio: ["ignore", "pipe", "pipe"] });
+    const fallbackPort = await freePort();
+    const server = spawn(process.execPath, [cli, "serve", "--port", String(port)], { env: { ...isolatedHomeEnv(home), LC_ALL: "ru_RU.UTF-8", PORT: String(fallbackPort) }, stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
     server.stderr.on("data", (chunk: Buffer) => (stderr += chunk.toString()));
     try {
