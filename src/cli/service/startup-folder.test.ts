@@ -5,14 +5,19 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { makeTempDir, writeFiles } from "../../core/store/testing/temp-dirs";
 import { execProgram } from "../exec";
 import type { CliEnv, ExecResult } from "../io";
+import { relativeInside } from "../path-inside";
 import { fakeExec, SERVICE_PORT } from "../testing/cli-harness";
 import { startupFolderManager, startupScript } from "./startup-folder";
-import type { ServiceContext, ServiceLaunch } from "./service";
+import type { ServiceContext, ServiceLaunch, ServiceManager } from "./service";
 
 type Roots = { home: string; appData: string; localAppData: string };
 
 async function tempRoots(): Promise<Roots> {
   return { home: await makeTempDir(), appData: await makeTempDir(), localAppData: await makeTempDir() };
+}
+
+function tempRootedEnv(roots: Roots, env: CliEnv["env"]): CliEnv["env"] {
+  return { ...env, APPDATA: roots.appData, LOCALAPPDATA: roots.localAppData };
 }
 
 function contextFor(
@@ -23,7 +28,7 @@ function contextFor(
 ): ServiceContext & ServiceLaunch {
   return {
     home: roots.home,
-    env: { PATH: "/usr/local/bin;/usr/bin", APPDATA: roots.appData, LOCALAPPDATA: roots.localAppData },
+    env: tempRootedEnv(roots, { PATH: "/usr/local/bin;/usr/bin" }),
     backlogRoot: join(roots.home, "backlog"),
     port: SERVICE_PORT,
     nodePath: "C:\\node\\node.exe",
@@ -33,6 +38,18 @@ function contextFor(
     stopProcess,
     onUnverifiedPid,
   };
+}
+
+function assertInside(root: string, path: string): void {
+  if (relativeInside(root, path) === null) throw new Error(`${path} лежит вне временного каталога ${root}: install затронул бы настоящие файлы пользователя`);
+}
+
+function managerInsideTempRoots(roots: Roots, launch: Pick<ServiceLaunch, "nodePath" | "cliPath">): ServiceManager {
+  const context = { ...contextFor(roots, execRunningScriptsInConsole()), env: tempRootedEnv(roots, process.env), ...launch };
+  const manager = startupFolderManager(context);
+  assertInside(roots.appData, manager.file);
+  assertInside(roots.localAppData, manager.logsHint);
+  return manager;
 }
 
 const scriptPath = (appData: string) => join(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "p-backlog.vbs");
@@ -284,9 +301,9 @@ describe("startupFolderManager", () => {
     await writeFiles(base, {
       [join("%USERNAME%", "cli.js")]: "console.log(JSON.stringify({ node: process.execPath, argv: process.argv.slice(1), pidFile: process.env.P_BACKLOG_PID_FILE }));\n",
     });
-    const context = { ...contextFor(roots, execRunningScriptsInConsole()), env: { ...process.env, LOCALAPPDATA: roots.localAppData }, nodePath, cliPath };
+    const manager = managerInsideTempRoots(roots, { nodePath, cliPath });
 
-    expect(await startupFolderManager(context).install(SERVICE_PORT)).toBe("done");
+    expect(await manager.install(SERVICE_PORT)).toBe("done");
 
     const launched: unknown = JSON.parse(await contentOnceWritten(logPath(roots.localAppData)));
     expect(launched).toEqual({ node: nodePath, argv: [cliPath, "serve"], pidFile: pidFilePath(roots.localAppData) });
@@ -299,9 +316,9 @@ describe("startupFolderManager", () => {
     const cliPath = join(base, "cli.js");
     const oversized = "x".repeat(1024 * 1024) + "\n";
     await writeFiles(base, { "cli.js": "console.log('started');\n", [join("local", "p-backlog", "p-backlog.log")]: oversized });
-    const context = { ...contextFor(roots, execRunningScriptsInConsole()), env: { ...process.env, LOCALAPPDATA: roots.localAppData }, nodePath: process.execPath, cliPath };
+    const manager = managerInsideTempRoots(roots, { nodePath: process.execPath, cliPath });
 
-    expect(await startupFolderManager(context).install(SERVICE_PORT)).toBe("done");
+    expect(await manager.install(SERVICE_PORT)).toBe("done");
 
     expect(await contentOnceWritten(logPath(roots.localAppData))).toBe("started\n");
     expect(await readFile(`${logPath(roots.localAppData)}.old`, "utf8")).toBe(oversized);
