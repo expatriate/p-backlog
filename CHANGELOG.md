@@ -2,9 +2,12 @@
 
 ## 0.10.1
 
-- No user-visible changes. The test suite can no longer reach a running `backlog serve` on the default port 4317:
-  tests and the Node processes they start refuse to listen on or connect to it, and the Windows service tests write
-  only to temporary folders, never to the real Startup folder.
+- Two agents creating the first task in a new repository at the same time now both get the same project. Before, one
+  of them could rarely create a second project for the same repository (for example `spa-2` with prefix `SPA2`), and
+  the tasks were split between the two.
+- The test suite can no longer reach a running `backlog serve` on the default port 4317: tests and the Node processes
+  they start refuse to listen on or connect to it, and the Windows service tests write only to temporary folders, never
+  to the real Startup folder.
 
 ## 0.10.0
 

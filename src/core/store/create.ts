@@ -76,9 +76,9 @@ export async function createProject(root: string, repoRoot: string, existingProj
 }
 
 async function isJoinableProjectDir(dir: string, repoRoot: string): Promise<boolean> {
-  const path = join(dir, PROJECT_FILE);
-  if ((await readTextOrNull(path)) !== null) return (await projectOfRepo(basename(dir), path, repoRoot)) !== null;
-  return (await listDir(dir)).every((entry) => !entry.name.endsWith(".md"));
+  const entries = await listDir(dir);
+  if (entries.some((entry) => entry.name === PROJECT_FILE)) return (await projectOfRepo(basename(dir), join(dir, PROJECT_FILE), repoRoot)) !== null;
+  return entries.every((entry) => !entry.name.endsWith(".md"));
 }
 
 async function projectOfRepo(id: string, path: string, repoRoot: string): Promise<Project | null> {

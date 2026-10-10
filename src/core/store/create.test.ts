@@ -1,13 +1,20 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { coreMessages } from "../messages";
+import type { Project } from "../model/types";
 import { createProject, createTask } from "./create";
+import { listDir } from "./fs-utils";
 import { readJournal } from "./journal";
 import { loadBacklog } from "./load";
 import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 import { failOnWriteError } from "./testing/update-task";
+
+vi.mock("./fs-utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./fs-utils")>();
+  return { ...actual, listDir: vi.fn(actual.listDir) };
+});
 
 const NOW = new Date("2026-09-17T14:50:00Z");
 
@@ -169,6 +176,25 @@ describe("createProject", () => {
 
     expect(first).toEqual(second);
     expect((await loadBacklog(root)).projects.map((project) => project.id)).toEqual(["spa"]);
+  });
+
+  it("project.md того же репозитория, появившийся в каталоге к моменту его листинга, присоединяется, а не заводит spa-2", async () => {
+    const root = await makeTempDir();
+    await mkdir(join(root, "spa"), { recursive: true });
+    const { listDir: listActual } = await vi.importActual<typeof import("./fs-utils")>("./fs-utils");
+    let concurrent: Promise<Project> | undefined;
+    vi.mocked(listDir).mockImplementation(async (...args) => {
+      if (concurrent === undefined && args[0] === join(root, "spa")) {
+        concurrent = createProject(root, "/work/spa", []);
+        await concurrent;
+      }
+      return listActual(...args);
+    });
+
+    const project = await createProject(root, "/work/spa", []);
+
+    expect(project).toEqual(await concurrent);
+    expect((await loadBacklog(root)).projects.map((candidate) => candidate.id)).toEqual(["spa"]);
   });
 
   it("создаёт корневой каталог, если его нет", async () => {
