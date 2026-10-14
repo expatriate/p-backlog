@@ -178,6 +178,32 @@ describe("createProject", () => {
     expect((await loadBacklog(root)).projects.map((project) => project.id)).toEqual(["spa"]);
   });
 
+  it("два одновременных создания проекта для разных репозиториев с одним именем получают каждый свой проект", async () => {
+    const root = await makeTempDir();
+
+    const [first, second] = await Promise.all([createProject(root, "/a/spa", []), createProject(root, "/b/spa", [])]);
+
+    expect([first.repos, second.repos]).toEqual([["/a/spa"], ["/b/spa"]]);
+    expect(first.prefix).not.toBe(second.prefix);
+    const reloaded = await loadBacklog(root);
+    expect(reloaded.projects.map((project) => [project.id, project.repos]).sort()).toEqual(
+      [
+        [first.id, first.repos],
+        [second.id, second.repos],
+      ].sort(),
+    );
+  });
+
+  it("каталог с файлами .md без project.md не занимается, а обходится", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/notes.md": "заметки" });
+
+    const project = await createProject(root, "/work/spa", []);
+
+    expect(project.id).toBe("spa-2");
+    expect(await readFile(join(root, "spa", "notes.md"), "utf8")).toBe("заметки");
+  });
+
   it("project.md того же репозитория, появившийся в каталоге к моменту его листинга, присоединяется, а не заводит spa-2", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });

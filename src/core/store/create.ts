@@ -53,6 +53,23 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
 }
 
 export async function createProject(root: string, repoRoot: string, existingProjects: readonly Project[]): Promise<Project> {
+  for (let attempt = 1; ; attempt++) {
+    const { id, path, text } = await draftProjectFile(root, repoRoot, existingProjects);
+    try {
+      await createFileAtomic(path, text);
+      const parsed = parseProjectFile(text, { id, path });
+      if (!parsed.ok) throw new Error(`${path}: ${parsed.problems.map((problem) => problem.code).join(", ")}`);
+      return parsed.value;
+    } catch (error) {
+      if (!hasErrorCode(error, "EEXIST")) throw error;
+      const concurrent = await projectOfRepo(id, path, repoRoot);
+      if (concurrent !== null) return concurrent;
+      if (attempt === MAX_ID_ATTEMPTS) throw error;
+    }
+  }
+}
+
+async function draftProjectFile(root: string, repoRoot: string, existingProjects: readonly Project[]): Promise<{ id: string; path: string; text: string }> {
   const name = basename(repoRoot);
   const entries = await listDir(root);
   const joinable = await Promise.all(entries.map((entry) => entry.isDirectory() && isJoinableProjectDir(join(root, entry.name), repoRoot)));
@@ -61,18 +78,7 @@ export async function createProject(root: string, repoRoot: string, existingProj
   const prefix = derivePrefix(name, new Set([...existingProjects.map((project) => project.prefix), ...prefixesOnDisk.flat()]));
   const dir = join(root, id);
   await mkdir(dir, { recursive: true });
-  const path = join(dir, PROJECT_FILE);
-  const text = serializeProject({ name, prefix, repos: [repoRoot], active: true, extra: {}, body: "" });
-  try {
-    await createFileAtomic(path, text);
-  } catch (error) {
-    const concurrent = hasErrorCode(error, "EEXIST") ? await projectOfRepo(id, path, repoRoot) : null;
-    if (concurrent === null) throw error;
-    return concurrent;
-  }
-  const parsed = parseProjectFile(text, { id, path });
-  if (!parsed.ok) throw new Error(`${path}: ${parsed.problems.map((problem) => problem.code).join(", ")}`);
-  return parsed.value;
+  return { id, path: join(dir, PROJECT_FILE), text: serializeProject({ name, prefix, repos: [repoRoot], active: true, extra: {}, body: "" }) };
 }
 
 async function isJoinableProjectDir(dir: string, repoRoot: string): Promise<boolean> {
