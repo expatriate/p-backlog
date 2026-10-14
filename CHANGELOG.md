@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+- `backlog serve`: a project created in the first moments after the server starts now updates live in an open web UI
+  right away. Before, edits to its tasks reached the web only after something else changed in the backlog folder.
+- Fix effectiveness statistics: a fix now gets the date it landed in the main branch also when the branch had more
+  commits after the fix or was merged through an intermediate branch. Before, such a fix had no landing date.
+- In Safari and Firefox, Cancel in the delete-project and bulk-close confirmation dialogs opened with the mouse returns
+  focus to the button that opened the dialog instead of the start of the page. The language button pressed from the
+  keyboard no longer loses focus while the language changes.
+- Memory on the Usage tab is labeled in MiB (`МиБ`), the unit it is measured in; before, the label said MB.
+- If the language setting file becomes unreadable while the service runs, this is written to the service log once
+  instead of passing silently.
+- `backlog check`, `new`, `take` and the Stop hook no longer fail with a generic error when the current folder's git
+  data is unreadable, warn about an unreadable project repository once per command instead of twice, and run git for
+  the current folder once.
+- `backlog hook stop` with an extra argument is no longer counted as a Stop hook run in the statistics.
+- Two projects for different repositories with the same folder name created at the same moment no longer fail with
+  EEXIST; each gets its own project.
+- `backlog check` reads diffs correctly when git is configured with `diff.suppressBlankEmpty=true`; before, blank
+  context lines were dropped and task lines could be tracked to the wrong place.
+- The "file is locked" message prints the seconds like other numbers (no-break space, localized digits).
+
 ## 0.10.1
 
 - Two agents creating the first task in a new repository at the same time now both get the same project. Before, one
