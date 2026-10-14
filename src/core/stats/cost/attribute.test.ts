@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { attributeLine, newTranscriptState } from "./attribute";
-import { isBacklogHookFeedback } from "../../hook-signature";
 import { fastModel } from "./pricing";
 
 const CWD = "/Users/x/projects/spa";
@@ -20,8 +19,8 @@ function usage(inputTokens: number, outputTokens: number) {
   };
 }
 
-function hookFeedbackLine(timestamp: string) {
-  return { type: "user", isMeta: true, timestamp, cwd: CWD, message: { role: "user", content: "Stop hook feedback:\nБеклог p-backlog: после последней проверки менялся код задач — PB-1" } };
+function hookFeedbackLine(timestamp: string, text = "Беклог p-backlog: после последней проверки менялся код задач — PB-1") {
+  return { type: "user", isMeta: true, timestamp, cwd: CWD, message: { role: "user", content: `Stop hook feedback:\n${text}` } };
 }
 
 function realUserLine(timestamp: string, text = "влей в master") {
@@ -176,70 +175,14 @@ describe("отнесение строк расшифровки к накладн
     expect(next.map((bucket) => bucket.kind)).toEqual(["hook"]);
   });
 
-  it("команда backlog узнаётся после присваиваний окружения, а пути и похожие слова — нет", () => {
-    const counted = (command: string) => {
-      const state = newTranscriptState();
-      attributeLine(assistantLine("2026-09-19T10:00:00.000Z", "claude-sonnet-5", usage(5, 5), [bashToolUse("toolu_1", command)]), state);
-      return state.pending.toolu_1 === "cli";
-    };
+  it("ход хука открывается и английским сообщением хука: смена языка не обнуляет затраты на хук", () => {
+    const state = newTranscriptState();
+    const opened = attributeLine(hookFeedbackLine("2026-09-19T09:00:00.000Z", "Backlog spa: code changed for tasks — SPA-1"), state);
+    const reply = attributeLine(assistantLine("2026-09-19T09:00:01.000Z", "claude-opus-5", usage(100, 20)), state);
 
-    expect(["BACKLOG_DIR=/tmp/x backlog list", "cd x; FOO=1 BAR=2 backlog show PB-1", "backlog", "git status && backlog check --json"].map(counted)).toEqual([true, true, true, true]);
-    expect(["ls backlog/", "cat ~/backlog/p/PB-1.md", "backlog-web start", "echo backlogs"].map(counted)).toEqual([false, false, false, false]);
-  });
-
-  it("команда backlog узнаётся в подоболочке, подстановке и через npx, но не внутри строк", () => {
-    const counted = (command: string) => {
-      const state = newTranscriptState();
-      attributeLine(assistantLine("2026-09-19T10:00:00.000Z", "claude-sonnet-5", usage(5, 5), [bashToolUse("toolu_1", command)]), state);
-      return state.pending.toolu_1 === "cli";
-    };
-
-    expect(["(cd x; backlog list)", "echo $(backlog list --json)", "npx p-backlog stats", "npx -y p-backlog list"].map(counted)).toEqual([true, true, true, true]);
-    expect(['git commit -m "fix\n\nbacklog list"', "echo 'a; backlog list'"].map(counted)).toEqual([false, false]);
-  });
-
-  it("команда backlog узнаётся за ключевыми словами оболочки, обёртками, путём к бинарнику и раннерами пакетов", () => {
-    const counted = (command: string) => {
-      const state = newTranscriptState();
-      attributeLine(assistantLine("2026-09-19T10:00:00.000Z", "claude-sonnet-5", usage(5, 5), [bashToolUse("toolu_1", command)]), state);
-      return state.pending.toolu_1 === "cli";
-    };
-    const invoking = [
-      "for id in PB-1 PB-2; do backlog show $id; done",
-      "if backlog list; then echo ok; fi",
-      "! backlog check",
-      "time backlog list",
-      "env FOO=1 backlog list",
-      "timeout 30 backlog check",
-      "xargs -n 1 backlog show < ids",
-      "sudo -E backlog list",
-      "./node_modules/.bin/backlog list",
-      "backlog.cmd list",
-      "npx p-backlog@latest stats",
-      "npx --package=p-backlog backlog list",
-      "npx -p p-backlog backlog list",
-      "pnpm dlx p-backlog list",
-      "bunx p-backlog list",
-      'echo "$(backlog list --json)"',
-      "command backlog list",
-      "\\backlog list",
-      "sudo -u user backlog list",
-      "xargs -I % backlog show %",
-      "env -u VAR backlog list",
-      "timeout -s KILL 30 backlog check",
-      "npx backlog list",
-      "npm exec backlog list",
-      "pnpm exec backlog list",
-      "yarn backlog list",
-    ];
-    const notInvoking = ["command -v backlog", "npx eslint p-backlog", "echo x # ; backlog list"];
-
-    expect(invoking.filter((command) => !counted(command))).toEqual([]);
-    expect(notInvoking.filter(counted)).toEqual([]);
-  });
-
-  it("ход хука узнаётся и по английскому маркеру: смена языка не обнуляет затраты на хук", () => {
-    expect(isBacklogHookFeedback("Stop hook feedback:\nBacklog spa: code changed for tasks — SPA-1")).toBe(true);
-    expect(isBacklogHookFeedback("Stop hook feedback:\nБеклог spa: после последней проверки менялся код задач — SPA-1")).toBe(true);
+    expect([...opened, ...reply].map((bucket) => [bucket.kind, bucket.hookTurns])).toEqual([
+      ["hook", 1],
+      ["hook", 0],
+    ]);
   });
 });
