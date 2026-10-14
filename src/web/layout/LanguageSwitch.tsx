@@ -22,8 +22,8 @@ export function LanguageSwitch() {
             title={coreMessages(candidate).languageName}
             className={cx(styles.button, candidate === language && styles.pressed)}
             aria-pressed={candidate === language}
-            disabled={setLanguage.isPending}
-            onClick={() => setLanguage.mutate(candidate)}
+            aria-disabled={setLanguage.isPending || undefined}
+            onClick={setLanguage.isPending ? undefined : () => setLanguage.mutate(candidate)}
           >
             {candidate.toUpperCase()}
           </button>

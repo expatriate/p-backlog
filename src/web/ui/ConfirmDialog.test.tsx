@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { TestMessagesProvider } from "../testing/messages-provider";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -12,6 +12,7 @@ describe("подтверждение действия", () => {
     render(
       <ConfirmDialog
         open
+        returnFocusTo={{ current: null }}
         title="Удалить проект «Торг»?"
         description="Задач: 27. Отменить нельзя."
         fieldLabel="Введите id проекта: torg-io"
@@ -43,6 +44,7 @@ describe("подтверждение действия", () => {
     render(
       <ConfirmDialog
         open
+        returnFocusTo={{ current: null }}
         title="Удалить проект «Торг»?"
         description="Задач: 27. Отменить нельзя."
         fieldLabel="Введите id проекта: torg-io"
@@ -61,11 +63,11 @@ describe("подтверждение действия", () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-  it("после закрытия фокус возвращается на кнопку, открывшую диалог", async () => {
+  it("после закрытия фокус возвращается на кнопку, открывшую диалог, даже если щелчок не дал ей фокус, как в Safari", async () => {
     const user = userEvent.setup();
     render(<DialogOpener />, { wrapper: TestMessagesProvider });
 
-    await user.click(screen.getByRole("button", { name: "Удалить проект" }));
+    fireEvent.click(screen.getByRole("button", { name: "Удалить проект" }));
     await user.click(screen.getByRole("button", { name: "Отмена" }));
 
     expect(document.querySelector("dialog")).toBeNull();
@@ -75,13 +77,15 @@ describe("подтверждение действия", () => {
 
 function DialogOpener() {
   const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)}>
+      <button ref={opener} type="button" onClick={() => setOpen(true)}>
         Удалить проект
       </button>
       <ConfirmDialog
         open={open}
+        returnFocusTo={opener}
         title="Удалить проект «Торг»?"
         description="Задач: 27. Отменить нельзя."
         fieldLabel="Введите id проекта: torg-io"

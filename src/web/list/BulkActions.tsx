@@ -99,6 +99,7 @@ function SelectionActions({ firstAction, chosen, assignableEpics, busy, onRun, o
       <Button onClick={onClear}>{list.clearSelection}</Button>
       <ConfirmDialog
         open={closing}
+        returnFocusTo={firstAction}
         title={list.closeDialogTitle(chosen.length)}
         description={list.closeDialogDescription(core.statusLabel("cancelled"))}
         fieldLabel={list.closeReason}

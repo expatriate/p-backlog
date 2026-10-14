@@ -1,10 +1,12 @@
-import { useId, useLayoutEffect, useRef, useState, type FormEvent, type SyntheticEvent } from "react";
+import { useId, useLayoutEffect, useRef, useState, type FormEvent, type RefObject, type SyntheticEvent } from "react";
 import { useMessages } from "../i18n";
 import { Button } from "./Button";
+import { useRestoreFocus } from "./use-restore-focus";
 import styles from "./ConfirmDialog.module.css";
 
 export type ConfirmDialogProps = {
   open: boolean;
+  returnFocusTo: RefObject<HTMLElement | null>;
   title: string;
   description: string;
   fieldLabel: string;
@@ -14,13 +16,26 @@ export type ConfirmDialogProps = {
   onCancel: () => void;
 };
 
-export function ConfirmDialog({ open, ...props }: ConfirmDialogProps) {
-  return open ? <OpenDialog {...props} /> : null;
+export function ConfirmDialog({ open, returnFocusTo, onConfirm, onCancel, ...props }: ConfirmDialogProps) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const restoreFocusOnClose = useRestoreFocus(returnFocusTo, dialog, open);
+  if (!open) return null;
+
+  const confirm = (typed: string) => {
+    restoreFocusOnClose();
+    onConfirm(typed);
+  };
+  const cancel = () => {
+    restoreFocusOnClose();
+    onCancel();
+  };
+  return <OpenDialog {...props} dialog={dialog} onConfirm={confirm} onCancel={cancel} />;
 }
 
-function OpenDialog({ title, description, fieldLabel, canConfirm, confirmLabel, onConfirm, onCancel }: Omit<ConfirmDialogProps, "open">) {
+type OpenDialogProps = Omit<ConfirmDialogProps, "open" | "returnFocusTo"> & { dialog: RefObject<HTMLDialogElement | null> };
+
+function OpenDialog({ dialog, title, description, fieldLabel, canConfirm, confirmLabel, onConfirm, onCancel }: OpenDialogProps) {
   const { ui } = useMessages();
-  const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const [typed, setTyped] = useState("");
 
@@ -37,7 +52,7 @@ function OpenDialog({ title, description, fieldLabel, canConfirm, confirmLabel, 
     const node = dialog.current;
     node?.showModal();
     return () => node?.close();
-  }, []);
+  }, [dialog]);
 
   return (
     <dialog ref={dialog} className={styles.dialog} aria-labelledby={titleId} onCancel={onCancel} onClose={cancelIfStillClosed} onKeyDown={(event) => event.key === "Escape" && event.stopPropagation()}>

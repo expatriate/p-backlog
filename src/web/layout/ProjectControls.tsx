@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Project } from "../../core/model/types";
 import { useDeleteProject, useSetProjectActive } from "../app/queries";
 import { ActionFailure } from "../app/RequestFailure";
@@ -26,11 +26,12 @@ export type ProjectDeleteButtonProps = { project: Project; taskCount: number | u
 export function ProjectDeleteButton({ project, taskCount, onDeleted }: ProjectDeleteButtonProps) {
   const { layout } = useMessages();
   const [confirming, setConfirming] = useState(false);
+  const deleteButton = useRef<HTMLButtonElement>(null);
   const deleteProject = useDeleteProject();
 
   return (
     <>
-      <IconButton label={layout.deleteButtonLabel(project.name)} tone="danger" className={styles.delete} title={layout.deleteButtonTitle} onClick={() => setConfirming(true)}>
+      <IconButton ref={deleteButton} label={layout.deleteButtonLabel(project.name)} tone="danger" className={styles.delete} title={layout.deleteButtonTitle} onClick={() => setConfirming(true)}>
         <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2h5.8l.6-8.2" />
         </svg>
@@ -38,6 +39,7 @@ export function ProjectDeleteButton({ project, taskCount, onDeleted }: ProjectDe
       <ActionFailure className={styles.error} action={layout.deleteFailed} error={deleteProject.error} />
       <ConfirmDialog
         open={confirming}
+        returnFocusTo={deleteButton}
         title={layout.deleteDialogTitle(project.name)}
         description={taskCount === undefined ? layout.deleteDialogDescriptionUnknown : layout.deleteDialogDescription(taskCount)}
         fieldLabel={layout.confirmWordLabel(project.id)}
