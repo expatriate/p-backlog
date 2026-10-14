@@ -4,6 +4,15 @@ export function errorText(error: unknown): string {
 
 export type PathErrorHandler = (path: string, error: unknown) => void;
 
+export function oncePerPath(onError: PathErrorHandler): PathErrorHandler {
+  const reported = new Set<string>();
+  return (path, error) => {
+    if (reported.has(path)) return;
+    reported.add(path);
+    onError(path, error);
+  };
+}
+
 export function warnPathErrors(warn: (line: string) => void, describe: (path: string, detail: string) => string = (path, detail) => `${path}: ${detail}`): PathErrorHandler {
   return (path, error) => warn(describe(path, errorText(error)));
 }

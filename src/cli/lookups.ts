@@ -1,6 +1,6 @@
 import { basename, dirname } from "node:path";
 import type { RepoLookup } from "../core/check/project-repo";
-import { warnPathErrors, type PathErrorHandler } from "../core/errors";
+import { oncePerPath, warnPathErrors, type PathErrorHandler } from "../core/errors";
 import type { CoreMessages } from "../core/messages";
 import { projectIdBase } from "../core/model/ids";
 import type { ParseError, Project, Task } from "../core/model/types";
@@ -16,8 +16,14 @@ export function warnUnreadableSkipped(warn: (line: string) => void, core: CoreMe
   return warnPathErrors(warn, core.unreadableSkipped);
 }
 
+const placesOfRun = new WeakMap<CliIo, RepoPlaces>();
+
 export function repoPlaces(io: CliIo): RepoPlaces {
-  return { home: io.home, onUnreadable: warnUnreadableSkipped(io.warn, io.core) };
+  const known = placesOfRun.get(io);
+  if (known !== undefined) return known;
+  const places = { home: io.home, onUnreadable: oncePerPath(warnUnreadableSkipped(io.warn, io.core)) };
+  placesOfRun.set(io, places);
+  return places;
 }
 
 const cwdGitRootsOfRun = new WeakMap<CliIo, GitRoots | null>();

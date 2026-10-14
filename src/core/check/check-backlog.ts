@@ -6,7 +6,7 @@ import type { CoreMessages } from "../messages";
 import type { Project, Task } from "../model/types";
 import { appendJournal, readJournal } from "../store/journal";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
-import type { GitRoots } from "../store/resolve-project";
+import type { GitRoots, RepoPlaces } from "../store/resolve-project";
 import { isReviewable, type AnchorPlan, type Candidate, type ReportedCandidate } from "./candidates";
 import { applyAnchorPlans, applyFixes, type FixOutcome } from "./check-fixes";
 import { findProblems } from "./find-problems";
@@ -14,9 +14,9 @@ import type { CheckFix, CheckProblem } from "./findings";
 import { projectCheckout, type ProjectCheckout } from "./project-repo";
 import { creationOrigins, projectReview, type ProjectReview } from "./project-review";
 
-type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed" | "branchOriginsReadFailed" | "unreadableSkipped">;
+type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed" | "branchOriginsReadFailed">;
 
-export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string; messages: CheckTexts; warn: (line: string) => void; workingRoots?: GitRoots | null };
+export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; places: RepoPlaces; messages: CheckTexts; warn: (line: string) => void; workingRoots?: GitRoots | null };
 
 export type CheckReport = { fixed: CheckFix[]; problems: CheckProblem[]; candidates: ReportedCandidate[] };
 
@@ -43,11 +43,10 @@ type CheckedProject = { review: ProjectReview; checkout: ProjectCheckout | undef
 
 async function reviewProjects(root: string, tasks: readonly Task[], projects: readonly Project[], request: CheckRequest): Promise<CheckedProject[]> {
   const originsOf = (projectId: string) => creationOrigins(root, projectId, (error) => request.warn(request.messages.branchOriginsReadFailed(projectId, errorText(error))));
-  const onUnreadable = warnPathErrors(request.warn, request.messages.unreadableSkipped);
   return Promise.all(
     projects.map(async (project) => {
-      const checkout = await projectCheckout(project, request.workingRoots ?? null, { home: request.home, onUnreadable });
-      return { review: await projectReview(project, tasks, { repo: checkout?.path, origins: await originsOf(project.id), mode: request.mode, onUnreadable }), checkout };
+      const checkout = await projectCheckout(project, request.workingRoots ?? null, request.places);
+      return { review: await projectReview(project, tasks, { repo: checkout?.path, origins: await originsOf(project.id), mode: request.mode, onUnreadable: request.places.onUnreadable }), checkout };
     }),
   );
 }

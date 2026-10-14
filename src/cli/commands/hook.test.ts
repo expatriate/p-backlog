@@ -69,6 +69,23 @@ describe("backlog hook stop", () => {
     expect(result.err).not.toContain("не выполнена");
   });
 
+  it.skipIf(process.platform === "win32")("нечитаемый репозиторий проекта, стоящий в списке раньше читаемого, предупреждается один раз (на Windows chmod не закрывает каталог)", async () => {
+    const { run, repo, root, home } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Таймаут"]);
+    const locked = join(home, "locked");
+    const unreadableRepo = join(locked, "spa");
+    await mkdir(unreadableRepo, { recursive: true });
+    await chmod(locked, 0o000);
+    onTestFinished(() => chmod(locked, 0o700));
+    const projectPath = join(root, "spa", "project.md");
+    await writeFile(projectPath, (await readFile(projectPath, "utf8")).replace(/repos:.*\n(\s+- .*\n)*/, `repos:\n  - ${unreadableRepo}\n  - ${repo}\n`));
+
+    const result = await run(["hook", "stop"], { stdin: JSON.stringify({ session_id: "s", cwd: repo }) });
+
+    expect(result.code).toBe(EXIT.ok);
+    expect(result.err.split("\n").filter((line) => line.includes(unreadableRepo))).toHaveLength(1);
+  });
+
   it("сбой чтения беклога не валит хук: предупреждение в stderr и код 0, чтобы Windows не показывал ошибку хука", async () => {
     const { run, repo, root } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Таймаут"]);
