@@ -60,7 +60,8 @@ function readRaw(key: string): string | null {
   const kept = keptWithoutStorage.get(key);
   if (kept !== undefined) return kept;
   try {
-    return window.localStorage.getItem(key);
+    // Firefox with dom.storage.enabled=false exposes localStorage as null
+    return (window.localStorage as Storage | null)?.getItem(key) ?? null;
   } catch (error) {
     if (error instanceof DOMException) return null;
     throw error;

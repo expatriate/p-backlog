@@ -561,6 +561,16 @@ describe("масштаб графиков", () => {
     expect(pressed(flow, "день")).toBe("true");
   });
 
+  it("localStorage нет вовсе — статистика открывается и масштаб переключается", async () => {
+    vi.spyOn(window, "localStorage", "get").mockReturnValue(null as unknown as Storage);
+    const app = await renderApp(FILES, "/stats");
+    const flow = await screen.findByRole("region", { name: "Долг по неделям" });
+
+    await pick(app, "Долг", "день");
+
+    expect(pressed(flow, "день")).toBe("true");
+  });
+
   it("мусор в сохранённом масштабе — график в своём масштабе по умолчанию", async () => {
     localStorage.setItem("p-backlog.stats.grain.flow", "month");
     await renderApp(FILES, "/stats");

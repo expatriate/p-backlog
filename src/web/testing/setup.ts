@@ -38,6 +38,7 @@ window.matchMedia ??= (query: string) =>
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   localStorage.clear();
   forgetValuesKeptWithoutStorage();
   hoverNone.matches = false;
