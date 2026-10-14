@@ -36,6 +36,12 @@ function holdBatches(answer: "ok" | "server-error") {
 
 const panel = (name = "Действия с выбранными") => screen.getByRole("region", { name });
 
+function rowOf(id: string): HTMLElement {
+  const row = screen.getByRole("checkbox", { name: `Выбрать ${id}` }).closest("tr");
+  if (!row) throw new Error(`нет строки ${id}`);
+  return row;
+}
+
 describe("панель массовых действий", () => {
   it("появляется только при выборе и считает задачи, скрытые фильтром", async () => {
     const app = await renderApp(FILES);
@@ -167,7 +173,10 @@ describe("панель массовых действий", () => {
     const menu = within(panel()).getByRole("group", { name: "Эпик" });
     expect(within(menu).queryByText("TI-5")).toBeNull();
     await app.user.click(within(menu).getByRole("button", { name: /SPA-10/ }));
-    await waitFor(async () => expect((await app.taskOnDisk("SPA-3")).epic).toBe("SPA-10"));
+    await waitFor(() => {
+      expect(screen.queryByRole("region", { name: "Действия с выбранными" })).toBeNull();
+      expect(within(rowOf("SPA-3")).queryByText("SPA-10")).not.toBeNull();
+    });
 
     await select(app, "SPA-3");
     await app.user.click(within(panel()).getByRole("button", { name: "Эпик" }));

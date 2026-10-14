@@ -1,22 +1,24 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { access, chmod, mkdir } from "node:fs/promises";
+import { access, chmod, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished } from "vitest";
 import { freePort } from "../src/cli/testing/free-port";
 import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../src/core/hook-signature";
 import { readRuns } from "../src/core/store/testing/runs";
 import { makeGitRepo, makeTempDir } from "../src/core/store/testing/temp-dirs";
 import { isolatedHomeEnv } from "./isolated-process";
 
-const buildDir = join(import.meta.dirname, "../dist/test");
+const buildDir = join(import.meta.dirname, "../dist", `test-${process.pid}`);
 const cli = join(buildDir, "cli.js");
+const PROCESS_SPAWNING_TEST_TIMEOUT_MS = 20_000;
 
 beforeAll(() => {
   execFileSync("node", ["scripts/build-node.mjs", "--outdir", buildDir], { cwd: join(import.meta.dirname, "..") });
 }, 60_000);
+afterAll(() => rm(buildDir, { recursive: true, force: true }));
 
-describe("собранный бинарник backlog", () => {
+describe("собранный бинарник backlog", { timeout: PROCESS_SPAWNING_TEST_TIMEOUT_MS }, () => {
   it("создаёт задачу из stdin, показывает её и меняет статус", async () => {
     const home = await makeTempDir();
     const repo = await makeGitRepo(home, "demo-app");
