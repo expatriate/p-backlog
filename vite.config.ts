@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { builtinModules } from "node:module";
 import { defineConfig, type Plugin, type ProxyOptions } from "vite";
-import { envPortOrDefault, loopbackOrigin } from "./src/core/server-address";
+import { envPortOrDefault, loopbackOrigin } from "./src/core/server-address.ts";
 
 const FRONTEND_MODULE = /\.(?:ts|tsx|js|jsx|css)(?:\?|$)/;
 const NODE_BUILTINS = new Set(builtinModules);
