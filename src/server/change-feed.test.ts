@@ -1,7 +1,7 @@
 import fs, { mkdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
-import { basename, join } from "node:path";
+import { basename, join, normalize } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { temporaryPathFor, writeFileAtomic } from "../core/store/fs-utils";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
@@ -46,7 +46,8 @@ const FSEVENTS_LOOKBACK_MS = 200;
 function createJustBeforeWatchStarts(watchedDir: string, createdDir: string): void {
   const startWatching = fs.watch;
   vi.spyOn(fs, "watch").mockImplementation(((...args: Parameters<typeof fs.watch>) => {
-    if (args[0] === watchedDir) {
+    // chokidar passes fs.watch paths with forward slashes, also on Windows
+    if (normalize(String(args[0])) === normalize(watchedDir)) {
       mkdirSync(createdDir);
       // FSEvents on macOS also reports changes made shortly before the watch starts
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, FSEVENTS_LOOKBACK_MS);
