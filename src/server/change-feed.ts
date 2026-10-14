@@ -1,6 +1,7 @@
-import { relative, sep } from "node:path";
-import { watch } from "chokidar";
+import { join, relative, sep } from "node:path";
+import { watch, type FSWatcher } from "chokidar";
 import { errorText } from "../core/errors";
+import { listDir } from "../core/store/fs-utils";
 import type { LocalizedWarn } from "./messages";
 
 export type ChangeListener = (paths: readonly string[]) => void | Promise<void>;
@@ -32,6 +33,13 @@ export function isHiddenPath(root: string, path: string): boolean {
     .some((segment) => segment.startsWith("."));
 }
 
+async function watchDirectoriesMissedAtStart(watcher: FSWatcher, root: string): Promise<void> {
+  const directories = (await listDir(root)).filter((entry) => entry.isDirectory()).map((entry) => join(root, entry.name));
+  const watched = watcher.getWatched();
+  const missed = directories.filter((path) => !isHiddenPath(root, path) && !(path in watched));
+  if (missed.length > 0 && !watcher.closed) watcher.add(missed);
+}
+
 export type ChangeFeedOptions = { root: string; debounceMs: number; warn: LocalizedWarn };
 
 export function createChangeFeed({ root, debounceMs, warn }: ChangeFeedOptions): ChangeFeed {
@@ -51,11 +59,16 @@ export function createChangeFeed({ root, debounceMs, warn }: ChangeFeedOptions):
 
   const watcher = watch(root, { ignoreInitial: true, ignored: (path) => isHiddenPath(root, path) });
   watcher.on("all", (_event, path) => reportChange(path));
-  // chokidar does not report files created before its directory watchers are registered; the root path makes the hub reload everything
-  watcher.on("ready", () => reportChange(root));
-  watcher.on("error", (error) => {
+  const warnWatcherError = (error: unknown) => {
     void warn((messages) => messages.watcherError(root, errorText(error)));
+  };
+  // chokidar reads a directory before watching it, so whatever appears in between is neither listed nor reported; the root path makes the hub reload everything
+  watcher.on("ready", () => {
+    void watchDirectoriesMissedAtStart(watcher, root)
+      .catch(warnWatcherError)
+      .finally(() => reportChange(root));
   });
+  watcher.on("error", warnWatcherError);
 
   return {
     subscribe: (listener) => {

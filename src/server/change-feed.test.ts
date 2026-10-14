@@ -1,4 +1,6 @@
+import fs, { mkdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { basename, join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { temporaryPathFor, writeFileAtomic } from "../core/store/fs-utils";
@@ -36,6 +38,25 @@ function probeArrivesWithin(feed: ChangeFeed, windowMs: number): Promise<void> {
       unsubscribe();
       resolve();
     });
+  });
+}
+
+const FSEVENTS_LOOKBACK_MS = 200;
+
+function createJustBeforeWatchStarts(watchedDir: string, createdDir: string): void {
+  const startWatching = fs.watch;
+  vi.spyOn(fs, "watch").mockImplementation(((...args: Parameters<typeof fs.watch>) => {
+    if (args[0] === watchedDir) {
+      mkdirSync(createdDir);
+      // FSEvents on macOS also reports changes made shortly before the watch starts
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, FSEVENTS_LOOKBACK_MS);
+    }
+    return startWatching(...args);
+  }) as typeof fs.watch);
+  syncBuiltinESMExports();
+  onTestFinished(() => {
+    vi.mocked(fs.watch).mockRestore();
+    syncBuiltinESMExports();
   });
 }
 
@@ -99,6 +120,20 @@ describe("createChangeFeed", () => {
     const changes = recordChanges(feed);
 
     await changes.reached(root);
+  });
+
+  it("каталог проекта, появившийся между чтением корня и началом наблюдения за ним, наблюдается: правки задач в нём доходят", async () => {
+    const root = await makeTempDir();
+    const projectDir = join(root, "spa");
+    createJustBeforeWatchStarts(root, projectDir);
+    const feed = createChangeFeed({ root, debounceMs: 20, warn: async () => undefined });
+    onTestFinished(() => feed.close());
+    const changes = recordChanges(feed);
+    await changes.reached(root);
+
+    await writeFile(join(projectDir, "SPA-1.md"), "задача", "utf8");
+
+    await changes.reached(join(projectDir, "SPA-1.md"));
   });
 
   it("после close не зовёт подписчиков", async () => {
