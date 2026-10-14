@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { writeFileAtomic } from "../core/store/fs-utils";
+import { temporaryPathFor, writeFileAtomic } from "../core/store/fs-utils";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
 import { createChangeFeed, createDebouncer, isHiddenPath, type ChangeFeed } from "./change-feed";
 
@@ -61,13 +61,14 @@ function recordChanges(feed: ChangeFeed) {
 }
 
 describe("createChangeFeed", () => {
-  it("сообщает, какие файлы изменились; временный файл атомарной записи не виден", async () => {
+  it("сообщает, какие файлы изменились; временные файлы атомарной записи, даже оставшиеся на диске, не видны", async () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
     await writeFile(join(root, "spa/SPA-2.md"), "задача", "utf8");
     const feed = await watchedBacklog(root, 20);
     const changes = recordChanges(feed);
 
+    await writeFile(temporaryPathFor(join(root, "spa/SPA-1.md")), "недописанная задача", "utf8");
     await writeFile(join(root, "spa/SPA-1.md"), "задача", "utf8");
     await changes.reached(join(root, "spa/SPA-1.md"));
     await writeFileAtomic(join(root, "spa/SPA-2.md"), "правка");
