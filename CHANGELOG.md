@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.2
 
 - `backlog serve`: a project created in the first moments after the server starts now updates live in an open web UI
   right away. Before, edits to its tasks reached the web only after something else changed in the backlog folder.
