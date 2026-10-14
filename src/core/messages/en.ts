@@ -1,14 +1,13 @@
 import { z } from "zod";
 import type { CheckFix, CheckProblem } from "../check/findings";
-import type { GraphState } from "../check/graph-health";
 import { lineSuffix, sourcePath } from "../model/source";
 import { formatDayMonth, formatDecimal, formatNumber } from "../i18n/format";
 import { countEn, NBSP, pluralEn } from "../i18n/plural";
-import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
-import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
-import type { CategoryRow, FlowForecast, FoundRow, Signal } from "../stats/types";
+import type { TaskCategory } from "../model/types";
+import type { FlowForecast, Signal } from "../stats/types";
 import { forecastOutlook, forecastSpan } from "./forecast";
+import { labelLookups, type LabelTables } from "./labels";
 import { problemList } from "./problem-list";
 import type { CoreMessages, CountUnit } from "./types";
 import { zodIssueText } from "./zod";
@@ -30,37 +29,32 @@ const CATEGORY_LABELS: Record<TaskCategory, string> = {
 
 const NO_CATEGORY_LABEL = "not set";
 
-const CATEGORY_ROW_LABELS: Record<CategoryRow["category"], string> = { ...CATEGORY_LABELS, unset: NO_CATEGORY_LABEL, unknown: "unknown" };
-
-const FOUND_ROW_LABELS: Record<FoundRow["found"], string> = { review: "in review", incidental: "incidentally", manual: "manually", unknown: "unknown", unset: "not recorded" };
-
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  backlog: "backlog",
-  "in-progress": "in progress",
-  blocked: "blocked",
-  done: "done",
-  cancelled: "cancelled",
+const LABELS: LabelTables = {
+  category: CATEGORY_LABELS,
+  noCategory: NO_CATEGORY_LABEL,
+  categoryRow: { ...CATEGORY_LABELS, unset: NO_CATEGORY_LABEL, unknown: "unknown" },
+  found: { review: "in review", incidental: "incidentally", manual: "manually", unknown: "unknown", unset: "not recorded" },
+  status: {
+    backlog: "backlog",
+    "in-progress": "in progress",
+    blocked: "blocked",
+    done: "done",
+    cancelled: "cancelled",
+  },
+  type: { task: "task", epic: "epic" },
+  priority: { low: "low", medium: "medium", high: "high", critical: "critical" },
+  resolution: { fixed: "fixed", obsolete: "code gone", duplicate: "duplicate", "epic-done": "epic done" },
+  evidence: {
+    "source-changed": "code changed",
+    "source-missing": "file missing",
+    duplicate: "duplicate",
+    "no-source": "no source",
+    total: "Total",
+  },
+  checkMethod: { symbol: "by symbol", anchor: "by source lines", file: "by file" },
+  duplicateMatch: { source: "by code location", title: "by title", symbol: "by symbol" },
+  graphState: { none: "none", unreadable: "unreadable", stale: "stale", fresh: "fresh" },
 };
-
-const TYPE_LABELS: Record<TaskType, string> = { task: "task", epic: "epic" };
-
-const PRIORITY_LABELS: Record<Priority, string> = { low: "low", medium: "medium", high: "high", critical: "critical" };
-
-const RESOLUTION_LABELS: Record<Resolution, string> = { fixed: "fixed", obsolete: "code gone", duplicate: "duplicate", "epic-done": "epic done" };
-
-const EVIDENCE_LABELS: Record<CandidateEvidence | "total", string> = {
-  "source-changed": "code changed",
-  "source-missing": "file missing",
-  duplicate: "duplicate",
-  "no-source": "no source",
-  total: "Total",
-};
-
-const CHECK_METHOD_LABELS: Record<CheckMethod, string> = { symbol: "by symbol", anchor: "by source lines", file: "by file" };
-
-const DUPLICATE_MATCH_LABELS: Record<DuplicateMatch, string> = { source: "by code location", title: "by title", symbol: "by symbol" };
-
-const GRAPH_STATE_LABELS: Record<GraphState, string> = { none: "none", unreadable: "unreadable", stale: "stale", fresh: "fresh" };
 
 const COUNT_FORMS: Record<CountUnit, [string, string]> = {
   task: ["task", "tasks"],
@@ -116,7 +110,7 @@ function signal(s: Signal): string {
       return `Stuck in progress: ${s.params.count}, longest ${s.params.id} — ${days(s.params.days)}`;
     case "noisy-check": {
       const { evidence, method, percent, decided, windowDays } = s.params;
-      const name = method === null ? `"${EVIDENCE_LABELS[evidence]}"` : `"${EVIDENCE_LABELS[evidence]}" ${CHECK_METHOD_LABELS[method]}`;
+      const name = method === null ? `"${LABELS.evidence[evidence]}"` : `"${LABELS.evidence[evidence]}" ${LABELS.checkMethod[method]}`;
       return `Check ${name} is almost always wrong: precision ${percent}% on ${decided} decided over ${count(windowDays, "day")}`;
     }
     case "low-changed":
@@ -247,17 +241,7 @@ export const coreEn: CoreMessages = {
   problem,
   problems,
   schemaIssue,
-  categoryLabel: (category) => (category === undefined ? NO_CATEGORY_LABEL : CATEGORY_LABELS[category]),
-  categoryRowLabel: (category) => CATEGORY_ROW_LABELS[category],
-  foundRowLabel: (found) => FOUND_ROW_LABELS[found],
-  statusLabel: (status) => STATUS_LABELS[status],
-  priorityLabel: (priority) => PRIORITY_LABELS[priority],
-  typeLabel: (type) => TYPE_LABELS[type],
-  resolutionLabel: (resolution) => RESOLUTION_LABELS[resolution],
-  evidenceLabel: (evidence) => EVIDENCE_LABELS[evidence],
-  checkMethodLabel: (method) => CHECK_METHOD_LABELS[method],
-  duplicateMatchLabel: (match) => DUPLICATE_MATCH_LABELS[match],
-  graphStateLabel: (state) => GRAPH_STATE_LABELS[state],
+  ...labelLookups(LABELS),
   count,
   days,
   p90,

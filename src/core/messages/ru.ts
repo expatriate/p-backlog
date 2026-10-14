@@ -1,14 +1,13 @@
 import { z } from "zod";
 import type { CheckFix, CheckProblem } from "../check/findings";
-import type { GraphState } from "../check/graph-health";
 import { lineSuffix, sourcePath } from "../model/source";
 import { formatDayMonth, formatDecimal, formatNumber } from "../i18n/format";
 import { countRu, NBSP, pluralRu } from "../i18n/plural";
-import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
-import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
-import type { CategoryRow, FlowForecast, FoundRow, Signal } from "../stats/types";
+import type { TaskCategory } from "../model/types";
+import type { FlowForecast, Signal } from "../stats/types";
 import { forecastOutlook, forecastSpan, type SpanUnit } from "./forecast";
+import { labelLookups, type LabelTables } from "./labels";
 import { problemList } from "./problem-list";
 import type { CoreMessages, CountUnit } from "./types";
 import { zodIssueText } from "./zod";
@@ -30,37 +29,32 @@ const CATEGORY_LABELS: Record<TaskCategory, string> = {
 
 const NO_CATEGORY_LABEL = "не указана";
 
-const CATEGORY_ROW_LABELS: Record<CategoryRow["category"], string> = { ...CATEGORY_LABELS, unset: NO_CATEGORY_LABEL, unknown: "неизвестна" };
-
-const FOUND_ROW_LABELS: Record<FoundRow["found"], string> = { review: "на ревью", incidental: "попутно", manual: "вручную", unknown: "неизвестно", unset: "не записано" };
-
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  backlog: "в беклоге",
-  "in-progress": "в работе",
-  blocked: "заблокирована",
-  done: "сделана",
-  cancelled: "отменена",
+const LABELS: LabelTables = {
+  category: CATEGORY_LABELS,
+  noCategory: NO_CATEGORY_LABEL,
+  categoryRow: { ...CATEGORY_LABELS, unset: NO_CATEGORY_LABEL, unknown: "неизвестна" },
+  found: { review: "на ревью", incidental: "попутно", manual: "вручную", unknown: "неизвестно", unset: "не записано" },
+  status: {
+    backlog: "в беклоге",
+    "in-progress": "в работе",
+    blocked: "заблокирована",
+    done: "сделана",
+    cancelled: "отменена",
+  },
+  type: { task: "задача", epic: "эпик" },
+  priority: { low: "низкий", medium: "средний", high: "высокий", critical: "критичный" },
+  resolution: { fixed: "исправлено", obsolete: "кода нет", duplicate: "дубль", "epic-done": "эпик завершён" },
+  evidence: {
+    "source-changed": "код изменился",
+    "source-missing": "файл пропал",
+    duplicate: "дубль",
+    "no-source": "нет source",
+    total: "Всего",
+  },
+  checkMethod: { symbol: "по символу", anchor: "по строкам source", file: "по файлу" },
+  duplicateMatch: { source: "по месту в коде", title: "по заголовку", symbol: "по символу" },
+  graphState: { none: "нет", unreadable: "не читается", stale: "устарел", fresh: "свежий" },
 };
-
-const TYPE_LABELS: Record<TaskType, string> = { task: "задача", epic: "эпик" };
-
-const PRIORITY_LABELS: Record<Priority, string> = { low: "низкий", medium: "средний", high: "высокий", critical: "критичный" };
-
-const RESOLUTION_LABELS: Record<Resolution, string> = { fixed: "исправлено", obsolete: "кода нет", duplicate: "дубль", "epic-done": "эпик завершён" };
-
-const EVIDENCE_LABELS: Record<CandidateEvidence | "total", string> = {
-  "source-changed": "код изменился",
-  "source-missing": "файл пропал",
-  duplicate: "дубль",
-  "no-source": "нет source",
-  total: "Всего",
-};
-
-const CHECK_METHOD_LABELS: Record<CheckMethod, string> = { symbol: "по символу", anchor: "по строкам source", file: "по файлу" };
-
-const DUPLICATE_MATCH_LABELS: Record<DuplicateMatch, string> = { source: "по месту в коде", title: "по заголовку", symbol: "по символу" };
-
-const GRAPH_STATE_LABELS: Record<GraphState, string> = { none: "нет", unreadable: "не читается", stale: "устарел", fresh: "свежий" };
 
 const COUNT_FORMS: Record<CountUnit, [string, string, string]> = {
   task: ["задача", "задачи", "задач"],
@@ -128,7 +122,7 @@ function signal(s: Signal): string {
       return `Застряли в работе: ${s.params.count}, дольше всех ${s.params.id} — ${days(s.params.days)}`;
     case "noisy-check": {
       const { evidence, method, percent, decided, windowDays } = s.params;
-      const name = method === null ? `«${EVIDENCE_LABELS[evidence]}»` : `«${EVIDENCE_LABELS[evidence]}» ${CHECK_METHOD_LABELS[method]}`;
+      const name = method === null ? `«${LABELS.evidence[evidence]}»` : `«${LABELS.evidence[evidence]}» ${LABELS.checkMethod[method]}`;
       return `Проверка ${name} почти всегда ошибается: точность ${percent}% на ${decided} решённых за ${span(windowDays, "day")}`;
     }
     case "low-changed":
@@ -261,17 +255,7 @@ export const coreRu: CoreMessages = {
   problem,
   problems,
   schemaIssue,
-  categoryLabel: (category) => (category === undefined ? NO_CATEGORY_LABEL : CATEGORY_LABELS[category]),
-  categoryRowLabel: (category) => CATEGORY_ROW_LABELS[category],
-  foundRowLabel: (found) => FOUND_ROW_LABELS[found],
-  statusLabel: (status) => STATUS_LABELS[status],
-  priorityLabel: (priority) => PRIORITY_LABELS[priority],
-  typeLabel: (type) => TYPE_LABELS[type],
-  resolutionLabel: (resolution) => RESOLUTION_LABELS[resolution],
-  evidenceLabel: (evidence) => EVIDENCE_LABELS[evidence],
-  checkMethodLabel: (method) => CHECK_METHOD_LABELS[method],
-  duplicateMatchLabel: (match) => DUPLICATE_MATCH_LABELS[match],
-  graphStateLabel: (state) => GRAPH_STATE_LABELS[state],
+  ...labelLookups(LABELS),
   count,
   days,
   p90,

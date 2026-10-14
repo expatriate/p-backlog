@@ -2,6 +2,6 @@
   "path": ["src", "scripts"],
   "ignore": ["**/*.test.ts", "**/*.test.tsx", "**/testing/**"],
   "minLines": 6,
-  "threshold": 0.19,
+  "threshold": 0,
   "reporters": ["ai"]
 }

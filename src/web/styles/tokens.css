@@ -93,6 +93,7 @@
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --duration: 160ms;
+  --transition-control: background var(--duration) var(--ease-out), border-color var(--duration) var(--ease-out), color var(--duration) var(--ease-out), scale var(--duration) var(--ease-out);
 
   --main-overflow: auto;
   --main-frame-overflow: hidden;

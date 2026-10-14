@@ -7,10 +7,14 @@ const TESTS = ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/testing/**"];
 const SOURCES = ["src/**/*.ts", "src/**/*.tsx"];
 const WEB = ["src/web/**/*.ts", "src/web/**/*.tsx"];
 const CATALOGS = ["src/**/messages.*.ts"];
+const CORE_CATALOGS = ["src/core/messages/ru.ts", "src/core/messages/en.ts"];
+const catalogImports = (allowed, message) => ({
+  "@typescript-eslint/no-restricted-imports": ["error", { patterns: [{ regex: `^(?!${allowed.join("|")})`, allowTypeImports: true, message }] }],
+});
 const NODE_BUILTINS = { group: ["node:*"], message: "This layer is shared with the web UI; keep Node built-ins out of it." };
 const ABOVE_MODEL = { group: ["**/store/**", "**/check/**", "**/stats/**"], message: "Model and journal sit below the store; pass what they need in as arguments." };
 const ABOVE_STORE = { group: ["**/stats/**", "**/check/**"], message: "The store sits below stats and check; move the shared piece down to model or store." };
-const MESSAGE_CATALOGS = { regex: "(^|/)messages(/(?!store-messages$)[^/]+)?$", message: "The catalogs pull in stats and check types; take StoreMessages from messages/store-messages." };
+const FULL_MESSAGES = { regex: "(^|/)messages(/(?!store-messages$)[^/]+)?$", message: "The catalogs pull in stats and check types; take StoreMessages from messages/store-messages." };
 const HOST_PROCESS = ["env", "stdout", "stderr", "platform", "exit", "exitCode", "cwd"].map((property) => ({
   object: "process",
   property,
@@ -87,12 +91,14 @@ export default tseslint.config(
   {
     files: CATALOGS,
     ignores: TESTS,
-    rules: {
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
-        { patterns: [{ regex: "^(?!.*/core/i18n/)", allowTypeImports: true, message: "A catalog holds text; take formatting helpers from core/i18n and only types from elsewhere." }] },
-      ],
-    },
+    rules: catalogImports([".*/core/i18n/"], "A catalog holds text; take formatting helpers from core/i18n and only types from elsewhere."),
+  },
+  {
+    files: CORE_CATALOGS,
+    rules: catalogImports(
+      ["\\.\\./i18n/", "zod$", "\\.\\./model/source$", "\\./"],
+      "A core catalog holds text; take formatters from core/i18n, zod, model/source or the helpers in core/messages, and only types from elsewhere.",
+    ),
   },
   {
     files: ["src/core/**/*.ts"],
@@ -104,12 +110,12 @@ export default tseslint.config(
   },
   {
     files: ["src/core/model/**/*.ts", "src/core/journal/**/*.ts"],
-    rules: { "no-restricted-imports": ["error", { patterns: [NODE_BUILTINS, ABOVE_MODEL, MESSAGE_CATALOGS] }] },
+    rules: { "no-restricted-imports": ["error", { patterns: [NODE_BUILTINS, ABOVE_MODEL, FULL_MESSAGES] }] },
   },
   {
     files: ["src/core/store/**/*.ts"],
     ignores: TESTS,
-    rules: { "no-restricted-imports": ["error", { patterns: [ABOVE_STORE, MESSAGE_CATALOGS] }] },
+    rules: { "no-restricted-imports": ["error", { patterns: [ABOVE_STORE, FULL_MESSAGES] }] },
   },
   {
     files: ["src/core/messages/en.ts"],
