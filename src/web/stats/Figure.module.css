@@ -25,12 +25,6 @@
   box-shadow: 0 0 0 1px var(--line);
 }
 
-.label,
-.note {
-  color: var(--ink-subtle);
-  font-size: var(--text-sm);
-}
-
 .trend {
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;

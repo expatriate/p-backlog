@@ -21,11 +21,8 @@
   grid-column: 1 / -1;
 }
 
-.note {
+.tabNote {
   max-width: 70ch;
-  margin: 0;
-  color: var(--ink-subtle);
-  font-size: var(--text-sm);
   text-wrap: pretty;
 }
 

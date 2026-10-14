@@ -4,7 +4,7 @@ import { useStatsReport } from "../app/queries";
 import { useMessages } from "../i18n";
 import { EffectExplainer } from "./EffectExplainer";
 import { EffectChartPanel, EffectFigures, ProjectsPanel } from "./EffectPanels";
-import { StatsTabState } from "./StatsTabState";
+import { StatsTabState, TabNote } from "./StatsTabState";
 import { UnavailableRepos } from "./UnavailableRepos";
 import layout from "./StatsLayout.module.css";
 
@@ -20,7 +20,7 @@ function Effect({ report }: { report: EffectReport }) {
   return (
     <>
       <UnavailableRepos repos={report.unavailableRepos} />
-      {nothingDeferred && <p className={layout.note}>{stats.noDeferredTasks}</p>}
+      {nothingDeferred && <TabNote>{stats.noDeferredTasks}</TabNote>}
       <EffectFigures totals={report.totals} period={report.periods.weeks} />
       <div className={layout.blocks}>
         <div className={layout.wide}>

@@ -59,8 +59,10 @@
   --chart-line-blue: oklch(0.8 0.11 250);
   --chart-line-bright: oklch(0.96 0 0);
 
+  --sidebar-width: 260px;
   --panel-width: 420px;
   --popover-width: 420px;
+  --popover-max-height: 360px;
   --dialog-width: 420px;
   --hit-target: 24px;
 

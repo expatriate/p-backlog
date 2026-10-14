@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from "react";
 import { cx } from "../ui/cx";
+import caption from "./Caption.module.css";
 import styles from "./Figure.module.css";
-import layout from "./StatsLayout.module.css";
 
 export type FigureTone = "growth" | "decline";
 
@@ -14,7 +14,7 @@ export function Figure({ label, value, note, tone, trend }: { label: string; val
 
   return (
     <div className={styles.figure} role="group" aria-labelledby={labelId}>
-      <span id={labelId} className={styles.label}>
+      <span id={labelId} className={caption.caption}>
         {label}
       </span>
       <span className={cx(styles.value, tone !== undefined && TONE_CLASSES[tone])}>{value}</span>
@@ -24,7 +24,7 @@ export function Figure({ label, value, note, tone, trend }: { label: string; val
           <span className="visually-hidden">{trend.speech}</span>
         </span>
       )}
-      {note !== undefined && <span className={styles.note}>{note}</span>}
+      {note !== undefined && <span className={caption.caption}>{note}</span>}
     </div>
   );
 }
@@ -41,7 +41,7 @@ export function FigureGroup({ period, children }: { period: string; children: Re
   const periodId = useId();
   return (
     <div role="group" aria-labelledby={periodId} className={styles.group}>
-      <p id={periodId} className={layout.note}>
+      <p id={periodId} className={caption.caption}>
         {period}
       </p>
       <Figures columns={4}>{children}</Figures>

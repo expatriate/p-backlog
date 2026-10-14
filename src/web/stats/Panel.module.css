@@ -26,13 +26,6 @@
   min-width: 0;
 }
 
-.period,
-.note {
-  margin: 0;
-  color: var(--ink-subtle);
-  font-size: var(--text-sm);
-}
-
 .title {
   margin: 0;
   font-size: var(--text-base);

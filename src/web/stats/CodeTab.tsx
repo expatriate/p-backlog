@@ -3,7 +3,7 @@ import type { CodeReport } from "../../core/api/contract";
 import { useStatsReport } from "../app/queries";
 import { useMessages } from "../i18n";
 import { ChurnPanel, DensityPanel } from "./CodePanels";
-import { StatsTabState } from "./StatsTabState";
+import { StatsTabState, TabNote } from "./StatsTabState";
 import { UnavailableRepos } from "./UnavailableRepos";
 import layout from "./StatsLayout.module.css";
 
@@ -24,7 +24,7 @@ function Code({ report }: { report: CodeReport }) {
         </div>
         <DensityPanel density={report.density} />
       </div>
-      <p className={layout.note}>{stats.codeNote}</p>
+      <TabNote>{stats.codeNote}</TabNote>
     </>
   );
 }

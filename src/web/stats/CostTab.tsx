@@ -9,7 +9,7 @@ import { MemoryPanel } from "./MemoryPanel";
 import { SpendPanel } from "./SpendPanel";
 import layout from "./StatsLayout.module.css";
 import type { StatsMessages } from "./messages.ru";
-import { StatsRequestState } from "./StatsTabState";
+import { StatsRequestState, TabNote } from "./StatsTabState";
 
 export function CostTab() {
   const { projectId } = useParams();
@@ -22,7 +22,7 @@ export function CostTab() {
         <>
           <ScanNotice scan={report.scan} />
           <Cost report={report} />
-          <p className={layout.note}>{stats.costNote}</p>
+          <TabNote>{stats.costNote}</TabNote>
         </>
       )}
     </StatsRequestState>
@@ -53,7 +53,7 @@ function Cost({ report }: { report: CostReport }) {
   return (
     <>
       <CostFigures totals={report.totals} period={report.periods.totals} />
-      {since !== null && <p className={layout.note}>{stats.costSince(formatDay(language, since))}</p>}
+      {since !== null && <TabNote>{stats.costSince(formatDay(language, since))}</TabNote>}
       <div className={layout.blocks}>
         <div className={layout.wide}>
           <SpendPanel weeks={report.weeks} days={report.days} windows={report.periods} />

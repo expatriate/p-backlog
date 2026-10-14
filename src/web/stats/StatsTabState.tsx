@@ -9,9 +9,11 @@ import { RequestFailure } from "../app/RequestFailure";
 import { useLanguage, useMessages } from "../i18n";
 import { Notice } from "../ui/Notice";
 import { PageHint, type PageHintState } from "../ui/Page";
+import { cx } from "../ui/cx";
 import { useStatusFocus } from "../ui/use-status-focus";
 import type { StatsMessages } from "./messages.ru";
 import type { StatsOutletContext } from "./StatsPage";
+import caption from "./Caption.module.css";
 import layout from "./StatsLayout.module.css";
 
 type ReportQuery<T> = Pick<UseQueryResult<T>, "error" | "data" | "isFetching" | "refetch">;
@@ -66,12 +68,16 @@ export function StatsTabState<T extends ReportHead>({ query, children }: { query
         {(report) => (
           <>
             {children(report)}
-            <p className={layout.note}>{journalNote(stats, language, report.journalSince)}</p>
+            <TabNote>{journalNote(stats, language, report.journalSince)}</TabNote>
           </>
         )}
       </StatsRequestState>
     </>
   );
+}
+
+export function TabNote({ children }: { children: ReactNode }) {
+  return <p className={cx(caption.caption, layout.tabNote)}>{children}</p>;
 }
 
 function requestView<T>({ error, data }: ReportQuery<T>, empty: EmptyReport<T> | undefined): RequestView<T> {

@@ -1,4 +1,5 @@
 import { useId, type ReactNode } from "react";
+import caption from "./Caption.module.css";
 import styles from "./Panel.module.css";
 
 export function Panel({ title, period, aside, children }: { title: string; period?: string | undefined; aside?: ReactNode; children: ReactNode }) {
@@ -12,7 +13,7 @@ export function Panel({ title, period, aside, children }: { title: string; perio
             {title}
           </h2>
           {period !== undefined && (
-            <p id={periodId} className={styles.period}>
+            <p id={periodId} className={caption.caption}>
               {period}
             </p>
           )}
@@ -25,5 +26,5 @@ export function Panel({ title, period, aside, children }: { title: string; perio
 }
 
 export function PanelNote({ children }: { children: ReactNode }) {
-  return <p className={styles.note}>{children}</p>;
+  return <p className={caption.caption}>{children}</p>;
 }
