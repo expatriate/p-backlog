@@ -9,7 +9,7 @@ import { localeLanguage, settingsFilePath } from "../core/store/settings";
 import { sweepClosedWhenDue } from "../core/store/sweep";
 import { journalWithTaskGoneLongAgo } from "../core/store/testing/stale-journal";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
-import { failOnWriteError } from "../core/store/testing/update-task";
+import { failOnPathError } from "../core/store/testing/path-errors";
 import { startServer } from "./start";
 import { QUIET_HOST } from "./testing/quiet-host";
 
@@ -209,7 +209,7 @@ describe("startServer", () => {
     const server = await startServer({ ...QUIET_HOST, root, port: 0, home, env: {}, now: () => NOW });
     await server.close();
 
-    expect(await sweepClosedWhenDue(root, NOW, coreMessages("ru"), failOnWriteError)).toBeNull();
+    expect(await sweepClosedWhenDue(root, { now: NOW, onError: failOnPathError }, coreMessages("ru"))).toBeNull();
   });
 
   it("служба на macOS при старте обрезает свой лог", async () => {

@@ -3,16 +3,12 @@ import { existsSync } from "node:fs";
 import { mkdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { PathErrorHandler } from "../errors";
 import type { Project } from "../model/types";
 import { cachedRepoRoots, findGitRoots, findProjectForDir, readGitRoots, type RepoPlaces } from "./resolve-project";
+import { failOnPathError } from "./testing/path-errors";
 import { gitAddWorktree, gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "./testing/temp-dirs";
 
-const failOnUnreadable: PathErrorHandler = (path, error) => {
-  throw new Error(`unexpected unreadable path ${path}`, { cause: error });
-};
-
-const placesIn = (home: string): RepoPlaces => ({ home, onUnreadable: failOnUnreadable });
+const placesIn = (home: string): RepoPlaces => ({ home, onUnreadable: failOnPathError });
 
 const projectForDir = (projects: readonly Project[], dir: string, places: RepoPlaces) => findProjectForDir(projects, dir, readGitRoots(dir, places.onUnreadable), places);
 
@@ -129,7 +125,7 @@ describe("cachedRepoRoots", () => {
     await mkdir(nested, { recursive: true });
     const plain = join(home, "plain");
     await mkdir(plain);
-    const rootOf = cachedRepoRoots({ onUnreadable: failOnUnreadable });
+    const rootOf = cachedRepoRoots({ onUnreadable: failOnPathError });
 
     expect(await rootOf(nested)).toEqual({ worktree: repo, main: repo });
     expect(await rootOf(plain)).toEqual({ worktree: plain, main: plain });
@@ -139,14 +135,14 @@ describe("cachedRepoRoots", () => {
   it("для git worktree вне основного репозитория отдаёт корень основного", async () => {
     const { repo, worktree } = await repoWithOutsideWorktree();
 
-    expect(await cachedRepoRoots({ onUnreadable: failOnUnreadable })(join(worktree, "src"))).toEqual({ worktree, main: repo });
+    expect(await cachedRepoRoots({ onUnreadable: failOnPathError })(join(worktree, "src"))).toEqual({ worktree, main: repo });
   });
 
   it("каталог, которого не было, находится после истечения срока кэша, а не остаётся null навсегда", async () => {
     const home = await makeTempDir();
     const later = join(home, "later");
     let clock = 0;
-    const rootOf = cachedRepoRoots({ onUnreadable: failOnUnreadable, ttlMs: 1000, now: () => clock });
+    const rootOf = cachedRepoRoots({ onUnreadable: failOnPathError, ttlMs: 1000, now: () => clock });
 
     expect(await rootOf(later)).toBeNull();
     await makeGitRepo(home, "later");

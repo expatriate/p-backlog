@@ -13,7 +13,7 @@ import { smallest, sum } from "../../numbers";
 import { groupBy } from "../../collections";
 import { grainPeriods, lastDays, lastDaysPeriod } from "../report-periods";
 import { remembered } from "../../remembered";
-import { inProjectScope } from "../scope";
+import { filterByProject } from "../scope";
 
 export const COST_TOTALS_DAYS = 7;
 
@@ -33,8 +33,8 @@ type Timed<T> = { item: T; at: number };
 export function costReport({ buckets, runs, projectOf, projectId, now, scan }: CostInput): CostReport {
   const projectByCwd = new Map<string, string | null>();
   const projectOfCwd = (cwd: string) => remembered(projectByCwd, cwd, () => projectOf(cwd));
-  const scopedBuckets = inProjectScope(buckets, projectId, (bucket) => projectOfCwd(bucket.cwd));
-  const scopedRuns = inProjectScope(
+  const scopedBuckets = filterByProject(buckets, projectId, (bucket) => projectOfCwd(bucket.cwd));
+  const scopedRuns = filterByProject(
     runs.filter((run) => run.command !== SERVE_COMMAND_NAME),
     projectId,
     (run) => projectOfCwd(run.cwd),

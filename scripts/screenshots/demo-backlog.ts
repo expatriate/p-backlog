@@ -162,7 +162,7 @@ class DemoRun {
     const steps: Step[] = [];
     for (let day = Math.floor(scenario.startDaysAgo); day >= 1; day--) {
       const evening = eveningOf(this.now, day);
-      steps.push({ at: evening, run: () => sweepClosed(this.paths.backlogRoot, new Date(evening), messages, warnPathErrors(console.error)) });
+      steps.push({ at: evening, run: () => sweepClosed(this.paths.backlogRoot, { now: new Date(evening), onError: warnPathErrors(console.error) }, messages) });
       if (day % scenario.checkEveryDays === 0) {
         steps.push({ at: evening + 1, run: () => this.check() });
       }

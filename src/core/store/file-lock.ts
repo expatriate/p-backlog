@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { rm, stat, writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { hasErrorCode } from "../errors";
 import { SECOND_MS } from "../model/dates";
-import { readTextOrNull } from "./fs-utils";
+import { readTextOrNull, statOrNull } from "./fs-utils";
 
 const RETRY_MS = 10;
 const ABANDONED_AFTER_MS = 30_000;
@@ -78,12 +78,9 @@ async function tryCreate(lock: string, token: string): Promise<boolean> {
 
 async function abandonedToken(lock: string): Promise<string | null> {
   const token = await readTextOrNull(lock);
-  try {
-    return token !== null && Date.now() - (await stat(lock)).mtimeMs > ABANDONED_AFTER_MS ? token : null;
-  } catch (error) {
-    if (hasErrorCode(error, "ENOENT")) return null;
-    throw error;
-  }
+  if (token === null) return null;
+  const info = await statOrNull(lock);
+  return info !== null && Date.now() - info.mtimeMs > ABANDONED_AFTER_MS ? token : null;
 }
 
 async function breakAbandoned(lock: string, abandoned: string): Promise<boolean> {

@@ -13,7 +13,7 @@ import { readSessionShown, rememberSessionShown } from "../../core/store/session
 import { HOOK_STOP_EVENT, hookMessage } from "../../core/hook-signature";
 import { reportContext } from "../../core/stats/scope";
 import { statsSignals } from "../../core/stats/signals/signals";
-import { signalsToShow } from "../../core/stats/signals/shown";
+import { signalsToShow } from "../../core/model/signals-shown";
 import type { Signal } from "../../core/stats/types";
 import type { Project, Task } from "../../core/model/types";
 import { AGENT_SPECS, AGENTS, type Agent } from "../agents/agent";

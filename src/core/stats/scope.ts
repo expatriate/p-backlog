@@ -25,14 +25,14 @@ type StatsScope = {
   unparsedTasks: number;
 };
 
-export function inProjectScope<T>(items: readonly T[], projectId: string | undefined, projectOf: (item: T) => string | null): T[] {
+export function filterByProject<T>(items: readonly T[], projectId: string | undefined, projectOf: (item: T) => string | null): T[] {
   return items.filter((item) => projectId === undefined || projectOf(item) === projectId);
 }
 
 function statsScope({ tasks, journals, projectId, unparsedTasks = [] }: StatsInput): StatsScope {
-  const scopedJournals = inProjectScope(journals, projectId, (journal) => journal.projectId);
-  const scopedTasks = inProjectScope(tasks, projectId, (task) => task.projectId);
-  const unparsedIds = new Set(inProjectScope(unparsedTasks, projectId, (task) => task.projectId).map((task) => task.id));
+  const scopedJournals = filterByProject(journals, projectId, (journal) => journal.projectId);
+  const scopedTasks = filterByProject(tasks, projectId, (task) => task.projectId);
+  const unparsedIds = new Set(filterByProject(unparsedTasks, projectId, (task) => task.projectId).map((task) => task.id));
   const journalStart = smallest(scopedJournals.flatMap((journal) => journal.events.map((event) => Date.parse(event.at))));
   return {
     tasksWithEpics: scopedTasks,

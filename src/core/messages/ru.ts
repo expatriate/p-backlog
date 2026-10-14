@@ -279,7 +279,7 @@ export const coreRu: CoreMessages = {
   forecastTail,
   signal,
   epicDoneReason,
-  fileBusy: ({ path, lock, seconds }) => `${path} занят другим процессом дольше ${seconds} с (${lock})`,
+  fileBusy: ({ path, lock, seconds }) => `${path} занят другим процессом дольше ${formatNumber("ru", seconds)}${NBSP}с (${lock})`,
   checkFix,
   checkProblem,
   runsNotTrimmed: (error) => `Не удалось обрезать журнал запусков: ${error}`,

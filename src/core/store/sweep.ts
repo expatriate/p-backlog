@@ -1,7 +1,6 @@
 import { dirname, join } from "node:path";
 import { buildIndex, isClosed, type BacklogIndex } from "../model/graph";
 import { parseId } from "../model/ids";
-import type { PathErrorHandler } from "../errors";
 import type { StoreMessages } from "../messages/store-messages";
 import { epicDoneClosure, isExpired, planEpicClosing, planEpicReopening } from "../model/lifecycle";
 import { deletedEvent } from "../journal/events";
@@ -39,16 +38,16 @@ type UpdateStep = { failures: SweepFailure[]; stillReferenced: ReadonlySet<strin
 
 export const SWEPT_AT_FILE = ".swept-at";
 
-export function sweepClosedWhenDue(root: string, now: Date, messages: StoreMessages, onError: PathErrorHandler): Promise<SweepReport | null> {
-  return runWhenDue(join(root, SWEPT_AT_FILE), now, () => sweepClosed(root, now, messages, onError));
+export function sweepClosedWhenDue(root: string, writes: WriteContext, messages: StoreMessages): Promise<SweepReport | null> {
+  return runWhenDue(join(root, SWEPT_AT_FILE), writes.now, () => sweepClosed(root, writes, messages));
 }
 
-export function sweepClosedAndStamp(root: string, now: Date, messages: StoreMessages, onError: PathErrorHandler): Promise<SweepReport> {
-  return runAndStamp(join(root, SWEPT_AT_FILE), now, () => sweepClosed(root, now, messages, onError));
+export function sweepClosedAndStamp(root: string, writes: WriteContext, messages: StoreMessages): Promise<SweepReport> {
+  return runAndStamp(join(root, SWEPT_AT_FILE), writes.now, () => sweepClosed(root, writes, messages));
 }
 
-export async function sweepClosed(root: string, now: Date, messages: StoreMessages, onError: PathErrorHandler): Promise<SweepReport> {
-  const writes: WriteContext = { now, onError };
+export async function sweepClosed(root: string, writes: WriteContext, messages: StoreMessages): Promise<SweepReport> {
+  const { now } = writes;
   const initial = await loadBacklog(root);
   const reopening = await reopenEpicsWithOpenTasks(initial, writes);
   const epics = await closeCompletedEpics(initial, writes, messages);

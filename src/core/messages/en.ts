@@ -265,7 +265,7 @@ export const coreEn: CoreMessages = {
   forecastTail,
   signal,
   epicDoneReason,
-  fileBusy: ({ path, lock, seconds }) => `${path} has been locked by another process for more than ${seconds} s (${lock})`,
+  fileBusy: ({ path, lock, seconds }) => `${path} has been locked by another process for more than ${formatNumber("en", seconds)}${NBSP}s (${lock})`,
   checkFix,
   checkProblem,
   runsNotTrimmed: (error) => `Could not trim the run log: ${error}`,

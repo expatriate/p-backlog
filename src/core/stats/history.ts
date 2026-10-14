@@ -13,6 +13,7 @@ import {
   type ProjectJournal,
   type TaskSnapshot,
 } from "../journal/events";
+import { taskCreation } from "../journal/creation";
 import { isClosed } from "../model/graph";
 import type { Priority, Resolution, Task, TaskCategory, TaskStatus, TaskType } from "../model/types";
 import { remembered } from "../remembered";
@@ -136,21 +137,20 @@ export function reopeningsOf(history: TaskHistory): Transition[] {
 }
 
 function historyOf(id: string, { projectId, final, created, categoryEvents, priorityEvents, transitions, candidates, verifications, filtered }: Known, unparsed: boolean): TaskHistory[] {
-  const createdIso = final?.created ?? created?.at;
-  const type = final?.type ?? created?.type;
-  if (createdIso === undefined || type === undefined) return [];
+  const creation = taskCreation(final, created);
+  if (creation === undefined) return [];
   const ordered = withoutUndoneClosings(chronological(transitions));
   const fateUnknown = final === undefined && unparsed;
   return [
     {
       id,
       projectId,
-      type,
-      createdAt: Date.parse(createdIso),
+      type: creation.type,
+      createdAt: creation.createdAt,
       source: final?.source ?? created?.source,
       reason: final?.reason,
       finalStatus: final?.status ?? (fateUnknown ? (ordered.at(-1)?.to ?? CREATED_STATUS) : VANISHED_STATUS),
-      transitions: fateUnknown ? ordered : withResolutionOf(final, [...ordered, ...restoredTransitions(final, ordered, Date.parse(createdIso))]),
+      transitions: fateUnknown ? ordered : withResolutionOf(final, [...ordered, ...restoredTransitions(final, ordered, creation.createdAt)]),
       priority: final?.priority ?? chronological(priorityEvents).at(-1)?.to ?? created?.priority,
       category: categoryOf(final, created, categoryEvents),
       found: created?.found,

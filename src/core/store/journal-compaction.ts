@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { groupBy } from "../collections";
+import { taskCreation } from "../journal/creation";
 import { episodeOpeners } from "../journal/episodes";
 import { journalEventSchema, type JournalEvent } from "../journal/events";
 import { runWhenDue } from "./daily";
@@ -8,7 +9,6 @@ import { fileExists, NEWLINE, parseJson, readBytesOrNull, replacePrefixAtomic } 
 import { JOURNAL_FILE } from "./journal";
 import { projectDirNames, taskIdsOnDisk } from "./load";
 import { retainedSince } from "../model/history-window";
-import type { TaskType } from "../model/types";
 
 const COMPACTED_STAMP = ".journal-compacted-at";
 
@@ -83,17 +83,13 @@ type CreatedTask = { task: string; createdAt: number };
 
 function oldestTask(events: readonly JournalEvent[]): string | undefined {
   const tasks = [...groupBy(events, (event) => event.task)].flatMap(([task, taskEvents]): CreatedTask[] => {
-    const creation = creationOf(taskEvents);
+    const creation = taskCreation(
+      taskEvents.find((event) => event.kind === "deleted")?.snapshot,
+      taskEvents.findLast((event) => event.kind === "created"),
+    );
     return creation?.type === "task" ? [{ task, createdAt: creation.createdAt }] : [];
   });
   return tasks.reduce<CreatedTask | undefined>((oldest, candidate) => (oldest === undefined || candidate.createdAt < oldest.createdAt ? candidate : oldest), undefined)?.task;
-}
-
-function creationOf(taskEvents: readonly JournalEvent[]): { createdAt: number; type: TaskType } | undefined {
-  const deleted = taskEvents.find((event) => event.kind === "deleted");
-  if (deleted !== undefined) return { createdAt: Date.parse(deleted.snapshot.created), type: deleted.snapshot.type };
-  const created = taskEvents.findLast((event) => event.kind === "created");
-  return created === undefined ? undefined : { createdAt: Date.parse(created.at), type: created.type };
 }
 
 function earliestEvent(events: readonly JournalEvent[]): JournalEvent | undefined {

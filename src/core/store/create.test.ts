@@ -9,7 +9,7 @@ import { readJournal } from "./journal";
 import { loadBacklog } from "./load";
 import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
-import { failOnWriteError } from "./testing/update-task";
+import { failOnPathError } from "./testing/path-errors";
 
 vi.mock("./fs-utils", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./fs-utils")>();
@@ -37,7 +37,7 @@ describe("createTask", () => {
       existingTasks: loaded.tasks,
       now: NOW,
       via: "cli",
-      onError: failOnWriteError,
+      onError: failOnPathError,
     });
 
     expect(result).toMatchObject({ ok: true, task: { id: "SPA-8", status: "backlog", tags: ["upload"], epic: "SPA-7" } });
@@ -52,7 +52,7 @@ describe("createTask", () => {
     await writeFiles(root, { "spa/project.md": `---\nname: spa\nprefix: SPA\nrepos: []\nissuedUpTo: 7\n---\n`, "spa/SPA-1.md": taskFile("SPA-1") });
     const { loaded, project } = await loadProject(root, "spa");
 
-    const result = await createTask(root, { project, input: { title: "После удаления" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnWriteError });
+    const result = await createTask(root, { project, input: { title: "После удаления" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnPathError });
 
     expect(result.ok && result.task.id).toBe("SPA-8");
   });
@@ -63,7 +63,7 @@ describe("createTask", () => {
     await mkdir(join(root, "spa/SPA-9"));
     const { loaded, project } = await loadProject(root, "spa");
 
-    const result = await createTask(root, { project, input: { title: "Следующая" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnWriteError });
+    const result = await createTask(root, { project, input: { title: "Следующая" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnPathError });
 
     expect(result.ok && result.task.id).toBe("SPA-2");
   });
@@ -76,9 +76,9 @@ describe("createTask", () => {
       "spa/SPA-2.md": taskFile("SPA-2", "status: done\nclosed: 2026-09-01T10:00:00+03:00\n"),
     });
     const { loaded, project } = await loadProject(root, "spa");
-    const sweep = await sweepClosed(root, NOW, coreMessages("ru"), failOnWriteError);
+    const sweep = await sweepClosed(root, { now: NOW, onError: failOnPathError }, coreMessages("ru"));
 
-    const result = await createTask(root, { project, input: { title: "После sweep" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnWriteError });
+    const result = await createTask(root, { project, input: { title: "После sweep" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnPathError });
 
     expect(sweep.deleted).toEqual(["SPA-2"]);
     expect(result.ok && result.task.id).toBe("SPA-3");
@@ -89,7 +89,7 @@ describe("createTask", () => {
     await writeFiles(root, { "spa/project.md": projectFile("SPA") });
     const { loaded, project } = await loadProject(root, "spa");
 
-    const result = await createTask(root, { project, input: { title: "X", epic: "SPA-99" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnWriteError });
+    const result = await createTask(root, { project, input: { title: "X", epic: "SPA-99" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnPathError });
 
     expect(result).toEqual({ ok: false, reason: "invalid", problems: [{ code: "epic-missing", epic: "SPA-99" }] });
     expect((await loadBacklog(root)).tasks).toEqual([]);
@@ -99,7 +99,7 @@ describe("createTask", () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": projectFile("SPA") });
     const { loaded, project } = await loadProject(root, "spa");
-    expect((await createTask(root, { project, input: { title: "  " }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnWriteError })).ok).toBe(false);
+    expect((await createTask(root, { project, input: { title: "  " }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnPathError })).ok).toBe(false);
   });
 
   it("параллельные создания получают разные ID", async () => {
@@ -108,7 +108,7 @@ describe("createTask", () => {
     const { loaded, project } = await loadProject(root, "spa");
 
     const results = await Promise.all(
-      Array.from({ length: 10 }, (_, n) => createTask(root, { project, input: { title: `Задача ${n}` }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnWriteError })),
+      Array.from({ length: 10 }, (_, n) => createTask(root, { project, input: { title: `Задача ${n}` }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnPathError })),
     );
 
     const ids = results.map((result) => (result.ok ? result.task.id : "ошибка"));
@@ -121,7 +121,7 @@ describe("createTask", () => {
     await writeFiles(root, { "spa/project.md": projectFile("SPA") });
     const { loaded, project } = await loadProject(root, "spa");
 
-    const result = await createTask(root, { project, input: { title: "Новая", priority: "high", source: "src/a.ts:1" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnWriteError });
+    const result = await createTask(root, { project, input: { title: "Новая", priority: "high", source: "src/a.ts:1" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnPathError });
 
     expect(result.ok).toBe(true);
     const journal = await readJournal(join(root, "spa"), "spa");

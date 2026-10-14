@@ -10,6 +10,7 @@ const CATALOGS = ["src/**/messages.*.ts"];
 const NODE_BUILTINS = { group: ["node:*"], message: "This layer is shared with the web UI; keep Node built-ins out of it." };
 const ABOVE_MODEL = { group: ["**/store/**", "**/check/**", "**/stats/**"], message: "Model and journal sit below the store; pass what they need in as arguments." };
 const ABOVE_STORE = { group: ["**/stats/**", "**/check/**"], message: "The store sits below stats and check; move the shared piece down to model or store." };
+const MESSAGE_CATALOGS = { regex: "(^|/)messages(/(?!store-messages$)[^/]+)?$", message: "The catalogs pull in stats and check types; take StoreMessages from messages/store-messages." };
 const HOST_PROCESS = ["env", "stdout", "stderr", "platform", "exit", "exitCode", "cwd"].map((property) => ({
   object: "process",
   property,
@@ -103,12 +104,12 @@ export default tseslint.config(
   },
   {
     files: ["src/core/model/**/*.ts", "src/core/journal/**/*.ts"],
-    rules: { "no-restricted-imports": ["error", { patterns: [NODE_BUILTINS, ABOVE_MODEL] }] },
+    rules: { "no-restricted-imports": ["error", { patterns: [NODE_BUILTINS, ABOVE_MODEL, MESSAGE_CATALOGS] }] },
   },
   {
     files: ["src/core/store/**/*.ts"],
     ignores: TESTS,
-    rules: { "no-restricted-imports": ["error", { patterns: [ABOVE_STORE] }] },
+    rules: { "no-restricted-imports": ["error", { patterns: [ABOVE_STORE, MESSAGE_CATALOGS] }] },
   },
   {
     files: ["src/core/messages/en.ts"],

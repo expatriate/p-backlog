@@ -96,6 +96,18 @@ describe("replacePrefixAtomic", () => {
     expect(await readFile(path, "utf8")).toBe("kept\nlate\n");
   });
 
+  it("на Windows строки, дописанные до вызова, попадают в новый файл один раз, сколько бы раз ни повторялась замена", async () => {
+    const path = join(await makeTempDir(), "journal.jsonl");
+    await writeFile(path, "old\nkept\n");
+    const read = await readFile(path);
+    await appendFile(path, "late\n");
+    vi.mocked(rename).mockRejectedValueOnce(Object.assign(new Error("busy"), { code: "EBUSY" }));
+
+    await onWindows(() => replacePrefixAtomic(path, read, "kept\n"));
+
+    expect(await readFile(path, "utf8")).toBe("kept\nlate\n");
+  });
+
   it("файл, который за это время заменили другим, а не дописали, остаётся как есть", async () => {
     const path = join(await makeTempDir(), "journal.jsonl");
     await writeFile(path, "old\nkept\n");

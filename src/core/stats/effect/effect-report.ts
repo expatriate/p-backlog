@@ -8,7 +8,7 @@ import { median, smallest, sum } from "../../numbers";
 import { countBy } from "../../collections";
 import { period, type Period } from "../period";
 import { grainPeriods } from "../report-periods";
-import { inProjectScope, type ReportContext } from "../scope";
+import { filterByProject, type ReportContext } from "../scope";
 import type { CollectedCode, CommitUnit, ProjectCode } from "../../code/types";
 import type { EffectProject, EffectReport, EffectTotals, EffectPeriod } from "../types";
 import { dayWindows } from "../days";
@@ -29,7 +29,7 @@ export function effectReport(context: ReportContext, code: CollectedCode, wholeB
     histories,
   } = context;
   const statsWindow = statsPeriod(now);
-  const projects = inProjectScope(code.projects, projectId, (project) => project.projectId).filter((project) => project.repos.length > 0);
+  const projects = filterByProject(code.projects, projectId, (project) => project.projectId).filter((project) => project.repos.length > 0);
   const deferredByAgent = createdIn(histories, statsWindow).filter((history) => history.found === "incidental");
   const deferred = buildDeferred(deferredByAgent, retainedFixes(histories, now), code);
   const estimate = estimator(estimateSamples(retainedFixes(wholeBacklog.histories, now), code));
