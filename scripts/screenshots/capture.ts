@@ -12,6 +12,7 @@ import { loopbackOrigin } from "../../src/core/server-address";
 import { DAY_MS } from "../../src/core/model/dates";
 import { SERVE_COMMAND_NAME } from "../../src/core/serve-command";
 import { SEEN_TASKS_STORAGE_KEY } from "../../src/web/list/use-seen-tasks";
+import { PORT_GUARD_ENV } from "../../tests/port-guard-config";
 
 export type Shot = { name: string; path: string; viewport?: { width: number; height: number } };
 
@@ -29,8 +30,8 @@ const QUANTIZED_PNG = { palette: true, quality: 90, effort: 10, compressionLevel
 export async function startDemoServer(repoRoot: string, home: string, backlogRoot: string, port: number): Promise<DemoServer> {
   const origin = loopbackOrigin(port);
   if (await serverResponds(origin, SERVER_PROBE_TIMEOUT_MS)) throw new Error(`Port ${port} is already taken; set SCREENSHOTS_PORT to a free port`);
-  const child: ChildProcess = spawn(process.execPath, [join(repoRoot, "dist/cli.js"), SERVE_COMMAND_NAME], {
-    env: { PATH: process.env.PATH, HOME: home, BACKLOG_DIR: backlogRoot, CLAUDE_CONFIG_DIR: join(home, ".claude"), PORT: String(port) },
+  const child: ChildProcess = spawn(process.execPath, [join(repoRoot, "dist/cli.js"), SERVE_COMMAND_NAME, "--port", String(port)], {
+    env: { PATH: process.env.PATH, HOME: home, BACKLOG_DIR: backlogRoot, CLAUDE_CONFIG_DIR: join(home, ".claude"), PORT: String(port), ...PORT_GUARD_ENV },
     stdio: ["ignore", "ignore", "inherit"],
   });
   const stop = async (): Promise<void> => {
