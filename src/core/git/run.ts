@@ -66,9 +66,14 @@ export function topLiteralPathspecs(paths: readonly string[]): string[] {
 export function runGitSync(repo: string, args: string[]): string | null {
   try {
     return execFileSync("git", gitArgs(repo, args), { encoding: "utf8", maxBuffer: GIT_OUTPUT_LIMIT, stdio: ["ignore", "pipe", "ignore"] });
-  } catch {
-    return null;
+  } catch (error) {
+    if (isGitProcessFailure(error)) return null;
+    throw error;
   }
+}
+
+function isGitProcessFailure(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "status" in error;
 }
 
 function gitArgs(repo: string, args: readonly string[]): string[] {

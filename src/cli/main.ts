@@ -1,6 +1,6 @@
 import { mebibytesOf } from "../core/api/memory";
 import { BYTES_PER_KIBIBYTE } from "../core/numbers";
-import { errorText } from "../core/errors";
+import { errorText, hasErrorCode } from "../core/errors";
 import { SERVE_COMMAND_NAME } from "../core/serve-command";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -16,6 +16,8 @@ import { cliMessages } from "./messages";
 import { commandName, runCli } from "./run";
 
 suppressSqliteExperimentalWarning();
+
+function alreadyReportedByRunCli(): void {}
 
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return "";
@@ -42,8 +44,9 @@ const exitCode = await runCli(argv, {
     try {
       process.kill(pid);
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      if (hasErrorCode(error, "ESRCH")) return false;
+      throw error;
     }
   },
   env: process.env,
@@ -64,7 +67,7 @@ if (command !== SERVE_COMMAND_NAME) {
     rssMb: mebibytesOf(process.resourceUsage().maxRSS * BYTES_PER_KIBIBYTE),
     exitCode,
   };
-  const language = await readLanguageOrLocale(backlogRoot, process.env);
+  const language = await readLanguageOrLocale(backlogRoot, process.env, alreadyReportedByRunCli);
   await appendRun(backlogRoot, run).catch((error: unknown) => warn(cliMessages(language).runNotRecorded(errorText(error))));
   await tidyAfterCommand({ backlogRoot, command, language, now: new Date(), warn });
 }

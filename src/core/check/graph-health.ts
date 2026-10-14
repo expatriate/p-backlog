@@ -18,6 +18,8 @@ export async function projectGraphHealth(project: Project, tasks: readonly Task[
 
 function unreadableRepoHasNoGraph(): void {}
 
+function unreadableSourceIsAbsent(): void {}
+
 export function graphHealth(repo: string | undefined, tasks: readonly Task[]): GraphHealth {
   const pinned = tasks.filter((task) => isReviewable(task) && sourceRange(task.source) !== null);
   const unusable = (state: GraphState): GraphHealth => ({ state, pinned: pinned.length, resolved: 0 });
@@ -25,7 +27,7 @@ export function graphHealth(repo: string | undefined, tasks: readonly Task[]): G
   const graph = openCodeGraph(repo);
   if (graph === null) return unusable("unreadable");
   try {
-    const hashOf = fileHashes(repo);
+    const hashOf = fileHashes(repo, unreadableSourceIsAbsent);
     const symbolAt = symbolLookup(graph, hashOf);
     const resolved = pinned.filter((task) => symbolOfSource(symbolAt, task.source) !== null).length;
     return { state: isStale(graph, pinned, hashOf) ? "stale" : "fresh", pinned: pinned.length, resolved };

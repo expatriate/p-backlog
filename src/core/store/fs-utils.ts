@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { realpathSync, type Dirent, type Stats } from "node:fs";
+import { readFileSync, realpathSync, type Dirent, type Stats } from "node:fs";
 import { access, appendFile, chmod, link, lstat, open, readdir, readFile, readlink, rename, rm, stat, writeFile, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -75,13 +75,21 @@ export function linkTargetOrNull(path: string): Promise<string | null> {
   return nullWhenMissing(readlink(path), NO_LINK_CODES);
 }
 
-export function realpathOrNull(path: string): string | null {
+function nullWhenMissingSync<T>(read: () => T): T | null {
   try {
-    return realpathSync.native(path);
+    return read();
   } catch (error) {
     if (isNoFile(error)) return null;
     throw error;
   }
+}
+
+export function realpathOrNull(path: string): string | null {
+  return nullWhenMissingSync(() => realpathSync.native(path));
+}
+
+export function readBytesOrNullSync(path: string): Buffer | null {
+  return nullWhenMissingSync(() => readFileSync(path));
 }
 
 function hasAnyErrorCode(error: unknown, codes: readonly string[]): boolean {
@@ -163,8 +171,9 @@ export function parseJson<T>(text: string, schema: z.ZodType<T>): T | null {
   try {
     const parsed = schema.safeParse(JSON.parse(text));
     return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof SyntaxError) return null;
+    throw error;
   }
 }
 

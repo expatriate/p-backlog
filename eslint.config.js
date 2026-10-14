@@ -43,10 +43,12 @@ const RETURNS_CONSTANT = `[body.type='BlockStatement'][body.body.length=1][body.
 const HANDLER_WITHOUT_ERROR = ":matches(ArrowFunctionExpression, FunctionExpression)[params.length=0]";
 const CATCH_FALLBACK = `CallExpression[callee.property.name='catch'] > ${HANDLER_WITHOUT_ERROR}:matches(${constantAt("body")}, ${EMPTY_BODY}, ${RETURNS_CONSTANT})`;
 const THEN_REJECTION_HANDLER = `CallExpression[callee.property.name='then'] > ${HANDLER_WITHOUT_ERROR}:nth-child(2):matches([body.type!='BlockStatement'], ${EMPTY_BODY}, ${RETURNS_CONSTANT})`;
+const CATCH_CLAUSE_FALLBACK = `CatchClause:not([param]) > BlockStatement[body.length=1] > ReturnStatement:matches(${constantAt("argument")}, :not([argument]))`;
 const IGNORES_ERROR = "The handler takes no error, so it cannot tell the failure it expects from the rest";
 const swallowedErrors = (advice) => [
   { selector: CATCH_FALLBACK, message: `${IGNORES_ERROR}; ${advice} A zod schema takes its fallback as a value: schema.catch(value).` },
   { selector: THEN_REJECTION_HANDLER, message: `${IGNORES_ERROR}; ${advice}` },
+  { selector: CATCH_CLAUSE_FALLBACK, message: `The catch takes no error, so it cannot tell the failure it expects from the rest; ${advice}` },
 ];
 const NODE_SWALLOWED_ERRORS = swallowedErrors("expect a missing file through readTextOrNull, fileExists, statOrNull or another fs-utils helper, and hand other failures to the caller (onError).");
 const BROWSER_SWALLOWED_ERRORS = swallowedErrors("handle the failure you expect and let the others surface.");

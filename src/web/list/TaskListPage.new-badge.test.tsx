@@ -93,7 +93,7 @@ describe("шильдик «новая»", () => {
   it("без доступа к localStorage просмотренные помнятся до перезагрузки: старые задачи не новые, появившаяся после загрузки новая, пока её не открыли", async () => {
     freezeDate("2026-09-17T10:00:00+03:00");
     const denied = () => {
-      throw new Error("доступ запрещён");
+      throw new DOMException("доступ запрещён", "SecurityError");
     };
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(denied);
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(denied);

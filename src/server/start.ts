@@ -56,7 +56,8 @@ export async function startServer({ root, port, home, env, platform, log, warn, 
 
   const startupMessages = serverMessages(settledLanguage);
 
-  const readLanguage = () => readLanguageOrLocale(root, env);
+  const onLanguageUnreadable = reportEachNewFailure((detail) => warn(startupMessages.languageUnreadable(detail)));
+  const readLanguage = () => readLanguageOrLocale(root, env, onLanguageUnreadable);
   const readMessages = () => readLanguage().then(serverMessages);
   const warnLocalized = localizedWarn(readLanguage, warn);
   const usage = createUsageScanner({ root, claudeProjectsDir: claudeProjectsDir(env, home), warn: warnLocalized, now });
@@ -91,6 +92,16 @@ export async function startServer({ root, port, home, env, platform, log, warn, 
   }
   log(startupMessages.serverStarted(browserOrigin(actualPort), root));
   return { port: actualPort, close };
+}
+
+function reportEachNewFailure(report: (detail: string) => void): (error: unknown) => void {
+  const reported = new Set<string>();
+  return (error) => {
+    const detail = errorText(error);
+    if (reported.has(detail)) return;
+    reported.add(detail);
+    report(detail);
+  };
 }
 
 export function closeOnStopSignal(server: RunningServer): Promise<void> {

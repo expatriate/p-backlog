@@ -550,7 +550,7 @@ describe("масштаб графиков", () => {
     { refused: "только запись", methods: ["setItem"] as const },
   ])("localStorage отказывает ($refused) — масштаб всё равно переключается", async ({ methods }) => {
     const denied = () => {
-      throw new Error("доступ запрещён");
+      throw new DOMException("доступ запрещён", "SecurityError");
     };
     for (const method of methods) vi.spyOn(Storage.prototype, method).mockImplementation(denied);
     const app = await renderApp(FILES, "/stats");

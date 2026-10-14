@@ -61,8 +61,9 @@ function readRaw(key: string): string | null {
   if (kept !== undefined) return kept;
   try {
     return window.localStorage.getItem(key);
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof DOMException) return null;
+    throw error;
   }
 }
 

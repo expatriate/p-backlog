@@ -39,7 +39,10 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
 
   const app = createApp({
     root,
-    readLanguage: () => readLanguageOrLocale(root, {}),
+    readLanguage: () =>
+      readLanguageOrLocale(root, {}, (error) => {
+        throw error;
+      }),
     changes,
     allowedHosts: new Set([TEST_HOST]),
     home: root,

@@ -34,8 +34,9 @@ function parseRevision(data: unknown): Revision | null {
   try {
     const parsed: unknown = JSON.parse(data);
     return isRevision(parsed) ? parsed : null;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof SyntaxError) return null;
+    throw error;
   }
 }
 

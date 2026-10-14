@@ -38,10 +38,11 @@ export async function settleLanguage(root: string, env: NodeJS.ProcessEnv): Prom
   return { language, invalidSettingsFile: source === "invalid-settings", saveFailure };
 }
 
-export async function readLanguageOrLocale(root: string, env: NodeJS.ProcessEnv): Promise<Language> {
+export async function readLanguageOrLocale(root: string, env: NodeJS.ProcessEnv, onUnreadable: (error: unknown) => void): Promise<Language> {
   try {
     return (await decideLanguage(root, env)).language;
-  } catch {
+  } catch (error) {
+    onUnreadable(error);
     return localeLanguage(env);
   }
 }

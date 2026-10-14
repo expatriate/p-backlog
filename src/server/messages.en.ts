@@ -28,6 +28,7 @@ export const serverEn: ServerMessages = {
   conflictedDuringSweep: (ids) => `Tasks changed during the sweep, will retry next time: ${ids}`,
   invalidAfterSweep: (detail) => `Could not update tasks, fix the files: ${detail}`,
 
+  languageUnreadable: (detail) => `Could not read the language setting, messages follow the system language: ${detail}`,
   transcriptsScanFailed: (detail) => `Could not read Claude Code transcripts: ${detail}`,
   watcherError: (root, detail) => `Watcher for directory ${root}: ${detail}`,
 

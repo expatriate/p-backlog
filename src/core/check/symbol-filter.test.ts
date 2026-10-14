@@ -13,6 +13,11 @@ import { fileHashes, filterBySymbol, symbolLookup, symbolNames, type SymbolLooku
 import type { CodeGraph } from "../code-review-graph/graph-db";
 import { diffsSince, type DiffSince } from "./repo-facts";
 
+const hashesOf = (repo: string) =>
+  fileHashes(repo, (path, error) => {
+    throw new Error(`unexpected unreadable source ${path}`, { cause: error });
+  });
+
 const SYMBOLS = [
   { name: "uploadFile", kind: "Function", from: 1, to: 3 },
   { name: "retry", kind: "Function", from: 5, to: 7 },
@@ -45,7 +50,7 @@ describe("filterBySymbol", () => {
     const repo = await repoWithChange({ inSymbol: false });
     const graph = openCodeGraph(repo);
 
-    expect(await filterBySymbol([candidate], context(task, diffsSince(repo), symbolLookup(graph, fileHashes(repo))))).toEqual({ kept: [], filtered: [{ task: "SPA-1", symbol: "uploadFile" }] });
+    expect(await filterBySymbol([candidate], context(task, diffsSince(repo), symbolLookup(graph, hashesOf(repo))))).toEqual({ kept: [], filtered: [{ task: "SPA-1", symbol: "uploadFile" }] });
     graph?.close();
   });
 
@@ -53,14 +58,14 @@ describe("filterBySymbol", () => {
     const repo = await repoWithChange({ inSymbol: true });
     const graph = openCodeGraph(repo);
 
-    expect((await filterBySymbol([candidate], context(task, diffsSince(repo), symbolLookup(graph, fileHashes(repo))))).kept).toEqual([{ ...candidate, method: "symbol" }]);
+    expect((await filterBySymbol([candidate], context(task, diffsSince(repo), symbolLookup(graph, hashesOf(repo))))).kept).toEqual([{ ...candidate, method: "symbol" }]);
     graph?.close();
   });
 
   it("без графа кандидат остаётся в том же сценарии", async () => {
     const repo = await repoWithChange({ inSymbol: false });
 
-    expect((await filterBySymbol([candidate], context(task, diffsSince(repo), symbolLookup(null, fileHashes(repo))))).kept).toEqual([candidate]);
+    expect((await filterBySymbol([candidate], context(task, diffsSince(repo), symbolLookup(null, hashesOf(repo))))).kept).toEqual([candidate]);
   });
 
   it("файл изменился после сборки графа — кандидат остаётся", async () => {
@@ -68,7 +73,7 @@ describe("filterBySymbol", () => {
     const graph = openCodeGraph(repo);
     await writeFile(join(repo, "src/upload.ts"), body("v3", "v3"));
 
-    expect((await filterBySymbol([candidate], context(task, diffsSince(repo), symbolLookup(graph, fileHashes(repo))))).kept).toEqual([candidate]);
+    expect((await filterBySymbol([candidate], context(task, diffsSince(repo), symbolLookup(graph, hashesOf(repo))))).kept).toEqual([candidate]);
     graph?.close();
   });
 
@@ -78,7 +83,7 @@ describe("filterBySymbol", () => {
     const spanning = makeTask({ id: "SPA-9", source: "src/upload.ts:2-6", created: "2026-09-11T10:00:00+03:00" });
     const spanningCandidate: Candidate = { kind: "source-changed", task: { id: "SPA-9", title: spanning.title }, path: "src/upload.ts", commits: [], uncommitted: false, method: "file" };
 
-    expect((await filterBySymbol([spanningCandidate], context(spanning, diffsSince(repo), symbolLookup(graph, fileHashes(repo))))).kept).toEqual([{ ...spanningCandidate, method: "symbol" }]);
+    expect((await filterBySymbol([spanningCandidate], context(spanning, diffsSince(repo), symbolLookup(graph, hashesOf(repo))))).kept).toEqual([{ ...spanningCandidate, method: "symbol" }]);
     graph?.close();
   });
 
@@ -86,7 +91,7 @@ describe("filterBySymbol", () => {
     const repo = await repoWithChange({ inSymbol: false });
     const graph = openCodeGraph(`${repo}/`);
 
-    expect((await filterBySymbol([candidate], context(task, diffsSince(`${repo}/`), symbolLookup(graph, fileHashes(`${repo}/`))))).kept).toEqual([]);
+    expect((await filterBySymbol([candidate], context(task, diffsSince(`${repo}/`), symbolLookup(graph, hashesOf(`${repo}/`))))).kept).toEqual([]);
     graph?.close();
   });
 
@@ -95,7 +100,7 @@ describe("filterBySymbol", () => {
     const graph = openCodeGraph(repo);
     const missing: Candidate = { kind: "source-missing", task: { id: "SPA-2", title: "Задача SPA-2" }, path: "src/gone.ts" };
 
-    expect((await filterBySymbol([missing], context(task, diffsSince(repo), symbolLookup(graph, fileHashes(repo))))).kept).toEqual([missing]);
+    expect((await filterBySymbol([missing], context(task, diffsSince(repo), symbolLookup(graph, hashesOf(repo))))).kept).toEqual([missing]);
     graph?.close();
   });
 });
@@ -114,7 +119,7 @@ describe("symbolNames", () => {
     };
     const tasks = ["SPA-1", "SPA-2", "SPA-3"].map((id, index) => makeTask({ id, title: "Загрузка обрывается на последнем шаге", source: `src/upload.ts:${index + 1}` }));
 
-    const duplicates = duplicateCandidates(tasks, symbolNames(symbolLookup(counting, fileHashes(repo)), declaredSources(tasks)));
+    const duplicates = duplicateCandidates(tasks, symbolNames(symbolLookup(counting, hashesOf(repo)), declaredSources(tasks)));
 
     expect(duplicates).toHaveLength(3);
     expect(asked).toBe(3);
@@ -140,7 +145,7 @@ describe("symbolNames", () => {
       makeTask({ id: "SPA-2", title: "Размер загрузки остаётся от прошлой попытки", source: "src/upload.ts:3" }),
     ];
 
-    expect(duplicateCandidates(tasks, symbolNames(symbolLookup(graph, fileHashes(repo)), declaredSources(tasks)))).toMatchObject([{ match: "title" }]);
+    expect(duplicateCandidates(tasks, symbolNames(symbolLookup(graph, hashesOf(repo)), declaredSources(tasks)))).toMatchObject([{ match: "title" }]);
     graph?.close();
   });
 
@@ -165,7 +170,7 @@ describe("symbolNames", () => {
       makeTask({ id: "SPA-2", title: "Отрисовка списка сбрасывает выделенную строку", source: "src/view.ts:8" }),
     ];
 
-    expect(duplicateCandidates(tasks, symbolNames(symbolLookup(graph, fileHashes(repo)), declaredSources(tasks)))).toMatchObject([{ match: "title" }]);
+    expect(duplicateCandidates(tasks, symbolNames(symbolLookup(graph, hashesOf(repo)), declaredSources(tasks)))).toMatchObject([{ match: "title" }]);
     graph?.close();
   });
 });

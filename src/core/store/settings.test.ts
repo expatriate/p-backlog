@@ -4,6 +4,10 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { readLanguageOrLocale, settingsFilePath, settleLanguage, writeSettings } from "./settings";
 import { makeTempDir, projectFile, writeFiles } from "./testing/temp-dirs";
 
+function failOnUnreadable(error: unknown): never {
+  throw error;
+}
+
 describe("язык беклога", () => {
   it("настройка главнее всего", async () => {
     const root = await makeTempDir();
@@ -54,15 +58,17 @@ describe("язык беклога", () => {
     await writeFiles(withProjects, { "spa/project.md": projectFile("SPA") });
     const empty = await makeTempDir();
 
-    expect(await readLanguageOrLocale(withProjects, { LANG: "en_US.UTF-8" })).toBe("ru");
-    expect(await readLanguageOrLocale(empty, { LANG: "en_US.UTF-8" })).toBe("en");
+    expect(await readLanguageOrLocale(withProjects, { LANG: "en_US.UTF-8" }, failOnUnreadable)).toBe("ru");
+    expect(await readLanguageOrLocale(empty, { LANG: "en_US.UTF-8" }, failOnUnreadable)).toBe("en");
     await expect(access(settingsFilePath(withProjects))).rejects.toThrow();
   });
 
-  it("нечитаемый .settings.json при чтении не роняет вызывающего — язык по локали", async () => {
+  it("нечитаемый .settings.json при чтении не роняет вызывающего — язык по локали, а сбой передаётся ему", async () => {
     const root = await makeTempDir();
     await mkdir(settingsFilePath(root));
+    const failures: unknown[] = [];
 
-    expect(await readLanguageOrLocale(root, { LANG: "ru_RU.UTF-8" })).toBe("ru");
+    expect(await readLanguageOrLocale(root, { LANG: "ru_RU.UTF-8" }, (error) => failures.push(error))).toBe("ru");
+    expect(failures).toMatchObject([{ code: "EISDIR" }]);
   });
 });

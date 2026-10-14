@@ -1,12 +1,11 @@
 import { createHash } from "node:crypto";
-import { stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { attributeLine, flushEstimates, newTranscriptState, transcriptLineSchema } from "../stats/cost/attribute";
 import { sum } from "../numbers";
 import { statsPeriod } from "../stats/weeks";
 import { addTokens } from "../stats/cost/token-counts";
 import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
-import { EMPTY_FINGERPRINT, listDir, NEWLINE, parseJson, readAt, readFileAt, withFile } from "../store/fs-utils";
+import { EMPTY_FINGERPRINT, listDir, NEWLINE, parseJson, readAt, readFileAt, statOrNull, withFile } from "../store/fs-utils";
 import { USAGE_CACHE_VERSION, type UsageCache, type UsageCacheEntry } from "./usage-cache";
 import { retainedSince } from "../model/history-window";
 
@@ -46,12 +45,8 @@ export async function listTranscripts(claudeProjectsDir: string): Promise<Transc
 }
 
 async function listedFile(path: string): Promise<TranscriptFile[]> {
-  try {
-    const { size, mtimeMs } = await stat(path);
-    return [{ path, size, mtimeMs }];
-  } catch {
-    return [];
-  }
+  const stats = await statOrNull(path);
+  return stats === null ? [] : [{ path, size: stats.size, mtimeMs: stats.mtimeMs }];
 }
 
 type ChunkLimits = { longestReadableLine: number; now: Date };

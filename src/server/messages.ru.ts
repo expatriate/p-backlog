@@ -26,6 +26,7 @@ export const serverRu = {
   conflictedDuringSweep: (ids: string): string => `Задачи менялись во время прохода, повторю при следующем: ${ids}`,
   invalidAfterSweep: (detail: string): string => `Не удалось обновить задачи, исправьте файлы: ${detail}`,
 
+  languageUnreadable: (detail: string): string => `Не удалось прочитать настройку языка, сообщения идут на языке системы: ${detail}`,
   transcriptsScanFailed: (detail: string): string => `Не удалось прочитать расшифровки Claude Code: ${detail}`,
   watcherError: (root: string, detail: string): string => `Наблюдатель за каталогом ${root}: ${detail}`,
 

@@ -114,6 +114,20 @@ describe("startServer", () => {
     }
   });
 
+  it("настройка языка, ставшая нечитаемой, попадает в лог службы один раз, а ответы идут на языке из env", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const warnings: string[] = [];
+    const server = await startServer({ ...QUIET_HOST, warn: (line) => warnings.push(line), root, port: 0, home, env: { LC_ALL: "en_US.UTF-8" } });
+    try {
+      await mkdir(settingsFilePath(root));
+      for (let request = 0; request < 2; request++) expect(await (await fetch(`http://127.0.0.1:${server.port}/api/settings`)).json()).toEqual({ language: "en" });
+      expect(warnings).toEqual([expect.stringMatching(/^Не удалось прочитать настройку языка.*EISDIR/)]);
+    } finally {
+      await server.close();
+    }
+  });
+
   it("записывает PID в файл, если он задан, и удаляет его при закрытии", async () => {
     const home = await makeTempDir();
     const pidFile = join(home, "server.pid");

@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CodeGraph, GraphSymbol, GraphSymbolKind } from "../code-review-graph/graph-db";
 import type { FilteredSighting } from "../journal/events";
@@ -11,14 +10,16 @@ import { sourcePath } from "../model/source";
 import type { CurrentSources } from "./current-source";
 import type { DiffSince } from "./repo-facts";
 import { remembered } from "../remembered";
+import type { PathErrorHandler } from "../errors";
+import { readBytesOrNullSync, readReportingFailureSync } from "../store/fs-utils";
 
 export type SymbolLookup = (path: string, line: number) => GraphSymbol | null;
 
 export type FileHashes = (path: string) => string | null;
 
-export function fileHashes(repo: string): FileHashes {
+export function fileHashes(repo: string, onUnreadable: PathErrorHandler): FileHashes {
   const hashes = new Map<string, string | null>();
-  return (path) => remembered(hashes, path, () => fileHash(join(repo, path)));
+  return (path) => remembered(hashes, path, () => fileHash(join(repo, path), onUnreadable));
 }
 
 export function symbolLookup(graph: CodeGraph | null, hashOf: FileHashes): SymbolLookup {
@@ -82,12 +83,9 @@ function watchedRange(symbol: GraphSymbol, declared: LineRange): LineRange {
   return { from: Math.min(symbol.from, declared.from), to: Math.max(symbol.to, declared.to) };
 }
 
-function fileHash(path: string): string | null {
-  try {
-    return createHash("sha256").update(readFileSync(path)).digest("hex");
-  } catch {
-    return null;
-  }
+function fileHash(path: string, onUnreadable: PathErrorHandler): string | null {
+  const bytes = readReportingFailureSync(path, readBytesOrNullSync, onUnreadable);
+  return bytes === null ? null : createHash("sha256").update(bytes).digest("hex");
 }
 
 function overlaps(range: LineRange, watched: LineRange): boolean {

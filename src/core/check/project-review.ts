@@ -39,7 +39,7 @@ type LineJudgement = { kept: Candidate[]; linesIntact: string[]; notOnBranch: st
 
 type PlanSettlement = { untouchable: ReadonlySet<string>; relocatable: readonly string[] };
 
-type SightingScope = { repo: string; facts: RepoFacts; graph: CodeGraph | null; mode: CheckMode };
+type SightingScope = { repo: string; facts: RepoFacts; graph: CodeGraph | null; mode: CheckMode; onUnreadable: PathErrorHandler };
 
 type DuplicateScope = { mode: CheckMode; skipped: ReadonlySet<string> };
 
@@ -69,7 +69,7 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
   const review = await reviewedCode(readable, scope);
   const graph = openCodeGraph(repo);
   try {
-    const context = await projectContext(readable, review, { repo, facts, graph, mode });
+    const context = await projectContext(readable, review, { repo, facts, graph, mode, onUnreadable });
     const sighted = await sightedBySymbol(tasks, review, context, { mode, skipped });
     const judged = await judgedAgainstMerges(sighted, context, scope);
     return { projectId: project.id, ...judged, skipped: [...skipped], problems: historyProblems(project, repo, facts.history), unchecked: facts.history === "read" ? [] : ["source-changed"] };
@@ -85,9 +85,9 @@ async function reviewedCode(tasks: readonly Task[], scope: MergeScope): Promise<
   return withRenamesFollowed(codeReview(tasks, facts, knownCommits, anchors), tasks, scope);
 }
 
-async function projectContext(tasks: readonly Task[], review: CodeReview, { repo, facts, graph, mode }: SightingScope): Promise<ProjectContext> {
+async function projectContext(tasks: readonly Task[], review: CodeReview, { repo, facts, graph, mode, onUnreadable }: SightingScope): Promise<ProjectContext> {
   const diffs = repoDiffs(repo);
-  const symbolAt = symbolLookup(graph, fileHashes(repo));
+  const symbolAt = symbolLookup(graph, fileHashes(repo, onUnreadable));
   const changedIds = new Set(review.candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? [candidate.task.id] : [])));
   const locating = mode === "full" && graph !== null ? tasks : tasks.filter((task) => changedIds.has(task.id));
   const traces = await traceSources(locating, facts, diffs);

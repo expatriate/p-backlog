@@ -1,6 +1,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync, StatementSync } from "node:sqlite";
+import { hasErrorCode } from "../errors";
 
 const SYMBOL_KINDS = ["Class", "Function", "Type", "Test"] as const;
 
@@ -38,7 +39,7 @@ export function openCodeGraph(repo: string): CodeGraph | null {
     }
     return codeGraph(db, root);
   } catch {
-    closeQuietly(db);
+    closeIfOpen(db);
     return null;
   }
 }
@@ -69,7 +70,7 @@ function codeGraph(db: DatabaseSync, repo: string): CodeGraph {
       return row === undefined ? null : { qualifiedName: row.qualified_name, kind: symbolKindOf(row.kind), from: row.line_start, to: row.line_end };
     },
     close() {
-      closeQuietly(db);
+      closeIfOpen(db);
     },
   };
 }
@@ -86,10 +87,10 @@ function ask<T>(statement: StatementSync, run: (statement: StatementSync) => T, 
   }
 }
 
-function closeQuietly(db: DatabaseSync | null): void {
+function closeIfOpen(db: DatabaseSync | null): void {
   try {
     db?.close();
-  } catch {
-    return;
+  } catch (error) {
+    if (!hasErrorCode(error, "ERR_INVALID_STATE")) throw error;
   }
 }
