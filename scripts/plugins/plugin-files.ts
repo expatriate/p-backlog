@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Language } from "../../src/core/i18n/language";
 import { SKILL_SOURCES_DIR, SKILL_VARIANTS } from "../../src/cli/skill-variants";
 import { SKILL_NAME } from "../../src/core/skill-name";
+import { jsonFileText } from "../../src/core/store/fs-utils";
 
 const MARKETPLACE = "p-backlog";
 const OWNER = { name: "expatriate" };
@@ -25,7 +26,7 @@ export async function pluginFiles(repoRoot: string): Promise<Record<string, stri
   const manifest = packageManifestSchema.parse(JSON.parse(await readFile(join(repoRoot, "package.json"), "utf8")));
   const stopHook = await readFile(join(repoRoot, STOP_HOOK_SOURCE), "utf8");
   const files: Record<string, string> = {
-    ".claude-plugin/marketplace.json": json({
+    ".claude-plugin/marketplace.json": jsonFileText({
       name: MARKETPLACE,
       owner: OWNER,
       plugins: PLUGINS.map(({ name, description }) => ({ name, source: `./plugins/${name}`, description })),
@@ -33,7 +34,7 @@ export async function pluginFiles(repoRoot: string): Promise<Record<string, stri
   };
   for (const plugin of PLUGINS) {
     const dir = `plugins/${plugin.name}`;
-    files[`${dir}/.claude-plugin/plugin.json`] = json({
+    files[`${dir}/.claude-plugin/plugin.json`] = jsonFileText({
       name: plugin.name,
       description: plugin.description,
       version: manifest.version,
@@ -44,12 +45,10 @@ export async function pluginFiles(repoRoot: string): Promise<Record<string, stri
       keywords: KEYWORDS,
     });
     files[`${dir}/skills/${SKILL_NAME}/SKILL.md`] = await readFile(join(repoRoot, plugin.skillDir, "SKILL.md"), "utf8");
-    files[`${dir}/hooks/hooks.json`] = json(HOOKS);
+    files[`${dir}/hooks/hooks.json`] = jsonFileText(HOOKS);
     files[`${dir}/hooks/stop.mjs`] = stopHook;
   }
   return files;
 }
 
-function json(value: unknown): string {
-  return `${JSON.stringify(value, null, 2)}\n`;
-}
+

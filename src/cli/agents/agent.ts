@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { claudeDir, claudeSettingsPath, claudeSkillsDir } from "../../core/claude-dir";
 import type { PathErrorHandler } from "../../core/errors";
-import { readReportingFailure, statOrNull } from "../../core/store/fs-utils";
+import { attemptReportingFailure, statOrNull } from "../../core/store/fs-utils";
 
 export const AGENTS = ["claude", "codex", "cursor"] as const;
 
@@ -78,7 +78,7 @@ export async function detectAgents(places: AgentPlaces, onUnreadable: PathErrorH
   for (const agent of AGENTS) {
     const spec = AGENT_SPECS[agent];
     const dir = spec.homeDir(places);
-    const present = spec.alwaysInstalled || (await readReportingFailure(dir, isDirectory, onUnreadable));
+    const present = spec.alwaysInstalled || (await attemptReportingFailure(dir, isDirectory, onUnreadable));
     if (present === true) detection.found.push(agent);
     else if (present === false) detection.missing.push({ agent, dir });
   }

@@ -2,7 +2,7 @@ import { mkdir, readFile, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { z } from "zod";
 import { errorCodeOrText, hasErrorCode } from "../../core/errors";
-import { linkTargetOrNull, statOrNull, writeFileAtomic } from "../../core/store/fs-utils";
+import { jsonFileText, linkTargetOrNull, statOrNull, writeFileAtomic } from "../../core/store/fs-utils";
 
 const MAX_LINK_HOPS = 40;
 
@@ -26,7 +26,7 @@ export async function writeJsonConfig(path: string, config: unknown): Promise<vo
   await mkdir(dirname(path), { recursive: true });
   const target = await writeTargetOf(path);
   const existing = await statOrNull(target);
-  await writeFileAtomic(target, `${JSON.stringify(config, null, 2)}\n`, existing === null ? undefined : existing.mode & 0o777);
+  await writeFileAtomic(target, jsonFileText(config), existing === null ? undefined : existing.mode & 0o777);
 }
 
 async function readConfigText(path: string): Promise<string | JsonConfigFailure> {

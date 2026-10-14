@@ -2,6 +2,7 @@ import type { MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { Language } from "../core/i18n/language";
 import { BYTES_PER_MEBIBYTE } from "../core/numbers";
+import { LOOPBACK_HOSTS } from "../core/server-address";
 import { errorResponse } from "./error-response";
 import { serverMessages } from "./messages";
 
@@ -10,7 +11,7 @@ const REQUEST_BODY_LIMIT_MEBIBYTES = 1;
 const MUTATING_METHODS: ReadonlySet<string> = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 
 export function localHosts(port: number): ReadonlySet<string> {
-  return new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
+  return new Set(LOOPBACK_HOSTS.map((host) => `${host}:${port}`));
 }
 
 export function allowLocalHostsOnly(allowedHosts: ReadonlySet<string>, readLanguage: () => Promise<Language>): MiddlewareHandler {

@@ -2,19 +2,19 @@ import { join } from "node:path";
 import type { PathErrorHandler } from "../errors";
 import { runGit } from "../git/run";
 import type { Project, Task } from "../model/types";
-import { fileExists, readReportingFailure, readTextIfFile, realpathOrNull } from "../store/fs-utils";
+import { fileExists, attemptReportingFailure, readTextIfFile, realpathOrNull } from "../store/fs-utils";
 import { expandHome } from "../store/paths";
-import { findGitRoots, type GitRoots, type RepoPlaces } from "../store/resolve-project";
+import type { GitRoots, RepoPlaces } from "../store/resolve-project";
 import { anchorOf } from "./anchor";
 import { sourcePath } from "../model/source";
 import { currentSourceIn } from "./current-source";
 
 export type SourceAnchor = { kind: "no-file" } | { kind: "uncomputable" } | { kind: "anchor"; anchor: string };
 
-export type RepoLookup = RepoPlaces & { workingDir?: string | undefined };
+export type RepoLookup = RepoPlaces & { workingRoots?: GitRoots | null };
 
 export async function sourceAnchor(repo: string | undefined, source: string, onUnreadable: PathErrorHandler): Promise<SourceAnchor> {
-  const text = repo === undefined ? null : await readReportingFailure(join(repo, sourcePath(source)), readTextIfFile, onUnreadable);
+  const text = repo === undefined ? null : await attemptReportingFailure(join(repo, sourcePath(source)), readTextIfFile, onUnreadable);
   if (text === null) return { kind: "no-file" };
   const anchor = anchorOf(text, source);
   return anchor === null ? { kind: "uncomputable" } : { kind: "anchor", anchor };
@@ -27,8 +27,8 @@ export async function relocatedSource(repo: string | undefined, task: Task): Pro
 
 export type ProjectCheckout = { path: string; linkedWorktree: boolean };
 
-export async function findRepo(project: Project, { workingDir, ...lookup }: RepoLookup): Promise<string | undefined> {
-  return (await projectCheckout(project, workingDir === undefined ? null : findGitRoots(workingDir), lookup))?.path;
+export async function findRepo(project: Project, { workingRoots = null, ...lookup }: RepoLookup): Promise<string | undefined> {
+  return (await projectCheckout(project, workingRoots, lookup))?.path;
 }
 
 export async function projectCheckout(project: Project, workingRoots: GitRoots | null, lookup: RepoPlaces): Promise<ProjectCheckout | undefined> {
@@ -40,7 +40,7 @@ export async function projectCheckout(project: Project, workingRoots: GitRoots |
 
 async function firstExistingRepo(project: Project, { home, onUnreadable }: RepoPlaces): Promise<string | undefined> {
   for (const repo of project.repos.map((path) => expandHome(path, home))) {
-    if ((await readReportingFailure(repo, fileExists, onUnreadable)) === true) return repo;
+    if ((await attemptReportingFailure(repo, fileExists, onUnreadable)) === true) return repo;
   }
   return undefined;
 }

@@ -3,7 +3,7 @@ import type { PathErrorHandler } from "../errors";
 import { openCodeGraph, type CodeGraph } from "../code-review-graph/graph-db";
 import type { CandidateEvidence, CheckMode, FilteredSighting, TaskOrigin } from "../journal/events";
 import type { Project, Task } from "../model/types";
-import { readReportingFailure, readTextIfFile } from "../store/fs-utils";
+import { attemptReportingFailure, readTextIfFile } from "../store/fs-utils";
 import { readJournal } from "../store/journal";
 import { snippetOf } from "./anchor";
 import { commitsKnownAtCreation } from "./known-commits";
@@ -134,7 +134,7 @@ async function withRenamesFollowed(review: CodeReview, tasks: readonly Task[], {
     review.candidates.map(async (candidate) => {
       const task = tasksById.get(candidate.task.id);
       if (candidate.kind !== "source-missing" || candidate.renamedTo === undefined || task === undefined) return null;
-      const text = await readReportingFailure(join(repo, candidate.renamedTo), readTextIfFile, onUnreadable);
+      const text = await attemptReportingFailure(join(repo, candidate.renamedTo), readTextIfFile, onUnreadable);
       return text === null ? null : renamePlan(task, candidate.renamedTo, text);
     }),
   );

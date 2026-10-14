@@ -3,6 +3,7 @@ import { isBlocked, taskProgress, type BacklogIndex } from "../core/model/graph"
 import { deletionDate } from "../core/model/lifecycle";
 import { PRIORITIES, TASK_STATUSES, type Task } from "../core/model/types";
 import type { CoreMessages } from "../core/messages";
+import { JSON_INDENT } from "../core/store/fs-utils";
 import type { TaskDescription } from "./describe";
 import type { CliMessages } from "./messages";
 
@@ -10,7 +11,6 @@ const ID_COLUMN_WIDTH = 10;
 const STATUS_COLUMN_WIDTH = Math.max(...TASK_STATUSES.map((status) => status.length));
 const PRIORITY_COLUMN_WIDTH = Math.max(...PRIORITIES.map((priority) => priority.length));
 const PROGRESS_COLUMN_WIDTH = "100%".length;
-const JSON_INDENT = 2;
 
 export function formatJson(value: unknown): string {
   return JSON.stringify(value, null, JSON_INDENT);

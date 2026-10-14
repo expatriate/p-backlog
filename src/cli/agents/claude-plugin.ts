@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { Language } from "../../core/i18n/language";
 import type { PathErrorHandler } from "../../core/errors";
-import { readJsonFile, readReportingFailure } from "../../core/store/fs-utils";
+import { readJsonFile, attemptReportingFailure } from "../../core/store/fs-utils";
 import { SKILL_VARIANTS } from "../skill-variants";
 import { AGENT_SPECS, type Agent, type AgentPlaces } from "./agent";
 
@@ -15,7 +15,7 @@ type PluginLookup = { plugin: string | null };
 export async function agentPluginReportingFailure(agent: Agent, places: AgentPlaces, onUnreadable: PathErrorHandler): Promise<PluginLookup | null> {
   const settingsPath = AGENT_SPECS[agent].pluginSettingsPath;
   if (settingsPath === null) return { plugin: null };
-  return readReportingFailure(settingsPath(places), readEnabledPlugin, onUnreadable);
+  return attemptReportingFailure(settingsPath(places), readEnabledPlugin, onUnreadable);
 }
 
 async function readEnabledPlugin(path: string): Promise<PluginLookup> {

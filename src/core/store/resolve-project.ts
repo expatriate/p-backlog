@@ -2,7 +2,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { PathErrorHandler } from "../errors";
 import { runGit, runGitSync } from "../git/run";
 import type { Project } from "../model/types";
-import { readReportingFailure, readReportingFailureSync, realpathOrNull } from "./fs-utils";
+import { attemptReportingFailure, attemptReportingFailureSync, realpathOrNull } from "./fs-utils";
 import { expandHome } from "./paths";
 
 export type GitRoots = { worktree: string; main: string };
@@ -38,7 +38,7 @@ export function cachedRepoRoots({ onUnreadable, ttlMs = REPO_ROOT_TTL_MS, now = 
     const cached = known.get(dir);
     if (cached !== undefined && isFresh(cached)) return cached.roots;
     for (const [knownDir, entry] of known) if (!isFresh(entry)) known.delete(knownDir);
-    const roots = readReportingFailure(dir, async (path) => (await findGitRootsAsync(path)) ?? plainDirRoots(path), onUnreadable);
+    const roots = attemptReportingFailure(dir, async (path) => (await findGitRootsAsync(path)) ?? plainDirRoots(path), onUnreadable);
     known.set(dir, { roots, checkedAt: now() });
     return roots;
   };
@@ -73,8 +73,12 @@ function canonicalRoots(worktreePath: string, mainPath: string): GitRoots | null
   return worktree === null || main === null ? null : { worktree, main };
 }
 
-export function findProjectForDir(projects: readonly Project[], dir: string, places: RepoPlaces): Project | undefined {
-  const roots = readReportingFailureSync(dir, (path) => findGitRoots(path) ?? plainDirRoots(path), places.onUnreadable);
+export function readGitRoots(dir: string, onUnreadable: PathErrorHandler): GitRoots | null {
+  return attemptReportingFailureSync(dir, findGitRoots, onUnreadable);
+}
+
+export function findProjectForDir(projects: readonly Project[], dir: string, gitRoots: GitRoots | null, places: RepoPlaces): Project | undefined {
+  const roots = gitRoots ?? attemptReportingFailureSync(dir, plainDirRoots, places.onUnreadable);
   return roots === null ? undefined : findProjectForRoots(projects, roots, places);
 }
 
@@ -94,5 +98,5 @@ function isSameOrInside(path: string, container: string): boolean {
 }
 
 function resolvedRepo(repo: string, { home, onUnreadable }: RepoPlaces): string | null {
-  return readReportingFailureSync(expandHome(repo, home), realpathOrNull, onUnreadable);
+  return attemptReportingFailureSync(expandHome(repo, home), realpathOrNull, onUnreadable);
 }

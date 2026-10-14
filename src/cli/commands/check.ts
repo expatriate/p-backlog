@@ -7,6 +7,7 @@ import { formatJson } from "../format";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo, type ExitCode } from "../io";
 import type { CliMessages } from "../messages";
+import { cwdGitRoots } from "../lookups";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 
 export const checkCommand: CliCommand = {
@@ -27,7 +28,15 @@ async function runCheck(args: string[], io: CliIo): Promise<ExitCode> {
   if (scope === null) return EXIT.notFound;
   const { projectIds } = scope;
 
-  const report = await checkBacklog(io.backlogRoot, loaded, { projectIds, mode: values.changed ? "changed" : "full", now: io.now(), home: io.home, messages: io.core, warn: io.warn, workingDir: io.cwd });
+  const report = await checkBacklog(io.backlogRoot, loaded, {
+    projectIds,
+    mode: values.changed ? "changed" : "full",
+    now: io.now(),
+    home: io.home,
+    messages: io.core,
+    warn: io.warn,
+    workingRoots: cwdGitRoots(io),
+  });
   io.print(values.json ? formatJson(report) : formatReport(io.cli, io.core, report));
   return needsReview(report) ? EXIT.needsReview : EXIT.ok;
 }

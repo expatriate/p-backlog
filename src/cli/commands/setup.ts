@@ -1,5 +1,5 @@
-import { errorCodeOrText, warnPathErrors } from "../../core/errors";
-import { readReportingFailure } from "../../core/store/fs-utils";
+import { errorCodeOrText } from "../../core/errors";
+import { attemptReportingFailure } from "../../core/store/fs-utils";
 import { AGENT_SPECS, AGENTS, agentVoice, detectAgents, type Agent, type AgentDetection, type AgentVoice } from "../agents/agent";
 import { installAgentHook, removeAgentHook } from "../agents/agent-hooks";
 import { linkAgentSkill } from "../agents/agent-skill";
@@ -8,6 +8,7 @@ import type { HookInstallResult, HookRemoveResult } from "../agents/grouped-stop
 import type { CliCommand } from "../command";
 import { isFailure } from "../failure";
 import { EXIT, parseChoice, parseOptions, UsageError, type CliIo, type ExitCode } from "../io";
+import { warnUnreadableSkipped } from "../lookups";
 import { linkSkillFor, skillLinkPath, skillSourceDir, unlinkOurSkill, type SkillUnlinkResult } from "../skill-link";
 import { installService } from "./service";
 
@@ -32,7 +33,7 @@ type InstalledAgents = () => Promise<AgentDetection>;
 
 function installedAgents(io: CliIo): InstalledAgents {
   let detection: Promise<AgentDetection> | undefined;
-  return () => (detection ??= detectAgents(io, warnPathErrors(io.warn, io.core.unreadableSkipped)));
+  return () => (detection ??= detectAgents(io, warnUnreadableSkipped(io.warn, io.core)));
 }
 
 async function targetAgents(option: string | undefined, installed: InstalledAgents, io: CliIo): Promise<Agent[]> {
@@ -44,7 +45,7 @@ async function targetAgents(option: string | undefined, installed: InstalledAgen
 
 async function setUpAgent(agent: Agent, io: CliIo): Promise<boolean> {
   const voice = agentVoice(agent, io);
-  const lookup = await agentPluginReportingFailure(agent, io, warnPathErrors(voice.warn, io.core.unreadableSkipped));
+  const lookup = await agentPluginReportingFailure(agent, io, warnUnreadableSkipped(voice.warn, io.core));
   if (lookup === null) return false;
   if (lookup.plugin !== null) {
     voice.print(io.cli.pluginManages(lookup.plugin));
@@ -85,7 +86,7 @@ async function removeLegacySkillLinks(agent: Agent, io: CliIo, voice: AgentVoice
 }
 
 function unlinkReportingFailure(skillsDir: string, io: CliIo, voice: AgentVoice): Promise<SkillUnlinkResult | null> {
-  return readReportingFailure(
+  return attemptReportingFailure(
     skillLinkPath(skillsDir),
     () => unlinkOurSkill(skillsDir),
     (target, error) => voice.warn(io.cli.removeSkillLinkFailed(target, errorCodeOrText(error))),

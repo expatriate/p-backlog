@@ -11,7 +11,7 @@ import type { CurrentSources } from "./current-source";
 import type { DiffSince } from "./repo-facts";
 import { remembered } from "../remembered";
 import type { PathErrorHandler } from "../errors";
-import { readBytesOrNullSync, readReportingFailureSync } from "../store/fs-utils";
+import { readBytesOrNullSync, attemptReportingFailureSync } from "../store/fs-utils";
 
 export type SymbolLookup = (path: string, line: number) => GraphSymbol | null;
 
@@ -84,7 +84,7 @@ function watchedRange(symbol: GraphSymbol, declared: LineRange): LineRange {
 }
 
 function fileHash(path: string, onUnreadable: PathErrorHandler): string | null {
-  const bytes = readReportingFailureSync(path, readBytesOrNullSync, onUnreadable);
+  const bytes = attemptReportingFailureSync(path, readBytesOrNullSync, onUnreadable);
   return bytes === null ? null : createHash("sha256").update(bytes).digest("hex");
 }
 

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { PathErrorHandler } from "../errors";
 import type { Project } from "../model/types";
-import { cachedRepoRoots, findGitRoots, findProjectForDir, type RepoPlaces } from "./resolve-project";
+import { cachedRepoRoots, findGitRoots, findProjectForDir, readGitRoots, type RepoPlaces } from "./resolve-project";
 import { gitAddWorktree, gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "./testing/temp-dirs";
 
 const failOnUnreadable: PathErrorHandler = (path, error) => {
@@ -13,6 +13,8 @@ const failOnUnreadable: PathErrorHandler = (path, error) => {
 };
 
 const placesIn = (home: string): RepoPlaces => ({ home, onUnreadable: failOnUnreadable });
+
+const projectForDir = (projects: readonly Project[], dir: string, places: RepoPlaces) => findProjectForDir(projects, dir, readGitRoots(dir, places.onUnreadable), places);
 
 function project(id: string, repos: string[]): Project {
   return { id, name: id, prefix: id.toUpperCase(), repos, active: true, extra: {}, body: "", path: `/backlog/${id}/project.md` };
@@ -60,27 +62,27 @@ describe("findProjectForDir", () => {
     await symlink(repo, alias);
     const projects = [project("torg", ["/nonexistent"]), project("spa", ["~/projects/spa"])];
 
-    expect(findProjectForDir(projects, nested, placesIn(home))?.id).toBe("spa");
-    expect(findProjectForDir(projects, alias, placesIn(home))?.id).toBe("spa");
+    expect(projectForDir(projects, nested, placesIn(home))?.id).toBe("spa");
+    expect(projectForDir(projects, alias, placesIn(home))?.id).toBe("spa");
   });
 
   it("находит проект, если репозиторий лежит внутри пути из repos", async () => {
     const home = await makeTempDir();
     const repo = await makeGitRepo(home, "mono/packages/web");
-    expect(findProjectForDir([project("mono", [join(home, "mono")])], repo, placesIn(home))?.id).toBe("mono");
+    expect(projectForDir([project("mono", [join(home, "mono")])], repo, placesIn(home))?.id).toBe("mono");
   });
 
   it("из git worktree вне основного репозитория находит проект основного репозитория", async () => {
     const { home, repo, worktree } = await repoWithOutsideWorktree();
 
-    expect(findProjectForDir([project("spa", [repo])], join(worktree, "src"), placesIn(home))?.id).toBe("spa");
+    expect(projectForDir([project("spa", [repo])], join(worktree, "src"), placesIn(home))?.id).toBe("spa");
   });
 
   it("из git worktree проект основного репозитория побеждает зонтичный проект на родительском каталоге", async () => {
     const { home, repo, worktree } = await repoWithOutsideWorktree();
     const projects = [project("umbrella", [join(home, "projects")]), project("spa", [repo])];
 
-    expect(findProjectForDir(projects, worktree, placesIn(home))?.id).toBe("spa");
+    expect(projectForDir(projects, worktree, placesIn(home))?.id).toBe("spa");
   });
 
   it("на файловой системе без учёта регистра находит проект, если путь в repos записан в другом регистре", async ({ skip }) => {
@@ -89,14 +91,14 @@ describe("findProjectForDir", () => {
     const differentCase = join(home, "caserepo");
     if (!existsSync(differentCase)) skip();
 
-    expect(findProjectForDir([project("case", [differentCase])], repo, placesIn(home))?.id).toBe("case");
+    expect(projectForDir([project("case", [differentCase])], repo, placesIn(home))?.id).toBe("case");
   });
 
   it("не путает соседние каталоги с общим префиксом имени", async () => {
     const home = await makeTempDir();
     await makeGitRepo(home, "spa");
     const neighbour = await makeGitRepo(home, "spa-admin");
-    expect(findProjectForDir([project("spa", [join(home, "spa")])], neighbour, placesIn(home))).toBeUndefined();
+    expect(projectForDir([project("spa", [join(home, "spa")])], neighbour, placesIn(home))).toBeUndefined();
   });
 
   it("выбирает проект с самым специфичным репозиторием независимо от порядка в списке", async () => {
@@ -113,8 +115,8 @@ describe("findProjectForDir", () => {
       [monoProject, spaProject],
       [spaProject, monoProject],
     ]) {
-      expect(findProjectForDir(projects, nestedRepo, placesIn(home))?.id).toBe("spa");
-      expect(findProjectForDir(projects, sibling, placesIn(home))?.id).toBe("aaa-mono");
+      expect(projectForDir(projects, nestedRepo, placesIn(home))?.id).toBe("spa");
+      expect(projectForDir(projects, sibling, placesIn(home))?.id).toBe("aaa-mono");
     }
   });
 });

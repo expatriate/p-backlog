@@ -101,6 +101,10 @@ describe("commandName", () => {
     expect(commandName(["hook", HOOK_STOP_EVENT])).toBe(HOOK_STOP_COMMAND);
   });
 
+  it("лишний аргумент хука — не запуск хука Stop: команда отклоняется и в статистику хука не попадает", () => {
+    expect(commandName(["hook", HOOK_STOP_EVENT, "extra"])).toBe("hook");
+  });
+
   it("для пустых аргументов возвращает «help»", () => {
     expect(commandName([])).toBe("help");
   });

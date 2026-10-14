@@ -4,12 +4,11 @@ import { findRepo, sourceAnchor, type SourceAnchor } from "../../core/check/proj
 import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
 import { buildIndex } from "../../core/model/graph";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project, type Task } from "../../core/model/types";
-import { findProjectForDir } from "../../core/store/resolve-project";
 import { createTask } from "../../core/store/create";
 import { loadBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
 import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo, type ExitCode } from "../io";
-import { ensureProject, repoLookup, repoPlaces } from "../lookups";
+import { ensureProject, findProjectForCwd, repoLookup } from "../lookups";
 import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
 import { taskJson } from "../describe";
@@ -107,7 +106,7 @@ async function anchorOf(project: Project, source: string, io: CliIo): Promise<So
 }
 
 function cwdBelongsTo(project: Project, knownProjects: readonly Project[], io: CliIo): boolean {
-  return findProjectForDir([...knownProjects, project], io.cwd, repoPlaces(io))?.id === project.id;
+  return findProjectForCwd([...knownProjects, project], io)?.id === project.id;
 }
 
 async function allAfterSettling<T extends readonly unknown[] | []>(work: T): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }> {

@@ -1,22 +1,38 @@
 import { basename, dirname } from "node:path";
 import type { RepoLookup } from "../core/check/project-repo";
-import { warnPathErrors } from "../core/errors";
+import { warnPathErrors, type PathErrorHandler } from "../core/errors";
+import type { CoreMessages } from "../core/messages";
 import { projectIdBase } from "../core/model/ids";
 import type { ParseError, Project, Task } from "../core/model/types";
 import { createProject } from "../core/store/create";
 import type { LoadedBacklog } from "../core/store/load";
 import { PROJECT_FILE } from "../core/store/paths";
 import { readTextOrNull } from "../core/store/fs-utils";
-import { findGitRoots, findProjectForDir, type GitRoots, type RepoPlaces } from "../core/store/resolve-project";
+import { findProjectForDir, readGitRoots, type GitRoots, type RepoPlaces } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
 import { relativeInside } from "./path-inside";
 
+export function warnUnreadableSkipped(warn: (line: string) => void, core: CoreMessages): PathErrorHandler {
+  return warnPathErrors(warn, core.unreadableSkipped);
+}
+
 export function repoPlaces(io: CliIo): RepoPlaces {
-  return { home: io.home, onUnreadable: warnPathErrors(io.warn, io.core.unreadableSkipped) };
+  return { home: io.home, onUnreadable: warnUnreadableSkipped(io.warn, io.core) };
+}
+
+const cwdGitRootsOfRun = new WeakMap<CliIo, GitRoots | null>();
+
+export function cwdGitRoots(io: CliIo): GitRoots | null {
+  if (!cwdGitRootsOfRun.has(io)) cwdGitRootsOfRun.set(io, readGitRoots(io.cwd, repoPlaces(io).onUnreadable));
+  return cwdGitRootsOfRun.get(io) ?? null;
+}
+
+export function findProjectForCwd(projects: readonly Project[], io: CliIo): Project | undefined {
+  return findProjectForDir(projects, io.cwd, cwdGitRoots(io), repoPlaces(io));
 }
 
 export function repoLookup(io: CliIo): RepoLookup {
-  return { ...repoPlaces(io), workingDir: io.cwd };
+  return { ...repoPlaces(io), workingRoots: cwdGitRoots(io) };
 }
 
 export function findTaskOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
@@ -42,7 +58,7 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
   if (explicitId !== undefined) return findProjectOrWarn(loaded, io, explicitId);
   const existing = findProject(loaded, io, undefined);
   if (existing) return existing;
-  const gitRoots = findGitRoots(io.cwd);
+  const gitRoots = cwdGitRoots(io);
   if (gitRoots === null) {
     io.warn(io.cli.notInGitRepo(io.cwd));
     return undefined;
@@ -86,5 +102,5 @@ function homeRelative(path: string, home: string): string {
 }
 
 function findProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Project | undefined {
-  return explicitId === undefined ? findProjectForDir(loaded.projects, io.cwd, repoPlaces(io)) : loaded.projects.find((project) => project.id === explicitId);
+  return explicitId === undefined ? findProjectForCwd(loaded.projects, io) : loaded.projects.find((project) => project.id === explicitId);
 }

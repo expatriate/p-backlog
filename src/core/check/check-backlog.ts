@@ -6,7 +6,7 @@ import type { CoreMessages } from "../messages";
 import type { Project, Task } from "../model/types";
 import { appendJournal, readJournal } from "../store/journal";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
-import { findGitRoots } from "../store/resolve-project";
+import type { GitRoots } from "../store/resolve-project";
 import { isReviewable, type AnchorPlan, type Candidate, type ReportedCandidate } from "./candidates";
 import { applyAnchorPlans, applyFixes, type FixOutcome } from "./check-fixes";
 import { findProblems } from "./find-problems";
@@ -16,7 +16,7 @@ import { creationOrigins, projectReview, type ProjectReview } from "./project-re
 
 type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed" | "branchOriginsReadFailed" | "unreadableSkipped">;
 
-export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string; messages: CheckTexts; warn: (line: string) => void; workingDir?: string | undefined };
+export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; home: string; messages: CheckTexts; warn: (line: string) => void; workingRoots?: GitRoots | null };
 
 export type CheckReport = { fixed: CheckFix[]; problems: CheckProblem[]; candidates: ReportedCandidate[] };
 
@@ -42,12 +42,11 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
 type CheckedProject = { review: ProjectReview; checkout: ProjectCheckout | undefined };
 
 async function reviewProjects(root: string, tasks: readonly Task[], projects: readonly Project[], request: CheckRequest): Promise<CheckedProject[]> {
-  const workingRoots = request.workingDir === undefined ? null : findGitRoots(request.workingDir);
   const originsOf = (projectId: string) => creationOrigins(root, projectId, (error) => request.warn(request.messages.branchOriginsReadFailed(projectId, errorText(error))));
   const onUnreadable = warnPathErrors(request.warn, request.messages.unreadableSkipped);
   return Promise.all(
     projects.map(async (project) => {
-      const checkout = await projectCheckout(project, workingRoots, { home: request.home, onUnreadable });
+      const checkout = await projectCheckout(project, request.workingRoots ?? null, { home: request.home, onUnreadable });
       return { review: await projectReview(project, tasks, { repo: checkout?.path, origins: await originsOf(project.id), mode: request.mode, onUnreadable }), checkout };
     }),
   );

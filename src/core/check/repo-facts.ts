@@ -4,7 +4,7 @@ import type { LineRange } from "./anchor";
 import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
 import { SECOND_MS } from "../model/dates";
 import { remembered } from "../remembered";
-import { fileExists, lstatOrNull, readReportingFailure, readTextIfFile } from "../store/fs-utils";
+import { fileExists, lstatOrNull, attemptReportingFailure, readTextIfFile } from "../store/fs-utils";
 
 type FileChange = { path: string; renamedFrom?: string };
 
@@ -160,7 +160,7 @@ async function sourceFiles(repo: string, paths: readonly string[]): Promise<Sour
   const recordUnreadable = (path: string, error: unknown) => {
     unreadable.set(path, error);
   };
-  const read = await Promise.all(paths.map((path) => readReportingFailure(path, (relative) => sourceFile(repo, relative), recordUnreadable)));
+  const read = await Promise.all(paths.map((path) => attemptReportingFailure(path, (relative) => sourceFile(repo, relative), recordUnreadable)));
   const present = read.flatMap((file) => (file?.kind === "present" ? [file] : []));
   return {
     existing: new Set(present.map((file) => file.path)),

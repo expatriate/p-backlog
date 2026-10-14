@@ -36,7 +36,7 @@ const NODE_PATH_ENV = "P_BACKLOG_NODE";
 const CLI_PATH_ENV = "P_BACKLOG_CLI";
 const LOG_PATH_ENV = "P_BACKLOG_LOG";
 // Run and cmd expand %NAME% even inside quotes; values substituted by !NAME! delayed expansion are never re-expanded.
-const SERVE_COMMAND = `cmd /v:on /c ""!${NODE_PATH_ENV}!" "!${CLI_PATH_ENV}!" ${SERVE_COMMAND_NAME} >> "!${LOG_PATH_ENV}!" 2>&1"`;
+const SERVE_COMMAND_LINE = `cmd /v:on /c ""!${NODE_PATH_ENV}!" "!${CLI_PATH_ENV}!" ${SERVE_COMMAND_NAME} >> "!${LOG_PATH_ENV}!" 2>&1"`;
 
 function rotatedLogPath(site: ServiceSite): string {
   return `${logPath(site)}.old`;
@@ -71,7 +71,7 @@ export function startupScript(launch: ServiceLaunch): string {
     'Set env = shell.Environment("Process")',
     ...Object.entries(env).map(([key, value]) => `env(${vbsString(key)}) = ${vbsString(value)}`),
     ...logRotation(launch),
-    `shell.Run ${vbsString(SERVE_COMMAND)}, 0, False`,
+    `shell.Run ${vbsString(SERVE_COMMAND_LINE)}, 0, False`,
     "",
   ].join("\r\n");
 }

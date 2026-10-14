@@ -7,7 +7,7 @@ import { FileBusyError } from "../../core/store/file-lock";
 import { claimHookTurn } from "../../core/store/hook-turns";
 import { readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
-import { findProjectForDir } from "../../core/store/resolve-project";
+import { findProjectForDir, readGitRoots } from "../../core/store/resolve-project";
 import { readSignalsShown, rememberSignalsShown } from "../../core/store/signals-shown";
 import { readSessionShown, rememberSessionShown } from "../../core/store/session-shown";
 import { HOOK_STOP_EVENT, hookMessage } from "../../core/hook-signature";
@@ -44,21 +44,27 @@ export const hookCommand: CliCommand = {
 
 export function namesStopEvent(args: string[]): boolean {
   const { positionals } = parseArgs({ args, options: HOOK_OPTIONS, allowPositionals: true, strict: false });
-  return positionals[0] === HOOK_STOP_EVENT;
+  return isStopEvent(positionals);
+}
+
+function isStopEvent(positionals: readonly string[]): boolean {
+  return positionals.length === 1 && positionals[0] === HOOK_STOP_EVENT;
 }
 
 async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   const { values, positionals } = parseCommandArgs(io.language, args, HOOK_OPTIONS);
-  if (positionals.length !== 1 || positionals[0] !== HOOK_STOP_EVENT) throw usageError(hookCommand, io.language);
+  if (!isStopEvent(positionals)) throw usageError(hookCommand, io.language);
   const agent = values.agent === undefined ? DEFAULT_AGENT : parseChoice(io.language, values.agent, AGENTS, io.cli.optionLabel.agent);
   const event = parseStopEvent(agent, await io.readStdin());
   if (event === null || event.skip) return EXIT.ok;
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const project = findProjectForDir(loaded.projects, event.cwd, repoPlaces(io));
+  const places = repoPlaces(io);
+  const cwdRoots = readGitRoots(event.cwd, places.onUnreadable);
+  const project = findProjectForDir(loaded.projects, event.cwd, cwdRoots, places);
   if (!project) return EXIT.ok;
   if (!(await isFirstHookOfTurn(agent, event, io))) return EXIT.ok;
-  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home, messages: io.core, warn: io.warn, workingDir: event.cwd });
+  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), home: io.home, messages: io.core, warn: io.warn, workingRoots: cwdRoots });
   const lowPriority = new Set(loaded.tasks.filter((task) => task.priority === "low").map((task) => task.id));
   const worthTelling = candidates.filter((candidate) => !lowPriority.has(candidate.task.id));
   const lowCount = candidates.length - worthTelling.length;

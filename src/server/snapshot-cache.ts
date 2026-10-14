@@ -10,7 +10,6 @@ import type { ChangeFeed } from "./change-feed";
 import type { JournalSources } from "./journal-sources";
 import type { LocalizedWarn } from "./messages";
 import type { OwnWrite, Revisions } from "./revisions";
-import { createScopeMemo } from "./source-memos";
 
 export type IndexedBacklog = LoadedBacklog & { index: BacklogIndex; closedInWeb: string[]; revision: Revision };
 
@@ -19,12 +18,19 @@ export type SnapshotCache = { read: () => Promise<IndexedBacklog>; forget: () =>
 type SnapshotCacheOptions = { root: string; revisions: Revisions; journalSources: JournalSources; warn: LocalizedWarn };
 
 export function createSnapshotCache({ root, revisions, journalSources, warn }: SnapshotCacheOptions): SnapshotCache {
-  const snapshots = createScopeMemo<Promise<IndexedBacklog>>();
-  let generation = 0;
+  let snapshot: Promise<IndexedBacklog> | null = null;
   return {
-    read: () => snapshots.get(`${generation}`, () => loadSnapshot(root, revisions.current(), journalSources, warn)),
+    read: () => {
+      if (snapshot !== null) return snapshot;
+      const loading = loadSnapshot(root, revisions.current(), journalSources, warn);
+      snapshot = loading;
+      loading.catch(() => {
+        if (snapshot === loading) snapshot = null;
+      });
+      return loading;
+    },
     forget: () => {
-      generation += 1;
+      snapshot = null;
     },
   };
 }

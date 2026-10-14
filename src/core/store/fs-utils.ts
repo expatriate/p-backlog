@@ -25,18 +25,18 @@ export async function readTextIfFile(path: string): Promise<string | null> {
   }
 }
 
-export async function readReportingFailure<T>(path: string, read: (path: string) => Promise<T>, onError: PathErrorHandler): Promise<T | null> {
+export async function attemptReportingFailure<T>(path: string, attempt: (path: string) => Promise<T>, onError: PathErrorHandler): Promise<T | null> {
   try {
-    return await read(path);
+    return await attempt(path);
   } catch (error) {
     onError(path, error);
     return null;
   }
 }
 
-export function readReportingFailureSync<T>(path: string, read: (path: string) => T, onError: PathErrorHandler): T | null {
+export function attemptReportingFailureSync<T>(path: string, attempt: (path: string) => T, onError: PathErrorHandler): T | null {
   try {
-    return read(path);
+    return attempt(path);
   } catch (error) {
     onError(path, error);
     return null;
@@ -182,8 +182,14 @@ export async function readJsonFile<T>(path: string, schema: z.ZodType<T>): Promi
   return text === null ? null : parseJson(text, schema);
 }
 
+export const JSON_INDENT = 2;
+
+export function jsonFileText(value: unknown): string {
+  return `${JSON.stringify(value, null, JSON_INDENT)}\n`;
+}
+
 export async function writeJsonFile(path: string, value: unknown): Promise<void> {
-  await writeFileAtomic(path, `${JSON.stringify(value, null, 2)}\n`);
+  await writeFileAtomic(path, jsonFileText(value));
 }
 
 type RemovalOutcome = "removed" | "already-gone" | "changed";

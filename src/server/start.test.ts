@@ -230,7 +230,7 @@ describe("startServer", () => {
     const home = await makeTempDir();
     const first = await startServer({ ...QUIET_HOST, root: join(home, "backlog-1"), port: 0, home, env: {} });
     try {
-      await expect(startServer({ ...QUIET_HOST, root: join(home, "backlog-2"), port: first.port, home, env: {} })).rejects.toThrow(String(first.port));
+      await expect(startServer({ ...QUIET_HOST, root: join(home, "backlog-2"), port: first.port, home, env: {} })).rejects.toThrow(`p-backlog не запустился: порт ${first.port} уже занят`);
     } finally {
       await first.close();
     }

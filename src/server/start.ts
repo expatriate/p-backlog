@@ -20,7 +20,6 @@ import { CHANGE_DEBOUNCE_MS, createChangeFeed } from "./change-feed";
 import { localHosts } from "./guards";
 import { createMemorySampler, type MemorySampler } from "./memory-sampler";
 import { localizedWarn, serverMessages, type ServerMessages } from "./messages";
-import { listenFailure } from "./port";
 import { startSweeper } from "./sweeper";
 import { createUsageScanner, type UsageScanner } from "./usage-scanner";
 
@@ -112,6 +111,11 @@ export function closeOnStopSignal(server: RunningServer): Promise<void> {
     };
     for (const signal of STOP_SIGNALS) process.once(signal, stop);
   });
+}
+
+function listenFailure(error: NodeJS.ErrnoException, port: number, messages: ServerMessages): string {
+  const reason = error.code === "EADDRINUSE" ? messages.portBusy(port) : error.message;
+  return messages.listenFailed(reason);
 }
 
 function listen(app: Hono, port: number): Promise<Listening> {
