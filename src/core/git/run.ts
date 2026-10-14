@@ -47,6 +47,10 @@ export function outputLine(stdout: string | null): string | null {
   return line === undefined || line === "" ? null : line;
 }
 
+export function outputLines(stdout: string | null): string[] | null {
+  return stdout?.split("\n").filter((line) => line !== "") ?? null;
+}
+
 export function literalPathspecs(paths: readonly string[]): string[] {
   return paths.map((path) => `:(literal)${path}`);
 }

@@ -62,6 +62,29 @@ describe("когда исправление попало в основную в�
     expect(await landedAt(repo, fix)).toBe(Date.parse(MERGE_DATE));
   });
 
+  it("коммит ветки, за которым в ветке шли ещё коммиты, — в дату слияния", async () => {
+    const { repo, fix } = await fixOnBranch();
+    gitCheckout(repo, "fix");
+    await writeFiles(repo, { "src/a.ts": "one\ntwo\nthree\n" });
+    gitCommitAll(repo, "fix: повтор загрузки", "2026-09-13T10:00:00+03:00");
+    gitCheckout(repo, "master");
+    gitMergeNoFastForward(repo, "fix", MERGE_DATE);
+
+    expect(await landedAt(repo, fix)).toBe(Date.parse(MERGE_DATE));
+  });
+
+  it("коммит ветки, влитой в промежуточную ветку, а та — в основную, — в дату слияния в основную ветку", async () => {
+    const { repo, fix } = await fixOnBranch();
+    gitCheckout(repo, "release", { create: true });
+    await writeFiles(repo, { "src/c.ts": "c\n" });
+    gitCommitAll(repo, "release: c", "2026-09-12T11:00:00+03:00");
+    gitMergeNoFastForward(repo, "fix", "2026-09-13T10:00:00+03:00");
+    gitCheckout(repo, "master");
+    gitMergeNoFastForward(repo, "release", MERGE_DATE);
+
+    expect(await landedAt(repo, fix)).toBe(Date.parse(MERGE_DATE));
+  });
+
   it("коммит ветки, слитой squash-коммитом с его заголовком в сообщении, — в дату squash-коммита", async () => {
     const { repo, fix } = await fixOnBranch();
     gitMergeSquash(repo, "fix");

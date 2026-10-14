@@ -1,3 +1,4 @@
+import { firstParentLanding } from "../git/landing";
 import { FIELD, literalPathspecs, RECORD, resolveCommits, type GitRunner } from "../git/run";
 import { CHURN_EXCLUDES, numstatLines, records } from "./git-code";
 import { isTestPath } from "./test-paths";
@@ -58,9 +59,8 @@ function parseFixHeaders(output: string): FixHeader[] {
 
 async function landingDate(git: GitRunner, repo: string, { fix, paths, mainCommit }: LandingQuestion): Promise<string | undefined> {
   if (fix.full === mainCommit) return fix.date;
-  const descendants = await git(repo, ["log", "--first-parent", "--ancestry-path", `--format=tformat:%P${FIELD}%cI`, `${fix.full}..${mainCommit}`, "--"]);
-  const [parents = "", mergedAt = ""] = lastLine(descendants).split(FIELD);
-  if (mergedAt !== "") return parents.split(" ")[0] === fix.full ? fix.date : mergedAt;
+  const landing = await firstParentLanding(git, repo, fix.full, mainCommit);
+  if (landing !== null) return landing.firstParent === fix.full ? fix.date : landing.committedAt;
   if (fix.subject === "" || paths.length === 0) return undefined;
   const pathspecs = literalPathspecs(paths);
   const squashes = await git(repo, ["log", mainCommit, "--first-parent", `--since=${fix.date}`, "--extended-regexp", `--grep=${subjectLinePattern(fix.subject)}`, "--format=tformat:%cI", "--", ...pathspecs]);

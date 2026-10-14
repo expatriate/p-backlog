@@ -1,4 +1,5 @@
 import { groupBy } from "../collections";
+import { firstParentLanding } from "../git/landing";
 import { outputLine, resolveTrees, type GitRunner } from "../git/run";
 import { remembered } from "../remembered";
 import { FILE_HEADER, firstLineOf, hunkHeaderOf, type HunkHeader } from "./diff-hunks";
@@ -96,22 +97,8 @@ async function forkAt(repo: string, head: string, tip: string, git: GitRunner): 
 async function forkBeforeLanding(repo: string, tip: string, git: GitRunner): Promise<Fork | null> {
   const fork = await forkAt(repo, "HEAD", tip, git);
   if (fork === null || !tipInHead(fork)) return fork;
-  const beforeLanding = await firstParentBeforeLanding(repo, tip, git);
-  return beforeLanding === null ? fork : forkAt(repo, beforeLanding, tip, git);
-}
-
-async function firstParentBeforeLanding(repo: string, tip: string, git: GitRunner): Promise<string | null> {
-  const chain = (await git(repo, ["rev-list", "--first-parent", `${tip}..HEAD`]))?.split("\n").filter((sha) => sha !== "") ?? [];
-  const chainCarriesTip = async (index: number) => (await git(repo, ["merge-base", "--is-ancestor", tip, chain[index] ?? ""])) !== null;
-  if (chain.length === 0 || (await chainCarriesTip(chain.length - 1))) return null;
-  let carrying = 0;
-  let notCarrying = chain.length - 1;
-  while (notCarrying - carrying > 1) {
-    const middle = Math.floor((carrying + notCarrying) / 2);
-    if (await chainCarriesTip(middle)) carrying = middle;
-    else notCarrying = middle;
-  }
-  return chain[notCarrying] ?? null;
+  const landing = await firstParentLanding(git, repo, tip, "HEAD");
+  return landing === null ? fork : forkAt(repo, landing.firstParent, tip, git);
 }
 
 function tipInHead({ base, tip }: Fork): boolean {

@@ -348,7 +348,7 @@ describe("сбор данных git по проектам", () => {
     await createCodeSource({ home: "/h", store: createCodeCacheFile(cacheRoot) }).fixCommits(projects, request, NOW);
     let landingChecks = 0;
     const countingLanding: GitRunner = (dir, args, input) => {
-      if (args.includes("--ancestry-path")) landingChecks++;
+      if (args.includes("--first-parent")) landingChecks++;
       return runGit(dir, args, input);
     };
     const restarted = createCodeSource({ home: "/h", git: countingLanding, store: createCodeCacheFile(cacheRoot) });
