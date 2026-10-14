@@ -77,7 +77,7 @@ function isGitProcessFailure(error: unknown): boolean {
 }
 
 function gitArgs(repo: string, args: readonly string[]): string[] {
-  return ["-C", repo, "--no-optional-locks", "-c", "core.quotePath=false", ...args];
+  return ["-C", repo, "--no-optional-locks", "-c", "core.quotePath=false", "-c", "diff.suppressBlankEmpty=false", ...args];
 }
 
 export function resolveCommits(git: GitRunner, repo: string, revisions: readonly string[]): Promise<Map<string, string> | null> {

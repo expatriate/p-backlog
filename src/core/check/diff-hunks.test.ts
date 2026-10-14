@@ -2,7 +2,8 @@ import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { makeTempDir } from "../store/testing/temp-dirs";
+import { runGit } from "../git/run";
+import { gitCommitAll, makeGitRepo, makeTempDir } from "../store/testing/temp-dirs";
 import { baseText, currentLine, parseHunks, type Hunk } from "./diff-hunks";
 
 async function hunksBetween(before: string, after: string): Promise<Hunk[]> {
@@ -42,4 +43,18 @@ describe("перевод строк по гункам diff", () => {
 
     expect(baseText(hunks, after)).toBe(before);
   });
+});
+
+it("пустые строки контекста разбираются и при diff.suppressBlankEmpty=true в настройках пользователя", async () => {
+  const repo = await makeGitRepo(await makeTempDir(), "repo");
+  execFileSync("git", ["config", "diff.suppressBlankEmpty", "true"], { cwd: repo });
+  const before = "а\n\nб\n\nв\n";
+  const after = "а\n\nб2\n\nв\n";
+  await writeFile(join(repo, "file"), before);
+  gitCommitAll(repo, "начало", "2026-09-17T10:00:00+03:00");
+  await writeFile(join(repo, "file"), after);
+
+  const hunks = parseHunks((await runGit(repo, ["diff", "--no-color", "--", "file"])) ?? "");
+
+  expect(hunks === null ? null : baseText(hunks, after)).toBe(before);
 });
