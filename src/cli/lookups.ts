@@ -8,7 +8,7 @@ import { createProject } from "../core/store/create";
 import type { LoadedBacklog } from "../core/store/load";
 import { PROJECT_FILE } from "../core/store/paths";
 import { readTextOrNull } from "../core/store/fs-utils";
-import { findProjectForDir, readGitRoots, type GitRoots, type RepoPlaces } from "../core/store/resolve-project";
+import { findProjectForDir, readGitRoots, repoRootsOf, type DirGitRoots, type GitRoots, type RepoPlaces } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
 import { relativeInside } from "./path-inside";
 
@@ -26,15 +26,22 @@ export function repoPlaces(io: CliIo): RepoPlaces {
   return places;
 }
 
-const cwdGitRootsOfRun = new WeakMap<CliIo, GitRoots | null>();
+const cwdRootsOfRun = new WeakMap<CliIo, DirGitRoots>();
+
+function cwdDirRoots(io: CliIo): DirGitRoots {
+  const known = cwdRootsOfRun.get(io);
+  if (known !== undefined) return known;
+  const roots = readGitRoots(io.cwd, repoPlaces(io).onUnreadable);
+  cwdRootsOfRun.set(io, roots);
+  return roots;
+}
 
 export function cwdGitRoots(io: CliIo): GitRoots | null {
-  if (!cwdGitRootsOfRun.has(io)) cwdGitRootsOfRun.set(io, readGitRoots(io.cwd, repoPlaces(io).onUnreadable));
-  return cwdGitRootsOfRun.get(io) ?? null;
+  return repoRootsOf(cwdDirRoots(io));
 }
 
 export function findProjectForCwd(projects: readonly Project[], io: CliIo): Project | undefined {
-  return findProjectForDir(projects, io.cwd, cwdGitRoots(io), repoPlaces(io));
+  return findProjectForDir(projects, io.cwd, cwdDirRoots(io), repoPlaces(io));
 }
 
 export function repoLookup(io: CliIo): RepoLookup {
@@ -64,8 +71,9 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
   if (explicitId !== undefined) return findProjectOrWarn(loaded, io, explicitId);
   const existing = findProject(loaded, io, undefined);
   if (existing) return existing;
-  const gitRoots = cwdGitRoots(io);
-  if (gitRoots === null) {
+  const gitRoots = cwdDirRoots(io);
+  if (gitRoots === "unreadable") return undefined;
+  if (gitRoots === "not-in-repo") {
     io.warn(io.cli.notInGitRepo(io.cwd));
     return undefined;
   }

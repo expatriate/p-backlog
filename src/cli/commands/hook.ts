@@ -7,7 +7,7 @@ import { FileBusyError } from "../../core/store/file-lock";
 import { claimHookTurn } from "../../core/store/hook-turns";
 import { readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
-import { findProjectForDir, readGitRoots } from "../../core/store/resolve-project";
+import { findProjectForDir, readGitRoots, repoRootsOf } from "../../core/store/resolve-project";
 import { readSignalsShown, rememberSignalsShown } from "../../core/store/signals-shown";
 import { readSessionShown, rememberSessionShown } from "../../core/store/session-shown";
 import { HOOK_STOP_EVENT, hookMessage } from "../../core/hook-signature";
@@ -64,7 +64,7 @@ async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   const project = findProjectForDir(loaded.projects, event.cwd, cwdRoots, places);
   if (!project) return EXIT.ok;
   if (!(await isFirstHookOfTurn(agent, event, io))) return EXIT.ok;
-  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), places, messages: io.core, warn: io.warn, workingRoots: cwdRoots });
+  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), places, messages: io.core, warn: io.warn, workingRoots: repoRootsOf(cwdRoots) });
   const lowPriority = new Set(loaded.tasks.filter((task) => task.priority === "low").map((task) => task.id));
   const worthTelling = candidates.filter((candidate) => !lowPriority.has(candidate.task.id));
   const lowCount = candidates.length - worthTelling.length;

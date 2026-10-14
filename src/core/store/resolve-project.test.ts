@@ -97,6 +97,13 @@ describe("findProjectForDir", () => {
     expect(projectForDir([project("spa", [join(home, "spa")])], neighbour, placesIn(home))).toBeUndefined();
   });
 
+  it("корни git нечитаемы — проект не определяется, а не подбирается по самому каталогу", async () => {
+    const { home, worktree } = await repoWithOutsideWorktree();
+    const projects = [project("umbrella", [join(home, "projects")])];
+
+    expect(findProjectForDir(projects, worktree, "unreadable", placesIn(home))).toBeUndefined();
+  });
+
   it("выбирает проект с самым специфичным репозиторием независимо от порядка в списке", async () => {
     const home = await makeTempDir();
     const parentRepo = await makeGitRepo(home, "projects");

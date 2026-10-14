@@ -73,12 +73,19 @@ function canonicalRoots(worktreePath: string, mainPath: string): GitRoots | null
   return worktree === null || main === null ? null : { worktree, main };
 }
 
-export function readGitRoots(dir: string, onUnreadable: PathErrorHandler): GitRoots | null {
-  return attemptReportingFailureSync(dir, findGitRoots, onUnreadable);
+export type DirGitRoots = GitRoots | "not-in-repo" | "unreadable";
+
+export function readGitRoots(dir: string, onUnreadable: PathErrorHandler): DirGitRoots {
+  return attemptReportingFailureSync(dir, (path) => findGitRoots(path) ?? "not-in-repo", onUnreadable) ?? "unreadable";
 }
 
-export function findProjectForDir(projects: readonly Project[], dir: string, gitRoots: GitRoots | null, places: RepoPlaces): Project | undefined {
-  const roots = gitRoots ?? attemptReportingFailureSync(dir, plainDirRoots, places.onUnreadable);
+export function repoRootsOf(dirRoots: DirGitRoots): GitRoots | null {
+  return typeof dirRoots === "string" ? null : dirRoots;
+}
+
+export function findProjectForDir(projects: readonly Project[], dir: string, dirRoots: DirGitRoots, places: RepoPlaces): Project | undefined {
+  if (dirRoots === "unreadable") return undefined;
+  const roots = dirRoots === "not-in-repo" ? attemptReportingFailureSync(dir, plainDirRoots, places.onUnreadable) : dirRoots;
   return roots === null ? undefined : findProjectForRoots(projects, roots, places);
 }
 
