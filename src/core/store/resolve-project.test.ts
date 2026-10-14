@@ -4,7 +4,7 @@ import { mkdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Project } from "../model/types";
-import { cachedRepoRoots, findGitRoots, findProjectForDir, readGitRoots, type RepoPlaces } from "./resolve-project";
+import { cachedRepoRoots, findProjectForDir, readGitRoots, type RepoPlaces } from "./resolve-project";
 import { failOnPathError } from "./testing/path-errors";
 import { gitAddWorktree, gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "./testing/temp-dirs";
 
@@ -26,12 +26,12 @@ async function repoWithOutsideWorktree() {
   return { home, repo, worktree };
 }
 
-describe("findGitRoots", () => {
+describe("readGitRoots", () => {
   it("возвращает корень git-репозитория для вложенной директории", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     const nested = join(repo, "src/components");
     await mkdir(nested, { recursive: true });
-    expect(findGitRoots(nested)).toEqual({ worktree: repo, main: repo });
+    expect(readGitRoots(nested, failOnPathError)).toEqual({ worktree: repo, main: repo });
   });
 
   it("репозиторий с --separate-git-dir: основной корень — рабочее дерево, а не каталог .git", async () => {
@@ -40,11 +40,11 @@ describe("findGitRoots", () => {
     await mkdir(join(home, "sep"));
     execFileSync("git", ["init", "-q", "--separate-git-dir", join(home, "sep/.git"), work]);
 
-    expect(findGitRoots(work)).toEqual({ worktree: work, main: work });
+    expect(readGitRoots(work, failOnPathError)).toEqual({ worktree: work, main: work });
   });
 
-  it("вне git — null", async () => {
-    expect(findGitRoots(await makeTempDir())).toBeNull();
+  it("вне git — not-in-repo", async () => {
+    expect(readGitRoots(await makeTempDir(), failOnPathError)).toBe("not-in-repo");
   });
 });
 

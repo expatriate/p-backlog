@@ -1,11 +1,11 @@
-import { formatMoney } from "../../core/i18n/format";
+import { formatMoney, formatWhole } from "../../core/i18n/format";
 import type { CostCommand, CostModel, CostTotals, ReportPeriod } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
 import { Figure, FigureGroup } from "./Figure";
 import { Panel, PanelNote } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
-import { costValue, formatWhole, wholeFormatter } from "./value-format";
+import { costValue, wholeFormatter } from "./value-format";
 
 export function CostFigures({ totals, period }: { totals: CostTotals; period: ReportPeriod }) {
   const { stats } = useMessages();

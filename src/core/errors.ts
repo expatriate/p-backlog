@@ -4,13 +4,18 @@ export function errorText(error: unknown): string {
 
 export type PathErrorHandler = (path: string, error: unknown) => void;
 
-export function oncePerPath(onError: PathErrorHandler): PathErrorHandler {
+export function oncePerKey<A extends unknown[]>(keyOf: (...args: A) => string, report: (...args: A) => void): (...args: A) => void {
   const reported = new Set<string>();
-  return (path, error) => {
-    if (reported.has(path)) return;
-    reported.add(path);
-    onError(path, error);
+  return (...args) => {
+    const key = keyOf(...args);
+    if (reported.has(key)) return;
+    reported.add(key);
+    report(...args);
   };
+}
+
+export function oncePerPath(onError: PathErrorHandler): PathErrorHandler {
+  return oncePerKey((path) => path, onError);
 }
 
 export function warnPathErrors(warn: (line: string) => void, describe: (path: string, detail: string) => string = (path, detail) => `${path}: ${detail}`): PathErrorHandler {

@@ -13,7 +13,8 @@ export function storedJson<T>(schema: z.ZodType<T>): StoredSchema<T> {
     decode: (text, context) => {
       try {
         return JSON.parse(text);
-      } catch {
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
         context.issues.push({ code: "custom", message: "stored value is not JSON", input: text });
         return z.NEVER;
       }

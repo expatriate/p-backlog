@@ -19,7 +19,7 @@ function contextFor(home: string, exec: CliEnv["exec"] = fakeExec().exec): Servi
     cliPath: "/opt/p-backlog/dist/cli.js",
     exec,
     uid: 1000,
-    stopProcess: () => true,
+    stopProcess: () => undefined,
     onUnverifiedPid: () => undefined,
   };
 }

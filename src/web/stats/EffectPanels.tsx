@@ -1,3 +1,4 @@
+import { formatWhole } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { EffectPeriod, EffectProject, EffectTotals, GrainPeriods, ReportPeriod } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
@@ -10,7 +11,6 @@ import { usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
 import { codeAndTestsLines, linesAmount } from "./summaries";
 import { useGrainPanel } from "./use-grain-panel";
-import { formatWhole } from "./value-format";
 import { NO_VALUE } from "../labels";
 
 export function EffectFigures({ totals, period }: { totals: EffectTotals; period: ReportPeriod }) {

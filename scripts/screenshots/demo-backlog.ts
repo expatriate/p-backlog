@@ -200,7 +200,7 @@ class DemoRun {
       packageRoot: this.repoRoot,
       ...hostCliEnv(),
       cliPath: join(this.repoRoot, "dist/cli.js"),
-      stopProcess: () => false,
+      stopProcess: () => undefined,
       env: {},
       now: () => this.clock,
       readStdin: async () => stdin,

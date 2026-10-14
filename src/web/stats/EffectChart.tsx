@@ -1,3 +1,4 @@
+import { formatWhole } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { EffectPeriod, EffectTotals } from "../../core/api/contract";
 import { sum } from "../../core/numbers";
@@ -6,7 +7,6 @@ import type { Grain } from "./charts/chart-style";
 import { PeriodChart } from "./charts/PeriodChart";
 import type { SeriesEntry } from "./charts/series";
 import { formatLines, formatNoiseShare } from "./effect-format";
-import { formatWhole } from "./value-format";
 import type { StatsMessages } from "./messages.ru";
 import { codeAndTestsLines, linesAmount } from "./summaries";
 

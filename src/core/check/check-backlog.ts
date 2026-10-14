@@ -16,7 +16,7 @@ import { creationOrigins, projectReview, type ProjectReview } from "./project-re
 
 type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed" | "branchOriginsReadFailed">;
 
-export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; places: RepoPlaces; messages: CheckTexts; warn: (line: string) => void; workingRoots?: GitRoots | null };
+export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; places: RepoPlaces; messages: CheckTexts; warn: (line: string) => void; workingRoots: GitRoots | null };
 
 export type CheckReport = { fixed: CheckFix[]; problems: CheckProblem[]; candidates: ReportedCandidate[] };
 
@@ -45,7 +45,7 @@ async function reviewProjects(root: string, tasks: readonly Task[], projects: re
   const originsOf = (projectId: string) => creationOrigins(root, projectId, (error) => request.warn(request.messages.branchOriginsReadFailed(projectId, errorText(error))));
   return Promise.all(
     projects.map(async (project) => {
-      const checkout = await projectCheckout(project, request.workingRoots ?? null, request.places);
+      const checkout = await projectCheckout(project, request.workingRoots, request.places);
       return { review: await projectReview(project, tasks, { repo: checkout?.path, origins: await originsOf(project.id), mode: request.mode, onUnreadable: request.places.onUnreadable }), checkout };
     }),
   );

@@ -6,6 +6,10 @@ export function formatNumber(language: Language, n: number): string {
   return n.toLocaleString(localeOf(language));
 }
 
+export function formatWhole(language: Language, value: number): string {
+  return formatNumber(language, Math.round(value));
+}
+
 export function formatDayMonth(language: Language, date: Date): string {
   return date.toLocaleDateString(localeOf(language), { day: "2-digit", month: "2-digit" });
 }

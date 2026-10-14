@@ -1,7 +1,8 @@
+import { formatWhole } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { EffectPeriod } from "../../core/api/contract";
 import { formatShare } from "../../core/stats/format";
-import { approx, formatWhole } from "./value-format";
+import { approx } from "./value-format";
 import { NO_VALUE } from "../labels";
 
 type DeferredLines = Pick<EffectPeriod, "deferredLines" | "deferredTestLines">;

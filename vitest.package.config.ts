@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { ISOLATED_GIT_ENV } from "./src/core/store/testing/temp-dirs.ts";
-import { PORT_GUARD_ENV, PORT_GUARD_SETUP } from "./tests/port-guard-config.ts";
+import { PORT_GUARD_ENV, PORT_GUARD_SETUP } from "./scripts/port-guard/config.ts";
 
 export default defineConfig({
   test: {

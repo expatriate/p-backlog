@@ -177,7 +177,8 @@ async function readBody<T>(c: Context, schema: ZodType<T>, readLanguage: () => P
 async function readJson(c: Context): Promise<{ ok: true; value: unknown } | { ok: false }> {
   try {
     return { ok: true, value: await c.req.json() };
-  } catch {
-    return { ok: false };
+  } catch (error) {
+    if (error instanceof SyntaxError) return { ok: false };
+    throw error;
   }
 }

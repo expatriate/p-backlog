@@ -40,7 +40,7 @@ export function baseCliEnv(overrides: Pick<CliEnv, "cwd" | "home" | "backlogRoot
     nodePath: "node",
     cliPath: "cli.js",
     exec: fakeExec().exec,
-    stopProcess: () => true,
+    stopProcess: () => undefined,
     env: {},
     now: () => new Date(),
     readStdin: async () => "",

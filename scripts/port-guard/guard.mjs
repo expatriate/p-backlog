@@ -3,7 +3,7 @@ import net from "node:net";
 const GUARDED_PORT_ENV = "P_BACKLOG_GUARDED_PORT";
 const ALREADY_GUARDED = Symbol.for("p-backlog.port-guard");
 
-if (!process.env[GUARDED_PORT_ENV]) throw new Error(`${GUARDED_PORT_ENV} не задан: охранник не знает порт живой службы p-backlog, его задаёт tests/port-guard-config.ts`);
+if (!process.env[GUARDED_PORT_ENV]) throw new Error(`${GUARDED_PORT_ENV} is not set: the guard does not know the port of the live p-backlog service; scripts/port-guard/config.ts sets it`);
 
 function portIn(args) {
   // net.connect() and http hand Socket.prototype.connect their arguments pre-normalized as [options, callback].
@@ -15,7 +15,9 @@ function refusingGuardedPort(method) {
   return function (...args) {
     const port = portIn(args);
     if (port === Number(process.env[GUARDED_PORT_ENV])) {
-      throw new Error(`Тест обратился к порту ${port}: это порт живой службы p-backlog с настоящим беклогом. Возьмите freePort() из src/cli/testing/free-port.ts или порт 0.`);
+      throw new Error(
+        `Port ${port} belongs to the live p-backlog service with the real backlog. Tests take freePort() from src/cli/testing/free-port.ts or port 0; the screenshot script takes SCREENSHOTS_PORT.`,
+      );
     }
     return method.apply(this, args);
   };

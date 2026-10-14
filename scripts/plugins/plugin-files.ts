@@ -50,5 +50,3 @@ export async function pluginFiles(repoRoot: string): Promise<Record<string, stri
   }
   return files;
 }
-
-

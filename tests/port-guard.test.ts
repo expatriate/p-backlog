@@ -3,7 +3,7 @@ import { createServer } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { freePort } from "../src/cli/testing/free-port";
 
-const REFUSAL = "порт живой службы p-backlog";
+const REFUSAL = "live p-backlog service";
 
 let guardedPort: number;
 

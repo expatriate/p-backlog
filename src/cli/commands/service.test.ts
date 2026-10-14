@@ -71,9 +71,8 @@ describe("backlog service", () => {
     await mkdir(join(home, "AppData/Local/p-backlog"), { recursive: true });
     await writeFile(vbsPidFile(home), "4242");
     const stopped: number[] = [];
-    const stopProcess = (pid: number): boolean => {
+    const stopProcess = (pid: number) => {
       stopped.push(pid);
-      return true;
     };
 
     const exec = fakeExec((command) => ({ code: 0, output: command.startsWith("powershell.exe") ? `"C:\\node\\node.exe" "${sandboxCliPath}" serve` : "" })).exec;

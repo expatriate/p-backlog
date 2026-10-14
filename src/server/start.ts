@@ -5,7 +5,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { claudeProjectsDir } from "../core/claude-dir";
 import { HOUR_MS } from "../core/model/dates";
-import { errorText } from "../core/errors";
+import { errorText, oncePerKey } from "../core/errors";
 import type { Language } from "../core/i18n/language";
 import { coreMessages } from "../core/messages";
 import { browserOrigin, LOOPBACK_HOST } from "../core/server-address";
@@ -55,7 +55,7 @@ export async function startServer({ root, port, home, env, platform, log, warn, 
 
   const startupMessages = serverMessages(settledLanguage);
 
-  const onLanguageUnreadable = reportEachNewFailure((detail) => warn(startupMessages.languageUnreadable(detail)));
+  const onLanguageUnreadable = oncePerKey(errorText, (error) => warn(startupMessages.languageUnreadable(errorText(error))));
   const readLanguage = () => readLanguageOrLocale(root, env, onLanguageUnreadable);
   const readMessages = () => readLanguage().then(serverMessages);
   const warnLocalized = localizedWarn(readLanguage, warn);
@@ -91,16 +91,6 @@ export async function startServer({ root, port, home, env, platform, log, warn, 
   }
   log(startupMessages.serverStarted(browserOrigin(actualPort), root));
   return { port: actualPort, close };
-}
-
-function reportEachNewFailure(report: (detail: string) => void): (error: unknown) => void {
-  const reported = new Set<string>();
-  return (error) => {
-    const detail = errorText(error);
-    if (reported.has(detail)) return;
-    reported.add(detail);
-    report(detail);
-  };
 }
 
 export function closeOnStopSignal(server: RunningServer): Promise<void> {

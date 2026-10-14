@@ -11,7 +11,7 @@ export type GraphHealth = { state: GraphState; pinned: number; resolved: number 
 
 export async function projectGraphHealth(project: Project, tasks: readonly Task[], home: string): Promise<GraphHealth> {
   return graphHealth(
-    await findRepo(project, { home, onUnreadable: unreadableRepoHasNoGraph }),
+    await findRepo(project, { home, onUnreadable: unreadableRepoHasNoGraph, workingRoots: null }),
     tasks.filter((task) => task.projectId === project.id),
   );
 }

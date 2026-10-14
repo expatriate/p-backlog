@@ -23,7 +23,7 @@ function tempRootedEnv(roots: Roots, env: CliEnv["env"]): CliEnv["env"] {
 function contextFor(
   roots: Roots,
   exec: CliEnv["exec"] = fakeExec().exec,
-  stopProcess: CliEnv["stopProcess"] = () => true,
+  stopProcess: CliEnv["stopProcess"] = () => undefined,
   onUnverifiedPid: ServiceContext["onUnverifiedPid"] = () => undefined,
 ): ServiceContext & ServiceLaunch {
   return {
@@ -91,7 +91,6 @@ async function removeOnceReleased(path: string): Promise<void> {
 function recordInto(stopped: number[]): CliEnv["stopProcess"] {
   return (pid) => {
     stopped.push(pid);
-    return true;
   };
 }
 

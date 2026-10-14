@@ -1,7 +1,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync, StatementSync } from "node:sqlite";
-import { hasErrorCode } from "../errors";
+import { errorCode, hasErrorCode } from "../errors";
 
 const SYMBOL_KINDS = ["Class", "Function", "Type", "Test"] as const;
 
@@ -38,9 +38,10 @@ export function openCodeGraph(repo: string): CodeGraph | null {
       return null;
     }
     return codeGraph(db, root);
-  } catch {
+  } catch (error) {
     closeIfOpen(db);
-    return null;
+    if (isEnvironmentFailure(error)) return null;
+    throw error;
   }
 }
 
@@ -82,9 +83,14 @@ function symbolKindOf(stored: string): GraphSymbolKind {
 function ask<T>(statement: StatementSync, run: (statement: StatementSync) => T, fallback: T): T {
   try {
     return run(statement);
-  } catch {
-    return fallback;
+  } catch (error) {
+    if (isEnvironmentFailure(error)) return fallback;
+    throw error;
   }
+}
+
+function isEnvironmentFailure(error: unknown): boolean {
+  return typeof errorCode(error) === "string";
 }
 
 function closeIfOpen(db: DatabaseSync | null): void {

@@ -34,7 +34,15 @@ const NOW = new Date("2026-09-18T12:00:00Z");
 const ignoreWarning = () => undefined;
 
 async function check(root: string, home: string, mode: CheckMode, projectIds: readonly string[] = ["spa"]) {
-  return checkBacklog(root, await loadBacklog(root), { projectIds, mode, now: NOW, places: { home, onUnreadable: ignoreWarning }, messages: RU, warn: ignoreWarning });
+  return checkBacklog(root, await loadBacklog(root), { projectIds, mode, now: NOW, places: { home, onUnreadable: ignoreWarning }, messages: RU, warn: ignoreWarning, workingRoots: null });
+}
+
+async function checkCollectingWarnings(root: string, home: string, mode: CheckMode) {
+  const warnings: string[] = [];
+  const warn = (line: string) => warnings.push(line);
+  const places = { home, onUnreadable: warnPathErrors(warn, RU.unreadableSkipped) };
+  const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode, now: NOW, places, messages: RU, warn, workingRoots: null });
+  return { report, warnings };
 }
 
 function task(id: string, fields = ""): string {
@@ -83,17 +91,8 @@ describe("checkBacklog", () => {
     gitCommitAll(repo, "Очередь", "2026-09-13T10:00:00+03:00");
     await chmod(unreadable, 0o000);
     onTestFinished(() => chmod(unreadable, 0o600));
-    const warnings: string[] = [];
-    const warn = (line: string) => warnings.push(line);
 
-    const report = await checkBacklog(root, await loadBacklog(root), {
-      projectIds: ["spa"],
-      mode: "full",
-      now: NOW,
-      places: { home, onUnreadable: warnPathErrors(warn, RU.unreadableSkipped) },
-      messages: RU,
-      warn,
-    });
+    const { report, warnings } = await checkCollectingWarnings(root, home, "full");
 
     const candidates = report.candidates.map((candidate) => candidate.task.id);
     expect(candidates).toEqual(expect.arrayContaining(["SPA-1", "SPA-2"]));
@@ -124,17 +123,8 @@ describe("checkBacklog", () => {
     const { home, root } = await setup();
     await rm(join(root, "spa", "journal.jsonl"), { force: true });
     await mkdir(join(root, "spa", "journal.jsonl"));
-    const warnings: string[] = [];
-    const warn = (line: string) => warnings.push(line);
 
-    const report = await checkBacklog(root, await loadBacklog(root), {
-      projectIds: ["spa"],
-      mode: "changed",
-      now: NOW,
-      places: { home, onUnreadable: warnPathErrors(warn, RU.unreadableSkipped) },
-      messages: RU,
-      warn,
-    });
+    const { report, warnings } = await checkCollectingWarnings(root, home, "changed");
 
     expect(report.candidates.map((candidate) => candidate.task.id)).toContain("SPA-1");
     expect(warnings).toEqual([expect.stringContaining("Не удалось прочитать журнал spa"), expect.stringContaining("Не удалось записать кандидатов")]);

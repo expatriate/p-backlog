@@ -3,7 +3,7 @@ docs/screenshots
 .superpowers
 .impeccable
 .claude
-plugins
+/plugins
 .claude-plugin/marketplace.json
 package-lock.json
 *.md

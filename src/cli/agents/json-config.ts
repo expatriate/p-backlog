@@ -16,8 +16,9 @@ export async function readJsonConfig<T>(path: string, schema: z.ZodType<T>): Pro
   let value: unknown;
   try {
     value = JSON.parse(text);
-  } catch {
-    return { failed: "invalid" };
+  } catch (error) {
+    if (error instanceof SyntaxError) return { failed: "invalid" };
+    throw error;
   }
   return schema.safeParse(value).success ? { config: value as T } : { failed: "invalid" };
 }

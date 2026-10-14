@@ -17,7 +17,7 @@ const LIST_WORKTREES = ["worktree", "list", "--porcelain"];
 
 type RevParse = { topLevel: string; isMainWorktree: boolean };
 
-export function findGitRoots(dir: string): GitRoots | null {
+function findGitRoots(dir: string): GitRoots | null {
   const parsed = parseRevParse(dir, runGitSync(dir, SHOW_ROOTS));
   if (parsed === null) return null;
   return rootsOf(parsed, parsed.isMainWorktree ? null : runGitSync(dir, LIST_WORKTREES));

@@ -1,4 +1,4 @@
-import { formatDecimal, formatNumber } from "../../core/i18n/format";
+import { formatDecimal, formatWhole } from "../../core/i18n/format";
 import { countRu, NBSP, pluralRu } from "../../core/i18n/plural";
 import type { Priority } from "../../core/model/types";
 import type { AgeBucket, ClosingReason } from "../../core/api/contract";
@@ -216,7 +216,7 @@ export function createStatsRu(constants: StatsConstants) {
     noCommands: "Команд пока не было",
     commandsHead: ["Команда", "Запусков", "Среднее время", "Средняя память", "Пиковая память"],
     mebibytes: (value: number): string => `${formatDecimal("ru", value)}${NBSP}МиБ`,
-    milliseconds: (value: number): string => `${formatNumber("ru", Math.round(value))}${NBSP}мс`,
+    milliseconds: (value: number): string => `${formatWhole("ru", value)}${NBSP}мс`,
     spendBy: { week: "Расход по неделям", day: "Расход по дням" } satisfies Record<Grain, string>,
     hookTurnTokens: "токены ходов хука",
     cliOutputTokens: "токены вывода CLI и скилла",

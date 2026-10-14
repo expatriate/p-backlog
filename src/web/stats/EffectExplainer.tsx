@@ -1,3 +1,4 @@
+import { formatWhole } from "../../core/i18n/format";
 import type { ReactNode } from "react";
 import type { Language } from "../../core/i18n/language";
 import type { EffectTotals } from "../../core/api/contract";
@@ -7,7 +8,6 @@ import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
 import styles from "./EffectExplainer.module.css";
 import { codeAndTestsLines, linesAmount, summarizePending } from "./summaries";
-import { formatWhole } from "./value-format";
 
 export function EffectExplainer({ totals }: { totals: EffectTotals }) {
   const { stats } = useMessages();

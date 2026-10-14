@@ -1,3 +1,4 @@
+import { formatWhole } from "../../core/i18n/format";
 import { useParams } from "react-router";
 import type { Language } from "../../core/i18n/language";
 import { formatSigned } from "../../core/stats/format";
@@ -13,7 +14,6 @@ import { StatsTabState } from "./StatsTabState";
 import { FlowPanel } from "./FlowPanel";
 import { IntakePanel } from "./IntakePanel";
 import type { StatsMessages } from "./messages.ru";
-import { formatWhole } from "./value-format";
 import layout from "./StatsLayout.module.css";
 
 const TREND_ARROWS: Record<FigureTone, string> = { decline: "↓", growth: "↑" };

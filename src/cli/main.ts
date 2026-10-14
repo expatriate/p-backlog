@@ -43,10 +43,8 @@ const exitCode = await runCli(argv, {
   stopProcess: (pid) => {
     try {
       process.kill(pid);
-      return true;
     } catch (error) {
-      if (hasErrorCode(error, "ESRCH")) return false;
-      throw error;
+      if (!hasErrorCode(error, "ESRCH")) throw error;
     }
   },
   env: process.env,

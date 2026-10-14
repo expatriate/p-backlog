@@ -12,7 +12,7 @@ import { loopbackOrigin } from "../../src/core/server-address";
 import { DAY_MS } from "../../src/core/model/dates";
 import { SERVE_COMMAND_NAME } from "../../src/core/serve-command";
 import { SEEN_TASKS_STORAGE_KEY } from "../../src/web/list/use-seen-tasks";
-import { PORT_GUARD_ENV } from "../../tests/port-guard-config";
+import { PORT_GUARD_ENV } from "../port-guard/config";
 
 export type Shot = { name: string; path: string; viewport?: { width: number; height: number } };
 

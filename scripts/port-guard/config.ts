@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
-import { DEFAULT_PORT } from "../src/core/server-address.ts";
+import { DEFAULT_PORT } from "../../src/core/server-address.ts";
 
-const PORT_GUARD_URL = new URL("port-guard.mjs", import.meta.url);
+const PORT_GUARD_URL = new URL("guard.mjs", import.meta.url);
 
 export const PORT_GUARD_SETUP = fileURLToPath(PORT_GUARD_URL);
 

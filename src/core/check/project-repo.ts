@@ -11,7 +11,7 @@ import { currentSourceIn } from "./current-source";
 
 export type SourceAnchor = { kind: "no-file" } | { kind: "uncomputable" } | { kind: "anchor"; anchor: string };
 
-export type RepoLookup = RepoPlaces & { workingRoots?: GitRoots | null };
+export type RepoLookup = RepoPlaces & { workingRoots: GitRoots | null };
 
 export async function sourceAnchor(repo: string | undefined, source: string, onUnreadable: PathErrorHandler): Promise<SourceAnchor> {
   const text = repo === undefined ? null : await attemptReportingFailure(join(repo, sourcePath(source)), readTextIfFile, onUnreadable);
@@ -27,7 +27,7 @@ export async function relocatedSource(repo: string | undefined, task: Task): Pro
 
 export type ProjectCheckout = { path: string; linkedWorktree: boolean };
 
-export async function findRepo(project: Project, { workingRoots = null, ...lookup }: RepoLookup): Promise<string | undefined> {
+export async function findRepo(project: Project, { workingRoots, ...lookup }: RepoLookup): Promise<string | undefined> {
   return (await projectCheckout(project, workingRoots, lookup))?.path;
 }
 
