@@ -1,11 +1,11 @@
-import { literalPathspecs, runGit, type GitRunner } from "../git/run";
+import { literalPathspecs, outputLines, runGit, type GitRunner } from "../git/run";
 import type { TaskOrigin } from "../journal/events";
 import type { Task } from "../model/types";
 import { remembered } from "../remembered";
 import { commitsTouchingSince, judgedByCommits, reviewMark, type AnchorStates, type KnownCommits } from "./candidates";
 import { commitsCarryingContent } from "./landed-content";
 import { sourcePath } from "../model/source";
-import type { Commit, RepoFacts } from "./repo-facts";
+import { FACTS_HISTORY_OPTIONS, type Commit, type RepoFacts } from "./repo-facts";
 
 const MERGE_PARENTS = 2;
 
@@ -22,11 +22,10 @@ export async function commitsKnownAtCreation({ repo, tasks, facts, anchors, orig
   });
   const branchCommitsByMerge = new Map<string, Promise<string[] | null>>();
   const commitsBroughtBy = (merge: Commit, creation: string, path: string) =>
-    remembered(branchCommitsByMerge, `${merge.sha} ${creation} ${path}`, async () => {
-      const shas = await git(repo, ["rev-list", `${merge.sha}^2`, `^${merge.sha}^1`, `^${creation}`, "--", ...literalPathspecs([path])]);
-      return shas === null ? null : shas.split("\n").filter((sha) => sha !== "");
-    });
-  const carryingContent = commitsCarryingContent(repo, git);
+    remembered(branchCommitsByMerge, `${merge.sha} ${creation} ${path}`, async () =>
+      outputLines(await git(repo, ["rev-list", `${merge.sha}^2`, `^${merge.sha}^1`, `^${creation}`, "--", ...literalPathspecs([path])])),
+    );
+  const carryingContent = commitsCarryingContent(repo, git, FACTS_HISTORY_OPTIONS);
   const copyAnswers = new Map<string, Promise<readonly string[]>>();
   const copiesOfCreation = (creation: string, path: string) => remembered(copyAnswers, `${creation} ${path}`, () => carryingContent(creation, literalPathspecs([path])));
   const isCopy = (copies: readonly string[], sha: string) => copies.some((fullSha) => fullSha.startsWith(sha));

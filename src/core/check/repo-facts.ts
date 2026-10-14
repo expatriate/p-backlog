@@ -34,6 +34,8 @@ const ORIGINAL_PATH_FOLLOWS = /^(?:[RC].|.[RC])/;
 
 export type PathMarks = ReadonlyMap<string, number>;
 
+export const FACTS_HISTORY_OPTIONS: readonly string[] = ["--full-history"];
+
 export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Promise<RepoFacts> {
   const paths = [...pathMarks.keys()];
   const [location, files] = await Promise.all([runGitOutcome(repo, ["rev-parse", "--show-prefix", "--revs-only", "HEAD"]), sourceFiles(repo, paths)]);
@@ -68,7 +70,7 @@ function earliestMark(marks: PathMarks, paths: readonly string[]): Date {
 }
 
 function logArgs(since: Date): string[] {
-  return ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%p${FIELD}%s`, "--name-status", "-M", "--diff-merges=first-parent", "--full-history", "-z"];
+  return ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%p${FIELD}%s`, "--name-status", "-M", "--diff-merges=first-parent", ...FACTS_HISTORY_OPTIONS, "-z"];
 }
 
 async function pathLog(repo: string, since: Date, paths: readonly string[]): Promise<string | null> {

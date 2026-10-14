@@ -1,4 +1,4 @@
-import { outputLine, runGitOutcome, stdoutOf, type GitOutcome, type GitOutcomeRunner } from "../git/run";
+import { asGitRunner, outputLine, runGitOutcome, stdoutOf, type GitOutcome, type GitOutcomeRunner } from "../git/run";
 import type { TaskOrigin } from "../journal/events";
 import { remembered } from "../remembered";
 import { contentLanded } from "./landed-content";
@@ -29,7 +29,7 @@ export async function awaitingMerge({ repo, taskIds, origins, git = runGitOutcom
 
 async function branchAwaitsMerge(repo: string, branch: string, git: GitOutcomeRunner): Promise<boolean> {
   const tip = lineOf(await git(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]));
-  return tip !== null && !(await contentLanded(repo, tip, async (dir, args, input) => stdoutOf(await git(dir, args, input))));
+  return tip !== null && !(await contentLanded(repo, tip, asGitRunner(git)));
 }
 
 function lineOf(outcome: GitOutcome): string | null {

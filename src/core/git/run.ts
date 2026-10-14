@@ -33,10 +33,14 @@ export const runGitOutcome: GitOutcomeRunner = (repo, args, input) =>
     }
   });
 
-export const runGit: GitRunner = async (repo, args, input) => {
-  const outcome = await runGitOutcome(repo, args, input);
-  return args[0] === "grep" && outcome.status === "exited" && outcome.exitCode === GREP_NO_MATCH_EXIT ? "" : stdoutOf(outcome);
-};
+export function asGitRunner(git: GitOutcomeRunner): GitRunner {
+  return async (repo, args, input) => {
+    const outcome = await git(repo, args, input);
+    return args[0] === "grep" && outcome.status === "exited" && outcome.exitCode === GREP_NO_MATCH_EXIT ? "" : stdoutOf(outcome);
+  };
+}
+
+export const runGit: GitRunner = asGitRunner(runGitOutcome);
 
 export function stdoutOf(outcome: GitOutcome): string | null {
   return outcome.status === "ok" ? outcome.stdout : null;
@@ -53,6 +57,10 @@ export function outputLines(stdout: string | null): string[] | null {
 
 export function literalPathspecs(paths: readonly string[]): string[] {
   return paths.map((path) => `:(literal)${path}`);
+}
+
+export function topLiteralPathspecs(paths: readonly string[]): string[] {
+  return paths.map((path) => `:(top,literal)${path}`);
 }
 
 export function runGitSync(repo: string, args: string[]): string | null {

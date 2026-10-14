@@ -11,12 +11,11 @@ import { anchorOf } from "./anchor";
 import { commitsKnownAtCreation } from "./known-commits";
 import { anchorStates, codeReview } from "./candidates";
 import { commitsCarryingContent } from "./landed-content";
-import { collectRepoFacts } from "./repo-facts";
+import { collectRepoFacts, FACTS_HISTORY_OPTIONS } from "./repo-facts";
+import { fileOf, twinBlocks } from "./testing/source-files";
 
 const CREATED = "2026-09-11T10:00:00+03:00";
 const LINES = Array.from({ length: 40 }, (_, index) => `export const value${index + 1} = ${index + 1};`);
-
-const fileOf = (lines: readonly string[]) => `${lines.join("\n")}\n`;
 
 const withValues = (lines: readonly string[], values: Record<number, number>) => lines.map((line, index) => (values[index + 1] === undefined ? line : `export const value${index + 1} = ${values[index + 1]};`));
 
@@ -82,7 +81,7 @@ describe("коммиты, уже известные задаче при созд
     const tasks = [anchored("SPA-1", 2), anchored("SPA-2", 5), makeTask({ id: "SPA-3", created: CREATED, source: "src/a.ts" }), makeTask({ id: "SPA-4", created: CREATED, source: "src/a.ts" })];
     const facts = await collectRepoFacts(repo, new Map([["src/a.ts", Date.parse(CREATED)]]));
     const copiesQuestion = countingGit();
-    await commitsCarryingContent(repo, copiesQuestion.git)(origin.commit, literalPathspecs(["src/a.ts"]));
+    await commitsCarryingContent(repo, copiesQuestion.git, FACTS_HISTORY_OPTIONS)(origin.commit, literalPathspecs(["src/a.ts"]));
     const counting = countingGit();
 
     const known = await commitsKnownAtCreation({ repo, tasks, facts, anchors: anchorStates(tasks, facts), origins: new Map(tasks.map((task) => [task.id, origin])), git: counting.git });
@@ -114,16 +113,14 @@ describe("коммиты, уже известные задаче при созд
 
   it("основная ветка сделала ту же правку, что и ветка задачи, но во втором из двух одинаковых блоков файла — после squash-слияния ветки кандидатом задачу делает эта правка, а не squash-коммит", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
-    const block = (sum: string) => ["function twin() {", "  const a = 1;", "  const b = 2;", `  return ${sum};`, "  const c = 3;", "  const d = 4;", "}"];
-    const twins = (first: string, second: string) => fileOf([...block(first), "", "const between = 0;", "", ...block(second)]);
-    await writeFiles(repo, { "src/a.ts": twins("a + b", "a + b") });
+    await writeFiles(repo, { "src/a.ts": twinBlocks("a + b", "a + b") });
     gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
     gitCheckout(repo, "feat", { create: true });
-    await writeFiles(repo, { "src/a.ts": twins("a * b", "a + b") });
+    await writeFiles(repo, { "src/a.ts": twinBlocks("a * b", "a + b") });
     gitCommitAll(repo, "Фича правит первый блок", "2026-09-10T10:00:00+03:00");
     const origin = { branch: "feat", commit: gitShortHead(repo) };
     gitCheckout(repo, "master");
-    await writeFiles(repo, { "src/a.ts": twins("a + b", "a * b") });
+    await writeFiles(repo, { "src/a.ts": twinBlocks("a + b", "a * b") });
     gitCommitAll(repo, "Основная ветка так же правит второй блок", "2026-09-12T10:00:00+03:00");
     gitMergeSquash(repo, "feat");
     gitCommitAll(repo, "Слить feat одним коммитом", "2026-09-13T10:00:00+03:00");

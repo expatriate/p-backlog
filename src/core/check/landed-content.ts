@@ -1,8 +1,8 @@
 import { groupBy } from "../collections";
 import { firstParentLanding } from "../git/landing";
-import { outputLine, resolveTrees, type GitRunner } from "../git/run";
+import { outputLine, resolveTrees, topLiteralPathspecs, type GitRunner } from "../git/run";
 import { remembered } from "../remembered";
-import { FILE_HEADER, firstLineOf, hunkHeaderOf, type HunkHeader } from "./diff-hunks";
+import { firstLineOf, hunkHeaderOf, patchShapes, type BlobPair, type HunkHeader } from "./diff-hunks";
 
 type FileVersion = { path: string; version: string };
 
@@ -10,21 +10,13 @@ type CommitChange = FileVersion & { commit: string };
 
 type Fork = { base: string; tip: string; head: string };
 
-type HeadHistory = "simplified" | "full";
-
 type RepoGit = { repo: string; git: GitRunner };
 
-type ForkView = Fork & RepoGit & { history: HeadHistory };
-
-type BlobPair = { preimage: string; postimage: string };
-
-type PatchShape = { blobs: BlobPair | undefined; changeStarts: number[]; changedText: string };
+type ForkView = Fork & RepoGit & { historyOptions: readonly string[] };
 
 type Patch = { id: string; commit: string; preimageRevision: string; blobs: BlobPair | undefined; changeStarts: readonly number[]; changedText: string };
 
 type PatchPair = readonly [change: Patch, copy: Patch];
-
-type HunkWalk = { oldLine: number; changing: boolean };
 
 type LineShift = { shiftsLinesAfter: number; delta: number };
 
@@ -37,22 +29,18 @@ type CommitsCarryingContent = (tip: string, scope: readonly string[]) => Promise
 // diff-tree ignores diff.algorithm and diff.indentHeuristic from git config; pinning them keeps patches and preimage diffs on one algorithm.
 const PATCH_OPTIONS = ["-p", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--no-relative", "--full-index", "--diff-algorithm=myers", "--indent-heuristic"];
 const COMMIT_HEADER = "--format=commit %H";
-const COMMIT_LINE = /^commit (?<commit>[0-9a-f]+)$/;
-const INDEX_LINE = /^index (?<preimage>[0-9a-f]+)\.\.(?<postimage>[0-9a-f]+)/;
 const TREE_PAIR_LINE = /^[0-9a-f]+ [0-9a-f]+$/;
 const NO_COMMIT = /^0+$/;
-const NO_NEWLINE_MARK = "\\";
 const RAW_RECORD = /commit (?<commit>[0-9a-f]+)\0|:\d+ (?<mode>\d+) [0-9a-f]+ (?<object>[0-9a-f]+) [A-Z]\d*\0(?<path>[^\0]*)\0/g;
 
 export async function contentLanded(repo: string, tip: string, git: GitRunner): Promise<boolean> {
   const fork = await forkAt(repo, "HEAD", tip, git);
   if (fork === null) return false;
-  const view: ForkView = { ...fork, repo, history: "simplified", git };
+  const view: ForkView = { ...fork, repo, historyOptions: [], git };
   const changed = await branchChanges(view, []);
   if (changed === null) return false;
   if (changed.length === 0) return true;
-  const pathspecs = changed.map(({ path }) => pathspecOf(path));
-  const landed = await headChanges(view, pathspecs);
+  const landed = await headChanges(view, topLiteralPathspecs(changed.map(({ path }) => path)));
   if (landed === null) return false;
   const landedVersions = new Set(landed.map(({ version }) => version));
   for (const { path, version } of changed) {
@@ -61,12 +49,11 @@ export async function contentLanded(repo: string, tip: string, git: GitRunner): 
   return true;
 }
 
-export function commitsCarryingContent(repo: string, git: GitRunner): CommitsCarryingContent {
+export function commitsCarryingContent(repo: string, git: GitRunner, historyOptions: readonly string[]): CommitsCarryingContent {
   const forks = new Map<string, Promise<Fork | null>>();
   return async (tip, scope) => {
     const fork = await remembered(forks, tip, () => forkBeforeLanding(repo, tip, git));
-    // The commits judged here are the ones repo-facts lists, and it reads history with --full-history.
-    return fork === null ? [] : commitsCarrying({ ...fork, repo, history: "full", git }, scope);
+    return fork === null ? [] : commitsCarrying({ ...fork, repo, historyOptions, git }, scope);
   };
 }
 
@@ -112,13 +99,9 @@ async function branchChanges(view: ForkView, pathspecs: readonly string[]): Prom
   return changed === null ? null : rawChanges(changed);
 }
 
-async function headChanges({ repo, base, head, history, git }: ForkView, pathspecs: readonly string[]): Promise<CommitChange[] | null> {
-  const rawLog = await git(repo, ["log", "--stdin", COMMIT_HEADER, "--raw", "-z", "--no-renames", "--no-abbrev", "--no-relative", ...historyOptions(history)], `${base}..${head}\n--\n${pathspecs.join("\n")}\n`);
+async function headChanges({ repo, base, head, historyOptions, git }: ForkView, pathspecs: readonly string[]): Promise<CommitChange[] | null> {
+  const rawLog = await git(repo, ["log", "--stdin", COMMIT_HEADER, "--raw", "-z", "--no-renames", "--no-abbrev", "--no-relative", ...historyOptions], `${base}..${head}\n--\n${pathspecs.join("\n")}\n`);
   return rawLog === null ? null : rawChanges(rawLog);
-}
-
-function historyOptions(history: HeadHistory): string[] {
-  return history === "full" ? ["--full-history"] : [];
 }
 
 function rawChanges(raw: string): CommitChange[] {
@@ -146,12 +129,12 @@ function earliestCopies(copies: PatchCopies): string[] {
 }
 
 async function patchCopies(view: ForkView, path: string): Promise<PatchCopies | null> {
-  const { repo, base, tip, head, history, git } = view;
-  const onlyPath = ["--", pathspecOf(path)];
+  const { repo, base, tip, head, historyOptions, git } = view;
+  const onlyPath = ["--", ...topLiteralPathspecs([path])];
   const [squashedPatch, branchPatches, headPatches] = await Promise.all([
     patchesOf(repo, ["diff", ...PATCH_OPTIONS, base, tip, ...onlyPath], () => base, git),
     patchesOf(repo, ["log", ...PATCH_OPTIONS, COMMIT_HEADER, `${base}..${tip}`, ...onlyPath], parentOf, git),
-    patchesOf(repo, ["log", ...PATCH_OPTIONS, COMMIT_HEADER, "--date-order", ...historyOptions(history), `${base}..${head}`, ...onlyPath], parentOf, git),
+    patchesOf(repo, ["log", ...PATCH_OPTIONS, COMMIT_HEADER, "--date-order", ...historyOptions, `${base}..${head}`, ...onlyPath], parentOf, git),
   ]);
   if (squashedPatch === null || branchPatches === null || headPatches === null) return null;
   const headPatchesById = groupBy(headPatches, ({ id }) => id);
@@ -167,55 +150,15 @@ async function patchesOf(repo: string, patchArgs: string[], preimageOf: (commit:
   if (patches === null) return null;
   const ids = await git(repo, ["patch-id", "--stable"], patches);
   if (ids === null) return null;
-  const shapes = patchShapesByCommit(patches);
+  const shapeOf = patchShapes(patches);
   return ids
     .split("\n")
     .filter((line) => line !== "")
     .map((line) => {
       const [id = "", label = ""] = line.split(" ");
       const commit = NO_COMMIT.test(label) ? "" : label;
-      const { blobs, changeStarts, changedText } = shapes.get(commit) ?? emptyShape();
-      return { id, commit, preimageRevision: preimageOf(commit), blobs, changeStarts, changedText };
+      return { id, commit, preimageRevision: preimageOf(commit), ...shapeOf(commit) };
     });
-}
-
-function patchShapesByCommit(patches: string): Map<string, PatchShape> {
-  const shapes = new Map<string, PatchShape>();
-  let shape = emptyShape();
-  shapes.set("", shape);
-  let hunk: HunkWalk | undefined;
-  for (const line of patches.split("\n")) {
-    const commit = COMMIT_LINE.exec(line)?.groups?.commit;
-    const header = hunkHeaderOf(line);
-    if (commit !== undefined) {
-      shape = emptyShape();
-      shapes.set(commit, shape);
-      hunk = undefined;
-    } else if (line.startsWith(FILE_HEADER)) hunk = undefined;
-    else if (header !== null) hunk = { oldLine: firstLineOf(header.oldStart, header.oldCount), changing: false };
-    else if (hunk === undefined) shape.blobs ??= blobPairOf(line);
-    else walkHunkLine(hunk, line, shape);
-  }
-  return shapes;
-}
-
-function blobPairOf(line: string): BlobPair | undefined {
-  const blobs = INDEX_LINE.exec(line)?.groups;
-  return blobs === undefined ? undefined : { preimage: blobs.preimage ?? "", postimage: blobs.postimage ?? "" };
-}
-
-function walkHunkLine(hunk: HunkWalk, line: string, shape: PatchShape): void {
-  const mark = line.charAt(0);
-  if (mark === NO_NEWLINE_MARK) return;
-  const changed = mark === "-" || mark === "+";
-  if (changed && !hunk.changing) shape.changeStarts.push(hunk.oldLine);
-  if (changed) shape.changedText += `${line}\n`;
-  hunk.changing = changed;
-  if (mark !== "+") hunk.oldLine += 1;
-}
-
-function emptyShape(): PatchShape {
-  return { blobs: undefined, changeStarts: [], changedText: "" };
 }
 
 async function preimageShifts(repoGit: RepoGit, path: string, pairs: readonly PatchPair[]): Promise<ShiftsBetween> {
@@ -236,7 +179,11 @@ async function preimageShifts(repoGit: RepoGit, path: string, pairs: readonly Pa
 
 async function treeDiffShifts({ repo, git }: RepoGit, path: string, treePairs: readonly string[]): Promise<Map<string, LineShift[]>> {
   if (treePairs.length === 0) return new Map();
-  const preimageDiffs = await git(repo, ["diff-tree", "--stdin", ...PATCH_OPTIONS, "--unified=0", "--inter-hunk-context=0", "--", pathspecOf(path)], treePairs.map((treePair) => `${treePair}\n`).join(""));
+  const preimageDiffs = await git(
+    repo,
+    ["diff-tree", "--stdin", ...PATCH_OPTIONS, "--unified=0", "--inter-hunk-context=0", "--", ...topLiteralPathspecs([path])],
+    treePairs.map((treePair) => `${treePair}\n`).join(""),
+  );
   return preimageDiffs === null ? new Map() : lineShiftsByTreePair(preimageDiffs);
 }
 
@@ -285,10 +232,6 @@ function shiftedLine(line: number, shifts: readonly LineShift[]): number {
 
 function parentOf(commit: string): string {
   return `${commit}^`;
-}
-
-function pathspecOf(path: string): string {
-  return `:(top,literal)${path}`;
 }
 
 function fileVersion({ mode = "", object = "", path = "" }: Record<string, string | undefined> = {}): FileVersion {

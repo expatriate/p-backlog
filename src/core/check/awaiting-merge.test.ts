@@ -3,10 +3,11 @@ import { runGitOutcome, type GitOutcomeRunner } from "../git/run";
 import type { TaskOrigin } from "../journal/events";
 import { gitCheckout, gitCommitAll, gitMergeSquash, gitRebaseMerge, gitShortHead, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { awaitingMerge } from "./awaiting-merge";
+import { fileOf, twinBlocks } from "./testing/source-files";
 
 const LINES = Array.from({ length: 40 }, (_, index) => `строка ${index + 1}`);
 
-const withLines = (replaced: Record<number, string>) => `${LINES.map((line, index) => replaced[index + 1] ?? line).join("\n")}\n`;
+const withLines = (replaced: Record<number, string>) => fileOf(LINES.map((line, index) => replaced[index + 1] ?? line));
 
 async function featureOfTwoCommits(): Promise<{ repo: string; feat: TaskOrigin; next: TaskOrigin }> {
   const repo = await makeGitRepo(await makeTempDir(), "spa");
@@ -50,8 +51,7 @@ async function featureEditingOneFileTwiceWhileMainEditsItsEnd(): Promise<{ repo:
 
 async function featureEditingFirstOfTwinBlocksWhileMainEditsSecond(lineEnd: string): Promise<{ repo: string; feat: TaskOrigin }> {
   const repo = await makeGitRepo(await makeTempDir(), "spa");
-  const block = (sum: string) => ["function twin() {", "  const a = 1;", "  const b = 2;", `  return ${sum};`, "  const c = 3;", "  const d = 4;", "}"];
-  const twins = (first: string, second: string) => `${[...block(first), "", "const between = 0;", "", ...block(second)].join(lineEnd)}${lineEnd}`;
+  const twins = (first: string, second: string) => twinBlocks(first, second, lineEnd);
   await writeFiles(repo, { ".gitattributes": "* -text\n", "src/twins.ts": twins("a + b", "a + b") });
   gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
   gitCheckout(repo, "feat", { create: true });
@@ -135,7 +135,7 @@ describe("awaitingMerge", () => {
       change: "удалила строку между двумя правками ветки",
       start: withLines({}),
       feature: withLines({ 10: "десятая", 18: "восемнадцатая" }),
-      main: `${LINES.filter((line) => line !== "строка 14").join("\n")}\n`,
+      main: fileOf(LINES.filter((line) => line !== "строка 14")),
     },
   ])("основная ветка тем временем $change, ветку влили squash-слиянием — задача не ждёт слияния", async (versions) => {
     const { repo, feat } = await featureSquashedAfterMainEdit(versions);

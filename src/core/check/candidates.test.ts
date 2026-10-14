@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
 import { anchorOf } from "./anchor";
 import { anchorStates, codeReview, isReviewable } from "./candidates";
-import { sourcePath } from "../model/source";
 import type { Task } from "../model/types";
 import type { Commit, RepoFacts } from "./repo-facts";
 
@@ -30,31 +29,13 @@ function facts(overrides: Partial<RepoFacts>): RepoFacts {
   };
 }
 
-describe("isReviewable и sourcePath", () => {
+describe("isReviewable", () => {
   it("проверяются только задачи в backlog и blocked, без эпиков", () => {
     expect(isReviewable(makeTask({ id: "SPA-1" }))).toBe(true);
     expect(isReviewable(makeTask({ id: "SPA-1", status: "blocked" }))).toBe(true);
     expect(isReviewable(makeTask({ id: "SPA-1", status: "in-progress" }))).toBe(false);
     expect(isReviewable(makeTask({ id: "SPA-1", status: "done" }))).toBe(false);
     expect(isReviewable(makeTask({ id: "SPA-1", type: "epic" }))).toBe(false);
-  });
-
-  it("путь — часть source до номера строки", () => {
-    expect(sourcePath("src/upload/client.ts:88")).toBe("src/upload/client.ts");
-    expect(sourcePath("src/a.ts:10-20")).toBe("src/a.ts");
-    expect(sourcePath("README.md")).toBe("README.md");
-  });
-
-  it("путь нормализуется: без ./ в начале и / в конце", () => {
-    expect(sourcePath("./src/a.ts:3")).toBe("src/a.ts");
-    expect(sourcePath("src/shared/")).toBe("src/shared");
-    expect(sourcePath("./src/shared/")).toBe("src/shared");
-  });
-
-  it("путь схлопывается: . и // пропадают, .. снимает папку перед собой, а выходящий за начало пути остаётся", () => {
-    expect(sourcePath(".//src/x/../a.ts:3")).toBe("src/a.ts");
-    expect(sourcePath("src/../../shared/a.ts")).toBe("../shared/a.ts");
-    expect(sourcePath("/repo/src/../a.ts")).toBe("/repo/a.ts");
   });
 });
 

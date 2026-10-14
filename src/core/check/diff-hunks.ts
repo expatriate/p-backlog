@@ -6,10 +6,18 @@ export type Hunk = { oldFirst: number; oldCount: number; newFirst: number; newCo
 
 export type HunkHeader = { oldStart: number; oldCount: number; newStart: number; newCount: number };
 
+export type BlobPair = { preimage: string; postimage: string };
+
+type PatchShape = { blobs: BlobPair | undefined; changeStarts: number[]; changedText: string };
+
+type HunkWalk = { oldLine: number; changing: boolean };
+
 const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 const OMITTED_COUNT = 1;
-export const FILE_HEADER = "diff ";
+const FILE_HEADER = "diff ";
 const EMPTY_OLD_SIDE = 0;
+const COMMIT_LINE = /^commit (?<commit>[0-9a-f]+)$/;
+const INDEX_LINE = /^index (?<preimage>[0-9a-f]+)\.\.(?<postimage>[0-9a-f]+)/;
 
 export function hunkHeaderOf(line: string): HunkHeader | null {
   const header = HUNK_HEADER.exec(line);
@@ -60,6 +68,45 @@ function hunkLineOf(line: string): HunkLine | null {
     default:
       return null;
   }
+}
+
+export function patchShapes(patches: string): (commit: string) => PatchShape {
+  const shapes = new Map<string, PatchShape>();
+  let shape = emptyShape();
+  shapes.set("", shape);
+  let hunk: HunkWalk | undefined;
+  for (const line of patches.split("\n")) {
+    const commit = COMMIT_LINE.exec(line)?.groups?.commit;
+    const header = hunkHeaderOf(line);
+    if (commit !== undefined) {
+      shape = emptyShape();
+      shapes.set(commit, shape);
+      hunk = undefined;
+    } else if (line.startsWith(FILE_HEADER)) hunk = undefined;
+    else if (header !== null) hunk = { oldLine: firstLineOf(header.oldStart, header.oldCount), changing: false };
+    else if (hunk === undefined) shape.blobs ??= blobPairOf(line);
+    else walkHunkLine(hunk, line, shape);
+  }
+  return (commit) => shapes.get(commit) ?? emptyShape();
+}
+
+function blobPairOf(line: string): BlobPair | undefined {
+  const blobs = INDEX_LINE.exec(line)?.groups;
+  return blobs === undefined ? undefined : { preimage: blobs.preimage ?? "", postimage: blobs.postimage ?? "" };
+}
+
+function walkHunkLine(hunk: HunkWalk, line: string, shape: PatchShape): void {
+  const hunkLine = hunkLineOf(line);
+  if (hunkLine === null) return;
+  const changed = hunkLine.kind !== "context";
+  if (changed && !hunk.changing) shape.changeStarts.push(hunk.oldLine);
+  if (changed) shape.changedText += `${line}\n`;
+  hunk.changing = changed;
+  if (hunkLine.kind !== "added") hunk.oldLine += 1;
+}
+
+function emptyShape(): PatchShape {
+  return { blobs: undefined, changeStarts: [], changedText: "" };
 }
 
 export function changedRanges(hunks: readonly Hunk[]): LineRange[] {
