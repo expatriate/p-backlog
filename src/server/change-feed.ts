@@ -66,7 +66,9 @@ export function createChangeFeed({ root, debounceMs, warn }: ChangeFeedOptions):
   watcher.on("ready", () => {
     void watchDirectoriesMissedAtStart(watcher, root)
       .catch(warnWatcherError)
-      .finally(() => reportChange(root));
+      .finally(() => {
+        if (!watcher.closed) reportChange(root);
+      });
   });
   watcher.on("error", warnWatcherError);
 
