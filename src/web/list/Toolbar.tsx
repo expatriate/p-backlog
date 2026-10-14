@@ -9,7 +9,7 @@ import { toggled, toggledOrUnset, withTagToggled } from "./filter-toggle";
 import { Popover, POPOVER_INITIAL_FOCUS } from "../ui/Popover";
 import { EpicPicker } from "./EpicPicker";
 import type { EpicChoices } from "./epic-choices";
-import { AUTO_CLOSED_VIEW, type ListParams } from "./list-params";
+import { AUTO_CLOSED_VIEW, type ListParams } from "../app/list-params";
 import styles from "./Toolbar.module.css";
 
 export type ToolbarProps = {

@@ -36,6 +36,7 @@ const CASES: Record<string, (language: Language) => string> = {
   "исправлено сейчас": (language) => CATALOGS[language].fixedNow(TOTALS.fixedTasks, linesAmount(language, TOTALS.fixedLines)),
   "ожидающие с оценкой": (language) => CATALOGS[language].pendingEstimated(summarizePending(language, TOTALS.openTasks, 20.5)),
   мегабайты: (language) => CATALOGS[language].megabytes(12.345),
+  миллисекунды: (language) => CATALOGS[language].milliseconds(1234.6),
 };
 
 describe("числа в сообщениях статистики", () => {

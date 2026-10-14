@@ -1,4 +1,5 @@
 import type { EpicTone } from "../ui/epic-tone";
+import { TaskId } from "../ui/TaskId";
 import styles from "./EpicLabel.module.css";
 
 export function EpicDot({ tone }: { tone: EpicTone | undefined }) {
@@ -13,7 +14,7 @@ export function EpicLabel({ id, title, tone, count }: { id: string; title: strin
   return (
     <>
       <EpicDot tone={tone} />
-      <span className={styles.id}>{id}</span>
+      <TaskId id={id} muted />
       <span className={styles.title}>{title}</span>
       {count !== undefined && <EpicCount count={count} />}
     </>

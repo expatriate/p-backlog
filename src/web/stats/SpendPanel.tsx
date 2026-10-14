@@ -1,16 +1,13 @@
 import { useMemo } from "react";
-import { formatMoney } from "../../core/i18n/format";
-import type { Language } from "../../core/i18n/language";
 import type { CostDay, CostPeriod, GrainPeriods } from "../../core/api/contract";
-import { sum } from "../../core/numbers";
 import { useLanguage, useMessages } from "../i18n";
-import { COUNT_AXIS, type Grain } from "./charts/chart-style";
+import { COUNT_AXIS } from "./charts/chart-style";
 import { PeriodChart } from "./charts/PeriodChart";
 import type { SeriesEntry } from "./charts/series";
-import type { StatsMessages } from "./messages.ru";
 import { Panel } from "./Panel";
+import { summarizeSpend } from "./summaries";
 import { useGrainPanel } from "./use-grain-panel";
-import { approx, costValue, wholeFormatter } from "./value-format";
+import { costValue, wholeFormatter } from "./value-format";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
 const CLI_TOKENS = "var(--chart-bar-neutral)";
@@ -37,26 +34,7 @@ export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days
   ];
   return (
     <Panel title={title} period={period} aside={toggle}>
-      <PeriodChart name={title} grain={grain} summary={spendSummary(stats, language, grain, periods)} data={periods} series={series} axes={{ right: COUNT_AXIS }} />
+      <PeriodChart name={title} grain={grain} summary={stats.spendSummary(summarizeSpend(language, grain, periods))} data={periods} series={series} axes={{ right: COUNT_AXIS }} />
     </Panel>
   );
-}
-
-function spendSummary(stats: StatsMessages, language: Language, grain: Grain, periods: CostPeriod[]): string {
-  const total = (pick: (period: CostPeriod) => number) => sum(periods.map(pick));
-  const whole = wholeFormatter(language);
-  return stats.spendSummary({
-    grain,
-    periodCount: periods.length,
-    hookTokens: total((period) => period.hookTokens),
-    cliTokens: whole(total((period) => period.cliTokens)),
-    approxMoney: approx(formatMoney(language, totalMoney(periods))),
-    hookRuns: whole(total((period) => period.hookRuns)),
-    cliRuns: whole(total((period) => period.cliRuns)),
-  });
-}
-
-function totalMoney(periods: CostPeriod[]): number | null {
-  if (periods.every((period) => period.cost === null)) return null;
-  return sum(periods.map((period) => period.cost ?? 0));
 }

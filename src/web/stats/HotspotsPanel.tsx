@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import type { Hotspots } from "../../core/api/contract";
 import { useMessages } from "../i18n";
 import { tagLabel } from "../labels";
-import { DEFAULT_FILTER, filterSearch } from "../list/list-params";
+import { DEFAULT_FILTER, filterSearch } from "../app/list-params";
 import rowStyles from "./PanelRows.module.css";
 import { Panel, PanelNote } from "./Panel";
 import { ShareBar } from "./ShareBar";

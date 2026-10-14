@@ -4,6 +4,10 @@
   color: var(--ink-muted);
 }
 
+.muted {
+  color: var(--ink-subtle);
+}
+
 .id[data-epic-tone] {
   padding: 1px var(--space-2);
   border-radius: var(--radius-chip);

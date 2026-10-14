@@ -28,7 +28,7 @@ const browserFences = (wrappers) => ({
 });
 const REPORT_TYPES = { group: ["**/core/stats/types"], message: "Import report types from core/api/contract." };
 const RECHARTS = { group: ["recharts"], message: "Draw charts through the wrappers in stats/charts." };
-const LIST_PAGE = { group: ["**/list/**"], message: "Only the router mounts the list page; the task panel and the shared app, ui and api modules must not depend on it. Move the shared piece to ui/ or app/." };
+const LIST_PAGE = { group: ["**/list/**"], message: "Only the router mounts the list page; nothing else in the web UI may depend on it. Move the shared piece to ui/ or app/." };
 const webImports = (...patterns) => ({ "no-restricted-imports": ["error", { patterns: [REPORT_TYPES, ...patterns] }] });
 const REVERSE_IN_PLACE = { selector: "CallExpression[callee.property.name='reverse'][arguments.length=0]", message: "reverse() mutates the array; use toReversed()." };
 const constantAt = (path) =>
@@ -138,8 +138,8 @@ export default tseslint.config(
     rules: webImports(),
   },
   {
-    files: ["src/web/task/**", "src/web/app/**", "src/web/ui/**", "src/web/api/**"],
-    ignores: ["src/web/app/App.tsx"],
+    files: ["src/web/task/**", "src/web/app/**", "src/web/ui/**", "src/web/api/**", "src/web/layout/**", "src/web/stats/**"],
+    ignores: ["src/web/app/App.tsx", "src/web/stats/charts/**"],
     rules: webImports(RECHARTS, LIST_PAGE),
   },
   {

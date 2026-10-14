@@ -1,4 +1,4 @@
-import type { ListParams } from "./list-params";
+import type { ListParams } from "../app/list-params";
 
 export function toggled<T>(values: readonly T[], value: T): T[] {
   return values.includes(value) ? values.filter((candidate) => candidate !== value) : [...values, value];

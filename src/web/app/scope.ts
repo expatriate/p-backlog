@@ -1,5 +1,5 @@
 import { isClosed } from "../../core/model/graph";
-import { activeProjects } from "../../core/model/project-scope";
+import { activeProjects, projectsInScope } from "../../core/model/project-scope";
 import type { Project, Task } from "../../core/model/types";
 import type { AppMessages } from "./messages.ru";
 
@@ -7,9 +7,8 @@ export type TaskScope = (task: Task) => boolean;
 
 export function taskScope(projects: readonly Project[] | undefined, projectId: string | undefined): TaskScope | undefined {
   if (projects === undefined) return undefined;
-  if (projectId !== undefined) return (task) => task.projectId === projectId;
-  const activeIds = activeProjectIds(projects);
-  return (task) => activeIds.has(task.projectId);
+  const idsInScope = new Set(projectsInScope(projects, projectId).map((project) => project.id));
+  return (task) => idsInScope.has(task.projectId);
 }
 
 export function isOpenTask(task: Task): boolean {
@@ -33,9 +32,5 @@ export function projectNameOf(projects: readonly Project[] | undefined, projectI
 }
 
 export function scopeNote(projects: readonly Project[], messages: AppMessages): string {
-  return messages.scopeNote(activeProjectIds(projects).size, projects.length);
-}
-
-function activeProjectIds(projects: readonly Project[]): Set<string> {
-  return new Set(activeProjects(projects).map((project) => project.id));
+  return messages.scopeNote(activeProjects(projects).length, projects.length);
 }

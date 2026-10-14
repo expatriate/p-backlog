@@ -1,4 +1,4 @@
-import { formatDecimal } from "../../core/i18n/format";
+import { formatDecimal, formatNumber } from "../../core/i18n/format";
 import { countEn, NBSP, pluralEn } from "../../core/i18n/plural";
 import type { ChartStep, Grain } from "./charts/chart-style";
 import type { StatsMessages } from "./messages.ru";
@@ -201,7 +201,7 @@ export function createStatsEn(constants: StatsConstants): StatsMessages {
     noCommands: "No commands yet",
     commandsHead: ["Command", "Runs", "Average time", "Average memory", "Peak memory"],
     megabytes: (value) => `${formatDecimal("en", value)}${NBSP}MB`,
-    milliseconds: (amount) => `${amount}${NBSP}ms`,
+    milliseconds: (value) => `${formatNumber("en", Math.round(value))}${NBSP}ms`,
     spendBy: { week: "Usage by week", day: "Usage by day" },
     hookTurnTokens: "hook turn tokens",
     cliOutputTokens: "CLI output and skill tokens",

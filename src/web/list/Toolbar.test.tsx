@@ -4,7 +4,7 @@ import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { TestMessagesProvider } from "../testing/messages-provider";
 import type { EpicChoices } from "./epic-choices";
-import { DEFAULT_SORT, type ListParams } from "./list-params";
+import { DEFAULT_SORT, type ListParams } from "../app/list-params";
 import { Toolbar } from "./Toolbar";
 
 const NO_EPICS: EpicChoices = { epics: [], withoutEpicCount: 0 };

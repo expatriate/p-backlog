@@ -3,9 +3,9 @@ import { cx } from "./cx";
 import type { EpicTone } from "./epic-tone";
 import styles from "./TaskId.module.css";
 
-export function TaskId({ id, tone }: { id: string; tone?: EpicTone | undefined }) {
+export function TaskId({ id, tone, muted = false }: { id: string; tone?: EpicTone | undefined; muted?: boolean }) {
   return (
-    <span className={styles.id} data-epic-tone={tone}>
+    <span className={cx(styles.id, muted && styles.muted)} data-epic-tone={tone}>
       {id}
     </span>
   );

@@ -1,17 +1,14 @@
-import { formatDecimal } from "../../core/i18n/format";
+import { formatDecimal, formatNumber } from "../../core/i18n/format";
 import { countRu, NBSP, pluralRu } from "../../core/i18n/plural";
 import type { Priority } from "../../core/model/types";
 import type { AgeBucket, ClosingReason } from "../../core/api/contract";
 import type { ChartId, ChartStep, Grain } from "./charts/chart-style";
 import type { FigureTone } from "./Figure";
 import type { StatsConstants } from "./stats-constants";
-import type { AccuracySummary, CodeAndTestsLines, IntakeSummary, LinesAmount, PendingEstimate } from "./summaries";
+import type { AccuracySummary, CodeAndTestsLines, FlowSummary, IntakeSummary, LinesAmount, PendingEstimate, SpendSummary } from "./summaries";
 
 const dayCount = (n: number): string => countRu(n, "день", "дня", "дней");
 const CHART_STEPS: Record<ChartStep, string> = { day: "дням", week: "неделям", sample: "замерам" };
-
-type FlowSummary = { grain: Grain; periodCount: number; created: number; closed: number; openNow: number };
-type SpendSummary = { grain: Grain; periodCount: number; hookTokens: number; cliTokens: string; approxMoney: string; hookRuns: string; cliRuns: string };
 
 const PERIOD_FORMS: Record<Grain, [string, string, string]> = { week: ["неделя", "недели", "недель"], day: ["день", "дня", "дней"] };
 const OVER_PERIOD_FORMS: Record<Grain, [string, string, string]> = { week: ["неделю", "недели", "недель"], day: ["день", "дня", "дней"] };
@@ -219,7 +216,7 @@ export function createStatsRu(constants: StatsConstants) {
     noCommands: "Команд пока не было",
     commandsHead: ["Команда", "Запусков", "Среднее время", "Средняя память", "Пиковая память"],
     megabytes: (value: number): string => `${formatDecimal("ru", value)}${NBSP}МБ`,
-    milliseconds: (amount: string): string => `${amount}${NBSP}мс`,
+    milliseconds: (value: number): string => `${formatNumber("ru", Math.round(value))}${NBSP}мс`,
     spendBy: { week: "Расход по неделям", day: "Расход по дням" } satisfies Record<Grain, string>,
     hookTurnTokens: "токены ходов хука",
     cliOutputTokens: "токены вывода CLI и скилла",

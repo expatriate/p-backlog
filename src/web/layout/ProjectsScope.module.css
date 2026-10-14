@@ -2,7 +2,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--row-gap);
+  gap: var(--sidebar-row-gap);
   padding: 6px var(--space-2);
   border-radius: var(--radius-control);
   color: var(--ink-muted);
@@ -32,7 +32,7 @@
 
 .scopeNote {
   margin: 0;
-  padding: 0 var(--space-2) 0 calc(var(--space-2) + var(--hit-target) + var(--space-2));
+  padding: 0 var(--space-2) 0 calc(var(--space-2) + var(--sidebar-lead-indent));
   color: var(--ink-subtle);
   font-size: var(--text-sm);
 }

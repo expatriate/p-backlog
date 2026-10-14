@@ -14,7 +14,6 @@
   --line-strong: oklch(0.58 0 0);
 
   --accent: oklch(0.66 0.16 27.2);
-  --accent-hover: oklch(0.72 0.15 27.2);
   --accent-soft: oklch(0.35 0.06 27.2);
   --accent-ink: oklch(0.76 0.13 27.2);
 
@@ -29,7 +28,6 @@
   --warn: oklch(0.76 0.12 75);
   --warn-soft: oklch(0.33 0.05 75);
   --ok: oklch(0.74 0.1 152);
-  --ok-soft: oklch(0.31 0.04 152);
 
   --epic-tone-1-line: oklch(0.7 0.13 300);
   --epic-tone-1-ink: oklch(0.82 0.1 300);
@@ -87,7 +85,6 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --shadow-panel: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px oklch(0 0 0 / 0.35);
-  --shadow-dialog: 0 24px 60px oklch(0 0 0 / 0.5);
   --scrim: oklch(0 0 0 / 0.5);
 
   --z-dropdown: 10;
@@ -102,7 +99,8 @@
   --list-footer-height: 0px;
   --drawer-pad-block-start: var(--space-4);
   --drawer-modal: 0;
-  --row-gap: var(--space-2);
+  --sidebar-row-gap: var(--space-2);
+  --sidebar-lead-indent: calc(var(--hit-target) + var(--sidebar-row-gap));
   --project-error-indented: 1;
   --viewport-margin: 16px;
   --icon-button-radius: var(--radius-chip);

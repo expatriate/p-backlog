@@ -15,7 +15,7 @@ import { useTaskHref } from "../app/use-task-href";
 import { cx } from "../ui/cx";
 import { toneOf } from "../ui/epic-tone";
 import { useNow } from "../ui/use-now";
-import type { DateColumn } from "./list-params";
+import type { DateColumn } from "../app/list-params";
 import { TagCell } from "./TagCell";
 import type { TaskSelection } from "./use-task-selection";
 import styles from "./TaskTable.module.css";

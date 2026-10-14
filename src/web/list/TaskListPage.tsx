@@ -7,7 +7,7 @@ import { RequestFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { Notice } from "../ui/Notice";
-import { PageHeading, PageHint } from "../ui/Page";
+import { PageHeading, PageHint, type PageHintState } from "../ui/Page";
 import { useSettledValue } from "../ui/use-settled-value";
 import { useDocumentTitle } from "../ui/use-document-title";
 import { useStatusFocus } from "../ui/use-status-focus";
@@ -22,7 +22,7 @@ import { useSelectedTask } from "./use-selected-task";
 import { useTaskSelection } from "./use-task-selection";
 import { useTaskListView, type TaskListView } from "./use-task-list-view";
 import { withTagToggled } from "./filter-toggle";
-import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "./list-params";
+import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "../app/list-params";
 import styles from "./TaskListPage.module.css";
 
 const COUNT_ANNOUNCE_DELAY_MS = 500;
@@ -151,7 +151,7 @@ function ListStatus({ view: { content, settled, request, empty, table }, filter,
     onFilterChange(next);
   };
   return (
-    <PageHint ref={status} state={settled ? "hidden" : "shown"}>
+    <PageHint ref={status} state={listHintState(content, settled)}>
       {request.error !== null && <RequestFailure error={request.error} fetching={request.isFetching} onRetry={retry} />}
       {content === "loading" && <p>{list.loadingTasks}</p>}
       {content === "unknownProject" && <p>{list.unknownProject}</p>}
@@ -159,6 +159,11 @@ function ListStatus({ view: { content, settled, request, empty, table }, filter,
       {settled && <p>{list.taskCount(announcedCount)}</p>}
     </PageHint>
   );
+}
+
+function listHintState(content: TaskListView["content"], settled: boolean): PageHintState {
+  if (settled) return "hidden";
+  return content === "loading" ? "waiting" : "shown";
 }
 
 function EmptyList({ hasTasks, hiddenOpen, filter, onFilterChange }: { hasTasks: boolean; hiddenOpen: number; filter: ListParams["filter"]; onFilterChange: (filter: ListParams["filter"]) => void }) {

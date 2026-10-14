@@ -1,6 +1,8 @@
+import { join } from "node:path";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
+import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
+import { freezeDate } from "../testing/freeze-date";
 import { renderApp } from "../testing/render-app";
 import { rowTitles } from "../testing/task-list";
 
@@ -88,16 +90,25 @@ describe("шильдик «новая»", () => {
     expect(await hasBadge("Свежая")).toBe(false);
   });
 
-  it("без доступа к localStorage шильдиков нет, список работает", async () => {
+  it("без доступа к localStorage просмотренные помнятся до перезагрузки: старые задачи не новые, появившаяся после загрузки новая, пока её не открыли", async () => {
+    freezeDate("2026-09-17T10:00:00+03:00");
     const denied = () => {
       throw new Error("доступ запрещён");
     };
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(denied);
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(denied);
 
-    await renderApp(NEW_FILES);
+    const app = await renderApp(NEW_FILES);
 
     expect(await hasBadge("Свежая")).toBe(false);
     expect(await rowTitles()).toEqual(["Свежая", "Старая"]);
+
+    await writeFiles(app.root, { "spa/SPA-4.md": taskFile("SPA-4", { title: "Прилетела", created: "2026-09-17T11:00:00+03:00" }) });
+    await app.emitChange([join(app.root, "spa/SPA-4.md")]);
+    expect(await hasBadge("Прилетела")).toBe(true);
+
+    await app.user.click(screen.getByRole("link", { name: "Прилетела" }));
+    await screen.findByRole("complementary", { name: "Задача SPA-4" });
+    expect(await hasBadge("Прилетела")).toBe(false);
   });
 });

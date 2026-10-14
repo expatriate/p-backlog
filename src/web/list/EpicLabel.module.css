@@ -6,12 +6,6 @@
   background: var(--tone-line);
 }
 
-.id {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--ink-subtle);
-}
-
 .title {
   flex: 1;
   min-width: 0;

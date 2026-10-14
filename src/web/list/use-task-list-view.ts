@@ -8,7 +8,7 @@ import { useProjects, useTasks } from "../app/queries";
 import { useLanguage } from "../i18n";
 import { epicTones } from "../ui/epic-tone";
 import { epicChoices } from "./epic-choices";
-import { AUTO_CLOSED_VIEW, dateColumnFor, followDateColumn, type ListParams } from "./list-params";
+import { AUTO_CLOSED_VIEW, dateColumnFor, followDateColumn, type ListParams } from "../app/list-params";
 
 type ListContent = "failed" | "loading" | "unknownProject" | "empty" | "table";
 

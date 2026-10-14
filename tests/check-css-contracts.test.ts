@@ -52,6 +52,20 @@ describe("check-css-contracts", () => {
     expect(result.stdout).not.toContain("--ink");
   });
 
+  it("переменная из tokens.css, которую никто не читает, — код 1, строка объявления в выводе", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "src/web/styles/tokens.css": ":root {\n  --ink: white;\n  --gap: 8px;\n  --unused: 1px;\n  --margin: 16px;\n}\n",
+      "src/web/ui/Row.module.css": ".row {\n  color: var(--ink);\n  gap: var(--gap);\n}\n",
+      "src/web/ui/menu.ts": 'const margin = getComputedStyle(menu).getPropertyValue("--margin");\n',
+    });
+
+    const result = run(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout.trim()).toBe(`${join("src", "web", "styles", "tokens.css")}:4: --unused is declared but never read`);
+  });
+
   it("модуль и компонент, один читает, другой называет переменную, но никто её не объявляет, — код 1 в обоих файлах", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {

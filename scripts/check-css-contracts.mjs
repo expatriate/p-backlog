@@ -17,8 +17,28 @@ await reportHits(DEFAULT_ROOTS, findBrokenContractsIn);
 async function findBrokenContractsIn(root) {
   const files = new Map();
   for await (const path of walk(root, (path) => isShippedSource(path, CHECKED_EXTENSIONS))) files.set(path, await readFile(path, "utf8"));
-  const tokens = declarationsIn(files.get(join(root, ...TOKENS_SEGMENTS)) ?? "");
-  return [...files].flatMap(([path, source]) => undeclaredIn(path, source, partnerSource(path, files), tokens));
+  const tokensPath = join(root, ...TOKENS_SEGMENTS);
+  const tokensSource = files.get(tokensPath) ?? "";
+  const tokens = declarationsIn(tokensSource);
+  const undeclared = [...files].flatMap(([path, source]) => undeclaredIn(path, source, partnerSource(path, files), tokens));
+  return [...undeclared, ...unreadTokensIn(tokensPath, tokensSource, files)];
+}
+
+function unreadTokensIn(tokensPath, tokensSource, files) {
+  const read = new Set([...files].flatMap(([path, source]) => readsIn(path, source)));
+  return tokensSource.split("\n").flatMap((line, index) =>
+    declarationsIn(line)
+      .filter((name) => !read.has(name))
+      .map((name) => `${tokensPath}:${index + 1}: ${name} is declared but never read`),
+  );
+}
+
+function readsIn(path, source) {
+  return referencePatterns(path).flatMap((pattern) => namesIn(source, pattern));
+}
+
+function referencePatterns(path) {
+  return path.endsWith(".css") ? [CSS_READ] : [CSS_READ, QUOTED_NAME];
 }
 
 function undeclaredIn(path, source, partner, tokens) {
@@ -26,10 +46,8 @@ function undeclaredIn(path, source, partner, tokens) {
   const declare = isStyle ? declarationsIn : settersIn;
   const declarePartner = isStyle ? settersIn : declarationsIn;
   const declared = new Set([...tokens, ...declare(source), ...declarePartner(partner)]);
-  const references = isStyle ? [CSS_READ] : [CSS_READ, QUOTED_NAME];
   return source.split("\n").flatMap((line, index) =>
-    references
-      .flatMap((pattern) => namesIn(line, pattern))
+    readsIn(path, line)
       .filter((name) => !declared.has(name))
       .map((name) => `${path}:${index + 1}: ${name}`),
   );
