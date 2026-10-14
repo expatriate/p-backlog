@@ -200,7 +200,7 @@ export function createStatsEn(constants: StatsConstants): StatsMessages {
     commandsTitle: "Commands",
     noCommands: "No commands yet",
     commandsHead: ["Command", "Runs", "Average time", "Average memory", "Peak memory"],
-    megabytes: (value) => `${formatDecimal("en", value)}${NBSP}MB`,
+    mebibytes: (value) => `${formatDecimal("en", value)}${NBSP}MiB`,
     milliseconds: (value) => `${formatNumber("en", Math.round(value))}${NBSP}ms`,
     spendBy: { week: "Usage by week", day: "Usage by day" },
     hookTurnTokens: "hook turn tokens",

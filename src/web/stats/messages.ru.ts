@@ -215,7 +215,7 @@ export function createStatsRu(constants: StatsConstants) {
     commandsTitle: "Команды",
     noCommands: "Команд пока не было",
     commandsHead: ["Команда", "Запусков", "Среднее время", "Средняя память", "Пиковая память"],
-    megabytes: (value: number): string => `${formatDecimal("ru", value)}${NBSP}МБ`,
+    mebibytes: (value: number): string => `${formatDecimal("ru", value)}${NBSP}МиБ`,
     milliseconds: (value: number): string => `${formatNumber("ru", Math.round(value))}${NBSP}мс`,
     spendBy: { week: "Расход по неделям", day: "Расход по дням" } satisfies Record<Grain, string>,
     hookTurnTokens: "токены ходов хука",

@@ -12,18 +12,18 @@ const HEAP = "var(--chart-line-blue)";
 export function MemoryPanel() {
   const { stats } = useMessages();
   const series: SeriesEntry<MemorySample>[] = [
-    { key: "rssMb", label: stats.processMemory, shape: "line", color: RSS, format: stats.megabytes },
-    { key: "heapUsedMb", label: stats.jsHeap, shape: "dashed", color: HEAP, format: stats.megabytes },
+    { key: "rssMb", label: stats.processMemory, shape: "line", color: RSS, format: stats.mebibytes },
+    { key: "heapUsedMb", label: stats.jsHeap, shape: "dashed", color: HEAP, format: stats.mebibytes },
   ];
   const memory = useMemorySamples();
   const samples = memory.data?.samples ?? [];
   const current = samples.at(-1)?.rssMb ?? null;
   const max = samples.length === 0 ? null : Math.max(...samples.map((sample) => sample.rssMb));
-  const megabytes = (value: number | null) => (value === null ? NO_VALUE : stats.megabytes(value));
+  const mebibytes = (value: number | null) => (value === null ? NO_VALUE : stats.mebibytes(value));
   return (
     <Panel title={stats.serverMemory}>
       <PanelNote>{stats.memoryRestartNote}</PanelNote>
-      <SampleChart name={stats.serverMemory} summary={stats.memorySummary(megabytes(current), megabytes(max))} data={samples} series={series} axes={{ left: { tickFormatter: stats.megabytes } }} />
+      <SampleChart name={stats.serverMemory} summary={stats.memorySummary(mebibytes(current), mebibytes(max))} data={samples} series={series} axes={{ left: { tickFormatter: stats.mebibytes } }} />
     </Panel>
   );
 }

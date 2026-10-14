@@ -139,7 +139,7 @@
 | `.runs.jsonl` | Журнал запусков CLI | 13 недель |
 | `.usage-cache.json` | Расход Claude Code, разобранный из транскриптов | 13 недель |
 | `.code-cache.json` | Кэш истории git для вкладки «Код» | 90 дней |
-| Лог службы | stdout/stderr `launchd` на macOS, `p-backlog.log` в `%LOCALAPPDATA%` на Windows | macOS: обрезается до последних 256 КБ, когда превышает 1 МБ. Windows: больше 1 МБ — при старте службы переносится в `p-backlog.log.old`. Linux: размер ограничивает `journald` |
+| Лог службы | stdout/stderr `launchd` на macOS, `p-backlog.log` в `%LOCALAPPDATA%` на Windows | macOS: обрезается до последних 256 КиБ, когда превышает 1 МиБ. Windows: больше 1 МиБ — при старте службы переносится в `p-backlog.log.old`. Linux: размер ограничивает `journald` |
 | `.swept-at`, `.journal-compacted-at` | Отметка времени последней уборки/уплотнения | До следующей |
 
 Окно хранения не настраивается.

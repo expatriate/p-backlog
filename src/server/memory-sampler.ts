@@ -1,4 +1,4 @@
-import { MEMORY_HISTORY_MS, MEMORY_SAMPLE_INTERVAL_MS, megabytesOf } from "../core/api/memory";
+import { MEMORY_HISTORY_MS, MEMORY_SAMPLE_INTERVAL_MS, mebibytesOf } from "../core/api/memory";
 import { formatLocalIso } from "../core/model/dates";
 import type { MemorySample } from "../core/stats/types";
 
@@ -19,7 +19,7 @@ export function createMemorySampler({ intervalMs = MEMORY_SAMPLE_INTERVAL_MS, ca
 
   const sample = (): void => {
     const usage = process.memoryUsage();
-    const point: MemorySample = { at: formatLocalIso(now()), rssMb: megabytesOf(usage.rss), heapUsedMb: megabytesOf(usage.heapUsed) };
+    const point: MemorySample = { at: formatLocalIso(now()), rssMb: mebibytesOf(usage.rss), heapUsedMb: mebibytesOf(usage.heapUsed) };
     points = [...points, point].slice(-capacity);
   };
 

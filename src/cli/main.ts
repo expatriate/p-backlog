@@ -1,4 +1,5 @@
-import { megabytesOf } from "../core/api/memory";
+import { mebibytesOf } from "../core/api/memory";
+import { BYTES_PER_KIBIBYTE } from "../core/numbers";
 import { errorText } from "../core/errors";
 import { SERVE_COMMAND_NAME } from "../core/serve-command";
 import { homedir } from "node:os";
@@ -15,8 +16,6 @@ import { cliMessages } from "./messages";
 import { commandName, runCli } from "./run";
 
 suppressSqliteExperimentalWarning();
-
-const BYTES_PER_KILOBYTE = 1024;
 
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return "";
@@ -62,7 +61,7 @@ if (command !== SERVE_COMMAND_NAME) {
     command,
     cwd: process.cwd(),
     ms: Math.round(performance.now()),
-    rssMb: megabytesOf(process.resourceUsage().maxRSS * BYTES_PER_KILOBYTE),
+    rssMb: mebibytesOf(process.resourceUsage().maxRSS * BYTES_PER_KIBIBYTE),
     exitCode,
   };
   const language = await readLanguageOrLocale(backlogRoot, process.env);
