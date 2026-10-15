@@ -210,6 +210,21 @@ describe("backlog hook stop", () => {
     expect(mixed.reason).not.toContain("SPA-1");
   });
 
+  it("задача с source без строки не останавливает сессию из-за правки файла, полный check её видит", async () => {
+    const { run, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Хранилище профиля не сбрасывается при выходе", "--source", "src/a.ts"], { now: new Date("2026-09-16T11:00:00Z") });
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Правка", "2026-09-17T10:00:00Z");
+    const stdin = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    const hook = await run(["hook", "stop"], { stdin, now: new Date(2026, 8, 18, 10) });
+
+    expect(hook.out).toBe("");
+    expect((await run(["check"])).out).toContain("SPA-1");
+  });
+
   it("в одной сессии задача называется один раз, в новой — снова", async () => {
     const { run, repo } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n" });

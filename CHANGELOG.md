@@ -7,6 +7,8 @@
   task was filed counted as "the code changed", and the agent spent a turn only to move the task to its new line; now
   the task moves there silently. Anchors written by earlier versions get the hash of the task's own lines on the next
   check while their lines are still in place.
+- The Stop hook no longer stops the session for a task whose `source` has no line number when its file changes:
+  such reminders never led to a fix. `backlog check` still lists them.
 
 ## 0.10.2
 
