@@ -14,10 +14,10 @@ const FILE = [
 
 describe("якорь фрагмента", () => {
   it("строка — окно ±2 с обрезкой у краёв, диапазон — сам диапазон", () => {
-    expect(anchorOf(FILE, "x:4")).toMatch(/^[0-9a-f]{12}@2-6$/);
-    expect(anchorOf(FILE, "x:1")).toMatch(/@1-3$/);
-    expect(anchorOf(`${FILE}\n`, "x:8")).toMatch(/@6-8$/);
-    expect(anchorOf(FILE, "x:2-3")).toMatch(/@2-3$/);
+    expect(anchorOf(FILE, "x:4")).toMatch(/^[0-9a-f]{12}@2-6\/[0-9a-f]{12}$/);
+    expect(anchorOf(FILE, "x:1")).toMatch(/@1-3\/[0-9a-f]{12}$/);
+    expect(anchorOf(`${FILE}\n`, "x:8")).toMatch(/@6-8\/[0-9a-f]{12}$/);
+    expect(anchorOf(FILE, "x:2-3")).toMatch(/@2-3\/[0-9a-f]{12}$/);
   });
 
   it("строки за концом файла нет — якоря нет; путь без строки — якоря нет", () => {

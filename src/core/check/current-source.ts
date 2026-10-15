@@ -1,6 +1,6 @@
 import { runGit } from "../git/run";
 import type { Task } from "../model/types";
-import { anchorOf, anchorRange, locateAnchor, remappedSource } from "./anchor";
+import { anchorOf, anchorRange, locateAnchor, remappedSource, windowMatches } from "./anchor";
 import { changesSince, reviewMark } from "./candidates";
 import { baseText, currentLine, modifiesLines, type Hunk } from "./diff-hunks";
 import { collectRepoFacts, diffsFrom, diffsSince, headsAt, type Commit, type DiffFrom, type DiffSince, type HeadAt, type RepoFacts } from "./repo-facts";
@@ -54,7 +54,7 @@ async function traceSource(task: Task, facts: RepoFacts, diffs: FileDiffs): Prom
   if (text === undefined) return UNTRACED;
   const { commits, uncommitted } = changesSince(facts, sourcePath(source), reviewMark(task));
   const fileUntouched = commits.length === 0 && !uncommitted;
-  if (fileUntouched && (anchor === undefined || anchorOf(text, source) === anchor)) return { kind: "traced", current: source, linesChanged: false };
+  if (fileUntouched && (anchor === undefined || windowMatches(text, source, anchor))) return { kind: "traced", current: source, linesChanged: false };
   const traced: Traced = { ...task, source };
   const reference = await referenceOf(traced, text, commits, diffs);
   if (reference.kind === "not-on-branch") return fileUntouched ? { kind: "not-on-branch" } : UNTRACED;

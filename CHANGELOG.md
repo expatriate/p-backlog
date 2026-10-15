@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `backlog check` and the Stop hook no longer ask to re-check a task whose own lines are intact. Before, lines inserted
+  right next to the task's line, an edit of a neighbouring line or more uncommitted edits in the same file after the
+  task was filed counted as "the code changed", and the agent spent a turn only to move the task to its new line; now
+  the task moves there silently. Anchors written by earlier versions get the hash of the task's own lines on the next
+  check while their lines are still in place.
+
 ## 0.10.2
 
 - `backlog serve`: a project created in the first moments after the server starts now updates live in an open web UI

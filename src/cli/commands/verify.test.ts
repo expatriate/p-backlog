@@ -55,7 +55,7 @@ describe("backlog verify", () => {
     await writeFiles(repo, { "src/a.ts": lines.join("\n") });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
     await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:3"]);
-    expect((await loadBacklog(root)).tasks[0]?.anchor).toMatch(/^[0-9a-f]{12}@1-5$/);
+    expect((await loadBacklog(root)).tasks[0]?.anchor).toMatch(/^[0-9a-f]{12}@1-5\/[0-9a-f]{12}$/);
 
     await writeFile(join(repo, "src/a.ts"), lines.map((line, index) => (index === 15 ? "changed" : line)).join("\n"));
     gitCommitAll(repo, "Правка далеко от задачи", "2026-09-17T15:00:00Z");
@@ -114,7 +114,7 @@ describe("backlog verify", () => {
 
     expect(checked.candidates).toEqual([expect.objectContaining({ source: "src/code.ts:12" })]);
     expect(result.out).toBe("SPA-1: подтверждена, source → src/code.ts:12");
-    expect((await loadBacklog(root)).tasks[0]).toMatchObject({ source: "src/code.ts:12", anchor: expect.stringMatching(/@10-13$/) });
+    expect((await loadBacklog(root)).tasks[0]).toMatchObject({ source: "src/code.ts:12", anchor: expect.stringMatching(/@10-13\/[0-9a-f]{12}$/) });
     expect(after.split("\n").slice(9, 13)).toEqual(["", "export function beta() {", '  return "v2";', "}"]);
   });
 

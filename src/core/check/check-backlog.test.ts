@@ -53,6 +53,10 @@ function numbered(name: string): string {
   return [1, 2, 3, 4, 5, 6, 7, 8].map((index) => `export const ${name}${index} = ${index};`).join("\n");
 }
 
+function described(name: string): string {
+  return [1, 2, 3, 4, 5, 6, 7, 8].map((index) => `export const ${name}${index}Label = "строка ${name} номер ${index}";`).join("\n");
+}
+
 function sameProblemTask(id: string, fields = ""): string {
   return task(id, fields).replace(`Задача ${id}`, "Таймаут загрузки не учитывает размер файла");
 }
@@ -454,7 +458,7 @@ describe("checkBacklog", () => {
       expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), method: "anchor" })]);
     });
 
-    it("строку вставили между строками задачи или правят край окна в две строки вокруг них — кандидат", async () => {
+    it("строку вставили между строками задачи, а у короткой строки задачи правят край окна — кандидат", async () => {
       const { home, root, repo } = await anchoredRepo();
       const before = numbered("a");
       await writeFiles(repo, { "src/a.ts": before, "src/b.ts": numbered("b") });
@@ -473,6 +477,90 @@ describe("checkBacklog", () => {
         ["SPA-1", "anchor"],
         ["SPA-2", "anchor"],
       ]);
+    });
+
+    const changedTasks = (report: CheckReport) => report.candidates.map((candidate) => candidate.task.id);
+    const legacyAnchor = (text: string, source: string) => anchorOf(text, source)?.split("/")[0];
+
+    it("строка задачи цела, а прямо над ней в окне вставили строки — кандидата нет, source переезжает", async () => {
+      const { home, root, repo, spa1 } = await anchoredRepo();
+      const before = described("a");
+      await writeFiles(repo, { "src/a.ts": before });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:4\nanchor: ${anchorOf(before, "src/a.ts:4")}\n`) });
+      const after = before.replace("export const a4Label", 'export const moneyMetrics = new Set(["sum"]);\n\nexport const a4Label');
+      await writeFiles(repo, { "src/a.ts": after });
+      gitCommitAll(repo, "Константа над строкой задачи", "2026-09-12T10:00:00+03:00");
+
+      const report = await check(root, home, "changed");
+
+      expect(changedTasks(report)).toEqual([]);
+      expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-1: source сдвинулся :4 → :6"]);
+      expect(await spa1()).toMatchObject({ source: "src/a.ts:6", anchor: anchorOf(after, "src/a.ts:6") });
+    });
+
+    it("задача заведена по незакоммиченной правке, файл правят дальше без коммита, строка задачи цела — кандидата нет", async () => {
+      const { home, root, repo } = await anchoredRepo();
+      const committed = described("a");
+      await writeFiles(repo, { "src/a.ts": committed });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      const dirty = committed.replace('"строка a номер 2"', '"строка a номер два"');
+      await writeFiles(repo, { "src/a.ts": dirty });
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:5\nanchor: ${anchorOf(dirty, "src/a.ts:5")}\n`) });
+      await writeFiles(repo, { "src/a.ts": dirty.replace("export const a4Label", 'export const inserted = "ещё одна правка ревью";\nexport const a4Label') });
+
+      const report = await check(root, home, "changed");
+
+      expect(changedTasks(report)).toEqual([]);
+    });
+
+    it("строка задачи цела, правят соседнюю строку в окне — кандидата нет, source на месте", async () => {
+      const { home, root, repo, spa1 } = await anchoredRepo();
+      const before = described("a");
+      await writeFiles(repo, { "src/a.ts": before });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:4\nanchor: ${anchorOf(before, "src/a.ts:4")}\n`) });
+      const after = before.replace('"строка a номер 5"', '"строка a номер пять"');
+      await writeFiles(repo, { "src/a.ts": after });
+      gitCommitAll(repo, "Правка соседней строки", "2026-09-12T10:00:00+03:00");
+
+      const report = await check(root, home, "changed");
+
+      expect(changedTasks(report)).toEqual([]);
+      expect(report.fixed).toEqual([]);
+      expect(await spa1()).toMatchObject({ source: "src/a.ts:4", anchor: anchorOf(after, "src/a.ts:4") });
+    });
+
+    it("строка задачи цела, но повторяется в файле, а окно изменилось — кандидат: место не определить", async () => {
+      const { home, root, repo } = await anchoredRepo();
+      const before = [described("a"), 'export const a4Label = "строка a номер 4";'].join("\n");
+      await writeFiles(repo, { "src/a.ts": before });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:4\nanchor: ${anchorOf(before, "src/a.ts:4")}\n`) });
+      await writeFiles(repo, { "src/a.ts": before.replace('"строка a номер 5"', '"строка a номер пять"') });
+      gitCommitAll(repo, "Правка соседней строки", "2026-09-12T10:00:00+03:00");
+
+      const report = await check(root, home, "changed");
+
+      expect(changedTasks(report)).toEqual(["SPA-1"]);
+    });
+
+    it("якорь старого формата без хеша строк дописывается, пока окно цело, и дальше сдвиг строки задачи не будит", async () => {
+      const { home, root, repo, spa1 } = await anchoredRepo();
+      const before = described("a");
+      await writeFiles(repo, { "src/a.ts": before });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:4\nanchor: ${legacyAnchor(before, "src/a.ts:4")}\n`) });
+
+      const upgrade = await check(root, home, "changed");
+      const upgraded = await spa1();
+      await writeFiles(repo, { "src/a.ts": before.replace("export const a4Label", 'export const inserted = "вставка над строкой";\nexport const a4Label') });
+      gitCommitAll(repo, "Вставка над строкой задачи", "2026-09-12T10:00:00+03:00");
+      const afterInsert = await check(root, home, "changed");
+
+      expect({ candidates: upgrade.candidates, fixed: upgrade.fixed, anchor: upgraded?.anchor }).toEqual({ candidates: [], fixed: [], anchor: anchorOf(before, "src/a.ts:4") });
+      expect(changedTasks(afterInsert)).toEqual([]);
+      expect((await spa1())?.source).toBe("src/a.ts:5");
     });
 
     it("строки задачи целы, фрагмент повторяется в файле и сдвинулся — кандидата нет, source переезжает", async () => {

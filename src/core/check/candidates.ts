@@ -1,6 +1,6 @@
 import type { CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Task } from "../model/types";
-import { anchorOf, findMoved, isAnchorFor } from "./anchor";
+import { anchorOf, findIntactLines, findMoved, isAnchorFor, windowMatches } from "./anchor";
 import type { CheckFix } from "./findings";
 import type { Commit, RepoFacts } from "./repo-facts";
 import { hasLines, isWithin, lineSuffix, sourcePath } from "../model/source";
@@ -71,8 +71,7 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts, knownC
 
 function anchorPlan(task: Task, anchor: AnchorState, facts: RepoFacts): AnchorPlan[] {
   if (task.source === undefined) return [];
-  if (anchor.kind === "moved") return [movedPlan(task.id, task.source, anchor)];
-  if (anchor.kind === "same") return [];
+  if (anchor.kind === "moved") return [anchor.source === task.source ? { id: task.id, changes: { anchor: anchor.anchor } } : movedPlan(task.id, task.source, anchor)];
   const text = facts.texts.get(sourcePath(task.source));
   const fresh = text === undefined ? null : anchorOf(text, task.source);
   return fresh === null || fresh === task.anchor ? [] : [{ id: task.id, changes: { anchor: fresh } }];
@@ -112,8 +111,8 @@ function anchorState(task: Task, facts: RepoFacts): AnchorState {
 function anchorStateIn(task: Task, text: string | undefined): AnchorState {
   if (task.anchor === undefined || task.source === undefined || !hasLines(task.source) || !isAnchorFor(task.anchor, task.source)) return { kind: "none" };
   if (text === undefined) return { kind: "none" };
-  if (anchorOf(text, task.source) === task.anchor) return { kind: "same", source: task.source, anchor: task.anchor };
-  const moved = findMoved(text, task.source, task.anchor);
+  if (windowMatches(text, task.source, task.anchor)) return { kind: "same", source: task.source, anchor: task.anchor };
+  const moved = findMoved(text, task.source, task.anchor) ?? findIntactLines(text, task.source, task.anchor);
   const movedAnchor = moved === null ? null : anchorOf(text, moved);
   return moved === null || movedAnchor === null ? { kind: "changed" } : { kind: "moved", source: moved, anchor: movedAnchor };
 }
