@@ -9,6 +9,9 @@
   check while their lines are still in place.
 - The Stop hook no longer stops the session for a task whose `source` has no line number when its file changes:
   such reminders never led to a fix. `backlog check` still lists them.
+- The skill now has the agent re-check only the tasks the Stop hook names, and in Claude Code hand that re-check to a
+  subagent. A hook turn in a long session cost about 4 million tokens, almost all of it the session's context re-read
+  on every request; one turn grew to 16 requests by working through every other candidate too.
 
 ## 0.10.2
 

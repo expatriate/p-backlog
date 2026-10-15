@@ -131,6 +131,13 @@ array) — fix them together, closing each one.
 When: the hook message "code changed for tasks since the last check" (in Cursor it arrives as a follow-up
 message), a request to "check the backlog", or "clean up the backlog".
 
+If the hook asked for the re-check, work only through the tasks its message names; the other candidates from
+`backlog check --json` wait for "check the backlog". In Claude Code hand this re-check to a subagent (the Agent
+tool, `model: "sonnet"`): pass the task IDs from the hook message and the repository directory, ask it to invoke
+the `backlog` skill, go through this section and report what it closed and what it confirmed. The subagent's
+requests don't re-read your session's long context, so the turn costs several times less. If you are the
+subagent, do the re-check yourself.
+
 1. `backlog check --json` from the project's repository (from another directory — `--project <id>`).
    Dangling references, completed epics, and shifted `source` — it already fixed those itself; that's the
    `fixed` field, a list of `{ kind, taskId, … }`: `references-removed` — references to missing tasks `ids`
