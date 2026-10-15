@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.11.0
 
 - `backlog check` and the Stop hook no longer ask to re-check a task whose own lines are intact. Before, lines inserted
   right next to the task's line, an edit of a neighbouring line or more uncommitted edits in the same file after the
