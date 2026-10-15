@@ -12,6 +12,11 @@
 - The skill now has the agent re-check only the tasks the Stop hook names, and in Claude Code hand that re-check to a
   subagent. A hook turn in a long session cost about 4 million tokens, almost all of it the session's context re-read
   on every request; one turn grew to 16 requests by working through every other candidate too.
+- `backlog take --next` first hands out a task of the project that is already in progress and has not changed for over a
+  day, with a note to finish it, before any new task. Before, a task taken and abandoned by an earlier session stayed in
+  progress for weeks while `--next` kept taking new ones.
+- New alert "Checklist done but the task is not closed" for a task in progress for over a day with every checklist item
+  checked; it shows in the statistics and once a day in the Stop hook.
 
 ## 0.10.2
 

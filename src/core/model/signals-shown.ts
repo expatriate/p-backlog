@@ -1,4 +1,4 @@
-export type SignalKind = "debt-growing" | "urgent-stale" | "stuck" | "noisy-check" | "low-changed" | "stale-low";
+export type SignalKind = "debt-growing" | "urgent-stale" | "stuck" | "done-unclosed" | "noisy-check" | "low-changed" | "stale-low";
 
 export type ShownSignal = { kind: SignalKind };
 

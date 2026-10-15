@@ -152,6 +152,7 @@ export const cliEn: CliMessages = {
   alreadyInStatus: (id, status) => `${id} is already ${status}`,
   blockedByOpenTasks: (id) => `${id} is blocked by open tasks:`,
   noTakeableInProject: (id) => `Project ${id} has no tasks that can be taken`,
+  resumeAbandoned: (id) => `${id} is already in progress and has not changed for over a day — finish it first: continue its checklist and "Notes" in the task file`,
 
   hookUsage: (stopEvent, agents) =>
     `${stopEvent} [--agent ${agents.map(({ agent }) => agent).join("|")}]   (for the Stop hook in ${joinAlternatives(

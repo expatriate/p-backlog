@@ -156,6 +156,7 @@ export const cliRu = {
   alreadyInStatus: (id: string, status: string): string => `${id} уже в статусе ${status}`,
   blockedByOpenTasks: (id: string): string => `${id} заблокирована открытыми задачами:`,
   noTakeableInProject: (id: string): string => `В проекте ${id} нет задач, которые можно взять в работу`,
+  resumeAbandoned: (id: string): string => `${id} уже в работе и не менялась больше суток — сначала доделай её: продолжи чеклист и «Заметки» в файле задачи`,
 
   hookUsage: (stopEvent: string, agents: readonly { agent: string; label: string }[]): string =>
     `${stopEvent} [--agent ${agents.map(({ agent }) => agent).join("|")}]   (для хука Stop в ${joinAlternatives(

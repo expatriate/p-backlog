@@ -1,3 +1,4 @@
+import { checklistItems } from "../../model/checklist";
 import { STALE_LOW_DAYS, staleLowTasks } from "../../model/query";
 import { STALE_URGENT_DAYS, urgentStaleCount } from "../breakdowns";
 import { inWorkTasks, type WorkStatus } from "../flow/current";
@@ -14,13 +15,21 @@ type CheckGauge = { evidence: CandidateEvidence; method: CheckMethod | null; clo
 
 const GROWTH_WEEKS = 3;
 const STUCK_AFTER_DAYS: Record<WorkStatus, number> = { "in-progress": 7, blocked: 14 };
+const DONE_UNCLOSED_AFTER_DAYS = 1;
 const NOISY_MIN_DECIDED = 10;
 const NOISY_MAX_PERCENT = 20;
 const NOISY_WINDOW_DAYS = 14;
 
 export function statsSignals(context: ReportContext): Signal[] {
   const { now } = context.input;
-  return [...debtGrowing(weeklyFlow(context.histories, now)), ...urgentStale(urgentStaleCount(context.openTasks, now)), ...stuck(context), ...noisyChecks(context), ...staleLow(context)];
+  return [
+    ...debtGrowing(weeklyFlow(context.histories, now)),
+    ...urgentStale(urgentStaleCount(context.openTasks, now)),
+    ...stuck(context),
+    ...doneUnclosed(context),
+    ...noisyChecks(context),
+    ...staleLow(context),
+  ];
 }
 
 function debtGrowing(weeks: readonly FlowPeriod[]): Signal[] {
@@ -40,6 +49,18 @@ function stuck({ scope, tasks, input: { now } }: ReportContext): Signal[] {
   const longest = stuckTasks[0];
   if (longest === undefined) return [];
   return [{ kind: "stuck", params: { count: stuckTasks.length, id: longest.id, days: longest.days } }];
+}
+
+function doneUnclosed({ scope, tasks, input: { now } }: ReportContext): Signal[] {
+  const checklistDone = new Set(tasks.filter((task) => task.status === "in-progress" && isChecklistDone(task.body)).map((task) => task.id));
+  const unclosed = inWorkTasks(tasks, scope.historiesWithEpics, now).filter((item) => checklistDone.has(item.id) && item.days >= DONE_UNCLOSED_AFTER_DAYS);
+  const longest = unclosed[0];
+  return longest === undefined ? [] : [{ kind: "done-unclosed", params: { count: unclosed.length, id: longest.id } }];
+}
+
+function isChecklistDone(body: string): boolean {
+  const items = checklistItems(body);
+  return items.length > 0 && items.every((item) => item.checked);
 }
 
 function staleLow({ scope, input: { now } }: ReportContext): Signal[] {

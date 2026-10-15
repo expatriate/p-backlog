@@ -114,6 +114,7 @@ type SignalParams = {
   "debt-growing": { weeks: number; created: number; closed: number };
   "urgent-stale": { days: number; count: number };
   stuck: { count: number; id: string; days: number };
+  "done-unclosed": { count: number; id: string };
   "noisy-check": { evidence: CandidateEvidence; method: CheckMethod | null; percent: number; decided: number; windowDays: number };
   "low-changed": { count: number };
   "stale-low": { days: number; count: number };

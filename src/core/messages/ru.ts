@@ -120,6 +120,8 @@ function signal(s: Signal): string {
       return `Срочные задачи ждут дольше ${genitive(s.params.days, "day")}: ${s.params.count}`;
     case "stuck":
       return `Застряли в работе: ${s.params.count}, дольше всех ${s.params.id} — ${days(s.params.days)}`;
+    case "done-unclosed":
+      return `Чеклист выполнен, а задача не закрыта: ${s.params.count}, дольше всех ${s.params.id} — закройте (backlog close) или допишите, что осталось`;
     case "noisy-check": {
       const { evidence, method, percent, decided, windowDays } = s.params;
       const name = method === null ? `«${LABELS.evidence[evidence]}»` : `«${LABELS.evidence[evidence]}» ${LABELS.checkMethod[method]}`;

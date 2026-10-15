@@ -91,8 +91,23 @@ export function isQueuedTask(task: Task): boolean {
 }
 
 export function pickNextTask(tasks: readonly Task[], projectId: string, index: BacklogIndex): Task | undefined {
-  const candidates = tasks.filter((task) => task.projectId === projectId && isQueuedTask(task) && !isBlocked(task, index));
-  return candidates.sort((a, b) => priorityRank(b.priority) - priorityRank(a.priority) || Date.parse(a.created) - Date.parse(b.created) || compareIds(a.id, b.id))[0];
+  return firstInQueueOrder(tasks.filter((task) => task.projectId === projectId && isQueuedTask(task) && !isBlocked(task, index)));
+}
+
+const ABANDONED_AFTER_MS = DAY_MS;
+
+export function pickAbandonedTask(tasks: readonly Task[], projectId: string, index: BacklogIndex, lastTouched: ReadonlyMap<string, number>, now: Date): Task | undefined {
+  const cutoff = now.getTime() - ABANDONED_AFTER_MS;
+  const abandoned = tasks.filter((task) => task.projectId === projectId && isTakenTask(task) && !isBlocked(task, index) && (lastTouched.get(task.id) ?? now.getTime()) < cutoff);
+  return firstInQueueOrder(abandoned);
+}
+
+export function isTakenTask(task: Task): boolean {
+  return task.type === "task" && task.status === "in-progress";
+}
+
+function firstInQueueOrder(tasks: readonly Task[]): Task | undefined {
+  return tasks.toSorted((a, b) => priorityRank(b.priority) - priorityRank(a.priority) || Date.parse(a.created) - Date.parse(b.created) || compareIds(a.id, b.id))[0];
 }
 
 export const STALE_LOW_DAYS = DAYS_PER_MONTH;

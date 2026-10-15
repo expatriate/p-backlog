@@ -144,6 +144,24 @@ describe("тревоги", () => {
     ]);
   });
 
+  it("чеклист выполнен, а задача в работе дольше суток — тревога «готово, но не закрыто»; без чеклиста, недоделанная и взятая сегодня — нет", () => {
+    const done = "## Чеклист\n- [x] Исправить\n- [x] Тест\n";
+    const tasks = [
+      makeTask({ id: "SPA-1", created: iso(8, 10), status: "in-progress", body: done }),
+      makeTask({ id: "SPA-2", created: iso(8, 10), status: "in-progress", body: "## Чеклист\n- [x] Исправить\n- [ ] Тест\n" }),
+      makeTask({ id: "SPA-3", created: iso(8, 10), status: "in-progress", body: "Описание без чеклиста\n" }),
+      makeTask({ id: "SPA-4", created: iso(8, 10), status: "in-progress", body: done }),
+    ];
+    const events: JournalEvent[] = [
+      { at: iso(8, 15), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "in-progress" },
+      { at: formatLocalIso(new Date(2026, 8, 18, 9)), task: "SPA-4", via: "cli", kind: "status", from: "backlog", to: "in-progress" },
+    ];
+
+    expect(statsSignals(reportContext({ tasks, journals: journal(events), now: NOW, projectId: "spa" })).filter((signal) => signal.kind === "done-unclosed")).toEqual([
+      { kind: "done-unclosed", params: { count: 1, id: "SPA-1" } },
+    ]);
+  });
+
   it("задачи с низким приоритетом старше 30 дней, которые не брали в работу", () => {
     const tasks = [
       makeTask({ id: "SPA-1", created: iso(7, 1), priority: "low" }),

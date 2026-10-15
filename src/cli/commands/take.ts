@@ -2,8 +2,9 @@ import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { isWithin, sourcePath } from "../../core/model/source";
 import { buildIndex, epicChildren, isClosed, openBlockers, type BacklogIndex } from "../../core/model/graph";
-import { isQueuedTask, pickNextTask } from "../../core/model/query";
+import { isQueuedTask, isTakenTask, pickAbandonedTask, pickNextTask } from "../../core/model/query";
 import type { Project, Task } from "../../core/model/types";
+import { statOrNull } from "../../core/store/fs-utils";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { findProjectForRoots } from "../../core/store/resolve-project";
 import { formatJson, formatTaskRef } from "../format";
@@ -41,7 +42,7 @@ async function runTake(args: string[], io: CliIo): Promise<ExitCode> {
   if (projectWithId || forceWithoutId) throw usageError(takeCommand, io.language);
   const loaded = await loadBacklog(io.backlogRoot);
   if (mode.kind === "path") return takeByPath(loaded, io, mode.path, values.project, { json: values.json });
-  const selected = mode.kind === "next" ? selectNext(loaded, io, values.project) : selectById(loaded, io, mode.id);
+  const selected = mode.kind === "next" ? await selectNext(loaded, io, values.project) : selectById(loaded, io, mode.id);
   if (!selected.ok) return selected.exitCode;
 
   const refusal = takeRefusal(io, selected.task, buildIndex(loaded.tasks), { ignoreBlockers: values.force });
@@ -124,15 +125,25 @@ function selectById(loaded: LoadedBacklog, io: CliIo, id: string): Selection {
   return task ? { ok: true, task } : { ok: false, exitCode: EXIT.notFound };
 }
 
-function selectNext(loaded: LoadedBacklog, io: CliIo, projectId: string | undefined): Selection {
+async function selectNext(loaded: LoadedBacklog, io: CliIo, projectId: string | undefined): Promise<Selection> {
   const project = findProjectOrWarn(loaded, io, projectId);
   if (!project) return { ok: false, exitCode: EXIT.notFound };
   const index = buildIndex(loaded.tasks);
+  const abandoned = pickAbandonedTask(loaded.tasks, project.id, index, await lastTouched(loaded.tasks.filter(isTakenTask)), io.now());
+  if (abandoned) {
+    io.warn(io.cli.resumeAbandoned(abandoned.id));
+    return { ok: true, task: abandoned };
+  }
   const task = pickNextTask(loaded.tasks, project.id, index);
   if (task) return { ok: true, task };
   io.warn(io.cli.noTakeableInProject(project.id));
   const blocked = loaded.tasks.some((candidate) => candidate.projectId === project.id && isQueuedTask(candidate) && openBlockers(candidate, index).length > 0);
   return { ok: false, exitCode: blocked ? EXIT.refused : EXIT.notFound };
+}
+
+async function lastTouched(tasks: readonly Task[]): Promise<Map<string, number>> {
+  const touches = await Promise.all(tasks.map(async (task) => [task.id, (await statOrNull(task.path))?.mtimeMs] as const));
+  return new Map(touches.flatMap(([id, mtimeMs]) => (mtimeMs === undefined ? [] : [[id, mtimeMs] as const])));
 }
 
 function takeRefusal(io: CliIo, task: Task, index: BacklogIndex, { ignoreBlockers }: { ignoreBlockers: boolean }): Refusal | null {

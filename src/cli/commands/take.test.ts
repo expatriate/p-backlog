@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
@@ -74,6 +74,27 @@ describe("backlog take", () => {
     expect((await run(["take", "--next"])).code).toBe(EXIT.refused);
     expect((await run(["take", "--next"], { cwd: home })).code).toBe(EXIT.notFound);
     expect((await run(["take", "SPA-1", "--next"])).code).toBe(EXIT.invalid);
+  });
+
+  it("--next сначала выдаёт взятую раньше задачу, не тронутую больше суток, и просит её доделать; тронутую недавно не трогает", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Начатая и брошенная", "--priority", "low"]);
+    await run(["new", "--category", "bug", "--title", "Взятая только что", "--priority", "medium"]);
+    await run(["new", "--category", "bug", "--title", "Новая срочная", "--priority", "critical"]);
+    await run(["take", "SPA-1"]);
+    await run(["take", "SPA-2"]);
+    const twoDaysAgo = new Date(SANDBOX_NOW.getTime() - 2 * 24 * 60 * 60 * 1000);
+    await utimes(join(root, "spa", "SPA-1.md"), twoDaysAgo, twoDaysAgo);
+    await utimes(join(root, "spa", "SPA-2.md"), SANDBOX_NOW, SANDBOX_NOW);
+
+    const resumed = await run(["take", "--next"]);
+    await utimes(join(root, "spa", "SPA-1.md"), SANDBOX_NOW, SANDBOX_NOW);
+    const next = await run(["take", "--next"]);
+
+    expect(resumed.code).toBe(EXIT.ok);
+    expect(resumed.out).toContain("SPA-1 · Начатая и брошенная");
+    expect(resumed.err).toContain("SPA-1");
+    expect(next.out).toContain("SPA-3 · Новая срочная");
   });
 
   it("--next без задач в очереди — «не найдено», даже если уже взятая задача ждёт блокер", async () => {

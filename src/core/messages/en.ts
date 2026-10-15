@@ -108,6 +108,8 @@ function signal(s: Signal): string {
       return `Urgent tasks have been waiting more than ${count(s.params.days, "day")}: ${s.params.count}`;
     case "stuck":
       return `Stuck in progress: ${s.params.count}, longest ${s.params.id} — ${days(s.params.days)}`;
+    case "done-unclosed":
+      return `Checklist done but the task is not closed: ${s.params.count}, longest ${s.params.id} — close it (backlog close) or add what is left`;
     case "noisy-check": {
       const { evidence, method, percent, decided, windowDays } = s.params;
       const name = method === null ? `"${LABELS.evidence[evidence]}"` : `"${LABELS.evidence[evidence]}" ${LABELS.checkMethod[method]}`;
