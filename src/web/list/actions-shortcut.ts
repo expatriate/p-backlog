@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useMediaQuery } from "../ui/use-media-query";
 import { isApplePlatform } from "../ui/platform";
 
 export const ACTIONS_SHORTCUT = "Alt+A";
@@ -14,11 +14,5 @@ export function isActionsShortcut(event: KeyboardEvent): boolean {
 const NO_HOVER_QUERY = "(hover: none)";
 
 export function useKeyboardHints(): boolean {
-  return useSyncExternalStore(subscribeToHoverChange, () => !window.matchMedia(NO_HOVER_QUERY).matches);
-}
-
-function subscribeToHoverChange(onChange: () => void): () => void {
-  const query = window.matchMedia(NO_HOVER_QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
+  return !useMediaQuery(NO_HOVER_QUERY);
 }

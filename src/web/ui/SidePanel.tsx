@@ -40,7 +40,7 @@ export function SidePanel({ label, heading, onClose, className, children }: Side
     };
     document.addEventListener("pointerdown", closeOnOutsidePointer);
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || event.defaultPrevented) return;
       if (event.target instanceof HTMLElement && event.target.closest(FORM_FIELDS)) {
         drawer?.focus();
         return;

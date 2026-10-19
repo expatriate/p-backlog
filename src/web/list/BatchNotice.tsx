@@ -12,7 +12,7 @@ import { failureOf, isUndoResult, type BatchFailure, type BatchResult } from "./
 import footer from "./FooterPanel.module.css";
 import styles from "./BatchNotice.module.css";
 
-const NOTICE_LIFETIME_MS = 15_000;
+export const NOTICE_LIFETIME_MS = 15_000;
 
 type DoneOutcome = Extract<BatchOutcome, { outcome: "done" }>;
 type SkippedOutcome = Extract<BatchOutcome, { outcome: "skipped" }>;

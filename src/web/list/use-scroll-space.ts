@@ -17,5 +17,5 @@ export function useScrollSpaceFor(footer: RefObject<HTMLElement | null>) {
 }
 
 function reserveScrollSpace(footer: HTMLElement | null) {
-  if (footer) document.documentElement.style.setProperty(FOOTER_HEIGHT_PROPERTY, `${footer.offsetHeight}px`);
+  if (footer) document.documentElement.style.setProperty(FOOTER_HEIGHT_PROPERTY, `${Math.ceil(footer.getBoundingClientRect().height)}px`);
 }

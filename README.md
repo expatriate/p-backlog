@@ -240,6 +240,11 @@ backlog serve --port 5000
 The server listens on `127.0.0.1` only and reflects directory changes immediately: a task created by the
 agent shows up in an open tab without a reload.
 
+Tasks show as a list or as a board (the "List / Board" switch next to the search). The board has a column per status
+in the filter, plus "done" as a drop target; drag a card to another column — with the mouse, by touch, or from the
+keyboard (Space picks it up, left and right arrows choose the column, Space drops it) — to change its status, and Undo
+puts it back. Epics stay in the list.
+
 To have it start automatically on login instead, install it as a service (macOS, Linux, and Windows are
 supported):
 
@@ -321,7 +326,7 @@ npm run typecheck
 npm run lint
 
 npx playwright install chromium   # once, before the first e2e run
-npm run test:e2e                  # Playwright in Chromium: bulk actions, live updates, CSP, charts, task panel width
+npm run test:e2e                  # Playwright in Chromium: bulk actions, board drag and drop, live updates, CSP, charts, task panel width
 npx playwright install webkit     # optional: the same suite in WebKit too
 npx playwright test               # Chromium, then WebKit
 

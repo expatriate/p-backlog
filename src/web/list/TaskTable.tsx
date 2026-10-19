@@ -1,13 +1,14 @@
 import { useEffect, useRef, type ChangeEvent, type KeyboardEvent } from "react";
 import { Link, type To } from "react-router";
-import { isBlocked } from "../../core/model/graph";
 import { formatDate } from "../../core/i18n/format";
 import type { Language } from "../../core/i18n/language";
 import type { SortDirection, SortKey, TaskSort } from "../../core/model/query";
-import type { Priority, Task } from "../../core/model/types";
+import type { Task } from "../../core/model/types";
 import { DIRECTION_MARKS, NO_VALUE } from "../labels";
 import { useLanguage, useMessages } from "../i18n";
 import { DeletionBar } from "../ui/Deletion";
+import { PriorityLabel } from "../ui/PriorityLabel";
+import { BlockedMarker } from "./BlockedMarker";
 import { StatusBadge } from "../ui/StatusBadge";
 import { TaskIdLink } from "../ui/TaskId";
 import { useAllTasks } from "../app/all-tasks";
@@ -35,15 +36,8 @@ export type TaskTableProps = {
 
 const ARIA_SORT: Record<SortDirection, "ascending" | "descending"> = { asc: "ascending", desc: "descending" };
 
-const PRIORITY_CLASS: Record<Priority, string | undefined> = {
-  low: styles.low,
-  medium: styles.medium,
-  high: styles.high,
-  critical: styles.critical,
-};
-
 export function TaskTable({ tasks, sort, dateColumn, openedId, onSort, isNew, selectedTags, onToggleTag, selection, describedBy }: TaskTableProps) {
-  const { list, core } = useMessages();
+  const { list } = useMessages();
   const { tones } = useAllTasks();
   const taskHref = useTaskHref();
   const language = useLanguage();
@@ -86,7 +80,9 @@ export function TaskTable({ tasks, sort, dateColumn, openedId, onSort, isNew, se
               <td className={styles.statusCell}>
                 <StatusBadge status={task.status} />
               </td>
-              <td className={cx(styles.priorityCell, PRIORITY_CLASS[task.priority])}>{core.priorityLabel(task.priority)}</td>
+              <td className={styles.priorityCell}>
+                <PriorityLabel priority={task.priority} />
+              </td>
               <td className={styles.date}>{formatTaskDate(task, dateColumn, language)}</td>
             </tr>
           );
@@ -135,7 +131,6 @@ function TaskTableHead({ sort, onSort, dateColumn, selection }: Pick<TaskTablePr
 function TaskTitleCell({ task, href, opened, isNew, now }: { task: Task; href: To; opened: boolean; isNew: boolean; now: Date }) {
   const { list, core } = useMessages();
   const { index } = useAllTasks();
-  const blocked = isBlocked(task, index);
   const epic = task.epic === undefined ? undefined : index.byId.get(task.epic);
   return (
     <td>
@@ -145,11 +140,7 @@ function TaskTitleCell({ task, href, opened, isNew, now }: { task: Task; href: T
         {task.title}
       </Link>
       {task.type === "epic" && <span className={cx(styles.marker, styles.epicMarker)}>{list.epicBadge}</span>}
-      {blocked && task.status !== "blocked" && (
-        <span className={styles.marker} title={list.blockedTitle}>
-          {list.blockedBadge}
-        </span>
-      )}
+      <BlockedMarker task={task} className={styles.marker} />
       {task.resolution !== undefined && (
         <span className={styles.marker} title={task.reason}>
           {core.resolutionLabel(task.resolution)}

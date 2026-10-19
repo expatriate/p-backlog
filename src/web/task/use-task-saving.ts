@@ -106,7 +106,7 @@ function bodyErrorText(error: Error, errorText: (error: Error) => string, taskMe
   return apiErrorKind(error) === "conflict" ? taskMessages.draftConflict : errorText(error);
 }
 
-function saveErrorText(error: Error, app: AppMessages, taskMessages: TaskMessages): string {
+export function saveErrorText(error: Error, app: AppMessages, taskMessages: TaskMessages): string {
   if (apiErrorKind(error) === "conflict") return taskMessages.taskConflict;
   if (error instanceof TaskGoneError) return taskMessages.taskGone(error.taskId);
   return requestErrorMessage(app, error);

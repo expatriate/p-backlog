@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The web app shows tasks as a board too: the "List / Board" switch next to the search, a column per status in the
+  filter plus "done" as a drop target, and cards dragged between columns with the mouse, by touch or from the keyboard
+  change the task's status, with Undo. The view is kept in the address (`?view=board`), so filters, projects and the
+  task card work the same as in the list.
+
 ## 0.11.0
 
 - `backlog check` and the Stop hook no longer ask to re-check a task whose own lines are intact. Before, lines inserted

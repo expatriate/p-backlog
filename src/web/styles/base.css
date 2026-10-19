@@ -65,6 +65,13 @@ code {
   font-size: var(--text-sm);
 }
 
+.raised-surface {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+}
+
 ::placeholder {
   color: var(--ink-subtle);
 }

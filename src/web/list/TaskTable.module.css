@@ -128,23 +128,6 @@
   white-space: nowrap;
 }
 
-.low {
-  color: var(--ink-subtle);
-}
-
-.medium {
-  color: var(--ink-muted);
-}
-
-.high {
-  color: var(--ink);
-}
-
-.critical {
-  color: var(--accent-ink);
-  font-weight: 600;
-}
-
 .date {
   color: var(--ink-subtle);
   font-variant-numeric: tabular-nums;

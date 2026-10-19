@@ -65,6 +65,22 @@ export function readListParams(search: URLSearchParams): ListParams {
   };
 }
 
+export type ListView = "list" | "board";
+
+const VIEW_PARAM = "view";
+const BOARD_VIEW: ListView = "board";
+
+export function readView(search: URLSearchParams): ListView {
+  return search.get(VIEW_PARAM) === BOARD_VIEW ? BOARD_VIEW : "list";
+}
+
+export function withView(search: URLSearchParams, view: ListView): URLSearchParams {
+  const next = new URLSearchParams(search);
+  if (view === BOARD_VIEW) next.set(VIEW_PARAM, BOARD_VIEW);
+  else next.delete(VIEW_PARAM);
+  return next;
+}
+
 export function isDefaultFilter(filter: ListParams["filter"]): boolean {
   return filterSearch(filter) === filterSearch(DEFAULT_FILTER);
 }

@@ -22,7 +22,8 @@ import { useSelectedTask } from "./use-selected-task";
 import { useTaskSelection } from "./use-task-selection";
 import { useTaskListView, type TaskListView } from "./use-task-list-view";
 import { withTagToggled } from "./filter-toggle";
-import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, writeListParams, type ListParams } from "../app/list-params";
+import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, readView, withView, writeListParams, type ListParams, type ListView } from "../app/list-params";
+import { TaskBoard } from "./board/TaskBoard";
 import styles from "./TaskListPage.module.css";
 
 const COUNT_ANNOUNCE_DELAY_MS = 500;
@@ -35,6 +36,7 @@ export function TaskListPage() {
 
   const searchKey = search.toString();
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
+  const shownAs = readView(new URLSearchParams(searchKey));
   const view = useTaskListView(params, projectId);
   const { selectedTask, gone, missingTaskId } = useSelectedTask(view.all.tasks, taskId, view.tasksLoaded);
   const { isNew, markSeen } = useSeenTasks(view.tasksLoaded ? view.all.tasks : undefined);
@@ -52,7 +54,9 @@ export function TaskListPage() {
   const viewTitle = viewTitleFor(list, view.projectName, params.filter.onlyAutoClosed === true);
   useDocumentTitle(selectedTask === undefined ? list.docTitle(viewTitle) : list.taskDocTitle(selectedTask.id, selectedTask.title));
 
-  const setParams = (next: ListParams) => setSearch(writeListParams(next), { replace: true });
+  const setParams = (next: ListParams) => setSearch(withView(writeListParams(next), shownAs), { replace: true });
+  const showAs = (next: ListView) => setSearch(withView(new URLSearchParams(searchKey), next), { replace: true });
+  const onBoard = shownAs === "board";
   const heading = useRef<HTMLHeadingElement>(null);
   const statusFocus = useStatusFocus(view.settled, heading);
 
@@ -61,17 +65,18 @@ export function TaskListPage() {
       <main id="content" tabIndex={-1} className={styles.page}>
         <div className={styles.list}>
           <PageHeading ref={heading}>{viewTitle}</PageHeading>
-          <Toolbar params={params} onChange={setParams} {...view.filterChoices} />
+          <Toolbar params={params} onChange={setParams} {...view.filterChoices} view={shownAs} onViewChange={showAs} />
 
           <MissingTaskNote taskId={missingTaskId} />
 
           <ParseErrorsNote parseErrors={view.parseErrors} />
 
-          {view.content === "table" && keyboardHints && <KeysHint id={keysHintId} />}
+          {view.content === "table" && !onBoard && keyboardHints && <KeysHint id={keysHintId} />}
 
           <div className={styles.tableWrap}>
             <ListStatus view={view} filter={params.filter} onFilterChange={(filter) => setParams({ ...params, filter })} statusFocus={statusFocus} />
-            {view.content === "table" && (
+            {view.content === "table" && onBoard && <TaskBoard tasks={view.table.tasks} statuses={params.filter.statuses} openedId={selectedTask?.id} />}
+            {view.content === "table" && !onBoard && (
               <TaskTable
                 {...view.table}
                 openedId={selectedTask?.id}
@@ -84,7 +89,7 @@ export function TaskListPage() {
               />
             )}
           </div>
-          <ListFooter key={listAddress} selection={selection} />
+          {!onBoard && <ListFooter key={listAddress} selection={selection} />}
         </div>
 
         {selectedTask && <TaskPanel key={selectedTask.id} task={selectedTask} onClose={() => void navigate({ pathname: listAddress, search: searchKey })} gone={gone} />}

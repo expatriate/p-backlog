@@ -1,0 +1,16 @@
+.low {
+  color: var(--ink-subtle);
+}
+
+.medium {
+  color: var(--ink-muted);
+}
+
+.high {
+  color: var(--ink);
+}
+
+.critical {
+  color: var(--accent-ink);
+  font-weight: 600;
+}

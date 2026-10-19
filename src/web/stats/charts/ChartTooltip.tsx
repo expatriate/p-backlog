@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { TooltipContentProps } from "recharts";
 import { SwatchMark } from "./ChartFrame";
+import { cx } from "../../ui/cx";
 import styles from "./ChartFrame.module.css";
 import { isPlotted, tooltipValue, type SeriesEntry } from "./series";
 
@@ -10,7 +11,7 @@ export function SeriesTooltip<Row>({ title, series, active, payload }: SeriesToo
   const row = payload?.[0]?.payload as Row | undefined;
   if (active !== true || row === undefined) return null;
   return (
-    <div className={styles.tooltip}>
+    <div className={cx(styles.tooltip, "raised-surface")}>
       <p className={styles.tooltipTitle}>{title(row)}</p>
       <dl className={styles.tooltipRows}>
         {series.map((entry) => {
