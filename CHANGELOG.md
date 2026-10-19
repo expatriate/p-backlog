@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.12.0
 
 - The web app shows tasks as a board too: the "List / Board" switch next to the search, a column per status in the
   filter plus "done" as a drop target, and cards dragged between columns with the mouse, by touch or from the keyboard
