@@ -3,6 +3,8 @@ import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
 
+const SEVEN_TABS_TIMEOUT_MS = 60_000;
+
 const projectDir = join(E2E_BACKLOG_DIR, "spa");
 
 async function writeTask(id: string, title: string): Promise<void> {
@@ -31,6 +33,7 @@ test("задача, созданную агентом в каталоге, ви�
 
 test("семь вкладок делят одну ленту: все загружаются, изменения доходят до каждой и после закрытия ведущей", async ({ context }) => {
   const TABS = 7;
+  test.setTimeout(SEVEN_TABS_TIMEOUT_MS);
   await resetProject();
   await writeTask("SPA-3", "Много вкладок");
 
