@@ -37,6 +37,7 @@ describe("доска задач", () => {
     expect(columnCards(/^в работе/)).toEqual(["Разобрать очередь"]);
     expect(within(within(board).getByRole("region", { name: /^сделана/ })).getByText(/Закрытые скрыты фильтром/)).toBeDefined();
     expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByText(/^Пробел — взять задачу/, { selector: "p" })).toBeDefined();
 
     await app.user.click(within(screen.getByRole("group", { name: "Приоритет" })).getByRole("button", { name: "высокий" }));
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FocusEvent } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router";
 import type { BatchOutcome, BatchRequest, BatchResponse } from "../../core/api/contract";
 import { PartialBatchError } from "../app/batch-chunks";
@@ -9,10 +9,9 @@ import { Button } from "../ui/Button";
 import { focusDropped } from "../ui/focus-dropped";
 import { useTaskHref } from "../app/use-task-href";
 import { failureOf, isUndoResult, type BatchFailure, type BatchResult } from "./use-batch-result";
+import { useNoticeLifetime } from "./use-notice-lifetime";
 import footer from "./FooterPanel.module.css";
 import styles from "./BatchNotice.module.css";
-
-export const NOTICE_LIFETIME_MS = 15_000;
 
 type DoneOutcome = Extract<BatchOutcome, { outcome: "done" }>;
 type SkippedOutcome = Extract<BatchOutcome, { outcome: "skipped" }>;
@@ -29,24 +28,17 @@ type BatchNoticeProps = {
 export function BatchNotice({ result, noticeId, onResult }: BatchNoticeProps) {
   const { list } = useMessages();
   const undo = useBatchTasks();
-  const [focusInside, setFocusInside] = useState(false);
+  const notice = useRef<HTMLDivElement>(null);
   const summary = useRef<HTMLParagraphElement>(null);
   const undoButton = useRef<HTMLButtonElement>(null);
 
   const { isPending, reset } = undo;
   useEffect(() => reset(), [result, reset]);
-  useEffect(() => {
-    if (result === null || focusInside || isPending) return;
-    const timer = setTimeout(() => onResult(null), NOTICE_LIFETIME_MS);
-    return () => clearTimeout(timer);
-  }, [result, focusInside, isPending, onResult]);
+  const hide = useCallback(() => onResult(null), [onResult]);
+  useNoticeLifetime(notice, result, isPending, hide);
   useEffect(() => {
     if (result !== null && focusDropped()) (undoButton.current ?? summary.current)?.focus();
   }, [result]);
-
-  const leave = (event: FocusEvent<HTMLElement>) => {
-    if (!event.currentTarget.contains(event.relatedTarget)) setFocusInside(false);
-  };
 
   if (result === null) return <div role="status" />;
 
@@ -68,7 +60,7 @@ export function BatchNotice({ result, noticeId, onResult }: BatchNoticeProps) {
   };
 
   return (
-    <div role="status" className={footer.panel} onFocus={() => setFocusInside(true)} onBlur={leave}>
+    <div ref={notice} role="status" className={footer.panel}>
       <p key={noticeId} ref={summary} tabIndex={-1} className={footer.headline}>
         {list.batchSummary[result.request.action.kind](done.length, result.request.tasks.length)}
       </p>

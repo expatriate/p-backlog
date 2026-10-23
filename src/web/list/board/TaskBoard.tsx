@@ -15,7 +15,7 @@ import {
   type KeyboardCoordinateGetter,
   type UniqueIdentifier,
 } from "@dnd-kit/core";
-import { useEffect, useId, useMemo, useRef, useState, type FocusEvent, type MouseEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { Link } from "react-router";
 import { TASK_STATUSES, type Task, type TaskStatus } from "../../../core/model/types";
 import { useAllTasks } from "../../app/all-tasks";
@@ -25,13 +25,13 @@ import { saveErrorText } from "../../task/use-task-saving";
 import { Button } from "../../ui/Button";
 import { cx } from "../../ui/cx";
 import { focusDropped } from "../../ui/focus-dropped";
-import { Notice } from "../../ui/Notice";
 import { PriorityLabel } from "../../ui/PriorityLabel";
 import { StatusBadge } from "../../ui/StatusBadge";
 import { TaskId } from "../../ui/TaskId";
 import { useMediaQuery } from "../../ui/use-media-query";
-import { NOTICE_LIFETIME_MS } from "../BatchNotice";
 import { BlockedMarker } from "../BlockedMarker";
+import { useNoticeLifetime } from "../use-notice-lifetime";
+import footer from "../FooterPanel.module.css";
 import { boardColumns, type BoardColumn, type PendingMoves } from "./board-columns";
 import { useBoardMove } from "./use-board-move";
 import styles from "./TaskBoard.module.css";
@@ -47,7 +47,8 @@ type BoardMoves = ReturnType<typeof useBoardMove>;
 
 export function TaskBoard({ tasks, statuses, openedId }: { tasks: readonly Task[]; statuses: readonly TaskStatus[] | undefined; openedId: string | undefined }) {
   const { list } = useMessages();
-  const moves = useBoardMove(tasks);
+  const { tasks: allTasks } = useAllTasks();
+  const moves = useBoardMove(allTasks);
   const columns = useMemo(() => boardColumns(tasks, statuses, moves.pending), [tasks, statuses, moves.pending]);
   const byId = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
   const [dragged, setDragged] = useState<Task | null>(null);
@@ -71,7 +72,7 @@ export function TaskBoard({ tasks, statuses, openedId }: { tasks: readonly Task[
     const task = byId.get(String(active.id));
     const to = over === null ? undefined : columnStatus(over.id);
     if (task === undefined || to === undefined) return;
-    if (await moves.move(task, to)) requestAnimationFrame(() => focusIfDropped(undoButton.current));
+    await moves.move(task, to);
   };
   const undo = async () => {
     const restored = await moves.undo();
@@ -80,7 +81,6 @@ export function TaskBoard({ tasks, statuses, openedId }: { tasks: readonly Task[
 
   return (
     <section ref={board} className={styles.board} aria-label={list.board} onClickCapture={clickAfterDrop.onClickCapture}>
-      <MoveNotice moves={moves} undoButton={undoButton} onUndo={() => void undo()} />
       <DndContext
         sensors={sensors}
         accessibility={{ announcements, screenReaderInstructions: { draggable: list.dragInstructions } }}
@@ -95,38 +95,36 @@ export function TaskBoard({ tasks, statuses, openedId }: { tasks: readonly Task[
         </div>
         <DragOverlay dropAnimation={reducedMotion ? null : undefined}>{dragged === null ? null : <CardContent task={dragged} lifted />}</DragOverlay>
       </DndContext>
+      <MoveNotice moves={moves} undoButton={undoButton} onUndo={() => void undo()} />
     </section>
   );
 }
 
 function MoveNotice({ moves: { lastMove, failure, undoing, dismiss }, undoButton, onUndo }: { moves: BoardMoves; undoButton: RefObject<HTMLButtonElement | null>; onUndo: () => void }) {
   const { list, core, app, task: taskMessages } = useMessages();
-  const [focusInside, setFocusInside] = useState(false);
+  const notice = useRef<HTMLDivElement>(null);
+  useNoticeLifetime(notice, lastMove, undoing, dismiss);
   useEffect(() => {
-    if (lastMove === null || focusInside || undoing) return;
-    const timer = setTimeout(dismiss, NOTICE_LIFETIME_MS);
-    return () => clearTimeout(timer);
-  }, [lastMove, focusInside, undoing, dismiss]);
-  const leave = (event: FocusEvent<HTMLElement>) => {
-    if (!event.currentTarget.contains(event.relatedTarget)) setFocusInside(false);
-  };
+    if (lastMove !== null) focusIfDropped(undoButton.current);
+  }, [lastMove, undoButton]);
+  const shown = lastMove !== null || failure !== null;
 
   return (
-    <Notice as="div" className={styles.notice} shown={lastMove !== null || failure !== null} role="status" onFocus={() => setFocusInside(true)} onBlur={leave}>
+    <div ref={notice} role="status" className={shown ? cx(footer.panel, styles.notice) : "visually-hidden"}>
       {lastMove !== null && (
-        <p className={styles.noticeLine}>
-          {list.moved(lastMove.id, core.statusLabel(lastMove.to))}{" "}
+        <>
+          <p className={footer.headline}>{list.moved(lastMove.id, core.statusLabel(lastMove.to))}</p>
           <Button ref={undoButton} busy={undoing} onClick={onUndo}>
             {list.undo}
           </Button>
-        </p>
+        </>
       )}
       {failure !== null && (
-        <p className={cx(styles.noticeLine, styles.failure)} role="alert">
+        <p className={footer.error} role="alert">
           {list.moveFailed(failure.id)}: {saveErrorText(failure.error, app, taskMessages)}
         </p>
       )}
-    </Notice>
+    </div>
   );
 }
 
@@ -187,7 +185,7 @@ function CardContent({ task, lifted = false, children }: { task: Task; lifted?: 
       <div className={styles.meta}>
         <BlockedMarker task={task} className={styles.marker} />
         {epic !== undefined && (
-          <span title={epic.title}>
+          <span className={styles.raisedLabel} title={epic.title}>
             <TaskId id={epic.id} tone={tones.get(epic.id)} muted />
           </span>
         )}
@@ -221,7 +219,7 @@ function columnStatus(id: UniqueIdentifier): TaskStatus | undefined {
 }
 
 function focusIfDropped(target: HTMLElement | null | undefined): void {
-  if (focusDropped()) target?.focus();
+  if (focusDropped()) target?.focus({ preventScroll: true });
 }
 
 const columnKeyboardCoordinates: KeyboardCoordinateGetter = (event, { context: { collisionRect, droppableRects }, currentCoordinates }) => {

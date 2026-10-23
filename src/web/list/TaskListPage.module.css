@@ -18,6 +18,13 @@
   padding-bottom: var(--space-6);
 }
 
+.boardWrap {
+  display: flex;
+  flex: 1 0 var(--board-min-height);
+  flex-direction: column;
+  min-height: 0;
+}
+
 .warning {
   margin: var(--space-3) var(--space-5) 0;
   padding: var(--space-3) var(--space-4);

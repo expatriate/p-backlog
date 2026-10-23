@@ -72,11 +72,11 @@ export function TaskListPage() {
 
           <ParseErrorsNote parseErrors={listing.parseErrors} />
 
-          {listing.content === "table" && !onBoard && keyboardHints && <KeysHint id={keysHintId} />}
+          {listing.content === "table" && keyboardHints && <KeysHint id={keysHintId} onBoard={onBoard} />}
 
-          <div className={styles.tableWrap}>
+          <div className={onBoard ? styles.boardWrap : styles.tableWrap}>
             <ListStatus view={listing} filter={params.filter} onFilterChange={(filter) => setParams({ ...params, filter })} statusFocus={statusFocus} />
-            {listing.content === "table" && onBoard && <TaskBoard tasks={listing.table.tasks} statuses={params.filter.statuses} openedId={selectedTask?.id} />}
+            {onBoard && (listing.content === "table" || listing.content === "empty") && <TaskBoard tasks={listing.table.tasks} statuses={params.filter.statuses} openedId={selectedTask?.id} />}
             {listing.content === "table" && !onBoard && (
               <TaskTable
                 {...listing.table}
@@ -114,11 +114,11 @@ function MissingTaskNote({ taskId }: { taskId: string | undefined }) {
   );
 }
 
-function KeysHint({ id }: { id: string }) {
+function KeysHint({ id, onBoard }: { id: string; onBoard: boolean }) {
   const { list } = useMessages();
   return (
     <p id={id} className={styles.keysHint}>
-      {list.selectionKeysHint(actionsShortcutLabel())}
+      {onBoard ? list.dragInstructions : list.selectionKeysHint(actionsShortcutLabel())}
     </p>
   );
 }

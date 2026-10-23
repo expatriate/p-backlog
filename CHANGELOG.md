@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- The board fits the window: each column scrolls on its own, so column headings stay in view and the horizontal
+  scrollbar is at the bottom of the screen. The note after a move is a neutral panel over the bottom of the board, like
+  the list's bulk-action panel: it no longer pushes the columns down, and focusing Undo doesn't scroll the page.
+- Dropping a card on "done" while closed tasks are hidden by the filter now shows the note with Undo too; before, the
+  card vanished silently, and closing the last open task replaced the board with "No open tasks".
+- The board shows the keyboard hint (Space picks up a card) on screen, epic and blocked labels on a card show their
+  tooltips again, and a move note now always goes away after 15 seconds once focus is elsewhere.
+
 ## 0.12.1
 
 - The "List / Board" switch moved from the filter chips to the page heading and became a segmented control with icons,

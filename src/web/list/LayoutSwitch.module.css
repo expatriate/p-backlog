@@ -14,11 +14,12 @@
   min-height: var(--hit-target);
   padding: var(--space-1) var(--space-3);
   border: 0;
-  border-radius: calc(var(--radius-control) - 2px);
+  border-radius: calc(var(--radius-control) - 3px);
   background: transparent;
   color: var(--ink-muted);
   font: inherit;
   font-size: var(--text-sm);
+  font-weight: 600;
   cursor: pointer;
   transition: var(--transition-control);
 }
@@ -30,6 +31,5 @@
 .current {
   background: var(--surface-selected);
   color: var(--ink);
-  font-weight: 600;
   cursor: default;
 }

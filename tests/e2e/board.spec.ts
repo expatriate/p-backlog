@@ -13,7 +13,7 @@ async function writeBoard(titles: readonly string[]) {
   await writeFile(join(projectDir, "project.md"), "---\nname: board\nprefix: BRD\nrepos: []\n---\n", "utf8");
   for (const [index, title] of titles.entries()) {
     const id = `BRD-${index + 1}`;
-    await writeFile(join(projectDir, `${id}.md`), `---\nid: ${id}\ntitle: ${title}\nstatus: backlog\ncreated: 2026-09-${10 + index}T10:00:00+03:00\n---\n`, "utf8");
+    await writeFile(join(projectDir, `${id}.md`), `---\nid: ${id}\ntitle: ${title}\nstatus: backlog\ncreated: 2026-09-10T10:${String(index).padStart(2, "0")}:00+03:00\n---\n`, "utf8");
   }
 }
 
@@ -23,7 +23,7 @@ function column(page: Page, status: string): Locator {
 
 async function openBoard(page: Page, path: string, firstCard: string): Promise<void> {
   await page.goto(path);
-  await expect(column(page, "в беклоге").getByRole("link", { name: firstCard })).toBeVisible();
+  await expect(column(page, "в беклоге").getByRole("link", { name: firstCard, exact: true })).toBeVisible();
 }
 
 async function dragTo(page: Page, card: Locator, target: Locator) {
@@ -117,4 +117,42 @@ test("два переноса подряд, первый медленно пад
   await expect(column(page, "в беклоге").getByRole("link", { name: "Медленная" })).toBeVisible();
   await expect(column(page, "заблокирована").getByRole("link", { name: "Быстрая" })).toBeVisible();
   await expect.poll(() => Promise.all([statusOnDisk("BRD-1"), statusOnDisk("BRD-2")])).toEqual(["backlog", "blocked"]);
+});
+
+test("перенос в «сделана», когда закрытые скрыты фильтром, — уведомление и «Отменить», фокус на кнопке", async ({ page }) => {
+  await writeBoard(["Закрыть переносом"]);
+  await openBoard(page, "/p/board?view=board", "Закрыть переносом");
+
+  await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Закрыть переносом" }), column(page, "сделана"));
+
+  const undo = page.getByRole("button", { name: "Отменить" });
+  await expect(page.getByRole("status").filter({ hasText: "BRD-1: статус «сделана»" })).toBeVisible();
+  await expect(undo).toBeFocused();
+  await expect.poll(() => statusOnDisk("BRD-1")).toBe("done");
+
+  await undo.click();
+
+  await expect(column(page, "в беклоге").getByRole("link", { name: "Закрыть переносом" })).toBeVisible();
+  await expect.poll(() => statusOnDisk("BRD-1")).toBe("backlog");
+});
+
+test("длинная колонка прокручивается внутри доски: заголовки видны, после переноса снизу «Отменить» на экране и ничего не сдвигается", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await writeBoard(Array.from({ length: 30 }, (_, index) => `Карточка ${index + 1}`));
+  await openBoard(page, "/p/board?view=board&sort=created&dir=asc", "Карточка 1");
+  const backlog = column(page, "в беклоге");
+  const last = backlog.getByRole("link", { name: "Карточка 30", exact: true });
+  await last.evaluate((link) => link.scrollIntoView({ block: "nearest" }));
+  await expect(last).toBeInViewport();
+  const scrollTops = () => page.evaluate(() => [...document.querySelectorAll("main, main *")].filter((element) => element.scrollTop > 0).map((element) => Math.round(element.scrollTop)));
+  const pageScrolled = await page.evaluate(() => document.querySelector("main > div")?.scrollTop ?? 0);
+  const columnsTop = (await column(page, "в работе").boundingBox())?.y;
+
+  await dragTo(page, last, column(page, "в работе"));
+
+  await expect(page.getByRole("button", { name: "Отменить" })).toBeInViewport();
+  await expect(backlog.getByRole("heading", { level: 2 })).toBeInViewport();
+  expect(await page.evaluate(() => document.querySelector("main > div")?.scrollTop ?? 0)).toBe(pageScrolled);
+  expect((await column(page, "в работе").boundingBox())?.y).toBe(columnsTop);
+  expect(await scrollTops()).not.toEqual([]);
 });
