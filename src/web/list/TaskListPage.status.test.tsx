@@ -29,7 +29,7 @@ describe("список задач: загрузка, сбои и объявле�
     control.answer = "server-error";
     await userEvent.click(screen.getByRole("button", { name: "Повторить" }));
 
-    expect(await screen.findByText("Сервер вернул ошибку: EACCES: permission denied")).toBeDefined();
+    expect(await screen.findByText("Сервер вернул ошибку: EACCES: permission denied. Повторите; если не проходит — перезапустите сервер беклога.")).toBeDefined();
     expect(screen.queryByText(/не отвечает/)).toBeNull();
   });
 

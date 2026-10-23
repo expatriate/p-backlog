@@ -173,7 +173,7 @@ describe("страница статистики", () => {
 
   it("ошибка первой загрузки: «Повторить» передаёт фокус области состояния, после загрузки — заголовку страницы", async () => {
     const { app, answerStatsWith } = await renderStatsWith(failStats);
-    expect(await screen.findByText("Сервер вернул ошибку: сбой")).toBeDefined();
+    expect(await screen.findByText("Сервер вернул ошибку: сбой. Повторите; если не проходит — перезапустите сервер беклога.")).toBeDefined();
 
     const held = holdFailure();
     answerStatsWith(held.answer);
@@ -222,7 +222,7 @@ describe("страница статистики", () => {
     const retry = await screen.findByRole("button", { name: "Повторить" });
     const week = screen.getByRole("group", { name: "За неделю" });
     expect(within(week).getByText("+2")).toBeDefined();
-    expect(screen.getByText("Сервер вернул ошибку: сбой")).toBeDefined();
+    expect(screen.getByText("Сервер вернул ошибку: сбой. Повторите; если не проходит — перезапустите сервер беклога.")).toBeDefined();
     expect(retry.compareDocumentPosition(week) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 

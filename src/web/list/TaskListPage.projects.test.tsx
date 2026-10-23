@@ -36,8 +36,8 @@ describe("область «Проекты»", () => {
 
     const main = await screen.findByRole("main");
     const sidebar = screen.getByRole("navigation", { name: "Навигация" });
-    expect(await within(main).findByText("Сервер вернул ошибку: EACCES: permission denied")).toBeDefined();
-    expect(within(sidebar).getByText("Сервер вернул ошибку: EACCES: permission denied")).toBeDefined();
+    expect(await within(main).findByText("Сервер вернул ошибку: EACCES: permission denied. Повторите; если не проходит — перезапустите сервер беклога.")).toBeDefined();
+    expect(within(sidebar).getByText("Сервер вернул ошибку: EACCES: permission denied. Повторите; если не проходит — перезапустите сервер беклога.")).toBeDefined();
     expect(screen.queryByText(/Задач пока нет/)).toBeNull();
 
     projectsFail = false;

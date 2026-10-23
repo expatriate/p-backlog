@@ -505,7 +505,7 @@ describe("сервер не принял сохранение", () => {
   const failPatches = (answer: () => Promise<Response>) => interceptApi(async (_path, init, passOn) => (init?.method === "PATCH" ? answer() : passOn()));
 
   it.each([
-    { reason: "сервер недоступен", answer: serverUnreachable, text: "Сервер беклога не отвечает. Запустите его: npm start" },
+    { reason: "сервер недоступен", answer: serverUnreachable, text: "Сервер беклога не отвечает. Запустите его: backlog serve" },
     { reason: "ошибка 500 без текста", answer: async () => Response.json({}, { status: 500 }), text: "Сервер вернул ошибку 500" },
   ])("$reason — карточка и поле связей объясняют это по-русски", async ({ answer, text }) => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-2", undefined, { beforeRender: failPatches(answer) });

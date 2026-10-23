@@ -9,6 +9,10 @@
   card vanished silently, and closing the last open task replaced the board with "No open tasks".
 - The board shows the keyboard hint (Space picks up a card) on screen, epic and blocked labels on a card show their
   tooltips again, and a move note now always goes away after 15 seconds once focus is elsewhere.
+- Error messages in the web app tell what to do next: a server error adds "Retry; if it keeps failing, restart the
+  backlog server", and "the server is not responding" now suggests `backlog serve` or `backlog service install` instead
+  of `npm start` in the repository and a macOS-only `launchctl` command.
+- Hover highlights apply only on devices that can hover, so they no longer stick after a tap on a phone or tablet.
 
 ## 0.12.1
 

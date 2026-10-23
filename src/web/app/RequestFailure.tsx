@@ -43,5 +43,5 @@ function requestErrorParts<T>(app: AppMessages, error: Error, command: (text: st
   if (kind === "unreachable") return app.unreachableMessage(command);
   if (!(error instanceof ApiError)) return [error.message];
   if (error.errors.length === 0) return [app.serverStatusError(error.status)];
-  return [kind === "serverFailure" ? app.serverErrorPrefixed(error.message) : error.message];
+  return [kind === "serverFailure" ? app.serverErrorPrefixed(error.message.replace(/\.$/, "")) : error.message];
 }
