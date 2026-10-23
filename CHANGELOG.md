@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.12.1
 
 - The "List / Board" switch moved from the filter chips to the page heading and became a segmented control with icons,
   so it no longer looks like one more filter. After a card is dropped in another column the screen reader hears one
