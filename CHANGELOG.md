@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.12.2
 
 - The board fits the window: each column scrolls on its own, so column headings stay in view and the horizontal
   scrollbar is at the bottom of the screen. The note after a move is a neutral panel over the bottom of the board, like
