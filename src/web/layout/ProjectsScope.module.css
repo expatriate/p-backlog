@@ -41,9 +41,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-.row:hover {
-  background: var(--surface-hover);
-  color: var(--ink);
+@media (hover: hover) {
+  .row:hover {
+    background: var(--surface-hover);
+    color: var(--ink);
+  }
 }
 
 .row:has(a[aria-current="true"]) {

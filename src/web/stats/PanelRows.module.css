@@ -45,8 +45,10 @@
   text-underline-offset: 2px;
 }
 
-.rowLabel a:hover {
-  text-decoration-color: var(--ink);
+@media (hover: hover) {
+  .rowLabel a:hover {
+    text-decoration-color: var(--ink);
+  }
 }
 
 .rowValue {

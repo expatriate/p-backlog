@@ -42,7 +42,7 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "lint": "eslint . && stylelint \"src/**/*.css\" && prettier --check . && knip && jscpd && node scripts/check-cyrillic.mjs && node scripts/check-css-contracts.mjs",
+    "lint": "eslint . && stylelint \"src/**/*.css\" && prettier --check . && knip && jscpd && node scripts/check-cyrillic.mjs && node scripts/check-css-contracts.mjs && node scripts/check-css-hover.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "build": "vite build && node scripts/build-node.mjs",
     "install-skill": "node dist/cli.js setup",

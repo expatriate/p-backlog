@@ -16,6 +16,8 @@
   text-underline-offset: 2px;
 }
 
-.skipped a:hover {
-  text-decoration-color: var(--ink);
+@media (hover: hover) {
+  .skipped a:hover {
+    text-decoration-color: var(--ink);
+  }
 }

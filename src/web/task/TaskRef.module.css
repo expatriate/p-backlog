@@ -9,7 +9,9 @@
   color: var(--ink-subtle);
 }
 
-a.title:hover {
-  text-decoration: underline;
-  text-underline-offset: 2px;
+@media (hover: hover) {
+  a.title:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 }

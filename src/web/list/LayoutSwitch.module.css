@@ -24,8 +24,10 @@
   transition: var(--transition-control);
 }
 
-.option:hover {
-  color: var(--ink);
+@media (hover: hover) {
+  .option:hover {
+    color: var(--ink);
+  }
 }
 
 .current {

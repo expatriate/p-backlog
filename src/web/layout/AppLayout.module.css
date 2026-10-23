@@ -68,9 +68,11 @@
     color var(--duration) var(--ease-out);
 }
 
-.project:hover {
-  background: var(--surface-hover);
-  color: var(--ink);
+@media (hover: hover) {
+  .project:hover {
+    background: var(--surface-hover);
+    color: var(--ink);
+  }
 }
 
 .projectActive {

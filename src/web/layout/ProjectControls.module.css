@@ -18,8 +18,10 @@
   --icon-button-radius: var(--radius-control);
 }
 
-.delete:hover {
-  background: var(--surface-hover);
+@media (hover: hover) {
+  .delete:hover {
+    background: var(--surface-hover);
+  }
 }
 
 .error {

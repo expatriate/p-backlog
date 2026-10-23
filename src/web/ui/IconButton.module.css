@@ -12,15 +12,24 @@
   cursor: pointer;
 }
 
-.button:hover {
-  color: var(--ink);
+@media (hover: hover) {
+  .button:hover {
+    color: var(--ink);
+  }
 }
 
-.danger:hover {
-  color: var(--danger-ink);
+@media (hover: hover) {
+  .danger:hover {
+    color: var(--danger-ink);
+  }
 }
 
-.muted,
-.muted:hover {
+.muted {
   color: var(--ink-muted);
+}
+
+@media (hover: hover) {
+  .muted:hover {
+    color: var(--ink-muted);
+  }
 }

@@ -26,9 +26,11 @@
   cursor: pointer;
 }
 
-.option:hover {
-  background: var(--surface-hover);
-  color: var(--ink);
+@media (hover: hover) {
+  .option:hover {
+    background: var(--surface-hover);
+    color: var(--ink);
+  }
 }
 
 .pressed {

@@ -35,8 +35,10 @@
     color var(--duration) var(--ease-out);
 }
 
-.button:hover {
-  color: var(--ink);
+@media (hover: hover) {
+  .button:hover {
+    color: var(--ink);
+  }
 }
 
 .button:focus-visible {

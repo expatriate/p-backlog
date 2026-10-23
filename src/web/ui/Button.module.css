@@ -17,9 +17,11 @@
   color: var(--ink-muted);
 }
 
-.secondary:hover {
-  border-color: var(--ink-subtle);
-  color: var(--ink);
+@media (hover: hover) {
+  .secondary:hover {
+    border-color: var(--ink-subtle);
+    color: var(--ink);
+  }
 }
 
 .primary {
@@ -28,8 +30,10 @@
   font-weight: 600;
 }
 
-.primary:hover {
-  background: var(--action-hover);
+@media (hover: hover) {
+  .primary:hover {
+    background: var(--action-hover);
+  }
 }
 
 .button[aria-disabled="true"] {

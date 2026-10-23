@@ -45,8 +45,10 @@
   transition: background var(--duration) var(--ease-out);
 }
 
-.checkItem label:hover {
-  background: var(--surface-hover);
+@media (hover: hover) {
+  .checkItem label:hover {
+    background: var(--surface-hover);
+  }
 }
 
 .checkItem input:checked + span {
@@ -59,9 +61,11 @@
   text-underline-offset: 2px;
 }
 
-.markdown :global(a:hover) {
-  color: var(--accent-ink);
-  text-decoration-color: currentcolor;
+@media (hover: hover) {
+  .markdown :global(a:hover) {
+    color: var(--accent-ink);
+    text-decoration-color: currentcolor;
+  }
 }
 
 .markdown :global(pre) {

@@ -25,9 +25,11 @@
   cursor: pointer;
 }
 
-.more:hover {
-  border-color: var(--line-strong);
-  color: var(--ink);
+@media (hover: hover) {
+  .more:hover {
+    border-color: var(--line-strong);
+    color: var(--ink);
+  }
 }
 
 .ruler {

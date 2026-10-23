@@ -21,6 +21,8 @@
   white-space: nowrap;
 }
 
-.link:hover {
-  color: var(--accent-ink);
+@media (hover: hover) {
+  .link:hover {
+    color: var(--accent-ink);
+  }
 }

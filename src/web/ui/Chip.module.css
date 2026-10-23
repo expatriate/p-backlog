@@ -17,9 +17,11 @@
   scale: 0.96;
 }
 
-.chip:not(.static, [aria-disabled="true"]):hover {
-  border-color: var(--ink-subtle);
-  color: var(--ink);
+@media (hover: hover) {
+  .chip:not(.static, [aria-disabled="true"]):hover {
+    border-color: var(--ink-subtle);
+    color: var(--ink);
+  }
 }
 
 .pressed {

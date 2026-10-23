@@ -44,8 +44,10 @@
     border-color var(--duration) var(--ease-out);
 }
 
-.tab:hover {
-  color: var(--ink);
+@media (hover: hover) {
+  .tab:hover {
+    color: var(--ink);
+  }
 }
 
 .tabActive {

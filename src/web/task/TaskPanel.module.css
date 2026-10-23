@@ -12,8 +12,10 @@
   flex-shrink: 0;
 }
 
-.title:hover {
-  border-color: var(--line);
+@media (hover: hover) {
+  .title:hover {
+    border-color: var(--line);
+  }
 }
 
 .title:focus {

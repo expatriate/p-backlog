@@ -58,7 +58,12 @@
   cursor: pointer;
 }
 
-.sortButton:hover,
+@media (hover: hover) {
+  .sortButton:hover {
+    color: var(--ink);
+  }
+}
+
 .sorted {
   color: var(--ink);
 }
@@ -71,8 +76,10 @@
   background: var(--surface-selected);
 }
 
-.row:hover td {
-  background: var(--surface-hover);
+@media (hover: hover) {
+  .row:hover td {
+    background: var(--surface-hover);
+  }
 }
 
 .table th:first-child,
@@ -86,9 +93,11 @@
   overflow-wrap: anywhere;
 }
 
-.title:hover {
-  text-decoration: underline;
-  text-underline-offset: 2px;
+@media (hover: hover) {
+  .title:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 }
 
 .newBadge {

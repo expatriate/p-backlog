@@ -90,8 +90,10 @@
   opacity: 0.4;
 }
 
-.card:hover .cardBody {
-  border-color: var(--line-strong);
+@media (hover: hover) {
+  .card:hover .cardBody {
+    border-color: var(--line-strong);
+  }
 }
 
 .lifted {
