@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- The "List / Board" switch moved from the filter chips to the page heading and became a segmented control with icons,
+  so it no longer looks like one more filter. After a card is dropped in another column the screen reader hears one
+  message — the new status with Undo — instead of two.
+
 ## 0.12.0
 
 - The web app shows tasks as a board too: the "List / Board" switch next to the search, a column per status in the

@@ -32,7 +32,7 @@ import { TaskId } from "../../ui/TaskId";
 import { useMediaQuery } from "../../ui/use-media-query";
 import { NOTICE_LIFETIME_MS } from "../BatchNotice";
 import { BlockedMarker } from "../BlockedMarker";
-import { boardColumns, type BoardColumn } from "./board-columns";
+import { boardColumns, type BoardColumn, type PendingMoves } from "./board-columns";
 import { useBoardMove } from "./use-board-move";
 import styles from "./TaskBoard.module.css";
 
@@ -46,7 +46,7 @@ const TASK_ID_ATTRIBUTE = "data-task-id";
 type BoardMoves = ReturnType<typeof useBoardMove>;
 
 export function TaskBoard({ tasks, statuses, openedId }: { tasks: readonly Task[]; statuses: readonly TaskStatus[] | undefined; openedId: string | undefined }) {
-  const { list, core } = useMessages();
+  const { list } = useMessages();
   const moves = useBoardMove(tasks);
   const columns = useMemo(() => boardColumns(tasks, statuses, moves.pending), [tasks, statuses, moves.pending]);
   const byId = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
@@ -62,16 +62,7 @@ export function TaskBoard({ tasks, statuses, openedId }: { tasks: readonly Task[
     useSensor(KeyboardSensor, { keyboardCodes: KEYBOARD_CODES, coordinateGetter: columnKeyboardCoordinates }),
   );
 
-  const columnName = (id: UniqueIdentifier) => {
-    const status = columnStatus(id);
-    return status === undefined ? String(id) : core.statusLabel(status);
-  };
-  const announcements: Announcements = {
-    onDragStart: ({ active }) => list.dragStarted(String(active.id)),
-    onDragOver: ({ active, over }) => (over === null ? undefined : list.dragOver(String(active.id), columnName(over.id))),
-    onDragEnd: ({ active, over }) => (over === null ? list.dragStayed(String(active.id)) : list.dragDropped(String(active.id), columnName(over.id))),
-    onDragCancel: ({ active }) => list.dragCancelled(String(active.id)),
-  };
+  const announcements = useDragAnnouncements(byId, moves.pending);
 
   const start = ({ active }: DragStartEvent) => setDragged(byId.get(String(active.id)) ?? null);
   const drop = async ({ active, over }: DragEndEvent) => {
@@ -203,6 +194,26 @@ function CardContent({ task, lifted = false, children }: { task: Task; lifted?: 
       </div>
     </div>
   );
+}
+
+function useDragAnnouncements(byId: ReadonlyMap<string, Task>, pending: PendingMoves): Announcements {
+  const { list, core } = useMessages();
+  const movesToAnotherColumn = (taskId: string, columnId: UniqueIdentifier | undefined) => {
+    const task = byId.get(taskId);
+    const to = columnId === undefined ? undefined : columnStatus(columnId);
+    return task !== undefined && to !== undefined && to !== (pending.get(taskId) ?? task.status);
+  };
+  const columnName = (id: UniqueIdentifier) => {
+    const status = columnStatus(id);
+    return status === undefined ? String(id) : core.statusLabel(status);
+  };
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => list.dragStarted(String(active.id)),
+    onDragOver: ({ active, over }) => (over === null ? undefined : list.dragOver(String(active.id), columnName(over.id))),
+    onDragEnd: ({ active, over }) => (movesToAnotherColumn(String(active.id), over?.id) ? undefined : list.dragStayed(String(active.id))),
+    onDragCancel: ({ active }) => list.dragCancelled(String(active.id)),
+  };
+  return announcements;
 }
 
 function columnStatus(id: UniqueIdentifier): TaskStatus | undefined {

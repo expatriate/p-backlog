@@ -93,7 +93,6 @@ export const listEn: ListMessages = {
   dragInstructions: "Space picks up the task, left and right arrows choose a column, Space drops it, Esc cancels.",
   dragStarted: (id) => `Picked up ${id}`,
   dragOver: (id, column) => `${id} is over the "${column}" column`,
-  dragDropped: (id, column) => `${id} dropped in the "${column}" column`,
   dragStayed: (id) => `${id} stayed where it was`,
   dragCancelled: (id) => `Moving ${id} was cancelled`,
   collapseTags: "collapse",

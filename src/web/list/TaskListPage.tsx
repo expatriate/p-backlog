@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams, type SetURLSearchParams } from "react-router";
 import type { TasksResponse } from "../../core/api/contract";
 import { listPath } from "../../core/api/web-paths";
 import { AllTasksProvider } from "../app/all-tasks";
@@ -15,6 +15,7 @@ import { TaskPanel } from "../task/TaskPanel";
 import type { ListMessages } from "./messages.ru";
 import { actionsShortcutLabel, useKeyboardHints } from "./actions-shortcut";
 import { ListFooter } from "./ListFooter";
+import { LayoutSwitch } from "./LayoutSwitch";
 import { Toolbar } from "./Toolbar";
 import { TaskTable } from "./TaskTable";
 import { useSeenTasks } from "./use-seen-tasks";
@@ -22,7 +23,7 @@ import { useSelectedTask } from "./use-selected-task";
 import { useTaskSelection } from "./use-task-selection";
 import { useTaskListView, type TaskListView } from "./use-task-list-view";
 import { withTagToggled } from "./filter-toggle";
-import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readListParams, readView, withView, writeListParams, type ListParams, type ListView } from "../app/list-params";
+import { DEFAULT_FILTER, isDefaultFilter, pickSortKey, readLayout, readListParams, withLayout, writeListParams, type ListLayout, type ListParams } from "../app/list-params";
 import { TaskBoard } from "./board/TaskBoard";
 import styles from "./TaskListPage.module.css";
 
@@ -36,12 +37,12 @@ export function TaskListPage() {
 
   const searchKey = search.toString();
   const params = useMemo(() => readListParams(new URLSearchParams(searchKey)), [searchKey]);
-  const shownAs = readView(new URLSearchParams(searchKey));
-  const view = useTaskListView(params, projectId);
-  const { selectedTask, gone, missingTaskId } = useSelectedTask(view.all.tasks, taskId, view.tasksLoaded);
-  const { isNew, markSeen } = useSeenTasks(view.tasksLoaded ? view.all.tasks : undefined);
-  const visibleIds = useMemo(() => view.table.tasks.map((task) => task.id), [view.table.tasks]);
-  const loadedIds = useMemo(() => new Set(view.all.tasks.map((task) => task.id)), [view.all.tasks]);
+  const { layout, onBoard, setLayout } = useListLayout(searchKey, setSearch);
+  const listing = useTaskListView(params, projectId);
+  const { selectedTask, gone, missingTaskId } = useSelectedTask(listing.all.tasks, taskId, listing.tasksLoaded);
+  const { isNew, markSeen } = useSeenTasks(listing.tasksLoaded ? listing.all.tasks : undefined);
+  const visibleIds = useMemo(() => listing.table.tasks.map((task) => task.id), [listing.table.tasks]);
+  const loadedIds = useMemo(() => new Set(listing.all.tasks.map((task) => task.id)), [listing.all.tasks]);
   const listAddress = listPath(projectId);
   const selection = useTaskSelection(visibleIds, listAddress, loadedIds);
   const keysHintId = useId();
@@ -51,36 +52,36 @@ export function TaskListPage() {
     if (selectedTask !== undefined) markSeen(selectedTask);
   }, [selectedTask, markSeen]);
 
-  const viewTitle = viewTitleFor(list, view.projectName, params.filter.onlyAutoClosed === true);
+  const viewTitle = viewTitleFor(list, listing.projectName, params.filter.onlyAutoClosed === true);
   useDocumentTitle(selectedTask === undefined ? list.docTitle(viewTitle) : list.taskDocTitle(selectedTask.id, selectedTask.title));
 
-  const setParams = (next: ListParams) => setSearch(withView(writeListParams(next), shownAs), { replace: true });
-  const showAs = (next: ListView) => setSearch(withView(new URLSearchParams(searchKey), next), { replace: true });
-  const onBoard = shownAs === "board";
+  const setParams = (next: ListParams) => setSearch(withLayout(writeListParams(next), layout), { replace: true });
   const heading = useRef<HTMLHeadingElement>(null);
-  const statusFocus = useStatusFocus(view.settled, heading);
+  const statusFocus = useStatusFocus(listing.settled, heading);
 
   return (
-    <AllTasksProvider value={view.all}>
+    <AllTasksProvider value={listing.all}>
       <main id="content" tabIndex={-1} className={styles.page}>
         <div className={styles.list}>
-          <PageHeading ref={heading}>{viewTitle}</PageHeading>
-          <Toolbar params={params} onChange={setParams} {...view.filterChoices} view={shownAs} onViewChange={showAs} />
+          <PageHeading ref={heading} actions={<LayoutSwitch layout={layout} onChange={setLayout} />}>
+            {viewTitle}
+          </PageHeading>
+          <Toolbar params={params} onChange={setParams} {...listing.filterChoices} />
 
           <MissingTaskNote taskId={missingTaskId} />
 
-          <ParseErrorsNote parseErrors={view.parseErrors} />
+          <ParseErrorsNote parseErrors={listing.parseErrors} />
 
-          {view.content === "table" && !onBoard && keyboardHints && <KeysHint id={keysHintId} />}
+          {listing.content === "table" && !onBoard && keyboardHints && <KeysHint id={keysHintId} />}
 
           <div className={styles.tableWrap}>
-            <ListStatus view={view} filter={params.filter} onFilterChange={(filter) => setParams({ ...params, filter })} statusFocus={statusFocus} />
-            {view.content === "table" && onBoard && <TaskBoard tasks={view.table.tasks} statuses={params.filter.statuses} openedId={selectedTask?.id} />}
-            {view.content === "table" && !onBoard && (
+            <ListStatus view={listing} filter={params.filter} onFilterChange={(filter) => setParams({ ...params, filter })} statusFocus={statusFocus} />
+            {listing.content === "table" && onBoard && <TaskBoard tasks={listing.table.tasks} statuses={params.filter.statuses} openedId={selectedTask?.id} />}
+            {listing.content === "table" && !onBoard && (
               <TaskTable
-                {...view.table}
+                {...listing.table}
                 openedId={selectedTask?.id}
-                onSort={(key) => setParams({ ...params, sort: pickSortKey(view.table.sort, key) })}
+                onSort={(key) => setParams({ ...params, sort: pickSortKey(listing.table.sort, key) })}
                 isNew={isNew}
                 selectedTags={params.filter.tags ?? []}
                 onToggleTag={(tag) => setParams(withTagToggled(params, tag))}
@@ -96,6 +97,12 @@ export function TaskListPage() {
       </main>
     </AllTasksProvider>
   );
+}
+
+function useListLayout(searchKey: string, setSearch: SetURLSearchParams) {
+  const layout = readLayout(new URLSearchParams(searchKey));
+  const setLayout = (next: ListLayout) => setSearch(withLayout(new URLSearchParams(searchKey), next), { replace: true });
+  return { layout, onBoard: layout === "board", setLayout };
 }
 
 function MissingTaskNote({ taskId }: { taskId: string | undefined }) {

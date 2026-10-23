@@ -92,7 +92,6 @@ export const listRu = {
   dragInstructions: "Пробел — взять задачу, стрелки влево и вправо — выбрать колонку, пробел — положить, Esc — отменить.",
   dragStarted: (id: string): string => `Задача ${id} взята`,
   dragOver: (id: string, column: string): string => `${id} над колонкой «${column}»`,
-  dragDropped: (id: string, column: string): string => `${id} положена в колонку «${column}»`,
   dragStayed: (id: string): string => `${id} осталась на месте`,
   dragCancelled: (id: string): string => `Перенос ${id} отменён`,
   collapseTags: "свернуть",

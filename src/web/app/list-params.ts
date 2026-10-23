@@ -65,19 +65,21 @@ export function readListParams(search: URLSearchParams): ListParams {
   };
 }
 
-export type ListView = "list" | "board";
+export type ListLayout = "list" | "board";
 
-const VIEW_PARAM = "view";
-const BOARD_VIEW: ListView = "board";
+export const LIST_LAYOUTS: readonly ListLayout[] = ["list", "board"];
 
-export function readView(search: URLSearchParams): ListView {
-  return search.get(VIEW_PARAM) === BOARD_VIEW ? BOARD_VIEW : "list";
+const LAYOUT_PARAM = "view";
+const BOARD_LAYOUT: ListLayout = "board";
+
+export function readLayout(search: URLSearchParams): ListLayout {
+  return search.get(LAYOUT_PARAM) === BOARD_LAYOUT ? BOARD_LAYOUT : "list";
 }
 
-export function withView(search: URLSearchParams, view: ListView): URLSearchParams {
+export function withLayout(search: URLSearchParams, layout: ListLayout): URLSearchParams {
   const next = new URLSearchParams(search);
-  if (view === BOARD_VIEW) next.set(VIEW_PARAM, BOARD_VIEW);
-  else next.delete(VIEW_PARAM);
+  if (layout === BOARD_LAYOUT) next.set(LAYOUT_PARAM, BOARD_LAYOUT);
+  else next.delete(LAYOUT_PARAM);
   return next;
 }
 

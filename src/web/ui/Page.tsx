@@ -2,11 +2,18 @@ import type { HTMLAttributes, ReactNode, RefObject } from "react";
 import { cx } from "./cx";
 import styles from "./Page.module.css";
 
-export function PageHeading({ ref, children }: { ref: RefObject<HTMLHeadingElement | null>; children: ReactNode }) {
-  return (
+export function PageHeading({ ref, children, actions }: { ref: RefObject<HTMLHeadingElement | null>; children: ReactNode; actions?: ReactNode }) {
+  const heading = (
     <h1 ref={ref} tabIndex={-1} className={styles.heading}>
       {children}
     </h1>
+  );
+  if (actions === undefined) return heading;
+  return (
+    <div className={styles.headingRow}>
+      {heading}
+      {actions}
+    </div>
   );
 }
 

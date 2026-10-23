@@ -9,7 +9,7 @@ import { toggled, toggledOrUnset, withTagToggled } from "./filter-toggle";
 import { Popover, POPOVER_INITIAL_FOCUS } from "../ui/Popover";
 import { EpicPicker } from "./EpicPicker";
 import type { EpicChoices } from "./epic-choices";
-import { AUTO_CLOSED_VIEW, type ListParams, type ListView } from "../app/list-params";
+import { AUTO_CLOSED_VIEW, type ListParams } from "../app/list-params";
 import styles from "./Toolbar.module.css";
 
 export type ToolbarProps = {
@@ -18,13 +18,9 @@ export type ToolbarProps = {
   tags: string[];
   epicChoices: EpicChoices;
   autoClosedCount: number;
-  view: ListView;
-  onViewChange: (view: ListView) => void;
 };
 
-const VIEWS: readonly ListView[] = ["list", "board"];
-
-export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount, view, onViewChange }: ToolbarProps) {
+export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }: ToolbarProps) {
   const { list, core } = useMessages();
   const { filter } = params;
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
@@ -44,7 +40,6 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount, 
     <div className={styles.toolbar}>
       <div className={styles.line}>
         <SearchField ref={search} query={filter.query ?? ""} onChange={(query) => setFilter({ query: query || undefined })} />
-        <ViewSwitch view={view} onChange={onViewChange} />
       </div>
 
       <div className={styles.line}>
@@ -156,19 +151,6 @@ function withUrlQuery(editing: SearchEditing, query: string): SearchEditing {
   const changedElsewhere = echoIndex === -1;
   if (changedElsewhere) return { text: query, awaitingEcho: [] };
   return { text: editing.text, awaitingEcho: editing.awaitingEcho.slice(echoIndex + 1) };
-}
-
-function ViewSwitch({ view, onChange }: { view: ListView; onChange: (view: ListView) => void }) {
-  const { list } = useMessages();
-  return (
-    <div className={styles.group} role="group" aria-label={list.viewSwitch}>
-      {VIEWS.map((option) => (
-        <ToggleChip key={option} pressed={view === option} unavailable={view === option} onToggle={() => onChange(option)}>
-          {option === "board" ? list.boardView : list.listView}
-        </ToggleChip>
-      ))}
-    </div>
-  );
 }
 
 function allOrSome(statuses: TaskStatus[]): TaskStatus[] | undefined {

@@ -1,0 +1,35 @@
+.switch {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--hit-target);
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  border-radius: calc(var(--radius-control) - 2px);
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: var(--transition-control);
+}
+
+.option:hover {
+  color: var(--ink);
+}
+
+.current {
+  background: var(--surface-selected);
+  color: var(--ink);
+  font-weight: 600;
+  cursor: default;
+}
