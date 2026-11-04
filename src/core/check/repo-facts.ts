@@ -138,7 +138,7 @@ export function diffsFrom(repo: string, git: GitRunner = runGit): DiffFrom {
   const diffs = new Map<string, Promise<FileDiff | null>>();
   return (path, commit) =>
     remembered(diffs, `${commit} ${path}`, async () => {
-      const diff = await git(repo, ["-c", "diff.suppressBlankEmpty=false", "diff", "--no-color", "--no-ext-diff", "--no-textconv", commit, "--", path]);
+      const diff = await git(repo, ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--unified=3", commit, "--", ...literalPathspecs([path])]);
       if (diff === null) return null;
       const hunks = parseHunks(diff);
       return { excerpt: excerptOf(diff), changed: hunks === null ? null : changedRanges(hunks), hunks };

@@ -167,6 +167,30 @@ describe("diffsSince", () => {
   const lines = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, index) => `строка ${from + index}`);
   const changedLines = async (repo: string, path: string, since: Date) => (await diffsSince(repo)(path, since))?.changed ?? null;
 
+  it("путь со скобками — один файл, а не шаблон, даже если git просили читать пути буквально: правка соседа src/i.ts не попадает в дифф src/[id].ts", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/[id].ts": `${lines(1, 9).join("\n")}\n`, "src/i.ts": `${lines(1, 9).join("\n")}\n` });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFile(join(repo, "src/[id].ts"), `${[...lines(1, 7), "правка", ...lines(9, 9)].join("\n")}\n`);
+    await writeFile(join(repo, "src/i.ts"), `${[...lines(1, 1), "правка", ...lines(3, 9)].join("\n")}\n`);
+    const since = new Date("2026-09-11T00:00:00+03:00");
+
+    expect(await changedLines(repo, "src/[id].ts", since)).toEqual([{ from: 8, to: 8 }]);
+    vi.stubEnv("GIT_LITERAL_PATHSPECS", "1");
+    onTestFinished(() => void vi.unstubAllEnvs());
+    expect(await changedLines(repo, "src/[id].ts", since)).toEqual([{ from: 8, to: 8 }]);
+  });
+
+  it("контекст диффа не зависит от diff.context пользователя: правка первой строки остаётся разобранной", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/upload.ts": `${lines(1, 5).join("\n")}\n` });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    execFileSync("git", ["config", "diff.context", "0"], { cwd: repo });
+    await writeFile(join(repo, "src/upload.ts"), `${["вставка", ...lines(1, 5)].join("\n")}\n`);
+
+    expect(await changedLines(repo, "src/upload.ts", new Date("2026-09-11T00:00:00+03:00"))).toEqual([{ from: 1, to: 1 }]);
+  });
+
   it("отдаёт строки изменённых гунков: и закоммиченные, и незакоммиченные", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/upload.ts": `${lines(1, 30).join("\n")}\n` });
