@@ -1,3 +1,4 @@
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
@@ -24,5 +25,20 @@ describe("backlog priority", () => {
     expect((await run(["priority", "SPA-1", "high", "low"])).code).toBe(EXIT.invalid);
     expect((await run(["priority", "SPA-9", "high"])).code).toBe(EXIT.notFound);
     expect((await loadBacklog(root)).tasks[0]?.priority).toBe("medium");
+  });
+
+  it("файл задачи не в UTF-8 не переписывается: кириллица в CP1251 остаётся байт в байт, причина названа", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "X"]);
+    const path = join(root, "spa/SPA-1.md");
+    const cp1251Body = Buffer.from([0xcf, 0xf0, 0xe8, 0xe2, 0xe5, 0xf2, 0x0a]);
+    await writeFile(path, Buffer.concat([await readFile(path), cp1251Body]));
+    const before = await readFile(path);
+
+    const result = await run(["priority", "SPA-1", "low"]);
+
+    expect(result.code).not.toBe(EXIT.ok);
+    expect(result.err).toContain("UTF-8");
+    expect((await readFile(path)).equals(before)).toBe(true);
   });
 });

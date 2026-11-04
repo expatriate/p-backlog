@@ -165,6 +165,8 @@ function problem(p: Problem): string {
       return `the epic closes on its own once all its tasks are closed — close the open ones first: ${p.children.join(", ")}`;
     case "reference-missing":
       return `${p.id} not found`;
+    case "not-utf8":
+      return "the file is not UTF-8 — the backlog leaves it untouched until it is re-saved as UTF-8";
     case "no-frontmatter":
       return "file does not start with frontmatter (---)";
     case "frontmatter-unclosed":

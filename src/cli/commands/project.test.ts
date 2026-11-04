@@ -1,3 +1,5 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { EXIT } from "../io";
@@ -24,6 +26,21 @@ describe("backlog project", () => {
     expect((await run(["project", "status", "нет-такого", "active"])).code).toBe(EXIT.notFound);
     expect((await run(["project", "status", "spa", "включить"])).code).toBe(EXIT.invalid);
     expect((await run(["project", "чего"])).code).toBe(EXIT.invalid);
+  });
+
+  it("project.md не в UTF-8 не переписывается при смене активности", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Задача"]);
+    const path = join(root, "spa/project.md");
+    const cp1251Note = Buffer.from([0xcf, 0xf0, 0xee, 0xe5, 0xea, 0xf2, 0x0a]);
+    await writeFile(path, Buffer.concat([await readFile(path), cp1251Note]));
+    const before = await readFile(path);
+
+    const result = await run(["project", "status", "spa", "inactive"]);
+
+    expect(result.code).toBe(EXIT.invalid);
+    expect(result.err).toContain("UTF-8");
+    expect((await readFile(path)).equals(before)).toBe(true);
   });
 
   it("delete удаляет проект только с точным подтверждением", async () => {

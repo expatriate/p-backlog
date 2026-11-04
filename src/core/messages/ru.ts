@@ -177,6 +177,8 @@ function problem(p: Problem): string {
       return `эпик закроется сам, когда закроются все его задачи — сначала закройте открытые: ${p.children.join(", ")}`;
     case "reference-missing":
       return `${p.id} не найдена`;
+    case "not-utf8":
+      return "файл не в кодировке UTF-8 — беклог его не меняет, пока его не пересохранят в UTF-8";
     case "no-frontmatter":
       return "файл не начинается с frontmatter (---)";
     case "frontmatter-unclosed":

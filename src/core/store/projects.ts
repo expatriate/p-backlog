@@ -6,6 +6,7 @@ import type { ParseResult, Project } from "../model/types";
 import { withFileLock } from "./file-lock";
 import { fileExists, readTextOrNull, writeFileAtomic } from "./fs-utils";
 import { PROJECT_FILE, projectDir } from "./paths";
+import { parseDocumentOrNull } from "./read-document";
 
 type ProjectNotFound = { ok: false; reason: "not-found" };
 
@@ -34,8 +35,7 @@ export async function issuedUpToOnDisk(project: Pick<Project, "id" | "path">): P
 }
 
 export async function readProjectFile({ id, path }: Pick<Project, "id" | "path">): Promise<ParseResult<Project> | null> {
-  const text = await readTextOrNull(path);
-  return text === null ? null : parseProjectFile(text, { id, path });
+  return parseDocumentOrNull(path, (text) => parseProjectFile(text, { id, path }));
 }
 
 async function editProjectFile({ id, path }: Pick<Project, "id" | "path">, edit: (project: Project) => Project): Promise<ProjectWriteResult> {

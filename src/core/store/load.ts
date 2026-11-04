@@ -3,8 +3,9 @@ import { compareIds, ID_PATTERN, parseId } from "../model/ids";
 import { parseProjectFile } from "../model/project-file";
 import { parseTaskFile } from "../model/task-file";
 import type { ParseError, ParseResult, Project, Task } from "../model/types";
-import { contentVersion, listDir, readTextOrNull } from "./fs-utils";
+import { contentVersion, listDir } from "./fs-utils";
 import { PROJECT_FILE } from "./paths";
+import { parseDocumentOrNull } from "./read-document";
 
 export type LoadedBacklog = { projects: Project[]; tasks: Task[]; errors: ParseError[] };
 
@@ -32,9 +33,8 @@ export async function loadBacklog(root: string): Promise<LoadedBacklog> {
 
 async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBacklog> {
   const projectPath = join(dir, PROJECT_FILE);
-  const projectText = await readTextOrNull(projectPath);
-  if (projectText === null) return { projects: [], tasks: [], errors: [] };
-  const project: ParseResult<Project> = parseProjectFile(projectText, { id: projectId, path: projectPath });
+  const project = await parseDocumentOrNull(projectPath, (text) => parseProjectFile(text, { id: projectId, path: projectPath }));
+  if (project === null) return { projects: [], tasks: [], errors: [] };
   if (!project.ok) return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, problems: project.problems }] };
 
   const taskPaths = (await taskFileNames(dir)).map((name) => join(dir, name));
@@ -47,10 +47,8 @@ async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBac
 }
 
 async function loadTaskFile(path: string, project: Project): Promise<ParseResult<Task> | null> {
-  const text = await readTextOrNull(path);
-  if (text === null) return null;
-  const parsed = parseTaskFile(text, { projectId: project.id, path, version: contentVersion(text) });
-  if (!parsed.ok) return parsed;
+  const parsed = await parseDocumentOrNull(path, (text) => parseTaskFile(text, { projectId: project.id, path, version: contentVersion(text) }));
+  if (parsed === null || !parsed.ok) return parsed;
   const stem = basename(path, ".md");
   if (parsed.value.id !== stem) return { ok: false, problems: [{ code: "id-mismatch", id: parsed.value.id, file: stem }] };
   if (parseId(stem)?.prefix !== project.prefix) {

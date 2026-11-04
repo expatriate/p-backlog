@@ -5,11 +5,12 @@ import { changeStatus, epicClosingProblems, isAutoClosedEpic, settleLifecycle, t
 import { parseTaskFile } from "../model/task-file";
 import type { OptionalFields, Task, TaskCategory, TaskStatus } from "../model/types";
 import { changeEvents, statusBeforeAutoClose, type ChangeSource } from "../journal/events";
-import { contentVersion, readTextOrNull, writeFileAtomic } from "./fs-utils";
+import { contentVersion, writeFileAtomic } from "./fs-utils";
 import type { PathErrorHandler } from "../errors";
 import { FileBusyError, withFileLock } from "./file-lock";
 import { appendingJournal, readJournal, type JournalWriter } from "./journal";
 import { taskText } from "./task-text";
+import { readDocumentOrNull } from "./read-document";
 import { invalid, type UpdateTaskFailure, type UpdateTaskResult } from "./write-result";
 
 export type TaskChanges = OptionalFields<Pick<Task, "title" | "type" | "status" | "priority" | "tags" | "blockedBy" | "related" | "body" | "source" | "verified">> & {
@@ -98,8 +99,10 @@ async function withTaskLock(path: string, write: () => Promise<UpdateTaskResult>
 }
 
 async function diskChange(snapshot: Task, expectedVersion: string): Promise<UpdateTaskFailure | null> {
-  const text = await readTextOrNull(snapshot.path);
-  if (text === null) return { ok: false, reason: "not-found" };
+  const document = await readDocumentOrNull(snapshot.path);
+  if (document === null) return { ok: false, reason: "not-found" };
+  if (!document.ok) return invalid(document.problems);
+  const text = document.value;
   const version = contentVersion(text);
   if (version === expectedVersion) return null;
   const fresh = parseTaskFile(text, { projectId: snapshot.projectId, path: snapshot.path, version });

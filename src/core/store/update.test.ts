@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { warnPathErrors } from "../errors";
@@ -74,6 +74,18 @@ describe("updateTask", () => {
 
     expect(result).toMatchObject({ ok: false, reason: "conflict", current: { id: "SPA-2", status: "in-progress" } });
     expect(await readFile(join(root, "spa/SPA-2.md"), "utf8")).toBe(edited);
+  });
+
+  it("файл пересохранили не в UTF-8 после загрузки снимка — причина в кодировке, а не конфликт с испорченным текстом", async () => {
+    const root = await setup();
+    const { tasks } = await loadBacklog(root);
+    const path = join(root, "spa/SPA-2.md");
+    await writeFile(path, Buffer.concat([await readFile(path), Buffer.from([0xcf, 0xf0, 0x0a])]));
+    const snapshotVersion = tasks.find((task) => task.id === "SPA-2")?.version ?? "";
+
+    const result = await updateTaskInIndex(buildIndex(tasks), { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: snapshotVersion, now: NOW, via: "cli", onError: failOnPathError });
+
+    expect(result).toEqual({ ok: false, reason: "invalid", problems: [{ code: "not-utf8" }] });
   });
 
   it("две одновременные правки с одной версией: одна проходит, другая получает conflict, а не затирает первую", async () => {
