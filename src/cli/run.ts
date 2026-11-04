@@ -24,7 +24,7 @@ import { statsCommand } from "./commands/stats";
 import { statusCommand } from "./commands/status";
 import { takeCommand } from "./commands/take";
 import { verifyCommand } from "./commands/verify";
-import { ArgumentsError, cliIo, END_OF_OPTIONS, EXIT, UsageError, type CliEnv, type ExitCode } from "./io";
+import { ArgumentsError, cliIo, EXIT, HelpRequested, UsageError, type CliEnv, type ExitCode } from "./io";
 
 export const CLI_COMMANDS: readonly CliCommand[] = [
   newCommand,
@@ -49,7 +49,6 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
 ];
 
 const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
-const COMMAND_HELP_FLAGS = new Set(["--help", "-h"]);
 
 const COMMANDS = new Map(CLI_COMMANDS.map((command) => [command.name, command]));
 
@@ -69,13 +68,13 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<Exit
     io.print(usageText(CLI_COMMANDS, language));
     return EXIT.ok;
   }
-  if (asksForCommandHelp(args)) {
-    io.print(usageText([command], language));
-    return EXIT.ok;
-  }
   try {
     return await command.run(args, io);
   } catch (error) {
+    if (error instanceof HelpRequested) {
+      io.print(usageText([command], language));
+      return EXIT.ok;
+    }
     if (error instanceof ArgumentsError) {
       io.warn(`${error.message}\n${usageText([command], language)}`);
       return EXIT.invalid;
@@ -88,11 +87,6 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<Exit
     io.warn(io.cli.commandFailed(name ?? "", reason));
     return failureExit;
   }
-}
-
-function asksForCommandHelp(args: readonly string[]): boolean {
-  const optionsEnd = args.indexOf(END_OF_OPTIONS);
-  return (optionsEnd === -1 ? args : args.slice(0, optionsEnd)).some((arg) => COMMAND_HELP_FLAGS.has(arg));
 }
 
 export function commandName(argv: readonly string[]): string {

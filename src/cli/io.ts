@@ -41,15 +41,26 @@ export class UsageError extends Error {}
 
 export class ArgumentsError extends UsageError {}
 
+export class HelpRequested extends Error {}
+
 type ArgumentProblem = { kind: "unknownOption" | "missingValue" | "valueLooksLikeOption" | "takesNoValue" | "repeated"; option: string };
 
-export const END_OF_OPTIONS = "--";
+const END_OF_OPTIONS = "--";
+
+const HELP_OPTION_NAMES = new Set(["help", "h"]);
 
 export function parseCommandArgs<const T extends ParseArgsOptionsConfig>(language: Language, args: string[], options: T) {
+  if (asksForHelp(args, options)) throw new HelpRequested();
   const parsed = parseOrExplain(language, args, options);
   const repeated = repeatedOption(parsed.tokens, options);
   if (repeated !== null) throw new ArgumentsError(cliMessages(language).argumentProblem.repeated(repeated));
   return parsed;
+}
+
+function asksForHelp(args: string[], options: ParseArgsOptionsConfig): boolean {
+  const optionsEnd = args.indexOf(END_OF_OPTIONS);
+  const { tokens } = parseArgs({ args: optionsEnd === -1 ? args : args.slice(0, optionsEnd), options, strict: false, allowPositionals: true, tokens: true });
+  return tokens.some((token) => token.kind === "option" && HELP_OPTION_NAMES.has(token.name));
 }
 
 function parseOrExplain<const T extends ParseArgsOptionsConfig>(language: Language, args: string[], options: T) {

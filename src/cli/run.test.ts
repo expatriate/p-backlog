@@ -1,4 +1,4 @@
-import { chmod, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/hook-signature";
 import { settingsFilePath } from "../core/store/settings";
@@ -6,7 +6,7 @@ import { loadBacklog } from "../core/store/load";
 import { CLI_COMMANDS, commandName, runCli } from "./run";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { EXIT, type CliEnv } from "./io";
-import { baseCliEnv, makeCliSandbox } from "./testing/cli-harness";
+import { baseCliEnv, fakeExec, makeCliSandbox } from "./testing/cli-harness";
 
 describe("runCli", () => {
   it("справку по запросу печатает в stdout с кодом 0, на неизвестную команду — в stderr с кодом 1", async () => {
@@ -47,14 +47,32 @@ describe("runCli", () => {
     expect((await loadBacklog(root)).tasks.map((task) => task.title)).toEqual(["--json ломает вывод"]);
   });
 
-  it("--help у команды печатает её справку в stdout с кодом 0", async () => {
+  it("--help у любой команды печатает её справку в stdout с кодом 0 и ничего не делает", async () => {
+    const { run, home } = await makeCliSandbox();
+    const filesBefore = await readdir(home, { recursive: true });
+    const { exec, calls } = fakeExec();
+
+    for (const { name } of CLI_COMMANDS) {
+      for (const flag of ["--help", "-h"]) {
+        const result = await run([name, flag], { exec });
+        expect(result).toMatchObject({ code: EXIT.ok, err: "" });
+        expect(result.out).toMatch(new RegExp(`^Использование:\n {2}backlog ${name} `));
+      }
+    }
+    expect(calls).toEqual([]);
+    expect(await readdir(home, { recursive: true })).toEqual(filesBefore);
+  });
+
+  it("-h на месте значения параметра или после -- — не справка: команда отказывает с подсказкой, а -h после булева флага — справка", async () => {
     const { run } = await makeCliSandbox();
 
-    for (const flag of ["--help", "-h"]) {
-      const result = await run(["take", flag]);
-      expect(result).toMatchObject({ code: EXIT.ok, err: "" });
-      expect(result.out).toMatch(/^Использование:\n {2}backlog take /);
+    for (const argv of [
+      ["new", "--title", "-h", "--category", "bug"],
+      ["new", "--category", "bug", "--title", "--", "-h"],
+    ]) {
+      expect(await run(argv)).toMatchObject({ code: EXIT.invalid, err: expect.stringContaining("--title=значение") });
     }
+    expect((await run(["list", "--json", "-h"])).out).toMatch(/^Использование:\n {2}backlog list /);
   });
 
   it("нечитаемый каталог беклога даёт сообщение и код 4, а не исключение со стеком", async () => {
