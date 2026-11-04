@@ -51,7 +51,7 @@ describe("уведомление об итоге массового действ
 
     const notice = await findNotice("Закрыто 2 из 3");
     expect(screen.queryByRole("region", { name: "Действия с выбранными" })).toBeNull();
-    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Выбрать SPA-1" }).checked).toBe(false);
+    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Выбрать SPA-7" }).checked).toBe(false);
     await app.user.click(within(notice).getByRole("link", { name: "SPA-7 изменилась на диске" }));
     expect(app.route()).toBe("/t/SPA-7");
   });

@@ -3,7 +3,7 @@ import type { Language } from "../../core/i18n/language";
 import type { EffectPeriod, EffectProject, EffectTotals, GrainPeriods, ReportPeriod } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
 import { EffectChart } from "./EffectChart";
-import { formatLines, formatNoiseShare } from "./effect-format";
+import { formatEstimate, formatNoiseShare } from "./effect-format";
 import type { StatsMessages } from "./messages.ru";
 import { Figure, FigureGroup } from "./Figure";
 import { Panel, PanelNote } from "./Panel";
@@ -34,7 +34,7 @@ export function EffectFigures({ totals, period }: { totals: EffectTotals; period
 function keptOutNote(stats: StatsMessages, language: Language, totals: EffectTotals): string {
   const fixed = formatWhole(language, totals.fixedLines);
   if (totals.estimatedLines === null) return stats.keptOutPending(fixed);
-  return stats.keptOutEstimated(fixed, formatLines(language, totals.estimatedLines, totals.estimatedLines));
+  return stats.keptOutEstimated(fixed, formatEstimate(language, totals.estimatedLines));
 }
 
 export function EffectChartPanel({ weeks, days, windows, totals }: { weeks: EffectPeriod[]; days: EffectPeriod[]; windows: GrainPeriods; totals: EffectTotals }) {
@@ -65,7 +65,7 @@ export function ProjectsPanel({ projects, period }: { projects: EffectProject[];
               project.name,
               project.deferredTasks,
               formatWhole(language, project.fixedLines),
-              project.estimatedLines === null ? NO_VALUE : formatLines(language, project.estimatedLines, project.estimatedLines),
+              project.estimatedLines === null ? NO_VALUE : formatEstimate(language, project.estimatedLines),
               formatWhole(language, project.realLines),
               formatNoiseShare(project.noiseShare, project.estimatedLines),
             ],

@@ -99,7 +99,7 @@
 }
 
 .unknown {
-  --segment: var(--warn);
+  --segment: var(--danger-line);
 }
 
 .shareBar {

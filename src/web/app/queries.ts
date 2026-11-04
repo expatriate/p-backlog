@@ -126,7 +126,7 @@ export function useBatchTasks(): UseMutationResult<BatchResponse, Error, BatchRe
   return useMutation({
     scope: TASK_SAVES,
     mutationFn: (request: BatchRequest) => batchInChunks(client, request, batchChunkSize),
-    onSettled: () => void invalidateBacklogOnly(queryClient),
+    onSettled: () => invalidateBacklogOnly(queryClient),
   });
 }
 

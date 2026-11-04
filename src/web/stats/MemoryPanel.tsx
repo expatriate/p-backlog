@@ -1,5 +1,6 @@
 import type { MemorySample } from "../../core/api/contract";
 import { useMemorySamples } from "../app/queries";
+import { RequestFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { SampleChart } from "./charts/PeriodChart";
 import type { SeriesEntry } from "./charts/series";
@@ -23,6 +24,7 @@ export function MemoryPanel() {
   return (
     <Panel title={stats.serverMemory}>
       <PanelNote>{stats.memoryRestartNote}</PanelNote>
+      {memory.error !== null && <RequestFailure error={memory.error} fetching={memory.isFetching} onRetry={() => void memory.refetch()} />}
       <SampleChart name={stats.serverMemory} summary={stats.memorySummary(mebibytes(current), mebibytes(max))} data={samples} series={series} axes={{ left: { tickFormatter: stats.mebibytes } }} />
     </Panel>
   );

@@ -52,6 +52,7 @@ export function createStatsEn(constants: StatsConstants): StatsMessages {
     periodCaption: (window, range) => `${window} · ${range}`,
     periodNow: "now",
     chartLabel: (name, step) => `${name}. Left and right arrows move by ${CHART_STEPS[step]}`,
+    onRightScale: (label) => `${label} (right scale)`,
     periodOf: (grain, day) => (grain === "week" ? `week of ${day}` : day),
     weekTrend: (arrow, size) => `${arrow}${NBSP}${size}${NBSP}vs${NBSP}last${NBSP}week`,
     weekTrendSpeech: {
@@ -211,8 +212,8 @@ export function createStatsEn(constants: StatsConstants): StatsMessages {
     cliOutput: "CLI output and skill",
     apiPriceTooltip: "at API prices",
     tokens,
-    spendSummary: ({ grain, periodCount, hookTokens, cliTokens, approxMoney, hookRuns, cliRuns }) =>
-      `Over ${periods(grain, periodCount)}: due to the hook ${tokens(hookTokens)}, CLI output and skill ${cliTokens}, ${approxMoney}; hook runs ${hookRuns}, other commands ${cliRuns}`,
+    spendSummary: ({ grain, periodCount, hookTokens, cliTokens, money, hookRuns, cliRuns }) =>
+      `Over ${periods(grain, periodCount)}: due to the hook ${tokens(hookTokens)}, CLI output and skill ${cliTokens}, ${money}; hook runs ${hookRuns}, other commands ${cliRuns}`,
     serverMemory: "Server memory",
     memoryRestartNote: "The history starts over after the server restarts",
     memorySummary: (current, max) => `Now ${current}, peak over ${memoryHistoryPeriod} ${max}`,

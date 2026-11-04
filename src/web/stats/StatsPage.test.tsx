@@ -118,7 +118,7 @@ describe("страница статистики", () => {
     );
 
     const week = await screen.findByRole("group", { name: "За неделю" });
-    expect(week.textContent).toContain(`↓${NBSP}1${NBSP}за${NBSP}неделю`);
+    expect(week.textContent).toContain(`↓${NBSP}1 к прошлой неделе`);
     expect(within(week).getByText("на 1 меньше, чем неделю назад — лучше")).toBeDefined();
   });
 
@@ -509,6 +509,26 @@ describe("вкладка «Стоимость»", () => {
     expect(screen.getByText("Данные о расходе есть с 18 сент.")).toBeDefined();
   });
 
+  it("сбой запроса памяти виден в панели, «Повторить» загружает график", async () => {
+    let failMemory = true;
+    const app = await renderApp({ "spa/project.md": projectFile("SPA") }, "/stats/cost", routes, {
+      transcriptsDir: await makeTempDir(),
+      beforeRender: (backlog) => {
+        backlog.memory.sample();
+        interceptApi((path, _init, passOn) => (path.startsWith("/api/stats/memory") && failMemory ? failStats(passOn) : passOn()))(backlog);
+      },
+    });
+
+    const memory = await screen.findByRole("region", { name: "Память сервера" });
+    const retry = await within(memory).findByRole("button", { name: "Повторить" });
+    expect(within(memory).getByText(/сбой/)).toBeDefined();
+
+    failMemory = false;
+    await app.user.click(retry);
+    expect(await within(memory).findByRole("figure", { name: new RegExp(`Сейчас \\S+${NBSP}МиБ`) })).toBeDefined();
+    expect(within(memory).queryByText(/сбой/)).toBeNull();
+  });
+
   it("каталог расшифровок пуст — вкладка говорит, что расшифровки не найдены", async () => {
     await renderApp({ "spa/project.md": projectFile("SPA") }, "/stats/cost", routes, { transcriptsDir: await makeTempDir() });
 
@@ -531,7 +551,7 @@ describe("масштаб графиков", () => {
 
     expect(screen.getByRole("region", { name: "Долг по дням" })).toBe(flow);
     expect(within(flow).getByRole("figure", { name: `30${NBSP}дней: создано 4, закрыто 1, открыто сейчас 3` })).toBeDefined();
-    expect(within(flow).getByText("открыто на конец дня")).toBeDefined();
+    expect(within(flow).getByText("открыто на конец дня (шкала справа)")).toBeDefined();
     expect(pressed(flow, "день")).toBe("true");
     expect(screen.getByRole("region", { name: "Создано по неделям" })).toBe(intake);
     expect(within(intake).getByRole("figure", { name: new RegExp(`^12${NBSP}недель: создано 4, в среднем .+ в неделю$`) })).toBeDefined();

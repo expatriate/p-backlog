@@ -1,11 +1,11 @@
 import type { AccuracyPeriod, CostPeriod, EffectTotals, FlowPeriod } from "../../core/api/contract";
-import { formatMoney } from "../../core/i18n/format";
+import { DAY_MS, WEEK_MS } from "../../core/model/dates";
 import type { Language } from "../../core/i18n/language";
 import { sum } from "../../core/numbers";
 import { formatShare } from "../../core/stats/format";
 import type { Grain } from "./charts/chart-style";
-import { deferredCodeLines, formatLines } from "./effect-format";
-import { approx, wholeFormatter } from "./value-format";
+import { deferredCodeLines, formatEstimate, formatLines } from "./effect-format";
+import { costText, wholeFormatter } from "./value-format";
 
 type PeriodSummary = { grain: Grain; periodCount: number };
 
@@ -15,7 +15,7 @@ export type IntakeSummary = PeriodSummary & { created: number; perPeriod: number
 
 export type AccuracySummary = PeriodSummary & { decided: number; latestPrecision: string | null };
 
-export type SpendSummary = PeriodSummary & { hookTokens: number; cliTokens: string; approxMoney: string; hookRuns: string; cliRuns: string };
+export type SpendSummary = PeriodSummary & { hookTokens: number; cliTokens: string; money: string; hookRuns: string; cliRuns: string };
 
 export type LinesAmount = { formatted: string; count: number };
 
@@ -36,9 +36,19 @@ export function summarizeFlow(grain: Grain, periods: FlowPeriod[]): FlowSummary 
   };
 }
 
-export function summarizeIntake(grain: Grain, periods: FlowPeriod[]): IntakeSummary {
+const GRAIN_MS = { week: WEEK_MS, day: DAY_MS } satisfies Record<Grain, number>;
+
+export function summarizeIntake(grain: Grain, periods: FlowPeriod[], now: string): IntakeSummary {
   const created = sum(periods.map((period) => period.created));
-  return { ...periodSummary(grain, periods), created, perPeriod: created === 0 ? null : created / periods.length };
+  return { ...periodSummary(grain, periods), created, perPeriod: created === 0 ? null : created / periodsSinceFirstActivity(grain, periods, now) };
+}
+
+function periodsSinceFirstActivity(grain: Grain, periods: FlowPeriod[], now: string): number {
+  const firstActive = periods.findIndex((period) => period.created > 0 || period.closed > 0 || period.openAtEnd > 0);
+  const current = periods.at(-1);
+  if (firstActive === -1 || current === undefined) return 1;
+  const currentShare = Math.min(1, (Date.parse(now) - Date.parse(current.start)) / GRAIN_MS[grain]);
+  return Math.max(1, periods.length - 1 - firstActive + currentShare);
 }
 
 export function summarizeAccuracy(grain: Grain, periods: AccuracyPeriod[]): AccuracySummary {
@@ -50,14 +60,15 @@ export function summarizeAccuracy(grain: Grain, periods: AccuracyPeriod[]): Accu
   };
 }
 
-export function summarizeSpend(language: Language, grain: Grain, periods: CostPeriod[]): SpendSummary {
+export function summarizeSpend(language: Language, grain: Grain, periods: CostPeriod[], unpricedNote: string): SpendSummary {
   const total = (pick: (period: CostPeriod) => number) => sum(periods.map(pick));
   const whole = wholeFormatter(language);
+  const spent = { cost: totalMoney(periods), hasUnpricedTokens: periods.some((period) => period.hasUnpricedTokens) };
   return {
     ...periodSummary(grain, periods),
     hookTokens: total((period) => period.hookTokens),
     cliTokens: whole(total((period) => period.cliTokens)),
-    approxMoney: approx(formatMoney(language, totalMoney(periods))),
+    money: costText(language, spent, unpricedNote),
     hookRuns: whole(total((period) => period.hookRuns)),
     cliRuns: whole(total((period) => period.cliRuns)),
   };
@@ -68,8 +79,8 @@ function totalMoney(periods: CostPeriod[]): number | null {
   return sum(periods.map((period) => period.cost ?? 0));
 }
 
-export function linesAmount(language: Language, lines: number, estimatedPart: number | null = null): LinesAmount {
-  return { formatted: formatLines(language, lines, estimatedPart), count: Math.round(lines) };
+export function linesAmount(language: Language, lines: number, estimatedLines: number | null = null): LinesAmount {
+  return { formatted: formatLines(language, lines, estimatedLines), count: Math.round(lines) };
 }
 
 export function codeAndTestsLines(language: Language, totals: Pick<EffectTotals, "deferredLines" | "deferredTestLines" | "estimatedLines">): CodeAndTestsLines {
@@ -82,7 +93,7 @@ export function codeAndTestsLines(language: Language, totals: Pick<EffectTotals,
 export function summarizePending(language: Language, openTasks: number, estimatedLines: number): PendingEstimate {
   return {
     openTasks,
-    estimated: linesAmount(language, estimatedLines, estimatedLines),
-    perTask: formatLines(language, estimatedLines / openTasks, estimatedLines),
+    estimated: { formatted: formatEstimate(language, estimatedLines), count: Math.round(estimatedLines) },
+    perTask: formatEstimate(language, estimatedLines / openTasks),
   };
 }

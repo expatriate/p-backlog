@@ -61,8 +61,9 @@ export function createStatsRu(constants: StatsConstants) {
     periodCaption: (window: string, range: string): string => `${window} · ${range}`,
     periodNow: "сейчас",
     chartLabel: (name: string, step: ChartStep): string => `${name}. Стрелки влево и вправо — по ${CHART_STEPS[step]}`,
+    onRightScale: (label: string): string => `${label} (шкала справа)`,
     periodOf: (grain: Grain, day: string): string => (grain === "week" ? `неделя с ${day}` : day),
-    weekTrend: (arrow: string, size: string): string => `${arrow}${NBSP}${size}${NBSP}за${NBSP}неделю`,
+    weekTrend: (arrow: string, size: string): string => `${arrow}${NBSP}${size} к прошлой неделе`,
     weekTrendSpeech: {
       decline: (size: string): string => `на ${size} меньше, чем неделю назад — лучше`,
       growth: (size: string): string => `на ${size} больше, чем неделю назад — хуже`,
@@ -226,8 +227,8 @@ export function createStatsRu(constants: StatsConstants) {
     cliOutput: "вывод CLI и скилл",
     apiPriceTooltip: "по ценам API",
     tokens,
-    spendSummary: ({ grain, periodCount, hookTokens, cliTokens, approxMoney, hookRuns, cliRuns }: SpendSummary): string =>
-      `За ${countRu(periodCount, ...OVER_PERIOD_FORMS[grain])}: из-за хука ${tokens(hookTokens)}, вывод CLI и скилл ${cliTokens}, ${approxMoney}; запусков хука ${hookRuns}, других команд ${cliRuns}`,
+    spendSummary: ({ grain, periodCount, hookTokens, cliTokens, money, hookRuns, cliRuns }: SpendSummary): string =>
+      `За ${countRu(periodCount, ...OVER_PERIOD_FORMS[grain])}: из-за хука ${tokens(hookTokens)}, вывод CLI и скилл ${cliTokens}, ${money}; запусков хука ${hookRuns}, других команд ${cliRuns}`,
     serverMemory: "Память сервера",
     memoryRestartNote: "После перезапуска сервера история начинается заново",
     memorySummary: (current: string, max: string): string => `Сейчас ${current}, максимум за ${memoryHistoryPeriod} ${max}`,

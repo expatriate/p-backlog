@@ -1,4 +1,4 @@
-import { formatMoney, formatWhole } from "../../core/i18n/format";
+import { formatWhole } from "../../core/i18n/format";
 import type { CostCommand, CostModel, CostTotals, ReportPeriod } from "../../core/api/contract";
 import { useLanguage, useMessages } from "../i18n";
 import { Figure, FigureGroup } from "./Figure";
@@ -36,7 +36,7 @@ export function ModelsPanel({ models, period }: { models: CostModel[]; period: R
           head={stats.modelsHead}
           rows={models.map((row) => ({
             key: `${row.model}:${row.fast}`,
-            cells: [row.fast ? stats.fastModel(row.model) : row.model, formatWhole(language, row.tokens), formatMoney(language, row.cost)],
+            cells: [row.fast ? stats.fastModel(row.model) : row.model, formatWhole(language, row.tokens), costValue(language, row.cost)],
           }))}
         />
       )}

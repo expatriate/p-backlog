@@ -55,6 +55,7 @@ function TimeChart<Row>({ name, summary, data, series, axes = {}, step, timeKey,
   const patternId = (entry: Series<Row>) => `${patternPrefix}${entry.key}`;
   const isStackTop = (entry: Series<Row>) => entry.stack === undefined || plotted.findLast((other) => other.stack === entry.stack) === entry;
   const hasRightAxis = plotted.some((entry) => entry.axis === "right");
+  const legend = plotted.map((entry) => (entry.axis === "right" ? { ...entry, label: stats.onRightScale(entry.label) } : entry));
   const compact = (value: number) => compactNumber(language, value);
   const sampled = step === "sample";
   // recharts draws the hover band only in BarChart and renders Area only in AreaChart or ComposedChart
@@ -78,7 +79,7 @@ function TimeChart<Row>({ name, summary, data, series, axes = {}, step, timeKey,
   };
 
   return (
-    <ChartFrame summary={summary} legend={plotted} liveRegion={setLiveRegion}>
+    <ChartFrame summary={summary} legend={legend} liveRegion={setLiveRegion}>
       <Chart data={data} margin={CHART_MARGIN} aria-label={stats.chartLabel(name, step)}>
         {hatched.length > 0 && (
           <defs>

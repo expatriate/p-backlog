@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { z } from "zod";
-import type { GrainPeriods } from "../../core/api/contract";
+import type { GrainPeriods, ReportPeriod } from "../../core/api/contract";
 import { useStoredValue } from "../ui/use-stored-value";
 import { GRAIN_WINDOWS, GRAINS, type ChartId, type Grain, type GrainSeries } from "./charts/chart-style";
 import { GrainToggle } from "./GrainToggle";
 import { usePeriodCaption } from "./period-caption";
 
-type GrainPanel<T> = { grain: Grain; periods: T[]; period: string; toggle: ReactNode };
+type GrainPanel<T> = { grain: Grain; periods: T[]; range: ReportPeriod; period: string; toggle: ReactNode };
 
 const STORAGE_PREFIX = "p-backlog.stats.grain.";
 
@@ -17,10 +17,12 @@ export function useGrainPanel<T>(chart: ChartId, defaultGrain: Grain, series: Gr
   const [storedGrain, updateGrain] = useStoredValue(`${STORAGE_PREFIX}${chart}`, STORED_GRAIN);
   const grain = storedGrain ?? defaultGrain;
   const periodWindow = GRAIN_WINDOWS[grain];
+  const reportPeriod = windows[periodWindow];
   return {
     grain,
     periods: series[periodWindow],
-    period: caption.of(periodWindow, windows[periodWindow]),
+    range: reportPeriod,
+    period: caption.of(periodWindow, reportPeriod),
     toggle: <GrainToggle chart={chart} grain={grain} onChange={(next) => updateGrain(() => next)} />,
   };
 }
