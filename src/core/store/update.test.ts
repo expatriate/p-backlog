@@ -7,7 +7,7 @@ import { formatLocalIso } from "../model/dates";
 import { buildIndex } from "../model/graph";
 import { appendingJournal, JOURNAL_FILE, readJournal, undoJournal } from "./journal";
 import { loadBacklog } from "./load";
-import { closingsOf, reopeningsOf, taskHistories } from "../stats/history";
+import { allClosingsOf, reopeningsOf, taskHistories } from "../stats/history";
 import { createTask } from "./create";
 import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
@@ -316,7 +316,7 @@ describe("эпик, закрытый автоматически", () => {
 
     const { tasks } = await loadBacklog(root);
     const histories = taskHistories(tasks, [await readJournal(join(root, "spa"), "spa")]);
-    expect(histories.map((history) => [history.id, closingsOf(history).length, reopeningsOf(history).length])).toEqual([
+    expect(histories.map((history) => [history.id, allClosingsOf(history).length, reopeningsOf(history).length])).toEqual([
       ["SPA-1", 0, 0],
       ["SPA-2", 0, 0],
     ]);

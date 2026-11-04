@@ -23,6 +23,17 @@ describe("категории", () => {
     expect(categoryBreakdown([], taskHistories([], journal(events)), period(FROM, TO))).toEqual([{ category: "unknown", open: 0, weight: 0, created: 1, closed: 1 }]);
   });
 
+  it("переоткрытая и снова закрытая задача закрыта в своей категории один раз", () => {
+    const events: JournalEvent[] = [
+      { at: iso(2), task: "SPA-7", via: "cli", kind: "created", type: "task", priority: "medium", tags: [], category: "bug" },
+      { at: iso(4), task: "SPA-7", via: "cli", kind: "status", from: "backlog", to: "done" },
+      { at: iso(5), task: "SPA-7", via: "web", kind: "status", from: "done", to: "backlog" },
+      { at: iso(6), task: "SPA-7", via: "cli", kind: "status", from: "backlog", to: "done" },
+    ];
+
+    expect(categoryBreakdown([], taskHistories([], journal(events)), period(FROM, TO))).toEqual([{ category: "bug", open: 0, weight: 0, created: 1, closed: 1 }]);
+  });
+
   it("открыто, вес, создано и закрыто по категориям; удалённая по снимку; «не указана» последней; нулевые не выводятся", () => {
     const tasks = [
       makeTask({ id: "SPA-1", created: iso(2), category: "bloaters", priority: "high" }),

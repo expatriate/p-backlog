@@ -1,5 +1,5 @@
 import { CANDIDATE_EVIDENCE, RECORDED_MATCHES, RECORDED_METHODS, type CandidateEvidence } from "../../journal/events";
-import { closingsOf, type CandidateSeen, type TaskHistory } from "../history";
+import { allClosingsOf, type CandidateSeen, type TaskHistory } from "../history";
 import { formatLocalIso } from "../../model/dates";
 import { dayWindows } from "../days";
 import type { Period, Span } from "../period";
@@ -70,7 +70,7 @@ function countsPerKey<K extends string>(episodes: readonly Episode[], keys: read
 }
 
 function outcomeAfter(history: TaskHistory, moment: number): Outcome {
-  const closedAt = closingsOf(history).find((closing) => closing.at > moment)?.at;
+  const closedAt = allClosingsOf(history).find((closing) => closing.at > moment)?.at;
   const verifiedAt = history.verifications.find((verification) => verification > moment);
   if (closedAt === undefined) return verifiedAt === undefined ? "open" : "verified";
   return verifiedAt !== undefined && verifiedAt < closedAt ? "verified" : "closed";

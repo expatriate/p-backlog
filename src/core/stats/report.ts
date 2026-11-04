@@ -1,7 +1,7 @@
 import { UNKNOWN } from "../journal/events";
 import { ageBreakdown, closingBreakdown, hotspots } from "./breakdowns";
 import { scopeLabel } from "./format";
-import { closingsIn, closingsOfIn, createdIn, isOpenAt, type TaskHistory } from "./history";
+import { createdIn, isOpenAt, lastingClosingOfIn, lastingClosingsIn, type TaskHistory } from "./history";
 import { median, nearestRank, sum } from "../numbers";
 import { trailingSpan, type Period, type Span } from "./period";
 import { grainPeriods, lastDaysPeriod } from "./report-periods";
@@ -44,10 +44,10 @@ function totals(histories: readonly TaskHistory[], now: Date, period: Period, jo
   return {
     open: ages.length,
     createdToday: createdIn(histories, today).length,
-    closedToday: closingsIn(histories, today).length,
+    closedToday: lastingClosingsIn(histories, today).length,
     openWeight: sum(openNow.map(priorityWeight)),
     createdLastWeek: createdIn(histories, lastWeek).length,
-    closedLastWeek: closingsIn(histories, lastWeek).length,
+    closedLastWeek: lastingClosingsIn(histories, lastWeek).length,
     ageMedianDays: median(ages),
     leadTimeMedianDays: median(leadTimes),
     leadTimeP90Days: nearestRank(leadTimes, TAIL_FRACTION),
@@ -66,12 +66,15 @@ function previousTotals(histories: readonly TaskHistory[], nowMs: number, journa
   const openThen = histories.filter((history) => isOpenAt(history, weekAgo));
   return {
     open: openThen.length,
-    net: createdIn(histories, weekBefore).length - closingsIn(histories, weekBefore).length,
+    net: createdIn(histories, weekBefore).length - lastingClosingsIn(histories, weekBefore).length,
     ageMedianDays: median(openThen.map((history) => daysBetween(history.createdAt, weekAgo))),
     leadTimeMedianDays: median(leadTimesIn(histories, weekBefore)),
   };
 }
 
 function leadTimesIn(histories: readonly TaskHistory[], span: Span): number[] {
-  return histories.flatMap((history) => closingsOfIn(history, span).map((closing) => daysBetween(history.createdAt, closing.at)));
+  return histories.flatMap((history) => {
+    const closing = lastingClosingOfIn(history, span);
+    return closing === undefined ? [] : [daysBetween(history.createdAt, closing.at)];
+  });
 }

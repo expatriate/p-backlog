@@ -112,16 +112,22 @@ export function isOpenAt(history: TaskHistory, moment: number): boolean {
   return first?.from === undefined || !isClosed(first.from);
 }
 
-export function closingsOf(history: TaskHistory): Transition[] {
+export function allClosingsOf(history: TaskHistory): Transition[] {
   return history.transitions.filter(isClosingChange);
 }
 
-export function closingsOfIn(history: TaskHistory, span: Span): Transition[] {
-  return closingsOf(history).filter((closing) => span.contains(closing.at));
+export function lastingClosingOfIn(history: TaskHistory, span: Span): Transition | undefined {
+  const closing = lastingClosingOf(history);
+  return closing !== undefined && span.contains(closing.at) ? closing : undefined;
 }
 
-export function closingsIn(histories: readonly TaskHistory[], span: Span): Transition[] {
-  return histories.flatMap((history) => closingsOfIn(history, span));
+export function lastingClosingsIn(histories: readonly TaskHistory[], span: Span): Transition[] {
+  return histories.flatMap((history) => lastingClosingOfIn(history, span) ?? []);
+}
+
+function lastingClosingOf({ transitions }: TaskHistory): Transition | undefined {
+  const sinceLastReopening = transitions.slice(transitions.findLastIndex(isReopening) + 1);
+  return sinceLastReopening.findLast(isClosingChange);
 }
 
 export function createdIn(histories: readonly TaskHistory[], span: Span): TaskHistory[] {
@@ -129,11 +135,15 @@ export function createdIn(histories: readonly TaskHistory[], span: Span): TaskHi
 }
 
 export function isFixedNow(history: TaskHistory): boolean {
-  return isClosed(history.finalStatus) && closingsOf(history).at(-1)?.resolution === "fixed";
+  return isClosed(history.finalStatus) && allClosingsOf(history).at(-1)?.resolution === "fixed";
 }
 
 export function reopeningsOf(history: TaskHistory): Transition[] {
-  return history.transitions.filter((transition) => transition.from !== undefined && isClosed(transition.from) && !isClosed(transition.to));
+  return history.transitions.filter(isReopening);
+}
+
+function isReopening(transition: Transition): boolean {
+  return transition.from !== undefined && isClosed(transition.from) && !isClosed(transition.to);
 }
 
 function historyOf(id: string, { projectId, final, created, categoryEvents, priorityEvents, transitions, candidates, verifications, filtered }: Known, unparsed: boolean): TaskHistory[] {

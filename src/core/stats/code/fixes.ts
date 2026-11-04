@@ -1,4 +1,4 @@
-import { closingsOf, isFixedNow, type TaskHistory } from "../history";
+import { allClosingsOf, isFixedNow, type TaskHistory } from "../history";
 import { projectFixKey, type ProjectFixKey } from "../../code/fix-key";
 import type { FixCommit, FixRequest } from "../../code/types";
 import { retainedSince } from "../../model/history-window";
@@ -32,7 +32,7 @@ export function fixCommitEntry(history: TaskHistory, commits: ReadonlyMap<Projec
 export function retainedFixes(histories: readonly TaskHistory[], now: Date): TaskHistory[] {
   const since = retainedSince(now);
   return histories.filter((history) => {
-    const closing = closingsOf(history).at(-1);
+    const closing = allClosingsOf(history).at(-1);
     return isFixedNow(history) && closing !== undefined && closing.at >= since;
   });
 }

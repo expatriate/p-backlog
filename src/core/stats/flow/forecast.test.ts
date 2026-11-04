@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { JournalEvent } from "../../journal/events";
 import { DAY_MS, formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
 import { taskHistories } from "../history";
@@ -19,6 +20,18 @@ describe("прогноз", () => {
 
     expect(forecast).toMatchObject({ closed: 5, created: 1, open: 3, weeklyNet: 1, weeks: 3 });
     expect(forecast.until).toBe(formatLocalIso(new Date(2026, 9, 9, 12)));
+  });
+
+  it("переоткрытая и снова закрытая в окне задача ускоряет прогноз одним закрытием, а не двумя", () => {
+    const events: JournalEvent[] = [
+      { at: iso(12), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done" },
+      { at: iso(13), task: "SPA-1", via: "web", kind: "status", from: "done", to: "backlog" },
+      { at: iso(16), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done" },
+    ];
+
+    const forecast = flowForecast(taskHistories([closed("SPA-1", OLD, iso(16)), open("SPA-2", OLD)], [{ projectId: "spa", events, invalidLines: 0 }]), 1, NOW);
+
+    expect(forecast).toMatchObject({ closed: 1 });
   });
 
   it("долг не уменьшается и растёт — без недель", () => {

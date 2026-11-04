@@ -1,6 +1,6 @@
 import { UNKNOWN } from "../journal/events";
 import { PRIORITIES, type Priority, type Task } from "../model/types";
-import { closingsIn, createdIn, reopeningsOf, type TaskHistory, type Transition } from "./history";
+import { createdIn, lastingClosingsIn, reopeningsOf, type TaskHistory, type Transition } from "./history";
 import type { AgeBreakdown, AgeBucket, ClosingBreakdown, ClosingReason, Hotspots } from "./types";
 import { folderOf } from "./folders";
 import type { ProjectLabel } from "./format";
@@ -44,7 +44,7 @@ export function urgentStaleCount(openTasks: readonly Task[], now: Date): number 
 }
 
 export function closingBreakdown(histories: readonly TaskHistory[], period: Period): ClosingBreakdown {
-  const closings = closingsIn(histories, period);
+  const closings = lastingClosingsIn(histories, period);
   const created = createdIn(histories, period);
   const byReason: Record<ClosingReason, number> = { done: 0, fixed: 0, obsolete: 0, duplicate: 0, cancelled: 0, unknown: 0 };
   for (const closing of closings) byReason[closingReason(closing)] += 1;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { JournalEvent, ProjectJournal } from "../journal/events";
 import { formatLocalIso } from "../model/dates";
 import { makeTask } from "../model/testing/make-task";
-import { closingsOf, isFixedNow, isOpenAt, reopeningsOf, taskHistories } from "./history";
+import { allClosingsOf, isFixedNow, isOpenAt, reopeningsOf, taskHistories } from "./history";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
 const iso = (day: number, hour = 12) => formatLocalIso(at(day, hour));
@@ -30,7 +30,7 @@ describe("история задачи", () => {
     expect(isOpenAt(history, at(2).getTime())).toBe(true);
     expect(isOpenAt(history, at(4).getTime())).toBe(false);
     expect(isOpenAt(history, at(7).getTime())).toBe(true);
-    expect(closingsOf(history)).toHaveLength(1);
+    expect(allClosingsOf(history)).toHaveLength(1);
     expect(reopeningsOf(history)).toMatchObject([{ from: "done", to: "backlog", via: "web" }]);
   });
 
@@ -81,7 +81,7 @@ describe("история задачи", () => {
     const [history] = taskHistories([task], journal(events));
     if (!history) throw new Error("нет истории");
 
-    expect(closingsOf(history)).toMatchObject([{ at: at(3).getTime(), to: "done" }]);
+    expect(allClosingsOf(history)).toMatchObject([{ at: at(3).getTime(), to: "done" }]);
     expect(isOpenAt(history, at(5).getTime())).toBe(false);
   });
 
@@ -114,7 +114,7 @@ describe("история задачи", () => {
 
     const [history] = taskHistories([task], journal(events));
 
-    expect(closingsOf(history ?? ({ transitions: [] } as never))).toMatchObject([{ to: "done", via: "unknown" }]);
+    expect(allClosingsOf(history ?? ({ transitions: [] } as never))).toMatchObject([{ to: "done", via: "unknown" }]);
     expect(isOpenAt(history as never, at(5).getTime())).toBe(false);
   });
 
@@ -129,7 +129,7 @@ describe("история задачи", () => {
     const [history] = taskHistories([task], journal(events));
     if (!history) throw new Error("нет истории");
 
-    expect(closingsOf(history)).toMatchObject([
+    expect(allClosingsOf(history)).toMatchObject([
       { at: at(2).getTime(), resolution: undefined },
       { at: at(3).getTime(), resolution: "fixed" },
     ]);

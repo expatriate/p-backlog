@@ -63,6 +63,33 @@ describe("отчёт статистики", () => {
     expect(report.totals.closedLastWeek).toBe(1);
   });
 
+  it("переоткрытая и снова закрытая задача закрыта один раз — за неделю, в причинах и во времени до закрытия", () => {
+    const task = makeTask({ id: "SPA-5", created: formatLocalIso(at(1)), status: "done", closed: formatLocalIso(at(16)) });
+    const events: JournalEvent[] = [
+      { at: formatLocalIso(at(12)), task: "SPA-5", via: "cli", kind: "status", from: "backlog", to: "done" },
+      { at: formatLocalIso(at(13)), task: "SPA-5", via: "cli", kind: "status", from: "done", to: "in-progress" },
+      { at: formatLocalIso(at(16)), task: "SPA-5", via: "cli", kind: "status", from: "in-progress", to: "done" },
+    ];
+
+    const report = statsReport(reportContext({ tasks: [task], journals: [{ projectId: "spa", events, invalidLines: 0 }], now: NOW, projectId: "spa" }));
+
+    expect(report.totals.closedLastWeek).toBe(1);
+    expect(report.totals.leadTimeMedianDays).toBeCloseTo(15);
+    expect(report.closing.byReason.done).toBe(1);
+  });
+
+  it("второе закрытие без переоткрытия в журнале — время до закрытия считается по последнему", () => {
+    const task = makeTask({ id: "SPA-5", created: formatLocalIso(at(1)), status: "done", closed: formatLocalIso(at(16)) });
+    const events: JournalEvent[] = [
+      { at: formatLocalIso(at(12)), task: "SPA-5", via: "cli", kind: "status", from: "backlog", to: "done" },
+      { at: formatLocalIso(at(16)), task: "SPA-5", via: "cli", kind: "status", from: "backlog", to: "done" },
+    ];
+
+    const report = statsReport(reportContext({ tasks: [task], journals: [{ projectId: "spa", events, invalidLines: 0 }], now: NOW, projectId: "spa" }));
+
+    expect([report.totals.closedLastWeek, report.totals.leadTimeMedianDays]).toEqual([1, 15]);
+  });
+
   it("удалённая задача, известная только по снимку, попадает в закрытые и в причины", () => {
     const events: JournalEvent[] = [
       {

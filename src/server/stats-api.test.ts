@@ -74,7 +74,7 @@ describe("GET /api/stats", () => {
     expect(spa.weeks).toHaveLength(12);
   });
 
-  it("закрытие, отменённое кнопкой «Отменить», не считается ни закрытием, ни переоткрытием; ручное переоткрытие считается", async () => {
+  it("закрытие, отменённое кнопкой «Отменить», не считается ни закрытием, ни переоткрытием; ручное переоткрытие считается возвратом и снимает закрытие", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
     const batch = async (tasks: { id: string; version: string }[], action: unknown) => ((await (await backlog.json("/api/tasks/batch", "POST", { tasks, action })).json()) as BatchResponse).results;
     const versions = async (ids: string[]) => Promise.all(ids.map(async (id) => ({ id, version: await backlog.taskVersion(id) })));
@@ -94,7 +94,7 @@ describe("GET /api/stats", () => {
     await backlog.json("/api/tasks/SPA-1", "PATCH", { version: await backlog.taskVersion("SPA-1"), changes: { status: "backlog" } });
 
     const afterManualReopen = await stats();
-    expect([afterManualReopen.totals.closedToday, afterManualReopen.closing.byReason.obsolete, afterManualReopen.closing.reopened]).toEqual([1, 1, 1]);
+    expect([afterManualReopen.totals.closedToday, afterManualReopen.closing.byReason.obsolete, afterManualReopen.closing.reopened]).toEqual([0, 0, 1]);
   });
 
   it("неразобранный файл задачи попадает в шапку отчёта своего проекта", async () => {
