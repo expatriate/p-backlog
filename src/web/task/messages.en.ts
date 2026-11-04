@@ -16,6 +16,7 @@ export const taskEn: TaskMessages = {
   draftConflict: 'The description changed on disk while you were editing it. "Save" overwrites it with your text, "Cancel" shows the current one.',
   taskConflict: "The task changed on disk, the current version is shown. Repeat your edit.",
   taskGone: (id) => `Task ${id} is no longer in the backlog: it was deleted or moved.`,
+  fieldNotSaved: (field) => `"${field}" is not saved: leave the field once more to retry.`,
   fieldConflict: (field) => `"${field}" changed on disk while you were editing it. Your version is still in the field: leave the field once more to write it over.`,
 
   statusField: "Status",

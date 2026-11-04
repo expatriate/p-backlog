@@ -21,7 +21,7 @@ import { TASK_STATUSES, type Task, type TaskStatus } from "../../../core/model/t
 import { useAllTasks } from "../../app/all-tasks";
 import { useTaskHref } from "../../app/use-task-href";
 import { useMessages } from "../../i18n";
-import { saveErrorText } from "../../task/use-task-saving";
+import { saveErrorText } from "../../task/save-error";
 import { Button } from "../../ui/Button";
 import { cx } from "../../ui/cx";
 import { focusDropped } from "../../ui/focus-dropped";
@@ -33,7 +33,7 @@ import { BlockedMarker } from "../BlockedMarker";
 import { useNoticeLifetime } from "../use-notice-lifetime";
 import { useScrollSpaceFor } from "../use-scroll-space";
 import footer from "../FooterPanel.module.css";
-import { boardColumns, type BoardColumn, type PendingMoves } from "./board-columns";
+import { boardColumns, shownStatusOf, type BoardColumn, type PendingMoves } from "./board-columns";
 import { useBoardMove } from "./use-board-move";
 import styles from "./TaskBoard.module.css";
 
@@ -58,6 +58,7 @@ export function TaskBoard({ tasks, statuses, openedId }: { tasks: readonly Task[
   const clickAfterDrop = useClickAfterDrop();
   const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY);
   useEscapeStaysWithDrag(dragged !== null);
+  useOpenedCardInView(board, openedId);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: MOUSE_ACTIVATION }),
     useSensor(TouchSensor, { activationConstraint: TOUCH_ACTIVATION }),
@@ -77,7 +78,7 @@ export function TaskBoard({ tasks, statuses, openedId }: { tasks: readonly Task[
   };
   const undo = async () => {
     const restored = await moves.undo();
-    if (restored !== null) requestAnimationFrame(() => focusIfDropped(board.current?.querySelector<HTMLElement>(`[${TASK_ID_ATTRIBUTE}="${restored}"]`)));
+    if (restored !== null) requestAnimationFrame(() => reclaimLostFocus(cardOf(board.current, restored)));
   };
 
   return (
@@ -105,10 +106,10 @@ function MoveNotice({ moves: { lastMove, failure, undoing, dismiss }, undoButton
   const { list, core, app, task: taskMessages } = useMessages();
   const notice = useRef<HTMLDivElement>(null);
   const news = useMemo(() => (lastMove === null && failure === null ? null : { lastMove, failure }), [lastMove, failure]);
-  useNoticeLifetime(notice, news, undoing, dismiss);
+  useNoticeLifetime(notice, { content: news, paused: undoing, expire: dismiss });
   useScrollSpaceFor(notice, "--board-notice-height");
   useEffect(() => {
-    if (lastMove !== null) focusIfDropped(undoButton.current);
+    if (lastMove !== null) reclaimLostFocus(undoButton.current);
   }, [lastMove, undoButton]);
 
   return (
@@ -203,7 +204,7 @@ function useDragAnnouncements(byId: ReadonlyMap<string, Task>, pending: PendingM
   const movesToAnotherColumn = (taskId: string, columnId: UniqueIdentifier | undefined) => {
     const task = byId.get(taskId);
     const to = columnId === undefined ? undefined : columnStatus(columnId);
-    return task !== undefined && to !== undefined && to !== (pending.get(taskId) ?? task.status);
+    return task !== undefined && to !== undefined && to !== shownStatusOf(task, pending);
   };
   const columnName = (id: UniqueIdentifier) => {
     const status = columnStatus(id);
@@ -222,7 +223,17 @@ function columnStatus(id: UniqueIdentifier): TaskStatus | undefined {
   return TASK_STATUSES.find((status) => status === id);
 }
 
-function focusIfDropped(target: HTMLElement | null | undefined): void {
+function cardOf(board: HTMLElement | null, id: string): HTMLElement | null {
+  return board?.querySelector<HTMLElement>(`[${TASK_ID_ATTRIBUTE}="${id}"]`) ?? null;
+}
+
+function useOpenedCardInView(board: RefObject<HTMLElement | null>, openedId: string | undefined): void {
+  useEffect(() => {
+    if (openedId !== undefined) cardOf(board.current, openedId)?.scrollIntoView({ block: "nearest" });
+  }, [board, openedId]);
+}
+
+function reclaimLostFocus(target: HTMLElement | null): void {
   if (focusDropped()) target?.focus({ preventScroll: true });
 }
 

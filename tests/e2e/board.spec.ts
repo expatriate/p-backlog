@@ -37,10 +37,10 @@ async function dragTo(page: Page, card: Locator, target: Locator) {
   await page.mouse.up();
 }
 
-async function pickUpWithKeyboard(page: Page, card: Locator, id: string) {
+async function pickUpWithKeyboard(page: Page, card: Locator, id: string, from = "в беклоге") {
   await card.focus();
   await page.keyboard.press("Space");
-  await expect(page.getByText(`${id} над колонкой «в беклоге»`)).toBeAttached();
+  await expect(page.getByText(`${id} над колонкой «${from}»`)).toBeAttached();
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 }
 
@@ -219,4 +219,68 @@ test("длинная колонка прокручивается внутри д
   expect(await page.evaluate(() => document.querySelector("main > div")?.scrollTop ?? 0)).toBe(pageScrolled);
   expect((await column(page, "в работе").boundingBox())?.y).toBe(columnsTop);
   expect(await scrollTops()).not.toEqual([]);
+});
+
+test("второй перенос во время падающего первого — «Отменить» возвращает задачу туда, где она была на диске", async ({ page }) => {
+  await writeBoard(["Дважды"]);
+  const firstFailure: PromiseWithResolvers<void> = Promise.withResolvers();
+  let firstPatch = true;
+  await page.route("**/api/tasks/BRD-1", async (route) => {
+    if (route.request().method() !== "PATCH" || !firstPatch) return route.fallback();
+    firstPatch = false;
+    await firstFailure.promise;
+    return route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } });
+  });
+  await openBoard(page, "/p/board?view=board", "Дважды");
+
+  const card = column(page, "в беклоге").getByRole("link", { name: "Дважды" });
+  await pickUpWithKeyboard(page, card, "BRD-1");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByText("BRD-1 над колонкой «в работе»")).toBeAttached();
+  await page.keyboard.press("Space");
+  await pickUpWithKeyboard(page, column(page, "в работе").getByRole("link", { name: "Дважды" }), "BRD-1", "в работе");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByText("BRD-1 над колонкой «заблокирована»")).toBeAttached();
+  await page.keyboard.press("Space");
+  firstFailure.resolve();
+  await expect.poll(() => statusOnDisk("BRD-1")).toBe("blocked");
+
+  await page.getByRole("button", { name: "Отменить" }).click();
+
+  await expect.poll(() => statusOnDisk("BRD-1")).toBe("backlog");
+  await expect(column(page, "в беклоге").getByRole("link", { name: "Дважды" })).toBeVisible();
+});
+
+test("открытая по ссылке карточка внизу длинной колонки прокручена в видимую область", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await writeBoard(Array.from({ length: 30 }, (_, index) => `Карточка ${index + 1}`));
+  await page.goto("/p/board/t/BRD-30?view=board&sort=created&dir=asc");
+
+  await expect(column(page, "в беклоге").getByRole("link", { name: "Карточка 30", exact: true })).toBeInViewport();
+});
+
+test("«Отменить» первого переноса, пока сохраняется второй, не стирает уведомление второго", async ({ page }) => {
+  await writeBoard(["Первая", "Вторая"]);
+  const secondSaved: PromiseWithResolvers<void> = Promise.withResolvers();
+  await page.route("**/api/tasks/BRD-2", async (route) => {
+    if (route.request().method() !== "PATCH") return route.fallback();
+    await secondSaved.promise;
+    return route.fallback();
+  });
+  await openBoard(page, "/p/board?view=board&sort=created&dir=asc", "Первая");
+
+  await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Первая" }), column(page, "в работе"));
+  await expect.poll(() => statusOnDisk("BRD-1")).toBe("in-progress");
+  const undoFirst = page.getByRole("button", { name: "Отменить" });
+  await expect(undoFirst).toBeVisible();
+  await pickUpWithKeyboard(page, column(page, "в беклоге").getByRole("link", { name: "Вторая" }), "BRD-2");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByText("BRD-2 над колонкой «в работе»")).toBeAttached();
+  await page.keyboard.press("Space");
+  await undoFirst.click();
+  secondSaved.resolve();
+
+  await expect.poll(() => Promise.all([statusOnDisk("BRD-1"), statusOnDisk("BRD-2")])).toEqual(["backlog", "in-progress"]);
+  await expect(page.getByRole("status").filter({ hasText: "BRD-2: статус «в работе»" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Отменить" })).toBeVisible();
 });

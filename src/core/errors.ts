@@ -2,6 +2,10 @@ export function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+export function asError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
 export type PathErrorHandler = (path: string, error: unknown) => void;
 
 export function oncePerKey<A extends unknown[]>(keyOf: (...args: A) => string, report: (...args: A) => void): (...args: A) => void {

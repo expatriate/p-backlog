@@ -1,13 +1,13 @@
 import type { MutationStatus } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { TaskChangesRequest } from "../../core/api/contract";
+import { asError } from "../../core/errors";
 import type { Task } from "../../core/model/types";
 import { ApiError, apiErrorKind } from "../api/client";
-import type { AppMessages } from "../app/messages.ru";
-import { TaskGoneError, useUpdateTask, type BodyEdit, type TaskChange, type UpdateTaskVariables } from "../app/queries";
-import { requestErrorMessage } from "../app/RequestFailure";
+import { useUpdateTask, type BodyEdit, type TaskChange, type UpdateTaskVariables } from "../app/queries";
 import { useMessages } from "../i18n";
 import type { TaskMessages } from "./messages.ru";
+import { saveErrorText } from "./save-error";
 
 export type RefsSaveResult = { saved: true } | { saved: false; fieldError: string | null };
 
@@ -104,16 +104,6 @@ function failedBodySave(editor: BodyEditor, error: Error): BodyEditor {
 
 function bodyErrorText(error: Error, errorText: (error: Error) => string, taskMessages: TaskMessages): string {
   return apiErrorKind(error) === "conflict" ? taskMessages.draftConflict : errorText(error);
-}
-
-export function saveErrorText(error: Error, app: AppMessages, taskMessages: TaskMessages): string {
-  if (apiErrorKind(error) === "conflict") return taskMessages.taskConflict;
-  if (error instanceof TaskGoneError) return taskMessages.taskGone(error.taskId);
-  return requestErrorMessage(app, error);
-}
-
-function asError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error));
 }
 
 const SAVED_NOTE_MS = 2000;

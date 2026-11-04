@@ -37,6 +37,11 @@ function holdFirstPatch(answerFirst: (passOn: () => Promise<Response>) => Promis
   return { beforeRender, release: () => release(), sent };
 }
 
+const alertTexts = (panel: HTMLElement) =>
+  within(panel)
+    .queryAllByRole("alert")
+    .map((alert) => alert.textContent);
+
 const CLOSED_FILES = {
   "spa/project.md": projectFile("SPA"),
   "spa/SPA-1.md": taskFile("SPA-1", {
@@ -439,11 +444,6 @@ describe("правка агента, пока поле в фокусе", () => {
     return { panel, title };
   }
 
-  const alertTexts = (panel: HTMLElement) =>
-    within(panel)
-      .queryAllByRole("alert")
-      .map((alert) => alert.textContent);
-
   it("новая правка агента после конфликта не заменяет свой текст молча: он остаётся, предупреждение тоже", async () => {
     const app = await renderApp(AGENT_FILES, "/p/spa/t/SPA-1");
     const { panel, title } = await conflictOnTitle(app);
@@ -501,7 +501,7 @@ describe("правка агента, пока поле в фокусе", () => {
     const title = within(panel).getByRole("textbox", { name: "Название задачи" });
     await app.user.type(title, " и повторы");
     await app.user.tab();
-    await within(panel).findByRole("alert");
+    await waitFor(() => expect(alertTexts(panel)).not.toEqual([]));
 
     await app.user.click(title);
     await agentEdits(app);
@@ -533,6 +533,54 @@ describe("сервер не принял сохранение", () => {
   });
 });
 
+describe("ошибка несохранённого поля", () => {
+  const NOT_SAVED = "Поле «Название задачи» не сохранено";
+
+  async function failTitleSaves(failures: number) {
+    let failuresLeft = failures;
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, {
+      beforeRender: interceptApi(async (_path, init, passOn) => {
+        if (init?.method !== "PATCH" || failuresLeft === 0) return passOn();
+        failuresLeft -= 1;
+        return serverUnreachable();
+      }),
+    });
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    const title = within(panel).getByRole("textbox", { name: "Название задачи" });
+    await app.user.type(title, " и повторы");
+    await app.user.tab();
+    await waitFor(() => expect(alertTexts(panel).join()).toContain(NOT_SAVED));
+    return { app, panel, title };
+  }
+
+  const pickPriority = (app: RenderedApp, panel: HTMLElement, priority: string) => app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), priority);
+
+  it("остаётся, пока сохраняются и падают другие поля, и уходит, когда название записано", async () => {
+    const { app, panel, title } = await failTitleSaves(2);
+
+    await pickPriority(app, panel, "low");
+    await waitFor(() => expect(alertTexts(panel).join()).toContain("Сервер беклога не отвечает"));
+    await pickPriority(app, panel, "critical");
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).priority).toBe("critical"));
+    expect(alertTexts(panel).join()).toContain(NOT_SAVED);
+
+    await app.user.click(title);
+    await app.user.tab();
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).title).toBe("Таймауты загрузки и повторы"));
+    await waitFor(() => expect(alertTexts(panel)).toEqual([]));
+  });
+
+  it("уходит, когда название вернули к записанному", async () => {
+    const { app, panel, title } = await failTitleSaves(1);
+
+    await app.user.clear(title);
+    await app.user.type(title, "Таймауты загрузки");
+    await app.user.tab();
+
+    await waitFor(() => expect(alertTexts(panel).join()).not.toContain(NOT_SAVED));
+  });
+});
+
 describe("правка поля, пока её сохранение в полёте", () => {
   const LEAVE = "Уйти, не сохранив правку поля?";
   const EDITED = "Таймауты загрузки и повторы";
@@ -559,7 +607,7 @@ describe("правка поля, пока её сохранение в полё�
     await closeCard(app, panel);
     patch.release();
 
-    expect((await within(panel).findByRole("alert")).textContent).toContain("Сервер вернул ошибку 500");
+    await waitFor(() => expect(alertTexts(panel).join()).toContain("Сервер вернул ошибку 500"));
     expect(confirm).toHaveBeenCalledWith(LEAVE);
     expect(app.route()).toBe("/p/spa/t/SPA-1");
     expect(title).toHaveProperty("value", EDITED);

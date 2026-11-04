@@ -35,7 +35,7 @@ export function BatchNotice({ result, noticeId, onResult }: BatchNoticeProps) {
   const { isPending, reset } = undo;
   useEffect(() => reset(), [result, reset]);
   const hide = useCallback(() => onResult(null), [onResult]);
-  useNoticeLifetime(notice, result, isPending, hide);
+  useNoticeLifetime(notice, { content: result, paused: isPending, expire: hide });
   useEffect(() => {
     if (result !== null && focusDropped()) (undoButton.current ?? summary.current)?.focus();
   }, [result]);

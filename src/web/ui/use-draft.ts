@@ -8,13 +8,14 @@ export type Draft<E extends HTMLElement = HTMLInputElement> = {
   unsaved: boolean;
   saving: boolean;
   conflicted: boolean;
+  failed: boolean;
   commit: (save: (canonical: string) => Promise<boolean>) => void;
   reset: () => void;
 };
 
-type DraftState = { text: string; base: string; conflicted: boolean; savesInFlight: number };
+type DraftState = { text: string; base: string; conflicted: boolean; failed: boolean; savesInFlight: number };
 
-const synced = (serverValue: string): DraftState => ({ text: serverValue, base: serverValue, conflicted: false, savesInFlight: 0 });
+const synced = (serverValue: string): DraftState => ({ text: serverValue, base: serverValue, conflicted: false, failed: false, savesInFlight: 0 });
 
 const savingNow = (draft: DraftState) => draft.savesInFlight > 0;
 
@@ -46,7 +47,7 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
       setState((current) => {
         const settled = { ...current, savesInFlight: current.savesInFlight - 1 };
         if (current.base !== canonicalText) return settled;
-        return saved ? { ...settled, conflicted: false } : { ...settled, base: previousBase };
+        return saved ? { ...settled, conflicted: false, failed: false } : { ...settled, base: previousBase, failed: true };
       });
     void save(canonicalText).then(settle);
   };
@@ -73,6 +74,7 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
     unsaved: !untouchedSinceBase(state, canonicalText),
     saving: savingNow(state),
     conflicted: state.conflicted,
+    failed: state.failed,
     commit,
     reset: () => setState((current) => ({ ...synced(serverValue), savesInFlight: current.savesInFlight })),
   };

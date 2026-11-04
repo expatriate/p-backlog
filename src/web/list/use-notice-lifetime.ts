@@ -2,9 +2,11 @@ import { useEffect, type RefObject } from "react";
 
 export const NOTICE_LIFETIME_MS = 15_000;
 
-export function useNoticeLifetime(notice: RefObject<HTMLElement | null>, shown: unknown, held: boolean, expire: () => void): void {
+type NoticeLifetime = { content: object | null; paused: boolean; expire: () => void };
+
+export function useNoticeLifetime(notice: RefObject<HTMLElement | null>, { content, paused, expire }: NoticeLifetime): void {
   useEffect(() => {
-    if (shown === null || held) return;
+    if (content === null || paused) return;
     let timer: ReturnType<typeof setTimeout>;
     const expireUnlessFocused = () => {
       if (notice.current?.contains(document.activeElement)) timer = setTimeout(expireUnlessFocused, NOTICE_LIFETIME_MS);
@@ -12,5 +14,5 @@ export function useNoticeLifetime(notice: RefObject<HTMLElement | null>, shown: 
     };
     timer = setTimeout(expireUnlessFocused, NOTICE_LIFETIME_MS);
     return () => clearTimeout(timer);
-  }, [notice, shown, held, expire]);
+  }, [notice, content, paused, expire]);
 }

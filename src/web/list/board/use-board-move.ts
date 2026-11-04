@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState } from "react";
+import { asError } from "../../../core/errors";
 import type { Task, TaskStatus } from "../../../core/model/types";
 import { useUpdateTask } from "../../app/queries";
-import type { PendingMoves } from "./board-columns";
+import { shownStatusOf, type PendingMoves } from "./board-columns";
 
 type BoardMove = { id: string; from: TaskStatus; to: TaskStatus };
 
@@ -20,19 +21,24 @@ export function useBoardMove(tasks: readonly Task[]) {
     setFailure(null);
   }, []);
 
-  const shownStatus = (task: Task): TaskStatus => pending.get(task.id) ?? task.status;
-
-  const save = async ({ id, to }: BoardMove): Promise<boolean> => {
+  const save = async (id: string, to: TaskStatus): Promise<TaskStatus | null> => {
     const moveNumber = ++movesStarted.current;
     latestMoveOf.current.set(id, moveNumber);
     setPending((current) => new Map(current).set(id, to));
     setFailure(null);
+    let confirmedFrom = to;
     try {
-      await update.mutateAsync({ id, change: () => ({ status: to }) });
-      return true;
+      await update.mutateAsync({
+        id,
+        change: (task) => {
+          confirmedFrom = task.status;
+          return { status: to };
+        },
+      });
+      return confirmedFrom;
     } catch (error) {
-      setFailure({ id, error: error instanceof Error ? error : new Error(String(error)) });
-      return false;
+      setFailure({ id, error: asError(error) });
+      return null;
     } finally {
       if (latestMoveOf.current.get(id) === moveNumber) {
         latestMoveOf.current.delete(id);
@@ -41,25 +47,22 @@ export function useBoardMove(tasks: readonly Task[]) {
     }
   };
 
-  const move = async (task: Task, to: TaskStatus): Promise<boolean> => {
-    const from = shownStatus(task);
-    if (from === to) return false;
-    const done = { id: task.id, from, to };
-    const saved = await save(done);
-    if (saved) setLastMove(done);
-    return saved;
+  const move = async (task: Task, to: TaskStatus): Promise<void> => {
+    if (shownStatusOf(task, pending) === to) return;
+    const from = await save(task.id, to);
+    if (from !== null && from !== to) setLastMove({ id: task.id, from, to });
   };
 
   const current = lastMove === null ? undefined : tasks.find((task) => task.id === lastMove.id);
-  const undoable = lastMove !== null && current !== undefined && shownStatus(current) === lastMove.to ? lastMove : null;
+  const undoable = lastMove !== null && current !== undefined && shownStatusOf(current, pending) === lastMove.to ? lastMove : null;
 
   const undo = async (): Promise<string | null> => {
     if (undoable === null || undoing) return null;
     setUndoing(true);
-    const undone = await save({ id: undoable.id, from: undoable.to, to: undoable.from });
+    const restoredFrom = await save(undoable.id, undoable.from);
     setUndoing(false);
-    if (!undone) return null;
-    setLastMove(null);
+    if (restoredFrom === null) return null;
+    setLastMove((latest) => (latest === undoable ? null : latest));
     return undoable.id;
   };
 

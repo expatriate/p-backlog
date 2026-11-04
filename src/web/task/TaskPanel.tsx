@@ -42,7 +42,7 @@ export function TaskPanel({ task, onClose, gone }: TaskPanelProps) {
   const fields = useFieldDrafts(task);
   const bodyEditing = saver.body.editor.phase !== "closed";
   useLeaveGuard({ unsaved: bodyEditing || fields.unsaved, saving: fields.saving }, bodyEditing ? taskMessages.leaveWithDraft : taskMessages.leaveWithFieldEdits);
-  const cardAlerts = distinctTexts([gone ? taskMessages.taskGone(task.id) : null, ...saver.alerts, ...fields.conflictAlerts]);
+  const cardAlerts = distinctTexts([gone ? taskMessages.taskGone(task.id) : null, ...saver.alerts, ...fields.alerts]);
   const saveNote = useSaveNote(saver.lastSave, cardAlerts);
   const refOptions = useMemo(
     () => (
@@ -65,17 +65,9 @@ export function TaskPanel({ task, onClose, gone }: TaskPanelProps) {
 
       <TaskMeta task={task} index={index} />
 
-      <p className={styles.saving} role="status">
-        {saveNote}
-      </p>
+      <CardStatus saveNote={saveNote} alerts={cardAlerts} />
 
       {isClosed(task.status) && <ClosureNote task={task} onRestore={() => void saver.apply({ status: "backlog" })} />}
-
-      {cardAlerts.map((text) => (
-        <p key={text} className={styles.conflict} role="alert">
-          {text}
-        </p>
-      ))}
       {warnings.length > 0 && (
         <Notice as="ul" className={styles.warnings}>
           {warnings.map((warning) => (
@@ -139,6 +131,21 @@ function ClosureNote({ task, onRestore }: { task: Task; onRestore: () => void })
       <Button className={styles.restore} onClick={onRestore}>
         {taskMessages.restoreToBacklog}
       </Button>
+    </div>
+  );
+}
+
+function CardStatus({ saveNote, alerts }: { saveNote: string; alerts: readonly string[] }) {
+  return (
+    <div className={styles.pinned}>
+      <p className={styles.saving} role="status">
+        {saveNote}
+      </p>
+      {alerts.map((text) => (
+        <p key={text} className={styles.alert} role="alert">
+          {text}
+        </p>
+      ))}
     </div>
   );
 }
