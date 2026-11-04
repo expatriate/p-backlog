@@ -10,6 +10,8 @@ export type GitOutcome = { status: "ok"; stdout: string } | { status: "exited"; 
 
 export type GitOutcomeRunner = (repo: string, args: string[], input?: string) => Promise<GitOutcome>;
 
+export const PARSED_DIFF_OPTIONS = ["--no-color", "--no-ext-diff", "--no-textconv"] as const;
+
 export const RECORD = "\x1e";
 export const FIELD = "\x1f";
 

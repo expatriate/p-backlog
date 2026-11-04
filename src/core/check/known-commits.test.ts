@@ -214,6 +214,26 @@ describe("коммиты, уже известные задаче при созд
     expect(await changedCommitSubjects(repo, origin)).toEqual([]);
   });
 
+  it("коммит ветки задачи взяли cherry-pick в основную ветку, правившую строку в пяти строках от него, — копия не делает задачу кандидатом при любом diff.context пользователя", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": fileOf(LINES) });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFiles(repo, { "src/a.ts": fileOf(withValues(LINES, { 10: 1000 })) });
+    gitCommitAll(repo, "Фича правит value10", "2026-09-10T10:00:00+03:00");
+    const origin = { branch: "feat", commit: gitShortHead(repo) };
+    gitCheckout(repo, "master");
+    await writeFiles(repo, { "src/a.ts": fileOf(withValues(LINES, { 15: 1500 })) });
+    gitCommitAll(repo, "Основная ветка правит value15", "2026-09-10T12:00:00+03:00");
+    gitRebaseMerge(repo, "feat", "2026-09-12T10:00:00+03:00");
+
+    expect(await changedCommitSubjects(repo, origin)).toEqual([]);
+    for (const context of ["0", "10"]) {
+      execFileSync("git", ["config", "diff.context", context], { cwd: repo });
+      expect(await changedCommitSubjects(repo, origin)).toEqual([]);
+    }
+  });
+
   it("в репозитории с diff.algorithm=histogram коммит ветки задачи взяли cherry-pick в основную ветку, которая уже добавила такую же строку в конце файла, — копия не делает задачу кандидатом", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     execFileSync("git", ["config", "diff.algorithm", "histogram"], { cwd: repo });

@@ -1,6 +1,6 @@
 import { groupBy } from "../collections";
 import { firstParentLanding } from "../git/landing";
-import { outputLine, resolveTrees, topLiteralPathspecs, type GitRunner } from "../git/run";
+import { outputLine, PARSED_DIFF_OPTIONS, resolveTrees, topLiteralPathspecs, type GitRunner } from "../git/run";
 import { remembered } from "../remembered";
 import { firstLineOf, hunkHeaderOf, patchShapes, type BlobPair, type HunkHeader } from "./diff-hunks";
 
@@ -29,7 +29,9 @@ type PreimageShifts = { shiftsBetween: ShiftsBetween; complete: boolean };
 type CommitsCarryingContent = (tip: string, scope: readonly string[]) => Promise<string[]>;
 
 // diff-tree ignores diff.algorithm and diff.indentHeuristic from git config; pinning them keeps patches and preimage diffs on one algorithm.
-const PATCH_OPTIONS = ["-p", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--no-relative", "--full-index", "--diff-algorithm=myers", "--indent-heuristic"];
+// patch-id hashes context lines, so the context is pinned rather than taken from diff.context; with zero context an insertion would match a copy anywhere at the same line number.
+const PATCH_OPTIONS = ["-p", ...PARSED_DIFF_OPTIONS, "--no-renames", "--no-relative", "--full-index", "--diff-algorithm=myers", "--indent-heuristic", "--unified=3", "--inter-hunk-context=0"];
+const LINE_SHIFT_OPTIONS = [...PATCH_OPTIONS, "--unified=0"];
 const COMMIT_HEADER = "--format=commit %H";
 const TREE_PAIR_LINE = /^[0-9a-f]+ [0-9a-f]+$/;
 const NO_COMMIT = /^0+$/;
@@ -192,11 +194,7 @@ async function preimageShifts(repoGit: RepoGit, path: string, pairs: readonly Pa
 
 async function treeDiffShifts({ repo, git }: RepoGit, path: string, treePairs: readonly string[]): Promise<Map<string, LineShift[]> | null> {
   if (treePairs.length === 0) return new Map();
-  const preimageDiffs = await git(
-    repo,
-    ["diff-tree", "--stdin", ...PATCH_OPTIONS, "--unified=0", "--inter-hunk-context=0", "--", ...topLiteralPathspecs([path])],
-    treePairs.map((treePair) => `${treePair}\n`).join(""),
-  );
+  const preimageDiffs = await git(repo, ["diff-tree", "--stdin", ...LINE_SHIFT_OPTIONS, "--", ...topLiteralPathspecs([path])], treePairs.map((treePair) => `${treePair}\n`).join(""));
   return preimageDiffs === null ? null : lineShiftsByTreePair(preimageDiffs);
 }
 

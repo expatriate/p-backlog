@@ -1,5 +1,5 @@
 import { isAbsolute, join, normalize, sep } from "node:path";
-import { FIELD, literalPathspecs, outputLine, RECORD, runGit, runGitOutcome, type GitRunner } from "../git/run";
+import { FIELD, literalPathspecs, outputLine, PARSED_DIFF_OPTIONS, RECORD, runGit, runGitOutcome, type GitRunner } from "../git/run";
 import type { LineRange } from "./anchor";
 import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
 import { SECOND_MS } from "../model/dates";
@@ -149,7 +149,7 @@ export function diffsFrom(repo: string, git: GitRunner = runGit): DiffFrom {
   const diffs = new Map<string, Promise<FileDiff | null>>();
   return (path, commit) =>
     remembered(diffs, `${commit} ${path}`, async () => {
-      const diff = await git(repo, ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--unified=3", commit, "--", ...literalPathspecs([path])]);
+      const diff = await git(repo, ["diff", ...PARSED_DIFF_OPTIONS, "--unified=3", commit, "--", ...literalPathspecs([path])]);
       if (diff === null) return null;
       if (diff === "" && !(await isConfirmedTracked(repo, path, git))) return { excerpt: undefined, changed: null, hunks: null };
       const hunks = parseHunks(diff);
