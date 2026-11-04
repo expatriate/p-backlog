@@ -93,7 +93,7 @@ function isInsideRepo(path: string): boolean {
 
 export type DiffExcerpt = { text: string; omittedLines: number };
 
-type FileDiff = { excerpt: DiffExcerpt | undefined; changed: LineRange[]; hunks: Hunk[] | null };
+type FileDiff = { excerpt: DiffExcerpt | undefined; changed: LineRange[] | null; hunks: Hunk[] | null };
 
 export type DiffSince = (path: string, since: Date) => Promise<FileDiff | null>;
 
@@ -141,7 +141,7 @@ export function diffsFrom(repo: string, git: GitRunner = runGit): DiffFrom {
       const diff = await git(repo, ["-c", "diff.suppressBlankEmpty=false", "diff", "--no-color", "--no-ext-diff", "--no-textconv", commit, "--", path]);
       if (diff === null) return null;
       const hunks = parseHunks(diff);
-      return { excerpt: excerptOf(diff), changed: changedRanges(hunks ?? []), hunks };
+      return { excerpt: excerptOf(diff), changed: hunks === null ? null : changedRanges(hunks), hunks };
     });
 }
 

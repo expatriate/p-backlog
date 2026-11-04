@@ -33,11 +33,15 @@ async function repoWithChange({ inSymbol }: { inSymbol: boolean }): Promise<stri
   gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
   await writeFile(join(repo, "src/upload.ts"), inSymbol ? body("v2", "v1") : body("v1", "v2"));
   gitCommitAll(repo, "Правка", "2026-09-12T10:00:00+03:00");
+  await indexUpload(repo);
+  return repo;
+}
+
+async function indexUpload(repo: string): Promise<void> {
   const hash = createHash("sha256")
     .update(await readFile(join(repo, "src/upload.ts")))
     .digest("hex");
   await makeGraphDb(repo, [{ path: "src/upload.ts", hash, symbols: SYMBOLS }]);
-  return repo;
 }
 
 const declaredSources = (tasks: readonly Task[]) => new Map(tasks.map((item) => [item.id, item.source ?? null]));
@@ -59,6 +63,19 @@ describe("filterBySymbol", () => {
     const graph = openCodeGraph(repo);
 
     expect((await filterBySymbol([candidate], context(task, diffsSince(repo), symbolLookup(graph, hashesOf(repo))))).kept).toEqual([{ ...candidate, method: "symbol" }]);
+    graph?.close();
+  });
+
+  it("файла не было в коммите, от которого считается правка, — кандидат остаётся: что менялось внутри, неизвестно", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "README.md": "spa\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(repo, { "src/upload.ts": body("v1", "v1") });
+    gitCommitAll(repo, "Загрузка", "2026-09-12T10:00:00+03:00");
+    await indexUpload(repo);
+    const graph = openCodeGraph(repo);
+
+    expect((await filterBySymbol([candidate], context(task, diffsSince(repo), symbolLookup(graph, hashesOf(repo))))).kept).toEqual([candidate]);
     graph?.close();
   });
 

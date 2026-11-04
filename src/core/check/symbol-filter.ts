@@ -69,7 +69,7 @@ async function decide(candidate: Candidate, { tasksById, located, diffOf, symbol
   const found = symbolOfSource(symbolAt, located.get(task.id) ?? undefined);
   if (found === null) return { kept: candidate };
   const diff = await diffOf(candidate.path, new Date(reviewMark(task)));
-  if (diff === null) return { kept: candidate };
+  if (diff === null || diff.changed === null) return { kept: candidate };
   const watched = watchedRange(found.symbol, found.declared);
   if (diff.changed.some((range) => overlaps(range, watched))) return { kept: { ...candidate, method: "symbol" } };
   return { filtered: { task: task.id, symbol: shortName(found.symbol.qualifiedName) } };
