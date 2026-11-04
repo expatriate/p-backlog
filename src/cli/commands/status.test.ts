@@ -26,6 +26,16 @@ describe("backlog status", () => {
     expect((await loadBacklog(root)).tasks[0]?.status).toBe("done");
   });
 
+  it("тот же статус не выдаётся за переход", async () => {
+    const { run } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "X"]);
+    await run(["status", "SPA-1", "done"]);
+
+    const again = await run(["status", "SPA-1", "done"]);
+
+    expect(again).toEqual({ code: EXIT.ok, out: "SPA-1: уже done", err: "" });
+  });
+
   it("возврат исправленной задачи в работу называет её прежние коммиты; отменённой и снова закрытой — нет", async () => {
     const { run, repo } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "X"]);
@@ -43,7 +53,7 @@ describe("backlog status", () => {
       out: "SPA-1: done → in-progress",
       err: `SPA-1 была исправлена в ${sha}: закрывая снова, начните --reason с этих коммитов ("Исправлено в ${sha}, <sha>: …") — статистика считает исправлением первый коммит из причины`,
     });
-    expect(closedAgain).toEqual({ code: EXIT.ok, out: "SPA-1: done → done", err: "" });
+    expect(closedAgain).toEqual({ code: EXIT.ok, out: "SPA-1: уже done", err: "" });
     expect(obsoleteReopened).toEqual({ code: EXIT.ok, out: "SPA-2: cancelled → in-progress", err: "" });
   });
 

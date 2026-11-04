@@ -51,7 +51,8 @@ async function changeStatus(positionals: string[], io: CliIo): Promise<ExitCode>
     io.warn(io.cli.projectNotFound(id));
     return EXIT.notFound;
   }
-  io.print(`${id}: ${statusWord(io.cli, !active)} → ${statusWord(io.cli, active)}`);
+  const target = statusWord(io.cli, active);
+  io.print(result.changed ? `${id}: ${statusWord(io.cli, !active)} → ${target}` : io.cli.alreadySet(id, target));
   return EXIT.ok;
 }
 

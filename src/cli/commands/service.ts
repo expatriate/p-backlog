@@ -62,7 +62,7 @@ async function statusWith(manager: ServiceManager, io: CliIo): Promise<ExitCode>
   const port = await servicePort(manager, io);
   const [registered, responding] = await Promise.all([manager.registered(), serverResponds(loopbackOrigin(port), STATUS_TIMEOUT_MS)]);
   io.print(io.cli.serviceStatus(registered, responding, port));
-  return EXIT.ok;
+  return registered && responding ? EXIT.ok : EXIT.failed;
 }
 
 function reportFailure({ failed, code, output }: ServiceFailure, io: CliIo): ExitCode {

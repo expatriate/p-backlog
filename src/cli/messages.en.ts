@@ -3,10 +3,13 @@ import type { CliMessages } from "./messages.ru";
 
 export const cliEn: CliMessages = {
   usageHeader: "Usage:",
+  alreadySet: (id, value) => `${id}: already ${value}`,
   extraArguments: (args) => `Extra arguments: ${args.join(" ")}`,
   argumentProblem: {
     unknownOption: (option) => `Unknown option ${option}`,
     missingValue: (option) => `Option ${option} needs a value`,
+    valueLooksLikeOption: (option) => `Option ${option} needs a value. If the value starts with "-", pass it as ${option}=value`,
+    repeated: (option) => `Option ${option} is given twice`,
     takesNoValue: (option) => `Option ${option} does not take a value`,
   },
   invalidChoice: (label, allowed, value) => `${label}: expected one of ${allowed.join(", ")}, got "${value}"`,

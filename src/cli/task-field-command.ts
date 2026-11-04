@@ -29,12 +29,22 @@ export function taskFieldCommand<T>(spec: TaskFieldSpec<T>): CliCommand {
       const loaded = await loadBacklog(io.backlogRoot);
       const task = findTaskOrWarn(loaded, io, id);
       if (!task) return EXIT.notFound;
-      const written = await taskWriter(io, loaded.tasks)(task, spec.changes(value));
+      const changes = spec.changes(value);
+      const before = spec.label(task, io.language);
+      if (alreadyHas(task, changes)) {
+        io.print(io.cli.alreadySet(id, before));
+        return EXIT.ok;
+      }
+      const written = await taskWriter(io, loaded.tasks)(task, changes);
       if (!written.ok) return written.exitCode;
       spec.afterWrite?.(written.task, io, task);
-      io.print(`${id}: ${spec.label(task, io.language)} → ${spec.label(written.task, io.language)}`);
+      io.print(`${id}: ${before} → ${spec.label(written.task, io.language)}`);
       return EXIT.ok;
     },
   };
   return command;
+}
+
+function alreadyHas(task: Task, changes: TaskChanges): boolean {
+  return Object.entries(changes).every(([field, next]) => (task[field as keyof Task] ?? null) === (next ?? null));
 }

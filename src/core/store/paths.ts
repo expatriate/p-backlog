@@ -1,4 +1,5 @@
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
+import type { Project } from "../model/types";
 
 export const PROJECT_FILE = "project.md";
 export const PID_FILE_ENV = "P_BACKLOG_PID_FILE";
@@ -15,6 +16,10 @@ export function resolveBacklogRoot(env: Record<string, string | undefined>, home
 
 export function taskFileName(id: string): string {
   return `${id}.md`;
+}
+
+export function projectDirOf(project: Pick<Project, "path">): string {
+  return dirname(project.path);
 }
 
 export function projectDir(root: string, id: string): string | null {

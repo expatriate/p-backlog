@@ -11,9 +11,11 @@ describe("backlog category", () => {
 
     const set = await run(["category", "SPA-1", "couplers"]);
     const cleared = await run(["category", "SPA-1", "none"]);
+    const clearedAgain = await run(["category", "SPA-1", "none"]);
 
     expect(set).toMatchObject({ code: 0, out: "SPA-1: Ошибка → Связанность" });
     expect(cleared).toMatchObject({ code: 0, out: "SPA-1: Связанность → не указана" });
+    expect(clearedAgain).toMatchObject({ code: 0, out: "SPA-1: уже не указана" });
     expect((await loadBacklog(root)).tasks[0]?.category).toBeUndefined();
     const kinds = (await readJournal(join(root, "spa"), "spa")).events.map((event) => event.kind);
     expect(kinds).toEqual(["created", "category", "category"]);

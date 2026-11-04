@@ -250,7 +250,7 @@ supported):
 
 ```bash
 backlog service install     # macOS: launchd, Linux: systemd --user, Windows: script in the Startup folder
-backlog service status      # is it installed, is the server responding
+backlog service status      # is it installed, is the server responding; exit code 4 if not
 backlog service uninstall
 ```
 

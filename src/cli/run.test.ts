@@ -2,6 +2,7 @@ import { chmod, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { HOOK_STOP_COMMAND, HOOK_STOP_EVENT } from "../core/hook-signature";
 import { settingsFilePath } from "../core/store/settings";
+import { loadBacklog } from "../core/store/load";
 import { CLI_COMMANDS, commandName, runCli } from "./run";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { EXIT, type CliEnv } from "./io";
@@ -31,6 +32,19 @@ describe("runCli", () => {
 
     const extra = await run(["list", "лишнее"]);
     expect(extra).toMatchObject({ code: EXIT.invalid, err: expect.stringContaining("Лишние аргументы: лишнее\nИспользование:\n  backlog list ") });
+  });
+
+  it("значение на «-» подсказывает форму --параметр=значение, повтор параметра не теряет первое значение молча", async () => {
+    const { run, root } = await makeCliSandbox();
+
+    const dashed = await run(["new", "--category", "bug", "--title", "--json ломает вывод"]);
+    const repeated = await run(["new", "--category", "bug", "--title", "Первый", "--title", "Второй"]);
+    const inline = await run(["new", "--category", "bug", "--title=--json ломает вывод"]);
+
+    expect(dashed).toMatchObject({ code: EXIT.invalid, err: expect.stringContaining("--title=") });
+    expect(repeated).toMatchObject({ code: EXIT.invalid, err: expect.stringContaining("--title указан дважды") });
+    expect(inline.code).toBe(EXIT.ok);
+    expect((await loadBacklog(root)).tasks.map((task) => task.title)).toEqual(["--json ломает вывод"]);
   });
 
   it("--help у команды печатает её справку в stdout с кодом 0", async () => {

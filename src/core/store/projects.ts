@@ -12,14 +12,14 @@ type ProjectNotFound = { ok: false; reason: "not-found" };
 
 const NOT_FOUND: ProjectNotFound = { ok: false, reason: "not-found" };
 
-export type ProjectWriteResult = { ok: true; project: Project } | ProjectNotFound | { ok: false; reason: "invalid"; problems: Problem[] };
+export type ProjectWriteResult = { ok: true; project: Project; changed: boolean } | ProjectNotFound | { ok: false; reason: "invalid"; problems: Problem[] };
 
 export type ProjectDeleteResult = { ok: true } | ProjectNotFound;
 
 export async function setProjectActive(root: string, id: string, active: boolean): Promise<ProjectWriteResult> {
   const dir = projectDir(root, id);
   if (dir === null) return NOT_FOUND;
-  return editProjectFile({ id, path: join(dir, PROJECT_FILE) }, (project) => ({ ...project, active }));
+  return editProjectFile({ id, path: join(dir, PROJECT_FILE) }, (project) => (project.active === active ? project : { ...project, active }));
 }
 
 export function reserveIssuedUpTo(project: Pick<Project, "id" | "path">, number: number): Promise<ProjectWriteResult> {
@@ -45,8 +45,9 @@ async function editProjectFile({ id, path }: Pick<Project, "id" | "path">, edit:
     if (parsed === null) return NOT_FOUND;
     if (!parsed.ok) return { ok: false, reason: "invalid", problems: parsed.problems };
     const project = edit(parsed.value);
-    if (project !== parsed.value) await writeFileAtomic(path, serializeProject(project));
-    return { ok: true, project };
+    const changed = project !== parsed.value;
+    if (changed) await writeFileAtomic(path, serializeProject(project));
+    return { ok: true, project, changed };
   });
 }
 

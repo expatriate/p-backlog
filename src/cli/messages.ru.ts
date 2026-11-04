@@ -2,10 +2,13 @@ import { joinAlternatives } from "../core/i18n/format";
 
 export const cliRu = {
   usageHeader: "Использование:",
+  alreadySet: (id: string, value: string): string => `${id}: уже ${value}`,
   extraArguments: (args: readonly string[]): string => `Лишние аргументы: ${args.join(" ")}`,
   argumentProblem: {
     unknownOption: (option: string): string => `Неизвестный параметр ${option}`,
     missingValue: (option: string): string => `У параметра ${option} нет значения`,
+    valueLooksLikeOption: (option: string): string => `У параметра ${option} нет значения. Если значение начинается с «-», передайте его так: ${option}=значение`,
+    repeated: (option: string): string => `Параметр ${option} указан дважды`,
     takesNoValue: (option: string): string => `Параметр ${option} не принимает значения`,
   },
   invalidChoice: (label: string, allowed: readonly string[], value: string): string => `${label}: ожидается одно из ${allowed.join(", ")}, получено «${value}»`,

@@ -120,13 +120,25 @@ describe("backlog service", () => {
     }
   });
 
+  it("status без службы, но с отвечающим сервером — код 4: служба не установлена", async () => {
+    const { home, root, run } = await makeCliSandbox();
+    const server = await startServer({ ...QUIET_HOST, root, port: 0, home, env: {} });
+    try {
+      const result = await run(["service", "status"], { env: { PORT: String(server.port) } });
+
+      expect(result).toMatchObject({ code: EXIT.failed, out: `Служба: не установлена · сервер на порту ${server.port}: отвечает` });
+    } finally {
+      await server.close();
+    }
+  });
+
   it("status без службы проверяет порт из PORT", async () => {
     const { run } = await makeCliSandbox();
     const port = await freePort();
 
     const result = await run(["service", "status"], { env: { PORT: String(port) } });
 
-    expect(result.out).toBe(`Служба: не установлена · сервер на порту ${port}: не отвечает`);
+    expect(result).toMatchObject({ code: EXIT.failed, out: `Служба: не установлена · сервер на порту ${port}: не отвечает` });
   });
 
   it("status с нечитаемым файлом службы называет этот файл и проверяет порт из PORT", async () => {

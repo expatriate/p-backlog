@@ -103,6 +103,7 @@ array) — fix them together, closing each one.
 | 1 | It's an epic, or the write failed: the task file changed during the write or the task failed validation | Epic — show the user the epic's tasks from the output and ask which one to take. Otherwise read the message: if it asks to retry the command, retry; otherwise tell the user |
 | 2 | Task or project not found, no open tasks | Tell the user |
 | 3 | Open blockers, or the task is already closed; with `--next` and `--path` — every matching task is blocked | List the blockers and stop. `take <ID> --force` — only on the user's direct request |
+| 4 | The command failed: the task file is busy in another process or the write failed | Read the message: file busy — retry the command a bit later; if it still fails or the cause is different, tell the user |
 
 1. Read the description and `source`; for related tasks you need, use `backlog show <ID>`.
 2. Do the work. Finished a checklist item — mark it in the task file right away (`- [ ]` → `- [x]`, the

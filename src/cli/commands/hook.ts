@@ -1,5 +1,4 @@
 import { errorText } from "../../core/errors";
-import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { checkBacklog } from "../../core/check/check-backlog";
 import { formatLocalDay } from "../../core/model/dates";
@@ -7,6 +6,7 @@ import { FileBusyError } from "../../core/store/file-lock";
 import { claimHookTurn } from "../../core/store/hook-turns";
 import { readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
+import { projectDirOf } from "../../core/store/paths";
 import { findProjectForDir, readGitRoots, repoRootsOf } from "../../core/store/resolve-project";
 import { readSignalsShown, rememberSignalsShown } from "../../core/store/signals-shown";
 import { readSessionShown, rememberSessionShown } from "../../core/store/session-shown";
@@ -108,7 +108,7 @@ const NO_SESSION_MEMORY: SessionMemory = { told: new Set(), remember: rememberNo
 
 async function sessionMemory(project: Project, session: string | undefined, io: CliIo): Promise<SessionMemory> {
   if (session === undefined) return NO_SESSION_MEMORY;
-  const projectDir = dirname(project.path);
+  const projectDir = projectDirOf(project);
   try {
     return {
       told: new Set(await readSessionShown(projectDir, session)),
@@ -132,7 +132,7 @@ function lowChangedSignals(count: number): Signal[] {
 }
 
 async function freshSignals(project: Project, tasks: readonly Task[], extra: readonly Signal[], io: CliIo): Promise<FreshSignals> {
-  const projectDir = dirname(project.path);
+  const projectDir = projectDirOf(project);
   const today = formatLocalDay(io.now());
   try {
     const journal = await readJournal(projectDir, project.id);

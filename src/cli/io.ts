@@ -41,17 +41,34 @@ export class UsageError extends Error {}
 
 export class ArgumentsError extends UsageError {}
 
-type ArgumentProblem = { kind: "unknownOption" | "missingValue" | "takesNoValue"; option: string };
+type ArgumentProblem = { kind: "unknownOption" | "missingValue" | "valueLooksLikeOption" | "takesNoValue" | "repeated"; option: string };
 
 export const END_OF_OPTIONS = "--";
 
 export function parseCommandArgs<const T extends ParseArgsOptionsConfig>(language: Language, args: string[], options: T) {
+  const parsed = parseOrExplain(language, args, options);
+  const repeated = repeatedOption(parsed.tokens, options);
+  if (repeated !== null) throw new ArgumentsError(cliMessages(language).argumentProblem.repeated(repeated));
+  return parsed;
+}
+
+function parseOrExplain<const T extends ParseArgsOptionsConfig>(language: Language, args: string[], options: T) {
   try {
-    return parseArgs({ args, options, allowPositionals: true });
+    return parseArgs({ args, options, allowPositionals: true, tokens: true });
   } catch (error) {
     const problem = argumentProblem(args, options);
     throw new ArgumentsError(problem === null ? errorText(error) : cliMessages(language).argumentProblem[problem.kind](problem.option));
   }
+}
+
+function repeatedOption(tokens: readonly { kind: string; name?: string }[], options: ParseArgsOptionsConfig): string | null {
+  const seen = new Set<string>();
+  for (const token of tokens) {
+    if (token.kind !== "option" || token.name === undefined || options[token.name]?.multiple === true) continue;
+    if (seen.has(token.name)) return `--${token.name}`;
+    seen.add(token.name);
+  }
+  return null;
 }
 
 export function parseOptions<const T extends ParseArgsOptionsConfig>(language: Language, args: string[], options: T) {
@@ -72,7 +89,8 @@ function argumentProblem(args: readonly string[], options: ParseArgsOptionsConfi
     if (config.type === "boolean" && hasInlineValue) return { kind: "takesNoValue", option };
     if (config.type === "string" && !hasInlineValue) {
       const value = args[position + 1];
-      if (value === undefined || value.startsWith("-")) return { kind: "missingValue", option };
+      if (value === undefined) return { kind: "missingValue", option };
+      if (value.length > 1 && value.startsWith("-")) return { kind: "valueLooksLikeOption", option };
       position++;
     }
   }

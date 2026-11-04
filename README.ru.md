@@ -245,7 +245,7 @@ backlog serve --port 5000
 
 ```bash
 backlog service install     # macOS: launchd, Linux: systemd --user, Windows: скрипт в папке «Автозагрузка»
-backlog service status      # установлена ли служба, отвечает ли сервер
+backlog service status      # установлена ли служба, отвечает ли сервер; код 4, если нет
 backlog service uninstall
 ```
 

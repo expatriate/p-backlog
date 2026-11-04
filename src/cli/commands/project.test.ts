@@ -23,6 +23,7 @@ describe("backlog project", () => {
     expect((await run(["list", "--all-projects"], { cwd: home })).out).toBe("Задач не найдено");
 
     expect(await run(["project", "status", "spa", "active"])).toMatchObject({ code: EXIT.ok, out: "spa: неактивен → активен" });
+    expect(await run(["project", "status", "spa", "active"])).toMatchObject({ code: EXIT.ok, out: "spa: уже активен" });
     expect((await run(["project", "status", "нет-такого", "active"])).code).toBe(EXIT.notFound);
     expect((await run(["project", "status", "spa", "включить"])).code).toBe(EXIT.invalid);
     expect((await run(["project", "чего"])).code).toBe(EXIT.invalid);
