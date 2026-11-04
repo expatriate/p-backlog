@@ -227,6 +227,6 @@ describe("awaitingMerge", () => {
   it("коммита создания нет в репозитории — задача не ждёт слияния вечно, хотя её ветка жива и не влита", async () => {
     const { repo, next } = await featureOfTwoCommits();
 
-    expect(await awaiting(repo, { "SPA-1": { branch: "next", commit: "1".repeat(40) }, "SPA-2": next })).toEqual(new Set(["SPA-2"]));
+    expect(await mergeWait(repo, { "SPA-1": { branch: "next", commit: "1".repeat(40) }, "SPA-2": next }, runGitOutcome)).toEqual({ pending: new Set(["SPA-2"]), unknownBranches: [] });
   });
 });

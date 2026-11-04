@@ -21,13 +21,16 @@ export async function awaitingMerge({ repo, taskIds, origins, git = runGitOutcom
   if (branched.length === 0) return { pending: new Set(), unknownBranches: [] };
   const current = lineOf(await git(repo, ["rev-parse", "--abbrev-ref", "HEAD"]));
   const branchStates = new Map<string, Promise<BranchState>>();
+  let shallow: Promise<boolean> | undefined;
+  const isShallow = () => (shallow ??= isShallowClone(repo, git));
   const nested = await Promise.all(
     branched.map(async ({ id, commit, branch }) => {
       if (branch === current) return [];
       const ancestry = await git(repo, ["merge-base", "--is-ancestor", commit, "HEAD"]);
       if (ancestry.status === "unfinished") return [{ id, branch, state: "unknown" as const }];
-      const notAnAncestor = ancestry.status === "exited" && ancestry.exitCode === NOT_AN_ANCESTOR_EXIT;
-      if (!notAnAncestor) return [];
+      if (ancestry.status === "ok") return [];
+      const creationCommitUnreadable = ancestry.exitCode !== NOT_AN_ANCESTOR_EXIT;
+      if (creationCommitUnreadable && !(await isShallow())) return [];
       return [{ id, branch, state: await remembered(branchStates, branch, () => branchState(repo, branch, git)) }];
     }),
   );
@@ -42,6 +45,10 @@ async function branchState(repo: string, branch: string, git: GitOutcomeRunner):
   const tip = lineOf(lookup);
   if (tip !== null) return landingState(repo, tip, asGitRunner(git));
   return lookup.status === "exited" && lookup.exitCode === NO_SUCH_REF_EXIT ? "deleted" : "unknown";
+}
+
+async function isShallowClone(repo: string, git: GitOutcomeRunner): Promise<boolean> {
+  return lineOf(await git(repo, ["rev-parse", "--is-shallow-repository"])) === "true";
 }
 
 function lineOf(outcome: GitOutcome): string | null {
