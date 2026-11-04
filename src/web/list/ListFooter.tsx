@@ -9,7 +9,7 @@ import styles from "./ListFooter.module.css";
 export function ListFooter({ selection }: { selection: TaskSelection }) {
   const batchResult = useBatchResult();
   const footer = useRef<HTMLDivElement>(null);
-  useScrollSpaceFor(footer);
+  useScrollSpaceFor(footer, "--list-footer-height");
 
   return (
     <div ref={footer} className={styles.footer}>

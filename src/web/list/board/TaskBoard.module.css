@@ -74,7 +74,8 @@
   gap: var(--space-2);
   min-height: 0;
   margin: 0;
-  padding: 0 2px 2px;
+  padding: 0 2px calc(2px + var(--board-notice-height));
+  scroll-padding-bottom: var(--board-notice-height);
   overflow-y: auto;
   overscroll-behavior: contain;
   list-style: none;

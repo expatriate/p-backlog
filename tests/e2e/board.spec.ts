@@ -205,6 +205,17 @@ test("длинная колонка прокручивается внутри д
 
   await expect(page.getByRole("button", { name: "Отменить" })).toBeInViewport();
   await expect(backlog.getByRole("heading", { level: 2 })).toBeInViewport();
+  const card = (title: string) => backlog.locator("li").filter({ has: page.getByRole("link", { name: title, exact: true }) });
+  const uncovered = (shown: Locator) =>
+    shown.evaluate((item) => {
+      const { left, width, bottom } = item.getBoundingClientRect();
+      return item.contains(document.elementFromPoint(left + width / 2, bottom - 4));
+    });
+  await card("Карточка 1").evaluate((item) => item.parentElement?.scrollTo({ top: 0 }));
+  await card("Карточка 10").evaluate((item) => item.scrollIntoView({ block: "nearest" }));
+  expect(await uncovered(card("Карточка 10"))).toBe(true);
+  await card("Карточка 29").evaluate((item) => item.parentElement?.scrollTo({ top: item.parentElement.scrollHeight }));
+  expect(await uncovered(card("Карточка 29"))).toBe(true);
   expect(await page.evaluate(() => document.querySelector("main > div")?.scrollTop ?? 0)).toBe(pageScrolled);
   expect((await column(page, "в работе").boundingBox())?.y).toBe(columnsTop);
   expect(await scrollTops()).not.toEqual([]);

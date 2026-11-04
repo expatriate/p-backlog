@@ -31,6 +31,7 @@ import { TaskId } from "../../ui/TaskId";
 import { useMediaQuery } from "../../ui/use-media-query";
 import { BlockedMarker } from "../BlockedMarker";
 import { useNoticeLifetime } from "../use-notice-lifetime";
+import { useScrollSpaceFor } from "../use-scroll-space";
 import footer from "../FooterPanel.module.css";
 import { boardColumns, type BoardColumn, type PendingMoves } from "./board-columns";
 import { useBoardMove } from "./use-board-move";
@@ -105,6 +106,7 @@ function MoveNotice({ moves: { lastMove, failure, undoing, dismiss }, undoButton
   const notice = useRef<HTMLDivElement>(null);
   const news = useMemo(() => (lastMove === null && failure === null ? null : { lastMove, failure }), [lastMove, failure]);
   useNoticeLifetime(notice, news, undoing, dismiss);
+  useScrollSpaceFor(notice, "--board-notice-height");
   useEffect(() => {
     if (lastMove !== null) focusIfDropped(undoButton.current);
   }, [lastMove, undoButton]);

@@ -1,21 +1,19 @@
 import { useEffect, useLayoutEffect, type RefObject } from "react";
 
-const FOOTER_HEIGHT_PROPERTY = "--list-footer-height";
-
-export function useScrollSpaceFor(footer: RefObject<HTMLElement | null>) {
-  useLayoutEffect(() => reserveScrollSpace(footer.current));
+export function useScrollSpaceFor(panel: RefObject<HTMLElement | null>, heightProperty: `--${string}`) {
+  useLayoutEffect(() => reserveScrollSpace(panel.current, heightProperty));
   useEffect(() => {
-    const element = footer.current;
+    const element = panel.current;
     if (!element) return;
-    const observer = new ResizeObserver(() => reserveScrollSpace(element));
+    const observer = new ResizeObserver(() => reserveScrollSpace(element, heightProperty));
     observer.observe(element);
     return () => {
       observer.disconnect();
-      document.documentElement.style.removeProperty(FOOTER_HEIGHT_PROPERTY);
+      document.documentElement.style.removeProperty(heightProperty);
     };
-  }, [footer]);
+  }, [panel, heightProperty]);
 }
 
-function reserveScrollSpace(footer: HTMLElement | null) {
-  if (footer) document.documentElement.style.setProperty(FOOTER_HEIGHT_PROPERTY, `${Math.ceil(footer.getBoundingClientRect().height)}px`);
+function reserveScrollSpace(panel: HTMLElement | null, heightProperty: string) {
+  if (panel) document.documentElement.style.setProperty(heightProperty, `${Math.ceil(panel.getBoundingClientRect().height)}px`);
 }

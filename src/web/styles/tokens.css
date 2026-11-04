@@ -99,6 +99,7 @@
   --main-overflow: auto;
   --main-frame-overflow: hidden;
   --list-footer-height: 0px;
+  --board-notice-height: 0px;
   --drawer-pad-block-start: var(--space-4);
   --drawer-modal: 0;
   --sidebar-row-gap: var(--space-2);
