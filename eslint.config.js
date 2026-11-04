@@ -26,10 +26,16 @@ const BROWSER_WRAPPERS = [
   { file: "src/web/ui/platform.ts", globals: [], properties: [{ property: "platform" }], message: "Ask isApplePlatform in ui/platform.ts." },
   { file: "src/web/ui/use-leave-guard.ts", globals: ["confirm"], properties: onGlobalObjects("confirm"), message: "Ask before leaving through useLeaveGuard in ui/use-leave-guard.ts." },
 ];
-const NO_PROCESS_IN_BROWSER = { name: "process", message: "The web UI runs in the browser; it has no Node process." };
+const NODE_ONLY_GLOBALS = Object.keys(globals.node)
+  .filter((name) => !(name in globals.browser))
+  .map((name) => ({ name, message: "The web UI runs in the browser; Node globals are undefined there." }));
 const browserFences = (wrappers) => ({
-  "no-restricted-globals": ["error", NO_PROCESS_IN_BROWSER, ...wrappers.flatMap(({ globals, message }) => globals.map((name) => ({ name, message })))],
-  "no-restricted-properties": ["error", ...wrappers.flatMap(({ properties, message }) => properties.map((restricted) => ({ ...restricted, message })))],
+  "no-restricted-globals": ["error", ...NODE_ONLY_GLOBALS, ...wrappers.flatMap(({ globals, message }) => globals.map((name) => ({ name, message })))],
+  "no-restricted-properties": [
+    "error",
+    ...NODE_ONLY_GLOBALS.flatMap(({ name, message }) => onGlobalObjects(name).map((restricted) => ({ ...restricted, message }))),
+    ...wrappers.flatMap(({ properties, message }) => properties.map((restricted) => ({ ...restricted, message }))),
+  ],
 });
 const REPORT_TYPES = { group: ["**/core/stats/types"], message: "Import report types from core/api/contract." };
 const RECHARTS = { group: ["recharts"], message: "Draw charts through the wrappers in stats/charts." };

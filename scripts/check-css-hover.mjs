@@ -1,12 +1,12 @@
 import { readFile } from "node:fs/promises";
-import { isShippedSource, reportHits, walk } from "./lib/check-files.mjs";
+import { checkedFiles, isShippedSource, reportHits } from "./lib/check-files.mjs";
 
 const DEFAULT_ROOTS = ["src/web"];
 const HOVER_CAPABLE = /^@media\s*\(\s*hover\s*:\s*hover\s*\)$/;
 
 await reportHits(DEFAULT_ROOTS, async (root) => {
   const hits = [];
-  for await (const path of walk(root, (path) => isShippedSource(path, new Set(["css"])))) hits.push(...ungatedHoversIn(path, await readFile(path, "utf8")));
+  for (const path of await checkedFiles(root, (path) => isShippedSource(path, new Set(["css"])))) hits.push(...ungatedHoversIn(path, await readFile(path, "utf8")));
   return hits;
 });
 

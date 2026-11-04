@@ -23,6 +23,17 @@ describe("check-css-hover", () => {
     expect(result.stdout.trim().split("\n")).toEqual([`${join("src", "web", "ui", "Button.module.css")}:10`, `${join("src", "web", "ui", "Button.module.css")}:14`]);
   });
 
+  it("каталога нет или в нём нечего проверять — гейт падает, а не зеленеет вхолостую", async () => {
+    const missing = await makeTempDir();
+    const empty = await makeTempDir();
+    await writeFiles(empty, { "src/web/ui/Button.tsx": "export {};\n" });
+
+    const [withoutRoot, withoutFiles] = [run(missing), run(empty)];
+
+    expect([withoutRoot.status, withoutRoot.stderr]).toEqual([1, expect.stringContaining("ENOENT")]);
+    expect([withoutFiles.status, withoutFiles.stderr]).toEqual([1, expect.stringContaining("no files to check")]);
+  });
+
   it("все :hover под @media (hover: hover) — код 0", async () => {
     const root = await makeTempDir();
     await writeFiles(root, { "src/web/ui/Chip.module.css": "@media (hover: hover) {\n  @container (max-width: 480px) {\n    .chip:hover {\n      color: blue;\n    }\n  }\n}\n" });

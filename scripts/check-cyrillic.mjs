@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { sep } from "node:path";
-import { isShippedSource, reportHits, walk } from "./lib/check-files.mjs";
+import { checkedFiles, isShippedSource, reportHits } from "./lib/check-files.mjs";
 
 const DEFAULT_ROOTS = ["src", "scripts"];
 const CHECKED_EXTENSIONS = new Set(["ts", "tsx", "html", "mjs", "js", "css", "json"]);
@@ -11,7 +11,7 @@ await reportHits(DEFAULT_ROOTS, findCyrillicIn);
 
 async function findCyrillicIn(root) {
   const hits = [];
-  for await (const file of walk(root, shouldCheck)) hits.push(...(await cyrillicHits(file)));
+  for (const file of await checkedFiles(root, shouldCheck)) hits.push(...(await cyrillicHits(file)));
   return hits;
 }
 

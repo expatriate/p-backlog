@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join, parse } from "node:path";
-import { isShippedSource, reportHits, walk } from "./lib/check-files.mjs";
+import { checkedFiles, isShippedSource, reportHits } from "./lib/check-files.mjs";
 
 const DEFAULT_ROOTS = ["src/web"];
 const TOKENS_SEGMENTS = ["styles", "tokens.css"];
@@ -16,7 +16,7 @@ await reportHits(DEFAULT_ROOTS, findBrokenContractsIn);
 
 async function findBrokenContractsIn(root) {
   const files = new Map();
-  for await (const path of walk(root, (path) => isShippedSource(path, CHECKED_EXTENSIONS))) files.set(path, await readFile(path, "utf8"));
+  for (const path of await checkedFiles(root, (path) => isShippedSource(path, CHECKED_EXTENSIONS))) files.set(path, await readFile(path, "utf8"));
   const tokensPath = join(root, ...TOKENS_SEGMENTS);
   const tokensSource = files.get(tokensPath) ?? "";
   const tokens = declarationsIn(tokensSource);
