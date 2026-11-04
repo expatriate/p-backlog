@@ -7,9 +7,11 @@ import { expandHome } from "../store/paths";
 import type { GitRoots, RepoPlaces } from "../store/resolve-project";
 import { anchorOf } from "./anchor";
 import { sourcePath } from "../model/source";
-import { isMissingSource } from "./candidates";
+import { presenceOffDisk, type SourcePresence } from "./candidates";
 import { currentSourceIn } from "./current-source";
 import { branchHistoryOf, locateRepo } from "./repo-facts";
+
+export type { SourcePresence };
 
 export type SourceAnchor = { kind: "no-file" } | { kind: "uncomputable" } | { kind: "anchor"; anchor: string };
 
@@ -22,12 +24,12 @@ export async function sourceAnchor(repo: string | undefined, source: string, onU
   return anchor === null ? { kind: "uncomputable" } : { kind: "anchor", anchor };
 }
 
-export async function sourceIsMissing(repo: string, source: string, onUnreadable: PathErrorHandler): Promise<boolean> {
+export async function sourcePresence(repo: string, source: string, onUnreadable: PathErrorHandler): Promise<SourcePresence> {
   const path = sourcePath(source);
   const onDisk = await attemptReportingFailure(join(repo, path), fileExists, onUnreadable);
   const presentOrUnreadable = onDisk !== false;
-  if (presentOrUnreadable) return false;
-  return isMissingSource(path, await branchHistoryOf(repo, await locateRepo(repo), [path]));
+  if (presentOrUnreadable) return "present";
+  return presenceOffDisk(path, await branchHistoryOf(repo, await locateRepo(repo), [path]));
 }
 
 export async function relocatedSource(repo: string | undefined, task: Task): Promise<string | undefined> {

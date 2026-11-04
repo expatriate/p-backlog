@@ -223,6 +223,8 @@ function checkProblem(p: CheckProblem): string {
       return `Project ${p.projectId}: git does not trust ${p.repo} (the directory belongs to another user) — commits and code edits of its tasks are not checked. Fix: git config --global --add safe.directory "${p.repo}"`;
     case "project-history-unreadable":
       return `Project ${p.projectId}: could not read the git history in ${p.repo} — commits and code edits of its tasks were not checked`;
+    case "project-branches-unreadable":
+      return `Project ${p.projectId}: could not read the git branches in ${p.repo} (a broken ref or a git failure) — missing code files of its tasks were not checked`;
     case "merge-state-unknown":
       return `Project ${p.projectId}: git in ${p.repo} could not tell whether ${pluralEn(p.branches.length, "branch", "branches")} ${p.branches.join(", ")} landed in the current branch (shallow clone, unrelated history or a git failure) — tasks created there were checked as usual, without waiting for the merge`;
     case "prefix-shared":

@@ -1,5 +1,5 @@
 import { basename, dirname } from "node:path";
-import type { RepoLookup } from "../core/check/project-repo";
+import { sourcePresence, type RepoLookup, type SourcePresence } from "../core/check/project-repo";
 import { oncePerPath, warnPathErrors, type PathErrorHandler } from "../core/errors";
 import type { CoreMessages } from "../core/messages";
 import { projectIdBase } from "../core/model/ids";
@@ -45,6 +45,13 @@ export function findProjectForCwd(projects: readonly Project[], io: CliIo): Proj
 
 export function repoLookup(io: CliIo): RepoLookup {
   return { ...repoPlaces(io), workingRoots: cwdGitRoots(io) };
+}
+
+export async function sourcePresenceOrWarn(io: CliIo, repo: string, source: string): Promise<SourcePresence> {
+  const presence = await sourcePresence(repo, source, repoPlaces(io).onUnreadable);
+  if (presence === "missing") io.warn(io.cli.sourceFileMissing(source));
+  if (presence === "unchecked") io.warn(io.cli.sourceFileUnchecked(source));
+  return presence;
 }
 
 export function findTaskOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {

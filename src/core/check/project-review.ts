@@ -25,7 +25,7 @@ import { duplicateCandidates } from "./duplicates";
 import { currentSourcesOf, diffsSinceCreation, repoDiffs, traceSources, type SourceTraces } from "./current-source";
 import type { CheckProblem } from "./findings";
 import { awaitingMerge } from "./awaiting-merge";
-import { collectRepoFacts, type DiffExcerpt, type GitHistory, type RepoFacts } from "./repo-facts";
+import { collectRepoFacts, type DiffExcerpt, type RepoFacts } from "./repo-facts";
 import { sourcePath } from "../model/source";
 import { fileHashes, filterBySymbol, symbolLookup, symbolNames, type SymbolFilterContext, type SymbolFilterResult } from "./symbol-filter";
 
@@ -82,7 +82,7 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
     const context = await projectContext(readable, review, scope, graph);
     const sighted = await sightedBySymbol(tasks, review, context, scope, skipped);
     const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, scope, project.id);
-    return { projectId: project.id, ...judged, skipped: [...skipped], problems: [...historyProblems(project, repo, facts.history), ...mergeProblems], unchecked: uncheckedEvidence(tasks, anchors, facts) };
+    return { projectId: project.id, ...judged, skipped: [...skipped], problems: [...historyProblems(project, repo, facts), ...mergeProblems], unchecked: uncheckedEvidence(tasks, anchors, facts) };
   } finally {
     graph?.close();
   }
@@ -168,10 +168,10 @@ function evidenceOf(tasks: readonly Task[], evidence: CandidateEvidence): TaskEv
   return tasks.map((task) => ({ task: task.id, evidence }));
 }
 
-function historyProblems(project: Project, repo: string, history: GitHistory): CheckProblem[] {
+function historyProblems(project: Project, repo: string, { history, branches }: RepoFacts): CheckProblem[] {
   switch (history) {
     case "read":
-      return [];
+      return branches.kind === "unreadable" ? [{ kind: "project-branches-unreadable", projectId: project.id, repo }] : [];
     case "not-a-repo":
       return [{ kind: "project-repo-not-git", projectId: project.id, repo }];
     case "unsafe-repo":

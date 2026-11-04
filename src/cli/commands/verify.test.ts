@@ -50,6 +50,24 @@ describe("backlog verify", () => {
     expect([task?.source, task?.verified]).toEqual(["src/a.ts:1", undefined]);
   });
 
+  it("ветки git не читаются — путь, которого нет на диске, не проверен: verify и new принимают его с предупреждением, check называет причину", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n", "src/gone.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await run(["new", "--category", "bug", "--title", "X", "--source", "src/a.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Y", "--source", "src/gone.ts:1"]);
+    await rm(join(repo, "src/gone.ts"));
+    await writeFiles(repo, { ".git/refs/heads/broken": `${"1".repeat(40)}\n` });
+    const unchecked = "--source src/typo.ts:1: файла нет на диске, а ветки git прочитать не удалось — путь не проверен";
+
+    const verified = await run(["verify", "SPA-1", "--source", "src/typo.ts:1"]);
+    expect(verified.code).toBe(EXIT.ok);
+    expect(verified.err).toContain(unchecked);
+    expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-1")?.source).toBe("src/typo.ts:1");
+    expect((await run(["new", "--category", "bug", "--title", "Z", "--source", "src/typo.ts:1"])).err).toContain(unchecked);
+    expect((await run(["check"])).out).toContain("не удалось прочитать ветки git");
+  });
+
   it("--source на папку и на файл из другой ветки принимается: check их пропавшими не считает", async () => {
     const { run, repo } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n", "src/feature/b.ts": "1\n" });

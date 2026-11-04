@@ -47,7 +47,7 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts, knownC
   const path = sourcePath(task.source);
   const mark = reviewMark(task);
   if (!facts.existing.has(path)) {
-    return isMissingSource(path, facts.branches) ? [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.renames, mark) }] : [];
+    return presenceOffDisk(path, facts.branches) === "missing" ? [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.renames, mark) }] : [];
   }
   if (anchor.kind === "same" || anchor.kind === "moved") return [];
   const { commits: changed, uncommitted } = changesSince(facts, path, mark);
@@ -99,14 +99,16 @@ function anchorStateIn(task: Task, text: string | undefined): AnchorState {
   return moved === null || movedAnchor === null ? { kind: "changed" } : { kind: "moved", source: moved, anchor: movedAnchor };
 }
 
-export function isMissingSource(path: string, branches: BranchHistory): boolean {
+export type SourcePresence = "present" | "missing" | "unchecked";
+
+export function presenceOffDisk(path: string, branches: BranchHistory): SourcePresence {
   switch (branches.kind) {
     case "no-repo":
-      return true;
+      return "missing";
     case "unreadable":
-      return false;
+      return "unchecked";
     case "read":
-      return !livesOnAnotherBranch(path, branches);
+      return livesOnAnotherBranch(path, branches) ? "present" : "missing";
   }
 }
 

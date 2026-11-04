@@ -51,6 +51,7 @@ const PROBLEM_NEEDS_REVIEW: Record<CheckProblem["kind"], boolean> = {
   "project-repo-not-git": false,
   "project-repo-unsafe": false,
   "project-history-unreadable": false,
+  "project-branches-unreadable": false,
   "merge-state-unknown": false,
   "prefix-shared": false,
 };

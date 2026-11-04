@@ -10,7 +10,7 @@ type FileChange = { path: string; renamedFrom?: string };
 
 export type Commit = { sha: string; shortSha: string; date: string; parents: string[]; subject: string; files: FileChange[] };
 
-export type GitHistory = "read" | "not-a-repo" | "unsafe-repo" | "unreadable";
+type GitHistory = "read" | "not-a-repo" | "unsafe-repo" | "unreadable";
 
 export type RepoFacts = {
   history: GitHistory;

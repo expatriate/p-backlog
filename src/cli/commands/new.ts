@@ -1,6 +1,6 @@
 import { findSimilarTask } from "../../core/check/duplicates";
 import { warnPathErrors } from "../../core/errors";
-import { findRepo, sourceAnchor, sourceIsMissing, type SourceAnchor } from "../../core/check/project-repo";
+import { findRepo, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
 import { buildIndex } from "../../core/model/graph";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project, type Task } from "../../core/model/types";
@@ -8,7 +8,7 @@ import { createTask } from "../../core/store/create";
 import { loadBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
 import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo, type ExitCode } from "../io";
-import { ensureProject, findProjectForCwd, repoLookup } from "../lookups";
+import { ensureProject, findProjectForCwd, repoLookup, sourcePresenceOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
 import { taskJson } from "../describe";
@@ -103,7 +103,7 @@ function warnedOfSimilarTask(draft: { title: string; source?: string | undefined
 async function anchorOf(project: Project, source: string, io: CliIo): Promise<SourceAnchor> {
   const lookup = repoLookup(io);
   const repo = await findRepo(project, lookup);
-  if (repo !== undefined && (await sourceIsMissing(repo, source, lookup.onUnreadable))) io.warn(io.cli.sourceFileMissing(source));
+  if (repo !== undefined) await sourcePresenceOrWarn(io, repo, source);
   return sourceAnchor(repo, source, lookup.onUnreadable);
 }
 

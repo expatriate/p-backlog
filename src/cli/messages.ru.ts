@@ -149,6 +149,7 @@ export const cliRu = {
   verifyUsage: (): string => "<ID> [<ID> …] [--source файл:строка — только для одной задачи]",
   sourceEmpty: "--source не может быть пустым",
   sourceFileMissing: (source: string): string => `--source ${source}: такого файла нет в репозитории проекта — проверьте путь`,
+  sourceFileUnchecked: (source: string): string => `--source ${source}: файла нет на диске, а ветки git прочитать не удалось — путь не проверен, проверьте его сами`,
   alreadyInStatusNothingToVerify: (id: string, status: string): string => `${id} уже в статусе ${status}: подтверждать нечего`,
   verified: (id: string): string => `${id}: подтверждена`,
   verifiedWithSource: (id: string, source: string): string => `${id}: подтверждена, source → ${source}`,
