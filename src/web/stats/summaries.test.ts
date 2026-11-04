@@ -6,13 +6,19 @@ import { summarizeIntake, summarizeSpend } from "./summaries";
 const periodFrom = (day: number, created: number): FlowPeriod => ({ start: `2026-09-${String(day).padStart(2, "0")}T00:00:00+03:00`, created, closed: 0, openAtEnd: created });
 
 describe("среднее создание задач", () => {
-  it("у молодого проекта считается с первой активности, текущая неделя — по прошедшей доле", () => {
-    const periods = [1, 8, 15].map((day) => periodFrom(day, 0)).concat(periodFrom(22, 4), periodFrom(29, 2));
-    expect(summarizeIntake("week", periods, "2026-10-02T12:00:00+03:00").perPeriod).toBe(4);
+  const quietThenBusy = [1, 8, 15].map((day) => periodFrom(day, 0)).concat(periodFrom(22, 4), periodFrom(29, 2));
+  const intake = (backlogSince: string | null) => summarizeIntake("week", quietThenBusy, { now: "2026-10-02T12:00:00+03:00", backlogSince });
+
+  it("у молодого проекта считается с недели первой задачи, текущая неделя — по прошедшей доле, и сводка называет начало", () => {
+    expect(intake("2026-09-22T10:00:00+03:00")).toMatchObject({ perPeriod: 4, averageSince: "2026-09-22T00:00:00+03:00" });
+  });
+
+  it("у проекта старше окна тихие недели окна входят в среднее", () => {
+    expect(intake("2026-01-10T10:00:00+03:00")).toMatchObject({ perPeriod: 6 / 4.5, averageSince: null });
   });
 
   it("проект, начатый сегодня, не делит на долю дня", () => {
-    expect(summarizeIntake("day", [periodFrom(29, 3)], "2026-09-29T00:30:00+03:00").perPeriod).toBe(3);
+    expect(summarizeIntake("day", [periodFrom(29, 3)], { now: "2026-09-29T00:30:00+03:00", backlogSince: "2026-09-29T00:10:00+03:00" }).perPeriod).toBe(3);
   });
 });
 

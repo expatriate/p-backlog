@@ -53,6 +53,7 @@ export function scopedReportData(input: StatsInput): ScopedReportData {
   const scope = statsScope(input);
   const histories = scope.historiesWithEpics.filter((history) => history.type === "task");
   const tasks = scope.tasksWithEpics.filter((task) => task.type === "task");
+  const firstCreated = smallest(histories.map((history) => history.createdAt));
   return {
     scope,
     histories,
@@ -60,6 +61,7 @@ export function scopedReportData(input: StatsInput): ScopedReportData {
     openTasks: tasks.filter((task) => !isClosed(task.status)),
     head: {
       taskCount: histories.length,
+      backlogSince: firstCreated === null ? null : formatLocalIso(new Date(firstCreated)),
       journalSince: scope.journalSince,
       invalidJournalLines: scope.invalidJournalLines,
       unknownJournalLines: scope.unknownJournalLines,

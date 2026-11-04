@@ -30,7 +30,7 @@ function Overview({ report, taskListPath }: { report: StatsReport; taskListPath:
       <Totals totals={report.totals} />
       <div className={layout.blocks}>
         <FlowPanel weeks={report.weeks} days={report.days} windows={report.periods} />
-        <IntakePanel weeks={report.weeks} days={report.days} windows={report.periods} />
+        <IntakePanel weeks={report.weeks} days={report.days} windows={report.periods} backlogSince={report.backlogSince} />
         <HotspotsPanel hotspots={report.hotspots} listPath={taskListPath} />
         <AgePanel age={report.age} />
         <ClosingPanel closing={report.closing} period={report.periods.weeks} />

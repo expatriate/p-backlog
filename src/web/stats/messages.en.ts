@@ -1,4 +1,4 @@
-import { formatDecimal, formatWhole } from "../../core/i18n/format";
+import { formatDay, formatDecimal, formatWhole } from "../../core/i18n/format";
 import { countEn, NBSP, pluralEn } from "../../core/i18n/plural";
 import type { ChartStep, Grain } from "./charts/chart-style";
 import type { StatsMessages } from "./messages.ru";
@@ -72,10 +72,11 @@ export function createStatsEn(constants: StatsConstants): StatsMessages {
     flowSummary: ({ grain, periodCount, created, closed, openNow }) => `${periods(grain, periodCount)}: created ${created}, closed ${closed}, open now ${openNow}`,
     createdBy: { week: "Created by week", day: "Created by day" },
     createdTasks: "tasks created",
-    intakeSummary: ({ grain, periodCount, created, perPeriod }) => {
+    intakeSummary: ({ grain, periodCount, created, perPeriod, averageSince }) => {
       const period = periods(grain, periodCount);
       if (perPeriod === null) return `${period}: no tasks created`;
-      return `${period}: created ${created}, on average ${formatDecimal("en", perPeriod)} ${PER_PERIOD[grain]}`;
+      const since = averageSince === null ? "" : ` since ${formatDay("en", averageSince)}`;
+      return `${period}: created ${created}, on average ${formatDecimal("en", perPeriod)} ${PER_PERIOD[grain]}${since}`;
     },
     hotspots: "Where it hurts",
     noSourceFolders: "Open tasks have no source",

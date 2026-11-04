@@ -11,7 +11,7 @@ type PeriodSummary = { grain: Grain; periodCount: number };
 
 export type FlowSummary = PeriodSummary & { created: number; closed: number; openNow: number };
 
-export type IntakeSummary = PeriodSummary & { created: number; perPeriod: number | null };
+export type IntakeSummary = PeriodSummary & { created: number; perPeriod: number | null; averageSince: string | null };
 
 export type AccuracySummary = PeriodSummary & { decided: number; latestPrecision: string | null };
 
@@ -38,17 +38,29 @@ export function summarizeFlow(grain: Grain, periods: FlowPeriod[]): FlowSummary 
 
 const GRAIN_MS = { week: WEEK_MS, day: DAY_MS } satisfies Record<Grain, number>;
 
-export function summarizeIntake(grain: Grain, periods: FlowPeriod[], now: string): IntakeSummary {
+type IntakeMoments = { now: string; backlogSince: string | null };
+
+export function summarizeIntake(grain: Grain, periods: FlowPeriod[], { now, backlogSince }: IntakeMoments): IntakeSummary {
   const created = sum(periods.map((period) => period.created));
-  return { ...periodSummary(grain, periods), created, perPeriod: created === 0 ? null : created / periodsSinceFirstActivity(grain, periods, now) };
+  const summary = { ...periodSummary(grain, periods), created };
+  if (created === 0) return { ...summary, perPeriod: null, averageSince: null };
+  const baseStart = backlogStartPeriod(periods, backlogSince);
+  return { ...summary, perPeriod: created / periodsFrom(baseStart, grain, periods, now), averageSince: baseStart === 0 ? null : (periods[baseStart]?.start ?? null) };
 }
 
-function periodsSinceFirstActivity(grain: Grain, periods: FlowPeriod[], now: string): number {
-  const firstActive = periods.findIndex((period) => period.created > 0 || period.closed > 0 || period.openAtEnd > 0);
+function backlogStartPeriod(periods: FlowPeriod[], backlogSince: string | null): number {
+  if (backlogSince === null) return 0;
+  const backlogStart = Date.parse(backlogSince);
+  return Math.max(
+    0,
+    periods.findLastIndex((period) => Date.parse(period.start) <= backlogStart),
+  );
+}
+
+function periodsFrom(baseStart: number, grain: Grain, periods: FlowPeriod[], now: string): number {
   const current = periods.at(-1);
-  if (firstActive === -1 || current === undefined) return 1;
-  const currentShare = Math.min(1, (Date.parse(now) - Date.parse(current.start)) / GRAIN_MS[grain]);
-  return Math.max(1, periods.length - 1 - firstActive + currentShare);
+  const currentShare = current === undefined ? 1 : Math.min(1, (Date.parse(now) - Date.parse(current.start)) / GRAIN_MS[grain]);
+  return Math.max(1, periods.length - 1 - baseStart + currentShare);
 }
 
 export function summarizeAccuracy(grain: Grain, periods: AccuracyPeriod[]): AccuracySummary {

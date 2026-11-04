@@ -27,9 +27,10 @@ const TOTALS: EffectTotals = {
 };
 
 const CASES: Record<string, (language: Language) => string> = {
-  "среднее создание за период округляется до десятых": (language) => CATALOGS[language].intakeSummary(summarizeIntake("week", flow(1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1), NOW)),
-  "среднее создание, вторая дробь": (language) => CATALOGS[language].intakeSummary(summarizeIntake("day", flow(2, 2, 1), NOW)),
-  "ничего не создано": (language) => CATALOGS[language].intakeSummary(summarizeIntake("day", flow(0, 0, 0), NOW)),
+  "среднее создание за период округляется до десятых": (language) => CATALOGS[language].intakeSummary(summarizeIntake("week", flow(1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1), { now: NOW, backlogSince: null })),
+  "среднее создание, вторая дробь": (language) => CATALOGS[language].intakeSummary(summarizeIntake("day", flow(2, 2, 1), { now: NOW, backlogSince: null })),
+  "ничего не создано": (language) => CATALOGS[language].intakeSummary(summarizeIntake("day", flow(0, 0, 0), { now: NOW, backlogSince: null })),
+  "среднее с первой задачи, позже начала окна": (language) => CATALOGS[language].intakeSummary(summarizeIntake("week", flow(0, 0, 3, 1), { now: NOW, backlogSince: "2026-09-12T10:00:00+03:00" })),
   "точность последнего периода с решениями": (language) => CATALOGS[language].accuracySummary(summarizeAccuracy("week", accuracy([3, 0.8333], [2, null]))),
   "решённых кандидатов нет": (language) => CATALOGS[language].accuracySummary(summarizeAccuracy("day", accuracy([0, null]))),
   "строки: точные": (language) => CATALOGS[language].linesText(linesAmount(language, TOTALS.fixedLines)),

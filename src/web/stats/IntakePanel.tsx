@@ -9,14 +9,14 @@ import { useGrainPanel } from "./use-grain-panel";
 
 const CREATED = "var(--chart-bar-warm)";
 
-export function IntakePanel({ weeks, days, windows }: { weeks: FlowPeriod[]; days: FlowPeriod[]; windows: GrainPeriods }) {
+export function IntakePanel({ weeks, days, windows, backlogSince }: { weeks: FlowPeriod[]; days: FlowPeriod[]; windows: GrainPeriods; backlogSince: string | null }) {
   const { stats, core } = useMessages();
   const { grain, periods, range, period, toggle } = useGrainPanel("intake", "day", { weeks, days }, windows);
   const series: SeriesEntry<FlowPeriod>[] = [{ key: "created", label: stats.createdTasks, tooltipLabel: stats.flowCreated, shape: "bar", color: CREATED, format: (created) => core.count(created, "task") }];
   const title = stats.createdBy[grain];
   return (
     <Panel title={title} period={period} aside={toggle}>
-      <PeriodChart name={title} grain={grain} summary={stats.intakeSummary(summarizeIntake(grain, periods, range.to))} data={periods} series={series} axes={{ left: COUNT_AXIS }} />
+      <PeriodChart name={title} grain={grain} summary={stats.intakeSummary(summarizeIntake(grain, periods, { now: range.to, backlogSince }))} data={periods} series={series} axes={{ left: COUNT_AXIS }} />
     </Panel>
   );
 }

@@ -37,7 +37,7 @@ export type ClosingBreakdown = {
 export type ReportPeriod = { from: string; to: string };
 export type GrainPeriods = { weeks: ReportPeriod; days: ReportPeriod };
 
-export type ReportHead = { taskCount: number; journalSince: string | null; invalidJournalLines: number; unknownJournalLines: number; unparsedTasks: number };
+export type ReportHead = { taskCount: number; backlogSince: string | null; journalSince: string | null; invalidJournalLines: number; unknownJournalLines: number; unparsedTasks: number };
 
 export type StatsReport = ReportHead & {
   periods: GrainPeriods;

@@ -31,6 +31,7 @@ describe("отчёт статистики", () => {
     expect(report.totals.leadTimeP90Days).toBeCloseTo(2);
     expect(report.weeks).toHaveLength(12);
     expect(report.journalSince).toBe(formatLocalIso(at(16)));
+    expect(report.backlogSince).toBe(formatLocalIso(at(1)));
     expect(report.invalidJournalLines).toBe(2);
   });
 
@@ -152,6 +153,7 @@ describe("отчёт статистики", () => {
     expect(report.taskCount).toBe(0);
     expect(report.totals).toMatchObject({ open: 0, ageMedianDays: null, leadTimeMedianDays: null });
     expect(report.journalSince).toBeNull();
+    expect(report.backlogSince).toBeNull();
   });
 
   it("прошлая неделя: открытые, перевес, медианы возраста и времени до закрытия; без журнала за тот период — null", () => {

@@ -1,4 +1,4 @@
-import { formatDecimal, formatWhole } from "../../core/i18n/format";
+import { formatDay, formatDecimal, formatWhole } from "../../core/i18n/format";
 import { countRu, NBSP, pluralRu } from "../../core/i18n/plural";
 import type { Priority } from "../../core/model/types";
 import type { AgeBucket, ClosingReason } from "../../core/api/contract";
@@ -81,10 +81,11 @@ export function createStatsRu(constants: StatsConstants) {
     flowSummary: ({ grain, periodCount, created, closed, openNow }: FlowSummary): string => `${periods(grain, periodCount)}: создано ${created}, закрыто ${closed}, открыто сейчас ${openNow}`,
     createdBy: { week: "Создано по неделям", day: "Создано по дням" } satisfies Record<Grain, string>,
     createdTasks: "создано задач",
-    intakeSummary: ({ grain, periodCount, created, perPeriod }: IntakeSummary): string => {
+    intakeSummary: ({ grain, periodCount, created, perPeriod, averageSince }: IntakeSummary): string => {
       const period = periods(grain, periodCount);
       if (perPeriod === null) return `${period}: задач не создавали`;
-      return `${period}: создано ${created}, в среднем ${formatDecimal("ru", perPeriod)} ${PER_PERIOD[grain]}`;
+      const since = averageSince === null ? "" : ` с${NBSP}${formatDay("ru", averageSince)}`;
+      return `${period}: создано ${created}, в среднем ${formatDecimal("ru", perPeriod)} ${PER_PERIOD[grain]}${since}`;
     },
     hotspots: "Где болит",
     noSourceFolders: "У открытых задач нет source",
