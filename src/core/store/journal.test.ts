@@ -7,7 +7,7 @@ import { createdEvent, type JournalEvent } from "../journal/events";
 import { makeTask } from "../model/testing/make-task";
 import { withFileLock } from "./file-lock";
 import { readBytesOrNull, readTextOrNull } from "./fs-utils";
-import { appendJournal, JOURNAL_FILE, readJournal, readJournals } from "./journal";
+import { appendJournal, JOURNAL_FILE, JOURNAL_LOCK_WAIT_MS, readJournal, readJournals } from "./journal";
 import { compactJournal } from "./journal-compaction";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
 import { failOnPathError } from "./testing/path-errors";
@@ -23,7 +23,7 @@ async function appendAfterLockWaitRunsOut(dir: string, events: readonly JournalE
   vi.useFakeTimers({ toFake: ["Date"] });
   try {
     const appended = appendJournal(dir, events, onError);
-    vi.setSystemTime(Date.now() + 10_000);
+    vi.setSystemTime(Date.now() + JOURNAL_LOCK_WAIT_MS + 1_000);
     await appended;
   } finally {
     vi.useRealTimers();

@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { rm, writeFile } from "node:fs/promises";
+import { rm, utimes, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { hasErrorCode } from "../errors";
+import { errorCode, hasErrorCode } from "../errors";
 import { SECOND_MS } from "../model/dates";
 import { readTextOrNull, statOrNull } from "./fs-utils";
 
 const RETRY_MS = 10;
 const ABANDONED_AFTER_MS = 30_000;
+const REFRESH_EVERY_MS = ABANDONED_AFTER_MS / 3;
 const DEFAULT_WAIT_LIMIT_MS = 5_000;
 
 export type LockOptions = { waitLimitMs?: number | undefined };
@@ -25,7 +26,7 @@ export class FileBusyError extends Error implements LockBusy {
   }
 }
 
-type HeldLock = { path: string; lock: string; token: string };
+type HeldLock = { path: string; lock: string; token: string; stopRefreshing: () => Promise<void> };
 
 export async function withFileLock<T>(path: string, action: () => Promise<T>, options: LockOptions = {}): Promise<T> {
   const held = await acquire(path, options);
@@ -58,7 +59,7 @@ async function acquire(path: string, { waitLimitMs = DEFAULT_WAIT_LIMIT_MS }: Lo
   const token = `${process.pid} ${randomUUID()}`;
   const giveUpAt = Date.now() + waitLimitMs;
   for (;;) {
-    if (await tryCreate(lock, token)) return { path, lock, token };
+    if (await tryCreate(lock, token)) return { path, lock, token, stopRefreshing: keepRefreshed(lock, token) };
     const abandoned = await abandonedToken(lock);
     if (abandoned !== null && (await breakAbandoned(lock, abandoned))) continue;
     if (Date.now() > giveUpAt) throw new FileBusyError(path, lock, waitLimitMs / SECOND_MS);
@@ -97,6 +98,36 @@ async function breakAbandoned(lock: string, abandoned: string): Promise<boolean>
   }
 }
 
-async function release({ lock, token }: HeldLock): Promise<void> {
+function keepRefreshed(lock: string, token: string): () => Promise<void> {
+  let bug: unknown = null;
+  let refreshing = Promise.resolve();
+  const timer = setInterval(() => {
+    refreshing = refreshing
+      .then(() => refreshIfHeld(lock, token))
+      .catch((error: unknown) => {
+        clearInterval(timer);
+        if (errorCode(error) === undefined) bug = error;
+      });
+  }, REFRESH_EVERY_MS);
+  timer.unref();
+  return async () => {
+    clearInterval(timer);
+    await refreshing;
+    if (bug !== null) throw bug;
+  };
+}
+
+async function refreshIfHeld(lock: string, token: string): Promise<void> {
+  if ((await readTextOrNull(lock)) !== token) return;
+  const now = new Date();
+  try {
+    await utimes(lock, now, now);
+  } catch (error) {
+    if (!hasErrorCode(error, "ENOENT")) throw error;
+  }
+}
+
+async function release({ lock, token, stopRefreshing }: HeldLock): Promise<void> {
+  await stopRefreshing();
   if ((await readTextOrNull(lock)) === token) await rm(lock, { force: true });
 }

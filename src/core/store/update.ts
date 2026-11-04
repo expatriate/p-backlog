@@ -5,7 +5,8 @@ import { changeStatus, epicClosingProblems, isAutoClosedEpic, settleLifecycle, t
 import { parseTaskFile } from "../model/task-file";
 import type { OptionalFields, Task, TaskCategory, TaskStatus } from "../model/types";
 import { changeEvents, statusBeforeAutoClose, type ChangeSource } from "../journal/events";
-import { contentVersion, writeFileAtomic } from "./fs-utils";
+import { contentVersion } from "./fs-utils";
+import { writeFileAtomic } from "./atomic-write";
 import type { PathErrorHandler } from "../errors";
 import { FileBusyError, withFileLock } from "./file-lock";
 import { appendingJournal, readJournal, type JournalWriter } from "./journal";

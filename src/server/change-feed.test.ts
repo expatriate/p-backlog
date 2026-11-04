@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
 import { basename, join, normalize } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { temporaryPathFor, writeFileAtomic } from "../core/store/fs-utils";
+import { temporaryPathFor, writeFileAtomic } from "../core/store/atomic-write";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
 import { createChangeFeed, createDebouncer, isHiddenPath, type ChangeFeed } from "./change-feed";
 

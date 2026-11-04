@@ -1,6 +1,7 @@
 import { DAY_MS, formatLocalIso } from "../model/dates";
 import { FileBusyError, withFileLock } from "./file-lock";
-import { readTextOrNull, writeFileAtomic } from "./fs-utils";
+import { readTextOrNull } from "./fs-utils";
+import { writeFileAtomic } from "./atomic-write";
 
 export async function runWhenDue<T>(stampPath: string, now: Date, action: () => Promise<T>): Promise<T | null> {
   if (!(await isDue(stampPath, now))) return null;

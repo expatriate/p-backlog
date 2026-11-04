@@ -4,7 +4,8 @@ import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { Problem } from "../model/problems";
 import type { ParseResult, Project } from "../model/types";
 import { withFileLock } from "./file-lock";
-import { fileExists, readTextOrNull, writeFileAtomic } from "./fs-utils";
+import { fileExists, readTextOrNull } from "./fs-utils";
+import { writeFileAtomic } from "./atomic-write";
 import { PROJECT_FILE, projectDir } from "./paths";
 import { parseDocumentOrNull } from "./read-document";
 

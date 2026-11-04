@@ -20,6 +20,13 @@ export function writtenTasks({ task, reopenedEpic }: WrittenTask): Task[] {
   return reopenedEpic === undefined ? [task] : [task, reopenedEpic];
 }
 
+export function withWrittenTasks(tasks: readonly Task[], results: readonly WrittenTask[]): Task[] {
+  const written = results.flatMap(writtenTasks);
+  const byId = new Map(written.map((task) => [task.id, task]));
+  const known = new Set(tasks.map((task) => task.id));
+  return [...tasks.map((task) => byId.get(task.id) ?? task), ...written.filter((task) => !known.has(task.id))];
+}
+
 export function invalid(problems: Problem[]): Invalid {
   return { ok: false, reason: "invalid", problems };
 }

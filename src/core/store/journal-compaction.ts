@@ -1,14 +1,18 @@
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { groupBy } from "../collections";
 import { taskCreation } from "../journal/creation";
 import { episodeOpeners } from "../journal/episodes";
 import { journalEventSchema, type JournalEvent } from "../journal/events";
 import { runWhenDue } from "./daily";
 import { withFileLock } from "./file-lock";
-import { fileExists, NEWLINE, parseJson, readBytesOrNull, replacePrefixAtomic } from "./fs-utils";
+import { fileExists, NEWLINE, parseJson, readBytesOrNull } from "./fs-utils";
+import { replacePrefixAtomic } from "./atomic-write";
 import { JOURNAL_FILE } from "./journal";
 import { projectDirNames, taskIdsOnDisk } from "./load";
 import { retainedSince } from "../model/history-window";
+import { parseId } from "../model/ids";
+import { PROJECT_FILE } from "./paths";
+import { reserveIssuedUpTo } from "./projects";
 
 const COMPACTED_STAMP = ".journal-compacted-at";
 
@@ -45,9 +49,18 @@ export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySe
     const lines = journalLines(completeLines.toString("utf8"));
     const kept = retainedLines(lines, liveTaskIds, retainedSince(now));
     const removed = lines.length - kept.length;
-    const replaced = removed > 0 && (await replacePrefixAtomic(path, completeLines, kept.map(({ text }) => `${text}\n`).join("")));
+    if (removed === 0 || !(await reserveRemovedNumbers(projectDir, lines, kept))) return 0;
+    const replaced = await replacePrefixAtomic(path, completeLines, kept.map(({ text }) => `${text}\n`).join(""));
     return replaced ? removed : 0;
   });
+}
+
+async function reserveRemovedNumbers(projectDir: string, lines: readonly JournalLine[], kept: readonly JournalLine[]): Promise<boolean> {
+  const keptLines = new Set(kept);
+  const highest = lines.reduce((max, line) => (keptLines.has(line) || line.event === null ? max : Math.max(max, parseId(line.event.task)?.number ?? 0)), 0);
+  if (highest === 0) return true;
+  const reservation = await reserveIssuedUpTo({ id: basename(projectDir), path: join(projectDir, PROJECT_FILE) }, highest);
+  return reservation.ok || reservation.reason === "not-found";
 }
 
 function journalLines(text: string): JournalLine[] {

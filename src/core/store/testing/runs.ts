@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { readJsonLines } from "../fs-utils";
+import { readJsonLines } from "../json-lines";
 import { cliRunSchema, RUNS_FILE, type CliRun } from "../runs";
 
 export async function readRuns(root: string): Promise<readonly CliRun[]> {

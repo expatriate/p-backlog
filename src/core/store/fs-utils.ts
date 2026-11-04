@@ -1,10 +1,8 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, type Dirent, type Stats } from "node:fs";
-import { access, appendFile, chmod, link, lstat, open, readdir, readFile, readlink, rename, rm, stat, writeFile, type FileHandle } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
-import { setTimeout as sleep } from "node:timers/promises";
+import { access, lstat, open, readdir, readFile, readlink, rm, stat, type FileHandle } from "node:fs/promises";
 import type { z } from "zod";
-import { hasErrorCode, type PathErrorHandler } from "../errors";
+import { hasAnyErrorCode, hasErrorCode, type PathErrorHandler } from "../errors";
 
 export function contentVersion(text: string): string {
   return createHash("sha1").update(text).digest("hex");
@@ -92,46 +90,10 @@ export function readBytesOrNullSync(path: string): Buffer | null {
   return nullWhenMissingSync(() => readFileSync(path));
 }
 
-function hasAnyErrorCode(error: unknown, codes: readonly string[]): boolean {
-  return codes.some((code) => hasErrorCode(error, code));
-}
-
-export type JsonLines<T> = { values: readonly T[]; invalidLines: number };
-
-export function parseJsonLines<T>(text: string, schema: z.ZodType<T>): JsonLines<T> {
-  const parsed = text
-    .split("\n")
-    .filter((line) => line.trim() !== "")
-    .map((line) => parseJson(line, schema));
-  const values = parsed.filter((value): value is T => value !== null);
-  return { values, invalidLines: parsed.length - values.length };
-}
-
-export async function readJsonLines<T>(path: string, schema: z.ZodType<T>): Promise<JsonLines<T>> {
-  const text = (await readTextOrNull(path)) ?? "";
-  return parseJsonLines(text, schema);
-}
-
-export function toJsonLines(values: readonly unknown[]): string {
-  return values.map((value) => `${JSON.stringify(value)}\n`).join("");
-}
-
 export const NEWLINE = 0x0a;
 
-export async function appendJsonLines(path: string, values: readonly unknown[]): Promise<void> {
-  await withFile(
-    path,
-    async (handle) => {
-      const { size } = await handle.stat();
-      const endsMidLine = size > 0 && (await readAt(handle, size - 1, 1))[0] !== NEWLINE;
-      await handle.appendFile((endsMidLine ? "\n" : "") + toJsonLines(values), "utf8");
-    },
-    "a+",
-  );
-}
-
-export async function withFile<T>(path: string, use: (handle: FileHandle) => Promise<T>, flags = "r"): Promise<T> {
-  return closingAfter(await open(path, flags), use);
+export async function withFile<T>(path: string, use: (handle: FileHandle) => Promise<T>, flags = "r", mode?: number): Promise<T> {
+  return closingAfter(await open(path, flags, mode), use);
 }
 
 export async function fileExists(path: string): Promise<boolean> {
@@ -188,10 +150,6 @@ export function jsonFileText(value: unknown): string {
   return `${JSON.stringify(value, null, JSON_INDENT)}\n`;
 }
 
-export async function writeJsonFile(path: string, value: unknown): Promise<void> {
-  await writeFileAtomic(path, jsonFileText(value));
-}
-
 type RemovalOutcome = "removed" | "already-gone" | "changed";
 
 export async function removeIfUnchanged(path: string, version: string): Promise<RemovalOutcome> {
@@ -209,78 +167,5 @@ export async function listDir(path: string, { recursive = false }: { recursive?:
     // readdir also reports a file at `path` itself as ENOTDIR, and that must stay an error.
     if (hasErrorCode(error, "ENOENT")) return [];
     throw error;
-  }
-}
-
-const REPLACE_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320, 640, 1000, 1000, 1000, 1000];
-const REPLACE_BLOCKED_CODES = ["EPERM", "EACCES", "EBUSY"];
-
-export async function writeFileAtomic(path: string, content: string, mode?: number): Promise<void> {
-  await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path), mode);
-}
-
-export async function replacePrefixAtomic(path: string, prefix: Buffer, content: string): Promise<boolean> {
-  let seen = prefix;
-  const carryAppended = async (temporary: string): Promise<boolean> => {
-    const live = (await readBytesOrNull(path)) ?? Buffer.alloc(0);
-    if (!startsWithBytes(live, seen)) return false;
-    await appendFile(temporary, live.subarray(seen.length));
-    seen = live;
-    return true;
-  };
-  return viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path, () => carryAppended(temporary)));
-}
-
-function startsWithBytes(bytes: Buffer, prefix: Buffer): boolean {
-  return bytes.length >= prefix.length && bytes.subarray(0, prefix.length).equals(prefix);
-}
-
-// Windows refuses to rename over a file while another handle (a watcher's read, antivirus) keeps it open.
-async function replaceFile(temporary: string, path: string, prepareRename: () => Promise<boolean> = async () => true): Promise<boolean> {
-  const attempt = async (): Promise<boolean> => {
-    if (!(await prepareRename())) return false;
-    await rename(temporary, path);
-    return true;
-  };
-  // eslint-disable-next-line no-restricted-properties -- the retry answers to the running OS, not to a caller
-  if (process.platform !== "win32") return attempt();
-  for (const delayMs of REPLACE_RETRY_DELAYS_MS) {
-    try {
-      return await attempt();
-    } catch (error) {
-      if (!hasAnyErrorCode(error, REPLACE_BLOCKED_CODES)) throw error;
-      await sleep(delayMs);
-    }
-  }
-  return attempt();
-}
-
-export async function createFileAtomic(path: string, content: string): Promise<void> {
-  await viaTemporaryFile(path, content, (temporary) => link(temporary, path));
-}
-
-const TEMPORARY_FILE = /^\..+\.[0-9a-f-]{36}\.tmp$/;
-
-export async function removeTemporariesBefore(dir: string, cutoff: Date): Promise<void> {
-  for (const entry of await listDir(dir)) {
-    if (!entry.isFile() || !TEMPORARY_FILE.test(entry.name)) continue;
-    const path = join(dir, entry.name);
-    const info = await statOrNull(path);
-    if (info !== null && info.mtimeMs < cutoff.getTime()) await rm(path, { force: true });
-  }
-}
-
-export function temporaryPathFor(path: string): string {
-  return join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
-}
-
-async function viaTemporaryFile<T>(path: string, content: string, publish: (temporary: string) => Promise<T>, mode?: number): Promise<T> {
-  const temporary = temporaryPathFor(path);
-  try {
-    await writeFile(temporary, content, { encoding: "utf8", mode });
-    if (mode !== undefined) await chmod(temporary, mode);
-    return await publish(temporary);
-  } finally {
-    await rm(temporary, { force: true });
   }
 }

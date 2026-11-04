@@ -125,6 +125,20 @@ describe("панель массовых действий", () => {
     await waitFor(() => expect(screen.queryByRole("region", { name: "Действия с выбранными" })).toBeNull());
   });
 
+  it("эпик, выбранный вместе со своими задачами, закрывается и тогда, когда пачка режется на куски", async () => {
+    const files = {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-2.md": taskFile("SPA-2", { title: "Загрузка файлов", type: "epic" }),
+      "spa/SPA-5.md": taskFile("SPA-5", { title: "Таймауты загрузки", epic: "SPA-2" }),
+    };
+    const app = await renderApp(files, "/?type=task,epic", undefined, { batchChunkSize: 1 });
+    await select(app, "SPA-2", "SPA-5");
+
+    await closeSelected(app, "дубль");
+
+    await waitFor(async () => expect([(await app.taskOnDisk("SPA-2")).status, (await app.taskOnDisk("SPA-5")).status]).toEqual(["cancelled", "cancelled"]));
+  });
+
   it("задачи, закрытые массовым действием, не попадают в «закрыты агентом», а закрытая через CLI — попадает", async () => {
     const closeViaCli = async (app: TestApp) => {
       const env = baseCliEnv({ cwd: app.root, home: app.root, backlogRoot: app.root, packageRoot: app.root, now: () => new Date("2026-09-17T10:00:00Z") });

@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { errorText } from "../errors";
 import { languageFromLocale, type Language } from "../i18n/language";
 import { settingsSchema, type Settings } from "../model/settings";
-import { parseJson, readTextOrNull, writeJsonFile } from "./fs-utils";
+import { parseJson, readTextOrNull } from "./fs-utils";
+import { writeJsonFile } from "./atomic-write";
 import { projectDirNames } from "./load";
 
 const SETTINGS_FILE = ".settings.json";

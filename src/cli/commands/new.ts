@@ -13,7 +13,7 @@ import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
 import { taskJson } from "../describe";
 import { formatJson } from "../format";
-import { tasksAfterWrite } from "../task-write";
+import { withWrittenTasks } from "../../core/store/write-result";
 
 const DEFAULT_FOUND: FoundHow = "manual";
 
@@ -88,7 +88,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   }
   const { task, reopenedEpic } = result;
   if (reopenedEpic !== undefined) io.warn(io.cli.epicReopened(reopenedEpic.id));
-  io.print(values.json ? formatJson(taskJson(task, buildIndex(tasksAfterWrite(loaded.tasks, result)))) : `${task.id} ${task.path}`);
+  io.print(values.json ? formatJson(taskJson(task, buildIndex(withWrittenTasks(loaded.tasks, [result])))) : `${task.id} ${task.path}`);
   return EXIT.ok;
 }
 

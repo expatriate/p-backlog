@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import type { FileHandle } from "node:fs/promises";
 import type { z } from "zod";
-import { EMPTY_FINGERPRINT, NEWLINE, parseJsonLines, readAt, withExistingFile, type JsonLines } from "./fs-utils";
+import { EMPTY_FINGERPRINT, NEWLINE, readAt, withExistingFile } from "./fs-utils";
+import { parseJsonLines, type JsonLines } from "./json-lines";
 
 type TailRead<T> = JsonLines<T> & { length: number; generation: number };
 

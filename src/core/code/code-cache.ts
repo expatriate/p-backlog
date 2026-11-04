@@ -1,7 +1,8 @@
 import { join } from "node:path";
 import { z } from "zod";
 import type { FixCommit } from "./types";
-import { readJsonFile, writeFileAtomic } from "../store/fs-utils";
+import { readJsonFile } from "../store/fs-utils";
+import { writeFileAtomic } from "../store/atomic-write";
 import type { RepoScan } from "./repo-scan";
 
 export const CODE_CACHE_FILE = ".code-cache.json";

@@ -7,6 +7,7 @@ import type { Problem } from "../model/problems";
 import type { Priority, Task, TaskStatus } from "../model/types";
 import { appendingJournal, bufferedJournal, undoJournal, type JournalWriter } from "./journal";
 import { updateTaskInIndex, type TaskChanges } from "./update";
+import { withWrittenTasks } from "./write-result";
 
 export type BatchSkipReason = "changed" | "not-found" | "already-closed" | "invalid" | "busy" | "failed";
 
@@ -34,7 +35,7 @@ export async function applyBatch(index: BacklogIndex, { tasks, action, now, onEr
   const closesAfterItsTasks = (task: BatchTask) => action.kind === "close" && index.byId.get(task.id)?.type === "epic";
   const [epics, others] = partition(ordered, closesAfterItsTasks);
   const taskOutcomes = await applyInOrder(index, others, step);
-  const epicOutcomes = await applyInOrder(withWrittenTasks(index, taskOutcomes), epics, step);
+  const epicOutcomes = await applyInOrder(indexAfter(index, taskOutcomes), epics, step);
   await journal.flush();
   return [...taskOutcomes, ...epicOutcomes].sort((left, right) => compareIds(left.id, right.id));
 }
@@ -47,9 +48,9 @@ async function applyInOrder(index: BacklogIndex, tasks: readonly BatchTask[], st
   return outcomes;
 }
 
-function withWrittenTasks(index: BacklogIndex, outcomes: readonly CoreBatchOutcome[]): BacklogIndex {
-  const written = new Map(outcomes.flatMap((outcome) => (outcome.outcome === "done" ? [[outcome.id, outcome.task] as const] : [])));
-  return written.size === 0 ? index : buildIndex([...index.byId.values()].map((task) => written.get(task.id) ?? task));
+function indexAfter(index: BacklogIndex, outcomes: readonly CoreBatchOutcome[]): BacklogIndex {
+  const done = outcomes.filter((outcome) => outcome.outcome === "done");
+  return done.length === 0 ? index : buildIndex(withWrittenTasks([...index.byId.values()], done));
 }
 
 async function applyOne(index: BacklogIndex, { id, version }: BatchTask, { action, now, onError, journal }: BatchStep): Promise<CoreBatchOutcome> {

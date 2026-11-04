@@ -41,6 +41,10 @@ export function hasErrorCode(error: unknown, code: string): boolean {
   return errorCode(error) === code;
 }
 
+export function hasAnyErrorCode(error: unknown, codes: readonly string[]): boolean {
+  return codes.some((code) => hasErrorCode(error, code));
+}
+
 export function errorCodeOrText(error: unknown): string {
   const code = errorCode(error);
   return typeof code === "string" ? code : errorText(error);

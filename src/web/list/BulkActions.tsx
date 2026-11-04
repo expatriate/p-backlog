@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 import type { BatchAction, BatchRequest } from "../../core/api/contract";
+import { partition } from "../../core/collections";
 import { compareIds } from "../../core/model/ids";
 import { PRIORITIES, type Priority, type Task } from "../../core/model/types";
 import { useAllTasks } from "../app/all-tasks";
@@ -51,7 +52,8 @@ export function BulkActions({ selection, onDone }: BulkActionsProps) {
 
   const run = (action: BatchAction) => {
     if (isPending) return;
-    const request: BatchRequest = { tasks: chosen.map(({ id, version }) => ({ id, version })), action };
+    const [epics, others] = partition(chosen, (task) => task.type === "epic");
+    const request: BatchRequest = { tasks: [...others, ...epics].map(({ id, version }) => ({ id, version })), action };
     batch.mutate(request, {
       onSuccess: (response) => onDone({ request, response }),
       onError: (error) => {

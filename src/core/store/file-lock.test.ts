@@ -1,6 +1,6 @@
-import { readFile, utimes, writeFile } from "node:fs/promises";
+import { readFile, stat, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { FileBusyError, withAvailableLocks, withFileLock } from "./file-lock";
 import { SHORT_LOCK_WAIT } from "./testing/lock-wait";
 import { makeTempDir } from "./testing/temp-dirs";
@@ -26,6 +26,25 @@ describe("блокировка файла", () => {
 
     await expect(withFileLock(join(dir, "SPA-1.md"), async () => "записано", SHORT_LOCK_WAIT)).rejects.toThrow(FileBusyError);
     expect(await readFile(lock, "utf8")).toBe("12345");
+  });
+
+  it("долгая работа под блокировкой продлевает её: ожидающий не считает её брошенной", async () => {
+    const dir = await makeTempDir();
+    const path = join(dir, "SPA-1.md");
+    const lock = join(dir, ".SPA-1.md.lock");
+    const longAgo = new Date(Date.now() - 60 * 60 * 1000);
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    try {
+      await withFileLock(path, async () => {
+        await utimes(lock, longAgo, longAgo);
+        vi.advanceTimersByTime(30_000);
+        await vi.waitFor(async () => expect((await stat(lock)).mtimeMs).toBeGreaterThan(longAgo.getTime()));
+
+        await expect(withFileLock(path, async () => "перехвачено", SHORT_LOCK_WAIT)).rejects.toThrow(FileBusyError);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("снятие не удаляет чужую блокировку, занявшую место нашей", async () => {

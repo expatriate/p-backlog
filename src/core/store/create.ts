@@ -8,9 +8,10 @@ import { createdEvent, type Provenance } from "../journal/events";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { TaskDraft } from "../model/task-file";
 import type { OptionalFields, Project, Task } from "../model/types";
-import { hasErrorCode } from "../errors";
-import { createFileAtomic, listDir, readTextOrNull } from "./fs-utils";
-import { appendJournal } from "./journal";
+import { hasErrorCode, type PathErrorHandler } from "../errors";
+import { attemptReportingFailure, listDir, readTextOrNull } from "./fs-utils";
+import { createFileAtomic } from "./atomic-write";
+import { appendJournal, JOURNAL_FILE, readJournal } from "./journal";
 import { PROJECT_FILE, taskFileName } from "./paths";
 import { taskIdsOnDisk } from "./load";
 import { issuedUpToOnDisk, readProjectFile } from "./projects";
@@ -34,7 +35,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
   const dir = join(root, project.id);
   const index = buildIndex(existingTasks);
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt++) {
-    const id = formatId(project.prefix, await nextTaskNumber(dir, project));
+    const id = formatId(project.prefix, await nextTaskNumber(dir, project, request.onError));
     const path = join(dir, taskFileName(id));
     const normalized = taskText(draftTask(id, path, request));
     if (!normalized.ok) return invalid(normalized.problems);
@@ -92,16 +93,26 @@ async function projectOfRepo(id: string, path: string, repoRoot: string): Promis
   return parsed?.ok === true && parsed.value.repos.includes(repoRoot) ? parsed.value : null;
 }
 
-async function nextTaskNumber(dir: string, project: Project): Promise<number> {
+async function nextTaskNumber(dir: string, project: Project, onError: PathErrorHandler): Promise<number> {
   // Sweep reserves a number in project.md before deleting its file, so the directory must be listed first.
   const onDisk = await maxTaskNumber(dir, project.prefix);
   const reserved = await issuedUpToOnDisk(project);
-  return Math.max(onDisk, reserved, project.issuedUpTo ?? 0) + 1;
+  const journaled = await maxJournaledNumber(dir, project, onError);
+  return Math.max(onDisk, reserved, journaled, project.issuedUpTo ?? 0) + 1;
+}
+
+async function maxJournaledNumber(dir: string, project: Project, onError: PathErrorHandler): Promise<number> {
+  const journal = await attemptReportingFailure(join(dir, JOURNAL_FILE), () => readJournal(dir, project.id), onError);
+  const journaledIds = (journal?.events ?? []).flatMap((event) => parseId(event.task) ?? []);
+  return maxNumberWithPrefix(journaledIds, project.prefix);
 }
 
 async function maxTaskNumber(dir: string, prefix: string): Promise<number> {
-  const numbers = (await taskFileIds(dir)).flatMap((parsed) => (parsed.prefix === prefix ? [parsed.number] : []));
-  return Math.max(0, ...numbers);
+  return maxNumberWithPrefix(await taskFileIds(dir), prefix);
+}
+
+function maxNumberWithPrefix(ids: readonly ParsedId[], prefix: string): number {
+  return ids.reduce((max, parsed) => (parsed.prefix === prefix ? Math.max(max, parsed.number) : max), 0);
 }
 
 // A project.md with broken YAML still reserves its prefix, so the prefix line is read without parsing the file.

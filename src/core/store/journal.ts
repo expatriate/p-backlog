@@ -1,8 +1,10 @@
 import { join } from "node:path";
 import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../journal/events";
 import type { PathErrorHandler } from "../errors";
+import { SECOND_MS } from "../model/dates";
+import { REPLACE_RETRIES_TOTAL_MS } from "./atomic-write";
 import { FileBusyError, withFileLock } from "./file-lock";
-import { appendJsonLines, readJsonLines, type JsonLines } from "./fs-utils";
+import { appendJsonLines, readJsonLines, type JsonLines } from "./json-lines";
 
 export const JOURNAL_FILE = "journal.jsonl";
 
@@ -16,12 +18,14 @@ export async function appendJournal(projectDir: string, events: readonly Journal
   }
 }
 
+export const JOURNAL_LOCK_WAIT_MS = REPLACE_RETRIES_TOTAL_MS + 10 * SECOND_MS;
+
 async function appendWaitingForLock(path: string, events: readonly JournalEvent[]): Promise<void> {
   try {
-    await withFileLock(path, () => appendJsonLines(path, events));
+    await withFileLock(path, () => appendJsonLines(path, events), { waitLimitMs: JOURNAL_LOCK_WAIT_MS });
   } catch (error) {
     if (!(error instanceof FileBusyError)) throw error;
-    // A command must not hang or fail on a busy journal; journal rewriters keep lines appended past what they read.
+    // A command must not hang on a stuck journal lock; the wait above outlasts a rewrite with all its Windows rename retries.
     await appendJsonLines(path, events);
   }
 }

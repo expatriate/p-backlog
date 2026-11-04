@@ -2,7 +2,9 @@ import { mkdir, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { withFileLock } from "./file-lock";
-import { appendJsonLines, parseJson, readAt, readJsonLines, toJsonLines, withExistingFile, writeFileAtomic } from "./fs-utils";
+import { parseJson, readAt, withExistingFile } from "./fs-utils";
+import { appendJsonLines, readJsonLines, toJsonLines } from "./json-lines";
+import { writeFileAtomic } from "./atomic-write";
 import { DAY_MS } from "../model/dates";
 import { retainedSince } from "../model/history-window";
 

@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import { withFileLock, type LockOptions } from "./file-lock";
-import { readJsonFile, writeJsonFile } from "./fs-utils";
+import { readJsonFile } from "./fs-utils";
+import { writeJsonFile } from "./atomic-write";
 
 type JsonUpdateOutcome = "written" | "unchanged";
 

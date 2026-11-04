@@ -14,7 +14,8 @@ import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from ".
 import { cwdGitRoots, findProjectOrWarn, findTaskOrWarn, repoPlaces } from "../lookups";
 import { cliMessages } from "../messages";
 import { relativeInside } from "../path-inside";
-import { tasksAfterWrite, taskWriter, type TaskWrite } from "../task-write";
+import { withWrittenTasks } from "../../core/store/write-result";
+import { taskWriter, type TaskWrite } from "../task-write";
 import { tasksJson } from "../describe";
 import { printTask } from "./show";
 
@@ -113,7 +114,7 @@ async function takeAll(loadedTasks: readonly Task[], chosen: readonly Task[], io
   const code = await applyAll(chosen, async (task) => {
     const written: TaskWrite = task.status === "in-progress" ? { ok: true, task } : await write(task, { status: "in-progress" });
     if (!written.ok) return written.exitCode;
-    tasks = tasksAfterWrite(tasks, written);
+    tasks = withWrittenTasks(tasks, [written]);
     taken.push(written.task);
     return EXIT.ok;
   });

@@ -6,7 +6,7 @@ import { formatLocalIso } from "../model/dates";
 import { buildIndex, taskProgress } from "../model/graph";
 import { createTask } from "./create";
 import { hasErrorCode } from "../errors";
-import { temporaryPathFor } from "./fs-utils";
+import { temporaryPathFor } from "./atomic-write";
 import { readJournal } from "./journal";
 import { loadBacklog } from "./load";
 import { reserveIssuedUpTo } from "./projects";

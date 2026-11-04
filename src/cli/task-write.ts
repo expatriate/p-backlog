@@ -3,7 +3,7 @@ import { buildIndex } from "../core/model/graph";
 import type { Closure } from "../core/model/lifecycle";
 import type { Task } from "../core/model/types";
 import { updateTaskInIndex, type TaskChanges } from "../core/store/update";
-import { writtenTasks, type UpdateTaskFailure, type WrittenTask } from "../core/store/write-result";
+import type { UpdateTaskFailure, WrittenTask } from "../core/store/write-result";
 import { EXIT, type CliIo, type ExitCode } from "./io";
 
 export type TaskWrite = ({ ok: true } & WrittenTask) | { ok: false; exitCode: ExitCode };
@@ -19,13 +19,6 @@ export function taskWriter(io: CliIo, loadedTasks: readonly Task[]): TaskWriter 
     if (result.reopenedEpic !== undefined) io.warn(io.cli.epicReopened(result.reopenedEpic.id));
     return result;
   };
-}
-
-export function tasksAfterWrite(tasks: readonly Task[], result: WrittenTask): Task[] {
-  const written = writtenTasks(result);
-  const byId = new Map(written.map((candidate) => [candidate.id, candidate]));
-  const known = new Set(tasks.map((candidate) => candidate.id));
-  return [...tasks.map((candidate) => byId.get(candidate.id) ?? candidate), ...written.filter((candidate) => !known.has(candidate.id))];
 }
 
 function reportUpdateFailure(io: CliIo, id: string, result: UpdateTaskFailure): ExitCode {

@@ -3,10 +3,11 @@ import type { Project } from "../model/types";
 
 export const PROJECT_FILE = "project.md";
 export const PID_FILE_ENV = "P_BACKLOG_PID_FILE";
+const HOME_PREFIX = /^~[\\/]/;
 
 export function expandHome(path: string, home: string): string {
   if (path === "~") return home;
-  return path.startsWith("~/") ? join(home, path.slice(2)) : path;
+  return HOME_PREFIX.test(path) ? join(home, path.slice(2)) : path;
 }
 
 export function resolveBacklogRoot(env: Record<string, string | undefined>, home: string): string {

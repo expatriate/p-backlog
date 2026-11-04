@@ -2,7 +2,8 @@ import { appendFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
-import { readJsonLines, writeFileAtomic } from "./fs-utils";
+import { readJsonLines } from "./json-lines";
+import { writeFileAtomic } from "./atomic-write";
 import { createJsonlTail } from "./jsonl-tail";
 import { makeTempDir } from "./testing/temp-dirs";
 

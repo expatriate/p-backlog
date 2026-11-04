@@ -6,7 +6,8 @@ import type { Project } from "../model/types";
 import { createProject, createTask } from "./create";
 import { listDir } from "./fs-utils";
 import { readJournal } from "./journal";
-import { loadBacklog } from "./load";
+import { compactJournal } from "./journal-compaction";
+import { loadBacklog, taskIdsOnDisk } from "./load";
 import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 import { failOnPathError } from "./testing/path-errors";
@@ -55,6 +56,33 @@ describe("createTask", () => {
     const result = await createTask(root, { project, input: { title: "После удаления" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnPathError });
 
     expect(result.ok && result.task.id).toBe("SPA-8");
+  });
+
+  it("файл задачи, удалённый вручную, не отдаёт свой номер: он записан в журнале", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": taskFile("SPA-1"),
+      "spa/journal.jsonl": `${JSON.stringify({ at: "2026-09-16T10:00:00+03:00", task: "SPA-5", via: "cli", kind: "created", type: "task", priority: "medium", tags: [] })}\n`,
+    });
+    const { loaded, project } = await loadProject(root, "spa");
+
+    const result = await createTask(root, { project, input: { title: "После ручного удаления" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnPathError });
+
+    expect(result.ok && result.task.id).toBe("SPA-6");
+  });
+
+  it("номер задачи, чьи события вычистило уплотнение журнала, не выдаётся снова", async () => {
+    const root = await makeTempDir();
+    const created = (id: string) => `${JSON.stringify({ at: "2026-01-05T10:00:00+03:00", task: id, via: "cli", kind: "created", type: "task", priority: "medium", tags: [] })}\n`;
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/journal.jsonl": ["SPA-1", "SPA-3", "SPA-5"].map(created).join("") });
+    await compactJournal(join(root, "spa"), await taskIdsOnDisk(join(root, "spa")), NOW);
+    const { loaded, project } = await loadProject(root, "spa");
+
+    const result = await createTask(root, { project, input: { title: "После уплотнения" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnPathError });
+
+    expect((await readJournal(join(root, "spa"), "spa")).events.map((event) => event.task)).not.toContain("SPA-5");
+    expect(result.ok && result.task.id).toBe("SPA-6");
   });
 
   it("каталог и файл без .md с именем-ID не сдвигают номер новой задачи", async () => {

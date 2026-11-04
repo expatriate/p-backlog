@@ -6,7 +6,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { warnPathErrors } from "../errors";
 import type { CheckMode } from "../journal/events";
 import { coreMessages } from "../messages";
-import { toJsonLines } from "../store/fs-utils";
+import { toJsonLines } from "../store/json-lines";
 import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
 import {
