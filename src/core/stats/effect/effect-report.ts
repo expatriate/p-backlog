@@ -44,8 +44,8 @@ export function effectReport(context: ReportContext, code: CollectedCode, wholeB
       adopted.flatMap(({ units }) => units),
       estimate,
     ),
-    weeks: bucketsOf(weekWindows(now), deferred, periodUnits, estimate),
-    days: bucketsOf(dayWindows(now), deferred, periodUnits, estimate),
+    weeks: effectPeriodsOf(weekWindows(now), deferred, periodUnits, estimate),
+    days: effectPeriodsOf(dayWindows(now), deferred, periodUnits, estimate),
     projects: adopted.map(({ project, units }) =>
       projectEffect(
         project,
@@ -151,7 +151,7 @@ function estimatedSizeOf(open: readonly OpenDeferred[], estimate: Estimate): Fix
   return { lines: sum(sizes.map((size) => size.lines)), testLines: sum(sizes.map((size) => size.testLines)) };
 }
 
-function bucketsOf(windows: readonly Period[], deferred: readonly Deferred[], periodUnits: readonly CommitUnit[], estimate: Estimate): EffectPeriod[] {
+function effectPeriodsOf(windows: readonly Period[], deferred: readonly Deferred[], periodUnits: readonly CommitUnit[], estimate: Estimate): EffectPeriod[] {
   const { fixed, open } = byKind(deferred);
   return windows.map((window) => {
     const rawRealLines = sum(periodUnits.filter((unit) => window.contains(Date.parse(unit.date))).map((unit) => unit.lines));

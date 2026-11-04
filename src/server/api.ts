@@ -143,11 +143,16 @@ async function removeProject(c: Context, id: string, { root, readLanguage, chang
   return result.ok ? c.json({ deleted: id }) : errorResponse(c, 404, messages.projectNotFound(id));
 }
 
-function revisionEvents(c: Context, changeHub: ChangeHub, closed: Promise<void>) {
+function revisionEvents(c: Context, changeHub: ChangeHub, closed: AbortSignal) {
   return streamSSE(c, async (stream) => {
     const stopSending = changeHub.onRevision((revision) => void stream.writeSSE({ event: "change", data: JSON.stringify(revision) }));
-    const clientGone = new Promise<void>((resolve) => stream.onAbort(resolve));
-    await Promise.race([clientGone, closed]);
+    const { promise: ended, resolve }: PromiseWithResolvers<void> = Promise.withResolvers();
+    const end = () => resolve();
+    stream.onAbort(end);
+    closed.addEventListener("abort", end);
+    if (closed.aborted) end();
+    await ended;
+    closed.removeEventListener("abort", end);
     stopSending();
   });
 }

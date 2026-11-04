@@ -1,3 +1,4 @@
+import { setMaxListeners } from "node:events";
 import { join, relative, sep } from "node:path";
 import { watch, type FSWatcher } from "chokidar";
 import { errorText } from "../core/errors";
@@ -8,7 +9,7 @@ export type ChangeListener = (paths: readonly string[]) => void | Promise<void>;
 
 export type ChangeFeed = {
   subscribe: (listener: ChangeListener) => () => void;
-  closed: Promise<void>;
+  closed: AbortSignal;
   close: () => Promise<void>;
 };
 
@@ -44,7 +45,9 @@ export type ChangeFeedOptions = { root: string; debounceMs: number; warn: Locali
 
 export function createChangeFeed({ root, debounceMs, warn }: ChangeFeedOptions): ChangeFeed {
   const listeners = new Set<ChangeListener>();
-  const { promise: closed, resolve: markClosed }: PromiseWithResolvers<void> = Promise.withResolvers();
+  const closing = new AbortController();
+  // Every open SSE client listens for closing; Node 22 warns about a leak past 10 listeners on one AbortSignal.
+  setMaxListeners(0, closing.signal);
   const changedPaths = new Set<string>();
   const debouncer = createDebouncer(debounceMs, () => {
     const paths = [...changedPaths];
@@ -77,11 +80,11 @@ export function createChangeFeed({ root, debounceMs, warn }: ChangeFeedOptions):
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    closed,
+    closed: closing.signal,
     close: async () => {
       debouncer.cancel();
       listeners.clear();
-      markClosed();
+      closing.abort();
       await watcher.close();
     },
   };

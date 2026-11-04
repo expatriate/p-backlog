@@ -32,20 +32,20 @@ export function createCostSource(root: string, home: string): CostSource {
     costReport: async (request) => {
       const { values: runs, length, generation } = await runsTail.read();
       const inputs: CostInputs = { ...request, runs };
-      const keyParts: Record<keyof CostInputs, string> = {
-        usage: `${inputs.usage.revision}`,
-        runs: `${generation}:${length}`,
-        scope: `${snapshotIdOf(inputs.scope.snapshot)}/${inputs.scope.projects.map((project) => project.id).join(",")}`,
+      const keyParts: Record<keyof CostInputs, unknown> = {
+        usage: inputs.usage.revision,
+        runs: [generation, length],
+        scope: [snapshotIdOf(inputs.scope.snapshot), inputs.scope.projects.map((project) => project.id)],
         now: formatLocalDay(inputs.now),
       };
-      return costMemos.get(Object.values(keyParts).join("|"), () => costOf(inputs, places, lookupRepoRoot), inputs.scope.projectId);
+      return costMemos.get(JSON.stringify(keyParts), () => computeCostReport(inputs, places, lookupRepoRoot), inputs.scope.projectId);
     },
     retain: costMemos.retain,
   };
 }
 
-async function costOf({ usage: { cache, scan }, runs, scope: { projects, projectId }, now }: CostInputs, places: RepoPlaces, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
-  const buckets = bucketsOf(cache);
+async function computeCostReport({ usage: { cache, scan }, runs, scope: { projects, projectId }, now }: CostInputs, places: RepoPlaces, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
+  const buckets = usageBucketsOf(cache);
   const repoRoots =
     projectId === undefined
       ? new Map<string, GitRoots | null>()
@@ -62,7 +62,7 @@ async function costOf({ usage: { cache, scan }, runs, scope: { projects, project
 
 function unreadablePathHasNoProject(): void {}
 
-function bucketsOf(cache: UsageCache) {
+function usageBucketsOf(cache: UsageCache) {
   return Object.values(cache.files).flatMap((entry) => entry.buckets);
 }
 

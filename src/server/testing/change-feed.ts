@@ -4,16 +4,16 @@ export type TestChangeFeed = { changes: ChangeFeed; emitChange: (paths: readonly
 
 export function makeTestChangeFeed(): TestChangeFeed {
   const listeners = new Set<ChangeListener>();
-  const { promise: closed, resolve: markClosed }: PromiseWithResolvers<void> = Promise.withResolvers();
+  const closing = new AbortController();
   const changes: ChangeFeed = {
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    closed,
+    closed: closing.signal,
     close: async () => {
       listeners.clear();
-      markClosed();
+      closing.abort();
     },
   };
   return {

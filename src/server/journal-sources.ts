@@ -13,7 +13,7 @@ export type JournalSources = {
   retain: (projectIds: readonly string[]) => void;
 };
 
-type TailedJournal = { journal: ProjectJournal; position: string };
+type TailedJournal = { journal: ProjectJournal; position: { projectId: string; generation: number; length: number } };
 
 export function createJournalSources(root: string): JournalSources {
   const tails = new Map<string, JsonlTail<JournalEvent>>();
@@ -30,14 +30,14 @@ export function createJournalSources(root: string): JournalSources {
 
   const readTailed = async (projectId: string): Promise<TailedJournal> => {
     const { length, generation, ...lines } = await tailOf(projectId).read();
-    return { journal: projectJournal(projectId, lines), position: `${projectId}=${generation}:${length}` };
+    return { journal: projectJournal(projectId, lines), position: { projectId, generation, length } };
   };
 
   const rememberedContext =
     (snapshot: object, tailed: readonly TailedJournal[]) =>
     (input: StatsInput): ReportContext => {
       const positions = filterByProject(tailed, input.projectId, ({ journal }) => journal.projectId).map(({ position }) => position);
-      const key = `${snapshotIdOf(snapshot)}|${positions.join(",")}`;
+      const key = JSON.stringify([snapshotIdOf(snapshot), positions]);
       return { ...remembered.get(key, () => scopedReportData(input), input.projectId), input };
     };
 

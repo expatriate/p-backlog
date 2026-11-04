@@ -1,5 +1,3 @@
-import { forgetIfRejected } from "./source-memos";
-
 export type TtlCache = {
   get: <T>(key: string, compute: () => Promise<T>, tags?: readonly string[]) => Promise<T>;
   clear: () => void;
@@ -20,7 +18,9 @@ export function createTtlCache({ ttlMs, now }: { ttlMs: number; now: () => numbe
       if (cached !== undefined) return cached.value as Promise<T>;
       const value = compute();
       entries.set(key, { at: moment, value, tags });
-      forgetIfRejected(entries, key, value);
+      value.catch(() => {
+        if (entries.get(key)?.value === value) entries.delete(key);
+      });
       return value;
     },
     clear: () => entries.clear(),

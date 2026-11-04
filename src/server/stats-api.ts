@@ -56,7 +56,7 @@ type ScopedReportOptions = { sourceKey?: (projects: readonly Project[], snapshot
 type ScopedReportKind = Exclude<StatsReportKind, "cost">;
 
 const REPORT_TTL_MS = 5 * MINUTE_MS;
-const ALL_PROJECTS_TAG = "project:*";
+const ALL_PROJECTS_TAG = "all-projects";
 const WHOLE_BACKLOG_TAG = "whole-backlog";
 const projectTag = (projectId: string) => `project:${projectId}`;
 
@@ -83,7 +83,7 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
       const scope = await requestScopeOf(c, await backlogPruningCaches(), { wholeBacklog, readLanguage });
       if (!scope.ok) return scope.response;
       const moment = now();
-      const key = [kind, scope.projectId ?? "*", formatLocalDay(moment), sourceKey === undefined ? "" : await sourceKey(scope.projects, scope.snapshot)].join("|");
+      const key = JSON.stringify([kind, scope.projectId ?? null, formatLocalDay(moment), sourceKey === undefined ? null : await sourceKey(scope.projects, scope.snapshot)]);
       const tags = wholeBacklog ? [WHOLE_BACKLOG_TAG] : [scope.projectId === undefined ? ALL_PROJECTS_TAG : projectTag(scope.projectId)];
       const compute = async () => {
         const { journals, contextOf } = await journalSources.read(

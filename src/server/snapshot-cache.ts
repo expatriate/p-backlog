@@ -22,7 +22,10 @@ export function createSnapshotCache({ root, revisions, journalSources, warn }: S
   return {
     read: () => {
       if (snapshot !== null) return snapshot;
-      const loading = loadSnapshot(root, revisions.current(), journalSources, warn);
+      const loading: Promise<IndexedBacklog> = loadSnapshot(root, revisions.current(), journalSources, warn).then((loaded) => {
+        if (snapshot === loading) journalSources.retain(loaded.projects.map((project) => project.id));
+        return loaded;
+      });
       snapshot = loading;
       loading.catch(() => {
         if (snapshot === loading) snapshot = null;
@@ -88,7 +91,6 @@ export function createChangeHub({ revisions, snapshots, derived, changes }: Chan
 async function loadSnapshot(root: string, revision: Revision, journalSources: JournalSources, warn: LocalizedWarn): Promise<IndexedBacklog> {
   const loaded = await loadBacklog(root);
   const projectIds = loaded.projects.map((project) => project.id);
-  journalSources.retain(projectIds);
   const readableJournal = (projectId: string): Promise<ProjectJournal> =>
     journalSources.journal(projectId).catch(async (error: unknown) => {
       await warn((messages) => messages.journalReadFailed(join(root, projectId, JOURNAL_FILE), errorText(error)));

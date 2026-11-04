@@ -8,6 +8,7 @@ import { makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store
 import { createApp } from "../app";
 import { createMemorySampler, type MemorySampler } from "../memory-sampler";
 import { createUsageScanner, type UsageScanner } from "../usage-scanner";
+import type { ChangeFeed } from "../change-feed";
 import { makeTestChangeFeed } from "./change-feed";
 
 const TEST_HOST = "localhost:4317";
@@ -20,6 +21,7 @@ export type TestApp = {
   app: Hono;
   usage: UsageScanner;
   memory: MemorySampler;
+  changes: ChangeFeed;
   emitChange: (paths?: readonly string[]) => Promise<void>;
   request: (path: string, init?: RequestInit) => Promise<Response>;
   json: (path: string, method: "POST" | "PATCH" | "DELETE", body: unknown) => Promise<Response>;
@@ -78,6 +80,7 @@ export async function makeTestApp(files: Record<string, string>, options: TestAp
     app,
     usage,
     memory,
+    changes,
     emitChange: (paths = [root]) => emitChange(paths),
     request,
     json: (path, method, body) => request(path, { method, body: JSON.stringify(body), headers: { "content-type": "application/json" } }),

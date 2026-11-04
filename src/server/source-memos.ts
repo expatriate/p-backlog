@@ -15,13 +15,6 @@ export function pruneUnlessKept<K extends string | undefined>(map: Map<K, unknow
   for (const projectId of map.keys()) if (projectId !== undefined && !kept.has(projectId)) map.delete(projectId);
 }
 
-export function forgetIfRejected<K>(entries: Pick<Map<K, { value: unknown }>, "get" | "delete">, key: K, value: unknown): void {
-  if (!(value instanceof Promise)) return;
-  value.catch(() => {
-    if (entries.get(key)?.value === value) entries.delete(key);
-  });
-}
-
 export type ScopeMemo<V> = {
   get: (key: string, compute: () => V, projectId?: string) => V;
   retain: (projectIds: readonly string[]) => void;
@@ -35,7 +28,11 @@ export function createScopeMemo<V>(): ScopeMemo<V> {
       if (remembered?.key === key) return remembered.value;
       const value = compute();
       slots.set(projectId, { key, value });
-      forgetIfRejected(slots, projectId, value);
+      if (value instanceof Promise) {
+        value.catch(() => {
+          if (slots.get(projectId)?.value === value) slots.delete(projectId);
+        });
+      }
       return value;
     },
     retain: (projectIds) => pruneUnlessKept(slots, projectIds),

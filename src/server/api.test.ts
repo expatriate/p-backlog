@@ -1,3 +1,4 @@
+import { getEventListeners } from "node:events";
 import { mkdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
@@ -386,6 +387,26 @@ describe("GET /api/events", () => {
     const chunk = await reader.read();
     expect(new TextDecoder().decode(chunk.value)).toContain("event: change");
     await reader.cancel();
+  });
+
+  it("отключившийся клиент не оставляет слушателя остановки сервера: долгая служба не копит их", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const streams = await Promise.all([1, 2, 3].map(async () => (await backlog.request("/api/events")).body));
+    expect(getEventListeners(backlog.changes.closed, "abort")).toHaveLength(3);
+
+    await Promise.all(streams.map((stream) => stream?.cancel()));
+
+    await vi.waitFor(() => expect(getEventListeners(backlog.changes.closed, "abort")).toHaveLength(0));
+  });
+
+  it("подключение после остановки ленты сразу завершает поток, а не висит и не держит остановку сервера", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    await backlog.changes.close();
+
+    const stream = (await backlog.request("/api/events")).body;
+    if (!stream) throw new Error("нет потока событий");
+
+    expect(await stream.getReader().read()).toEqual({ done: true, value: undefined });
   });
 });
 
