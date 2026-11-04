@@ -1,7 +1,8 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { onlineManager } from "@tanstack/react-query";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { updateTask } from "../../core/store/testing/update-task";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import { TEST_NOW } from "../../server/testing/test-app";
@@ -176,6 +177,17 @@ describe("карточка задачи", () => {
   it("смена статуса сохраняется в файл задачи", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-1");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Статус" }), "in-progress");
+
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).status).toBe("in-progress"));
+  });
+
+  it("браузер без сети: правка всё равно уходит на локальный сервер, а не встаёт на паузу", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    onlineManager.setOnline(false);
+    onTestFinished(() => onlineManager.setOnline(true));
 
     await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Статус" }), "in-progress");
 

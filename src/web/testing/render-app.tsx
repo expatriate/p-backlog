@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider, type RouteObject } from "react-router";
@@ -8,6 +8,7 @@ import { routes } from "../app/App";
 import { BacklogApiProvider, type BacklogApi, type EventStream } from "../app/backlog-api";
 import { createApiClient } from "../api/client";
 import { LanguageLoader } from "../app/LanguageLoader";
+import { createQueryClient } from "../app/query-client";
 
 export type RenderedApp = TestApp & {
   user: ReturnType<typeof userEvent.setup>;
@@ -42,7 +43,7 @@ export async function renderApp(files: Record<string, string>, route = "/", appR
     openEvents: serverEvents((path, init) => backlog.request(path, init)),
     batchChunkSize,
   };
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const queryClient = createQueryClient({ retries: 0 });
   const router = createMemoryRouter(appRoutes, { initialEntries: [route] });
 
   render(
