@@ -210,6 +210,18 @@ describe("diffsSince", () => {
     ]);
   });
 
+  it("неотслеживаемый файл — изменения неизвестны, а не «изменений нет», как у нетронутого отслеживаемого", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/upload.ts": `${lines(1, 5).join("\n")}\n` });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(repo, { "src/new.ts": `${lines(1, 5).join("\n")}\n` });
+    const diffOf = diffsSince(repo);
+    const since = new Date("2026-09-11T00:00:00+03:00");
+
+    expect(await diffOf("src/new.ts", since)).toMatchObject({ changed: null, hunks: null });
+    expect(await diffOf("src/upload.ts", since)).toMatchObject({ changed: [], hunks: [] });
+  });
+
   it("удаление строк даёт диапазон вокруг места удаления", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/upload.ts": `${lines(1, 30).join("\n")}\n` });

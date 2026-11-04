@@ -151,9 +151,14 @@ export function diffsFrom(repo: string, git: GitRunner = runGit): DiffFrom {
     remembered(diffs, `${commit} ${path}`, async () => {
       const diff = await git(repo, ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--unified=3", commit, "--", ...literalPathspecs([path])]);
       if (diff === null) return null;
+      if (diff === "" && !(await isConfirmedTracked(repo, path, git))) return { excerpt: undefined, changed: null, hunks: null };
       const hunks = parseHunks(diff);
       return { excerpt: excerptOf(diff), changed: hunks === null ? null : changedRanges(hunks), hunks };
     });
+}
+
+async function isConfirmedTracked(repo: string, path: string, git: GitRunner): Promise<boolean> {
+  return outputLine(await git(repo, ["ls-files", "--", ...literalPathspecs([path])])) !== null;
 }
 
 function excerptOf(diff: string): DiffExcerpt | undefined {
