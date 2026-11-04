@@ -6,6 +6,7 @@
   background: var(--surface-raised);
   color: var(--ink);
   box-shadow: var(--shadow-panel);
+  overflow-wrap: anywhere;
 }
 
 .dialog::backdrop {

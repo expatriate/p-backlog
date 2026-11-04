@@ -3,12 +3,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sidebar-row-gap);
-  padding: 6px var(--space-2);
-  border-radius: var(--radius-control);
-  color: var(--ink-muted);
-  transition:
-    background var(--duration) var(--ease-out),
-    color var(--duration) var(--ease-out);
 }
 
 .scope {
@@ -17,13 +11,8 @@
   gap: 2px;
 }
 
-.scopeRow {
+.row.scopeRow {
   color: var(--ink);
-}
-
-.scopeCurrent {
-  background: var(--surface-selected);
-  font-weight: 600;
 }
 
 .scopeName {
@@ -39,19 +28,6 @@
 
 .number {
   font-variant-numeric: tabular-nums;
-}
-
-@media (hover: hover) {
-  .row:hover {
-    background: var(--surface-hover);
-    color: var(--ink);
-  }
-}
-
-.row:has(a[aria-current="true"]) {
-  background: var(--surface-selected);
-  color: var(--ink);
-  font-weight: 600;
 }
 
 .rowLink {

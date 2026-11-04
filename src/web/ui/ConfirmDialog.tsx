@@ -37,6 +37,7 @@ type OpenDialogProps = Omit<ConfirmDialogProps, "open" | "returnFocusTo"> & { di
 function OpenDialog({ dialog, title, description, fieldLabel, canConfirm, confirmLabel, onConfirm, onCancel }: OpenDialogProps) {
   const { ui } = useMessages();
   const titleId = useId();
+  const descriptionId = useId();
   const [typed, setTyped] = useState("");
 
   const cancelIfStillClosed = (event: SyntheticEvent<HTMLDialogElement>) => {
@@ -55,11 +56,21 @@ function OpenDialog({ dialog, title, description, fieldLabel, canConfirm, confir
   }, [dialog]);
 
   return (
-    <dialog ref={dialog} className={styles.dialog} aria-labelledby={titleId} onCancel={onCancel} onClose={cancelIfStillClosed} onKeyDown={(event) => event.key === "Escape" && event.stopPropagation()}>
+    <dialog
+      ref={dialog}
+      className={styles.dialog}
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      onCancel={onCancel}
+      onClose={cancelIfStillClosed}
+      onKeyDown={(event) => event.key === "Escape" && event.stopPropagation()}
+    >
       <h2 id={titleId} className={styles.title}>
         {title}
       </h2>
-      <p className={styles.description}>{description}</p>
+      <p id={descriptionId} className={styles.description}>
+        {description}
+      </p>
       <form onSubmit={confirmIfAllowed}>
         <label className={styles.field}>
           {fieldLabel}

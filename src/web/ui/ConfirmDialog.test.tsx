@@ -24,6 +24,7 @@ describe("подтверждение действия", () => {
       { wrapper: TestMessagesProvider },
     );
 
+    expect(screen.getByRole("dialog", { name: "Удалить проект «Торг»?", description: "Задач: 27. Отменить нельзя." })).toBeTruthy();
     const confirm = screen.getByRole("button", { name: "Удалить" });
     expect(confirm.getAttribute("aria-disabled")).toBe("true");
 

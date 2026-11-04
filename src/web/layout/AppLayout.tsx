@@ -11,6 +11,8 @@ import { ProjectsScope } from "./ProjectsScope";
 import rows from "./SidebarRows.module.css";
 import styles from "./AppLayout.module.css";
 
+const sectionLinkClass = cx(rows.item, styles.sectionLink);
+
 export function AppLayout() {
   const { layout } = useMessages();
   const { search } = useLocation();
@@ -33,12 +35,12 @@ export function AppLayout() {
         </Link>
         <ul className={rows.list} aria-label={layout.sectionsLabel}>
           <li>
-            <Link to={listPath(projectId)} className={navClass(!onStats)} aria-current={onStats ? undefined : "page"}>
+            <Link to={listPath(projectId)} className={sectionLinkClass} aria-current={onStats ? undefined : "page"}>
               <span className={rows.name}>{layout.tasksNav}</span>
             </Link>
           </li>
           <li>
-            <Link to={statsPath(projectId)} className={navClass(onStats)} aria-current={statsCurrent(statsTab)}>
+            <Link to={statsPath(projectId)} className={sectionLinkClass} aria-current={statsCurrent(statsTab)}>
               <span className={rows.name}>{layout.statsNav}</span>
               {signalCount > 0 && (
                 <>
@@ -63,8 +65,4 @@ export function AppLayout() {
 function statsCurrent(statsTab: StatsTab | undefined): "page" | "true" | undefined {
   if (statsTab === undefined) return undefined;
   return statsTab.key === "overview" ? "page" : "true";
-}
-
-function navClass(isActive: boolean): string {
-  return cx(styles.project, isActive && styles.projectActive);
 }

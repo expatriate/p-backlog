@@ -2,7 +2,9 @@ import { readFile } from "node:fs/promises";
 import { checkedFiles, isShippedSource, reportHits } from "./lib/check-files.mjs";
 
 const DEFAULT_ROOTS = ["src/web"];
-const HOVER_CAPABLE = /^@media\s*\(\s*hover\s*:\s*hover\s*\)$/;
+const HOVER_CAPABLE = /^@media\s*\(\s*hover\s*:\s*hover\s*\)$/i;
+const CONDITION_RULE = /^@(media|supports)\b/i;
+const HOVER_PSEUDO = /:hover\b/i;
 
 await reportHits(DEFAULT_ROOTS, async (root) => {
   const hits = [];
@@ -22,7 +24,7 @@ function ungatedHoversIn(path, css) {
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .trim();
       const gated = open.some((outer) => HOVER_CAPABLE.test(outer));
-      if (!prelude.startsWith("@") && prelude.includes(":hover") && !gated) hits.push(`${path}:${lineOf(css, preludeStart + css.slice(preludeStart, index).search(/\S/))}`);
+      if (!CONDITION_RULE.test(prelude) && HOVER_PSEUDO.test(prelude) && !gated) hits.push(`${path}:${lineOf(css, preludeStart + css.slice(preludeStart, index).search(/\S/))}`);
       open.push(prelude);
       preludeStart = index + 1;
     } else if (char === "}") {

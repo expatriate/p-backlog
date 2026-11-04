@@ -30,20 +30,13 @@
   font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
-  transition:
-    background var(--duration) var(--ease-out),
-    color var(--duration) var(--ease-out);
+  transition: var(--transition-control);
 }
 
 @media (hover: hover) {
   .button:hover {
     color: var(--ink);
   }
-}
-
-.button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .button[aria-disabled="true"] {

@@ -132,6 +132,18 @@ describe("переключатель языка", () => {
   });
 });
 
+describe("область «Проекты»", () => {
+  it("на карточке задачи всех проектов строка «Проекты» и подсвечена, и озвучена текущей; в проекте — нет", async () => {
+    const app = await renderApp(FILES, "/t/SPA-1");
+    const scope = await screen.findByRole("link", { name: "Проекты" });
+    expect(scope.getAttribute("aria-current")).toBe("true");
+
+    await act(() => app.router.navigate("/p/spa"));
+
+    await waitFor(() => expect(scope.getAttribute("aria-current")).toBeNull());
+  });
+});
+
 describe("ссылка «Статистика»", () => {
   it("текущая страница только на самой статистике, на вкладке — лишь раздел", async () => {
     const app = await renderApp(FILES, "/stats");

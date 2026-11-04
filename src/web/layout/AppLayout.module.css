@@ -54,34 +54,15 @@
   background: var(--accent);
 }
 
-.project {
+.sectionLink {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: 6px var(--space-2);
-  border-radius: var(--radius-control);
-  color: var(--ink-muted);
   text-decoration: none;
-  transition:
-    background var(--duration) var(--ease-out),
-    color var(--duration) var(--ease-out);
 }
 
-@media (hover: hover) {
-  .project:hover {
-    background: var(--surface-hover);
-    color: var(--ink);
-  }
-}
-
-.projectActive {
-  background: var(--surface-selected);
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.project .signalCount {
+.sectionLink .signalCount {
   color: var(--warn);
   font-weight: 600;
 }

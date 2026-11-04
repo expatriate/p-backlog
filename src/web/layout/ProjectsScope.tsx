@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { NavLink, useNavigate } from "react-router";
+import { Link, NavLink, useNavigate } from "react-router";
 import type { ProjectView } from "../../core/api/contract";
 import { countBy } from "../../core/collections";
 import type { Task } from "../../core/model/types";
@@ -31,7 +31,7 @@ export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopePro
 
   return (
     <div className={styles.scope}>
-      <div className={cx(styles.row, styles.scopeRow, projectId === undefined && styles.scopeCurrent)}>
+      <div className={cx(rows.item, styles.row, styles.scopeRow)}>
         <IconButton
           label={listOpen ? layout.collapseProjects : layout.expandProjects}
           tone="muted"
@@ -41,9 +41,9 @@ export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopePro
         >
           <Chevron open={listOpen} />
         </IconButton>
-        <NavLink ref={scopeLink} to={{ pathname: scopePath(), search }} end aria-current="true" className={cx(styles.rowLink, styles.scopeName)}>
+        <Link ref={scopeLink} to={{ pathname: scopePath(), search }} aria-current={projectId === undefined ? "true" : undefined} className={cx(styles.rowLink, styles.scopeName)}>
           {layout.projects}
-        </NavLink>
+        </Link>
         <ScopeOpenCount count={counts?.scopeOpen} />
       </div>
       {projects.data !== undefined && (
@@ -113,7 +113,7 @@ type ProjectRowProps = { to: string; search: string; openTasks: number | undefin
 
 function ProjectRow({ to, search, openTasks, taskCount, project, onDeleted }: ProjectRowProps) {
   return (
-    <li className={cx(styles.row, !project.active && rows.muted)}>
+    <li className={cx(rows.item, styles.row, !project.active && rows.muted)}>
       <ProjectCheckbox project={project} />
       <NavLink to={{ pathname: to, search }} aria-current="true" className={cx(styles.rowLink)}>
         <span className={rows.name} title={project.name}>

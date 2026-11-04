@@ -7,6 +7,27 @@
   list-style: none;
 }
 
+.item {
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-control);
+  color: var(--ink-muted);
+  transition: var(--transition-control);
+}
+
+@media (hover: hover) {
+  .item:hover {
+    background: var(--surface-hover);
+    color: var(--ink);
+  }
+}
+
+.item[aria-current],
+.item:has(a[aria-current]) {
+  background: var(--surface-selected);
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .name {
   overflow: hidden;
   text-overflow: ellipsis;
