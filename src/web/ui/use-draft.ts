@@ -13,9 +13,9 @@ export type Draft<E extends HTMLElement = HTMLInputElement> = {
   reset: () => void;
 };
 
-type DraftState = { text: string; base: string; conflicted: boolean; failed: boolean; savesInFlight: number };
+type DraftState = { text: string; base: string; confirmed: string; conflicted: boolean; failed: boolean; savesInFlight: number };
 
-const synced = (serverValue: string): DraftState => ({ text: serverValue, base: serverValue, conflicted: false, failed: false, savesInFlight: 0 });
+const synced = (serverValue: string): DraftState => ({ text: serverValue, base: serverValue, confirmed: serverValue, conflicted: false, failed: false, savesInFlight: 0 });
 
 const savingNow = (draft: DraftState) => draft.savesInFlight > 0;
 
@@ -41,13 +41,12 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
   const canonicalText = canonical(state.text);
 
   const send = (save: (canonical: string) => Promise<boolean>) => {
-    const previousBase = state.base;
     setState((current) => ({ ...current, base: canonicalText, savesInFlight: current.savesInFlight + 1 }));
     const settle = (saved: boolean) =>
       setState((current) => {
-        const settled = { ...current, savesInFlight: current.savesInFlight - 1 };
+        const settled = { ...current, savesInFlight: current.savesInFlight - 1, confirmed: saved ? canonicalText : current.confirmed };
         if (current.base !== canonicalText) return settled;
-        return saved ? { ...settled, conflicted: false, failed: false } : { ...settled, base: previousBase, failed: true };
+        return saved ? { ...settled, conflicted: false, failed: false } : { ...settled, base: current.confirmed, failed: true };
       });
     void save(canonicalText).then(settle);
   };
