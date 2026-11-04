@@ -3,9 +3,10 @@ import type { Task } from "../model/types";
 import { anchorOf, findIntactLines, findMoved, isAnchorFor, windowMatches } from "./anchor";
 import type { CheckFix } from "./findings";
 import type { BranchHistory, Commit, RepoFacts } from "./repo-facts";
+import { reviewMark, taskRef, type TaskRef } from "./reviewed-task";
+import { changesSince, commitsAfter } from "./source-commits";
 import { hasLines, isWithin, lineSuffix, sourcePath } from "../model/source";
 
-export type TaskRef = { id: string; title: string };
 type CommitRef = { sha: string; subject: string };
 
 type SourceChange = { kind: "source-changed"; task: TaskRef; path: string; commits: CommitRef[]; uncommitted: boolean; method: CheckMethod };
@@ -29,19 +30,6 @@ type AnchorState = { kind: "none" } | ({ kind: "same" | "moved" } & AnchoredSour
 export type AnchorStates = ReadonlyMap<string, AnchorState>;
 
 const MAX_COMMITS = 3;
-
-export function isReviewable(task: Task): boolean {
-  return task.type === "task" && (task.status === "backlog" || task.status === "blocked");
-}
-
-export function sourcePaths(tasks: readonly Task[]): string[] {
-  return [...new Set(tasks.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
-}
-
-export function reviewMark(task: Task): number {
-  const verified = task.verified === undefined ? Number.NEGATIVE_INFINITY : Date.parse(task.verified);
-  return Math.max(Date.parse(task.created), verified);
-}
 
 export function anchorStates(tasks: readonly Task[], facts: RepoFacts): AnchorStates {
   return new Map(tasks.map((task) => [task.id, anchorState(task, facts)]));
@@ -94,12 +82,6 @@ function movedPlan(id: string, from: string, to: AnchoredSource): AnchorPlan {
   return { id, changes: { source: to.source, anchor: to.anchor }, moved: { kind: "source-moved", taskId: id, from, to: to.source } };
 }
 
-export function changesSince(facts: RepoFacts, path: string, mark: number): { commits: Commit[]; uncommitted: boolean } {
-  const commits = commitsTouchingSince(facts.commits, path, mark);
-  const uncommitted = [...facts.dirtyModifiedAt].some(([file, modifiedAt]) => isWithin(file, path) && modifiedAt > mark);
-  return { commits, uncommitted };
-}
-
 export function judgedByCommits(task: Task, anchors: AnchorStates): boolean {
   return task.source !== undefined && anchors.get(task.id)?.kind === "none";
 }
@@ -142,22 +124,6 @@ function followRenames(path: string, commits: readonly Commit[], mark: number): 
   return current === path ? undefined : current;
 }
 
-export function commitsTouchingSince(commits: readonly Commit[], path: string, mark: number): Commit[] {
-  return commitsAfter(commits, mark).filter((commit) => touches(commit, path));
-}
-
-function commitsAfter(commits: readonly Commit[], mark: number): Commit[] {
-  return commits.filter((commit) => Date.parse(commit.date) > mark);
-}
-
-function touches(commit: Commit, path: string): boolean {
-  return commit.files.some((file) => isWithin(file.path, path) || (file.renamedFrom !== undefined && isWithin(file.renamedFrom, path)));
-}
-
-export function taskRef(task: Task): TaskRef {
-  return { id: task.id, title: task.title };
-}
-
 function commitRef(commit: Commit): CommitRef {
-  return { sha: commit.sha, subject: commit.subject };
+  return { sha: commit.shortSha, subject: commit.subject };
 }

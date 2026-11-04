@@ -33,7 +33,10 @@ const PATCH_OPTIONS = ["-p", "--no-color", "--no-ext-diff", "--no-textconv", "--
 const COMMIT_HEADER = "--format=commit %H";
 const TREE_PAIR_LINE = /^[0-9a-f]+ [0-9a-f]+$/;
 const NO_COMMIT = /^0+$/;
-const RAW_RECORD = /commit (?<commit>[0-9a-f]+)\0|:\d+ (?<mode>\d+) [0-9a-f]+ (?<object>[0-9a-f]+) [A-Z]\d*\0(?<path>[^\0]*)\0/g;
+const COMMIT_RECORD = /commit (?<commit>[0-9a-f]+)\0/;
+// --raw -z file record: ":100644 100644 <old blob> <new blob> M\0<path>\0"
+const FILE_RECORD = /:\d+ (?<mode>\d+) [0-9a-f]+ (?<object>[0-9a-f]+) [A-Z]\d*\0(?<path>[^\0]*)\0/;
+const RAW_RECORD = new RegExp(`${COMMIT_RECORD.source}|${FILE_RECORD.source}`, "g");
 
 export type LandingState = "landed" | "pending" | "unknown";
 

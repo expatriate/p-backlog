@@ -4,11 +4,10 @@ import type { CodeGraph, GraphSymbol, GraphSymbolKind } from "../code-review-gra
 import type { FilteredSighting } from "../journal/events";
 import type { Task } from "../model/types";
 import { sourceRange, type LineRange } from "./anchor";
-import { reviewMark, type Candidate } from "./candidates";
+import type { Candidate } from "./candidates";
 import type { SymbolOf } from "./duplicates";
 import { sourcePath } from "../model/source";
-import type { CurrentSources } from "./current-source";
-import type { DiffSince } from "./repo-facts";
+import type { CurrentSources, TaskDiff } from "./current-source";
 import { remembered } from "../remembered";
 import type { PathErrorHandler } from "../errors";
 import { readBytesOrNullSync, attemptReportingFailureSync } from "../store/fs-utils";
@@ -52,7 +51,7 @@ export type SymbolFilterResult = { kept: Candidate[]; filtered: FilteredSighting
 
 type Decision = { kept: Candidate } | { filtered: FilteredSighting };
 
-export type SymbolFilterContext = { tasksById: ReadonlyMap<string, Task>; located: CurrentSources; diffOf: DiffSince; symbolAt: SymbolLookup };
+export type SymbolFilterContext = { tasksById: ReadonlyMap<string, Task>; located: CurrentSources; diffOf: TaskDiff; symbolAt: SymbolLookup };
 
 export async function filterBySymbol(candidates: readonly Candidate[], context: SymbolFilterContext): Promise<SymbolFilterResult> {
   const decisions = await Promise.all(candidates.map((candidate) => decide(candidate, context)));
@@ -68,7 +67,7 @@ async function decide(candidate: Candidate, { tasksById, located, diffOf, symbol
   if (task === undefined) return { kept: candidate };
   const found = symbolOfSource(symbolAt, located.get(task.id) ?? undefined);
   if (found === null) return { kept: candidate };
-  const diff = await diffOf(candidate.path, new Date(reviewMark(task)));
+  const diff = await diffOf(task, candidate.path);
   if (diff === null || diff.changed === null) return { kept: candidate };
   const watched = watchedRange(found.symbol, found.declared);
   if (diff.changed.some((range) => overlaps(range, watched))) return { kept: { ...candidate, method: "symbol" } };

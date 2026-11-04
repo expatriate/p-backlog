@@ -1,6 +1,6 @@
 import { formatLocalIso } from "../model/dates";
 import { isClosed } from "../model/graph";
-import { CANDIDATE_EVIDENCE, type CandidateEvidence, type CandidateSighting, type CheckMode, type FilteredSighting, type JournalEvent } from "./events";
+import { CANDIDATE_EVIDENCE, type CandidateEvidence, type CandidateSighting, type CheckMode, type FilteredSighting, type JournalEvent, type TaskEvidence } from "./events";
 
 type EpisodeState = "open" | "ended";
 
@@ -30,15 +30,15 @@ export function filteredEvents(filtered: readonly FilteredSighting[], states: Ep
   return [...byKey.entries()].filter(([key]) => states.get(key) !== "open").map(([, { task, symbol }]) => ({ at, task, via: "check", kind: "candidate-filtered", symbol }));
 }
 
-type ReviewedTasks = { sightings: readonly CandidateSighting[]; reviewed: readonly string[]; checked?: readonly CandidateEvidence[] };
+type ReviewedTasks = { sightings: readonly CandidateSighting[]; reviewed: readonly string[]; unchecked?: readonly TaskEvidence[] };
 
-export function candidateGoneEvents({ sightings, reviewed, checked = CANDIDATE_EVIDENCE }: ReviewedTasks, states: EpisodeStates, now: Date): JournalEvent[] {
+export function candidateGoneEvents({ sightings, reviewed, unchecked = [] }: ReviewedTasks, states: EpisodeStates, now: Date): JournalEvent[] {
   const at = formatLocalIso(now);
-  const seen = new Set(sightings.map((sighting) => episodeKey(sighting.task, sighting.evidence)));
+  const stillOpen = new Set([...sightings, ...unchecked].map((sighting) => episodeKey(sighting.task, sighting.evidence)));
   return reviewed.flatMap((task) =>
-    checked.flatMap((evidence): JournalEvent[] => {
+    CANDIDATE_EVIDENCE.flatMap((evidence): JournalEvent[] => {
       const key = episodeKey(task, evidence);
-      return seen.has(key) || states.get(key) !== "open" ? [] : [{ at, task, via: "check", kind: "candidate-gone", evidence }];
+      return stillOpen.has(key) || states.get(key) !== "open" ? [] : [{ at, task, via: "check", kind: "candidate-gone", evidence }];
     }),
   );
 }

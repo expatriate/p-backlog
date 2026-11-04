@@ -12,6 +12,7 @@ import { duplicateCandidates } from "./duplicates";
 import { fileHashes, filterBySymbol, symbolLookup, symbolNames, type SymbolLookup } from "./symbol-filter";
 import type { CodeGraph } from "../code-review-graph/graph-db";
 import { diffsSince, type DiffSince } from "./repo-facts";
+import { reviewMark } from "./reviewed-task";
 
 const hashesOf = (repo: string) =>
   fileHashes(repo, (path, error) => {
@@ -45,7 +46,12 @@ async function indexUpload(repo: string): Promise<void> {
 }
 
 const declaredSources = (tasks: readonly Task[]) => new Map(tasks.map((item) => [item.id, item.source ?? null]));
-const context = (item: Task, diffOf: DiffSince, symbolAt: SymbolLookup) => ({ tasksById: new Map([[item.id, item]]), located: declaredSources([item]), diffOf, symbolAt });
+const context = (item: Task, since: DiffSince, symbolAt: SymbolLookup) => ({
+  tasksById: new Map([[item.id, item]]),
+  located: declaredSources([item]),
+  diffOf: (task: Task, path: string) => since(path, new Date(reviewMark(task))),
+  symbolAt,
+});
 const task = makeTask({ id: "SPA-1", source: "src/upload.ts:2", created: "2026-09-11T10:00:00+03:00" });
 const candidate: Candidate = { kind: "source-changed", task: { id: "SPA-1", title: task.title }, path: "src/upload.ts", commits: [], uncommitted: false, method: "file" };
 

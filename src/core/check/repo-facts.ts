@@ -8,7 +8,7 @@ import { fileExists, lstatOrNull, attemptReportingFailure, readTextIfFile } from
 
 type FileChange = { path: string; renamedFrom?: string };
 
-export type Commit = { sha: string; date: string; parents: string[]; subject: string; files: FileChange[] };
+export type Commit = { sha: string; shortSha: string; date: string; parents: string[]; subject: string; files: FileChange[] };
 
 export type GitHistory = "read" | "not-a-repo" | "unsafe-repo" | "unreadable";
 
@@ -30,6 +30,7 @@ const REFLOG_MOMENT = /\{(\d+)\}$/;
 const STATUS_CODE_WIDTH = 3;
 const RENAME_OR_COPY = /^[RC]/;
 const ORIGINAL_PATH_FOLLOWS = /^(?:[RC].|.[RC])/;
+const LOG_FORMAT = `--format=${RECORD}%H${FIELD}%h${FIELD}%cI${FIELD}%P${FIELD}%s`;
 
 export type PathMarks = ReadonlyMap<string, number>;
 
@@ -80,7 +81,7 @@ function earliestMark(marks: PathMarks, paths: readonly string[]): Date {
 }
 
 function logArgs(since: Date): string[] {
-  return ["log", "--relative", `--since=${since.toISOString()}`, `--format=${RECORD}%h${FIELD}%cI${FIELD}%p${FIELD}%s`, "--name-status", "-M", "--diff-merges=first-parent", ...FACTS_HISTORY_OPTIONS, "-z"];
+  return ["log", "--relative", `--since=${since.toISOString()}`, LOG_FORMAT, "--name-status", "-M", "--diff-merges=first-parent", ...FACTS_HISTORY_OPTIONS, "-z"];
 }
 
 async function pathLog(repo: string, since: Date, paths: readonly string[]): Promise<string | null> {
@@ -103,7 +104,7 @@ function isInsideRepo(path: string): boolean {
 
 export type DiffExcerpt = { text: string; omittedLines: number };
 
-type FileDiff = { excerpt: DiffExcerpt | undefined; changed: LineRange[] | null; hunks: Hunk[] | null };
+export type FileDiff = { excerpt: DiffExcerpt | undefined; changed: LineRange[] | null; hunks: Hunk[] | null };
 
 export type DiffSince = (path: string, since: Date) => Promise<FileDiff | null>;
 
@@ -191,9 +192,10 @@ function parseLog(output: string): Commit[] {
     .filter((record) => record.trim() !== "")
     .map((record) => {
       const headerEnd = record.includes("\0") ? record.indexOf("\0") : record.length;
-      const [sha = "", date = "", parents = "", subject = ""] = record.slice(0, headerEnd).trim().split(FIELD);
+      const [sha = "", shortSha = "", date = "", parents = "", subject = ""] = record.slice(0, headerEnd).trim().split(FIELD);
       return {
         sha,
+        shortSha,
         date,
         parents: parents.split(" ").filter((parent) => parent !== ""),
         subject,

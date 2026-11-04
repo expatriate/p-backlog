@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
 import { anchorOf } from "./anchor";
-import { anchorStates, codeReview, isReviewable } from "./candidates";
+import { anchorStates, codeReview } from "./candidates";
+import { isReviewable } from "./reviewed-task";
 import type { Task } from "../model/types";
 import type { Commit, RepoFacts } from "./repo-facts";
 
@@ -11,7 +12,7 @@ const review = (tasks: readonly Task[], repoFacts: RepoFacts) => codeReview(task
 const codeCandidates = (tasks: readonly Task[], repoFacts: RepoFacts) => review(tasks, repoFacts).candidates;
 
 function commit(sha: string, date: string, files: Commit["files"]): Commit {
-  return { sha, date, parents: [], subject: `Коммит ${sha}`, files };
+  return { sha, shortSha: sha, date, parents: [], subject: `Коммит ${sha}`, files };
 }
 
 function facts(overrides: Partial<RepoFacts>): RepoFacts {

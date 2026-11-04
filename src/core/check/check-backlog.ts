@@ -1,13 +1,14 @@
 import { join } from "node:path";
 import { errorText, warnPathErrors } from "../errors";
 import { candidateEvents, candidateGoneEvents, episodeStates, filteredEvents } from "../journal/episodes";
-import { CANDIDATE_EVIDENCE, type CandidateEvidence, type CandidateSighting, type CheckMode, type FilteredSighting } from "../journal/events";
+import type { CandidateSighting, CheckMode, FilteredSighting, TaskEvidence } from "../journal/events";
 import type { CoreMessages } from "../messages";
 import type { Project, Task } from "../model/types";
 import { appendJournal, readJournal } from "../store/journal";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
 import type { GitRoots, RepoPlaces } from "../store/resolve-project";
-import { isReviewable, type AnchorPlan, type Candidate, type ReportedCandidate } from "./candidates";
+import type { AnchorPlan, Candidate, ReportedCandidate } from "./candidates";
+import { isReviewable } from "./reviewed-task";
 import { applyAnchorPlans, applyFixes, type FixOutcome } from "./check-fixes";
 import { findProblems } from "./find-problems";
 import type { CheckFix, CheckProblem } from "./findings";
@@ -55,7 +56,7 @@ function plansToApply({ review, checkout }: CheckedProject): AnchorPlan[] {
   return checkout?.linkedWorktree === true ? [] : review.plans;
 }
 
-type CandidateOutcome = { candidates: ReportedCandidate[]; filtered: readonly FilteredSighting[]; unchecked: ReadonlyMap<string, readonly CandidateEvidence[]>; unjudged: ReadonlySet<string> };
+type CandidateOutcome = { candidates: ReportedCandidate[]; filtered: readonly FilteredSighting[]; unchecked: ReadonlyMap<string, readonly TaskEvidence[]>; unjudged: ReadonlySet<string> };
 
 function candidateOutcome(reviews: readonly ProjectReview[]): CandidateOutcome {
   return {
@@ -80,8 +81,7 @@ async function recordCandidates(root: string, tasks: readonly Task[], { candidat
       const journal = await readJournal(dir, projectId);
       const states = episodeStates(journal.events);
       const sightings = found.map(sightingOf);
-      const checked = CANDIDATE_EVIDENCE.filter((evidence) => !(unchecked.get(projectId) ?? []).includes(evidence));
-      const gone = endsGone ? candidateGoneEvents({ sightings, reviewed, checked }, states, now) : [];
+      const gone = endsGone ? candidateGoneEvents({ sightings, reviewed, unchecked: unchecked.get(projectId) ?? [] }, states, now) : [];
       await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, states, now)], (_path, error) => reportFailure(error));
     } catch (error) {
       reportFailure(error);

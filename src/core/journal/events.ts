@@ -47,7 +47,9 @@ export const RECORDED_MATCHES = [...DUPLICATE_MATCHES, UNKNOWN] as const;
 
 export type RecordedMatch = (typeof RECORDED_MATCHES)[number];
 
-export type CandidateSighting = { task: string; evidence: CandidateEvidence; method?: CheckMethod; match?: DuplicateMatch };
+export type TaskEvidence = { task: string; evidence: CandidateEvidence };
+
+export type CandidateSighting = TaskEvidence & { method?: CheckMethod; match?: DuplicateMatch };
 
 export type FilteredSighting = { task: string; symbol: string };
 

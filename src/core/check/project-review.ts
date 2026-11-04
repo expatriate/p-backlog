@@ -1,15 +1,28 @@
 import { join } from "node:path";
 import type { PathErrorHandler } from "../errors";
 import { openCodeGraph, type CodeGraph } from "../code-review-graph/graph-db";
-import type { CandidateEvidence, CheckMode, FilteredSighting, TaskOrigin } from "../journal/events";
+import type { CandidateEvidence, CheckMode, FilteredSighting, TaskEvidence, TaskOrigin } from "../journal/events";
 import type { Project, Task } from "../model/types";
 import { attemptReportingFailure, readTextIfFile } from "../store/fs-utils";
 import { readJournal } from "../store/journal";
 import { snippetOf } from "./anchor";
 import { commitsKnownAtCreation } from "./known-commits";
-import { anchorStates, codeReview, isReviewable, relocationPlan, renamePlan, reviewMark, type AnchorPlan, type Candidate, type ChangeContext, type CodeReview, type ReportedCandidate } from "./candidates";
+import {
+  anchorStates,
+  codeReview,
+  judgedByCommits,
+  relocationPlan,
+  renamePlan,
+  type AnchorPlan,
+  type AnchorStates,
+  type Candidate,
+  type ChangeContext,
+  type CodeReview,
+  type ReportedCandidate,
+} from "./candidates";
+import { isReviewable, reviewMark } from "./reviewed-task";
 import { duplicateCandidates } from "./duplicates";
-import { currentSourcesOf, repoDiffs, traceSources, type SourceTraces } from "./current-source";
+import { currentSourcesOf, diffsSinceCreation, repoDiffs, traceSources, type SourceTraces } from "./current-source";
 import type { CheckProblem } from "./findings";
 import { awaitingMerge } from "./awaiting-merge";
 import { collectRepoFacts, type DiffExcerpt, type GitHistory, type RepoFacts } from "./repo-facts";
@@ -24,7 +37,7 @@ export type ProjectReview = {
   filtered: FilteredSighting[];
   plans: AnchorPlan[];
   problems: CheckProblem[];
-  unchecked: CandidateEvidence[];
+  unchecked: TaskEvidence[];
   awaitingMerge: string[];
   skipped: string[];
 };
@@ -39,11 +52,7 @@ type LineJudgement = { kept: Candidate[]; linesIntact: string[]; notOnBranch: st
 
 type PlanSettlement = { untouchable: ReadonlySet<string>; relocatable: readonly string[] };
 
-type SightingScope = { repo: string; facts: RepoFacts; graph: CodeGraph | null; mode: CheckMode; onUnreadable: PathErrorHandler };
-
-type DuplicateScope = { mode: CheckMode; skipped: ReadonlySet<string> };
-
-type MergeScope = { repo: string; facts: RepoFacts; origins: ReadonlyMap<string, TaskOrigin>; onUnreadable: PathErrorHandler };
+type RepoScope = ReviewScope & { repo: string; facts: RepoFacts };
 
 type MergeJudgement = Pick<ProjectReview, "candidates" | "filtered" | "plans" | "awaitingMerge" | "problems">;
 
@@ -59,42 +68,42 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
   const tasks = allTasks.filter((task) => task.projectId === project.id && isReviewable(task));
   const nothing = { projectId: project.id, candidates: [], filtered: [], plans: [], problems: [], unchecked: [], awaitingMerge: [], skipped: [] };
   if (tasks.length === 0) return nothing;
-  if (repo === undefined) return { ...nothing, candidates: mode === "full" ? duplicateCandidates(tasks) : [], unchecked: ["source-changed", "source-missing"] };
+  if (repo === undefined) return { ...nothing, candidates: mode === "full" ? duplicateCandidates(tasks) : [], unchecked: [...evidenceOf(tasks, "source-changed"), ...evidenceOf(tasks, "source-missing")] };
 
   const facts = await collectRepoFacts(repo, earliestMarks(tasks));
   for (const [path, error] of facts.unreadable) onUnreadable(join(repo, path), error);
   const skipped = new Set(tasks.filter((task) => task.source !== undefined && facts.unreadable.has(sourcePath(task.source))).map((task) => task.id));
   const readable = tasks.filter((task) => !skipped.has(task.id));
-  const scope: MergeScope = { repo, facts, origins, onUnreadable };
-  const review = await reviewedCode(readable, scope);
+  const scope: RepoScope = { repo, facts, origins, mode, onUnreadable };
+  const anchors = anchorStates(readable, facts);
+  const review = await reviewedCode(readable, anchors, scope);
   const graph = openCodeGraph(repo);
   try {
-    const context = await projectContext(readable, review, { repo, facts, graph, mode, onUnreadable });
-    const sighted = await sightedBySymbol(tasks, review, context, { mode, skipped });
-    const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, { projectId: project.id, repo, origins });
-    return { projectId: project.id, ...judged, skipped: [...skipped], problems: [...historyProblems(project, repo, facts.history), ...mergeProblems], unchecked: uncheckedEvidence(facts) };
+    const context = await projectContext(readable, review, scope, graph);
+    const sighted = await sightedBySymbol(tasks, review, context, scope, skipped);
+    const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, scope, project.id);
+    return { projectId: project.id, ...judged, skipped: [...skipped], problems: [...historyProblems(project, repo, facts.history), ...mergeProblems], unchecked: uncheckedEvidence(tasks, anchors, facts) };
   } finally {
     graph?.close();
   }
 }
 
-async function reviewedCode(tasks: readonly Task[], scope: MergeScope): Promise<CodeReview> {
+async function reviewedCode(tasks: readonly Task[], anchors: AnchorStates, scope: RepoScope): Promise<CodeReview> {
   const { repo, facts, origins } = scope;
-  const anchors = anchorStates(tasks, facts);
   const knownCommits = await commitsKnownAtCreation({ repo, tasks, facts, anchors, origins });
   return withRenamesFollowed(codeReview(tasks, facts, knownCommits, anchors), tasks, scope);
 }
 
-async function projectContext(tasks: readonly Task[], review: CodeReview, { repo, facts, graph, mode, onUnreadable }: SightingScope): Promise<ProjectContext> {
+async function projectContext(tasks: readonly Task[], review: CodeReview, { repo, facts, origins, mode, onUnreadable }: RepoScope, graph: CodeGraph | null): Promise<ProjectContext> {
   const diffs = repoDiffs(repo);
   const symbolAt = symbolLookup(graph, fileHashes(repo, onUnreadable));
   const changedIds = new Set(review.candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? [candidate.task.id] : [])));
   const locating = mode === "full" && graph !== null ? tasks : tasks.filter((task) => changedIds.has(task.id));
   const traces = await traceSources(locating, facts, diffs);
-  return { tasksById: new Map(tasks.map((task) => [task.id, task])), located: currentSourcesOf(traces), traces, facts, diffOf: diffs.since, symbolAt };
+  return { tasksById: new Map(tasks.map((task) => [task.id, task])), located: currentSourcesOf(traces), traces, facts, diffOf: diffsSinceCreation(repo, diffs, origins), symbolAt };
 }
 
-async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, context: ProjectContext, { mode, skipped }: DuplicateScope): Promise<SymbolSightings> {
+async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, context: ProjectContext, { mode }: RepoScope, skipped: ReadonlySet<string>): Promise<SymbolSightings> {
   const duplicates = mode === "full" ? duplicateCandidates(tasks, symbolNames(context.symbolAt, context.located)).filter((candidate) => !skipped.has(candidate.task.id)) : [];
   const byLines = judgedByLines(review.candidates, context.traces);
   const { kept, filtered } = await filterBySymbol(byLines.kept, context);
@@ -105,7 +114,7 @@ async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, conte
   return { kept, filtered, plans: settledPlans(review.plans, settlement, context), duplicates };
 }
 
-async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectContext, { projectId, repo, origins }: Pick<MergeScope, "repo" | "origins"> & { projectId: string }): Promise<MergeJudgement> {
+async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectContext, { repo, origins }: RepoScope, projectId: string): Promise<MergeJudgement> {
   const { pending, unknownBranches } = await awaitingMerge({ repo, taskIds: involvedTaskIds(sighted), origins });
   const judged = (id: string) => !pending.has(id);
   const code = await Promise.all(sighted.kept.filter((candidate) => judged(candidate.task.id)).map((candidate) => withContext(candidate, context)));
@@ -129,7 +138,7 @@ function judgedByLines(candidates: readonly Candidate[], traces: SourceTraces): 
   return judgement;
 }
 
-async function withRenamesFollowed(review: CodeReview, tasks: readonly Task[], { repo, onUnreadable }: MergeScope): Promise<CodeReview> {
+async function withRenamesFollowed(review: CodeReview, tasks: readonly Task[], { repo, onUnreadable }: RepoScope): Promise<CodeReview> {
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
   const renamePlans = await Promise.all(
     review.candidates.map(async (candidate) => {
@@ -149,8 +158,14 @@ function involvedTaskIds({ kept, filtered, plans }: SymbolSightings): string[] {
   return [...new Set([...kept.map((candidate) => candidate.task.id), ...filtered.map((sighting) => sighting.task), ...plans.map((plan) => plan.id)])];
 }
 
-function uncheckedEvidence({ history, branches }: RepoFacts): CandidateEvidence[] {
-  return [...(history === "read" ? [] : ["source-changed" as const]), ...(branches.kind === "unreadable" ? ["source-missing" as const] : [])];
+function uncheckedEvidence(tasks: readonly Task[], anchors: AnchorStates, { history, branches, existing }: RepoFacts): TaskEvidence[] {
+  const changeUnchecked = history === "read" ? [] : tasks.filter((task) => judgedByCommits(task, anchors));
+  const missingUnchecked = branches.kind === "unreadable" ? tasks.filter((task) => task.source !== undefined && !existing.has(sourcePath(task.source))) : [];
+  return [...evidenceOf(changeUnchecked, "source-changed"), ...evidenceOf(missingUnchecked, "source-missing")];
+}
+
+function evidenceOf(tasks: readonly Task[], evidence: CandidateEvidence): TaskEvidence[] {
+  return tasks.map((task) => ({ task: task.id, evidence }));
 }
 
 function historyProblems(project: Project, repo: string, history: GitHistory): CheckProblem[] {
@@ -196,7 +211,7 @@ async function withContext(candidate: Candidate, { tasksById, located, facts, di
   const current = located.get(task.id) ?? undefined;
   const source = current ?? task.source;
   const snippet = text === undefined || source === undefined ? undefined : snippetOf(text, source);
-  const excerpt = (await diffOf(candidate.path, new Date(reviewMark(task))))?.excerpt;
+  const excerpt = (await diffOf(task, candidate.path))?.excerpt;
   const problem = firstParagraph(task.body);
   const moved = current === undefined || current === task.source ? {} : { source: current };
   return { ...candidate, ...moved, ...(problem === undefined ? {} : { problem }), ...(snippet === undefined ? {} : { snippet }), ...diffFields(excerpt) };

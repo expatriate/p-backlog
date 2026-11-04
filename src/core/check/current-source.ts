@@ -1,9 +1,12 @@
 import { runGit } from "../git/run";
+import type { TaskOrigin } from "../journal/events";
 import type { Task } from "../model/types";
+import { remembered } from "../remembered";
 import { anchorOf, anchorRange, locateAnchor, remappedSource, windowMatches } from "./anchor";
-import { changesSince, reviewMark } from "./candidates";
+import { reviewMark } from "./reviewed-task";
+import { changesSince } from "./source-commits";
 import { baseText, currentLine, modifiesLines, type Hunk } from "./diff-hunks";
-import { collectRepoFacts, diffsFrom, diffsSince, headsAt, type Commit, type DiffFrom, type DiffSince, type HeadAt, type RepoFacts } from "./repo-facts";
+import { collectRepoFacts, diffsFrom, diffsSince, headsAt, type Commit, type DiffFrom, type DiffSince, type FileDiff, type HeadAt, type RepoFacts } from "./repo-facts";
 import { hasLines, sourcePath } from "../model/source";
 
 type FileDiffs = { since: DiffSince; from: DiffFrom; headAt: HeadAt };
@@ -21,6 +24,17 @@ const UNTRACED: SourceTrace = { kind: "untraced" };
 export function repoDiffs(repo: string): FileDiffs {
   const from = diffsFrom(repo);
   return { since: diffsSince(repo, runGit, from), from, headAt: headsAt(repo) };
+}
+
+export type TaskDiff = (task: Task, path: string) => Promise<FileDiff | null>;
+
+export function diffsSinceCreation(repo: string, { since, from }: FileDiffs, origins: ReadonlyMap<string, TaskOrigin>): TaskDiff {
+  const onThisLine = new Map<string, Promise<boolean>>();
+  const isOnThisLine = (commit: string) => remembered(onThisLine, commit, async () => (await runGit(repo, ["merge-base", "--is-ancestor", commit, "HEAD"])) !== null);
+  return async (task, path) => {
+    const origin = task.verified === undefined ? origins.get(task.id) : undefined;
+    return origin !== undefined && (await isOnThisLine(origin.commit)) ? from(path, origin.commit) : since(path, new Date(reviewMark(task)));
+  };
 }
 
 export async function traceSources(tasks: readonly Task[], facts: RepoFacts, diffs: FileDiffs): Promise<SourceTraces> {

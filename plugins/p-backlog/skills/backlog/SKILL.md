@@ -145,7 +145,7 @@ subagent, do the re-check yourself.
    `fixed` field, a list of `{ kind, taskId, … }`: `references-removed` — references to missing tasks `ids`
    removed; `epic-closed` — the epic closed, all its tasks `childIds` are closed; `epic-reopened` — the
    auto-closed epic reopened, its tasks `childIds` are open again; `source-moved` — `source` moved, or the
-   task's file was renamed with its lines intact: `from` → `to`. Relay it to the user in one line. Exit code 5
+   code file in `source` was renamed with its lines intact: `from` → `to`. Relay it to the user in one line. Exit code 5
    is not a failure: there are candidates or task problems to work through; 0 means there is nothing to work
    through.
 2. A `source-changed` candidate already has `problem` in the JSON — the task description's first

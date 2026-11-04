@@ -251,6 +251,35 @@ describe("checkBacklog", () => {
     expect(events.filter((event) => event.kind === "candidate-filtered")).toHaveLength(1);
   });
 
+  it("задача заведена на ветке, ветку слили: правка символа задачи до её создания не держит кандидата, если после менялся только соседний символ", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    const original = ["export function uploadFile() {", '  return "v1";', "}", "", "export function retry() {", '  return "v1";', "}", ""].join("\n");
+    await writeFiles(repo, { "src/upload.ts": original });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true, at: "2026-09-10T11:00:00+03:00" });
+    const beforeTask = original.replace('uploadFile() {\n  return "v1"', 'uploadFile() {\n  return "v2"');
+    await writeFile(join(repo, "src/upload.ts"), beforeTask);
+    gitCommitAll(repo, "Правка до задачи", "2026-09-10T12:00:00+03:00");
+    const created = { ...createdOnFeat("SPA-1", "2026-09-11T10:00:00+03:00", gitShortHead(repo)), source: "src/upload.ts:2" };
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/upload.ts:2\n"), "spa/journal.jsonl": `${JSON.stringify(created)}\n` });
+    const after = editRetry(beforeTask);
+    await writeFile(join(repo, "src/upload.ts"), after);
+    gitCommitAll(repo, "Правка соседа", "2026-09-12T10:00:00+03:00");
+    gitCheckout(repo, "master", { at: "2026-09-13T10:00:00+03:00" });
+    gitMergeNoFastForward(repo, "feat", "2026-09-13T11:00:00+03:00");
+    const symbols = [
+      { name: "uploadFile", kind: "Function", from: 1, to: 3 },
+      { name: "retry", kind: "Function", from: 5, to: 7 },
+    ];
+    await makeGraphDb(repo, [{ path: "src/upload.ts", hash: createHash("sha256").update(after).digest("hex"), symbols }]);
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([]);
+  });
+
   async function shiftedFixture(taskFields: (before: string) => string, edit: (code: string) => string) {
     const home = await makeTempDir();
     const root = join(home, "backlog");
@@ -802,7 +831,7 @@ describe("checkBacklog", () => {
     const report = await check(root, home, "changed");
 
     expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-missing", task: expect.objectContaining({ id: "SPA-2" }), renamedTo: "src/reworked.ts" })]);
-    expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-1: файл задачи переименован, source src/intact.ts:3 → src/renamed.ts:3", "SPA-3: файл задачи переименован, source src/shifted.ts:3 → src/moved.ts:5"]);
+    expect(report.fixed.map(RU.checkFix)).toEqual(["SPA-1: файл кода переименован, source src/intact.ts:3 → src/renamed.ts:3", "SPA-3: файл кода переименован, source src/shifted.ts:3 → src/moved.ts:5"]);
     const sources = (await loadBacklog(root)).tasks.map((item) => [item.id, item.source]);
     expect(sources).toEqual(
       expect.arrayContaining([
@@ -1120,6 +1149,38 @@ describe("checkBacklog", () => {
 
     expect(report.candidates).toEqual([]);
     expect((await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate-gone")).toEqual([]);
+  });
+
+  it("история не читается — якорь и наличие файла всё равно сверяются, а находка без якоря остаётся открытой", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": numbered("a"), "src/b.ts": "b1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3\nanchor: ${anchorOf(numbered("a"), "src/a.ts:3")}\n`),
+      "spa/SPA-2.md": task("SPA-2", "source: src/b.ts:1\n"),
+      "spa/SPA-3.md": task("SPA-3", "source: src/c.ts:1\n"),
+    });
+    await writeFiles(repo, { "src/a.ts": numbered("b"), "src/b.ts": "b2\n" });
+    gitCommitAll(repo, "Правки", "2026-09-12T10:00:00+03:00");
+    const opened = (await check(root, home, "full")).candidates.map((candidate) => [candidate.task.id, candidate.kind]);
+    expect(opened).toEqual([
+      ["SPA-1", "source-changed"],
+      ["SPA-2", "source-changed"],
+      ["SPA-3", "source-missing"],
+    ]);
+    await writeFiles(repo, { "src/a.ts": numbered("a"), "src/c.ts": "c\n" });
+    vi.stubEnv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1");
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+
+    await check(root, home, "full");
+
+    const gone = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate-gone");
+    expect(gone).toEqual([expect.objectContaining({ task: "SPA-1", evidence: "source-changed" }), expect.objectContaining({ task: "SPA-3", evidence: "source-missing" })]);
   });
 
   it("сообщает о проекте без репозитория и проверяет только выбранные проекты", async () => {

@@ -1,7 +1,8 @@
 import type { DuplicateMatch } from "../journal/events";
 import { isClosed } from "../model/graph";
 import type { Task } from "../model/types";
-import { taskRef, type Candidate, type TaskRef } from "./candidates";
+import type { Candidate } from "./candidates";
+import { taskRef, type TaskRef } from "./reviewed-task";
 import { nearlySameTitles, similarTitles, titleStems, type TitleStems } from "./similar-titles";
 import { lineSuffix, sourcePath } from "../model/source";
 

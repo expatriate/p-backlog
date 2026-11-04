@@ -199,7 +199,7 @@ function checkFix(fix: CheckFix): string {
     case "epic-reopened":
       return `${fix.taskId}: epic reopened — it has open tasks: ${fix.childIds.join(", ")}`;
     case "source-moved":
-      return sourcePath(fix.from) === sourcePath(fix.to) ? `${fix.taskId}: source moved ${lineSuffix(fix.from)} → ${lineSuffix(fix.to)}` : `${fix.taskId}: task file renamed, source ${fix.from} → ${fix.to}`;
+      return sourcePath(fix.from) === sourcePath(fix.to) ? `${fix.taskId}: source moved ${lineSuffix(fix.from)} → ${lineSuffix(fix.to)}` : `${fix.taskId}: code file renamed, source ${fix.from} → ${fix.to}`;
   }
 }
 

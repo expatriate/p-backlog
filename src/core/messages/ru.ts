@@ -213,7 +213,7 @@ function checkFix(fix: CheckFix): string {
     case "source-moved":
       return sourcePath(fix.from) === sourcePath(fix.to)
         ? `${fix.taskId}: source сдвинулся ${lineSuffix(fix.from)} → ${lineSuffix(fix.to)}`
-        : `${fix.taskId}: файл задачи переименован, source ${fix.from} → ${fix.to}`;
+        : `${fix.taskId}: файл кода переименован, source ${fix.from} → ${fix.to}`;
   }
 }
 

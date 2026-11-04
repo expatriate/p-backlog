@@ -1,7 +1,7 @@
 import { hasCodeGraph, openCodeGraph, type CodeGraph, type GraphFileState } from "../code-review-graph/graph-db";
 import type { Project, Task } from "../model/types";
 import { sourceRange } from "./anchor";
-import { isReviewable, sourcePaths } from "./candidates";
+import { isReviewable, sourcePaths } from "./reviewed-task";
 import { findRepo } from "./project-repo";
 import { fileHashes, symbolLookup, symbolOfSource, type FileHashes } from "./symbol-filter";
 

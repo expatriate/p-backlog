@@ -2,7 +2,9 @@ import { literalPathspecs, outputLines, runGit, type GitRunner } from "../git/ru
 import type { TaskOrigin } from "../journal/events";
 import type { Task } from "../model/types";
 import { remembered } from "../remembered";
-import { commitsTouchingSince, judgedByCommits, reviewMark, type AnchorStates, type KnownCommits } from "./candidates";
+import { judgedByCommits, type AnchorStates, type KnownCommits } from "./candidates";
+import { reviewMark } from "./reviewed-task";
+import { commitsTouchingSince } from "./source-commits";
 import { commitsCarryingContent } from "./landed-content";
 import { sourcePath } from "../model/source";
 import { FACTS_HISTORY_OPTIONS, type Commit, type RepoFacts } from "./repo-facts";
@@ -13,6 +15,11 @@ export type KnownCommitsQuestion = { repo: string; tasks: readonly Task[]; facts
 
 type CreationQuestion = { taskId: string; creation: string; path: string; changes: Commit[] };
 
+type CreationCopies = {
+  broughtByMerge: (merge: Commit, creation: string, path: string) => Promise<string[] | null>;
+  copiesOf: (creation: string, path: string) => Promise<ReadonlySet<string>>;
+};
+
 export async function commitsKnownAtCreation({ repo, tasks, facts, anchors, origins, git = runGit }: KnownCommitsQuestion): Promise<KnownCommits> {
   const questions = tasks.flatMap((task): CreationQuestion[] => {
     const origin = origins.get(task.id);
@@ -20,28 +27,34 @@ export async function commitsKnownAtCreation({ repo, tasks, facts, anchors, orig
     const path = sourcePath(task.source);
     return [{ taskId: task.id, creation: origin.commit, path, changes: commitsTouchingSince(facts.commits, path, reviewMark(task)) }];
   });
-  const branchCommitsByMerge = new Map<string, Promise<string[] | null>>();
-  const commitsBroughtBy = (merge: Commit, creation: string, path: string) =>
-    remembered(branchCommitsByMerge, `${merge.sha} ${creation} ${path}`, async () =>
-      outputLines(await git(repo, ["rev-list", `${merge.sha}^2`, `^${merge.sha}^1`, `^${creation}`, "--", ...literalPathspecs([path])])),
-    );
-  const carryingContent = commitsCarryingContent(repo, git, FACTS_HISTORY_OPTIONS);
-  const copyAnswers = new Map<string, Promise<readonly string[]>>();
-  const copiesOfCreation = (creation: string, path: string) => remembered(copyAnswers, `${creation} ${path}`, () => carryingContent(creation, literalPathspecs([path])));
-  const isCopy = (copies: readonly string[], sha: string) => copies.some((fullSha) => fullSha.startsWith(sha));
-  const mergeBringsOnlyCopies = async (merge: Commit, creation: string, path: string) => {
-    const brought = await commitsBroughtBy(merge, creation, path);
-    if (brought === null) return false;
-    const copies = brought.length === 0 ? [] : await copiesOfCreation(creation, path);
-    return brought.every((sha) => isCopy(copies, sha));
-  };
-  const commitIsCopy = async (commit: Commit, creation: string, path: string) => isCopy(await copiesOfCreation(creation, path), commit.sha);
-  const isKnown = (commit: Commit, creation: string, path: string) => (commit.parents.length === MERGE_PARENTS ? mergeBringsOnlyCopies(commit, creation, path) : commitIsCopy(commit, creation, path));
+  const copies = creationCopies(repo, git);
   const answers = await Promise.all(
     questions.map(async ({ taskId, creation, path, changes }) => {
-      const known = await Promise.all(changes.map(async (commit) => ((await isKnown(commit, creation, path)) ? [commit.sha] : [])));
+      const known = await Promise.all(changes.map(async (commit) => ((await isKnownAtCreation(copies, commit, creation, path)) ? [commit.sha] : [])));
       return { taskId, known: known.flat() };
     }),
   );
   return new Map(answers.filter(({ known }) => known.length > 0).map(({ taskId, known }) => [taskId, new Set(known)]));
+}
+
+function creationCopies(repo: string, git: GitRunner): CreationCopies {
+  const carryingContent = commitsCarryingContent(repo, git, FACTS_HISTORY_OPTIONS);
+  const branchCommitsByMerge = new Map<string, Promise<string[] | null>>();
+  const copiesByCreation = new Map<string, Promise<ReadonlySet<string>>>();
+  return {
+    broughtByMerge: (merge, creation, path) =>
+      remembered(branchCommitsByMerge, `${merge.sha} ${creation} ${path}`, async () =>
+        outputLines(await git(repo, ["rev-list", `${merge.sha}^2`, `^${merge.sha}^1`, `^${creation}`, "--", ...literalPathspecs([path])])),
+      ),
+    copiesOf: (creation, path) => remembered(copiesByCreation, `${creation} ${path}`, async () => new Set(await carryingContent(creation, literalPathspecs([path])))),
+  };
+}
+
+async function isKnownAtCreation(copies: CreationCopies, commit: Commit, creation: string, path: string): Promise<boolean> {
+  if (commit.parents.length !== MERGE_PARENTS) return (await copies.copiesOf(creation, path)).has(commit.sha);
+  const brought = await copies.broughtByMerge(commit, creation, path);
+  if (brought === null) return false;
+  if (brought.length === 0) return true;
+  const copied = await copies.copiesOf(creation, path);
+  return brought.every((sha) => copied.has(sha));
 }
