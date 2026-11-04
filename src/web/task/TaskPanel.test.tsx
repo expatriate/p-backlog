@@ -7,6 +7,7 @@ import { updateTask } from "../../core/store/testing/update-task";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import { TEST_NOW } from "../../server/testing/test-app";
 import { freezeDate } from "../testing/freeze-date";
+import { SAVE_WAIT_BEFORE_ASKING_MS } from "../ui/use-leave-guard";
 import { interceptApi, renderApp, type RenderedApp, serverUnreachable } from "../testing/render-app";
 
 const FILES = {
@@ -553,8 +554,6 @@ describe("ошибка несохранённого поля", () => {
     return { app, panel, title };
   }
 
-  const pickPriority = (app: RenderedApp, panel: HTMLElement, priority: string) => app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), priority);
-
   it("остаётся, пока сохраняются и падают другие поля, и уходит, когда название записано", async () => {
     const { app, panel, title } = await failTitleSaves(2);
 
@@ -580,6 +579,8 @@ describe("ошибка несохранённого поля", () => {
     await waitFor(() => expect(alertTexts(panel).join()).not.toContain(NOT_SAVED));
   });
 });
+
+const pickPriority = (app: RenderedApp, panel: HTMLElement, priority: string) => app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), priority);
 
 async function openHeldCard({ confirmLeave }: { confirmLeave: boolean }, answerFirst?: Parameters<typeof holdFirstPatch>[0]) {
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(confirmLeave);
@@ -705,6 +706,73 @@ describe("закрытие карточки, пока сохраняется н�
     await waitFor(() => expect(app.route()).toBe("/p/spa"));
     expect(confirm).not.toHaveBeenCalled();
     expect((await app.taskOnDisk("SPA-1")).body).toContain("дописано");
+  });
+
+  describe("сервер не отвечает на сохранение", () => {
+    const STILL_SAVING = "Сервер всё ещё не ответил на сохранение. Уйти, не дожидаясь ответа?";
+    const wait = (ms: number) =>
+      act(() => {
+        vi.advanceTimersByTime(ms);
+      });
+
+    async function closeWhileHung(confirmLeave: boolean) {
+      vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["setTimeout", "clearTimeout"] });
+      onTestFinished(() => void vi.useRealTimers());
+      const opened = await openHeldCard({ confirmLeave });
+      await pickPriority(opened.app, opened.panel, "low");
+      await closeCard(opened.app, opened.panel);
+      return opened;
+    }
+
+    it("после ожидания спрашивает, уходить ли, не дожидаясь, и по согласию закрывает карточку", async () => {
+      const { app, confirm } = await closeWhileHung(true);
+      wait(SAVE_WAIT_BEFORE_ASKING_MS);
+
+      expect(confirm).toHaveBeenCalledWith(STILL_SAVING);
+      await waitFor(() => expect(app.route()).toBe("/p/spa"));
+    });
+
+    it("отказ уходить оставляет карточку, и поздний ответ сервера её не закрывает", async () => {
+      const { app, panel, confirm, patch } = await closeWhileHung(false);
+      wait(SAVE_WAIT_BEFORE_ASKING_MS);
+
+      expect(confirm).toHaveBeenCalledWith(STILL_SAVING);
+      patch.release();
+
+      await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe("Сохранено"));
+      expect(app.route()).toBe("/p/spa/t/SPA-1");
+    });
+
+    it("повторное «Закрыть» во время ожидания не откладывает вопрос", async () => {
+      const { app, panel, confirm } = await closeWhileHung(false);
+      wait(SAVE_WAIT_BEFORE_ASKING_MS - 1_000);
+      await closeCard(app, panel);
+      wait(1_000);
+
+      expect(confirm).toHaveBeenCalledWith(STILL_SAVING);
+    });
+
+    it("ответ пришёл раньше срока — карточка закрыта, и вопрос потом не всплывает", async () => {
+      const { app, confirm, patch } = await closeWhileHung(true);
+      patch.release();
+      await waitFor(() => expect(app.route()).toBe("/p/spa"));
+      wait(SAVE_WAIT_BEFORE_ASKING_MS);
+
+      expect(confirm).not.toHaveBeenCalled();
+    });
+
+    it("открытый черновик описания — после ожидания спрашивает о нём, а не о сервере", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["setTimeout", "clearTimeout"] });
+      onTestFinished(() => void vi.useRealTimers());
+      const { app, panel, confirm } = await openHeldCard({ confirmLeave: false });
+      await app.user.click(within(panel).getByRole("button", { name: "Редактировать описание" }));
+      await app.user.type(within(panel).getByRole("textbox", { name: "Описание задачи" }), " дописано");
+      await pickPriority(app, panel, "low");
+      await closeCard(app, panel);
+      wait(SAVE_WAIT_BEFORE_ASKING_MS);
+
+      expect(confirm.mock.calls).toEqual([["Уйти без сохранения описания?"]]);
+    });
   });
 
   it("прежний сбой, уже показанный, не держит карточку, когда следующее сохранение записалось", async () => {

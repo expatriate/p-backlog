@@ -6,6 +6,7 @@ export const taskEn: TaskMessages = {
   description: "Task description",
   leaveWithDraft: "Leave without saving the description?",
   leaveWithFieldEdits: "Leave without saving your field edit?",
+  leaveWhileSaving: "The server still hasn't answered the save. Leave without waiting for it?",
   createdLabel: "created",
   closedLabel: "Closed",
   closedWithoutDate: "Closed, date not recorded",

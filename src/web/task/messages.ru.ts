@@ -4,6 +4,7 @@ export const taskRu = {
   description: "Описание задачи",
   leaveWithDraft: "Уйти без сохранения описания?",
   leaveWithFieldEdits: "Уйти, не сохранив правку поля?",
+  leaveWhileSaving: "Сервер всё ещё не ответил на сохранение. Уйти, не дожидаясь ответа?",
   createdLabel: "создана",
   closedLabel: "Закрыта",
   closedWithoutDate: "Закрыта, дата не записана",
