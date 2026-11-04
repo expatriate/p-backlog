@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "../../core/model/dates";
 import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
-import { gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -37,8 +37,36 @@ describe("backlog verify", () => {
     expect((await run(["verify", "SPA-1", "--source", " "])).code).toBe(EXIT.invalid);
   });
 
+  it("--source на файл, которого нет в репозитории, отклоняется и не меняет задачу: иначе check сразу назовёт её пропавшей", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    await run(["new", "--category", "bug", "--title", "X", "--source", "src/a.ts:1"]);
+
+    const result = await run(["verify", "SPA-1", "--source", "src/typo.ts:1"]);
+
+    expect(result.code).toBe(EXIT.invalid);
+    expect(result.err).toContain("--source src/typo.ts:1: такого файла нет в репозитории проекта");
+    const [task] = (await loadBacklog(root)).tasks;
+    expect([task?.source, task?.verified]).toEqual(["src/a.ts:1", undefined]);
+  });
+
+  it("--source на папку и на файл из другой ветки принимается: check их пропавшими не считает", async () => {
+    const { run, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n", "src/feature/b.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    gitCheckout(repo, "other", { create: true });
+    await writeFiles(repo, { "src/other.ts": "1\n" });
+    gitCommitAll(repo, "Ветка", "2026-09-16T11:00:00Z");
+    gitCheckout(repo, "-");
+    await run(["new", "--category", "bug", "--title", "X", "--source", "src/a.ts:1"]);
+
+    expect((await run(["verify", "SPA-1", "--source", "src/feature"])).code).toBe(EXIT.ok);
+    expect((await run(["verify", "SPA-1", "--source", "src/other.ts:1"])).code).toBe(EXIT.ok);
+  });
+
   it("подтверждение пишет в журнал verified, с --source — с новым местом", async () => {
-    const { run, root } = await makeCliSandbox();
+    const { run, root, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n", "src/b.ts": "1\n2\n" });
     await run(["new", "--category", "bug", "--title", "X", "--source", "src/a.ts:1"]);
 
     await run(["verify", "SPA-1"], { now: new Date("2026-09-17T15:00:00Z") });

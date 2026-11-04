@@ -1,4 +1,4 @@
-import { findRepo, relocatedSource, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
+import { findRepo, relocatedSource, sourceAnchor, sourceIsMissing, type SourceAnchor } from "../../core/check/project-repo";
 import { formatLocalIso } from "../../core/model/dates";
 import { isClosed } from "../../core/model/graph";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
@@ -41,6 +41,10 @@ async function verifyOne(id: string, { loaded, source, write, io }: Verification
   const project = projectOf(loaded, task);
   const lookup = repoLookup(io);
   const repo = project === undefined ? undefined : await findRepo(project, lookup);
+  if (source !== undefined && repo !== undefined && (await sourceIsMissing(repo, source, lookup.onUnreadable))) {
+    io.warn(io.cli.sourceFileMissing(source));
+    return EXIT.invalid;
+  }
   const target = source ?? (await relocatedSource(repo, task));
   const anchored = target ?? task.source;
   const anchor = anchored === undefined ? undefined : anchorChange(await sourceAnchor(repo, anchored, lookup.onUnreadable));

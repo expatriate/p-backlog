@@ -56,11 +56,11 @@ export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Prom
   return { history: "read", commits: parseLog(log), renames: parseLog(renames), dirtyModifiedAt: await modificationTimes(repo, dirty), ...branchHistory, ...files };
 }
 
-type BranchHistory = Pick<RepoFacts, "committedHere" | "committedAnywhere">;
+export type BranchHistory = Pick<RepoFacts, "committedHere" | "committedAnywhere">;
 
 const UNKNOWN_BRANCH_HISTORY: BranchHistory = { committedHere: new Set(), committedAnywhere: new Set() };
 
-async function branchHistoryOf(repo: string, paths: readonly string[]): Promise<BranchHistory> {
+export async function branchHistoryOf(repo: string, paths: readonly string[]): Promise<BranchHistory> {
   const [here, anywhere] = await Promise.all([committedPaths(repo, "HEAD", paths), committedPaths(repo, "--all", paths)]);
   return here === null || anywhere === null ? UNKNOWN_BRANCH_HISTORY : { committedHere: new Set(here), committedAnywhere: new Set(anywhere) };
 }

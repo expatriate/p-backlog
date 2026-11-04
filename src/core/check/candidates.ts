@@ -2,7 +2,7 @@ import type { CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Task } from "../model/types";
 import { anchorOf, findIntactLines, findMoved, isAnchorFor, windowMatches } from "./anchor";
 import type { CheckFix } from "./findings";
-import type { Commit, RepoFacts } from "./repo-facts";
+import type { BranchHistory, Commit, RepoFacts } from "./repo-facts";
 import { hasLines, isWithin, lineSuffix, sourcePath } from "../model/source";
 
 export type TaskRef = { id: string; title: string };
@@ -117,7 +117,7 @@ function anchorStateIn(task: Task, text: string | undefined): AnchorState {
   return moved === null || movedAnchor === null ? { kind: "changed" } : { kind: "moved", source: moved, anchor: movedAnchor };
 }
 
-function livesOnAnotherBranch(path: string, facts: RepoFacts): boolean {
+export function livesOnAnotherBranch(path: string, facts: BranchHistory): boolean {
   const committedIn = (files: ReadonlySet<string>) => [...files].some((file) => isWithin(file, path));
   return !committedIn(facts.committedHere) && committedIn(facts.committedAnywhere);
 }

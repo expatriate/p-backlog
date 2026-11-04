@@ -1,6 +1,6 @@
 import { findSimilarTask } from "../../core/check/duplicates";
 import { warnPathErrors } from "../../core/errors";
-import { findRepo, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
+import { findRepo, sourceAnchor, sourceIsMissing, type SourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
 import { buildIndex } from "../../core/model/graph";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project, type Task } from "../../core/model/types";
@@ -102,7 +102,9 @@ function warnedOfSimilarTask(draft: { title: string; source?: string | undefined
 
 async function anchorOf(project: Project, source: string, io: CliIo): Promise<SourceAnchor> {
   const lookup = repoLookup(io);
-  return sourceAnchor(await findRepo(project, lookup), source, lookup.onUnreadable);
+  const repo = await findRepo(project, lookup);
+  if (repo !== undefined && (await sourceIsMissing(repo, source, lookup.onUnreadable))) io.warn(io.cli.sourceFileMissing(source));
+  return sourceAnchor(repo, source, lookup.onUnreadable);
 }
 
 function cwdBelongsTo(project: Project, knownProjects: readonly Project[], io: CliIo): boolean {

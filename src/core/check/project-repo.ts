@@ -7,7 +7,9 @@ import { expandHome } from "../store/paths";
 import type { GitRoots, RepoPlaces } from "../store/resolve-project";
 import { anchorOf } from "./anchor";
 import { sourcePath } from "../model/source";
+import { livesOnAnotherBranch } from "./candidates";
 import { currentSourceIn } from "./current-source";
+import { branchHistoryOf } from "./repo-facts";
 
 export type SourceAnchor = { kind: "no-file" } | { kind: "uncomputable" } | { kind: "anchor"; anchor: string };
 
@@ -18,6 +20,14 @@ export async function sourceAnchor(repo: string | undefined, source: string, onU
   if (text === null) return { kind: "no-file" };
   const anchor = anchorOf(text, source);
   return anchor === null ? { kind: "uncomputable" } : { kind: "anchor", anchor };
+}
+
+export async function sourceIsMissing(repo: string, source: string, onUnreadable: PathErrorHandler): Promise<boolean> {
+  const path = sourcePath(source);
+  const onDisk = await attemptReportingFailure(join(repo, path), fileExists, onUnreadable);
+  const presentOrUnreadable = onDisk !== false;
+  if (presentOrUnreadable) return false;
+  return !livesOnAnotherBranch(path, await branchHistoryOf(repo, [path]));
 }
 
 export async function relocatedSource(repo: string | undefined, task: Task): Promise<string | undefined> {

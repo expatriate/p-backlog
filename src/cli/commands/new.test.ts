@@ -36,7 +36,7 @@ describe("backlog new", () => {
 
   it("создаёт проект по git-корню и задачу с описанием из stdin", async () => {
     const { run, root, repo } = await makeCliSandbox();
-    await mkdir(join(repo, "src"));
+    await writeFiles(repo, { "src/a.ts": "1\n" });
 
     const result = await run(["new", "--category", "bug", "--title", "Таймауты загрузки", "--priority", "high", "--tags", "upload, network", "--source", "src/a.ts:10"], {
       cwd: join(repo, "src"),
@@ -52,7 +52,8 @@ describe("backlog new", () => {
   });
 
   it("второй вызов использует существующий проект, --json печатает задачу", async () => {
-    const { run } = await makeCliSandbox();
+    const { run, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n", "src/b.ts": "1\n2\n" });
     await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
 
     const result = await run(["new", "--category", "bug", "--title", "Вторая", "--related", "SPA-1", "--source", "src/b.ts:2", "--json"]);
@@ -263,18 +264,29 @@ describe("backlog new", () => {
 
     expect(created.code).toBe(EXIT.ok);
     expect(created.err).toContain(locked);
+    expect(created.err).not.toContain("такого файла нет");
     const [task] = (await loadBacklog(root)).tasks;
     expect([task?.source, task?.anchor]).toEqual(["src/locked.ts:1", undefined]);
   });
 
   it("баг без --source создаётся, но с предупреждением", async () => {
-    const { run } = await makeCliSandbox();
+    const { run, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
 
     const created = await run(["new", "--category", "bug", "--title", "Падает на пустом ответе"]);
 
     expect(created.code).toBe(EXIT.ok);
     expect(created.err).toContain("У бага нет --source");
     expect((await run(["new", "--category", "bug", "--title", "Другой", "--source", "src/a.ts:1"])).err).toBe("");
+  });
+
+  it("--source на файл, которого нет в репозитории, создаёт задачу, но предупреждает об опечатке в пути", async () => {
+    const { run } = await makeCliSandbox();
+
+    const created = await run(["new", "--category", "bug", "--title", "Падает", "--source", "src/typo.ts:1"]);
+
+    expect(created.code).toBe(EXIT.ok);
+    expect(created.err).toContain("--source src/typo.ts:1: такого файла нет в репозитории проекта");
   });
 
   it("задача в эпике, закрытом самим, сообщает, что эпик снова открыт, и --json показывает его открытым", async () => {
