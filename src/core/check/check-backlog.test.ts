@@ -691,6 +691,30 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", commits: expect.arrayContaining([expect.objectContaining({ subject: "Слить feat" })]) })]);
   });
 
+  it("в неполном клоне git не знает, влита ли ветка задачи, — задачу судят как обычно и предупреждают, а не молча ждут слияния", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const origin = await makeGitRepo(home, "origin");
+    await writeFiles(origin, { "src/a.ts": "a1\n", "src/b.ts": "b1\n" });
+    gitCommitAll(origin, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(origin, "feat", { create: true });
+    await writeFile(join(origin, "src/b.ts"), "b2\n");
+    gitCommitAll(origin, "Фича правит b", "2026-09-10T10:00:00+03:00");
+    const created = createdOnFeat("SPA-1", "2026-09-11T10:00:00+03:00", gitShortHead(origin));
+    gitCheckout(origin, "master");
+    await writeFile(join(origin, "src/a.ts"), "a2\n");
+    gitCommitAll(origin, "main правит a", "2026-09-12T10:00:00+03:00");
+    const repo = join(home, "projects/spa");
+    execFileSync("git", ["clone", "--quiet", "--depth=1", "--no-single-branch", `file://${origin}`, repo]);
+    execFileSync("git", ["branch", "--quiet", "feat", "origin/feat"], { cwd: repo });
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\n"), "spa/journal.jsonl": `${JSON.stringify(created)}\n` });
+
+    const report = await check(root, home, "full");
+
+    expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }) })]);
+    expect(report.problems).toEqual([{ kind: "merge-state-unknown", projectId: "spa", repo, branches: ["feat"] }]);
+  });
+
   it("файла задачи нет только в текущей ветке — кандидата «файл пропал» нет", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");

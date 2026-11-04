@@ -84,7 +84,15 @@ const FUNCTION_A = "function a() {\n  return 1;\n}\n";
 
 const functionB = (returned: string) => `function b() {\n  const x = 1;\n  return ${returned};\n}\n`;
 
-const awaiting = (repo: string, origins: Record<string, TaskOrigin>, git = runGitOutcome) => awaitingMerge({ repo, taskIds: Object.keys(origins), origins: new Map(Object.entries(origins)), git });
+const awaiting = async (repo: string, origins: Record<string, TaskOrigin>, git = runGitOutcome) =>
+  (await awaitingMerge({ repo, taskIds: Object.keys(origins), origins: new Map(Object.entries(origins)), git })).pending;
+
+const mergeWait = (repo: string, origins: Record<string, TaskOrigin>, git: GitOutcomeRunner) => awaitingMerge({ repo, taskIds: Object.keys(origins), origins: new Map(Object.entries(origins)), git });
+
+const gitFailing =
+  (fails: (args: string[], input: string | undefined) => boolean): GitOutcomeRunner =>
+  async (repo, args, input) =>
+    fails(args, input) ? { status: "exited", exitCode: 128, stderr: "fatal: сбой" } : runGitOutcome(repo, args, input);
 
 const gitWithBlobIdsMaskedForPatchId: GitOutcomeRunner = (repo, args, input) => runGitOutcome(repo, args, args[0] === "patch-id" ? input?.replace(/^index [0-9a-f]+\.\.[0-9a-f]+/gm, "index 0..0") : input);
 
@@ -181,6 +189,39 @@ describe("awaitingMerge", () => {
     gitCommitAll(repo, "Основная ветка меняет логотип по-своему", "2026-09-11T10:00:00+03:00");
 
     expect(await awaiting(repo, { "SPA-1": feat }, gitWithBlobIdsMaskedForPatchId)).toEqual(new Set(["SPA-1"]));
+  });
+
+  it.each(["diff-tree", "log", "patch-id"])("%s падает при сравнении невлитой ветки с основной — задача не ждёт слияния, а ветка названа неизвестной", async (command) => {
+    const { repo, feat } = await featureOfTwoCommits();
+
+    expect(
+      await mergeWait(
+        repo,
+        { "SPA-1": feat },
+        gitFailing((args) => args[0] === command),
+      ),
+    ).toEqual({ pending: new Set(), unknownBranches: ["feat"] });
+  });
+
+  it("один файл ветки не удалось сравнить, другой точно не влит — задача ждёт слияния", async () => {
+    const { repo, feat } = await featureOfTwoCommits();
+    const patchIdOfA = gitFailing((args, input) => args[0] === "patch-id" && input?.includes("a/src/a.ts") === true);
+
+    expect(await mergeWait(repo, { "SPA-1": feat }, patchIdOfA)).toEqual({ pending: new Set(["SPA-1"]), unknownBranches: [] });
+  });
+
+  it("сдвиги строк между слитой копией и правкой ветки не прочитались — ветка неизвестна, а не «не влита»", async () => {
+    const { repo, feat } = await featureEditingOneFileTwiceWhileMainEditsItsEnd();
+    gitMergeSquash(repo, "feat");
+    gitCommitAll(repo, "Слить feat одним коммитом", "2026-09-12T10:00:00+03:00");
+
+    expect(
+      await mergeWait(
+        repo,
+        { "SPA-1": feat },
+        gitFailing((args) => args[0] === "cat-file"),
+      ),
+    ).toEqual({ pending: new Set(), unknownBranches: ["feat"] });
   });
 
   it("коммита создания нет в репозитории — задача не ждёт слияния вечно, хотя её ветка жива и не влита", async () => {

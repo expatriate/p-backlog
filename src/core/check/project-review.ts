@@ -45,7 +45,7 @@ type DuplicateScope = { mode: CheckMode; skipped: ReadonlySet<string> };
 
 type MergeScope = { repo: string; facts: RepoFacts; origins: ReadonlyMap<string, TaskOrigin>; onUnreadable: PathErrorHandler };
 
-type MergeJudgement = Pick<ProjectReview, "candidates" | "filtered" | "plans" | "awaitingMerge">;
+type MergeJudgement = Pick<ProjectReview, "candidates" | "filtered" | "plans" | "awaitingMerge" | "problems">;
 
 export async function creationOrigins(root: string, projectId: string, onJournalUnreadable: (error: unknown) => void): Promise<Map<string, TaskOrigin>> {
   const journal = await readJournal(join(root, projectId), projectId).catch((error: unknown) => {
@@ -71,8 +71,8 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
   try {
     const context = await projectContext(readable, review, { repo, facts, graph, mode, onUnreadable });
     const sighted = await sightedBySymbol(tasks, review, context, { mode, skipped });
-    const judged = await judgedAgainstMerges(sighted, context, scope);
-    return { projectId: project.id, ...judged, skipped: [...skipped], problems: historyProblems(project, repo, facts.history), unchecked: uncheckedEvidence(facts) };
+    const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, { projectId: project.id, repo, origins });
+    return { projectId: project.id, ...judged, skipped: [...skipped], problems: [...historyProblems(project, repo, facts.history), ...mergeProblems], unchecked: uncheckedEvidence(facts) };
   } finally {
     graph?.close();
   }
@@ -105,15 +105,16 @@ async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, conte
   return { kept, filtered, plans: settledPlans(review.plans, settlement, context), duplicates };
 }
 
-async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectContext, { repo, origins }: Pick<MergeScope, "repo" | "origins">): Promise<MergeJudgement> {
-  const awaiting = await awaitingMerge({ repo, taskIds: involvedTaskIds(sighted), origins });
-  const judged = (id: string) => !awaiting.has(id);
+async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectContext, { projectId, repo, origins }: Pick<MergeScope, "repo" | "origins"> & { projectId: string }): Promise<MergeJudgement> {
+  const { pending, unknownBranches } = await awaitingMerge({ repo, taskIds: involvedTaskIds(sighted), origins });
+  const judged = (id: string) => !pending.has(id);
   const code = await Promise.all(sighted.kept.filter((candidate) => judged(candidate.task.id)).map((candidate) => withContext(candidate, context)));
   return {
     candidates: [...code, ...sighted.duplicates],
     filtered: sighted.filtered.filter((sighting) => judged(sighting.task)),
     plans: sighted.plans.filter((plan) => judged(plan.id)),
-    awaitingMerge: [...awaiting],
+    awaitingMerge: [...pending],
+    problems: unknownBranches.length === 0 ? [] : [{ kind: "merge-state-unknown", projectId, repo, branches: unknownBranches }],
   };
 }
 

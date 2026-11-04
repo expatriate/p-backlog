@@ -170,6 +170,7 @@ Agent, `model: "sonnet"`): передай ID задач из сообщения 
    `project-without-repos`, `project-repos-missing`, `project-repo-not-git`, `project-repo-unsafe` (git не
    доверяет каталогу `repo` другого владельца — `repos` в `project.md` править не надо, нужен
    `git config --global --add safe.directory "<repo>"`, его запускает пользователь), `project-history-unreadable`,
+   `merge-state-unknown` (git не смог ответить, влиты ли ветки `branches`, — их задачи проверены как обычные),
    `prefix-shared` (у проектов `projectIds` один префикс — ID задач пересекаются).
 5. В конце ответа — блок, по которому пользователь найдёт закрытое:
    ```

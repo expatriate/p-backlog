@@ -1,35 +1,47 @@
 import { asGitRunner, outputLine, runGitOutcome, stdoutOf, type GitOutcome, type GitOutcomeRunner } from "../git/run";
 import type { TaskOrigin } from "../journal/events";
 import { remembered } from "../remembered";
-import { contentLanded } from "./landed-content";
+import { landingState, type LandingState } from "./landed-content";
 
 export type PendingQuestion = { repo: string; taskIds: readonly string[]; origins: ReadonlyMap<string, TaskOrigin>; git?: GitOutcomeRunner };
 
+type MergeWait = { pending: ReadonlySet<string>; unknownBranches: string[] };
+
+type BranchState = LandingState | "deleted";
+
 const NOT_AN_ANCESTOR_EXIT = 1;
 
-export async function awaitingMerge({ repo, taskIds, origins, git = runGitOutcome }: PendingQuestion): Promise<Set<string>> {
+const NO_SUCH_REF_EXIT = 1;
+
+export async function awaitingMerge({ repo, taskIds, origins, git = runGitOutcome }: PendingQuestion): Promise<MergeWait> {
   const branched = taskIds.flatMap((id) => {
     const origin = origins.get(id);
     return origin?.branch === undefined ? [] : [{ id, commit: origin.commit, branch: origin.branch }];
   });
-  if (branched.length === 0) return new Set();
+  if (branched.length === 0) return { pending: new Set(), unknownBranches: [] };
   const current = lineOf(await git(repo, ["rev-parse", "--abbrev-ref", "HEAD"]));
-  const awaitingBranches = new Map<string, Promise<boolean>>();
-  const pending = await Promise.all(
+  const branchStates = new Map<string, Promise<BranchState>>();
+  const nested = await Promise.all(
     branched.map(async ({ id, commit, branch }) => {
       if (branch === current) return [];
       const ancestry = await git(repo, ["merge-base", "--is-ancestor", commit, "HEAD"]);
+      if (ancestry.status === "unfinished") return [{ id, branch, state: "unknown" as const }];
       const notAnAncestor = ancestry.status === "exited" && ancestry.exitCode === NOT_AN_ANCESTOR_EXIT;
       if (!notAnAncestor) return [];
-      return (await remembered(awaitingBranches, branch, () => branchAwaitsMerge(repo, branch, git))) ? [id] : [];
+      return [{ id, branch, state: await remembered(branchStates, branch, () => branchState(repo, branch, git)) }];
     }),
   );
-  return new Set(pending.flat());
+  const verdicts = nested.flat();
+  const pending = verdicts.filter(({ state }) => state === "pending").map(({ id }) => id);
+  const unknownBranches = new Set(verdicts.filter(({ state }) => state === "unknown").map(({ branch }) => branch));
+  return { pending: new Set(pending), unknownBranches: [...unknownBranches].sort() };
 }
 
-async function branchAwaitsMerge(repo: string, branch: string, git: GitOutcomeRunner): Promise<boolean> {
-  const tip = lineOf(await git(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]));
-  return tip !== null && !(await contentLanded(repo, tip, asGitRunner(git)));
+async function branchState(repo: string, branch: string, git: GitOutcomeRunner): Promise<BranchState> {
+  const lookup = await git(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]);
+  const tip = lineOf(lookup);
+  if (tip !== null) return landingState(repo, tip, asGitRunner(git));
+  return lookup.status === "exited" && lookup.exitCode === NO_SUCH_REF_EXIT ? "deleted" : "unknown";
 }
 
 function lineOf(outcome: GitOutcome): string | null {

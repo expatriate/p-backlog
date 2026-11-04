@@ -22,7 +22,9 @@ type LineShift = { shiftsLinesAfter: number; delta: number };
 
 type ShiftsBetween = (change: Patch, copy: Patch) => readonly LineShift[] | null;
 
-type PatchCopies = { squashed: string[]; commitByCommit: string[][] };
+type PatchCopies = { squashed: string[]; commitByCommit: string[][]; shiftsComplete: boolean };
+
+type PreimageShifts = { shiftsBetween: ShiftsBetween; complete: boolean };
 
 type CommitsCarryingContent = (tip: string, scope: readonly string[]) => Promise<string[]>;
 
@@ -33,20 +35,25 @@ const TREE_PAIR_LINE = /^[0-9a-f]+ [0-9a-f]+$/;
 const NO_COMMIT = /^0+$/;
 const RAW_RECORD = /commit (?<commit>[0-9a-f]+)\0|:\d+ (?<mode>\d+) [0-9a-f]+ (?<object>[0-9a-f]+) [A-Z]\d*\0(?<path>[^\0]*)\0/g;
 
-export async function contentLanded(repo: string, tip: string, git: GitRunner): Promise<boolean> {
+export type LandingState = "landed" | "pending" | "unknown";
+
+export async function landingState(repo: string, tip: string, git: GitRunner): Promise<LandingState> {
   const fork = await forkAt(repo, "HEAD", tip, git);
-  if (fork === null) return false;
+  if (fork === null) return "unknown";
   const view: ForkView = { ...fork, repo, historyOptions: [], git };
   const changed = await branchChanges(view, []);
-  if (changed === null) return false;
-  if (changed.length === 0) return true;
+  if (changed === null) return "unknown";
+  if (changed.length === 0) return "landed";
   const landed = await headChanges(view, topLiteralPathspecs(changed.map(({ path }) => path)));
-  if (landed === null) return false;
+  if (landed === null) return "unknown";
   const landedVersions = new Set(landed.map(({ version }) => version));
+  let state: LandingState = "landed";
   for (const { path, version } of changed) {
-    if (!landedVersions.has(version) && !(await changeLanded(view, path))) return false;
+    const pathState = landedVersions.has(version) ? "landed" : await changeLanded(view, path);
+    if (pathState === "pending") return "pending";
+    if (pathState === "unknown") state = "unknown";
   }
-  return true;
+  return state;
 }
 
 export function commitsCarryingContent(repo: string, git: GitRunner, historyOptions: readonly string[]): CommitsCarryingContent {
@@ -114,9 +121,11 @@ function rawChanges(raw: string): CommitChange[] {
   return changes;
 }
 
-async function changeLanded(view: ForkView, path: string): Promise<boolean> {
+async function changeLanded(view: ForkView, path: string): Promise<LandingState> {
   const copies = await patchCopies(view, path);
-  return copies !== null && (copies.squashed.length > 0 || everyCommitCopied(copies));
+  if (copies === null) return "unknown";
+  if (copies.squashed.length > 0 || everyCommitCopied(copies)) return "landed";
+  return copies.shiftsComplete ? "pending" : "unknown";
 }
 
 function everyCommitCopied({ commitByCommit }: PatchCopies): boolean {
@@ -140,9 +149,9 @@ async function patchCopies(view: ForkView, path: string): Promise<PatchCopies | 
   const headPatchesById = groupBy(headPatches, ({ id }) => id);
   const sameChanges = (change: Patch) => (headPatchesById.get(change.id) ?? []).filter((copy) => isSameChange(change, copy));
   const pairs = [...squashedPatch, ...branchPatches].flatMap((change) => sameChanges(change).map((copy): PatchPair => [change, copy]));
-  const shiftsBetween = await preimageShifts(view, path, pairs);
+  const { shiftsBetween, complete } = await preimageShifts(view, path, pairs);
   const copiesOf = (change: Patch) => sameChanges(change).flatMap((copy) => (atSamePlace(change, copy, shiftsBetween) ? [copy.commit] : []));
-  return { squashed: squashedPatch.flatMap(copiesOf), commitByCommit: branchPatches.map(copiesOf) };
+  return { squashed: squashedPatch.flatMap(copiesOf), commitByCommit: branchPatches.map(copiesOf), shiftsComplete: complete };
 }
 
 async function patchesOf(repo: string, patchArgs: string[], preimageOf: (commit: string) => string, git: GitRunner): Promise<Patch[] | null> {
@@ -161,7 +170,7 @@ async function patchesOf(repo: string, patchArgs: string[], preimageOf: (commit:
     });
 }
 
-async function preimageShifts(repoGit: RepoGit, path: string, pairs: readonly PatchPair[]): Promise<ShiftsBetween> {
+async function preimageShifts(repoGit: RepoGit, path: string, pairs: readonly PatchPair[]): Promise<PreimageShifts> {
   const shifted = pairs.filter(([change, copy]) => shiftsNeeded(change, copy));
   const trees = await resolveTrees(repoGit.git, repoGit.repo, [...new Set(shifted.flatMap(([change, copy]) => [change.preimageRevision, copy.preimageRevision]))]);
   const treePairOf = (change: Patch, copy: Patch) => {
@@ -170,21 +179,22 @@ async function preimageShifts(repoGit: RepoGit, path: string, pairs: readonly Pa
     return from === undefined || to === undefined ? null : `${from} ${to}`;
   };
   const shiftsByTreePair = await treeDiffShifts(repoGit, path, [...new Set(shifted.flatMap(([change, copy]) => treePairOf(change, copy) ?? []))]);
-  return (change, copy) => {
+  const shiftsBetween: ShiftsBetween = (change, copy) => {
     if (!shiftsNeeded(change, copy)) return [];
     const treePair = treePairOf(change, copy);
-    return treePair === null ? null : (shiftsByTreePair.get(treePair) ?? null);
+    return treePair === null ? null : (shiftsByTreePair?.get(treePair) ?? null);
   };
+  return { shiftsBetween, complete: trees !== null && shiftsByTreePair !== null };
 }
 
-async function treeDiffShifts({ repo, git }: RepoGit, path: string, treePairs: readonly string[]): Promise<Map<string, LineShift[]>> {
+async function treeDiffShifts({ repo, git }: RepoGit, path: string, treePairs: readonly string[]): Promise<Map<string, LineShift[]> | null> {
   if (treePairs.length === 0) return new Map();
   const preimageDiffs = await git(
     repo,
     ["diff-tree", "--stdin", ...PATCH_OPTIONS, "--unified=0", "--inter-hunk-context=0", "--", ...topLiteralPathspecs([path])],
     treePairs.map((treePair) => `${treePair}\n`).join(""),
   );
-  return preimageDiffs === null ? new Map() : lineShiftsByTreePair(preimageDiffs);
+  return preimageDiffs === null ? null : lineShiftsByTreePair(preimageDiffs);
 }
 
 function lineShiftsByTreePair(preimageDiffs: string): Map<string, LineShift[]> {

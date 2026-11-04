@@ -237,6 +237,8 @@ function checkProblem(p: CheckProblem): string {
       return `Проект ${p.projectId}: git не доверяет ${p.repo} (каталог принадлежит другому пользователю) — коммиты и правки кода его задач не проверяются. Исправление: git config --global --add safe.directory "${p.repo}"`;
     case "project-history-unreadable":
       return `Проект ${p.projectId}: не удалось прочитать историю git в ${p.repo} — коммиты и правки кода его задач не проверены`;
+    case "merge-state-unknown":
+      return `Проект ${p.projectId}: git в ${p.repo} не смог ответить, ${p.branches.length === 1 ? "влита ли ветка" : "влиты ли ветки"} ${p.branches.join(", ")} в текущую (неполный клон, несвязанная история или сбой git) — созданные там задачи проверены как обычные, без ожидания слияния`;
     case "prefix-shared":
       return `У проектов ${p.projectIds.join(", ")} один префикс ${p.prefix} — ID их задач пересекаются. Смените prefix в project.md одного из них`;
   }

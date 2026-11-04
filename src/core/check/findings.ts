@@ -17,4 +17,5 @@ export type CheckProblem =
   | { kind: "project-repo-not-git"; projectId: string; repo: string }
   | { kind: "project-repo-unsafe"; projectId: string; repo: string }
   | { kind: "project-history-unreadable"; projectId: string; repo: string }
+  | { kind: "merge-state-unknown"; projectId: string; repo: string; branches: string[] }
   | { kind: "prefix-shared"; prefix: string; projectIds: string[] };
