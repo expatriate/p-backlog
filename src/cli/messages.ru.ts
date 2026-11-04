@@ -107,6 +107,7 @@ export const cliRu = {
   taskFileUnparsed: (id: string, problems: string): string => `Файл задачи ${id} не разобран: ${problems}`,
   projectNotFoundForCwd: (cwd: string): string => `Проект для ${cwd} не найден. Укажите --project <id> или добавьте путь в repos нужного project.md`,
   projectNotFound: (id: string): string => `Проект ${id} не найден`,
+  projectFileUnparsed: (path: string, problems: string): string => `Проект не загружен: ${path} не разобран (${problems})`,
   notInGitRepo: (cwd: string): string => `${cwd} не в git-репозитории: проект не создан. Укажите --project <id> или запустите команду из репозитория`,
   projectCreated: (id: string, prefix: string): string => `Создан проект ${id} (${prefix})`,
   projectNotCreatedFileUnparsed: (path: string, problems: string): string =>

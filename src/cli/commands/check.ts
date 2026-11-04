@@ -24,7 +24,7 @@ async function runCheck(args: string[], io: CliIo): Promise<ExitCode> {
   });
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const scope = resolveScope(loaded, io, values);
+  const scope = await resolveScope(loaded, io, values);
   if (scope === null) return EXIT.notFound;
   const { projectIds } = scope;
 

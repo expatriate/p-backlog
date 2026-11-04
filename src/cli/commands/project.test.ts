@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
@@ -42,6 +42,55 @@ describe("backlog project", () => {
     expect(result.code).toBe(EXIT.invalid);
     expect(result.err).toContain("UTF-8");
     expect((await readFile(path)).equals(before)).toBe(true);
+  });
+
+  describe("сломанный project.md назван с причиной вместо «не найден» и «Проектов нет»", () => {
+    const unparsed = (path: string) => `Проект не загружен: ${path} не разобран`;
+
+    it("свой проект — по каталогу репозитория и по --project из любого места; чужой сломанный не упоминается", async () => {
+      const { run, root, home } = await makeCliSandbox();
+      await run(["new", "--category", "bug", "--title", "Задача"]);
+      const own = join(root, "spa", "project.md");
+      const foreign = join(root, "other", "project.md");
+      await writeFile(own, "без frontmatter\n");
+      await mkdir(join(root, "other"));
+      await writeFile(foreign, "repos: [~/elsewhere]\n");
+
+      const runs: { argv: string[]; cwd?: string }[] = [{ argv: ["list"] }, { argv: ["take", "--next"] }, { argv: ["list", "--project", "spa"], cwd: home }];
+      for (const { argv, cwd } of runs) {
+        const result = await run(argv, cwd === undefined ? {} : { cwd });
+        expect(result.code).toBe(EXIT.notFound);
+        expect(result.err).toContain(unparsed(own));
+        expect(result.err).not.toContain(foreign);
+        expect(result.err).not.toContain("не найден");
+      }
+      const listed = await run(["project", "list"]);
+      expect(listed).toMatchObject({ code: EXIT.ok, out: "" });
+      expect(listed.err).toContain(unparsed(own));
+      expect(listed.err).toContain(unparsed(foreign));
+    });
+
+    it("repos на родителе репозитория — проект назван, и new не заводит рядом новый", async () => {
+      const { run, root } = await makeCliSandbox();
+      const path = join(root, "work", "project.md");
+      await mkdir(join(root, "work"), { recursive: true });
+      await writeFile(path, "name: work\nrepos: [~/projects]\n");
+
+      expect((await run(["list"])).err).toContain(unparsed(path));
+      expect((await run(["new", "--category", "bug", "--title", "Задача"])).err).toContain(`Проект не создан: ${path} не разобран`);
+      expect((await loadBacklog(root)).projects).toEqual([]);
+    });
+
+    it("repos на каталоге вне git — проект назван при запуске из этого каталога", async () => {
+      const { run, root, home } = await makeCliSandbox();
+      const plain = join(home, "plain");
+      const path = join(root, "notes", "project.md");
+      await mkdir(plain);
+      await mkdir(join(root, "notes"), { recursive: true });
+      await writeFile(path, "repos: [~/plain]\n");
+
+      expect((await run(["list"], { cwd: plain })).err).toContain(unparsed(path));
+    });
   });
 
   it("delete удаляет проект только с точным подтверждением", async () => {

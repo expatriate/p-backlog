@@ -106,6 +106,7 @@ export const cliEn: CliMessages = {
   taskFileUnparsed: (id, problems) => `Task file ${id} could not be parsed: ${problems}`,
   projectNotFoundForCwd: (cwd) => `No project found for ${cwd}. Pass --project <id> or add the path to repos of the right project.md`,
   projectNotFound: (id) => `Project ${id} not found`,
+  projectFileUnparsed: (path, problems) => `Project not loaded: ${path} could not be parsed (${problems})`,
   notInGitRepo: (cwd) => `${cwd} is not inside a git repository: project not created. Pass --project <id> or run the command from a repository`,
   projectCreated: (id, prefix) => `Created project ${id} (${prefix})`,
   projectNotCreatedFileUnparsed: (path, problems) => `Project not created: ${path} could not be parsed (${problems}). Fix the file, otherwise a new project could repeat its prefix and task numbers`,

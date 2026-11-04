@@ -84,19 +84,34 @@ export function repoRootsOf(dirRoots: DirGitRoots): GitRoots | null {
 }
 
 export function findProjectForDir(projects: readonly Project[], dir: string, dirRoots: DirGitRoots, places: RepoPlaces): Project | undefined {
-  if (dirRoots === "unreadable") return undefined;
-  const roots = dirRoots === "not-in-repo" ? attemptReportingFailureSync(dir, plainDirRoots, places.onUnreadable) : dirRoots;
+  const roots = matchingRoots(dir, dirRoots, places);
   return roots === null ? undefined : findProjectForRoots(projects, roots, places);
 }
 
-export function findProjectForRoots(projects: readonly Project[], { worktree, main }: GitRoots, places: RepoPlaces): Project | undefined {
+export function matchingRoots(dir: string, dirRoots: DirGitRoots, places: RepoPlaces): GitRoots | null {
+  if (dirRoots === "unreadable") return null;
+  return dirRoots === "not-in-repo" ? attemptReportingFailureSync(dir, plainDirRoots, places.onUnreadable) : dirRoots;
+}
+
+export function findProjectForRoots(projects: readonly Project[], roots: GitRoots, places: RepoPlaces): Project | undefined {
   const matches = projects.flatMap((project) =>
     project.repos.flatMap((repo) => {
       const repoPath = resolvedRepo(repo, places);
-      return repoPath !== null && (isSameOrInside(worktree, repoPath) || isSameOrInside(main, repoPath)) ? [{ project, repoPath }] : [];
+      return repoPath !== null && repoCovers(repoPath, roots) ? [{ project, repoPath }] : [];
     }),
   );
   return matches.sort((a, b) => b.repoPath.length - a.repoPath.length)[0]?.project;
+}
+
+export function anyRepoCovers(repos: readonly string[], roots: GitRoots, places: RepoPlaces): boolean {
+  return repos.some((repo) => {
+    const repoPath = resolvedRepo(repo, places);
+    return repoPath !== null && repoCovers(repoPath, roots);
+  });
+}
+
+function repoCovers(repoPath: string, { worktree, main }: GitRoots): boolean {
+  return isSameOrInside(worktree, repoPath) || isSameOrInside(main, repoPath);
 }
 
 function isSameOrInside(path: string, container: string): boolean {

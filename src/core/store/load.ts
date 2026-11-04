@@ -18,6 +18,10 @@ export function unparsedTasks(errors: readonly ParseError[]): UnparsedTask[] {
   });
 }
 
+export function unparsedProjectFiles(errors: readonly ParseError[]): ParseError[] {
+  return errors.filter((error) => basename(error.path) === PROJECT_FILE);
+}
+
 export async function projectDirNames(root: string): Promise<string[]> {
   return (await listDir(root)).filter((entry) => entry.isDirectory() && !entry.name.startsWith(".")).map((entry) => entry.name);
 }

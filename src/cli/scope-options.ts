@@ -13,12 +13,12 @@ type ScopeValues = { project?: string; "all-projects"?: boolean };
 
 type Scope = { projectIds: string[]; activeIds: string[]; project?: Project };
 
-export function resolveScope(loaded: LoadedBacklog, io: CliIo, values: ScopeValues): Scope | null {
+export async function resolveScope(loaded: LoadedBacklog, io: CliIo, values: ScopeValues): Promise<Scope | null> {
   if (values.project !== undefined && values["all-projects"] === true) throw new UsageError(io.cli.needProjectOrAllProjects);
   if (values["all-projects"] === true) {
     const projectIds = loaded.projects.map((project) => project.id);
     return { projectIds, activeIds: activeProjects(loaded.projects).map((project) => project.id) };
   }
-  const project = findProjectOrWarn(loaded, io, values.project);
+  const project = await findProjectOrWarn(loaded, io, values.project);
   return project === undefined ? null : { projectIds: [project.id], activeIds: [project.id], project };
 }

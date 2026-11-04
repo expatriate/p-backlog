@@ -1,8 +1,9 @@
 import { isClosed } from "../../core/model/graph";
-import { loadBacklog } from "../../core/store/load";
+import { loadBacklog, unparsedProjectFiles } from "../../core/store/load";
 import { deleteProject, setProjectActive } from "../../core/store/projects";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
+import { warnUnparsedProjectFiles } from "../lookups";
 import { cliMessages, type CliMessages } from "../messages";
 
 const ACTIVE_BY_STATE = { active: true, inactive: false } as const;
@@ -27,7 +28,9 @@ async function runProject(args: string[], io: CliIo): Promise<ExitCode> {
 
 async function listProjects(io: CliIo): Promise<ExitCode> {
   const loaded = await loadBacklog(io.backlogRoot);
-  if (loaded.projects.length === 0) {
+  const broken = unparsedProjectFiles(loaded.errors);
+  warnUnparsedProjectFiles(io, broken, io.cli.projectFileUnparsed);
+  if (loaded.projects.length === 0 && broken.length === 0) {
     io.print(io.cli.noProjects);
     return EXIT.ok;
   }

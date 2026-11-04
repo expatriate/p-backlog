@@ -69,7 +69,7 @@ function takeMode(io: CliIo, values: { path?: string | undefined; next: boolean 
 }
 
 async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projectId: string | undefined, { json }: { json: boolean }): Promise<ExitCode> {
-  const project = findProjectOrWarn(loaded, io, projectId);
+  const project = await findProjectOrWarn(loaded, io, projectId);
   if (!project) return EXIT.notFound;
   const target = repoRelativePath(io, project, path);
   const index = buildIndex(loaded.tasks);
@@ -127,7 +127,7 @@ function selectById(loaded: LoadedBacklog, io: CliIo, id: string): Selection {
 }
 
 async function selectNext(loaded: LoadedBacklog, io: CliIo, projectId: string | undefined): Promise<Selection> {
-  const project = findProjectOrWarn(loaded, io, projectId);
+  const project = await findProjectOrWarn(loaded, io, projectId);
   if (!project) return { ok: false, exitCode: EXIT.notFound };
   const index = buildIndex(loaded.tasks);
   const abandoned = pickAbandonedTask(loaded.tasks, project.id, index, await lastTouched(loaded.tasks.filter(isTakenTask)), io.now());

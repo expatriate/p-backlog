@@ -3,14 +3,13 @@ import type { RepoLookup } from "../core/check/project-repo";
 import { oncePerPath, warnPathErrors, type PathErrorHandler } from "../core/errors";
 import type { CoreMessages } from "../core/messages";
 import { projectIdBase } from "../core/model/ids";
+import { reposOfUnparsed } from "../core/model/project-file";
 import type { ParseError, Project, Task } from "../core/model/types";
 import { createProject } from "../core/store/create";
-import type { LoadedBacklog } from "../core/store/load";
-import { PROJECT_FILE } from "../core/store/paths";
+import { unparsedProjectFiles, type LoadedBacklog } from "../core/store/load";
 import { readTextOrNull } from "../core/store/fs-utils";
-import { findProjectForDir, readGitRoots, repoRootsOf, type DirGitRoots, type GitRoots, type RepoPlaces } from "../core/store/resolve-project";
+import { anyRepoCovers, findProjectForDir, matchingRoots, readGitRoots, repoRootsOf, type DirGitRoots, type GitRoots, type RepoPlaces } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
-import { relativeInside } from "./path-inside";
 
 export function warnUnreadableSkipped(warn: (line: string) => void, core: CoreMessages): PathErrorHandler {
   return warnPathErrors(warn, core.unreadableSkipped);
@@ -60,11 +59,23 @@ export function projectOf(loaded: LoadedBacklog, task: Task): Project | undefine
   return loaded.projects.find((project) => project.id === task.projectId);
 }
 
-export function findProjectOrWarn(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Project | undefined {
+export async function findProjectOrWarn(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Promise<Project | undefined> {
   const project = findProject(loaded, io, explicitId);
   if (project) return project;
-  io.warn(explicitId === undefined ? io.cli.projectNotFoundForCwd(io.cwd) : io.cli.projectNotFound(explicitId));
+  const broken = await unparsedProjectFilesOfScope(loaded, io, explicitId);
+  if (broken.length > 0) warnUnparsedProjectFiles(io, broken, io.cli.projectFileUnparsed);
+  else io.warn(explicitId === undefined ? io.cli.projectNotFoundForCwd(io.cwd) : io.cli.projectNotFound(explicitId));
   return undefined;
+}
+
+async function unparsedProjectFilesOfScope(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Promise<ParseError[]> {
+  if (explicitId !== undefined) return unparsedProjectFiles(loaded.errors).filter((error) => error.projectId === explicitId);
+  const roots = matchingRoots(io.cwd, cwdDirRoots(io), repoPlaces(io));
+  return roots === null ? [] : unparsedProjectFilesCovering(loaded, roots, io);
+}
+
+export function warnUnparsedProjectFiles(io: CliIo, errors: readonly ParseError[], message: (path: string, problems: string) => string): void {
+  for (const error of errors) io.warn(message(error.path, io.core.problems(error.problems)));
 }
 
 export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Promise<Project | undefined> {
@@ -77,9 +88,9 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
     io.warn(io.cli.notInGitRepo(io.cwd));
     return undefined;
   }
-  const brokenProjectFiles = await brokenProjectFilesOf(loaded, gitRoots, io.home);
-  if (brokenProjectFiles.length > 0) {
-    for (const error of brokenProjectFiles) io.warn(io.cli.projectNotCreatedFileUnparsed(error.path, io.core.problems(error.problems)));
+  const broken = await unparsedProjectFilesCovering(loaded, gitRoots, io);
+  if (broken.length > 0) {
+    warnUnparsedProjectFiles(io, broken, io.cli.projectNotCreatedFileUnparsed);
     return undefined;
   }
   const created = await createProject(io.backlogRoot, gitRoots.main, loaded.projects);
@@ -87,32 +98,12 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
   return created;
 }
 
-async function brokenProjectFilesOf(loaded: LoadedBacklog, roots: GitRoots, home: string): Promise<ParseError[]> {
-  const repoPaths = [roots.main, roots.worktree].flatMap((path) => [path, homeRelative(path, home)]);
+async function unparsedProjectFilesCovering(loaded: LoadedBacklog, roots: GitRoots, io: CliIo): Promise<ParseError[]> {
   const ownId = projectIdBase(basename(roots.main));
-  const broken = loaded.errors.filter((error) => basename(error.path) === PROJECT_FILE);
-  const texts = await Promise.all(broken.map(async (error) => (await readTextOrNull(error.path)) ?? ""));
-  return broken.filter((error, position) => basename(dirname(error.path)) === ownId || repoPaths.some((path) => mentionsPath(texts[position] ?? "", path)));
-}
-
-const PATH_BOUNDARY = /[\s"',[\]]/;
-const TRAILING_SEPARATORS = /^[\\/]*/;
-
-function mentionsPath(text: string, path: string): boolean {
-  for (let start = text.indexOf(path); start !== -1; start = text.indexOf(path, start + 1)) {
-    const end = start + path.length + (TRAILING_SEPARATORS.exec(text.slice(start + path.length))?.[0].length ?? 0);
-    if (isBoundary(text.charAt(start - 1)) && isBoundary(text.charAt(end))) return true;
-  }
-  return false;
-}
-
-function isBoundary(char: string): boolean {
-  return char === "" || PATH_BOUNDARY.test(char);
-}
-
-function homeRelative(path: string, home: string): string {
-  const inside = relativeInside(home, path);
-  return inside === null ? path : `~/${inside}`;
+  const broken = await Promise.all(unparsedProjectFiles(loaded.errors).map(async (error) => ({ error, text: (await readTextOrNull(error.path)) ?? "" })));
+  const isOwnProjectDir = ({ error }: { error: ParseError }) => basename(dirname(error.path)) === ownId;
+  const listsCoveringRepo = ({ text }: { text: string }) => anyRepoCovers(reposOfUnparsed(text), roots, repoPlaces(io));
+  return broken.filter((file) => isOwnProjectDir(file) || listsCoveringRepo(file)).map(({ error }) => error);
 }
 
 function findProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Project | undefined {
