@@ -98,6 +98,7 @@
 
   --main-overflow: auto;
   --main-frame-overflow: hidden;
+  --main-overlay-position: absolute;
   --list-footer-height: 0px;
   --board-notice-height: 0px;
   --drawer-pad-block-start: var(--space-4);

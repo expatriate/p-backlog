@@ -44,6 +44,19 @@ async function pickUpWithKeyboard(page: Page, card: Locator, id: string, from = 
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 }
 
+async function moveRightWithKeyboard(page: Page, card: Locator, id: string, { from = "в беклоге", to = "в работе" } = {}) {
+  await pickUpWithKeyboard(page, card, id, from);
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByText(`${id} над колонкой «${to}»`)).toBeAttached();
+  await page.keyboard.press("Space");
+}
+
+const bottomUncovered = (shown: Locator) =>
+  shown.evaluate((element) => {
+    const { left, width, bottom } = element.getBoundingClientRect();
+    return element.contains(document.elementFromPoint(left + width / 2, bottom - 4));
+  });
+
 test("карточку перетаскивают мышью в другую колонку — статус меняется в файле, «Отменить» возвращает его и фокус на карточку", async ({ page }) => {
   await writeBoard(["Перетащить мышью"]);
   await openBoard(page, "/p/board?view=board", "Перетащить мышью");
@@ -66,10 +79,7 @@ test("с клавиатуры нижнюю карточку длинной ко�
   await openBoard(page, "/p/board?view=board&sort=created&dir=asc", "Пятая");
   const bottom = column(page, "в беклоге").getByRole("link", { name: "Пятая" });
 
-  await pickUpWithKeyboard(page, bottom, "BRD-5");
-  await page.keyboard.press("ArrowRight");
-  await expect(page.getByText("BRD-5 над колонкой «в работе»")).toBeAttached();
-  await page.keyboard.press("Space");
+  await moveRightWithKeyboard(page, bottom, "BRD-5");
 
   await expect(column(page, "в работе").getByRole("link", { name: "Пятая" })).toBeVisible();
   await expect.poll(() => statusOnDisk("BRD-5")).toBe("in-progress");
@@ -206,16 +216,11 @@ test("длинная колонка прокручивается внутри д
   await expect(page.getByRole("button", { name: "Отменить" })).toBeInViewport();
   await expect(backlog.getByRole("heading", { level: 2 })).toBeInViewport();
   const card = (title: string) => backlog.locator("li").filter({ has: page.getByRole("link", { name: title, exact: true }) });
-  const uncovered = (shown: Locator) =>
-    shown.evaluate((item) => {
-      const { left, width, bottom } = item.getBoundingClientRect();
-      return item.contains(document.elementFromPoint(left + width / 2, bottom - 4));
-    });
   await card("Карточка 1").evaluate((item) => item.parentElement?.scrollTo({ top: 0 }));
   await card("Карточка 10").evaluate((item) => item.scrollIntoView({ block: "nearest" }));
-  expect(await uncovered(card("Карточка 10"))).toBe(true);
+  expect(await bottomUncovered(card("Карточка 10"))).toBe(true);
   await card("Карточка 29").evaluate((item) => item.parentElement?.scrollTo({ top: item.parentElement.scrollHeight }));
-  expect(await uncovered(card("Карточка 29"))).toBe(true);
+  expect(await bottomUncovered(card("Карточка 29"))).toBe(true);
   expect(await page.evaluate(() => document.querySelector("main > div")?.scrollTop ?? 0)).toBe(pageScrolled);
   expect((await column(page, "в работе").boundingBox())?.y).toBe(columnsTop);
   expect(await scrollTops()).not.toEqual([]);
@@ -234,14 +239,8 @@ test("второй перенос во время падающего перво�
   await openBoard(page, "/p/board?view=board", "Дважды");
 
   const card = column(page, "в беклоге").getByRole("link", { name: "Дважды" });
-  await pickUpWithKeyboard(page, card, "BRD-1");
-  await page.keyboard.press("ArrowRight");
-  await expect(page.getByText("BRD-1 над колонкой «в работе»")).toBeAttached();
-  await page.keyboard.press("Space");
-  await pickUpWithKeyboard(page, column(page, "в работе").getByRole("link", { name: "Дважды" }), "BRD-1", "в работе");
-  await page.keyboard.press("ArrowRight");
-  await expect(page.getByText("BRD-1 над колонкой «заблокирована»")).toBeAttached();
-  await page.keyboard.press("Space");
+  await moveRightWithKeyboard(page, card, "BRD-1");
+  await moveRightWithKeyboard(page, column(page, "в работе").getByRole("link", { name: "Дважды" }), "BRD-1", { from: "в работе", to: "заблокирована" });
   firstFailure.resolve();
   await expect.poll(() => statusOnDisk("BRD-1")).toBe("blocked");
 
@@ -273,14 +272,30 @@ test("«Отменить» первого переноса, пока сохра�
   await expect.poll(() => statusOnDisk("BRD-1")).toBe("in-progress");
   const undoFirst = page.getByRole("button", { name: "Отменить" });
   await expect(undoFirst).toBeVisible();
-  await pickUpWithKeyboard(page, column(page, "в беклоге").getByRole("link", { name: "Вторая" }), "BRD-2");
-  await page.keyboard.press("ArrowRight");
-  await expect(page.getByText("BRD-2 над колонкой «в работе»")).toBeAttached();
-  await page.keyboard.press("Space");
+  await moveRightWithKeyboard(page, column(page, "в беклоге").getByRole("link", { name: "Вторая" }), "BRD-2");
   await undoFirst.click();
   secondSaved.resolve();
 
   await expect.poll(() => Promise.all([statusOnDisk("BRD-1"), statusOnDisk("BRD-2")])).toEqual(["backlog", "in-progress"]);
   await expect(page.getByRole("status").filter({ hasText: "BRD-2: статус «в работе»" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Отменить" })).toBeVisible();
+});
+
+test("на узком экране уведомление о переносе с «Отменить» целиком в окне и не закрывает ни ссылку карточки в фокусе, ни низ докрученной доски", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await writeBoard(Array.from({ length: 5 }, (_, index) => `Карточка ${index + 1}`));
+  await openBoard(page, "/p/board?view=board&sort=created&dir=asc", "Карточка 1");
+
+  await moveRightWithKeyboard(page, column(page, "в беклоге").getByRole("link", { name: "Карточка 1", exact: true }), "BRD-1");
+
+  await expect(page.getByRole("button", { name: "Отменить" })).toBeInViewport({ ratio: 1 });
+  const backlog = column(page, "в беклоге");
+  const lowest = backlog.getByRole("link", { name: "Карточка 5", exact: true });
+  expect(await bottomUncovered(lowest)).toBe(false);
+  await lowest.focus();
+  expect(await bottomUncovered(lowest)).toBe(true);
+  await backlog.evaluate((element) => element.scrollIntoView({ inline: "start" }));
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight }));
+  expect(await bottomUncovered(backlog)).toBe(true);
 });

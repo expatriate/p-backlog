@@ -8,7 +8,7 @@
 }
 
 .notice {
-  position: absolute;
+  position: var(--main-overlay-position);
   inset-inline: 0;
   bottom: 0;
   z-index: var(--z-dropdown);
