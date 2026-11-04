@@ -9,6 +9,10 @@
   box-shadow: var(--shadow-panel);
 }
 
+.announcement {
+  display: contents;
+}
+
 .headline {
   margin: 0;
   font-weight: 600;

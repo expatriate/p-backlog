@@ -14,10 +14,6 @@
   z-index: var(--z-dropdown);
 }
 
-.moved {
-  display: contents;
-}
-
 .columns {
   display: grid;
   flex: 1;

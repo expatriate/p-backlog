@@ -46,10 +46,12 @@ describe("уведомление об итоге массового действ
     const app = await renderApp(FILES);
     await select(app, "SPA-1", "SPA-3", "SPA-7");
     await changeBehindTheList(app, "SPA-7");
+    const liveRegionsBefore = new Set(screen.getAllByRole("status"));
 
     await closeSelected(app, "дубль");
 
     const notice = await findNotice("Закрыто 2 из 3");
+    expect(liveRegionsBefore.has(notice)).toBe(true);
     expect(screen.queryByRole("region", { name: "Действия с выбранными" })).toBeNull();
     expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Выбрать SPA-7" }).checked).toBe(false);
     await app.user.click(within(notice).getByRole("link", { name: "SPA-7 изменилась на диске" }));
@@ -147,7 +149,8 @@ describe("уведомление об итоге массового действ
     const app = await renderManyAndRaisePriority(beforeRender);
 
     const notice = await findNotice("Изменено 3 из 5");
-    expect(within(notice).getByRole("alert").textContent).toContain("Не изменены 2 задачи");
+    expect(screen.getByRole("alert").textContent).toContain("Не изменены 2 задачи");
+    expect(within(notice).queryByRole("alert")).toBeNull();
     await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
 
     await findNotice("Возвращено 3 из 3");
@@ -162,7 +165,8 @@ describe("уведомление об итоге массового действ
     await app.user.click(within(await findNotice("Изменено 5 из 5")).getByRole("button", { name: "Отменить" }));
 
     const notice = await findNotice("Возвращено 3 из 5");
-    expect(within(notice).getByRole("alert").textContent).toContain("Не удалось отменить");
+    expect(screen.getByRole("alert").textContent).toContain("Не удалось отменить");
+    expect(within(notice).queryByRole("alert")).toBeNull();
     expect((await app.taskOnDisk("SPA-5")).priority).toBe("critical");
     failing = false;
     const sentBeforeRetry = sent.length;
@@ -179,8 +183,10 @@ describe("уведомление об итоге массового действ
     const app = await renderApp(FILES, "/", undefined, { beforeRender });
     await select(app, "SPA-1");
     await closeSelected(app, "дубль");
-    await app.user.click(within(await findNotice("Закрыта 1 из 1")).getByRole("button", { name: "Отменить" }));
+    const notice = await findNotice("Закрыта 1 из 1");
+    await app.user.click(within(notice).getByRole("button", { name: "Отменить" }));
     expect((await screen.findByRole("alert")).textContent).toContain("Не удалось отменить");
+    expect(within(notice).queryByRole("alert")).toBeNull();
 
     await select(app, "SPA-3");
     await closeSelected(app, "тоже");

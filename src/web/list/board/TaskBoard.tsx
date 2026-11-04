@@ -114,7 +114,7 @@ function MoveNotice({ moves: { lastMove, failure, undoing, dismiss }, undoButton
 
   return (
     <div ref={notice} className={news !== null ? cx(footer.panel, styles.notice) : "visually-hidden"}>
-      <div role="status" className={styles.moved}>
+      <div role="status" className={footer.announcement}>
         {lastMove !== null && (
           <>
             <p className={footer.headline}>{list.moved(lastMove.id, core.statusLabel(lastMove.to))}</p>
