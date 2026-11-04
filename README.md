@@ -281,7 +281,8 @@ backlog service install
 ```
 
 The running service keeps executing the old `cli.js` until reinstalled — the web assets on disk are
-already new, but `backlog service install` is what points the service at the new code.
+already new, but `backlog service install` is what points the service at the new code. Reinstalling
+keeps the port the service was installed on; set `PORT` only to change it.
 
 After upgrading Node itself (for example via Homebrew), run `backlog service install` again too: the
 service stores the path to the Node binary it was installed with.

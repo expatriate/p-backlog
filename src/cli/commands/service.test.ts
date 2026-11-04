@@ -25,6 +25,18 @@ describe("backlog service", () => {
     await expect(readFile(plistPath(home), "utf8")).resolves.toContain("<string>serve</string>");
   });
 
+  it("повторный install без PORT оставляет порт установленной службы, явный PORT его меняет", async () => {
+    const { home, run } = await makeCliSandbox();
+    const installedPort = async () => /<key>PORT<\/key>\s*<string>(\d+)<\/string>/.exec(await readFile(plistPath(home), "utf8"))?.[1];
+    expect((await run(["service", "install"], { env: { PORT: "5000" } })).code).toBe(EXIT.ok);
+
+    expect((await run(["service", "install"])).code).toBe(EXIT.ok);
+    expect(await installedPort()).toBe("5000");
+
+    expect((await run(["service", "install"], { env: { PORT: "5100" } })).code).toBe(EXIT.ok);
+    expect(await installedPort()).toBe("5100");
+  });
+
   it("install с неверным PORT отклоняется, а не ставит службу на 4317", async () => {
     const { home, run } = await makeCliSandbox();
 

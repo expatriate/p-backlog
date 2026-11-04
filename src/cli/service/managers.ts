@@ -1,4 +1,5 @@
 import { attemptReportingFailure } from "../../core/store/fs-utils";
+import { portUnset } from "../../core/server-address";
 import { envPort, type CliIo } from "../io";
 import { warnUnreadableSkipped } from "../lookups";
 import { launchdManager } from "./launchd";
@@ -29,6 +30,10 @@ export function serviceManagerOf(io: CliIo): Promise<ServiceManager | null> {
 export async function servicePort(manager: ServiceManager | null, io: CliIo): Promise<number> {
   const installed = manager === null ? null : await attemptReportingFailure(manager.file, () => manager.installedPort(), warnUnreadableSkipped(io.warn, io.core));
   return installed ?? envPort(io);
+}
+
+export function portToInstall(manager: ServiceManager, io: CliIo): Promise<number> {
+  return portUnset(io.env.PORT) ? servicePort(manager, io) : Promise.resolve(envPort(io));
 }
 
 export function webUiPort(io: CliIo): Promise<number> {

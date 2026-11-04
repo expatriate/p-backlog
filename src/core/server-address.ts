@@ -12,8 +12,12 @@ export function portNumber(value: string): number | null {
   return port > 0 && port < 65536 ? port : null;
 }
 
+export function portUnset(value: string | undefined): value is "" | undefined {
+  return value === undefined || value === "";
+}
+
 export function envPortOrDefault(value: string | undefined): number | null {
-  return value === undefined || value === "" ? DEFAULT_PORT : portNumber(value);
+  return portUnset(value) ? DEFAULT_PORT : portNumber(value);
 }
 
 export function loopbackOrigin(port: number): string {

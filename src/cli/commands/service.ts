@@ -1,8 +1,8 @@
 import { loopbackOrigin } from "../../core/server-address";
 import { usageError, type CliCommand } from "../command";
 import { isFailure } from "../failure";
-import { envPort, EXIT, parseCommandArgs, type CliIo, type ExitCode } from "../io";
-import { serviceManagerOf, servicePort } from "../service/managers";
+import { EXIT, parseCommandArgs, type CliIo, type ExitCode } from "../io";
+import { portToInstall, serviceManagerOf, servicePort } from "../service/managers";
 import { serverResponds } from "../service/server-probe";
 import type { ServiceFailure, ServiceManager } from "../service/service";
 
@@ -44,7 +44,7 @@ async function withServiceManager(io: CliIo, action: ServiceAction): Promise<Exi
 }
 
 async function installWith(manager: ServiceManager, io: CliIo): Promise<ExitCode> {
-  const outcome = await manager.install(envPort(io));
+  const outcome = await manager.install(await portToInstall(manager, io));
   if (isFailure(outcome)) return reportFailure(outcome, io);
   io.print(io.cli.serviceInstalled(manager.file));
   io.print(io.cli.serviceLogs(manager.logsHint));

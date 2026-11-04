@@ -1,3 +1,4 @@
+import { portNumber } from "../../core/server-address";
 import { readFile } from "node:fs/promises";
 import { hasErrorCode } from "../../core/errors";
 import type { CliEnv } from "../io";
@@ -31,5 +32,5 @@ export async function numberRecordedIn(file: string, pattern: RegExp, encoding: 
     throw error;
   });
   const recorded = pattern.exec(text)?.[1];
-  return recorded === undefined ? null : Number(recorded);
+  return recorded === undefined ? null : portNumber(recorded);
 }
