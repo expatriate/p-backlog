@@ -243,6 +243,27 @@ describe("backlog hook stop", () => {
     expect(JSON.parse(nextSession.out).decision).toBe("block");
   });
 
+  it("задачи, не поместившиеся в причину, называются в следующем ходе той же сессии", async () => {
+    const { run, repo } = await makeCliSandbox();
+    const ids = Array.from({ length: 15 }, (_, index) => `SPA-${index + 1}`);
+    const paths = ids.map((_, index) => `src/features/module-${index}/very-long-file-name.ts`);
+    await writeFiles(repo, Object.fromEntries(paths.map((path) => [path, "1\n"])));
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    for (const path of paths) await run(["new", "--force", "--category", "bug", "--title", path, "--source", `${path}:1`]);
+    await writeFiles(repo, Object.fromEntries(paths.map((path) => [path, "2\n"])));
+    gitCommitAll(repo, "Правка", "2026-09-18T10:00:00Z");
+    const event = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+    const stop = async () => (await run(["hook", "stop"], { stdin: event })).out;
+    const namedByTurn: string[][] = [];
+    for (let out = await stop(); out !== "" && namedByTurn.length < ids.length; out = await stop()) {
+      const { reason } = JSON.parse(out) as { reason: string };
+      namedByTurn.push(ids.filter((id) => reason.includes(`${id} (`)));
+    }
+
+    expect(namedByTurn.length).toBeGreaterThan(1);
+    expect(namedByTurn.flat().sort()).toEqual([...ids].sort());
+  });
+
   it("параллельные сессии помнят сказанное независимо друг от друга", async () => {
     const { run, repo } = await makeCliSandbox();
     await writeFiles(repo, { "src/a.ts": "1\n" });

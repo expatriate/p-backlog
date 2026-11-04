@@ -80,13 +80,14 @@ async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
         io,
       )
     : NO_SIGNALS;
+  const reason = blocking.length > 0 ? stopReason(io.language, project.id, blocking) : null;
   const answer = formatStopAnswer(agent, {
-    reason: blocking.length > 0 ? stopReason(io.language, project.id, blocking) : null,
+    reason: reason?.text ?? null,
     systemMessage: signals.fresh.length > 0 ? hookMessage(io.language, project.id, signals.fresh.map((signal) => io.core.signal(signal)).join("; ")) : null,
   });
   if (answer !== null) io.print(answer);
   await signals.remember();
-  await session.remember(blocking.map((candidate) => candidate.task.id));
+  await session.remember(reason?.namedTaskIds ?? []);
   return EXIT.ok;
 }
 

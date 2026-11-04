@@ -6,16 +6,29 @@ import { cliMessages, type CliMessages } from "./messages";
 
 export const STOP_REASON_LIMIT = 500;
 
-export function stopReason(language: Language, projectId: string, candidates: readonly Candidate[]): string {
+export type StopReason = { text: string; namedTaskIds: readonly string[] };
+
+export function stopReason(language: Language, projectId: string, candidates: readonly Candidate[]): StopReason {
   const cli = cliMessages(language);
-  const items = candidates.map((candidate) => briefEvidence(cli, candidate));
-  const shown: string[] = [];
-  for (const item of items) {
-    if (compose(language, cli, projectId, [...shown, item], items.length - shown.length - 1).length > STOP_REASON_LIMIT) break;
-    shown.push(item);
+  const text = (named: readonly NamedCandidate[]) =>
+    compose(
+      language,
+      cli,
+      projectId,
+      named.map(({ item }) => item),
+      candidates.length - named.length,
+    );
+  const named: NamedCandidate[] = [];
+  for (const candidate of candidates) {
+    const next = { id: candidate.task.id, item: briefEvidence(cli, candidate) };
+    if (text([...named, next]).length <= STOP_REASON_LIMIT) named.push(next);
   }
-  return compose(language, cli, projectId, shown, items.length - shown.length);
+  const [first] = candidates;
+  if (named.length === 0 && first !== undefined) named.push({ id: first.task.id, item: first.task.id });
+  return { text: text(named), namedTaskIds: named.map(({ id }) => id) };
 }
+
+type NamedCandidate = { id: string; item: string };
 
 function compose(language: Language, cli: CliMessages, projectId: string, shown: readonly string[], hidden: number): string {
   const more = hidden > 0 ? cli.stopReasonMore(hidden) : "";
