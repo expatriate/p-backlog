@@ -1,6 +1,6 @@
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { formatLocalIso } from "../../core/model/dates";
 import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
@@ -61,6 +61,23 @@ describe("backlog verify", () => {
     await run(["new", "--category", "bug", "--title", "X", "--source", "src/a.ts:1"]);
 
     expect((await run(["verify", "SPA-1", "--source", "src/feature"])).code).toBe(EXIT.ok);
+    expect((await run(["verify", "SPA-1", "--source", "src/other.ts:1"])).code).toBe(EXIT.ok);
+  });
+
+  it("--source на файл из другой ветки принимается и там, где git не доверяет каталогу и ветки не прочитать", async () => {
+    const { run, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    gitCheckout(repo, "other", { create: true });
+    await writeFiles(repo, { "src/other.ts": "1\n" });
+    gitCommitAll(repo, "Ветка", "2026-09-16T11:00:00Z");
+    gitCheckout(repo, "-");
+    await run(["new", "--category", "bug", "--title", "X", "--source", "src/a.ts:1"]);
+    vi.stubEnv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1");
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+
     expect((await run(["verify", "SPA-1", "--source", "src/other.ts:1"])).code).toBe(EXIT.ok);
   });
 

@@ -1041,7 +1041,7 @@ describe("checkBacklog", () => {
     await rm(join(broken, ".git/objects", head.slice(0, 2), head.slice(2)));
     await writeFiles(root, {
       "pl/project.md": projectFile("PL", [plain]),
-      "pl/PL-1.md": task("PL-1", "source: src/a.ts:1\n"),
+      "pl/PL-1.md": task("PL-1", "source: src/gone.ts:1\n"),
       "br/project.md": projectFile("BR", [broken]),
       "br/BR-1.md": task("BR-1", "source: src/b.ts:1\n"),
     });
@@ -1054,6 +1054,7 @@ describe("checkBacklog", () => {
         { kind: "project-history-unreadable", projectId: "br", repo: broken },
       ]),
     );
+    expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-missing", task: expect.objectContaining({ id: "PL-1" }) })]);
   });
 
   it("каталог другого владельца (dubious ownership) — своя проблема с лекарством, а не «не git-репозиторий»", async () => {
@@ -1072,6 +1073,29 @@ describe("checkBacklog", () => {
 
     expect(report.problems).toEqual([{ kind: "project-repo-unsafe", projectId: "spa", repo }]);
     expect(report.problems.map((problem) => RU.checkProblem(problem))).toEqual([expect.stringContaining(`git config --global --add safe.directory "${repo}"`)]);
+  });
+
+  it("история не читается — ни файл из другой ветки, ни опечатка не выдаются за пропавшие, и прежняя находка не считается ушедшей", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFiles(repo, { "src/b.ts": "b\n" });
+    gitCommitAll(repo, "Фича", "2026-09-11T10:00:00+03:00");
+    gitCheckout(repo, "master");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/b.ts:1\n"), "spa/SPA-2.md": task("SPA-2", "source: src/typo.ts:1\n") });
+    expect((await check(root, home, "full")).candidates.map((candidate) => [candidate.task.id, candidate.kind])).toEqual([["SPA-2", "source-missing"]]);
+    vi.stubEnv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1");
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+
+    const report = await check(root, home, "full");
+
+    expect(report.candidates).toEqual([]);
+    expect((await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate-gone")).toEqual([]);
   });
 
   it("сообщает о проекте без репозитория и проверяет только выбранные проекты", async () => {

@@ -72,7 +72,7 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
     const context = await projectContext(readable, review, { repo, facts, graph, mode, onUnreadable });
     const sighted = await sightedBySymbol(tasks, review, context, { mode, skipped });
     const judged = await judgedAgainstMerges(sighted, context, scope);
-    return { projectId: project.id, ...judged, skipped: [...skipped], problems: historyProblems(project, repo, facts.history), unchecked: facts.history === "read" ? [] : ["source-changed"] };
+    return { projectId: project.id, ...judged, skipped: [...skipped], problems: historyProblems(project, repo, facts.history), unchecked: uncheckedEvidence(facts) };
   } finally {
     graph?.close();
   }
@@ -146,6 +146,10 @@ async function withRenamesFollowed(review: CodeReview, tasks: readonly Task[], {
 
 function involvedTaskIds({ kept, filtered, plans }: SymbolSightings): string[] {
   return [...new Set([...kept.map((candidate) => candidate.task.id), ...filtered.map((sighting) => sighting.task), ...plans.map((plan) => plan.id)])];
+}
+
+function uncheckedEvidence({ history, branches }: RepoFacts): CandidateEvidence[] {
+  return [...(history === "read" ? [] : ["source-changed" as const]), ...(branches.kind === "unreadable" ? ["source-missing" as const] : [])];
 }
 
 function historyProblems(project: Project, repo: string, history: GitHistory): CheckProblem[] {

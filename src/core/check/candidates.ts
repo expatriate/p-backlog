@@ -59,7 +59,7 @@ function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts, knownC
   const path = sourcePath(task.source);
   const mark = reviewMark(task);
   if (!facts.existing.has(path)) {
-    return livesOnAnotherBranch(path, facts) ? [] : [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.renames, mark) }];
+    return isMissingSource(path, facts.branches) ? [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.renames, mark) }] : [];
   }
   if (anchor.kind === "same" || anchor.kind === "moved") return [];
   const { commits: changed, uncommitted } = changesSince(facts, path, mark);
@@ -117,7 +117,18 @@ function anchorStateIn(task: Task, text: string | undefined): AnchorState {
   return moved === null || movedAnchor === null ? { kind: "changed" } : { kind: "moved", source: moved, anchor: movedAnchor };
 }
 
-export function livesOnAnotherBranch(path: string, facts: BranchHistory): boolean {
+export function isMissingSource(path: string, branches: BranchHistory): boolean {
+  switch (branches.kind) {
+    case "no-repo":
+      return true;
+    case "unreadable":
+      return false;
+    case "read":
+      return !livesOnAnotherBranch(path, branches);
+  }
+}
+
+function livesOnAnotherBranch(path: string, facts: Extract<BranchHistory, { kind: "read" }>): boolean {
   const committedIn = (files: ReadonlySet<string>) => [...files].some((file) => isWithin(file, path));
   return !committedIn(facts.committedHere) && committedIn(facts.committedAnywhere);
 }

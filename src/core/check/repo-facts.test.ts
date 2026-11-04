@@ -50,7 +50,7 @@ describe("collectRepoFacts", () => {
 
     expect(facts.commits.map(({ files }) => files)).toEqual([[{ path: "src/a.ts" }]]);
     expect([...facts.dirtyModifiedAt.keys()]).toEqual(["src/a.ts"]);
-    expect({ here: facts.committedHere, anywhere: facts.committedAnywhere }).toEqual({ here: new Set(["src/gone.ts"]), anywhere: new Set(["src/gone.ts"]) });
+    expect(facts.branches).toEqual({ kind: "read", committedHere: new Set(["src/gone.ts"]), committedAnywhere: new Set(["src/gone.ts"]) });
   });
 
   it.skipIf(process.platform === "win32")("изменённая ссылка, ведущая сама на себя, — незакоммиченная правка со своим временем, а не сбой сбора фактов (ссылки на Windows требуют прав)", async () => {
@@ -105,6 +105,7 @@ describe("collectRepoFacts", () => {
 
     expect(facts.history).toBe("read");
     expect(facts.commits.map(({ subject }) => subject)).toEqual(["Поправить a"]);
+    expect(facts.branches).toEqual({ kind: "unreadable" });
   });
 
   it("каталог без git: только существование файлов", async () => {
@@ -118,8 +119,7 @@ describe("collectRepoFacts", () => {
       commits: [],
       renames: [],
       dirtyModifiedAt: new Map(),
-      committedHere: new Set(),
-      committedAnywhere: new Set(),
+      branches: { kind: "no-repo" },
       existing: new Set(["src/a.ts"]),
       texts: new Map([["src/a.ts", ""]]),
       unreadable: new Map(),
@@ -132,7 +132,12 @@ describe("collectRepoFacts", () => {
 
     const facts = await collectRepoFacts(repo, marksSince("2026-09-11T00:00:00Z", ["src/a.ts", "src/b.ts"]));
 
-    expect({ history: facts.history, commits: facts.commits, renames: facts.renames }).toEqual({ history: "read", commits: [], renames: [] });
+    expect({ history: facts.history, commits: facts.commits, renames: facts.renames, branches: facts.branches }).toEqual({
+      history: "read",
+      commits: [],
+      renames: [],
+      branches: { kind: "read", committedHere: new Set(), committedAnywhere: new Set() },
+    });
   });
 
   it("git не запускается: история нечитаема, а не «каталог без git»", async () => {
