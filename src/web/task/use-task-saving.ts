@@ -26,15 +26,22 @@ export function useTaskSaving(task: Task) {
   const updateTask = useUpdateTask();
   const [bodyEditor, setBodyEditor] = useState<BodyEditor>(CLOSED);
   const [saveError, setSaveError] = useState<Error | null>(null);
+  const [savesInFlight, setSavesInFlight] = useState(0);
+  const [saveFailed, setSaveFailed] = useState(false);
   const errorText = (error: Error) => saveErrorText(error, app, taskMessages);
 
   const attemptSave = async (variables: Omit<UpdateTaskVariables, "id">): Promise<Error | null> => {
     setSaveError(null);
+    setSaveFailed(false);
+    setSavesInFlight((count) => count + 1);
     try {
       await updateTask.mutateAsync({ id: task.id, ...variables });
       return null;
     } catch (error) {
+      setSaveFailed(true);
       return asError(error);
+    } finally {
+      setSavesInFlight((count) => count - 1);
     }
   };
 
@@ -73,6 +80,8 @@ export function useTaskSaving(task: Task) {
     body: { editor: bodyEditorView(bodyEditor), edit: editBody, close: () => setBodyEditor(CLOSED), save: saveBody },
     alerts: [bodyAlert, saveError === null ? null : errorText(saveError)],
     lastSave: saveStatusOf(updateTask),
+    saving: savesInFlight > 0,
+    saveFailed,
   };
 }
 

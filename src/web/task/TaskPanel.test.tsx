@@ -581,24 +581,29 @@ describe("ошибка несохранённого поля", () => {
   });
 });
 
+async function openHeldCard({ confirmLeave }: { confirmLeave: boolean }, answerFirst?: Parameters<typeof holdFirstPatch>[0]) {
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(confirmLeave);
+  const patch = holdFirstPatch(answerFirst);
+  const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patch.beforeRender });
+  const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+  return { app, panel, confirm, patch };
+}
+
+async function closeCard(app: RenderedApp, panel: HTMLElement) {
+  await app.user.click(within(panel).getByRole("button", { name: "Закрыть" }));
+  expect(app.route()).toBe("/p/spa/t/SPA-1");
+}
+
 describe("правка поля, пока её сохранение в полёте", () => {
   const LEAVE = "Уйти, не сохранив правку поля?";
   const EDITED = "Таймауты загрузки и повторы";
 
   async function saveTitleAndHold(answerFirst?: Parameters<typeof holdFirstPatch>[0]) {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-    const patch = holdFirstPatch(answerFirst);
-    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patch.beforeRender });
-    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    const { app, panel, confirm, patch } = await openHeldCard({ confirmLeave: false }, answerFirst);
     const title = within(panel).getByRole("textbox", { name: "Название задачи" });
     await app.user.type(title, " и повторы");
     await app.user.tab();
     return { app, panel, title, confirm, patch };
-  }
-
-  async function closeCard(app: RenderedApp, panel: HTMLElement) {
-    await app.user.click(within(panel).getByRole("button", { name: "Закрыть" }));
-    expect(app.route()).toBe("/p/spa/t/SPA-1");
   }
 
   it("сбой сохранения оставляет карточку открытой с ошибкой и правкой и спрашивает, уходить ли", async () => {
@@ -660,6 +665,70 @@ describe("правка поля, пока её сохранение в полё�
 
     await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).title).toBe(`${EDITED} и ретраи`));
     expect(within(panel).queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("закрытие карточки, пока сохраняется не поле-черновик", () => {
+  it("смена приоритета упала, пока карточку закрывали, — карточка остаётся открытой с ошибкой", async () => {
+    const { app, panel, patch } = await openHeldCard({ confirmLeave: true }, async () => Response.json({}, { status: 500 }));
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "low");
+
+    await closeCard(app, panel);
+    patch.release();
+
+    await waitFor(() => expect(alertTexts(panel).join()).toContain("Сервер вернул ошибку 500"));
+    expect(app.route()).toBe("/p/spa/t/SPA-1");
+  });
+
+  it("смена приоритета записалась — карточка закрывается сама, без вопросов", async () => {
+    const { app, panel, confirm, patch } = await openHeldCard({ confirmLeave: true });
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "low");
+
+    await closeCard(app, panel);
+    patch.release();
+
+    await waitFor(() => expect(app.route()).toBe("/p/spa"));
+    expect(confirm).not.toHaveBeenCalled();
+    expect((await app.taskOnDisk("SPA-1")).priority).toBe("low");
+  });
+
+  it("описание в сохранении — карточка ждёт ответа, а не спрашивает, уходить ли без него", async () => {
+    const { app, panel, confirm, patch } = await openHeldCard({ confirmLeave: false });
+    await app.user.click(within(panel).getByRole("button", { name: "Редактировать описание" }));
+    await app.user.type(within(panel).getByRole("textbox", { name: "Описание задачи" }), " дописано");
+    await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
+
+    await closeCard(app, panel);
+    expect(confirm).not.toHaveBeenCalled();
+    patch.release();
+
+    await waitFor(() => expect(app.route()).toBe("/p/spa"));
+    expect(confirm).not.toHaveBeenCalled();
+    expect((await app.taskOnDisk("SPA-1")).body).toContain("дописано");
+  });
+
+  it("прежний сбой, уже показанный, не держит карточку, когда следующее сохранение записалось", async () => {
+    const { promise: released, resolve: release }: PromiseWithResolvers<void> = Promise.withResolvers();
+    let patches = 0;
+    const beforeRender = interceptApi(async (_path, init, passOn) => {
+      if (init?.method !== "PATCH") return passOn();
+      patches += 1;
+      if (patches === 1) return Response.json({}, { status: 500 });
+      await released;
+      return passOn();
+    });
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender });
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    const priority = within(panel).getByRole("combobox", { name: "Приоритет" });
+    await app.user.selectOptions(priority, "low");
+    await waitFor(() => expect(alertTexts(panel).join()).toContain("Сервер вернул ошибку 500"));
+    await app.user.selectOptions(priority, "critical");
+
+    await closeCard(app, panel);
+    release();
+
+    await waitFor(() => expect(app.route()).toBe("/p/spa"));
+    expect((await app.taskOnDisk("SPA-1")).priority).toBe("critical");
   });
 });
 
