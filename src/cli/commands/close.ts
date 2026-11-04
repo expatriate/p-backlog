@@ -1,7 +1,6 @@
-import { isClosed } from "../../core/model/graph";
-import { deletionDate, normalizeClosingReason, RESOLUTION_STATUS } from "../../core/model/lifecycle";
+import { buildIndex, isClosed } from "../../core/model/graph";
+import { normalizeClosingReason, RESOLUTION_STATUS, scheduledDeletion } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
-import { formatLocalDay } from "../../core/model/dates";
 import { findRepo, hasCommit } from "../../core/check/project-repo";
 import { reasonHashes } from "../../core/stats/code/fixes";
 import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
@@ -9,6 +8,7 @@ import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { projectOf, findTaskOrWarn, repoLookup } from "../lookups";
 import { cliMessages, type CliMessages } from "../messages";
+import { deletionWhen } from "../format";
 import { taskWriter } from "../task-write";
 
 const CLOSE_RESOLUTIONS = ["fixed", "obsolete", "duplicate"] as const;
@@ -64,9 +64,9 @@ async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
 
   const written = await taskWriter(io, loaded.tasks)(task, { status, related }, { resolution, reason });
   if (!written.ok) return written.exitCode;
-  const deletesAt = deletionDate(written.task);
+  const deletion = scheduledDeletion(written.task, buildIndex(loaded.tasks.map((other) => (other.id === written.task.id ? written.task : other))));
   const change = attachesFix ? status : `${task.status} → ${status}`;
-  io.print(`${id}: ${change} (${resolution})${deletesAt === undefined ? "" : io.cli.deletesAtTail(formatLocalDay(deletesAt))}`);
+  io.print(`${id}: ${change} (${resolution})${deletion === undefined ? "" : io.cli.deletesAtTail(deletionWhen(io.cli, deletion))}`);
   return EXIT.ok;
 }
 

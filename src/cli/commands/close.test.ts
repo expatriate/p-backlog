@@ -35,6 +35,18 @@ describe("backlog close", () => {
     expect(shown).toContain(`Причина закрытия: fixed — Исправлено в ${sha}: таймаут от размера`);
   });
 
+  it("задача открытого эпика удалится после закрытия эпика, а не по дате", async () => {
+    const { run } = await makeCliSandbox();
+    await run(["new", "--type", "epic", "--title", "Загрузка"]);
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--epic", "SPA-1"]);
+
+    const result = await run(["close", "SPA-2", "--as", "obsolete", "--reason", "Больше не нужно"]);
+
+    expect(result).toMatchObject({ code: EXIT.ok, out: "SPA-2: backlog → cancelled (obsolete). Удалится после закрытия эпика SPA-1" });
+    expect((await run(["show", "SPA-2"])).out).toContain("удалится после закрытия эпика SPA-1");
+    expect(JSON.parse((await run(["show", "SPA-2", "--json"])).out)).toMatchObject({ deletesAfterEpic: "SPA-1" });
+  });
+
   it("исправленная — только с хешем коммита из репозитория проекта; без репозитория проверки нет", async () => {
     const { run, repo, home } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Таймаут"]);

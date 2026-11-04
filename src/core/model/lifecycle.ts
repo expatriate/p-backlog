@@ -37,14 +37,24 @@ export function settleLifecycle(task: Task, now: Date): Task {
   return task.closed === undefined ? { ...task, closed: formatLocalIso(now) } : task;
 }
 
-export function deletionDate(task: Task): Date | undefined {
+export type ScheduledDeletion = { at: Date } | { afterEpic: string };
+
+export function scheduledDeletion(task: Task, index: BacklogIndex): ScheduledDeletion | undefined {
   if (!isClosed(task.status) || task.closed === undefined) return undefined;
-  return new Date(Date.parse(task.closed) + RETENTION_DAYS * DAY_MS);
+  const keeper = keepingEpic(task, index);
+  return keeper === undefined ? { at: new Date(Date.parse(task.closed) + RETENTION_DAYS * DAY_MS) } : { afterEpic: keeper.id };
 }
 
-export function isExpired(task: Task, now: Date): boolean {
-  const deletesAt = deletionDate(task);
-  return deletesAt !== undefined && deletesAt.getTime() <= now.getTime();
+export function isExpired(task: Task, now: Date, index: BacklogIndex): boolean {
+  const deletion = scheduledDeletion(task, index);
+  return deletion !== undefined && "at" in deletion && deletion.at.getTime() <= now.getTime();
+}
+
+function keepingEpic(task: Task, index: BacklogIndex): Task | undefined {
+  const epic = task.epic === undefined ? undefined : index.byId.get(task.epic);
+  if (epic?.type !== "epic") return undefined;
+  const reopensWithOpenTasks = isAutoClosedEpic(epic) && openChildIds(epic, index).length > 0;
+  return !isClosed(epic.status) || reopensWithOpenTasks ? epic : undefined;
 }
 
 export function planEpicClosing(tasks: readonly Task[], parseErrors: readonly ParseError[]): EpicClosingPlan {

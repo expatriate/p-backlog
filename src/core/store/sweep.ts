@@ -28,7 +28,7 @@ export type SweepReport = {
 
 type SweepFailure = { id: string; reason: "conflict" } | { id: string; reason: "invalid"; problems: Problem[] };
 
-type EpicStep = { closed: string[]; failures: SweepFailure[]; leftOpen: ReadonlySet<string>; blockingFiles: string[] };
+type EpicStep = { closed: string[]; failures: SweepFailure[]; blockingFiles: string[] };
 
 type ReopenStep = { reopened: string[]; failures: SweepFailure[] };
 
@@ -53,9 +53,9 @@ export async function sweepClosed(root: string, writes: WriteContext, messages: 
   const epics = await closeCompletedEpics(initial, writes, messages);
   const { projects, tasks } = epics.closed.length > 0 || reopening.reopened.length > 0 ? await loadBacklog(root) : initial;
 
-  const waitsForEpic = (task: Task) => task.epic !== undefined && epics.leftOpen.has(task.epic);
+  const index = buildIndex(tasks);
   const stillHoldsOpenTasks = new Set(planEpicReopening(tasks).map(({ epic }) => epic.id));
-  const expired = tasks.filter((task) => isExpired(task, now) && !waitsForEpic(task) && !stillHoldsOpenTasks.has(task.id));
+  const expired = tasks.filter((task) => isExpired(task, now, index) && !stillHoldsOpenTasks.has(task.id));
   const reserved = await reserveNumbers(projects, expired);
   const removable = expired.filter((task) => reserved.has(task.projectId));
   const removal = await removeWithReferences(tasks, removable, writes);
@@ -126,10 +126,9 @@ async function closeCompletedEpics(loaded: LoadedBacklog, writes: WriteContext, 
     if (result.ok) closed.push(epic.id);
     else failures.push(sweepFailure(epic.id, result));
   }
-  const leftOpen = new Set([...plan.waiting.map(({ epic }) => epic.id), ...failures.map(({ id }) => id)]);
   const waitingProjects = new Set(plan.waiting.map(({ epic }) => epic.projectId));
   const blockingFiles = loaded.errors.filter((error) => waitingProjects.has(error.projectId)).map((error) => error.path);
-  return { closed, failures, leftOpen, blockingFiles };
+  return { closed, failures, blockingFiles };
 }
 
 type Removal = { skipped: readonly Task[]; removed: readonly Task[] };

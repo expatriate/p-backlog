@@ -20,7 +20,7 @@ what will break. Findings from audits and code reviews become tasks too, instead
 - **Stays current by itself.** A Stop hook asks the agent to re-check tasks whose own lines changed since the last
   check — not an edit elsewhere in the file, and not a file that is merely absent from the current branch. The agent
   closes fixed ones with the commit as evidence; line numbers follow the code as it moves, and so do renamed files.
-  Closed tasks are cleaned up after 7 days.
+  Closed tasks are cleaned up after 7 days; tasks of an open epic, once the epic closes.
 - **Local and autonomous.** Plain files in `~/backlog`, no account, no cloud. The agent drives it through the skill,
   so you don't have to touch the CLI — though you can.
 - **Charts when you want them.** Start the local web app to browse and triage tasks and follow the metrics: debt by
@@ -135,7 +135,7 @@ If there's no project yet, `backlog new` creates it.
 
 | File | Stores | Kept for |
 | --- | --- | --- |
-| Task files | One file per task, closed ones included | 7 days after closing, then deleted (service: hourly; without the service: once a day, after a CLI command other than the agent hook) |
+| Task files | One file per task, closed ones included | 7 days after closing (tasks of an open epic: after the epic closes), then deleted (service: hourly; without the service: once a day, after a CLI command other than the agent hook) |
 | `journal.jsonl` | Per-project history of task and check events | Full history for tasks whose file still exists; other events for 13 weeks (compacted once a day, by the service and after CLI commands other than the agent hook) |
 | `.runs.jsonl` | CLI run log | 13 weeks |
 | `.usage-cache.json` | Claude Code usage parsed from transcripts | 13 weeks |
@@ -198,8 +198,8 @@ requires typing the project id to confirm.
 - An epic whose tasks are all closed is closed by the server on its own, at startup and once an hour; such
   epics are also visible under "Closed by agent".
 - Any closed task is deleted after 7 days along with its file — the server does this at startup and once
-  an hour. The server keeps a completed epic's task around until the epic itself closes (for example, while
-  the backlog still has unprocessed files) — the countdown then shows "deletion delayed" instead.
+  an hour. The server keeps a task of an open epic around until the epic itself closes, so the epic's progress
+  and finished work don't vanish — the countdown then shows "deletion delayed" instead.
   Deleted task numbers are never reused.
 
 ## Works well with code-review-graph

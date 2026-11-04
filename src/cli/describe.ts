@@ -1,7 +1,7 @@
 import { dependentTasks, epicChildren, openBlockers, relatedTasks, taskProgress, type BacklogIndex } from "../core/model/graph";
 import { taskWarnings } from "../core/model/integrity";
 import { formatLocalIso } from "../core/model/dates";
-import { deletionDate } from "../core/model/lifecycle";
+import { scheduledDeletion, type ScheduledDeletion } from "../core/model/lifecycle";
 import type { Problem } from "../core/model/problems";
 import type { Task } from "../core/model/types";
 
@@ -15,6 +15,7 @@ export type TaskDescription = {
   epic: Task | undefined;
   children: readonly Task[];
   warnings: Problem[];
+  deletion: ScheduledDeletion | undefined;
 };
 
 export function describeTask(task: Task, index: BacklogIndex): TaskDescription {
@@ -29,6 +30,7 @@ export function describeTask(task: Task, index: BacklogIndex): TaskDescription {
     epic: task.epic === undefined ? undefined : index.byId.get(task.epic),
     children: task.type === "epic" ? epicChildren(task, index) : [],
     warnings: taskWarnings(task, index),
+    deletion: scheduledDeletion(task, index),
   };
 }
 
@@ -44,13 +46,13 @@ function descriptionJson(description: TaskDescription): object {
     epicTask: description.epic && reference(description.epic),
     children: description.children.map(reference),
     warnings: description.warnings,
-    deletesAt: deletesAtIso(description.task),
+    ...deletionJson(description.deletion),
   };
 }
 
-function deletesAtIso(task: Task): string | undefined {
-  const deletesAt = deletionDate(task);
-  return deletesAt === undefined ? undefined : formatLocalIso(deletesAt);
+function deletionJson(deletion: ScheduledDeletion | undefined): object {
+  if (deletion === undefined) return {};
+  return "at" in deletion ? { deletesAt: formatLocalIso(deletion.at) } : { deletesAfterEpic: deletion.afterEpic };
 }
 
 export function taskJson(task: Task, index: BacklogIndex): object {

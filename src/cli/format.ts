@@ -1,6 +1,6 @@
 import { formatLocalDay } from "../core/model/dates";
 import { isBlocked, taskProgress, type BacklogIndex } from "../core/model/graph";
-import { deletionDate } from "../core/model/lifecycle";
+import type { ScheduledDeletion } from "../core/model/lifecycle";
 import { PRIORITIES, TASK_STATUSES, type Task } from "../core/model/types";
 import type { CoreMessages } from "../core/messages";
 import { JSON_INDENT } from "../core/store/fs-utils";
@@ -39,8 +39,7 @@ export function formatTaskDetails(cli: CliMessages, core: CoreMessages, descript
     cli.fileLine(task.path),
     cli.summaryLine({ type: task.type, status: task.status, priority: task.priority, progress: formatProgress(description.progress), categoryTail }),
   ];
-  const deletesAt = deletionDate(task);
-  if (deletesAt !== undefined) lines.push(cli.closedLine(task.closed ?? "", formatLocalDay(deletesAt)));
+  if (description.deletion !== undefined) lines.push(cli.closedLine(task.closed ?? "", deletionWhen(cli, description.deletion)));
   if (task.resolution !== undefined) lines.push(cli.reasonLine(task.resolution, task.reason ?? ""));
   if (task.verified !== undefined) lines.push(cli.verifiedLine(task.verified));
   if (task.tags.length > 0) lines.push(cli.tagsLine(task.tags.join(", ")));
@@ -58,4 +57,8 @@ export function formatTaskDetails(cli: CliMessages, core: CoreMessages, descript
 
 function formatProgress(progress: number | null): string {
   return progress === null ? "—" : `${progress}%`;
+}
+
+export function deletionWhen(cli: CliMessages, deletion: ScheduledDeletion): string {
+  return "at" in deletion ? formatLocalDay(deletion.at) : cli.afterEpicCloses(deletion.afterEpic);
 }

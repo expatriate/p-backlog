@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "./dates";
-import { changeStatus, deletionDate, isExpired, normalizeClosingReason, planEpicClosing, settleLifecycle } from "./lifecycle";
+import { buildIndex } from "./graph";
+import { changeStatus, isExpired, normalizeClosingReason, planEpicClosing, scheduledDeletion, settleLifecycle } from "./lifecycle";
 import { makeTask } from "./testing/make-task";
 import type { ParseError, Task } from "./types";
 
@@ -46,21 +47,37 @@ describe("settleLifecycle", () => {
 });
 
 describe("срок хранения", () => {
+  const deletionOf = (task: Task, others: readonly Task[] = []) => scheduledDeletion(task, buildIndex([task, ...others]));
+
   it("задача удаляется через 7 дней после закрытия", () => {
-    const task = makeTask({ id: "SPA-1", status: "done", closed: CLOSED_AT });
-    expect(deletionDate(task)?.toISOString()).toBe("2026-09-17T06:00:00.000Z");
-    expect(deletionDate(makeTask({ id: "SPA-2" }))).toBeUndefined();
+    const deletion = deletionOf(makeTask({ id: "SPA-1", status: "done", closed: CLOSED_AT }));
+    expect(deletion && "at" in deletion ? deletion.at.toISOString() : deletion).toBe("2026-09-17T06:00:00.000Z");
+    expect(deletionOf(makeTask({ id: "SPA-2" }))).toBeUndefined();
   });
 
   it("у открытой задачи с оставшимся closed даты удаления нет", () => {
-    expect(deletionDate(makeTask({ id: "SPA-1", closed: CLOSED_AT }))).toBeUndefined();
+    expect(deletionOf(makeTask({ id: "SPA-1", closed: CLOSED_AT }))).toBeUndefined();
   });
 
-  it("просрочена с момента удаления, не раньше; открытая не просрочена никогда", () => {
+  it("закрытая задача открытого эпика и автозакрытого эпика с открытыми задачами ждёт эпик; вручную закрытый эпик и не-эпик не держат", () => {
+    const child = makeTask({ id: "SPA-2", epic: "SPA-1", status: "done", closed: CLOSED_AT });
+    const open = makeTask({ id: "SPA-3", epic: "SPA-1" });
+    const autoClosed = { status: "done", closed: CLOSED_AT, resolution: "epic-done", reason: "все задачи закрыты" } as const;
+
+    expect(deletionOf(child, [makeTask({ id: "SPA-1", type: "epic" })])).toEqual({ afterEpic: "SPA-1" });
+    expect(deletionOf(child, [makeTask({ id: "SPA-1", type: "epic", ...autoClosed }), open])).toEqual({ afterEpic: "SPA-1" });
+    expect(deletionOf(child, [makeTask({ id: "SPA-1", type: "epic", status: "cancelled", closed: CLOSED_AT, resolution: "obsolete", reason: "x" }), open])).toHaveProperty("at");
+    expect(deletionOf(child, [makeTask({ id: "SPA-1" })])).toHaveProperty("at");
+  });
+
+  it("просрочена с момента удаления, не раньше; открытая и ждущая эпик не просрочены никогда", () => {
     const task = makeTask({ id: "SPA-1", status: "done", closed: CLOSED_AT });
-    expect(isExpired(task, new Date("2026-09-17T05:59:59Z"))).toBe(false);
-    expect(isExpired(task, new Date("2026-09-17T06:00:00Z"))).toBe(true);
-    expect(isExpired(makeTask({ id: "SPA-2", closed: CLOSED_AT }), NOW)).toBe(false);
+    const index = buildIndex([task]);
+    expect(isExpired(task, new Date("2026-09-17T05:59:59Z"), index)).toBe(false);
+    expect(isExpired(task, new Date("2026-09-17T06:00:00Z"), index)).toBe(true);
+    expect(isExpired(makeTask({ id: "SPA-2", closed: CLOSED_AT }), NOW, index)).toBe(false);
+    const child = makeTask({ id: "SPA-3", epic: "SPA-4", status: "done", closed: CLOSED_AT });
+    expect(isExpired(child, NOW, buildIndex([child, makeTask({ id: "SPA-4", type: "epic" })]))).toBe(false);
   });
 });
 

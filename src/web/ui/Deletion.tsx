@@ -1,6 +1,7 @@
 import { formatDayMonth } from "../../core/i18n/format";
-import { deletionDate, RETENTION_DAYS } from "../../core/model/lifecycle";
+import { RETENTION_DAYS, scheduledDeletion } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
+import { useAllTasks } from "../app/all-tasks";
 import { useLanguage, useMessages } from "../i18n";
 import { cx } from "./cx";
 import { Meter } from "./Meter";
@@ -33,8 +34,11 @@ export function DeletionBar({ task, now }: { task: Task; now: Date }) {
 function useDeletion(task: Task, now: Date): Deletion | undefined {
   const language = useLanguage();
   const { ui } = useMessages();
-  const deletesAt = deletionDate(task);
-  if (deletesAt === undefined) return undefined;
+  const { index } = useAllTasks();
+  const deletion = scheduledDeletion(task, index);
+  if (deletion === undefined) return undefined;
+  if ("afterEpic" in deletion) return { text: ui.deletesAfterEpic(deletion.afterEpic), title: ui.deletesAfterEpicTitle(RETENTION_DAYS), fraction: 1, lastDay: false };
+  const deletesAt = deletion.at;
   const dayMonth = formatDayMonth(language, deletesAt);
   if (now.getTime() >= deletesAt.getTime()) {
     return { text: ui.deletionDelayed, title: ui.deletionDelayedTitle(dayMonth), fraction: 0, lastDay: false };

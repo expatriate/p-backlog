@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { coreMessages } from "../messages";
 import { formatLocalIso } from "../model/dates";
+import { buildIndex, taskProgress } from "../model/graph";
 import { createTask } from "./create";
 import { hasErrorCode } from "../errors";
 import { temporaryPathFor } from "./fs-utils";
@@ -154,7 +155,7 @@ describe("sweepClosed", () => {
     expect((await loadBacklog(root)).projects[0]?.issuedUpTo).toBeUndefined();
   });
 
-  it("просроченная задача эпика, у которого есть открытые задачи, удаляется по сроку; эпик остаётся открытым", async () => {
+  it("просроченная задача открытого эпика не удаляется, пока эпик не закроется: прогресс эпика не падает", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),
@@ -165,11 +166,10 @@ describe("sweepClosed", () => {
 
     const report = await sweepClosed(root, { now: NOW, onError: failOnPathError }, RU);
 
-    expect(report).toEqual({ reopenedEpics: [], closedEpics: [], blockingFiles: [], deleted: ["SPA-2"], conflicts: [], invalid: [] });
-    expect(await exists(join(root, "spa/SPA-2.md"))).toBe(false);
-    const byId = new Map((await loadBacklog(root)).tasks.map((task) => [task.id, task]));
-    expect(byId.get("SPA-1")?.status).toBe("backlog");
-    expect(byId.get("SPA-3")?.epic).toBe("SPA-1");
+    expect(report.deleted).toEqual([]);
+    const { tasks } = await loadBacklog(root);
+    const epic = tasks.find((task) => task.id === "SPA-1");
+    expect(epic && taskProgress(epic, buildIndex(tasks))).toBe(50);
   });
 
   it("неразобранный файл держит эпик своего проекта, но не чужого", async () => {
@@ -218,12 +218,13 @@ describe("sweepClosed", () => {
     });
   });
 
-  it("просроченный эпик, закрытый автоматически, с открытой задачей снова открывается, а не удаляется", async () => {
+  it("просроченный эпик, закрытый автоматически, с открытой задачей снова открывается, а не удаляется, и его сделанное остаётся", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),
       "spa/SPA-1.md": taskFile("SPA-1", `type: epic\nstatus: done\n${EXPIRED}resolution: epic-done\nreason: готово\n`),
       "spa/SPA-2.md": taskFile("SPA-2", "epic: SPA-1\n"),
+      "spa/SPA-3.md": taskFile("SPA-3", `epic: SPA-1\nstatus: done\n${EXPIRED}`),
     });
 
     const report = await sweepClosed(root, { now: NOW, onError: failOnPathError }, RU);
@@ -236,12 +237,13 @@ describe("sweepClosed", () => {
     expect((await readJournal(join(root, "spa"), "spa")).events).toMatchObject([{ kind: "status", task: "SPA-1", from: "done", to: "backlog", via: "sweep" }]);
   });
 
-  it("просроченный эпик, который не удалось снова открыть, не удаляется, пока в нём открытые задачи", async () => {
+  it("просроченный эпик, который не удалось снова открыть, не удаляется вместе со сделанным, пока в нём открытые задачи", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
       "spa/project.md": projectFile("SPA"),
       "spa/SPA-1.md": taskFile("SPA-1", `type: epic\nblockedBy: [SPA-1]\nstatus: done\n${EXPIRED}resolution: epic-done\nreason: готово\n`),
       "spa/SPA-2.md": taskFile("SPA-2", "epic: SPA-1\n"),
+      "spa/SPA-3.md": taskFile("SPA-3", `epic: SPA-1\nstatus: done\n${EXPIRED}`),
     });
 
     const report = await sweepClosed(root, { now: NOW, onError: failOnPathError }, RU);

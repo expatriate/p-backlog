@@ -195,6 +195,7 @@ export const cliEn: CliMessages = {
   originalAlreadyClosed: (id, taskId) => `${id} is already closed — close ${taskId} as fixed or obsolete instead`,
   fixCommitRequired: 'Provide the fix commit: --reason "Fixed in <sha>: …" (the commit must be in the project repository)',
   deletesAtTail: (date) => `. Will be deleted ${date}`,
+  afterEpicCloses: (epic) => `after epic ${epic} closes`,
 
   listUsage: () => "[--query text] [--status s,…] [--tag t,…] [--project id | --all-projects] [--json]",
   parseErrorLine: (path, problems) => `Parse error in ${path}: ${problems}`,

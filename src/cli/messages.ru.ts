@@ -199,6 +199,7 @@ export const cliRu = {
   originalAlreadyClosed: (id: string, taskId: string): string => `${id} уже закрыта — закройте ${taskId} как fixed или obsolete`,
   fixCommitRequired: 'Укажите коммит исправления: --reason "Исправлено в <sha>: …" (коммит должен быть в репозитории проекта)',
   deletesAtTail: (date: string): string => `. Удалится ${date}`,
+  afterEpicCloses: (epic: string): string => `после закрытия эпика ${epic}`,
 
   listUsage: (): string => "[--query текст] [--status s,…] [--tag t,…] [--project id | --all-projects] [--json]",
   parseErrorLine: (path: string, problems: string): string => `Ошибка разбора ${path}: ${problems}`,
