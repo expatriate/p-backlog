@@ -461,7 +461,7 @@ describe("вкладка «Эффект»", () => {
 });
 
 describe("вкладка «Стоимость»", () => {
-  it("заголовок, число вызовов CLI, таблица «Команды» и сводка памяти сервера", async () => {
+  it("заголовок, число вызовов CLI, цена без известных цен моделей, таблица «Команды» и сводка памяти сервера", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     const transcriptsDir = await makeTempDir();
     const at = "2026-09-18T09:00:00.000Z";
@@ -473,7 +473,7 @@ describe("вкладка «Стоимость»", () => {
             type: "assistant",
             timestamp: at,
             cwd: repo,
-            message: { model: "claude-opus-5", usage: { input_tokens: 1000, output_tokens: 200, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
+            message: { model: "model-without-price", usage: { input_tokens: 1000, output_tokens: 200, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
           },
         ]
           .map((line) => JSON.stringify(line))
@@ -500,7 +500,10 @@ describe("вкладка «Стоимость»", () => {
     const cliCalls = await screen.findByRole("group", { name: "Вызовов CLI" });
     expect(within(cliCalls).getByText("1")).toBeDefined();
 
-    expect(screen.getByRole("figure", { name: new RegExp(`^За 30${NBSP}дней: из-за хука .*; запусков хука 1, других команд 1$`) })).toBeDefined();
+    const apiPrice = screen.getByRole("group", { name: "По ценам API" });
+    expect(within(apiPrice).getByText("—")).toBeDefined();
+    expect(within(apiPrice).queryByText("без моделей с неизвестной ценой")).toBeNull();
+    expect(screen.getByRole("figure", { name: new RegExp(`^За 30${NBSP}дней: из-за хука .*, по ценам API —; запусков хука 1, других команд 1$`) })).toBeDefined();
 
     const commands = screen.getByRole("region", { name: "Команды" });
     expect(within(commands).getByRole("row", { name: /list/ })).toBeDefined();

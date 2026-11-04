@@ -5,7 +5,7 @@ import { sum } from "../../core/numbers";
 import { formatShare } from "../../core/stats/format";
 import type { Grain } from "./charts/chart-style";
 import { deferredCodeLines, formatEstimate, formatLines } from "./effect-format";
-import { costText, wholeFormatter } from "./value-format";
+import { pricedCost, wholeFormatter, type PricedCost } from "./value-format";
 
 type PeriodSummary = { grain: Grain; periodCount: number };
 
@@ -15,7 +15,7 @@ export type IntakeSummary = PeriodSummary & { created: number; perPeriod: number
 
 export type AccuracySummary = PeriodSummary & { decided: number; latestPrecision: string | null };
 
-export type SpendSummary = PeriodSummary & { hookTokens: number; cliTokens: string; money: string; hookRuns: string; cliRuns: string };
+export type SpendSummary = PeriodSummary & { hookTokens: number; cliTokens: string; money: PricedCost; hookRuns: string; cliRuns: string };
 
 export type LinesAmount = { formatted: string; count: number };
 
@@ -72,7 +72,7 @@ export function summarizeAccuracy(grain: Grain, periods: AccuracyPeriod[]): Accu
   };
 }
 
-export function summarizeSpend(language: Language, grain: Grain, periods: CostPeriod[], unpricedNote: string): SpendSummary {
+export function summarizeSpend(language: Language, grain: Grain, periods: CostPeriod[]): SpendSummary {
   const total = (pick: (period: CostPeriod) => number) => sum(periods.map(pick));
   const whole = wholeFormatter(language);
   const spent = { cost: totalMoney(periods), hasUnpricedTokens: periods.some((period) => period.hasUnpricedTokens) };
@@ -80,15 +80,16 @@ export function summarizeSpend(language: Language, grain: Grain, periods: CostPe
     ...periodSummary(grain, periods),
     hookTokens: total((period) => period.hookTokens),
     cliTokens: whole(total((period) => period.cliTokens)),
-    money: costText(language, spent, unpricedNote),
+    money: pricedCost(language, spent),
     hookRuns: whole(total((period) => period.hookRuns)),
     cliRuns: whole(total((period) => period.cliRuns)),
   };
 }
 
 function totalMoney(periods: CostPeriod[]): number | null {
-  if (periods.every((period) => period.cost === null)) return null;
-  return sum(periods.map((period) => period.cost ?? 0));
+  const spentCosts = periods.map((period) => period.cost).filter((cost) => cost !== 0);
+  if (spentCosts.length > 0 && spentCosts.every((cost) => cost === null)) return null;
+  return sum(spentCosts.map((cost) => cost ?? 0));
 }
 
 export function linesAmount(language: Language, lines: number, estimatedLines: number | null = null): LinesAmount {

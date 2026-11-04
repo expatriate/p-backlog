@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CostPeriod, FlowPeriod } from "../../core/api/contract";
 import { NBSP } from "../../core/i18n/plural";
+import { statsEn, statsRu } from "./messages";
 import { summarizeIntake, summarizeSpend } from "./summaries";
 
 const periodFrom = (day: number, created: number): FlowPeriod => ({ start: `2026-09-${String(day).padStart(2, "0")}T00:00:00+03:00`, created, closed: 0, openAtEnd: created });
@@ -34,11 +35,11 @@ const spend = (cost: number | null, hasUnpricedTokens: boolean): CostPeriod => (
 });
 
 describe("деньги в сводке расхода", () => {
-  it("без единой цены — прочерк без «≈»", () => {
-    expect(summarizeSpend("ru", "day", [spend(null, true)], "без цены").money).toBe("—");
+  it("без единой цены, даже рядом с днями без токенов, — прочерк без «≈» и без пометки о моделях без цены", () => {
+    expect(statsRu.spendSummary(summarizeSpend("ru", "day", [spend(0, false), spend(null, true)]))).toContain("по ценам API —;");
   });
 
   it("часть периодов без цены — сумма помечена как неполная", () => {
-    expect(summarizeSpend("en", "day", [spend(1.5, false), spend(null, true)], "unpriced").money).toBe(`≈${NBSP}$1.50 (unpriced)`);
+    expect(statsEn.spendSummary(summarizeSpend("en", "day", [spend(1.5, false), spend(null, true)]))).toContain(`at API prices ≈${NBSP}$1.50 (excluding models with unknown prices);`);
   });
 });

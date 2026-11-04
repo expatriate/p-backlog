@@ -7,7 +7,7 @@ import type { SeriesEntry } from "./charts/series";
 import { Panel } from "./Panel";
 import { summarizeSpend } from "./summaries";
 import { useGrainPanel } from "./use-grain-panel";
-import { costText, wholeFormatter } from "./value-format";
+import { pricedCost, wholeFormatter } from "./value-format";
 
 const HOOK_TOKENS = "var(--chart-bar-warm)";
 const CLI_TOKENS = "var(--chart-bar-neutral)";
@@ -28,13 +28,13 @@ export function SpendPanel({ weeks, days, windows }: { weeks: CostPeriod[]; days
   const series: SeriesEntry<CostPeriod>[] = [
     { key: "hookTokens", label: stats.hookTurnTokens, tooltipLabel: stats.hookTurnsTooltip, shape: "bar", color: HOOK_TOKENS, stack: "tokens", format: stats.tokens },
     { key: "cliTokens", label: stats.cliOutputTokens, tooltipLabel: stats.cliOutput, shape: "bar", color: CLI_TOKENS, stack: "tokens", format: stats.tokens },
-    { label: stats.apiPriceTooltip, format: (row) => costText(language, row, stats.unpricedNote) },
+    { label: stats.apiPriceTooltip, format: (row) => stats.pricedCostText(pricedCost(language, row)) },
     { key: "hookRuns", label: stats.hookRuns, shape: "line", color: HOOK_RUNS, axis: "right", format: whole },
     { key: "cliRuns", label: stats.otherCommands, shape: "dashed", color: OTHER_RUNS, axis: "right", format: whole },
   ];
   return (
     <Panel title={title} period={period} aside={toggle}>
-      <PeriodChart name={title} grain={grain} summary={stats.spendSummary(summarizeSpend(language, grain, periods, stats.unpricedNote))} data={periods} series={series} axes={{ right: COUNT_AXIS }} />
+      <PeriodChart name={title} grain={grain} summary={stats.spendSummary(summarizeSpend(language, grain, periods))} data={periods} series={series} axes={{ right: COUNT_AXIS }} />
     </Panel>
   );
 }

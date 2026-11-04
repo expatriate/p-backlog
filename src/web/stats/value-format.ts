@@ -20,7 +20,8 @@ export function costValue(language: Language, cost: number | null): string {
   return cost === null ? NO_VALUE : approx(formatMoney(language, cost));
 }
 
-export function costText(language: Language, { cost, hasUnpricedTokens }: Pick<CostNumbers, "cost" | "hasUnpricedTokens">, unpricedNote: string): string {
-  const value = costValue(language, cost);
-  return hasUnpricedTokens && cost !== null ? `${value} (${unpricedNote})` : value;
+export type PricedCost = { value: string; withoutUnpricedModels: boolean };
+
+export function pricedCost(language: Language, { cost, hasUnpricedTokens }: Pick<CostNumbers, "cost" | "hasUnpricedTokens">): PricedCost {
+  return { value: costValue(language, cost), withoutUnpricedModels: hasUnpricedTokens && cost !== null };
 }
