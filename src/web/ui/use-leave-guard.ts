@@ -1,16 +1,19 @@
 import { useEffect } from "react";
 import { useBeforeUnload, useBlocker } from "react-router";
 
-export function useLeaveGuard(active: boolean, question: string): void {
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => active && currentLocation.pathname !== nextLocation.pathname);
+type LeaveGuardState = { unsaved: boolean; saving: boolean };
+
+export function useLeaveGuard({ unsaved, saving }: LeaveGuardState, question: string): void {
+  const guarded = unsaved || saving;
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => guarded && currentLocation.pathname !== nextLocation.pathname);
 
   useEffect(() => {
-    if (blocker.state !== "blocked") return;
-    if (window.confirm(question)) blocker.proceed();
+    if (blocker.state !== "blocked" || saving) return;
+    if (!unsaved || window.confirm(question)) blocker.proceed();
     else blocker.reset();
-  }, [blocker, question]);
+  }, [blocker, question, unsaved, saving]);
 
   useBeforeUnload((event) => {
-    if (active) event.preventDefault();
+    if (guarded) event.preventDefault();
   });
 }

@@ -41,7 +41,7 @@ export function TaskPanel({ task, onClose, gone }: TaskPanelProps) {
   const saver = useTaskSaving(task);
   const fields = useFieldDrafts(task);
   const bodyEditing = saver.body.editor.phase !== "closed";
-  useLeaveGuard(bodyEditing || fields.unsaved, bodyEditing ? taskMessages.leaveWithDraft : taskMessages.leaveWithFieldEdits);
+  useLeaveGuard({ unsaved: bodyEditing || fields.unsaved, saving: fields.saving }, bodyEditing ? taskMessages.leaveWithDraft : taskMessages.leaveWithFieldEdits);
   const cardAlerts = distinctTexts([gone ? taskMessages.taskGone(task.id) : null, ...saver.alerts, ...fields.conflictAlerts]);
   const saveNote = useSaveNote(saver.lastSave, cardAlerts);
   const refOptions = useMemo(

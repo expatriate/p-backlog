@@ -21,18 +21,18 @@ const FILES = {
   "spa/SPA-4.md": taskFile("SPA-4", { title: "Связана", related: "[SPA-1]" }),
 };
 
-function holdFirstPatch() {
+function holdFirstPatch(answerFirst: (passOn: () => Promise<Response>) => Promise<Response> = (passOn) => passOn()) {
   let release: () => void = () => undefined;
   const released = new Promise<void>((resolve) => {
     release = resolve;
   });
   const sent: string[] = [];
   const beforeRender = interceptApi(async (path, init, passOn) => {
-    if (init?.method === "PATCH") {
-      sent.push(path);
-      if (sent.length === 1) await released;
-    }
-    return await passOn();
+    if (init?.method !== "PATCH") return passOn();
+    sent.push(path);
+    if (sent.length > 1) return passOn();
+    await released;
+    return answerFirst(passOn);
   });
   return { beforeRender, release: () => release(), sent };
 }
@@ -530,6 +530,88 @@ describe("сервер не принял сохранение", () => {
     await app.user.type(within(blockedBy).getByRole("combobox", { name: "Добавить в «Блокируется»" }), "SPA-4{Enter}");
     expect((await within(blockedBy).findByRole("alert")).textContent).toContain(text);
     expect(panel.textContent).not.toContain("backlog api error");
+  });
+});
+
+describe("правка поля, пока её сохранение в полёте", () => {
+  const LEAVE = "Уйти, не сохранив правку поля?";
+  const EDITED = "Таймауты загрузки и повторы";
+
+  async function saveTitleAndHold(answerFirst?: Parameters<typeof holdFirstPatch>[0]) {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const patch = holdFirstPatch(answerFirst);
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patch.beforeRender });
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    const title = within(panel).getByRole("textbox", { name: "Название задачи" });
+    await app.user.type(title, " и повторы");
+    await app.user.tab();
+    return { app, panel, title, confirm, patch };
+  }
+
+  async function closeCard(app: RenderedApp, panel: HTMLElement) {
+    await app.user.click(within(panel).getByRole("button", { name: "Закрыть" }));
+    expect(app.route()).toBe("/p/spa/t/SPA-1");
+  }
+
+  it("сбой сохранения оставляет карточку открытой с ошибкой и правкой и спрашивает, уходить ли", async () => {
+    const { app, panel, title, confirm, patch } = await saveTitleAndHold(async () => Response.json({}, { status: 500 }));
+
+    await closeCard(app, panel);
+    patch.release();
+
+    expect((await within(panel).findByRole("alert")).textContent).toContain("Сервер вернул ошибку 500");
+    expect(confirm).toHaveBeenCalledWith(LEAVE);
+    expect(app.route()).toBe("/p/spa/t/SPA-1");
+    expect(title).toHaveProperty("value", EDITED);
+  });
+
+  it("удачное сохранение закрывает карточку без вопросов", async () => {
+    const { app, panel, confirm, patch } = await saveTitleAndHold();
+
+    await closeCard(app, panel);
+    patch.release();
+
+    await waitFor(() => expect(app.route()).toBe("/p/spa"));
+    expect(confirm).not.toHaveBeenCalled();
+    expect((await app.taskOnDisk("SPA-1")).title).toBe(EDITED);
+  });
+
+  it("правка агента, пришедшая во время сохранения, не закрывает карточку молча и не подменяет свой текст", async () => {
+    const { app, panel, title, confirm, patch } = await saveTitleAndHold();
+
+    await closeCard(app, panel);
+    await updateTask(app.root, { id: "SPA-1", changes: { title: "Название от агента" }, now: TEST_NOW, via: "cli" });
+    await app.emitChange();
+    await screen.findByRole("link", { name: "Название от агента" });
+    patch.release();
+
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith(LEAVE));
+    expect(app.route()).toBe("/p/spa/t/SPA-1");
+    expect(title).toHaveProperty("value", EDITED);
+  });
+
+  it("правку, возвращённую к исходной до ответа сервера, тоже записывает, и только потом закрывает", async () => {
+    const { app, panel, title, confirm, patch } = await saveTitleAndHold();
+
+    await app.user.type(title, "{Control>}a{/Control}Таймауты загрузки");
+    await app.user.tab();
+    await closeCard(app, panel);
+    patch.release();
+
+    await waitFor(() => expect(app.route()).toBe("/p/spa"));
+    expect(confirm).not.toHaveBeenCalled();
+    expect((await app.taskOnDisk("SPA-1")).title).toBe("Таймауты загрузки");
+  });
+
+  it("вторая своя правка до ответа на первую уходит на сервер и не выдаётся за правку агента", async () => {
+    const { app, panel, title, patch } = await saveTitleAndHold();
+
+    await app.user.type(title, " и ретраи");
+    await app.user.tab();
+    patch.release();
+
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).title).toBe(`${EDITED} и ретраи`));
+    expect(within(panel).queryByRole("alert")).toBeNull();
   });
 });
 

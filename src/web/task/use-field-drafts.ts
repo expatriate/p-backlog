@@ -21,6 +21,7 @@ export function useFieldDrafts(task: Task) {
     tags,
     epic,
     unsaved: labelled.some(({ draft }) => draft.unsaved),
+    saving: labelled.some(({ draft }) => draft.saving),
     conflictAlerts: labelled.filter(({ draft }) => draft.conflicted).map(({ label }) => taskMessages.fieldConflict(label)),
   };
 }
