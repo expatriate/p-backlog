@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { MemorySample } from "../../core/api/contract";
 import { useMemorySamples } from "../app/queries";
 import { RequestFailure } from "../app/RequestFailure";
@@ -17,14 +18,19 @@ export function MemoryPanel() {
     { key: "heapUsedMb", label: stats.jsHeap, shape: "dashed", color: HEAP, format: stats.mebibytes },
   ];
   const memory = useMemorySamples();
-  const samples = memory.data?.samples ?? [];
+  const [retrying, setRetrying] = useState(false);
+  const retry = () => {
+    setRetrying(true);
+    void memory.refetch().finally(() => setRetrying(false));
+  };
+  const samples = memory.data.samples;
   const current = samples.at(-1)?.rssMb ?? null;
   const max = samples.length === 0 ? null : Math.max(...samples.map((sample) => sample.rssMb));
   const mebibytes = (value: number | null) => (value === null ? NO_VALUE : stats.mebibytes(value));
   return (
     <Panel title={stats.serverMemory}>
       <PanelNote>{stats.memoryRestartNote}</PanelNote>
-      {memory.error !== null && <RequestFailure error={memory.error} fetching={memory.isFetching} onRetry={() => void memory.refetch()} />}
+      {memory.error !== null && <RequestFailure error={memory.error} fetching={retrying} onRetry={retry} />}
       <SampleChart name={stats.serverMemory} summary={stats.memorySummary(mebibytes(current), mebibytes(max))} data={samples} series={series} axes={{ left: { tickFormatter: stats.mebibytes } }} />
     </Panel>
   );

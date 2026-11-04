@@ -3,7 +3,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RouteObject } from "react-router";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { gitCommitAll, gitShortHead, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { routes } from "../app/App";
 import { freezeDate } from "../testing/freeze-date";
@@ -11,6 +11,7 @@ import { interceptApi, renderApp, type RenderedApp } from "../testing/render-app
 import { StatsPage } from "./StatsPage";
 import { NBSP } from "../../core/i18n/plural";
 import type { StatsReport } from "../../core/api/contract";
+import { MEMORY_SAMPLE_INTERVAL_MS } from "../../core/api/memory";
 
 const MINUS = "\u2212";
 const spacedAs = (text: string) => (name: string) => name.replace(/\s+/g, " ") === text;
@@ -530,6 +531,29 @@ describe("вкладка «Стоимость»", () => {
     await app.user.click(retry);
     expect(await within(memory).findByRole("figure", { name: new RegExp(`Сейчас \\S+${NBSP}МиБ`) })).toBeDefined();
     expect(within(memory).queryByText(/сбой/)).toBeNull();
+  });
+
+  it("фоновый опрос упавшего запроса памяти не прячет сбой и не переключает «Повторить» в «Повторяем…», а нажатие — переключает", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    onTestFinished(() => void vi.useRealTimers());
+    let memoryRequests = 0;
+    const app = await renderApp({ "spa/project.md": projectFile("SPA") }, "/stats/cost", routes, {
+      transcriptsDir: await makeTempDir(),
+      beforeRender: interceptApi((path, _init, passOn) => {
+        if (!path.startsWith("/api/stats/memory")) return passOn();
+        memoryRequests += 1;
+        return memoryRequests === 1 ? failStats(passOn) : new Promise<Response>(() => undefined);
+      }),
+    });
+    const memory = await screen.findByRole("region", { name: "Память сервера" });
+    await within(memory).findByRole("button", { name: "Повторить" });
+
+    await vi.advanceTimersByTimeAsync(MEMORY_SAMPLE_INTERVAL_MS);
+
+    expect(memoryRequests).toBe(2);
+    expect(within(memory).getByText(/сбой/)).toBeDefined();
+    await app.user.click(within(memory).getByRole("button", { name: "Повторить" }));
+    expect(within(memory).getByRole("button", { name: "Повторяем…" })).toBeDefined();
   });
 
   it("каталог расшифровок пуст — вкладка говорит, что расшифровки не найдены", async () => {

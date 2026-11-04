@@ -56,7 +56,12 @@ export function useCostReport(projectId: string | undefined) {
 
 export function useMemorySamples() {
   const { client } = useBacklogApi();
-  return useQuery<MemorySamplesResponse>({ queryKey: MEMORY_SAMPLES_KEY, queryFn: client.memorySamples, refetchInterval: MEMORY_SAMPLE_INTERVAL_MS });
+  return useQuery<MemorySamplesResponse>({
+    queryKey: MEMORY_SAMPLES_KEY,
+    queryFn: client.memorySamples,
+    refetchInterval: MEMORY_SAMPLE_INTERVAL_MS,
+    initialData: { samples: [] },
+  });
 }
 
 function scanInProgress(scan: ScanProgress | undefined): boolean {
