@@ -1,7 +1,7 @@
 import { dirname } from "node:path";
 import { isClosed, type BacklogIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
-import { changeStatus, isAutoClosedEpic, settleLifecycle, type Closure } from "../model/lifecycle";
+import { changeStatus, epicClosingProblems, isAutoClosedEpic, settleLifecycle, type Closure } from "../model/lifecycle";
 import { parseTaskFile } from "../model/task-file";
 import type { OptionalFields, Task, TaskCategory, TaskStatus } from "../model/types";
 import { changeEvents, statusBeforeAutoClose, type ChangeSource } from "../journal/events";
@@ -76,7 +76,7 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
   const normalized = taskText(applyChanges(current, changes, now, closure));
   if (!normalized.ok) return invalid(normalized.problems);
   const { text, task } = normalized.value;
-  const problems = integrityErrors(task, index);
+  const problems = [...integrityErrors(task, index), ...epicClosingProblems(current, task, index)];
   if (problems.length > 0) return invalid(problems);
 
   return withTaskLock(current.path, async () => {

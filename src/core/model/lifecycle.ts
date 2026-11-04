@@ -1,6 +1,7 @@
 import type { StoreMessages } from "../messages/store-messages";
 import { DAY_MS, formatLocalIso } from "./dates";
 import { buildIndex, epicChildren, isClosed, type BacklogIndex, type ClosedStatus } from "./graph";
+import type { Problem } from "./problems";
 import type { ParseError, Resolution, Task, TaskStatus } from "./types";
 
 export const RETENTION_DAYS = 7;
@@ -74,13 +75,23 @@ export function isAutoClosedEpic(task: Task): boolean {
   return task.type === "epic" && isClosed(task.status) && task.resolution === "epic-done";
 }
 
+function openChildIds(epic: Task, index: BacklogIndex): string[] {
+  return epicChildren(epic, index).flatMap((child) => (isClosed(child.status) ? [] : [child.id]));
+}
+
 export function planEpicReopening(tasks: readonly Task[]): EpicWithChildren[] {
   const index = buildIndex(tasks);
   return tasks.flatMap((epic) => {
     if (!isAutoClosedEpic(epic)) return [];
-    const openChildIds = epicChildren(epic, index).flatMap((child) => (isClosed(child.status) ? [] : [child.id]));
-    return openChildIds.length === 0 ? [] : [{ epic, childIds: openChildIds }];
+    const childIds = openChildIds(epic, index);
+    return childIds.length === 0 ? [] : [{ epic, childIds }];
   });
+}
+
+export function epicClosingProblems(before: Task, after: Task, index: BacklogIndex): Problem[] {
+  if (after.type !== "epic" || !isClosed(after.status) || isClosed(before.status)) return [];
+  const childIds = openChildIds(after, index);
+  return childIds.length === 0 ? [] : [{ code: "epic-closed-with-open-tasks", children: childIds }];
 }
 
 export function epicDoneClosure(childIds: readonly string[], messages: Pick<StoreMessages, "epicDoneReason">): Closure {

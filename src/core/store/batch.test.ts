@@ -50,6 +50,26 @@ function isDone(outcome: CoreBatchOutcome): outcome is Extract<CoreBatchOutcome,
 }
 
 describe("applyBatch", () => {
+  it("эпик закрывается вместе со своими задачами в одной пачке, а без них — нет: у него остались бы открытые задачи", async () => {
+    const { root, epic, t1, t2 } = await setup();
+    const index = await freshIndex(root);
+    const close = (ids: string[]) =>
+      applyBatch(index, { tasks: ids.map((id) => ({ id, version: versionOf(index, id) })), action: { kind: "close", reason: "Не актуально" }, now: NOW, onError: failOnPathError });
+
+    const alone = await close([epic.id, t2.id]);
+    expect(alone.map((outcome) => [outcome.id, outcome.outcome])).toEqual([
+      [epic.id, "skipped"],
+      [t2.id, "done"],
+    ]);
+
+    const together = await close([epic.id, t1.id]);
+    expect(together.map((outcome) => [outcome.id, outcome.outcome])).toEqual([
+      [epic.id, "done"],
+      [t1.id, "done"],
+    ]);
+    expect((await freshIndex(root)).byId.get(epic.id)?.status).toBe("cancelled");
+  });
+
   it("закрытие пачки ставит cancelled, obsolete и причину и пишет журнал via web", async () => {
     const { root, t1, t2, t3 } = await setup();
     const index = await freshIndex(root);

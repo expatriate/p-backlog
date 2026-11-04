@@ -21,6 +21,7 @@ export type Problem =
   | { code: "epic-not-epic"; epic: string }
   | { code: "epic-foreign-project"; epic: string }
   | { code: "epic-in-epic" }
+  | { code: "epic-closed-with-open-tasks"; children: readonly string[] }
   | { code: "reference-missing"; id: string }
   | { code: "no-frontmatter" }
   | { code: "frontmatter-unclosed" }

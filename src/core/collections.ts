@@ -17,3 +17,7 @@ export function countBy<T>(items: Iterable<T>, keyOf: (item: T) => string, amoun
   }
   return totals;
 }
+
+export function partition<T>(items: readonly T[], matches: (item: T) => boolean): [T[], T[]] {
+  return [items.filter(matches), items.filter((item) => !matches(item))];
+}

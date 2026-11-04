@@ -161,6 +161,8 @@ function problem(p: Problem): string {
       return `epic ${p.epic} belongs to another project — clear the epic or pick one from this project`;
     case "epic-in-epic":
       return "an epic cannot belong to another epic";
+    case "epic-closed-with-open-tasks":
+      return `the epic closes on its own once all its tasks are closed — close the open ones first: ${p.children.join(", ")}`;
     case "reference-missing":
       return `${p.id} not found`;
     case "no-frontmatter":

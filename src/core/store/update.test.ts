@@ -344,6 +344,15 @@ describe("эпик, закрытый автоматически", () => {
     expect(failures).toEqual(expect.arrayContaining([expect.stringMatching(/SPA-1\.md: .*EISDIR/)]));
   });
 
+  it("эпик с открытой задачей нельзя закрыть вручную: файл не меняется, причина названа", async () => {
+    const root = await epicWithOneTask("");
+
+    const result = await updateTask(root, { id: "SPA-1", changes: { status: "done" }, now: NOW, via: "cli" });
+
+    expect(result).toMatchObject({ ok: false, reason: "invalid", problems: [{ code: "epic-closed-with-open-tasks", children: ["SPA-2"] }] });
+    expect((await taskById(root, "SPA-1"))?.status).toBe("backlog");
+  });
+
   it("закрытый вручную остаётся закрытым", async () => {
     const root = await epicWithOneTask(`status: done\nclosed: ${formatLocalIso(NOW)}\nresolution: fixed\nreason: сделано\n`);
 

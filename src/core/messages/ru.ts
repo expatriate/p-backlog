@@ -173,6 +173,8 @@ function problem(p: Problem): string {
       return `эпик ${p.epic} из другого проекта — снимите эпик или выберите эпик этого проекта`;
     case "epic-in-epic":
       return "эпик не может входить в другой эпик";
+    case "epic-closed-with-open-tasks":
+      return `эпик закроется сам, когда закроются все его задачи — сначала закройте открытые: ${p.children.join(", ")}`;
     case "reference-missing":
       return `${p.id} не найдена`;
     case "no-frontmatter":
