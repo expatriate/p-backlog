@@ -1,4 +1,4 @@
-import { useId, type ReactElement } from "react";
+import { useId, useState, type ReactElement } from "react";
 import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis, type YAxisProps } from "recharts";
 import { formatDay } from "../../../core/i18n/format";
 import { useLanguage, useMessages } from "../../i18n";
@@ -49,6 +49,7 @@ function TimeChart<Row>({ name, summary, data, series, axes = {}, step, timeKey,
   const { stats } = useMessages();
   const language = useLanguage();
   const patternPrefix = useId();
+  const [liveRegion, setLiveRegion] = useState<HTMLElement | null>(null);
   const plotted = series.filter(isPlotted);
   const hatched = plotted.filter((entry) => entry.shape === "hatch");
   const patternId = (entry: Series<Row>) => `${patternPrefix}${entry.key}`;
@@ -77,7 +78,7 @@ function TimeChart<Row>({ name, summary, data, series, axes = {}, step, timeKey,
   };
 
   return (
-    <ChartFrame summary={summary} legend={plotted}>
+    <ChartFrame summary={summary} legend={plotted} liveRegion={setLiveRegion}>
       <Chart data={data} margin={CHART_MARGIN} aria-label={stats.chartLabel(name, step)}>
         {hatched.length > 0 && (
           <defs>
@@ -93,7 +94,7 @@ function TimeChart<Row>({ name, summary, data, series, axes = {}, step, timeKey,
         <XAxis dataKey={timeKey} tickFormatter={tick} {...DATE_AXIS_PROPS} />
         <YAxis yAxisId={LEFT_AXIS} tickFormatter={compact} {...axes.left} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />
         {hasRightAxis && <YAxis yAxisId="right" orientation="right" tickFormatter={compact} {...axes.right} width={VALUE_AXIS_WIDTH} {...AXIS_PROPS} />}
-        <Tooltip content={<SeriesTooltip title={tooltipTitle} series={series} />} isAnimationActive={false} cursor={HOVER_CURSOR} />
+        <Tooltip content={<SeriesTooltip title={tooltipTitle} series={series} liveRegion={liveRegion} />} isAnimationActive={false} cursor={HOVER_CURSOR} />
         {plotted.map(mark)}
       </Chart>
     </ChartFrame>

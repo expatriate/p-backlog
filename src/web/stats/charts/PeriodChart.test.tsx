@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccuracyPeriod } from "../../../core/api/contract";
 import { NBSP } from "../../../core/i18n/plural";
@@ -41,6 +41,21 @@ describe("серии графика по периодам", () => {
     const { container } = renderChart([CREATED, OPEN]);
 
     expect(container.querySelectorAll(".recharts-line-curve")).toHaveLength(1);
+  });
+});
+
+describe("шаги по графику с клавиатуры", () => {
+  it("стрелка вправо озвучивает период и значения его серий через живую область", async () => {
+    renderChart([CREATED, OPEN]);
+    const status = screen.getByRole("status");
+    const chart = screen.getByRole("application", { name: /Долг/ });
+    chart.focus();
+
+    fireEvent.keyDown(chart, { key: "ArrowRight" });
+
+    await waitFor(() => {
+      expect(status.textContent).toBe("неделя с 21 сент.: создано 5, открыто 8000");
+    });
   });
 });
 

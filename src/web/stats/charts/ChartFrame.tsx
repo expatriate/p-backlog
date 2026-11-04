@@ -1,4 +1,4 @@
-import { useId, type CSSProperties, type ReactElement } from "react";
+import { useId, type CSSProperties, type ReactElement, type RefCallback } from "react";
 import { ResponsiveContainer } from "recharts";
 import { cx } from "../../ui/cx";
 import styles from "./ChartFrame.module.css";
@@ -12,13 +12,16 @@ const INITIAL_PLOT_WIDTH_PX = 360;
 const INITIAL_DIMENSION = { width: INITIAL_PLOT_WIDTH_PX, height: PLOT_HEIGHT_PX.regular };
 const PLOT_HEIGHTS = { "--plot-height": `${PLOT_HEIGHT_PX.regular}px`, "--plot-height-compact": `${PLOT_HEIGHT_PX.compact}px` } as CSSProperties;
 
-export function ChartFrame({ summary, legend, children }: { summary: string; legend: LegendItem[]; children: ReactElement }) {
+type ChartFrameProps = { summary: string; legend: LegendItem[]; liveRegion: RefCallback<HTMLElement>; children: ReactElement };
+
+export function ChartFrame({ summary, legend, liveRegion, children }: ChartFrameProps) {
   const summaryId = useId();
   return (
     <figure className={styles.frame} aria-labelledby={summaryId}>
       <p id={summaryId} className={styles.summary}>
         {summary}
       </p>
+      <p ref={liveRegion} role="status" className="visually-hidden" />
       <div className={styles.plot} style={PLOT_HEIGHTS}>
         <ResponsiveContainer width="100%" height="100%" initialDimension={INITIAL_DIMENSION}>
           {children}
