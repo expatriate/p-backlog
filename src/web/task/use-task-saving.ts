@@ -117,17 +117,17 @@ function bodyErrorText(error: Error, errorText: (error: Error) => string, taskMe
 
 const SAVED_NOTE_MS = 2000;
 
-export function useSaveNote(lastSave: SaveStatus, cardAlerts: readonly string[]): string {
+export function useSaveNote(lastSave: SaveStatus): string {
   const { task: taskMessages } = useMessages();
   const [fadedAt, setFadedAt] = useState<number | null>(null);
-  const cleanSaveAt = lastSave.phase === "saved" && cardAlerts.length === 0 ? lastSave.at : null;
+  const savedAt = lastSave.phase === "saved" ? lastSave.at : null;
 
   useEffect(() => {
-    if (cleanSaveAt === null) return;
-    const timer = setTimeout(() => setFadedAt(cleanSaveAt), SAVED_NOTE_MS);
+    if (savedAt === null) return;
+    const timer = setTimeout(() => setFadedAt(savedAt), SAVED_NOTE_MS);
     return () => clearTimeout(timer);
-  }, [cleanSaveAt]);
+  }, [savedAt]);
 
   if (lastSave.phase === "saving") return taskMessages.saving;
-  return cleanSaveAt !== null && cleanSaveAt !== fadedAt ? taskMessages.saved : "";
+  return savedAt !== null && savedAt !== fadedAt ? taskMessages.saved : "";
 }

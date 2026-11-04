@@ -26,16 +26,9 @@ export function useBoardMove(tasks: readonly Task[]) {
     latestMoveOf.current.set(id, moveNumber);
     setPending((current) => new Map(current).set(id, to));
     setFailure(null);
-    let confirmedFrom = to;
     try {
-      await update.mutateAsync({
-        id,
-        change: (task) => {
-          confirmedFrom = task.status;
-          return { status: to };
-        },
-      });
-      return confirmedFrom;
+      const { before } = await update.mutateAsync({ id, change: () => ({ status: to }) });
+      return before.status;
     } catch (error) {
       setFailure({ id, error: asError(error) });
       return null;

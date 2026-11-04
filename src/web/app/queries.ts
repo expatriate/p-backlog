@@ -109,18 +109,21 @@ export class TaskGoneError extends Error {
   }
 }
 
-export function useUpdateTask(): UseMutationResult<Task, Error, UpdateTaskVariables> {
+type TaskSave = { before: Task; saved: Task };
+
+export function useUpdateTask(): UseMutationResult<TaskSave, Error, UpdateTaskVariables> {
   const { client } = useBacklogApi();
   const queryClient = useQueryClient();
   return useMutation({
     scope: TASK_SAVES,
-    mutationFn: ({ id, change, bodyEdit }: UpdateTaskVariables) => {
-      const task = freshestTask(queryClient, id);
-      if (!task) throw new TaskGoneError(id);
-      const changes = change(task);
-      return bodyEdit === undefined ? client.updateTask(id, task.version, changes) : saveEditedBody(client, id, changes, bodyEdit);
+    mutationFn: async ({ id, change, bodyEdit }: UpdateTaskVariables) => {
+      const before = freshestTask(queryClient, id);
+      if (!before) throw new TaskGoneError(id);
+      const changes = change(before);
+      const saved = await (bodyEdit === undefined ? client.updateTask(id, before.version, changes) : saveEditedBody(client, id, changes, bodyEdit));
+      return { before, saved };
     },
-    onSuccess: (task) => putTask(queryClient, task),
+    onSuccess: ({ saved }) => putTask(queryClient, saved),
     onSettled: () => invalidateBacklogOnly(queryClient),
   });
 }

@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { BatchNotice } from "./BatchNotice";
 import { BulkActions } from "./BulkActions";
 import { useBatchResult } from "./use-batch-result";
-import { useScrollSpaceFor } from "./use-scroll-space";
+import { useScrollSpaceFor } from "../ui/use-scroll-space";
 import type { TaskSelection } from "./use-task-selection";
 import styles from "./ListFooter.module.css";
 

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { formatDateTime } from "../../core/i18n/format";
 import { toggleChecklistItem } from "../../core/model/checklist";
 import { dependentTasks, epicChildren, isClosed, relatedTasks, taskProgress, type BacklogIndex } from "../../core/model/graph";
@@ -24,6 +24,7 @@ import { TaskRef } from "./TaskRef";
 import { TaskOptions, TaskRefs } from "./TaskRefs";
 import { useFieldDrafts } from "./use-field-drafts";
 import { useSaveNote, useTaskSaving } from "./use-task-saving";
+import { useScrollSpaceFor } from "../ui/use-scroll-space";
 import styles from "./TaskPanel.module.css";
 
 export type TaskPanelProps = {
@@ -48,8 +49,8 @@ export function TaskPanel({ task, onClose, gone }: TaskPanelProps) {
       ifStillSaving: taskMessages.leaveWhileSaving,
     },
   );
-  const cardAlerts = distinctTexts([gone ? taskMessages.taskGone(task.id) : null, ...saver.alerts, ...fields.alerts]);
-  const saveNote = useSaveNote(saver.lastSave, cardAlerts);
+  const cardAlerts = gone ? [taskMessages.taskGone(task.id)] : distinctTexts([...saver.alerts, ...fields.alerts]);
+  const saveNote = useSaveNote(saver.lastSave);
   const refOptions = useMemo(
     () => (
       <>
@@ -142,8 +143,10 @@ function ClosureNote({ task, onRestore }: { task: Task; onRestore: () => void })
 }
 
 function CardStatus({ saveNote, alerts }: { saveNote: string; alerts: readonly string[] }) {
+  const pinned = useRef<HTMLDivElement>(null);
+  useScrollSpaceFor(pinned, "--card-status-height");
   return (
-    <div className={styles.pinned}>
+    <div ref={pinned} className={styles.pinned}>
       <p className={styles.saving} role="status">
         {saveNote}
       </p>

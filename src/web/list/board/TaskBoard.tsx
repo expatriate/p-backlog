@@ -31,7 +31,8 @@ import { TaskId } from "../../ui/TaskId";
 import { useMediaQuery } from "../../ui/use-media-query";
 import { BlockedMarker } from "../BlockedMarker";
 import { useNoticeLifetime } from "../use-notice-lifetime";
-import { useScrollSpaceFor } from "../use-scroll-space";
+import { useScrollSpaceFor } from "../../ui/use-scroll-space";
+import { taskElementOf, taskIdAttribute, useOpenedTaskInView } from "../task-elements";
 import footer from "../FooterPanel.module.css";
 import { boardColumns, shownStatusOf, type BoardColumn, type PendingMoves } from "./board-columns";
 import { useBoardMove } from "./use-board-move";
@@ -42,7 +43,6 @@ const TOUCH_ACTIVATION = { delay: 250, tolerance: 6 };
 const KEYBOARD_CODES = { start: [KeyboardCode.Space], cancel: [KeyboardCode.Esc], end: [KeyboardCode.Space, KeyboardCode.Enter] };
 const COLUMN_STEPS: Partial<Record<string, number>> = { [KeyboardCode.Left]: -1, [KeyboardCode.Right]: 1 };
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
-const TASK_ID_ATTRIBUTE = "data-task-id";
 
 type BoardMoves = ReturnType<typeof useBoardMove>;
 
@@ -58,7 +58,7 @@ export function TaskBoard({ tasks, statuses, openedId }: { tasks: readonly Task[
   const clickAfterDrop = useClickAfterDrop();
   const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY);
   useEscapeStaysWithDrag(dragged !== null);
-  useOpenedCardInView(board, openedId);
+  useOpenedTaskInView(board, openedId);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: MOUSE_ACTIVATION }),
     useSensor(TouchSensor, { activationConstraint: TOUCH_ACTIVATION }),
@@ -78,7 +78,7 @@ export function TaskBoard({ tasks, statuses, openedId }: { tasks: readonly Task[
   };
   const undo = async () => {
     const restored = await moves.undo();
-    if (restored !== null) requestAnimationFrame(() => reclaimLostFocus(cardOf(board.current, restored)));
+    if (restored !== null) requestAnimationFrame(() => reclaimLostFocus(taskElementOf(board.current, restored)));
   };
 
   return (
@@ -167,7 +167,7 @@ function BoardCard({ task, opened }: { task: Task; opened: boolean }) {
           className={styles.title}
           aria-current={opened ? "true" : undefined}
           aria-describedby={attributes["aria-describedby"]}
-          {...{ [TASK_ID_ATTRIBUTE]: task.id }}
+          {...taskIdAttribute(task.id)}
           {...listeners}
         >
           {task.title}
@@ -221,16 +221,6 @@ function useDragAnnouncements(byId: ReadonlyMap<string, Task>, pending: PendingM
 
 function columnStatus(id: UniqueIdentifier): TaskStatus | undefined {
   return TASK_STATUSES.find((status) => status === id);
-}
-
-function cardOf(board: HTMLElement | null, id: string): HTMLElement | null {
-  return board?.querySelector<HTMLElement>(`[${TASK_ID_ATTRIBUTE}="${id}"]`) ?? null;
-}
-
-function useOpenedCardInView(board: RefObject<HTMLElement | null>, openedId: string | undefined): void {
-  useEffect(() => {
-    if (openedId !== undefined) cardOf(board.current, openedId)?.scrollIntoView({ block: "nearest" });
-  }, [board, openedId]);
 }
 
 function reclaimLostFocus(target: HTMLElement | null): void {

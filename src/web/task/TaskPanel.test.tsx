@@ -464,6 +464,7 @@ describe("правка агента, пока поле в фокусе", () => {
 
     await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "critical");
     await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).priority).toBe("critical"));
+    await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe("Сохранено"));
     expect(alertTexts(panel).join()).toContain(CONFLICT);
 
     await app.user.click(within(panel).getByRole("button", { name: "Закрыть" }));
@@ -562,11 +563,21 @@ describe("ошибка несохранённого поля", () => {
     await pickPriority(app, panel, "critical");
     await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).priority).toBe("critical"));
     expect(alertTexts(panel).join()).toContain(NOT_SAVED);
+    await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe("Сохранено"));
 
     await app.user.click(title);
     await app.user.tab();
     await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).title).toBe("Таймауты загрузки и повторы"));
     await waitFor(() => expect(alertTexts(panel)).toEqual([]));
+  });
+
+  it("задачи больше нет — остаётся только это предупреждение, без совета повторить", async () => {
+    const { app, panel } = await failTitleSaves(1);
+
+    await rm(join(app.root, "spa/SPA-1.md"));
+    await app.emitChange();
+
+    await waitFor(() => expect(alertTexts(panel)).toEqual(["Задачи SPA-1 больше нет в беклоге: её удалили или перенесли."]));
   });
 
   it("уходит, когда название вернули к записанному", async () => {

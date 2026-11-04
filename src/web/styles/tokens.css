@@ -101,6 +101,7 @@
   --main-overlay-position: absolute;
   --list-footer-height: 0px;
   --board-notice-height: 0px;
+  --card-status-height: 0px;
   --drawer-pad-block-start: var(--space-4);
   --drawer-modal: 0;
   --sidebar-row-gap: var(--space-2);

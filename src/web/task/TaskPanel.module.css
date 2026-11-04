@@ -101,11 +101,6 @@
   gap: var(--space-2);
 }
 
-.pinned:has(.alert) .saving:empty {
-  min-height: 0;
-  margin-block-end: calc(var(--space-2) * -1);
-}
-
 .pinned:has(.alert, .saving:not(:empty)) {
   position: sticky;
   top: calc(var(--drawer-pad-block-start) * -1);
@@ -117,5 +112,5 @@
 }
 
 .alertsPinned {
-  scroll-padding-top: calc(4lh + var(--space-4));
+  scroll-padding-top: calc(var(--card-status-height) + var(--space-4));
 }

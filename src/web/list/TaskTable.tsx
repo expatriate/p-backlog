@@ -9,6 +9,7 @@ import { useLanguage, useMessages } from "../i18n";
 import { DeletionBar } from "../ui/Deletion";
 import { PriorityLabel } from "../ui/PriorityLabel";
 import { BlockedMarker } from "./BlockedMarker";
+import { taskIdAttribute, useOpenedTaskInView } from "./task-elements";
 import { StatusBadge } from "../ui/StatusBadge";
 import { TaskIdLink } from "../ui/TaskId";
 import { useAllTasks } from "../app/all-tasks";
@@ -42,21 +43,19 @@ export function TaskTable({ tasks, sort, dateColumn, openedId, onSort, isNew, se
   const taskHref = useTaskHref();
   const language = useLanguage();
   const now = useNow();
-  const openedRow = useRef<HTMLTableRowElement>(null);
-  useEffect(() => {
-    openedRow.current?.scrollIntoView({ block: "nearest" });
-  }, [openedId]);
+  const rows = useRef<HTMLTableSectionElement>(null);
+  useOpenedTaskInView(rows, openedId);
 
   return (
     <table className={styles.table} aria-describedby={describedBy}>
       <TaskTableHead sort={sort} onSort={onSort} dateColumn={dateColumn} selection={selection} />
-      <tbody>
+      <tbody ref={rows}>
         {tasks.map((task) => {
           const opened = task.id === openedId;
           return (
             <tr
               key={task.id}
-              ref={opened ? openedRow : undefined}
+              {...taskIdAttribute(task.id)}
               className={cx(styles.row, opened && styles.opened)}
               data-epic-tone={toneOf(task, tones)}
               onKeyDown={(event) => {
