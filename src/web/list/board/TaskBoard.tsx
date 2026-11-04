@@ -103,22 +103,24 @@ export function TaskBoard({ tasks, statuses, openedId }: { tasks: readonly Task[
 function MoveNotice({ moves: { lastMove, failure, undoing, dismiss }, undoButton, onUndo }: { moves: BoardMoves; undoButton: RefObject<HTMLButtonElement | null>; onUndo: () => void }) {
   const { list, core, app, task: taskMessages } = useMessages();
   const notice = useRef<HTMLDivElement>(null);
-  useNoticeLifetime(notice, lastMove, undoing, dismiss);
+  const news = useMemo(() => (lastMove === null && failure === null ? null : { lastMove, failure }), [lastMove, failure]);
+  useNoticeLifetime(notice, news, undoing, dismiss);
   useEffect(() => {
     if (lastMove !== null) focusIfDropped(undoButton.current);
   }, [lastMove, undoButton]);
-  const shown = lastMove !== null || failure !== null;
 
   return (
-    <div ref={notice} role="status" className={shown ? cx(footer.panel, styles.notice) : "visually-hidden"}>
-      {lastMove !== null && (
-        <>
-          <p className={footer.headline}>{list.moved(lastMove.id, core.statusLabel(lastMove.to))}</p>
-          <Button ref={undoButton} busy={undoing} onClick={onUndo}>
-            {list.undo}
-          </Button>
-        </>
-      )}
+    <div ref={notice} className={news !== null ? cx(footer.panel, styles.notice) : "visually-hidden"}>
+      <div role="status" className={styles.moved}>
+        {lastMove !== null && (
+          <>
+            <p className={footer.headline}>{list.moved(lastMove.id, core.statusLabel(lastMove.to))}</p>
+            <Button ref={undoButton} busy={undoing} onClick={onUndo}>
+              {list.undo}
+            </Button>
+          </>
+        )}
+      </div>
       {failure !== null && (
         <p className={footer.error} role="alert">
           {list.moveFailed(failure.id)}: {saveErrorText(failure.error, app, taskMessages)}

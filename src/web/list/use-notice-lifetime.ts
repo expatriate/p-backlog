@@ -1,6 +1,6 @@
 import { useEffect, type RefObject } from "react";
 
-const NOTICE_LIFETIME_MS = 15_000;
+export const NOTICE_LIFETIME_MS = 15_000;
 
 export function useNoticeLifetime(notice: RefObject<HTMLElement | null>, shown: unknown, held: boolean, expire: () => void): void {
   useEffect(() => {

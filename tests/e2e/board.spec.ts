@@ -1,6 +1,7 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { NOTICE_LIFETIME_MS } from "../../src/web/list/use-notice-lifetime";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
 
 const projectDir = join(E2E_BACKLOG_DIR, "board");
@@ -99,6 +100,58 @@ test("сервер отказал — карточка возвращается 
   await expect(page.getByRole("alert").filter({ hasText: "Не удалось перенести BRD-1" })).toContainText("диск недоступен");
   await expect(column(page, "в беклоге").getByRole("link", { name: "Не сохранится" })).toBeVisible();
   expect(await statusOnDisk("BRD-1")).toBe("backlog");
+});
+
+test("ошибка переноса уходит вместе с уведомлением, а не висит над колонками до следующего переноса", async ({ page }) => {
+  await writeBoard(["Не сохранится"]);
+  const { promise: answered, resolve: answer }: PromiseWithResolvers<void> = Promise.withResolvers();
+  await page.route("**/api/tasks/BRD-1", async (route) => {
+    if (route.request().method() !== "PATCH") return route.fallback();
+    await answered;
+    return route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } });
+  });
+  await openBoard(page, "/p/board?view=board", "Не сохранится");
+
+  await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Не сохранится" }), column(page, "в работе"));
+  await page.clock.install();
+  answer();
+
+  const failure = page.getByRole("alert").filter({ hasText: "Не удалось перенести BRD-1" });
+  await expect(failure).toBeVisible();
+  await expect(page.getByRole("status").getByRole("alert")).toHaveCount(0);
+  await page.clock.fastForward(NOTICE_LIFETIME_MS);
+  await expect(failure).toHaveCount(0);
+});
+
+test("перенос, сохранившийся после чужого отказа, получает уведомление на полный срок", async ({ page }) => {
+  await writeBoard(["Не сохранится", "Сохранится"]);
+  const failing: PromiseWithResolvers<void> = Promise.withResolvers();
+  const passing: PromiseWithResolvers<void> = Promise.withResolvers();
+  for (const [id, held, answer] of [
+    ["BRD-1", failing.promise, (route: Route) => route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } })],
+    ["BRD-2", passing.promise, (route: Route) => route.fallback()],
+  ] as const) {
+    await page.route(`**/api/tasks/${id}`, async (route) => {
+      if (route.request().method() !== "PATCH") return route.fallback();
+      await held;
+      return answer(route);
+    });
+  }
+  await openBoard(page, "/p/board?view=board", "Не сохранится");
+
+  await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Не сохранится" }), column(page, "в работе"));
+  await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Сохранится" }), column(page, "в работе"));
+  await page.clock.install();
+  failing.resolve();
+  await expect(page.getByRole("alert").filter({ hasText: "Не удалось перенести BRD-1" })).toBeVisible();
+  await page.clock.fastForward(NOTICE_LIFETIME_MS - 1_000);
+  passing.resolve();
+
+  const undo = page.getByRole("button", { name: "Отменить" });
+  await expect(undo).toBeVisible();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.clock.fastForward(2_000);
+  await expect(undo).toBeVisible();
 });
 
 test("два переноса подряд, первый медленно падает — его карточка возвращается с ошибкой, вторая остаётся на новом месте", async ({ page }) => {

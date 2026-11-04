@@ -15,7 +15,10 @@ export function useBoardMove(tasks: readonly Task[]) {
   const [undoing, setUndoing] = useState(false);
   const latestMoveOf = useRef(new Map<string, number>());
   const movesStarted = useRef(0);
-  const dismiss = useCallback(() => setLastMove(null), []);
+  const dismiss = useCallback(() => {
+    setLastMove(null);
+    setFailure(null);
+  }, []);
 
   const shownStatus = (task: Task): TaskStatus => pending.get(task.id) ?? task.status;
 
