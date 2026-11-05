@@ -39,31 +39,38 @@ export type ApiClient = {
   setLanguage: (language: Language) => Promise<SettingsResponse>;
 };
 
+type ResponseTimeouts = { readMs: number; writeMs: number };
+
+const RESPONSE_TIMEOUTS: ResponseTimeouts = { readMs: 60_000, writeMs: 120_000 };
+
 const UNREACHABLE_STATUS = 0;
+const TIMED_OUT_STATUS = -1;
 const NOT_FOUND_STATUS = 404;
 const CONFLICT_STATUS = 409;
 const SERVER_FAILURE_STATUS = 500;
 const GATEWAY_STATUSES = new Set([502, 504]);
 const SERVICE_UNAVAILABLE_STATUS = 503;
 
-type ApiErrorKind = "unreachable" | "notFound" | "conflict" | "serverFailure" | "rejected";
+type ApiErrorKind = "unreachable" | "timedOut" | "notFound" | "conflict" | "serverFailure" | "rejected";
 
 export function apiErrorKind(error: unknown): ApiErrorKind | undefined {
   if (!(error instanceof ApiError)) return undefined;
   if (error.status === UNREACHABLE_STATUS) return "unreachable";
+  if (error.status === TIMED_OUT_STATUS) return "timedOut";
   if (error.status === NOT_FOUND_STATUS) return "notFound";
   if (error.status === CONFLICT_STATUS) return "conflict";
   return error.status >= SERVER_FAILURE_STATUS ? "serverFailure" : "rejected";
 }
 
-export function createApiClient(apiFetch: ApiFetch): ApiClient {
-  const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
-    const response = await apiFetch(path, init).catch(() => {
-      throw unreachable();
+export function createApiClient(apiFetch: ApiFetch, { readMs, writeMs }: ResponseTimeouts = RESPONSE_TIMEOUTS): ApiClient {
+  const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
+    const timeoutMs = init.method === undefined ? readMs : writeMs;
+    const response = await apiFetch(path, { ...init, signal: AbortSignal.timeout(timeoutMs) }).catch((error: unknown) => {
+      throw unansweredError(error);
     });
     if (GATEWAY_STATUSES.has(response.status)) throw unreachable();
-    const body: unknown = await response.json().catch(() => {
-      throw unreachable();
+    const body: unknown = await response.json().catch((error: unknown) => {
+      throw unansweredError(error);
     });
     if (response.ok) return body as T;
     const { errors = [], current } = body as Partial<ConflictResponse>;
@@ -88,6 +95,10 @@ export function createApiClient(apiFetch: ApiFetch): ApiClient {
 
 function unreachable(): ApiError {
   return new ApiError(UNREACHABLE_STATUS, []);
+}
+
+function unansweredError(error: unknown): ApiError {
+  return error instanceof Error && error.name === "TimeoutError" ? new ApiError(TIMED_OUT_STATUS, []) : unreachable();
 }
 
 function projectPath(id: string): string {

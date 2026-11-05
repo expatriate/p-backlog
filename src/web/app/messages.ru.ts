@@ -11,6 +11,7 @@ export const appRu = {
     " — или установите службой, чтобы он поднимался сам: ",
     command("backlog service install"),
   ],
+  timedOutMessage: "Сервер беклога не ответил вовремя. Повторите; если не проходит — перезапустите сервер беклога.",
   scopeNote: (activeCount: number, totalCount: number): string => `учтено ${activeCount} из${NBSP}${countRu(totalCount, "проекта", "проектов", "проектов")}`,
   bootLoadError: "Не удалось загрузить интерфейс — обновите страницу",
   bootSettingsError: "Сервер беклога не отвечает",

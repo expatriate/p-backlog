@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
 import type { Task } from "../../core/model/types";
 import { ApiError, apiErrorKind, createApiClient } from "./client";
@@ -48,6 +49,22 @@ describe("ApiError", () => {
       const error = await client.tasks().catch((caught: unknown) => caught);
       expect(apiErrorKind(error)).toBe("unreachable");
     }
+  });
+
+  it("сервер принял запрос и молчит — чтение кончается ошибкой «не ответил вовремя» в свой срок, а запись ждёт дольше", async () => {
+    const silentServer = (_path: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+      });
+    const client = createApiClient(silentServer, { readMs: 20, writeMs: 200 });
+    const write = client.updateTask("SPA-1", "v1", { title: "x" }).catch((caught: unknown) => caught);
+
+    const readError = await client.tasks().catch((caught: unknown) => caught);
+    const writeShortlyAfterRead = await Promise.race([write, sleep(50, "pending")]);
+
+    expect(apiErrorKind(readError)).toBe("timedOut");
+    expect(writeShortlyAfterRead).toBe("pending");
+    expect(apiErrorKind(await write)).toBe("timedOut");
   });
 
   it("ошибка сервера без текста несёт код статуса, а не «не отвечает»", async () => {

@@ -41,6 +41,7 @@ export function requestErrorMessage(app: AppMessages, error: Error): string {
 function requestErrorParts<T>(app: AppMessages, error: Error, command: (text: string) => T): Array<string | T> {
   const kind = apiErrorKind(error);
   if (kind === "unreachable") return app.unreachableMessage(command);
+  if (kind === "timedOut") return [app.timedOutMessage];
   if (!(error instanceof ApiError)) return [error.message];
   if (error.errors.length === 0) return [app.serverStatusError(error.status)];
   return [kind === "serverFailure" ? app.serverErrorPrefixed(error.message.replace(/\.$/, "")) : error.message];

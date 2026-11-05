@@ -7,6 +7,7 @@ export const appEn: AppMessages = {
   serverErrorPrefixed: (message) => `Server returned an error: ${message}. Retry; if it keeps failing, restart the backlog server.`,
   serverStatusError: (status) => `Server returned an error ${status}. Retry; if it keeps failing, restart the backlog server.`,
   unreachableMessage: (command) => ["The backlog server is not responding. Start it: ", command("backlog serve"), " — or install it as a service so it starts on its own: ", command("backlog service install")],
+  timedOutMessage: "The backlog server did not answer in time. Retry; if it keeps failing, restart the backlog server.",
   scopeNote: (activeCount, totalCount) => `${activeCount} of ${totalCount} ${pluralEn(totalCount, "project", "projects")} included`,
   bootLoadError: "Couldn't load the interface — reload the page",
   bootSettingsError: "Backlog server is not responding",
