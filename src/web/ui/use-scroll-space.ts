@@ -1,19 +1,16 @@
-import { useEffect, useLayoutEffect, type RefObject } from "react";
+import { useLayoutEffect, type RefObject } from "react";
 
 export function useScrollSpaceFor(panel: RefObject<HTMLElement | null>, heightProperty: `--${string}`) {
-  useLayoutEffect(() => reserveScrollSpace(panel.current, heightProperty));
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = panel.current;
     if (!element) return;
-    const observer = new ResizeObserver(() => reserveScrollSpace(element, heightProperty));
-    observer.observe(element);
+    const reserveScrollSpace = () => document.documentElement.style.setProperty(heightProperty, `${Math.ceil(element.getBoundingClientRect().height)}px`);
+    reserveScrollSpace();
+    const observer = new ResizeObserver(reserveScrollSpace);
+    observer.observe(element, { box: "border-box" });
     return () => {
       observer.disconnect();
       document.documentElement.style.removeProperty(heightProperty);
     };
   }, [panel, heightProperty]);
-}
-
-function reserveScrollSpace(panel: HTMLElement | null, heightProperty: string) {
-  if (panel) document.documentElement.style.setProperty(heightProperty, `${Math.ceil(panel.getBoundingClientRect().height)}px`);
 }
