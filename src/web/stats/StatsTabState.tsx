@@ -16,7 +16,7 @@ import type { StatsOutletContext } from "./StatsPage";
 import caption from "./Caption.module.css";
 import layout from "./StatsLayout.module.css";
 
-type ReportQuery<T> = Pick<UseQueryResult<T>, "error" | "data" | "isFetching" | "refetch">;
+type ReportQuery<T> = Pick<UseQueryResult<T>, "error" | "data" | "refetch">;
 
 type EmptyReport<T> = { isEmpty: (report: T) => boolean; message: string };
 
@@ -34,14 +34,14 @@ export function StatsRequestState<T>({ query, empty, children }: { query: Report
 
   const retry = () => {
     keepFocus();
-    void query.refetch();
+    return query.refetch();
   };
 
   return (
     <>
       <PageHint ref={status} state={hintState}>
         {message !== null && <p>{message}</p>}
-        {failure !== null && <RequestFailure error={failure} fetching={query.isFetching} onRetry={retry} />}
+        {failure !== null && <RequestFailure error={failure} onRetry={retry} />}
       </PageHint>
       {report !== undefined && <div className={layout.content}>{children(report)}</div>}
     </>

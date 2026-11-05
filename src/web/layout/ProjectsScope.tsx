@@ -54,7 +54,7 @@ export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopePro
       )}
       {projects.error !== null && (
         <div className={styles.projectsFailure}>
-          <RequestFailure error={projects.error} fetching={projects.isFetching} onRetry={() => void projects.refetch()} />
+          <RequestFailure error={projects.error} onRetry={() => projects.refetch()} />
         </div>
       )}
       {listOpen && (

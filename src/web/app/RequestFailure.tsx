@@ -13,13 +13,13 @@ function RequestErrorText({ error }: { error: Error }) {
   return <>{requestErrorParts(app, error, command)}</>;
 }
 
-export function RequestFailure({ error, fetching, onRetry }: { error: Error; fetching: boolean; onRetry: () => void }) {
+export function RequestFailure({ error, onRetry }: { error: Error; onRetry: () => Promise<unknown> }) {
   return (
     <>
       <p>
         <RequestErrorText error={error} />
       </p>
-      <RetryButton fetching={fetching} onRetry={onRetry} />
+      <RetryButton failure={error} onRetry={onRetry} />
     </>
   );
 }

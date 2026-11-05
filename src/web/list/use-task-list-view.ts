@@ -41,7 +41,7 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
 
   return {
     tasksLoaded: tasks.data !== undefined,
-    request: { error, isFetching: failedQueries.some((query) => query.isFetching), refetch },
+    request: { error, refetch },
     content,
     settled: content === "table" && error === null,
     projectName: projectId === undefined ? undefined : projectNameOf(projects.data, projectId),

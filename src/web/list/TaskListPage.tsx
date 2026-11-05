@@ -156,7 +156,7 @@ function ListStatus({ view: { content, settled, request, empty, table }, filter,
   const announcedCount = useSettledValue(settled ? shownCount : null, COUNT_ANNOUNCE_DELAY_MS) ?? shownCount;
   const retry = () => {
     keepFocus();
-    void request.refetch();
+    return request.refetch();
   };
   const changeFilter = (next: ListParams["filter"]) => {
     keepFocus();
@@ -164,7 +164,7 @@ function ListStatus({ view: { content, settled, request, empty, table }, filter,
   };
   return (
     <PageHint ref={status} state={listHintState(content, settled)}>
-      {request.error !== null && <RequestFailure error={request.error} fetching={request.isFetching} onRetry={retry} />}
+      {request.error !== null && <RequestFailure error={request.error} onRetry={retry} />}
       {content === "loading" && <p>{list.loadingTasks}</p>}
       {content === "unknownProject" && <p>{list.unknownProject}</p>}
       {content === "empty" && <EmptyList {...empty} filter={filter} onFilterChange={changeFilter} />}

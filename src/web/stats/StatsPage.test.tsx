@@ -41,8 +41,12 @@ async function renderStatsWith(firstAnswer: StatsAnswer) {
 
 function holdFailure() {
   let release = () => {};
-  const answer: StatsAnswer = (real) => new Promise<void>((resolve) => (release = resolve)).then(() => failStats(real));
-  return { answer, release: () => release() };
+  let started = false;
+  const answer: StatsAnswer = (real) => {
+    started = true;
+    return new Promise<void>((resolve) => (release = resolve)).then(() => failStats(real));
+  };
+  return { answer, release: () => release(), started: () => started };
 }
 
 function refetchStats() {
@@ -211,6 +215,22 @@ describe("страница статистики", () => {
 
     held.release();
     expect(await screen.findByRole("button", { name: "Повторить" })).toBe(document.activeElement);
+  });
+
+  it("фоновый перезапрос упавшего отчёта не переключает «Повторить» в «Повторяем…» — кнопка нажимается", async () => {
+    const { answerStatsWith } = await renderStatsWith(passThrough);
+    await screen.findByRole("group", { name: "За неделю" });
+    answerStatsWith(failStats);
+    refetchStats();
+    await screen.findByRole("button", { name: "Повторить" });
+
+    const held = holdFailure();
+    answerStatsWith(held.answer);
+    refetchStats();
+    await waitFor(() => expect(held.started()).toBe(true));
+
+    expect(screen.getByRole("button", { name: "Повторить" }).getAttribute("aria-disabled")).toBeNull();
+    held.release();
   });
 
   it("ошибка обновления не прячет уже загруженные цифры: над ними ошибка и «Повторить»", async () => {
