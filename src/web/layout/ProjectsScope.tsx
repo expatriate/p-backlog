@@ -1,3 +1,4 @@
+import type { UseQueryResult } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router";
 import type { ProjectView } from "../../core/api/contract";
@@ -10,6 +11,7 @@ import { useMessages } from "../i18n";
 import { NO_VALUE } from "../labels";
 import { cx } from "../ui/cx";
 import { IconButton } from "../ui/IconButton";
+import { useStatusFocus } from "../ui/use-status-focus";
 import { ProjectCheckbox, ProjectDeleteButton } from "./ProjectControls";
 import rows from "./SidebarRows.module.css";
 import styles from "./ProjectsScope.module.css";
@@ -21,6 +23,7 @@ type ProjectsScopeProps = { projectId: string | undefined; scopePath: (id?: stri
 export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopeProps) {
   const { app, layout } = useMessages();
   const projects = useProjects();
+  const projectsFailure = useFailureKeptWhileRefetching(projects);
   const tasks = useTasks();
   const allProjects = useMemo(() => projects.data ?? [], [projects.data]);
   const isInScope = useMemo(() => taskScope(projects.data, undefined), [projects.data]);
@@ -28,6 +31,11 @@ export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopePro
   const [listOpen, setListOpen] = useState(true);
   const scopeLink = useRef<HTMLAnchorElement>(null);
   const navigate = useNavigate();
+  const { status: failureBlock, keepFocus } = useStatusFocus(projects.data !== undefined, scopeLink);
+  const retryProjects = () => {
+    keepFocus();
+    return projects.refetch();
+  };
 
   return (
     <div className={styles.scope}>
@@ -52,9 +60,9 @@ export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopePro
           {listOpen && layout.checkedSuffix}
         </p>
       )}
-      {projects.error !== null && (
-        <div className={styles.projectsFailure}>
-          <RequestFailure error={projects.error} onRetry={() => projects.refetch()} />
+      {projectsFailure !== null && (
+        <div ref={failureBlock} className={styles.projectsFailure}>
+          <RequestFailure error={projectsFailure} onRetry={retryProjects} />
         </div>
       )}
       {listOpen && (
@@ -71,6 +79,13 @@ export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopePro
       )}
     </div>
   );
+}
+
+function useFailureKeptWhileRefetching({ error, data, isFetching }: Pick<UseQueryResult<unknown>, "error" | "data" | "isFetching">): Error | null {
+  const [lastFailure, setLastFailure] = useState<Error | null>(null);
+  if (error !== null && error !== lastFailure) setLastFailure(error);
+  const refetchingWithoutData = data === undefined && isFetching;
+  return error ?? (refetchingWithoutData ? lastFailure : null);
 }
 
 function ScopeOpenCount({ count }: { count: number | undefined }) {

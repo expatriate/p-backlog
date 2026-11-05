@@ -52,6 +52,41 @@ describe("боковая панель", () => {
     expect(await screen.findByText(/Сервер беклога не отвечает/)).toBeDefined();
   });
 
+  it("пока повтор загрузки проектов идёт, ошибка остаётся в боковой панели, а фокус — на занятой кнопке повтора", async () => {
+    let retried = false;
+    const { user } = await renderApp(FILES, "/", undefined, {
+      beforeRender: interceptApi(async (path, _init, passOn) => {
+        if (path !== "/api/projects") return passOn();
+        return retried ? new Promise<never>(() => undefined) : serverUnreachable();
+      }),
+    });
+    const sidebar = await screen.findByRole("navigation", { name: "Навигация" });
+    const retry = await within(sidebar).findByRole("button", { name: "Повторить" });
+
+    retried = true;
+    await user.click(retry);
+
+    const retrying = await within(sidebar).findByRole("button", { name: "Повторяем…" });
+    expect(retrying.getAttribute("aria-disabled")).toBe("true");
+    expect(document.activeElement).toBe(retrying);
+    expect(within(sidebar).getByText(/Сервер беклога не отвечает/)).toBeDefined();
+  });
+
+  it("после удачного повтора загрузки проектов фокус переходит на «Проекты», а не теряется", async () => {
+    let retried = false;
+    const { user } = await renderApp(FILES, "/", undefined, {
+      beforeRender: interceptApi(async (path, _init, passOn) => (path !== "/api/projects" || retried ? passOn() : serverUnreachable())),
+    });
+    const sidebar = await screen.findByRole("navigation", { name: "Навигация" });
+    const retry = await within(sidebar).findByRole("button", { name: "Повторить" });
+
+    retried = true;
+    await user.click(retry);
+
+    await within(sidebar).findByRole("checkbox", { name: "Учитывать проект ti в области «Проекты»" });
+    await waitFor(() => expect(document.activeElement).toBe(within(sidebar).getByRole("link", { name: "Проекты" })));
+  });
+
   it("список проектов сворачивается, заметка об охвате видна всегда", async () => {
     const { user } = await renderApp(FILES);
     await screen.findByRole("checkbox", { name: "Учитывать проект ti в области «Проекты»" });
