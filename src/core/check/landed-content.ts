@@ -18,7 +18,9 @@ type Patch = { id: string; commit: string; preimageRevision: string; blobs: Blob
 
 type PatchPair = readonly [change: Patch, copy: Patch];
 
-type PreimageEdit = { firstLine: number; lastLine: number; delta: number };
+type LineSpan = { firstLine: number; lineCount: number };
+
+type PreimageEdit = LineSpan & { delta: number };
 
 type EditsBetween = (change: Patch, copy: Patch) => readonly PreimageEdit[] | null;
 
@@ -32,6 +34,7 @@ type CommitsCarryingContent = (tip: string, scope: readonly string[]) => Promise
 // patch-id hashes context lines, so the context is pinned rather than taken from diff.context; zero context lets a copy match beside a neighbour's edit, and atSamePlace rejects a copy when the preimages differ at its first changed line or, for an insertion, at either neighbour.
 const PATCH_OPTIONS = ["-p", ...PARSED_DIFF_OPTIONS, "--no-renames", "--no-relative", "--full-index", "--diff-algorithm=myers", "--indent-heuristic", "--unified=0", "--inter-hunk-context=0"];
 const COMMIT_HEADER = "--format=commit %H";
+const INSERTION_NEIGHBOURS = 2;
 const TREE_PAIR_LINE = /^[0-9a-f]+ [0-9a-f]+$/;
 const NO_COMMIT = /^0+$/;
 const COMMIT_RECORD = /commit (?<commit>[0-9a-f]+)\0/;
@@ -231,22 +234,34 @@ function editsNeeded(change: Patch, copy: Patch): boolean {
 
 function atSamePlace(change: Patch, copy: Patch, editsBetween: EditsBetween): boolean {
   const edits = editsBetween(change, copy);
-  return edits !== null && change.changeStarts.every((start, index) => !placeEdited(start, edits) && shiftedLine(start.line, edits) === copy.changeStarts[index]?.line);
+  return edits !== null && change.changeStarts.every((start, index) => copyStartsAtSamePlace(start, copy.changeStarts[index], edits));
 }
 
-function placeEdited({ line, insertion }: ChangeStart, edits: readonly PreimageEdit[]): boolean {
-  const placeFirstLine = insertion ? line - 1 : line;
-  return edits.some(({ firstLine, lastLine }) => firstLine <= line && placeFirstLine <= lastLine);
+function copyStartsAtSamePlace(start: ChangeStart, copyStart: ChangeStart | undefined, edits: readonly PreimageEdit[]): boolean {
+  const place = placeOf(start);
+  const placeUntouched = !edits.some((edit) => spansOverlap(edit, place));
+  return placeUntouched && shiftedLine(start.line, edits) === copyStart?.line;
+}
+
+function placeOf({ line, insertion }: ChangeStart): LineSpan {
+  return insertion ? { firstLine: line - 1, lineCount: INSERTION_NEIGHBOURS } : { firstLine: line, lineCount: 1 };
+}
+
+function spansOverlap(edit: LineSpan, place: LineSpan): boolean {
+  return edit.firstLine < lineAfter(place) && place.firstLine < lineAfter(edit);
+}
+
+function lineAfter({ firstLine, lineCount }: LineSpan): number {
+  return firstLine + lineCount;
 }
 
 function preimageEditsOf(header: HunkHeader | null): PreimageEdit[] {
   if (header === null) return [];
-  const firstLine = firstLineOf(header.oldStart, header.oldCount);
-  return [{ firstLine, lastLine: firstLine + header.oldCount - 1, delta: header.newCount - header.oldCount }];
+  return [{ firstLine: firstLineOf(header.oldStart, header.oldCount), lineCount: header.oldCount, delta: header.newCount - header.oldCount }];
 }
 
 function shiftedLine(line: number, edits: readonly PreimageEdit[]): number {
-  return edits.reduce((shifted, { lastLine, delta }) => (lastLine < line ? shifted + delta : shifted), line);
+  return edits.reduce((shifted, edit) => (lineAfter(edit) <= line ? shifted + edit.delta : shifted), line);
 }
 
 function parentOf(commit: string): string {
