@@ -9,7 +9,7 @@ import type { FlowForecast, Signal } from "../stats/types";
 import { forecastOutlook, forecastSpan } from "./forecast";
 import { labelLookups, type LabelTables } from "./labels";
 import { problemList } from "./problem-list";
-import type { CoreMessages, CountUnit, UntrustedRepoTexts } from "./types";
+import type { CoreMessages, CountUnit, UnsafeRepoTexts } from "./types";
 import { zodIssueText } from "./zod";
 
 const zodEn = z.locales.en().localeError;
@@ -137,7 +137,7 @@ function schemaIssue(issue: SchemaIssue): string {
   }
 }
 
-const untrustedRepo = (repo: string, trustCommand: string): UntrustedRepoTexts => ({ reason: `git does not trust ${repo} (the directory belongs to another user)`, fix: `Fix: ${trustCommand}` });
+const unsafeRepo = (repo: string, trustCommand: string): UnsafeRepoTexts => ({ reason: `git does not trust ${repo} (the directory belongs to another user)`, fix: `Fix: ${trustCommand}` });
 
 const UNPARSED_FILE: Record<UnparsedFile, string> = { task: "its file", project: "its project file" };
 
@@ -230,7 +230,7 @@ function checkProblem(p: CheckProblem): string {
     case "project-repo-not-git":
       return `Project ${p.projectId}: ${p.repo} is not a git repository — commits and code edits of its tasks are not checked`;
     case "project-repo-unsafe": {
-      const { reason, fix } = untrustedRepo(p.repo, p.trustCommand);
+      const { reason, fix } = unsafeRepo(p.repo, p.trustCommand);
       return `Project ${p.projectId}: ${reason} — commits and code edits of its tasks are not checked. ${fix}`;
     }
     case "project-history-unreadable":
@@ -263,7 +263,7 @@ export const coreEn: CoreMessages = {
   problem,
   problems,
   taskNotLoaded,
-  untrustedRepo,
+  unsafeRepo,
   schemaIssue,
   ...labelLookups(LABELS),
   count,

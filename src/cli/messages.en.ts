@@ -148,7 +148,7 @@ export const cliEn: CliMessages = {
   sourceEmpty: "--source cannot be empty",
   sourceFileMissing: (source) => `--source ${source}: no such file in the project repository — check the path`,
   sourceFileUnchecked: (source) => `--source ${source}: the file is not on disk and git branches could not be read — the path was not checked, check it yourself`,
-  sourceFileUncheckedUntrustedRepo: (source, { reason, fix }) => `--source ${source}: the file is not on disk and git branches were not read — ${reason}; the path was not checked. ${fix}`,
+  sourceFileUncheckedUnsafeRepo: (source, { reason, fix }) => `--source ${source}: the file is not on disk and git branches were not read — ${reason}; the path was not checked. ${fix}`,
   alreadyInStatusNothingToVerify: (id, status) => `${id} is already ${status}: nothing to confirm`,
   verified: (id) => `${id}: confirmed`,
   verifiedWithSource: (id, source) => `${id}: confirmed, source → ${source}`,

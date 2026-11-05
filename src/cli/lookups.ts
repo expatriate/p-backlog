@@ -59,14 +59,15 @@ export async function sourcePresenceOrWarn(io: CliIo, repo: string, source: stri
 }
 
 function sourcePresenceWarning(io: CliIo, presence: SourcePresence, repo: string, source: string): string | null {
-  if (typeof presence === "object") return io.cli.sourceFileUncheckedUntrustedRepo(source, io.core.untrustedRepo(repo, presence.trustCommand));
-  switch (presence) {
+  switch (presence.kind) {
     case "present":
       return null;
     case "missing":
       return io.cli.sourceFileMissing(source);
     case "unchecked":
       return io.cli.sourceFileUnchecked(source);
+    case "unsafe-repo":
+      return io.cli.sourceFileUncheckedUnsafeRepo(source, io.core.unsafeRepo(repo, presence.trustCommand));
   }
 }
 

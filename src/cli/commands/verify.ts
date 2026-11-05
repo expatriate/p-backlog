@@ -41,7 +41,7 @@ async function verifyOne(id: string, { loaded, source, write, io }: Verification
   const project = projectOf(loaded, task);
   const lookup = repoLookup(io);
   const repo = project === undefined ? undefined : await findRepo(project, lookup);
-  if (source !== undefined && repo !== undefined && (await sourcePresenceOrWarn(io, repo, source)) === "missing") return EXIT.invalid;
+  if (source !== undefined && repo !== undefined && (await sourcePresenceOrWarn(io, repo, source)).kind === "missing") return EXIT.invalid;
   const target = source ?? (await relocatedSource(repo, task));
   const anchored = target ?? task.source;
   const anchor = anchored === undefined ? undefined : anchorChange(await sourceAnchor(repo, anchored, lookup.onUnreadable));

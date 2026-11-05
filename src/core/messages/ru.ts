@@ -9,7 +9,7 @@ import type { FlowForecast, Signal } from "../stats/types";
 import { forecastOutlook, forecastSpan, type SpanUnit } from "./forecast";
 import { labelLookups, type LabelTables } from "./labels";
 import { problemList } from "./problem-list";
-import type { CoreMessages, CountUnit, UntrustedRepoTexts } from "./types";
+import type { CoreMessages, CountUnit, UnsafeRepoTexts } from "./types";
 import { zodIssueText } from "./zod";
 
 const zodRu = z.locales.ru().localeError;
@@ -149,7 +149,7 @@ function schemaIssue(issue: SchemaIssue): string {
   }
 }
 
-const untrustedRepo = (repo: string, trustCommand: string): UntrustedRepoTexts => ({ reason: `git не доверяет ${repo} (каталог принадлежит другому пользователю)`, fix: `Исправление: ${trustCommand}` });
+const unsafeRepo = (repo: string, trustCommand: string): UnsafeRepoTexts => ({ reason: `git не доверяет ${repo} (каталог принадлежит другому пользователю)`, fix: `Исправление: ${trustCommand}` });
 
 const UNPARSED_FILE_OF_TASK: Record<UnparsedFile, string> = { task: "её файл", project: "файл её проекта" };
 const UNPARSED_FILE_OF_EPIC: Record<UnparsedFile, string> = { task: "его файл", project: "файл его проекта" };
@@ -245,7 +245,7 @@ function checkProblem(p: CheckProblem): string {
     case "project-repo-not-git":
       return `Проект ${p.projectId}: ${p.repo} — не git-репозиторий, коммиты и правки кода его задач не проверяются`;
     case "project-repo-unsafe": {
-      const { reason, fix } = untrustedRepo(p.repo, p.trustCommand);
+      const { reason, fix } = unsafeRepo(p.repo, p.trustCommand);
       return `Проект ${p.projectId}: ${reason} — коммиты и правки кода его задач не проверяются. ${fix}`;
     }
     case "project-history-unreadable":
@@ -278,7 +278,7 @@ export const coreRu: CoreMessages = {
   problem,
   problems,
   taskNotLoaded,
-  untrustedRepo,
+  unsafeRepo,
   schemaIssue,
   ...labelLookups(LABELS),
   count,
