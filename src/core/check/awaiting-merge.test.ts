@@ -247,4 +247,28 @@ describe("awaitingMerge", () => {
 
     expect(await mergeWait(repo, { "SPA-1": { branch: "next", commit: "1".repeat(40) }, "SPA-2": next }, runGitOutcome)).toEqual({ pending: new Set(["SPA-2"]), unknownBranches: [] });
   });
+
+  it("коммита создания нет, а git не ответил, полный ли клон, — ветка названа неизвестной, а не молча «не ждёт слияния»", async () => {
+    const { repo } = await featureOfTwoCommits();
+
+    expect(
+      await mergeWait(
+        repo,
+        { "SPA-1": { branch: "next", commit: "1".repeat(40) } },
+        gitFailing((args) => args.includes("--is-shallow-repository")),
+      ),
+    ).toEqual({ pending: new Set(), unknownBranches: ["next"] });
+  });
+
+  it("коммита создания нет, git не ответил, полный ли клон, а ветки задачи уже нет — задача не ждёт слияния без предупреждения", async () => {
+    const { repo } = await featureOfTwoCommits();
+
+    expect(
+      await mergeWait(
+        repo,
+        { "SPA-1": { branch: "gone", commit: "1".repeat(40) } },
+        gitFailing((args) => args.includes("--is-shallow-repository")),
+      ),
+    ).toEqual({ pending: new Set(), unknownBranches: [] });
+  });
 });
