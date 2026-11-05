@@ -94,20 +94,16 @@ export function matchingRoots(dir: string, dirRoots: DirGitRoots, places: RepoPl
 }
 
 export function findProjectForRoots(projects: readonly Project[], roots: GitRoots, places: RepoPlaces): Project | undefined {
-  const matches = projects.flatMap((project) =>
-    project.repos.flatMap((repo) => {
-      const repoPath = resolvedRepo(repo, places);
-      return repoPath !== null && repoCovers(repoPath, roots) ? [{ project, repoPath }] : [];
-    }),
-  );
+  const matches = projects.flatMap((project) => {
+    const repoPath = closestCoveringRepo(project.repos, roots, places);
+    return repoPath === undefined ? [] : [{ project, repoPath }];
+  });
   return matches.sort((a, b) => b.repoPath.length - a.repoPath.length)[0]?.project;
 }
 
-export function anyRepoCovers(repos: readonly string[], roots: GitRoots, places: RepoPlaces): boolean {
-  return repos.some((repo) => {
-    const repoPath = resolvedRepo(repo, places);
-    return repoPath !== null && repoCovers(repoPath, roots);
-  });
+export function closestCoveringRepo(repos: readonly string[], roots: GitRoots, places: RepoPlaces): string | undefined {
+  const covering = repos.map((repo) => resolvedRepo(repo, places)).filter((repoPath): repoPath is string => repoPath !== null && repoCovers(repoPath, roots));
+  return covering.sort((a, b) => b.length - a.length)[0];
 }
 
 function repoCovers(repoPath: string, { worktree, main }: GitRoots): boolean {

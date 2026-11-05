@@ -81,6 +81,41 @@ describe("backlog project", () => {
       expect((await loadBacklog(root)).projects).toEqual([]);
     });
 
+    it("сломанный project.md вложенного репозитория не уступает задачи разобранному проекту родительского каталога", async () => {
+      const { run, root } = await makeCliSandbox();
+      await mkdir(join(root, "work"), { recursive: true });
+      await writeFile(join(root, "work", "project.md"), "---\nname: work\nprefix: WK\nrepos: [~/projects]\n---\n");
+      const nested = join(root, "spa", "project.md");
+      await mkdir(join(root, "spa"), { recursive: true });
+      await writeFile(nested, "repos: [~/projects/spa]\n");
+
+      const created = await run(["new", "--category", "bug", "--title", "Задача"]);
+      const listed = await run(["list"]);
+
+      expect(created.code).toBe(EXIT.notFound);
+      expect(created.err).toContain(`Проект не создан: ${nested} не разобран`);
+      expect((await loadBacklog(root)).tasks).toEqual([]);
+      expect(listed.err).toContain(unparsed(nested));
+    });
+
+    it.each([
+      { case: "сломанный project.md в своём каталоге проекта без repos", brokenDir: "spa", brokenText: "без frontmatter\n", cwd: "projects/spa" },
+      { case: "каталог вне git", brokenDir: "notes", brokenText: "repos: [~/projects/plain]\n", cwd: "projects/plain" },
+    ])("$case — new не уходит в родительский проект", async ({ brokenDir, brokenText, cwd }) => {
+      const { run, root, home } = await makeCliSandbox();
+      await mkdir(join(home, cwd), { recursive: true });
+      await mkdir(join(root, "work"), { recursive: true });
+      await writeFile(join(root, "work", "project.md"), "---\nname: work\nprefix: WK\nrepos: [~/projects]\n---\n");
+      const broken = join(root, brokenDir, "project.md");
+      await mkdir(join(root, brokenDir), { recursive: true });
+      await writeFile(broken, brokenText);
+
+      const created = await run(["new", "--category", "bug", "--title", "Задача"], { cwd: join(home, cwd) });
+
+      expect(created.err).toContain(`Проект не создан: ${broken} не разобран`);
+      expect((await loadBacklog(root)).tasks).toEqual([]);
+    });
+
     it("repos на каталоге вне git — проект назван при запуске из этого каталога", async () => {
       const { run, root, home } = await makeCliSandbox();
       const plain = join(home, "plain");
