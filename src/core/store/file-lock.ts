@@ -87,15 +87,21 @@ async function abandonedToken(lock: string): Promise<string | null> {
 async function breakAbandoned(lock: string, abandoned: string): Promise<boolean> {
   const breaker = `${lock}.break`;
   if (!(await tryCreate(breaker, abandoned))) {
-    if ((await abandonedToken(breaker)) !== null) await rm(breaker, { force: true });
+    await removeLockFileWhile(breaker, async () => (await abandonedToken(breaker)) !== null);
     return false;
   }
   try {
-    if ((await abandonedToken(lock)) === abandoned) await rm(lock, { force: true });
+    await removeLockFileWhile(lock, async () => (await abandonedToken(lock)) === abandoned);
     return true;
   } finally {
-    await rm(breaker, { force: true });
+    await removeLockFileWhile(breaker, async () => true);
   }
+}
+
+function removeLockFileWhile(path: string, stillRemovable: () => Promise<boolean>): Promise<void> {
+  return retryWhileBlockedOnWindows(async () => {
+    if (await stillRemovable()) await rm(path, { force: true });
+  });
 }
 
 function keepRefreshed(lock: string, token: string): () => Promise<void> {
@@ -129,5 +135,5 @@ async function refreshIfHeld(lock: string, token: string): Promise<void> {
 
 async function release({ lock, token, stopRefreshing }: HeldLock): Promise<void> {
   await stopRefreshing();
-  if ((await readTextOrNull(lock)) === token) await retryWhileBlockedOnWindows(() => rm(lock, { force: true }));
+  await removeLockFileWhile(lock, async () => (await readTextOrNull(lock)) === token);
 }

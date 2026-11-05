@@ -18,8 +18,8 @@ export async function appendJournal(projectDir: string, events: readonly Journal
   }
 }
 
-// A compacting holder may retry both the blocked rename and the blocked lock removal on Windows.
-export const JOURNAL_LOCK_WAIT_MS = 2 * BLOCKED_RETRIES_TOTAL_MS + 10 * SECOND_MS;
+// On Windows, breaking an abandoned lock retries two blocked removals, and a compacting holder then retries its rename and its lock removal.
+export const JOURNAL_LOCK_WAIT_MS = 4 * BLOCKED_RETRIES_TOTAL_MS + 10 * SECOND_MS;
 
 async function appendWaitingForLock(path: string, events: readonly JournalEvent[]): Promise<void> {
   try {
