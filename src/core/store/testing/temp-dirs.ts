@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { onTestFinished } from "vitest";
 
-export { taskFile } from "./task-file-text";
+export { taskFile } from "./task-file-text.ts";
 
 export async function makeTempDir(): Promise<string> {
   const dir = await realpath(await mkdtemp(join(tmpdir(), "backlog-test-")));
