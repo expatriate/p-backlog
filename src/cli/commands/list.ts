@@ -1,7 +1,7 @@
 import { buildIndex } from "../../core/model/graph";
 import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
 import { TASK_STATUSES } from "../../core/model/types";
-import { loadBacklog } from "../../core/store/load";
+import { loadBacklog, unparsedTaskIds } from "../../core/store/load";
 import { tasksJson } from "../describe";
 import { formatJson, formatTaskLine } from "../format";
 import type { CliCommand } from "../command";
@@ -45,7 +45,7 @@ async function runList(args: string[], io: CliIo): Promise<ExitCode> {
   );
   const tasks = sortTasks(filtered, { key: "priority", direction: "desc" }, index, io.language);
 
-  if (values.json) io.print(formatJson(tasksJson(tasks, index)));
+  if (values.json) io.print(formatJson(tasksJson(tasks, index, unparsedTaskIds(loaded.errors))));
   else io.print(tasks.length === 0 ? io.cli.noTasksFound : tasks.map((task) => formatTaskLine(io.cli, task, index)).join("\n"));
   return EXIT.ok;
 }

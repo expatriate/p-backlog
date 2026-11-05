@@ -12,9 +12,10 @@ export type LoadedBacklog = { projects: Project[]; tasks: Task[]; errors: ParseE
 export type UnparsedTask = { projectId: string; id: string };
 
 export function unparsedTasks(errors: readonly ParseError[]): UnparsedTask[] {
-  return errors.flatMap(({ path, projectId }) => {
-    const id = basename(path, ".md");
-    return ID_PATTERN.test(id) ? [{ projectId, id }] : [];
+  return errors.flatMap(({ path, projectId, hiddenTasks = [] }) => {
+    const stem = basename(path, ".md");
+    const ids = ID_PATTERN.test(stem) ? [stem, ...hiddenTasks] : hiddenTasks;
+    return ids.map((id) => ({ projectId, id }));
   });
 }
 
@@ -28,6 +29,10 @@ export function unparsedProjectFiles(errors: readonly ParseError[]): ParseError[
 
 export function unparsedProjectFileOf(errors: readonly ParseError[], projectId: string): ParseError | undefined {
   return unparsedProjectFiles(errors).find((error) => error.projectId === projectId);
+}
+
+export function unparsedTaskIds(errors: readonly ParseError[]): ReadonlySet<string> {
+  return new Set(unparsedTasks(errors).map((task) => task.id));
 }
 
 export async function projectDirNames(root: string): Promise<string[]> {
@@ -47,7 +52,10 @@ async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBac
   const projectPath = join(dir, PROJECT_FILE);
   const project = await parseDocumentOrNull(projectPath, (text) => parseProjectFile(text, { id: projectId, path: projectPath }));
   if (project === null) return { projects: [], tasks: [], errors: [] };
-  if (!project.ok) return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, problems: project.problems }] };
+  if (!project.ok) {
+    const hiddenTasks = [...(await taskIdsOnDisk(dir))].sort(compareIds);
+    return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, problems: project.problems, hiddenTasks }] };
+  }
 
   const taskPaths = (await taskFileNames(dir)).map((name) => join(dir, name));
   const loaded = await Promise.all(taskPaths.map(async (path) => ({ path, result: await loadTaskFile(path, project.value) })));

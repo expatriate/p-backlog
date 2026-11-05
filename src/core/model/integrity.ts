@@ -43,8 +43,8 @@ export function epicProblems(candidate: Pick<Task, "id" | "type" | "epic" | "pro
   return problems;
 }
 
-export function taskWarnings(task: Task, index: BacklogIndex): Problem[] {
-  const missing = missingReferences(task, index).map((id): Problem => ({ code: "reference-missing", id }));
+export function taskWarnings(task: Task, index: BacklogIndex, unparsedTaskIds: ReadonlySet<string>): Problem[] {
+  const missing = missingReferences(task, index).map((id): Problem => ({ code: unparsedTaskIds.has(id) ? "reference-unparsed" : "reference-missing", id }));
   return [...missing, ...integrityErrors(task, index)];
 }
 

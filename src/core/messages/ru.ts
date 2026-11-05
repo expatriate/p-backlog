@@ -149,6 +149,8 @@ function schemaIssue(issue: SchemaIssue): string {
   }
 }
 
+const taskNotLoaded = (id: string): string => `${id} не загружена: не разобран её файл или файл её проекта`;
+
 function problem(p: Problem): string {
   switch (p.code) {
     case "self-block":
@@ -177,6 +179,8 @@ function problem(p: Problem): string {
       return `эпик закроется сам, когда закроются все его задачи — сначала закройте открытые: ${p.children.join(", ")}`;
     case "reference-missing":
       return `${p.id} не найдена`;
+    case "reference-unparsed":
+      return taskNotLoaded(p.id);
     case "not-utf8":
       return "файл не в кодировке UTF-8 — беклог его не меняет, пока его не пересохранят в UTF-8";
     case "no-frontmatter":
@@ -264,6 +268,7 @@ export const coreRu: CoreMessages = {
   languageName: "Русский",
   problem,
   problems,
+  taskNotLoaded,
   schemaIssue,
   ...labelLookups(LABELS),
   count,

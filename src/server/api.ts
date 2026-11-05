@@ -23,6 +23,7 @@ import type { Project } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { parseSchema } from "../core/model/zod-issues";
 import { applyBatch, type CoreBatchOutcome } from "../core/store/batch";
+import { unparsedTaskIds } from "../core/store/load";
 import { writeSettings } from "../core/store/settings";
 import { deleteProject, setProjectActive } from "../core/store/projects";
 import { updateTaskInIndex } from "../core/store/update";
@@ -89,7 +90,13 @@ async function listProjects(c: Context, { backlog, graphHealth }: ApiDeps) {
 async function listTasks(c: Context, { backlog, readLanguage }: ApiDeps) {
   const [{ tasks, closedInWeb, errors, revision }, language] = await Promise.all([backlog(), readLanguage()]);
   const messages = coreMessages(language);
-  return c.json<TasksResponse>({ tasks, closedInWeb, errors: errors.map(({ problems, ...error }) => ({ ...error, message: messages.problems(problems) })), revision });
+  return c.json<TasksResponse>({
+    tasks,
+    closedInWeb,
+    errors: errors.map(({ problems, ...error }) => ({ ...error, message: messages.problems(problems) })),
+    unparsedTaskIds: [...unparsedTaskIds(errors)],
+    revision,
+  });
 }
 
 async function updateSettings(c: Context, { root, readLanguage }: ApiDeps) {
@@ -104,12 +111,15 @@ async function updateTask(c: Context, id: string, { readLanguage, backlog, now, 
   const body = await readBody(c, updateTaskRequestSchema, readLanguage);
   if (!body.ok) return body.response;
 
-  const { index } = await backlog();
+  const { index, errors } = await backlog();
   const update = updateTaskInIndex(index, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now(), via: "web", onError: onWriteError });
   const result = await changeHub.ownWrite(update, (updated) => (updated.ok ? writtenTasks(updated) : []));
   if (result.ok) return c.json(result.task);
   const messages = serverMessages(body.language);
-  if (result.reason === "not-found") return errorResponse(c, 404, messages.taskNotFound(id));
+  if (result.reason === "not-found") {
+    const notLoaded = unparsedTaskIds(errors).has(id);
+    return errorResponse(c, 404, notLoaded ? coreMessages(body.language).taskNotLoaded(id) : messages.taskNotFound(id));
+  }
   if (result.reason === "conflict") return c.json<ConflictResponse>({ errors: [messages.taskChangedOnDisk], current: result.current }, 409);
   if (result.reason === "busy") return fileBusyResponse(c, body.language, result);
   return invalidResponse(c, result, coreMessages(body.language));

@@ -62,11 +62,11 @@ describe("integrityErrors", () => {
 });
 
 describe("taskWarnings", () => {
-  it("добавляет ненайденные ссылки к нарушениям правил", () => {
+  it("добавляет ненайденные ссылки к нарушениям правил, а задачу из неразобранного файла называет незагруженной", () => {
     const task = makeTask({ id: "SPA-1", blockedBy: ["SPA-8"], related: ["TI-9"], epic: "SPA-7" });
-    expect(taskWarnings(task, buildIndex([task]))).toEqual([
+    expect(taskWarnings(task, buildIndex([task]), new Set(["TI-9"]))).toEqual([
       { code: "reference-missing", id: "SPA-8" },
-      { code: "reference-missing", id: "TI-9" },
+      { code: "reference-unparsed", id: "TI-9" },
       { code: "epic-missing", epic: "SPA-7" },
     ]);
   });

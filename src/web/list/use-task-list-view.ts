@@ -3,6 +3,7 @@ import { countOpenTasks, projectNameOf, taskScope } from "../app/scope";
 import { buildIndex } from "../../core/model/graph";
 import { filterListTasks, sortTasks } from "../../core/model/query";
 import { localeOf, type Language } from "../../core/i18n/language";
+import type { ParseErrorView, ProjectView } from "../../core/api/contract";
 import type { Task } from "../../core/model/types";
 import { useProjects, useTasks } from "../app/queries";
 import { useLanguage } from "../i18n";
@@ -10,7 +11,7 @@ import { epicTones } from "../ui/epic-tone";
 import { epicChoices } from "./epic-choices";
 import { AUTO_CLOSED_VIEW, dateColumnFor, followDateColumn, type ListParams } from "../app/list-params";
 
-type ListContent = "failed" | "loading" | "unknownProject" | "empty" | "table";
+type ListContent = "failed" | "loading" | "unknownProject" | "unparsedProject" | "empty" | "table";
 
 export type TaskListView = ReturnType<typeof useTaskListView>;
 
@@ -24,7 +25,7 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const allTasks = useMemo(() => tasks.data?.tasks ?? [], [tasks.data]);
   const isInScope = useMemo(() => taskScope(projects.data, projectId), [projects.data, projectId]);
   const scopedTasks = useMemo(() => (isInScope === undefined ? [] : allTasks.filter(isInScope)), [allTasks, isInScope]);
-  const all = useMemo(() => ({ tasks: allTasks, index: buildIndex(allTasks), tones: epicTones(allTasks) }), [allTasks]);
+  const all = useMemo(() => ({ tasks: allTasks, index: buildIndex(allTasks), unparsedTaskIds: new Set(tasks.data?.unparsedTaskIds), tones: epicTones(allTasks) }), [allTasks, tasks.data]);
   const { index, tones } = all;
   const filterContext = useMemo(() => ({ index, closedInWeb: new Set(tasks.data?.closedInWeb) }), [index, tasks.data]);
   const visibleTasks = useMemo(() => sortTasks(filterListTasks(scopedTasks, params.filter, filterContext), sort, index, language), [scopedTasks, index, filterContext, params.filter, sort, language]);
@@ -36,8 +37,9 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const failedQueries = [tasks, projects].filter((query) => query.error !== null);
   const error = tasks.error ?? projects.error;
   const refetch = () => Promise.all(failedQueries.map((query) => query.refetch()));
-  const unknownProject = projectId !== undefined && projects.data !== undefined && !projects.data.some((project) => project.id === projectId);
-  const content = listContentOf({ hasData: tasks.data !== undefined && isInScope !== undefined, failed: error !== null, unknownProject, visibleCount: visibleTasks.length });
+  const parseErrors = (tasks.data?.errors ?? []).filter((parseError) => projectId === undefined || parseError.projectId === projectId);
+  const project = projectPresence(projectId, projects.data, parseErrors);
+  const content = listContentOf({ hasData: tasks.data !== undefined && isInScope !== undefined, failed: error !== null, project, visibleCount: visibleTasks.length });
 
   return {
     tasksLoaded: tasks.data !== undefined,
@@ -45,7 +47,7 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
     content,
     settled: content === "table" && error === null,
     projectName: projectId === undefined ? undefined : projectNameOf(projects.data, projectId),
-    parseErrors: (tasks.data?.errors ?? []).filter((parseError) => projectId === undefined || parseError.projectId === projectId),
+    parseErrors,
     all,
     table: { tasks: visibleTasks, sort, dateColumn },
     filterChoices: { tags, epicChoices: epicFilterChoices, autoClosedCount },
@@ -53,9 +55,19 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   };
 }
 
-function listContentOf({ hasData, failed, unknownProject, visibleCount }: { hasData: boolean; failed: boolean; unknownProject: boolean; visibleCount: number }): ListContent {
+type ProjectPresence = "listed" | "unknown" | "unparsed";
+
+type ListState = { hasData: boolean; failed: boolean; project: ProjectPresence; visibleCount: number };
+
+function projectPresence(projectId: string | undefined, projects: readonly ProjectView[] | undefined, parseErrors: readonly ParseErrorView[]): ProjectPresence {
+  if (projectId === undefined || projects === undefined || projects.some((project) => project.id === projectId)) return "listed";
+  return parseErrors.some((parseError) => parseError.hiddenTasks !== undefined) ? "unparsed" : "unknown";
+}
+
+function listContentOf({ hasData, failed, project, visibleCount }: ListState): ListContent {
   if (!hasData) return failed ? "failed" : "loading";
-  if (unknownProject) return "unknownProject";
+  if (project === "unparsed") return "unparsedProject";
+  if (project === "unknown") return "unknownProject";
   return visibleCount === 0 ? "empty" : "table";
 }
 

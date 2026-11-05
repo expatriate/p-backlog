@@ -137,6 +137,8 @@ function schemaIssue(issue: SchemaIssue): string {
   }
 }
 
+const taskNotLoaded = (id: string): string => `${id} is not loaded: its file or its project file could not be parsed`;
+
 function problem(p: Problem): string {
   switch (p.code) {
     case "self-block":
@@ -165,6 +167,8 @@ function problem(p: Problem): string {
       return `the epic closes on its own once all its tasks are closed — close the open ones first: ${p.children.join(", ")}`;
     case "reference-missing":
       return `${p.id} not found`;
+    case "reference-unparsed":
+      return taskNotLoaded(p.id);
     case "not-utf8":
       return "the file is not UTF-8 — the backlog leaves it untouched until it is re-saved as UTF-8";
     case "no-frontmatter":
@@ -250,6 +254,7 @@ export const coreEn: CoreMessages = {
   languageName: "English",
   problem,
   problems,
+  taskNotLoaded,
   schemaIssue,
   ...labelLookups(LABELS),
   count,

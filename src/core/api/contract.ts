@@ -66,9 +66,9 @@ type BatchPrevious = z.infer<typeof batchPreviousSchema>;
 export type BatchOutcome = { id: string; outcome: "done"; version: string; previous: BatchPrevious } | { id: string; outcome: "skipped"; reason: BatchSkipReason; message: string };
 export type BatchResponse = { results: BatchOutcome[] };
 
-type ParseErrorView = Omit<ParseError, "problems"> & { message: string };
+export type ParseErrorView = Omit<ParseError, "problems"> & { message: string };
 export type Revision = { boot: string; seq: number };
-export type TasksResponse = { tasks: Task[]; closedInWeb: string[]; errors: ParseErrorView[]; revision: Revision };
+export type TasksResponse = { tasks: Task[]; closedInWeb: string[]; errors: ParseErrorView[]; unparsedTaskIds: string[]; revision: Revision };
 export type ProjectView = Project & { codeGraph: GraphState };
 export type ProjectsResponse = { projects: ProjectView[]; revision: Revision };
 export type ProjectDeletedResponse = { deleted: string };

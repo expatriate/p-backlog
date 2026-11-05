@@ -12,6 +12,7 @@ export const listRu = {
   parseErrorsTitle: "Не удалось разобрать файлы:",
   loadingTasks: "Загружаем задачи…",
   unknownProject: "Проект не найден.",
+  unparsedProject: "Файл проекта не разобран — его задачи не показаны, пока файл не исправят.",
   hiddenOpenNote: (n: number): string => `Ещё ${countRu(n, "открытая задача", "открытые задачи", "открытых задач")} — в проектах без галочки.`,
   noTasksInScope: (note: string): string => `В учтённых проектах задач нет. ${note}`,
   noTasksYet: <T>(code: (text: string) => T): Array<string | T> => ["Задач пока нет. Беклог наполняет агент: он записывает задачи командой ", code("backlog new"), ", пока работает над кодом."],

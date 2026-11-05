@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef } from "react";
 import { useNavigate, useParams, useSearchParams, type SetURLSearchParams } from "react-router";
 import type { TasksResponse } from "../../core/api/contract";
 import { listPath } from "../../core/api/web-paths";
-import { AllTasksProvider } from "../app/all-tasks";
+import { AllTasksProvider, useAllTasks } from "../app/all-tasks";
 import { RequestFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
@@ -106,10 +106,11 @@ function useListLayout(searchKey: string, setSearch: SetURLSearchParams) {
 }
 
 function MissingTaskNote({ taskId }: { taskId: string | undefined }) {
-  const { list } = useMessages();
+  const { core, list } = useMessages();
+  const { unparsedTaskIds } = useAllTasks();
   return (
     <Notice className={styles.warning} shown={taskId !== undefined} role="status">
-      {taskId !== undefined && list.missingTask(taskId)}
+      {taskId !== undefined && (unparsedTaskIds.has(taskId) ? core.taskNotLoaded(taskId) : list.missingTask(taskId))}
     </Notice>
   );
 }
@@ -167,6 +168,7 @@ function ListStatus({ view: { content, settled, request, empty, table }, filter,
       {request.error !== null && <RequestFailure error={request.error} onRetry={retry} />}
       {content === "loading" && <p>{list.loadingTasks}</p>}
       {content === "unknownProject" && <p>{list.unknownProject}</p>}
+      {content === "unparsedProject" && <p>{list.unparsedProject}</p>}
       {content === "empty" && <EmptyList {...empty} filter={filter} onFilterChange={changeFilter} />}
       {settled && <p>{list.taskCount(announcedCount)}</p>}
     </PageHint>

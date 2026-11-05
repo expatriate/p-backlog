@@ -18,7 +18,7 @@ export type TaskDescription = {
   deletion: ScheduledDeletion | undefined;
 };
 
-export function describeTask(task: Task, index: BacklogIndex): TaskDescription {
+export function describeTask(task: Task, index: BacklogIndex, unparsedTaskIds: ReadonlySet<string>): TaskDescription {
   const open = openBlockers(task, index);
   return {
     task,
@@ -29,7 +29,7 @@ export function describeTask(task: Task, index: BacklogIndex): TaskDescription {
     related: relatedTasks(task, index),
     epic: task.epic === undefined ? undefined : index.byId.get(task.epic),
     children: task.type === "epic" ? epicChildren(task, index) : [],
-    warnings: taskWarnings(task, index),
+    warnings: taskWarnings(task, index, unparsedTaskIds),
     deletion: scheduledDeletion(task, index),
   };
 }
@@ -55,10 +55,10 @@ function deletionJson(deletion: ScheduledDeletion | undefined): object {
   return "at" in deletion ? { deletesAt: formatLocalIso(deletion.at) } : { deletesAfterEpic: deletion.afterEpic };
 }
 
-export function taskJson(task: Task, index: BacklogIndex): object {
-  return descriptionJson(describeTask(task, index));
+export function taskJson(task: Task, index: BacklogIndex, unparsedTaskIds: ReadonlySet<string>): object {
+  return descriptionJson(describeTask(task, index, unparsedTaskIds));
 }
 
-export function tasksJson(tasks: readonly Task[], index: BacklogIndex): object[] {
-  return tasks.map((task) => taskJson(task, index));
+export function tasksJson(tasks: readonly Task[], index: BacklogIndex, unparsedTaskIds: ReadonlySet<string>): object[] {
+  return tasks.map((task) => taskJson(task, index, unparsedTaskIds));
 }

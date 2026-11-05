@@ -23,6 +23,7 @@ export type Problem =
   | { code: "epic-in-epic" }
   | { code: "epic-closed-with-open-tasks"; children: readonly string[] }
   | { code: "reference-missing"; id: string }
+  | { code: "reference-unparsed"; id: string }
   | { code: "not-utf8" }
   | { code: "no-frontmatter" }
   | { code: "frontmatter-unclosed" }

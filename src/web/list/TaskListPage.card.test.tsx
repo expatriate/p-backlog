@@ -1,5 +1,6 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { taskFile } from "../../core/store/testing/temp-dirs";
 import { renderApp } from "../testing/render-app";
 import { applyPanelStyles } from "../testing/side-panel";
 import { LIST_FILES, rowTitles } from "../testing/task-list";
@@ -39,6 +40,15 @@ describe("карточка поверх списка", () => {
 
     expect(await screen.findByText("Проект не найден.")).toBeDefined();
     expect(screen.queryByText(/Беклог наполняет агент/)).toBeNull();
+  });
+
+  it("проект с неразобранным project.md: страница проекта и его задача из адреса называют причину, а не «не найден»", async () => {
+    const files = { ...LIST_FILES, "broken/project.md": "сломано", "broken/BR-1.md": taskFile("BR-1") };
+    await renderApp(files, "/p/broken");
+    expect(await screen.findByText("Файл проекта не разобран — его задачи не показаны, пока файл не исправят.")).toBeDefined();
+
+    await renderApp(files, "/t/BR-1");
+    expect(await screen.findByText("BR-1 не загружена: не разобран её файл или файл её проекта")).toBeDefined();
   });
 
   it("заголовок вкладки с открытой карточкой называет задачу", async () => {

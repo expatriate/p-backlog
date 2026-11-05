@@ -13,6 +13,7 @@ export type CoreMessages = StoreMessages & {
   hookMark: string;
   languageName: string;
   problems: (list: readonly Problem[]) => string;
+  taskNotLoaded: (id: string) => string;
   schemaIssue: (issue: SchemaIssue) => string;
   categoryLabel: (category: TaskCategory | undefined) => string;
   categoryRowLabel: (category: CategoryRow["category"]) => string;

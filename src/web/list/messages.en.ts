@@ -13,6 +13,7 @@ export const listEn: ListMessages = {
   parseErrorsTitle: "Failed to parse files:",
   loadingTasks: "Loading tasks…",
   unknownProject: "Project not found.",
+  unparsedProject: "The project file could not be parsed — its tasks are hidden until the file is fixed.",
   hiddenOpenNote: (n) => `${n} more open ${pluralEn(n, "task", "tasks")} — in projects without the checkbox.`,
   noTasksInScope: (note) => `No tasks in the included projects. ${note}`,
   noTasksYet: (code) => ["No tasks yet. The backlog is filled by the agent: it records tasks with ", code("backlog new"), " while it works on the code."],

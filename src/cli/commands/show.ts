@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { buildIndex, type BacklogIndex } from "../../core/model/graph";
 import type { Task } from "../../core/model/types";
-import { loadBacklog } from "../../core/store/load";
+import { loadBacklog, unparsedTaskIds } from "../../core/store/load";
 import { describeTask, taskJson } from "../describe";
 import { formatJson, formatTaskDetails } from "../format";
 import { usageError, type CliCommand } from "../command";
@@ -22,15 +22,15 @@ async function runShow(args: string[], io: CliIo): Promise<ExitCode> {
   const loaded = await loadBacklog(io.backlogRoot);
   const task = await findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
-  await printTask(io, task, buildIndex(loaded.tasks), { json: values.json });
+  await printTask(io, task, buildIndex(loaded.tasks), unparsedTaskIds(loaded.errors), { json: values.json });
   return EXIT.ok;
 }
 
-export async function printTask(io: CliIo, task: Task, index: BacklogIndex, { json }: { json: boolean }): Promise<void> {
+export async function printTask(io: CliIo, task: Task, index: BacklogIndex, unparsed: ReadonlySet<string>, { json }: { json: boolean }): Promise<void> {
   if (json) {
-    io.print(formatJson(taskJson(task, index)));
+    io.print(formatJson(taskJson(task, index, unparsed)));
     return;
   }
-  const description = describeTask(task, index);
+  const description = describeTask(task, index, unparsed);
   io.print(formatTaskDetails(io.cli, io.core, description, await readFile(task.path, "utf8")));
 }

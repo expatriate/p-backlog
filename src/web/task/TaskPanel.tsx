@@ -39,7 +39,7 @@ const EPIC_LIST_ID = "epic-ids";
 
 export function TaskPanel({ task, onClose, gone }: TaskPanelProps) {
   const { core, task: taskMessages } = useMessages();
-  const { tasks, index, tones } = useAllTasks();
+  const { tasks, index, unparsedTaskIds, tones } = useAllTasks();
   const saver = useTaskSaving(task);
   const fields = useFieldDrafts(task);
   const bodyEditing = saver.body.editor.phase !== "closed";
@@ -51,7 +51,8 @@ export function TaskPanel({ task, onClose, gone }: TaskPanelProps) {
       ifStillSaving: taskMessages.leaveWhileSaving,
     },
   );
-  const cardAlerts = gone ? [taskMessages.taskGone(task.id)] : distinctTexts([...saver.alerts, ...fields.alerts]);
+  const goneAlert = unparsedTaskIds.has(task.id) ? core.taskNotLoaded(task.id) : taskMessages.taskGone(task.id);
+  const cardAlerts = gone ? [goneAlert] : distinctTexts([...saver.alerts, ...fields.alerts]);
   const saveNote = useSaveNote(saver.lastSave);
   const refOptions = useMemo(
     () => (
@@ -63,7 +64,7 @@ export function TaskPanel({ task, onClose, gone }: TaskPanelProps) {
     [tasks, task.id],
   );
   const idPrefix = parseId(task.id)?.prefix ?? task.id;
-  const warnings = taskWarnings(task, index).map(core.problem);
+  const warnings = taskWarnings(task, index, unparsedTaskIds).map(core.problem);
   const children = task.type === "epic" ? epicChildren(task, index) : [];
 
   return (

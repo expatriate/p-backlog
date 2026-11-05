@@ -120,6 +120,15 @@ describe("PATCH /api/tasks/:id", () => {
     expect((await retried.json()) as Task).toMatchObject({ priority: "low", status: "done" });
   });
 
+  it("задачу проекта с неразобранным project.md называет незагруженной, а не ненайденной", async () => {
+    const backlog = await makeTestApp({ ...SAMPLE_FILES, "broken/project.md": "сломано", "broken/BR-1.md": taskFile("BR-1") });
+
+    const response = await backlog.json("/api/tasks/BR-1", "PATCH", { version: "любая", changes: {} });
+
+    expect(response.status).toBe(404);
+    expect(((await response.json()) as ErrorResponse).errors).toEqual(["BR-1 не загружена: не разобран её файл или файл её проекта"]);
+  });
+
   it("отвечает 404, 422 на неизвестное поле и 422 на нарушение правил", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
     const version = await backlog.taskVersion("SPA-1");
