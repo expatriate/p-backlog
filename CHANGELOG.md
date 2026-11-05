@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.13.0
+
+Fixes from a full review of the code base.
+
+### Tasks and storage
+
+- An epic with open tasks can no longer be closed by hand, from the CLI or the web app; closing tasks in bulk closes the
+  epic together with its tasks. Closed tasks of an open epic are kept until the epic closes, so its progress doesn't
+  drop; `close`, `show`, `--json` and the web app say "deleted after the epic closes" instead of a wrong date.
+- A task file or `project.md` that isn't UTF-8 is no longer damaged by a write: it is reported as "not UTF-8" and the
+  write is refused.
+- A broken `project.md` is named with its reason instead of "project not found" or "No projects", and `new` no longer
+  creates a duplicate project next to it.
+- The journal waits for its lock instead of appending without it, and a busy journal no longer holds the task file's
+  lock. Writes are synced to disk, including the directory after a rename and appended journal lines; a task number is
+  never handed out twice, even after a task file is deleted or the journal is compacted. `~\` in `BACKLOG_DIR` points
+  to the home directory.
+
+### `backlog check` and git
+
+- A git failure, an unreadable branch or a shallow clone no longer turns into a false answer. `check` reports
+  `merge-state-unknown` and `project-branches-unreadable` instead of "awaiting merge", "nothing changed" or "file
+  missing", and `verify --source` and `new --source` warn that the path wasn't checked.
+- `verify --source` refuses a path that `check` would report as missing, and `new` warns about it; a folder or a file
+  from another branch is accepted.
+- Diffs no longer depend on the user's `diff.context` and paths are passed to git literally, so `src/[id].ts` is not
+  mixed up with `src/i.ts`. A new untracked file counts as "changes unknown", not "no changes".
+- `source-moved` names the renamed code file. Without git history, an anchored task whose file came back is checked
+  and its episode closed.
+- The Stop hook remembers only the tasks named in its reason; the rest are named on the next turn.
+
+### CLI
+
+- `-h`/`--help` shows help only when it is an option of the command: `new --title -h` is refused with a hint instead
+  of printing help with exit code 0. A value starting with `-` suggests `--option=value`, and a repeated option is
+  refused.
+- `status`, `priority`, `category` and `project status` with the current value say "already …" and write nothing.
+  `service status` exits with code 4 when the service isn't installed or doesn't answer.
+- Running `service install` again keeps the installed service's port; an explicit `PORT` changes it.
+
+### Web app
+
+- The web app no longer freezes offline: requests always go to the local server, only server errors are retried, and
+  "not found" shows at once.
+- The task card doesn't close while a field is still saving. A failed save keeps the card open with the error; if the
+  server doesn't answer for 5 seconds, closing asks whether to leave and warns that the change is lost if the write
+  fails. A draft field that failed to save twice in a row sends the edit on retry instead of reporting a false
+  conflict.
+- Board: the move note no longer covers the bottom cards, also on narrow screens; a move error goes away with its
+  note; Undo restores the confirmed status and doesn't clear another move's note; the opened card scrolls into view.
+- Card alerts are grouped in one sticky block, and "Saved" stays visible next to them.
+- Bulk-action errors are no longer read twice by screen readers, chart steps taken with the arrow keys are announced,
+  and the confirmation dialog's description is read out.
+
+### Statistics
+
+- A task that was reopened and closed again counts as closed once, everywhere.
+- The average number of new tasks counts from the project's first task, so quiet weeks are included; the summary says
+  "since <date>" when the backlog is younger than the window.
+- Costs: days without tokens no longer turn an unknown price into $0, the "at API prices" card and its tooltip agree
+  when a price is unknown, and models without a price are marked.
+- The memory panel keeps its error across background polls, and "Retrying…" shows only after the button is pressed.
+
 ## 0.12.2
 
 - The board fits the window: each column scrolls on its own, so column headings stay in view and the horizontal
