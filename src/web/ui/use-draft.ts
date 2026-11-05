@@ -12,9 +12,9 @@ export type Draft<E extends HTMLElement = HTMLInputElement> = {
   reset: () => void;
 };
 
-type DraftState = { text: string; base: string; confirmed: string; conflicted: boolean; failed: boolean; savesInFlight: number };
+type DraftState = { text: string; base: string; confirmed: string; conflicted: boolean; failed: boolean; savesInFlight: number; latestSaveNumber: number };
 
-const synced = (serverValue: string): DraftState => ({ text: serverValue, base: serverValue, confirmed: serverValue, conflicted: false, failed: false, savesInFlight: 0 });
+const synced = (serverValue: string): DraftState => ({ text: serverValue, base: serverValue, confirmed: serverValue, conflicted: false, failed: false, savesInFlight: 0, latestSaveNumber: 0 });
 
 const savingNow = (draft: DraftState) => draft.savesInFlight > 0;
 
@@ -26,6 +26,7 @@ const serverMovedUnderEdit = (draft: DraftState, serverValue: string) => serverV
 
 export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: string, canonical: (text: string) => string = asTyped): Draft<E> {
   const ref = useRef<E>(null);
+  const saveCounter = useRef(0);
   const [state, setState] = useState(() => synced(serverValue));
 
   useEffect(() => {
@@ -40,11 +41,12 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
   const canonicalText = canonical(state.text);
 
   const send = (save: (canonical: string) => Promise<boolean>) => {
-    setState((current) => ({ ...current, base: canonicalText, savesInFlight: current.savesInFlight + 1 }));
+    const saveNumber = ++saveCounter.current;
+    setState((current) => ({ ...current, base: canonicalText, savesInFlight: current.savesInFlight + 1, latestSaveNumber: saveNumber }));
     const settle = (saved: boolean) =>
       setState((current) => {
         const settled = { ...current, savesInFlight: current.savesInFlight - 1, confirmed: saved ? canonicalText : current.confirmed };
-        if (current.base !== canonicalText) return settled;
+        if (current.latestSaveNumber !== saveNumber) return settled;
         return saved ? { ...settled, conflicted: false, failed: false } : { ...settled, base: current.confirmed, failed: true };
       });
     void save(canonicalText).then(settle);

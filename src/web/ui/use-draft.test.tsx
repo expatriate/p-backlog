@@ -50,4 +50,25 @@ describe("useDraft", () => {
     expect(sent).toEqual(["x", "y", "y"]);
     expect(result.current.conflicted).toBe(false);
   });
+
+  it("правка x → y → x: упавшее первое сохранение «x» не принимается за последнее, и после успеха третьего поле сохранено", async () => {
+    const answers: ((saved: boolean) => void)[] = [];
+    const sent: string[] = [];
+    const save = (text: string) => {
+      sent.push(text);
+      return new Promise<boolean>((resolve) => answers.push(resolve));
+    };
+    const { result } = renderHook(() => useDraft("исходное"));
+
+    for (const text of ["x", "y", "x"]) {
+      act(() => result.current.set(text));
+      act(() => result.current.commit(save));
+    }
+    await act(async () => answers[0]?.(false));
+    await act(async () => answers[1]?.(true));
+    await act(async () => answers[2]?.(true));
+
+    expect(sent).toEqual(["x", "y", "x"]);
+    expect([result.current.unsaved, result.current.failed]).toEqual([false, false]);
+  });
 });
