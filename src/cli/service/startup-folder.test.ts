@@ -5,7 +5,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { makeTempDir, writeFiles } from "../../core/store/testing/temp-dirs";
 import { execProgram } from "../exec";
 import type { CliEnv, ExecResult } from "../io";
-import { relativeInside } from "../path-inside";
+import { relativeInside } from "../../core/store/paths";
 import { fakeExec, SERVICE_PORT } from "../testing/cli-harness";
 import { startupFolderManager, startupScript } from "./startup-folder";
 import type { ServiceContext, ServiceLaunch, ServiceManager } from "./service";

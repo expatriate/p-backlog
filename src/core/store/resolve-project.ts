@@ -1,11 +1,11 @@
-import { basename, isAbsolute, relative, resolve, sep } from "node:path";
+import { basename, resolve } from "node:path";
 import type { PathErrorHandler } from "../errors";
 import { runGit, runGitSync } from "../git/run";
 import { projectIdBase } from "../model/ids";
 import type { ParseError, Project, ProjectFileError } from "../model/types";
 import { attemptReportingFailure, attemptReportingFailureSync, realpathOrNull } from "./fs-utils";
 import { unparsedProjectFiles } from "./load";
-import { expandHome } from "./paths";
+import { expandHome, relativeInside } from "./paths";
 
 export type GitRoots = { worktree: string; main: string };
 
@@ -126,6 +126,17 @@ function findProjectForRoots(projects: readonly Project[], roots: GitRoots, plac
   return matches.sort((a, b) => b.repoPath.length - a.repoPath.length)[0]?.project;
 }
 
+export function pathFromProjectRepo(project: Project, roots: GitRoots, places: RepoPlaces, path: string): string | null {
+  const repoPath = closestCoveringRepo(project.repos, roots, places);
+  if (repoPath === undefined) return null;
+  return relativeInside(repoPath, isSameOrInside(roots.main, repoPath) ? asInMainCheckout(roots, path) : path);
+}
+
+function asInMainCheckout({ worktree, main }: GitRoots, path: string): string {
+  const inWorktree = relativeInside(worktree, path);
+  return inWorktree === null ? path : resolve(main, inWorktree);
+}
+
 function closestCoveringRepo(repos: readonly string[], roots: GitRoots, places: RepoPlaces): string | undefined {
   const covering = repos.map((repo) => resolvedRepo(repo, places)).filter((repoPath): repoPath is string => repoPath !== null && repoCovers(repoPath, roots));
   return covering.sort((a, b) => b.length - a.length)[0];
@@ -136,8 +147,7 @@ function repoCovers(repoPath: string, { worktree, main }: GitRoots): boolean {
 }
 
 function isSameOrInside(path: string, container: string): boolean {
-  const relation = relative(container, path);
-  return relation === "" || (!isAbsolute(relation) && relation.split(sep)[0] !== "..");
+  return relativeInside(container, path) !== null;
 }
 
 function resolvedRepo(repo: string, { home, onUnreadable }: RepoPlaces): string | null {

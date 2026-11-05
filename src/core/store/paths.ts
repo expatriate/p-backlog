@@ -1,4 +1,4 @@
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { Project } from "../model/types";
 
 export const PROJECT_FILE = "project.md";
@@ -26,4 +26,10 @@ export function projectDirOf(project: Pick<Project, "path">): string {
 export function projectDir(root: string, id: string): string | null {
   const isPlainName = id !== "" && id !== "." && id !== ".." && basename(id) === id && !id.includes("\\");
   return isPlainName ? join(root, id) : null;
+}
+
+export function relativeInside(container: string, path: string): string | null {
+  const inside = relative(container, path);
+  const outside = isAbsolute(inside) || inside === ".." || inside.startsWith(`..${sep}`);
+  return outside ? null : inside.split(sep).join("/");
 }

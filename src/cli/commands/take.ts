@@ -6,13 +6,13 @@ import { isQueuedTask, isTakenTask, pickAbandonedTask, pickNextTask } from "../.
 import type { Project, Task } from "../../core/model/types";
 import { statOrNull } from "../../core/store/fs-utils";
 import { indexOfLoaded, loadBacklog, type LoadedBacklog } from "../../core/store/load";
+import { pathFromProjectRepo } from "../../core/store/resolve-project";
 import { formatJson, formatTaskRef } from "../format";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
-import { cwdBelongsTo, cwdGitRoots, findProjectOrWarn, findTaskOrWarn } from "../lookups";
+import { cwdBelongsTo, cwdGitRoots, findProjectOrWarn, findTaskOrWarn, repoPlaces } from "../lookups";
 import { cliMessages } from "../messages";
-import { relativeInside } from "../path-inside";
 import { indexWithWritten, type WrittenTask } from "../../core/store/write-result";
 import { taskWriter, type TaskWrite } from "../task-write";
 import { tasksJson } from "../describe";
@@ -100,9 +100,10 @@ function isOpenTaskAt(task: Task, path: string): boolean {
 }
 
 function repoRelativePath(io: CliIo, project: Project, loaded: LoadedBacklog, path: string): string {
+  const typed = sourcePath(path);
   const roots = cwdGitRoots(io);
-  if (roots === null || !cwdBelongsTo(project, loaded, io)) return sourcePath(path);
-  return relativeInside(roots.worktree, resolve(realpathSync(io.cwd), sourcePath(path))) ?? sourcePath(path);
+  if (roots === null || !cwdBelongsTo(project, loaded, io)) return typed;
+  return pathFromProjectRepo(project, roots, repoPlaces(io), resolve(realpathSync(io.cwd), typed)) ?? typed;
 }
 
 type Taken = { code: ExitCode; taken: Task[]; index: BacklogIndex };

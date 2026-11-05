@@ -2,7 +2,7 @@ import { mkdir, readFile, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
-import { makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitAddWorktree, makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
 import { updateTask } from "../../core/store/testing/update-task";
 import { EXIT } from "../io";
 import { makeCliSandbox, SANDBOX_NOW } from "../testing/cli-harness";
@@ -175,6 +175,29 @@ describe("backlog take", () => {
 
     expect((await run(["take", "--project", "spa", "--path", "sub/src"], { cwd: join(nested, "lib") })).code).toBe(EXIT.ok);
     expect(await statusOf(root, "SPA-1")).toBe("in-progress");
+  });
+
+  it("--path из вложенного git-репозитория без своего проекта считается от корня репозитория проекта", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Во вложенном", "--source", "sub/lib/a.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Снаружи", "--source", "lib/b.ts:1"]);
+    const nested = await makeGitRepo(repo, "sub");
+
+    expect((await run(["take", "--path", "lib"], { cwd: nested })).code).toBe(EXIT.ok);
+    expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2")]).toEqual(["in-progress", "backlog"]);
+    expect((await run(["take", "--path", "../lib"], { cwd: nested })).code).toBe(EXIT.ok);
+    expect(await statusOf(root, "SPA-2")).toBe("in-progress");
+  });
+
+  it("--path из linked worktree внутри основного checkout считается от корня worktree", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "В lib", "--source", "lib/a.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Приманка", "--source", ".claude/worktrees/x/lib/b.ts:1"]);
+    const worktree = join(repo, ".claude/worktrees/x");
+    gitAddWorktree(repo, worktree, "x");
+
+    expect((await run(["take", "--path", "lib"], { cwd: worktree })).code).toBe(EXIT.ok);
+    expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2")]).toEqual(["in-progress", "backlog"]);
   });
 
   it("--path сравнивает с путём source после схлопывания . и ..", async () => {
