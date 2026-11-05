@@ -29,6 +29,7 @@ const DIFF_LINE_LIMIT = 80;
 const REFLOG_MOMENT = /\{(\d+)\}$/;
 const STATUS_CODE_WIDTH = 3;
 const RENAME_OR_COPY = /^[RC]/;
+const DELETED_FILE_HEADER = /^deleted file mode /m;
 const ORIGINAL_PATH_FOLLOWS = /^(?:[RC].|.[RC])/;
 const LOG_FORMAT = `--format=${RECORD}%H${FIELD}%h${FIELD}%cI${FIELD}%P${FIELD}%s`;
 
@@ -147,18 +148,17 @@ async function headMovesNewestFirst(repo: string, git: GitRunner): Promise<HeadM
 
 export function diffsFrom(repo: string, git: GitRunner = runGit): DiffFrom {
   const diffs = new Map<string, Promise<FileDiff | null>>();
+  const tracked = new Map<string, Promise<boolean>>();
+  const isConfirmedTracked = (path: string) => remembered(tracked, path, async () => outputLine(await git(repo, ["ls-files", "--", ...literalPathspecs([path])])) !== null);
   return (path, commit) =>
     remembered(diffs, `${commit} ${path}`, async () => {
       const diff = await git(repo, ["diff", ...PARSED_DIFF_OPTIONS, "--unified=3", commit, "--", ...literalPathspecs([path])]);
       if (diff === null) return null;
-      if (diff === "" && !(await isConfirmedTracked(repo, path, git))) return { excerpt: undefined, changed: null, hunks: null };
+      const mayBeUntracked = diff === "" || DELETED_FILE_HEADER.test(diff);
+      if (mayBeUntracked && !(await isConfirmedTracked(path))) return { excerpt: undefined, changed: null, hunks: null };
       const hunks = parseHunks(diff);
       return { excerpt: excerptOf(diff), changed: hunks === null ? null : changedRanges(hunks), hunks };
     });
-}
-
-async function isConfirmedTracked(repo: string, path: string, git: GitRunner): Promise<boolean> {
-  return outputLine(await git(repo, ["ls-files", "--", ...literalPathspecs([path])])) !== null;
 }
 
 function excerptOf(diff: string): DiffExcerpt | undefined {

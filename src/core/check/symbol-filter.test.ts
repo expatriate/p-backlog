@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -72,16 +73,34 @@ describe("filterBySymbol", () => {
     graph?.close();
   });
 
-  it("файла не было в коммите, от которого считается правка, — кандидат остаётся: что менялось внутри, неизвестно", async () => {
+  it.each([
+    {
+      case: "файла не было в коммите, от которого считается правка,",
+      committed: {},
+      afterCommit: async (repo: string) => {
+        await writeFiles(repo, { "src/upload.ts": body("v1", "v1") });
+        gitCommitAll(repo, "Загрузка", "2026-09-12T10:00:00+03:00");
+      },
+    },
+    { case: "файл не отслеживается git", committed: {}, afterCommit: (repo: string) => writeFiles(repo, { "src/upload.ts": body("v1", "v1") }) },
+    {
+      case: "файл убран из индекса, но лежит на диске",
+      committed: { "src/upload.ts": body("v1", "v1") },
+      afterCommit: (repo: string) => {
+        execFileSync("git", ["rm", "-q", "--cached", "src/upload.ts"], { cwd: repo });
+      },
+    },
+  ])("$case — кандидат остаётся: что менялось внутри, неизвестно", async ({ committed, afterCommit }) => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
-    await writeFiles(repo, { "README.md": "spa\n" });
+    await writeFiles(repo, { "README.md": "spa\n", ...committed });
     gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
-    await writeFiles(repo, { "src/upload.ts": body("v1", "v1") });
-    gitCommitAll(repo, "Загрузка", "2026-09-12T10:00:00+03:00");
+    await afterCommit(repo);
     await indexUpload(repo);
     const graph = openCodeGraph(repo);
 
-    expect((await filterBySymbol([candidate], context(task, diffsSince(repo), symbolLookup(graph, hashesOf(repo))))).kept).toEqual([candidate]);
+    const retryTask = { ...task, source: "src/upload.ts:6" };
+
+    expect((await filterBySymbol([candidate], context(retryTask, diffsSince(repo), symbolLookup(graph, hashesOf(repo))))).kept).toEqual([candidate]);
     graph?.close();
   });
 
