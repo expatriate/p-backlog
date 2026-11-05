@@ -52,7 +52,11 @@ type LineJudgement = { kept: Candidate[]; linesIntact: string[]; notOnBranch: st
 
 type PlanSettlement = { untouchable: ReadonlySet<string>; relocatable: readonly string[] };
 
-type RepoScope = ReviewScope & { repo: string; facts: RepoFacts; projectId: string; skipped: ReadonlySet<string>; graph: CodeGraph | null };
+type RepoScope = ReviewScope & { repo: string; facts: RepoFacts; graph: CodeGraph | null };
+
+type SightingScope = Pick<RepoScope, "mode"> & { skipped: ReadonlySet<string> };
+
+type MergeScope = Pick<RepoScope, "repo" | "origins"> & { projectId: string };
 
 type MergeJudgement = Pick<ProjectReview, "candidates" | "filtered" | "plans" | "awaitingMerge" | "problems">;
 
@@ -76,19 +80,19 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
   const readable = tasks.filter((task) => !skipped.has(task.id));
   const graph = openCodeGraph(repo);
   try {
-    const scope: RepoScope = { repo, facts, origins, mode, onUnreadable, projectId: project.id, skipped, graph };
+    const scope: RepoScope = { repo, facts, origins, mode, onUnreadable, graph };
     const anchors = anchorStates(readable, facts);
     const review = await reviewedCode(readable, anchors, scope);
     const context = await projectContext(readable, review, scope);
-    const sighted = await sightedBySymbol(tasks, review, context, scope);
-    const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, scope);
+    const sighted = await sightedBySymbol(tasks, review, context, { mode, skipped });
+    const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, { repo, origins, projectId: project.id });
     return { projectId: project.id, ...judged, skipped: [...skipped], problems: [...historyProblems(project, repo, facts), ...mergeProblems], unchecked: uncheckedEvidence(tasks, anchors, facts) };
   } finally {
     graph?.close();
   }
 }
 
-async function reviewedCode(tasks: readonly Task[], anchors: AnchorStates, scope: RepoScope): Promise<CodeReview> {
+async function reviewedCode(tasks: readonly Task[], anchors: AnchorStates, scope: Pick<RepoScope, "repo" | "facts" | "origins" | "onUnreadable">): Promise<CodeReview> {
   const { repo, facts, origins } = scope;
   const knownCommits = await commitsKnownAtCreation({ repo, tasks, facts, anchors, origins });
   return withRenamesFollowed(codeReview(tasks, facts, knownCommits, anchors), tasks, scope);
@@ -103,7 +107,7 @@ async function projectContext(tasks: readonly Task[], review: CodeReview, { repo
   return { tasksById: new Map(tasks.map((task) => [task.id, task])), located: currentSourcesOf(traces), traces, facts, diffOf: diffs.sinceTaskMark, symbolAt };
 }
 
-async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, context: ProjectContext, { mode, skipped }: RepoScope): Promise<SymbolSightings> {
+async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, context: ProjectContext, { mode, skipped }: SightingScope): Promise<SymbolSightings> {
   const duplicates = mode === "full" ? duplicateCandidates(tasks, symbolNames(context.symbolAt, context.located)).filter((candidate) => !skipped.has(candidate.task.id)) : [];
   const byLines = judgedByLines(review.candidates, context.traces);
   const { kept, filtered } = await filterBySymbol(byLines.kept, context);
@@ -114,7 +118,7 @@ async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, conte
   return { kept, filtered, plans: settledPlans(review.plans, settlement, context), duplicates };
 }
 
-async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectContext, { repo, origins, projectId }: RepoScope): Promise<MergeJudgement> {
+async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectContext, { repo, origins, projectId }: MergeScope): Promise<MergeJudgement> {
   const { pending, unknownBranches } = await awaitingMerge({ repo, taskIds: involvedTaskIds(sighted), origins });
   const judged = (id: string) => !pending.has(id);
   const code = await Promise.all(sighted.kept.filter((candidate) => judged(candidate.task.id)).map((candidate) => withContext(candidate, context)));
@@ -138,7 +142,7 @@ function judgedByLines(candidates: readonly Candidate[], traces: SourceTraces): 
   return judgement;
 }
 
-async function withRenamesFollowed(review: CodeReview, tasks: readonly Task[], { repo, onUnreadable }: RepoScope): Promise<CodeReview> {
+async function withRenamesFollowed(review: CodeReview, tasks: readonly Task[], { repo, onUnreadable }: Pick<RepoScope, "repo" | "onUnreadable">): Promise<CodeReview> {
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
   const renamePlans = await Promise.all(
     review.candidates.map(async (candidate) => {

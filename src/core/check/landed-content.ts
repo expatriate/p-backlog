@@ -1,6 +1,6 @@
 import { groupBy } from "../collections";
 import { firstParentLanding } from "../git/landing";
-import { outputLine, PARSED_DIFF_OPTIONS, resolveCommits, resolveTrees, topLiteralPathspecs, type GitRunner } from "../git/run";
+import { commitHashOf, outputLine, PARSED_DIFF_OPTIONS, resolveCommits, resolveTrees, topLiteralPathspecs, type CommitHash, type GitRunner } from "../git/run";
 import { remembered } from "../remembered";
 import { firstLineOf, hunkHeaderOf, patchShapes, type BlobPair, type ChangeStart, type HunkHeader } from "./diff-hunks";
 
@@ -8,7 +8,7 @@ type FileVersion = { path: string; version: string };
 
 type CommitChange = FileVersion & { commit: string };
 
-type Fork = { base: string; tip: string; head: string };
+type Fork = { base: CommitHash; tip: CommitHash; head: string };
 
 type RepoGit = { repo: string; git: GitRunner };
 
@@ -41,7 +41,7 @@ const RAW_RECORD = new RegExp(`${COMMIT_RECORD.source}|${FILE_RECORD.source}`, "
 
 export type LandingState = "landed" | "pending" | "unknown";
 
-export async function landingState(repo: string, tip: string, git: GitRunner): Promise<LandingState> {
+export async function landingState(repo: string, tip: CommitHash, git: GitRunner): Promise<LandingState> {
   const fork = await forkAt(repo, "HEAD", tip, git);
   if (fork === null) return "unknown";
   const view: ForkView = { ...fork, repo, historyOptions: [], git };
@@ -87,14 +87,14 @@ async function commitsCarrying(view: ForkView, scope: readonly string[]): Promis
   return carrying.flat();
 }
 
-async function forkAt(repo: string, head: string, tip: string, git: GitRunner): Promise<Fork | null> {
-  const [mergeBase, commits] = await Promise.all([git(repo, ["merge-base", head, tip]), resolveCommits(git, repo, [tip])]);
-  const base = outputLine(mergeBase);
-  const tipCommit = commits?.get(tip);
-  return base === null || tipCommit === undefined ? null : { base, tip: tipCommit, head };
+async function forkAt(repo: string, head: string, tip: CommitHash, git: GitRunner): Promise<Fork | null> {
+  const base = commitHashOf(outputLine(await git(repo, ["merge-base", head, tip])));
+  return base === null ? null : { base, tip, head };
 }
 
-async function forkBeforeLanding(repo: string, tip: string, git: GitRunner): Promise<Fork | null> {
+async function forkBeforeLanding(repo: string, revision: string, git: GitRunner): Promise<Fork | null> {
+  const tip = (await resolveCommits(git, repo, [revision]))?.get(revision);
+  if (tip === undefined) return null;
   const fork = await forkAt(repo, "HEAD", tip, git);
   if (fork === null || !tipInHead(fork)) return fork;
   const landing = await firstParentLanding(git, repo, tip, "HEAD");

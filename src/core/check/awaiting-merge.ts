@@ -1,4 +1,4 @@
-import { asGitRunner, outputLine, runGitOutcome, stdoutOf, type GitOutcome, type GitOutcomeRunner } from "../git/run";
+import { asGitRunner, commitHashOf, outputLine, runGitOutcome, stdoutOf, type GitOutcome, type GitOutcomeRunner } from "../git/run";
 import type { TaskOrigin } from "../journal/events";
 import { remembered } from "../remembered";
 import { landingState, type LandingState } from "./landed-content";
@@ -46,7 +46,7 @@ export async function awaitingMerge({ repo, taskIds, origins, git = runGitOutcom
 
 async function branchState(repo: string, branch: string, git: GitOutcomeRunner): Promise<BranchState> {
   const lookup = await git(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]);
-  const tip = lineOf(lookup);
+  const tip = commitHashOf(lineOf(lookup));
   if (tip !== null) return landingState(repo, tip, asGitRunner(git));
   return lookup.status === "exited" && lookup.exitCode === NO_SUCH_REF_EXIT ? "deleted" : "unknown";
 }
