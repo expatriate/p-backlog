@@ -4,7 +4,7 @@ import { expandHome } from "../store/paths";
 import { remembered } from "../remembered";
 import { cachePersistence } from "./cache-persistence";
 import type { CodeCacheErrorKind, CodeCacheStore } from "./code-cache";
-import { emptyCodeMemory, forgetStaleFixes, keepOnlyRepos, needsReading, rememberFix, type CodeMemory } from "./code-memory";
+import { emptyCodeMemory, forgetStaleFixes, needsReading, rememberFix, retainRepos, type CodeMemory } from "./code-memory";
 import { projectFixKey, repoFixKey, type ProjectFixKey, type RepoFixKey } from "./fix-key";
 import { readRefs, type RepoRefs } from "./git-code";
 import { readFixCommits } from "./git-fixes";
@@ -27,8 +27,8 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
   const cache = cachePersistence(memory, store, onError);
   const repoCode = repoReader(git, memory);
   let retainedRepos: ReadonlySet<string> | null = null;
-  const pruneAndPersist = () => {
-    if (retainedRepos !== null) keepOnlyRepos(memory, retainedRepos);
+  const retainAndPersist = () => {
+    if (retainedRepos !== null) retainRepos(memory, retainedRepos);
     return cache.persist();
   };
   const expanded = (projects: readonly Project[]) => [...new Set(projects.flatMap((project) => project.repos.map((repo) => expandHome(repo, home))))];
@@ -51,7 +51,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       );
       const projectCodes = scanned.map(({ project, repos }): ProjectCode => ({ projectId: project.id, name: project.name, repos: repos.flatMap(({ read }) => (read === null ? [] : [read])) }));
       const unavailableRepos = [...new Set(scanned.flatMap(({ repos }) => repos.filter(({ read }) => read === null).map(({ repo }) => repo)))];
-      await pruneAndPersist();
+      await retainAndPersist();
       return { projects: projectCodes, unavailableRepos };
     },
     fixCommits: async (projects, requests, now) => {
@@ -62,7 +62,7 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       const lookups = fixLookups(requests, reposOfProject);
       const found = new Map(lookups.flatMap(({ key, repoKeys }) => cachedFixEntries(memory, key, repoKeys)));
       forgetStaleFixes(memory, now, new Set(lookups.flatMap(({ repoKeys }) => repoKeys)));
-      await pruneAndPersist();
+      await retainAndPersist();
       return found;
     },
   };

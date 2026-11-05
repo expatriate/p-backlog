@@ -47,7 +47,7 @@ export function forgetStaleFixes(memory: CodeMemory, now: Date, requested: Reado
   }
 }
 
-export function keepOnlyRepos(memory: CodeMemory, kept: ReadonlySet<string>): void {
+export function retainRepos(memory: CodeMemory, kept: ReadonlySet<string>): void {
   for (const repo of memory.repos.keys()) if (!kept.has(repo)) memory.repos.delete(repo);
   for (const key of new Set([...memory.fixes.keys(), ...memory.unsettledCheckedAt.keys()])) if (!kept.has(repoOfFixKey(key))) forgetFix(memory, key);
 }

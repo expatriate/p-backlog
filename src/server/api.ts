@@ -74,8 +74,8 @@ function rememberedGraphHealth(home: string, now: () => Date): GraphHealthOf {
   const graphHealths = createTtlCache({ ttlMs: GRAPH_STATE_TTL_MS, now: () => now().getTime() });
   return ({ tasks }, project) => {
     const projectTasks = tasks.filter((task) => task.projectId === project.id);
-    const key = JSON.stringify([project.id, project.repos, projectTasks.map((task) => task.version)]);
-    return graphHealths.get(key, () => projectGraphHealth(project, projectTasks, home));
+    const state = JSON.stringify([project.repos, projectTasks.map((task) => task.version)]);
+    return graphHealths.get({ slot: project.id, state }, () => projectGraphHealth(project, projectTasks, home));
   };
 }
 

@@ -10,26 +10,26 @@ export function createSnapshotIds(): (snapshot: object) => number {
   };
 }
 
-export function pruneUnlessKept<K extends string | undefined>(map: Map<K, unknown>, projectIds: readonly string[]): void {
+export function retainProjects<K extends string | undefined>(map: Map<K, unknown>, projectIds: readonly string[]): void {
   const kept = new Set<string | undefined>(projectIds);
   for (const projectId of map.keys()) if (projectId !== undefined && !kept.has(projectId)) map.delete(projectId);
 }
 
 export type ScopeMemo<V> = {
-  get: (key: string, compute: () => V, projectId?: string) => V;
+  get: (state: string, compute: () => V, projectId?: string) => V;
   retain: (projectIds: readonly string[]) => void;
 };
 
 export function createScopeMemo<V>(): ScopeMemo<V> {
-  const slots = new Map<string | undefined, { key: string; value: V }>();
+  const slots = new Map<string | undefined, { state: string; value: V }>();
   return {
-    get: (key, compute, projectId) => {
+    get: (state, compute, projectId) => {
       const remembered = slots.get(projectId);
-      if (remembered?.key === key) return remembered.value;
+      if (remembered?.state === state) return remembered.value;
       const value = compute();
-      slots.set(projectId, { key, value });
+      slots.set(projectId, { state, value });
       return value;
     },
-    retain: (projectIds) => pruneUnlessKept(slots, projectIds),
+    retain: (projectIds) => retainProjects(slots, projectIds),
   };
 }

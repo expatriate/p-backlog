@@ -22,12 +22,24 @@ type SnapshotCacheOptions = { root: string; revisions: Revisions; journalSources
 
 export function createSnapshotCache({ root, revisions, journalSources, warn }: SnapshotCacheOptions): SnapshotCache {
   let snapshot: Promise<IndexedBacklog> | null = null;
+  let loadsStarted = 0;
   const projectsListeners: ProjectsListener[] = [];
+  const announceProjects = (projects: readonly Project[]) => {
+    for (const listener of projectsListeners) {
+      try {
+        listener(projects);
+      } catch (error) {
+        void warn((messages) => messages.projectsListenerFailed(errorText(error)));
+      }
+    }
+  };
   return {
     read: () => {
       if (snapshot !== null) return snapshot;
+      loadsStarted += 1;
+      const load = loadsStarted;
       const loading: Promise<IndexedBacklog> = loadSnapshot(root, revisions.current(), journalSources, warn).then((loaded) => {
-        if (snapshot === loading) for (const listener of projectsListeners) listener(loaded.projects);
+        if (load === loadsStarted) announceProjects(loaded.projects);
         return loaded;
       });
       snapshot = loading;

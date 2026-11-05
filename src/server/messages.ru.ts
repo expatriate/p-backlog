@@ -36,6 +36,7 @@ export const serverRu = {
 
   codeCacheReadFailed: (detail: string): string => `Не удалось прочитать кэш git: ${detail}`,
   codeCacheWriteFailed: (detail: string): string => `Не удалось сохранить кэш git: ${detail}`,
+  projectsListenerFailed: (detail: string): string => `Не удалось передать кэшам новый список проектов, лишние записи останутся до следующей загрузки: ${detail}`,
   journalReadFailed: (path: string, detail: string): string => `Не удалось прочитать журнал ${path}, «Закрыты агентом» покажет и закрытые в вебе задачи проекта: ${detail}`,
 };
 

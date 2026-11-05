@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createTtlCache } from "./ttl-cache";
 
+const slotKey = (slot: string) => ({ slot, state: "" });
+
 describe("кэш со сроком жизни", () => {
   it("повтор по тому же ключу — из кэша; сброс и истечение срока — пересчёт", async () => {
     let clock = 0;
     let computed = 0;
     const cache = createTtlCache({ ttlMs: 1000, now: () => clock });
-    const report = () => cache.get("stats|spa", async () => ++computed);
+    const report = () => cache.get(slotKey("stats|spa"), async () => ++computed);
 
     expect([await report(), await report()]).toEqual([1, 1]);
 
@@ -15,36 +17,45 @@ describe("кэш со сроком жизни", () => {
 
     clock = 1001;
     expect(await report()).toBe(3);
-    expect(await cache.get("stats|ti", async () => ++computed)).toBe(4);
+    expect(await cache.get(slotKey("stats|ti"), async () => ++computed)).toBe(4);
   });
 
-  it("отчёты прошлых дней не копятся: истёкшие записи уходят при следующем запросе", async () => {
-    const DAY_MS = 24 * 60 * 60 * 1000;
-    let clock = 0;
-    const cache = createTtlCache({ ttlMs: 1000, now: () => clock });
+  it("новое состояние вытесняет прежнее в том же слоте: за время срока жизни записи не копятся", async () => {
+    const cache = createTtlCache({ ttlMs: 1000, now: () => 0 });
 
-    for (let day = 1; day <= 30; day += 1) {
-      clock = day * DAY_MS;
-      await cache.get(`stats|*|day-${day}`, async () => day);
-      await cache.get(`quality|*|day-${day}`, async () => day);
+    for (let revision = 1; revision <= 30; revision += 1) {
+      await cache.get({ slot: "cost|*", state: `revision-${revision}` }, async () => revision);
+      await cache.get({ slot: "stats|*", state: `revision-${revision}` }, async () => revision);
     }
 
     expect(cache.size()).toBe(2);
+    expect(await cache.get({ slot: "cost|*", state: "revision-30" }, async () => 0)).toBe(30);
+  });
+
+  it("истёкшие записи других слотов уходят при следующем запросе", async () => {
+    let clock = 0;
+    const cache = createTtlCache({ ttlMs: 1000, now: () => clock });
+    await cache.get(slotKey("stats|spa"), async () => 1);
+
+    clock = 1001;
+    await cache.get(slotKey("stats|ti"), async () => 2);
+
+    expect(cache.size()).toBe(1);
   });
 
   it("ошибка расчёта не кэшируется", async () => {
     const cache = createTtlCache({ ttlMs: 1000, now: () => 0 });
 
-    await expect(cache.get("k", async () => Promise.reject(new Error("git упал")))).rejects.toThrow("git упал");
-    expect(await cache.get("k", async () => "ok")).toBe("ok");
+    await expect(cache.get(slotKey("k"), async () => Promise.reject(new Error("git упал")))).rejects.toThrow("git упал");
+    expect(await cache.get(slotKey("k"), async () => "ok")).toBe("ok");
   });
 
   it("forgetTagged убирает только записи с пересекающимися тегами", async () => {
     const cache = createTtlCache({ ttlMs: 1000, now: () => 0 });
     let computedA = 0;
     let computedB = 0;
-    const a = () => cache.get("a", async () => ++computedA, ["project:a", "project:*"]);
-    const b = () => cache.get("b", async () => ++computedB, ["project:b", "project:*"]);
+    const a = () => cache.get(slotKey("a"), async () => ++computedA, ["project:a", "project:*"]);
+    const b = () => cache.get(slotKey("b"), async () => ++computedB, ["project:b", "project:*"]);
 
     expect([await a(), await b()]).toEqual([1, 1]);
 
@@ -58,13 +69,13 @@ describe("кэш со сроком жизни", () => {
     let computed = 0;
     const { promise: stale, reject: rejectStale } = Promise.withResolvers<number>();
 
-    const staleResult = cache.get("k", () => stale, ["tag"]);
+    const staleResult = cache.get(slotKey("k"), () => stale, ["tag"]);
     cache.forgetTagged(["tag"]);
-    const fresh = await cache.get("k", async () => ++computed, ["tag"]);
+    const fresh = await cache.get(slotKey("k"), async () => ++computed, ["tag"]);
 
     rejectStale(new Error("устарел"));
     await expect(staleResult).rejects.toThrow("устарел");
 
-    expect(await cache.get("k", async () => ++computed)).toBe(fresh);
+    expect(await cache.get(slotKey("k"), async () => ++computed)).toBe(fresh);
   });
 });

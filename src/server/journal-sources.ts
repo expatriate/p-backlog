@@ -3,7 +3,7 @@ import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../c
 import { filterByProject, scopedReportData, type ReportContext, type ScopedReportData, type StatsInput } from "../core/stats/scope";
 import { JOURNAL_FILE, projectJournal } from "../core/store/journal";
 import { createJsonlTail, type JsonlTail } from "../core/store/jsonl-tail";
-import { createScopeMemo, createSnapshotIds, pruneUnlessKept } from "./source-memos";
+import { createScopeMemo, createSnapshotIds, retainProjects } from "./source-memos";
 
 type ScopeSources = { journals: ProjectJournal[]; contextOf: (input: StatsInput) => ReportContext };
 
@@ -48,7 +48,7 @@ export function createJournalSources(root: string): JournalSources {
       return { journals: tailed.map(({ journal }) => journal), contextOf: rememberedContext(snapshot, tailed) };
     },
     retain: (projectIds) => {
-      pruneUnlessKept(tails, projectIds);
+      retainProjects(tails, projectIds);
       remembered.retain(projectIds);
     },
   };

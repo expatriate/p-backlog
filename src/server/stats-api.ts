@@ -24,7 +24,7 @@ import { serverMessages, type LocalizedWarn } from "./messages";
 import type { MemorySampler } from "./memory-sampler";
 import { createCostSource } from "./cost-source";
 import type { JournalSources } from "./journal-sources";
-import { createTtlCache } from "./ttl-cache";
+import { createTtlCache, type CacheKey } from "./ttl-cache";
 import type { UsageScanner } from "./usage-scanner";
 
 export type StatsServices = { usage: UsageScanner; memory: MemorySampler; warn: LocalizedWarn };
@@ -80,7 +80,10 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
       const scope = await requestScopeOf(c, await backlog(), { wholeBacklog, readLanguage });
       if (!scope.ok) return scope.response;
       const moment = now();
-      const key = JSON.stringify([kind, scope.projectId ?? null, formatLocalDay(moment), sourceKey === undefined ? null : await sourceKey(scope.projects, scope.snapshot)]);
+      const key = {
+        slot: JSON.stringify([kind, scope.projectId ?? null]),
+        state: JSON.stringify([formatLocalDay(moment), sourceKey === undefined ? null : await sourceKey(scope.projects, scope.snapshot)]),
+      };
       const tags = wholeBacklog ? [WHOLE_BACKLOG_TAG] : [scope.projectId === undefined ? ALL_PROJECTS_TAG : projectTag(scope.projectId)];
       const compute = async () => report(reportSources(scope, moment, journalSources));
       return c.json(await cachedUnlessForgotten(key, compute, tags));
@@ -146,7 +149,7 @@ function createForgettingReportCache(root: string, now: () => Date) {
 
   const startRead = () => {
     const forgetCountAtRead = forgetCount;
-    return <R>(key: string, compute: () => Promise<R>, tags: readonly string[]): Promise<R> => (forgetCount === forgetCountAtRead ? reports.get(key, compute, tags) : compute());
+    return <R>(key: CacheKey, compute: () => Promise<R>, tags: readonly string[]): Promise<R> => (forgetCount === forgetCountAtRead ? reports.get(key, compute, tags) : compute());
   };
 
   const knowProjects = (projectIds: readonly string[]) => {

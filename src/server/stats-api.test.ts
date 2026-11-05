@@ -451,6 +451,23 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     expect(after.totals.cliRuns).toBe(1);
   });
 
+  it("правка repos чужого проекта сразу меняет «Стоимость» проекта: запуск уходит к проекту с более точным репозиторием", async () => {
+    const home = await makeTempDir();
+    const sharedRepo = await makeGitRepo(home, "shared");
+    const backlog = await makeTestApp({ "spa/project.md": projectFile("SPA", [home]), "ops/project.md": projectFile("OPS", []) });
+    await backlog.usage.scanOnce();
+    await writeFile(join(backlog.root, ".runs.jsonl"), `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd: sharedRepo, ms: 10, rssMb: 50, exitCode: 0 })}\n`, "utf8");
+
+    const before = (await (await backlog.request("/api/stats/cost?project=spa")).json()) as CostReport;
+    expect(before.totals.cliRuns).toBe(1);
+
+    await writeFiles(backlog.root, { "ops/project.md": projectFile("OPS", [sharedRepo]) });
+    await backlog.emitChange([join(backlog.root, "ops", "project.md")]);
+
+    const after = (await (await backlog.request("/api/stats/cost?project=spa")).json()) as CostReport;
+    expect(after.totals.cliRuns).toBe(0);
+  });
+
   it("обрезка журнала запусков не ломает отчёт: результат равен пересчёту с нуля", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
     await backlog.usage.scanOnce();

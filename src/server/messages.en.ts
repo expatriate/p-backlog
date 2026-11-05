@@ -38,5 +38,6 @@ export const serverEn: ServerMessages = {
 
   codeCacheReadFailed: (detail) => `Could not read the git cache: ${detail}`,
   codeCacheWriteFailed: (detail) => `Could not save the git cache: ${detail}`,
+  projectsListenerFailed: (detail) => `Could not pass the new project list to the caches, stale entries stay until the next load: ${detail}`,
   journalReadFailed: (path, detail) => `Could not read the journal ${path}, "Closed by agent" will also list this project's tasks closed in the web: ${detail}`,
 };
