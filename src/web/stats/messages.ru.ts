@@ -5,7 +5,6 @@ import type { AgeBucket, ClosingReason } from "../../core/api/contract";
 import type { ChartId, ChartStep, Grain } from "./charts/chart-style";
 import type { FigureTone } from "./Figure";
 import type { StatsConstants } from "./stats-constants";
-import type { PricedCost } from "./value-format";
 import type { AccuracySummary, CodeAndTestsLines, FlowSummary, IntakeSummary, LinesAmount, PendingEstimate, SpendSummary } from "./summaries";
 
 const dayCount = (n: number): string => countRu(n, "день", "дня", "дней");
@@ -13,7 +12,6 @@ const CHART_STEPS: Record<ChartStep, string> = { day: "дням", week: "нед�
 
 const PERIOD_FORMS: Record<Grain, [string, string, string]> = { week: ["неделя", "недели", "недель"], day: ["день", "дня", "дней"] };
 const OVER_PERIOD_FORMS: Record<Grain, [string, string, string]> = { week: ["неделю", "недели", "недель"], day: ["день", "дня", "дней"] };
-const UNPRICED_NOTE = "без моделей с неизвестной ценой";
 const PER_PERIOD: Record<Grain, string> = { week: "в неделю", day: "в день" };
 const AVERAGE_SINCE: Record<Grain, string> = { week: `с${NBSP}недели`, day: "с" };
 const LAST_PERIOD: Record<Grain, string> = { week: "на последней неделе с решениями", day: "в последний день с решениями" };
@@ -21,7 +19,6 @@ const LAST_PERIOD: Record<Grain, string> = { week: "на последней не
 const periods = (grain: Grain, n: number): string => countRu(n, ...PERIOD_FORMS[grain]);
 const tasks = (n: number): string => countRu(n, "задача", "задачи", "задач");
 const tokens = (n: number): string => countRu(n, "токен", "токена", "токенов");
-const pricedCostText = ({ value, withoutUnpricedModels }: PricedCost): string => (withoutUnpricedModels ? `${value} (${UNPRICED_NOTE})` : value);
 
 function linesText({ formatted, count }: LinesAmount): string {
   return `${formatted}${NBSP}${pluralRu(count, "строка", "строки", "строк")}`;
@@ -210,7 +207,7 @@ export function createStatsRu(constants: StatsConstants) {
     backlogTokens: "Токены из-за беклога",
     backlogTokensNote: (hook: string, cli: string): string => `ходы хука ${hook}, вывод CLI и скилл ${cli}`,
     apiPrice: "По ценам API",
-    unpricedNote: UNPRICED_NOTE,
+    unpricedNote: "без моделей с неизвестной ценой",
     hookTurns: "Ходов из-за хука",
     hookRunsNote: (runs: string): string => `запусков хука ${runs}`,
     cliCalls: "Вызовов CLI",
@@ -232,10 +229,9 @@ export function createStatsRu(constants: StatsConstants) {
     hookTurnsTooltip: "ходы хука",
     cliOutput: "вывод CLI и скилл",
     apiPriceTooltip: "по ценам API",
-    pricedCostText,
     tokens,
     spendSummary: ({ grain, periodCount, hookTokens, cliTokens, money, hookRuns, cliRuns }: SpendSummary): string =>
-      `За ${countRu(periodCount, ...OVER_PERIOD_FORMS[grain])}: из-за хука ${tokens(hookTokens)}, вывод CLI и скилл ${cliTokens}, по ценам API ${pricedCostText(money)}; запусков хука ${hookRuns}, других команд ${cliRuns}`,
+      `За ${countRu(periodCount, ...OVER_PERIOD_FORMS[grain])}: из-за хука ${tokens(hookTokens)}, вывод CLI и скилл ${cliTokens}, по ценам API ${money}; запусков хука ${hookRuns}, других команд ${cliRuns}`,
     serverMemory: "Память сервера",
     memoryRestartNote: "После перезапуска сервера история начинается заново",
     memorySummary: (current: string, max: string): string => `Сейчас ${current}, максимум за ${memoryHistoryPeriod} ${max}`,

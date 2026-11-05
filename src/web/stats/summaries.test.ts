@@ -38,10 +38,10 @@ const spend = (cost: number | null, hasUnpricedTokens: boolean): CostPeriod => (
 
 describe("деньги в сводке расхода", () => {
   it("без единой цены, даже рядом с днями без токенов, — прочерк без «≈» и без пометки о моделях без цены", () => {
-    expect(statsRu.spendSummary(summarizeSpend("ru", "day", [spend(0, false), spend(null, true)]))).toContain("по ценам API —;");
+    expect(statsRu.spendSummary(summarizeSpend("ru", "day", [spend(0, false), spend(null, true)], statsRu.unpricedNote))).toContain("по ценам API —;");
   });
 
   it("часть периодов без цены — сумма помечена как неполная", () => {
-    expect(statsEn.spendSummary(summarizeSpend("en", "day", [spend(1.5, false), spend(null, true)]))).toContain(`at API prices ≈${NBSP}$1.50 (excluding models with unknown prices);`);
+    expect(statsEn.spendSummary(summarizeSpend("en", "day", [spend(1.5, false), spend(null, true)], statsEn.unpricedNote))).toContain(`at API prices ≈${NBSP}$1.50 (excluding models with unknown prices);`);
   });
 });

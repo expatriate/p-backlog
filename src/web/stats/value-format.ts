@@ -20,8 +20,21 @@ export function costValue(language: Language, cost: number | null): string {
   return cost === null ? NO_VALUE : approx(formatMoney(language, cost));
 }
 
-export type PricedCost = { value: string; withoutUnpricedModels: boolean };
+export type PricedCost = { kind: "unpriced" } | { kind: "priced"; amount: string; withoutUnpricedModels: boolean };
 
 export function pricedCost(language: Language, { cost, hasUnpricedTokens }: Pick<CostNumbers, "cost" | "hasUnpricedTokens">): PricedCost {
-  return { value: costValue(language, cost), withoutUnpricedModels: hasUnpricedTokens && cost !== null };
+  return cost === null ? { kind: "unpriced" } : { kind: "priced", amount: costValue(language, cost), withoutUnpricedModels: hasUnpricedTokens };
+}
+
+export function pricedAmount(cost: PricedCost): string {
+  return cost.kind === "priced" ? cost.amount : NO_VALUE;
+}
+
+export function unpricedNoteFor(cost: PricedCost, unpricedNote: string): string | undefined {
+  return cost.kind === "priced" && cost.withoutUnpricedModels ? unpricedNote : undefined;
+}
+
+export function pricedCostText(cost: PricedCost, unpricedNote: string): string {
+  const note = unpricedNoteFor(cost, unpricedNote);
+  return note === undefined ? pricedAmount(cost) : `${pricedAmount(cost)} (${note})`;
 }

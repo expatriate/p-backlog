@@ -5,7 +5,7 @@ import { Figure, FigureGroup } from "./Figure";
 import { Panel, PanelNote } from "./Panel";
 import { usePeriodCaption } from "./period-caption";
 import { StatsTable } from "./StatsTable";
-import { costValue, pricedCost, wholeFormatter } from "./value-format";
+import { costValue, pricedAmount, pricedCost, unpricedNoteFor, wholeFormatter } from "./value-format";
 
 export function CostFigures({ totals, period }: { totals: CostTotals; period: ReportPeriod }) {
   const { stats } = useMessages();
@@ -16,7 +16,7 @@ export function CostFigures({ totals, period }: { totals: CostTotals; period: Re
   return (
     <FigureGroup period={caption.of("lastWeek", period)}>
       <Figure label={stats.backlogTokens} value={whole(totals.tokens)} note={stats.backlogTokensNote(whole(totals.hookTokens), whole(totals.cliTokens))} />
-      <Figure label={stats.apiPrice} value={money.value} note={money.withoutUnpricedModels ? stats.unpricedNote : undefined} />
+      <Figure label={stats.apiPrice} value={pricedAmount(money)} note={unpricedNoteFor(money, stats.unpricedNote)} />
       <Figure label={stats.hookTurns} value={whole(totals.hookTurns)} note={stats.hookRunsNote(whole(totals.hookRuns))} />
       <Figure label={stats.cliCalls} value={whole(totals.cliRuns)} />
     </FigureGroup>

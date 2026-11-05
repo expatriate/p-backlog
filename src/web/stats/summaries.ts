@@ -5,7 +5,7 @@ import { sum } from "../../core/numbers";
 import { formatShare } from "../../core/stats/format";
 import type { Grain } from "./charts/chart-style";
 import { deferredCodeLines, formatEstimate, formatLines } from "./effect-format";
-import { pricedCost, wholeFormatter, type PricedCost } from "./value-format";
+import { pricedCost, pricedCostText, wholeFormatter } from "./value-format";
 
 type PeriodSummary = { grain: Grain; periodCount: number };
 
@@ -15,7 +15,7 @@ export type IntakeSummary = PeriodSummary & { created: number; average: { perPer
 
 export type AccuracySummary = PeriodSummary & { decided: number; latestPrecision: string | null };
 
-export type SpendSummary = PeriodSummary & { hookTokens: number; cliTokens: string; money: PricedCost; hookRuns: string; cliRuns: string };
+export type SpendSummary = PeriodSummary & { hookTokens: number; cliTokens: string; money: string; hookRuns: string; cliRuns: string };
 
 export type LinesAmount = { formatted: string; count: number };
 
@@ -74,7 +74,7 @@ export function summarizeAccuracy(grain: Grain, periods: AccuracyPeriod[]): Accu
   };
 }
 
-export function summarizeSpend(language: Language, grain: Grain, periods: CostPeriod[]): SpendSummary {
+export function summarizeSpend(language: Language, grain: Grain, periods: CostPeriod[], unpricedNote: string): SpendSummary {
   const total = (pick: (period: CostPeriod) => number) => sum(periods.map(pick));
   const whole = wholeFormatter(language);
   const spent = { cost: totalMoney(periods), hasUnpricedTokens: periods.some((period) => period.hasUnpricedTokens) };
@@ -82,7 +82,7 @@ export function summarizeSpend(language: Language, grain: Grain, periods: CostPe
     ...periodSummary(grain, periods),
     hookTokens: total((period) => period.hookTokens),
     cliTokens: whole(total((period) => period.cliTokens)),
-    money: pricedCost(language, spent),
+    money: pricedCostText(pricedCost(language, spent), unpricedNote),
     hookRuns: whole(total((period) => period.hookRuns)),
     cliRuns: whole(total((period) => period.cliRuns)),
   };

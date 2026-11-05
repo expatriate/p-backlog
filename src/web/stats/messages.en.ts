@@ -3,14 +3,12 @@ import { countEn, NBSP, pluralEn } from "../../core/i18n/plural";
 import type { ChartStep, Grain } from "./charts/chart-style";
 import type { StatsMessages } from "./messages.ru";
 import type { StatsConstants } from "./stats-constants";
-import type { PricedCost } from "./value-format";
 import type { LinesAmount } from "./summaries";
 
 const dayCount = (n: number): string => countEn(n, "day", "days");
 const CHART_STEPS: Record<ChartStep, string> = { day: "day", week: "week", sample: "sample" };
 
 const PERIOD_FORMS: Record<Grain, [string, string]> = { week: ["week", "weeks"], day: ["day", "days"] };
-const UNPRICED_NOTE = "excluding models with unknown prices";
 const PER_PERIOD: Record<Grain, string> = { week: "a week", day: "a day" };
 const AVERAGE_SINCE: Record<Grain, string> = { week: "since the week of", day: "since" };
 const LAST_PERIOD: Record<Grain, string> = { week: "in the latest week with decisions", day: "on the last day with decisions" };
@@ -18,7 +16,6 @@ const LAST_PERIOD: Record<Grain, string> = { week: "in the latest week with deci
 const periods = (grain: Grain, n: number): string => countEn(n, ...PERIOD_FORMS[grain]);
 const tasks = (n: number): string => countEn(n, "task", "tasks");
 const tokens = (n: number): string => countEn(n, "token", "tokens");
-const pricedCostText = ({ value, withoutUnpricedModels }: PricedCost): string => (withoutUnpricedModels ? `${value} (${UNPRICED_NOTE})` : value);
 
 function linesText({ formatted, count }: LinesAmount): string {
   return `${formatted}${NBSP}${pluralEn(count, "line", "lines")}`;
@@ -195,7 +192,7 @@ export function createStatsEn(constants: StatsConstants): StatsMessages {
     backlogTokens: "Tokens due to the backlog",
     backlogTokensNote: (hook, cli) => `hook turns ${hook}, CLI output and skill ${cli}`,
     apiPrice: "At API prices",
-    unpricedNote: UNPRICED_NOTE,
+    unpricedNote: "excluding models with unknown prices",
     hookTurns: "Turns due to the hook",
     hookRunsNote: (runs) => `hook runs ${runs}`,
     cliCalls: "CLI calls",
@@ -217,10 +214,9 @@ export function createStatsEn(constants: StatsConstants): StatsMessages {
     hookTurnsTooltip: "hook turns",
     cliOutput: "CLI output and skill",
     apiPriceTooltip: "at API prices",
-    pricedCostText,
     tokens,
     spendSummary: ({ grain, periodCount, hookTokens, cliTokens, money, hookRuns, cliRuns }) =>
-      `Over ${periods(grain, periodCount)}: due to the hook ${tokens(hookTokens)}, CLI output and skill ${cliTokens}, at API prices ${pricedCostText(money)}; hook runs ${hookRuns}, other commands ${cliRuns}`,
+      `Over ${periods(grain, periodCount)}: due to the hook ${tokens(hookTokens)}, CLI output and skill ${cliTokens}, at API prices ${money}; hook runs ${hookRuns}, other commands ${cliRuns}`,
     serverMemory: "Server memory",
     memoryRestartNote: "The history starts over after the server restarts",
     memorySummary: (current, max) => `Now ${current}, peak over ${memoryHistoryPeriod} ${max}`,
