@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { GraphState } from "../check/graph-health";
 import type { Language } from "../i18n/language";
-import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskIdSchema, type ParseError, type Project, type Task } from "../model/types";
+import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskIdSchema, type Project, type Task, type UnparsedFile } from "../model/types";
 import { normalizeClosingReason } from "../model/lifecycle";
 import { settingsSchema } from "../model/settings";
 import type { BatchSkipReason } from "../store/batch";
@@ -66,9 +66,10 @@ type BatchPrevious = z.infer<typeof batchPreviousSchema>;
 export type BatchOutcome = { id: string; outcome: "done"; version: string; previous: BatchPrevious } | { id: string; outcome: "skipped"; reason: BatchSkipReason; message: string };
 export type BatchResponse = { results: BatchOutcome[] };
 
-export type ParseErrorView = Omit<ParseError, "problems"> & { message: string };
+export type ParseErrorView = { path: string; projectId: string; fileKind: UnparsedFile; message: string };
+type NotLoadedTaskView = { id: string; fileKind: UnparsedFile };
 export type Revision = { boot: string; seq: number };
-export type TasksResponse = { tasks: Task[]; closedInWeb: string[]; errors: ParseErrorView[]; unparsedTaskIds: string[]; revision: Revision };
+export type TasksResponse = { tasks: Task[]; closedInWeb: string[]; errors: ParseErrorView[]; notLoadedTasks: NotLoadedTaskView[]; revision: Revision };
 export type ProjectView = Project & { codeGraph: GraphState };
 export type ProjectsResponse = { projects: ProjectView[]; revision: Revision };
 export type ProjectDeletedResponse = { deleted: string };

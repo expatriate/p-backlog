@@ -103,7 +103,7 @@ describe("завершённый эпик", () => {
   });
 
   it("эпики закрываются, только когда разобраны все файлы, иначе ждут: у неразобранного эпик неизвестен", () => {
-    const parseError: ParseError = { path: "/backlog/spa/SPA-9.md", projectId: "spa", problems: [{ code: "no-frontmatter" }] };
+    const parseError: ParseError = { path: "/backlog/spa/SPA-9.md", projectId: "spa", fileKind: "task", problems: [{ code: "no-frontmatter" }] };
     const completed = [{ epic, childIds: ["SPA-2", "SPA-3"] }];
     expect(planEpicClosing([epic, done, cancelled], [])).toEqual({ close: completed, waiting: [] });
     expect(planEpicClosing([epic, done, cancelled], [parseError])).toEqual({ close: [], waiting: completed });

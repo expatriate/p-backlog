@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import type { TaskFilter } from "../../core/model/query";
+import type { NotLoadedTasks } from "../../core/model/types";
 import { useMessages } from "../i18n";
 import { CloseIcon } from "../ui/CloseIcon";
 import { IconButton } from "../ui/IconButton";
@@ -12,9 +13,9 @@ import styles from "./EpicPicker.module.css";
 
 type EpicSelection = TaskFilter["epic"];
 
-export type EpicPickerProps = { choices: EpicChoices; unparsedTaskIds: ReadonlySet<string>; selected: EpicSelection; onSelect: (epic: EpicSelection) => void };
+export type EpicPickerProps = { choices: EpicChoices; notLoadedTasks: NotLoadedTasks; selected: EpicSelection; onSelect: (epic: EpicSelection) => void };
 
-export function EpicPicker({ choices, unparsedTaskIds, selected, onSelect }: EpicPickerProps) {
+export function EpicPicker({ choices, notLoadedTasks, selected, onSelect }: EpicPickerProps) {
   const { list } = useMessages();
   const trigger = useRef<HTMLButtonElement>(null);
   const chosen = choices.epics.find((epic) => epic.id === selected);
@@ -39,7 +40,7 @@ export function EpicPicker({ choices, unparsedTaskIds, selected, onSelect }: Epi
           )
         }
       >
-        <EpicOptions choices={choices} unparsedTaskIds={unparsedTaskIds} selected={selected} onSelect={onSelect} />
+        <EpicOptions choices={choices} notLoadedTasks={notLoadedTasks} selected={selected} onSelect={onSelect} />
       </Popover>
       {selected !== undefined && (
         <IconButton
@@ -56,7 +57,7 @@ export function EpicPicker({ choices, unparsedTaskIds, selected, onSelect }: Epi
   );
 }
 
-function EpicOptions({ choices, unparsedTaskIds, selected, onSelect }: EpicPickerProps) {
+function EpicOptions({ choices, notLoadedTasks, selected, onSelect }: EpicPickerProps) {
   const { list } = useMessages();
   const closePopover = useClosePopover();
   const choose = (epic: EpicSelection) => {
@@ -77,7 +78,7 @@ function EpicOptions({ choices, unparsedTaskIds, selected, onSelect }: EpicPicke
         <div className={styles.epics}>
           {foreignEpic !== undefined && (
             <MenuOption pressed onChoose={() => choose(foreignEpic)}>
-              <EpicLabel id={foreignEpic} title={unparsedTaskIds.has(foreignEpic) ? list.epicNotLoaded : list.epicNotFound} tone={undefined} />
+              <EpicLabel id={foreignEpic} title={notLoadedTasks.has(foreignEpic) ? list.epicNotLoaded : list.epicNotFound} tone={undefined} />
             </MenuOption>
           )}
           {choices.epics.map((epic) => (

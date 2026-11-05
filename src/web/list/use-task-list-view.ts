@@ -25,7 +25,10 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
   const allTasks = useMemo(() => tasks.data?.tasks ?? [], [tasks.data]);
   const isInScope = useMemo(() => taskScope(projects.data, projectId), [projects.data, projectId]);
   const scopedTasks = useMemo(() => (isInScope === undefined ? [] : allTasks.filter(isInScope)), [allTasks, isInScope]);
-  const all = useMemo(() => ({ tasks: allTasks, index: buildIndex(allTasks), unparsedTaskIds: new Set(tasks.data?.unparsedTaskIds), tones: epicTones(allTasks) }), [allTasks, tasks.data]);
+  const all = useMemo(
+    () => ({ tasks: allTasks, index: buildIndex(allTasks), notLoadedTasks: new Map(tasks.data?.notLoadedTasks.map(({ id, fileKind }) => [id, fileKind])), tones: epicTones(allTasks) }),
+    [allTasks, tasks.data],
+  );
   const { index, tones } = all;
   const filterContext = useMemo(() => ({ index, closedInWeb: new Set(tasks.data?.closedInWeb) }), [index, tasks.data]);
   const visibleTasks = useMemo(() => sortTasks(filterListTasks(scopedTasks, params.filter, filterContext), sort, index, language), [scopedTasks, index, filterContext, params.filter, sort, language]);
@@ -50,7 +53,7 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
     parseErrors,
     all,
     table: { tasks: visibleTasks, sort, dateColumn },
-    filterChoices: { tags, epicChoices: epicFilterChoices, unparsedTaskIds: all.unparsedTaskIds, autoClosedCount },
+    filterChoices: { tags, epicChoices: epicFilterChoices, notLoadedTasks: all.notLoadedTasks, autoClosedCount },
     empty: { hasTasks: scopedTasks.length > 0, hiddenOpen },
   };
 }
@@ -61,7 +64,7 @@ type ListState = { hasData: boolean; failed: boolean; project: ProjectPresence; 
 
 function projectPresence(projectId: string | undefined, projects: readonly ProjectView[] | undefined, parseErrors: readonly ParseErrorView[]): ProjectPresence {
   if (projectId === undefined || projects === undefined || projects.some((project) => project.id === projectId)) return "listed";
-  return parseErrors.some((parseError) => parseError.hiddenTasks !== undefined) ? "unparsed" : "unknown";
+  return parseErrors.some((parseError) => parseError.fileKind === "project") ? "unparsed" : "unknown";
 }
 
 function listContentOf({ hasData, failed, project, visibleCount }: ListState): ListContent {

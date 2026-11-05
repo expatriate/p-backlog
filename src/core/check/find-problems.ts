@@ -2,15 +2,15 @@ import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
 import { planEpicClosing } from "../model/lifecycle";
 import type { ParseError, Project } from "../model/types";
-import { isProjectFileError, unparsedTaskIds, type LoadedBacklog } from "../store/load";
+import { isProjectFileError, notLoadedTasks, type LoadedBacklog } from "../store/load";
 import type { CheckProblem } from "./findings";
 
 export function findProblems(loaded: LoadedBacklog, projects: readonly Project[], repos: ReadonlyMap<string, string | undefined>, inScope: (projectId: string) => boolean): CheckProblem[] {
   const index = buildIndex(loaded.tasks);
-  const unparsed = unparsedTaskIds(loaded.errors);
+  const notLoaded = notLoadedTasks(loaded.errors);
   const integrity = loaded.tasks
     .filter((task) => inScope(task.projectId))
-    .flatMap((task) => integrityErrors(task, index, unparsed).map((problem): CheckProblem => ({ kind: "task-invalid", taskId: task.id, problem })));
+    .flatMap((task) => integrityErrors(task, index, notLoaded).map((problem): CheckProblem => ({ kind: "task-invalid", taskId: task.id, problem })));
   const missingRepos = projects.filter((project) => repos.get(project.id) === undefined).map(missingRepoProblem);
   return [...parseProblems(loaded, inScope), ...integrity, ...missingRepos, ...sharedPrefixes(loaded.projects, inScope)];
 }

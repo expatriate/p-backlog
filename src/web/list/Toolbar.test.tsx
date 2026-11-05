@@ -13,7 +13,7 @@ function ToolbarHarness({ initial, tags = [], epicChoices = NO_EPICS }: { initia
   const [params, setParams] = useState<ListParams>({ filter: initial, sort: DEFAULT_SORT });
   return (
     <TestMessagesProvider>
-      <Toolbar params={params} onChange={setParams} tags={tags} epicChoices={epicChoices} unparsedTaskIds={new Set()} autoClosedCount={0} />
+      <Toolbar params={params} onChange={setParams} tags={tags} epicChoices={epicChoices} notLoadedTasks={new Map()} autoClosedCount={0} />
     </TestMessagesProvider>
   );
 }

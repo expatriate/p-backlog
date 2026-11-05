@@ -2,7 +2,7 @@ import type { CheckFix, CheckProblem } from "../check/findings";
 import type { GraphState } from "../check/graph-health";
 import type { CandidateEvidence, CheckMethod, DuplicateMatch } from "../journal/events";
 import type { Problem, SchemaIssue } from "../model/problems";
-import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType } from "../model/types";
+import type { Priority, Resolution, TaskCategory, TaskStatus, TaskType, UnparsedFile } from "../model/types";
 import type { LockBusy } from "../store/file-lock";
 import type { CategoryRow, FlowForecast, FoundRow, Signal } from "../stats/types";
 import type { StoreMessages } from "./store-messages";
@@ -15,7 +15,7 @@ export type CoreMessages = StoreMessages & {
   hookMark: string;
   languageName: string;
   problems: (list: readonly Problem[]) => string;
-  taskNotLoaded: (id: string) => string;
+  taskNotLoaded: (id: string, file: UnparsedFile) => string;
   untrustedRepo: (repo: string, trustCommand: string) => UntrustedRepoTexts;
   schemaIssue: (issue: SchemaIssue) => string;
   categoryLabel: (category: TaskCategory | undefined) => string;

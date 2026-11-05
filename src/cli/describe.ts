@@ -3,7 +3,7 @@ import { taskWarnings } from "../core/model/integrity";
 import { formatLocalIso } from "../core/model/dates";
 import { scheduledDeletion, type ScheduledDeletion } from "../core/model/lifecycle";
 import type { Problem } from "../core/model/problems";
-import type { Task } from "../core/model/types";
+import type { NotLoadedTasks, Task } from "../core/model/types";
 
 export type TaskDescription = {
   task: Task;
@@ -19,7 +19,7 @@ export type TaskDescription = {
   deletion: ScheduledDeletion | undefined;
 };
 
-export function describeTask(task: Task, index: BacklogIndex, unparsedTaskIds: ReadonlySet<string>): TaskDescription {
+export function describeTask(task: Task, index: BacklogIndex, notLoadedTasks: NotLoadedTasks): TaskDescription {
   const open = openBlockers(task, index);
   return {
     task,
@@ -29,9 +29,9 @@ export function describeTask(task: Task, index: BacklogIndex, unparsedTaskIds: R
     blocks: dependentTasks(task, index),
     related: relatedTasks(task, index),
     epic: task.epic === undefined ? undefined : index.byId.get(task.epic),
-    epicUnparsed: task.epic !== undefined && unparsedTaskIds.has(task.epic),
+    epicUnparsed: task.epic !== undefined && notLoadedTasks.has(task.epic),
     children: task.type === "epic" ? epicChildren(task, index) : [],
-    warnings: taskWarnings(task, index, unparsedTaskIds),
+    warnings: taskWarnings(task, index, notLoadedTasks),
     deletion: scheduledDeletion(task, index),
   };
 }
@@ -57,10 +57,10 @@ function deletionJson(deletion: ScheduledDeletion | undefined): object {
   return "at" in deletion ? { deletesAt: formatLocalIso(deletion.at) } : { deletesAfterEpic: deletion.afterEpic };
 }
 
-export function taskJson(task: Task, index: BacklogIndex, unparsedTaskIds: ReadonlySet<string>): object {
-  return descriptionJson(describeTask(task, index, unparsedTaskIds));
+export function taskJson(task: Task, index: BacklogIndex, notLoadedTasks: NotLoadedTasks): object {
+  return descriptionJson(describeTask(task, index, notLoadedTasks));
 }
 
-export function tasksJson(tasks: readonly Task[], index: BacklogIndex, unparsedTaskIds: ReadonlySet<string>): object[] {
-  return tasks.map((task) => taskJson(task, index, unparsedTaskIds));
+export function tasksJson(tasks: readonly Task[], index: BacklogIndex, notLoadedTasks: NotLoadedTasks): object[] {
+  return tasks.map((task) => taskJson(task, index, notLoadedTasks));
 }

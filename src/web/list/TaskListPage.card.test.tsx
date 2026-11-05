@@ -48,7 +48,7 @@ describe("карточка поверх списка", () => {
     expect(await screen.findByText("Файл проекта не разобран — его задачи не показаны, пока файл не исправят.")).toBeDefined();
 
     await renderApp(files, "/t/BR-1");
-    expect(await screen.findByText("BR-1 не загружена: не разобран её файл или файл её проекта")).toBeDefined();
+    expect(await screen.findByText("BR-1 не загружена: не разобран файл её проекта")).toBeDefined();
   });
 
   it("заголовок вкладки с открытой карточкой называет задачу", async () => {

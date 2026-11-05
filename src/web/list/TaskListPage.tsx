@@ -107,10 +107,11 @@ function useListLayout(searchKey: string, setSearch: SetURLSearchParams) {
 
 function MissingTaskNote({ taskId }: { taskId: string | undefined }) {
   const { core, list } = useMessages();
-  const { unparsedTaskIds } = useAllTasks();
+  const { notLoadedTasks } = useAllTasks();
+  const unparsedFile = taskId === undefined ? undefined : notLoadedTasks.get(taskId);
   return (
     <Notice className={styles.warning} shown={taskId !== undefined} role="status">
-      {taskId !== undefined && (unparsedTaskIds.has(taskId) ? core.taskNotLoaded(taskId) : list.missingTask(taskId))}
+      {taskId !== undefined && (unparsedFile === undefined ? list.missingTask(taskId) : core.taskNotLoaded(taskId, unparsedFile))}
     </Notice>
   );
 }

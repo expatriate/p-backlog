@@ -4,7 +4,7 @@ import { lineSuffix, sourcePath } from "../model/source";
 import { formatDayMonth, formatDecimal, formatNumber } from "../i18n/format";
 import { countEn, NBSP, pluralEn } from "../i18n/plural";
 import type { Problem, SchemaIssue } from "../model/problems";
-import type { TaskCategory } from "../model/types";
+import type { TaskCategory, UnparsedFile } from "../model/types";
 import type { FlowForecast, Signal } from "../stats/types";
 import { forecastOutlook, forecastSpan } from "./forecast";
 import { labelLookups, type LabelTables } from "./labels";
@@ -139,7 +139,9 @@ function schemaIssue(issue: SchemaIssue): string {
 
 const untrustedRepo = (repo: string, trustCommand: string): UntrustedRepoTexts => ({ reason: `git does not trust ${repo} (the directory belongs to another user)`, fix: `Fix: ${trustCommand}` });
 
-const taskNotLoaded = (id: string): string => `${id} is not loaded: its file or its project file could not be parsed`;
+const UNPARSED_FILE: Record<UnparsedFile, string> = { task: "its file", project: "its project file" };
+
+const taskNotLoaded = (id: string, file: UnparsedFile): string => `${id} is not loaded: ${UNPARSED_FILE[file]} could not be parsed`;
 
 function problem(p: Problem): string {
   switch (p.code) {
@@ -160,7 +162,7 @@ function problem(p: Problem): string {
     case "epic-missing":
       return `epic ${p.epic} not found`;
     case "epic-unparsed":
-      return `epic ${p.epic} is not loaded: its file or its project file could not be parsed`;
+      return `epic ${p.epic} is not loaded: ${UNPARSED_FILE[p.fileKind]} could not be parsed`;
     case "epic-not-epic":
       return `${p.epic} is not an epic`;
     case "epic-foreign-project":
@@ -172,7 +174,7 @@ function problem(p: Problem): string {
     case "reference-missing":
       return `${p.id} not found`;
     case "reference-unparsed":
-      return taskNotLoaded(p.id);
+      return taskNotLoaded(p.id, p.fileKind);
     case "not-utf8":
       return "the file is not UTF-8 — the backlog leaves it untouched until it is re-saved as UTF-8";
     case "no-frontmatter":

@@ -4,7 +4,7 @@ import { lineSuffix, sourcePath } from "../model/source";
 import { formatDayMonth, formatDecimal, formatNumber } from "../i18n/format";
 import { countRu, NBSP, pluralRu } from "../i18n/plural";
 import type { Problem, SchemaIssue } from "../model/problems";
-import type { TaskCategory } from "../model/types";
+import type { TaskCategory, UnparsedFile } from "../model/types";
 import type { FlowForecast, Signal } from "../stats/types";
 import { forecastOutlook, forecastSpan, type SpanUnit } from "./forecast";
 import { labelLookups, type LabelTables } from "./labels";
@@ -151,7 +151,10 @@ function schemaIssue(issue: SchemaIssue): string {
 
 const untrustedRepo = (repo: string, trustCommand: string): UntrustedRepoTexts => ({ reason: `git не доверяет ${repo} (каталог принадлежит другому пользователю)`, fix: `Исправление: ${trustCommand}` });
 
-const taskNotLoaded = (id: string): string => `${id} не загружена: не разобран её файл или файл её проекта`;
+const UNPARSED_FILE_OF_TASK: Record<UnparsedFile, string> = { task: "её файл", project: "файл её проекта" };
+const UNPARSED_FILE_OF_EPIC: Record<UnparsedFile, string> = { task: "его файл", project: "файл его проекта" };
+
+const taskNotLoaded = (id: string, file: UnparsedFile): string => `${id} не загружена: не разобран ${UNPARSED_FILE_OF_TASK[file]}`;
 
 function problem(p: Problem): string {
   switch (p.code) {
@@ -172,7 +175,7 @@ function problem(p: Problem): string {
     case "epic-missing":
       return `эпик ${p.epic} не найден`;
     case "epic-unparsed":
-      return `эпик ${p.epic} не загружен: не разобран его файл или файл его проекта`;
+      return `эпик ${p.epic} не загружен: не разобран ${UNPARSED_FILE_OF_EPIC[p.fileKind]}`;
     case "epic-not-epic":
       return `${p.epic} не является эпиком`;
     case "epic-foreign-project":
@@ -184,7 +187,7 @@ function problem(p: Problem): string {
     case "reference-missing":
       return `${p.id} не найдена`;
     case "reference-unparsed":
-      return taskNotLoaded(p.id);
+      return taskNotLoaded(p.id, p.fileKind);
     case "not-utf8":
       return "файл не в кодировке UTF-8 — беклог его не меняет, пока его не пересохранят в UTF-8";
     case "no-frontmatter":

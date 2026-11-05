@@ -5,7 +5,7 @@ import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
 import { buildIndex } from "../../core/model/graph";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project, type Task } from "../../core/model/types";
 import { createTask } from "../../core/store/create";
-import { loadBacklog, unparsedTaskIds, type LoadedBacklog } from "../../core/store/load";
+import { loadBacklog, notLoadedTasks, type LoadedBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
 import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo, type ExitCode } from "../io";
 import { ensureProject, lookupCwdProject, repoLookup, sourcePresenceOrWarn } from "../lookups";
@@ -61,7 +61,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
     io.readStdin(),
     values.project === undefined ? readOrigin(io.cwd) : cwdBelongsTo(project, loaded, io).then((belongs) => (belongs ? readOrigin(io.cwd) : undefined)),
   ]);
-  const unparsed = unparsedTaskIds(loaded.errors);
+  const notLoaded = notLoadedTasks(loaded.errors);
   const result = await createTask(io.backlogRoot, {
     project,
     input: {
@@ -78,7 +78,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
       body,
     },
     existingTasks: loaded.tasks,
-    unparsedTaskIds: unparsed,
+    notLoadedTasks: notLoaded,
     now: io.now(),
     via: "cli",
     onError: warnPathErrors(io.warn),
@@ -90,7 +90,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   }
   const { task, reopenedEpic } = result;
   if (reopenedEpic !== undefined) io.warn(io.cli.epicReopened(reopenedEpic.id));
-  io.print(values.json ? formatJson(taskJson(task, buildIndex(withWrittenTasks(loaded.tasks, [result])), unparsed)) : `${task.id} ${task.path}`);
+  io.print(values.json ? formatJson(taskJson(task, buildIndex(withWrittenTasks(loaded.tasks, [result])), notLoaded)) : `${task.id} ${task.path}`);
   return EXIT.ok;
 }
 

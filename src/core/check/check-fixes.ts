@@ -3,7 +3,7 @@ import { buildIndex, type BacklogIndex } from "../model/graph";
 import { parseId } from "../model/ids";
 import { epicDoneClosure, planEpicClosing, planEpicReopening, type Closure } from "../model/lifecycle";
 import type { Task, TaskStatus } from "../model/types";
-import { unparsedTaskIds, type LoadedBacklog } from "../store/load";
+import { notLoadedTasks, type LoadedBacklog } from "../store/load";
 import { referenceCleanup } from "../store/references";
 import { statusToReopen, updateTaskInIndex, type TaskChanges, type WriteContext } from "../store/update";
 import type { UpdateTaskFailure } from "../store/write-result";
@@ -91,7 +91,7 @@ function goneReferences(task: Task, isGone: (id: string) => boolean): string[] {
 }
 
 function goneTaskCheck(loaded: LoadedBacklog): (id: string) => boolean {
-  const known = new Set([...loaded.tasks.map((task) => task.id), ...unparsedTaskIds(loaded.errors)]);
+  const known = new Set([...loaded.tasks.map((task) => task.id), ...notLoadedTasks(loaded.errors).keys()]);
   const loadedPrefixes = new Set(loaded.projects.map((project) => project.prefix));
   return (id) => {
     const prefix = parseId(id)?.prefix;

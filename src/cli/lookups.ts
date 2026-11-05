@@ -82,7 +82,7 @@ function missingTaskMessage(loaded: LoadedBacklog, io: CliIo, id: string): strin
   const fileName = taskFileName(id);
   const broken = loaded.errors.find((error) => basename(error.path) === fileName);
   if (broken) return io.cli.taskFileUnparsed(id, io.core.problems(broken.problems));
-  const hidingProject = unparsedProjectFiles(loaded.errors).find((error) => error.hiddenTasks?.includes(id));
+  const hidingProject = unparsedProjectFiles(loaded.errors).find((error) => error.hiddenTasks.includes(id));
   return hidingProject ? io.cli.taskOfUnparsedProject(id, hidingProject.path, io.core.problems(hidingProject.problems)) : io.cli.taskNotFound(id);
 }
 

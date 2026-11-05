@@ -3,7 +3,7 @@ import type { PathErrorHandler } from "../errors";
 import { runGit, runGitSync } from "../git/run";
 import { projectIdBase } from "../model/ids";
 import { reposOfUnparsed } from "../model/project-file";
-import type { ParseError, Project } from "../model/types";
+import type { ParseError, Project, ProjectFileError } from "../model/types";
 import { attemptReportingFailure, attemptReportingFailureSync, readTextOrNull, realpathOrNull } from "./fs-utils";
 import { unparsedProjectFiles } from "./load";
 import { expandHome } from "./paths";
@@ -86,14 +86,14 @@ export function repoRootsOf(dirRoots: DirGitRoots): GitRoots | null {
   return typeof dirRoots === "string" ? null : dirRoots;
 }
 
-export type UnparsedProjectRepos = { error: ParseError; repos: readonly string[] };
+export type UnparsedProjectRepos = { error: ProjectFileError; repos: readonly string[] };
 
 export async function readUnparsedProjectRepos(errors: readonly ParseError[], onUnreadable: PathErrorHandler): Promise<UnparsedProjectRepos[]> {
-  const reposOf = async (error: ParseError) => reposOfUnparsed((await attemptReportingFailure(error.path, readTextOrNull, onUnreadable)) ?? "");
+  const reposOf = async (error: ProjectFileError) => reposOfUnparsed((await attemptReportingFailure(error.path, readTextOrNull, onUnreadable)) ?? "");
   return Promise.all(unparsedProjectFiles(errors).map(async (error) => ({ error, repos: await reposOf(error) })));
 }
 
-export type ProjectLookup = { project: Project } | { broken: ParseError[] };
+export type ProjectLookup = { project: Project } | { broken: ProjectFileError[] };
 
 export function lookupProjectForDir(projects: readonly Project[], unparsed: readonly UnparsedProjectRepos[], dir: string, dirRoots: DirGitRoots, places: RepoPlaces): ProjectLookup {
   const roots = matchingRoots(dir, dirRoots, places);

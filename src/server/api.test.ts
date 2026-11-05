@@ -28,7 +28,7 @@ describe("GET /api/projects и /api/tasks", () => {
     expect(tasks.map((task) => task.id)).toEqual(["SPA-1", "SPA-2", "SPA-3", "TI-1"]);
     expect(tasks[0]).toMatchObject({ id: "SPA-1", priority: "high", tags: ["upload"], projectId: "spa" });
     expect(tasks[0]?.version).toHaveLength(40);
-    expect(errors).toEqual([{ path: expect.stringContaining("SPA-9.md"), projectId: "spa", message: expect.any(String) }]);
+    expect(errors).toEqual([{ path: expect.stringContaining("SPA-9.md"), projectId: "spa", fileKind: "task", message: expect.any(String) }]);
   });
 });
 
@@ -126,7 +126,7 @@ describe("PATCH /api/tasks/:id", () => {
     const response = await backlog.json("/api/tasks/BR-1", "PATCH", { version: "любая", changes: {} });
 
     expect(response.status).toBe(404);
-    expect(((await response.json()) as ErrorResponse).errors).toEqual(["BR-1 не загружена: не разобран её файл или файл её проекта"]);
+    expect(((await response.json()) as ErrorResponse).errors).toEqual(["BR-1 не загружена: не разобран файл её проекта"]);
   });
 
   it("отвечает 404, 422 на неизвестное поле и 422 на нарушение правил", async () => {
@@ -227,6 +227,14 @@ describe("POST /api/tasks/batch", () => {
     const { tasks } = (await (await backlog.request("/api/tasks")).json()) as TasksResponse;
     expect(tasks.find((task) => task.id === "SPA-1")).toMatchObject({ status: "cancelled", resolution: "obsolete", reason: "Неактуально" });
     expect(tasks.find((task) => task.id === "TI-1")).toMatchObject({ status: "cancelled", resolution: "obsolete", reason: "Неактуально" });
+  });
+
+  it("задачу проекта с неразобранным project.md пропускает как незагруженную, а не ненайденную", async () => {
+    const backlog = await makeTestApp({ ...SAMPLE_FILES, "broken/project.md": "сломано", "broken/BR-1.md": taskFile("BR-1") });
+
+    const response = await backlog.json("/api/tasks/batch", "POST", { tasks: [{ id: "BR-1", version: "любая" }], action: { kind: "close", reason: "Неактуально" } });
+
+    expect(((await response.json()) as BatchResponse).results).toEqual([{ id: "BR-1", outcome: "skipped", reason: "not-found", message: "BR-1 не загружена: не разобран файл её проекта" }]);
   });
 
   it("склеивает переносы в причине закрытия так же, как команда close", async () => {

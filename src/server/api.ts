@@ -19,11 +19,11 @@ import {
 import { projectGraphHealth } from "../core/check/graph-health";
 import { warnPathErrors, type PathErrorHandler } from "../core/errors";
 import { MINUTE_MS } from "../core/model/dates";
-import type { Project } from "../core/model/types";
+import type { NotLoadedTasks, Project } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { parseSchema } from "../core/model/zod-issues";
 import { applyBatch, type CoreBatchOutcome } from "../core/store/batch";
-import { unparsedTaskIds } from "../core/store/load";
+import { notLoadedTasks } from "../core/store/load";
 import { writeSettings } from "../core/store/settings";
 import { deleteProject, setProjectActive } from "../core/store/projects";
 import { updateTaskInIndex } from "../core/store/update";
@@ -93,8 +93,8 @@ async function listTasks(c: Context, { backlog, readLanguage }: ApiDeps) {
   return c.json<TasksResponse>({
     tasks,
     closedInWeb,
-    errors: errors.map(({ problems, ...error }) => ({ ...error, message: messages.problems(problems) })),
-    unparsedTaskIds: [...unparsedTaskIds(errors)],
+    errors: errors.map(({ path, projectId, fileKind, problems }) => ({ path, projectId, fileKind, message: messages.problems(problems) })),
+    notLoadedTasks: [...notLoadedTasks(errors)].map(([id, fileKind]) => ({ id, fileKind })),
     revision,
   });
 }
@@ -117,8 +117,8 @@ async function updateTask(c: Context, id: string, { readLanguage, backlog, now, 
   if (result.ok) return c.json(result.task);
   const messages = serverMessages(body.language);
   if (result.reason === "not-found") {
-    const notLoaded = unparsedTaskIds(errors).has(id);
-    return errorResponse(c, 404, notLoaded ? coreMessages(body.language).taskNotLoaded(id) : messages.taskNotFound(id));
+    const unparsedFile = notLoadedTasks(errors).get(id);
+    return errorResponse(c, 404, unparsedFile === undefined ? messages.taskNotFound(id) : coreMessages(body.language).taskNotLoaded(id, unparsedFile));
   }
   if (result.reason === "conflict") return c.json<ConflictResponse>({ errors: [messages.taskChangedOnDisk], current: result.current }, 409);
   if (result.reason === "busy") return fileBusyResponse(c, body.language, result);
@@ -129,12 +129,13 @@ async function updateTaskBatch(c: Context, { readLanguage, backlog, now, changeH
   const body = await readBody(c, batchRequestSchema, readLanguage);
   if (!body.ok) return body.response;
 
-  const { index } = await backlog();
+  const { index, errors } = await backlog();
   const batch = applyBatch(index, { ...body.data, now: now(), onError: onWriteError });
   const outcomes = await changeHub.ownWrite(batch, (applied) => applied.flatMap((outcome) => (outcome.outcome === "done" ? writtenTasks(outcome) : [])));
   const messages = serverMessages(body.language);
   const core = coreMessages(body.language);
-  return c.json<BatchResponse>({ results: outcomes.map((outcome) => viewOf(outcome, messages, core)) });
+  const notLoaded = notLoadedTasks(errors);
+  return c.json<BatchResponse>({ results: outcomes.map((outcome) => viewOf(outcome, { messages, core, notLoaded })) });
 }
 
 async function setProjectActivity(c: Context, id: string, { root, readLanguage, changeHub }: ApiDeps) {
@@ -175,11 +176,18 @@ function invalidResponse(c: Context, result: Invalid, messages: CoreMessages) {
   return errorResponse(c, 422, ...result.problems.map(messages.problem));
 }
 
-function viewOf(outcome: CoreBatchOutcome, messages: ServerMessages, core: CoreMessages): BatchOutcome {
+type BatchOutcomeContext = { messages: ServerMessages; core: CoreMessages; notLoaded: NotLoadedTasks };
+
+function viewOf(outcome: CoreBatchOutcome, texts: BatchOutcomeContext): BatchOutcome {
   if (outcome.outcome === "done") return { id: outcome.id, outcome: "done", version: outcome.task.version, previous: outcome.previous };
-  if (outcome.reason === "failed") return { id: outcome.id, outcome: "skipped", reason: outcome.reason, message: messages.batchFailed(outcome.id, outcome.detail) };
-  const message = outcome.reason === "invalid" && outcome.problems ? core.problems(outcome.problems) : messages.batchSkipped[outcome.reason](outcome.id);
-  return { id: outcome.id, outcome: "skipped", reason: outcome.reason, message };
+  return { id: outcome.id, outcome: "skipped", reason: outcome.reason, message: skipMessage(outcome, texts) };
+}
+
+function skipMessage(outcome: Extract<CoreBatchOutcome, { outcome: "skipped" }>, { messages, core, notLoaded }: BatchOutcomeContext): string {
+  if (outcome.reason === "failed") return messages.batchFailed(outcome.id, outcome.detail);
+  if (outcome.reason === "invalid" && outcome.problems) return core.problems(outcome.problems);
+  const unparsedFile = outcome.reason === "not-found" ? notLoaded.get(outcome.id) : undefined;
+  return unparsedFile === undefined ? messages.batchSkipped[outcome.reason](outcome.id) : core.taskNotLoaded(outcome.id, unparsedFile);
 }
 
 type ParsedBody<T> = { ok: true; data: T; language: Language } | Refused;

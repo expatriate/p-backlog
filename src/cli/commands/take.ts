@@ -5,7 +5,7 @@ import { buildIndex, epicChildren, isClosed, openBlockers, type BacklogIndex } f
 import { isQueuedTask, isTakenTask, pickAbandonedTask, pickNextTask } from "../../core/model/query";
 import type { Project, Task } from "../../core/model/types";
 import { statOrNull } from "../../core/store/fs-utils";
-import { loadBacklog, unparsedTaskIds, type LoadedBacklog } from "../../core/store/load";
+import { loadBacklog, notLoadedTasks, type LoadedBacklog } from "../../core/store/load";
 import { findProjectForRoots } from "../../core/store/resolve-project";
 import { formatJson, formatTaskRef } from "../format";
 import { applyAll } from "../apply-all";
@@ -52,8 +52,8 @@ async function runTake(args: string[], io: CliIo): Promise<ExitCode> {
     return refusal.code;
   }
   const { code, taken, index } = await takeAll(loaded.tasks, [selected.task], io);
-  const unparsed = unparsedTaskIds(loaded.errors);
-  for (const task of taken) await printTask(io, task, index, unparsed, { json: values.json });
+  const notLoaded = notLoadedTasks(loaded.errors);
+  for (const task of taken) await printTask(io, task, index, notLoaded, { json: values.json });
   return code;
 }
 
@@ -84,13 +84,13 @@ async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projec
     return EXIT.notFound;
   }
   const { code, taken, index: takenIndex } = await takeAll(loaded.tasks, takeable, io);
-  const unparsed = unparsedTaskIds(loaded.errors);
+  const notLoaded = notLoadedTasks(loaded.errors);
   if (json) {
-    io.print(formatJson(tasksJson(taken, takenIndex, unparsed)));
+    io.print(formatJson(tasksJson(taken, takenIndex, notLoaded)));
   } else {
     for (const [position, task] of taken.entries()) {
       if (position > 0) io.print("---");
-      await printTask(io, task, takenIndex, unparsed, { json: false });
+      await printTask(io, task, takenIndex, notLoaded, { json: false });
     }
   }
   return code;

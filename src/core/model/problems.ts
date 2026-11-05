@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { ClosedStatus } from "./graph";
-import type { Resolution } from "./types";
+import type { Resolution, UnparsedFile } from "./types";
 
 export const CODED_SCHEMA_ISSUES = ["bad-id", "empty-title", "empty-name", "bad-prefix"] as const;
 type CodedSchemaIssue = (typeof CODED_SCHEMA_ISSUES)[number];
@@ -18,13 +18,13 @@ export type Problem =
   | { code: "reason-without-resolution" }
   | { code: "epic-self" }
   | { code: "epic-missing"; epic: string }
-  | { code: "epic-unparsed"; epic: string }
+  | { code: "epic-unparsed"; epic: string; fileKind: UnparsedFile }
   | { code: "epic-not-epic"; epic: string }
   | { code: "epic-foreign-project"; epic: string }
   | { code: "epic-in-epic" }
   | { code: "epic-closed-with-open-tasks"; children: readonly string[] }
   | { code: "reference-missing"; id: string }
-  | { code: "reference-unparsed"; id: string }
+  | { code: "reference-unparsed"; id: string; fileKind: UnparsedFile }
   | { code: "not-utf8" }
   | { code: "no-frontmatter" }
   | { code: "frontmatter-unclosed" }

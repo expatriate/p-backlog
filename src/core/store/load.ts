@@ -2,7 +2,7 @@ import { basename, join } from "node:path";
 import { compareIds, ID_PATTERN, parseId } from "../model/ids";
 import { parseProjectFile } from "../model/project-file";
 import { parseTaskFile } from "../model/task-file";
-import type { ParseError, ParseResult, Project, Task } from "../model/types";
+import type { NotLoadedTasks, ParseError, ParseResult, Project, ProjectFileError, Task, UnparsedFile } from "../model/types";
 import { contentVersion, listDir } from "./fs-utils";
 import { PROJECT_FILE } from "./paths";
 import { parseDocumentOrNull } from "./read-document";
@@ -12,27 +12,27 @@ export type LoadedBacklog = { projects: Project[]; tasks: Task[]; errors: ParseE
 export type UnparsedTask = { projectId: string; id: string };
 
 export function unparsedTasks(errors: readonly ParseError[]): UnparsedTask[] {
-  return errors.flatMap(({ path, projectId, hiddenTasks = [] }) => {
-    const stem = basename(path, ".md");
-    const ids = ID_PATTERN.test(stem) ? [stem, ...hiddenTasks] : hiddenTasks;
-    return ids.map((id) => ({ projectId, id }));
-  });
+  return errors.flatMap((error) => (error.fileKind === "task" ? [{ projectId: error.projectId, id: taskIdOfFile(error.path) }] : []));
 }
 
-export function isProjectFileError(error: ParseError): boolean {
-  return basename(error.path) === PROJECT_FILE;
+export function isProjectFileError(error: ParseError): error is ProjectFileError {
+  return error.fileKind === "project";
 }
 
-export function unparsedProjectFiles(errors: readonly ParseError[]): ParseError[] {
+export function unparsedProjectFiles(errors: readonly ParseError[]): ProjectFileError[] {
   return errors.filter(isProjectFileError);
 }
 
-export function unparsedProjectFileOf(errors: readonly ParseError[], projectId: string): ParseError | undefined {
+export function unparsedProjectFileOf(errors: readonly ParseError[], projectId: string): ProjectFileError | undefined {
   return unparsedProjectFiles(errors).find((error) => error.projectId === projectId);
 }
 
-export function unparsedTaskIds(errors: readonly ParseError[]): ReadonlySet<string> {
-  return new Set(unparsedTasks(errors).map((task) => task.id));
+export function notLoadedTasks(errors: readonly ParseError[]): NotLoadedTasks {
+  return new Map(errors.flatMap((error): [string, UnparsedFile][] => (error.fileKind === "task" ? [[taskIdOfFile(error.path), "task"]] : error.hiddenTasks.map((id) => [id, "project"]))));
+}
+
+function taskIdOfFile(path: string): string {
+  return basename(path, ".md");
 }
 
 export async function projectDirNames(root: string): Promise<string[]> {
@@ -54,7 +54,7 @@ async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBac
   if (project === null) return { projects: [], tasks: [], errors: [] };
   if (!project.ok) {
     const hiddenTasks = [...(await taskIdsOnDisk(dir))].sort(compareIds);
-    return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, problems: project.problems, hiddenTasks }] };
+    return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, fileKind: "project", problems: project.problems, hiddenTasks }] };
   }
 
   const taskPaths = (await taskFileNames(dir)).map((name) => join(dir, name));
@@ -62,7 +62,7 @@ async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBac
   return {
     projects: [project.value],
     tasks: loaded.flatMap(({ result }) => (result?.ok ? [result.value] : [])),
-    errors: loaded.flatMap(({ path, result }) => (result && !result.ok ? [{ path, projectId, problems: result.problems }] : [])),
+    errors: loaded.flatMap(({ path, result }) => (result && !result.ok ? [{ path, projectId, fileKind: "task" as const, problems: result.problems }] : [])),
   };
 }
 

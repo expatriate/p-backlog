@@ -73,6 +73,16 @@ export type Task = z.output<typeof taskFrontmatterSchema> & FileExtras & { proje
 
 export type Project = z.output<typeof projectFrontmatterSchema> & FileExtras & { id: string };
 
-export type ParseError = { path: string; projectId: string; problems: Problem[]; hiddenTasks?: readonly string[] };
+export type UnparsedFile = "task" | "project";
+
+type UnparsedFileProblems = { path: string; projectId: string; problems: Problem[] };
+
+type TaskFileError = UnparsedFileProblems & { fileKind: "task" };
+
+export type ProjectFileError = UnparsedFileProblems & { fileKind: "project"; hiddenTasks: readonly string[] };
+
+export type ParseError = TaskFileError | ProjectFileError;
+
+export type NotLoadedTasks = ReadonlyMap<string, UnparsedFile>;
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; problems: Problem[] };
