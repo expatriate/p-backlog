@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { markShown, type ShownSignal, type SignalsShown } from "../model/signals-shown";
-import { readJsonFile } from "./fs-utils";
+import { readJsonFile } from "./json-file";
 import { updateJsonUnderLock } from "./json-under-lock";
 
 export const SIGNALS_SHOWN_FILE = ".signals-shown.json";

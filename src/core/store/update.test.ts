@@ -1,6 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { setTimeout as sleep } from "node:timers/promises";
+import { describe, expect, it, vi } from "vitest";
 import { warnPathErrors } from "../errors";
 import { coreMessages } from "../messages";
 import { formatLocalIso } from "../model/dates";
@@ -35,6 +36,20 @@ async function version(root: string, id: string): Promise<string> {
 }
 
 describe("updateTask", () => {
+  it("пока журнал занят, файл задачи не заблокирован: следующая правка той же задачи записывается сразу", async () => {
+    const root = await setup();
+    const { promise: journalStuck, resolve: releaseJournal }: PromiseWithResolvers<void> = Promise.withResolvers();
+    const first = updateTask(root, { id: "SPA-2", changes: { priority: "high" }, now: NOW, via: "web", journal: () => journalStuck });
+    await vi.waitFor(async () => expect(await readFile(join(root, "spa/SPA-2.md"), "utf8")).toContain("priority: high"));
+
+    const second = updateTask(root, { id: "SPA-2", changes: { priority: "low" }, expectedVersion: await version(root, "SPA-2"), now: NOW, via: "web" });
+    const settledQuickly = await Promise.race([second, sleep(1_000).then(() => "ещё ждёт блокировку" as const)]);
+    releaseJournal();
+
+    expect(settledQuickly).toMatchObject({ ok: true });
+    expect(await first).toMatchObject({ ok: true });
+  });
+
   it("меняет поля, сохраняет неизвестные и возвращает новую версию", async () => {
     const root = await setup();
     const before = await version(root, "SPA-2");

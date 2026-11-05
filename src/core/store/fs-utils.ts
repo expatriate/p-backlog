@@ -92,7 +92,9 @@ export function readBytesOrNullSync(path: string): Buffer | null {
 
 export const NEWLINE = 0x0a;
 
-export async function withFile<T>(path: string, use: (handle: FileHandle) => Promise<T>, flags = "r", mode?: number): Promise<T> {
+type FileOpening = { flags?: string; mode?: number | undefined };
+
+export async function withFile<T>(path: string, use: (handle: FileHandle) => Promise<T>, { flags = "r", mode }: FileOpening = {}): Promise<T> {
   return closingAfter(await open(path, flags, mode), use);
 }
 
@@ -106,7 +108,7 @@ export async function fileExists(path: string): Promise<boolean> {
   );
 }
 
-export async function withExistingFile<T>(path: string, use: (handle: FileHandle) => Promise<T>, flags = "r"): Promise<T | null> {
+export async function withExistingFile<T>(path: string, use: (handle: FileHandle) => Promise<T>, { flags = "r" }: Pick<FileOpening, "flags"> = {}): Promise<T | null> {
   const handle = await nullWhenMissing(open(path, flags));
   return handle === null ? null : closingAfter(handle, use);
 }
@@ -137,17 +139,6 @@ export function parseJson<T>(text: string, schema: z.ZodType<T>): T | null {
     if (error instanceof SyntaxError) return null;
     throw error;
   }
-}
-
-export async function readJsonFile<T>(path: string, schema: z.ZodType<T>): Promise<T | null> {
-  const text = await readTextOrNull(path);
-  return text === null ? null : parseJson(text, schema);
-}
-
-export const JSON_INDENT = 2;
-
-export function jsonFileText(value: unknown): string {
-  return `${JSON.stringify(value, null, JSON_INDENT)}\n`;
 }
 
 type RemovalOutcome = "removed" | "already-gone" | "changed";

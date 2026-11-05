@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import type { z } from "zod";
 import { errorCodeOrText, hasErrorCode } from "../../core/errors";
 import { linkTargetOrNull, statOrNull } from "../../core/store/fs-utils";
-import { writeJsonFile } from "../../core/store/atomic-write";
+import { writeJsonFile } from "../../core/store/json-file";
 
 const MAX_LINK_HOPS = 40;
 

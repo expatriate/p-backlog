@@ -16,7 +16,7 @@ export function serviceLogToTrim(platform: NodeJS.Platform, home: string): strin
 }
 
 export async function trimLogFile(path: string, limitBytes: number, keptBytes: number): Promise<boolean> {
-  return (await withExistingFile(path, (handle) => trimOpenLog(handle, limitBytes, keptBytes), "r+")) ?? false;
+  return (await withExistingFile(path, (handle) => trimOpenLog(handle, limitBytes, keptBytes), { flags: "r+" })) ?? false;
 }
 
 async function trimOpenLog(handle: FileHandle, limitBytes: number, keptBytes: number): Promise<boolean> {

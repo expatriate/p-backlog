@@ -28,7 +28,8 @@ export async function appendJsonLines(path: string, values: readonly unknown[]):
       const { size } = await handle.stat();
       const endsMidLine = size > 0 && (await readAt(handle, size - 1, 1))[0] !== NEWLINE;
       await handle.appendFile((endsMidLine ? "\n" : "") + toJsonLines(values), "utf8");
+      await handle.sync();
     },
-    "a+",
+    { flags: "a+" },
   );
 }

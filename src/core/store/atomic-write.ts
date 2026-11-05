@@ -4,11 +4,7 @@ import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { hasAnyErrorCode } from "../errors";
 import { sum } from "../numbers";
-import { jsonFileText, listDir, readBytesOrNull, statOrNull, withFile } from "./fs-utils";
-
-export async function writeJsonFile(path: string, value: unknown, mode?: number): Promise<void> {
-  await writeFileAtomic(path, jsonFileText(value), mode);
-}
+import { listDir, readBytesOrNull, statOrNull, withFile } from "./fs-utils";
 
 const REPLACE_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320, 640, 1000, 1000, 1000, 1000];
 
@@ -79,20 +75,34 @@ async function viaTemporaryFile<T>(path: string, content: string, publish: (temp
   try {
     await writeSynced(temporary, content, "w", mode);
     if (mode !== undefined) await chmod(temporary, mode);
-    return await publish(temporary);
+    const published = await publish(temporary);
+    await syncDirectoryOf(path);
+    return published;
   } finally {
     await rm(temporary, { force: true });
   }
 }
 
-async function writeSynced(path: string, data: string | Buffer, flag: "w" | "a", mode?: number): Promise<void> {
+async function writeSynced(path: string, data: string | Buffer, flags: "w" | "a", mode?: number): Promise<void> {
   await withFile(
     path,
     async (handle) => {
       await handle.writeFile(data, "utf8");
       await handle.sync();
     },
-    flag,
-    mode,
+    { flags, mode },
   );
+}
+
+// Network and FUSE file systems (SMB, vboxsf) refuse to open or fsync a directory; the file itself is already in place.
+const DIRECTORY_SYNC_UNSUPPORTED_CODES = ["EINVAL", "ENOTSUP", "EISDIR", "EACCES", "EPERM"];
+
+async function syncDirectoryOf(path: string): Promise<void> {
+  // eslint-disable-next-line no-restricted-properties -- Windows cannot open a directory to fsync it
+  if (process.platform === "win32") return;
+  try {
+    await withFile(dirname(path), (directory) => directory.sync());
+  } catch (error) {
+    if (!hasAnyErrorCode(error, DIRECTORY_SYNC_UNSUPPORTED_CODES)) throw error;
+  }
 }

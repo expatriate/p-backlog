@@ -3,7 +3,7 @@ import { isBlocked, taskProgress, type BacklogIndex } from "../core/model/graph"
 import type { ScheduledDeletion } from "../core/model/lifecycle";
 import { PRIORITIES, TASK_STATUSES, type Task } from "../core/model/types";
 import type { CoreMessages } from "../core/messages";
-import { JSON_INDENT } from "../core/store/fs-utils";
+import { JSON_INDENT } from "../core/store/json-file";
 import type { TaskDescription } from "./describe";
 import type { CliMessages } from "./messages";
 

@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { appendFile, readFile, rename, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { appendFile, open, readFile, rename, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { describe, expect, it, vi } from "vitest";
 import { replacePrefixAtomic, writeFileAtomic } from "./atomic-write";
@@ -9,7 +9,7 @@ import { makeTempDir } from "./testing/temp-dirs";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
-  return { ...actual, rename: vi.fn(actual.rename) };
+  return { ...actual, open: vi.fn(actual.open), rename: vi.fn(actual.rename) };
 });
 
 async function onWindows<T>(action: () => Promise<T>): Promise<T> {
@@ -25,6 +25,23 @@ async function onWindows<T>(action: () => Promise<T>): Promise<T> {
 const LOCK_HELD_MS = 200;
 
 describe("writeFileAtomic", () => {
+  it("на файловой системе, где каталог нельзя синхронизировать, запись проходит и не сообщает о сбое", async () => {
+    const path = join(await makeTempDir(), "task.md");
+    const { open: actualOpen } = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+    vi.mocked(open).mockImplementation(async (target, ...rest) => {
+      if (target === dirname(path)) throw Object.assign(new Error("not supported"), { code: "EINVAL" });
+      return actualOpen(target, ...rest);
+    });
+
+    try {
+      await writeFileAtomic(path, "стало\n");
+    } finally {
+      vi.mocked(open).mockImplementation(actualOpen);
+    }
+
+    expect(await readFile(path, "utf8")).toBe("стало\n");
+  });
+
   it.runIf(process.platform === "win32")("на Windows дожидается, пока другой процесс отпустит файл, и записывает его", async () => {
     const root = await makeTempDir();
     const path = join(root, "task.md");

@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { Language } from "../../src/core/i18n/language";
 import { SKILL_SOURCES_DIR, SKILL_VARIANTS } from "../../src/cli/skill-variants";
 import { SKILL_NAME } from "../../src/core/skill-name";
-import { jsonFileText } from "../../src/core/store/fs-utils";
+import { jsonFileText } from "../../src/core/store/json-file";
 
 const MARKETPLACE = "p-backlog";
 const OWNER = { name: "expatriate" };

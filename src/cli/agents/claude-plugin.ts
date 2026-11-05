@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { Language } from "../../core/i18n/language";
 import type { PathErrorHandler } from "../../core/errors";
-import { readJsonFile, attemptReportingFailure } from "../../core/store/fs-utils";
+import { attemptReportingFailure } from "../../core/store/fs-utils";
+import { readJsonFile } from "../../core/store/json-file";
 import { SKILL_VARIANTS } from "../skill-variants";
 import { AGENT_SPECS, type Agent, type AgentPlaces } from "./agent";
 

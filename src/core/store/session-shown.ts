@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { z } from "zod";
-import { readJsonFile } from "./fs-utils";
+import { readJsonFile } from "./json-file";
 import { updateJsonUnderLock } from "./json-under-lock";
 import { formatLocalIso, WEEK_MS } from "../model/dates";
 
