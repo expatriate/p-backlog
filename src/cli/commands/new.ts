@@ -5,10 +5,10 @@ import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
 import { buildIndex } from "../../core/model/graph";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project, type Task } from "../../core/model/types";
 import { createTask } from "../../core/store/create";
-import { loadBacklog, unparsedTaskIds } from "../../core/store/load";
+import { loadBacklog, unparsedTaskIds, type LoadedBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
 import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo, type ExitCode } from "../io";
-import { ensureProject, findProjectForCwd, repoLookup, sourcePresenceOrWarn } from "../lookups";
+import { ensureProject, lookupCwdProject, repoLookup, sourcePresenceOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
 import { taskJson } from "../describe";
@@ -59,7 +59,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   const [atSource, body, origin] = await allAfterSettling([
     values.source === undefined ? undefined : anchorOf(project, values.source, io),
     io.readStdin(),
-    values.project === undefined || cwdBelongsTo(project, loaded.projects, io) ? readOrigin(io.cwd) : undefined,
+    values.project === undefined ? readOrigin(io.cwd) : cwdBelongsTo(project, loaded, io).then((belongs) => (belongs ? readOrigin(io.cwd) : undefined)),
   ]);
   const result = await createTask(io.backlogRoot, {
     project,
@@ -107,8 +107,9 @@ async function anchorOf(project: Project, source: string, io: CliIo): Promise<So
   return sourceAnchor(repo, source, lookup.onUnreadable);
 }
 
-function cwdBelongsTo(project: Project, knownProjects: readonly Project[], io: CliIo): boolean {
-  return findProjectForCwd([...knownProjects, project], io)?.id === project.id;
+async function cwdBelongsTo(project: Project, loaded: LoadedBacklog, io: CliIo): Promise<boolean> {
+  const lookup = await lookupCwdProject({ projects: [...loaded.projects, project], errors: loaded.errors }, io);
+  return "project" in lookup && lookup.project.id === project.id;
 }
 
 async function allAfterSettling<T extends readonly unknown[] | []>(work: T): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }> {

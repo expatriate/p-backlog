@@ -113,6 +113,14 @@ describe("backlog hook stop", () => {
     expect(JSON.parse(result.out)).toMatchObject({ decision: "block", reason: expect.stringContaining("SPA-1") });
   });
 
+  it("молчит в репозитории, чей project.md сломан, а не проверяет задачи проекта родительского каталога", async () => {
+    const { run, repo, root } = await changedTaskSandbox();
+    const event = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+    await writeFiles(root, { "spa/project.md": "---\nname: spa\nprefix: SPA\nrepos: [~/projects]\n---\n", "inner/project.md": "repos: [~/projects/spa]\n" });
+
+    expect(await run(["hook", "stop"], { stdin: event })).toEqual({ code: EXIT.ok, out: "", err: "" });
+  });
+
   it("молчит, если событие не разобрать, у каталога нет проекта или кандидатов нет", async () => {
     const { run, repo, home } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "X"]);

@@ -1,4 +1,4 @@
-import { appendFile, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { BatchResponse, CodeReport, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport } from "../core/api/contract";
@@ -449,6 +449,21 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
 
     const after = (await (await backlog.request("/api/stats/cost?project=spa")).json()) as CostReport;
     expect(after.totals.cliRuns).toBe(1);
+  });
+
+  it("запуск из репозитория со сломанным project.md не засчитывается родителю, а из каталога вне git с тем же именем — засчитывается, как в CLI", async () => {
+    const home = await makeTempDir();
+    const nestedRepo = await makeGitRepo(home, "spa");
+    const plainDir = join(home, "notes");
+    await mkdir(plainDir);
+    const backlog = await makeTestApp({ "work/project.md": projectFile("WK", [home]), "spa/project.md": `repos: [${nestedRepo}]\n`, "notes/project.md": "без frontmatter\n" });
+    await backlog.usage.scanOnce();
+    const run = (cwd: string) => JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd, ms: 10, rssMb: 50, exitCode: 0 });
+    await writeFile(join(backlog.root, ".runs.jsonl"), `${run(nestedRepo)}\n${run(plainDir)}\n`, "utf8");
+
+    const report = (await (await backlog.request("/api/stats/cost?project=work")).json()) as CostReport;
+
+    expect(report.totals.cliRuns).toBe(1);
   });
 
   it("правка repos чужого проекта сразу меняет «Стоимость» проекта: запуск уходит к проекту с более точным репозиторием", async () => {

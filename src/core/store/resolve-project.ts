@@ -1,15 +1,18 @@
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { basename, isAbsolute, relative, resolve, sep } from "node:path";
 import type { PathErrorHandler } from "../errors";
 import { runGit, runGitSync } from "../git/run";
-import type { Project } from "../model/types";
-import { attemptReportingFailure, attemptReportingFailureSync, realpathOrNull } from "./fs-utils";
+import { projectIdBase } from "../model/ids";
+import { reposOfUnparsed } from "../model/project-file";
+import type { ParseError, Project } from "../model/types";
+import { attemptReportingFailure, attemptReportingFailureSync, readTextOrNull, realpathOrNull } from "./fs-utils";
+import { unparsedProjectFiles } from "./load";
 import { expandHome } from "./paths";
 
 export type GitRoots = { worktree: string; main: string };
 
 export type RepoPlaces = { home: string; onUnreadable: PathErrorHandler };
 
-export type RepoRootLookup = (dir: string) => Promise<GitRoots | null>;
+export type RepoRootLookup = (dir: string) => Promise<DirGitRoots>;
 
 const REPO_ROOT_TTL_MS = 60_000;
 const SHOW_ROOTS = ["rev-parse", "--show-toplevel", "--git-dir", "--git-common-dir"];
@@ -32,13 +35,13 @@ async function findGitRootsAsync(dir: string): Promise<GitRoots | null> {
 type RepoRootCacheOptions = { onUnreadable: PathErrorHandler; ttlMs?: number; now?: () => number };
 
 export function cachedRepoRoots({ onUnreadable, ttlMs = REPO_ROOT_TTL_MS, now = Date.now }: RepoRootCacheOptions): RepoRootLookup {
-  const known = new Map<string, { roots: Promise<GitRoots | null>; checkedAt: number }>();
+  const known = new Map<string, { roots: Promise<DirGitRoots>; checkedAt: number }>();
   const isFresh = ({ checkedAt }: { checkedAt: number }) => now() - checkedAt < ttlMs;
   return (dir) => {
     const cached = known.get(dir);
     if (cached !== undefined && isFresh(cached)) return cached.roots;
     for (const [knownDir, entry] of known) if (!isFresh(entry)) known.delete(knownDir);
-    const roots = attemptReportingFailure(dir, async (path) => (await findGitRootsAsync(path)) ?? plainDirRoots(path), onUnreadable);
+    const roots = attemptReportingFailure(dir, async (path) => (await findGitRootsAsync(path)) ?? "not-in-repo", onUnreadable).then((found) => found ?? "unreadable");
     known.set(dir, { roots, checkedAt: now() });
     return roots;
   };
@@ -83,12 +86,36 @@ export function repoRootsOf(dirRoots: DirGitRoots): GitRoots | null {
   return typeof dirRoots === "string" ? null : dirRoots;
 }
 
-export function findProjectForDir(projects: readonly Project[], dir: string, dirRoots: DirGitRoots, places: RepoPlaces): Project | undefined {
-  const roots = matchingRoots(dir, dirRoots, places);
-  return roots === null ? undefined : findProjectForRoots(projects, roots, places);
+export type UnparsedProjectRepos = { error: ParseError; repos: readonly string[] };
+
+export async function readUnparsedProjectRepos(errors: readonly ParseError[], onUnreadable: PathErrorHandler): Promise<UnparsedProjectRepos[]> {
+  const reposOf = async (error: ParseError) => reposOfUnparsed((await attemptReportingFailure(error.path, readTextOrNull, onUnreadable)) ?? "");
+  return Promise.all(unparsedProjectFiles(errors).map(async (error) => ({ error, repos: await reposOf(error) })));
 }
 
-export function matchingRoots(dir: string, dirRoots: DirGitRoots, places: RepoPlaces): GitRoots | null {
+export type ProjectLookup = { project: Project } | { broken: ParseError[] };
+
+export function lookupProjectForDir(projects: readonly Project[], unparsed: readonly UnparsedProjectRepos[], dir: string, dirRoots: DirGitRoots, places: RepoPlaces): ProjectLookup {
+  const roots = matchingRoots(dir, dirRoots, places);
+  if (roots === null) return { broken: [] };
+  const repo = repoRootsOf(dirRoots);
+  return lookupProject(projects, unparsed, roots, repo === null ? undefined : projectIdBase(basename(repo.main)), places);
+}
+
+function lookupProject(projects: readonly Project[], unparsed: readonly UnparsedProjectRepos[], roots: GitRoots, repoDirName: string | undefined, places: RepoPlaces): ProjectLookup {
+  const coveredLength = (repos: readonly string[]) => closestCoveringRepo(repos, roots, places)?.length ?? 0;
+  const coverageOf = ({ error, repos }: UnparsedProjectRepos) => {
+    const namedAfterRepo = repos.length === 0 && error.projectId === repoDirName;
+    return { error, length: namedAfterRepo ? roots.main.length : coveredLength(repos) };
+  };
+  const covering = unparsed.map(coverageOf).filter(({ length }) => length > 0);
+  const project = findProjectForRoots(projects, roots, places);
+  const projectLength = project === undefined ? 0 : coveredLength(project.repos);
+  if (project !== undefined && covering.every(({ length }) => length <= projectLength)) return { project };
+  return { broken: covering.map(({ error }) => error) };
+}
+
+function matchingRoots(dir: string, dirRoots: DirGitRoots, places: RepoPlaces): GitRoots | null {
   if (dirRoots === "unreadable") return null;
   return dirRoots === "not-in-repo" ? attemptReportingFailureSync(dir, plainDirRoots, places.onUnreadable) : dirRoots;
 }
@@ -101,7 +128,7 @@ export function findProjectForRoots(projects: readonly Project[], roots: GitRoot
   return matches.sort((a, b) => b.repoPath.length - a.repoPath.length)[0]?.project;
 }
 
-export function closestCoveringRepo(repos: readonly string[], roots: GitRoots, places: RepoPlaces): string | undefined {
+function closestCoveringRepo(repos: readonly string[], roots: GitRoots, places: RepoPlaces): string | undefined {
   const covering = repos.map((repo) => resolvedRepo(repo, places)).filter((repoPath): repoPath is string => repoPath !== null && repoCovers(repoPath, roots));
   return covering.sort((a, b) => b.length - a.length)[0];
 }

@@ -4,13 +4,17 @@ import { mkdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Project } from "../model/types";
-import { cachedRepoRoots, findProjectForDir, readGitRoots, type RepoPlaces } from "./resolve-project";
+import { cachedRepoRoots, lookupProjectForDir, readGitRoots, type DirGitRoots, type RepoPlaces } from "./resolve-project";
 import { failOnPathError } from "./testing/path-errors";
 import { gitAddWorktree, gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "./testing/temp-dirs";
 
 const placesIn = (home: string): RepoPlaces => ({ home, onUnreadable: failOnPathError });
 
-const projectForDir = (projects: readonly Project[], dir: string, places: RepoPlaces) => findProjectForDir(projects, dir, readGitRoots(dir, places.onUnreadable), places);
+const projectForRoots = (projects: readonly Project[], dir: string, dirRoots: DirGitRoots, places: RepoPlaces) => {
+  const lookup = lookupProjectForDir(projects, [], dir, dirRoots, places);
+  return "project" in lookup ? lookup.project : undefined;
+};
+const projectForDir = (projects: readonly Project[], dir: string, places: RepoPlaces) => projectForRoots(projects, dir, readGitRoots(dir, places.onUnreadable), places);
 
 function project(id: string, repos: string[]): Project {
   return { id, name: id, prefix: id.toUpperCase(), repos, active: true, extra: {}, body: "", path: `/backlog/${id}/project.md` };
@@ -48,7 +52,7 @@ describe("readGitRoots", () => {
   });
 });
 
-describe("findProjectForDir", () => {
+describe("lookupProjectForDir", () => {
   it("находит проект по репозиторию, в том числе из вложенной директории, через ~ и симлинк", async () => {
     const home = await makeTempDir();
     const repo = await makeGitRepo(home, "projects/spa");
@@ -101,7 +105,7 @@ describe("findProjectForDir", () => {
     const { home, worktree } = await repoWithOutsideWorktree();
     const projects = [project("umbrella", [join(home, "projects")])];
 
-    expect(findProjectForDir(projects, worktree, "unreadable", placesIn(home))).toBeUndefined();
+    expect(projectForRoots(projects, worktree, "unreadable", placesIn(home))).toBeUndefined();
   });
 
   it("выбирает проект с самым специфичным репозиторием независимо от порядка в списке", async () => {
@@ -125,7 +129,7 @@ describe("findProjectForDir", () => {
 });
 
 describe("cachedRepoRoots", () => {
-  it("корень git для вложенного каталога, сам каталог вне git, несуществующий — null", async () => {
+  it("корень git для вложенного каталога, каталог вне git и несуществующий — not-in-repo", async () => {
     const home = await makeTempDir();
     const repo = await makeGitRepo(home, "spa");
     const nested = join(repo, "src", "deep");
@@ -135,8 +139,8 @@ describe("cachedRepoRoots", () => {
     const rootOf = cachedRepoRoots({ onUnreadable: failOnPathError });
 
     expect(await rootOf(nested)).toEqual({ worktree: repo, main: repo });
-    expect(await rootOf(plain)).toEqual({ worktree: plain, main: plain });
-    expect(await rootOf(join(home, "нет"))).toBeNull();
+    expect(await rootOf(plain)).toBe("not-in-repo");
+    expect(await rootOf(join(home, "нет"))).toBe("not-in-repo");
   });
 
   it("для git worktree вне основного репозитория отдаёт корень основного", async () => {
@@ -145,16 +149,16 @@ describe("cachedRepoRoots", () => {
     expect(await cachedRepoRoots({ onUnreadable: failOnPathError })(join(worktree, "src"))).toEqual({ worktree, main: repo });
   });
 
-  it("каталог, которого не было, находится после истечения срока кэша, а не остаётся null навсегда", async () => {
+  it("каталог, которого не было, находится после истечения срока кэша, а не остаётся вне git навсегда", async () => {
     const home = await makeTempDir();
     const later = join(home, "later");
     let clock = 0;
     const rootOf = cachedRepoRoots({ onUnreadable: failOnPathError, ttlMs: 1000, now: () => clock });
 
-    expect(await rootOf(later)).toBeNull();
+    expect(await rootOf(later)).toBe("not-in-repo");
     await makeGitRepo(home, "later");
     clock = 999;
-    expect(await rootOf(later)).toBeNull();
+    expect(await rootOf(later)).toBe("not-in-repo");
     clock = 1000;
     expect(await rootOf(later)).toEqual({ worktree: later, main: later });
   });

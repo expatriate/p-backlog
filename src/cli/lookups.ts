@@ -2,14 +2,12 @@ import { basename } from "node:path";
 import { sourcePresence, type RepoLookup, type SourcePresence } from "../core/check/project-repo";
 import { oncePerPath, warnPathErrors, type PathErrorHandler } from "../core/errors";
 import type { CoreMessages } from "../core/messages";
-import { ID_PATTERN, projectIdBase } from "../core/model/ids";
-import { reposOfUnparsed } from "../core/model/project-file";
+import { ID_PATTERN } from "../core/model/ids";
 import type { ParseError, Project, Task } from "../core/model/types";
 import { createProject } from "../core/store/create";
 import { unparsedProjectFileOf, unparsedProjectFiles, type LoadedBacklog } from "../core/store/load";
 import { taskFileName } from "../core/store/paths";
-import { readTextOrNull } from "../core/store/fs-utils";
-import { closestCoveringRepo, findProjectForDir, findProjectForRoots, matchingRoots, readGitRoots, repoRootsOf, type DirGitRoots, type GitRoots, type RepoPlaces } from "../core/store/resolve-project";
+import { lookupProjectForDir, readGitRoots, readUnparsedProjectRepos, repoRootsOf, type DirGitRoots, type GitRoots, type ProjectLookup, type RepoPlaces } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
 
 export function warnUnreadableSkipped(warn: (line: string) => void, core: CoreMessages): PathErrorHandler {
@@ -40,8 +38,13 @@ export function cwdGitRoots(io: CliIo): GitRoots | null {
   return repoRootsOf(cwdDirRoots(io));
 }
 
-export function findProjectForCwd(projects: readonly Project[], io: CliIo): Project | undefined {
-  return findProjectForDir(projects, io.cwd, cwdDirRoots(io), repoPlaces(io));
+export function lookupCwdProject(loaded: Pick<LoadedBacklog, "projects" | "errors">, io: CliIo): Promise<ProjectLookup> {
+  return lookupDirProject(loaded, io.cwd, cwdDirRoots(io), io);
+}
+
+export async function lookupDirProject(loaded: Pick<LoadedBacklog, "projects" | "errors">, dir: string, dirRoots: DirGitRoots, io: CliIo): Promise<ProjectLookup> {
+  const places = repoPlaces(io);
+  return lookupProjectForDir(loaded.projects, await readUnparsedProjectRepos(loaded.errors, places.onUnreadable), dir, dirRoots, places);
 }
 
 export function repoLookup(io: CliIo): RepoLookup {
@@ -130,32 +133,4 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
   const created = await createProject(io.backlogRoot, gitRoots.main, loaded.projects);
   io.warn(io.cli.projectCreated(created.id, created.prefix));
   return created;
-}
-
-type CoveringUnparsedFile = { error: ParseError; coveredRepoLength: number };
-
-async function unparsedProjectFilesByCoverage(loaded: LoadedBacklog, roots: GitRoots, repoDirName: string | undefined, io: CliIo): Promise<CoveringUnparsedFile[]> {
-  const coverageOf = async (error: ParseError): Promise<CoveringUnparsedFile> => {
-    const repos = reposOfUnparsed((await readTextOrNull(error.path)) ?? "");
-    const namedAfterRepo = repos.length === 0 && error.projectId === repoDirName;
-    return { error, coveredRepoLength: namedAfterRepo ? roots.main.length : (closestCoveringRepo(repos, roots, repoPlaces(io))?.length ?? 0) };
-  };
-  return (await Promise.all(unparsedProjectFiles(loaded.errors).map(coverageOf))).filter(({ coveredRepoLength }) => coveredRepoLength > 0);
-}
-
-type CwdProjectLookup = { project: Project } | { broken: ParseError[] };
-
-async function lookupCwdProject(loaded: LoadedBacklog, io: CliIo): Promise<CwdProjectLookup> {
-  const roots = cwdMatchingRoots(io);
-  if (roots === null) return { broken: [] };
-  const repo = cwdGitRoots(io);
-  const covering = await unparsedProjectFilesByCoverage(loaded, roots, repo === null ? undefined : projectIdBase(basename(repo.main)), io);
-  const project = findProjectForRoots(loaded.projects, roots, repoPlaces(io));
-  const projectRepoLength = project === undefined ? 0 : (closestCoveringRepo(project.repos, roots, repoPlaces(io))?.length ?? 0);
-  if (project !== undefined && covering.every(({ coveredRepoLength }) => coveredRepoLength <= projectRepoLength)) return { project };
-  return { broken: covering.map(({ error }) => error) };
-}
-
-function cwdMatchingRoots(io: CliIo): GitRoots | null {
-  return matchingRoots(io.cwd, cwdDirRoots(io), repoPlaces(io));
 }

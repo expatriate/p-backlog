@@ -123,6 +123,19 @@ describe("backlog new", () => {
     expect(events[1]).not.toHaveProperty("origin");
   });
 
+  it("задача в родительский проект из репозитория со сломанным project.md — без происхождения этого репозитория", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await writeFiles(repo, { "a.ts": "a\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await writeFiles(root, { "work/project.md": "---\nname: work\nprefix: WK\nrepos: [~/projects]\n---\n", "spa/project.md": "repos: [~/projects/spa]\n" });
+
+    await run(["new", "--category", "bug", "--title", "Задача", "--project", "work"]);
+
+    const [created] = (await readJournal(join(root, "work"), "work")).events;
+    expect(created).toMatchObject({ kind: "created" });
+    expect(created).not.toHaveProperty("origin");
+  });
+
   it("вне git происхождения нет", async () => {
     const { run, root, home } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Первая"]);
