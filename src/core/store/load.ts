@@ -22,6 +22,10 @@ export function unparsedProjectFiles(errors: readonly ParseError[]): ParseError[
   return errors.filter((error) => basename(error.path) === PROJECT_FILE);
 }
 
+export function unparsedProjectFileOf(errors: readonly ParseError[], projectId: string): ParseError | undefined {
+  return unparsedProjectFiles(errors).find((error) => error.projectId === projectId);
+}
+
 export async function projectDirNames(root: string): Promise<string[]> {
   return (await listDir(root)).filter((entry) => entry.isDirectory() && !entry.name.startsWith(".")).map((entry) => entry.name);
 }

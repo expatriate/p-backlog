@@ -1,13 +1,14 @@
 import { Hono, type Context } from "hono";
 import { relative, sep } from "node:path";
 import { errorText } from "../core/errors";
+import { coreMessages } from "../core/messages";
 import { STATS_MEMORY_ROUTE, STATS_REPORT_ROUTES, type StatsReportKind, type StatsReports } from "../core/api/stats-routes";
 import type { GraphHealth } from "../core/check/graph-health";
 import { createCodeCacheFile, type CodeCacheErrorKind } from "../core/code/code-cache";
 import { createCodeSource } from "../core/code/code-source";
 import { formatLocalDay, MINUTE_MS } from "../core/model/dates";
 import { projectsInScope } from "../core/model/project-scope";
-import type { Project, Task } from "../core/model/types";
+import type { ParseError, Project, Task } from "../core/model/types";
 import { codeReport } from "../core/stats/code/code-report";
 import { fixRequests } from "../core/stats/code/fixes";
 import { effectReport } from "../core/stats/effect/effect-report";
@@ -16,7 +17,7 @@ import { statsReport } from "../core/stats/report";
 import type { ReportContext } from "../core/stats/scope";
 import { statsSignals } from "../core/stats/signals/signals";
 import type { CodeReport, CostReport, EffectReport, ProjectGraphRow, QualityReport } from "../core/stats/types";
-import { unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/store/load";
+import { unparsedProjectFileOf, unparsedTasks, type LoadedBacklog, type UnparsedTask } from "../core/store/load";
 import type { Language } from "../core/i18n/language";
 import { errorResponse, type Refused } from "./error-response";
 import { serverMessages, type LocalizedWarn } from "./messages";
@@ -174,12 +175,19 @@ async function requestScopeOf(c: Context, snapshot: BacklogSnapshot, { wholeBack
   const projectId = c.req.query("project") || undefined;
   const { projects, tasks, errors } = snapshot;
   if (projectId !== undefined && !projects.some((project) => project.id === projectId)) {
-    return { ok: false, response: errorResponse(c, 404, serverMessages(await readLanguage()).projectNotFound(projectId)) };
+    return { ok: false, response: unknownProjectResponse(c, errors, projectId, await readLanguage()) };
   }
   const scoped = projectsInScope(projects, projectId, { wholeBacklog });
   const scopedIds = new Set(scoped.map((project) => project.id));
   const inScope = (task: { projectId: string }) => scopedIds.has(task.projectId);
   return { ok: true, projectId, projects: scoped, tasks: tasks.filter(inScope), unparsedTasks: unparsedTasks(errors).filter(inScope), snapshot };
+}
+
+function unknownProjectResponse(c: Context, errors: readonly ParseError[], projectId: string, language: Language): Response {
+  const messages = serverMessages(language);
+  const broken = unparsedProjectFileOf(errors, projectId);
+  if (broken === undefined) return errorResponse(c, 404, messages.projectNotFound(projectId));
+  return errorResponse(c, 422, messages.projectFileUnparsed(broken.path, coreMessages(language).problems(broken.problems)));
 }
 
 function graphRowsOf(graphHealth: GraphHealthOf, projects: readonly Project[], snapshot: BacklogSnapshot): Promise<ProjectGraphRow[]> {

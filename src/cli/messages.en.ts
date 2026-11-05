@@ -104,6 +104,7 @@ export const cliEn: CliMessages = {
   candidateSimilarTo: (otherId) => `similar to ${otherId}`,
 
   taskFileUnparsed: (id, problems) => `Task file ${id} could not be parsed: ${problems}`,
+  taskOfUnparsedProject: (id, path, problems) => `Task ${id} not loaded: project file ${path} could not be parsed (${problems})`,
   projectNotFoundForCwd: (cwd) => `No project found for ${cwd}. Pass --project <id> or add the path to repos of the right project.md`,
   projectNotFound: (id) => `Project ${id} not found`,
   projectFileUnparsed: (path, problems) => `Project not loaded: ${path} could not be parsed (${problems})`,

@@ -124,6 +124,15 @@ describe("GET /api/stats", () => {
     expect(response.status).toBe(404);
     expect(((await response.json()) as ErrorResponse).errors).toEqual(["Проект nope не найден"]);
   });
+
+  it("проект с неразобранным project.md — 422 с причиной, а не «не найден»", async () => {
+    const backlog = await makeTestApp({ ...SAMPLE_FILES, "spa/project.md": "сломано" });
+
+    const response = await backlog.request("/api/stats?project=spa");
+
+    expect(response.status).toBe(422);
+    expect(((await response.json()) as ErrorResponse).errors).toEqual([expect.stringMatching(/^Проект не загружен: .*project\.md не разобран/)]);
+  });
 });
 
 describe("кэш отчётов", () => {

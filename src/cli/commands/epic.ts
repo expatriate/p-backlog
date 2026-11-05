@@ -22,22 +22,22 @@ async function runEpic(args: string[], io: CliIo): Promise<ExitCode> {
   if (positionals.length === 0 || values.to === undefined) throw usageError(epicCommand, io.language);
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const epic = values.to === NO_EPIC ? null : findEpicOrWarn(loaded, io, values.to);
+  const epic = values.to === NO_EPIC ? null : await findEpicOrWarn(loaded, io, values.to);
   if (epic === undefined) return EXIT.notFound;
 
   const move: Move = { loaded, epic, write: taskWriter(io, loaded.tasks), io };
   return applyAll(new Set(positionals), (id) => moveOne(id, move));
 }
 
-function findEpicOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
-  const target = findTaskOrWarn(loaded, io, id);
+async function findEpicOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Promise<Task | undefined> {
+  const target = await findTaskOrWarn(loaded, io, id);
   if (!target) return undefined;
   if (target.type !== "epic") throw new UsageError(io.cli.notAnEpic(target.id));
   return target;
 }
 
 async function moveOne(id: string, { loaded, epic, write, io }: Move): Promise<ExitCode> {
-  const task = findTaskOrWarn(loaded, io, id);
+  const task = await findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
   if (task.type === "epic") {
     io.warn(io.cli.epicCannotContainEpic(task.id));

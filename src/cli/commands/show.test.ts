@@ -51,4 +51,16 @@ describe("backlog show", () => {
     expect((await run(["show", "SPA-5"])).err).toContain("Файл задачи SPA-5 не разобран");
     expect((await run(["show"])).code).toBe(EXIT.invalid);
   });
+
+  it("задача проекта с неразобранным project.md называет файл проекта, а не «не найдена»", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "X"]);
+    await writeFiles(root, { "spa/project.md": "сломано" });
+
+    const result = await run(["show", "SPA-1"]);
+
+    expect(result.code).toBe(EXIT.notFound);
+    expect(result.err).toContain("Задача SPA-1 не загружена: файл проекта");
+    expect(result.err).toContain("project.md не разобран");
+  });
 });

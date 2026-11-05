@@ -2,6 +2,7 @@ export const serverRu = {
   taskNotFound: (id: string): string => `Задача ${id} не найдена`,
   taskChangedOnDisk: "Задача изменилась на диске",
   projectNotFound: (id: string): string => `Проект ${id} не найден`,
+  projectFileUnparsed: (path: string, problems: string): string => `Проект не загружен: ${path} не разобран (${problems})`,
   confirmMismatch: "Подтверждение не совпадает с id проекта",
   bodyNotParsed: "Тело запроса не разобрано: ожидается JSON",
   bodyTooLarge: (mebibytes: number): string => `Тело запроса больше ${mebibytes} МиБ`,

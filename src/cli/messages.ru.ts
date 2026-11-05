@@ -105,6 +105,7 @@ export const cliRu = {
   candidateSimilarTo: (otherId: string): string => `похожа на ${otherId}`,
 
   taskFileUnparsed: (id: string, problems: string): string => `Файл задачи ${id} не разобран: ${problems}`,
+  taskOfUnparsedProject: (id: string, path: string, problems: string): string => `Задача ${id} не загружена: файл проекта ${path} не разобран (${problems})`,
   projectNotFoundForCwd: (cwd: string): string => `Проект для ${cwd} не найден. Укажите --project <id> или добавьте путь в repos нужного project.md`,
   projectNotFound: (id: string): string => `Проект ${id} не найден`,
   projectFileUnparsed: (path: string, problems: string): string => `Проект не загружен: ${path} не разобран (${problems})`,

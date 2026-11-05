@@ -1,13 +1,14 @@
-import { basename, dirname } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { sourcePresence, type RepoLookup, type SourcePresence } from "../core/check/project-repo";
 import { oncePerPath, warnPathErrors, type PathErrorHandler } from "../core/errors";
 import type { CoreMessages } from "../core/messages";
-import { projectIdBase } from "../core/model/ids";
+import { ID_PATTERN, projectIdBase } from "../core/model/ids";
 import { reposOfUnparsed } from "../core/model/project-file";
 import type { ParseError, Project, Task } from "../core/model/types";
 import { createProject } from "../core/store/create";
-import { unparsedProjectFiles, type LoadedBacklog } from "../core/store/load";
-import { readTextOrNull } from "../core/store/fs-utils";
+import { unparsedProjectFileOf, unparsedProjectFiles, type LoadedBacklog } from "../core/store/load";
+import { taskFileName } from "../core/store/paths";
+import { fileExists, readTextOrNull } from "../core/store/fs-utils";
 import { anyRepoCovers, findProjectForDir, matchingRoots, readGitRoots, repoRootsOf, type DirGitRoots, type GitRoots, type RepoPlaces } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
 
@@ -54,12 +55,22 @@ export async function sourcePresenceOrWarn(io: CliIo, repo: string, source: stri
   return presence;
 }
 
-export function findTaskOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
+export async function findTaskOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Promise<Task | undefined> {
   const task = loaded.tasks.find((candidate) => candidate.id === id);
   if (task) return task;
-  const broken = loaded.errors.find((error) => basename(error.path) === `${id}.md`);
-  io.warn(broken ? io.cli.taskFileUnparsed(id, io.core.problems(broken.problems)) : io.cli.taskNotFound(id));
+  io.warn(await missingTaskMessage(loaded, io, id));
   return undefined;
+}
+
+async function missingTaskMessage(loaded: LoadedBacklog, io: CliIo, id: string): Promise<string> {
+  if (!ID_PATTERN.test(id)) return io.cli.taskNotFound(id);
+  const fileName = taskFileName(id);
+  const broken = loaded.errors.find((error) => basename(error.path) === fileName);
+  if (broken) return io.cli.taskFileUnparsed(id, io.core.problems(broken.problems));
+  const brokenProjects = unparsedProjectFiles(loaded.errors);
+  const holdsTask = await Promise.all(brokenProjects.map((error) => fileExists(join(dirname(error.path), fileName))));
+  const hidingProject = brokenProjects.find((_, index) => holdsTask[index]);
+  return hidingProject ? io.cli.taskOfUnparsedProject(id, hidingProject.path, io.core.problems(hidingProject.problems)) : io.cli.taskNotFound(id);
 }
 
 export function projectOf(loaded: LoadedBacklog, task: Task): Project | undefined {
@@ -76,7 +87,10 @@ export async function findProjectOrWarn(loaded: LoadedBacklog, io: CliIo, explic
 }
 
 async function unparsedProjectFilesOfScope(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Promise<ParseError[]> {
-  if (explicitId !== undefined) return unparsedProjectFiles(loaded.errors).filter((error) => error.projectId === explicitId);
+  if (explicitId !== undefined) {
+    const broken = unparsedProjectFileOf(loaded.errors, explicitId);
+    return broken === undefined ? [] : [broken];
+  }
   const roots = matchingRoots(io.cwd, cwdDirRoots(io), repoPlaces(io));
   return roots === null ? [] : unparsedProjectFilesCovering(loaded, roots, io);
 }

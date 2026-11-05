@@ -32,7 +32,7 @@ async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
   if (closesAsDuplicate !== namesOriginal) throw new UsageError(io.cli.duplicateOfRule);
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const task = findTaskOrWarn(loaded, io, id);
+  const task = await findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
   if (task.type === "epic") {
     io.warn(io.cli.epicClosesOnItsOwn(id));
@@ -47,7 +47,7 @@ async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
 
   let related = task.related;
   if (duplicateOf !== undefined) {
-    const original = findTaskOrWarn(loaded, io, duplicateOf);
+    const original = await findTaskOrWarn(loaded, io, duplicateOf);
     if (!original) return EXIT.notFound;
     const problem = originalProblem(io.cli, task, original);
     if (problem !== null) {

@@ -4,6 +4,7 @@ export const serverEn: ServerMessages = {
   taskNotFound: (id) => `Task ${id} not found`,
   taskChangedOnDisk: "The task changed on disk",
   projectNotFound: (id) => `Project ${id} not found`,
+  projectFileUnparsed: (path, problems) => `Project not loaded: ${path} could not be parsed (${problems})`,
   confirmMismatch: "Confirmation does not match the project id",
   bodyNotParsed: "Request body could not be parsed: JSON expected",
   bodyTooLarge: (mebibytes) => `Request body is larger than ${mebibytes} MiB`,

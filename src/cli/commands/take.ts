@@ -43,7 +43,7 @@ async function runTake(args: string[], io: CliIo): Promise<ExitCode> {
   if (projectWithId || forceWithoutId) throw usageError(takeCommand, io.language);
   const loaded = await loadBacklog(io.backlogRoot);
   if (mode.kind === "path") return takeByPath(loaded, io, mode.path, values.project, { json: values.json });
-  const selected = mode.kind === "next" ? await selectNext(loaded, io, values.project) : selectById(loaded, io, mode.id);
+  const selected = mode.kind === "next" ? await selectNext(loaded, io, values.project) : await selectById(loaded, io, mode.id);
   if (!selected.ok) return selected.exitCode;
 
   const refusal = takeRefusal(io, selected.task, buildIndex(loaded.tasks), { ignoreBlockers: values.force });
@@ -121,8 +121,8 @@ async function takeAll(loadedTasks: readonly Task[], chosen: readonly Task[], io
   return { code, taken, index: buildIndex(tasks) };
 }
 
-function selectById(loaded: LoadedBacklog, io: CliIo, id: string): Selection {
-  const task = findTaskOrWarn(loaded, io, id);
+async function selectById(loaded: LoadedBacklog, io: CliIo, id: string): Promise<Selection> {
+  const task = await findTaskOrWarn(loaded, io, id);
   return task ? { ok: true, task } : { ok: false, exitCode: EXIT.notFound };
 }
 
