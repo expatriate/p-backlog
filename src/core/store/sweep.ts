@@ -10,11 +10,11 @@ import { runAndStamp, runWhenDue } from "./daily";
 import { withAvailableLocks } from "./file-lock";
 import { contentVersion, readTextOrNull, removeIfUnchanged } from "./fs-utils";
 import { removeTemporariesBefore } from "./atomic-write";
-import { appendJournal } from "./journal";
+import { appendingJournal, bufferedJournal, type JournalWriter } from "./journal";
 import { loadBacklog, projectDirNames, type LoadedBacklog } from "./load";
 import { reserveIssuedUpTo } from "./projects";
 import { referenceCleanup } from "./references";
-import { statusToReopen, updateTaskInIndex, type TaskChanges, type WriteContext } from "./update";
+import { statusToReopen, updateTaskInIndex, type TaskChanges, type WriteContext, type WriteOrigin } from "./update";
 import type { UpdateTaskFailure } from "./write-result";
 import { DAY_MS } from "../model/dates";
 
@@ -37,17 +37,19 @@ type RemovalStep = { deleted: string[]; failures: SweepFailure[] };
 
 type UpdateStep = { failures: SweepFailure[]; stillReferenced: ReadonlySet<string> };
 
+type SweepWrites = WriteContext & Pick<WriteOrigin, "journal">;
+
 export const SWEPT_AT_FILE = ".swept-at";
 
-export function sweepClosedWhenDue(root: string, writes: WriteContext, messages: StoreMessages): Promise<SweepReport | null> {
+export function sweepClosedWhenDue(root: string, writes: SweepWrites, messages: StoreMessages): Promise<SweepReport | null> {
   return runWhenDue(join(root, SWEPT_AT_FILE), writes.now, () => sweepClosed(root, writes, messages));
 }
 
-export function sweepClosedAndStamp(root: string, writes: WriteContext, messages: StoreMessages): Promise<SweepReport> {
+export function sweepClosedAndStamp(root: string, writes: SweepWrites, messages: StoreMessages): Promise<SweepReport> {
   return runAndStamp(join(root, SWEPT_AT_FILE), writes.now, () => sweepClosed(root, writes, messages));
 }
 
-export async function sweepClosed(root: string, writes: WriteContext, messages: StoreMessages): Promise<SweepReport> {
+export async function sweepClosed(root: string, writes: SweepWrites, messages: StoreMessages): Promise<SweepReport> {
   const { now } = writes;
   const initial = await loadBacklog(root);
   const reopening = await reopenEpicsWithOpenTasks(initial, writes);
@@ -76,22 +78,28 @@ async function removeAbandonedTemporaries(root: string, now: Date): Promise<void
   for (const dir of [root, ...projectDirs]) await removeTemporariesBefore(dir, cutoff);
 }
 
-async function removeWithReferences(tasks: readonly Task[], removable: readonly Task[], writes: WriteContext): Promise<RemovalStep> {
+async function removeWithReferences(tasks: readonly Task[], removable: readonly Task[], writes: SweepWrites): Promise<RemovalStep> {
   const conflict = (task: Task): SweepFailure => ({ id: task.id, reason: "conflict" });
-  return withAvailableLocks(
-    removable.map((task) => task.path),
-    async (lockedPaths) => {
-      const locked = removable.filter((task) => lockedPaths.has(task.path));
-      const unchanged = await unchangedOnDisk(locked);
-      const updates = await repairRemainingTasks(tasks, { skipped: removable, removed: unchanged }, writes);
-      const removal = await removeLocked(
-        unchanged.filter((task) => !updates.stillReferenced.has(task.id)),
-        writes,
-      );
-      const untouched = removable.filter((task) => !unchanged.includes(task)).map(conflict);
-      return { deleted: removal.deleted, failures: [...updates.failures, ...untouched, ...removal.failures] };
-    },
-  );
+  const journal = bufferedJournal(writes.journal ?? appendingJournal(writes.onError));
+  const lockedWrites = { ...writes, journal: journal.write };
+  try {
+    return await withAvailableLocks(
+      removable.map((task) => task.path),
+      async (lockedPaths) => {
+        const locked = removable.filter((task) => lockedPaths.has(task.path));
+        const unchanged = await unchangedOnDisk(locked);
+        const updates = await repairRemainingTasks(tasks, { skipped: removable, removed: unchanged }, lockedWrites);
+        const removal = await removeLocked(
+          unchanged.filter((task) => !updates.stillReferenced.has(task.id)),
+          lockedWrites,
+        );
+        const untouched = removable.filter((task) => !unchanged.includes(task)).map(conflict);
+        return { deleted: removal.deleted, failures: [...updates.failures, ...untouched, ...removal.failures] };
+      },
+    );
+  } finally {
+    await journal.flush();
+  }
 }
 
 async function unchangedOnDisk(tasks: readonly Task[]): Promise<Task[]> {
@@ -104,7 +112,7 @@ async function unchangedOnDisk(tasks: readonly Task[]): Promise<Task[]> {
   return tasks.filter((_, position) => checked[position]);
 }
 
-async function reopenEpicsWithOpenTasks(loaded: LoadedBacklog, writes: WriteContext): Promise<ReopenStep> {
+async function reopenEpicsWithOpenTasks(loaded: LoadedBacklog, writes: SweepWrites): Promise<ReopenStep> {
   const index = buildIndex(loaded.tasks);
   const reopened: string[] = [];
   const failures: SweepFailure[] = [];
@@ -116,7 +124,7 @@ async function reopenEpicsWithOpenTasks(loaded: LoadedBacklog, writes: WriteCont
   return { reopened, failures };
 }
 
-async function closeCompletedEpics(loaded: LoadedBacklog, writes: WriteContext, messages: StoreMessages): Promise<EpicStep> {
+async function closeCompletedEpics(loaded: LoadedBacklog, writes: SweepWrites, messages: StoreMessages): Promise<EpicStep> {
   const plan = planEpicClosing(loaded.tasks, loaded.errors);
   const index = buildIndex(loaded.tasks);
   const closed: string[] = [];
@@ -134,7 +142,7 @@ async function closeCompletedEpics(loaded: LoadedBacklog, writes: WriteContext, 
 
 type Removal = { skipped: readonly Task[]; removed: readonly Task[] };
 
-async function repairRemainingTasks(tasks: readonly Task[], { skipped, removed }: Removal, writes: WriteContext): Promise<UpdateStep> {
+async function repairRemainingTasks(tasks: readonly Task[], { skipped, removed }: Removal, writes: SweepWrites): Promise<UpdateStep> {
   const index = buildIndex(tasks);
   const skippedIds = new Set(skipped.map((task) => task.id));
   const removedIds = new Set(removed.map((task) => task.id));
@@ -151,7 +159,7 @@ async function repairRemainingTasks(tasks: readonly Task[], { skipped, removed }
   return { failures, stillReferenced };
 }
 
-async function repairFailure(index: BacklogIndex, task: Task, changes: TaskChanges, writes: WriteContext): Promise<SweepFailure | null> {
+async function repairFailure(index: BacklogIndex, task: Task, changes: TaskChanges, writes: SweepWrites): Promise<SweepFailure | null> {
   const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, ...writes, via: "sweep" });
   return result.ok ? null : sweepFailure(task.id, result);
 }
@@ -160,7 +168,7 @@ function referencedIds(task: Task): string[] {
   return [...(task.epic === undefined ? [] : [task.epic]), ...task.blockedBy, ...task.related];
 }
 
-async function removeLocked(expired: readonly Task[], { now, onError }: WriteContext): Promise<RemovalStep> {
+async function removeLocked(expired: readonly Task[], { now, journal }: { now: Date; journal: JournalWriter }): Promise<RemovalStep> {
   const deleted: string[] = [];
   const failures: SweepFailure[] = [];
   for (const task of expired) {
@@ -168,7 +176,7 @@ async function removeLocked(expired: readonly Task[], { now, onError }: WriteCon
     if (outcome === "changed") failures.push({ id: task.id, reason: "conflict" });
     if (outcome !== "removed") continue;
     deleted.push(task.id);
-    await appendJournal(dirname(task.path), [deletedEvent(task, now, "sweep")], onError);
+    await journal(dirname(task.path), [deletedEvent(task, now, "sweep")]);
   }
   return { deleted, failures };
 }

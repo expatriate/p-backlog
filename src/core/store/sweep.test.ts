@@ -1,6 +1,7 @@
 import { readFile, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import type { JournalEvent } from "../journal/events";
 import { coreMessages } from "../messages";
 import { formatLocalIso } from "../model/dates";
 import { buildIndex, taskProgress } from "../model/graph";
@@ -361,6 +362,20 @@ describe("sweepClosed", () => {
 
     const journal = await readJournal(join(root, "spa"), "spa");
     expect(journal.events).toMatchObject([{ kind: "deleted", task: "SPA-1", via: "sweep", snapshot: { status: "done", resolution: "fixed" } }]);
+  });
+
+  it("удаление пишется в журнал после снятия блокировки задачи: её правку из веба или CLI не держит занятый журнал", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1", `status: done\n${EXPIRED}`) });
+    let lockedWhenDeletionJournaled: boolean | null = null;
+    const journal = async (_projectDir: string, events: readonly JournalEvent[]) => {
+      if (events.some((event) => event.kind === "deleted" && event.task === "SPA-1")) lockedWhenDeletionJournaled = await exists(join(root, "spa/.SPA-1.md.lock"));
+    };
+
+    const report = await sweepClosed(root, { now: NOW, onError: failOnPathError, journal }, RU);
+
+    expect(report.deleted).toEqual(["SPA-1"]);
+    expect(lockedWhenDeletionJournaled).toBe(false);
   });
 
   it("номер не зарезервирован — проход не удаляет задачи этого проекта", async () => {
