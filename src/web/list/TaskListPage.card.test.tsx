@@ -35,8 +35,8 @@ describe("карточка поверх списка", () => {
     expect(await rowTitles()).toHaveLength(3);
   });
 
-  it("неизвестный проект из адреса — «Проект не найден», а не пустой беклог", async () => {
-    await renderApp(LIST_FILES, "/p/nope");
+  it("неизвестный проект из адреса — «Проект не найден», а не пустой беклог, даже если сломан project.md другого проекта", async () => {
+    await renderApp({ ...LIST_FILES, "broken/project.md": "сломано" }, "/p/nope");
 
     expect(await screen.findByText("Проект не найден.")).toBeDefined();
     expect(screen.queryByText(/Беклог наполняет агент/)).toBeNull();
