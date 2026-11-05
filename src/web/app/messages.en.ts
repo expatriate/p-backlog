@@ -11,6 +11,4 @@ export const appEn: AppMessages = {
   scopeNote: (activeCount, totalCount) => `${activeCount} of ${totalCount} ${pluralEn(totalCount, "project", "projects")} included`,
   bootLoadError: "Couldn't load the interface — reload the page",
   bootSettingsError: "Backlog server is not responding",
-  bootRetry: "Retry",
-  bootRetrying: "Retrying…",
 };

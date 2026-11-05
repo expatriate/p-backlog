@@ -1,4 +1,3 @@
-import type { UseQueryResult } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router";
 import type { ProjectView } from "../../core/api/contract";
@@ -6,6 +5,7 @@ import { countBy } from "../../core/collections";
 import type { Task } from "../../core/model/types";
 import { useProjects, useTasks } from "../app/queries";
 import { RequestFailure } from "../app/RequestFailure";
+import { useFailureKeptWhileRefetching } from "../app/use-failure-kept-while-refetching";
 import { countOpenTasks, isOpenTask, scopeNote, taskScope, type TaskScope } from "../app/scope";
 import { useMessages } from "../i18n";
 import { NO_VALUE } from "../labels";
@@ -79,13 +79,6 @@ export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopePro
       )}
     </div>
   );
-}
-
-function useFailureKeptWhileRefetching({ error, data, isFetching }: Pick<UseQueryResult<unknown>, "error" | "data" | "isFetching">): Error | null {
-  const [lastFailure, setLastFailure] = useState<Error | null>(null);
-  if (error !== null && error !== lastFailure) setLastFailure(error);
-  const refetchingWithoutData = data === undefined && isFetching;
-  return error ?? (refetchingWithoutData ? lastFailure : null);
 }
 
 function ScopeOpenCount({ count }: { count: number | undefined }) {

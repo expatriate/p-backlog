@@ -8,6 +8,6 @@ void import("./start").then(({ startApp }) => startApp()).catch(showLoadFailure)
 function showLoadFailure(): void {
   const message = document.createElement("p");
   message.setAttribute("role", "alert");
-  message.textContent = inBothLanguages((app) => app.bootLoadError);
+  message.textContent = inBothLanguages(({ app }) => app.bootLoadError);
   (document.getElementById("root") ?? document.body).replaceChildren(message);
 }
