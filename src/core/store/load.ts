@@ -1,11 +1,11 @@
 import { basename, join } from "node:path";
 import { compareIds, ID_PATTERN, parseId } from "../model/ids";
-import { parseProjectFile } from "../model/project-file";
+import { parseProjectFile, reposOfUnparsed } from "../model/project-file";
 import { parseTaskFile } from "../model/task-file";
 import type { NotLoadedTasks, ParseError, ParseResult, Project, ProjectFileError, Task, UnparsedFile } from "../model/types";
-import { contentVersion, listDir } from "./fs-utils";
+import { contentVersion, listDir, readBytesOrNull } from "./fs-utils";
 import { PROJECT_FILE } from "./paths";
-import { parseDocumentOrNull } from "./read-document";
+import { documentOf, parseDocumentOrNull } from "./read-document";
 
 export type LoadedBacklog = { projects: Project[]; tasks: Task[]; errors: ParseError[] };
 
@@ -50,11 +50,14 @@ export async function loadBacklog(root: string): Promise<LoadedBacklog> {
 
 async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBacklog> {
   const projectPath = join(dir, PROJECT_FILE);
-  const project = await parseDocumentOrNull(projectPath, (text) => parseProjectFile(text, { id: projectId, path: projectPath }));
-  if (project === null) return { projects: [], tasks: [], errors: [] };
+  const bytes = await readBytesOrNull(projectPath);
+  if (bytes === null) return { projects: [], tasks: [], errors: [] };
+  const document = documentOf(bytes);
+  const project = document.ok ? parseProjectFile(document.value, { id: projectId, path: projectPath }) : document;
   if (!project.ok) {
     const hiddenTasks = [...(await taskIdsOnDisk(dir))].sort(compareIds);
-    return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, fileKind: "project", problems: project.problems, hiddenTasks }] };
+    const repos = reposOfUnparsed(bytes.toString("utf8"));
+    return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, fileKind: "project", problems: project.problems, hiddenTasks, repos }] };
   }
 
   const taskPaths = (await taskFileNames(dir)).map((name) => join(dir, name));

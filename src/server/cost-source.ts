@@ -3,7 +3,7 @@ import type { ParseError, Project } from "../core/model/types";
 import { costReport } from "../core/stats/cost/cost-report";
 import type { CostReport } from "../core/stats/types";
 import { createJsonlTail } from "../core/store/jsonl-tail";
-import { cachedRepoRoots, lookupProjectForDir, readUnparsedProjectRepos, type RepoPlaces, type RepoRootLookup } from "../core/store/resolve-project";
+import { cachedRepoRoots, lookupProjectForDir, type KnownProjects, type RepoPlaces, type RepoRootLookup } from "../core/store/resolve-project";
 import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
 import type { UsageCache } from "../core/usage/usage-cache";
 import type { UsageSnapshot } from "./usage-scanner";
@@ -41,26 +41,19 @@ async function computeCostReport({ usage: { cache, scan }, runs, projects, parse
       ? new Map<string, string | null>()
       : await projectIdsOfCwds(
           [...buckets, ...runs].map((entry) => entry.cwd),
-          projects,
-          parseErrors,
+          { projects, errors: parseErrors },
           places,
           lookupRepoRoot,
         );
   return costReport({ buckets, runs, projectOf: (cwd) => projectIds.get(cwd) ?? null, projectId, now, scan });
 }
 
-async function projectIdsOfCwds(
-  cwds: readonly string[],
-  projects: readonly Project[],
-  parseErrors: readonly ParseError[],
-  places: RepoPlaces,
-  lookupRepoRoot: RepoRootLookup,
-): Promise<Map<string, string | null>> {
+async function projectIdsOfCwds(cwds: readonly string[], known: KnownProjects, places: RepoPlaces, lookupRepoRoot: RepoRootLookup): Promise<Map<string, string | null>> {
   const unique = [...new Set(cwds)];
-  const [dirRoots, unparsed] = await Promise.all([Promise.all(unique.map(lookupRepoRoot)), readUnparsedProjectRepos(parseErrors, places.onUnreadable)]);
+  const dirRoots = await Promise.all(unique.map(lookupRepoRoot));
   return new Map(
     unique.map((cwd, position) => {
-      const lookup = lookupProjectForDir(projects, unparsed, cwd, dirRoots[position] ?? "unreadable", places);
+      const lookup = lookupProjectForDir(known, cwd, dirRoots[position] ?? "unreadable", places);
       return [cwd, "project" in lookup ? lookup.project.id : null];
     }),
   );

@@ -9,6 +9,9 @@ export async function parseDocumentOrNull<T>(path: string, parse: (text: string)
 
 export async function readDocumentOrNull(path: string): Promise<ParseResult<string> | null> {
   const bytes = await readBytesOrNull(path);
-  if (bytes === null) return null;
+  return bytes === null ? null : documentOf(bytes);
+}
+
+export function documentOf(bytes: Buffer): ParseResult<string> {
   return isUtf8(bytes) ? { ok: true, value: bytes.toString("utf8") } : { ok: false, problems: [{ code: "not-utf8" }] };
 }

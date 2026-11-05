@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { chmod, mkdir, readdir, readFile, rm } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { runGit } from "../../core/git/run";
@@ -229,6 +229,16 @@ describe("backlog new", () => {
   it("битый project.md со своим путём среди repos останавливает создание проекта", async () => {
     const { run, root, repo } = await makeCliSandbox();
     await writeFiles(root, { "other/project.md": `---\nname: other\nprefix: OT\nrepos: [/work/x, ${repo}/]\n  bad\n---\n` });
+
+    const result = await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
+
+    expect(result.code).toBe(EXIT.notFound);
+  });
+
+  it("project.md не в UTF-8 со своим путём среди repos останавливает создание проекта", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await mkdir(join(root, "other"), { recursive: true });
+    await writeFile(join(root, "other/project.md"), Buffer.concat([Buffer.from("---\nname: caf"), Buffer.from([0xe9]), Buffer.from(`\nprefix: OT\nrepos: [${repo}]\n---\n`)]));
 
     const result = await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
 

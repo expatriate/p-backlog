@@ -2,6 +2,7 @@ import { mkdir, readFile, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
+import { makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
 import { updateTask } from "../../core/store/testing/update-task";
 import { EXIT } from "../io";
 import { makeCliSandbox, SANDBOX_NOW } from "../testing/cli-harness";
@@ -163,6 +164,17 @@ describe("backlog take", () => {
 
     expect((await run(["take", "--path", "."])).code).toBe(EXIT.ok);
     expect(await statusOf(root, "SPA-2")).toBe("in-progress");
+  });
+
+  it("--project чужого для каталога проекта: --path берётся от корня его репозитория, даже если каталог — вложенный репозиторий со сломанным project.md", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Во вложенном", "--source", "sub/src/a.ts:1"]);
+    const nested = await makeGitRepo(repo, "sub");
+    await mkdir(join(nested, "lib"));
+    await writeFiles(root, { "sub/project.md": `---\nname: [\nrepos: [${nested}]\n---\n` });
+
+    expect((await run(["take", "--project", "spa", "--path", "sub/src"], { cwd: join(nested, "lib") })).code).toBe(EXIT.ok);
+    expect(await statusOf(root, "SPA-1")).toBe("in-progress");
   });
 
   it("--path сравнивает с путём source после схлопывания . и ..", async () => {

@@ -7,7 +7,7 @@ import { claimHookTurn } from "../../core/store/hook-turns";
 import { readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
 import { projectDirOf } from "../../core/store/paths";
-import { readGitRoots, repoRootsOf } from "../../core/store/resolve-project";
+import { lookupProjectForDir, readGitRoots, repoRootsOf } from "../../core/store/resolve-project";
 import { readSignalsShown, rememberSignalsShown } from "../../core/store/signals-shown";
 import { readSessionShown, rememberSessionShown } from "../../core/store/session-shown";
 import { HOOK_STOP_EVENT, hookMessage } from "../../core/hook-signature";
@@ -20,7 +20,7 @@ import { AGENT_SPECS, AGENTS, type Agent } from "../agents/agent";
 import { carriesSystemMessage, formatStopAnswer, parseStopEvent, type StopEvent } from "../agents/stop-event";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, parseCommandArgs, type CliIo, type ExitCode } from "../io";
-import { lookupDirProject, repoPlaces } from "../lookups";
+import { repoPlaces } from "../lookups";
 import { cliMessages } from "../messages";
 import { stopReason } from "../stop-reason";
 
@@ -61,7 +61,7 @@ async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   const loaded = await loadBacklog(io.backlogRoot);
   const places = repoPlaces(io);
   const cwdRoots = readGitRoots(event.cwd, places.onUnreadable);
-  const lookup = await lookupDirProject(loaded, event.cwd, cwdRoots, io);
+  const lookup = lookupProjectForDir(loaded, event.cwd, cwdRoots, places);
   if (!("project" in lookup)) return EXIT.ok;
   const { project } = lookup;
   if (!(await isFirstHookOfTurn(agent, event, io))) return EXIT.ok;

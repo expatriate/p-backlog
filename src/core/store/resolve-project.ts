@@ -2,9 +2,8 @@ import { basename, isAbsolute, relative, resolve, sep } from "node:path";
 import type { PathErrorHandler } from "../errors";
 import { runGit, runGitSync } from "../git/run";
 import { projectIdBase } from "../model/ids";
-import { reposOfUnparsed } from "../model/project-file";
 import type { ParseError, Project, ProjectFileError } from "../model/types";
-import { attemptReportingFailure, attemptReportingFailureSync, readTextOrNull, realpathOrNull } from "./fs-utils";
+import { attemptReportingFailure, attemptReportingFailureSync, realpathOrNull } from "./fs-utils";
 import { unparsedProjectFiles } from "./load";
 import { expandHome } from "./paths";
 
@@ -86,29 +85,28 @@ export function repoRootsOf(dirRoots: DirGitRoots): GitRoots | null {
   return typeof dirRoots === "string" ? null : dirRoots;
 }
 
-export type UnparsedProjectRepos = { error: ProjectFileError; repos: readonly string[] };
-
-export async function readUnparsedProjectRepos(errors: readonly ParseError[], onUnreadable: PathErrorHandler): Promise<UnparsedProjectRepos[]> {
-  const reposOf = async (error: ProjectFileError) => reposOfUnparsed((await attemptReportingFailure(error.path, readTextOrNull, onUnreadable)) ?? "");
-  return Promise.all(unparsedProjectFiles(errors).map(async (error) => ({ error, repos: await reposOf(error) })));
-}
+export type KnownProjects = { projects: readonly Project[]; errors: readonly ParseError[] };
 
 export type ProjectLookup = { project: Project } | { broken: ProjectFileError[] };
 
-export function lookupProjectForDir(projects: readonly Project[], unparsed: readonly UnparsedProjectRepos[], dir: string, dirRoots: DirGitRoots, places: RepoPlaces): ProjectLookup {
+export function lookupProjectForDir(known: KnownProjects, dir: string, dirRoots: DirGitRoots, places: RepoPlaces): ProjectLookup {
   const roots = matchingRoots(dir, dirRoots, places);
   if (roots === null) return { broken: [] };
   const repo = repoRootsOf(dirRoots);
-  return lookupProject(projects, unparsed, roots, repo === null ? undefined : projectIdBase(basename(repo.main)), places);
+  return lookupProject(known, { roots, repoDirName: repo === null ? undefined : projectIdBase(basename(repo.main)) }, places);
 }
 
-function lookupProject(projects: readonly Project[], unparsed: readonly UnparsedProjectRepos[], roots: GitRoots, repoDirName: string | undefined, places: RepoPlaces): ProjectLookup {
+type DirPlace = { roots: GitRoots; repoDirName: string | undefined };
+
+function lookupProject({ projects, errors }: KnownProjects, { roots, repoDirName }: DirPlace, places: RepoPlaces): ProjectLookup {
   const coveredLength = (repos: readonly string[]) => closestCoveringRepo(repos, roots, places)?.length ?? 0;
-  const coverageOf = ({ error, repos }: UnparsedProjectRepos) => {
-    const namedAfterRepo = repos.length === 0 && error.projectId === repoDirName;
-    return { error, length: namedAfterRepo ? roots.main.length : coveredLength(repos) };
+  const coverageOf = (error: ProjectFileError) => {
+    const namedAfterRepo = error.repos.length === 0 && error.projectId === repoDirName;
+    return { error, length: namedAfterRepo ? roots.main.length : coveredLength(error.repos) };
   };
-  const covering = unparsed.map(coverageOf).filter(({ length }) => length > 0);
+  const covering = unparsedProjectFiles(errors)
+    .map(coverageOf)
+    .filter(({ length }) => length > 0);
   const project = findProjectForRoots(projects, roots, places);
   const projectLength = project === undefined ? 0 : coveredLength(project.repos);
   if (project !== undefined && covering.every(({ length }) => length <= projectLength)) return { project };
@@ -120,7 +118,7 @@ function matchingRoots(dir: string, dirRoots: DirGitRoots, places: RepoPlaces): 
   return dirRoots === "not-in-repo" ? attemptReportingFailureSync(dir, plainDirRoots, places.onUnreadable) : dirRoots;
 }
 
-export function findProjectForRoots(projects: readonly Project[], roots: GitRoots, places: RepoPlaces): Project | undefined {
+function findProjectForRoots(projects: readonly Project[], roots: GitRoots, places: RepoPlaces): Project | undefined {
   const matches = projects.flatMap((project) => {
     const repoPath = closestCoveringRepo(project.repos, roots, places);
     return repoPath === undefined ? [] : [{ project, repoPath }];

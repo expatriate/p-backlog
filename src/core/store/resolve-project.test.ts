@@ -11,7 +11,7 @@ import { gitAddWorktree, gitCommitAll, makeGitRepo, makeTempDir, writeFiles } fr
 const placesIn = (home: string): RepoPlaces => ({ home, onUnreadable: failOnPathError });
 
 const projectForRoots = (projects: readonly Project[], dir: string, dirRoots: DirGitRoots, places: RepoPlaces) => {
-  const lookup = lookupProjectForDir(projects, [], dir, dirRoots, places);
+  const lookup = lookupProjectForDir({ projects, errors: [] }, dir, dirRoots, places);
   return "project" in lookup ? lookup.project : undefined;
 };
 const projectForDir = (projects: readonly Project[], dir: string, places: RepoPlaces) => projectForRoots(projects, dir, readGitRoots(dir, places.onUnreadable), places);

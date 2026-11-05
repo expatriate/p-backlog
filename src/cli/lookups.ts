@@ -7,7 +7,7 @@ import type { ParseError, Project, Task } from "../core/model/types";
 import { createProject } from "../core/store/create";
 import { unparsedProjectFileOf, unparsedProjectFiles, type LoadedBacklog } from "../core/store/load";
 import { taskFileName } from "../core/store/paths";
-import { lookupProjectForDir, readGitRoots, readUnparsedProjectRepos, repoRootsOf, type DirGitRoots, type GitRoots, type ProjectLookup, type RepoPlaces } from "../core/store/resolve-project";
+import { lookupProjectForDir, readGitRoots, repoRootsOf, type DirGitRoots, type GitRoots, type KnownProjects, type ProjectLookup, type RepoPlaces } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
 
 export function warnUnreadableSkipped(warn: (line: string) => void, core: CoreMessages): PathErrorHandler {
@@ -38,13 +38,13 @@ export function cwdGitRoots(io: CliIo): GitRoots | null {
   return repoRootsOf(cwdDirRoots(io));
 }
 
-export function lookupCwdProject(loaded: Pick<LoadedBacklog, "projects" | "errors">, io: CliIo): Promise<ProjectLookup> {
-  return lookupDirProject(loaded, io.cwd, cwdDirRoots(io), io);
+function lookupCwdProject(known: KnownProjects, io: CliIo): ProjectLookup {
+  return lookupProjectForDir(known, io.cwd, cwdDirRoots(io), repoPlaces(io));
 }
 
-export async function lookupDirProject(loaded: Pick<LoadedBacklog, "projects" | "errors">, dir: string, dirRoots: DirGitRoots, io: CliIo): Promise<ProjectLookup> {
-  const places = repoPlaces(io);
-  return lookupProjectForDir(loaded.projects, await readUnparsedProjectRepos(loaded.errors, places.onUnreadable), dir, dirRoots, places);
+export function cwdBelongsTo(project: Project, known: KnownProjects, io: CliIo): boolean {
+  const lookup = lookupCwdProject(known, io);
+  return "project" in lookup && lookup.project.id === project.id;
 }
 
 export function repoLookup(io: CliIo): RepoLookup {
@@ -104,7 +104,7 @@ function findNamedProjectOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): P
 }
 
 async function findCwdProjectOrWarn(loaded: LoadedBacklog, io: CliIo): Promise<Project | undefined> {
-  const lookup = await lookupCwdProject(loaded, io);
+  const lookup = lookupCwdProject(loaded, io);
   if ("project" in lookup) return lookup.project;
   if (lookup.broken.length > 0) warnUnparsedProjectFiles(io, lookup.broken, io.cli.projectFileUnparsed);
   else io.warn(io.cli.projectNotFoundForCwd(io.cwd));
@@ -117,7 +117,7 @@ export function warnUnparsedProjectFiles(io: CliIo, errors: readonly ParseError[
 
 export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Promise<Project | undefined> {
   if (explicitId !== undefined) return findNamedProjectOrWarn(loaded, io, explicitId);
-  const lookup = await lookupCwdProject(loaded, io);
+  const lookup = lookupCwdProject(loaded, io);
   if ("project" in lookup) return lookup.project;
   if (lookup.broken.length > 0) {
     warnUnparsedProjectFiles(io, lookup.broken, io.cli.projectNotCreatedFileUnparsed);

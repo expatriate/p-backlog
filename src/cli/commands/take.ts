@@ -6,12 +6,11 @@ import { isQueuedTask, isTakenTask, pickAbandonedTask, pickNextTask } from "../.
 import type { Project, Task } from "../../core/model/types";
 import { statOrNull } from "../../core/store/fs-utils";
 import { loadBacklog, notLoadedTasks, type LoadedBacklog } from "../../core/store/load";
-import { findProjectForRoots } from "../../core/store/resolve-project";
 import { formatJson, formatTaskRef } from "../format";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
-import { cwdGitRoots, findProjectOrWarn, findTaskOrWarn, repoPlaces } from "../lookups";
+import { cwdBelongsTo, cwdGitRoots, findProjectOrWarn, findTaskOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 import { relativeInside } from "../path-inside";
 import { withWrittenTasks } from "../../core/store/write-result";
@@ -72,7 +71,7 @@ function takeMode(io: CliIo, values: { path?: string | undefined; next: boolean 
 async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projectId: string | undefined, { json }: { json: boolean }): Promise<ExitCode> {
   const project = await findProjectOrWarn(loaded, io, projectId);
   if (!project) return EXIT.notFound;
-  const target = repoRelativePath(io, project, path);
+  const target = repoRelativePath(io, project, loaded, path);
   const index = buildIndex(loaded.tasks);
   const matching = loaded.tasks.filter((task) => task.projectId === project.id && isOpenTaskAt(task, target));
   const refusals = matching.map((task) => takeRefusal(io, task, index, { ignoreBlockers: false }));
@@ -101,9 +100,9 @@ function isOpenTaskAt(task: Task, path: string): boolean {
   return workable && task.source !== undefined && (path === "" || isWithin(sourcePath(task.source), path));
 }
 
-function repoRelativePath(io: CliIo, project: Project, path: string): string {
+function repoRelativePath(io: CliIo, project: Project, loaded: LoadedBacklog, path: string): string {
   const roots = cwdGitRoots(io);
-  if (roots === null || findProjectForRoots([project], roots, repoPlaces(io)) === undefined) return sourcePath(path);
+  if (roots === null || !cwdBelongsTo(project, loaded, io)) return sourcePath(path);
   return relativeInside(roots.worktree, resolve(realpathSync(io.cwd), sourcePath(path))) ?? sourcePath(path);
 }
 
