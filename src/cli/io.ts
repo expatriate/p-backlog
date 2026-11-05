@@ -57,7 +57,7 @@ export function parseCommandArgs<const T extends ParseArgsOptionsConfig>(languag
   return parsed;
 }
 
-function asksForHelp(args: string[], options: ParseArgsOptionsConfig): boolean {
+export function asksForHelp(args: string[], options: ParseArgsOptionsConfig): boolean {
   const optionsEnd = args.indexOf(END_OF_OPTIONS);
   const { tokens } = parseArgs({ args: optionsEnd === -1 ? args : args.slice(0, optionsEnd), options, strict: false, allowPositionals: true, tokens: true });
   return tokens.some((token) => token.kind === "option" && HELP_OPTION_NAMES.has(token.name));

@@ -12,7 +12,7 @@ describe("runCli", () => {
   it("справку по запросу печатает в stdout с кодом 0, на неизвестную команду — в stderr с кодом 1", async () => {
     const { run } = await makeCliSandbox();
     expect(await run([])).toMatchObject({ code: EXIT.ok, out: expect.stringContaining("Использование"), err: "" });
-    expect(await run(["--help"])).toMatchObject({ code: EXIT.ok, out: expect.stringContaining("Использование") });
+    for (const flag of ["help", "--help", "-h", "--help=x", "--h", "-hx"]) expect(await run([flag]), flag).toMatchObject({ code: EXIT.ok, out: expect.stringContaining("Использование") });
     expect(await run(["remove", "SPA-1"])).toMatchObject({ code: EXIT.invalid, out: "", err: expect.stringContaining("Использование") });
   });
 

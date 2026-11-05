@@ -24,7 +24,7 @@ import { statsCommand } from "./commands/stats";
 import { statusCommand } from "./commands/status";
 import { takeCommand } from "./commands/take";
 import { verifyCommand } from "./commands/verify";
-import { ArgumentsError, cliIo, EXIT, HelpRequested, UsageError, type CliEnv, type ExitCode } from "./io";
+import { ArgumentsError, asksForHelp, cliIo, EXIT, HelpRequested, UsageError, type CliEnv, type ExitCode } from "./io";
 
 export const CLI_COMMANDS: readonly CliCommand[] = [
   newCommand,
@@ -48,7 +48,9 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
   serviceCommand,
 ];
 
-const HELP_ARGUMENTS = new Set(["help", "--help", "-h"]);
+const HELP_COMMAND = "help";
+
+const RUN_WITHOUT_COMMAND = "help";
 
 const COMMANDS = new Map(CLI_COMMANDS.map((command) => [command.name, command]));
 
@@ -60,7 +62,7 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<Exit
   if (language === null) return failureExit;
   const io = cliIo(env, language);
   if (!command) {
-    const askedForHelp = name === undefined || HELP_ARGUMENTS.has(name);
+    const askedForHelp = name === undefined || name === HELP_COMMAND || asksForHelp([name], {});
     if (!askedForHelp) {
       io.warn(usageText(CLI_COMMANDS, language));
       return EXIT.invalid;
@@ -91,6 +93,6 @@ export async function runCli(argv: readonly string[], env: CliEnv): Promise<Exit
 
 export function commandName(argv: readonly string[]): string {
   const [name, ...args] = argv;
-  if (name === undefined || !COMMANDS.has(name)) return "help";
+  if (name === undefined || !COMMANDS.has(name)) return RUN_WITHOUT_COMMAND;
   return name === hookCommand.name && namesStopEvent(args) ? HOOK_STOP_COMMAND : name;
 }
