@@ -5,6 +5,8 @@ import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { describe, expect, it, vi } from "vitest";
 import { replacePrefixAtomic, writeFileAtomic } from "./atomic-write";
+import { failingOnce } from "./testing/fs-failures";
+import { asIfOnWindows } from "./testing/platform";
 import { makeTempDir } from "./testing/temp-dirs";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
@@ -12,32 +14,17 @@ vi.mock("node:fs/promises", async (importOriginal) => {
   return { ...actual, open: vi.fn(actual.open), rename: vi.fn(actual.rename) };
 });
 
-async function onWindows<T>(action: () => Promise<T>): Promise<T> {
-  const platform = process.platform;
-  Object.defineProperty(process, "platform", { value: "win32" });
-  try {
-    return await action();
-  } finally {
-    Object.defineProperty(process, "platform", { value: platform });
-  }
-}
-
 const LOCK_HELD_MS = 200;
 
 describe("writeFileAtomic", () => {
   it("на файловой системе, где каталог нельзя синхронизировать, запись проходит и не сообщает о сбое", async () => {
     const path = join(await makeTempDir(), "task.md");
-    const { open: actualOpen } = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
-    vi.mocked(open).mockImplementation(async (target, ...rest) => {
-      if (target === dirname(path)) throw Object.assign(new Error("not supported"), { code: "EINVAL" });
-      return actualOpen(target, ...rest);
-    });
-
-    try {
-      await writeFileAtomic(path, "стало\n");
-    } finally {
-      vi.mocked(open).mockImplementation(actualOpen);
-    }
+    await failingOnce(
+      open,
+      (target) => target === dirname(path),
+      () => writeFileAtomic(path, "стало\n"),
+      { code: "EINVAL" },
+    );
 
     expect(await readFile(path, "utf8")).toBe("стало\n");
   });
@@ -79,7 +66,7 @@ describe("replacePrefixAtomic", () => {
       throw Object.assign(new Error("busy"), { code: "EBUSY" });
     });
 
-    await onWindows(() => replacePrefixAtomic(path, read, "kept\n"));
+    await asIfOnWindows(() => replacePrefixAtomic(path, read, "kept\n"));
 
     expect(await readFile(path, "utf8")).toBe("kept\nlate\n");
   });
@@ -91,7 +78,7 @@ describe("replacePrefixAtomic", () => {
     await appendFile(path, "late\n");
     vi.mocked(rename).mockRejectedValueOnce(Object.assign(new Error("busy"), { code: "EBUSY" }));
 
-    await onWindows(() => replacePrefixAtomic(path, read, "kept\n"));
+    await asIfOnWindows(() => replacePrefixAtomic(path, read, "kept\n"));
 
     expect(await readFile(path, "utf8")).toBe("kept\nlate\n");
   });

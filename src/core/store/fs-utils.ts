@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, type Dirent, type Stats } from "node:fs";
 import { access, lstat, open, readdir, readFile, readlink, rm, stat, type FileHandle } from "node:fs/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 import { hasAnyErrorCode, hasErrorCode, type PathErrorHandler } from "../errors";
+import { sum } from "../numbers";
 
 export function contentVersion(text: string): string {
   return createHash("sha1").update(text).digest("hex");
@@ -148,4 +150,28 @@ export async function listDir(path: string, { recursive = false }: { recursive?:
     if (hasErrorCode(error, "ENOENT")) return [];
     throw error;
   }
+}
+
+const BLOCKED_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320, 640, 1000, 1000, 1000, 1000];
+
+export const BLOCKED_RETRIES_TOTAL_MS = sum(BLOCKED_RETRY_DELAYS_MS);
+const BLOCKED_CODES = ["EPERM", "EACCES", "EBUSY"];
+
+// Windows refuses to rename over or unlink a file while another handle (a watcher's read, antivirus) keeps it open.
+export async function retryWhileBlockedOnWindows<T>(attempt: () => Promise<T>): Promise<T> {
+  if (!onWindows()) return attempt();
+  for (const delayMs of BLOCKED_RETRY_DELAYS_MS) {
+    try {
+      return await attempt();
+    } catch (error) {
+      if (!hasAnyErrorCode(error, BLOCKED_CODES)) throw error;
+      await sleep(delayMs);
+    }
+  }
+  return attempt();
+}
+
+export function onWindows(): boolean {
+  // eslint-disable-next-line no-restricted-properties -- blocked renames and unlinks retry and directories skip fsync by the running OS, not by a caller
+  return process.platform === "win32";
 }

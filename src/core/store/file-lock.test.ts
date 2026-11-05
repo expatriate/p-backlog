@@ -1,11 +1,27 @@
-import { readFile, stat, utimes, writeFile } from "node:fs/promises";
+import { readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { FileBusyError, withAvailableLocks, withFileLock } from "./file-lock";
+import { failingOnce } from "./testing/fs-failures";
 import { SHORT_LOCK_WAIT } from "./testing/lock-wait";
+import { asIfOnWindows } from "./testing/platform";
 import { makeTempDir } from "./testing/temp-dirs";
 
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, rm: vi.fn(actual.rm) };
+});
+
 describe("блокировка файла", () => {
+  it("на Windows блокировка, которую другой процесс на миг не дал удалить, всё равно снимается — следующая правка не ждёт 30 с", async () => {
+    const path = join(await makeTempDir(), "SPA-1.md");
+    const lockRemoval = (target: Parameters<typeof rm>[0]) => String(target).endsWith(".SPA-1.md.lock");
+
+    await asIfOnWindows(() => failingOnce(rm, lockRemoval, () => withFileLock(path, async () => "первая"), { code: "EBUSY" }));
+
+    expect(await withFileLock(path, async () => "вторая", SHORT_LOCK_WAIT)).toBe("вторая");
+  });
+
   it("блокировка, брошенная упавшим процессом, не держит файл вечно", async () => {
     const dir = await makeTempDir();
     const lock = join(dir, ".SPA-1.md.lock");

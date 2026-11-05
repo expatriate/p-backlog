@@ -1,19 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { chmod, link, rename, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import { setTimeout as sleep } from "node:timers/promises";
 import { hasAnyErrorCode } from "../errors";
-import { sum } from "../numbers";
-import { listDir, readBytesOrNull, statOrNull, withFile } from "./fs-utils";
-
-const REPLACE_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320, 640, 1000, 1000, 1000, 1000];
-
-export const REPLACE_RETRIES_TOTAL_MS = sum(REPLACE_RETRY_DELAYS_MS);
-const REPLACE_BLOCKED_CODES = ["EPERM", "EACCES", "EBUSY"];
+import { listDir, onWindows, readBytesOrNull, retryWhileBlockedOnWindows, statOrNull, withFile } from "./fs-utils";
 
 type AfterPublish = { onErrorAfterPublish?: ((error: unknown) => void) | undefined };
 
-type AtomicWriteOptions = AfterPublish & { mode?: number | undefined };
+type FileMode = { mode?: number | undefined };
+
+type AtomicWriteOptions = AfterPublish & FileMode;
 
 export async function writeFileAtomic(path: string, content: string, options: AtomicWriteOptions = {}): Promise<void> {
   await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path), { ...options, durable: true });
@@ -39,23 +34,12 @@ function startsWithBytes(bytes: Buffer, prefix: Buffer): boolean {
   return bytes.length >= prefix.length && bytes.subarray(0, prefix.length).equals(prefix);
 }
 
-// Windows refuses to rename over a file while another handle (a watcher's read, antivirus) keeps it open.
 async function replaceFile(temporary: string, path: string, prepareRename: () => Promise<boolean> = async () => true): Promise<boolean> {
-  const attempt = async (): Promise<boolean> => {
+  return retryWhileBlockedOnWindows(async () => {
     if (!(await prepareRename())) return false;
     await rename(temporary, path);
     return true;
-  };
-  if (!onWindows()) return attempt();
-  for (const delayMs of REPLACE_RETRY_DELAYS_MS) {
-    try {
-      return await attempt();
-    } catch (error) {
-      if (!hasAnyErrorCode(error, REPLACE_BLOCKED_CODES)) throw error;
-      await sleep(delayMs);
-    }
-  }
-  return attempt();
+  });
 }
 
 export async function createFileAtomic(path: string, content: string, options: AfterPublish = {}): Promise<void> {
@@ -77,7 +61,7 @@ export function temporaryPathFor(path: string): string {
   return join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
 }
 
-type TemporaryWrite = { durable: boolean; mode?: number | undefined };
+type TemporaryWrite = FileMode & { durable: boolean };
 
 type PublishOptions = TemporaryWrite & AfterPublish;
 
@@ -123,9 +107,4 @@ export async function syncParentDirectory(path: string): Promise<void> {
 
 function rethrow(error: unknown): never {
   throw error;
-}
-
-function onWindows(): boolean {
-  // eslint-disable-next-line no-restricted-properties -- renames retry and directories skip fsync by the running OS, not by a caller
-  return process.platform === "win32";
 }

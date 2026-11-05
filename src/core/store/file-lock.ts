@@ -4,7 +4,7 @@ import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { errorCode, hasErrorCode } from "../errors";
 import { SECOND_MS } from "../model/dates";
-import { readTextOrNull, statOrNull } from "./fs-utils";
+import { readTextOrNull, retryWhileBlockedOnWindows, statOrNull } from "./fs-utils";
 
 const RETRY_MS = 10;
 const ABANDONED_AFTER_MS = 30_000;
@@ -129,5 +129,5 @@ async function refreshIfHeld(lock: string, token: string): Promise<void> {
 
 async function release({ lock, token, stopRefreshing }: HeldLock): Promise<void> {
   await stopRefreshing();
-  if ((await readTextOrNull(lock)) === token) await rm(lock, { force: true });
+  if ((await readTextOrNull(lock)) === token) await retryWhileBlockedOnWindows(() => rm(lock, { force: true }));
 }

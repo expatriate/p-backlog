@@ -8,6 +8,7 @@ import { applyBatch, type CoreBatchOutcome } from "./batch";
 import { createTask } from "./create";
 import { readJournal } from "./journal";
 import { loadBacklog } from "./load";
+import { failingOnce } from "./testing/fs-failures";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 import { failOnPathError } from "./testing/path-errors";
 
@@ -17,22 +18,6 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 });
 
 const NOW = new Date("2026-09-25T12:00:00Z");
-
-async function failingOnce<A extends unknown[], R, T>(target: (...args: A) => Promise<R>, matches: (...args: A) => boolean, action: () => Promise<T>): Promise<T> {
-  const mocked = vi.mocked(target);
-  const actual = mocked.getMockImplementation() as (...args: A) => Promise<R>;
-  let failed = false;
-  mocked.mockImplementation((async (...args: A) => {
-    if (failed || !matches(...args)) return actual(...args);
-    failed = true;
-    throw Object.assign(new Error("ошибка ввода-вывода"), { code: "EIO" });
-  }) as never);
-  try {
-    return await action();
-  } finally {
-    mocked.mockImplementation(actual as never);
-  }
-}
 
 const directoriesSyncOnThisOs = process.platform !== "win32";
 
