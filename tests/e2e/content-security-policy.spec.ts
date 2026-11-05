@@ -9,7 +9,7 @@ const projectDir = join(E2E_BACKLOG_DIR, "csp");
 test("политика безопасности не блокирует ни одну страницу приложения", async ({ page }) => {
   await writeServedProject(page.request, projectDir, {
     prefix: "CSP",
-    tasks: { "CSP-1": "---\nid: CSP-1\ntitle: Проверка политики\ncreated: 2026-09-17T10:00:00+03:00\n---\n\nОписание.\n" },
+    tasks: [{ id: "CSP-1", fields: { title: "Проверка политики" }, body: "Описание." }],
   });
 
   const violations = await collectCspViolations(page);

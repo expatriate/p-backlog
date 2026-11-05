@@ -21,7 +21,7 @@ const PERIOD_CAPTIONS = [
 test.beforeEach(({ request }) =>
   writeServedProject(request, projectDir, {
     prefix: "GRN",
-    tasks: { "GRN-1": `---\nid: GRN-1\ntitle: Масштаб графика\ncreated: ${new Date().toISOString()}\n---\n\nОписание.\n` },
+    tasks: [{ id: "GRN-1", fields: { title: "Масштаб графика", created: new Date().toISOString() }, body: "Описание." }],
   }),
 );
 

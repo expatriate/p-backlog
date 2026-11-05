@@ -3,19 +3,37 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import type { ProjectsResponse, TasksResponse } from "../../src/core/api/contract";
+import { MINUTE_MS } from "../../src/core/model/dates";
 import { serializeProject } from "../../src/core/model/project-file";
 import { contentVersion } from "../../src/core/store/fs-utils";
 import { taskIdsOnDisk } from "../../src/core/store/load";
+import { taskFile } from "../../src/core/store/testing/task-file-text";
 
 type ProjectState = { listed: boolean; taskVersions: Record<string, string> };
 
+export type SeededTask = { id: string; fields?: Record<string, string>; body?: string };
+
 const SYNCED = "synced";
 
-export async function writeServedProject(request: APIRequestContext, projectDir: string, { prefix, tasks = {} }: { prefix: string; tasks?: Record<string, string> }): Promise<void> {
+export async function writeServedProject(request: APIRequestContext, projectDir: string, { prefix, tasks = [] }: { prefix: string; tasks?: readonly SeededTask[] }): Promise<void> {
   await mkdir(projectDir, { recursive: true });
-  await writeFile(join(projectDir, "project.md"), serializeProject({ name: basename(projectDir), prefix, repos: [], active: true, extra: {}, body: "" }), "utf8");
-  await Promise.all(Object.entries(tasks).map(([id, text]) => writeFile(join(projectDir, `${id}.md`), text, "utf8")));
+  await writeProjectFile(projectDir, prefix);
+  await Promise.all(tasks.map((task) => writeTaskFile(projectDir, task)));
   await untilServerSees(request, projectDir);
+}
+
+export async function writeProjectFile(projectDir: string, prefix: string): Promise<void> {
+  await writeFile(join(projectDir, "project.md"), serializeProject({ name: basename(projectDir), prefix, repos: [], active: true, extra: {}, body: "" }), "utf8");
+}
+
+export async function writeTaskFile(projectDir: string, { id, fields, body }: SeededTask): Promise<void> {
+  await writeFile(join(projectDir, `${id}.md`), taskFile(id, fields, body), "utf8");
+}
+
+const SEED_START_MS = Date.parse("2026-09-10T10:00:00+03:00");
+
+export function createdInOrder(index: number): string {
+  return new Date(SEED_START_MS + index * MINUTE_MS).toISOString();
 }
 
 export async function untilServerSees(request: APIRequestContext, projectDir: string): Promise<void> {

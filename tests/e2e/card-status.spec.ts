@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
 import { tabSkipsControls } from "./keyboard-navigation";
 import { writeServedProject } from "./served-project";
+import { DISK_ERROR, failWithDiskError, routeTaskPatch } from "./task-patch-route";
 
 const projectDir = join(E2E_BACKLOG_DIR, "status");
 const checklist = Array.from({ length: 120 }, (_, index) => `- [ ] Шаг ${index + 1}`).join("\n");
@@ -10,16 +11,14 @@ const checklist = Array.from({ length: 120 }, (_, index) => `- [ ] Шаг ${inde
 async function openCard(page: Page, answerSave: (route: Route) => Promise<void>): Promise<Locator> {
   await writeServedProject(page.request, projectDir, {
     prefix: "STAT",
-    tasks: { "STAT-1": `---\nid: STAT-1\ntitle: Длинная задача\ncreated: 2026-09-17T10:00:00+03:00\n---\n\n## Чеклист\n${checklist}\n` },
+    tasks: [{ id: "STAT-1", fields: { title: "Длинная задача" }, body: `## Чеклист\n${checklist}` }],
   });
-  await page.route("**/api/tasks/STAT-1", (route) => (route.request().method() === "PATCH" ? answerSave(route) : route.fallback()));
+  await routeTaskPatch(page, "STAT-1", answerSave);
 
   await page.setViewportSize({ width: 1280, height: 600 });
   await page.goto("/t/STAT-1");
   return page.getByRole("complementary", { name: "Задача STAT-1" });
 }
-
-const failSave = (route: Route) => route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } });
 
 const offsetInPinnedBlock = (alert: Locator) => alert.evaluate((element) => element.getBoundingClientRect().top - (element.parentElement?.getBoundingClientRect().top ?? 0));
 
@@ -27,7 +26,7 @@ test("ошибки в карточке не сдвигаются, когда с�
   let saves = 0;
   const drawer = await openCard(page, (route) => {
     saves += 1;
-    return saves === 1 ? failSave(route) : new Promise<void>(() => undefined);
+    return saves === 1 ? failWithDiskError(route) : new Promise<void>(() => undefined);
   });
   await drawer.getByRole("textbox", { name: "Название задачи" }).fill("Новое название");
   await drawer.getByRole("textbox", { name: "Название задачи" }).blur();
@@ -43,9 +42,9 @@ test("ошибки в карточке не сдвигаются, когда с�
 
 test("поле, до которого дошли с клавиатуры, не прячется под закреплённой ошибкой карточки", async ({ page, browserName }) => {
   test.skip(tabSkipsControls(browserName), "Tab не доходит до чекбоксов");
-  const drawer = await openCard(page, failSave);
+  const drawer = await openCard(page, failWithDiskError);
   await drawer.getByRole("combobox", { name: "Приоритет" }).selectOption({ label: "низкий" });
-  const alert = drawer.getByRole("alert").filter({ hasText: "диск недоступен" });
+  const alert = drawer.getByRole("alert").filter({ hasText: DISK_ERROR });
   await expect(alert).toBeVisible();
   const coveredStep = drawer.getByRole("checkbox", { name: "Шаг 60" });
   const stepBelowAlert = drawer.getByRole("checkbox", { name: "Шаг 61" });

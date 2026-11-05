@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { onTestFinished } from "vitest";
 
+export { taskFile } from "./task-file-text";
+
 export async function makeTempDir(): Promise<string> {
   const dir = await realpath(await mkdtemp(join(tmpdir(), "backlog-test-")));
   onTestFinished(() => rm(dir, { recursive: true, force: true }));
@@ -71,12 +73,4 @@ export async function writeFiles(root: string, files: Record<string, string>): P
 export function projectFile(prefix: string, repos: string[] = [], { active = true }: { active?: boolean } = {}): string {
   const activeLine = active ? "" : "active: false\n";
   return `---\nname: ${prefix.toLowerCase()}\nprefix: ${prefix}\nrepos: [${repos.join(", ")}]\n${activeLine}---\n`;
-}
-
-export function taskFile(id: string, fields: string | Record<string, string> = "", body = ""): string {
-  const overrides = typeof fields === "string" ? {} : fields;
-  const rawLines = typeof fields === "string" ? fields : "";
-  const frontmatter = { id, title: `Задача ${id}`, created: "2026-09-17T10:00:00+03:00", ...overrides };
-  const lines = Object.entries(frontmatter).map(([key, value]) => `${key}: ${value}\n`);
-  return `---\n${lines.join("")}${rawLines}---\n${body === "" ? "" : `\n${body}\n`}`;
 }

@@ -62,9 +62,7 @@ async function measureFocusedControls(page: Page): Promise<FocusStop[]> {
 test.beforeEach(async ({ request }) => {
   await writeServedProject(request, projectDir, {
     prefix: "TRI",
-    tasks: Object.fromEntries(
-      Array.from({ length: TASK_COUNT }, (_, index) => [`TRI-${index + 1}`, `---\nid: TRI-${index + 1}\ntitle: Разбор ${index + 1}\ncreated: 2026-09-17T10:00:00+03:00\n---\n\nОписание.\n`]),
-    ),
+    tasks: Array.from({ length: TASK_COUNT }, (_, index) => ({ id: `TRI-${index + 1}`, fields: { title: `Разбор ${index + 1}` }, body: "Описание." })),
   });
 });
 

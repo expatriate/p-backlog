@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
-import { untilServerSees } from "./served-project";
+import { untilServerSees, writeProjectFile, writeTaskFile } from "./served-project";
 
 const SEVEN_TABS_TIMEOUT_MS = 60_000;
 
@@ -10,13 +10,13 @@ const projectDir = join(E2E_BACKLOG_DIR, "spa");
 
 async function writeTask(id: string, title: string): Promise<void> {
   await mkdir(projectDir, { recursive: true });
-  await writeFile(join(projectDir, `${id}.md`), `---\nid: ${id}\ntitle: ${title}\ncreated: 2026-09-17T10:00:00+03:00\n---\n\nОписание.\n`, "utf8");
+  await writeTaskFile(projectDir, { id, fields: { title }, body: "Описание." });
 }
 
 async function resetProject(): Promise<void> {
   await mkdir(projectDir, { recursive: true });
   for (const file of await readdir(projectDir)) await rm(join(projectDir, file), { force: true, maxRetries: 5, retryDelay: 100 });
-  await writeFile(join(projectDir, "project.md"), "---\nname: spa\nprefix: SPA\nrepos: []\n---\n", "utf8");
+  await writeProjectFile(projectDir, "SPA");
 }
 
 test("задача, созданную агентом в каталоге, видно без перезагрузки страницы", async ({ page }) => {

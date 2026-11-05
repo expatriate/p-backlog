@@ -3,7 +3,8 @@ import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { NOTICE_LIFETIME_MS } from "../../src/web/list/use-notice-lifetime";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
-import { writeServedProject } from "./served-project";
+import { createdInOrder, writeServedProject } from "./served-project";
+import { DISK_ERROR, failWithDiskError, routeTaskPatch } from "./task-patch-route";
 
 const projectDir = join(E2E_BACKLOG_DIR, "board");
 
@@ -17,9 +18,7 @@ async function openBoardWith(page: Page, path: string, titles: readonly string[]
   await rm(projectDir, { recursive: true, force: true });
   await writeServedProject(page.request, projectDir, {
     prefix: "BRD",
-    tasks: Object.fromEntries(
-      titles.map((title, index) => [`BRD-${index + 1}`, `---\nid: BRD-${index + 1}\ntitle: ${title}\nstatus: backlog\ncreated: 2026-09-10T10:${String(index).padStart(2, "0")}:00+03:00\n---\n`]),
-    ),
+    tasks: titles.map((title, index) => ({ id: `BRD-${index + 1}`, fields: { title, status: "backlog", created: createdInOrder(index) } })),
   });
   await page.goto(path);
 }
@@ -97,22 +96,21 @@ test("Esc при переносе с клавиатуры отменяет пе�
 });
 
 test("сервер отказал — карточка возвращается в свою колонку, причина видна по-русски", async ({ page }) => {
-  await page.route("**/api/tasks/BRD-1", (route) => (route.request().method() === "PATCH" ? route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } }) : route.fallback()));
+  await routeTaskPatch(page, "BRD-1", failWithDiskError);
   await openBoardWith(page, "/p/board?view=board", ["Не сохранится"]);
 
   await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Не сохранится" }), column(page, "в работе"));
 
-  await expect(page.getByRole("alert").filter({ hasText: "Не удалось перенести BRD-1" })).toContainText("диск недоступен");
+  await expect(page.getByRole("alert").filter({ hasText: "Не удалось перенести BRD-1" })).toContainText(DISK_ERROR);
   await expect(column(page, "в беклоге").getByRole("link", { name: "Не сохранится" })).toBeVisible();
   expect(await statusOnDisk("BRD-1")).toBe("backlog");
 });
 
 test("ошибка переноса уходит вместе с уведомлением, а не висит над колонками до следующего переноса", async ({ page }) => {
   const { promise: answered, resolve: answer }: PromiseWithResolvers<void> = Promise.withResolvers();
-  await page.route("**/api/tasks/BRD-1", async (route) => {
-    if (route.request().method() !== "PATCH") return route.fallback();
+  await routeTaskPatch(page, "BRD-1", async (route) => {
     await answered;
-    return route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } });
+    await failWithDiskError(route);
   });
   await openBoardWith(page, "/p/board?view=board", ["Не сохранится"]);
 
@@ -131,13 +129,12 @@ test("перенос, сохранившийся после чужого отк�
   const failing: PromiseWithResolvers<void> = Promise.withResolvers();
   const passing: PromiseWithResolvers<void> = Promise.withResolvers();
   for (const [id, held, answer] of [
-    ["BRD-1", failing.promise, (route: Route) => route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } })],
+    ["BRD-1", failing.promise, failWithDiskError],
     ["BRD-2", passing.promise, (route: Route) => route.fallback()],
   ] as const) {
-    await page.route(`**/api/tasks/${id}`, async (route) => {
-      if (route.request().method() !== "PATCH") return route.fallback();
+    await routeTaskPatch(page, id, async (route) => {
       await held;
-      return answer(route);
+      await answer(route);
     });
   }
   await openBoardWith(page, "/p/board?view=board", ["Не сохранится", "Сохранится"]);
@@ -158,10 +155,9 @@ test("перенос, сохранившийся после чужого отк�
 });
 
 test("два переноса подряд, первый медленно падает — его карточка возвращается с ошибкой, вторая остаётся на новом месте", async ({ page }) => {
-  await page.route("**/api/tasks/BRD-1", async (route) => {
-    if (route.request().method() !== "PATCH") return route.fallback();
+  await routeTaskPatch(page, "BRD-1", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 800));
-    return route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } });
+    await failWithDiskError(route);
   });
   await openBoardWith(page, "/p/board?view=board", ["Медленная", "Быстрая"]);
 
@@ -223,11 +219,11 @@ test("длинная колонка прокручивается внутри д
 test("второй перенос во время падающего первого — «Отменить» возвращает задачу туда, где она была на диске", async ({ page }) => {
   const firstFailure: PromiseWithResolvers<void> = Promise.withResolvers();
   let firstPatch = true;
-  await page.route("**/api/tasks/BRD-1", async (route) => {
-    if (route.request().method() !== "PATCH" || !firstPatch) return route.fallback();
+  await routeTaskPatch(page, "BRD-1", async (route) => {
+    if (!firstPatch) return route.fallback();
     firstPatch = false;
     await firstFailure.promise;
-    return route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } });
+    await failWithDiskError(route);
   });
   await openBoardWith(page, "/p/board?view=board", ["Дважды"]);
 
@@ -257,10 +253,9 @@ test("открытая по ссылке карточка внизу длинн�
 
 test("«Отменить» первого переноса, пока сохраняется второй, не стирает уведомление второго", async ({ page }) => {
   const secondSaved: PromiseWithResolvers<void> = Promise.withResolvers();
-  await page.route("**/api/tasks/BRD-2", async (route) => {
-    if (route.request().method() !== "PATCH") return route.fallback();
+  await routeTaskPatch(page, "BRD-2", async (route) => {
     await secondSaved.promise;
-    return route.fallback();
+    await route.fallback();
   });
   await openBoardWith(page, "/p/board?view=board&sort=created&dir=asc", ["Первая", "Вторая"]);
 
