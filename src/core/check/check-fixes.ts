@@ -1,9 +1,9 @@
 import type { CoreMessages } from "../messages";
-import { buildIndex, type BacklogIndex } from "../model/graph";
+import type { BacklogIndex } from "../model/graph";
 import { parseId } from "../model/ids";
 import { epicDoneClosure, planEpicClosing, planEpicReopening, type Closure } from "../model/lifecycle";
 import type { Task, TaskStatus } from "../model/types";
-import { notLoadedTasks, type LoadedBacklog } from "../store/load";
+import { indexOfLoaded, type LoadedBacklog } from "../store/load";
 import { referenceCleanup } from "../store/references";
 import { statusToReopen, updateTaskInIndex, type TaskChanges, type WriteContext } from "../store/update";
 import type { UpdateTaskFailure } from "../store/write-result";
@@ -19,7 +19,8 @@ type PlannedFix = Fix & { task: Task };
 type EpicStatusFix = { status: TaskStatus; closure?: Closure | undefined; done: CheckFix };
 
 export async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: string) => boolean, { messages, ...writes }: WriteContext & { messages: FixTexts }): Promise<FixOutcome> {
-  const isGone = goneTaskCheck(loaded);
+  const index = indexOfLoaded(loaded);
+  const isGone = goneTaskCheck(loaded, index);
   const epicFixes = await epicStatusFixes(loaded, inScope, messages);
   const planned = loaded.tasks
     .filter((task) => inScope(task.projectId))
@@ -27,11 +28,11 @@ export async function applyFixes(loaded: LoadedBacklog, inScope: (projectId: str
       const fix = planFix(task, isGone, epicFixes.get(task.id));
       return fix === null ? [] : [{ task, ...fix }];
     });
-  return applyPlanned(buildIndex(loaded.tasks), planned, writes);
+  return applyPlanned(index, planned, writes);
 }
 
-export async function applyAnchorPlans(tasks: readonly Task[], plans: readonly AnchorPlan[], writes: WriteContext): Promise<FixOutcome> {
-  const index = buildIndex(tasks);
+export async function applyAnchorPlans(loaded: Pick<LoadedBacklog, "tasks" | "errors">, plans: readonly AnchorPlan[], writes: WriteContext): Promise<FixOutcome> {
+  const index = indexOfLoaded(loaded);
   const planned = plans.flatMap((plan): PlannedFix[] => {
     const task = index.byId.get(plan.id);
     return task === undefined ? [] : [{ task, changes: plan.changes, done: plan.moved === undefined ? [] : [plan.moved] }];
@@ -90,11 +91,10 @@ function goneReferences(task: Task, isGone: (id: string) => boolean): string[] {
   return [...new Set(references.filter(isGone))];
 }
 
-function goneTaskCheck(loaded: LoadedBacklog): (id: string) => boolean {
-  const known = new Set([...loaded.tasks.map((task) => task.id), ...notLoadedTasks(loaded.errors).keys()]);
-  const loadedPrefixes = new Set(loaded.projects.map((project) => project.prefix));
+function goneTaskCheck({ projects }: Pick<LoadedBacklog, "projects">, index: BacklogIndex): (id: string) => boolean {
+  const loadedPrefixes = new Set(projects.map((project) => project.prefix));
   return (id) => {
     const prefix = parseId(id)?.prefix;
-    return prefix !== undefined && loadedPrefixes.has(prefix) && !known.has(id);
+    return prefix !== undefined && loadedPrefixes.has(prefix) && !index.byId.has(id) && !index.notLoaded.has(id);
   };
 }

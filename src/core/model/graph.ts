@@ -1,12 +1,15 @@
 import { checklistItems } from "./checklist";
-import type { Task, TaskStatus } from "./types";
+import type { NotLoadedTasks, Task, TaskStatus } from "./types";
 
 export type BacklogIndex = {
   byId: ReadonlyMap<string, Task>;
   dependentsOf: ReadonlyMap<string, readonly Task[]>;
   relatedFrom: ReadonlyMap<string, readonly Task[]>;
   childrenOf: ReadonlyMap<string, readonly Task[]>;
+  notLoaded: NotLoadedTasks;
 };
+
+export const NO_UNLOADED_TASKS: NotLoadedTasks = new Map();
 
 const CLOSED_STATUSES = ["done", "cancelled"] as const satisfies readonly TaskStatus[];
 
@@ -16,7 +19,7 @@ export function isClosed(status: TaskStatus): status is ClosedStatus {
   return CLOSED_STATUSES.some((closed) => closed === status);
 }
 
-export function buildIndex(tasks: readonly Task[]): BacklogIndex {
+export function buildIndex(tasks: readonly Task[], notLoaded: NotLoadedTasks): BacklogIndex {
   const byId = new Map<string, Task>();
   const dependentsOf = new Map<string, Task[]>();
   const relatedFrom = new Map<string, Task[]>();
@@ -27,7 +30,7 @@ export function buildIndex(tasks: readonly Task[]): BacklogIndex {
     for (const relatedId of task.related) appendTo(relatedFrom, relatedId, task);
     if (task.epic !== undefined) appendTo(childrenOf, task.epic, task);
   }
-  return { byId, dependentsOf, relatedFrom, childrenOf };
+  return { byId, dependentsOf, relatedFrom, childrenOf, notLoaded };
 }
 
 export function openBlockers(task: Task, index: BacklogIndex): Task[] {

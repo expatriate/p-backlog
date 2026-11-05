@@ -1,5 +1,5 @@
 import { warnPathErrors } from "../core/errors";
-import { buildIndex } from "../core/model/graph";
+import type { BacklogIndex } from "../core/model/graph";
 import type { Closure } from "../core/model/lifecycle";
 import type { Task } from "../core/model/types";
 import { updateTaskInIndex, type TaskChanges } from "../core/store/update";
@@ -10,8 +10,7 @@ export type TaskWrite = ({ ok: true } & WrittenTask) | { ok: false; exitCode: Ex
 
 export type TaskWriter = (task: Task, changes: TaskChanges, closure?: Closure) => Promise<TaskWrite>;
 
-export function taskWriter(io: CliIo, loadedTasks: readonly Task[]): TaskWriter {
-  const index = buildIndex(loadedTasks);
+export function taskWriter(io: CliIo, index: BacklogIndex): TaskWriter {
   const onError = warnPathErrors(io.warn);
   return async (task, changes, closure) => {
     const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now: io.now(), via: "cli", onError, closure });

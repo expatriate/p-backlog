@@ -4,9 +4,9 @@ import { errorText } from "../core/errors";
 import { tasksClosedInWeb } from "../core/journal/closed-in-web";
 import type { ProjectJournal } from "../core/journal/events";
 import type { Project } from "../core/model/types";
-import { buildIndex, type BacklogIndex } from "../core/model/graph";
+import type { BacklogIndex } from "../core/model/graph";
 import { JOURNAL_FILE } from "../core/store/journal";
-import { loadBacklog, type LoadedBacklog } from "../core/store/load";
+import { indexOfLoaded, loadBacklog, type LoadedBacklog } from "../core/store/load";
 import type { ChangeFeed } from "./change-feed";
 import type { JournalSources } from "./journal-sources";
 import type { LocalizedWarn } from "./messages";
@@ -116,5 +116,5 @@ async function loadSnapshot(root: string, revision: Revision, journalSources: Jo
       return { projectId, events: [], invalidLines: 0 };
     });
   const journals = await Promise.all(projectIds.map(readableJournal));
-  return { ...loaded, index: buildIndex(loaded.tasks), closedInWeb: tasksClosedInWeb(loaded.tasks, journals), revision };
+  return { ...loaded, index: indexOfLoaded(loaded), closedInWeb: tasksClosedInWeb(loaded.tasks, journals), revision };
 }

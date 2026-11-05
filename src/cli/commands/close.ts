@@ -1,9 +1,10 @@
-import { buildIndex, isClosed } from "../../core/model/graph";
+import { isClosed } from "../../core/model/graph";
 import { normalizeClosingReason, RESOLUTION_STATUS, scheduledDeletion } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
 import { findRepo, hasCommit } from "../../core/check/project-repo";
 import { reasonHashes } from "../../core/stats/code/fixes";
-import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
+import { indexOfLoaded, loadBacklog, type LoadedBacklog } from "../../core/store/load";
+import { indexWithWritten } from "../../core/store/write-result";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { projectOf, findTaskOrWarn, repoLookup } from "../lookups";
@@ -62,9 +63,10 @@ async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
     return EXIT.invalid;
   }
 
-  const written = await taskWriter(io, loaded.tasks)(task, { status, related }, { resolution, reason });
+  const index = indexOfLoaded(loaded);
+  const written = await taskWriter(io, index)(task, { status, related }, { resolution, reason });
   if (!written.ok) return written.exitCode;
-  const deletion = scheduledDeletion(written.task, buildIndex(loaded.tasks.map((other) => (other.id === written.task.id ? written.task : other))));
+  const deletion = scheduledDeletion(written.task, indexWithWritten(index, [written]));
   const change = attachesFix ? status : `${task.status} → ${status}`;
   io.print(`${id}: ${change} (${resolution})${deletion === undefined ? "" : io.cli.deletesAtTail(deletionWhen(io.cli, deletion))}`);
   return EXIT.ok;

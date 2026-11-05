@@ -2,10 +2,9 @@ import { findSimilarTask } from "../../core/check/duplicates";
 import { warnPathErrors } from "../../core/errors";
 import { findRepo, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
-import { buildIndex } from "../../core/model/graph";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project, type Task } from "../../core/model/types";
 import { createTask } from "../../core/store/create";
-import { loadBacklog, notLoadedTasks } from "../../core/store/load";
+import { indexOfLoaded, loadBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
 import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo, type ExitCode } from "../io";
 import { cwdBelongsTo, ensureProject, repoLookup, sourcePresenceOrWarn } from "../lookups";
@@ -13,7 +12,7 @@ import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
 import { taskJson } from "../describe";
 import { formatJson } from "../format";
-import { withWrittenTasks } from "../../core/store/write-result";
+import { indexWithWritten } from "../../core/store/write-result";
 
 const DEFAULT_FOUND: FoundHow = "manual";
 
@@ -61,7 +60,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
     io.readStdin(),
     values.project === undefined || cwdBelongsTo(project, loaded, io) ? readOrigin(io.cwd) : undefined,
   ]);
-  const notLoaded = notLoadedTasks(loaded.errors);
+  const index = indexOfLoaded(loaded);
   const result = await createTask(io.backlogRoot, {
     project,
     input: {
@@ -77,8 +76,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
       related: splitList(values.related),
       body,
     },
-    existingTasks: loaded.tasks,
-    notLoadedTasks: notLoaded,
+    index,
     now: io.now(),
     via: "cli",
     onError: warnPathErrors(io.warn),
@@ -90,7 +88,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   }
   const { task, reopenedEpic } = result;
   if (reopenedEpic !== undefined) io.warn(io.cli.epicReopened(reopenedEpic.id));
-  io.print(values.json ? formatJson(taskJson(task, buildIndex(withWrittenTasks(loaded.tasks, [result])), notLoaded)) : `${task.id} ${task.path}`);
+  io.print(values.json ? formatJson(taskJson(task, indexWithWritten(index, [result]))) : `${task.id} ${task.path}`);
   return EXIT.ok;
 }
 

@@ -1,13 +1,13 @@
 import { mkdir } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { formatLocalIso } from "../model/dates";
-import { buildIndex } from "../model/graph";
+import type { BacklogIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
 import { derivePrefix, deriveProjectId, formatId, parseId, PREFIX_PATTERN, type ParsedId } from "../model/ids";
 import { createdEvent, type Provenance } from "../journal/events";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { TaskDraft } from "../model/task-file";
-import type { NotLoadedTasks, OptionalFields, Project, Task } from "../model/types";
+import type { OptionalFields, Project, Task } from "../model/types";
 import { hasErrorCode, type PathErrorHandler } from "../errors";
 import { attemptReportingFailure, listDir, readTextOrNull } from "./fs-utils";
 import { createFileAtomic } from "./atomic-write";
@@ -24,24 +24,22 @@ type NewTaskInput = Pick<Task, "title"> & OptionalFields<Pick<Task, "type" | "pr
 export type CreateTaskRequest = Pick<WriteOrigin, "now" | "via" | "onError"> & {
   project: Project;
   input: NewTaskInput;
-  existingTasks: readonly Task[];
-  notLoadedTasks?: NotLoadedTasks | undefined;
+  index: BacklogIndex;
   provenance?: Provenance;
 };
 
 const MAX_ID_ATTEMPTS = 20;
 
 export async function createTask(root: string, request: CreateTaskRequest): Promise<CreateTaskResult> {
-  const { project, existingTasks } = request;
+  const { project, index } = request;
   const dir = join(root, project.id);
-  const index = buildIndex(existingTasks);
   for (let attempt = 0; attempt < MAX_ID_ATTEMPTS; attempt++) {
     const id = formatId(project.prefix, await nextTaskNumber(dir, project, request.onError));
     const path = join(dir, taskFileName(id));
     const normalized = taskText(draftTask(id, path, request));
     if (!normalized.ok) return invalid(normalized.problems);
     const { text, task } = normalized.value;
-    const problems = integrityErrors(task, index, request.notLoadedTasks);
+    const problems = integrityErrors(task, index);
     if (problems.length > 0) return invalid(problems);
     try {
       await createFileAtomic(path, text, { onErrorAfterPublish: (error) => request.onError(path, error) });

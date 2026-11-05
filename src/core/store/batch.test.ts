@@ -2,12 +2,12 @@ import { mkdir, open, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { batchRequestSchema } from "../api/contract";
-import { buildIndex, type BacklogIndex } from "../model/graph";
+import type { BacklogIndex } from "../model/graph";
 import type { Project, Task } from "../model/types";
 import { applyBatch, type CoreBatchOutcome } from "./batch";
 import { createTask } from "./create";
 import { readJournal } from "./journal";
-import { loadBacklog } from "./load";
+import { indexOfLoaded, loadBacklog } from "./load";
 import { failingOnce } from "./testing/fs-failures";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 import { failOnPathError } from "./testing/path-errors";
@@ -32,8 +32,7 @@ const AFTER_WRITE_FAILURES = [
 ];
 
 async function create(root: string, project: Project, input: Parameters<typeof createTask>[1]["input"]): Promise<Task> {
-  const existingTasks = (await loadBacklog(root)).tasks;
-  const result = await createTask(root, { project, input, existingTasks, now: NOW, via: "cli", onError: failOnPathError });
+  const result = await createTask(root, { project, input, index: indexOfLoaded(await loadBacklog(root)), now: NOW, via: "cli", onError: failOnPathError });
   if (!result.ok) throw new Error("не удалось создать задачу в тесте");
   return result.task;
 }
@@ -56,7 +55,7 @@ async function setup() {
 }
 
 async function freshIndex(root: string) {
-  return buildIndex((await loadBacklog(root)).tasks);
+  return indexOfLoaded(await loadBacklog(root));
 }
 
 function versionOf(index: BacklogIndex, id: string): string {

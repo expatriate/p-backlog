@@ -5,9 +5,9 @@ import { describe, expect, it, vi } from "vitest";
 import { warnPathErrors } from "../errors";
 import { coreMessages } from "../messages";
 import { formatLocalIso } from "../model/dates";
-import { buildIndex } from "../model/graph";
+import { buildIndex, NO_UNLOADED_TASKS } from "../model/graph";
 import { appendingJournal, JOURNAL_FILE, readJournal, undoJournal } from "./journal";
-import { loadBacklog } from "./load";
+import { indexOfLoaded, loadBacklog } from "./load";
 import { allClosingsOf, reopeningsOf, taskHistories } from "../stats/history";
 import { createTask } from "./create";
 import { sweepClosed } from "./sweep";
@@ -85,7 +85,7 @@ describe("updateTask", () => {
     await writeFiles(root, { "spa/SPA-2.md": edited });
     const snapshotVersion = tasks.find((task) => task.id === "SPA-2")?.version ?? "";
 
-    const result = await updateTaskInIndex(buildIndex(tasks), { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: snapshotVersion, now: NOW, via: "cli", onError: failOnPathError });
+    const result = await updateTaskInIndex(buildIndex(tasks, NO_UNLOADED_TASKS), { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: snapshotVersion, now: NOW, via: "cli", onError: failOnPathError });
 
     expect(result).toMatchObject({ ok: false, reason: "conflict", current: { id: "SPA-2", status: "in-progress" } });
     expect(await readFile(join(root, "spa/SPA-2.md"), "utf8")).toBe(edited);
@@ -98,14 +98,14 @@ describe("updateTask", () => {
     await writeFile(path, Buffer.concat([await readFile(path), Buffer.from([0xcf, 0xf0, 0x0a])]));
     const snapshotVersion = tasks.find((task) => task.id === "SPA-2")?.version ?? "";
 
-    const result = await updateTaskInIndex(buildIndex(tasks), { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: snapshotVersion, now: NOW, via: "cli", onError: failOnPathError });
+    const result = await updateTaskInIndex(buildIndex(tasks, NO_UNLOADED_TASKS), { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: snapshotVersion, now: NOW, via: "cli", onError: failOnPathError });
 
     expect(result).toEqual({ ok: false, reason: "invalid", problems: [{ code: "not-utf8" }] });
   });
 
   it("две одновременные правки с одной версией: одна проходит, другая получает conflict, а не затирает первую", async () => {
     const root = await setup();
-    const index = buildIndex((await loadBacklog(root)).tasks);
+    const index = indexOfLoaded(await loadBacklog(root));
     const expectedVersion = index.byId.get("SPA-2")?.version ?? "";
 
     const results = await Promise.all([
@@ -122,7 +122,7 @@ describe("updateTask", () => {
   it("файл пропал или перестал разбираться после загрузки снимка — not-found и conflict со снимком", async () => {
     const root = await setup();
     const { tasks } = await loadBacklog(root);
-    const index = buildIndex(tasks);
+    const index = buildIndex(tasks, NO_UNLOADED_TASKS);
     const version = (id: string) => index.byId.get(id)?.version ?? "";
     await rm(join(root, "spa/SPA-3.md"));
     await writeFiles(root, { "spa/SPA-2.md": "сломано" });
@@ -353,7 +353,7 @@ describe("эпик, закрытый автоматически", () => {
     const [project] = projects;
     if (!project) throw new Error("нет проекта");
 
-    await createTask(root, { project, input: { title: "Ещё одна", epic: "SPA-1" }, existingTasks: tasks, now: NOW, via: "cli", onError: failOnPathError });
+    await createTask(root, { project, input: { title: "Ещё одна", epic: "SPA-1" }, index: buildIndex(tasks, NO_UNLOADED_TASKS), now: NOW, via: "cli", onError: failOnPathError });
 
     expect((await taskById(root, "SPA-1"))?.status).toBe("backlog");
   });
@@ -369,7 +369,7 @@ describe("эпик, закрытый автоматически", () => {
     const { projects, tasks } = await loadBacklog(root);
     const [project] = projects;
     if (!project) throw new Error("нет проекта");
-    const created = await createTask(root, { project, input: { title: "Ещё одна", epic: "SPA-1" }, existingTasks: tasks, now: NOW, via: "cli", onError });
+    const created = await createTask(root, { project, input: { title: "Ещё одна", epic: "SPA-1" }, index: buildIndex(tasks, NO_UNLOADED_TASKS), now: NOW, via: "cli", onError });
 
     expect([reopened.ok, created.ok]).toEqual([true, true]);
     expect((await loadBacklog(root)).tasks.map((task) => [task.id, task.status])).toEqual([

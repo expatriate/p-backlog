@@ -1,7 +1,6 @@
-import { buildIndex } from "../../core/model/graph";
 import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
 import { TASK_STATUSES } from "../../core/model/types";
-import { loadBacklog, notLoadedTasks } from "../../core/store/load";
+import { indexOfLoaded, loadBacklog } from "../../core/store/load";
 import { tasksJson } from "../describe";
 import { formatJson, formatTaskLine } from "../format";
 import type { CliCommand } from "../command";
@@ -36,7 +35,7 @@ async function runList(args: string[], io: CliIo): Promise<ExitCode> {
     if (projectId === undefined || error.projectId === projectId) io.warn(io.cli.parseErrorLine(error.path, io.core.problems(error.problems)));
   }
 
-  const index = buildIndex(loaded.tasks);
+  const index = indexOfLoaded(loaded);
   const inScope = new Set(scope.activeIds);
   const filtered = filterTasks(
     loaded.tasks.filter((task) => inScope.has(task.projectId)),
@@ -45,7 +44,7 @@ async function runList(args: string[], io: CliIo): Promise<ExitCode> {
   );
   const tasks = sortTasks(filtered, { key: "priority", direction: "desc" }, index, io.language);
 
-  if (values.json) io.print(formatJson(tasksJson(tasks, index, notLoadedTasks(loaded.errors))));
+  if (values.json) io.print(formatJson(tasksJson(tasks, index)));
   else io.print(tasks.length === 0 ? io.cli.noTasksFound : tasks.map((task) => formatTaskLine(io.cli, task, index)).join("\n"));
   return EXIT.ok;
 }

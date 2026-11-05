@@ -32,7 +32,7 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const projects = current.projects.filter((project) => inScope(project.id));
   const checked = await reviewProjects(root, current.tasks, projects, request);
   const reviews = checked.map(({ review }) => review);
-  const anchors = await applyAnchorPlans(current.tasks, checked.flatMap(plansToApply), writes);
+  const anchors = await applyAnchorPlans(current, checked.flatMap(plansToApply), writes);
   const outcome = candidateOutcome(reviews);
   await recordCandidates(root, current.tasks, outcome, request);
   const repos = new Map(checked.map(({ review, checkout }) => [review.projectId, checkout?.path]));

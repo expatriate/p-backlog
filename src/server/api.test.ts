@@ -155,6 +155,16 @@ describe("PATCH /api/tasks/:id", () => {
     expect((await loadBacklog(backlog.root)).tasks.find((task) => task.id === "SPA-1")?.epic).toBeUndefined();
   });
 
+  it("перенос в эпик, чей файл не разобран, называет эпик незагруженным, а не ненайденным", async () => {
+    const backlog = await makeTestApp({ ...SAMPLE_FILES, "spa/SPA-9.md": "сломано" });
+    const version = await backlog.taskVersion("SPA-1");
+
+    const response = await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { epic: "SPA-9" } });
+
+    expect(response.status).toBe(422);
+    expect(((await response.json()) as ErrorResponse).errors).toEqual([expect.stringMatching(/^эпик SPA-9 не загружен/)]);
+  });
+
   it("ошибка разбора правки не показывает интерфейсу путь поля", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
     const version = await backlog.taskVersion("SPA-1");

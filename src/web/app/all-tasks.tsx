@@ -1,9 +1,9 @@
 import { createContext, useContext, type ReactNode } from "react";
 import type { BacklogIndex } from "../../core/model/graph";
-import type { NotLoadedTasks, Task } from "../../core/model/types";
+import type { Task } from "../../core/model/types";
 import type { EpicTones } from "../ui/epic-tone";
 
-export type AllTasks = { tasks: readonly Task[]; index: BacklogIndex; notLoadedTasks: NotLoadedTasks; tones: EpicTones };
+export type AllTasks = { tasks: readonly Task[]; index: BacklogIndex; tones: EpicTones };
 
 const AllTasksContext = createContext<AllTasks | null>(null);
 

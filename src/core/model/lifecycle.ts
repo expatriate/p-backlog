@@ -1,6 +1,6 @@
 import type { StoreMessages } from "../messages/store-messages";
 import { DAY_MS, formatLocalIso } from "./dates";
-import { buildIndex, epicChildren, isClosed, type BacklogIndex, type ClosedStatus } from "./graph";
+import { buildIndex, epicChildren, isClosed, NO_UNLOADED_TASKS, type BacklogIndex, type ClosedStatus } from "./graph";
 import type { Problem } from "./problems";
 import type { ParseError, Resolution, Task, TaskStatus } from "./types";
 
@@ -67,7 +67,7 @@ export function planEpicClosing(tasks: readonly Task[], parseErrors: readonly Pa
 }
 
 function completedEpics(tasks: readonly Task[]): EpicWithChildren[] {
-  const index = buildIndex(tasks);
+  const index = buildIndex(tasks, NO_UNLOADED_TASKS);
   return tasks.flatMap((epic) => {
     const childIds = completedEpicChildren(epic, index);
     return childIds === null ? [] : [{ epic, childIds }];
@@ -90,7 +90,7 @@ function openChildIds(epic: Task, index: BacklogIndex): string[] {
 }
 
 export function planEpicReopening(tasks: readonly Task[]): EpicWithChildren[] {
-  const index = buildIndex(tasks);
+  const index = buildIndex(tasks, NO_UNLOADED_TASKS);
   return tasks.flatMap((epic) => {
     if (!isAutoClosedEpic(epic)) return [];
     const childIds = openChildIds(epic, index);

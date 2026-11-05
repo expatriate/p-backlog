@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatLocalIso } from "./dates";
-import { buildIndex } from "./graph";
+import { buildIndex, NO_UNLOADED_TASKS } from "./graph";
 import { changeStatus, isExpired, normalizeClosingReason, planEpicClosing, scheduledDeletion, settleLifecycle } from "./lifecycle";
 import { makeTask } from "./testing/make-task";
 import type { ParseError, Task } from "./types";
@@ -47,7 +47,7 @@ describe("settleLifecycle", () => {
 });
 
 describe("срок хранения", () => {
-  const deletionOf = (task: Task, others: readonly Task[] = []) => scheduledDeletion(task, buildIndex([task, ...others]));
+  const deletionOf = (task: Task, others: readonly Task[] = []) => scheduledDeletion(task, buildIndex([task, ...others], NO_UNLOADED_TASKS));
 
   it("задача удаляется через 7 дней после закрытия", () => {
     const deletion = deletionOf(makeTask({ id: "SPA-1", status: "done", closed: CLOSED_AT }));
@@ -72,12 +72,12 @@ describe("срок хранения", () => {
 
   it("просрочена с момента удаления, не раньше; открытая и ждущая эпик не просрочены никогда", () => {
     const task = makeTask({ id: "SPA-1", status: "done", closed: CLOSED_AT });
-    const index = buildIndex([task]);
+    const index = buildIndex([task], NO_UNLOADED_TASKS);
     expect(isExpired(task, new Date("2026-09-17T05:59:59Z"), index)).toBe(false);
     expect(isExpired(task, new Date("2026-09-17T06:00:00Z"), index)).toBe(true);
     expect(isExpired(makeTask({ id: "SPA-2", closed: CLOSED_AT }), NOW, index)).toBe(false);
     const child = makeTask({ id: "SPA-3", epic: "SPA-4", status: "done", closed: CLOSED_AT });
-    expect(isExpired(child, NOW, buildIndex([child, makeTask({ id: "SPA-4", type: "epic" })]))).toBe(false);
+    expect(isExpired(child, NOW, buildIndex([child, makeTask({ id: "SPA-4", type: "epic" })], NO_UNLOADED_TASKS))).toBe(false);
   });
 });
 

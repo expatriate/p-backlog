@@ -4,12 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { JournalEvent } from "../journal/events";
 import { coreMessages } from "../messages";
 import { formatLocalIso } from "../model/dates";
-import { buildIndex, taskProgress } from "../model/graph";
+import { buildIndex, NO_UNLOADED_TASKS, taskProgress } from "../model/graph";
 import { createTask } from "./create";
 import { hasErrorCode } from "../errors";
 import { temporaryPathFor } from "./atomic-write";
 import { readJournal } from "./journal";
-import { loadBacklog } from "./load";
+import { indexOfLoaded, loadBacklog } from "./load";
 import { reserveIssuedUpTo } from "./projects";
 import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
@@ -69,6 +69,22 @@ describe("sweepClosed", () => {
     expect(projects[0]?.issuedUpTo).toBe(5);
   });
 
+  it("при одном префиксе у двух проектов не удаляет задачу, на которую ссылается затенённая задача с тем же ID", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "aa/project.md": projectFile("SPA"),
+      "aa/SPA-1.md": taskFile("SPA-1", "related: [SPA-2]\n"),
+      "aa/SPA-2.md": taskFile("SPA-2", `status: done\n${EXPIRED}`),
+      "bb/project.md": projectFile("SPA"),
+      "bb/SPA-1.md": taskFile("SPA-1"),
+    });
+
+    const report = await sweepClosed(root, { now: NOW, onError: failOnPathError }, RU);
+
+    expect(report.deleted).toEqual([]);
+    expect(await exists(join(root, "aa/SPA-2.md"))).toBe(true);
+  });
+
   it("номер удалённой задачи не выдаётся повторно", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
@@ -81,7 +97,7 @@ describe("sweepClosed", () => {
     const project = loaded.projects[0];
     if (!project) throw new Error("нет проекта");
 
-    const result = await createTask(root, { project, input: { title: "Новая" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: failOnPathError });
+    const result = await createTask(root, { project, input: { title: "Новая" }, index: indexOfLoaded(loaded), now: NOW, via: "cli", onError: failOnPathError });
 
     expect(result.ok && result.task.id).toBe("SPA-3");
   });
@@ -170,7 +186,7 @@ describe("sweepClosed", () => {
     expect(report.deleted).toEqual([]);
     const { tasks } = await loadBacklog(root);
     const epic = tasks.find((task) => task.id === "SPA-1");
-    expect(epic && taskProgress(epic, buildIndex(tasks))).toBe(50);
+    expect(epic && taskProgress(epic, buildIndex(tasks, NO_UNLOADED_TASKS))).toBe(50);
   });
 
   it("неразобранный файл держит эпик своего проекта, но не чужого", async () => {

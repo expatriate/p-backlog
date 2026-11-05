@@ -1,4 +1,4 @@
-import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
+import { indexOfLoaded, loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import type { Task } from "../../core/model/types";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
@@ -25,7 +25,7 @@ async function runEpic(args: string[], io: CliIo): Promise<ExitCode> {
   const epic = values.to === NO_EPIC ? null : await findEpicOrWarn(loaded, io, values.to);
   if (epic === undefined) return EXIT.notFound;
 
-  const move: Move = { loaded, epic, write: taskWriter(io, loaded.tasks), io };
+  const move: Move = { loaded, epic, write: taskWriter(io, indexOfLoaded(loaded)), io };
   return applyAll(new Set(positionals), (id) => moveOne(id, move));
 }
 

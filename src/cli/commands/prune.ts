@@ -1,6 +1,6 @@
 import { formatDayMonth } from "../../core/i18n/format";
 import { staleLowTasks, STALE_LOW_DAYS } from "../../core/model/query";
-import { loadBacklog } from "../../core/store/load";
+import { indexOfLoaded, loadBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo, type ExitCode } from "../io";
 import { applyAll } from "../apply-all";
@@ -35,7 +35,7 @@ async function runPrune(args: string[], io: CliIo): Promise<ExitCode> {
     return EXIT.ok;
   }
 
-  const write = taskWriter(io, loaded.tasks);
+  const write = taskWriter(io, indexOfLoaded(loaded));
   return applyAll(stale, async (task) => {
     const written = await write(task, { status: "cancelled" }, { resolution: "obsolete", reason: io.cli.pruneReason(STALE_LOW_DAYS) });
     if (!written.ok) return written.exitCode;

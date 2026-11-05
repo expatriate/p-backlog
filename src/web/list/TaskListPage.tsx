@@ -107,8 +107,8 @@ function useListLayout(searchKey: string, setSearch: SetURLSearchParams) {
 
 function MissingTaskNote({ taskId }: { taskId: string | undefined }) {
   const { core, list } = useMessages();
-  const { notLoadedTasks } = useAllTasks();
-  const unparsedFile = taskId === undefined ? undefined : notLoadedTasks.get(taskId);
+  const { index } = useAllTasks();
+  const unparsedFile = taskId === undefined ? undefined : index.notLoaded.get(taskId);
   return (
     <Notice className={styles.warning} shown={taskId !== undefined} role="status">
       {taskId !== undefined && (unparsedFile === undefined ? list.missingTask(taskId) : core.taskNotLoaded(taskId, unparsedFile))}

@@ -1,4 +1,5 @@
 import { basename, join } from "node:path";
+import { buildIndex, type BacklogIndex } from "../model/graph";
 import { compareIds, ID_PATTERN, parseId } from "../model/ids";
 import { parseProjectFile, reposOfUnparsed } from "../model/project-file";
 import { parseTaskFile } from "../model/task-file";
@@ -27,8 +28,12 @@ export function unparsedProjectFileOf(errors: readonly ParseError[], projectId: 
   return unparsedProjectFiles(errors).find((error) => error.projectId === projectId);
 }
 
-export function notLoadedTasks(errors: readonly ParseError[]): NotLoadedTasks {
+function notLoadedTasks(errors: readonly ParseError[]): NotLoadedTasks {
   return new Map(errors.flatMap((error): [string, UnparsedFile][] => (error.fileKind === "task" ? [[taskIdOfFile(error.path), "task"]] : error.hiddenTasks.map((id) => [id, "project"]))));
+}
+
+export function indexOfLoaded({ tasks, errors }: Pick<LoadedBacklog, "tasks" | "errors">): BacklogIndex {
+  return buildIndex(tasks, notLoadedTasks(errors));
 }
 
 function taskIdOfFile(path: string): string {

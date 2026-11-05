@@ -1,7 +1,7 @@
 import { findRepo, relocatedSource, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
 import { formatLocalIso } from "../../core/model/dates";
 import { isClosed } from "../../core/model/graph";
-import { loadBacklog, type LoadedBacklog } from "../../core/store/load";
+import { indexOfLoaded, loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import type { TaskChanges } from "../../core/store/update";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
@@ -26,7 +26,7 @@ async function runVerify(args: string[], io: CliIo): Promise<ExitCode> {
   if (source !== undefined && positionals.length > 1) throw usageError(verifyCommand, io.language);
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const verification: Verification = { loaded, source, write: taskWriter(io, loaded.tasks), io };
+  const verification: Verification = { loaded, source, write: taskWriter(io, indexOfLoaded(loaded)), io };
   return applyAll(new Set(positionals), (id) => verifyOne(id, verification));
 }
 

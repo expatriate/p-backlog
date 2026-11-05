@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { normalizeText } from "../../core/model/query";
-import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type NotLoadedTasks, type TaskStatus } from "../../core/model/types";
+import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 import { useMessages } from "../i18n";
 import { ToggleChip } from "../ui/Chip";
 import { TagChip } from "../ui/TagChip";
@@ -17,11 +17,10 @@ export type ToolbarProps = {
   onChange: (params: ListParams) => void;
   tags: string[];
   epicChoices: EpicChoices;
-  notLoadedTasks: NotLoadedTasks;
   autoClosedCount: number;
 };
 
-export function Toolbar({ params, onChange, tags, epicChoices, notLoadedTasks, autoClosedCount }: ToolbarProps) {
+export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }: ToolbarProps) {
   const { list, core } = useMessages();
   const { filter } = params;
   const pressedStatuses = filter.statuses ?? TASK_STATUSES;
@@ -75,7 +74,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, notLoadedTasks, a
 
       {(showEpicPicker || tags.length > 0) && (
         <div ref={epicAndTags} className={styles.line} role="group" aria-label={list.epicAndTags}>
-          {showEpicPicker && <EpicPicker choices={epicChoices} notLoadedTasks={notLoadedTasks} selected={filter.epic} onSelect={(epic) => setFilter({ epic })} />}
+          {showEpicPicker && <EpicPicker choices={epicChoices} selected={filter.epic} onSelect={(epic) => setFilter({ epic })} />}
           {tags.length > 0 && <TagPicker tags={tags} selected={filter.tags ?? []} onToggle={toggleTag} />}
         </div>
       )}

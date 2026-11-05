@@ -2,18 +2,23 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
+import { buildIndex, NO_UNLOADED_TASKS } from "../../core/model/graph";
+import { AllTasksProvider, type AllTasks } from "../app/all-tasks";
 import { TestMessagesProvider } from "../testing/messages-provider";
 import type { EpicChoices } from "./epic-choices";
 import { DEFAULT_SORT, type ListParams } from "../app/list-params";
 import { Toolbar } from "./Toolbar";
 
 const NO_EPICS: EpicChoices = { epics: [], withoutEpicCount: 0 };
+const NO_TASKS: AllTasks = { tasks: [], index: buildIndex([], NO_UNLOADED_TASKS), tones: new Map() };
 
 function ToolbarHarness({ initial, tags = [], epicChoices = NO_EPICS }: { initial: ListParams["filter"]; tags?: string[]; epicChoices?: EpicChoices }) {
   const [params, setParams] = useState<ListParams>({ filter: initial, sort: DEFAULT_SORT });
   return (
     <TestMessagesProvider>
-      <Toolbar params={params} onChange={setParams} tags={tags} epicChoices={epicChoices} notLoadedTasks={new Map()} autoClosedCount={0} />
+      <AllTasksProvider value={NO_TASKS}>
+        <Toolbar params={params} onChange={setParams} tags={tags} epicChoices={epicChoices} autoClosedCount={0} />
+      </AllTasksProvider>
     </TestMessagesProvider>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildIndex } from "./graph";
+import { buildIndex, NO_UNLOADED_TASKS } from "./graph";
 import { filterListTasks, filterTasks, normalizeText, pickNextTask, sortTasks } from "./query";
 import { makeTask } from "./testing/make-task";
 
@@ -12,7 +12,7 @@ describe("поиск", () => {
 
   it("требует вхождения каждого слова в ID, заголовок или описание", () => {
     const tasks = [makeTask({ id: "SPA-12", title: "Таймауты загрузки", body: "Большие файлы ещё падают" })];
-    const found = (query: string) => ids(filterTasks(tasks, { query }, buildIndex(tasks)));
+    const found = (query: string) => ids(filterTasks(tasks, { query }, buildIndex(tasks, NO_UNLOADED_TASKS)));
     expect(found("таймауты еще")).toEqual(["SPA-12"]);
     expect(found("spa-12 файлы")).toEqual(["SPA-12"]);
     expect(found("таймауты сеть")).toEqual([]);
@@ -29,7 +29,7 @@ describe("filterTasks", () => {
     makeTask({ id: "SPA-5", type: "epic" }),
     makeTask({ id: "TI-1", projectId: "torg-io", tags: ["upload"] }),
   ];
-  const index = buildIndex(tasks);
+  const index = buildIndex(tasks, NO_UNLOADED_TASKS);
 
   it("теги — задача содержит все выбранные, без учёта регистра", () => {
     expect(ids(filterTasks(tasks, { tags: ["Upload", "network"] }, index))).toEqual(["SPA-1"]);
@@ -52,7 +52,7 @@ describe("filterTasks", () => {
       makeTask({ id: "SPA-2", status: "done", closed: "2026-09-13T10:00:00+03:00" }),
       makeTask({ id: "SPA-3", status: "done", closed: "2026-09-14T10:00:00+03:00", resolution: "fixed", reason: "в вебе" }),
     ];
-    expect(ids(filterListTasks(closed, { onlyAutoClosed: true }, { index: buildIndex(closed), closedInWeb: new Set(["SPA-3"]) }))).toEqual(["SPA-1"]);
+    expect(ids(filterListTasks(closed, { onlyAutoClosed: true }, { index: buildIndex(closed, NO_UNLOADED_TASKS), closedInWeb: new Set(["SPA-3"]) }))).toEqual(["SPA-1"]);
   });
 
   it("тип и «только незаблокированные»", () => {
@@ -67,7 +67,7 @@ describe("sortTasks", () => {
     makeTask({ id: "SPA-2", title: "альфа", priority: "critical", status: "backlog", body: "- [x] a\n- [ ] b", created: "2026-09-12T10:00:00+03:00" }),
     makeTask({ id: "SPA-3", title: "Гамма", priority: "high", status: "in-progress", created: "2026-09-11T10:00:00Z" }),
   ];
-  const index = buildIndex(tasks);
+  const index = buildIndex(tasks, NO_UNLOADED_TASKS);
 
   it.each([
     ["created", "desc", ["SPA-2", "SPA-3", "SPA-1"]],
@@ -84,7 +84,7 @@ describe("sortTasks", () => {
 
   it("заголовки сортируются по правилам языка беклога: в русском кириллица раньше латиницы, в английском наоборот", () => {
     const mixed = [makeTask({ id: "SPA-1", title: "Zeta" }), makeTask({ id: "SPA-2", title: "Альфа" })];
-    const byTitle = (language: "ru" | "en") => ids(sortTasks(mixed, { key: "title", direction: "asc" }, buildIndex(mixed), language));
+    const byTitle = (language: "ru" | "en") => ids(sortTasks(mixed, { key: "title", direction: "asc" }, buildIndex(mixed, NO_UNLOADED_TASKS), language));
 
     expect(byTitle("ru")).toEqual(["SPA-2", "SPA-1"]);
     expect(byTitle("en")).toEqual(["SPA-1", "SPA-2"]);
@@ -98,7 +98,7 @@ describe("sortTasks по дате закрытия", () => {
       makeTask({ id: "SPA-2" }),
       makeTask({ id: "SPA-3", status: "cancelled", closed: "2026-09-14T10:00:00+03:00" }),
     ];
-    const index = buildIndex(tasks);
+    const index = buildIndex(tasks, NO_UNLOADED_TASKS);
     expect(ids(sortTasks(tasks, { key: "closed", direction: "desc" }, index, "ru"))).toEqual(["SPA-3", "SPA-1", "SPA-2"]);
     expect(ids(sortTasks(tasks, { key: "closed", direction: "asc" }, index, "ru"))).toEqual(["SPA-1", "SPA-3", "SPA-2"]);
   });
@@ -114,10 +114,10 @@ describe("pickNextTask", () => {
       makeTask({ id: "SPA-5", priority: "critical", type: "epic" }),
       makeTask({ id: "TI-1", priority: "critical", projectId: "torg-io" }),
     ];
-    expect(pickNextTask(tasks, "spa", buildIndex(tasks))?.id).toBe("SPA-4");
+    expect(pickNextTask(tasks, "spa", buildIndex(tasks, NO_UNLOADED_TASKS))?.id).toBe("SPA-4");
   });
 
   it("возвращает undefined, если брать нечего", () => {
-    expect(pickNextTask([], "spa", buildIndex([]))).toBeUndefined();
+    expect(pickNextTask([], "spa", buildIndex([], NO_UNLOADED_TASKS))).toBeUndefined();
   });
 });

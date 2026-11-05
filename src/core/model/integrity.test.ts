@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildIndex } from "./graph";
+import { buildIndex, NO_UNLOADED_TASKS } from "./graph";
 import { integrityErrors, taskWarnings } from "./integrity";
 import { makeTask } from "./testing/make-task";
 
@@ -8,30 +8,30 @@ describe("integrityErrors", () => {
     const epic = makeTask({ id: "SPA-1", type: "epic" });
     const blocker = makeTask({ id: "SPA-2" });
     const task = makeTask({ id: "SPA-3", epic: "SPA-1", blockedBy: ["SPA-2"], related: ["SPA-2"] });
-    expect(integrityErrors(task, buildIndex([epic, blocker, task]))).toEqual([]);
+    expect(integrityErrors(task, buildIndex([epic, blocker, task], NO_UNLOADED_TASKS))).toEqual([]);
   });
 
   it("запрещает ссылки на саму себя", () => {
     const task = makeTask({ id: "SPA-1", blockedBy: ["SPA-1"], related: ["SPA-1"], epic: "SPA-1" });
-    expect(integrityErrors(task, buildIndex([]))).toEqual([{ code: "self-block" }, { code: "self-related" }, { code: "epic-self" }]);
+    expect(integrityErrors(task, buildIndex([], NO_UNLOADED_TASKS))).toEqual([{ code: "self-block" }, { code: "self-related" }, { code: "epic-self" }]);
   });
 
   it("эпик должен существовать и быть эпиком", () => {
     const plain = makeTask({ id: "SPA-1" });
-    expect(integrityErrors(makeTask({ id: "SPA-2", epic: "SPA-9" }), buildIndex([plain]))).toEqual([{ code: "epic-missing", epic: "SPA-9" }]);
-    expect(integrityErrors(makeTask({ id: "SPA-2", epic: "SPA-1" }), buildIndex([plain]))).toEqual([{ code: "epic-not-epic", epic: "SPA-1" }]);
+    expect(integrityErrors(makeTask({ id: "SPA-2", epic: "SPA-9" }), buildIndex([plain], NO_UNLOADED_TASKS))).toEqual([{ code: "epic-missing", epic: "SPA-9" }]);
+    expect(integrityErrors(makeTask({ id: "SPA-2", epic: "SPA-1" }), buildIndex([plain], NO_UNLOADED_TASKS))).toEqual([{ code: "epic-not-epic", epic: "SPA-1" }]);
   });
 
   it("эпик не вкладывается в эпик", () => {
     const outer = makeTask({ id: "SPA-1", type: "epic" });
     const inner = makeTask({ id: "SPA-2", type: "epic", epic: "SPA-1" });
-    expect(integrityErrors(inner, buildIndex([outer]))).toEqual([{ code: "epic-in-epic" }]);
+    expect(integrityErrors(inner, buildIndex([outer], NO_UNLOADED_TASKS))).toEqual([{ code: "epic-in-epic" }]);
   });
 
   it("эпик с дочерними задачами нельзя сделать задачей", () => {
     const epic = makeTask({ id: "SPA-1", type: "epic" });
     const child = makeTask({ id: "SPA-2", epic: "SPA-1" });
-    expect(integrityErrors({ ...epic, type: "task" }, buildIndex([epic, child]))).toEqual([{ code: "referenced-as-epic", children: ["SPA-2"] }]);
+    expect(integrityErrors({ ...epic, type: "task" }, buildIndex([epic, child], NO_UNLOADED_TASKS))).toEqual([{ code: "referenced-as-epic", children: ["SPA-2"] }]);
   });
 
   it("находит цикл блокеров через другие задачи, используя новую версию кандидата", () => {
@@ -39,11 +39,11 @@ describe("integrityErrors", () => {
     const b = makeTask({ id: "SPA-2", blockedBy: ["SPA-3"] });
     const c = makeTask({ id: "SPA-3" });
     const cWithCycle = { ...c, blockedBy: ["SPA-1"] };
-    expect(integrityErrors(cWithCycle, buildIndex([a, b, c]))).toEqual([{ code: "blocker-cycle", cycle: ["SPA-3", "SPA-1", "SPA-2", "SPA-3"] }]);
+    expect(integrityErrors(cWithCycle, buildIndex([a, b, c], NO_UNLOADED_TASKS))).toEqual([{ code: "blocker-cycle", cycle: ["SPA-3", "SPA-1", "SPA-2", "SPA-3"] }]);
   });
 
   it("resolution только у закрытой задачи и в паре со своим статусом, reason — только с resolution", () => {
-    const index = buildIndex([]);
+    const index = buildIndex([], NO_UNLOADED_TASKS);
     expect(integrityErrors(makeTask({ id: "SPA-1", status: "done", resolution: "fixed", reason: "есть" }), index)).toEqual([]);
     expect(integrityErrors(makeTask({ id: "SPA-1", status: "cancelled", resolution: "obsolete", reason: "есть" }), index)).toEqual([]);
     expect(integrityErrors(makeTask({ id: "SPA-1", status: "done", resolution: "duplicate", reason: "есть" }), index)).toEqual([
@@ -57,7 +57,7 @@ describe("integrityErrors", () => {
     const a = makeTask({ id: "SPA-1", blockedBy: ["SPA-2"] });
     const b = makeTask({ id: "SPA-2", blockedBy: ["SPA-1"] });
     const c = makeTask({ id: "SPA-3", blockedBy: ["SPA-1"] });
-    expect(integrityErrors(c, buildIndex([a, b, c]))).toEqual([]);
+    expect(integrityErrors(c, buildIndex([a, b, c], NO_UNLOADED_TASKS))).toEqual([]);
   });
 });
 
@@ -67,11 +67,13 @@ describe("taskWarnings", () => {
     expect(
       taskWarnings(
         task,
-        buildIndex([task]),
-        new Map([
-          ["TI-9", "project"],
-          ["SPA-7", "task"],
-        ]),
+        buildIndex(
+          [task],
+          new Map([
+            ["TI-9", "project"],
+            ["SPA-7", "task"],
+          ]),
+        ),
       ),
     ).toEqual([
       { code: "reference-missing", id: "SPA-8" },

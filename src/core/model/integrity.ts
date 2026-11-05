@@ -1,18 +1,16 @@
 import { missingReferences, type BacklogIndex } from "./graph";
 import { RESOLUTION_STATUS } from "./lifecycle";
 import type { Problem } from "./problems";
-import type { NotLoadedTasks, Task, UnparsedFile } from "./types";
+import type { Task, UnparsedFile } from "./types";
 
-const NOTHING_NOT_LOADED: NotLoadedTasks = new Map();
-
-export function integrityErrors(candidate: Task, index: BacklogIndex, notLoadedTasks: NotLoadedTasks = NOTHING_NOT_LOADED): Problem[] {
+export function integrityErrors(candidate: Task, index: BacklogIndex): Problem[] {
   const resolve = (id: string): Task | undefined => (id === candidate.id ? candidate : index.byId.get(id));
   const errors: Problem[] = [];
 
   if (candidate.blockedBy.includes(candidate.id)) errors.push({ code: "self-block" });
   if (candidate.related.includes(candidate.id)) errors.push({ code: "self-related" });
 
-  errors.push(...epicProblems(candidate, resolve, notLoadedTasks));
+  errors.push(...epicProblems(candidate, index));
 
   const children = (index.childrenOf.get(candidate.id) ?? []).filter((task) => task.id !== candidate.id);
   if (candidate.type === "task" && children.length > 0) {
@@ -30,14 +28,14 @@ export function integrityErrors(candidate: Task, index: BacklogIndex, notLoadedT
   return errors;
 }
 
-export function epicProblems(candidate: Pick<Task, "id" | "type" | "epic" | "projectId">, resolve: (id: string) => Task | undefined, notLoadedTasks: NotLoadedTasks): Problem[] {
+export function epicProblems(candidate: Pick<Task, "id" | "type" | "epic" | "projectId">, index: BacklogIndex): Problem[] {
   if (candidate.epic === undefined) return [];
   const problems: Problem[] = [];
   if (candidate.epic === candidate.id) {
     problems.push({ code: "epic-self" });
   } else {
-    const epic = resolve(candidate.epic);
-    if (!epic) problems.push(missingEpicProblem(candidate.epic, notLoadedTasks.get(candidate.epic)));
+    const epic = index.byId.get(candidate.epic);
+    if (!epic) problems.push(missingEpicProblem(candidate.epic, index.notLoaded.get(candidate.epic)));
     else if (epic.type !== "epic") problems.push({ code: "epic-not-epic", epic: candidate.epic });
     else if (epic.projectId !== candidate.projectId) problems.push({ code: "epic-foreign-project", epic: candidate.epic });
   }
@@ -49,9 +47,9 @@ function missingEpicProblem(epic: string, file: UnparsedFile | undefined): Probl
   return file === undefined ? { code: "epic-missing", epic } : { code: "epic-unparsed", epic, fileKind: file };
 }
 
-export function taskWarnings(task: Task, index: BacklogIndex, notLoadedTasks: NotLoadedTasks): Problem[] {
-  const missing = missingReferences(task, index).map((id) => missingReferenceProblem(id, notLoadedTasks.get(id)));
-  return [...missing, ...integrityErrors(task, index, notLoadedTasks)];
+export function taskWarnings(task: Task, index: BacklogIndex): Problem[] {
+  const missing = missingReferences(task, index).map((id) => missingReferenceProblem(id, index.notLoaded.get(id)));
+  return [...missing, ...integrityErrors(task, index)];
 }
 
 function missingReferenceProblem(id: string, file: UnparsedFile | undefined): Problem {

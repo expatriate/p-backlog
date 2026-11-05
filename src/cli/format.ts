@@ -4,7 +4,7 @@ import type { ScheduledDeletion } from "../core/model/lifecycle";
 import { PRIORITIES, TASK_STATUSES, type Task } from "../core/model/types";
 import type { CoreMessages } from "../core/messages";
 import { JSON_INDENT } from "../core/store/json-file";
-import type { TaskDescription } from "./describe";
+import type { EpicReference, TaskDescription } from "./describe";
 import type { CliMessages } from "./messages";
 
 const ID_COLUMN_WIDTH = 10;
@@ -43,7 +43,7 @@ export function formatTaskDetails(cli: CliMessages, core: CoreMessages, descript
   if (task.resolution !== undefined) lines.push(cli.reasonLine(task.resolution, task.reason ?? ""));
   if (task.verified !== undefined) lines.push(cli.verifiedLine(task.verified));
   if (task.tags.length > 0) lines.push(cli.tagsLine(task.tags.join(", ")));
-  if (task.epic !== undefined) lines.push(cli.epicLine(epicRef(cli, description, task.epic)));
+  if (description.epic !== undefined) lines.push(cli.epicLine(epicRef(cli, description.epic)));
   if (description.openBlockers.length > 0) lines.push(cli.openBlockersLine(description.openBlockers.map(formatTaskRef).join("; ")));
   if (description.inactiveBlockerIds.length > 0) {
     lines.push(cli.inactiveBlockersLine(description.inactiveBlockerIds.join(", ")));
@@ -55,9 +55,15 @@ export function formatTaskDetails(cli: CliMessages, core: CoreMessages, descript
   return [...lines, "", fileText.trimEnd()].join("\n");
 }
 
-function epicRef(cli: CliMessages, { epic, epicUnparsed }: TaskDescription, epicId: string): string {
-  if (epic !== undefined) return formatTaskRef(epic);
-  return epicUnparsed ? cli.epicNotLoaded(epicId) : cli.epicNotFound(epicId);
+function epicRef(cli: CliMessages, epic: EpicReference): string {
+  switch (epic.kind) {
+    case "loaded":
+      return formatTaskRef(epic.task);
+    case "not-loaded":
+      return cli.epicNotLoaded(epic.id);
+    case "missing":
+      return cli.epicNotFound(epic.id);
+  }
 }
 
 function formatProgress(progress: number | null): string {

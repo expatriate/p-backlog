@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildIndex, dependentTasks, epicChildren, isBlocked, missingReferences, openBlockers, relatedTasks, taskProgress } from "./graph";
+import { buildIndex, NO_UNLOADED_TASKS, dependentTasks, epicChildren, isBlocked, missingReferences, openBlockers, relatedTasks, taskProgress } from "./graph";
 import { makeTask } from "./testing/make-task";
 
 const ids = (tasks: readonly { id: string }[]) => tasks.map((task) => task.id);
@@ -10,7 +10,7 @@ describe("блокеры", () => {
   const cancelled = makeTask({ id: "SPA-3", status: "cancelled" });
   const blocked = makeTask({ id: "SPA-4", blockedBy: ["SPA-1", "SPA-2", "SPA-3", "SPA-99"] });
   const free = makeTask({ id: "SPA-5", blockedBy: ["SPA-2", "SPA-99"] });
-  const index = buildIndex([open, done, cancelled, blocked, free]);
+  const index = buildIndex([open, done, cancelled, blocked, free], NO_UNLOADED_TASKS);
 
   it("открытые блокеры — существующие и не закрытые", () => {
     expect(ids(openBlockers(blocked, index))).toEqual(["SPA-1"]);
@@ -35,7 +35,7 @@ describe("relatedTasks", () => {
     const a = makeTask({ id: "SPA-1", related: ["SPA-2", "SPA-404"] });
     const b = makeTask({ id: "SPA-2", related: ["SPA-1"] });
     const c = makeTask({ id: "SPA-3", related: ["SPA-1"] });
-    const index = buildIndex([a, b, c]);
+    const index = buildIndex([a, b, c], NO_UNLOADED_TASKS);
     expect(ids(relatedTasks(a, index))).toEqual(["SPA-2", "SPA-3"]);
     expect(ids(relatedTasks(c, index))).toEqual(["SPA-1"]);
   });
@@ -44,17 +44,17 @@ describe("relatedTasks", () => {
 describe("taskProgress", () => {
   it("done — всегда 100", () => {
     const task = makeTask({ id: "SPA-1", status: "done", body: "- [ ] a" });
-    expect(taskProgress(task, buildIndex([task]))).toBe(100);
+    expect(taskProgress(task, buildIndex([task], NO_UNLOADED_TASKS))).toBe(100);
   });
 
   it("считает долю отмеченных пунктов чеклиста", () => {
     const task = makeTask({ id: "SPA-1", body: "- [x] a\n- [ ] b\n- [ ] c" });
-    expect(taskProgress(task, buildIndex([task]))).toBe(33);
+    expect(taskProgress(task, buildIndex([task], NO_UNLOADED_TASKS))).toBe(33);
   });
 
   it("без чеклиста — null", () => {
     const task = makeTask({ id: "SPA-1", status: "in-progress", body: "текст" });
-    expect(taskProgress(task, buildIndex([task]))).toBeNull();
+    expect(taskProgress(task, buildIndex([task], NO_UNLOADED_TASKS))).toBeNull();
   });
 
   it("эпик — доля done среди незакрытых отменой дочерних задач", () => {
@@ -64,7 +64,7 @@ describe("taskProgress", () => {
       makeTask({ id: "SPA-3", epic: "SPA-1", status: "in-progress", body: "- [x] a" }),
       makeTask({ id: "SPA-4", epic: "SPA-1", status: "cancelled" }),
     ];
-    const index = buildIndex([epic, ...children]);
+    const index = buildIndex([epic, ...children], NO_UNLOADED_TASKS);
     expect(ids(epicChildren(epic, index))).toEqual(["SPA-2", "SPA-3", "SPA-4"]);
     expect(taskProgress(epic, index)).toBe(50);
   });
@@ -72,7 +72,7 @@ describe("taskProgress", () => {
   it("эпик без активных дочерних задач — null, закрытый эпик — 100", () => {
     const epic = makeTask({ id: "SPA-1", type: "epic" });
     const cancelledChild = makeTask({ id: "SPA-2", epic: "SPA-1", status: "cancelled" });
-    expect(taskProgress(epic, buildIndex([epic, cancelledChild]))).toBeNull();
-    expect(taskProgress({ ...epic, status: "done" }, buildIndex([epic]))).toBe(100);
+    expect(taskProgress(epic, buildIndex([epic, cancelledChild], NO_UNLOADED_TASKS))).toBeNull();
+    expect(taskProgress({ ...epic, status: "done" }, buildIndex([epic], NO_UNLOADED_TASKS))).toBe(100);
   });
 });

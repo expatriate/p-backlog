@@ -23,7 +23,6 @@ import type { NotLoadedTasks, Project } from "../core/model/types";
 import { coreMessages, type CoreMessages } from "../core/messages";
 import { parseSchema } from "../core/model/zod-issues";
 import { applyBatch, type CoreBatchOutcome } from "../core/store/batch";
-import { notLoadedTasks } from "../core/store/load";
 import { writeSettings } from "../core/store/settings";
 import { deleteProject, setProjectActive } from "../core/store/projects";
 import { updateTaskInIndex } from "../core/store/update";
@@ -88,13 +87,13 @@ async function listProjects(c: Context, { backlog, graphHealth }: ApiDeps) {
 }
 
 async function listTasks(c: Context, { backlog, readLanguage }: ApiDeps) {
-  const [{ tasks, closedInWeb, errors, revision }, language] = await Promise.all([backlog(), readLanguage()]);
+  const [{ tasks, index, closedInWeb, errors, revision }, language] = await Promise.all([backlog(), readLanguage()]);
   const messages = coreMessages(language);
   return c.json<TasksResponse>({
     tasks,
     closedInWeb,
     errors: errors.map(({ path, projectId, fileKind, problems }) => ({ path, projectId, fileKind, message: messages.problems(problems) })),
-    notLoadedTasks: [...notLoadedTasks(errors)].map(([id, fileKind]) => ({ id, fileKind })),
+    notLoadedTasks: [...index.notLoaded].map(([id, fileKind]) => ({ id, fileKind })),
     revision,
   });
 }
@@ -111,13 +110,13 @@ async function updateTask(c: Context, id: string, { readLanguage, backlog, now, 
   const body = await readBody(c, updateTaskRequestSchema, readLanguage);
   if (!body.ok) return body.response;
 
-  const { index, errors } = await backlog();
+  const { index } = await backlog();
   const update = updateTaskInIndex(index, { id, changes: body.data.changes, expectedVersion: body.data.version, now: now(), via: "web", onError: onWriteError });
   const result = await changeHub.ownWrite(update, (updated) => (updated.ok ? writtenTasks(updated) : []));
   if (result.ok) return c.json(result.task);
   const messages = serverMessages(body.language);
   if (result.reason === "not-found") {
-    const unparsedFile = notLoadedTasks(errors).get(id);
+    const unparsedFile = index.notLoaded.get(id);
     return errorResponse(c, 404, unparsedFile === undefined ? messages.taskNotFound(id) : coreMessages(body.language).taskNotLoaded(id, unparsedFile));
   }
   if (result.reason === "conflict") return c.json<ConflictResponse>({ errors: [messages.taskChangedOnDisk], current: result.current }, 409);
@@ -129,13 +128,12 @@ async function updateTaskBatch(c: Context, { readLanguage, backlog, now, changeH
   const body = await readBody(c, batchRequestSchema, readLanguage);
   if (!body.ok) return body.response;
 
-  const { index, errors } = await backlog();
+  const { index } = await backlog();
   const batch = applyBatch(index, { ...body.data, now: now(), onError: onWriteError });
   const outcomes = await changeHub.ownWrite(batch, (applied) => applied.flatMap((outcome) => (outcome.outcome === "done" ? writtenTasks(outcome) : [])));
   const messages = serverMessages(body.language);
   const core = coreMessages(body.language);
-  const notLoaded = notLoadedTasks(errors);
-  return c.json<BatchResponse>({ results: outcomes.map((outcome) => viewOf(outcome, { messages, core, notLoaded })) });
+  return c.json<BatchResponse>({ results: outcomes.map((outcome) => viewOf(outcome, { messages, core, notLoaded: index.notLoaded })) });
 }
 
 async function setProjectActivity(c: Context, id: string, { root, readLanguage, changeHub }: ApiDeps) {

@@ -1,6 +1,6 @@
 import type { Language } from "../core/i18n/language";
 import type { Task } from "../core/model/types";
-import { loadBacklog } from "../core/store/load";
+import { indexOfLoaded, loadBacklog } from "../core/store/load";
 import type { TaskChanges } from "../core/store/update";
 import { usageError, type CliCommand } from "./command";
 import { EXIT, parseCommandArgs, type CliIo } from "./io";
@@ -35,7 +35,7 @@ export function taskFieldCommand<T>(spec: TaskFieldSpec<T>): CliCommand {
         io.print(io.cli.alreadySet(id, before));
         return EXIT.ok;
       }
-      const written = await taskWriter(io, loaded.tasks)(task, changes);
+      const written = await taskWriter(io, indexOfLoaded(loaded))(task, changes);
       if (!written.ok) return written.exitCode;
       spec.afterWrite?.(written.task, io, task);
       io.print(`${id}: ${before} → ${spec.label(written.task, io.language)}`);

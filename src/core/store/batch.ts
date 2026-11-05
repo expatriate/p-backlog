@@ -1,4 +1,4 @@
-import { buildIndex, isClosed, type BacklogIndex } from "../model/graph";
+import { isClosed, type BacklogIndex } from "../model/graph";
 import { errorText, type PathErrorHandler } from "../errors";
 import { partition } from "../collections";
 import { compareIds } from "../model/ids";
@@ -7,7 +7,7 @@ import type { Problem } from "../model/problems";
 import type { Priority, Task, TaskStatus } from "../model/types";
 import { appendingJournal, bufferedJournal, undoJournal, type JournalWriter } from "./journal";
 import { updateTaskInIndex, type TaskChanges } from "./update";
-import { withWrittenTasks } from "./write-result";
+import { indexWithWritten } from "./write-result";
 
 export type BatchSkipReason = "changed" | "not-found" | "already-closed" | "invalid" | "busy" | "failed";
 
@@ -52,7 +52,7 @@ async function applyInOrder(index: BacklogIndex, tasks: readonly BatchTask[], st
 
 function indexAfter(index: BacklogIndex, outcomes: readonly CoreBatchOutcome[]): BacklogIndex {
   const done = outcomes.filter((outcome) => outcome.outcome === "done");
-  return done.length === 0 ? index : buildIndex(withWrittenTasks([...index.byId.values()], done));
+  return done.length === 0 ? index : indexWithWritten(index, done);
 }
 
 async function applyOne(index: BacklogIndex, { id, version }: BatchTask, { action, now, onError, journal }: BatchStep): Promise<CoreBatchOutcome> {
