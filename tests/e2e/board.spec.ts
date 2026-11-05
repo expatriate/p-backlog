@@ -22,9 +22,12 @@ function column(page: Page, status: string): Locator {
   return page.getByRole("region", { name: "Доска задач" }).getByRole("region", { name: new RegExp(`^${status}`) });
 }
 
-async function openBoard(page: Page, path: string, firstCard: string): Promise<void> {
+const backlogTitles = async (page: Page) => (await column(page, "в беклоге").getByRole("link").allTextContents()).toSorted();
+
+async function openBoardWith(page: Page, path: string, titles: readonly string[]): Promise<void> {
+  await writeBoard(titles);
   await page.goto(path);
-  await expect(column(page, "в беклоге").getByRole("link", { name: firstCard, exact: true })).toBeVisible();
+  await expect.poll(() => backlogTitles(page)).toEqual(titles.toSorted());
 }
 
 async function dragTo(page: Page, card: Locator, target: Locator) {
@@ -60,8 +63,7 @@ const bottomUncovered = (shown: Locator) =>
   });
 
 test("карточку перетаскивают мышью в другую колонку — статус меняется в файле, «Отменить» возвращает его и фокус на карточку", async ({ page }) => {
-  await writeBoard(["Перетащить мышью"]);
-  await openBoard(page, "/p/board?view=board", "Перетащить мышью");
+  await openBoardWith(page, "/p/board?view=board", ["Перетащить мышью"]);
 
   await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Перетащить мышью" }), column(page, "в работе"));
 
@@ -77,8 +79,7 @@ test("карточку перетаскивают мышью в другую к�
 });
 
 test("с клавиатуры нижнюю карточку длинной колонки переносят в пустую: пробел, стрелка вправо, пробел", async ({ page }) => {
-  await writeBoard(["Первая", "Вторая", "Третья", "Четвёртая", "Пятая"]);
-  await openBoard(page, "/p/board?view=board&sort=created&dir=asc", "Пятая");
+  await openBoardWith(page, "/p/board?view=board&sort=created&dir=asc", ["Первая", "Вторая", "Третья", "Четвёртая", "Пятая"]);
   const bottom = column(page, "в беклоге").getByRole("link", { name: "Пятая" });
 
   await moveRightWithKeyboard(page, bottom, "BRD-5");
@@ -88,8 +89,7 @@ test("с клавиатуры нижнюю карточку длинной ко�
 });
 
 test("Esc при переносе с клавиатуры отменяет перенос и не закрывает открытую карточку задачи", async ({ page }) => {
-  await writeBoard(["Открыта в панели", "Переносимая"]);
-  await openBoard(page, "/p/board/t/BRD-1?view=board", "Переносимая");
+  await openBoardWith(page, "/p/board/t/BRD-1?view=board", ["Открыта в панели", "Переносимая"]);
   const panel = page.getByRole("complementary", { name: "Задача BRD-1" });
   await expect(panel).toBeVisible();
 
@@ -103,9 +103,8 @@ test("Esc при переносе с клавиатуры отменяет пе�
 });
 
 test("сервер отказал — карточка возвращается в свою колонку, причина видна по-русски", async ({ page }) => {
-  await writeBoard(["Не сохранится"]);
   await page.route("**/api/tasks/BRD-1", (route) => (route.request().method() === "PATCH" ? route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } }) : route.fallback()));
-  await openBoard(page, "/p/board?view=board", "Не сохранится");
+  await openBoardWith(page, "/p/board?view=board", ["Не сохранится"]);
 
   await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Не сохранится" }), column(page, "в работе"));
 
@@ -115,14 +114,13 @@ test("сервер отказал — карточка возвращается 
 });
 
 test("ошибка переноса уходит вместе с уведомлением, а не висит над колонками до следующего переноса", async ({ page }) => {
-  await writeBoard(["Не сохранится"]);
   const { promise: answered, resolve: answer }: PromiseWithResolvers<void> = Promise.withResolvers();
   await page.route("**/api/tasks/BRD-1", async (route) => {
     if (route.request().method() !== "PATCH") return route.fallback();
     await answered;
     return route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } });
   });
-  await openBoard(page, "/p/board?view=board", "Не сохранится");
+  await openBoardWith(page, "/p/board?view=board", ["Не сохранится"]);
 
   await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Не сохранится" }), column(page, "в работе"));
   await page.clock.install();
@@ -136,7 +134,6 @@ test("ошибка переноса уходит вместе с уведомл�
 });
 
 test("перенос, сохранившийся после чужого отказа, получает уведомление на полный срок", async ({ page }) => {
-  await writeBoard(["Не сохранится", "Сохранится"]);
   const failing: PromiseWithResolvers<void> = Promise.withResolvers();
   const passing: PromiseWithResolvers<void> = Promise.withResolvers();
   for (const [id, held, answer] of [
@@ -149,7 +146,7 @@ test("перенос, сохранившийся после чужого отк�
       return answer(route);
     });
   }
-  await openBoard(page, "/p/board?view=board", "Не сохранится");
+  await openBoardWith(page, "/p/board?view=board", ["Не сохранится", "Сохранится"]);
 
   await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Не сохранится" }), column(page, "в работе"));
   await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Сохранится" }), column(page, "в работе"));
@@ -167,13 +164,12 @@ test("перенос, сохранившийся после чужого отк�
 });
 
 test("два переноса подряд, первый медленно падает — его карточка возвращается с ошибкой, вторая остаётся на новом месте", async ({ page }) => {
-  await writeBoard(["Медленная", "Быстрая"]);
   await page.route("**/api/tasks/BRD-1", async (route) => {
     if (route.request().method() !== "PATCH") return route.fallback();
     await new Promise((resolve) => setTimeout(resolve, 800));
     return route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } });
   });
-  await openBoard(page, "/p/board?view=board", "Медленная");
+  await openBoardWith(page, "/p/board?view=board", ["Медленная", "Быстрая"]);
 
   await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Медленная" }), column(page, "в работе"));
   await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Быстрая" }), column(page, "заблокирована"));
@@ -185,8 +181,7 @@ test("два переноса подряд, первый медленно пад
 });
 
 test("перенос в «сделана», когда закрытые скрыты фильтром, — уведомление и «Отменить», фокус на кнопке", async ({ page }) => {
-  await writeBoard(["Закрыть переносом"]);
-  await openBoard(page, "/p/board?view=board", "Закрыть переносом");
+  await openBoardWith(page, "/p/board?view=board", ["Закрыть переносом"]);
 
   await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Закрыть переносом" }), column(page, "сделана"));
 
@@ -203,8 +198,11 @@ test("перенос в «сделана», когда закрытые скры
 
 test("длинная колонка прокручивается внутри доски: заголовки видны, после переноса снизу «Отменить» на экране и ничего не сдвигается", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
-  await writeBoard(Array.from({ length: 30 }, (_, index) => `Карточка ${index + 1}`));
-  await openBoard(page, "/p/board?view=board&sort=created&dir=asc", "Карточка 1");
+  await openBoardWith(
+    page,
+    "/p/board?view=board&sort=created&dir=asc",
+    Array.from({ length: 30 }, (_, index) => `Карточка ${index + 1}`),
+  );
   const backlog = column(page, "в беклоге");
   const last = backlog.getByRole("link", { name: "Карточка 30", exact: true });
   await last.evaluate((link) => link.scrollIntoView({ block: "nearest" }));
@@ -229,7 +227,6 @@ test("длинная колонка прокручивается внутри д
 });
 
 test("второй перенос во время падающего первого — «Отменить» возвращает задачу туда, где она была на диске", async ({ page }) => {
-  await writeBoard(["Дважды"]);
   const firstFailure: PromiseWithResolvers<void> = Promise.withResolvers();
   let firstPatch = true;
   await page.route("**/api/tasks/BRD-1", async (route) => {
@@ -238,7 +235,7 @@ test("второй перенос во время падающего перво�
     await firstFailure.promise;
     return route.fulfill({ status: 500, json: { errors: ["диск недоступен"] } });
   });
-  await openBoard(page, "/p/board?view=board", "Дважды");
+  await openBoardWith(page, "/p/board?view=board", ["Дважды"]);
 
   const card = column(page, "в беклоге").getByRole("link", { name: "Дважды" });
   await moveRightWithKeyboard(page, card, "BRD-1");
@@ -254,21 +251,24 @@ test("второй перенос во время падающего перво�
 
 test("открытая по ссылке карточка внизу длинной колонки прокручена в видимую область", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
-  await writeBoard(Array.from({ length: 30 }, (_, index) => `Карточка ${index + 1}`));
+  await openBoardWith(
+    page,
+    "/p/board?view=board",
+    Array.from({ length: 30 }, (_, index) => `Карточка ${index + 1}`),
+  );
   await page.goto("/p/board/t/BRD-30?view=board&sort=created&dir=asc");
 
   await expect(column(page, "в беклоге").getByRole("link", { name: "Карточка 30", exact: true })).toBeInViewport();
 });
 
 test("«Отменить» первого переноса, пока сохраняется второй, не стирает уведомление второго", async ({ page }) => {
-  await writeBoard(["Первая", "Вторая"]);
   const secondSaved: PromiseWithResolvers<void> = Promise.withResolvers();
   await page.route("**/api/tasks/BRD-2", async (route) => {
     if (route.request().method() !== "PATCH") return route.fallback();
     await secondSaved.promise;
     return route.fallback();
   });
-  await openBoard(page, "/p/board?view=board&sort=created&dir=asc", "Первая");
+  await openBoardWith(page, "/p/board?view=board&sort=created&dir=asc", ["Первая", "Вторая"]);
 
   await dragTo(page, column(page, "в беклоге").getByRole("link", { name: "Первая" }), column(page, "в работе"));
   await expect.poll(() => statusOnDisk("BRD-1")).toBe("in-progress");
@@ -286,8 +286,11 @@ test("«Отменить» первого переноса, пока сохра�
 test("на узком экране уведомление о переносе с «Отменить» целиком в окне и не закрывает ни ссылку карточки в фокусе, ни низ докрученной доски", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await writeBoard(Array.from({ length: 5 }, (_, index) => `Карточка ${index + 1}`));
-  await openBoard(page, "/p/board?view=board&sort=created&dir=asc", "Карточка 1");
+  await openBoardWith(
+    page,
+    "/p/board?view=board&sort=created&dir=asc",
+    Array.from({ length: 5 }, (_, index) => `Карточка ${index + 1}`),
+  );
 
   await moveRightWithKeyboard(page, column(page, "в беклоге").getByRole("link", { name: "Карточка 1", exact: true }), "BRD-1");
 
