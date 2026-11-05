@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NOTICE_LIFETIME_MS } from "../../src/web/list/use-notice-lifetime";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
+import { untilServerSees } from "./served-project";
 
 const projectDir = join(E2E_BACKLOG_DIR, "board");
 
@@ -22,12 +23,10 @@ function column(page: Page, status: string): Locator {
   return page.getByRole("region", { name: "Доска задач" }).getByRole("region", { name: new RegExp(`^${status}`) });
 }
 
-const backlogTitles = async (page: Page) => (await column(page, "в беклоге").getByRole("link").allTextContents()).toSorted();
-
 async function openBoardWith(page: Page, path: string, titles: readonly string[]): Promise<void> {
   await writeBoard(titles);
+  await untilServerSees(page.request, projectDir);
   await page.goto(path);
-  await expect.poll(() => backlogTitles(page)).toEqual(titles.toSorted());
 }
 
 async function dragTo(page: Page, card: Locator, target: Locator) {

@@ -3,12 +3,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { writeSettings } from "../../src/core/store/settings";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
+import { untilServerSees } from "./served-project";
 
 const projectDir = join(E2E_BACKLOG_DIR, "focus");
 
-test.beforeEach(async () => {
+test.beforeEach(async ({ request }) => {
   await mkdir(projectDir, { recursive: true });
   await writeFile(join(projectDir, "project.md"), "---\nname: focus\nprefix: FOC\nrepos: []\n---\n", "utf8");
+  await untilServerSees(request, projectDir);
 });
 
 test.afterEach(() => writeSettings(E2E_BACKLOG_DIR, { language: "ru" }));

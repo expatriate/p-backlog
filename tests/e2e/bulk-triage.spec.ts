@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
 import { collectCspViolations } from "./csp-violations";
+import { untilServerSees } from "./served-project";
 
 const TASK_COUNT = 30;
 const projectDir = join(E2E_BACKLOG_DIR, "triage");
@@ -68,7 +69,10 @@ async function measureFocusedControls(page: Page): Promise<FocusStop[]> {
   return stops;
 }
 
-test.beforeEach(writeBacklog);
+test.beforeEach(async ({ request }) => {
+  await writeBacklog();
+  await untilServerSees(request, projectDir);
+});
 
 test("три задачи закрываются мышью с причиной, фокус уходит на «Отменить», и кнопка возвращает их", async ({ page }) => {
   const violations = await collectCspViolations(page);

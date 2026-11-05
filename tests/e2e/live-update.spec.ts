@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
+import { untilServerSees } from "./served-project";
 
 const SEVEN_TABS_TIMEOUT_MS = 60_000;
 
@@ -21,6 +22,7 @@ async function resetProject(): Promise<void> {
 test("задача, созданную агентом в каталоге, видно без перезагрузки страницы", async ({ page }) => {
   await resetProject();
   await writeTask("SPA-1", "Первая задача");
+  await untilServerSees(page.request, projectDir);
 
   await page.goto("/");
   await expect(page.getByRole("link", { name: "Первая задача" })).toBeVisible();
@@ -36,6 +38,7 @@ test("семь вкладок делят одну ленту: все загру�
   test.setTimeout(SEVEN_TABS_TIMEOUT_MS);
   await resetProject();
   await writeTask("SPA-3", "Много вкладок");
+  await untilServerSees(context.request, projectDir);
 
   const pages = [];
   for (let tab = 0; tab < TABS; tab += 1) {
