@@ -134,9 +134,7 @@ export function useUpdateTask(): TaskSaver {
       if (!before) throw new TaskGoneError(id);
       const changes = change(before);
       const cancellable = { signal: answerBy };
-      return landedDespiteConflict(before, changes, () =>
-        bodyEdit === undefined ? client.updateTask(id, before.version, changes, cancellable) : saveEditedBody(client, id, changes, bodyEdit, cancellable),
-      );
+      return landedDespiteConflict(before, changes, () => (bodyEdit === undefined ? client.updateTask(id, before.version, changes, cancellable) : saveEditedBody(client, id, changes, bodyEdit, cancellable)));
     },
     onSuccess: ({ saved }) => putTask(queryClient, saved),
     onSettled: () => invalidateBacklogOnly(queryClient),
