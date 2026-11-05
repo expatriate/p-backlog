@@ -53,8 +53,10 @@ async function moveRightWithKeyboard(page: Page, card: Locator, id: string, { fr
 
 const bottomUncovered = (shown: Locator) =>
   shown.evaluate((element) => {
-    const { left, width, bottom } = element.getBoundingClientRect();
-    return element.contains(document.elementFromPoint(left + width / 2, bottom - 4));
+    const { left, right, bottom } = element.getBoundingClientRect();
+    const visibleMiddle = (Math.max(left, 0) + Math.min(right, window.innerWidth)) / 2;
+    const hit = document.elementFromPoint(visibleMiddle, bottom - 4);
+    return hit !== null && (element.contains(hit) || hit.contains(element));
   });
 
 test("карточку перетаскивают мышью в другую колонку — статус меняется в файле, «Отменить» возвращает его и фокус на карточку", async ({ page }) => {

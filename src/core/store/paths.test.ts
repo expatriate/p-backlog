@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { resolveBacklogRoot } from "./paths";
 
@@ -8,6 +8,6 @@ describe("resolveBacklogRoot", () => {
   });
 
   it("BACKLOG_DIR вида ~\\bl из Windows ведёт в домашний каталог, а не в каталог «~\\bl» рядом с процессом", () => {
-    expect(resolveBacklogRoot({ BACKLOG_DIR: "~\\bl" }, "/home/u")).toBe(join("/home/u", "bl"));
+    expect(resolveBacklogRoot({ BACKLOG_DIR: "~\\bl" }, "/home/u")).toBe(resolve("/home/u", "bl"));
   });
 });
