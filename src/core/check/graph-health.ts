@@ -1,7 +1,8 @@
 import { hasCodeGraph, openCodeGraph, type CodeGraph, type GraphFileState } from "../code-review-graph/graph-db";
 import type { Project, Task } from "../model/types";
+import { sourcePath } from "../model/source";
 import { sourceRange } from "./anchor";
-import { isReviewable, sourcePaths } from "./reviewed-task";
+import { isReviewable } from "./reviewed-task";
 import { findRepo } from "./project-repo";
 import { fileHashes, symbolLookup, symbolOfSource, type FileHashes } from "./symbol-filter";
 
@@ -43,4 +44,8 @@ function isStale(graph: CodeGraph, pinned: readonly Task[], hashOf: FileHashes):
   });
   const count = (state: GraphFileState) => states.filter((candidate) => candidate === state).length;
   return count("changed") > count("fresh");
+}
+
+function sourcePaths(tasks: readonly Task[]): string[] {
+  return [...new Set(tasks.flatMap((task) => (task.source === undefined ? [] : [sourcePath(task.source)])))];
 }

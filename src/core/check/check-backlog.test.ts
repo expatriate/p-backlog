@@ -280,6 +280,37 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([]);
   });
 
+  it("задача без якоря заведена на ветке после вставки строк выше неё, ветку слили: строка задачи ищется от коммита создания, и правка соседнего символа её не держит", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    const original = ["export function uploadFile() {", '  return "v1";', "}", "", "export function retry() {", '  return "v1";', "}", ""].join("\n");
+    await writeFiles(repo, { "src/upload.ts": original });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true, at: "2026-09-10T11:00:00+03:00" });
+    const beforeTask = ['import { a } from "a";', 'import { b } from "b";', 'import { c } from "c";', "", original].join("\n");
+    await writeFile(join(repo, "src/upload.ts"), beforeTask);
+    gitCommitAll(repo, "Импорты до задачи", "2026-09-10T12:00:00+03:00");
+    const created = { ...createdOnFeat("SPA-1", "2026-09-11T10:00:00+03:00", gitShortHead(repo)), source: "src/upload.ts:6" };
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/upload.ts:6\n"), "spa/journal.jsonl": `${JSON.stringify(created)}\n` });
+    const after = editRetry(beforeTask);
+    await writeFile(join(repo, "src/upload.ts"), after);
+    gitCommitAll(repo, "Правка соседа", "2026-09-12T10:00:00+03:00");
+    gitCheckout(repo, "master", { at: "2026-09-13T10:00:00+03:00" });
+    gitMergeNoFastForward(repo, "feat", "2026-09-13T11:00:00+03:00");
+    const symbols = [
+      { name: "uploadFile", kind: "Function", from: 5, to: 7 },
+      { name: "retry", kind: "Function", from: 9, to: 11 },
+    ];
+    await makeGraphDb(repo, [{ path: "src/upload.ts", hash: createHash("sha256").update(after).digest("hex"), symbols }]);
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([]);
+    const events = (await readJournal(join(root, "spa"), "spa")).events;
+    expect(events.filter((event) => event.kind === "candidate-filtered")).toEqual([expect.objectContaining({ task: "SPA-1", symbol: "uploadFile" })]);
+  });
+
   async function shiftedFixture(taskFields: (before: string) => string, edit: (code: string) => string) {
     const home = await makeTempDir();
     const root = join(home, "backlog");

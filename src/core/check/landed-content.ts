@@ -1,6 +1,6 @@
 import { groupBy } from "../collections";
 import { firstParentLanding } from "../git/landing";
-import { outputLine, PARSED_DIFF_OPTIONS, resolveTrees, topLiteralPathspecs, type GitRunner } from "../git/run";
+import { outputLine, PARSED_DIFF_OPTIONS, resolveCommits, resolveTrees, topLiteralPathspecs, type GitRunner } from "../git/run";
 import { remembered } from "../remembered";
 import { firstLineOf, hunkHeaderOf, patchShapes, type BlobPair, type HunkHeader } from "./diff-hunks";
 
@@ -89,8 +89,10 @@ async function commitsCarrying(view: ForkView, scope: readonly string[]): Promis
 }
 
 async function forkAt(repo: string, head: string, tip: string, git: GitRunner): Promise<Fork | null> {
-  const base = outputLine(await git(repo, ["merge-base", head, tip]));
-  return base === null ? null : { base, tip, head };
+  const [mergeBase, commits] = await Promise.all([git(repo, ["merge-base", head, tip]), resolveCommits(git, repo, [tip])]);
+  const base = outputLine(mergeBase);
+  const tipCommit = commits?.get(tip);
+  return base === null || tipCommit === undefined ? null : { base, tip: tipCommit, head };
 }
 
 async function forkBeforeLanding(repo: string, tip: string, git: GitRunner): Promise<Fork | null> {
@@ -101,7 +103,7 @@ async function forkBeforeLanding(repo: string, tip: string, git: GitRunner): Pro
 }
 
 function tipInHead({ base, tip }: Fork): boolean {
-  return base.startsWith(tip);
+  return base === tip;
 }
 
 async function branchChanges(view: ForkView, pathspecs: readonly string[]): Promise<FileVersion[] | null> {

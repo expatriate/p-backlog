@@ -3,9 +3,11 @@ import type { Task } from "../model/types";
 import { anchorOf, findIntactLines, findMoved, isAnchorFor, windowMatches } from "./anchor";
 import type { CheckFix } from "./findings";
 import type { BranchHistory, Commit, RepoFacts } from "./repo-facts";
-import { reviewMark, taskRef, type TaskRef } from "./reviewed-task";
+import { reviewMark } from "./reviewed-task";
 import { changesSince, commitsAfter } from "./source-commits";
 import { hasLines, isWithin, lineSuffix, sourcePath } from "../model/source";
+
+export type TaskRef = { id: string; title: string };
 
 type CommitRef = { sha: string; subject: string };
 
@@ -128,4 +130,8 @@ function followRenames(path: string, commits: readonly Commit[], mark: number): 
 
 function commitRef(commit: Commit): CommitRef {
   return { sha: commit.shortSha, subject: commit.subject };
+}
+
+export function taskRef(task: Task): TaskRef {
+  return { id: task.id, title: task.title };
 }

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
 import { anchorOf } from "./anchor";
 import { anchorStates, codeReview } from "./candidates";
-import { isReviewable } from "./reviewed-task";
 import type { Task } from "../model/types";
 import type { Commit, RepoFacts } from "./repo-facts";
 
@@ -28,16 +27,6 @@ function facts(overrides: Partial<RepoFacts>): RepoFacts {
     ...overrides,
   };
 }
-
-describe("isReviewable", () => {
-  it("проверяются только задачи в backlog и blocked, без эпиков", () => {
-    expect(isReviewable(makeTask({ id: "SPA-1" }))).toBe(true);
-    expect(isReviewable(makeTask({ id: "SPA-1", status: "blocked" }))).toBe(true);
-    expect(isReviewable(makeTask({ id: "SPA-1", status: "in-progress" }))).toBe(false);
-    expect(isReviewable(makeTask({ id: "SPA-1", status: "done" }))).toBe(false);
-    expect(isReviewable(makeTask({ id: "SPA-1", type: "epic" }))).toBe(false);
-  });
-});
 
 describe("codeCandidates", () => {
   const task = makeTask({ id: "SPA-1", title: "Таймаут", created: CREATED, source: "src/a.ts:10" });
