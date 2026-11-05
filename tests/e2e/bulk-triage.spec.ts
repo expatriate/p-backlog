@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
 import { collectCspViolations } from "./csp-violations";
+import { tabSkipsControls } from "./keyboard-navigation";
 import { untilServerSees } from "./served-project";
 
 const TASK_COUNT = 30;
@@ -32,9 +33,6 @@ type FocusStop = { label: string; bottom: number; panelTop: number };
 
 const CONTROLS = "a[href], button, input, select, textarea, [tabindex]";
 const rowControlLabels = Array.from({ length: TASK_COUNT }, (_, index) => [`Выбрать TRI-${index + 1}`, `TRI-${index + 1}`, `Разбор ${index + 1}`]).flat();
-
-// macOS WebKit tabs only to text fields unless the OS keyboard-navigation setting is on
-const tabSkipsControls = (browserName: string) => browserName === "webkit" && process.platform === "darwin";
 
 async function measureActiveControl(): Promise<FocusStop | null> {
   await new Promise(requestAnimationFrame);
