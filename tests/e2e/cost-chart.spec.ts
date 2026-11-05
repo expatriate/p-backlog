@@ -1,14 +1,14 @@
 import { expect, test } from "@playwright/test";
-import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
+import { writeServedProject } from "./served-project";
 
 const projectDir = join(E2E_BACKLOG_DIR, "spend");
 
 for (const width of [1280, 375]) {
   test(`график «Расход по дням» с осью дат и подсказкой на ${width}px`, async ({ page }) => {
-    await mkdir(projectDir, { recursive: true });
-    await writeFile(join(projectDir, "project.md"), "---\nname: spend\nprefix: SPND\nrepos: []\n---\n", "utf8");
+    await writeServedProject(page.request, projectDir, { prefix: "SPND" });
     const run = { at: new Date().toISOString(), command: "hook stop", cwd: "/nowhere", ms: 100, rssMb: 90, exitCode: 0 };
     await appendFile(join(E2E_BACKLOG_DIR, ".runs.jsonl"), `${JSON.stringify(run)}\n`, "utf8");
 

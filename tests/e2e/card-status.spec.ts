@@ -1,18 +1,17 @@
 import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
-import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
 import { tabSkipsControls } from "./keyboard-navigation";
-import { untilServerSees } from "./served-project";
+import { writeServedProject } from "./served-project";
 
 const projectDir = join(E2E_BACKLOG_DIR, "status");
 const checklist = Array.from({ length: 120 }, (_, index) => `- [ ] Шаг ${index + 1}`).join("\n");
 
 async function openCard(page: Page, answerSave: (route: Route) => Promise<void>): Promise<Locator> {
-  await mkdir(projectDir, { recursive: true });
-  await writeFile(join(projectDir, "project.md"), "---\nname: status\nprefix: STAT\nrepos: []\n---\n", "utf8");
-  await writeFile(join(projectDir, "STAT-1.md"), `---\nid: STAT-1\ntitle: Длинная задача\ncreated: 2026-09-17T10:00:00+03:00\n---\n\n## Чеклист\n${checklist}\n`, "utf8");
-  await untilServerSees(page.request, projectDir);
+  await writeServedProject(page.request, projectDir, {
+    prefix: "STAT",
+    tasks: { "STAT-1": `---\nid: STAT-1\ntitle: Длинная задача\ncreated: 2026-09-17T10:00:00+03:00\n---\n\n## Чеклист\n${checklist}\n` },
+  });
   await page.route("**/api/tasks/STAT-1", (route) => (route.request().method() === "PATCH" ? answerSave(route) : route.fallback()));
 
   await page.setViewportSize({ width: 1280, height: 600 });

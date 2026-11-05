@@ -1,22 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
 import { collectCspViolations } from "./csp-violations";
 import { tabSkipsControls } from "./keyboard-navigation";
-import { untilServerSees } from "./served-project";
+import { writeServedProject } from "./served-project";
 
 const TASK_COUNT = 30;
 const projectDir = join(E2E_BACKLOG_DIR, "triage");
 const taskFile = (n: number) => join(projectDir, `TRI-${n}.md`);
-
-async function writeBacklog(): Promise<void> {
-  await mkdir(projectDir, { recursive: true });
-  await writeFile(join(projectDir, "project.md"), "---\nname: triage\nprefix: TRI\nrepos: []\n---\n", "utf8");
-  for (let n = 1; n <= TASK_COUNT; n++) {
-    await writeFile(taskFile(n), `---\nid: TRI-${n}\ntitle: Разбор ${n}\ncreated: 2026-09-17T10:00:00+03:00\n---\n\nОписание.\n`, "utf8");
-  }
-}
 
 async function closureOnDisk(n: number): Promise<string> {
   const file = await readFile(taskFile(n), "utf8");
@@ -68,8 +60,12 @@ async function measureFocusedControls(page: Page): Promise<FocusStop[]> {
 }
 
 test.beforeEach(async ({ request }) => {
-  await writeBacklog();
-  await untilServerSees(request, projectDir);
+  await writeServedProject(request, projectDir, {
+    prefix: "TRI",
+    tasks: Object.fromEntries(
+      Array.from({ length: TASK_COUNT }, (_, index) => [`TRI-${index + 1}`, `---\nid: TRI-${index + 1}\ntitle: Разбор ${index + 1}\ncreated: 2026-09-17T10:00:00+03:00\n---\n\nОписание.\n`]),
+    ),
+  });
 });
 
 test("три задачи закрываются мышью с причиной, фокус уходит на «Отменить», и кнопка возвращает их", async ({ page }) => {

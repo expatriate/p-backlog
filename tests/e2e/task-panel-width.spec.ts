@@ -1,8 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
-import { untilServerSees } from "./served-project";
+import { writeServedProject } from "./served-project";
 
 const projectDir = join(E2E_BACKLOG_DIR, "wrap");
 const longPath = "src/features/components/SomeExtremelyLongComponentNameThatNeverBreaksAnywhere.tsx";
@@ -28,10 +27,7 @@ source: ${longPath}:1024
 
 for (const width of [1280, 375]) {
   test(`карточка задачи не прокручивается по ширине на ${width}px`, async ({ page }) => {
-    await mkdir(projectDir, { recursive: true });
-    await writeFile(join(projectDir, "project.md"), "---\nname: wrap\nprefix: WRAP\nrepos: []\n---\n", "utf8");
-    await writeFile(join(projectDir, "WRAP-1.md"), task, "utf8");
-    await untilServerSees(page.request, projectDir);
+    await writeServedProject(page.request, projectDir, { prefix: "WRAP", tasks: { "WRAP-1": task } });
 
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/t/WRAP-1");

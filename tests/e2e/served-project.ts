@@ -1,14 +1,22 @@
 import { expect, type APIRequestContext, type APIResponse } from "@playwright/test";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import type { ProjectsResponse, TasksResponse } from "../../src/core/api/contract";
+import { serializeProject } from "../../src/core/model/project-file";
 import { contentVersion } from "../../src/core/store/fs-utils";
 import { taskIdsOnDisk } from "../../src/core/store/load";
 
 type ProjectState = { listed: boolean; taskVersions: Record<string, string> };
 
 const SYNCED = "synced";
+
+export async function writeServedProject(request: APIRequestContext, projectDir: string, { prefix, tasks = {} }: { prefix: string; tasks?: Record<string, string> }): Promise<void> {
+  await mkdir(projectDir, { recursive: true });
+  await writeFile(join(projectDir, "project.md"), serializeProject({ name: basename(projectDir), prefix, repos: [], active: true, extra: {}, body: "" }), "utf8");
+  await Promise.all(Object.entries(tasks).map(([id, text]) => writeFile(join(projectDir, `${id}.md`), text, "utf8")));
+  await untilServerSees(request, projectDir);
+}
 
 export async function untilServerSees(request: APIRequestContext, projectDir: string): Promise<void> {
   const projectId = basename(projectDir);

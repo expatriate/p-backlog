@@ -1,31 +1,26 @@
 import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { NOTICE_LIFETIME_MS } from "../../src/web/list/use-notice-lifetime";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
-import { untilServerSees } from "./served-project";
+import { writeServedProject } from "./served-project";
 
 const projectDir = join(E2E_BACKLOG_DIR, "board");
 
 const statusOnDisk = async (id: string) => /^status: (.+)$/m.exec(await readFile(join(projectDir, `${id}.md`), "utf8"))?.[1];
-
-async function writeBoard(titles: readonly string[]) {
-  await rm(projectDir, { recursive: true, force: true });
-  await mkdir(projectDir, { recursive: true });
-  await writeFile(join(projectDir, "project.md"), "---\nname: board\nprefix: BRD\nrepos: []\n---\n", "utf8");
-  for (const [index, title] of titles.entries()) {
-    const id = `BRD-${index + 1}`;
-    await writeFile(join(projectDir, `${id}.md`), `---\nid: ${id}\ntitle: ${title}\nstatus: backlog\ncreated: 2026-09-10T10:${String(index).padStart(2, "0")}:00+03:00\n---\n`, "utf8");
-  }
-}
 
 function column(page: Page, status: string): Locator {
   return page.getByRole("region", { name: "Доска задач" }).getByRole("region", { name: new RegExp(`^${status}`) });
 }
 
 async function openBoardWith(page: Page, path: string, titles: readonly string[]): Promise<void> {
-  await writeBoard(titles);
-  await untilServerSees(page.request, projectDir);
+  await rm(projectDir, { recursive: true, force: true });
+  await writeServedProject(page.request, projectDir, {
+    prefix: "BRD",
+    tasks: Object.fromEntries(
+      titles.map((title, index) => [`BRD-${index + 1}`, `---\nid: BRD-${index + 1}\ntitle: ${title}\nstatus: backlog\ncreated: 2026-09-10T10:${String(index).padStart(2, "0")}:00+03:00\n---\n`]),
+    ),
+  });
   await page.goto(path);
 }
 

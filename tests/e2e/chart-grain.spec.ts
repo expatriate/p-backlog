@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
-import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
 import { collectCspViolations } from "./csp-violations";
+import { writeServedProject } from "./served-project";
 
 const projectDir = join(E2E_BACKLOG_DIR, "grain");
 
@@ -18,14 +18,14 @@ const PERIOD_CAPTIONS = [
   ["/stats/cost", /^30\s+дней · /],
 ] as const;
 
-async function seedProject(): Promise<void> {
-  await mkdir(projectDir, { recursive: true });
-  await writeFile(join(projectDir, "project.md"), "---\nname: grain\nprefix: GRN\nrepos: []\n---\n", "utf8");
-  await writeFile(join(projectDir, "GRN-1.md"), `---\nid: GRN-1\ntitle: Масштаб графика\ncreated: ${new Date().toISOString()}\n---\n\nОписание.\n`, "utf8");
-}
+test.beforeEach(({ request }) =>
+  writeServedProject(request, projectDir, {
+    prefix: "GRN",
+    tasks: { "GRN-1": `---\nid: GRN-1\ntitle: Масштаб графика\ncreated: ${new Date().toISOString()}\n---\n\nОписание.\n` },
+  }),
+);
 
 test("масштаб «неделя / день» переключается на 320px без нарушений CSP и горизонтальной прокрутки", async ({ page }) => {
-  await seedProject();
   const violations = await collectCspViolations(page);
   await page.setViewportSize({ width: 320, height: 900 });
 
@@ -49,7 +49,6 @@ test("масштаб «неделя / день» переключается на
 });
 
 test("подписи периодов видны на 320px на каждой вкладке статистики без горизонтальной прокрутки", async ({ page }) => {
-  await seedProject();
   await page.setViewportSize({ width: 320, height: 900 });
 
   for (const [path, caption] of PERIOD_CAPTIONS) {
