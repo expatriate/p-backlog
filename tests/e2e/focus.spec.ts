@@ -24,6 +24,13 @@ test("после «Отмена» в диалоге удаления проек�
   await expect(deleteButton).toBeFocused();
 });
 
+test("диалог удаления открытого проекта не берёт жирный шрифт у выделенной строки проекта", async ({ page }) => {
+  await page.goto("/p/focus");
+  await page.getByRole("button", { name: "Удалить проект focus" }).click();
+
+  await expect(page.getByRole("dialog")).toHaveCSS("font-weight", "400");
+});
+
 test("кнопка языка, нажатая с клавиатуры, не теряет фокус, пока язык меняется", async ({ page }) => {
   const languagePatch = page.waitForRequest((request) => request.url().endsWith("/api/settings") && request.method() === "PATCH");
   let heldPatch: Route | undefined;

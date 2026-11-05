@@ -1,4 +1,5 @@
 import { useId, useLayoutEffect, useRef, useState, type FormEvent, type RefObject, type SyntheticEvent } from "react";
+import { createPortal } from "react-dom";
 import { useMessages } from "../i18n";
 import { Button } from "./Button";
 import { useRestoreFocus } from "./use-restore-focus";
@@ -55,7 +56,7 @@ function OpenDialog({ dialog, title, description, fieldLabel, canConfirm, confir
     return () => node?.close();
   }, [dialog]);
 
-  return (
+  return createPortal(
     <dialog
       ref={dialog}
       className={styles.dialog}
@@ -83,6 +84,7 @@ function OpenDialog({ dialog, title, description, fieldLabel, canConfirm, confir
           </Button>
         </div>
       </form>
-    </dialog>
+    </dialog>,
+    document.body,
   );
 }
