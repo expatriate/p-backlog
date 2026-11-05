@@ -1,6 +1,6 @@
-import { mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { mkdir, open, rm } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
+import { describe, expect, it, vi } from "vitest";
 import { batchRequestSchema } from "../api/contract";
 import { buildIndex, type BacklogIndex } from "../model/graph";
 import type { Project, Task } from "../model/types";
@@ -11,7 +11,35 @@ import { loadBacklog } from "./load";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 import { failOnPathError } from "./testing/path-errors";
 
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, open: vi.fn(actual.open), rm: vi.fn(actual.rm) };
+});
+
 const NOW = new Date("2026-09-25T12:00:00Z");
+
+async function failingOnce<A extends unknown[], R, T>(target: (...args: A) => Promise<R>, matches: (...args: A) => boolean, action: () => Promise<T>): Promise<T> {
+  const mocked = vi.mocked(target);
+  const actual = mocked.getMockImplementation() as (...args: A) => Promise<R>;
+  let failed = false;
+  mocked.mockImplementation((async (...args: A) => {
+    if (failed || !matches(...args)) return actual(...args);
+    failed = true;
+    throw Object.assign(new Error("ошибка ввода-вывода"), { code: "EIO" });
+  }) as never);
+  try {
+    return await action();
+  } finally {
+    mocked.mockImplementation(actual as never);
+  }
+}
+
+const directoriesSyncOnThisOs = process.platform !== "win32";
+
+const AFTER_WRITE_FAILURES = [
+  { name: "синхронизация каталога", happensHere: directoriesSyncOnThisOs, inject: <T>(task: Task, action: () => Promise<T>) => failingOnce(open, (target) => target === dirname(task.path), action) },
+  { name: "снятие блокировки", happensHere: true, inject: <T>(task: Task, action: () => Promise<T>) => failingOnce(rm, (target) => String(target).endsWith(`.${basename(task.path)}.lock`), action) },
+];
 
 async function create(root: string, project: Project, input: Parameters<typeof createTask>[1]["input"]): Promise<Task> {
   const existingTasks = (await loadBacklog(root)).tasks;
@@ -138,6 +166,32 @@ describe("applyBatch", () => {
     ]);
     expect((await freshIndex(root)).byId.get(t1.id)?.priority).toBe("critical");
   });
+
+  it.each(AFTER_WRITE_FAILURES.filter(({ happensHere }) => happensHere))(
+    "сбой после записи задачи ($name) не делает её failed: она done, в журнале, и её эпик закрывается в той же пачке",
+    async ({ inject }) => {
+      const { root, epic, t1 } = await setup();
+      const index = await freshIndex(root);
+      const reported: unknown[] = [];
+
+      const outcomes = await inject(t1, () =>
+        applyBatch(index, {
+          tasks: [epic, t1].map((task) => ({ id: task.id, version: versionOf(index, task.id) })),
+          action: { kind: "close", reason: "Не актуально" },
+          now: NOW,
+          onError: (_path, error) => reported.push(error),
+        }),
+      );
+
+      expect(outcomes.map((outcome) => [outcome.id, outcome.outcome])).toEqual([
+        [epic.id, "done"],
+        [t1.id, "done"],
+      ]);
+      const statusEvents = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "status");
+      expect(statusEvents.map((event) => event.task).sort()).toEqual([epic.id, t1.id].sort());
+      expect(reported).toMatchObject([{ code: "EIO" }]);
+    },
+  );
 
   it("закрытая задача при закрытии — already-closed", async () => {
     const { root, t1 } = await setup();

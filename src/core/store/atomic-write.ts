@@ -11,8 +11,10 @@ const REPLACE_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320, 640, 1000, 1000, 1000
 export const REPLACE_RETRIES_TOTAL_MS = sum(REPLACE_RETRY_DELAYS_MS);
 const REPLACE_BLOCKED_CODES = ["EPERM", "EACCES", "EBUSY"];
 
-export async function writeFileAtomic(path: string, content: string, mode?: number): Promise<void> {
-  await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path), { mode, durable: true });
+type AtomicWriteOptions = { mode?: number | undefined; onDirectorySyncError?: ((error: unknown) => void) | undefined };
+
+export async function writeFileAtomic(path: string, content: string, options: AtomicWriteOptions = {}): Promise<void> {
+  await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path), { ...options, durable: true });
 }
 
 export async function writeRecomputableFileAtomic(path: string, content: string): Promise<void> {
@@ -75,13 +77,15 @@ export function temporaryPathFor(path: string): string {
 
 type TemporaryWrite = { durable: boolean; mode?: number | undefined };
 
-async function viaTemporaryFile<T>(path: string, content: string, publish: (temporary: string) => Promise<T>, { mode, durable }: TemporaryWrite): Promise<T> {
+type PublishOptions = TemporaryWrite & Pick<AtomicWriteOptions, "onDirectorySyncError">;
+
+async function viaTemporaryFile<T>(path: string, content: string, publish: (temporary: string) => Promise<T>, { mode, durable, onDirectorySyncError }: PublishOptions): Promise<T> {
   const temporary = temporaryPathFor(path);
   try {
     await writeTemporary(temporary, content, { flags: "w", mode, durable });
     if (mode !== undefined) await chmod(temporary, mode);
     const published = await publish(temporary);
-    if (durable) await syncParentDirectory(path);
+    if (durable) await syncParentDirectory(path).catch(onDirectorySyncError ?? rethrow);
     return published;
   } finally {
     await rm(temporary, { force: true });
@@ -109,6 +113,10 @@ export async function syncParentDirectory(path: string): Promise<void> {
   } catch (error) {
     if (!hasAnyErrorCode(error, DIRECTORY_SYNC_UNSUPPORTED_CODES)) throw error;
   }
+}
+
+function rethrow(error: unknown): never {
+  throw error;
 }
 
 function onWindows(): boolean {

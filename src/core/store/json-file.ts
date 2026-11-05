@@ -24,5 +24,5 @@ export async function readJsonFile<T>(path: string, schema: z.ZodType<T>): Promi
 }
 
 export async function writeJsonFile(path: string, value: unknown, mode?: number): Promise<void> {
-  await writeFileAtomic(path, jsonFileText(value), mode);
+  await writeFileAtomic(path, jsonFileText(value), { mode });
 }
