@@ -1,6 +1,6 @@
 import { mkdir, readFile, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { loadBacklog } from "../../core/store/load";
 import { gitAddWorktree, makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
 import { updateTask } from "../../core/store/testing/update-task";
@@ -198,6 +198,32 @@ describe("backlog take", () => {
 
     expect((await run(["take", "--path", "lib"], { cwd: worktree })).code).toBe(EXIT.ok);
     expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2")]).toEqual(["in-progress", "backlog"]);
+  });
+
+  it("--path из вложенного репозитория внутри linked worktree основного checkout считается от корня репозитория проекта", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Во вложенном", "--source", "sub/lib/a.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Приманка", "--source", ".claude/worktrees/x/sub/lib/b.ts:1"]);
+    const worktree = join(repo, ".claude/worktrees/x");
+    gitAddWorktree(repo, worktree, "x");
+    const nested = await makeGitRepo(worktree, "sub");
+
+    expect((await run(["take", "--path", "lib"], { cwd: nested })).code).toBe(EXIT.ok);
+    expect([await statusOf(root, "SPA-1"), await statusOf(root, "SPA-2")]).toEqual(["in-progress", "backlog"]);
+  });
+
+  it("--path из вложенного репозитория при GIT_DIR в окружении (git-хук) не виснет и считается от корня репозитория проекта", async () => {
+    const { run, root, repo } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Во вложенном", "--source", "sub/lib/a.ts:1"]);
+    const nested = await makeGitRepo(repo, "sub");
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+    vi.stubEnv("GIT_DIR", join(nested, ".git"));
+    vi.stubEnv("GIT_WORK_TREE", nested);
+
+    expect((await run(["take", "--path", "lib"], { cwd: nested })).code).toBe(EXIT.ok);
+    expect(await statusOf(root, "SPA-1")).toBe("in-progress");
   });
 
   it("--path сравнивает с путём source после схлопывания . и ..", async () => {

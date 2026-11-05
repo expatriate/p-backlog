@@ -1,4 +1,4 @@
-import { basename, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import type { PathErrorHandler } from "../errors";
 import { runGit, runGitSync } from "../git/run";
 import { projectIdBase } from "../model/ids";
@@ -129,7 +129,19 @@ function findProjectForRoots(projects: readonly Project[], roots: GitRoots, plac
 export function pathFromProjectRepo(project: Project, roots: GitRoots, places: RepoPlaces, path: string): string | null {
   const repoPath = closestCoveringRepo(project.repos, roots, places);
   if (repoPath === undefined) return null;
-  return relativeInside(repoPath, isSameOrInside(roots.main, repoPath) ? asInMainCheckout(roots, path) : path);
+  return relativeInside(repoPath, asInProjectRepoCheckout(roots, repoPath, path, places.onUnreadable));
+}
+
+function asInProjectRepoCheckout(roots: GitRoots, repoPath: string, path: string, onUnreadable: PathErrorHandler): string {
+  const passedMains = new Set<string>();
+  let enclosing: GitRoots | null = roots;
+  let translated = path;
+  while (enclosing !== null && isSameOrInside(enclosing.main, repoPath) && !passedMains.has(enclosing.main)) {
+    passedMains.add(enclosing.main);
+    translated = asInMainCheckout(enclosing, translated);
+    enclosing = enclosing.main === repoPath ? null : repoRootsOf(readGitRoots(dirname(enclosing.main), onUnreadable));
+  }
+  return translated;
 }
 
 function asInMainCheckout({ worktree, main }: GitRoots, path: string): string {
