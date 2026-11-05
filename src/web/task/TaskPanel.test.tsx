@@ -835,6 +835,21 @@ describe("закрытие карточки, пока сохраняется н�
 });
 
 describe("сохранения карточки идут по очереди", () => {
+  it("сбой первого сохранения и успех второго — «Сохранено» не стоит рядом с ошибкой первого", async () => {
+    const patches = holdFirstPatch(async () => Response.json({}, { status: 500 }));
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Статус" }), "in-progress");
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "low");
+
+    patches.release();
+
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).priority).toBe("low"));
+    await waitFor(() => expect(within(panel).getByRole("status").textContent).not.toBe("Сохраняем…"));
+    expect(alertTexts(panel).join()).toContain("Сервер вернул ошибку 500");
+    expect(within(panel).getByRole("status").textContent).toBe("");
+  });
+
   it("второй пункт чеклиста, отмеченный до ответа на первый, не теряет первый", async () => {
     const patches = holdFirstPatch();
     const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });

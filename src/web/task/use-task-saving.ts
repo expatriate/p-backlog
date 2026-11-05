@@ -1,4 +1,3 @@
-import type { MutationStatus } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { asError } from "../../core/errors";
@@ -17,11 +16,17 @@ type BodyEditor = { phase: "closed" } | { phase: "editing"; draft: BodyDraft; er
 
 export type BodyEditorView = { phase: "closed" } | { phase: "editing" | "saving"; text: string };
 
-type SaveStatus = { phase: "idle" | "saving" } | { phase: "saved"; at: number };
+type SaveOutcome = { phase: "idle" | "failed" } | { phase: "saved"; at: number };
+
+type SaveStatus = SaveOutcome | { phase: "saving" };
 
 const CLOSED: BodyEditor = { phase: "closed" };
 
 const SAVING: SaveStatus = { phase: "saving" };
+
+const IDLE: SaveOutcome = { phase: "idle" };
+
+const FAILED: SaveOutcome = { phase: "failed" };
 
 export function useTaskSaving(task: Task) {
   const { app, task: taskMessages } = useMessages();
@@ -29,18 +34,19 @@ export function useTaskSaving(task: Task) {
   const [bodyEditor, setBodyEditor] = useState<BodyEditor>(CLOSED);
   const [saveError, setSaveError] = useState<Error | null>(null);
   const [savesInFlight, setSavesInFlight] = useState(0);
-  const [saveFailed, setSaveFailed] = useState(false);
+  const [outcome, setOutcome] = useState<SaveOutcome>(IDLE);
   const errorText = (error: Error) => saveErrorText(error, app, taskMessages);
 
   const attemptSave = async (variables: Omit<UpdateTaskVariables, "id">): Promise<Error | null> => {
     setSaveError(null);
-    setSaveFailed(false);
+    setOutcome(IDLE);
     setSavesInFlight((count) => count + 1);
     try {
       await updateTask.mutateAsync({ id: task.id, ...variables });
+      setOutcome(unlessFailed({ phase: "saved", at: Date.now() }));
       return null;
     } catch (error) {
-      setSaveFailed(true);
+      setOutcome(FAILED);
       return asError(error);
     } finally {
       setSavesInFlight((count) => count - 1);
@@ -82,9 +88,9 @@ export function useTaskSaving(task: Task) {
     saveRefs,
     body: { editor: bodyEditorView(bodyEditor), edit: editBody, close: () => setBodyEditor(CLOSED), save: saveBody },
     alerts: [bodyAlert, saveError === null ? null : errorText(saveError)],
-    lastSave: saving ? SAVING : settledSaveOf(updateTask.status, updateTask.submittedAt),
+    lastSave: saving ? SAVING : outcome,
     saving,
-    saveFailed,
+    saveFailed: outcome.phase === "failed",
   };
 }
 
@@ -92,8 +98,8 @@ function bodyEditorView(editor: BodyEditor): BodyEditorView {
   return editor.phase === "closed" ? editor : { phase: editor.phase, text: editor.draft.text };
 }
 
-function settledSaveOf(status: MutationStatus, submittedAt: number): SaveStatus {
-  return status === "success" ? { phase: "saved", at: submittedAt } : { phase: "idle" };
+function unlessFailed(saved: SaveOutcome): (current: SaveOutcome) => SaveOutcome {
+  return (current) => (current.phase === "failed" ? current : saved);
 }
 
 function withBodyText(editor: BodyEditor, text: string, taskOrigin: BodyEdit): BodyEditor {
