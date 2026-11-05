@@ -2,7 +2,7 @@ import { groupBy } from "../collections";
 import { firstParentLanding } from "../git/landing";
 import { outputLine, PARSED_DIFF_OPTIONS, resolveCommits, resolveTrees, topLiteralPathspecs, type GitRunner } from "../git/run";
 import { remembered } from "../remembered";
-import { firstLineOf, hunkHeaderOf, patchShapes, type BlobPair, type HunkHeader } from "./diff-hunks";
+import { firstLineOf, hunkHeaderOf, patchShapes, type BlobPair, type ChangeStart, type HunkHeader } from "./diff-hunks";
 
 type FileVersion = { path: string; version: string };
 
@@ -14,24 +14,23 @@ type RepoGit = { repo: string; git: GitRunner };
 
 type ForkView = Fork & RepoGit & { historyOptions: readonly string[] };
 
-type Patch = { id: string; commit: string; preimageRevision: string; blobs: BlobPair | undefined; changeStarts: readonly number[]; changedText: string };
+type Patch = { id: string; commit: string; preimageRevision: string; blobs: BlobPair | undefined; changeStarts: readonly ChangeStart[]; changedText: string };
 
 type PatchPair = readonly [change: Patch, copy: Patch];
 
-type LineShift = { shiftsLinesAfter: number; delta: number };
+type PreimageEdit = { firstLine: number; lastLine: number; delta: number };
 
-type ShiftsBetween = (change: Patch, copy: Patch) => readonly LineShift[] | null;
+type EditsBetween = (change: Patch, copy: Patch) => readonly PreimageEdit[] | null;
 
-type PatchCopies = { squashed: string[]; commitByCommit: string[][]; shiftsComplete: boolean };
+type PatchCopies = { squashed: string[]; commitByCommit: string[][]; editsComplete: boolean };
 
-type PreimageShifts = { shiftsBetween: ShiftsBetween; complete: boolean };
+type PreimageEditsLookup = { editsBetween: EditsBetween; complete: boolean };
 
 type CommitsCarryingContent = (tip: string, scope: readonly string[]) => Promise<string[]>;
 
 // diff-tree ignores diff.algorithm and diff.indentHeuristic from git config; pinning them keeps patches and preimage diffs on one algorithm.
-// patch-id hashes context lines, so the context is pinned rather than taken from diff.context; with zero context an insertion would match a copy anywhere at the same line number.
-const PATCH_OPTIONS = ["-p", ...PARSED_DIFF_OPTIONS, "--no-renames", "--no-relative", "--full-index", "--diff-algorithm=myers", "--indent-heuristic", "--unified=3", "--inter-hunk-context=0"];
-const LINE_SHIFT_OPTIONS = [...PATCH_OPTIONS, "--unified=0"];
+// patch-id hashes context lines, so the context is pinned rather than taken from diff.context; zero context lets a copy match beside a neighbour's edit, and atSamePlace rejects a copy when the preimages differ at its first changed line or, for an insertion, at either neighbour.
+const PATCH_OPTIONS = ["-p", ...PARSED_DIFF_OPTIONS, "--no-renames", "--no-relative", "--full-index", "--diff-algorithm=myers", "--indent-heuristic", "--unified=0", "--inter-hunk-context=0"];
 const COMMIT_HEADER = "--format=commit %H";
 const TREE_PAIR_LINE = /^[0-9a-f]+ [0-9a-f]+$/;
 const NO_COMMIT = /^0+$/;
@@ -132,7 +131,7 @@ async function changeLanded(view: ForkView, path: string): Promise<LandingState>
   const copies = await patchCopies(view, path);
   if (copies === null) return "unknown";
   if (copies.squashed.length > 0 || everyCommitCopied(copies)) return "landed";
-  return copies.shiftsComplete ? "pending" : "unknown";
+  return copies.editsComplete ? "pending" : "unknown";
 }
 
 function everyCommitCopied({ commitByCommit }: PatchCopies): boolean {
@@ -156,9 +155,9 @@ async function patchCopies(view: ForkView, path: string): Promise<PatchCopies | 
   const headPatchesById = groupBy(headPatches, ({ id }) => id);
   const sameChanges = (change: Patch) => (headPatchesById.get(change.id) ?? []).filter((copy) => isSameChange(change, copy));
   const pairs = [...squashedPatch, ...branchPatches].flatMap((change) => sameChanges(change).map((copy): PatchPair => [change, copy]));
-  const { shiftsBetween, complete } = await preimageShifts(view, path, pairs);
-  const copiesOf = (change: Patch) => sameChanges(change).flatMap((copy) => (atSamePlace(change, copy, shiftsBetween) ? [copy.commit] : []));
-  return { squashed: squashedPatch.flatMap(copiesOf), commitByCommit: branchPatches.map(copiesOf), shiftsComplete: complete };
+  const { editsBetween, complete } = await preimageEdits(view, path, pairs);
+  const copiesOf = (change: Patch) => sameChanges(change).flatMap((copy) => (atSamePlace(change, copy, editsBetween) ? [copy.commit] : []));
+  return { squashed: squashedPatch.flatMap(copiesOf), commitByCommit: branchPatches.map(copiesOf), editsComplete: complete };
 }
 
 async function patchesOf(repo: string, patchArgs: string[], preimageOf: (commit: string) => string, git: GitRunner): Promise<Patch[] | null> {
@@ -177,39 +176,39 @@ async function patchesOf(repo: string, patchArgs: string[], preimageOf: (commit:
     });
 }
 
-async function preimageShifts(repoGit: RepoGit, path: string, pairs: readonly PatchPair[]): Promise<PreimageShifts> {
-  const shifted = pairs.filter(([change, copy]) => shiftsNeeded(change, copy));
-  const trees = await resolveTrees(repoGit.git, repoGit.repo, [...new Set(shifted.flatMap(([change, copy]) => [change.preimageRevision, copy.preimageRevision]))]);
+async function preimageEdits(repoGit: RepoGit, path: string, pairs: readonly PatchPair[]): Promise<PreimageEditsLookup> {
+  const comparedPairs = pairs.filter(([change, copy]) => editsNeeded(change, copy));
+  const trees = await resolveTrees(repoGit.git, repoGit.repo, [...new Set(comparedPairs.flatMap(([change, copy]) => [change.preimageRevision, copy.preimageRevision]))]);
   const treePairOf = (change: Patch, copy: Patch) => {
     const from = trees?.get(change.preimageRevision);
     const to = trees?.get(copy.preimageRevision);
     return from === undefined || to === undefined ? null : `${from} ${to}`;
   };
-  const shiftsByTreePair = await treeDiffShifts(repoGit, path, [...new Set(shifted.flatMap(([change, copy]) => treePairOf(change, copy) ?? []))]);
-  const shiftsBetween: ShiftsBetween = (change, copy) => {
-    if (!shiftsNeeded(change, copy)) return [];
+  const editsByTreePair = await treeDiffEdits(repoGit, path, [...new Set(comparedPairs.flatMap(([change, copy]) => treePairOf(change, copy) ?? []))]);
+  const editsBetween: EditsBetween = (change, copy) => {
+    if (!editsNeeded(change, copy)) return [];
     const treePair = treePairOf(change, copy);
-    return treePair === null ? null : (shiftsByTreePair?.get(treePair) ?? null);
+    return treePair === null ? null : (editsByTreePair?.get(treePair) ?? null);
   };
-  return { shiftsBetween, complete: trees !== null && shiftsByTreePair !== null };
+  return { editsBetween, complete: trees !== null && editsByTreePair !== null };
 }
 
-async function treeDiffShifts({ repo, git }: RepoGit, path: string, treePairs: readonly string[]): Promise<Map<string, LineShift[]> | null> {
+async function treeDiffEdits({ repo, git }: RepoGit, path: string, treePairs: readonly string[]): Promise<Map<string, PreimageEdit[]> | null> {
   if (treePairs.length === 0) return new Map();
-  const preimageDiffs = await git(repo, ["diff-tree", "--stdin", ...LINE_SHIFT_OPTIONS, "--", ...topLiteralPathspecs([path])], treePairs.map((treePair) => `${treePair}\n`).join(""));
-  return preimageDiffs === null ? null : lineShiftsByTreePair(preimageDiffs);
+  const preimageDiffs = await git(repo, ["diff-tree", "--stdin", ...PATCH_OPTIONS, "--", ...topLiteralPathspecs([path])], treePairs.map((treePair) => `${treePair}\n`).join(""));
+  return preimageDiffs === null ? null : preimageEditsByTreePair(preimageDiffs);
 }
 
-function lineShiftsByTreePair(preimageDiffs: string): Map<string, LineShift[]> {
-  const shiftsByTreePair = new Map<string, LineShift[]>();
-  let shifts: LineShift[] = [];
+function preimageEditsByTreePair(preimageDiffs: string): Map<string, PreimageEdit[]> {
+  const editsByTreePair = new Map<string, PreimageEdit[]>();
+  let edits: PreimageEdit[] = [];
   for (const line of preimageDiffs.split("\n")) {
     if (TREE_PAIR_LINE.test(line)) {
-      shifts = [];
-      shiftsByTreePair.set(line, shifts);
-    } else shifts.push(...lineShiftsOf(hunkHeaderOf(line)));
+      edits = [];
+      editsByTreePair.set(line, edits);
+    } else edits.push(...preimageEditsOf(hunkHeaderOf(line)));
   }
-  return shiftsByTreePair;
+  return editsByTreePair;
 }
 
 function isSameChange(change: Patch, copy: Patch): boolean {
@@ -226,21 +225,28 @@ function samePreimage(change: Patch, copy: Patch): boolean {
   return change.blobs !== undefined && change.blobs.preimage === copy.blobs?.preimage;
 }
 
-function shiftsNeeded(change: Patch, copy: Patch): boolean {
+function editsNeeded(change: Patch, copy: Patch): boolean {
   return change.changeStarts.length > 0 && !samePreimage(change, copy);
 }
 
-function atSamePlace(change: Patch, copy: Patch, shiftsBetween: ShiftsBetween): boolean {
-  const shifts = shiftsBetween(change, copy);
-  return shifts !== null && change.changeStarts.every((start, index) => shiftedLine(start, shifts) === copy.changeStarts[index]);
+function atSamePlace(change: Patch, copy: Patch, editsBetween: EditsBetween): boolean {
+  const edits = editsBetween(change, copy);
+  return edits !== null && change.changeStarts.every((start, index) => !placeEdited(start, edits) && shiftedLine(start.line, edits) === copy.changeStarts[index]?.line);
 }
 
-function lineShiftsOf(header: HunkHeader | null): LineShift[] {
-  return header === null ? [] : [{ shiftsLinesAfter: firstLineOf(header.oldStart, header.oldCount) + header.oldCount - 1, delta: header.newCount - header.oldCount }];
+function placeEdited({ line, insertion }: ChangeStart, edits: readonly PreimageEdit[]): boolean {
+  const placeFirstLine = insertion ? line - 1 : line;
+  return edits.some(({ firstLine, lastLine }) => firstLine <= line && placeFirstLine <= lastLine);
 }
 
-function shiftedLine(line: number, shifts: readonly LineShift[]): number {
-  return shifts.reduce((shifted, { shiftsLinesAfter, delta }) => (shiftsLinesAfter < line ? shifted + delta : shifted), line);
+function preimageEditsOf(header: HunkHeader | null): PreimageEdit[] {
+  if (header === null) return [];
+  const firstLine = firstLineOf(header.oldStart, header.oldCount);
+  return [{ firstLine, lastLine: firstLine + header.oldCount - 1, delta: header.newCount - header.oldCount }];
+}
+
+function shiftedLine(line: number, edits: readonly PreimageEdit[]): number {
+  return edits.reduce((shifted, { lastLine, delta }) => (lastLine < line ? shifted + delta : shifted), line);
 }
 
 function parentOf(commit: string): string {

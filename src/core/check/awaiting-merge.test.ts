@@ -160,6 +160,24 @@ describe("awaitingMerge", () => {
     expect(await awaiting(repo, { "SPA-1": feat })).toEqual(new Set(["SPA-1"]));
   });
 
+  it("основная ветка переписала код вокруг места вставки ветки и вставила ту же строку на том же номере — это не копия, задача ждёт слияния", async () => {
+    const rewritten = { 9: "переписана 9", 10: "переписана 10", 11: "переписана 11", 12: "переписана 12" };
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/long.ts": withLines({}) });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFiles(repo, { "src/long.ts": withLines({ 10: "строка 10\nвставка" }) });
+    gitCommitAll(repo, "Фича вставляет строку", "2026-09-10T10:00:00+03:00");
+    const feat = { branch: "feat", commit: gitShortHead(repo) };
+    gitCheckout(repo, "master");
+    await writeFiles(repo, { "src/long.ts": withLines(rewritten) });
+    gitCommitAll(repo, "Основная ветка переписывает код", "2026-09-11T10:00:00+03:00");
+    await writeFiles(repo, { "src/long.ts": withLines({ ...rewritten, 10: "переписана 10\nвставка" }) });
+    gitCommitAll(repo, "Основная ветка вставляет ту же строку", "2026-09-11T11:00:00+03:00");
+
+    expect(await awaiting(repo, { "SPA-1": feat })).toEqual(new Set(["SPA-1"]));
+  });
+
   it("основная ветка сделала ту же правку, что и ветка, на том же месте, но с другим отступом — задача ждёт слияния", async () => {
     const loop = (logged: string) => `def total(items):\n    result = 0\n    for item in items:\n        result += item\n${logged}    return result\n`;
     const repo = await makeGitRepo(await makeTempDir(), "spa");

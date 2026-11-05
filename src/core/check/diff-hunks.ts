@@ -8,7 +8,9 @@ export type HunkHeader = { oldStart: number; oldCount: number; newStart: number;
 
 export type BlobPair = { preimage: string; postimage: string };
 
-type PatchShape = { blobs: BlobPair | undefined; changeStarts: number[]; changedText: string };
+export type ChangeStart = { line: number; insertion: boolean };
+
+type PatchShape = { blobs: BlobPair | undefined; changeStarts: ChangeStart[]; changedText: string };
 
 type HunkWalk = { oldLine: number; changing: boolean };
 
@@ -99,7 +101,7 @@ function walkHunkLine(hunk: HunkWalk, line: string, shape: PatchShape): void {
   const hunkLine = hunkLineOf(line);
   if (hunkLine === null) return;
   const changed = hunkLine.kind !== "context";
-  if (changed && !hunk.changing) shape.changeStarts.push(hunk.oldLine);
+  if (changed && !hunk.changing) shape.changeStarts.push({ line: hunk.oldLine, insertion: hunkLine.kind === "added" });
   if (changed) shape.changedText += `${line}\n`;
   hunk.changing = changed;
   if (hunkLine.kind !== "added") hunk.oldLine += 1;

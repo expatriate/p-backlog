@@ -214,7 +214,10 @@ describe("коммиты, уже известные задаче при созд
     expect(await changedCommitSubjects(repo, origin)).toEqual([]);
   });
 
-  it("коммит ветки задачи взяли cherry-pick в основную ветку, правившую строку в пяти строках от него, — копия не делает задачу кандидатом при любом diff.context пользователя", async () => {
+  it.each([
+    { distance: "через одну", line: 12 },
+    { distance: "в пяти строках", line: 15 },
+  ])("коммит ветки задачи взяли cherry-pick в основную ветку, правившую строку $distance от него, — копия не делает задачу кандидатом при любом diff.context пользователя", async ({ line }) => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": fileOf(LINES) });
     gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
@@ -223,8 +226,8 @@ describe("коммиты, уже известные задаче при созд
     gitCommitAll(repo, "Фича правит value10", "2026-09-10T10:00:00+03:00");
     const origin = { branch: "feat", commit: gitShortHead(repo) };
     gitCheckout(repo, "master");
-    await writeFiles(repo, { "src/a.ts": fileOf(withValues(LINES, { 15: 1500 })) });
-    gitCommitAll(repo, "Основная ветка правит value15", "2026-09-10T12:00:00+03:00");
+    await writeFiles(repo, { "src/a.ts": fileOf(withValues(LINES, { [line]: line * 100 })) });
+    gitCommitAll(repo, `Основная ветка правит value${line}`, "2026-09-10T12:00:00+03:00");
     gitRebaseMerge(repo, "feat", "2026-09-12T10:00:00+03:00");
 
     expect(await changedCommitSubjects(repo, origin)).toEqual([]);
@@ -232,6 +235,29 @@ describe("коммиты, уже известные задаче при созд
       execFileSync("git", ["config", "diff.context", context], { cwd: repo });
       expect(await changedCommitSubjects(repo, origin)).toEqual([]);
     }
+  });
+
+  const withExtraAfter10 = (lines: readonly string[]) => [...lines.slice(0, 10), "export const extra = 0;", ...lines.slice(10)];
+
+  it.each([
+    { change: "правку value10", neighbour: 11, apply: (lines: readonly string[]) => withValues(lines, { 10: 1000 }) },
+    { change: "вставку после value10", neighbour: 12, apply: withExtraAfter10 },
+  ])("основная ветка правила value$neighbour и вручную перенесла $change из ветки задачи — копия не делает задачу кандидатом", async ({ neighbour, apply }) => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": fileOf(LINES) });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFiles(repo, { "src/a.ts": fileOf(apply(LINES)) });
+    gitCommitAll(repo, "Фича", "2026-09-10T10:00:00+03:00");
+    const origin = { branch: "feat", commit: gitShortHead(repo) };
+    gitCheckout(repo, "master");
+    const masterLines = withValues(LINES, { [neighbour]: neighbour * 100 });
+    await writeFiles(repo, { "src/a.ts": fileOf(masterLines) });
+    gitCommitAll(repo, `Основная ветка правит value${neighbour}`, "2026-09-10T12:00:00+03:00");
+    await writeFiles(repo, { "src/a.ts": fileOf(apply(masterLines)) });
+    gitCommitAll(repo, "Перенесена правка фичи", "2026-09-12T10:00:00+03:00");
+
+    expect(await changedCommitSubjects(repo, origin)).toEqual([]);
   });
 
   it("в репозитории с diff.algorithm=histogram коммит ветки задачи взяли cherry-pick в основную ветку, которая уже добавила такую же строку в конце файла, — копия не делает задачу кандидатом", async () => {
