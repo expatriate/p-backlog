@@ -41,8 +41,8 @@ export type ScheduledDeletion = { at: Date } | { afterEpic: string };
 
 export function scheduledDeletion(task: Task, index: BacklogIndex): ScheduledDeletion | undefined {
   if (!isClosed(task.status) || task.closed === undefined) return undefined;
-  const keeper = keepingEpic(task, index);
-  return keeper === undefined ? { at: new Date(Date.parse(task.closed) + RETENTION_DAYS * DAY_MS) } : { afterEpic: keeper.id };
+  const keeper = keepingEpicId(task, index);
+  return keeper === undefined ? { at: new Date(Date.parse(task.closed) + RETENTION_DAYS * DAY_MS) } : { afterEpic: keeper };
 }
 
 export function isExpired(task: Task, now: Date, index: BacklogIndex): boolean {
@@ -50,11 +50,13 @@ export function isExpired(task: Task, now: Date, index: BacklogIndex): boolean {
   return deletion !== undefined && "at" in deletion && deletion.at.getTime() <= now.getTime();
 }
 
-function keepingEpic(task: Task, index: BacklogIndex): Task | undefined {
-  const epic = task.epic === undefined ? undefined : index.byId.get(task.epic);
-  if (epic?.type !== "epic") return undefined;
+function keepingEpicId(task: Task, index: BacklogIndex): string | undefined {
+  if (task.epic === undefined) return undefined;
+  const epic = index.byId.get(task.epic);
+  if (epic === undefined) return index.notLoaded.has(task.epic) ? task.epic : undefined;
+  if (epic.type !== "epic") return undefined;
   const reopensWithOpenTasks = isAutoClosedEpic(epic) && openChildIds(epic, index).length > 0;
-  return !isClosed(epic.status) || reopensWithOpenTasks ? epic : undefined;
+  return !isClosed(epic.status) || reopensWithOpenTasks ? epic.id : undefined;
 }
 
 export function planEpicClosing(tasks: readonly Task[], parseErrors: readonly ParseError[]): EpicClosingPlan {

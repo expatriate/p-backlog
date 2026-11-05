@@ -189,6 +189,20 @@ describe("sweepClosed", () => {
     expect(epic && taskProgress(epic, buildIndex(tasks, NO_UNLOADED_TASKS))).toBe(50);
   });
 
+  it("просроченная задача эпика, чей файл не разобран, не удаляется: после починки файла эпик не теряет сделанное", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA"),
+      "spa/SPA-1.md": "сломано",
+      "spa/SPA-2.md": taskFile("SPA-2", `epic: SPA-1\nstatus: done\n${EXPIRED}`),
+    });
+
+    const report = await sweepClosed(root, { now: NOW, onError: failOnPathError }, RU);
+
+    expect(report.deleted).toEqual([]);
+    expect(await exists(join(root, "spa/SPA-2.md"))).toBe(true);
+  });
+
   it("неразобранный файл держит эпик своего проекта, но не чужого", async () => {
     const root = await makeTempDir();
     await writeFiles(root, {
