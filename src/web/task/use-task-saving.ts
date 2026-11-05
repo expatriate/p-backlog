@@ -17,9 +17,11 @@ type BodyEditor = { phase: "closed" } | { phase: "editing"; draft: BodyDraft; er
 
 export type BodyEditorView = { phase: "closed" } | { phase: "editing" | "saving"; text: string };
 
-type SaveStatus = { phase: "idle" | "saving" | "failed" } | { phase: "saved"; at: number };
+type SaveStatus = { phase: "idle" | "saving" } | { phase: "saved"; at: number };
 
 const CLOSED: BodyEditor = { phase: "closed" };
+
+const SAVING: SaveStatus = { phase: "saving" };
 
 export function useTaskSaving(task: Task) {
   const { app, task: taskMessages } = useMessages();
@@ -72,6 +74,7 @@ export function useTaskSaving(task: Task) {
 
   const bodyError = bodyEditor.phase === "editing" ? bodyEditor.error : null;
   const bodyAlert = bodyError === null ? null : bodyErrorText(bodyError, errorText, taskMessages);
+  const saving = savesInFlight > 0;
 
   return {
     save,
@@ -79,8 +82,8 @@ export function useTaskSaving(task: Task) {
     saveRefs,
     body: { editor: bodyEditorView(bodyEditor), edit: editBody, close: () => setBodyEditor(CLOSED), save: saveBody },
     alerts: [bodyAlert, saveError === null ? null : errorText(saveError)],
-    lastSave: saveStatusOf(updateTask),
-    saving: savesInFlight > 0,
+    lastSave: saving ? SAVING : settledSaveOf(updateTask.status, updateTask.submittedAt),
+    saving,
     saveFailed,
   };
 }
@@ -89,10 +92,8 @@ function bodyEditorView(editor: BodyEditor): BodyEditorView {
   return editor.phase === "closed" ? editor : { phase: editor.phase, text: editor.draft.text };
 }
 
-function saveStatusOf({ status, submittedAt }: { status: MutationStatus; submittedAt: number }): SaveStatus {
-  if (status === "pending") return { phase: "saving" };
-  if (status === "success") return { phase: "saved", at: submittedAt };
-  return { phase: status === "error" ? "failed" : "idle" };
+function settledSaveOf(status: MutationStatus, submittedAt: number): SaveStatus {
+  return status === "success" ? { phase: "saved", at: submittedAt } : { phase: "idle" };
 }
 
 function withBodyText(editor: BodyEditor, text: string, taskOrigin: BodyEdit): BodyEditor {

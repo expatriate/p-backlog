@@ -21,7 +21,6 @@ export function useFieldDrafts(task: Task) {
     tags,
     epic,
     unsaved: labelled.some(({ draft }) => draft.unsaved),
-    saving: labelled.some(({ draft }) => draft.saving),
     alerts: labelled.flatMap(({ draft, label }) => {
       if (draft.conflicted) return [taskMessages.fieldConflict(label)];
       return draft.failed ? [taskMessages.fieldNotSaved(label)] : [];

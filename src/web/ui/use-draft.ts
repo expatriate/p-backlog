@@ -6,7 +6,6 @@ export type Draft<E extends HTMLElement = HTMLInputElement> = {
   canonical: string;
   set: (next: string) => void;
   unsaved: boolean;
-  saving: boolean;
   conflicted: boolean;
   failed: boolean;
   commit: (save: (canonical: string) => Promise<boolean>) => void;
@@ -71,7 +70,6 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
     canonical: canonicalText,
     set: (text) => setState((current) => ({ ...current, text })),
     unsaved: !untouchedSinceBase(state, canonicalText),
-    saving: savingNow(state),
     conflicted: state.conflicted,
     failed: state.failed,
     commit,

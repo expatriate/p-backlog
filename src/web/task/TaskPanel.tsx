@@ -45,7 +45,7 @@ export function TaskPanel({ task, onClose, gone }: TaskPanelProps) {
   const bodyEditing = saver.body.editor.phase !== "closed";
   const refDrafts = useRefDrafts();
   useLeaveGuard(
-    { unsaved: bodyEditing || fields.unsaved || refDrafts.unsaved, saving: saver.saving || fields.saving, saveFailed: saver.saveFailed },
+    { unsaved: bodyEditing || fields.unsaved || refDrafts.unsaved, saving: saver.saving, saveFailed: saver.saveFailed },
     {
       ifUnsaved: bodyEditing ? taskMessages.leaveWithDraft : taskMessages.leaveWithFieldEdits,
       ifStillSaving: taskMessages.leaveWhileSaving,
