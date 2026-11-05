@@ -1,10 +1,10 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { coreMessages } from "../messages";
 import type { Project } from "../model/types";
 import { createProject, createTask } from "./create";
-import { listDir } from "./fs-utils";
+import { listDir, withFile } from "./fs-utils";
 import { readJournal } from "./journal";
 import { compactJournal } from "./journal-compaction";
 import { loadBacklog, taskIdsOnDisk } from "./load";
@@ -14,8 +14,34 @@ import { failOnPathError } from "./testing/path-errors";
 
 vi.mock("./fs-utils", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./fs-utils")>();
-  return { ...actual, listDir: vi.fn(actual.listDir) };
+  return { ...actual, listDir: vi.fn(actual.listDir), withFile: vi.fn(actual.withFile) };
 });
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, rm: vi.fn(actual.rm) };
+});
+
+const ioError = () => Object.assign(new Error("ошибка ввода-вывода"), { code: "EIO" });
+
+const AFTER_PUBLISH_FAILURES = [
+  {
+    name: "синхронизация каталога",
+    happensHere: process.platform !== "win32",
+    inject: async (projectDir: string) => {
+      const { withFile: actual } = await vi.importActual<typeof import("./fs-utils")>("./fs-utils");
+      vi.mocked(withFile).mockImplementation(async (path, use, opening) => (path === projectDir ? Promise.reject(ioError()) : actual(path, use, opening)));
+    },
+  },
+  {
+    name: "удаление временного файла",
+    happensHere: true,
+    inject: async () => {
+      const { rm: actual } = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+      vi.mocked(rm).mockImplementation(async (path, options) => (String(path).endsWith(".tmp") ? Promise.reject(ioError()) : actual(path, options)));
+    },
+  },
+];
 
 const NOW = new Date("2026-09-17T14:50:00Z");
 
@@ -27,6 +53,24 @@ async function loadProject(root: string, id: string) {
 }
 
 describe("createTask", () => {
+  it.each(AFTER_PUBLISH_FAILURES.filter(({ happensHere }) => happensHere))(
+    "сбой после создания файла ($name) не превращает созданную задачу в ошибку: событие created в журнале, сбой — в onError",
+    async ({ inject }) => {
+      const root = await makeTempDir();
+      await writeFiles(root, { "spa/project.md": projectFile("SPA") });
+      const { loaded, project } = await loadProject(root, "spa");
+      const projectDir = join(root, "spa");
+      await inject(projectDir);
+      const reported: string[] = [];
+
+      const result = await createTask(root, { project, input: { title: "Первая" }, existingTasks: loaded.tasks, now: NOW, via: "cli", onError: (path) => reported.push(path) });
+
+      expect(result.ok && result.task.id).toBe("SPA-1");
+      expect((await readJournal(projectDir, "spa")).events.map((event) => [event.task, event.kind])).toEqual([["SPA-1", "created"]]);
+      expect(reported).toContain(join(projectDir, "SPA-1.md"));
+    },
+  );
+
   it("выдаёт следующий номер и пишет файл, который читается обратно", async () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-7.md": taskFile("SPA-7", "type: epic\n") });

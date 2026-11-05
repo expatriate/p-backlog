@@ -90,7 +90,7 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
     return await withTaskLock(current.path, async () => {
       const changedOnDisk = await diskChange(current, expectedVersion);
       if (changedOnDisk !== null) return changedOnDisk;
-      await writeFileAtomic(current.path, text, { onDirectorySyncError: reportAfterWrite });
+      await writeFileAtomic(current.path, text, { onErrorAfterPublish: reportAfterWrite });
       written = true;
       return { ok: true, task };
     });

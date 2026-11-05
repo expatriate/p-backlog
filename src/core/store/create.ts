@@ -44,7 +44,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
     const problems = integrityErrors(task, index, request.notLoadedTasks);
     if (problems.length > 0) return invalid(problems);
     try {
-      await createFileAtomic(path, text);
+      await createFileAtomic(path, text, { onErrorAfterPublish: (error) => request.onError(path, error) });
       await appendJournal(dir, [createdEvent(task, request.now, request.via, request.provenance)], request.onError);
       return { ok: true, task, reopenedEpic: await reopenEpicOfOpenedTask(index, { before: undefined, after: task }, request) };
     } catch (error) {

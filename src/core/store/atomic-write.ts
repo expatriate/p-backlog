@@ -11,7 +11,9 @@ const REPLACE_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320, 640, 1000, 1000, 1000
 export const REPLACE_RETRIES_TOTAL_MS = sum(REPLACE_RETRY_DELAYS_MS);
 const REPLACE_BLOCKED_CODES = ["EPERM", "EACCES", "EBUSY"];
 
-type AtomicWriteOptions = { mode?: number | undefined; onDirectorySyncError?: ((error: unknown) => void) | undefined };
+type AfterPublish = { onErrorAfterPublish?: ((error: unknown) => void) | undefined };
+
+type AtomicWriteOptions = AfterPublish & { mode?: number | undefined };
 
 export async function writeFileAtomic(path: string, content: string, options: AtomicWriteOptions = {}): Promise<void> {
   await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path), { ...options, durable: true });
@@ -56,8 +58,8 @@ async function replaceFile(temporary: string, path: string, prepareRename: () =>
   return attempt();
 }
 
-export async function createFileAtomic(path: string, content: string): Promise<void> {
-  await viaTemporaryFile(path, content, (temporary) => link(temporary, path), { durable: true });
+export async function createFileAtomic(path: string, content: string, options: AfterPublish = {}): Promise<void> {
+  await viaTemporaryFile(path, content, (temporary) => link(temporary, path), { ...options, durable: true });
 }
 
 const TEMPORARY_FILE = /^\..+\.[0-9a-f-]{36}\.tmp$/;
@@ -77,20 +79,24 @@ export function temporaryPathFor(path: string): string {
 
 type TemporaryWrite = { durable: boolean; mode?: number | undefined };
 
-type PublishOptions = TemporaryWrite & Pick<AtomicWriteOptions, "onDirectorySyncError">;
+type PublishOptions = TemporaryWrite & AfterPublish;
 
-async function viaTemporaryFile<T>(path: string, content: string, publish: (temporary: string) => Promise<T>, { mode, durable, onDirectorySyncError }: PublishOptions): Promise<T> {
+async function viaTemporaryFile<T>(path: string, content: string, publish: (temporary: string) => Promise<T>, { mode, durable, onErrorAfterPublish = rethrow }: PublishOptions): Promise<T> {
   const temporary = temporaryPathFor(path);
+  let publishReturned = false;
   try {
     await writeTemporary(temporary, content, { flags: "w", mode, durable });
     if (mode !== undefined) await chmod(temporary, mode);
-    const published = await publish(temporary);
-    if (durable) await syncParentDirectory(path).catch(onDirectorySyncError ?? rethrow);
-    return published;
+    const result = await publish(temporary);
+    publishReturned = true;
+    if (durable) await syncParentDirectory(path).catch(onErrorAfterPublish);
+    return result;
   } finally {
-    await rm(temporary, { force: true });
+    await rm(temporary, { force: true }).catch(publishReturned ? onErrorAfterPublish : keepPublishFailure);
   }
 }
+
+function keepPublishFailure(): void {}
 
 async function writeTemporary(path: string, data: string | Buffer, { flags, mode, durable }: TemporaryWrite & { flags: "w" | "a" }): Promise<void> {
   await withFile(

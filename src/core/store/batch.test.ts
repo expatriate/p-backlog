@@ -39,6 +39,11 @@ const directoriesSyncOnThisOs = process.platform !== "win32";
 const AFTER_WRITE_FAILURES = [
   { name: "синхронизация каталога", happensHere: directoriesSyncOnThisOs, inject: <T>(task: Task, action: () => Promise<T>) => failingOnce(open, (target) => target === dirname(task.path), action) },
   { name: "снятие блокировки", happensHere: true, inject: <T>(task: Task, action: () => Promise<T>) => failingOnce(rm, (target) => String(target).endsWith(`.${basename(task.path)}.lock`), action) },
+  {
+    name: "удаление временного файла",
+    happensHere: true,
+    inject: <T>(task: Task, action: () => Promise<T>) => failingOnce(rm, (target) => basename(String(target)).startsWith(`.${basename(task.path)}.`) && String(target).endsWith(".tmp"), action),
+  },
 ];
 
 async function create(root: string, project: Project, input: Parameters<typeof createTask>[1]["input"]): Promise<Task> {
