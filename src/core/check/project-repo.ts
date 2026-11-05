@@ -7,11 +7,11 @@ import { expandHome } from "../store/paths";
 import type { GitRoots, RepoPlaces } from "../store/resolve-project";
 import { anchorOf } from "./anchor";
 import { sourcePath } from "../model/source";
-import { presenceOffDisk, type SourcePresence } from "./candidates";
+import { presenceOffDisk, type PresenceOffDisk } from "./candidates";
 import { currentSourceIn } from "./current-source";
 import { branchHistoryOf, locateRepo } from "./repo-facts";
 
-export type { SourcePresence };
+export type SourcePresence = PresenceOffDisk | "untrusted-repo";
 
 export type SourceAnchor = { kind: "no-file" } | { kind: "uncomputable" } | { kind: "anchor"; anchor: string };
 
@@ -29,7 +29,9 @@ export async function sourcePresence(repo: string, source: string, onUnreadable:
   const onDisk = await attemptReportingFailure(join(repo, path), fileExists, onUnreadable);
   const presentOrUnreadable = onDisk !== false;
   if (presentOrUnreadable) return "present";
-  return presenceOffDisk(path, await branchHistoryOf(repo, await locateRepo(repo), [path]));
+  const location = await locateRepo(repo);
+  if (location.history === "unsafe-repo") return "untrusted-repo";
+  return presenceOffDisk(path, await branchHistoryOf(repo, location, [path]));
 }
 
 export async function relocatedSource(repo: string | undefined, task: Task): Promise<string | undefined> {

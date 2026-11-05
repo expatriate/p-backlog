@@ -1192,6 +1192,21 @@ describe("checkBacklog", () => {
     expect((await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate-gone")).toEqual([]);
   });
 
+  it("ветки git не читаются из-за битой ссылки в refs — своя проблема проекта, а задача, чьего файла нет на диске, не выдаётся за пропавшую", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/gone.ts:1\n") });
+    await writeFiles(repo, { ".git/refs/heads/broken": `${"1".repeat(40)}\n` });
+
+    const report = await check(root, home, "full");
+
+    expect(report.problems).toEqual([{ kind: "project-branches-unreadable", projectId: "spa", repo }]);
+    expect(report.candidates).toEqual([]);
+  });
+
   it("история не читается — якорь и наличие файла всё равно сверяются, а находка без якоря остаётся открытой", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");

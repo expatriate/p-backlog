@@ -50,9 +50,22 @@ export function repoLookup(io: CliIo): RepoLookup {
 
 export async function sourcePresenceOrWarn(io: CliIo, repo: string, source: string): Promise<SourcePresence> {
   const presence = await sourcePresence(repo, source, repoPlaces(io).onUnreadable);
-  if (presence === "missing") io.warn(io.cli.sourceFileMissing(source));
-  if (presence === "unchecked") io.warn(io.cli.sourceFileUnchecked(source));
+  const warning = sourcePresenceWarning(io, presence, repo, source);
+  if (warning !== null) io.warn(warning);
   return presence;
+}
+
+function sourcePresenceWarning(io: CliIo, presence: SourcePresence, repo: string, source: string): string | null {
+  switch (presence) {
+    case "present":
+      return null;
+    case "missing":
+      return io.cli.sourceFileMissing(source);
+    case "unchecked":
+      return io.cli.sourceFileUnchecked(source);
+    case "untrusted-repo":
+      return io.cli.sourceFileUncheckedUntrustedRepo(source, repo);
+  }
 }
 
 export async function findTaskOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Promise<Task | undefined> {

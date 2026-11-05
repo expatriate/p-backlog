@@ -101,9 +101,9 @@ function anchorStateIn(task: Task, text: string | undefined): AnchorState {
   return moved === null || movedAnchor === null ? { kind: "changed" } : { kind: "moved", source: moved, anchor: movedAnchor };
 }
 
-export type SourcePresence = "present" | "missing" | "unchecked";
+export type PresenceOffDisk = "present" | "missing" | "unchecked";
 
-export function presenceOffDisk(path: string, branches: BranchHistory): SourcePresence {
+export function presenceOffDisk(path: string, branches: BranchHistory): PresenceOffDisk {
   switch (branches.kind) {
     case "no-repo":
       return "missing";
