@@ -13,7 +13,7 @@ body,
 }
 
 html {
-  scroll-padding-bottom: calc(var(--list-footer-height) + var(--board-notice-height));
+  scroll-padding-bottom: calc(var(--list-footer-height) + var(--main-overlay-height));
 }
 
 body {

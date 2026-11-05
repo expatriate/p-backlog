@@ -107,7 +107,7 @@ function MoveNotice({ moves: { lastMove, failure, undoing, dismiss }, undoButton
   const notice = useRef<HTMLDivElement>(null);
   const news = useMemo(() => (lastMove === null && failure === null ? null : { lastMove, failure }), [lastMove, failure]);
   useNoticeLifetime(notice, { content: news, paused: undoing, expire: dismiss });
-  useScrollSpaceFor(notice, "--board-notice-height");
+  useScrollSpaceFor(notice, "--main-overlay-height");
   useEffect(() => {
     if (lastMove !== null) reclaimLostFocus(undoButton.current);
   }, [lastMove, undoButton]);

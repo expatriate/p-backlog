@@ -70,8 +70,8 @@
   gap: var(--space-2);
   min-height: 0;
   margin: 0;
-  padding: 0 2px calc(2px + var(--board-notice-height));
-  scroll-padding-bottom: var(--board-notice-height);
+  padding: 0 2px calc(2px + var(--main-overlay-height));
+  scroll-padding-bottom: var(--main-overlay-height);
   overflow-y: auto;
   overscroll-behavior: contain;
   list-style: none;
