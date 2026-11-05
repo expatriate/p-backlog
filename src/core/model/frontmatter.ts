@@ -3,6 +3,7 @@ import { Document, parse, visit } from "yaml";
 import type { z } from "zod";
 import { parseSchema } from "./zod-issues";
 import type { ParseResult } from "./types";
+import { normalizedBody } from "./body";
 
 const DELIMITER = "---";
 
@@ -41,6 +42,6 @@ export function stringifyFrontmatter(data: Record<string, unknown>, body: string
     },
   });
   const yamlText = document.toString({ lineWidth: 0, flowCollectionPadding: false });
-  const content = body.replace(/^\n+/, "").trimEnd();
+  const content = normalizedBody(body);
   return content === "" ? `${DELIMITER}\n${yamlText}${DELIMITER}\n` : `${DELIMITER}\n${yamlText}${DELIMITER}\n\n${content}\n`;
 }

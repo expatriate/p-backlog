@@ -42,7 +42,7 @@ export function useTaskSaving(task: Task) {
     setOutcome(IDLE);
     setSavesInFlight((count) => count + 1);
     try {
-      await updateTask.mutateAsync({ id: task.id, ...variables });
+      await updateTask.save({ id: task.id, ...variables });
       setOutcome(unlessFailed({ phase: "saved", at: Date.now() }));
       return null;
     } catch (error) {

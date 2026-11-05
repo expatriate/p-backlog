@@ -27,7 +27,7 @@ export function useBoardMove(tasks: readonly Task[]) {
     setPending((current) => new Map(current).set(id, to));
     setFailure(null);
     try {
-      const { before } = await update.mutateAsync({ id, change: () => ({ status: to }) });
+      const { before } = await update.save({ id, change: () => ({ status: to }) });
       return before.status;
     } catch (error) {
       setFailure({ id, error: asError(error) });

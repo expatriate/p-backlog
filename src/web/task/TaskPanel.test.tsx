@@ -835,6 +835,17 @@ describe("закрытие карточки, пока сохраняется н�
 });
 
 describe("сохранения карточки идут по очереди", () => {
+  it("конфликт версий, в котором на диске уже стоит своя правка, — сохранено, а не ошибка: так кончается повтор записи, дошедшей после таймаута", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+    await updateTask(app.root, { id: "SPA-1", changes: { priority: "low", tags: ["agent"] }, now: TEST_NOW, via: "cli" });
+
+    await app.user.selectOptions(within(panel).getByRole("combobox", { name: "Приоритет" }), "low");
+
+    await waitFor(() => expect(within(panel).getByRole("status").textContent).toBe("Сохранено"));
+    expect(alertTexts(panel)).toEqual([]);
+  });
+
   it("сбой первого сохранения и успех второго — «Сохранено» не стоит рядом с ошибкой первого", async () => {
     const patches = holdFirstPatch(async () => Response.json({}, { status: 500 }));
     const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });

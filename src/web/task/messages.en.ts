@@ -16,6 +16,8 @@ export const taskEn: TaskMessages = {
   saved: "Saved",
   draftConflict: 'The description changed on disk while you were editing it. "Save" overwrites it with your text, "Cancel" shows the current one.',
   taskConflict: "The task changed on disk, the current version is shown. Repeat your edit.",
+  saveTimedOut: "The backlog server did not answer in time, so the edit may have been saved. Once the server answers, this view will show what is on disk; if your edit is not there, repeat it.",
+  saveNotSent: "The edit was not sent: the backlog server never answered the previous save. Repeat it once the server answers.",
   taskGone: (id) => `Task ${id} is no longer in the backlog: it was deleted or moved.`,
   fieldNotSaved: (field) => `"${field}" is not saved: leave the field once more to retry.`,
   fieldConflict: (field) => `"${field}" changed on disk while you were editing it. Your version is still in the field: leave the field once more to write it over.`,

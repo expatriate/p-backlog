@@ -12,6 +12,12 @@ function clientReturning(response: Response) {
   return createApiClient(async () => response);
 }
 
+function silentServer(_path: string, init?: RequestInit): Promise<Response> {
+  return new Promise((_resolve, reject) => {
+    init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+  });
+}
+
 const task = { id: "SPA-1", title: "Задача" } as Task;
 
 describe("ApiError", () => {
@@ -52,19 +58,25 @@ describe("ApiError", () => {
   });
 
   it("сервер принял запрос и молчит — чтение кончается ошибкой «не ответил вовремя» в свой срок, а запись ждёт дольше", async () => {
-    const silentServer = (_path: string, init?: RequestInit) =>
-      new Promise<Response>((_resolve, reject) => {
-        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
-      });
-    const client = createApiClient(silentServer, { readMs: 20, writeMs: 200 });
+    const client = createApiClient(silentServer, { readMs: 20, writeMs: 1000 });
     const write = client.updateTask("SPA-1", "v1", { title: "x" }).catch((caught: unknown) => caught);
 
     const readError = await client.tasks().catch((caught: unknown) => caught);
-    const writeShortlyAfterRead = await Promise.race([write, sleep(50, "pending")]);
+    const writeShortlyAfterRead = await Promise.race([write, sleep(300, "pending")]);
 
     expect(apiErrorKind(readError)).toBe("timedOut");
     expect(writeShortlyAfterRead).toBe("pending");
     expect(apiErrorKind(await write)).toBe("timedOut");
+  });
+
+  it("отмена вызывающим прерывает запрос сразу, не дожидаясь срока ответа", async () => {
+    const client = createApiClient(silentServer, { readMs: 60_000, writeMs: 60_000 });
+    const cancel = new AbortController();
+
+    const read = client.tasks({ signal: cancel.signal }).catch((caught: unknown) => caught);
+    cancel.abort();
+
+    expect(await Promise.race([read, sleep(300, "pending")])).toBeInstanceOf(ApiError);
   });
 
   it("ошибка сервера без текста несёт код статуса, а не «не отвечает»", async () => {

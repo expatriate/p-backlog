@@ -26,17 +26,22 @@ export class ApiError extends Error {
   }
 }
 
+export type Cancellable = { signal?: AbortSignal | undefined };
+
+type RequestOptions = Omit<RequestInit, "signal"> & Cancellable;
+
 export type ApiClient = {
-  projects: () => Promise<ProjectsResponse>;
+  projects: (cancellable?: Cancellable) => Promise<ProjectsResponse>;
   setProjectActive: (id: string, active: boolean) => Promise<Project>;
   deleteProject: (id: string, confirm: string) => Promise<void>;
-  tasks: () => Promise<TasksResponse>;
-  updateTask: (id: string, version: string, changes: TaskChangesRequest) => Promise<Task>;
+  tasks: (cancellable?: Cancellable) => Promise<TasksResponse>;
+  updateTask: (id: string, version: string, changes: TaskChangesRequest, cancellable?: Cancellable) => Promise<Task>;
   batchTasks: (request: BatchRequest) => Promise<BatchResponse>;
-  statsReport: <K extends StatsReportKind>(kind: K, projectId?: string) => Promise<StatsReports[K]>;
-  memorySamples: () => Promise<MemorySamplesResponse>;
-  settings: () => Promise<SettingsResponse>;
+  statsReport: <K extends StatsReportKind>(kind: K, projectId?: string, cancellable?: Cancellable) => Promise<StatsReports[K]>;
+  memorySamples: (cancellable?: Cancellable) => Promise<MemorySamplesResponse>;
+  settings: (cancellable?: Cancellable) => Promise<SettingsResponse>;
   setLanguage: (language: Language) => Promise<SettingsResponse>;
+  writeDeadline: () => AbortSignal;
 };
 
 type ResponseTimeouts = { readMs: number; writeMs: number };
@@ -63,9 +68,11 @@ export function apiErrorKind(error: unknown): ApiErrorKind | undefined {
 }
 
 export function createApiClient(apiFetch: ApiFetch, { readMs, writeMs }: ResponseTimeouts = RESPONSE_TIMEOUTS): ApiClient {
-  const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
-    const timeoutMs = init.method === undefined ? readMs : writeMs;
-    const response = await apiFetch(path, { ...init, signal: AbortSignal.timeout(timeoutMs) }).catch((error: unknown) => {
+  const request = async <T>(path: string, init: RequestOptions = {}): Promise<T> => {
+    const timeoutMs = (init.method ?? "GET") === "GET" ? readMs : writeMs;
+    const deadline = AbortSignal.timeout(timeoutMs);
+    const signal = init.signal ? abortedByEither(init.signal, deadline) : deadline;
+    const response = await apiFetch(path, { ...init, signal }).catch((error: unknown) => {
       throw unansweredError(error);
     });
     if (GATEWAY_STATUSES.has(response.status)) throw unreachable();
@@ -78,19 +85,29 @@ export function createApiClient(apiFetch: ApiFetch, { readMs, writeMs }: Respons
     throw new ApiError(response.status, errors, current);
   };
   return {
-    projects: () => request<ProjectsResponse>("/api/projects"),
+    projects: (cancellable) => request<ProjectsResponse>("/api/projects", cancellable),
     setProjectActive: (id, active) => request<Project>(projectPath(id), jsonInit("PATCH", { active })),
     deleteProject: async (id, confirm) => {
       await request<ProjectDeletedResponse>(projectPath(id), jsonInit("DELETE", { confirm }));
     },
-    tasks: () => request<TasksResponse>("/api/tasks"),
-    updateTask: (id, version, changes) => request<Task>(`/api/tasks/${encodeURIComponent(id)}`, jsonInit("PATCH", { version, changes })),
+    tasks: (cancellable) => request<TasksResponse>("/api/tasks", cancellable),
+    updateTask: (id, version, changes, cancellable) => request<Task>(`/api/tasks/${encodeURIComponent(id)}`, { ...jsonInit("PATCH", { version, changes }), ...cancellable }),
     batchTasks: (batch) => request<BatchResponse>("/api/tasks/batch", jsonInit("POST", batch)),
-    statsReport: (kind, projectId) => request(scopedPath(`/api${STATS_REPORT_ROUTES[kind]}`, projectId)),
-    memorySamples: () => request<MemorySamplesResponse>(`/api${STATS_MEMORY_ROUTE}`),
-    settings: () => request<SettingsResponse>("/api/settings"),
+    statsReport: (kind, projectId, cancellable) => request(scopedPath(`/api${STATS_REPORT_ROUTES[kind]}`, projectId), cancellable),
+    memorySamples: (cancellable) => request<MemorySamplesResponse>(`/api${STATS_MEMORY_ROUTE}`, cancellable),
+    settings: (cancellable) => request<SettingsResponse>("/api/settings", cancellable),
     setLanguage: (language) => request<SettingsResponse>("/api/settings", jsonInit("PATCH", { language })),
+    writeDeadline: () => AbortSignal.timeout(writeMs),
   };
+}
+
+function abortedByEither(first: AbortSignal, second: AbortSignal): AbortSignal {
+  const either = new AbortController();
+  for (const signal of [first, second]) {
+    if (signal.aborted) either.abort(signal.reason);
+    else signal.addEventListener("abort", () => either.abort(signal.reason), { once: true });
+  }
+  return either.signal;
 }
 
 function unreachable(): ApiError {
@@ -105,7 +122,7 @@ function projectPath(id: string): string {
   return `/api/projects/${encodeURIComponent(id)}`;
 }
 
-function jsonInit(method: string, body: unknown): RequestInit {
+function jsonInit(method: string, body: unknown): RequestOptions {
   return { method, body: JSON.stringify(body), headers: { "content-type": "application/json" } };
 }
 

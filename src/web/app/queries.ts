@@ -3,8 +3,9 @@ import type { BatchRequest, BatchResponse, MemorySamplesResponse, ProjectsRespon
 import { MEMORY_SAMPLE_INTERVAL_MS } from "../../core/api/memory";
 import type { StatsReportKind, StatsReports } from "../../core/api/stats-routes";
 import type { Language } from "../../core/i18n/language";
+import { normalizedBody } from "../../core/model/body";
 import type { Project, Task } from "../../core/model/types";
-import { ApiError, type ApiClient } from "../api/client";
+import { ApiError, type ApiClient, type Cancellable } from "../api/client";
 import { useBacklogApi } from "./backlog-api";
 import { batchInChunks } from "./batch-chunks";
 import { invalidateBacklogAndStats, invalidateBacklogOnly, MEMORY_SAMPLES_KEY, PROJECTS_KEY, SETTINGS_KEY, statsReportKey, TASKS_KEY } from "./query-keys";
@@ -14,7 +15,7 @@ const COST_SCAN_POLL_MS = 10_000;
 
 export function useSettings() {
   const { client } = useBacklogApi();
-  return useQuery<SettingsResponse>({ queryKey: SETTINGS_KEY, queryFn: client.settings });
+  return useQuery<SettingsResponse>({ queryKey: SETTINGS_KEY, queryFn: ({ signal }) => client.settings({ signal }) });
 }
 
 export function useSetLanguage(): UseMutationResult<SettingsResponse, Error, Language> {
@@ -31,12 +32,12 @@ export function useSetLanguage(): UseMutationResult<SettingsResponse, Error, Lan
 
 export function useProjects() {
   const { client } = useBacklogApi();
-  return useQuery<ProjectsResponse, Error, ProjectView[]>({ queryKey: PROJECTS_KEY, queryFn: client.projects, select: selectProjects });
+  return useQuery<ProjectsResponse, Error, ProjectView[]>({ queryKey: PROJECTS_KEY, queryFn: ({ signal }) => client.projects({ signal }), select: selectProjects });
 }
 
 export function useTasks() {
   const { client } = useBacklogApi();
-  return useQuery<TasksResponse>({ queryKey: TASKS_KEY, queryFn: client.tasks });
+  return useQuery<TasksResponse>({ queryKey: TASKS_KEY, queryFn: ({ signal }) => client.tasks({ signal }) });
 }
 
 function selectProjects(response: ProjectsResponse): ProjectView[] {
@@ -58,7 +59,7 @@ export function useMemorySamples() {
   const { client } = useBacklogApi();
   return useQuery<MemorySamplesResponse>({
     queryKey: MEMORY_SAMPLES_KEY,
-    queryFn: client.memorySamples,
+    queryFn: ({ signal }) => client.memorySamples({ signal }),
     refetchInterval: MEMORY_SAMPLE_INTERVAL_MS,
     initialData: { samples: [] },
   });
@@ -71,7 +72,7 @@ function scanInProgress(scan: ScanProgress | undefined): boolean {
 
 function useReportQuery<K extends StatsReportKind>(kind: K, projectId: string | undefined, freshness: Partial<UseQueryOptions<StatsReports[K]>>) {
   const { client } = useBacklogApi();
-  return useQuery<StatsReports[K]>({ queryKey: statsReportKey(kind, projectId), queryFn: () => client.statsReport(kind, projectId), ...freshness });
+  return useQuery<StatsReports[K]>({ queryKey: statsReportKey(kind, projectId), queryFn: ({ signal }) => client.statsReport(kind, projectId, { signal }), ...freshness });
 }
 
 export type SetProjectActiveVariables = { id: string; active: boolean };
@@ -100,7 +101,16 @@ export type TaskChange = (task: Task) => TaskChangesRequest;
 export type BodyEdit = { version: string; body: string };
 export type UpdateTaskVariables = { id: string; change: TaskChange; bodyEdit?: BodyEdit };
 
+type QueuedTaskSave = UpdateTaskVariables & { answerBy: AbortSignal };
+
 const TASK_SAVES = { id: "task-saves" };
+
+export class SaveNotSentError extends Error {
+  constructor() {
+    super("the save waited in the queue past its answer deadline and was not sent");
+    this.name = "SaveNotSentError";
+  }
+}
 
 export class TaskGoneError extends Error {
   constructor(readonly taskId: string) {
@@ -111,21 +121,43 @@ export class TaskGoneError extends Error {
 
 type TaskSave = { before: Task; saved: Task };
 
-export function useUpdateTask(): UseMutationResult<TaskSave, Error, UpdateTaskVariables> {
+type TaskSaver = { save: (variables: UpdateTaskVariables) => Promise<TaskSave> };
+
+export function useUpdateTask(): TaskSaver {
   const { client } = useBacklogApi();
   const queryClient = useQueryClient();
-  return useMutation({
+  const { mutateAsync } = useMutation({
     scope: TASK_SAVES,
-    mutationFn: async ({ id, change, bodyEdit }: UpdateTaskVariables) => {
+    mutationFn: async ({ id, change, bodyEdit, answerBy }: QueuedTaskSave) => {
+      if (answerBy.aborted) throw new SaveNotSentError();
       const before = freshestTask(queryClient, id);
       if (!before) throw new TaskGoneError(id);
       const changes = change(before);
-      const saved = await (bodyEdit === undefined ? client.updateTask(id, before.version, changes) : saveEditedBody(client, id, changes, bodyEdit));
-      return { before, saved };
+      const cancellable = { signal: answerBy };
+      return landedDespiteConflict(before, changes, () =>
+        bodyEdit === undefined ? client.updateTask(id, before.version, changes, cancellable) : saveEditedBody(client, id, changes, bodyEdit, cancellable),
+      );
     },
     onSuccess: ({ saved }) => putTask(queryClient, saved),
     onSettled: () => invalidateBacklogOnly(queryClient),
   });
+  return { save: (variables) => mutateAsync({ ...variables, answerBy: client.writeDeadline() }) };
+}
+
+async function landedDespiteConflict(before: Task, changes: TaskChangesRequest, save: () => Promise<Task>): Promise<TaskSave> {
+  try {
+    return { before, saved: await save() };
+  } catch (error) {
+    const current = error instanceof ApiError ? error.current : undefined;
+    if (current !== undefined && carriesChanges(current, changes)) return { before: current, saved: current };
+    throw error;
+  }
+}
+
+function carriesChanges(task: Task, changes: TaskChangesRequest): boolean {
+  const { body, ...fields } = changes;
+  const bodyCarried = body === undefined || normalizedBody(task.body) === normalizedBody(body);
+  return bodyCarried && Object.entries(fields).every(([field, value]) => JSON.stringify(task[field as keyof typeof fields] ?? null) === JSON.stringify(value ?? null));
 }
 
 export function useBatchTasks(): UseMutationResult<BatchResponse, Error, BatchRequest> {
@@ -138,12 +170,12 @@ export function useBatchTasks(): UseMutationResult<BatchResponse, Error, BatchRe
   });
 }
 
-async function saveEditedBody(client: ApiClient, id: string, changes: TaskChangesRequest, edit: BodyEdit): Promise<Task> {
+async function saveEditedBody(client: ApiClient, id: string, changes: TaskChangesRequest, edit: BodyEdit, cancellable: Cancellable): Promise<Task> {
   try {
-    return await client.updateTask(id, edit.version, changes);
+    return await client.updateTask(id, edit.version, changes, cancellable);
   } catch (error) {
     if (!(error instanceof ApiError) || error.current?.body !== edit.body) throw error;
-    return await client.updateTask(id, error.current.version, changes);
+    return await client.updateTask(id, error.current.version, changes, cancellable);
   }
 }
 
