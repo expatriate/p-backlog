@@ -1,21 +1,20 @@
 import { DAYS_PER_WEEK, formatLocalIso, WEEK_MS } from "../../model/dates";
-import { createdIn, lastingClosingsIn, type TaskHistory } from "../history";
-import { smallest } from "../../numbers";
+import { createdIn, lastingClosingsIn } from "../history";
 import { trailingSpan } from "../period";
+import type { ReportContext } from "../scope";
 import type { FlowForecast } from "../types";
 
 const FORECAST_WINDOW_WEEKS = 4;
 const MIN_WINDOW_WEEKS = 1;
 
-function backlogAgeWeeks(histories: readonly TaskHistory[], now: Date): number | null {
-  const firstCreated = smallest(histories.map((history) => history.createdAt));
-  return firstCreated === null ? null : (now.getTime() - firstCreated) / WEEK_MS;
+function backlogAgeWeeks(backlogSince: string | null, now: Date): number | null {
+  return backlogSince === null ? null : (now.getTime() - Date.parse(backlogSince)) / WEEK_MS;
 }
 
 const clampedWeeks = (weeks: number) => Math.min(FORECAST_WINDOW_WEEKS, Math.max(MIN_WINDOW_WEEKS, weeks));
 
-export function flowForecast(histories: readonly TaskHistory[], open: number, now: Date): FlowForecast {
-  const ageWeeks = backlogAgeWeeks(histories, now);
+export function flowForecast({ histories, head, input: { now } }: ReportContext, open: number): FlowForecast {
+  const ageWeeks = backlogAgeWeeks(head.backlogSince, now);
   const windowWeeks = ageWeeks === null ? FORECAST_WINDOW_WEEKS : clampedWeeks(Math.floor(ageWeeks) + 1);
   const observedWeeks = ageWeeks === null ? FORECAST_WINDOW_WEEKS : clampedWeeks(ageWeeks);
   const window = trailingSpan(now.getTime(), windowWeeks * WEEK_MS);

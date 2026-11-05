@@ -20,7 +20,7 @@ export async function reportsOf(root: string, projectIds: readonly string[], now
     const stats = statsReport(context);
     return {
       stats: { ...stats, ...FILE_COUNTERS },
-      forecast: flowForecast(context.histories, stats.totals.open, now),
+      forecast: flowForecast(context, stats.totals.open),
       quality: { ...qualityReport(context, []), ...FILE_COUNTERS },
       signals: statsSignals(context),
       effect: { ...effectReport(context, code, wholeBacklog), ...FILE_COUNTERS },

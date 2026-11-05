@@ -33,7 +33,7 @@ async function runStats(args: string[], io: CliIo): Promise<ExitCode> {
   const input = { tasks: loaded.tasks.filter(scoped), journals, now: io.now(), projectId: project?.id, unparsedTasks: unparsedTasks(loaded.errors).filter(scoped) };
   const context = reportContext(input);
   const { totals } = statsReport(context);
-  const forecast = flowForecast(context.histories, totals.open, io.now());
+  const forecast = flowForecast(context, totals.open);
   const signals = statsSignals(context);
 
   if (values.json) {

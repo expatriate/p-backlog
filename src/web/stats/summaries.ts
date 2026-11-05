@@ -11,7 +11,7 @@ type PeriodSummary = { grain: Grain; periodCount: number };
 
 export type FlowSummary = PeriodSummary & { created: number; closed: number; openNow: number };
 
-export type IntakeSummary = PeriodSummary & { created: number; perPeriod: number | null; averageSince: string | null };
+export type IntakeSummary = PeriodSummary & { created: number; average: { perPeriod: number; since: string | null } | null };
 
 export type AccuracySummary = PeriodSummary & { decided: number; latestPrecision: string | null };
 
@@ -43,9 +43,11 @@ type IntakeMoments = { now: string; backlogSince: string | null };
 export function summarizeIntake(grain: Grain, periods: FlowPeriod[], { now, backlogSince }: IntakeMoments): IntakeSummary {
   const created = sum(periods.map((period) => period.created));
   const summary = { ...periodSummary(grain, periods), created };
-  if (created === 0) return { ...summary, perPeriod: null, averageSince: null };
   const baseStart = backlogStartPeriod(periods, backlogSince);
-  return { ...summary, perPeriod: created / periodsFrom(baseStart, grain, periods, now), averageSince: baseStart === 0 ? null : (periods[baseStart]?.start ?? null) };
+  const onlyCurrentPeriod = baseStart === periods.length - 1;
+  if (created === 0 || onlyCurrentPeriod) return { ...summary, average: null };
+  const since = baseStart === 0 ? null : (periods[baseStart]?.start ?? null);
+  return { ...summary, average: { perPeriod: created / periodsFrom(baseStart, grain, periods, now), since } };
 }
 
 function backlogStartPeriod(periods: FlowPeriod[], backlogSince: string | null): number {
@@ -60,7 +62,7 @@ function backlogStartPeriod(periods: FlowPeriod[], backlogSince: string | null):
 function periodsFrom(baseStart: number, grain: Grain, periods: FlowPeriod[], now: string): number {
   const current = periods.at(-1);
   const currentShare = current === undefined ? 1 : Math.min(1, (Date.parse(now) - Date.parse(current.start)) / GRAIN_MS[grain]);
-  return Math.max(1, periods.length - 1 - baseStart + currentShare);
+  return periods.length - 1 - baseStart + currentShare;
 }
 
 export function summarizeAccuracy(grain: Grain, periods: AccuracyPeriod[]): AccuracySummary {

@@ -11,15 +11,17 @@ describe("среднее создание задач", () => {
   const intake = (backlogSince: string | null) => summarizeIntake("week", quietThenBusy, { now: "2026-10-02T12:00:00+03:00", backlogSince });
 
   it("у молодого проекта считается с недели первой задачи, текущая неделя — по прошедшей доле, и сводка называет начало", () => {
-    expect(intake("2026-09-22T10:00:00+03:00")).toMatchObject({ perPeriod: 4, averageSince: "2026-09-22T00:00:00+03:00" });
+    expect(intake("2026-09-22T10:00:00+03:00").average).toEqual({ perPeriod: 4, since: "2026-09-22T00:00:00+03:00" });
   });
 
   it("у проекта старше окна тихие недели окна входят в среднее", () => {
-    expect(intake("2026-01-10T10:00:00+03:00")).toMatchObject({ perPeriod: 6 / 4.5, averageSince: null });
+    expect(intake("2026-01-10T10:00:00+03:00").average).toEqual({ perPeriod: 6 / 4.5, since: null });
   });
 
-  it("проект, начатый сегодня, не делит на долю дня", () => {
-    expect(summarizeIntake("day", [periodFrom(29, 3)], { now: "2026-09-29T00:30:00+03:00", backlogSince: "2026-09-29T00:10:00+03:00" }).perPeriod).toBe(3);
+  it("у проекта, начатого в текущем периоде, среднего нет — сводка не пишет «в среднем 3 в день с сегодня»", () => {
+    const startedToday = summarizeIntake("day", [periodFrom(28, 0), periodFrom(29, 3)], { now: "2026-09-29T00:30:00+03:00", backlogSince: "2026-09-29T00:10:00+03:00" });
+
+    expect(statsRu.intakeSummary(startedToday)).toBe(`2${NBSP}дня: создано 3`);
   });
 });
 

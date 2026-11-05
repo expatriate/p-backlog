@@ -12,6 +12,7 @@ const CHART_STEPS: Record<ChartStep, string> = { day: "day", week: "week", sampl
 const PERIOD_FORMS: Record<Grain, [string, string]> = { week: ["week", "weeks"], day: ["day", "days"] };
 const UNPRICED_NOTE = "excluding models with unknown prices";
 const PER_PERIOD: Record<Grain, string> = { week: "a week", day: "a day" };
+const AVERAGE_SINCE: Record<Grain, string> = { week: "since the week of", day: "since" };
 const LAST_PERIOD: Record<Grain, string> = { week: "in the latest week with decisions", day: "on the last day with decisions" };
 
 const periods = (grain: Grain, n: number): string => countEn(n, ...PERIOD_FORMS[grain]);
@@ -75,11 +76,12 @@ export function createStatsEn(constants: StatsConstants): StatsMessages {
     flowSummary: ({ grain, periodCount, created, closed, openNow }) => `${periods(grain, periodCount)}: created ${created}, closed ${closed}, open now ${openNow}`,
     createdBy: { week: "Created by week", day: "Created by day" },
     createdTasks: "tasks created",
-    intakeSummary: ({ grain, periodCount, created, perPeriod, averageSince }) => {
+    intakeSummary: ({ grain, periodCount, created, average }) => {
       const period = periods(grain, periodCount);
-      if (perPeriod === null) return `${period}: no tasks created`;
-      const since = averageSince === null ? "" : ` since ${formatDay("en", averageSince)}`;
-      return `${period}: created ${created}, on average ${formatDecimal("en", perPeriod)} ${PER_PERIOD[grain]}${since}`;
+      if (created === 0) return `${period}: no tasks created`;
+      if (average === null) return `${period}: created ${created}`;
+      const since = average.since === null ? "" : ` ${AVERAGE_SINCE[grain]} ${formatDay("en", average.since)}`;
+      return `${period}: created ${created}, on average ${formatDecimal("en", average.perPeriod)} ${PER_PERIOD[grain]}${since}`;
     },
     hotspots: "Where it hurts",
     noSourceFolders: "Open tasks have no source",

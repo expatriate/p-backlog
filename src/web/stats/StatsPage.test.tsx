@@ -581,7 +581,7 @@ describe("масштаб графиков", () => {
     expect(within(flow).getByText("открыто на конец дня (шкала справа)")).toBeDefined();
     expect(pressed(flow, "день")).toBe("true");
     expect(screen.getByRole("region", { name: "Создано по неделям" })).toBe(intake);
-    expect(within(intake).getByRole("figure", { name: new RegExp(`^12${NBSP}недель: создано 4, в среднем .+ в неделю с${NBSP}7 сент\\.$`) })).toBeDefined();
+    expect(within(intake).getByRole("figure", { name: new RegExp(`^12${NBSP}недель: создано 4, в среднем .+ в неделю с${NBSP}недели${NBSP}7 сент\\.$`) })).toBeDefined();
     expect(pressed(intake, "неделя")).toBe("true");
 
     await app.user.click(screen.getByRole("link", { name: "Качество" }));

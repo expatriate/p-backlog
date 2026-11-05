@@ -15,6 +15,7 @@ const PERIOD_FORMS: Record<Grain, [string, string, string]> = { week: ["неде
 const OVER_PERIOD_FORMS: Record<Grain, [string, string, string]> = { week: ["неделю", "недели", "недель"], day: ["день", "дня", "дней"] };
 const UNPRICED_NOTE = "без моделей с неизвестной ценой";
 const PER_PERIOD: Record<Grain, string> = { week: "в неделю", day: "в день" };
+const AVERAGE_SINCE: Record<Grain, string> = { week: `с${NBSP}недели`, day: "с" };
 const LAST_PERIOD: Record<Grain, string> = { week: "на последней неделе с решениями", day: "в последний день с решениями" };
 
 const periods = (grain: Grain, n: number): string => countRu(n, ...PERIOD_FORMS[grain]);
@@ -84,11 +85,12 @@ export function createStatsRu(constants: StatsConstants) {
     flowSummary: ({ grain, periodCount, created, closed, openNow }: FlowSummary): string => `${periods(grain, periodCount)}: создано ${created}, закрыто ${closed}, открыто сейчас ${openNow}`,
     createdBy: { week: "Создано по неделям", day: "Создано по дням" } satisfies Record<Grain, string>,
     createdTasks: "создано задач",
-    intakeSummary: ({ grain, periodCount, created, perPeriod, averageSince }: IntakeSummary): string => {
+    intakeSummary: ({ grain, periodCount, created, average }: IntakeSummary): string => {
       const period = periods(grain, periodCount);
-      if (perPeriod === null) return `${period}: задач не создавали`;
-      const since = averageSince === null ? "" : ` с${NBSP}${formatDay("ru", averageSince)}`;
-      return `${period}: создано ${created}, в среднем ${formatDecimal("ru", perPeriod)} ${PER_PERIOD[grain]}${since}`;
+      if (created === 0) return `${period}: задач не создавали`;
+      if (average === null) return `${period}: создано ${created}`;
+      const since = average.since === null ? "" : ` ${AVERAGE_SINCE[grain]}${NBSP}${formatDay("ru", average.since)}`;
+      return `${period}: создано ${created}, в среднем ${formatDecimal("ru", average.perPeriod)} ${PER_PERIOD[grain]}${since}`;
     },
     hotspots: "Где болит",
     noSourceFolders: "У открытых задач нет source",

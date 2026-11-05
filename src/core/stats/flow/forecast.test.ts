@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { JournalEvent } from "../../journal/events";
+import type { JournalEvent, ProjectJournal } from "../../journal/events";
 import { DAY_MS, formatLocalIso } from "../../model/dates";
 import { makeTask } from "../../model/testing/make-task";
-import { taskHistories } from "../history";
+import type { Task } from "../../model/types";
+import { reportContext } from "../scope";
 import { flowForecast } from "./forecast";
 
 const at = (day: number, hour = 12) => new Date(2026, 8, day, hour);
@@ -11,12 +12,13 @@ const NOW = at(18);
 const open = (id: string, created: string) => makeTask({ id, created });
 const closed = (id: string, created: string, closedAt: string) => makeTask({ id, created, status: "done", closed: closedAt });
 const OLD = formatLocalIso(new Date(2026, 7, 1, 12));
+const forecastOf = (tasks: Task[], openCount: number, journals: ProjectJournal[] = []) => flowForecast(reportContext({ tasks, journals, now: NOW, unparsedTasks: [] }), openCount);
 
 describe("прогноз", () => {
   it("долг уменьшается: недели вверх и дата", () => {
     const tasks = [...["SPA-1", "SPA-2", "SPA-3", "SPA-4", "SPA-5"].map((id) => closed(id, OLD, iso(10))), open("SPA-6", iso(12)), open("SPA-7", OLD), open("SPA-8", OLD)];
 
-    const forecast = flowForecast(taskHistories(tasks, []), 3, NOW);
+    const forecast = forecastOf(tasks, 3);
 
     expect(forecast).toMatchObject({ closed: 5, created: 1, open: 3, weeklyNet: 1, weeks: 3 });
     expect(forecast.until).toBe(formatLocalIso(new Date(2026, 9, 9, 12)));
@@ -29,34 +31,30 @@ describe("прогноз", () => {
       { at: iso(16), task: "SPA-1", via: "cli", kind: "status", from: "backlog", to: "done" },
     ];
 
-    const forecast = flowForecast(taskHistories([closed("SPA-1", OLD, iso(16)), open("SPA-2", OLD)], [{ projectId: "spa", events, invalidLines: 0 }]), 1, NOW);
+    const forecast = forecastOf([closed("SPA-1", OLD, iso(16)), open("SPA-2", OLD)], 1, [{ projectId: "spa", events, invalidLines: 0 }]);
 
     expect(forecast).toMatchObject({ closed: 1 });
   });
 
   it("долг не уменьшается и растёт — без недель", () => {
-    const flat = flowForecast(taskHistories([closed("SPA-1", OLD, iso(10)), open("SPA-2", iso(11))], []), 1, NOW);
-    const growing = flowForecast(taskHistories([open("SPA-1", iso(11)), open("SPA-2", iso(12))], []), 2, NOW);
+    const flat = forecastOf([closed("SPA-1", OLD, iso(10)), open("SPA-2", iso(11))], 1);
+    const growing = forecastOf([open("SPA-1", iso(11)), open("SPA-2", iso(12))], 2);
 
     expect(flat).toMatchObject({ weeklyNet: 0, weeks: null, until: null });
     expect(growing).toMatchObject({ closed: 0, created: 2, weeklyNet: -2, windowDays: 7, weeks: null, until: null });
   });
 
   it("открытых задач нет — без недель", () => {
-    const forecast = flowForecast(taskHistories([closed("SPA-1", OLD, iso(10))], []), 0, NOW);
+    const forecast = forecastOf([closed("SPA-1", OLD, iso(10))], 0);
 
     expect(forecast).toMatchObject({ open: 0, weeks: null, until: null });
   });
 
   it("округление вверх до целого числа недель", () => {
-    const exact = flowForecast(taskHistories([...["SPA-1", "SPA-2", "SPA-3"].map((id) => closed(id, OLD, iso(10))), open("SPA-4", iso(11))], []), 3, NOW);
-    const fractional = flowForecast(
-      taskHistories(
-        ["SPA-1", "SPA-2", "SPA-3", "SPA-4", "SPA-5"].map((id) => closed(id, OLD, iso(10))),
-        [],
-      ),
+    const exact = forecastOf([...["SPA-1", "SPA-2", "SPA-3"].map((id) => closed(id, OLD, iso(10))), open("SPA-4", iso(11))], 3);
+    const fractional = forecastOf(
+      ["SPA-1", "SPA-2", "SPA-3", "SPA-4", "SPA-5"].map((id) => closed(id, OLD, iso(10))),
       3,
-      NOW,
     );
 
     expect(exact).toMatchObject({ closed: 3, created: 1, weeklyNet: 0.5, weeks: 6 });
@@ -66,7 +64,7 @@ describe("прогноз", () => {
   it("беклог моложе окна — рост долга считается по его возрасту, а не по полному окну", () => {
     const tasks = ["SPA-1", "SPA-2", "SPA-3", "SPA-4"].map((id) => open(id, iso(13)));
 
-    const forecast = flowForecast(taskHistories(tasks, []), 4, NOW);
+    const forecast = forecastOf(tasks, 4);
 
     expect(forecast).toMatchObject({ created: 4, weeklyNet: -4, windowDays: 7 });
   });
@@ -74,15 +72,15 @@ describe("прогноз", () => {
   it("сразу за недельной границей скорость делится на настоящий возраст беклога, а не на лишнюю неделю", () => {
     const tasks = ["SPA-1", "SPA-2", "SPA-3", "SPA-4", "SPA-5", "SPA-6", "SPA-7", "SPA-8"].map((id) => open(id, iso(10)));
 
-    const forecast = flowForecast(taskHistories(tasks, []), 8, NOW);
+    const forecast = forecastOf(tasks, 8);
 
     expect(forecast).toMatchObject({ created: 8, weeklyNet: -7, windowDays: 8 });
   });
 
   it("границы окна: −28 дней исключены, «сейчас» включено", () => {
     const nowMs = NOW.getTime();
-    const excluded = flowForecast(taskHistories([closed("SPA-1", OLD, formatLocalIso(new Date(nowMs - 28 * DAY_MS)))], []), 1, NOW);
-    const included = flowForecast(taskHistories([closed("SPA-1", OLD, formatLocalIso(new Date(nowMs)))], []), 1, NOW);
+    const excluded = forecastOf([closed("SPA-1", OLD, formatLocalIso(new Date(nowMs - 28 * DAY_MS)))], 1);
+    const included = forecastOf([closed("SPA-1", OLD, formatLocalIso(new Date(nowMs)))], 1);
 
     expect(excluded.closed).toBe(0);
     expect(included.closed).toBe(1);
