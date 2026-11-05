@@ -81,14 +81,18 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
   const problems = [...integrityErrors(task, index), ...epicClosingProblems(current, task, index)];
   if (problems.length > 0) return invalid(problems);
 
-  const written = await withTaskLock(current.path, async () => {
-    const changedOnDisk = await diskChange(current, expectedVersion);
-    if (changedOnDisk !== null) return changedOnDisk;
-    await writeFileAtomic(current.path, text);
-    return { ok: true, task };
-  });
-  if (written.ok) await journal(dirname(current.path), changeEvents(current, task, now, via));
-  return written;
+  let written = false;
+  try {
+    return await withTaskLock(current.path, async () => {
+      const changedOnDisk = await diskChange(current, expectedVersion);
+      if (changedOnDisk !== null) return changedOnDisk;
+      await writeFileAtomic(current.path, text);
+      written = true;
+      return { ok: true, task };
+    });
+  } finally {
+    if (written) await journal(dirname(current.path), changeEvents(current, task, now, via));
+  }
 }
 
 async function withTaskLock(path: string, write: () => Promise<UpdateTaskResult>): Promise<UpdateTaskResult> {

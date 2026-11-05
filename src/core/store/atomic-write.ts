@@ -12,7 +12,11 @@ export const REPLACE_RETRIES_TOTAL_MS = sum(REPLACE_RETRY_DELAYS_MS);
 const REPLACE_BLOCKED_CODES = ["EPERM", "EACCES", "EBUSY"];
 
 export async function writeFileAtomic(path: string, content: string, mode?: number): Promise<void> {
-  await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path), mode);
+  await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path), { mode, durable: true });
+}
+
+export async function writeRecomputableFileAtomic(path: string, content: string): Promise<void> {
+  await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path), { durable: false });
 }
 
 export async function replacePrefixAtomic(path: string, prefix: Buffer, content: string): Promise<boolean> {
@@ -20,11 +24,11 @@ export async function replacePrefixAtomic(path: string, prefix: Buffer, content:
   const carryAppended = async (temporary: string): Promise<boolean> => {
     const live = (await readBytesOrNull(path)) ?? Buffer.alloc(0);
     if (!startsWithBytes(live, seen)) return false;
-    if (live.length > seen.length) await writeSynced(temporary, live.subarray(seen.length), "a");
+    if (live.length > seen.length) await writeTemporary(temporary, live.subarray(seen.length), { flags: "a", durable: true });
     seen = live;
     return true;
   };
-  return viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path, () => carryAppended(temporary)));
+  return viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path, () => carryAppended(temporary)), { durable: true });
 }
 
 function startsWithBytes(bytes: Buffer, prefix: Buffer): boolean {
@@ -38,8 +42,7 @@ async function replaceFile(temporary: string, path: string, prepareRename: () =>
     await rename(temporary, path);
     return true;
   };
-  // eslint-disable-next-line no-restricted-properties -- the retry answers to the running OS, not to a caller
-  if (process.platform !== "win32") return attempt();
+  if (!onWindows()) return attempt();
   for (const delayMs of REPLACE_RETRY_DELAYS_MS) {
     try {
       return await attempt();
@@ -52,7 +55,7 @@ async function replaceFile(temporary: string, path: string, prepareRename: () =>
 }
 
 export async function createFileAtomic(path: string, content: string): Promise<void> {
-  await viaTemporaryFile(path, content, (temporary) => link(temporary, path));
+  await viaTemporaryFile(path, content, (temporary) => link(temporary, path), { durable: true });
 }
 
 const TEMPORARY_FILE = /^\..+\.[0-9a-f-]{36}\.tmp$/;
@@ -70,25 +73,27 @@ export function temporaryPathFor(path: string): string {
   return join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
 }
 
-async function viaTemporaryFile<T>(path: string, content: string, publish: (temporary: string) => Promise<T>, mode?: number): Promise<T> {
+type TemporaryWrite = { durable: boolean; mode?: number | undefined };
+
+async function viaTemporaryFile<T>(path: string, content: string, publish: (temporary: string) => Promise<T>, { mode, durable }: TemporaryWrite): Promise<T> {
   const temporary = temporaryPathFor(path);
   try {
-    await writeSynced(temporary, content, "w", mode);
+    await writeTemporary(temporary, content, { flags: "w", mode, durable });
     if (mode !== undefined) await chmod(temporary, mode);
     const published = await publish(temporary);
-    await syncDirectoryOf(path);
+    if (durable) await syncParentDirectory(path);
     return published;
   } finally {
     await rm(temporary, { force: true });
   }
 }
 
-async function writeSynced(path: string, data: string | Buffer, flags: "w" | "a", mode?: number): Promise<void> {
+async function writeTemporary(path: string, data: string | Buffer, { flags, mode, durable }: TemporaryWrite & { flags: "w" | "a" }): Promise<void> {
   await withFile(
     path,
     async (handle) => {
       await handle.writeFile(data, "utf8");
-      await handle.sync();
+      if (durable) await handle.sync();
     },
     { flags, mode },
   );
@@ -97,12 +102,16 @@ async function writeSynced(path: string, data: string | Buffer, flags: "w" | "a"
 // Network and FUSE file systems (SMB, vboxsf) refuse to open or fsync a directory; the file itself is already in place.
 const DIRECTORY_SYNC_UNSUPPORTED_CODES = ["EINVAL", "ENOTSUP", "EISDIR", "EACCES", "EPERM"];
 
-async function syncDirectoryOf(path: string): Promise<void> {
-  // eslint-disable-next-line no-restricted-properties -- Windows cannot open a directory to fsync it
-  if (process.platform === "win32") return;
+export async function syncParentDirectory(path: string): Promise<void> {
+  if (onWindows()) return;
   try {
     await withFile(dirname(path), (directory) => directory.sync());
   } catch (error) {
     if (!hasAnyErrorCode(error, DIRECTORY_SYNC_UNSUPPORTED_CODES)) throw error;
   }
+}
+
+function onWindows(): boolean {
+  // eslint-disable-next-line no-restricted-properties -- renames retry and directories skip fsync by the running OS, not by a caller
+  return process.platform === "win32";
 }

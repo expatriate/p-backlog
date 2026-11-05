@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, type Dirent, type Stats } from "node:fs";
 import { access, lstat, open, readdir, readFile, readlink, rm, stat, type FileHandle } from "node:fs/promises";
-import type { z } from "zod";
 import { hasAnyErrorCode, hasErrorCode, type PathErrorHandler } from "../errors";
 
 export function contentVersion(text: string): string {
@@ -92,7 +91,7 @@ export function readBytesOrNullSync(path: string): Buffer | null {
 
 export const NEWLINE = 0x0a;
 
-type FileOpening = { flags?: string; mode?: number | undefined };
+type FileOpening = { flags?: "r" | "r+" | "w" | "a" | "a+"; mode?: number | undefined };
 
 export async function withFile<T>(path: string, use: (handle: FileHandle) => Promise<T>, { flags = "r", mode }: FileOpening = {}): Promise<T> {
   return closingAfter(await open(path, flags, mode), use);
@@ -129,16 +128,6 @@ export async function readAt(handle: FileHandle, position: number, length: numbe
 
 export function readFileAt(path: string, position: number, length: number): Promise<Buffer> {
   return withFile(path, (handle) => readAt(handle, position, length));
-}
-
-export function parseJson<T>(text: string, schema: z.ZodType<T>): T | null {
-  try {
-    const parsed = schema.safeParse(JSON.parse(text));
-    return parsed.success ? parsed.data : null;
-  } catch (error) {
-    if (error instanceof SyntaxError) return null;
-    throw error;
-  }
 }
 
 type RemovalOutcome = "removed" | "already-gone" | "changed";

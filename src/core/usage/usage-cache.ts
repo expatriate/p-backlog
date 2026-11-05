@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { transcriptStateSchema, usageBucketSchema } from "../stats/cost/usage-state";
 import { readJsonFile } from "../store/json-file";
-import { writeFileAtomic } from "../store/atomic-write";
+import { writeRecomputableFileAtomic } from "../store/atomic-write";
 
 const USAGE_CACHE_FILE = ".usage-cache.json";
 
@@ -36,5 +36,5 @@ export async function readUsageCache(root: string): Promise<UsageCache> {
 
 export async function writeUsageCache(root: string, cache: UsageCache): Promise<void> {
   await mkdir(root, { recursive: true });
-  await writeFileAtomic(join(root, USAGE_CACHE_FILE), JSON.stringify(cache));
+  await writeRecomputableFileAtomic(join(root, USAGE_CACHE_FILE), JSON.stringify(cache));
 }

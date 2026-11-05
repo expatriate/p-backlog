@@ -1,5 +1,7 @@
 import type { z } from "zod";
-import { NEWLINE, parseJson, readAt, readTextOrNull, withFile } from "./fs-utils";
+import { syncParentDirectory } from "./atomic-write";
+import { NEWLINE, readAt, readTextOrNull, withFile } from "./fs-utils";
+import { parseJson } from "./json-file";
 
 export type JsonLines<T> = { values: readonly T[]; invalidLines: number };
 
@@ -22,14 +24,16 @@ export function toJsonLines(values: readonly unknown[]): string {
 }
 
 export async function appendJsonLines(path: string, values: readonly unknown[]): Promise<void> {
-  await withFile(
+  const startedEmpty = await withFile(
     path,
     async (handle) => {
       const { size } = await handle.stat();
       const endsMidLine = size > 0 && (await readAt(handle, size - 1, 1))[0] !== NEWLINE;
       await handle.appendFile((endsMidLine ? "\n" : "") + toJsonLines(values), "utf8");
       await handle.sync();
+      return size === 0;
     },
     { flags: "a+" },
   );
+  if (startedEmpty) await syncParentDirectory(path);
 }

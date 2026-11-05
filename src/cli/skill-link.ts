@@ -2,7 +2,8 @@ import { mkdir, readlink, symlink, unlink } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import type { Language } from "../core/i18n/language";
-import { lstatOrNull, parseJson, readTextOrNull } from "../core/store/fs-utils";
+import { lstatOrNull, readTextOrNull } from "../core/store/fs-utils";
+import { parseJson } from "../core/store/json-file";
 import { SKILL_NAME } from "../core/skill-name";
 import { SKILL_SOURCES_DIR, SKILL_VARIANTS } from "./skill-variants";
 

@@ -2,7 +2,7 @@ import { buildIndex, isClosed, type BacklogIndex } from "../model/graph";
 import { errorText, type PathErrorHandler } from "../errors";
 import { partition } from "../collections";
 import { compareIds } from "../model/ids";
-import type { Closure } from "../model/lifecycle";
+import { closesAfterItsTasks, type Closure } from "../model/lifecycle";
 import type { Problem } from "../model/problems";
 import type { Priority, Task, TaskStatus } from "../model/types";
 import { appendingJournal, bufferedJournal, undoJournal, type JournalWriter } from "./journal";
@@ -32,8 +32,10 @@ export async function applyBatch(index: BacklogIndex, { tasks, action, now, onEr
   const ordered = [...tasks].sort((left, right) => compareIds(left.id, right.id));
   const journal = bufferedJournal(appendingJournal(onError));
   const step = { action, now, onError, journal: action.kind === "restore" ? undoJournal(journal.write) : journal.write };
-  const closesAfterItsTasks = (task: BatchTask) => action.kind === "close" && index.byId.get(task.id)?.type === "epic";
-  const [epics, others] = partition(ordered, closesAfterItsTasks);
+  const [epics, others] = partition(ordered, (task) => {
+    const current = index.byId.get(task.id);
+    return current !== undefined && closesAfterItsTasks(action, current);
+  });
   const taskOutcomes = await applyInOrder(index, others, step);
   const epicOutcomes = await applyInOrder(indexAfter(index, taskOutcomes), epics, step);
   await journal.flush();

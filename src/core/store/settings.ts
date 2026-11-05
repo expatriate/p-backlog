@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { errorText } from "../errors";
 import { languageFromLocale, type Language } from "../i18n/language";
 import { settingsSchema, type Settings } from "../model/settings";
-import { parseJson, readTextOrNull } from "./fs-utils";
-import { writeJsonFile } from "./json-file";
+import { readTextOrNull } from "./fs-utils";
+import { parseJson, writeJsonFile } from "./json-file";
 import { projectDirNames } from "./load";
 
 const SETTINGS_FILE = ".settings.json";

@@ -1,10 +1,11 @@
 import type { BatchAction, BatchOutcome, BatchRequest, BatchResponse } from "../../core/api/contract";
 import { partition } from "../../core/collections";
+import { closesAfterItsTasks } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
 import type { ApiClient } from "../api/client";
 
 export function batchRequestOf(tasks: readonly Pick<Task, "id" | "version" | "type">[], action: BatchAction): BatchRequest {
-  const [epics, others] = partition(tasks, (task) => task.type === "epic");
+  const [epics, others] = partition(tasks, (task) => closesAfterItsTasks(action, task));
   return { tasks: [...others, ...epics].map(({ id, version }) => ({ id, version })), action };
 }
 

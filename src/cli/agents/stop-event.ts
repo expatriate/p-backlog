@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { parseJson } from "../../core/store/fs-utils";
+import { parseJson } from "../../core/store/json-file";
 import { AGENT_SPECS, type Agent } from "./agent";
 
 export type StopEvent = { cwd: string; session: string | undefined; turn: string | undefined; skip: boolean };

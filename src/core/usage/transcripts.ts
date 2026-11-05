@@ -5,7 +5,8 @@ import { sum } from "../numbers";
 import { statsPeriod } from "../stats/weeks";
 import { addTokens } from "../stats/cost/token-counts";
 import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
-import { EMPTY_FINGERPRINT, listDir, NEWLINE, parseJson, readAt, readFileAt, statOrNull, withFile } from "../store/fs-utils";
+import { EMPTY_FINGERPRINT, listDir, NEWLINE, readAt, readFileAt, statOrNull, withFile } from "../store/fs-utils";
+import { parseJson } from "../store/json-file";
 import { USAGE_CACHE_VERSION, type UsageCache, type UsageCacheEntry } from "./usage-cache";
 import { retainedSince } from "../model/history-window";
 

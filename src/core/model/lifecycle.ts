@@ -98,6 +98,10 @@ export function planEpicReopening(tasks: readonly Task[]): EpicWithChildren[] {
   });
 }
 
+export function closesAfterItsTasks(action: { kind: string }, task: Pick<Task, "type">): boolean {
+  return action.kind === "close" && task.type === "epic";
+}
+
 export function epicClosingProblems(before: Task, after: Task, index: BacklogIndex): Problem[] {
   if (after.type !== "epic" || !isClosed(after.status) || isClosed(before.status)) return [];
   const childIds = openChildIds(after, index);

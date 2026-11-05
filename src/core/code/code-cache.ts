@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { FixCommit } from "./types";
 import { readJsonFile } from "../store/json-file";
-import { writeFileAtomic } from "../store/atomic-write";
+import { writeRecomputableFileAtomic } from "../store/atomic-write";
 import type { RepoScan } from "./repo-scan";
 
 export const CODE_CACHE_FILE = ".code-cache.json";
@@ -42,6 +42,6 @@ export function createCodeCacheFile(root: string): CodeCacheStore {
       const snapshot = await readJsonFile(path, snapshotSchema);
       return snapshot === null ? emptyCodeCache() : { repos: snapshot.repos, fixes: snapshot.fixes, unsettled: snapshot.unsettled };
     },
-    write: (snapshot) => writeFileAtomic(path, JSON.stringify({ version: CODE_CACHE_VERSION, ...snapshot })),
+    write: (snapshot) => writeRecomputableFileAtomic(path, JSON.stringify({ version: CODE_CACHE_VERSION, ...snapshot })),
   };
 }
