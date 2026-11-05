@@ -10,7 +10,7 @@ describe("кэш со сроком жизни", () => {
 
     expect([await report(), await report()]).toEqual([1, 1]);
 
-    cache.clear();
+    cache.forgetAll();
     expect(await report()).toBe(2);
 
     clock = 1001;
@@ -39,7 +39,7 @@ describe("кэш со сроком жизни", () => {
     expect(await cache.get("k", async () => "ok")).toBe("ok");
   });
 
-  it("clearTagged убирает только записи с пересекающимися тегами", async () => {
+  it("forgetTagged убирает только записи с пересекающимися тегами", async () => {
     const cache = createTtlCache({ ttlMs: 1000, now: () => 0 });
     let computedA = 0;
     let computedB = 0;
@@ -48,18 +48,18 @@ describe("кэш со сроком жизни", () => {
 
     expect([await a(), await b()]).toEqual([1, 1]);
 
-    cache.clearTagged(["project:a"]);
+    cache.forgetTagged(["project:a"]);
 
     expect([await a(), await b()]).toEqual([2, 1]);
   });
 
-  it("отказ устаревшего расчёта после clearTagged не удаляет свежую запись по тому же ключу", async () => {
+  it("отказ устаревшего расчёта после forgetTagged не удаляет свежую запись по тому же ключу", async () => {
     const cache = createTtlCache({ ttlMs: 1000, now: () => 0 });
     let computed = 0;
     const { promise: stale, reject: rejectStale } = Promise.withResolvers<number>();
 
     const staleResult = cache.get("k", () => stale, ["tag"]);
-    cache.clearTagged(["tag"]);
+    cache.forgetTagged(["tag"]);
     const fresh = await cache.get("k", async () => ++computed, ["tag"]);
 
     rejectStale(new Error("устарел"));

@@ -38,8 +38,8 @@ export function createCodeSource({ home, git = runGit, store, onError = () => {}
       retainedRepos = new Set(expanded(backlogProjects));
     },
     stateKey: async (projects) => {
-      const states = await Promise.all(expanded(projects).map(async (repo) => `${repo}@${refsKey(await readRefs(git, repo))}`));
-      return states.join(" ");
+      const states = await Promise.all(expanded(projects).map(async (repo) => [repo, refsKey(await readRefs(git, repo))]));
+      return JSON.stringify(states);
     },
     collect: async (projects, now) => {
       await cache.restore();

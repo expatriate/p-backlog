@@ -48,6 +48,10 @@ export function createApi({ root, readLanguage, changes, now, home, statsService
   const snapshots = createSnapshotCache({ root, revisions, journalSources, warn: statsServices.warn });
   const graphHealth = rememberedGraphHealth(home, now);
   const stats = createStatsApi({ root, readLanguage, now, home, services: statsServices, backlog: snapshots.read, graphHealth, journalSources });
+  snapshots.onProjects((projects) => {
+    journalSources.retain(projects.map((project) => project.id));
+    stats.retain(projects);
+  });
   const changeHub = createChangeHub({ revisions, snapshots, derived: stats, changes });
   const onWriteError = warnPathErrors((line) => void statsServices.warn(() => line));
   const deps: ApiDeps = { root, readLanguage, now, backlog: snapshots.read, graphHealth, changeHub, onWriteError };

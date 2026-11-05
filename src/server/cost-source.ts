@@ -1,5 +1,4 @@
 import { join } from "node:path";
-import { formatLocalDay } from "../core/model/dates";
 import type { Project } from "../core/model/types";
 import { costReport } from "../core/stats/cost/cost-report";
 import type { CostReport } from "../core/stats/types";
@@ -7,44 +6,35 @@ import { createJsonlTail } from "../core/store/jsonl-tail";
 import { cachedRepoRoots, findProjectForRoots, type GitRoots, type RepoPlaces, type RepoRootLookup } from "../core/store/resolve-project";
 import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
 import type { UsageCache } from "../core/usage/usage-cache";
-import { createScopeMemo, createSnapshotIds } from "./source-memos";
 import type { UsageSnapshot } from "./usage-scanner";
 
-type CostScope = { snapshot: object; projects: readonly Project[]; projectId: string | undefined };
+type CostRequest = { usage: UsageSnapshot; projects: readonly Project[]; projectId: string | undefined; now: Date };
 
-type CostInputs = { usage: UsageSnapshot; runs: readonly CliRun[]; scope: CostScope; now: Date };
-
-type CostRequest = Omit<CostInputs, "runs">;
+type CostInputs = CostRequest & { runs: readonly CliRun[] };
 
 type CostSource = {
+  stateKey: (usage: UsageSnapshot) => Promise<string>;
   costReport: (request: CostRequest) => Promise<CostReport>;
-  retain: (projectIds: readonly string[]) => void;
 };
 
 export function createCostSource(root: string, home: string): CostSource {
   const runsTail = createJsonlTail<CliRun>(join(root, RUNS_FILE), cliRunSchema);
   const places: RepoPlaces = { home, onUnreadable: unreadablePathHasNoProject };
   const lookupRepoRoot = cachedRepoRoots({ onUnreadable: unreadablePathHasNoProject });
-  const costMemos = createScopeMemo<Promise<CostReport>>();
-  const snapshotIdOf = createSnapshotIds();
 
   return {
-    costReport: async (request) => {
-      const { values: runs, length, generation } = await runsTail.read();
-      const inputs: CostInputs = { ...request, runs };
-      const keyParts: Record<keyof CostInputs, unknown> = {
-        usage: inputs.usage.revision,
-        runs: [generation, length],
-        scope: [snapshotIdOf(inputs.scope.snapshot), inputs.scope.projects.map((project) => project.id)],
-        now: formatLocalDay(inputs.now),
-      };
-      return costMemos.get(JSON.stringify(keyParts), () => computeCostReport(inputs, places, lookupRepoRoot), inputs.scope.projectId);
+    stateKey: async (usage) => {
+      const { length, generation } = await runsTail.read();
+      return JSON.stringify([usage.revision, generation, length]);
     },
-    retain: costMemos.retain,
+    costReport: async (request) => {
+      const { values: runs } = await runsTail.read();
+      return computeCostReport({ ...request, runs }, places, lookupRepoRoot);
+    },
   };
 }
 
-async function computeCostReport({ usage: { cache, scan }, runs, scope: { projects, projectId }, now }: CostInputs, places: RepoPlaces, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
+async function computeCostReport({ usage: { cache, scan }, runs, projects, projectId, now }: CostInputs, places: RepoPlaces, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
   const buckets = usageBucketsOf(cache);
   const repoRoots =
     projectId === undefined

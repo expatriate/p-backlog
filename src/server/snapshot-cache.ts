@@ -3,6 +3,7 @@ import type { Revision } from "../core/api/contract";
 import { errorText } from "../core/errors";
 import { tasksClosedInWeb } from "../core/journal/closed-in-web";
 import type { ProjectJournal } from "../core/journal/events";
+import type { Project } from "../core/model/types";
 import { buildIndex, type BacklogIndex } from "../core/model/graph";
 import { JOURNAL_FILE } from "../core/store/journal";
 import { loadBacklog, type LoadedBacklog } from "../core/store/load";
@@ -13,17 +14,20 @@ import type { OwnWrite, Revisions } from "./revisions";
 
 export type IndexedBacklog = LoadedBacklog & { index: BacklogIndex; closedInWeb: string[]; revision: Revision };
 
-export type SnapshotCache = { read: () => Promise<IndexedBacklog>; forget: () => void };
+type ProjectsListener = (projects: readonly Project[]) => void;
+
+export type SnapshotCache = { read: () => Promise<IndexedBacklog>; forget: () => void; onProjects: (listener: ProjectsListener) => void };
 
 type SnapshotCacheOptions = { root: string; revisions: Revisions; journalSources: JournalSources; warn: LocalizedWarn };
 
 export function createSnapshotCache({ root, revisions, journalSources, warn }: SnapshotCacheOptions): SnapshotCache {
   let snapshot: Promise<IndexedBacklog> | null = null;
+  const projectsListeners: ProjectsListener[] = [];
   return {
     read: () => {
       if (snapshot !== null) return snapshot;
       const loading: Promise<IndexedBacklog> = loadSnapshot(root, revisions.current(), journalSources, warn).then((loaded) => {
-        if (snapshot === loading) journalSources.retain(loaded.projects.map((project) => project.id));
+        if (snapshot === loading) for (const listener of projectsListeners) listener(loaded.projects);
         return loaded;
       });
       snapshot = loading;
@@ -34,6 +38,9 @@ export function createSnapshotCache({ root, revisions, journalSources, warn }: S
     },
     forget: () => {
       snapshot = null;
+    },
+    onProjects: (listener) => {
+      projectsListeners.push(listener);
     },
   };
 }

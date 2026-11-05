@@ -1,7 +1,7 @@
 export type TtlCache = {
   get: <T>(key: string, compute: () => Promise<T>, tags?: readonly string[]) => Promise<T>;
-  clear: () => void;
-  clearTagged: (tags: readonly string[]) => void;
+  forgetAll: () => void;
+  forgetTagged: (tags: readonly string[]) => void;
   size: () => number;
 };
 
@@ -23,8 +23,8 @@ export function createTtlCache({ ttlMs, now }: { ttlMs: number; now: () => numbe
       });
       return value;
     },
-    clear: () => entries.clear(),
-    clearTagged: (tags) => {
+    forgetAll: () => entries.clear(),
+    forgetTagged: (tags) => {
       const tagged = new Set(tags);
       for (const [key, entry] of entries) if (entry.tags.some((tag) => tagged.has(tag))) entries.delete(key);
     },

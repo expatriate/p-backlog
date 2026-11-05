@@ -28,11 +28,6 @@ export function createScopeMemo<V>(): ScopeMemo<V> {
       if (remembered?.key === key) return remembered.value;
       const value = compute();
       slots.set(projectId, { key, value });
-      if (value instanceof Promise) {
-        value.catch(() => {
-          if (slots.get(projectId)?.value === value) slots.delete(projectId);
-        });
-      }
       return value;
     },
     retain: (projectIds) => pruneUnlessKept(slots, projectIds),
