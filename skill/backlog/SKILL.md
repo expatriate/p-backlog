@@ -169,8 +169,8 @@ Agent, `model: "sonnet"`): передай ID задач из сообщения 
    поправь YAML руками, не меняя `id`. Остальное перечисли пользователю: `task-invalid` (ошибка `problem`
    в задаче `taskId`), `fix-failed` (исправление не записалось, причина `cause`), `epics-wait-for-files`,
    `project-without-repos`, `project-repos-missing`, `project-repo-not-git`, `project-repo-unsafe` (git не
-   доверяет каталогу `repo` другого владельца — `repos` в `project.md` править не надо, нужен
-   `git config --global --add safe.directory "<repo>"`, его запускает пользователь), `project-history-unreadable`,
+   доверяет каталогу `repo` другого владельца — `repos` в `project.md` править не надо, нужна команда из поля
+   `trustCommand`, её запускает пользователь), `project-history-unreadable`,
    `project-branches-unreadable` (ветки git не прочитались — пропавшие файлы задач не проверены), `merge-state-unknown` (git не смог ответить, влиты ли ветки `branches`, — их задачи проверены как обычные),
    `prefix-shared` (у проектов `projectIds` один префикс — ID задач пересекаются).
 5. В конце ответа — блок, по которому пользователь найдёт закрытое:

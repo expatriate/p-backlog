@@ -10,10 +10,9 @@ type FileChange = { path: string; renamedFrom?: string };
 
 export type Commit = { sha: string; shortSha: string; date: string; parents: string[]; subject: string; files: FileChange[] };
 
-type GitHistory = "read" | "not-a-repo" | "unsafe-repo" | "unreadable";
+type NoHistory = { history: "not-a-repo" | "unreadable" } | { history: "unsafe-repo"; trustCommand: string };
 
-export type RepoFacts = {
-  history: GitHistory;
+export type RepoFacts = ({ history: "read" } | NoHistory) & {
   commits: Commit[];
   renames: Commit[];
   dirtyModifiedAt: ReadonlyMap<string, number>;
@@ -23,8 +22,8 @@ export type RepoFacts = {
   unreadable: ReadonlyMap<string, unknown>;
 };
 
-// git's dubious-ownership wording varies by version and locale; only the safe.directory hint is stable
-const SAFE_DIRECTORY_HINT = "safe.directory";
+// git's dubious-ownership wording varies by version and locale; only its ready-to-run safe.directory command is stable, and a warning about a relative safe.directory may precede it
+const TRUST_COMMAND = /^git config .*safe\.directory/;
 const DIFF_LINE_LIMIT = 80;
 const REFLOG_MOMENT = /\{(\d+)\}$/;
 const STATUS_CODE_WIDTH = 3;
@@ -37,21 +36,31 @@ export type PathMarks = ReadonlyMap<string, number>;
 
 export const FACTS_HISTORY_OPTIONS: readonly string[] = ["--full-history"];
 
-type RepoLocation = { history: "read"; prefix: string; hasCommits: boolean } | { history: Exclude<GitHistory, "read"> };
+type RepoLocation = { history: "read"; prefix: string; hasCommits: boolean } | NoHistory;
 
 export async function locateRepo(repo: string): Promise<RepoLocation> {
   const location = await runGitOutcome(repo, ["rev-parse", "--show-prefix", "--revs-only", "HEAD"]);
-  if (location.status === "exited") return { history: location.stderr.includes(SAFE_DIRECTORY_HINT) ? "unsafe-repo" : "not-a-repo" };
+  if (location.status === "exited") {
+    const trustCommand = trustCommandIn(location.stderr);
+    return trustCommand === undefined ? { history: "not-a-repo" } : { history: "unsafe-repo", trustCommand };
+  }
   if (location.status === "unfinished") return { history: "unreadable" };
   const [prefix = "", head = ""] = location.stdout.split("\n").map((line) => line.trim());
   return { history: "read", prefix, hasCommits: head !== "" };
 }
 
+function trustCommandIn(stderr: string): string | undefined {
+  return stderr
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => TRUST_COMMAND.test(line));
+}
+
 export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Promise<RepoFacts> {
   const paths = [...pathMarks.keys()];
   const [location, files] = await Promise.all([locateRepo(repo), sourceFiles(repo, paths)]);
-  const withoutHistory = (history: Exclude<GitHistory, "read">): RepoFacts => ({ history, commits: [], renames: [], dirtyModifiedAt: new Map(), branches: unknownBranches(history), ...files });
-  if (location.history !== "read") return withoutHistory(location.history);
+  const withoutHistory = (noHistory: NoHistory): RepoFacts => ({ ...noHistory, commits: [], renames: [], dirtyModifiedAt: new Map(), branches: unknownBranches(noHistory.history), ...files });
+  if (location.history !== "read") return withoutHistory(location);
   const { prefix, hasCommits } = location;
   const missing = paths.filter((path) => !files.existing.has(path) && !files.unreadable.has(path));
   const [log, renames, status, branches] = await Promise.all([
@@ -60,7 +69,7 @@ export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Prom
     runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
     branchHistoryOf(repo, location, missing),
   ]);
-  if (log === null || renames === null || status === null) return withoutHistory("unreadable");
+  if (log === null || renames === null || status === null) return withoutHistory({ history: "unreadable" });
   const dirty = withinRepo(parseStatus(status), prefix);
   return { history: "read", commits: parseLog(log), renames: parseLog(renames), dirtyModifiedAt: await modificationTimes(repo, dirty), branches, ...files };
 }
@@ -73,7 +82,7 @@ export async function branchHistoryOf(repo: string, location: RepoLocation, path
   return here === null || anywhere === null ? { kind: "unreadable" } : { kind: "read", committedHere: new Set(here), committedAnywhere: new Set(anywhere) };
 }
 
-function unknownBranches(history: Exclude<GitHistory, "read">): BranchHistory {
+function unknownBranches(history: NoHistory["history"]): BranchHistory {
   return history === "not-a-repo" ? { kind: "no-repo" } : { kind: "unreadable" };
 }
 

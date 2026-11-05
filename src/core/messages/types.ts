@@ -9,11 +9,14 @@ import type { StoreMessages } from "./store-messages";
 
 export type CountUnit = "task" | "line" | "project" | "day" | "week" | "session";
 
+export type UntrustedRepoTexts = { reason: string; fix: string };
+
 export type CoreMessages = StoreMessages & {
   hookMark: string;
   languageName: string;
   problems: (list: readonly Problem[]) => string;
   taskNotLoaded: (id: string) => string;
+  untrustedRepo: (repo: string, trustCommand: string) => UntrustedRepoTexts;
   schemaIssue: (issue: SchemaIssue) => string;
   categoryLabel: (category: TaskCategory | undefined) => string;
   categoryRowLabel: (category: CategoryRow["category"]) => string;

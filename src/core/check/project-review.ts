@@ -172,14 +172,14 @@ function evidenceOf(tasks: readonly Task[], evidence: CandidateEvidence): TaskEv
   return tasks.map((task) => ({ task: task.id, evidence }));
 }
 
-function historyProblems(project: Project, repo: string, { history, branches }: RepoFacts): CheckProblem[] {
-  switch (history) {
+function historyProblems(project: Project, repo: string, facts: RepoFacts): CheckProblem[] {
+  switch (facts.history) {
     case "read":
-      return branches.kind === "unreadable" ? [{ kind: "project-branches-unreadable", projectId: project.id, repo }] : [];
+      return facts.branches.kind === "unreadable" ? [{ kind: "project-branches-unreadable", projectId: project.id, repo }] : [];
     case "not-a-repo":
       return [{ kind: "project-repo-not-git", projectId: project.id, repo }];
     case "unsafe-repo":
-      return [{ kind: "project-repo-unsafe", projectId: project.id, repo }];
+      return [{ kind: "project-repo-unsafe", projectId: project.id, repo, trustCommand: facts.trustCommand }];
     case "unreadable":
       return [{ kind: "project-history-unreadable", projectId: project.id, repo }];
   }

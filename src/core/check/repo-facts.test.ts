@@ -9,6 +9,22 @@ import { collectRepoFacts, diffsSince } from "./repo-facts";
 const marksSince = (iso: string, paths: readonly string[]) => new Map(paths.map((path) => [path, Date.parse(iso)]));
 
 describe("collectRepoFacts", () => {
+  it("недоверенный каталог: команда исправления — готовая строка git, а не его предупреждение об относительном safe.directory перед ней", async () => {
+    const home = await makeTempDir();
+    const repo = await makeGitRepo(home, "spa");
+    const globalConfig = join(home, "gitconfig");
+    await writeFile(globalConfig, "[safe]\n\tdirectory = relative/path\n");
+    vi.stubEnv("GIT_CONFIG_GLOBAL", globalConfig);
+    vi.stubEnv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1");
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+
+    const facts = await collectRepoFacts(repo, new Map());
+
+    expect(facts).toMatchObject({ history: "unsafe-repo", trustCommand: expect.stringMatching(/^git config --global --add safe\.directory /) });
+  });
+
   it("собирает коммиты после даты с файлами и переименованиями, незакоммиченные правки и существующие файлы", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "src/a.ts": "export const a = 1;\n", "src/old.ts": "export const old = 1;\n", "src/загрузка.ts": "" });

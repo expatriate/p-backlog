@@ -11,7 +11,9 @@ import { presenceOffDisk, type PresenceOffDisk } from "./candidates";
 import { currentSourceIn } from "./current-source";
 import { branchHistoryOf, locateRepo } from "./repo-facts";
 
-export type SourcePresence = PresenceOffDisk | "untrusted-repo";
+type UntrustedRepo = { trustCommand: string };
+
+export type SourcePresence = PresenceOffDisk | UntrustedRepo;
 
 export type SourceAnchor = { kind: "no-file" } | { kind: "uncomputable" } | { kind: "anchor"; anchor: string };
 
@@ -30,7 +32,7 @@ export async function sourcePresence(repo: string, source: string, onUnreadable:
   const presentOrUnreadable = onDisk !== false;
   if (presentOrUnreadable) return "present";
   const location = await locateRepo(repo);
-  if (location.history === "unsafe-repo") return "untrusted-repo";
+  if (location.history === "unsafe-repo") return { trustCommand: location.trustCommand };
   return presenceOffDisk(path, await branchHistoryOf(repo, location, [path]));
 }
 

@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
@@ -96,7 +97,7 @@ describe("backlog verify", () => {
     const verified = await run(["verify", "SPA-1", "--source", "src/other.ts:1"]);
 
     expect(verified.code).toBe(EXIT.ok);
-    expect(verified.err).toContain(`git config --global --add safe.directory "${repo}"`);
+    expect(verified.err).toContain(`Исправление: git config --global --add safe.directory ${realpathSync(repo)}`);
   });
 
   it("подтверждение пишет в журнал verified, с --source — с новым местом", async () => {

@@ -183,7 +183,7 @@ subagent, do the re-check yourself.
    `problem` in task `taskId`), `fix-failed` (the fix wasn't written, reason `cause`), `epics-wait-for-files`,
    `project-without-repos`, `project-repos-missing`, `project-repo-not-git`, `project-repo-unsafe` (git doesn't
    trust the directory `repo` owned by another user — don't edit `repos` in `project.md`, the user needs to run
-   `git config --global --add safe.directory "<repo>"`), `project-history-unreadable`,
+   the command from `trustCommand`), `project-history-unreadable`,
    `project-branches-unreadable` (git branches couldn't be read — missing task files weren't checked), `merge-state-unknown` (git couldn't tell whether branches `branches` landed — their tasks were checked as usual),
    `prefix-shared` (projects `projectIds` share one prefix — their task IDs collide).
 5. End your answer with a block the user can use to find what was closed:

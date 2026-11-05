@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { chmod, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -1151,13 +1152,14 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-missing", task: expect.objectContaining({ id: "PL-1" }) })]);
   });
 
-  it("каталог другого владельца (dubious ownership) — своя проблема с лекарством, а не «не git-репозиторий»", async () => {
+  it("каталог другого владельца (dubious ownership) — своя проблема с лекарством для корня репозитория, даже если проект на его подкаталоге", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
-    const repo = await makeGitRepo(home, "projects/spa");
-    await writeFiles(repo, { "src/a.ts": "a\n" });
+    const repo = await makeGitRepo(home, "projects/mono");
+    const app = join(repo, "packages", "app");
+    await writeFiles(app, { "src/a.ts": "a\n" });
     gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
-    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts:1\n") });
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [app]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts:1\n") });
     vi.stubEnv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1");
     onTestFinished(() => {
       vi.unstubAllEnvs();
@@ -1165,8 +1167,9 @@ describe("checkBacklog", () => {
 
     const report = await check(root, home, "full");
 
-    expect(report.problems).toEqual([{ kind: "project-repo-unsafe", projectId: "spa", repo }]);
-    expect(report.problems.map((problem) => RU.checkProblem(problem))).toEqual([expect.stringContaining(`git config --global --add safe.directory "${repo}"`)]);
+    const trustCommand = `git config --global --add safe.directory ${realpathSync(repo)}`;
+    expect(report.problems).toEqual([{ kind: "project-repo-unsafe", projectId: "spa", repo: app, trustCommand }]);
+    expect(report.problems.map((problem) => RU.checkProblem(problem))).toEqual([expect.stringContaining(`Исправление: ${trustCommand}`)]);
   });
 
   it("история не читается — ни файл из другой ветки, ни опечатка не выдаются за пропавшие, и прежняя находка не считается ушедшей", async () => {

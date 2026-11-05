@@ -14,7 +14,7 @@ function commit(sha: string, date: string, files: Commit["files"]): Commit {
   return { sha, shortSha: sha, date, parents: [], subject: `Коммит ${sha}`, files };
 }
 
-function facts(overrides: Partial<RepoFacts>): RepoFacts {
+function facts(overrides: Partial<Omit<RepoFacts, "history">>): RepoFacts {
   return {
     history: "read",
     commits: [],
