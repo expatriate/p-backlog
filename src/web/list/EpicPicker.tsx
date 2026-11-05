@@ -12,9 +12,9 @@ import styles from "./EpicPicker.module.css";
 
 type EpicSelection = TaskFilter["epic"];
 
-export type EpicPickerProps = { choices: EpicChoices; selected: EpicSelection; onSelect: (epic: EpicSelection) => void };
+export type EpicPickerProps = { choices: EpicChoices; unparsedTaskIds: ReadonlySet<string>; selected: EpicSelection; onSelect: (epic: EpicSelection) => void };
 
-export function EpicPicker({ choices, selected, onSelect }: EpicPickerProps) {
+export function EpicPicker({ choices, unparsedTaskIds, selected, onSelect }: EpicPickerProps) {
   const { list } = useMessages();
   const trigger = useRef<HTMLButtonElement>(null);
   const chosen = choices.epics.find((epic) => epic.id === selected);
@@ -39,7 +39,7 @@ export function EpicPicker({ choices, selected, onSelect }: EpicPickerProps) {
           )
         }
       >
-        <EpicOptions choices={choices} selected={selected} onSelect={onSelect} />
+        <EpicOptions choices={choices} unparsedTaskIds={unparsedTaskIds} selected={selected} onSelect={onSelect} />
       </Popover>
       {selected !== undefined && (
         <IconButton
@@ -56,7 +56,7 @@ export function EpicPicker({ choices, selected, onSelect }: EpicPickerProps) {
   );
 }
 
-function EpicOptions({ choices, selected, onSelect }: EpicPickerProps) {
+function EpicOptions({ choices, unparsedTaskIds, selected, onSelect }: EpicPickerProps) {
   const { list } = useMessages();
   const closePopover = useClosePopover();
   const choose = (epic: EpicSelection) => {
@@ -77,7 +77,7 @@ function EpicOptions({ choices, selected, onSelect }: EpicPickerProps) {
         <div className={styles.epics}>
           {foreignEpic !== undefined && (
             <MenuOption pressed onChoose={() => choose(foreignEpic)}>
-              <EpicLabel id={foreignEpic} title={list.epicNotFound} tone={undefined} />
+              <EpicLabel id={foreignEpic} title={unparsedTaskIds.has(foreignEpic) ? list.epicNotLoaded : list.epicNotFound} tone={undefined} />
             </MenuOption>
           )}
           {choices.epics.map((epic) => (

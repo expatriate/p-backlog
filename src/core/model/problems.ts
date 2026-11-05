@@ -18,6 +18,7 @@ export type Problem =
   | { code: "reason-without-resolution" }
   | { code: "epic-self" }
   | { code: "epic-missing"; epic: string }
+  | { code: "epic-unparsed"; epic: string }
   | { code: "epic-not-epic"; epic: string }
   | { code: "epic-foreign-project"; epic: string }
   | { code: "epic-in-epic" }

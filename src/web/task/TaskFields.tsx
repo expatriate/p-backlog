@@ -19,7 +19,7 @@ export type TaskFieldsProps = {
 
 export function TaskFields({ task, epicListId, onChange, tags, epic }: TaskFieldsProps) {
   const { core, task: taskMessages } = useMessages();
-  const { index } = useAllTasks();
+  const { index, unparsedTaskIds } = useAllTasks();
   const { ref: epicRef } = epic;
   const { ref: tagsRef } = tags;
   const [epicError, setEpicError] = useState<string | null>(null);
@@ -27,7 +27,8 @@ export function TaskFields({ task, epicListId, onChange, tags, epic }: TaskField
 
   const saveEpic = () => {
     const value = epic.canonical;
-    const problems = value === "" ? [] : epicProblems({ ...task, epic: value }, (id) => index.byId.get(id));
+    const keepsEpic = value === (task.epic ?? "");
+    const problems = value === "" || keepsEpic ? [] : epicProblems({ ...task, epic: value }, (id) => index.byId.get(id), unparsedTaskIds);
     setEpicError(problems.length === 0 ? null : core.problems(problems));
     if (problems.length > 0) return;
     epic.commit((next) => onChange({ epic: next === "" ? null : next }));

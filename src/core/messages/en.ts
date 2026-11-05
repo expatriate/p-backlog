@@ -159,6 +159,8 @@ function problem(p: Problem): string {
       return "a task cannot be its own epic";
     case "epic-missing":
       return `epic ${p.epic} not found`;
+    case "epic-unparsed":
+      return `epic ${p.epic} is not loaded: its file or its project file could not be parsed`;
     case "epic-not-epic":
       return `${p.epic} is not an epic`;
     case "epic-foreign-project":

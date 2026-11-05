@@ -17,6 +17,15 @@ describe("backlog priority", () => {
     expect(events.at(-1)).toMatchObject({ kind: "priority", task: "SPA-1", from: "medium", to: "critical", via: "cli" });
   });
 
+  it("приоритет задачи эпика, чей файл не разобран, меняется, а не отклоняется «эпик не найден»", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--title", "Эпик", "--type", "epic"]);
+    await run(["new", "--category", "bug", "--title", "Задача эпика", "--epic", "SPA-1"]);
+    await writeFile(join(root, "spa/SPA-1.md"), "---\nid: SPA-1\ntitle: [\n---\n", "utf8");
+
+    expect(await run(["priority", "SPA-2", "low"])).toMatchObject({ code: EXIT.ok, out: "SPA-2: medium → low" });
+  });
+
   it("неизвестный приоритет и лишние аргументы — код 1, нет задачи — код 2", async () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "X"]);

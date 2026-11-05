@@ -91,6 +91,7 @@ export const cliRu = {
   tagsLine: (tags: string): string => `Теги: ${tags}`,
   epicLine: (ref: string): string => `Эпик: ${ref}`,
   epicNotFound: (epicId: string): string => `${epicId} (не найден)`,
+  epicNotLoaded: (epicId: string): string => `${epicId} (не загружен)`,
   openBlockersLine: (list: string): string => `Открытые блокеры: ${list}`,
   inactiveBlockersLine: (list: string): string => `Закрытые или ненайденные блокеры: ${list}`,
   blocksLine: (list: string): string => `Блокирует: ${list}`,

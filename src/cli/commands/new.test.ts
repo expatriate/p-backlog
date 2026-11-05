@@ -64,6 +64,17 @@ describe("backlog new", () => {
     expect(JSON.parse(result.out)).toEqual(JSON.parse((await run(["show", "SPA-2", "--json"])).out));
   });
 
+  it("--epic с неразобранным файлом эпика — отказ называет эпик незагруженным, а не ненайденным", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--title", "Эпик", "--type", "epic"]);
+    await writeFiles(root, { "spa/SPA-1.md": "---\nid: SPA-1\ntitle: [\n---\n" });
+
+    const result = await run(["new", "--category", "bug", "--title", "Задача эпика", "--epic", "SPA-1"]);
+
+    expect(result.code).toBe(EXIT.invalid);
+    expect(result.err).toContain("эпик SPA-1 не загружен");
+  });
+
   it("ошибки аргументов и правил — код 1, неизвестный --project — код 2", async () => {
     const { run } = await makeCliSandbox();
     expect((await run(["new"])).code).toBe(EXIT.invalid);

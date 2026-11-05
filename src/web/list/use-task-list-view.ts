@@ -50,7 +50,7 @@ export function useTaskListView(params: ListParams, projectId: string | undefine
     parseErrors,
     all,
     table: { tasks: visibleTasks, sort, dateColumn },
-    filterChoices: { tags, epicChoices: epicFilterChoices, autoClosedCount },
+    filterChoices: { tags, epicChoices: epicFilterChoices, unparsedTaskIds: all.unparsedTaskIds, autoClosedCount },
     empty: { hasTasks: scopedTasks.length > 0, hiddenOpen },
   };
 }

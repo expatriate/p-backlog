@@ -141,8 +141,9 @@ describe("backlog take", () => {
     await run(["new", "--category", "bug", "--title", "Первая", "--source", "src/a.ts:1"]);
     await run(["new", "--category", "bug", "--title", "Битая", "--source", "src/b.ts:1"]);
     await run(["new", "--category", "bug", "--title", "Третья", "--source", "src/c.ts:1"]);
+    await run(["new", "--category", "bug", "--title", "Не эпик", "--source", "lib/d.ts:1"]);
     const broken = join(root, "spa", "SPA-2.md");
-    await writeFile(broken, (await readFile(broken, "utf8")).replace("\n---\n", "\nepic: SPA-99\n---\n"));
+    await writeFile(broken, (await readFile(broken, "utf8")).replace("\n---\n", "\nepic: SPA-4\n---\n"));
 
     const result = await run(["take", "--path", "src", "--json"]);
 

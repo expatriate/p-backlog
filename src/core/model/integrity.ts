@@ -3,14 +3,16 @@ import { RESOLUTION_STATUS } from "./lifecycle";
 import type { Problem } from "./problems";
 import type { Task } from "./types";
 
-export function integrityErrors(candidate: Task, index: BacklogIndex): Problem[] {
+const NOTHING_UNPARSED: ReadonlySet<string> = new Set();
+
+export function integrityErrors(candidate: Task, index: BacklogIndex, unparsedTaskIds: ReadonlySet<string> = NOTHING_UNPARSED): Problem[] {
   const resolve = (id: string): Task | undefined => (id === candidate.id ? candidate : index.byId.get(id));
   const errors: Problem[] = [];
 
   if (candidate.blockedBy.includes(candidate.id)) errors.push({ code: "self-block" });
   if (candidate.related.includes(candidate.id)) errors.push({ code: "self-related" });
 
-  errors.push(...epicProblems(candidate, resolve));
+  errors.push(...epicProblems(candidate, resolve, unparsedTaskIds));
 
   const children = (index.childrenOf.get(candidate.id) ?? []).filter((task) => task.id !== candidate.id);
   if (candidate.type === "task" && children.length > 0) {
@@ -28,14 +30,14 @@ export function integrityErrors(candidate: Task, index: BacklogIndex): Problem[]
   return errors;
 }
 
-export function epicProblems(candidate: Pick<Task, "id" | "type" | "epic" | "projectId">, resolve: (id: string) => Task | undefined): Problem[] {
+export function epicProblems(candidate: Pick<Task, "id" | "type" | "epic" | "projectId">, resolve: (id: string) => Task | undefined, unparsedTaskIds: ReadonlySet<string>): Problem[] {
   if (candidate.epic === undefined) return [];
   const problems: Problem[] = [];
   if (candidate.epic === candidate.id) {
     problems.push({ code: "epic-self" });
   } else {
     const epic = resolve(candidate.epic);
-    if (!epic) problems.push({ code: "epic-missing", epic: candidate.epic });
+    if (!epic) problems.push({ code: unparsedTaskIds.has(candidate.epic) ? "epic-unparsed" : "epic-missing", epic: candidate.epic });
     else if (epic.type !== "epic") problems.push({ code: "epic-not-epic", epic: candidate.epic });
     else if (epic.projectId !== candidate.projectId) problems.push({ code: "epic-foreign-project", epic: candidate.epic });
   }
@@ -45,7 +47,7 @@ export function epicProblems(candidate: Pick<Task, "id" | "type" | "epic" | "pro
 
 export function taskWarnings(task: Task, index: BacklogIndex, unparsedTaskIds: ReadonlySet<string>): Problem[] {
   const missing = missingReferences(task, index).map((id): Problem => ({ code: unparsedTaskIds.has(id) ? "reference-unparsed" : "reference-missing", id }));
-  return [...missing, ...integrityErrors(task, index)];
+  return [...missing, ...integrityErrors(task, index, unparsedTaskIds)];
 }
 
 function findBlockerCycle(start: Task, resolve: (id: string) => Task | undefined): string[] | null {

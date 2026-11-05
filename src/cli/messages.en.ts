@@ -89,6 +89,7 @@ export const cliEn: CliMessages = {
   tagsLine: (tags) => `Tags: ${tags}`,
   epicLine: (ref) => `Epic: ${ref}`,
   epicNotFound: (epicId) => `${epicId} (not found)`,
+  epicNotLoaded: (epicId) => `${epicId} (not loaded)`,
   openBlockersLine: (list) => `Open blockers: ${list}`,
   inactiveBlockersLine: (list) => `Closed or missing blockers: ${list}`,
   blocksLine: (list) => `Blocks: ${list}`,

@@ -1,6 +1,7 @@
 import { dirname } from "node:path";
 import { isClosed, type BacklogIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
+import type { Problem } from "../model/problems";
 import { changeStatus, epicClosingProblems, isAutoClosedEpic, settleLifecycle, type Closure } from "../model/lifecycle";
 import { parseTaskFile } from "../model/task-file";
 import type { OptionalFields, Task, TaskCategory, TaskStatus } from "../model/types";
@@ -78,7 +79,9 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
   const normalized = taskText(applyChanges(current, changes, now, closure));
   if (!normalized.ok) return invalid(normalized.problems);
   const { text, task } = normalized.value;
-  const problems = [...integrityErrors(task, index), ...epicClosingProblems(current, task, index)];
+  const keepsEpic = task.epic === current.epic;
+  const integrity = integrityErrors(task, index).filter((problem) => !(keepsEpic && isUnloadedEpic(problem)));
+  const problems = [...integrity, ...epicClosingProblems(current, task, index)];
   if (problems.length > 0) return invalid(problems);
 
   const reportAfterWrite = (error: unknown) => onError(current.path, error);
@@ -98,6 +101,10 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
   } finally {
     if (written) await journal(dirname(current.path), changeEvents(current, task, now, via));
   }
+}
+
+function isUnloadedEpic(problem: Problem): boolean {
+  return problem.code === "epic-missing" || problem.code === "epic-unparsed";
 }
 
 async function withTaskLock(path: string, write: () => Promise<UpdateTaskResult>): Promise<UpdateTaskResult> {

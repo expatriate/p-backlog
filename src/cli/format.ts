@@ -43,7 +43,7 @@ export function formatTaskDetails(cli: CliMessages, core: CoreMessages, descript
   if (task.resolution !== undefined) lines.push(cli.reasonLine(task.resolution, task.reason ?? ""));
   if (task.verified !== undefined) lines.push(cli.verifiedLine(task.verified));
   if (task.tags.length > 0) lines.push(cli.tagsLine(task.tags.join(", ")));
-  if (task.epic !== undefined) lines.push(cli.epicLine(description.epic ? formatTaskRef(description.epic) : cli.epicNotFound(task.epic)));
+  if (task.epic !== undefined) lines.push(cli.epicLine(epicRef(cli, description, task.epic)));
   if (description.openBlockers.length > 0) lines.push(cli.openBlockersLine(description.openBlockers.map(formatTaskRef).join("; ")));
   if (description.inactiveBlockerIds.length > 0) {
     lines.push(cli.inactiveBlockersLine(description.inactiveBlockerIds.join(", ")));
@@ -53,6 +53,11 @@ export function formatTaskDetails(cli: CliMessages, core: CoreMessages, descript
   if (description.children.length > 0) lines.push(cli.epicChildrenLine(description.children.map(formatTaskRef).join("; ")));
   if (description.warnings.length > 0) lines.push(cli.warningsLine(description.warnings.map(core.problem).join("; ")));
   return [...lines, "", fileText.trimEnd()].join("\n");
+}
+
+function epicRef(cli: CliMessages, { epic, epicUnparsed }: TaskDescription, epicId: string): string {
+  if (epic !== undefined) return formatTaskRef(epic);
+  return epicUnparsed ? cli.epicNotLoaded(epicId) : cli.epicNotFound(epicId);
 }
 
 function formatProgress(progress: number | null): string {

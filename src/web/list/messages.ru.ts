@@ -50,6 +50,7 @@ export const listRu = {
   anyEpic: "Любой эпик",
   noEpic: "Без эпика",
   epicNotFound: "эпик не найден",
+  epicNotLoaded: "эпик не загружен",
   anyEpicLabel: "любой",
   noEpicLabel: "без эпика",
 

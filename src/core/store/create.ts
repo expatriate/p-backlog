@@ -25,6 +25,7 @@ export type CreateTaskRequest = Pick<WriteOrigin, "now" | "via" | "onError"> & {
   project: Project;
   input: NewTaskInput;
   existingTasks: readonly Task[];
+  unparsedTaskIds?: ReadonlySet<string> | undefined;
   provenance?: Provenance;
 };
 
@@ -40,7 +41,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
     const normalized = taskText(draftTask(id, path, request));
     if (!normalized.ok) return invalid(normalized.problems);
     const { text, task } = normalized.value;
-    const problems = integrityErrors(task, index);
+    const problems = integrityErrors(task, index, request.unparsedTaskIds);
     if (problems.length > 0) return invalid(problems);
     try {
       await createFileAtomic(path, text);

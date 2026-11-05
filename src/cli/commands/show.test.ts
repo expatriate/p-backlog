@@ -52,6 +52,19 @@ describe("backlog show", () => {
     expect((await run(["show"])).code).toBe(EXIT.invalid);
   });
 
+  it("эпик, чей файл не разобран, назван незагруженным, а не ненайденным", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--title", "Эпик", "--type", "epic"]);
+    await run(["new", "--category", "bug", "--title", "Задача эпика", "--epic", "SPA-1"]);
+    await writeFiles(root, { "spa/SPA-1.md": "---\nid: SPA-1\ntitle: [\n---\n" });
+
+    const result = await run(["show", "SPA-2"]);
+
+    expect(result.out).toContain("Эпик: SPA-1 (не загружен)");
+    expect(result.out).toContain("эпик SPA-1 не загружен");
+    expect(result.out).not.toContain("не найден");
+  });
+
   it("задача проекта с неразобранным project.md называет файл проекта, а не «не найдена»", async () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "X"]);

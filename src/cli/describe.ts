@@ -13,6 +13,7 @@ export type TaskDescription = {
   blocks: readonly Task[];
   related: Task[];
   epic: Task | undefined;
+  epicUnparsed: boolean;
   children: readonly Task[];
   warnings: Problem[];
   deletion: ScheduledDeletion | undefined;
@@ -28,6 +29,7 @@ export function describeTask(task: Task, index: BacklogIndex, unparsedTaskIds: R
     blocks: dependentTasks(task, index),
     related: relatedTasks(task, index),
     epic: task.epic === undefined ? undefined : index.byId.get(task.epic),
+    epicUnparsed: task.epic !== undefined && unparsedTaskIds.has(task.epic),
     children: task.type === "epic" ? epicChildren(task, index) : [],
     warnings: taskWarnings(task, index, unparsedTaskIds),
     deletion: scheduledDeletion(task, index),

@@ -171,6 +171,8 @@ function problem(p: Problem): string {
       return "задача не может быть своим эпиком";
     case "epic-missing":
       return `эпик ${p.epic} не найден`;
+    case "epic-unparsed":
+      return `эпик ${p.epic} не загружен: не разобран его файл или файл его проекта`;
     case "epic-not-epic":
       return `${p.epic} не является эпиком`;
     case "epic-foreign-project":

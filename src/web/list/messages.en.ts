@@ -51,6 +51,7 @@ export const listEn: ListMessages = {
   anyEpic: "Any epic",
   noEpic: "No epic",
   epicNotFound: "epic not found",
+  epicNotLoaded: "epic not loaded",
   anyEpicLabel: "any",
   noEpicLabel: "no epic",
 

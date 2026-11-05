@@ -151,6 +151,15 @@ describe("updateTask", () => {
     expect(await version(root, "SPA-2")).toBe(before);
   });
 
+  it("перенос в несуществующий эпик отклоняется, а правка задачи, чей эпик удалён, — нет", async () => {
+    const root = await setup();
+    expect(await updateTask(root, { id: "SPA-3", changes: { epic: "SPA-99" }, now: NOW, via: "cli" })).toEqual({ ok: false, reason: "invalid", problems: [{ code: "epic-missing", epic: "SPA-99" }] });
+
+    await rm(join(root, "spa/SPA-1.md"));
+
+    expect(await updateTask(root, { id: "SPA-2", changes: { priority: "low" }, now: NOW, via: "cli" })).toMatchObject({ ok: true, task: { priority: "low", epic: "SPA-1" } });
+  });
+
   it("отклоняет значения, не проходящие схему", async () => {
     const root = await setup();
     const result = await updateTask(root, { id: "SPA-2", changes: { status: "later" as never }, now: NOW, via: "cli" });
