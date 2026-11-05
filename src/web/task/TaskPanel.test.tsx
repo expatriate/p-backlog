@@ -304,6 +304,18 @@ describe("карточка задачи", () => {
 });
 
 describe("связи и название: ошибки у поля", () => {
+  it("набранный, но не добавленный ID в поле связей не даёт молча закрыть карточку", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    await app.user.type(within(panel).getByRole("combobox", { name: "Добавить в «Связанные»" }), "SPA-2");
+    await closeCard(app, panel);
+
+    expect(confirm).toHaveBeenCalledWith("Уйти, не сохранив правку поля?");
+    expect(app.route()).toBe("/p/spa/t/SPA-1");
+  });
+
   it("ID не по формату и повтор объясняются под полем «Добавить» и не уходят на сервер", async () => {
     const patches = holdFirstPatch();
     const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });
@@ -770,6 +782,17 @@ describe("закрытие карточки, пока сохраняется н�
       wait(SAVE_WAIT_BEFORE_ASKING_MS);
 
       expect(confirm).not.toHaveBeenCalled();
+    });
+
+    it("добавленный ID ещё сохраняется — после ожидания спрашивает о сервере, а не о несохранённой правке поля", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["setTimeout", "clearTimeout"] });
+      onTestFinished(() => void vi.useRealTimers());
+      const { app, panel, confirm } = await openHeldCard({ confirmLeave: false });
+      await app.user.type(within(panel).getByRole("combobox", { name: "Добавить в «Связанные»" }), "SPA-2{Enter}");
+      await closeCard(app, panel);
+      wait(SAVE_WAIT_BEFORE_ASKING_MS);
+
+      expect(confirm).toHaveBeenCalledWith(STILL_SAVING);
     });
 
     it("открытый черновик описания — после ожидания спрашивает о нём, а не о сервере", async () => {

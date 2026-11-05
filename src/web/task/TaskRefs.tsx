@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { formatId, ID_PATTERN } from "../../core/model/ids";
 import type { Task } from "../../core/model/types";
 import { useMessages } from "../i18n";
@@ -16,6 +16,8 @@ export type TaskRefsProps = {
   ids: readonly string[];
   listId: string;
   idPrefix: string;
+  draft: string;
+  setDraft: Dispatch<SetStateAction<string>>;
   onChange: (update: (ids: readonly string[]) => string[]) => Promise<RefsSaveResult>;
 };
 
@@ -23,9 +25,8 @@ const EXAMPLE_TASK_NUMBER = 12;
 
 type FieldNotice = { text: string; duplicateOf?: string };
 
-export function TaskRefs({ label, ids, listId, idPrefix, onChange }: TaskRefsProps) {
+export function TaskRefs({ label, ids, listId, idPrefix, draft, setDraft, onChange }: TaskRefsProps) {
   const { task: taskMessages } = useMessages();
-  const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState<FieldNotice | null>(null);
   const addField = useFieldError(shownNoticeText(notice, ids));
   const showRejection = (result: RefsSaveResult) => {
@@ -43,9 +44,11 @@ export function TaskRefs({ label, ids, listId, idPrefix, onChange }: TaskRefsPro
       setDraft("");
       return;
     }
+    setDraft("");
     void onChange((current) => [...current, id]).then((result) => {
-      if (result.saved) setDraft((typed) => (typed === draft ? "" : typed));
-      else showRejection(result);
+      if (result.saved) return;
+      setDraft((typed) => (typed === "" ? draft : typed));
+      showRejection(result);
     });
   };
 

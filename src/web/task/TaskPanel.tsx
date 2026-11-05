@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { formatDateTime } from "../../core/i18n/format";
 import { toggleChecklistItem } from "../../core/model/checklist";
 import { dependentTasks, epicChildren, isClosed, relatedTasks, taskProgress, type BacklogIndex } from "../../core/model/graph";
@@ -6,6 +6,7 @@ import { parseId } from "../../core/model/ids";
 import { taskWarnings } from "../../core/model/integrity";
 import type { Task } from "../../core/model/types";
 import { useAllTasks } from "../app/all-tasks";
+import type { TaskChange } from "../app/queries";
 import { useLanguage, useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { DeletionCountdown } from "../ui/Deletion";
@@ -21,9 +22,9 @@ import { useNow } from "../ui/use-now";
 import { TaskBody } from "./TaskBody";
 import { TaskFields } from "./TaskFields";
 import { TaskRef } from "./TaskRef";
-import { TaskOptions, TaskRefs } from "./TaskRefs";
+import { TaskOptions, TaskRefs, type TaskRefsProps } from "./TaskRefs";
 import { useFieldDrafts } from "./use-field-drafts";
-import { useSaveNote, useTaskSaving } from "./use-task-saving";
+import { useSaveNote, useTaskSaving, type RefsSaveResult } from "./use-task-saving";
 import { useScrollSpaceFor } from "../ui/use-scroll-space";
 import styles from "./TaskPanel.module.css";
 
@@ -42,8 +43,9 @@ export function TaskPanel({ task, onClose, gone }: TaskPanelProps) {
   const saver = useTaskSaving(task);
   const fields = useFieldDrafts(task);
   const bodyEditing = saver.body.editor.phase !== "closed";
+  const refDrafts = useRefDrafts();
   useLeaveGuard(
-    { unsaved: bodyEditing || fields.unsaved, saving: saver.saving || fields.saving, saveFailed: saver.saveFailed },
+    { unsaved: bodyEditing || fields.unsaved || refDrafts.unsaved, saving: saver.saving || fields.saving, saveFailed: saver.saveFailed },
     {
       ifUnsaved: bodyEditing ? taskMessages.leaveWithDraft : taskMessages.leaveWithFieldEdits,
       ifStillSaving: taskMessages.leaveWhileSaving,
@@ -92,8 +94,7 @@ export function TaskPanel({ task, onClose, gone }: TaskPanelProps) {
         onSave={saver.body.save}
       />
 
-      <TaskRefs label={taskMessages.blockedByLabel} ids={task.blockedBy} listId={TASK_LIST_ID} idPrefix={idPrefix} onChange={(update) => saver.saveRefs((fresh) => ({ blockedBy: update(fresh.blockedBy) }))} />
-      <TaskRefs label={taskMessages.relatedLabel} ids={task.related} listId={TASK_LIST_ID} idPrefix={idPrefix} onChange={(update) => saver.saveRefs((fresh) => ({ related: update(fresh.related) }))} />
+      <EditableRefs task={task} idPrefix={idPrefix} drafts={refDrafts} saveRefs={saver.saveRefs} />
 
       <ReadonlyRefs label={taskMessages.dependentsLabel} tasks={dependentTasks(task, index)} />
       <ReadonlyRefs label={taskMessages.referrersLabel} tasks={relatedTasks(task, index).filter((other) => !task.related.includes(other.id))} />
@@ -101,6 +102,49 @@ export function TaskPanel({ task, onClose, gone }: TaskPanelProps) {
 
       {refOptions}
     </SidePanel>
+  );
+}
+
+type RefDraft = Pick<TaskRefsProps, "draft" | "setDraft">;
+
+function useRefDrafts() {
+  const [blockedBy, setBlockedBy] = useState("");
+  const [related, setRelated] = useState("");
+  return {
+    blockedBy: { draft: blockedBy, setDraft: setBlockedBy },
+    related: { draft: related, setDraft: setRelated },
+    unsaved: [blockedBy, related].some((typed) => typed.trim() !== ""),
+  };
+}
+
+type EditableRefsProps = {
+  task: Task;
+  idPrefix: string;
+  drafts: { blockedBy: RefDraft; related: RefDraft };
+  saveRefs: (change: TaskChange) => Promise<RefsSaveResult>;
+};
+
+function EditableRefs({ task, idPrefix, drafts, saveRefs }: EditableRefsProps) {
+  const { task: taskMessages } = useMessages();
+  return (
+    <>
+      <TaskRefs
+        label={taskMessages.blockedByLabel}
+        ids={task.blockedBy}
+        listId={TASK_LIST_ID}
+        idPrefix={idPrefix}
+        {...drafts.blockedBy}
+        onChange={(update) => saveRefs((fresh) => ({ blockedBy: update(fresh.blockedBy) }))}
+      />
+      <TaskRefs
+        label={taskMessages.relatedLabel}
+        ids={task.related}
+        listId={TASK_LIST_ID}
+        idPrefix={idPrefix}
+        {...drafts.related}
+        onChange={(update) => saveRefs((fresh) => ({ related: update(fresh.related) }))}
+      />
+    </>
   );
 }
 
