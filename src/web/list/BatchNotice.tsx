@@ -5,6 +5,7 @@ import { PartialBatchError } from "../app/batch-chunks";
 import { useBatchTasks } from "../app/queries";
 import { ActionFailure } from "../app/RequestFailure";
 import { useMessages } from "../i18n";
+import type { ListMessages } from "./messages.ru";
 import { Button } from "../ui/Button";
 import { focusDropped } from "../ui/focus-dropped";
 import { useTaskHref } from "../app/use-task-href";
@@ -18,6 +19,7 @@ type SkippedOutcome = Extract<BatchOutcome, { outcome: "skipped" }>;
 
 type UndoStep = { request: BatchRequest; undoneSoFar: BatchResult };
 type NoticeState = { kind: "firstRun" | "undo"; nextUndo: UndoStep | undefined };
+type NoticeView = NoticeState & { result: BatchResult; done: DoneOutcome[]; skipped: SkippedOutcome[] };
 
 type BatchNoticeProps = {
   result: BatchResult | null;
@@ -40,18 +42,10 @@ export function BatchNotice({ result, noticeId, onResult }: BatchNoticeProps) {
     if (result !== null && focusDropped()) (undoButton.current ?? summary.current)?.focus();
   }, [result]);
 
-  if (result === null)
-    return (
-      <div>
-        <div role="status" />
-      </div>
-    );
-
-  const done = result.response.results.filter((outcome): outcome is DoneOutcome => outcome.outcome === "done");
-  const skipped = result.response.results.filter((outcome): outcome is SkippedOutcome => outcome.outcome === "skipped");
-  const { kind, nextUndo } = noticeStateOf(result, done);
+  const view = result && noticeViewOf(result);
 
   const runUndo = () => {
+    const nextUndo = view?.nextUndo;
     if (isPending || nextUndo === undefined) return;
     const { request, undoneSoFar } = nextUndo;
     const settle = (response: BatchResponse, failure?: BatchFailure) =>
@@ -64,23 +58,26 @@ export function BatchNotice({ result, noticeId, onResult }: BatchNoticeProps) {
     });
   };
 
+  const failureNotice = view && failureNoticeOf(view, undo.error, list);
+
   return (
-    <div ref={notice} className={footer.panel}>
+    <div ref={notice} className={view !== null ? footer.panel : "visually-hidden"}>
       <div role="status" className={footer.announcement}>
-        <p key={noticeId} ref={summary} tabIndex={-1} className={footer.headline}>
-          {list.batchSummary[result.request.action.kind](done.length, result.request.tasks.length)}
-        </p>
-        {skipped.length > 0 && <SkippedTasks skipped={skipped} />}
-        {nextUndo !== undefined && (
-          <Button ref={undoButton} busy={isPending} onClick={runUndo}>
-            {list.undo}
-          </Button>
+        {view !== null && (
+          <>
+            <p key={noticeId} ref={summary} tabIndex={-1} className={footer.headline}>
+              {list.batchSummary[view.result.request.action.kind](view.done.length, view.result.request.tasks.length)}
+            </p>
+            {view.skipped.length > 0 && <SkippedTasks skipped={view.skipped} />}
+            {view.nextUndo !== undefined && (
+              <Button ref={undoButton} busy={isPending} onClick={runUndo}>
+                {list.undo}
+              </Button>
+            )}
+          </>
         )}
       </div>
-      {undo.error === null && result.failure !== undefined && (
-        <ActionFailure className={footer.error} action={kind === "undo" ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length)} error={result.failure.error} />
-      )}
-      {!(undo.error instanceof PartialBatchError) && <ActionFailure className={footer.error} action={list.undoFailed} error={undo.error} />}
+      {failureNotice && <ActionFailure key={failureNotice.of} className={footer.error} action={failureNotice.action} error={failureNotice.error} />}
     </div>
   );
 }
@@ -98,6 +95,12 @@ function SkippedTasks({ skipped }: { skipped: readonly SkippedOutcome[] }) {
   );
 }
 
+function noticeViewOf(result: BatchResult): NoticeView {
+  const done = result.response.results.filter((outcome): outcome is DoneOutcome => outcome.outcome === "done");
+  const skipped = result.response.results.filter((outcome): outcome is SkippedOutcome => outcome.outcome === "skipped");
+  return { result, done, skipped, ...noticeStateOf(result, done) };
+}
+
 function noticeStateOf(result: BatchResult, done: readonly DoneOutcome[]): NoticeState {
   if (isUndoResult(result)) {
     const rest = result.failure?.rest;
@@ -106,6 +109,13 @@ function noticeStateOf(result: BatchResult, done: readonly DoneOutcome[]): Notic
   if (done.length === 0) return { kind: "firstRun", nextUndo: undefined };
   const request = restoreRequestFor(done);
   return { kind: "firstRun", nextUndo: { request, undoneSoFar: { request, response: { results: [] } } } };
+}
+
+function failureNoticeOf({ result, kind }: NoticeView, undoError: Error | null, list: ListMessages): { of: "undo" | "batch"; action: string; error: Error } | null {
+  if (undoError instanceof PartialBatchError) return null;
+  if (undoError !== null) return { of: "undo", action: list.undoFailed, error: undoError };
+  if (result.failure === undefined) return null;
+  return { of: "batch", action: kind === "undo" ? list.undoFailed : list.notChanged(result.failure.rest.tasks.length), error: result.failure.error };
 }
 
 function restoreRequestFor(done: readonly DoneOutcome[]): BatchRequest {
