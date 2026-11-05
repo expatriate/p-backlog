@@ -1,10 +1,8 @@
-import { basename } from "node:path";
 import { buildIndex } from "../model/graph";
 import { integrityErrors } from "../model/integrity";
 import { planEpicClosing } from "../model/lifecycle";
 import type { ParseError, Project } from "../model/types";
-import type { LoadedBacklog } from "../store/load";
-import { PROJECT_FILE } from "../store/paths";
+import { isProjectFileError, type LoadedBacklog } from "../store/load";
 import type { CheckProblem } from "./findings";
 
 export function findProblems(loaded: LoadedBacklog, projects: readonly Project[], repos: ReadonlyMap<string, string | undefined>, inScope: (projectId: string) => boolean): CheckProblem[] {
@@ -33,7 +31,7 @@ function parseProblems(loaded: LoadedBacklog, inScope: (projectId: string) => bo
 }
 
 function concernsScope(error: ParseError, inScope: (projectId: string) => boolean): boolean {
-  return inScope(error.projectId) || basename(error.path) === PROJECT_FILE;
+  return inScope(error.projectId) || isProjectFileError(error);
 }
 
 function missingRepoProblem(project: Project): CheckProblem {

@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBacklog } from "../../core/store/load";
+import { makeGitRepo } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -114,6 +115,33 @@ describe("backlog project", () => {
 
       expect(created.err).toContain(`Проект не создан: ${broken} не разобран`);
       expect((await loadBacklog(root)).tasks).toEqual([]);
+    });
+
+    it("сломанный project.md чужого репозитория с тем же именем не отнимает каталог у его разобранного проекта", async () => {
+      const { run, root, home } = await makeCliSandbox();
+      await run(["new", "--category", "bug", "--title", "Задача"]);
+      await writeFile(join(root, "spa", "project.md"), "без frontmatter\n");
+      const namesake = await makeGitRepo(home, "work/spa");
+      await mkdir(join(root, "spa-2"));
+      await writeFile(join(root, "spa-2", "project.md"), "---\nname: spa\nprefix: SPB\nrepos: [~/work/spa]\n---\n");
+
+      const created = await run(["new", "--category", "bug", "--title", "Своя"], { cwd: namesake });
+
+      expect(created.code).toBe(EXIT.ok);
+      expect((await loadBacklog(root)).tasks.map((task) => task.id)).toEqual(["SPB-1"]);
+    });
+
+    it("каталог вне git с именем репозитория не приписывает себе его сломанный project.md", async () => {
+      const { run, root, home } = await makeCliSandbox();
+      await run(["new", "--category", "bug", "--title", "Задача"]);
+      await writeFile(join(root, "spa", "project.md"), "без frontmatter\n");
+      const lookalike = join(home, "Downloads", "spa");
+      await mkdir(lookalike, { recursive: true });
+
+      const result = await run(["list"], { cwd: lookalike });
+
+      expect(result).toMatchObject({ code: EXIT.notFound, err: expect.stringContaining(`Проект для ${lookalike} не найден`) });
+      expect(result.err).not.toContain(join(root, "spa", "project.md"));
     });
 
     it("repos на каталоге вне git — проект назван при запуске из этого каталога", async () => {

@@ -18,8 +18,12 @@ export function unparsedTasks(errors: readonly ParseError[]): UnparsedTask[] {
   });
 }
 
+export function isProjectFileError(error: ParseError): boolean {
+  return basename(error.path) === PROJECT_FILE;
+}
+
 export function unparsedProjectFiles(errors: readonly ParseError[]): ParseError[] {
-  return errors.filter((error) => basename(error.path) === PROJECT_FILE);
+  return errors.filter(isProjectFileError);
 }
 
 export function unparsedProjectFileOf(errors: readonly ParseError[], projectId: string): ParseError | undefined {

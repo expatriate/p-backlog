@@ -78,21 +78,24 @@ export function projectOf(loaded: LoadedBacklog, task: Task): Project | undefine
 }
 
 export async function findProjectOrWarn(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Promise<Project | undefined> {
-  const project = await findProject(loaded, io, explicitId);
+  return explicitId === undefined ? findCwdProjectOrWarn(loaded, io) : findNamedProjectOrWarn(loaded, io, explicitId);
+}
+
+function findNamedProjectOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Project | undefined {
+  const project = loaded.projects.find((candidate) => candidate.id === id);
   if (project) return project;
-  const broken = await unparsedProjectFilesOfScope(loaded, io, explicitId);
-  if (broken.length > 0) warnUnparsedProjectFiles(io, broken, io.cli.projectFileUnparsed);
-  else io.warn(explicitId === undefined ? io.cli.projectNotFoundForCwd(io.cwd) : io.cli.projectNotFound(explicitId));
+  const broken = unparsedProjectFileOf(loaded.errors, id);
+  if (broken) warnUnparsedProjectFiles(io, [broken], io.cli.projectFileUnparsed);
+  else io.warn(io.cli.projectNotFound(id));
   return undefined;
 }
 
-async function unparsedProjectFilesOfScope(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Promise<ParseError[]> {
-  if (explicitId !== undefined) {
-    const broken = unparsedProjectFileOf(loaded.errors, explicitId);
-    return broken === undefined ? [] : [broken];
-  }
-  const roots = cwdMatchingRoots(io);
-  return roots === null ? [] : unparsedProjectFilesCovering(loaded, roots, io);
+async function findCwdProjectOrWarn(loaded: LoadedBacklog, io: CliIo): Promise<Project | undefined> {
+  const lookup = await lookupCwdProject(loaded, io);
+  if ("project" in lookup) return lookup.project;
+  if (lookup.broken.length > 0) warnUnparsedProjectFiles(io, lookup.broken, io.cli.projectFileUnparsed);
+  else io.warn(io.cli.projectNotFoundForCwd(io.cwd));
+  return undefined;
 }
 
 export function warnUnparsedProjectFiles(io: CliIo, errors: readonly ParseError[], message: (path: string, problems: string) => string): void {
@@ -100,13 +103,11 @@ export function warnUnparsedProjectFiles(io: CliIo, errors: readonly ParseError[
 }
 
 export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Promise<Project | undefined> {
-  if (explicitId !== undefined) return findProjectOrWarn(loaded, io, explicitId);
-  const existing = await findProject(loaded, io, undefined);
-  if (existing) return existing;
-  const roots = cwdMatchingRoots(io);
-  const broken = roots === null ? [] : await unparsedProjectFilesCovering(loaded, roots, io);
-  if (broken.length > 0) {
-    warnUnparsedProjectFiles(io, broken, io.cli.projectNotCreatedFileUnparsed);
+  if (explicitId !== undefined) return findNamedProjectOrWarn(loaded, io, explicitId);
+  const lookup = await lookupCwdProject(loaded, io);
+  if ("project" in lookup) return lookup.project;
+  if (lookup.broken.length > 0) {
+    warnUnparsedProjectFiles(io, lookup.broken, io.cli.projectNotCreatedFileUnparsed);
     return undefined;
   }
   const gitRoots = cwdDirRoots(io);
@@ -122,31 +123,26 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
 
 type CoveringUnparsedFile = { error: ParseError; coveredRepoLength: number };
 
-const OWN_PROJECT_DIR_COVERAGE = Number.POSITIVE_INFINITY;
-
-async function unparsedProjectFilesByCoverage(loaded: LoadedBacklog, roots: GitRoots, io: CliIo): Promise<CoveringUnparsedFile[]> {
-  const ownId = projectIdBase(basename(roots.main));
+async function unparsedProjectFilesByCoverage(loaded: LoadedBacklog, roots: GitRoots, repoDirName: string | undefined, io: CliIo): Promise<CoveringUnparsedFile[]> {
   const coverageOf = async (error: ParseError): Promise<CoveringUnparsedFile> => {
-    if (basename(dirname(error.path)) === ownId) return { error, coveredRepoLength: OWN_PROJECT_DIR_COVERAGE };
     const repos = reposOfUnparsed((await readTextOrNull(error.path)) ?? "");
-    return { error, coveredRepoLength: closestCoveringRepo(repos, roots, repoPlaces(io))?.length ?? 0 };
+    const namedAfterRepo = repos.length === 0 && error.projectId === repoDirName;
+    return { error, coveredRepoLength: namedAfterRepo ? roots.main.length : (closestCoveringRepo(repos, roots, repoPlaces(io))?.length ?? 0) };
   };
   return (await Promise.all(unparsedProjectFiles(loaded.errors).map(coverageOf))).filter(({ coveredRepoLength }) => coveredRepoLength > 0);
 }
 
-async function unparsedProjectFilesCovering(loaded: LoadedBacklog, roots: GitRoots, io: CliIo): Promise<ParseError[]> {
-  return (await unparsedProjectFilesByCoverage(loaded, roots, io)).map(({ error }) => error);
-}
+type CwdProjectLookup = { project: Project } | { broken: ParseError[] };
 
-async function findProject(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Promise<Project | undefined> {
-  if (explicitId !== undefined) return loaded.projects.find((project) => project.id === explicitId);
+async function lookupCwdProject(loaded: LoadedBacklog, io: CliIo): Promise<CwdProjectLookup> {
   const roots = cwdMatchingRoots(io);
-  if (roots === null) return undefined;
+  if (roots === null) return { broken: [] };
+  const repo = cwdGitRoots(io);
+  const covering = await unparsedProjectFilesByCoverage(loaded, roots, repo === null ? undefined : projectIdBase(basename(repo.main)), io);
   const project = findProjectForRoots(loaded.projects, roots, repoPlaces(io));
-  if (project === undefined || unparsedProjectFiles(loaded.errors).length === 0) return project;
-  const projectRepoLength = closestCoveringRepo(project.repos, roots, repoPlaces(io))?.length ?? 0;
-  const covering = await unparsedProjectFilesByCoverage(loaded, roots, io);
-  return covering.some(({ coveredRepoLength }) => coveredRepoLength > projectRepoLength) ? undefined : project;
+  const projectRepoLength = project === undefined ? 0 : (closestCoveringRepo(project.repos, roots, repoPlaces(io))?.length ?? 0);
+  if (project !== undefined && covering.every(({ coveredRepoLength }) => coveredRepoLength <= projectRepoLength)) return { project };
+  return { broken: covering.map(({ error }) => error) };
 }
 
 function cwdMatchingRoots(io: CliIo): GitRoots | null {
