@@ -130,7 +130,7 @@ export async function ensureProject(loaded: LoadedBacklog, io: CliIo, explicitId
     io.warn(io.cli.notInGitRepo(io.cwd));
     return undefined;
   }
-  const created = await createProject(io.backlogRoot, gitRoots.main, loaded.projects);
+  const created = await createProject(io.backlogRoot, gitRoots.main, loaded.projects, warnPathErrors(io.warn));
   io.warn(io.cli.projectCreated(created.id, created.prefix));
   return created;
 }

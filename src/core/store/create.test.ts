@@ -26,7 +26,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 const AFTER_PUBLISH_FAILURES = [
   { name: "синхронизация каталога", happensHere: process.platform !== "win32", inject: <T>(projectDir: string, action: () => Promise<T>) => failingOnce(withFile, (path) => path === projectDir, action) },
   { name: "удаление временного файла", happensHere: true, inject: <T>(_projectDir: string, action: () => Promise<T>) => failingOnce(rm, (path) => String(path).endsWith(".tmp"), action) },
-];
+].filter(({ happensHere }) => happensHere);
 
 const NOW = new Date("2026-09-17T14:50:00Z");
 
@@ -38,22 +38,19 @@ async function loadProject(root: string, id: string) {
 }
 
 describe("createTask", () => {
-  it.each(AFTER_PUBLISH_FAILURES.filter(({ happensHere }) => happensHere))(
-    "сбой после создания файла ($name) не превращает созданную задачу в ошибку: событие created в журнале, сбой — в onError",
-    async ({ inject }) => {
-      const root = await makeTempDir();
-      await writeFiles(root, { "spa/project.md": projectFile("SPA") });
-      const { loaded, project } = await loadProject(root, "spa");
-      const projectDir = join(root, "spa");
-      const reported: string[] = [];
+  it.each(AFTER_PUBLISH_FAILURES)("сбой после создания файла ($name) не превращает созданную задачу в ошибку: событие created в журнале, сбой — в onError", async ({ inject }) => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/project.md": projectFile("SPA") });
+    const { loaded, project } = await loadProject(root, "spa");
+    const projectDir = join(root, "spa");
+    const reported: string[] = [];
 
-      const result = await inject(projectDir, () => createTask(root, { project, input: { title: "Первая" }, index: indexOfLoaded(loaded), now: NOW, via: "cli", onError: (path) => reported.push(path) }));
+    const result = await inject(projectDir, () => createTask(root, { project, input: { title: "Первая" }, index: indexOfLoaded(loaded), now: NOW, via: "cli", onError: (path) => reported.push(path) }));
 
-      expect(result.ok && result.task.id).toBe("SPA-1");
-      expect((await readJournal(projectDir, "spa")).events.map((event) => [event.task, event.kind])).toEqual([["SPA-1", "created"]]);
-      expect(reported).toContain(join(projectDir, "SPA-1.md"));
-    },
-  );
+    expect(result.ok && result.task.id).toBe("SPA-1");
+    expect((await readJournal(projectDir, "spa")).events.map((event) => [event.task, event.kind])).toEqual([["SPA-1", "created"]]);
+    expect(reported).toContain(join(projectDir, "SPA-1.md"));
+  });
 
   it("выдаёт следующий номер и пишет файл, который читается обратно", async () => {
     const root = await makeTempDir();
@@ -186,12 +183,23 @@ describe("createTask", () => {
 });
 
 describe("createProject", () => {
+  it.each(AFTER_PUBLISH_FAILURES)("сбой после создания project.md ($name) не превращает созданный проект в ошибку, сбой — в onError", async ({ inject }) => {
+    const root = await makeTempDir();
+    const reported: string[] = [];
+
+    const project = await inject(join(root, "spa"), () => createProject(root, "/work/spa", [], (path) => reported.push(path)));
+
+    expect(project).toMatchObject({ id: "spa", prefix: "SPA" });
+    expect((await loadBacklog(root)).projects.map((loaded) => loaded.id)).toEqual(["spa"]);
+    expect(reported).toContain(join(root, "spa", "project.md"));
+  });
+
   it("выводит id и префикс из имени репозитория и избегает занятых", async () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": projectFile("SPA") });
     const { loaded } = await loadProject(root, "spa");
 
-    const project = await createProject(root, "/work/other/spa", loaded.projects);
+    const project = await createProject(root, "/work/other/spa", loaded.projects, failOnPathError);
 
     expect(project).toMatchObject({ id: "spa-2", prefix: "SPA2", name: "spa", repos: ["/work/other/spa"] });
     const reloaded = await loadBacklog(root);
@@ -202,7 +210,7 @@ describe("createProject", () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": "сломано", "spa/SPA-1.md": taskFile("SPA-1") });
 
-    const project = await createProject(root, "/work/spa", []);
+    const project = await createProject(root, "/work/spa", [], failOnPathError);
 
     expect(project.prefix).not.toBe("SPA");
   });
@@ -211,7 +219,7 @@ describe("createProject", () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": "---\nname: spa\nprefix: SPA\nrepos: [/a\n---\n" });
 
-    const project = await createProject(root, "/work/spa", []);
+    const project = await createProject(root, "/work/spa", [], failOnPathError);
 
     expect(project.prefix).not.toBe("SPA");
   });
@@ -220,7 +228,7 @@ describe("createProject", () => {
     const root = await makeTempDir();
     await mkdir(join(root, "spa"), { recursive: true });
 
-    const project = await createProject(root, "/work/spa", []);
+    const project = await createProject(root, "/work/spa", [], failOnPathError);
 
     expect(project.id).toBe("spa");
   });
@@ -228,7 +236,7 @@ describe("createProject", () => {
   it("два одновременных создания проекта для одного репозитория получают один и тот же проект", async () => {
     const root = await makeTempDir();
 
-    const [first, second] = await Promise.all([createProject(root, "/work/spa", []), createProject(root, "/work/spa", [])]);
+    const [first, second] = await Promise.all([createProject(root, "/work/spa", [], failOnPathError), createProject(root, "/work/spa", [], failOnPathError)]);
 
     expect(first).toEqual(second);
     expect((await loadBacklog(root)).projects.map((project) => project.id)).toEqual(["spa"]);
@@ -237,7 +245,7 @@ describe("createProject", () => {
   it("два одновременных создания проекта для разных репозиториев с одним именем получают каждый свой проект", async () => {
     const root = await makeTempDir();
 
-    const [first, second] = await Promise.all([createProject(root, "/a/spa", []), createProject(root, "/b/spa", [])]);
+    const [first, second] = await Promise.all([createProject(root, "/a/spa", [], failOnPathError), createProject(root, "/b/spa", [], failOnPathError)]);
 
     expect([first.repos, second.repos]).toEqual([["/a/spa"], ["/b/spa"]]);
     expect(first.prefix).not.toBe(second.prefix);
@@ -254,7 +262,7 @@ describe("createProject", () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/notes.md": "заметки" });
 
-    const project = await createProject(root, "/work/spa", []);
+    const project = await createProject(root, "/work/spa", [], failOnPathError);
 
     expect(project.id).toBe("spa-2");
     expect(await readFile(join(root, "spa", "notes.md"), "utf8")).toBe("заметки");
@@ -267,13 +275,13 @@ describe("createProject", () => {
     let concurrent: Promise<Project> | undefined;
     vi.mocked(listDir).mockImplementation(async (...args) => {
       if (concurrent === undefined && args[0] === join(root, "spa")) {
-        concurrent = createProject(root, "/work/spa", []);
+        concurrent = createProject(root, "/work/spa", [], failOnPathError);
         await concurrent;
       }
       return listActual(...args);
     });
 
-    const project = await createProject(root, "/work/spa", []);
+    const project = await createProject(root, "/work/spa", [], failOnPathError);
 
     expect(project).toEqual(await concurrent);
     expect((await loadBacklog(root)).projects.map((candidate) => candidate.id)).toEqual(["spa"]);
@@ -281,7 +289,7 @@ describe("createProject", () => {
 
   it("создаёт корневой каталог, если его нет", async () => {
     const root = join(await makeTempDir(), "backlog");
-    const project = await createProject(root, "/work/partner-workspace", []);
+    const project = await createProject(root, "/work/partner-workspace", [], failOnPathError);
     expect(project).toMatchObject({ id: "partner-workspace", prefix: "PW" });
   });
 });

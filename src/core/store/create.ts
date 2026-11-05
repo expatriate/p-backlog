@@ -52,11 +52,11 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
   return invalid([{ code: "id-exhausted", attempts: MAX_ID_ATTEMPTS }]);
 }
 
-export async function createProject(root: string, repoRoot: string, existingProjects: readonly Project[]): Promise<Project> {
+export async function createProject(root: string, repoRoot: string, existingProjects: readonly Project[], onError: PathErrorHandler): Promise<Project> {
   for (let attempt = 1; ; attempt++) {
     const { id, path, text } = await draftProjectFile(root, repoRoot, existingProjects);
     try {
-      await createFileAtomic(path, text);
+      await createFileAtomic(path, text, { onErrorAfterPublish: (error) => onError(path, error) });
       const parsed = parseProjectFile(text, { id, path });
       if (!parsed.ok) throw new Error(`${path}: ${parsed.problems.map((problem) => problem.code).join(", ")}`);
       return parsed.value;
