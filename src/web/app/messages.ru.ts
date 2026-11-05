@@ -16,6 +16,7 @@ export const appRu = {
   bootLoadError: "Не удалось загрузить интерфейс — обновите страницу",
   bootSettingsError: "Сервер беклога не отвечает",
   bootRetry: "Повторить",
+  bootRetrying: "Повторяем…",
 };
 
 export type AppMessages = typeof appRu;

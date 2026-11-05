@@ -8,21 +8,25 @@ import styles from "./LanguageLoader.module.css";
 
 const SETTINGS_ERROR_TEXT = inBothLanguages((app) => app.bootSettingsError);
 const SETTINGS_RETRY_TEXT = inBothLanguages((app) => app.bootRetry);
+const SETTINGS_RETRYING_TEXT = inBothLanguages((app) => app.bootRetrying);
 
 export function LanguageLoader({ children }: { children: ReactNode }) {
   const settings = useSettings();
   const language = settings.data?.language;
 
-  if (language === undefined && settings.isError) return <SettingsLoadError onRetry={() => void settings.refetch()} />;
-  if (language === undefined) return null;
-  return <MessagesProvider language={language}>{children}</MessagesProvider>;
+  if (language !== undefined) return <MessagesProvider language={language}>{children}</MessagesProvider>;
+  const settingsNeverFailed = settings.errorUpdateCount === 0;
+  if (settingsNeverFailed) return null;
+  return <SettingsLoadError retrying={settings.isFetching} onRetry={() => void settings.refetch()} />;
 }
 
-function SettingsLoadError({ onRetry }: { onRetry: () => void }) {
+function SettingsLoadError({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
   return (
     <PageMessage className={styles.settingsError} role="alert">
       <p>{SETTINGS_ERROR_TEXT}</p>
-      <Button onClick={onRetry}>{SETTINGS_RETRY_TEXT}</Button>
+      <Button busy={retrying} onClick={onRetry}>
+        {retrying ? SETTINGS_RETRYING_TEXT : SETTINGS_RETRY_TEXT}
+      </Button>
     </PageMessage>
   );
 }

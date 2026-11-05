@@ -24,6 +24,21 @@ describe("загрузка языка интерфейса", () => {
     expect(await screen.findByRole("link", { name: "Задачи" })).toBeDefined();
   });
 
+  it("пока повтор загрузки настроек идёт, кнопка занята и говорит, что повтор идёт", async () => {
+    let settingsReads = 0;
+    const { user } = await renderApp({ "spa/project.md": projectFile("SPA") }, "/", undefined, {
+      beforeRender: interceptApi(async (path, _init, passOn) => {
+        if (path !== "/api/settings") return passOn();
+        settingsReads += 1;
+        return settingsReads === 1 ? serverUnreachable() : new Promise<never>(() => undefined);
+      }),
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Повторить · Retry" }));
+
+    expect((await screen.findByRole("button", { name: "Повторяем… · Retrying…" })).getAttribute("aria-disabled")).toBe("true");
+  });
+
   it("сбой перезапроса /api/settings после смены языка не стирает открытый черновик описания", async () => {
     let settingsReads = 0;
     const app = await renderApp({ "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1", {}, "Описание") }, "/p/spa/t/SPA-1", undefined, {

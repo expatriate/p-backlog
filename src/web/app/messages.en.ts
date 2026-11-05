@@ -12,4 +12,5 @@ export const appEn: AppMessages = {
   bootLoadError: "Couldn't load the interface — reload the page",
   bootSettingsError: "Backlog server is not responding",
   bootRetry: "Retry",
+  bootRetrying: "Retrying…",
 };
