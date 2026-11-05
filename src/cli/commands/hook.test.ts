@@ -253,8 +253,9 @@ describe("backlog hook stop", () => {
 
   it("задачи, не поместившиеся в причину, называются в следующем ходе той же сессии", async () => {
     const { run, repo } = await makeCliSandbox();
-    const ids = Array.from({ length: 15 }, (_, index) => `SPA-${index + 1}`);
-    const paths = ids.map((_, index) => `src/features/module-${index}/very-long-file-name.ts`);
+    const longDirectory = "deeply-nested-feature-directory/".repeat(4);
+    const paths = Array.from({ length: 5 }, (_, index) => `src/${longDirectory}module-${index}/very-long-file-name.ts`);
+    const ids = paths.map((_, index) => `SPA-${index + 1}`);
     await writeFiles(repo, Object.fromEntries(paths.map((path) => [path, "1\n"])));
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
     for (const path of paths) await run(["new", "--force", "--category", "bug", "--title", path, "--source", `${path}:1`]);
