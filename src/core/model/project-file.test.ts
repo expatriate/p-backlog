@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseProjectFile, reposOfUnparsed, serializeProject } from "./project-file";
+import { parseProjectFile, claimedReposOf, serializeProject } from "./project-file";
 
 const location = { id: "spa", path: "/backlog/spa/project.md" };
 
@@ -39,13 +39,13 @@ describe("project-file", () => {
   });
 });
 
-describe("reposOfUnparsed — repos сломанного project.md", () => {
+describe("claimedReposOf — repos, заявленные сломанным project.md", () => {
   it.each([
     ["блочный список с комментарием", "---\nrepos:\n  - ~/projects/spa  # основной\n  - '/srv/My Repo'\nname: x\n", ["~/projects/spa", "/srv/My Repo"]],
     ["незакрытый строчный список с пробелами в пути", '---\nrepos: [~/My Projects/app, "~/b"\n  bad\n', ["~/My Projects/app", "~/b"]],
     ["одно значение с комментарием", "repos: ~/projects # где лежит\n", ["~/projects"]],
     ["пути в тексте и других полях — не repos", "---\nname: см. ~/projects\n---\nСоседи лежат в ~/projects, file:///home\n", []],
   ])("%s", (_case, text, repos) => {
-    expect(reposOfUnparsed(text)).toEqual(repos);
+    expect(claimedReposOf(text)).toEqual(repos);
   });
 });

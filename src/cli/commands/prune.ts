@@ -18,7 +18,7 @@ async function runPrune(args: string[], io: CliIo): Promise<ExitCode> {
   const values = parseOptions(io.language, args, { ...SCOPE_OPTIONS, apply: { type: "boolean", default: false } });
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const scope = await resolveScope(loaded, io, values);
+  const scope = resolveScope(loaded, io, values);
   if (scope === null) return EXIT.notFound;
   const { activeIds } = scope;
   const stale = staleLowTasks(

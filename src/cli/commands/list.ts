@@ -27,7 +27,7 @@ async function runList(args: string[], io: CliIo): Promise<ExitCode> {
   const statuses = requestedStatuses?.map((status) => parseChoice(io.language, status, TASK_STATUSES, "--status")) ?? OPEN_STATUSES;
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const scope = await resolveScope(loaded, io, values);
+  const scope = resolveScope(loaded, io, values);
   if (scope === null) return EXIT.notFound;
   const projectId = scope.project?.id;
 

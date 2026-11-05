@@ -1,7 +1,7 @@
 import { basename, join } from "node:path";
 import { buildIndex, type BacklogIndex } from "../model/graph";
 import { compareIds, ID_PATTERN, parseId } from "../model/ids";
-import { parseProjectFile, reposOfUnparsed } from "../model/project-file";
+import { parseProjectFile, claimedReposOf } from "../model/project-file";
 import { parseTaskFile } from "../model/task-file";
 import type { NotLoadedTasks, ParseError, ParseResult, Project, ProjectFileError, Task, UnparsedFile } from "../model/types";
 import { contentVersion, listDir, readBytesOrNull } from "./fs-utils";
@@ -61,8 +61,8 @@ async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBac
   const project = document.ok ? parseProjectFile(document.value, { id: projectId, path: projectPath }) : document;
   if (!project.ok) {
     const hiddenTasks = [...(await taskIdsOnDisk(dir))].sort(compareIds);
-    const repos = reposOfUnparsed(bytes.toString("utf8"));
-    return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, fileKind: "project", problems: project.problems, hiddenTasks, repos }] };
+    const claimedRepos = claimedReposOf(bytes.toString("utf8"));
+    return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, fileKind: "project", problems: project.problems, hiddenTasks, claimedRepos }] };
   }
 
   const taskPaths = (await taskFileNames(dir)).map((name) => join(dir, name));

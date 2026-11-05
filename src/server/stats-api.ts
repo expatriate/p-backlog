@@ -103,7 +103,7 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
 
   const statsOfCost: ScopedReport<CostReport> = ({ projectId, at, projects, snapshot }) => {
     usage.scanIfNeverListed();
-    return costSource.costReport({ usage: usage.snapshot(), projects, parseErrors: snapshot.errors, projectId, now: at });
+    return costSource.costReport({ usage: usage.snapshot(), known: { projects, errors: snapshot.errors }, projectId, now: at });
   };
 
   const codeState = { sourceKey: (projects: readonly Project[]) => codeSource.stateKey(projects) };

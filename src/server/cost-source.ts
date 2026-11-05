@@ -1,5 +1,4 @@
 import { join } from "node:path";
-import type { ParseError, Project } from "../core/model/types";
 import { costReport } from "../core/stats/cost/cost-report";
 import type { CostReport } from "../core/stats/types";
 import { createJsonlTail } from "../core/store/jsonl-tail";
@@ -8,7 +7,7 @@ import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
 import type { UsageCache } from "../core/usage/usage-cache";
 import type { UsageSnapshot } from "./usage-scanner";
 
-type CostRequest = { usage: UsageSnapshot; projects: readonly Project[]; parseErrors: readonly ParseError[]; projectId: string | undefined; now: Date };
+type CostRequest = { usage: UsageSnapshot; known: KnownProjects; projectId: string | undefined; now: Date };
 
 type CostInputs = CostRequest & { runs: readonly CliRun[] };
 
@@ -34,14 +33,14 @@ export function createCostSource(root: string, home: string): CostSource {
   };
 }
 
-async function computeCostReport({ usage: { cache, scan }, runs, projects, parseErrors, projectId, now }: CostInputs, places: RepoPlaces, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
+async function computeCostReport({ usage: { cache, scan }, runs, known, projectId, now }: CostInputs, places: RepoPlaces, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
   const buckets = usageBucketsOf(cache);
   const projectIds =
     projectId === undefined
       ? new Map<string, string | null>()
       : await projectIdsOfCwds(
           [...buckets, ...runs].map((entry) => entry.cwd),
-          { projects, errors: parseErrors },
+          known,
           places,
           lookupRepoRoot,
         );

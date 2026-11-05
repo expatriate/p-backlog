@@ -96,13 +96,13 @@ export function lookupProjectForDir(known: KnownProjects, dir: string, dirRoots:
   return lookupProject(known, { roots, repoDirName: repo === null ? undefined : projectIdBase(basename(repo.main)) }, places);
 }
 
-type DirPlace = { roots: GitRoots; repoDirName: string | undefined };
+type DirRepo = { roots: GitRoots; repoDirName: string | undefined };
 
-function lookupProject({ projects, errors }: KnownProjects, { roots, repoDirName }: DirPlace, places: RepoPlaces): ProjectLookup {
+function lookupProject({ projects, errors }: KnownProjects, { roots, repoDirName }: DirRepo, places: RepoPlaces): ProjectLookup {
   const coveredLength = (repos: readonly string[]) => closestCoveringRepo(repos, roots, places)?.length ?? 0;
   const coverageOf = (error: ProjectFileError) => {
-    const namedAfterRepo = error.repos.length === 0 && error.projectId === repoDirName;
-    return { error, length: namedAfterRepo ? roots.main.length : coveredLength(error.repos) };
+    const namedAfterRepo = error.claimedRepos.length === 0 && error.projectId === repoDirName;
+    return { error, length: namedAfterRepo ? roots.main.length : coveredLength(error.claimedRepos) };
   };
   const covering = unparsedProjectFiles(errors)
     .map(coverageOf)

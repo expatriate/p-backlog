@@ -79,7 +79,7 @@ type UnparsedFileProblems = { path: string; projectId: string; problems: Problem
 
 type TaskFileError = UnparsedFileProblems & { fileKind: "task" };
 
-export type ProjectFileError = UnparsedFileProblems & { fileKind: "project"; hiddenTasks: readonly string[]; repos: readonly string[] };
+export type ProjectFileError = UnparsedFileProblems & { fileKind: "project"; hiddenTasks: readonly string[]; claimedRepos: readonly string[] };
 
 export type ParseError = TaskFileError | ProjectFileError;
 

@@ -23,7 +23,7 @@ const TRAILING_COMMENT = /\s+#.*$/;
 const ENCLOSING_BRACKETS = /^[\s[]+|[\s\]]+$/g;
 const QUOTED = /^(["'])(.*)\1$/;
 
-export function reposOfUnparsed(text: string): string[] {
+export function claimedReposOf(text: string): string[] {
   const lines = text.split(/\r?\n/);
   const keyAt = lines.findIndex((line) => REPOS_KEY.test(line));
   if (keyAt === -1) return [];

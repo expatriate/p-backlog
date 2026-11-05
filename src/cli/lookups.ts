@@ -91,7 +91,7 @@ export function projectOf(loaded: LoadedBacklog, task: Task): Project | undefine
   return loaded.projects.find((project) => project.id === task.projectId);
 }
 
-export async function findProjectOrWarn(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Promise<Project | undefined> {
+export function findProjectOrWarn(loaded: LoadedBacklog, io: CliIo, explicitId: string | undefined): Project | undefined {
   return explicitId === undefined ? findCwdProjectOrWarn(loaded, io) : findNamedProjectOrWarn(loaded, io, explicitId);
 }
 
@@ -104,7 +104,7 @@ function findNamedProjectOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): P
   return undefined;
 }
 
-async function findCwdProjectOrWarn(loaded: LoadedBacklog, io: CliIo): Promise<Project | undefined> {
+function findCwdProjectOrWarn(loaded: LoadedBacklog, io: CliIo): Project | undefined {
   const lookup = lookupCwdProject(loaded, io);
   if ("project" in lookup) return lookup.project;
   if (lookup.broken.length > 0) warnUnparsedProjectFiles(io, lookup.broken, io.cli.projectFileUnparsed);
