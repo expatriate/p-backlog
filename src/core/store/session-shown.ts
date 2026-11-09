@@ -25,6 +25,6 @@ export async function rememberSessionShown(projectDir: string, session: string, 
       const tasks = [...new Set([...(sessions[session]?.tasks ?? []), ...taskIds])];
       return { ...Object.fromEntries(recent), [session]: { tasks, at: formatLocalIso(now) } };
     },
-    { onError },
+    { onErrorAfterPublish: onError },
   );
 }

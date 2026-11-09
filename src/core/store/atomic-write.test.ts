@@ -23,7 +23,7 @@ describe("writeFileAtomic", () => {
     await failingOnce(
       open,
       (target) => target === dirname(path),
-      () => writeFileAtomic(path, "стало\n", { onError: failOnPathError }),
+      () => writeFileAtomic(path, "стало\n", { onErrorAfterPublish: failOnPathError }),
       { code: "EINVAL" },
     );
 
@@ -40,7 +40,7 @@ describe("writeFileAtomic", () => {
     try {
       await once(holder.stdout, "data");
       let written = false;
-      const writing = writeFileAtomic(path, "стало\n", { onError: failOnPathError }).then(() => {
+      const writing = writeFileAtomic(path, "стало\n", { onErrorAfterPublish: failOnPathError }).then(() => {
         written = true;
       });
       await sleep(LOCK_HELD_MS);
@@ -67,7 +67,7 @@ describe("replacePrefixAtomic", () => {
       throw Object.assign(new Error("busy"), { code: "EBUSY" });
     });
 
-    await asIfOnWindows(() => replacePrefixAtomic(path, read, "kept\n", { onError: failOnPathError }));
+    await asIfOnWindows(() => replacePrefixAtomic(path, read, "kept\n", { onErrorAfterPublish: failOnPathError }));
 
     expect(await readFile(path, "utf8")).toBe("kept\nlate\n");
   });
@@ -79,7 +79,7 @@ describe("replacePrefixAtomic", () => {
     await appendFile(path, "late\n");
     vi.mocked(rename).mockRejectedValueOnce(Object.assign(new Error("busy"), { code: "EBUSY" }));
 
-    await asIfOnWindows(() => replacePrefixAtomic(path, read, "kept\n", { onError: failOnPathError }));
+    await asIfOnWindows(() => replacePrefixAtomic(path, read, "kept\n", { onErrorAfterPublish: failOnPathError }));
 
     expect(await readFile(path, "utf8")).toBe("kept\nlate\n");
   });
@@ -90,7 +90,7 @@ describe("replacePrefixAtomic", () => {
     const read = await readFile(path);
     await writeFile(path, "other\nlonger file\n");
 
-    const replaced = await replacePrefixAtomic(path, read, "kept\n", { onError: failOnPathError });
+    const replaced = await replacePrefixAtomic(path, read, "kept\n", { onErrorAfterPublish: failOnPathError });
 
     expect(await readFile(path, "utf8")).toBe("other\nlonger file\n");
     expect(replaced).toBe(false);

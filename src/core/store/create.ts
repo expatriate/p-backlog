@@ -42,7 +42,7 @@ export async function createTask(root: string, request: CreateTaskRequest): Prom
     const problems = integrityErrors(task, index);
     if (problems.length > 0) return invalid(problems);
     try {
-      await createFileAtomic(path, text, { onError: request.onError });
+      await createFileAtomic(path, text, { onErrorAfterPublish: request.onError });
       await appendJournal(dir, [createdEvent(task, request.now, request.via, request.provenance)], request.onError);
       return { ok: true, task, reopenedEpic: await reopenEpicOfOpenedTask(index, { before: undefined, after: task }, request) };
     } catch (error) {
@@ -56,7 +56,7 @@ export async function createProject(root: string, repoRoot: string, existingProj
   for (let attempt = 1; ; attempt++) {
     const { id, path, text } = await draftProjectFile(root, repoRoot, existingProjects);
     try {
-      await createFileAtomic(path, text, { onError });
+      await createFileAtomic(path, text, { onErrorAfterPublish: onError });
       const parsed = parseProjectFile(text, { id, path });
       if (!parsed.ok) throw new Error(`${path}: ${parsed.problems.map((problem) => problem.code).join(", ")}`);
       return parsed.value;

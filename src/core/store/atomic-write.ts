@@ -4,7 +4,7 @@ import { basename, dirname, join } from "node:path";
 import { hasAnyErrorCode, type PathErrorHandler } from "../errors";
 import { listDir, onWindows, readBytesOrNull, retryWhileBlockedOnWindows, statOrNull, withFile } from "./fs-utils";
 
-export type AfterPublish = { onError: PathErrorHandler };
+export type AfterPublish = { onErrorAfterPublish: PathErrorHandler };
 
 type FileMode = { mode?: number | undefined };
 
@@ -15,7 +15,7 @@ export async function writeFileAtomic(path: string, content: string, options: At
 }
 
 export async function writeRecomputableFileAtomic(path: string, content: string): Promise<void> {
-  await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path), { durable: false, onError: rethrow });
+  await viaTemporaryFile(path, content, (temporary) => replaceFile(temporary, path), { durable: false, onErrorAfterPublish: rethrow });
 }
 
 export async function replacePrefixAtomic(path: string, prefix: Buffer, content: string, options: AfterPublish): Promise<boolean> {
@@ -65,9 +65,9 @@ type TemporaryWrite = FileMode & { durable: boolean };
 
 type PublishOptions = TemporaryWrite & AfterPublish;
 
-async function viaTemporaryFile<T>(path: string, content: string, publish: (temporary: string) => Promise<T>, { mode, durable, onError }: PublishOptions): Promise<T> {
+async function viaTemporaryFile<T>(path: string, content: string, publish: (temporary: string) => Promise<T>, { mode, durable, onErrorAfterPublish }: PublishOptions): Promise<T> {
   const temporary = temporaryPathFor(path);
-  const reportAfterPublish = (error: unknown) => onError(path, error);
+  const reportAfterPublish = (error: unknown) => onErrorAfterPublish(path, error);
   let publishReturned = false;
   try {
     await writeTemporary(temporary, content, { flags: "w", mode, durable });

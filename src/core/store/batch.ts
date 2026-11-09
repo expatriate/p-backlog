@@ -1,5 +1,5 @@
 import { isClosed, type BacklogIndex } from "../model/graph";
-import { errorText, type PathErrorHandler } from "../errors";
+import { errorText } from "../errors";
 import { partition } from "../collections";
 import { compareIds } from "../model/ids";
 import { closesAfterItsTasks, type Closure } from "../model/lifecycle";
@@ -8,6 +8,7 @@ import type { Priority, Task, TaskStatus } from "../model/types";
 import { appendingJournal, bufferedJournal, undoJournal, type JournalWriter } from "./journal";
 import { updateTaskInIndex, type TaskChanges } from "./update";
 import { indexWithWritten } from "./write-result";
+import type { WriteContext } from "./write-context";
 
 export type BatchSkipReason = "changed" | "not-found" | "already-closed" | "invalid" | "busy" | "failed";
 
@@ -19,7 +20,7 @@ type BatchAction = { kind: "close"; reason: string } | { kind: "priority"; prior
 
 type BatchTask = { id: string; version: string };
 
-type BatchRequest = { tasks: readonly BatchTask[]; action: BatchAction; now: Date; onError: PathErrorHandler };
+type BatchRequest = WriteContext & { tasks: readonly BatchTask[]; action: BatchAction };
 
 export type CoreBatchOutcome =
   | { id: string; outcome: "done"; task: Task; reopenedEpic?: Task | undefined; previous: BatchPrevious }
@@ -42,7 +43,7 @@ export async function applyBatch(index: BacklogIndex, { tasks, action, now, onEr
   return [...taskOutcomes, ...epicOutcomes].sort((left, right) => compareIds(left.id, right.id));
 }
 
-type BatchStep = { action: BatchAction; now: Date; onError: PathErrorHandler; journal: JournalWriter };
+type BatchStep = WriteContext & { action: BatchAction; journal: JournalWriter };
 
 async function applyInOrder(index: BacklogIndex, tasks: readonly BatchTask[], step: BatchStep): Promise<CoreBatchOutcome[]> {
   const outcomes: CoreBatchOutcome[] = [];

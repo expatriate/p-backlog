@@ -14,5 +14,5 @@ export async function readSignalsShown(projectDir: string): Promise<SignalsShown
 }
 
 export async function rememberSignalsShown(projectDir: string, signals: readonly ShownSignal[], today: string, onError: PathErrorHandler): Promise<void> {
-  await updateJsonUnderLock(join(projectDir, SIGNALS_SHOWN_FILE), shownSchema, {}, (shown) => markShown(shown, signals, today), { onError });
+  await updateJsonUnderLock(join(projectDir, SIGNALS_SHOWN_FILE), shownSchema, {}, (shown) => markShown(shown, signals, today), { onErrorAfterPublish: onError });
 }

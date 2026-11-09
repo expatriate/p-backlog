@@ -15,7 +15,8 @@ import { writeSettings } from "../../src/core/store/settings";
 import { sweepClosed } from "../../src/core/store/sweep";
 import { DemoRepo, pick, seededRandom, type Random } from "./demo-repo";
 import { DAY_MS, MINUTE_MS } from "../../src/core/model/dates";
-import { failOnPathError } from "../../src/core/store/testing/path-errors";
+
+const reportPathErrors = warnPathErrors(console.error);
 
 const eventSchema = z.discriminatedUnion("do", [
   z.object({ at: z.number(), do: z.enum(["take", "done", "cancel", "block", "reopen", "verify", "touch", "obsolete"]) }),
@@ -92,7 +93,7 @@ export async function readDemoInputs(dataDir: string, language: Language): Promi
 export async function buildDemoBacklog(scenario: Scenario, texts: Texts, language: Language, paths: DemoPaths, repoRoot: string): Promise<DemoBacklog> {
   const now = Date.now();
   const random = seededRandom(SEED);
-  await writeSettings(paths.backlogRoot, { language }, failOnPathError);
+  await writeSettings(paths.backlogRoot, { language }, reportPathErrors);
   const repos = await createDemoProjects(scenario, paths, random, new Date(now - scenario.repoCreatedDaysAgo * DAY_MS));
   const demo = new DemoRun(texts, language, paths, repoRoot, repos, now);
   const featureSteps = scenario.projects.flatMap((project) => featureCommitSteps(demo.repoOf(project.id), project, random, now, scenario.repoCreatedDaysAgo));
@@ -163,7 +164,7 @@ class DemoRun {
     const steps: Step[] = [];
     for (let day = Math.floor(scenario.startDaysAgo); day >= 1; day--) {
       const evening = eveningOf(this.now, day);
-      steps.push({ at: evening, run: () => sweepClosed(this.paths.backlogRoot, { now: new Date(evening), onError: warnPathErrors(console.error) }, messages) });
+      steps.push({ at: evening, run: () => sweepClosed(this.paths.backlogRoot, { now: new Date(evening), onError: reportPathErrors }, messages) });
       if (day % scenario.checkEveryDays === 0) {
         steps.push({ at: evening + 1, run: () => this.check() });
       }

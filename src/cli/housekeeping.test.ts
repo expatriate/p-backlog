@@ -2,6 +2,7 @@ import { appendFile, mkdir, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DAY_MS, formatLocalIso } from "../core/model/dates";
+import { COMPACTED_STAMP } from "../core/store/journal-compaction";
 import { appendRun } from "../core/store/runs";
 import { SWEPT_AT_FILE } from "../core/store/sweep";
 import { readRuns } from "../core/store/testing/runs";
@@ -47,7 +48,7 @@ describe("уборка после команды CLI", () => {
 
     await tidy("hook stop");
     expect(await readFile(journalPath, "utf8")).toBe(before);
-    expect(await readdir(join(root, "spa"))).not.toContain(".journal-compacted-at");
+    expect(await readdir(join(root, "spa"))).not.toContain(COMPACTED_STAMP);
 
     await tidy("show");
     expect(await readFile(journalPath, "utf8")).not.toContain("SPA-3");

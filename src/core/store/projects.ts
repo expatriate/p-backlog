@@ -50,7 +50,7 @@ async function editProjectFile({ id, path }: Pick<Project, "id" | "path">, onErr
       if (!parsed.ok) return { ok: false, reason: "invalid", problems: parsed.problems };
       const project = edit(parsed.value);
       const changed = project !== parsed.value;
-      if (changed) await writeFileAtomic(path, serializeProject(project), { onError });
+      if (changed) await writeFileAtomic(path, serializeProject(project), { onErrorAfterPublish: onError });
       written = { ok: true, project, changed };
       return written;
     });

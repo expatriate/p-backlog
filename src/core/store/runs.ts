@@ -39,7 +39,7 @@ export async function trimRuns(root: string, { now, onError }: WriteContext): Pr
     const cutoff = retainedSince(now);
     const kept = runs.filter((run) => Date.parse(run.at) >= cutoff);
     const removed = runs.length - kept.length + invalidLines;
-    if (removed > 0) await writeFileAtomic(path, toJsonLines(kept), { onError });
+    if (removed > 0) await writeFileAtomic(path, toJsonLines(kept), { onErrorAfterPublish: onError });
     return removed;
   });
 }

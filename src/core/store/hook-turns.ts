@@ -19,7 +19,7 @@ export async function claimHookTurn(backlogRoot: string, turnKey: string, { now,
       if (claimed.some(([key]) => key === turnKey)) return null;
       return { ...Object.fromEntries(claimed), [turnKey]: formatLocalIso(now) };
     },
-    { onError },
+    { onErrorAfterPublish: onError },
   );
   return outcome === "written";
 }

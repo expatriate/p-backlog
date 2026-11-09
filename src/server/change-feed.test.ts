@@ -94,7 +94,7 @@ describe("createChangeFeed", () => {
     await writeFile(temporaryPathFor(join(root, "spa/SPA-1.md")), "недописанная задача", "utf8");
     await writeFile(join(root, "spa/SPA-1.md"), "задача", "utf8");
     await changes.reached(join(root, "spa/SPA-1.md"));
-    await writeFileAtomic(join(root, "spa/SPA-2.md"), "правка", { onError: failOnPathError });
+    await writeFileAtomic(join(root, "spa/SPA-2.md"), "правка", { onErrorAfterPublish: failOnPathError });
     await changes.reached(join(root, "spa/SPA-2.md"));
 
     expect([...changes.seen].sort()).toEqual([join(root, "spa/SPA-1.md"), join(root, "spa/SPA-2.md")]);

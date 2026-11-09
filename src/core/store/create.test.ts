@@ -101,7 +101,7 @@ describe("createTask", () => {
     const root = await makeTempDir();
     const created = (id: string) => `${JSON.stringify({ at: "2026-01-05T10:00:00+03:00", task: id, via: "cli", kind: "created", type: "task", priority: "medium", tags: [] })}\n`;
     await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1"), "spa/journal.jsonl": ["SPA-1", "SPA-3", "SPA-5"].map(created).join("") });
-    await compactJournal(join(root, "spa"), await taskIdsOnDisk(join(root, "spa")), NOW, failOnPathError);
+    await compactJournal(join(root, "spa"), await taskIdsOnDisk(join(root, "spa")), { now: NOW, onError: failOnPathError });
     const { loaded, project } = await loadProject(root, "spa");
 
     const result = await createTask(root, { project, input: { title: "После уплотнения" }, index: indexOfLoaded(loaded), now: NOW, via: "cli", onError: failOnPathError });

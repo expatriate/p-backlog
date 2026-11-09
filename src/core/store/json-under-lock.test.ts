@@ -15,7 +15,7 @@ describe("updateJsonUnderLock", () => {
     const path = join(await makeTempDir(), "counts.json");
     await writeFile(path, content);
 
-    const outcome = await updateJsonUnderLock(path, countsSchema, {}, (current) => ({ ...current, hooks: 1 }), { onError: failOnPathError });
+    const outcome = await updateJsonUnderLock(path, countsSchema, {}, (current) => ({ ...current, hooks: 1 }), { onErrorAfterPublish: failOnPathError });
 
     expect(outcome).toBe("written");
     expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ hooks: 1 });
@@ -26,7 +26,7 @@ describe("updateJsonUnderLock", () => {
     await writeFile(path, '{"hooks":1}');
 
     await withFileLock(path, async () => {
-      await expect(updateJsonUnderLock(path, countsSchema, {}, (current) => ({ ...current, hooks: 2 }), { ...SHORT_LOCK_WAIT, onError: failOnPathError })).rejects.toMatchObject({
+      await expect(updateJsonUnderLock(path, countsSchema, {}, (current) => ({ ...current, hooks: 2 }), { ...SHORT_LOCK_WAIT, onErrorAfterPublish: failOnPathError })).rejects.toMatchObject({
         name: "FileBusyError",
         seconds: 0.05,
       });

@@ -88,7 +88,7 @@ describe("createJsonlTail", () => {
     const tail = createJsonlTail(path, SCHEMA);
     await tail.read();
 
-    await writeFileAtomic(path, kept, { onError: failOnPathError });
+    await writeFileAtomic(path, kept, { onErrorAfterPublish: failOnPathError });
     await appendFile(path, lines(100, 5));
     const result = await tail.read();
 

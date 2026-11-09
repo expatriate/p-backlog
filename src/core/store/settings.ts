@@ -24,7 +24,7 @@ async function readSettingsFile(root: string): Promise<SettingsFile> {
 
 export async function writeSettings(root: string, settings: Settings, onError: PathErrorHandler): Promise<void> {
   await mkdir(root, { recursive: true });
-  await writeJsonFile(settingsFilePath(root), settings, { onError });
+  await writeJsonFile(settingsFilePath(root), settings, { onErrorAfterPublish: onError });
 }
 
 export type SettledLanguage = { language: Language; invalidSettingsFile: boolean; saveFailure: string | null };

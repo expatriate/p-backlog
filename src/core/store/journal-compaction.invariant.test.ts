@@ -191,7 +191,7 @@ describe("уплотнение журнала на случайных журна
       const { root, code } = await generatedBacklog(seed);
       const before = await snapshot(root, code);
 
-      for (const { id } of PROJECTS) removedTotal += await compactJournal(join(root, id), await taskIdsOnDisk(join(root, id)), NOW, failOnPathError);
+      for (const { id } of PROJECTS) removedTotal += await compactJournal(join(root, id), await taskIdsOnDisk(join(root, id)), { now: NOW, onError: failOnPathError });
 
       expect(await snapshot(root, code), `seed ${seed}`).toEqual(before);
     }

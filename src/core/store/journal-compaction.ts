@@ -15,21 +15,20 @@ import { retainedSince } from "../model/history-window";
 import { parseId } from "../model/ids";
 import { PROJECT_FILE } from "./paths";
 import { reserveIssuedUpTo } from "./projects";
+import type { WriteContext } from "./write-context";
 
-const COMPACTED_STAMP = ".journal-compacted-at";
+export const COMPACTED_STAMP = ".journal-compacted-at";
 
 type JournalLine = { text: string; event: JournalEvent | null };
 
 const EPISODE_KINDS: ReadonlySet<JournalEvent["kind"]> = new Set(["candidate", "candidate-gone", "candidate-filtered", "verified"]);
 
-export type CompactionReports = { failed: PathErrorHandler; onError: PathErrorHandler };
-
-export async function compactJournalsWhenDue(root: string, now: Date, { failed, onError }: CompactionReports): Promise<string[]> {
+export async function compactJournalsWhenDue(root: string, writes: WriteContext, onNotCompacted: PathErrorHandler): Promise<string[]> {
   const compacted: string[] = [];
   for (const name of await projectDirNames(root)) {
     const dir = join(root, name);
-    const removed = await compactProjectWhenDue(dir, now, onError).catch((error: unknown) => {
-      failed(dir, error);
+    const removed = await compactProjectWhenDue(dir, writes).catch((error: unknown) => {
+      onNotCompacted(dir, error);
       return null;
     });
     if (removed !== null && removed > 0) compacted.push(name);
@@ -37,12 +36,12 @@ export async function compactJournalsWhenDue(root: string, now: Date, { failed, 
   return compacted;
 }
 
-async function compactProjectWhenDue(dir: string, now: Date, onError: PathErrorHandler): Promise<number | null> {
+async function compactProjectWhenDue(dir: string, writes: WriteContext): Promise<number | null> {
   if (!(await fileExists(join(dir, JOURNAL_FILE)))) return null;
-  return runWhenDue(join(dir, COMPACTED_STAMP), { now, onError }, async () => compactJournal(dir, await taskIdsOnDisk(dir), now, onError));
+  return runWhenDue(join(dir, COMPACTED_STAMP), writes, async () => compactJournal(dir, await taskIdsOnDisk(dir), writes));
 }
 
-export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySet<string>, now: Date, onError: PathErrorHandler): Promise<number> {
+export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySet<string>, { now, onError }: WriteContext): Promise<number> {
   const path = join(projectDir, JOURNAL_FILE);
   if (!(await fileExists(path))) return 0;
   return withFileLock(path, async () => {
@@ -50,16 +49,16 @@ export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySe
     const completeLines = journal.subarray(0, journal.lastIndexOf(NEWLINE) + 1);
     const lines = journalLines(completeLines.toString("utf8"));
     const kept = retainedLines(lines, liveTaskIds, retainedSince(now));
-    const removed = lines.length - kept.length;
-    if (removed === 0 || !(await reserveRemovedNumbers(projectDir, lines, kept, onError))) return 0;
-    const replaced = await replacePrefixAtomic(path, completeLines, kept.map(({ text }) => `${text}\n`).join(""), { onError });
-    return replaced ? removed : 0;
+    const keptLines = new Set(kept);
+    const dropped = lines.filter((line) => !keptLines.has(line));
+    if (dropped.length === 0 || !(await reserveDroppedNumbers(projectDir, dropped, onError))) return 0;
+    const replaced = await replacePrefixAtomic(path, completeLines, kept.map(({ text }) => `${text}\n`).join(""), { onErrorAfterPublish: onError });
+    return replaced ? dropped.length : 0;
   });
 }
 
-async function reserveRemovedNumbers(projectDir: string, lines: readonly JournalLine[], kept: readonly JournalLine[], onError: PathErrorHandler): Promise<boolean> {
-  const keptLines = new Set(kept);
-  const highest = lines.reduce((max, line) => (keptLines.has(line) || line.event === null ? max : Math.max(max, parseId(line.event.task)?.number ?? 0)), 0);
+async function reserveDroppedNumbers(projectDir: string, dropped: readonly JournalLine[], onError: PathErrorHandler): Promise<boolean> {
+  const highest = dropped.reduce((max, { event }) => (event === null ? max : Math.max(max, parseId(event.task)?.number ?? 0)), 0);
   if (highest === 0) return true;
   const reservation = await reserveIssuedUpTo({ id: basename(projectDir), path: join(projectDir, PROJECT_FILE) }, highest, onError);
   return reservation.ok || reservation.reason === "not-found";

@@ -21,7 +21,7 @@ export async function runAndStamp<T>(stampPath: string, { now, onError }: WriteC
   try {
     return await action();
   } finally {
-    await writeFileAtomic(stampPath, `${formatLocalIso(now)}\n`, { onError });
+    await writeFileAtomic(stampPath, `${formatLocalIso(now)}\n`, { onErrorAfterPublish: onError });
   }
 }
 

@@ -21,6 +21,7 @@ vi.mock("./fs-utils", async (importOriginal) => {
 });
 
 const NOW = new Date("2026-09-27T12:00:00+03:00");
+const WRITES = { now: NOW, onError: failOnPathError };
 const repoWithUnits = { commits: [], lines: [], units: [{ date: "2026-09-06T10:00:00+03:00", lines: 100 }] };
 const CODE: CollectedCode = {
   projects: [
@@ -137,7 +138,7 @@ async function addTiProject(root: string): Promise<string> {
 const reports = (root: string) => reportsOf(root, ["spa", "ti"], NOW, CODE);
 
 async function compact(dir: string): Promise<number> {
-  return compactJournal(dir, await taskIdsOnDisk(dir), NOW, failOnPathError);
+  return compactJournal(dir, await taskIdsOnDisk(dir), WRITES);
 }
 
 const journalLines = async (dir: string) => (await readFile(join(dir, JOURNAL_FILE), "utf8")).split("\n").filter((line) => line !== "");
@@ -255,7 +256,7 @@ describe("уплотнение журнала проекта", () => {
     const removed = await failingEvery(
       withFile,
       (path) => path === dir,
-      async () => compactJournal(dir, await taskIdsOnDisk(dir), NOW, (path) => reported.push(path)),
+      async () => compactJournal(dir, await taskIdsOnDisk(dir), { now: NOW, onError: (path) => reported.push(path) }),
     );
 
     expect(removed).toBe(11);
@@ -278,8 +279,8 @@ describe("уплотнение журнала проекта", () => {
     const root = await makeTempDir();
     await writeFiles(root, { [join("spa", PROJECT_FILE)]: projectFile("SPA") });
 
-    expect(await compactJournal(join(root, "gone"), new Set(), NOW, failOnPathError)).toBe(0);
-    expect(await compactJournal(join(root, "spa"), new Set(), NOW, failOnPathError)).toBe(0);
+    expect(await compactJournal(join(root, "gone"), new Set(), WRITES)).toBe(0);
+    expect(await compactJournal(join(root, "spa"), new Set(), WRITES)).toBe(0);
     expect(await readdir(join(root, "spa"))).toEqual([PROJECT_FILE]);
   });
 });

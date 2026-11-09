@@ -30,7 +30,7 @@ export async function writeJsonConfig({ path, onError }: ConfigFile, config: unk
   await mkdir(dirname(path), { recursive: true });
   const target = await writeTargetOf(path);
   const existing = await statOrNull(target);
-  await writeJsonFile(target, config, { mode: existing === null ? undefined : existing.mode & 0o777, onError });
+  await writeJsonFile(target, config, { mode: existing === null ? undefined : existing.mode & 0o777, onErrorAfterPublish: onError });
 }
 
 async function readConfigText(path: string): Promise<string | JsonConfigFailure> {
