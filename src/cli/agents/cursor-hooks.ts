@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ConfigFile } from "./json-config";
 import { addStopHookIn, removeStopHookIn, type HookInstallResult, type HookRemoveResult, type IsOurHook, type OurHook } from "./grouped-stop-hooks";
 
 const CURSOR_HOOKS_VERSION = 1;
@@ -13,9 +14,9 @@ const cursorConfigSchema = z
   })
   .passthrough();
 
-export function addCursorStopHook(path: string, hook: { command: string }, ourHook: OurHook): Promise<HookInstallResult> {
+export function addCursorStopHook(file: ConfigFile, hook: { command: string }, ourHook: OurHook): Promise<HookInstallResult> {
   return addStopHookIn(
-    path,
+    file,
     cursorConfigSchema,
     (config) => {
       config.hooks ??= {};
@@ -29,8 +30,8 @@ export function addCursorStopHook(path: string, hook: { command: string }, ourHo
   );
 }
 
-export function removeCursorStopHook(path: string, isOurs: IsOurHook): Promise<HookRemoveResult> {
-  return removeStopHookIn(path, cursorConfigSchema, (config) => {
+export function removeCursorStopHook(file: ConfigFile, isOurs: IsOurHook): Promise<HookRemoveResult> {
+  return removeStopHookIn(file, cursorConfigSchema, (config) => {
     const hooks = config.hooks;
     if (hooks?.stop === undefined || !hooks.stop.some(isOurs)) return false;
     const kept = hooks.stop.filter((hook) => !isOurs(hook));

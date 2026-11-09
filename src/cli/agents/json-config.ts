@@ -1,11 +1,13 @@
 import { mkdir, readFile, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { z } from "zod";
-import { errorCodeOrText, hasErrorCode } from "../../core/errors";
+import { errorCodeOrText, hasErrorCode, type PathErrorHandler } from "../../core/errors";
 import { linkTargetOrNull, statOrNull } from "../../core/store/fs-utils";
 import { writeJsonFile } from "../../core/store/json-file";
 
 const MAX_LINK_HOPS = 40;
+
+export type ConfigFile = { path: string; onError: PathErrorHandler };
 
 export type JsonConfigFailure = { failed: "unreadable"; code: string } | { failed: "invalid" };
 
@@ -24,11 +26,11 @@ export async function readJsonConfig<T>(path: string, schema: z.ZodType<T>): Pro
   return schema.safeParse(value).success ? { config: value as T } : { failed: "invalid" };
 }
 
-export async function writeJsonConfig(path: string, config: unknown): Promise<void> {
+export async function writeJsonConfig({ path, onError }: ConfigFile, config: unknown): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const target = await writeTargetOf(path);
   const existing = await statOrNull(target);
-  await writeJsonFile(target, config, existing === null ? undefined : existing.mode & 0o777);
+  await writeJsonFile(target, config, { mode: existing === null ? undefined : existing.mode & 0o777, onError });
 }
 
 async function readConfigText(path: string): Promise<string | JsonConfigFailure> {

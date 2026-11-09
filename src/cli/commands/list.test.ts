@@ -6,6 +6,7 @@ import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp
 import { updateTask } from "../../core/store/testing/update-task";
 import { EXIT } from "../io";
 import { makeCliSandbox, SANDBOX_NOW } from "../testing/cli-harness";
+import { failOnPathError } from "../../core/store/testing/path-errors";
 
 describe("backlog list", () => {
   it.each(["", ","])("пустой --status «%s» отклоняет, а не показывает пустой список", async (status) => {
@@ -76,7 +77,7 @@ describe("backlog list", () => {
 
   it("на языке en выводит английский текст без кириллицы", async () => {
     const { run, root } = await makeCliSandbox();
-    await writeSettings(root, { language: "en" });
+    await writeSettings(root, { language: "en" }, failOnPathError);
     await run(["new", "--category", "bug", "--title", "Timeout"]);
 
     const empty = await run(["list", "--query", "nothing like that"]);

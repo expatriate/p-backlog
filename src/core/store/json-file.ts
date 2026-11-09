@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { writeFileAtomic } from "./atomic-write";
+import { writeFileAtomic, type AtomicWriteOptions } from "./atomic-write";
 import { readTextOrNull } from "./fs-utils";
 
 export const JSON_INDENT = 2;
@@ -23,6 +23,6 @@ export async function readJsonFile<T>(path: string, schema: z.ZodType<T>): Promi
   return text === null ? null : parseJson(text, schema);
 }
 
-export async function writeJsonFile(path: string, value: unknown, mode?: number): Promise<void> {
-  await writeFileAtomic(path, jsonFileText(value), { mode });
+export async function writeJsonFile(path: string, value: unknown, options: AtomicWriteOptions): Promise<void> {
+  await writeFileAtomic(path, jsonFileText(value), options);
 }

@@ -1,10 +1,11 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { candidateEvents, episodeStates, filteredEvents } from "../journal/episodes";
 import { reportContext } from "../stats/scope";
 import { projectFixKey, type ProjectFixKey } from "../code/fix-key";
 import type { CollectedCode, FixCommit } from "../code/types";
+import { withFile } from "./fs-utils";
 import { JOURNAL_FILE, readJournal, readJournals } from "./journal";
 import { compactJournal } from "./journal-compaction";
 import { loadBacklog, taskIdsOnDisk } from "./load";
@@ -12,6 +13,12 @@ import { PROJECT_FILE } from "./paths";
 import { reportsOf } from "./testing/compaction-reports";
 import { makeTempDir, projectFile, writeFiles } from "./testing/temp-dirs";
 import { failOnPathError } from "./testing/path-errors";
+import { failingEvery } from "./testing/fs-failures";
+
+vi.mock("./fs-utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./fs-utils")>();
+  return { ...actual, withFile: vi.fn(actual.withFile) };
+});
 
 const NOW = new Date("2026-09-27T12:00:00+03:00");
 const repoWithUnits = { commits: [], lines: [], units: [{ date: "2026-09-06T10:00:00+03:00", lines: 100 }] };
@@ -239,6 +246,21 @@ describe("уплотнение журнала проекта", () => {
       ["SPA-3", "created"],
       ["SPA-4", "deleted"],
     ]);
+  });
+
+  it.skipIf(process.platform === "win32")("сбой синхронизации каталога после замены журнала не выдаёт сжатый журнал за несжатый, сбой — в onError", async () => {
+    const { dir } = await spaProject();
+    const reported: string[] = [];
+
+    const removed = await failingEvery(
+      withFile,
+      (path) => path === dir,
+      async () => compactJournal(dir, await taskIdsOnDisk(dir), NOW, (path) => reported.push(path)),
+    );
+
+    expect(removed).toBe(11);
+    expect((await readJournal(dir, "spa")).events).toHaveLength(19);
+    expect(reported).toContain(join(dir, JOURNAL_FILE));
   });
 
   it("журнал без старого не переписывается", async () => {

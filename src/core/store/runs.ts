@@ -8,6 +8,7 @@ import { appendJsonLines, readJsonLines, toJsonLines } from "./json-lines";
 import { writeFileAtomic } from "./atomic-write";
 import { DAY_MS } from "../model/dates";
 import { retainedSince } from "../model/history-window";
+import type { WriteContext } from "./write-context";
 
 export const RUNS_FILE = ".runs.jsonl";
 
@@ -31,23 +32,23 @@ export async function appendRun(root: string, run: CliRun): Promise<void> {
   await withFileLock(path, () => appendJsonLines(path, [run]));
 }
 
-export async function trimRuns(root: string, now: Date): Promise<number> {
+export async function trimRuns(root: string, { now, onError }: WriteContext): Promise<number> {
   const path = join(root, RUNS_FILE);
   return withFileLock(path, async () => {
     const { values: runs, invalidLines } = await readJsonLines(path, cliRunSchema);
     const cutoff = retainedSince(now);
     const kept = runs.filter((run) => Date.parse(run.at) >= cutoff);
     const removed = runs.length - kept.length + invalidLines;
-    if (removed > 0) await writeFileAtomic(path, toJsonLines(kept));
+    if (removed > 0) await writeFileAtomic(path, toJsonLines(kept), { onError });
     return removed;
   });
 }
 
-export async function trimRunsWhenStale(root: string, now: Date): Promise<number> {
+export async function trimRunsWhenStale(root: string, writes: WriteContext): Promise<number> {
   const first = await firstRun(join(root, RUNS_FILE));
-  const staleBefore = retainedSince(now) - STALE_RUN_SLACK_DAYS * DAY_MS;
+  const staleBefore = retainedSince(writes.now) - STALE_RUN_SLACK_DAYS * DAY_MS;
   const needsTrim = first.kind === "unparsable" || (first.kind === "run" && first.at < staleBefore);
-  return needsTrim ? trimRuns(root, now) : 0;
+  return needsTrim ? trimRuns(root, writes) : 0;
 }
 
 type FirstRun = { kind: "none" } | { kind: "unparsable" } | { kind: "run"; at: number };

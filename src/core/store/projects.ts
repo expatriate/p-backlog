@@ -42,7 +42,6 @@ export async function readProjectFile({ id, path }: Pick<Project, "id" | "path">
 
 async function editProjectFile({ id, path }: Pick<Project, "id" | "path">, onError: PathErrorHandler, edit: (project: Project) => Project): Promise<ProjectWriteResult> {
   if (!(await fileExists(path))) return NOT_FOUND;
-  const reportAfterWrite = (error: unknown) => onError(path, error);
   let written: ProjectWriteResult | null = null;
   try {
     return await withFileLock(path, async () => {
@@ -51,13 +50,13 @@ async function editProjectFile({ id, path }: Pick<Project, "id" | "path">, onErr
       if (!parsed.ok) return { ok: false, reason: "invalid", problems: parsed.problems };
       const project = edit(parsed.value);
       const changed = project !== parsed.value;
-      if (changed) await writeFileAtomic(path, serializeProject(project), { onErrorAfterPublish: reportAfterWrite });
+      if (changed) await writeFileAtomic(path, serializeProject(project), { onError });
       written = { ok: true, project, changed };
       return written;
     });
   } catch (error) {
     if (written === null) throw error;
-    reportAfterWrite(error);
+    onError(path, error);
     return written;
   }
 }

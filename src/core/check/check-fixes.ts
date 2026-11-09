@@ -5,7 +5,8 @@ import { epicDoneClosure, planEpicClosing, planEpicReopening, type Closure } fro
 import type { Task, TaskStatus } from "../model/types";
 import { indexOfLoaded, type LoadedBacklog } from "../store/load";
 import { referenceCleanup } from "../store/references";
-import { statusToReopen, updateTaskInIndex, type TaskChanges, type WriteContext } from "../store/update";
+import { statusToReopen, updateTaskInIndex, type TaskChanges } from "../store/update";
+import type { WriteContext } from "../store/write-context";
 import type { UpdateTaskFailure } from "../store/write-result";
 import type { AnchorPlan } from "./candidates";
 import type { CheckFix, CheckProblem } from "./findings";

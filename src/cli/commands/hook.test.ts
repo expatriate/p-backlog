@@ -8,6 +8,7 @@ import { gitAddWorktree, gitCommitAll, writeFiles } from "../../core/store/testi
 import { writeSettings } from "../../core/store/settings";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
+import { failOnPathError } from "../../core/store/testing/path-errors";
 
 vi.mock("../../core/store/file-lock", async (importOriginal) => (await import("../../core/store/testing/lock-wait")).fileLockWithShortWait(await importOriginal<typeof import("../../core/store/file-lock")>()));
 
@@ -320,7 +321,7 @@ describe("backlog hook stop", () => {
 
   it("на языке en причина блокировки — на английском, с маркером Backlog", async () => {
     const { run, repo, root } = await makeCliSandbox();
-    await writeSettings(root, { language: "en" });
+    await writeSettings(root, { language: "en" }, failOnPathError);
     await writeFiles(repo, { "src/a.ts": "1\n" });
     gitCommitAll(repo, "Start", "2026-09-16T10:00:00Z");
     await run(["new", "--category", "bug", "--title", "Timeout", "--source", "src/a.ts:1"]);

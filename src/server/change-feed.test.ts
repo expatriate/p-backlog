@@ -6,6 +6,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { temporaryPathFor, writeFileAtomic } from "../core/store/atomic-write";
 import { makeTempDir } from "../core/store/testing/temp-dirs";
 import { createChangeFeed, createDebouncer, isHiddenPath, type ChangeFeed } from "./change-feed";
+import { failOnPathError } from "../core/store/testing/path-errors";
 
 const PROBE_PREFIX = "probe-";
 let probes = 0;
@@ -93,7 +94,7 @@ describe("createChangeFeed", () => {
     await writeFile(temporaryPathFor(join(root, "spa/SPA-1.md")), "недописанная задача", "utf8");
     await writeFile(join(root, "spa/SPA-1.md"), "задача", "utf8");
     await changes.reached(join(root, "spa/SPA-1.md"));
-    await writeFileAtomic(join(root, "spa/SPA-2.md"), "правка");
+    await writeFileAtomic(join(root, "spa/SPA-2.md"), "правка", { onError: failOnPathError });
     await changes.reached(join(root, "spa/SPA-2.md"));
 
     expect([...changes.seen].sort()).toEqual([join(root, "spa/SPA-1.md"), join(root, "spa/SPA-2.md")]);

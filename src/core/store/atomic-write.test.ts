@@ -8,6 +8,7 @@ import { replacePrefixAtomic, writeFileAtomic } from "./atomic-write";
 import { failingOnce } from "./testing/fs-failures";
 import { asIfOnWindows } from "./testing/platform";
 import { makeTempDir } from "./testing/temp-dirs";
+import { failOnPathError } from "./testing/path-errors";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
@@ -22,7 +23,7 @@ describe("writeFileAtomic", () => {
     await failingOnce(
       open,
       (target) => target === dirname(path),
-      () => writeFileAtomic(path, "стало\n"),
+      () => writeFileAtomic(path, "стало\n", { onError: failOnPathError }),
       { code: "EINVAL" },
     );
 
@@ -39,7 +40,7 @@ describe("writeFileAtomic", () => {
     try {
       await once(holder.stdout, "data");
       let written = false;
-      const writing = writeFileAtomic(path, "стало\n").then(() => {
+      const writing = writeFileAtomic(path, "стало\n", { onError: failOnPathError }).then(() => {
         written = true;
       });
       await sleep(LOCK_HELD_MS);
@@ -66,7 +67,7 @@ describe("replacePrefixAtomic", () => {
       throw Object.assign(new Error("busy"), { code: "EBUSY" });
     });
 
-    await asIfOnWindows(() => replacePrefixAtomic(path, read, "kept\n"));
+    await asIfOnWindows(() => replacePrefixAtomic(path, read, "kept\n", { onError: failOnPathError }));
 
     expect(await readFile(path, "utf8")).toBe("kept\nlate\n");
   });
@@ -78,7 +79,7 @@ describe("replacePrefixAtomic", () => {
     await appendFile(path, "late\n");
     vi.mocked(rename).mockRejectedValueOnce(Object.assign(new Error("busy"), { code: "EBUSY" }));
 
-    await asIfOnWindows(() => replacePrefixAtomic(path, read, "kept\n"));
+    await asIfOnWindows(() => replacePrefixAtomic(path, read, "kept\n", { onError: failOnPathError }));
 
     expect(await readFile(path, "utf8")).toBe("kept\nlate\n");
   });
@@ -89,7 +90,7 @@ describe("replacePrefixAtomic", () => {
     const read = await readFile(path);
     await writeFile(path, "other\nlonger file\n");
 
-    const replaced = await replacePrefixAtomic(path, read, "kept\n");
+    const replaced = await replacePrefixAtomic(path, read, "kept\n", { onError: failOnPathError });
 
     expect(await readFile(path, "utf8")).toBe("other\nlonger file\n");
     expect(replaced).toBe(false);

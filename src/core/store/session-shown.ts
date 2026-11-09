@@ -3,6 +3,7 @@ import { z } from "zod";
 import { readJsonFile } from "./json-file";
 import { updateJsonUnderLock } from "./json-under-lock";
 import { formatLocalIso, WEEK_MS } from "../model/dates";
+import type { WriteContext } from "./write-context";
 
 const SESSION_SHOWN_FILE = ".candidates-shown.json";
 const SESSION_RETENTION_MS = WEEK_MS;
@@ -14,10 +15,16 @@ export async function readSessionShown(projectDir: string, session: string): Pro
   return sessions[session]?.tasks ?? [];
 }
 
-export async function rememberSessionShown(projectDir: string, session: string, taskIds: readonly string[], now: Date): Promise<void> {
-  await updateJsonUnderLock(join(projectDir, SESSION_SHOWN_FILE), sessionsShownSchema, {}, (sessions) => {
-    const recent = Object.entries(sessions).filter(([, shown]) => now.getTime() - Date.parse(shown.at) < SESSION_RETENTION_MS);
-    const tasks = [...new Set([...(sessions[session]?.tasks ?? []), ...taskIds])];
-    return { ...Object.fromEntries(recent), [session]: { tasks, at: formatLocalIso(now) } };
-  });
+export async function rememberSessionShown(projectDir: string, session: string, taskIds: readonly string[], { now, onError }: WriteContext): Promise<void> {
+  await updateJsonUnderLock(
+    join(projectDir, SESSION_SHOWN_FILE),
+    sessionsShownSchema,
+    {},
+    (sessions) => {
+      const recent = Object.entries(sessions).filter(([, shown]) => now.getTime() - Date.parse(shown.at) < SESSION_RETENTION_MS);
+      const tasks = [...new Set([...(sessions[session]?.tasks ?? []), ...taskIds])];
+      return { ...Object.fromEntries(recent), [session]: { tasks, at: formatLocalIso(now) } };
+    },
+    { onError },
+  );
 }

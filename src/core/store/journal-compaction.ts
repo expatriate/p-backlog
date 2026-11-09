@@ -39,7 +39,7 @@ export async function compactJournalsWhenDue(root: string, now: Date, { failed, 
 
 async function compactProjectWhenDue(dir: string, now: Date, onError: PathErrorHandler): Promise<number | null> {
   if (!(await fileExists(join(dir, JOURNAL_FILE)))) return null;
-  return runWhenDue(join(dir, COMPACTED_STAMP), now, async () => compactJournal(dir, await taskIdsOnDisk(dir), now, onError));
+  return runWhenDue(join(dir, COMPACTED_STAMP), { now, onError }, async () => compactJournal(dir, await taskIdsOnDisk(dir), now, onError));
 }
 
 export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySet<string>, now: Date, onError: PathErrorHandler): Promise<number> {
@@ -52,7 +52,7 @@ export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySe
     const kept = retainedLines(lines, liveTaskIds, retainedSince(now));
     const removed = lines.length - kept.length;
     if (removed === 0 || !(await reserveRemovedNumbers(projectDir, lines, kept, onError))) return 0;
-    const replaced = await replacePrefixAtomic(path, completeLines, kept.map(({ text }) => `${text}\n`).join(""));
+    const replaced = await replacePrefixAtomic(path, completeLines, kept.map(({ text }) => `${text}\n`).join(""), { onError });
     return replaced ? removed : 0;
   });
 }

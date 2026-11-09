@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { writeSettings } from "../../src/core/store/settings";
 import { E2E_BACKLOG_DIR } from "./backlog-dir";
 import { writeServedProject } from "./served-project";
+import { failOnPathError } from "../../src/core/store/testing/path-errors";
 
 const projectDir = join(E2E_BACKLOG_DIR, "focus");
 
@@ -10,7 +11,7 @@ test.beforeEach(async ({ request }) => {
   await writeServedProject(request, projectDir, { prefix: "FOC" });
 });
 
-test.afterEach(() => writeSettings(E2E_BACKLOG_DIR, { language: "ru" }));
+test.afterEach(() => writeSettings(E2E_BACKLOG_DIR, { language: "ru" }, failOnPathError));
 
 test("после «Отмена» в диалоге удаления проекта, открытом мышью, фокус на кнопке удаления", async ({ page }) => {
   await page.goto("/");

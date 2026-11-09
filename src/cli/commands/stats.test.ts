@@ -6,6 +6,7 @@ import { makeCliSandbox } from "../testing/cli-harness";
 import { projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { NBSP } from "../../core/i18n/plural";
 import { writeSettings } from "../../core/store/settings";
+import { failOnPathError } from "../../core/store/testing/path-errors";
 
 describe("backlog stats", () => {
   it("сводка проекта с тревогами и ссылкой", async () => {
@@ -29,7 +30,7 @@ describe("backlog stats", () => {
 
   it("на языке en сроки, прогноз и тревоги без кириллицы", async () => {
     const { run, root } = await makeCliSandbox();
-    await writeSettings(root, { language: "en" });
+    await writeSettings(root, { language: "en" }, failOnPathError);
     await run(["new", "--category", "bug", "--title", "Crash", "--priority", "critical"], { now: new Date("2026-09-01T10:00:00Z") });
     await run(["new", "--category", "bug", "--title", "Fixed"], { now: new Date("2026-09-14T10:00:00Z") });
     await run(["status", "SPA-2", "done"]);

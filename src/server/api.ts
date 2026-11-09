@@ -98,11 +98,11 @@ async function listTasks(c: Context, { backlog, readLanguage }: ApiDeps) {
   });
 }
 
-async function updateSettings(c: Context, { root, readLanguage }: ApiDeps) {
+async function updateSettings(c: Context, { root, readLanguage, onWriteError }: ApiDeps) {
   const body = await readBody(c, settingsRequestSchema, readLanguage);
   if (!body.ok) return body.response;
 
-  await writeSettings(root, body.data);
+  await writeSettings(root, body.data, onWriteError);
   return c.json<SettingsResponse>({ language: body.data.language });
 }
 

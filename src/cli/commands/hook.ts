@@ -1,4 +1,4 @@
-import { errorText } from "../../core/errors";
+import { errorText, warnPathErrors } from "../../core/errors";
 import { parseArgs } from "node:util";
 import { checkBacklog } from "../../core/check/check-backlog";
 import { formatLocalDay } from "../../core/model/dates";
@@ -10,6 +10,7 @@ import { projectDirOf } from "../../core/store/paths";
 import { lookupProjectForDir, readGitRoots, repoRootsOf } from "../../core/store/resolve-project";
 import { readSignalsShown, rememberSignalsShown } from "../../core/store/signals-shown";
 import { readSessionShown, rememberSessionShown } from "../../core/store/session-shown";
+import type { WriteContext } from "../../core/store/write-context";
 import { HOOK_STOP_EVENT, hookMessage } from "../../core/hook-signature";
 import { reportContext } from "../../core/stats/scope";
 import { statsSignals } from "../../core/stats/signals/signals";
@@ -92,10 +93,14 @@ async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   return EXIT.ok;
 }
 
+function writesOf(io: CliIo): WriteContext {
+  return { now: io.now(), onError: warnPathErrors(io.warn) };
+}
+
 async function isFirstHookOfTurn(agent: Agent, event: StopEvent, io: CliIo): Promise<boolean> {
   if (event.session === undefined || event.turn === undefined) return true;
   try {
-    return await claimHookTurn(io.backlogRoot, `${agent}:${event.session}:${event.turn}`, io.now());
+    return await claimHookTurn(io.backlogRoot, `${agent}:${event.session}:${event.turn}`, writesOf(io));
   } catch (error) {
     if (error instanceof FileBusyError) return false;
     io.warn(io.cli.hookTurnClaimFailed(errorText(error)));
@@ -114,7 +119,7 @@ async function sessionMemory(project: Project, session: string | undefined, io: 
     return {
       told: new Set(await readSessionShown(projectDir, session)),
       remember: async (ids) => {
-        if (ids.length > 0) await rememberSessionShown(projectDir, session, ids, io.now()).catch((error: unknown) => io.warn(io.cli.sessionShownWriteFailed(errorText(error))));
+        if (ids.length > 0) await rememberSessionShown(projectDir, session, ids, writesOf(io)).catch((error: unknown) => io.warn(io.cli.sessionShownWriteFailed(errorText(error))));
       },
     };
   } catch (error) {
@@ -148,7 +153,7 @@ async function freshSignals(project: Project, tasks: readonly Task[], extra: rea
 
 async function rememberShown(projectDir: string, signals: readonly Signal[], today: string, io: CliIo): Promise<void> {
   try {
-    await rememberSignalsShown(projectDir, signals, today);
+    await rememberSignalsShown(projectDir, signals, today, warnPathErrors(io.warn));
   } catch (error) {
     io.warn(io.cli.alertsShownWriteFailed(errorText(error)));
   }

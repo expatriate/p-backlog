@@ -6,6 +6,7 @@ import { readJsonLines } from "./json-lines";
 import { writeFileAtomic } from "./atomic-write";
 import { createJsonlTail } from "./jsonl-tail";
 import { makeTempDir } from "./testing/temp-dirs";
+import { failOnPathError } from "./testing/path-errors";
 
 const SCHEMA = z.object({ n: z.number() });
 
@@ -87,7 +88,7 @@ describe("createJsonlTail", () => {
     const tail = createJsonlTail(path, SCHEMA);
     await tail.read();
 
-    await writeFileAtomic(path, kept);
+    await writeFileAtomic(path, kept, { onError: failOnPathError });
     await appendFile(path, lines(100, 5));
     const result = await tail.read();
 

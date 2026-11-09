@@ -8,11 +8,11 @@ import type { OptionalFields, Task, TaskCategory, TaskStatus } from "../model/ty
 import { changeEvents, statusBeforeAutoClose, type ChangeSource } from "../journal/events";
 import { contentVersion } from "./fs-utils";
 import { writeFileAtomic } from "./atomic-write";
-import type { PathErrorHandler } from "../errors";
 import { FileBusyError, withFileLock } from "./file-lock";
 import { appendingJournal, readJournal, type JournalWriter } from "./journal";
 import { taskText } from "./task-text";
 import { readDocumentOrNull } from "./read-document";
+import type { WriteContext } from "./write-context";
 import { invalid, type UpdateTaskFailure, type UpdateTaskResult } from "./write-result";
 
 export type TaskChanges = OptionalFields<Pick<Task, "title" | "type" | "status" | "priority" | "tags" | "blockedBy" | "related" | "body" | "source" | "verified">> & {
@@ -21,9 +21,7 @@ export type TaskChanges = OptionalFields<Pick<Task, "title" | "type" | "status" 
   anchor?: string | null | undefined;
 };
 
-export type WriteOrigin = { now: Date; via: ChangeSource; onError: PathErrorHandler; journal?: JournalWriter | undefined };
-
-export type WriteContext = Pick<WriteOrigin, "now" | "onError">;
+export type WriteOrigin = WriteContext & { via: ChangeSource; journal?: JournalWriter | undefined };
 
 export type UpdateTaskRequest = WriteOrigin & {
   id: string;
@@ -84,19 +82,18 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
   const problems = [...integrity, ...epicClosingProblems(current, task, index)];
   if (problems.length > 0) return invalid(problems);
 
-  const reportAfterWrite = (error: unknown) => onError(current.path, error);
   let written = false;
   try {
     return await withTaskLock(current.path, async () => {
       const changedOnDisk = await diskChange(current, expectedVersion);
       if (changedOnDisk !== null) return changedOnDisk;
-      await writeFileAtomic(current.path, text, { onErrorAfterPublish: reportAfterWrite });
+      await writeFileAtomic(current.path, text, { onError });
       written = true;
       return { ok: true, task };
     });
   } catch (error) {
     if (!written) throw error;
-    reportAfterWrite(error);
+    onError(current.path, error);
     return { ok: true, task };
   } finally {
     if (written) await journal(dirname(current.path), changeEvents(current, task, now, via));

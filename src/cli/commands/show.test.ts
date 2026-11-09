@@ -3,6 +3,7 @@ import { writeSettings } from "../../core/store/settings";
 import { writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
+import { failOnPathError } from "../../core/store/testing/path-errors";
 
 describe("backlog show", () => {
   it("показывает прогресс, связи, предупреждения и содержимое файла", async () => {
@@ -29,7 +30,7 @@ describe("backlog show", () => {
     await run(["new", "--category", "bug", "--title", "Основная", "--blocked-by", "SPA-77"]);
 
     const ru = (await run(["show", "SPA-1", "--json"])).out;
-    await writeSettings(root, { language: "en" });
+    await writeSettings(root, { language: "en" }, failOnPathError);
     const en = (await run(["show", "SPA-1", "--json"])).out;
 
     expect(en).toBe(ru);

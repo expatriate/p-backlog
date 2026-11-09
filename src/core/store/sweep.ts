@@ -15,7 +15,8 @@ import { appendingJournal, bufferedJournal, type JournalWriter } from "./journal
 import { indexOfLoaded, loadBacklog, projectDirNames, type LoadedBacklog } from "./load";
 import { reserveIssuedUpTo } from "./projects";
 import { referenceCleanup } from "./references";
-import { statusToReopen, updateTaskInIndex, type TaskChanges, type WriteContext, type WriteOrigin } from "./update";
+import { statusToReopen, updateTaskInIndex, type TaskChanges, type WriteOrigin } from "./update";
+import type { WriteContext } from "./write-context";
 import type { UpdateTaskFailure } from "./write-result";
 import { DAY_MS } from "../model/dates";
 
@@ -43,11 +44,11 @@ type SweepWrites = WriteContext & Pick<WriteOrigin, "journal">;
 export const SWEPT_AT_FILE = ".swept-at";
 
 export function sweepClosedWhenDue(root: string, writes: SweepWrites, messages: StoreMessages): Promise<SweepReport | null> {
-  return runWhenDue(join(root, SWEPT_AT_FILE), writes.now, () => sweepClosed(root, writes, messages));
+  return runWhenDue(join(root, SWEPT_AT_FILE), writes, () => sweepClosed(root, writes, messages));
 }
 
 export function sweepClosedAndStamp(root: string, writes: SweepWrites, messages: StoreMessages): Promise<SweepReport> {
-  return runAndStamp(join(root, SWEPT_AT_FILE), writes.now, () => sweepClosed(root, writes, messages));
+  return runAndStamp(join(root, SWEPT_AT_FILE), writes, () => sweepClosed(root, writes, messages));
 }
 
 export async function sweepClosed(root: string, writes: SweepWrites, messages: StoreMessages): Promise<SweepReport> {

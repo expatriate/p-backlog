@@ -8,6 +8,7 @@ import { gitAddWorktree, gitCommitAll, gitMergeNoFastForward, writeFiles } from 
 import { loadBacklog } from "../../core/store/load";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
+import { failOnPathError } from "../../core/store/testing/path-errors";
 
 async function sandboxWithChangedSource() {
   const sandbox = await makeCliSandbox();
@@ -96,7 +97,7 @@ describe("backlog check", () => {
     gitCommitAll(repo, "Переписать", "2026-09-18T10:00:00Z");
     const task = (id: string, fields: string) => `---\nid: ${id}\ntitle: ${id}\ncreated: 2026-09-17T10:00:00Z\n${fields}---\n`;
     const checkJsonIn = async (language: Language) => {
-      await writeSettings(root, { language });
+      await writeSettings(root, { language }, failOnPathError);
       await writeFiles(root, { "spa/SPA-2.md": task("SPA-2", "blockedBy: [SPA-40]\n"), "spa/SPA-3.md": task("SPA-3", "blockedBy: [SPA-3]\n") });
       return (await run(["check", "--json"])).out;
     };

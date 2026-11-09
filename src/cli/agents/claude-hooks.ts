@@ -1,4 +1,5 @@
 import { HOOK_STOP_COMMAND } from "../../core/hook-signature";
+import type { ConfigFile } from "./json-config";
 import { addGroupedStopHook, commandOfHook, guardedPosixCommand, removeGroupedStopHook, type HookInstallResult, type HookRemoveResult, type IsOurHook } from "./grouped-stop-hooks";
 
 const POSIX_COMMAND = guardedPosixCommand(HOOK_STOP_COMMAND);
@@ -23,10 +24,10 @@ const isCurrentClaudeStopHook = hasCommandOf(CURRENT_COMMANDS);
 
 export const isOurClaudeStopHook = hasCommandOf([...CURRENT_COMMANDS, ...RETIRED_COMMANDS]);
 
-export function addClaudeStopHook(settingsPath: string, platform: NodeJS.Platform): Promise<HookInstallResult> {
-  return addGroupedStopHook(settingsPath, claudeStopHookFor(platform), { isOurs: isOurClaudeStopHook, isCurrent: isCurrentClaudeStopHook });
+export function addClaudeStopHook(settings: ConfigFile, platform: NodeJS.Platform): Promise<HookInstallResult> {
+  return addGroupedStopHook(settings, claudeStopHookFor(platform), { isOurs: isOurClaudeStopHook, isCurrent: isCurrentClaudeStopHook });
 }
 
-export function removeClaudeStopHook(settingsPath: string): Promise<HookRemoveResult> {
-  return removeGroupedStopHook(settingsPath, isOurClaudeStopHook);
+export function removeClaudeStopHook(settings: ConfigFile): Promise<HookRemoveResult> {
+  return removeGroupedStopHook(settings, isOurClaudeStopHook);
 }

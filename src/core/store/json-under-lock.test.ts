@@ -6,6 +6,7 @@ import { withFileLock } from "./file-lock";
 import { updateJsonUnderLock } from "./json-under-lock";
 import { SHORT_LOCK_WAIT } from "./testing/lock-wait";
 import { makeTempDir } from "./testing/temp-dirs";
+import { failOnPathError } from "./testing/path-errors";
 
 const countsSchema = z.record(z.string(), z.number());
 
@@ -14,7 +15,7 @@ describe("updateJsonUnderLock", () => {
     const path = join(await makeTempDir(), "counts.json");
     await writeFile(path, content);
 
-    const outcome = await updateJsonUnderLock(path, countsSchema, {}, (current) => ({ ...current, hooks: 1 }));
+    const outcome = await updateJsonUnderLock(path, countsSchema, {}, (current) => ({ ...current, hooks: 1 }), { onError: failOnPathError });
 
     expect(outcome).toBe("written");
     expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ hooks: 1 });
@@ -25,7 +26,10 @@ describe("updateJsonUnderLock", () => {
     await writeFile(path, '{"hooks":1}');
 
     await withFileLock(path, async () => {
-      await expect(updateJsonUnderLock(path, countsSchema, {}, (current) => ({ ...current, hooks: 2 }), SHORT_LOCK_WAIT)).rejects.toMatchObject({ name: "FileBusyError", seconds: 0.05 });
+      await expect(updateJsonUnderLock(path, countsSchema, {}, (current) => ({ ...current, hooks: 2 }), { ...SHORT_LOCK_WAIT, onError: failOnPathError })).rejects.toMatchObject({
+        name: "FileBusyError",
+        seconds: 0.05,
+      });
     });
 
     expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ hooks: 1 });

@@ -14,7 +14,7 @@ const CODEX_HOOK = {
 
 async function site(platform: NodeJS.Platform = "darwin") {
   const home = await makeTempDir();
-  return { home, env: {}, platform, cliPath: CLI_PATH };
+  return { home, env: {}, platform, cliPath: CLI_PATH, warn: (line: string) => expect.fail(line) };
 }
 
 async function writeJson(path: string, value: unknown) {

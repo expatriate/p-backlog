@@ -4,6 +4,7 @@ import { writeSettings } from "../../core/store/settings";
 import type { CliEnv, ExecResult } from "../io";
 import { runCli } from "../run";
 import { gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "../../core/store/testing/temp-dirs";
+import { failOnPathError } from "../../core/store/testing/path-errors";
 
 type CliRun = { code: number; out: string; err: string };
 
@@ -61,7 +62,7 @@ export async function makeCliSandbox(): Promise<CliSandbox> {
   const home = await makeTempDir();
   const root = join(home, "backlog");
   const repo = await makeGitRepo(home, "projects/spa");
-  await writeSettings(root, { language: "ru" });
+  await writeSettings(root, { language: "ru" }, failOnPathError);
   const run = async (argv: string[], { cwd = repo, stdin = "", now = SANDBOX_NOW, ...overrides }: CliRunOptions = {}): Promise<CliRun> => {
     const out: string[] = [];
     const err: string[] = [];

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { readLanguageOrLocale, settingsFilePath, settleLanguage, writeSettings } from "./settings";
 import { makeTempDir, projectFile, writeFiles } from "./testing/temp-dirs";
+import { failOnPathError } from "./testing/path-errors";
 
 function failOnUnreadable(error: unknown): never {
   throw error;
@@ -11,28 +12,28 @@ function failOnUnreadable(error: unknown): never {
 describe("язык беклога", () => {
   it("настройка главнее всего", async () => {
     const root = await makeTempDir();
-    await writeSettings(root, { language: "en" });
-    expect((await settleLanguage(root, { LANG: "ru_RU.UTF-8" })).language).toBe("en");
+    await writeSettings(root, { language: "en" }, failOnPathError);
+    expect((await settleLanguage(root, { LANG: "ru_RU.UTF-8" }, failOnPathError)).language).toBe("en");
   });
 
   it("существующий беклог без настройки остаётся русским и запоминает это", async () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": projectFile("SPA") });
-    expect((await settleLanguage(root, { LANG: "en_US.UTF-8" })).language).toBe("ru");
+    expect((await settleLanguage(root, { LANG: "en_US.UTF-8" }, failOnPathError)).language).toBe("ru");
     expect(JSON.parse(await readFile(join(root, ".settings.json"), "utf8"))).toEqual({ language: "ru" });
   });
 
   it("новый беклог берёт язык из локали системы", async () => {
-    expect((await settleLanguage(await makeTempDir(), { LANG: "ru_RU.UTF-8" })).language).toBe("ru");
-    expect((await settleLanguage(await makeTempDir(), { LC_ALL: "de_DE.UTF-8", LANG: "ru_RU.UTF-8" })).language).toBe("en");
+    expect((await settleLanguage(await makeTempDir(), { LANG: "ru_RU.UTF-8" }, failOnPathError)).language).toBe("ru");
+    expect((await settleLanguage(await makeTempDir(), { LC_ALL: "de_DE.UTF-8", LANG: "ru_RU.UTF-8" }, failOnPathError)).language).toBe("en");
   });
 
   it("язык из локали не флипается на русский, когда в беклоге появляется первый проект", async () => {
     const root = await makeTempDir();
     const env = { LANG: "en_US.UTF-8" };
-    expect((await settleLanguage(root, env)).language).toBe("en");
+    expect((await settleLanguage(root, env, failOnPathError)).language).toBe("en");
     await writeFiles(root, { "spa/project.md": projectFile("SPA") });
-    expect((await settleLanguage(root, env)).language).toBe("en");
+    expect((await settleLanguage(root, env, failOnPathError)).language).toBe("en");
     expect(JSON.parse(await readFile(join(root, ".settings.json"), "utf8"))).toEqual({ language: "en" });
   });
 
@@ -41,7 +42,7 @@ describe("язык беклога", () => {
     await chmod(root, 0o500);
     onTestFinished(() => chmod(root, 0o700));
 
-    expect(await settleLanguage(root, { LANG: "en_US.UTF-8" })).toEqual({ language: "en", invalidSettingsFile: false, saveFailure: expect.stringContaining("EACCES") });
+    expect(await settleLanguage(root, { LANG: "en_US.UTF-8" }, failOnPathError)).toEqual({ language: "en", invalidSettingsFile: false, saveFailure: expect.stringContaining("EACCES") });
     await expect(access(settingsFilePath(root))).rejects.toThrow();
   });
 
@@ -49,7 +50,7 @@ describe("язык беклога", () => {
     const root = await makeTempDir();
     await writeFiles(root, { "spa/project.md": projectFile("SPA"), ".settings.json": '{"language":"EN"}' });
 
-    expect(await settleLanguage(root, { LANG: "en_US.UTF-8" })).toEqual({ language: "en", invalidSettingsFile: true, saveFailure: null });
+    expect(await settleLanguage(root, { LANG: "en_US.UTF-8" }, failOnPathError)).toEqual({ language: "en", invalidSettingsFile: true, saveFailure: null });
     expect(await readFile(join(root, ".settings.json"), "utf8")).toBe('{"language":"EN"}');
   });
 

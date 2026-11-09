@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { errorText } from "../errors";
+import { errorText, type PathErrorHandler } from "../errors";
 import { languageFromLocale, type Language } from "../i18n/language";
 import { settingsSchema, type Settings } from "../model/settings";
 import { readTextOrNull } from "./fs-utils";
@@ -22,9 +22,9 @@ async function readSettingsFile(root: string): Promise<SettingsFile> {
   return settings === null ? { found: true, valid: false } : { found: true, valid: true, settings };
 }
 
-export async function writeSettings(root: string, settings: Settings): Promise<void> {
+export async function writeSettings(root: string, settings: Settings, onError: PathErrorHandler): Promise<void> {
   await mkdir(root, { recursive: true });
-  await writeJsonFile(settingsFilePath(root), settings);
+  await writeJsonFile(settingsFilePath(root), settings, { onError });
 }
 
 export type SettledLanguage = { language: Language; invalidSettingsFile: boolean; saveFailure: string | null };
@@ -33,9 +33,9 @@ type LanguageSource = "settings" | "unset" | "invalid-settings";
 
 const LANGUAGE_OF_BACKLOGS_BEFORE_SETTINGS: Language = "ru";
 
-export async function settleLanguage(root: string, env: NodeJS.ProcessEnv): Promise<SettledLanguage> {
+export async function settleLanguage(root: string, env: NodeJS.ProcessEnv, onError: PathErrorHandler): Promise<SettledLanguage> {
   const { language, source } = await decideLanguage(root, env);
-  const saveFailure = source === "unset" ? await saveLanguageOrFailure(root, language) : null;
+  const saveFailure = source === "unset" ? await saveLanguageOrFailure(root, language, onError) : null;
   return { language, invalidSettingsFile: source === "invalid-settings", saveFailure };
 }
 
@@ -54,9 +54,9 @@ async function decideLanguage(root: string, env: NodeJS.ProcessEnv): Promise<{ l
   return file.valid ? { language: file.settings.language, source: "settings" } : { language: localeLanguage(env), source: "invalid-settings" };
 }
 
-async function saveLanguageOrFailure(root: string, language: Language): Promise<string | null> {
+async function saveLanguageOrFailure(root: string, language: Language, onError: PathErrorHandler): Promise<string | null> {
   try {
-    await writeSettings(root, { language });
+    await writeSettings(root, { language }, onError);
     return null;
   } catch (error) {
     return errorText(error);

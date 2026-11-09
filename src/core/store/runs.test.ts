@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { appendRun, RUNS_FILE, trimRuns, trimRunsWhenStale, type CliRun } from "./runs";
 import { readRuns } from "./testing/runs";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
+import { failOnPathError } from "./testing/path-errors";
 
 const RUN: CliRun = { at: "2026-09-20T10:00:00+03:00", command: "list", cwd: "/tmp/repo", ms: 12, rssMb: 80.5, exitCode: 0 };
 
@@ -62,9 +63,9 @@ describe("журнал запусков CLI", () => {
     await appendRun(root, RUN);
     const now = new Date("2026-09-20T12:00:00+03:00");
 
-    expect(await trimRuns(root, now)).toBe(1);
+    expect(await trimRuns(root, { now, onError: failOnPathError })).toBe(1);
     expect(await readRuns(root)).toEqual([RUN]);
-    expect(await trimRuns(root, now)).toBe(0);
+    expect(await trimRuns(root, { now, onError: failOnPathError })).toBe(0);
   });
 
   it("запуск 60 дней от роду переживает обрезку — это ещё внутри окна недель", async () => {
@@ -73,7 +74,7 @@ describe("журнал запусков CLI", () => {
     await appendRun(root, recentEnough);
     const now = new Date("2026-09-20T12:00:00+03:00");
 
-    expect(await trimRuns(root, now)).toBe(0);
+    expect(await trimRuns(root, { now, onError: failOnPathError })).toBe(0);
     expect(await readRuns(root)).toEqual([recentEnough]);
   });
 
@@ -82,7 +83,7 @@ describe("журнал запусков CLI", () => {
     const edgeOfView = { ...RUN, at: "2026-06-24T12:00:00+03:00", command: "eighty-eight-days" };
     await appendRun(root, edgeOfView);
 
-    expect(await trimRuns(root, new Date("2026-09-20T12:00:00+03:00"))).toBe(0);
+    expect(await trimRuns(root, { now: new Date("2026-09-20T12:00:00+03:00"), onError: failOnPathError })).toBe(0);
     expect(await readRuns(root)).toEqual([edgeOfView]);
   });
 
@@ -90,7 +91,7 @@ describe("журнал запусков CLI", () => {
     const root = await makeTempDir();
     await appendRun(root, { ...RUN, at: "2026-05-01T10:00:00+03:00", command: "old" });
 
-    await Promise.all([trimRuns(root, new Date("2026-09-20T12:00:00+03:00")), appendRun(root, RUN)]);
+    await Promise.all([trimRuns(root, { now: new Date("2026-09-20T12:00:00+03:00"), onError: failOnPathError }), appendRun(root, RUN)]);
 
     expect(await readRuns(root)).toEqual([RUN]);
   });
@@ -100,10 +101,10 @@ describe("журнал запусков CLI", () => {
     await appendRun(root, { ...RUN, at: "2026-06-20T15:00:00+03:00", command: "old" });
     await appendRun(root, RUN);
 
-    expect(await trimRunsWhenStale(root, new Date("2026-09-20T12:00:00+03:00"))).toBe(0);
-    expect(await trimRunsWhenStale(root, new Date("2026-09-21T12:00:00+03:00"))).toBe(1);
+    expect(await trimRunsWhenStale(root, { now: new Date("2026-09-20T12:00:00+03:00"), onError: failOnPathError })).toBe(0);
+    expect(await trimRunsWhenStale(root, { now: new Date("2026-09-21T12:00:00+03:00"), onError: failOnPathError })).toBe(1);
     expect(await readRuns(root)).toEqual([RUN]);
-    expect(await trimRunsWhenStale(await makeTempDir(), new Date())).toBe(0);
+    expect(await trimRunsWhenStale(await makeTempDir(), { now: new Date(), onError: failOnPathError })).toBe(0);
   });
 
   it("неразобранная первая строка тоже ведёт к обрезке, иначе без сервера журнал рос бы вечно", async () => {
@@ -111,8 +112,8 @@ describe("журнал запусков CLI", () => {
     await writeFiles(root, { [RUNS_FILE]: `{"at":"обрыв записи\n${JSON.stringify(RUN)}\n` });
     const now = new Date("2026-09-20T12:00:00+03:00");
 
-    expect(await trimRunsWhenStale(root, now)).toBe(1);
+    expect(await trimRunsWhenStale(root, { now, onError: failOnPathError })).toBe(1);
     expect(await readFile(join(root, RUNS_FILE), "utf8")).toBe(`${JSON.stringify(RUN)}\n`);
-    expect(await trimRunsWhenStale(root, now)).toBe(0);
+    expect(await trimRunsWhenStale(root, { now, onError: failOnPathError })).toBe(0);
   });
 });

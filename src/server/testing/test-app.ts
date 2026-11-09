@@ -10,6 +10,7 @@ import { createMemorySampler, type MemorySampler } from "../memory-sampler";
 import { createUsageScanner, type UsageScanner } from "../usage-scanner";
 import type { ChangeFeed } from "../change-feed";
 import { makeTestChangeFeed } from "./change-feed";
+import { failOnPathError } from "../../core/store/testing/path-errors";
 
 const TEST_HOST = "localhost:4317";
 export const TEST_NOW = new Date("2026-09-18T12:00:00Z");
@@ -32,7 +33,7 @@ export type TestApp = {
 export async function makeTestApp(files: Record<string, string>, options: TestAppOptions = {}): Promise<TestApp> {
   const root = await makeTempDir();
   await writeFiles(root, files);
-  await writeSettings(root, { language: options.language ?? "ru" });
+  await writeSettings(root, { language: options.language ?? "ru" }, failOnPathError);
 
   const { changes, emitChange } = makeTestChangeFeed();
 
