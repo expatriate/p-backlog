@@ -1,10 +1,9 @@
-import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { isWithin, sourcePath } from "../../core/model/source";
 import { epicChildren, isClosed, openBlockers, type BacklogIndex } from "../../core/model/graph";
 import { isQueuedTask, isTakenTask, pickAbandonedTask, pickNextTask } from "../../core/model/query";
 import type { Project, Task } from "../../core/model/types";
-import { statOrNull } from "../../core/store/fs-utils";
+import { realpathOrNull, statOrNull } from "../../core/store/fs-utils";
 import { indexOfLoaded, loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { pathFromProjectRepo } from "../../core/store/resolve-project";
 import { formatJson, formatTaskRef } from "../format";
@@ -73,7 +72,7 @@ async function takeByPath(loaded: LoadedBacklog, io: CliIo, path: string, projec
   if (!project) return EXIT.notFound;
   const target = repoRelativePath(io, project, loaded, path);
   const index = indexOfLoaded(loaded);
-  const matching = loaded.tasks.filter((task) => task.projectId === project.id && isOpenTaskAt(task, target));
+  const matching = target === null ? [] : loaded.tasks.filter((task) => task.projectId === project.id && isOpenTaskAt(task, target));
   const refusals = matching.map((task) => takeRefusal(io, task, index, { ignoreBlockers: false }));
   for (const line of refusals.flatMap((refusal) => refusal?.lines ?? [])) io.warn(line);
   const takeable = matching.filter((_, position) => refusals[position] === null);
@@ -99,11 +98,11 @@ function isOpenTaskAt(task: Task, path: string): boolean {
   return workable && task.source !== undefined && (path === "" || isWithin(sourcePath(task.source), path));
 }
 
-function repoRelativePath(io: CliIo, project: Project, loaded: LoadedBacklog, path: string): string {
+function repoRelativePath(io: CliIo, project: Project, loaded: LoadedBacklog, path: string): string | null {
   const typed = sourcePath(path);
   const roots = cwdGitRoots(io);
   if (roots === null || !cwdBelongsTo(project, loaded, io)) return typed;
-  return pathFromProjectRepo(project, roots, repoPlaces(io), resolve(realpathSync(io.cwd), typed)) ?? typed;
+  return pathFromProjectRepo(project, roots, repoPlaces(io), resolve(realpathOrNull(io.cwd) ?? io.cwd, typed));
 }
 
 type Taken = { code: ExitCode; taken: Task[]; index: BacklogIndex };

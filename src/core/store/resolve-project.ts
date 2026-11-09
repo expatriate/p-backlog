@@ -129,17 +129,20 @@ function findProjectForRoots(projects: readonly Project[], roots: GitRoots, plac
 export function pathFromProjectRepo(project: Project, roots: GitRoots, places: RepoPlaces, path: string): string | null {
   const repoPath = closestCoveringRepo(project.repos, roots, places);
   if (repoPath === undefined) return null;
-  return relativeInside(repoPath, asInProjectRepoCheckout(roots, repoPath, path, places.onUnreadable));
+  const enclosingRootsOf = (dir: string) => repoRootsOf(readGitRoots(dirname(dir), places.onUnreadable));
+  return relativeInside(repoPath, asInProjectRepoCheckout(path, roots, { repoPath, enclosingRootsOf }));
 }
 
-function asInProjectRepoCheckout(roots: GitRoots, repoPath: string, path: string, onUnreadable: PathErrorHandler): string {
+type CheckoutClimb = { repoPath: string; enclosingRootsOf: (dir: string) => GitRoots | null };
+
+function asInProjectRepoCheckout(path: string, roots: GitRoots, { repoPath, enclosingRootsOf }: CheckoutClimb): string {
   const passedMains = new Set<string>();
   let enclosing: GitRoots | null = roots;
   let translated = path;
   while (enclosing !== null && isSameOrInside(enclosing.main, repoPath) && !passedMains.has(enclosing.main)) {
     passedMains.add(enclosing.main);
     translated = asInMainCheckout(enclosing, translated);
-    enclosing = enclosing.main === repoPath ? null : repoRootsOf(readGitRoots(dirname(enclosing.main), onUnreadable));
+    enclosing = enclosing.main === repoPath ? null : enclosingRootsOf(enclosing.main);
   }
   return translated;
 }
