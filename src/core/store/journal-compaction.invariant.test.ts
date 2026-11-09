@@ -12,6 +12,7 @@ import { taskIdsOnDisk } from "./load";
 import { PROJECT_FILE } from "./paths";
 import { reportsOf } from "./testing/compaction-reports";
 import { makeTempDir, projectFile, writeFiles } from "./testing/temp-dirs";
+import { failOnPathError } from "./testing/path-errors";
 
 const NOW = new Date("2026-09-27T12:00:00+03:00");
 const TEN_DAYS_LATER = new Date(NOW.getTime() + 10 * DAY_MS);
@@ -190,7 +191,7 @@ describe("уплотнение журнала на случайных журна
       const { root, code } = await generatedBacklog(seed);
       const before = await snapshot(root, code);
 
-      for (const { id } of PROJECTS) removedTotal += await compactJournal(join(root, id), await taskIdsOnDisk(join(root, id)), NOW);
+      for (const { id } of PROJECTS) removedTotal += await compactJournal(join(root, id), await taskIdsOnDisk(join(root, id)), NOW, failOnPathError);
 
       expect(await snapshot(root, code), `seed ${seed}`).toEqual(before);
     }

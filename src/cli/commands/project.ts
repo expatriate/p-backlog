@@ -1,3 +1,4 @@
+import { warnPathErrors } from "../../core/errors";
 import { isClosed } from "../../core/model/graph";
 import { loadBacklog, unparsedProjectFiles } from "../../core/store/load";
 import { deleteProject, setProjectActive } from "../../core/store/projects";
@@ -45,7 +46,7 @@ async function changeStatus(positionals: string[], io: CliIo): Promise<ExitCode>
   const [id, state, ...rest] = positionals;
   if (id === undefined || !isProjectState(state) || rest.length > 0) throw usageError(projectCommand, io.language);
   const active = ACTIVE_BY_STATE[state];
-  const result = await setProjectActive(io.backlogRoot, id, active);
+  const result = await setProjectActive(io.backlogRoot, id, active, warnPathErrors(io.warn));
   if (!result.ok && result.reason === "invalid") {
     io.warn(`${id}: ${io.core.problems(result.problems)}`);
     return EXIT.invalid;

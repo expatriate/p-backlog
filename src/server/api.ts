@@ -136,11 +136,11 @@ async function updateTaskBatch(c: Context, { readLanguage, backlog, now, changeH
   return c.json<BatchResponse>({ results: outcomes.map((outcome) => viewOf(outcome, { messages, core, notLoaded: index.notLoaded })) });
 }
 
-async function setProjectActivity(c: Context, id: string, { root, readLanguage, changeHub }: ApiDeps) {
+async function setProjectActivity(c: Context, id: string, { root, readLanguage, changeHub, onWriteError }: ApiDeps) {
   const body = await readBody(c, projectActiveSchema, readLanguage);
   if (!body.ok) return body.response;
 
-  const result = await setProjectActive(root, id, body.data.active).finally(changeHub.forgetAll);
+  const result = await setProjectActive(root, id, body.data.active, onWriteError).finally(changeHub.forgetAll);
   if (result.ok) return c.json(result.project);
   if (result.reason === "invalid") return errorResponse(c, 422, coreMessages(body.language).problems(result.problems));
   return errorResponse(c, 404, serverMessages(body.language).projectNotFound(id));

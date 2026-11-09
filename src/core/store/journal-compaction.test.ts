@@ -11,6 +11,7 @@ import { loadBacklog, taskIdsOnDisk } from "./load";
 import { PROJECT_FILE } from "./paths";
 import { reportsOf } from "./testing/compaction-reports";
 import { makeTempDir, projectFile, writeFiles } from "./testing/temp-dirs";
+import { failOnPathError } from "./testing/path-errors";
 
 const NOW = new Date("2026-09-27T12:00:00+03:00");
 const repoWithUnits = { commits: [], lines: [], units: [{ date: "2026-09-06T10:00:00+03:00", lines: 100 }] };
@@ -129,7 +130,7 @@ async function addTiProject(root: string): Promise<string> {
 const reports = (root: string) => reportsOf(root, ["spa", "ti"], NOW, CODE);
 
 async function compact(dir: string): Promise<number> {
-  return compactJournal(dir, await taskIdsOnDisk(dir), NOW);
+  return compactJournal(dir, await taskIdsOnDisk(dir), NOW, failOnPathError);
 }
 
 const journalLines = async (dir: string) => (await readFile(join(dir, JOURNAL_FILE), "utf8")).split("\n").filter((line) => line !== "");
@@ -255,8 +256,8 @@ describe("уплотнение журнала проекта", () => {
     const root = await makeTempDir();
     await writeFiles(root, { [join("spa", PROJECT_FILE)]: projectFile("SPA") });
 
-    expect(await compactJournal(join(root, "gone"), new Set(), NOW)).toBe(0);
-    expect(await compactJournal(join(root, "spa"), new Set(), NOW)).toBe(0);
+    expect(await compactJournal(join(root, "gone"), new Set(), NOW, failOnPathError)).toBe(0);
+    expect(await compactJournal(join(root, "spa"), new Set(), NOW, failOnPathError)).toBe(0);
     expect(await readdir(join(root, "spa"))).toEqual([PROJECT_FILE]);
   });
 });

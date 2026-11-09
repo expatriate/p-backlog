@@ -1,4 +1,5 @@
 import { dirname, join } from "node:path";
+import type { PathErrorHandler } from "../errors";
 import { isClosed, type BacklogIndex } from "../model/graph";
 import { parseId } from "../model/ids";
 import type { StoreMessages } from "../messages/store-messages";
@@ -60,7 +61,7 @@ export async function sweepClosed(root: string, writes: SweepWrites, messages: S
   const index = indexOfLoaded(current);
   const stillHoldsOpenTasks = new Set(planEpicReopening(tasks).map(({ epic }) => epic.id));
   const expired = tasks.filter((task) => isExpired(task, now, index) && !stillHoldsOpenTasks.has(task.id));
-  const reserved = await reserveNumbers(projects, expired);
+  const reserved = await reserveNumbers(projects, expired, writes.onError);
   const removable = expired.filter((task) => reserved.has(task.projectId));
   const removal = await removeWithReferences({ tasks, index }, removable, writes);
   await removeAbandonedTemporaries(root, now);
@@ -206,11 +207,11 @@ function lacksClosedDate(task: Task): boolean {
   return isClosed(task.status) && task.closed === undefined;
 }
 
-async function reserveNumbers(projects: readonly Project[], expired: readonly Task[]): Promise<Set<string>> {
+async function reserveNumbers(projects: readonly Project[], expired: readonly Task[], onError: PathErrorHandler): Promise<Set<string>> {
   const reserved = new Set<string>();
   for (const project of projects) {
     const numbers = expired.filter((task) => task.projectId === project.id).flatMap((task) => parseId(task.id)?.number ?? []);
-    if (numbers.length === 0 || (await reserveIssuedUpTo(project, Math.max(...numbers))).ok) reserved.add(project.id);
+    if (numbers.length === 0 || (await reserveIssuedUpTo(project, Math.max(...numbers), onError)).ok) reserved.add(project.id);
   }
   return reserved;
 }

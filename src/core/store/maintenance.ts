@@ -1,25 +1,26 @@
-import { errorText, warnOnFailure, warnPathErrors } from "../errors";
+import { warnOnFailure, warnPathErrors } from "../errors";
 import type { StoreMessages } from "../messages/store-messages";
 import { SERVICE_LOG_KEPT_BYTES, SERVICE_LOG_LIMIT_BYTES, trimLogFile } from "../service-log";
-import type { CompactionFailed } from "./journal-compaction";
+import type { CompactionReports } from "./journal-compaction";
 import type { SweepReport } from "./sweep";
 import type { WriteContext } from "./update";
 
 export type MaintenancePlan = {
   trimRuns: (root: string, now: Date) => Promise<unknown>;
   sweepClosed: ((root: string, writes: WriteContext, messages: StoreMessages) => Promise<SweepReport | null>) | null;
-  compactJournals: ((root: string, now: Date, failed: CompactionFailed) => Promise<unknown>) | null;
+  compactJournals: ((root: string, now: Date, reports: CompactionReports) => Promise<unknown>) | null;
   serviceLog: string | null;
 };
 
 export type MaintenanceRun = { root: string; now: Date; messages: StoreMessages; warn: (line: string) => void };
 
 export async function runMaintenance(plan: MaintenancePlan, { root, now, messages, warn }: MaintenanceRun): Promise<SweepReport | null> {
+  const onError = warnPathErrors(warn);
   await warnOnFailure(plan.trimRuns(root, now), warn, messages.runsNotTrimmed);
-  const report = plan.sweepClosed === null ? null : await warnOnFailure(plan.sweepClosed(root, { now, onError: warnPathErrors(warn) }, messages), warn, messages.closedNotSwept);
+  const report = plan.sweepClosed === null ? null : await warnOnFailure(plan.sweepClosed(root, { now, onError }, messages), warn, messages.closedNotSwept);
   if (plan.compactJournals !== null) {
-    const compactionFailed = (dir: string, error: unknown) => warn(messages.journalNotCompacted(dir, errorText(error)));
-    await warnOnFailure(plan.compactJournals(root, now, compactionFailed), warn, (error) => messages.journalNotCompacted(root, error));
+    const reports = { failed: warnPathErrors(warn, messages.journalNotCompacted), onError };
+    await warnOnFailure(plan.compactJournals(root, now, reports), warn, (error) => messages.journalNotCompacted(root, error));
   }
   if (plan.serviceLog !== null) await warnOnFailure(trimLogFile(plan.serviceLog, SERVICE_LOG_LIMIT_BYTES, SERVICE_LOG_KEPT_BYTES), warn, messages.serviceLogNotTrimmed);
   return report;

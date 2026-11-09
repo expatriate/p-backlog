@@ -1,5 +1,6 @@
 import { basename, join } from "node:path";
 import { groupBy } from "../collections";
+import type { PathErrorHandler } from "../errors";
 import { taskCreation } from "../journal/creation";
 import { episodeOpeners } from "../journal/episodes";
 import { journalEventSchema, type JournalEvent } from "../journal/events";
@@ -21,13 +22,13 @@ type JournalLine = { text: string; event: JournalEvent | null };
 
 const EPISODE_KINDS: ReadonlySet<JournalEvent["kind"]> = new Set(["candidate", "candidate-gone", "candidate-filtered", "verified"]);
 
-export type CompactionFailed = (dir: string, error: unknown) => void;
+export type CompactionReports = { failed: PathErrorHandler; onError: PathErrorHandler };
 
-export async function compactJournalsWhenDue(root: string, now: Date, failed: CompactionFailed): Promise<string[]> {
+export async function compactJournalsWhenDue(root: string, now: Date, { failed, onError }: CompactionReports): Promise<string[]> {
   const compacted: string[] = [];
   for (const name of await projectDirNames(root)) {
     const dir = join(root, name);
-    const removed = await compactProjectWhenDue(dir, now).catch((error: unknown) => {
+    const removed = await compactProjectWhenDue(dir, now, onError).catch((error: unknown) => {
       failed(dir, error);
       return null;
     });
@@ -36,12 +37,12 @@ export async function compactJournalsWhenDue(root: string, now: Date, failed: Co
   return compacted;
 }
 
-async function compactProjectWhenDue(dir: string, now: Date): Promise<number | null> {
+async function compactProjectWhenDue(dir: string, now: Date, onError: PathErrorHandler): Promise<number | null> {
   if (!(await fileExists(join(dir, JOURNAL_FILE)))) return null;
-  return runWhenDue(join(dir, COMPACTED_STAMP), now, async () => compactJournal(dir, await taskIdsOnDisk(dir), now));
+  return runWhenDue(join(dir, COMPACTED_STAMP), now, async () => compactJournal(dir, await taskIdsOnDisk(dir), now, onError));
 }
 
-export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySet<string>, now: Date): Promise<number> {
+export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySet<string>, now: Date, onError: PathErrorHandler): Promise<number> {
   const path = join(projectDir, JOURNAL_FILE);
   if (!(await fileExists(path))) return 0;
   return withFileLock(path, async () => {
@@ -50,17 +51,17 @@ export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySe
     const lines = journalLines(completeLines.toString("utf8"));
     const kept = retainedLines(lines, liveTaskIds, retainedSince(now));
     const removed = lines.length - kept.length;
-    if (removed === 0 || !(await reserveRemovedNumbers(projectDir, lines, kept))) return 0;
+    if (removed === 0 || !(await reserveRemovedNumbers(projectDir, lines, kept, onError))) return 0;
     const replaced = await replacePrefixAtomic(path, completeLines, kept.map(({ text }) => `${text}\n`).join(""));
     return replaced ? removed : 0;
   });
 }
 
-async function reserveRemovedNumbers(projectDir: string, lines: readonly JournalLine[], kept: readonly JournalLine[]): Promise<boolean> {
+async function reserveRemovedNumbers(projectDir: string, lines: readonly JournalLine[], kept: readonly JournalLine[], onError: PathErrorHandler): Promise<boolean> {
   const keptLines = new Set(kept);
   const highest = lines.reduce((max, line) => (keptLines.has(line) || line.event === null ? max : Math.max(max, parseId(line.event.task)?.number ?? 0)), 0);
   if (highest === 0) return true;
-  const reservation = await reserveIssuedUpTo({ id: basename(projectDir), path: join(projectDir, PROJECT_FILE) }, highest);
+  const reservation = await reserveIssuedUpTo({ id: basename(projectDir), path: join(projectDir, PROJECT_FILE) }, highest, onError);
   return reservation.ok || reservation.reason === "not-found";
 }
 

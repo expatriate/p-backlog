@@ -311,9 +311,9 @@ describe("sweepClosed", () => {
       "spa/SPA-2.md": taskFile("SPA-2", "blockedBy: [SPA-1]\n"),
     });
     const actual = vi.mocked(reserveIssuedUpTo).getMockImplementation();
-    vi.mocked(reserveIssuedUpTo).mockImplementationOnce(async (project, number) => {
+    vi.mocked(reserveIssuedUpTo).mockImplementationOnce(async (...args) => {
       await writeFiles(root, { "spa/SPA-1.md": taskFile("SPA-1", "status: in-progress\n") });
-      return actual ? actual(project, number) : { ok: false, reason: "not-found" };
+      return actual ? actual(...args) : { ok: false, reason: "not-found" };
     });
 
     const report = await sweepClosed(root, { now: NOW, onError: failOnPathError }, RU);

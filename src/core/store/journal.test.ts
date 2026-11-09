@@ -151,7 +151,7 @@ describe("файл журнала", () => {
     await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-3" }), old, "cli"), createdEvent(makeTask({ id: "SPA-4" }), old, "cli")], failOnPathError);
     const appendedIds = Array.from({ length: 10 }, (_, index) => `SPA-9${index}`);
 
-    await Promise.all([compactJournal(dir, new Set(), NOW), ...appendedIds.map((id) => appendJournal(dir, [createdEvent(makeTask({ id }), NOW, "cli")], failOnPathError))]);
+    await Promise.all([compactJournal(dir, new Set(), NOW, failOnPathError), ...appendedIds.map((id) => appendJournal(dir, [createdEvent(makeTask({ id }), NOW, "cli")], failOnPathError))]);
 
     const tasks = (await readJournal(dir, "spa")).events.map((event) => event.task);
     expect(tasks.filter((task) => appendedIds.includes(task)).sort()).toEqual(appendedIds);
@@ -167,7 +167,7 @@ describe("файл журнала", () => {
       return journal;
     });
 
-    await compactJournal(dir, new Set(), NOW);
+    await compactJournal(dir, new Set(), NOW, failOnPathError);
 
     const tasks = (await readJournal(dir, "spa")).events.map((event) => event.task);
     expect(tasks).not.toContain("SPA-4");
@@ -187,7 +187,7 @@ describe("файл журнала", () => {
       return journal;
     });
 
-    await compactJournal(dir, new Set(), NOW);
+    await compactJournal(dir, new Set(), NOW, failOnPathError);
 
     const journal = await readJournal(dir, "spa");
     const tasks = journal.events.map((event) => event.task);
