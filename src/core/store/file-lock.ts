@@ -4,10 +4,11 @@ import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { errorCode, hasErrorCode } from "../errors";
 import { SECOND_MS } from "../model/dates";
-import { readTextOrNull, retryWhileBlockedOnWindows, statOrNull } from "./fs-utils";
+import { blockedOnWindows, onWindows, readTextOrNull, retryWhileBlockedOnWindows, statOrNull } from "./fs-utils";
 
 const RETRY_MS = 10;
 const ABANDONED_AFTER_MS = 30_000;
+const ABANDONED_BREAK_AFTER_MS = 2 * SECOND_MS;
 const REFRESH_EVERY_MS = ABANDONED_AFTER_MS / 3;
 const DEFAULT_WAIT_LIMIT_MS = 5_000;
 
@@ -60,7 +61,7 @@ async function acquire(path: string, { waitLimitMs = DEFAULT_WAIT_LIMIT_MS }: Lo
   const giveUpAt = Date.now() + waitLimitMs;
   for (;;) {
     if (await tryCreate(lock, token)) return { path, lock, token, stopRefreshing: keepRefreshed(lock, token) };
-    const abandoned = await abandonedToken(lock);
+    const abandoned = await abandonedToken(lock, ABANDONED_AFTER_MS);
     if (abandoned !== null && (await breakAbandoned(lock, abandoned))) continue;
     if (Date.now() > giveUpAt) throw new FileBusyError(path, lock, waitLimitMs / SECOND_MS);
     await sleep(RETRY_MS);
@@ -72,36 +73,50 @@ async function tryCreate(lock: string, token: string): Promise<boolean> {
     await writeFile(lock, token, { flag: "wx" });
     return true;
   } catch (error) {
-    if (hasErrorCode(error, "EEXIST")) return false;
+    if (hasErrorCode(error, "EEXIST") || deletePendingOnWindows(error)) return false;
     throw error;
   }
 }
 
-async function abandonedToken(lock: string): Promise<string | null> {
-  const token = await readTextOrNull(lock);
+function deletePendingOnWindows(error: unknown): boolean {
+  return onWindows() && hasErrorCode(error, "EPERM");
+}
+
+async function abandonedToken(path: string, abandonedAfterMs: number): Promise<string | null> {
+  const token = await orWhenBlocked(readTextOrNull(path), null);
   if (token === null) return null;
-  const info = await statOrNull(lock);
-  return info !== null && Date.now() - info.mtimeMs > ABANDONED_AFTER_MS ? token : null;
+  const info = await orWhenBlocked(statOrNull(path), null);
+  return info !== null && Date.now() - info.mtimeMs > abandonedAfterMs ? token : null;
 }
 
 async function breakAbandoned(lock: string, abandoned: string): Promise<boolean> {
   const breaker = `${lock}.break`;
   if (!(await tryCreate(breaker, abandoned))) {
-    await removeLockFileWhile(breaker, async () => (await abandonedToken(breaker)) !== null);
+    if ((await abandonedToken(breaker, ABANDONED_BREAK_AFTER_MS)) !== null) await removeUnlessBlocked(breaker);
     return false;
   }
   try {
-    await removeLockFileWhile(lock, async () => (await abandonedToken(lock)) === abandoned);
-    return true;
+    if ((await abandonedToken(lock, ABANDONED_AFTER_MS)) !== abandoned) return false;
+    return await removeUnlessBlocked(lock);
   } finally {
-    await removeLockFileWhile(breaker, () => Promise.resolve(true));
+    await removeUnlessBlocked(breaker);
   }
 }
 
-function removeLockFileWhile(path: string, stillRemovable: () => Promise<boolean>): Promise<void> {
-  return retryWhileBlockedOnWindows(async () => {
-    if (await stillRemovable()) await rm(path, { force: true });
-  });
+function removeUnlessBlocked(path: string): Promise<boolean> {
+  return orWhenBlocked(
+    rm(path, { force: true }).then(() => true),
+    false,
+  );
+}
+
+async function orWhenBlocked<T>(work: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await work;
+  } catch (error) {
+    if (blockedOnWindows(error)) return fallback;
+    throw error;
+  }
 }
 
 function keepRefreshed(lock: string, token: string): () => Promise<void> {
@@ -135,5 +150,7 @@ async function refreshIfHeld(lock: string, token: string): Promise<void> {
 
 async function release({ lock, token, stopRefreshing }: HeldLock): Promise<void> {
   await stopRefreshing();
-  await removeLockFileWhile(lock, async () => (await readTextOrNull(lock)) === token);
+  await retryWhileBlockedOnWindows(async () => {
+    if ((await readTextOrNull(lock)) === token) await rm(lock, { force: true });
+  });
 }

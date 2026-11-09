@@ -18,7 +18,7 @@ export async function appendJournal(projectDir: string, events: readonly Journal
   }
 }
 
-// On Windows, breaking an abandoned lock retries two blocked removals, and a compacting holder then retries its rename and its lock removal.
+// On Windows a compacting holder may wait for the project.md lock, then retry blocked renames and lock removals of project.md and of the journal.
 export const JOURNAL_LOCK_WAIT_MS = 4 * BLOCKED_RETRIES_TOTAL_MS + 10 * SECOND_MS;
 
 async function appendWaitingForLock(path: string, events: readonly JournalEvent[]): Promise<void> {

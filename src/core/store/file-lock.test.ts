@@ -1,31 +1,36 @@
 import { readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { HOUR_MS, SECOND_MS } from "../model/dates";
 import { FileBusyError, withAvailableLocks, withFileLock } from "./file-lock";
-import { failingOnce } from "./testing/fs-failures";
+import { failingEvery, failingOnce } from "./testing/fs-failures";
 import { SHORT_LOCK_WAIT } from "./testing/lock-wait";
 import { asIfOnWindows } from "./testing/platform";
 import { makeTempDir } from "./testing/temp-dirs";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
-  return { ...actual, rm: vi.fn(actual.rm) };
+  return { ...actual, readFile: vi.fn(actual.readFile), rm: vi.fn(actual.rm), writeFile: vi.fn(actual.writeFile) };
 });
 
-async function writeAbandonedLock(dir: string): Promise<string> {
-  const lock = join(dir, ".SPA-1.md.lock");
-  await writeFile(lock, "12345");
-  const longAgo = new Date(Date.now() - 60 * 60 * 1000);
-  await utimes(lock, longAgo, longAgo);
-  return lock;
+const lockOf = (dir: string) => join(dir, ".SPA-1.md.lock");
+const endingWith = (name: string) => (target: unknown) => String(target).endsWith(name);
+const anHourAgo = () => new Date(Date.now() - HOUR_MS);
+
+async function writeAbandoned(path: string): Promise<string> {
+  await writeFile(path, "12345");
+  const longAgo = anHourAgo();
+  await utimes(path, longAgo, longAgo);
+  return path;
 }
+
+const writeAbandonedLock = (dir: string) => writeAbandoned(lockOf(dir));
 
 describe("блокировка файла", () => {
   it("на Windows блокировка, которую другой процесс на миг не дал удалить, всё равно снимается — следующая правка не ждёт 30 с", async () => {
     const path = join(await makeTempDir(), "SPA-1.md");
-    const lockRemoval = (target: Parameters<typeof rm>[0]) => String(target).endsWith(".SPA-1.md.lock");
 
-    await asIfOnWindows(() => failingOnce(rm, lockRemoval, () => withFileLock(path, async () => "первая"), { code: "EBUSY" }));
+    await asIfOnWindows(() => failingOnce(rm, endingWith(".SPA-1.md.lock"), () => withFileLock(path, async () => "первая"), { code: "EBUSY" }));
 
     expect(await withFileLock(path, async () => "вторая", SHORT_LOCK_WAIT)).toBe("вторая");
   });
@@ -37,42 +42,67 @@ describe("блокировка файла", () => {
     expect(await withFileLock(join(dir, "SPA-1.md"), async () => "записано")).toBe("записано");
   });
 
-  it.each([".SPA-1.md.lock", ".SPA-1.md.lock.break"])("на Windows брошенная блокировка снимается, даже если %s на миг не дали удалить", async (blocked) => {
+  it.each([
+    { blocked: ".SPA-1.md.lock", staleBreaker: false },
+    { blocked: ".SPA-1.md.lock.break", staleBreaker: false },
+    { blocked: ".SPA-1.md.lock.break", staleBreaker: true },
+  ])("на Windows брошенная блокировка снимается, даже если $blocked на миг не дали удалить (чужой устаревший .lock.break: $staleBreaker)", async ({ blocked, staleBreaker }) => {
     const dir = await makeTempDir();
-    await writeAbandonedLock(dir);
+    const lock = await writeAbandonedLock(dir);
+    if (staleBreaker) await writeAbandoned(`${lock}.break`);
 
-    const result = await asIfOnWindows(() =>
-      failingOnce(
-        rm,
-        (target) => String(target).endsWith(blocked),
-        () => withFileLock(join(dir, "SPA-1.md"), async () => "записано", SHORT_LOCK_WAIT),
-        { code: "EBUSY" },
-      ),
-    );
+    const result = await asIfOnWindows(() => failingOnce(rm, endingWith(blocked), () => withFileLock(join(dir, "SPA-1.md"), async () => "записано", SHORT_LOCK_WAIT), { code: "EBUSY" }));
 
     expect(result).toBe("записано");
   });
 
-  it("на Windows брошенная блокировка снимается, даже если устаревший .lock.break на миг не дали удалить", async () => {
+  it("оставленный кем-то .lock.break старше нескольких секунд не мешает снять брошенную блокировку", async () => {
     const dir = await makeTempDir();
     const lock = await writeAbandonedLock(dir);
     await writeFile(`${lock}.break`, "12345");
-    const longAgo = new Date(Date.now() - 60 * 60 * 1000);
-    await utimes(`${lock}.break`, longAgo, longAgo);
+    const secondsAgo = new Date(Date.now() - 5 * SECOND_MS);
+    await utimes(`${lock}.break`, secondsAgo, secondsAgo);
+
+    expect(await withFileLock(join(dir, "SPA-1.md"), async () => "записано", SHORT_LOCK_WAIT)).toBe("записано");
+  });
+
+  it("на Windows брошенная блокировка, которую не дают удалить, держит не дольше предела ожидания и даёт «занято», а не сбой", async () => {
+    const dir = await makeTempDir();
+    const lock = await writeAbandonedLock(dir);
+    const waitLimitMs = 200;
+    const startedAt = Date.now();
+
+    const attempt = asIfOnWindows(() =>
+      failingEvery(
+        rm,
+        (target) => target === lock,
+        () => withFileLock(join(dir, "SPA-1.md"), async () => "записано", { waitLimitMs }),
+        { code: "EBUSY" },
+      ),
+    );
+
+    await expect(attempt).rejects.toThrow(FileBusyError);
+    expect(Date.now() - startedAt).toBeLessThan(waitLimitMs + SECOND_MS);
+  });
+
+  it("на Windows блокировка, которую в этот миг удаляют, при создании даёт EPERM — это занято, а не сбой", async () => {
+    const dir = await makeTempDir();
+
+    const deletePending = { code: "EPERM" };
 
     const result = await asIfOnWindows(() =>
       failingOnce(
-        rm,
-        (target) => String(target) === `${lock}.break`,
-        () => withFileLock(join(dir, "SPA-1.md"), async () => "записано", SHORT_LOCK_WAIT),
-        { code: "EBUSY" },
+        writeFile,
+        endingWith(".SPA-1.md.lock"),
+        () => failingOnce(readFile, endingWith(".SPA-1.md.lock"), () => withFileLock(join(dir, "SPA-1.md"), async () => "записано", SHORT_LOCK_WAIT), deletePending),
+        deletePending,
       ),
     );
 
     expect(result).toBe("записано");
   });
 
-  it("на Windows повтор удаления брошенной блокировки не сносит блокировку, которую тем временем взял другой процесс", async () => {
+  it("на Windows следующая попытка снять брошенную блокировку не сносит блокировку, которую тем временем взял другой процесс", async () => {
     const dir = await makeTempDir();
     const lock = await writeAbandonedLock(dir);
 
@@ -104,8 +134,8 @@ describe("блокировка файла", () => {
   it("долгая работа под блокировкой продлевает её: ожидающий не считает её брошенной", async () => {
     const dir = await makeTempDir();
     const path = join(dir, "SPA-1.md");
-    const lock = join(dir, ".SPA-1.md.lock");
-    const longAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const lock = lockOf(dir);
+    const longAgo = anHourAgo();
     vi.useFakeTimers({ toFake: ["setInterval"] });
     try {
       await withFileLock(path, async () => {
@@ -122,7 +152,7 @@ describe("блокировка файла", () => {
 
   it("снятие не удаляет чужую блокировку, занявшую место нашей", async () => {
     const dir = await makeTempDir();
-    const lock = join(dir, ".SPA-1.md.lock");
+    const lock = lockOf(dir);
 
     await withFileLock(join(dir, "SPA-1.md"), async () => {
       await writeFile(lock, "другой процесс");

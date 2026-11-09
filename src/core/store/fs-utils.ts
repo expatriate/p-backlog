@@ -164,11 +164,15 @@ export async function retryWhileBlockedOnWindows<T>(attempt: () => Promise<T>): 
     try {
       return await attempt();
     } catch (error) {
-      if (!hasAnyErrorCode(error, BLOCKED_CODES)) throw error;
+      if (!blockedOnWindows(error)) throw error;
       await sleep(delayMs);
     }
   }
   return attempt();
+}
+
+export function blockedOnWindows(error: unknown): boolean {
+  return onWindows() && hasAnyErrorCode(error, BLOCKED_CODES);
 }
 
 export function onWindows(): boolean {
