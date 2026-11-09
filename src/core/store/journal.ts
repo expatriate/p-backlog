@@ -48,8 +48,9 @@ function markedUndo(event: JournalEvent): JournalEvent {
 export function bufferedJournal(target: JournalWriter): { write: JournalWriter; flush: () => Promise<void> } {
   const pending = new Map<string, JournalEvent[]>();
   return {
-    write: async (projectDir, events) => {
+    write: (projectDir, events) => {
       pending.set(projectDir, [...(pending.get(projectDir) ?? []), ...events]);
+      return Promise.resolve();
     },
     flush: async () => {
       for (const [projectDir, events] of pending) await target(projectDir, events);

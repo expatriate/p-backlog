@@ -72,7 +72,7 @@ export async function createProject(root: string, repoRoot: string, existingProj
 async function draftProjectFile(root: string, repoRoot: string, existingProjects: readonly Project[]): Promise<{ id: string; path: string; text: string }> {
   const name = basename(repoRoot);
   const entries = await listDir(root);
-  const joinable = await Promise.all(entries.map((entry) => entry.isDirectory() && isJoinableProjectDir(join(root, entry.name), repoRoot)));
+  const joinable = await Promise.all(entries.map((entry) => (entry.isDirectory() ? isJoinableProjectDir(join(root, entry.name), repoRoot) : Promise.resolve(false))));
   const id = deriveProjectId(name, new Set(entries.filter((_, index) => !joinable[index]).map((entry) => entry.name)));
   const prefixesOnDisk = await Promise.all(entries.filter((entry) => entry.isDirectory()).map((entry) => takenPrefixes(join(root, entry.name))));
   const prefix = derivePrefix(name, new Set([...existingProjects.map((project) => project.prefix), ...prefixesOnDisk.flat()]));

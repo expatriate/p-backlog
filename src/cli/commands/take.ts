@@ -10,7 +10,7 @@ import { formatJson, formatTaskRef } from "../format";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
-import { cwdBelongsTo, cwdGitRoots, findProjectOrWarn, findTaskOrWarn, repoPlaces } from "../lookups";
+import { cwdBelongsTo, cwdGitRoots, findProjectOrWarn, findTaskOrWarn, repoContext } from "../lookups";
 import { cliMessages } from "../messages";
 import { indexWithWritten, type WrittenTask } from "../../core/store/write-result";
 import { taskWriter, type TaskWrite } from "../task-write";
@@ -41,7 +41,7 @@ async function runTake(args: string[], io: CliIo): Promise<ExitCode> {
   if (projectWithId || forceWithoutId) throw usageError(takeCommand, io.language);
   const loaded = await loadBacklog(io.backlogRoot);
   if (mode.kind === "path") return takeByPath(loaded, io, mode.path, values.project, { json: values.json });
-  const selected = mode.kind === "next" ? await selectNext(loaded, io, values.project) : await selectById(loaded, io, mode.id);
+  const selected = mode.kind === "next" ? await selectNext(loaded, io, values.project) : selectById(loaded, io, mode.id);
   if (!selected.ok) return selected.exitCode;
 
   const index = indexOfLoaded(loaded);
@@ -102,7 +102,7 @@ function repoRelativePath(io: CliIo, project: Project, loaded: LoadedBacklog, pa
   const typed = sourcePath(path);
   const roots = cwdGitRoots(io);
   if (roots === null || !cwdBelongsTo(project, loaded, io)) return typed;
-  return pathFromProjectRepo(project, roots, repoPlaces(io), resolve(realpathOrNull(io.cwd) ?? io.cwd, typed));
+  return pathFromProjectRepo(project, roots, repoContext(io), resolve(realpathOrNull(io.cwd) ?? io.cwd, typed));
 }
 
 type Taken = { code: ExitCode; taken: Task[]; index: BacklogIndex };
@@ -119,8 +119,8 @@ async function takeAll(index: BacklogIndex, chosen: readonly Task[], io: CliIo):
   return { code, taken: writes.map((written) => written.task), index: indexWithWritten(index, writes) };
 }
 
-async function selectById(loaded: LoadedBacklog, io: CliIo, id: string): Promise<Selection> {
-  const task = await findTaskOrWarn(loaded, io, id);
+function selectById(loaded: LoadedBacklog, io: CliIo, id: string): Selection {
+  const task = findTaskOrWarn(loaded, io, id);
   return task ? { ok: true, task } : { ok: false, exitCode: EXIT.notFound };
 }
 

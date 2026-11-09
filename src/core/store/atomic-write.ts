@@ -34,7 +34,7 @@ function startsWithBytes(bytes: Buffer, prefix: Buffer): boolean {
   return bytes.length >= prefix.length && bytes.subarray(0, prefix.length).equals(prefix);
 }
 
-async function replaceFile(temporary: string, path: string, prepareRename: () => Promise<boolean> = async () => true): Promise<boolean> {
+async function replaceFile(temporary: string, path: string, prepareRename: () => Promise<boolean> = () => Promise.resolve(true)): Promise<boolean> {
   return retryWhileBlockedOnWindows(async () => {
     if (!(await prepareRename())) return false;
     await rename(temporary, path);

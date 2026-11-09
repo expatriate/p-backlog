@@ -19,7 +19,7 @@ export function makeTestChangeFeed(): TestChangeFeed {
   return {
     changes,
     emitChange: async (paths) => {
-      await Promise.all([...listeners].map((listener) => listener(paths)));
+      await Promise.all([...listeners].map(async (listener) => listener(paths)));
     },
   };
 }

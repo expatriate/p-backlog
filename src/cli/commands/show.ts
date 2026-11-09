@@ -20,7 +20,7 @@ async function runShow(args: string[], io: CliIo): Promise<ExitCode> {
   if (id === undefined || rest.length > 0) throw usageError(showCommand, io.language);
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const task = await findTaskOrWarn(loaded, io, id);
+  const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
   await printTask(io, task, indexOfLoaded(loaded), { json: values.json });
   return EXIT.ok;

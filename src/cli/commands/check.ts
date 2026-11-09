@@ -6,7 +6,7 @@ import { describeCandidate } from "../candidate-format";
 import { formatJson } from "../format";
 import type { CliCommand } from "../command";
 import { EXIT, parseOptions, type CliIo, type ExitCode } from "../io";
-import { cwdGitRoots, repoPlaces } from "../lookups";
+import { cwdGitRoots, repoContext } from "../lookups";
 import type { CliMessages } from "../messages";
 import { resolveScope, SCOPE_OPTIONS } from "../scope-options";
 
@@ -32,7 +32,7 @@ async function runCheck(args: string[], io: CliIo): Promise<ExitCode> {
     projectIds,
     mode: values.changed ? "changed" : "full",
     now: io.now(),
-    places: repoPlaces(io),
+    context: repoContext(io),
     messages: io.core,
     warn: io.warn,
     workingRoots: cwdGitRoots(io),

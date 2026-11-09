@@ -4,7 +4,7 @@ import { runGit } from "../git/run";
 import type { Project, Task } from "../model/types";
 import { fileExists, attemptReportingFailure, readTextIfFile, realpathOrNull } from "../store/fs-utils";
 import { expandHome } from "../store/paths";
-import type { GitRoots, RepoPlaces } from "../store/resolve-project";
+import type { GitRoots, RepoContext } from "../store/resolve-project";
 import { anchorOf } from "./anchor";
 import { sourcePath } from "../model/source";
 import { presenceOffDisk, type PresenceOffDisk } from "./candidates";
@@ -15,7 +15,7 @@ export type SourcePresence = { kind: PresenceOffDisk } | { kind: "unsafe-repo"; 
 
 export type SourceAnchor = { kind: "no-file" } | { kind: "uncomputable" } | { kind: "anchor"; anchor: string };
 
-export type RepoLookup = RepoPlaces & { workingRoots: GitRoots | null };
+export type RepoLookup = RepoContext & { workingRoots: GitRoots | null };
 
 export async function sourceAnchor(repo: string | undefined, source: string, onUnreadable: PathErrorHandler): Promise<SourceAnchor> {
   const text = repo === undefined ? null : await attemptReportingFailure(join(repo, sourcePath(source)), readTextIfFile, onUnreadable);
@@ -41,18 +41,18 @@ export async function relocatedSource(repo: string | undefined, task: Task): Pro
 
 export type ProjectCheckout = { path: string; linkedWorktree: boolean };
 
-export async function findRepo(project: Project, { workingRoots, ...lookup }: RepoLookup): Promise<string | undefined> {
-  return (await projectCheckout(project, workingRoots, lookup))?.path;
+export async function findRepo(project: Project, { workingRoots, ...context }: RepoLookup): Promise<string | undefined> {
+  return (await projectCheckout(project, workingRoots, context))?.path;
 }
 
-export async function projectCheckout(project: Project, workingRoots: GitRoots | null, lookup: RepoPlaces): Promise<ProjectCheckout | undefined> {
-  const repo = await firstExistingRepo(project, lookup);
+export async function projectCheckout(project: Project, workingRoots: GitRoots | null, context: RepoContext): Promise<ProjectCheckout | undefined> {
+  const repo = await firstExistingRepo(project, context);
   if (repo === undefined) return undefined;
   if (workingRoots === null || workingRoots.main !== realpathOrNull(repo)) return { path: repo, linkedWorktree: false };
   return { path: workingRoots.worktree, linkedWorktree: workingRoots.worktree !== workingRoots.main };
 }
 
-async function firstExistingRepo(project: Project, { home, onUnreadable }: RepoPlaces): Promise<string | undefined> {
+async function firstExistingRepo(project: Project, { home, onUnreadable }: RepoContext): Promise<string | undefined> {
   for (const repo of project.repos.map((path) => expandHome(path, home))) {
     if ((await attemptReportingFailure(repo, fileExists, onUnreadable)) === true) return repo;
   }

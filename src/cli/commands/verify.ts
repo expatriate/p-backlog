@@ -31,7 +31,7 @@ async function runVerify(args: string[], io: CliIo): Promise<ExitCode> {
 }
 
 async function verifyOne(id: string, { loaded, source, write, io }: Verification): Promise<ExitCode> {
-  const task = await findTaskOrWarn(loaded, io, id);
+  const task = findTaskOrWarn(loaded, io, id);
   if (!task) return EXIT.notFound;
   if (isClosed(task.status)) {
     io.warn(io.cli.alreadyInStatusNothingToVerify(id, task.status));

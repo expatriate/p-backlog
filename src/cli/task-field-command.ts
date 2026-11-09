@@ -27,7 +27,7 @@ export function taskFieldCommand<T>(spec: TaskFieldSpec<T>): CliCommand {
       const value = spec.parse(io.language, rawValue);
 
       const loaded = await loadBacklog(io.backlogRoot);
-      const task = await findTaskOrWarn(loaded, io, id);
+      const task = findTaskOrWarn(loaded, io, id);
       if (!task) return EXIT.notFound;
       const changes = spec.changes(value);
       const before = spec.label(task, io.language);

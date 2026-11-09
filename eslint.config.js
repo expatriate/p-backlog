@@ -81,8 +81,14 @@ export default tseslint.config(
     rules: {
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-misused-promises": "error",
+      "@typescript-eslint/await-thenable": "error",
       "@typescript-eslint/switch-exhaustiveness-check": "error",
     },
+  },
+  {
+    files: SOURCES,
+    ignores: TESTS,
+    rules: { "@typescript-eslint/require-await": "error" },
   },
   {
     files: SOURCES,

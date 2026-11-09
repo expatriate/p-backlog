@@ -35,14 +35,14 @@ const NOW = new Date("2026-09-18T12:00:00Z");
 const ignoreWarning = () => undefined;
 
 async function check(root: string, home: string, mode: CheckMode, projectIds: readonly string[] = ["spa"]) {
-  return checkBacklog(root, await loadBacklog(root), { projectIds, mode, now: NOW, places: { home, onUnreadable: ignoreWarning }, messages: RU, warn: ignoreWarning, workingRoots: null });
+  return checkBacklog(root, await loadBacklog(root), { projectIds, mode, now: NOW, context: { home, onUnreadable: ignoreWarning }, messages: RU, warn: ignoreWarning, workingRoots: null });
 }
 
 async function checkCollectingWarnings(root: string, home: string, mode: CheckMode) {
   const warnings: string[] = [];
   const warn = (line: string) => warnings.push(line);
-  const places = { home, onUnreadable: warnPathErrors(warn, RU.unreadableSkipped) };
-  const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode, now: NOW, places, messages: RU, warn, workingRoots: null });
+  const context = { home, onUnreadable: warnPathErrors(warn, RU.unreadableSkipped) };
+  const report = await checkBacklog(root, await loadBacklog(root), { projectIds: ["spa"], mode, now: NOW, context, messages: RU, warn, workingRoots: null });
   return { report, warnings };
 }
 

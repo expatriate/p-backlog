@@ -7,21 +7,21 @@ import type { ParseError, Project, Task } from "../core/model/types";
 import { createProject } from "../core/store/create";
 import { unparsedProjectFileOf, unparsedProjectFiles, type LoadedBacklog } from "../core/store/load";
 import { taskFileName } from "../core/store/paths";
-import { lookupProjectForDir, readGitRoots, repoRootsOf, type DirGitRoots, type GitRoots, type KnownProjects, type ProjectLookup, type RepoPlaces } from "../core/store/resolve-project";
+import { lookupProjectForDir, readGitRoots, repoRootsOf, type DirGitRoots, type GitRoots, type KnownProjects, type ProjectLookup, type RepoContext } from "../core/store/resolve-project";
 import type { CliIo } from "./io";
 
 export function warnUnreadableSkipped(warn: (line: string) => void, core: CoreMessages): PathErrorHandler {
   return warnPathErrors(warn, core.unreadableSkipped);
 }
 
-const placesOfRun = new WeakMap<CliIo, RepoPlaces>();
+const contextOfRun = new WeakMap<CliIo, RepoContext>();
 
-export function repoPlaces(io: CliIo): RepoPlaces {
-  const known = placesOfRun.get(io);
+export function repoContext(io: CliIo): RepoContext {
+  const known = contextOfRun.get(io);
   if (known !== undefined) return known;
-  const places = { home: io.home, onUnreadable: oncePerPath(warnUnreadableSkipped(io.warn, io.core)) };
-  placesOfRun.set(io, places);
-  return places;
+  const context = { home: io.home, onUnreadable: oncePerPath(warnUnreadableSkipped(io.warn, io.core)) };
+  contextOfRun.set(io, context);
+  return context;
 }
 
 const cwdRootsOfRun = new WeakMap<CliIo, DirGitRoots>();
@@ -29,7 +29,7 @@ const cwdRootsOfRun = new WeakMap<CliIo, DirGitRoots>();
 function cwdDirRoots(io: CliIo): DirGitRoots {
   const known = cwdRootsOfRun.get(io);
   if (known !== undefined) return known;
-  const roots = readGitRoots(io.cwd, repoPlaces(io).onUnreadable);
+  const roots = readGitRoots(io.cwd, repoContext(io).onUnreadable);
   cwdRootsOfRun.set(io, roots);
   return roots;
 }
@@ -39,7 +39,7 @@ export function cwdGitRoots(io: CliIo): GitRoots | null {
 }
 
 function lookupCwdProject(known: KnownProjects, io: CliIo): ProjectLookup {
-  return lookupProjectForDir(known, io.cwd, cwdDirRoots(io), repoPlaces(io));
+  return lookupProjectForDir(known, io.cwd, cwdDirRoots(io), repoContext(io));
 }
 
 export function cwdBelongsTo(project: Project, known: KnownProjects, io: CliIo): boolean {
@@ -48,11 +48,11 @@ export function cwdBelongsTo(project: Project, known: KnownProjects, io: CliIo):
 }
 
 export function repoLookup(io: CliIo): RepoLookup {
-  return { ...repoPlaces(io), workingRoots: cwdGitRoots(io) };
+  return { ...repoContext(io), workingRoots: cwdGitRoots(io) };
 }
 
 export async function sourcePresenceOrWarn(io: CliIo, repo: string, source: string): Promise<SourcePresence> {
-  const presence = await sourcePresence(repo, source, repoPlaces(io).onUnreadable);
+  const presence = await sourcePresence(repo, source, repoContext(io).onUnreadable);
   const warning = sourcePresenceWarning(io, presence, repo, source);
   if (warning !== null) io.warn(warning);
   return presence;
@@ -71,7 +71,7 @@ function sourcePresenceWarning(io: CliIo, presence: SourcePresence, repo: string
   }
 }
 
-export async function findTaskOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Promise<Task | undefined> {
+export function findTaskOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): Task | undefined {
   const task = loaded.tasks.find((candidate) => candidate.id === id);
   if (task) return task;
   io.warn(missingTaskMessage(loaded, io, id));
@@ -99,17 +99,20 @@ function findNamedProjectOrWarn(loaded: LoadedBacklog, io: CliIo, id: string): P
   const project = loaded.projects.find((candidate) => candidate.id === id);
   if (project) return project;
   const broken = unparsedProjectFileOf(loaded.errors, id);
-  if (broken) warnUnparsedProjectFiles(io, [broken], io.cli.projectFileUnparsed);
-  else io.warn(io.cli.projectNotFound(id));
+  warnUnparsedOrNotFound(io, broken === undefined ? [] : [broken], io.cli.projectNotFound(id));
   return undefined;
 }
 
 function findCwdProjectOrWarn(loaded: LoadedBacklog, io: CliIo): Project | undefined {
   const lookup = lookupCwdProject(loaded, io);
   if ("project" in lookup) return lookup.project;
-  if (lookup.broken.length > 0) warnUnparsedProjectFiles(io, lookup.broken, io.cli.projectFileUnparsed);
-  else io.warn(io.cli.projectNotFoundForCwd(io.cwd));
+  warnUnparsedOrNotFound(io, lookup.broken, io.cli.projectNotFoundForCwd(io.cwd));
   return undefined;
+}
+
+function warnUnparsedOrNotFound(io: CliIo, broken: readonly ParseError[], notFound: string): void {
+  if (broken.length > 0) warnUnparsedProjectFiles(io, broken, io.cli.projectFileUnparsed);
+  else io.warn(notFound);
 }
 
 export function warnUnparsedProjectFiles(io: CliIo, errors: readonly ParseError[], message: (path: string, problems: string) => string): void {

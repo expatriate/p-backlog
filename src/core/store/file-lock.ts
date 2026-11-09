@@ -94,7 +94,7 @@ async function breakAbandoned(lock: string, abandoned: string): Promise<boolean>
     await removeLockFileWhile(lock, async () => (await abandonedToken(lock)) === abandoned);
     return true;
   } finally {
-    await removeLockFileWhile(breaker, async () => true);
+    await removeLockFileWhile(breaker, () => Promise.resolve(true));
   }
 }
 

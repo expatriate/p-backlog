@@ -9,7 +9,7 @@ import { expandHome, relativeInside } from "./paths";
 
 export type GitRoots = { worktree: string; main: string };
 
-export type RepoPlaces = { home: string; onUnreadable: PathErrorHandler };
+export type RepoContext = { home: string; onUnreadable: PathErrorHandler };
 
 export type RepoRootLookup = (dir: string) => Promise<DirGitRoots>;
 
@@ -89,17 +89,17 @@ export type KnownProjects = { projects: readonly Project[]; errors: readonly Par
 
 export type ProjectLookup = { project: Project } | { broken: ProjectFileError[] };
 
-export function lookupProjectForDir(known: KnownProjects, dir: string, dirRoots: DirGitRoots, places: RepoPlaces): ProjectLookup {
-  const roots = matchingRoots(dir, dirRoots, places);
+export function lookupProjectForDir(known: KnownProjects, dir: string, dirRoots: DirGitRoots, context: RepoContext): ProjectLookup {
+  const roots = matchingRoots(dir, dirRoots, context);
   if (roots === null) return { broken: [] };
   const repo = repoRootsOf(dirRoots);
-  return lookupProject(known, { roots, repoDirName: repo === null ? undefined : projectIdBase(basename(repo.main)) }, places);
+  return lookupProject(known, { roots, repoDirName: repo === null ? undefined : projectIdBase(basename(repo.main)) }, context);
 }
 
 type DirRepo = { roots: GitRoots; repoDirName: string | undefined };
 
-function lookupProject({ projects, errors }: KnownProjects, { roots, repoDirName }: DirRepo, places: RepoPlaces): ProjectLookup {
-  const coveredLength = (repos: readonly string[]) => closestCoveringRepo(repos, roots, places)?.length ?? 0;
+function lookupProject({ projects, errors }: KnownProjects, { roots, repoDirName }: DirRepo, context: RepoContext): ProjectLookup {
+  const coveredLength = (repos: readonly string[]) => closestCoveringRepo(repos, roots, context)?.length ?? 0;
   const coverageOf = (error: ProjectFileError) => {
     const namedAfterRepo = error.claimedRepos.length === 0 && error.projectId === repoDirName;
     return { error, length: namedAfterRepo ? roots.main.length : coveredLength(error.claimedRepos) };
@@ -107,29 +107,29 @@ function lookupProject({ projects, errors }: KnownProjects, { roots, repoDirName
   const covering = unparsedProjectFiles(errors)
     .map(coverageOf)
     .filter(({ length }) => length > 0);
-  const project = findProjectForRoots(projects, roots, places);
+  const project = findProjectForRoots(projects, roots, context);
   const projectLength = project === undefined ? 0 : coveredLength(project.repos);
   if (project !== undefined && covering.every(({ length }) => length <= projectLength)) return { project };
   return { broken: covering.map(({ error }) => error) };
 }
 
-function matchingRoots(dir: string, dirRoots: DirGitRoots, places: RepoPlaces): GitRoots | null {
+function matchingRoots(dir: string, dirRoots: DirGitRoots, context: RepoContext): GitRoots | null {
   if (dirRoots === "unreadable") return null;
-  return dirRoots === "not-in-repo" ? attemptReportingFailureSync(dir, plainDirRoots, places.onUnreadable) : dirRoots;
+  return dirRoots === "not-in-repo" ? attemptReportingFailureSync(dir, plainDirRoots, context.onUnreadable) : dirRoots;
 }
 
-function findProjectForRoots(projects: readonly Project[], roots: GitRoots, places: RepoPlaces): Project | undefined {
+function findProjectForRoots(projects: readonly Project[], roots: GitRoots, context: RepoContext): Project | undefined {
   const matches = projects.flatMap((project) => {
-    const repoPath = closestCoveringRepo(project.repos, roots, places);
+    const repoPath = closestCoveringRepo(project.repos, roots, context);
     return repoPath === undefined ? [] : [{ project, repoPath }];
   });
   return matches.sort((a, b) => b.repoPath.length - a.repoPath.length || Number(b.project.active) - Number(a.project.active))[0]?.project;
 }
 
-export function pathFromProjectRepo(project: Project, roots: GitRoots, places: RepoPlaces, path: string): string | null {
-  const repoPath = closestCoveringRepo(project.repos, roots, places);
+export function pathFromProjectRepo(project: Project, roots: GitRoots, context: RepoContext, path: string): string | null {
+  const repoPath = closestCoveringRepo(project.repos, roots, context);
   if (repoPath === undefined) return null;
-  const enclosingRootsOf = (dir: string) => repoRootsOf(readGitRoots(dirname(dir), places.onUnreadable));
+  const enclosingRootsOf = (dir: string) => repoRootsOf(readGitRoots(dirname(dir), context.onUnreadable));
   return relativeInside(repoPath, asInProjectRepoCheckout(path, roots, { repoPath, enclosingRootsOf }));
 }
 
@@ -152,8 +152,8 @@ function asInMainCheckout({ worktree, main }: GitRoots, path: string): string {
   return inWorktree === null ? path : resolve(main, inWorktree);
 }
 
-function closestCoveringRepo(repos: readonly string[], roots: GitRoots, places: RepoPlaces): string | undefined {
-  const covering = repos.map((repo) => resolvedRepo(repo, places)).filter((repoPath): repoPath is string => repoPath !== null && repoCovers(repoPath, roots));
+function closestCoveringRepo(repos: readonly string[], roots: GitRoots, context: RepoContext): string | undefined {
+  const covering = repos.map((repo) => resolvedRepo(repo, context)).filter((repoPath): repoPath is string => repoPath !== null && repoCovers(repoPath, roots));
   return covering.sort((a, b) => b.length - a.length)[0];
 }
 
@@ -165,6 +165,6 @@ function isSameOrInside(path: string, container: string): boolean {
   return relativeInside(container, path) !== null;
 }
 
-function resolvedRepo(repo: string, { home, onUnreadable }: RepoPlaces): string | null {
+function resolvedRepo(repo: string, { home, onUnreadable }: RepoContext): string | null {
   return attemptReportingFailureSync(expandHome(repo, home), realpathOrNull, onUnreadable);
 }

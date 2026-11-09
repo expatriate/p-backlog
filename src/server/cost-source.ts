@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { costReport } from "../core/stats/cost/cost-report";
 import type { CostReport } from "../core/stats/types";
 import { createJsonlTail } from "../core/store/jsonl-tail";
-import { cachedRepoRoots, lookupProjectForDir, type KnownProjects, type RepoPlaces, type RepoRootLookup } from "../core/store/resolve-project";
+import { cachedRepoRoots, lookupProjectForDir, type KnownProjects, type RepoContext, type RepoRootLookup } from "../core/store/resolve-project";
 import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
 import type { UsageCache } from "../core/usage/usage-cache";
 import type { UsageSnapshot } from "./usage-scanner";
@@ -18,7 +18,7 @@ type CostSource = {
 
 export function createCostSource(root: string, home: string): CostSource {
   const runsTail = createJsonlTail<CliRun>(join(root, RUNS_FILE), cliRunSchema);
-  const places: RepoPlaces = { home, onUnreadable: unreadablePathHasNoProject };
+  const context: RepoContext = { home, onUnreadable: unreadablePathHasNoProject };
   const lookupRepoRoot = cachedRepoRoots({ onUnreadable: unreadablePathHasNoProject });
 
   return {
@@ -28,12 +28,12 @@ export function createCostSource(root: string, home: string): CostSource {
     },
     costReport: async (request) => {
       const { values: runs } = await runsTail.read();
-      return computeCostReport({ ...request, runs }, places, lookupRepoRoot);
+      return computeCostReport({ ...request, runs }, context, lookupRepoRoot);
     },
   };
 }
 
-async function computeCostReport({ usage: { cache, scan }, runs, known, projectId, now }: CostInputs, places: RepoPlaces, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
+async function computeCostReport({ usage: { cache, scan }, runs, known, projectId, now }: CostInputs, context: RepoContext, lookupRepoRoot: RepoRootLookup): Promise<CostReport> {
   const buckets = usageBucketsOf(cache);
   const projectIds =
     projectId === undefined
@@ -41,18 +41,18 @@ async function computeCostReport({ usage: { cache, scan }, runs, known, projectI
       : await projectIdsOfCwds(
           [...buckets, ...runs].map((entry) => entry.cwd),
           known,
-          places,
+          context,
           lookupRepoRoot,
         );
   return costReport({ buckets, runs, projectOf: (cwd) => projectIds.get(cwd) ?? null, projectId, now, scan });
 }
 
-async function projectIdsOfCwds(cwds: readonly string[], known: KnownProjects, places: RepoPlaces, lookupRepoRoot: RepoRootLookup): Promise<Map<string, string | null>> {
+async function projectIdsOfCwds(cwds: readonly string[], known: KnownProjects, context: RepoContext, lookupRepoRoot: RepoRootLookup): Promise<Map<string, string | null>> {
   const unique = [...new Set(cwds)];
   const dirRoots = await Promise.all(unique.map(lookupRepoRoot));
   return new Map(
     unique.map((cwd, position) => {
-      const lookup = lookupProjectForDir(known, cwd, dirRoots[position] ?? "unreadable", places);
+      const lookup = lookupProjectForDir(known, cwd, dirRoots[position] ?? "unreadable", context);
       return [cwd, "project" in lookup ? lookup.project.id : null];
     }),
   );

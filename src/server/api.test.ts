@@ -421,7 +421,7 @@ describe("GET /api/events", () => {
     const streams = await Promise.all([1, 2, 3].map(async () => (await backlog.request("/api/events")).body));
     expect(getEventListeners(backlog.changes.closed, "abort")).toHaveLength(3);
 
-    await Promise.all(streams.map((stream) => stream?.cancel()));
+    await Promise.all(streams.flatMap((stream) => stream?.cancel() ?? []));
 
     await vi.waitFor(() => expect(getEventListeners(backlog.changes.closed, "abort")).toHaveLength(0));
   });

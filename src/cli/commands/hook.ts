@@ -20,7 +20,7 @@ import { AGENT_SPECS, AGENTS, type Agent } from "../agents/agent";
 import { carriesSystemMessage, formatStopAnswer, parseStopEvent, type StopEvent } from "../agents/stop-event";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, parseChoice, parseCommandArgs, type CliIo, type ExitCode } from "../io";
-import { repoPlaces } from "../lookups";
+import { repoContext } from "../lookups";
 import { cliMessages } from "../messages";
 import { stopReason } from "../stop-reason";
 
@@ -59,13 +59,13 @@ async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   if (event === null || event.skip) return EXIT.ok;
 
   const loaded = await loadBacklog(io.backlogRoot);
-  const places = repoPlaces(io);
-  const cwdRoots = readGitRoots(event.cwd, places.onUnreadable);
-  const lookup = lookupProjectForDir(loaded, event.cwd, cwdRoots, places);
+  const context = repoContext(io);
+  const cwdRoots = readGitRoots(event.cwd, context.onUnreadable);
+  const lookup = lookupProjectForDir(loaded, event.cwd, cwdRoots, context);
   if (!("project" in lookup)) return EXIT.ok;
   const { project } = lookup;
   if (!(await isFirstHookOfTurn(agent, event, io))) return EXIT.ok;
-  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), places, messages: io.core, warn: io.warn, workingRoots: repoRootsOf(cwdRoots) });
+  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), context, messages: io.core, warn: io.warn, workingRoots: repoRootsOf(cwdRoots) });
   const lowPriority = new Set(loaded.tasks.filter((task) => task.priority === "low").map((task) => task.id));
   const pinpointed = candidates.filter((candidate) => !(candidate.kind === "source-changed" && candidate.method === "file"));
   const worthTelling = pinpointed.filter((candidate) => !lowPriority.has(candidate.task.id));
