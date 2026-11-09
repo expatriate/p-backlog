@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { HOUR_MS, SECOND_MS } from "../model/dates";
 import { FileBusyError, withAvailableLocks, withFileLock } from "./file-lock";
+import { BLOCKED_RETRIES_TOTAL_MS } from "./fs-utils";
 import { failingEvery, failingOnce } from "./testing/fs-failures";
 import { SHORT_LOCK_WAIT } from "./testing/lock-wait";
 import { asIfOnWindows } from "./testing/platform";
@@ -16,6 +17,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 const lockOf = (dir: string) => join(dir, ".SPA-1.md.lock");
 const endingWith = (name: string) => (target: unknown) => String(target).endsWith(name);
 const anHourAgo = () => new Date(Date.now() - HOUR_MS);
+const WAIT_OUTLASTING_BRIEF_REFUSALS = { waitLimitMs: 2 * SECOND_MS };
 
 async function writeAbandoned(path: string): Promise<string> {
   await writeFile(path, "12345");
@@ -33,6 +35,74 @@ describe("блокировка файла", () => {
     await asIfOnWindows(() => failingOnce(rm, endingWith(".SPA-1.md.lock"), () => withFileLock(path, async () => "первая"), { code: "EBUSY" }));
 
     expect(await withFileLock(path, async () => "вторая", SHORT_LOCK_WAIT)).toBe("вторая");
+  });
+
+  it("на Windows свою блокировку, которую так и не дали удалить, снятие оставляет брошенной: результат записи не подменяется ошибкой", { timeout: BLOCKED_RETRIES_TOTAL_MS + 10 * SECOND_MS }, async () => {
+    const path = join(await makeTempDir(), "SPA-1.md");
+
+    const result = await asIfOnWindows(() => failingEvery(rm, endingWith(".SPA-1.md.lock"), () => withFileLock(path, async () => "записано"), { code: "EBUSY" }));
+
+    expect(result).toBe("записано");
+  });
+
+  it("сбой снятия одной блокировки набора не оставляет висеть остальные", async () => {
+    const dir = await makeTempDir();
+    const paths = ["T-1.md", "T-2.md"].map((name) => join(dir, name));
+
+    const attempt = failingOnce(readFile, endingWith(".T-1.md.lock"), () => withAvailableLocks(paths, async () => "записано"));
+
+    await expect(attempt).rejects.toThrow("injected EIO");
+    expect(await withFileLock(join(dir, "T-2.md"), async () => "свободен", SHORT_LOCK_WAIT)).toBe("свободен");
+  });
+
+  it("на Windows постоянный отказ в создании блокировки по истечении предела выдаётся как есть, а не как «занято»", async () => {
+    const path = join(await makeTempDir(), "SPA-1.md");
+
+    const attempt = asIfOnWindows(() => failingEvery(writeFile, endingWith(".SPA-1.md.lock"), () => withFileLock(path, async () => "записано", WAIT_OUTLASTING_BRIEF_REFUSALS), { code: "EPERM" }));
+
+    await expect(attempt).rejects.toMatchObject({ code: "EPERM" });
+  });
+
+  it("на Windows постоянный отказ в чтении чужой блокировки по истечении предела выдаётся как есть, а не как «занято»", async () => {
+    const dir = await makeTempDir();
+    await writeFile(lockOf(dir), "другой процесс");
+
+    const attempt = asIfOnWindows(() =>
+      failingEvery(readFile, endingWith(".SPA-1.md.lock"), () => withFileLock(join(dir, "SPA-1.md"), async () => "записано", WAIT_OUTLASTING_BRIEF_REFUSALS), { code: "EACCES" }),
+    );
+
+    await expect(attempt).rejects.toMatchObject({ code: "EACCES" });
+  });
+
+  it("на Windows блокировку, в которой постоянно отказано, набор пропускает, как занятую, — остальные файлы набора всё равно берутся", async () => {
+    const dir = await makeTempDir();
+    const refused = join(dir, "T-1.md");
+    const free = join(dir, "T-2.md");
+
+    const locked = await asIfOnWindows(() =>
+      failingEvery(writeFile, endingWith(".T-1.md.lock"), () => withAvailableLocks([refused, free], async (acquired) => acquired, WAIT_OUTLASTING_BRIEF_REFUSALS), { code: "EPERM" }),
+    );
+
+    expect(locked).toEqual(new Set([free]));
+  });
+
+  it("на Windows живая чужая блокировка, которую лишь под конец ожидания на миг не дали прочитать, — это «занято», а не отказ доступа", async () => {
+    const dir = await makeTempDir();
+    await writeFile(lockOf(dir), "другой процесс");
+    const readsRefusedAfter = Date.now() + WAIT_OUTLASTING_BRIEF_REFUSALS.waitLimitMs - 200;
+    let refusedReads = 0;
+
+    const attempt = asIfOnWindows(() =>
+      failingEvery(
+        readFile,
+        (target) => endingWith(".SPA-1.md.lock")(target) && Date.now() > readsRefusedAfter,
+        () => withFileLock(join(dir, "SPA-1.md"), async () => "записано", WAIT_OUTLASTING_BRIEF_REFUSALS),
+        { code: "EACCES", meanwhile: async () => (refusedReads += 1) },
+      ),
+    );
+
+    await expect(attempt).rejects.toThrow(FileBusyError);
+    expect(refusedReads).toBeGreaterThan(0);
   });
 
   it("блокировка, брошенная упавшим процессом, не держит файл вечно", async () => {
