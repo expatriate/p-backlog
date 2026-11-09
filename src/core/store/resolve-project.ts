@@ -123,7 +123,7 @@ function findProjectForRoots(projects: readonly Project[], roots: GitRoots, plac
     const repoPath = closestCoveringRepo(project.repos, roots, places);
     return repoPath === undefined ? [] : [{ project, repoPath }];
   });
-  return matches.sort((a, b) => b.repoPath.length - a.repoPath.length)[0]?.project;
+  return matches.sort((a, b) => b.repoPath.length - a.repoPath.length || Number(b.project.active) - Number(a.project.active))[0]?.project;
 }
 
 export function pathFromProjectRepo(project: Project, roots: GitRoots, places: RepoPlaces, path: string): string | null {

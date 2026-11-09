@@ -466,6 +466,29 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     expect(report.totals.cliRuns).toBe(1);
   });
 
+  it("запуск из репозитория неактивного проекта, вложенного в репозиторий проекта, не засчитывается проекту, как в CLI", async () => {
+    const home = await makeTempDir();
+    const nestedRepo = await makeGitRepo(home, "spa");
+    const backlog = await makeTestApp({ "work/project.md": projectFile("WK", [home]), "spa/project.md": projectFile("SPA", [nestedRepo], { active: false }) });
+    await backlog.usage.scanOnce();
+    await writeFile(join(backlog.root, ".runs.jsonl"), `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd: nestedRepo, ms: 10, rssMb: 50, exitCode: 0 })}\n`, "utf8");
+
+    const report = (await (await backlog.request("/api/stats/cost?project=work")).json()) as CostReport;
+
+    expect(report.totals.cliRuns).toBe(0);
+  });
+
+  it("запуск из репозитория, общего у активного и неактивного проекта, засчитывается активному, как бы проекты ни назывались", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    const backlog = await makeTestApp({ "alpha/project.md": projectFile("AL", [repo], { active: false }), "zeta/project.md": projectFile("ZE", [repo]) });
+    await backlog.usage.scanOnce();
+    await writeFile(join(backlog.root, ".runs.jsonl"), `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd: repo, ms: 10, rssMb: 50, exitCode: 0 })}\n`, "utf8");
+
+    const report = (await (await backlog.request("/api/stats/cost?project=zeta")).json()) as CostReport;
+
+    expect(report.totals.cliRuns).toBe(1);
+  });
+
   it("правка repos чужого проекта сразу меняет «Стоимость» проекта: запуск уходит к проекту с более точным репозиторием", async () => {
     const home = await makeTempDir();
     const sharedRepo = await makeGitRepo(home, "shared");

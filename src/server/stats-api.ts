@@ -101,9 +101,9 @@ export function createStatsApi({ root, readLanguage, now, home, services: { usag
 
   const statsOfQuality: ScopedReport<QualityReport> = async ({ context, projects, snapshot }) => qualityReport(await context(), await graphRowsOf(graphHealth, projects, snapshot));
 
-  const statsOfCost: ScopedReport<CostReport> = ({ projectId, at, projects, snapshot }) => {
+  const statsOfCost: ScopedReport<CostReport> = ({ projectId, at, snapshot }) => {
     usage.scanIfNeverListed();
-    return costSource.costReport({ usage: usage.snapshot(), known: { projects, errors: snapshot.errors }, projectId, now: at });
+    return costSource.costReport({ usage: usage.snapshot(), known: snapshot, projectId, now: at });
   };
 
   const codeState = { sourceKey: (projects: readonly Project[]) => codeSource.stateKey(projects) };
