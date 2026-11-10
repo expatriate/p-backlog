@@ -1,3 +1,4 @@
+import type { ReportedCandidate } from "../../core/check/candidates";
 import { checkBacklog, type CheckReport } from "../../core/check/check-backlog";
 import type { CheckProblem } from "../../core/check/findings";
 import type { CoreMessages } from "../../core/messages";
@@ -37,8 +38,15 @@ async function runCheck(args: string[], io: CliIo): Promise<ExitCode> {
     warn: io.warn,
     workingRoots: cwdGitRoots(io),
   });
-  io.print(values.json ? formatJson(report) : formatReport(io.cli, io.core, report));
+  io.print(values.json ? formatJson({ ...report, candidates: report.candidates.map(withoutCodeState) }) : formatReport(io.cli, io.core, report));
   return needsReview(report) ? EXIT.needsReview : EXIT.ok;
+}
+
+function withoutCodeState(candidate: ReportedCandidate): ReportedCandidate {
+  if (!("codeState" in candidate)) return candidate;
+  const shown = { ...candidate };
+  delete shown.codeState;
+  return shown;
 }
 
 const PROBLEM_NEEDS_REVIEW: Record<CheckProblem["kind"], boolean> = {

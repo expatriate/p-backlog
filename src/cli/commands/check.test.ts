@@ -86,6 +86,8 @@ describe("backlog check", () => {
     const report = JSON.parse((await run(["check", "--json"])).out) as CheckReport;
 
     expect(report).toMatchObject({ fixed: [], problems: [], candidates: [{ kind: "source-changed", task: { id: "SPA-1" }, path: "src/a.ts" }] });
+    expect(report.candidates[0]).toHaveProperty("snippet");
+    expect(report.candidates[0]).not.toHaveProperty("codeState");
   });
 
   it("--json от языка не зависит: исправления, проблемы и обрезанный diff — данные, а не фразы", async () => {

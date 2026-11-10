@@ -5,7 +5,7 @@ import type { CandidateEvidence, CheckMode, FilteredSighting, TaskEvidence, Task
 import type { Project, Task } from "../model/types";
 import { attemptReportingFailure, readTextIfFile } from "../store/fs-utils";
 import { readJournal } from "../store/journal";
-import { snippetOf } from "./anchor";
+import { codeStateOf, snippetOf } from "./anchor";
 import { commitsKnownAtCreation } from "./known-commits";
 import { commitsArrivedLate } from "./late-commits";
 import {
@@ -214,10 +214,12 @@ async function withContext(candidate: Candidate, { tasksById, located, facts, di
   const current = located.get(task.id) ?? undefined;
   const source = current ?? task.source;
   const snippet = text === undefined || source === undefined ? undefined : snippetOf(text, source);
+  const codeState = text === undefined || source === undefined ? undefined : codeStateOf(text, source);
   const excerpt = (await diffOf(task, candidate.path))?.excerpt;
   const problem = firstParagraph(task.body);
   const moved = current === undefined || current === task.source ? {} : { source: current };
-  return { ...candidate, ...moved, ...(problem === undefined ? {} : { problem }), ...(snippet === undefined ? {} : { snippet }), ...diffFields(excerpt) };
+  const code = { ...(snippet === undefined ? {} : { snippet }), ...(codeState === undefined ? {} : { codeState }) };
+  return { ...candidate, ...moved, ...(problem === undefined ? {} : { problem }), ...code, ...diffFields(excerpt) };
 }
 
 function diffFields(excerpt: DiffExcerpt | undefined): Pick<ChangeContext, "diff" | "diffOmittedLines"> {

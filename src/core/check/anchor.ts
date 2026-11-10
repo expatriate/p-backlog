@@ -17,6 +17,12 @@ export function anchorOf(text: string, source: string): string | null {
   return `${hashLines(lines.slice(window.from - 1, window.to))}@${window.from}-${window.to}/${hashLines(lines.slice(span.first - 1, span.last))}`;
 }
 
+export function codeStateOf(text: string, source: string): string | undefined {
+  const anchor = anchorOf(text, source);
+  const parsed = anchor === null ? null : parseAnchor(anchor);
+  return parsed === null ? undefined : `${parsed.hash}/${parsed.linesHash}`;
+}
+
 export function windowMatches(text: string, source: string, anchor: string): boolean {
   const current = anchorOf(text, source);
   const expected = parseAnchor(anchor);

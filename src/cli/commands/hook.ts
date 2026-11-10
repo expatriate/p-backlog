@@ -1,5 +1,6 @@
 import { errorText, warnPathErrors } from "../../core/errors";
 import { parseArgs } from "node:util";
+import type { ReportedCandidate } from "../../core/check/candidates";
 import { checkBacklog } from "../../core/check/check-backlog";
 import { formatLocalDay } from "../../core/model/dates";
 import { FileBusyError } from "../../core/store/file-lock";
@@ -9,7 +10,7 @@ import { loadBacklog } from "../../core/store/load";
 import { projectDirOf } from "../../core/store/paths";
 import { lookupProjectForDir, readGitRoots, repoRootsOf } from "../../core/store/resolve-project";
 import { readSignalsShown, rememberSignalsShown } from "../../core/store/signals-shown";
-import { readSessionShown, rememberSessionShown } from "../../core/store/session-shown";
+import { readSessionShown, rememberSessionShown, shownKey, type ShownTask } from "../../core/store/session-shown";
 import type { WriteContext } from "../../core/store/write-context";
 import { HOOK_STOP_EVENT, hookMessage } from "../../core/hook-signature";
 import { reportContext } from "../../core/stats/scope";
@@ -72,7 +73,7 @@ async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   const worthTelling = pinpointed.filter((candidate) => !lowPriority.has(candidate.task.id));
   const lowCount = pinpointed.length - worthTelling.length;
   const session = await sessionMemory(project, event.session, io);
-  const blocking = worthTelling.filter((candidate) => !session.told.has(candidate.task.id));
+  const blocking = worthTelling.filter((candidate) => !session.told.has(shownKey(shownTask(candidate))));
 
   const signals = carriesSystemMessage(agent)
     ? await freshSignals(
@@ -89,7 +90,8 @@ async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   });
   if (answer !== null) io.print(answer);
   await signals.remember();
-  await session.remember(reason?.namedTaskIds ?? []);
+  const named = new Set(reason?.namedTaskIds);
+  await session.remember(blocking.filter((candidate) => named.has(candidate.task.id)).map(shownTask));
   return EXIT.ok;
 }
 
@@ -108,7 +110,11 @@ async function isFirstHookOfTurn(agent: Agent, event: StopEvent, io: CliIo): Pro
   }
 }
 
-type SessionMemory = { told: ReadonlySet<string>; remember: (ids: readonly string[]) => Promise<void> };
+function shownTask(candidate: ReportedCandidate): ShownTask {
+  return { taskId: candidate.task.id, codeState: "codeState" in candidate ? candidate.codeState : undefined };
+}
+
+type SessionMemory = { told: ReadonlySet<string>; remember: (shown: readonly ShownTask[]) => Promise<void> };
 
 const NO_SESSION_MEMORY: SessionMemory = { told: new Set(), remember: rememberNothing };
 
@@ -118,8 +124,8 @@ async function sessionMemory(project: Project, session: string | undefined, io: 
   try {
     return {
       told: new Set(await readSessionShown(projectDir, session)),
-      remember: async (ids) => {
-        if (ids.length > 0) await rememberSessionShown(projectDir, session, ids, writesOf(io)).catch((error: unknown) => io.warn(io.cli.sessionShownWriteFailed(errorText(error))));
+      remember: async (shown) => {
+        if (shown.length > 0) await rememberSessionShown(projectDir, session, shown, writesOf(io)).catch((error: unknown) => io.warn(io.cli.sessionShownWriteFailed(errorText(error))));
       },
     };
   } catch (error) {

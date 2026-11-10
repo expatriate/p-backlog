@@ -15,7 +15,7 @@ type SourceChange = { kind: "source-changed"; task: TaskRef; path: string; commi
 
 export type Candidate = { kind: "source-missing"; task: TaskRef; path: string; renamedTo?: string | undefined } | SourceChange | { kind: "duplicate"; task: TaskRef; other: TaskRef; match: DuplicateMatch };
 
-export type ChangeContext = { source?: string; problem?: string; snippet?: string; diff?: string; diffOmittedLines?: number };
+export type ChangeContext = { source?: string; problem?: string; snippet?: string; codeState?: string; diff?: string; diffOmittedLines?: number };
 
 export type ReportedCandidate = Candidate | (SourceChange & ChangeContext);
 

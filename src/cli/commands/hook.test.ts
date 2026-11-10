@@ -252,6 +252,101 @@ describe("backlog hook stop", () => {
     expect(JSON.parse(nextSession.out).decision).toBe("block");
   });
 
+  it("задачу подтвердили, потом её код снова изменили — в той же сессии она называется снова, и снова один раз", async () => {
+    const { run, repo } = await changedTaskSandbox();
+    const event = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    const beforeVerify = await run(["hook", "stop"], { stdin: event });
+    const verified = await run(["verify", "SPA-1"], { now: new Date("2026-09-19T10:00:00Z") });
+    const afterVerify = await run(["hook", "stop"], { stdin: event });
+    await writeFile(join(repo, "src/a.ts"), "3\n");
+    gitCommitAll(repo, "Снова поправить таймаут", "2026-09-20T10:00:00Z");
+    const afterNewEdit = await run(["hook", "stop"], { stdin: event });
+    const nextTurn = await run(["hook", "stop"], { stdin: event });
+
+    expect(beforeVerify.out).toContain("SPA-1");
+    expect(verified.code).toBe(EXIT.ok);
+    expect(afterVerify.out).toBe("");
+    expect(afterNewEdit.out).toContain("SPA-1");
+    expect(nextTurn.out).toBe("");
+  });
+
+  it("строки задачи изменили ещё раз, не подтверждая её, — новое состояние кода называется снова, прежнее не повторяется", async () => {
+    const { run, repo } = await changedTaskSandbox();
+    const event = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    const first = await run(["hook", "stop"], { stdin: event });
+    const sameCode = await run(["hook", "stop"], { stdin: event });
+    await writeFile(join(repo, "src/a.ts"), "3\n");
+    gitCommitAll(repo, "Снова поправить таймаут", "2026-09-20T10:00:00Z");
+    const editedAgain = await run(["hook", "stop"], { stdin: event });
+
+    expect(first.out).toContain("SPA-1");
+    expect(sameCode.out).toBe("");
+    expect(editedAgain.out).toContain("SPA-1");
+  });
+
+  it("у названной, но не подтверждённой задачи строки сдвинулись и поправили соседние, а её строки те же — снова она не называется", async () => {
+    const { run, repo } = await makeCliSandbox();
+    const lines = Array.from({ length: 20 }, (_, index) => `export const value${index + 1} = ${index + 1};`);
+    await writeFiles(repo, { "src/a.ts": `${lines.join("\n")}\n` });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:10"]);
+    const edited = lines.with(9, "export const value10 = 100;");
+    await writeFiles(repo, { "src/a.ts": `${edited.join("\n")}\n` });
+    gitCommitAll(repo, "Поправить строку задачи", "2026-09-18T10:00:00Z");
+    const event = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+
+    const named = await run(["hook", "stop"], { stdin: event });
+    await writeFiles(repo, { "src/a.ts": `${["export const added = 0;", ...edited.with(13, "export const value14 = 140;")].join("\n")}\n` });
+    gitCommitAll(repo, "Строка выше и правка поодаль", "2026-09-19T10:00:00Z");
+    const afterShift = await run(["hook", "stop"], { stdin: event });
+
+    expect(named.out).toContain("SPA-1");
+    expect(afterShift.out).toBe("");
+  });
+
+  it("после подтверждений код вернули к состоянию, которое уже называлось, — задача называется снова", async () => {
+    const { run, repo } = await changedTaskSandbox();
+    const event = JSON.stringify({ session_id: "s", cwd: repo, hook_event_name: "Stop", stop_hook_active: false });
+    const commitLine = async (text: string, isoDate: string) => {
+      await writeFile(join(repo, "src/a.ts"), `${text}\n`);
+      gitCommitAll(repo, `Таймаут ${text}`, isoDate);
+    };
+
+    await run(["hook", "stop"], { stdin: event });
+    await run(["verify", "SPA-1"], { now: new Date("2026-09-19T10:00:00Z") });
+    await commitLine("3", "2026-09-20T10:00:00Z");
+    await run(["hook", "stop"], { stdin: event });
+    await run(["verify", "SPA-1"], { now: new Date("2026-09-21T10:00:00Z") });
+    await commitLine("2", "2026-09-22T10:00:00Z");
+    const backToNamedCode = await run(["hook", "stop"], { stdin: event });
+
+    expect(backToNamedCode.out).toContain("SPA-1");
+  });
+
+  it("сессии в основном репозитории и в worktree с другим текстом строки задачи называют её по разу и не будят друг друга своими подтверждениями", async () => {
+    const { run, repo, home } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts:1"]);
+    const worktree = join(home, "projects/spa-feature");
+    gitAddWorktree(repo, worktree, "feature");
+    await writeFile(join(worktree, "src/a.ts"), "2\n");
+    gitCommitAll(worktree, "Поправить таймаут", "2026-09-18T10:00:00Z");
+    const stop = async (session: string, cwd: string) => (await run(["hook", "stop"], { stdin: JSON.stringify({ session_id: session, cwd, hook_event_name: "Stop", stop_hook_active: false }) })).out;
+
+    const inWorktree = await stop("w", worktree);
+    await run(["verify", "SPA-1"], { cwd: worktree, now: new Date("2026-09-19T10:00:00Z") });
+    const inMain = await stop("m", repo);
+    await run(["verify", "SPA-1"], { cwd: repo, now: new Date("2026-09-19T11:00:00Z") });
+    const inWorktreeAgain = await stop("w", worktree);
+
+    expect(inWorktree).toContain("SPA-1");
+    expect(inMain).toContain("SPA-1");
+    expect(inWorktreeAgain).toBe("");
+  });
+
   it("задачи, не поместившиеся в причину, называются в следующем ходе той же сессии", async () => {
     const { run, repo } = await makeCliSandbox();
     const longDirectory = "deeply-nested-feature-directory/".repeat(4);
