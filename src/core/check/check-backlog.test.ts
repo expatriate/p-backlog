@@ -848,6 +848,201 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-missing", task: expect.objectContaining({ id: "SPA-1" }) })]);
   });
 
+  async function editFastForwardedAfterTask(source: string, projectDir = "") {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    const file = join(projectDir, "src/a.ts");
+    const before = numbered("a");
+    await writeFiles(repo, { [file]: before });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    const creationCommit = gitShortHead(repo);
+    gitCheckout(repo, "feat", { create: true, at: "2026-09-09T11:00:00+03:00" });
+    await writeFiles(repo, { [file]: before.replace("a3 = 3", "a3 = 33") });
+    gitCommitAll(repo, "Правка на ветке до отметки", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "master", { at: "2026-09-10T11:00:00+03:00" });
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [join(repo, projectDir)]), "spa/SPA-1.md": task("SPA-1", `source: ${source}\n`) });
+    gitMergeFastForward(repo, "feat", "2026-09-12T10:00:00+03:00");
+    return { home, root, repo, creationCommit };
+  }
+
+  const createdAt = (commit: string, branch: string, id = "SPA-1") => ({ ...createdOnFeat(id, "2026-09-11T10:00:00+03:00", commit), origin: { branch, commit } });
+
+  const changedByFastForward = [
+    expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), method: "file", commits: [expect.objectContaining({ subject: "Правка на ветке до отметки" })] }),
+  ];
+
+  it.each([
+    { case: "source на файл", source: "src/a.ts", projectDir: "" },
+    { case: "source на строку", source: "src/a.ts:3", projectDir: "" },
+    { case: "проект в подкаталоге репозитория", source: "src/a.ts", projectDir: "app" },
+  ])("правка с датой коммита до отметки, влитая перемоткой после неё, делает задачу без якоря кандидатом, якорь по изменённому тексту не пишется: $case", async ({ source, projectDir }) => {
+    const { home, root } = await editFastForwardedAfterTask(source, projectDir);
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual(changedByFastForward);
+    expect((await loadBacklog(root)).tasks[0]?.anchor).toBeUndefined();
+  });
+
+  it("в клоне, чей reflog не помнит момент отметки, пришедшую перемоткой правку находят по коммиту создания задачи", async () => {
+    const { home, root, repo, creationCommit } = await editFastForwardedAfterTask("src/a.ts");
+    const clone = join(home, "projects/spa-clone");
+    execFileSync("git", ["clone", "--quiet", `file://${repo}`, clone]);
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [clone]), "spa/journal.jsonl": `${JSON.stringify(createdAt(creationCommit, "master"))}\n` });
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual(changedByFastForward);
+  });
+
+  it("задача, подтверждённая после перемотки, кандидатом не становится, хотя коммит её создания старше перемотки", async () => {
+    const { home, root, creationCommit } = await editFastForwardedAfterTask("src/a.ts");
+    await writeFiles(root, {
+      "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\nverified: 2026-09-13T10:00:00+03:00\n"),
+      "spa/journal.jsonl": `${JSON.stringify(createdAt(creationCommit, "master"))}\n`,
+    });
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([]);
+  });
+
+  it("у каждой задачи свои пришедшие перемоткой коммиты — от коммита её создания, новые первыми", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": numbered("a") });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    const beforeBranch = gitShortHead(repo);
+    gitCheckout(repo, "feat", { create: true, at: "2026-09-09T11:00:00+03:00" });
+    await writeFiles(repo, { "src/a.ts": numbered("a").replace("a3 = 3", "a3 = 33") });
+    gitCommitAll(repo, "Первая правка на ветке", "2026-09-10T10:00:00+03:00");
+    const afterFirstEdit = gitShortHead(repo);
+    await writeFiles(repo, { "src/a.ts": numbered("a").replace("a3 = 3", "a3 = 33").replace("a5 = 5", "a5 = 55") });
+    gitCommitAll(repo, "Вторая правка на ветке", "2026-09-10T12:00:00+03:00");
+    gitCheckout(repo, "master", { at: "2026-09-10T13:00:00+03:00" });
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\n"),
+      "spa/SPA-2.md": task("SPA-2", "source: src/a.ts\n"),
+      "spa/journal.jsonl": toJsonLines([createdAt(beforeBranch, "master"), createdAt(afterFirstEdit, "feat", "SPA-2")]),
+    });
+    gitMergeFastForward(repo, "feat", "2026-09-12T10:00:00+03:00");
+
+    const report = await check(root, home, "changed");
+
+    const subjects = report.candidates.map((candidate) => [candidate.task.id, candidate.kind === "source-changed" ? candidate.commits.map((commit) => commit.subject) : []]);
+    expect(subjects).toEqual([
+      ["SPA-1", ["Вторая правка на ветке", "Первая правка на ветке"]],
+      ["SPA-2", ["Вторая правка на ветке"]],
+    ]);
+  });
+
+  it("задача с source вне репозитория и задача с неизвестным коммитом создания не мешают найти пришедшую перемоткой правку соседней", async () => {
+    const { home, root } = await editFastForwardedAfterTask("src/a.ts");
+    await writeFiles(home, { "projects/outside.ts": "снаружи\n" });
+    await writeFiles(root, {
+      "spa/SPA-2.md": task("SPA-2", "source: src/a.ts\n"),
+      "spa/SPA-3.md": task("SPA-3", "source: ../outside.ts\n"),
+      "spa/journal.jsonl": `${JSON.stringify(createdAt("0123456789abcdef0123456789abcdef01234567", "master", "SPA-2"))}\n`,
+    });
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates.map((candidate) => candidate.task.id)).toEqual(["SPA-1"]);
+  });
+
+  it("переход на разошедшуюся ветку, где файл задачи другой, кандидатом её не делает", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": numbered("a") });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true, at: "2026-09-09T11:00:00+03:00" });
+    await writeFiles(repo, { "src/a.ts": numbered("a").replace("a3 = 3", "a3 = 33") });
+    gitCommitAll(repo, "Правка на ветке", "2026-09-09T12:00:00+03:00");
+    gitCheckout(repo, "master", { at: "2026-09-10T09:00:00+03:00" });
+    await writeFiles(repo, { "src/a.ts": numbered("a").replace("a3 = 3", "a3 = 333") });
+    gitCommitAll(repo, "Правка на master", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\n") });
+    gitCheckout(repo, "feat", { at: "2026-09-12T10:00:00+03:00" });
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([]);
+  });
+
+  it("чужой merge нашего же коммита, пришедший перемоткой: текст файла задачи тот же — кандидата нет", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a1\n", "src/b.ts": "b1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "theirs", { create: true, at: "2026-09-09T11:00:00+03:00" });
+    await writeFiles(repo, { "src/b.ts": "b2\n" });
+    gitCommitAll(repo, "Их правка b", "2026-09-09T12:00:00+03:00");
+    gitCheckout(repo, "master", { at: "2026-09-10T09:00:00+03:00" });
+    await writeFiles(repo, { "src/a.ts": "a2\n" });
+    gitCommitAll(repo, "Наша правка a", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "theirs", { at: "2026-09-10T11:00:00+03:00" });
+    gitMergeNoFastForward(repo, "master", "2026-09-10T12:00:00+03:00");
+    gitCheckout(repo, "master", { at: "2026-09-10T13:00:00+03:00" });
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\n") });
+    gitMergeFastForward(repo, "theirs", "2026-09-12T10:00:00+03:00");
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([]);
+  });
+
+  it("граф кода есть, перемотка вставила функцию выше задачи без якоря: кандидат остаётся, якорь на съехавшую в чужую функцию строку не пишется", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    const original = ["export function uploadFile() {", '  return "v1";', "}", "", "export function retry() {", '  return "v1";', "}", ""].join("\n");
+    await writeFiles(repo, { "src/upload.ts": original });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    const creationCommit = gitShortHead(repo);
+    gitCheckout(repo, "feat", { create: true, at: "2026-09-10T11:00:00+03:00" });
+    const withFirst = ["export function first() {", "  return 0;", "}", "", original].join("\n");
+    await writeFiles(repo, { "src/upload.ts": withFirst });
+    gitCommitAll(repo, "Функция выше на ветке до отметки", "2026-09-10T12:00:00+03:00");
+    gitCheckout(repo, "master", { at: "2026-09-10T13:00:00+03:00" });
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": task("SPA-1", "source: src/upload.ts:6\n"),
+      "spa/journal.jsonl": `${JSON.stringify({ ...createdAt(creationCommit, "master"), source: "src/upload.ts:6" })}\n`,
+    });
+    gitMergeFastForward(repo, "feat", "2026-09-12T10:00:00+03:00");
+    const symbols = [
+      { name: "first", kind: "Function", from: 1, to: 3 },
+      { name: "uploadFile", kind: "Function", from: 5, to: 7 },
+      { name: "retry", kind: "Function", from: 9, to: 11 },
+    ];
+    await makeGraphDb(repo, [{ path: "src/upload.ts", hash: createHash("sha256").update(withFirst).digest("hex"), symbols }]);
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }) })]);
+    const spa1 = (await loadBacklog(root)).tasks[0];
+    expect(spa1?.source).toBe("src/upload.ts:6");
+    expect(spa1?.anchor).toBeUndefined();
+  });
+
+  it("в репозитории с коммитами у задач проекта нет source — проверка проходит без кандидатов", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1") });
+
+    const report = await check(root, home, "changed");
+
+    expect(report).toMatchObject({ candidates: [], problems: [] });
+  });
+
   it("файл переименован: строки задачи целы, на месте или со сдвигом, — source переезжает сам, строки изменились — кандидат «файл пропал» с новым именем", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");

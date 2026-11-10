@@ -24,7 +24,7 @@ async function changedCommitSubjects(repo: string, origin: TaskOrigin, source = 
   const facts = await collectRepoFacts(repo, new Map([[source, Date.parse(CREATED)]]));
   const anchors = anchorStates(tasks, facts);
   const known = await commitsKnownAtCreation({ repo, tasks, facts, anchors, origins: new Map([["SPA-1", origin]]) });
-  return codeReview(tasks, facts, known, anchors).candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? candidate.commits.map((commit) => commit.subject) : []));
+  return codeReview(tasks, { facts, late: new Map() }, known, anchors).candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? candidate.commits.map((commit) => commit.subject) : []));
 }
 
 async function featureEditingA(): Promise<{ repo: string; origin: TaskOrigin }> {

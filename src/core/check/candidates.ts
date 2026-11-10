@@ -4,7 +4,7 @@ import { anchorOf, findIntactLines, findMoved, isAnchorFor, windowMatches } from
 import type { CheckFix } from "./findings";
 import type { BranchHistory, Commit, RepoFacts } from "./repo-facts";
 import { reviewMark } from "./reviewed-task";
-import { changesSince, commitsAfter } from "./source-commits";
+import { changesSinceMark, commitsAfter, type SourceHistory } from "./source-commits";
 import { hasLines, isWithin, lineSuffix, sourcePath } from "../model/source";
 
 export type TaskRef = { id: string; title: string };
@@ -37,22 +37,22 @@ export function anchorStates(tasks: readonly Task[], facts: RepoFacts): AnchorSt
   return new Map(tasks.map((task) => [task.id, anchorState(task, facts)]));
 }
 
-export function codeReview(tasks: readonly Task[], facts: RepoFacts, knownCommits: KnownCommits, anchors: AnchorStates): CodeReview {
-  const reviewed = tasks.map((task) => ({ task, anchor: anchors.get(task.id) ?? anchorState(task, facts) }));
-  const candidates = reviewed.flatMap(({ task, anchor }) => codeCandidate(task, anchor, facts, knownCommits.get(task.id)));
-  const plans = reviewed.flatMap(({ task, anchor }) => anchorPlan(task, anchor, facts));
+export function codeReview(tasks: readonly Task[], history: SourceHistory, knownCommits: KnownCommits, anchors: AnchorStates): CodeReview {
+  const reviewed = tasks.map((task) => ({ task, anchor: anchors.get(task.id) ?? anchorState(task, history.facts) }));
+  const candidates = reviewed.flatMap(({ task, anchor }) => codeCandidate(task, anchor, history, knownCommits.get(task.id)));
+  const plans = reviewed.flatMap(({ task, anchor }) => anchorPlan(task, anchor, history.facts));
   return { candidates, plans };
 }
 
-function codeCandidate(task: Task, anchor: AnchorState, facts: RepoFacts, knownCommits: ReadonlySet<string> = new Set()): Candidate[] {
+function codeCandidate(task: Task, anchor: AnchorState, history: SourceHistory, knownCommits: ReadonlySet<string> = new Set()): Candidate[] {
   if (task.source === undefined) return [];
+  const { facts } = history;
   const path = sourcePath(task.source);
-  const mark = reviewMark(task);
   if (!facts.existing.has(path)) {
-    return presenceOffDisk(path, facts.branches) === "missing" ? [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.renames, mark) }] : [];
+    return presenceOffDisk(path, facts.branches) === "missing" ? [{ kind: "source-missing", task: taskRef(task), path, renamedTo: followRenames(path, facts.renames, reviewMark(task)) }] : [];
   }
   if (anchor.kind === "same" || anchor.kind === "moved") return [];
-  const { commits: changed, uncommitted } = changesSince(facts, path, mark);
+  const { commits: changed, uncommitted } = changesSinceMark(history, task, path);
   const commits = changed.filter((commit) => !knownCommits.has(commit.sha));
   if (anchor.kind === "none" && commits.length === 0 && !uncommitted) return [];
   const method: CheckMethod = anchor.kind === "changed" ? "anchor" : "file";

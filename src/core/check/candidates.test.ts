@@ -7,7 +7,7 @@ import type { Commit, RepoFacts } from "./repo-facts";
 
 const CREATED = "2026-09-11T10:00:00+03:00";
 
-const review = (tasks: readonly Task[], repoFacts: RepoFacts) => codeReview(tasks, repoFacts, new Map(), anchorStates(tasks, repoFacts));
+const review = (tasks: readonly Task[], repoFacts: RepoFacts) => codeReview(tasks, { facts: repoFacts, late: new Map() }, new Map(), anchorStates(tasks, repoFacts));
 const codeCandidates = (tasks: readonly Task[], repoFacts: RepoFacts) => review(tasks, repoFacts).candidates;
 
 function commit(sha: string, date: string, files: Commit["files"]): Commit {

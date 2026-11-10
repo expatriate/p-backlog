@@ -7,6 +7,7 @@ import { attemptReportingFailure, readTextIfFile } from "../store/fs-utils";
 import { readJournal } from "../store/journal";
 import { snippetOf } from "./anchor";
 import { commitsKnownAtCreation } from "./known-commits";
+import { commitsArrivedLate } from "./late-commits";
 import {
   anchorStates,
   codeReview,
@@ -27,6 +28,7 @@ import type { CheckProblem } from "./findings";
 import { awaitingMerge } from "./awaiting-merge";
 import { collectRepoFacts, type DiffExcerpt, type RepoFacts } from "./repo-facts";
 import { sourcePath } from "../model/source";
+import type { LateCommits } from "./source-commits";
 import { fileHashes, filterBySymbol, symbolLookup, symbolNames, type SymbolFilterContext, type SymbolFilterResult } from "./symbol-filter";
 
 const PROBLEM_LIMIT = 400;
@@ -52,7 +54,7 @@ type LineJudgement = { kept: Candidate[]; linesIntact: string[]; notOnBranch: st
 
 type PlanSettlement = { untouchable: ReadonlySet<string>; relocatable: readonly string[] };
 
-type RepoScope = ReviewScope & { repo: string; facts: RepoFacts; graph: CodeGraph | null };
+type RepoScope = ReviewScope & { repo: string; facts: RepoFacts; late: LateCommits; graph: CodeGraph | null };
 
 type SightingScope = Pick<RepoScope, "mode"> & { skipped: ReadonlySet<string> };
 
@@ -80,9 +82,12 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
   const readable = tasks.filter((task) => !skipped.has(task.id));
   const graph = openCodeGraph(repo);
   try {
-    const scope: RepoScope = { repo, facts, origins, mode, onUnreadable, graph };
     const anchors = anchorStates(readable, facts);
-    const review = await reviewedCode(readable, anchors, scope);
+    const question = { repo, tasks: readable, facts, anchors, origins };
+    const knownCommits = await commitsKnownAtCreation(question);
+    const late = await commitsArrivedLate({ ...question, knownCommits });
+    const scope: RepoScope = { repo, facts, late, origins, mode, onUnreadable, graph };
+    const review = await withRenamesFollowed(codeReview(readable, { facts, late }, knownCommits, anchors), readable, scope);
     const context = await projectContext(readable, review, scope);
     const sighted = await sightedBySymbol(tasks, review, context, { mode, skipped });
     const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, { repo, origins, projectId: project.id });
@@ -92,18 +97,12 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
   }
 }
 
-async function reviewedCode(tasks: readonly Task[], anchors: AnchorStates, scope: Pick<RepoScope, "repo" | "facts" | "origins" | "onUnreadable">): Promise<CodeReview> {
-  const { repo, facts, origins } = scope;
-  const knownCommits = await commitsKnownAtCreation({ repo, tasks, facts, anchors, origins });
-  return withRenamesFollowed(codeReview(tasks, facts, knownCommits, anchors), tasks, scope);
-}
-
-async function projectContext(tasks: readonly Task[], review: CodeReview, { repo, facts, origins, mode, onUnreadable, graph }: RepoScope): Promise<ProjectContext> {
+async function projectContext(tasks: readonly Task[], review: CodeReview, { repo, facts, late, origins, mode, onUnreadable, graph }: RepoScope): Promise<ProjectContext> {
   const diffs = repoDiffs(repo, origins);
   const symbolAt = symbolLookup(graph, fileHashes(repo, onUnreadable));
   const changedIds = new Set(review.candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? [candidate.task.id] : [])));
   const locating = mode === "full" && graph !== null ? tasks : tasks.filter((task) => changedIds.has(task.id));
-  const traces = await traceSources(locating, facts, diffs);
+  const traces = await traceSources(locating, { facts, late }, diffs);
   return { tasksById: new Map(tasks.map((task) => [task.id, task])), located: currentSourcesOf(traces), traces, facts, diffOf: diffs.sinceTaskMark, symbolAt };
 }
 

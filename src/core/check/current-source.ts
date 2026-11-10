@@ -4,9 +4,9 @@ import type { Task } from "../model/types";
 import { remembered } from "../remembered";
 import { anchorOf, anchorRange, locateAnchor, remappedSource, windowMatches } from "./anchor";
 import { reviewMark } from "./reviewed-task";
-import { changesSince } from "./source-commits";
+import { changesSinceMark, type SourceHistory } from "./source-commits";
 import { baseText, currentLine, modifiesLines, type Hunk } from "./diff-hunks";
-import { collectRepoFacts, diffsFrom, diffsSince, headsAt, type Commit, type DiffFrom, type DiffSince, type FileDiff, type HeadAt, type RepoFacts } from "./repo-facts";
+import { collectRepoFacts, diffsFrom, diffsSince, headsAt, type Commit, type DiffFrom, type DiffSince, type FileDiff, type HeadAt } from "./repo-facts";
 import { hasLines, sourcePath } from "../model/source";
 
 export type TaskDiff = (task: Task, path: string) => Promise<FileDiff | null>;
@@ -38,8 +38,8 @@ function diffsSinceTaskMark(repo: string, since: DiffSince, from: DiffFrom, orig
   };
 }
 
-export async function traceSources(tasks: readonly Task[], facts: RepoFacts, diffs: FileDiffs): Promise<SourceTraces> {
-  return new Map(await Promise.all(tasks.map(async (task) => [task.id, await traceSource(task, facts, diffs)] as const)));
+export async function traceSources(tasks: readonly Task[], history: SourceHistory, diffs: FileDiffs): Promise<SourceTraces> {
+  return new Map(await Promise.all(tasks.map(async (task) => [task.id, await traceSource(task, history, diffs)] as const)));
 }
 
 export function currentSourcesOf(traces: SourceTraces): CurrentSources {
@@ -49,7 +49,7 @@ export function currentSourcesOf(traces: SourceTraces): CurrentSources {
 export async function currentSourceIn(repo: string, task: Task): Promise<string | null> {
   if (task.source === undefined) return null;
   const facts = await collectRepoFacts(repo, new Map([[sourcePath(task.source), reviewMark(task)]]));
-  return currentOf(await traceSource(task, facts, repoDiffs(repo, new Map())));
+  return currentOf(await traceSource(task, { facts, late: new Map() }, repoDiffs(repo, new Map())));
 }
 
 function currentOf(trace: SourceTrace): string | null {
@@ -62,12 +62,12 @@ type ReferenceSearch = FoundReference | { kind: "not-on-branch" } | { kind: "unt
 
 type Traced = Task & { source: string };
 
-async function traceSource(task: Task, facts: RepoFacts, diffs: FileDiffs): Promise<SourceTrace> {
+async function traceSource(task: Task, history: SourceHistory, diffs: FileDiffs): Promise<SourceTrace> {
   const { source, anchor } = task;
   if (source === undefined || !hasLines(source)) return UNTRACED;
-  const text = facts.texts.get(sourcePath(source));
+  const text = history.facts.texts.get(sourcePath(source));
   if (text === undefined) return UNTRACED;
-  const { commits, uncommitted } = changesSince(facts, sourcePath(source), reviewMark(task));
+  const { commits, uncommitted } = changesSinceMark(history, task, sourcePath(source));
   const fileUntouched = commits.length === 0 && !uncommitted;
   if (fileUntouched && (anchor === undefined || windowMatches(text, source, anchor))) return { kind: "traced", current: source, linesChanged: false };
   const traced: Traced = { ...task, source };

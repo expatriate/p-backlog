@@ -1,5 +1,5 @@
 import { isAbsolute, join, normalize, sep } from "node:path";
-import { FIELD, literalPathspecs, outputLine, PARSED_DIFF_OPTIONS, RECORD, runGit, runGitOutcome, type GitRunner } from "../git/run";
+import { FIELD, literalPathspecs, outputLine, PARSED_DIFF_OPTIONS, RECORD, runGit, runGitOutcome, type CommitHash, type GitRunner } from "../git/run";
 import type { LineRange } from "./anchor";
 import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
 import { SECOND_MS } from "../model/dates";
@@ -64,8 +64,8 @@ export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Prom
   const { prefix, hasCommits } = location;
   const missing = paths.filter((path) => !files.existing.has(path) && !files.unreadable.has(path));
   const [log, renames, status, branches] = await Promise.all([
-    hasCommits ? pathLog(repo, earliestMark(pathMarks, paths), paths) : "",
-    hasCommits && missing.length > 0 ? runGit(repo, [...logArgs(earliestMark(pathMarks, missing)), "--diff-filter=R"]) : "",
+    hasCommits && paths.length > 0 ? pathLog(repo, [sinceEarliestMark(pathMarks, paths)], paths) : "",
+    hasCommits && missing.length > 0 ? runGit(repo, [...logArgs([sinceEarliestMark(pathMarks, missing)]), "--diff-filter=R"]) : "",
     runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
     branchHistoryOf(repo, location, missing),
   ]);
@@ -86,18 +86,23 @@ function unknownBranches(history: NoHistory["history"]): BranchHistory {
   return history === "not-a-repo" ? { kind: "no-repo" } : { kind: "unreadable" };
 }
 
-function earliestMark(marks: PathMarks, paths: readonly string[]): Date {
-  return new Date(Math.min(...paths.flatMap((path) => marks.get(path) ?? [])));
+function sinceEarliestMark(marks: PathMarks, paths: readonly string[]): string {
+  return `--since=${new Date(Math.min(...paths.flatMap((path) => marks.get(path) ?? []))).toISOString()}`;
 }
 
-function logArgs(since: Date): string[] {
-  return ["log", "--relative", `--since=${since.toISOString()}`, LOG_FORMAT, "--name-status", "-M", "--diff-merges=first-parent", ...FACTS_HISTORY_OPTIONS, "-z"];
+function logArgs(selection: readonly string[]): string[] {
+  return ["log", ...selection, "--relative", LOG_FORMAT, "--name-status", "-M", "--diff-merges=first-parent", ...FACTS_HISTORY_OPTIONS, "-z"];
 }
 
-async function pathLog(repo: string, since: Date, paths: readonly string[]): Promise<string | null> {
+async function pathLog(repo: string, selection: readonly string[], paths: readonly string[]): Promise<string | null> {
   const inside = paths.filter(isInsideRepo);
   if (inside.length === 0) return "";
-  return runGit(repo, [...logArgs(since), "--", ...literalPathspecs(inside)]);
+  return runGit(repo, [...logArgs(selection), "--", ...literalPathspecs(inside)]);
+}
+
+export async function mainlineCommitsOff(repo: string, base: CommitHash, paths: readonly string[]): Promise<Commit[] | null> {
+  const log = await pathLog(repo, ["--first-parent", `${base}..HEAD`], paths);
+  return log === null ? null : parseLog(log);
 }
 
 async function committedPaths(repo: string, revisions: string, paths: readonly string[]): Promise<string[] | null> {
@@ -107,7 +112,7 @@ async function committedPaths(repo: string, revisions: string, paths: readonly s
   return names === null ? null : names.split(/[\0\n]/).filter((name) => name !== "");
 }
 
-function isInsideRepo(path: string): boolean {
+export function isInsideRepo(path: string): boolean {
   const normalized = normalize(path);
   return normalized !== "." && !isAbsolute(normalized) && normalized !== ".." && !normalized.startsWith(`..${sep}`);
 }
@@ -134,13 +139,22 @@ export type HeadAt = (moment: Date) => Promise<{ commit: string; onThisLine: boo
 
 type HeadMove = { commit: string; at: number };
 
-export function headsAt(repo: string, git: GitRunner = runGit): HeadAt {
+type HeadCommitAt = (moment: Date) => Promise<string | null>;
+
+export function headCommitsAt(repo: string, git: GitRunner = runGit): HeadCommitAt {
   let moves: Promise<HeadMove[]> | null = null;
-  const ancestors = new Map<string, Promise<boolean>>();
   return async (moment) => {
     moves ??= headMovesNewestFirst(repo, git);
-    const commit = (await moves).find((move) => move.at <= moment.getTime())?.commit;
-    if (commit === undefined) return null;
+    return (await moves).find((move) => move.at <= moment.getTime())?.commit ?? null;
+  };
+}
+
+export function headsAt(repo: string, git: GitRunner = runGit): HeadAt {
+  const headCommitAt = headCommitsAt(repo, git);
+  const ancestors = new Map<string, Promise<boolean>>();
+  return async (moment) => {
+    const commit = await headCommitAt(moment);
+    if (commit === null) return null;
     const onThisLine = await remembered(ancestors, commit, async () => (await git(repo, ["merge-base", "--is-ancestor", commit, "HEAD"])) !== null);
     return { commit, onThisLine };
   };

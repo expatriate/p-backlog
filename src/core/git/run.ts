@@ -19,7 +19,8 @@ const runFile = promisify(execFile);
 const GIT_OUTPUT_LIMIT = 64 * BYTES_PER_MEBIBYTE;
 const GREP_NO_MATCH_EXIT = 1;
 const GIT_PROCESS_LIMIT = 8;
-const FULL_COMMIT_HASH = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+const FULL_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+const FOUND_OBJECT_FIELDS = 3;
 
 const gitProcessSlot = createLimiter(GIT_PROCESS_LIMIT);
 
@@ -59,7 +60,7 @@ declare const commitHashBrand: unique symbol;
 export type CommitHash = string & { readonly [commitHashBrand]: true };
 
 export function commitHashOf(line: string | null): CommitHash | null {
-  return line !== null && FULL_COMMIT_HASH.test(line) ? (line as CommitHash) : null;
+  return line !== null && FULL_OBJECT_ID.test(line) ? (line as CommitHash) : null;
 }
 
 export function outputLines(stdout: string | null): string[] | null {
@@ -91,6 +92,22 @@ function gitArgs(repo: string, args: readonly string[]): string[] {
   return ["-C", repo, "--no-optional-locks", "--no-literal-pathspecs", "-c", "core.quotePath=false", "-c", "diff.suppressBlankEmpty=false", ...args];
 }
 
+export async function objectIds(git: GitRunner, repo: string, objectNames: readonly string[]): Promise<Map<string, string> | null> {
+  const names = [...new Set(objectNames)];
+  if (names.length === 0) return new Map();
+  if (names.some((name) => name.includes("\n"))) return null;
+  const output = await git(repo, ["cat-file", "--batch-check"], names.map((name) => `${name}\n`).join(""));
+  if (output === null) return null;
+  const lines = output.split("\n");
+  return new Map(
+    names.flatMap((name, index): [string, string][] => {
+      const fields = lines[index]?.split(" ") ?? [];
+      const id = fields[0] ?? "";
+      return fields.length === FOUND_OBJECT_FIELDS && FULL_OBJECT_ID.test(id) ? [[name, id]] : [];
+    }),
+  );
+}
+
 export function resolveCommits(git: GitRunner, repo: string, revisions: readonly string[]): Promise<Map<string, CommitHash> | null> {
   return resolveObjects(git, repo, revisions, "commit", commitHashOf);
 }
@@ -100,14 +117,13 @@ export function resolveTrees(git: GitRunner, repo: string, revisions: readonly s
 }
 
 async function resolveObjects<T>(git: GitRunner, repo: string, revisions: readonly string[], type: "commit" | "tree", nameOf: (objectName: string) => T | null): Promise<Map<string, T> | null> {
-  if (revisions.length === 0) return new Map();
-  const output = await git(repo, ["cat-file", "--batch-check"], revisions.map((revision) => `${revision}^{${type}}\n`).join(""));
-  if (output === null) return null;
-  const lines = output.split("\n");
+  const peeled = (revision: string) => `${revision}^{${type}}`;
+  const ids = await objectIds(git, repo, revisions.map(peeled));
+  if (ids === null) return null;
   return new Map(
-    revisions.flatMap((revision, index): [string, T][] => {
-      const [objectName = "", objectType] = lines[index]?.split(" ") ?? [];
-      const name = objectType === type ? nameOf(objectName) : null;
+    revisions.flatMap((revision): [string, T][] => {
+      const id = ids.get(peeled(revision));
+      const name = id === undefined ? null : nameOf(id);
       return name === null ? [] : [[revision, name]];
     }),
   );
