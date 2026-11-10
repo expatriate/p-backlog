@@ -1030,6 +1030,104 @@ describe("checkBacklog", () => {
     expect(spa1?.anchor).toBeUndefined();
   });
 
+  const UPLOAD = ["export function uploadFile() {", '  return "v1";', "}", "", "export function retry() {", '  return "v1";', "}", ""].join("\n");
+  const UPLOAD_SYMBOLS = [
+    { name: "uploadFile", kind: "Function", from: 1, to: 3 },
+    { name: "retry", kind: "Function", from: 5, to: 7 },
+  ];
+  const editUploadFile = (text: string) => text.replace('uploadFile() {\n  return "v1"', 'uploadFile() {\n  return "v2"');
+  const graphOfUpload = (repo: string, text: string) => makeGraphDb(repo, [{ path: "src/upload.ts", hash: createHash("sha256").update(text).digest("hex"), symbols: UPLOAD_SYMBOLS }]);
+  const filteredSymbols = async (root: string) => (await readJournal(join(root, "spa"), "spa")).events.flatMap((event) => (event.kind === "candidate-filtered" ? [event.symbol] : []));
+
+  it.each([
+    { case: "с якорем", anchored: true, fields: "" },
+    { case: "без якоря", anchored: false, fields: "" },
+    { case: "подтверждённая, с якорем", anchored: true, fields: "verified: 2026-09-11T12:00:00+03:00\n" },
+  ])("граф кода есть, перемотка принесла правку строки задачи с датой до отметки: кандидат остаётся с выдержкой правки, якорь не переписывается — задача $case", async ({ anchored, fields }) => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/upload.ts": UPLOAD });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true, at: "2026-09-09T11:00:00+03:00" });
+    await writeFiles(repo, { "src/upload.ts": editUploadFile(UPLOAD) });
+    gitCommitAll(repo, "Правка строки задачи на ветке до отметки", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "master", { at: "2026-09-10T11:00:00+03:00" });
+    const anchorAtMark = anchored ? (anchorOf(UPLOAD, "src/upload.ts:2") ?? undefined) : undefined;
+    const anchorField = anchorAtMark === undefined ? "" : `anchor: ${anchorAtMark}\n`;
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/upload.ts:2\n${anchorField}${fields}`) });
+    gitMergeFastForward(repo, "feat", "2026-09-12T10:00:00+03:00");
+    await graphOfUpload(repo, editUploadFile(UPLOAD));
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), diff: expect.stringContaining('+  return "v2";') })]);
+    expect((await loadBacklog(root)).tasks[0]?.anchor).toBe(anchorAtMark);
+  });
+
+  it("задачу подтвердили после правки её функции, потом правят только соседнюю: судят от подтверждения, а не от коммита создания — кандидата нет", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/upload.ts": UPLOAD });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    const creationCommit = gitShortHead(repo);
+    await writeFiles(repo, { "src/upload.ts": editUploadFile(UPLOAD) });
+    gitCommitAll(repo, "Правка функции задачи до подтверждения", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": task("SPA-1", "source: src/upload.ts:2\nverified: 2026-09-12T10:00:00+03:00\n"),
+      "spa/journal.jsonl": `${JSON.stringify({ ...createdAt(creationCommit, "master"), source: "src/upload.ts:2" })}\n`,
+    });
+    const neighbourEdited = editRetry(editUploadFile(UPLOAD));
+    await writeFiles(repo, { "src/upload.ts": neighbourEdited });
+    gitCommitAll(repo, "Правка соседней функции", "2026-09-13T10:00:00+03:00");
+    await graphOfUpload(repo, neighbourEdited);
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([]);
+    expect(await filteredSymbols(root)).toEqual(["uploadFile"]);
+  });
+
+  it("HEAD на момент отметки стоял на невлитой ветке с другим текстом функции задачи: правку соседней на master судят от последнего коммита master до отметки — кандидата нет", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/upload.ts": UPLOAD });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true, at: "2026-09-10T09:00:00+03:00" });
+    await writeFiles(repo, { "src/upload.ts": editUploadFile(UPLOAD) });
+    gitCommitAll(repo, "Правка функции задачи на невлитой ветке", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/upload.ts:2\n") });
+    gitCheckout(repo, "master", { at: "2026-09-12T09:00:00+03:00" });
+    await writeFiles(repo, { "src/upload.ts": editRetry(UPLOAD) });
+    gitCommitAll(repo, "Правка соседней функции на master", "2026-09-12T10:00:00+03:00");
+    await graphOfUpload(repo, editRetry(UPLOAD));
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([]);
+    expect(await filteredSymbols(root)).toEqual(["uploadFile"]);
+  });
+
+  it("в свежем клоне, чей reflog не помнит отметку, выдержка правки считается от последнего коммита до отметки", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const origin = await makeGitRepo(home, "origin");
+    await writeFiles(origin, { "src/upload.ts": UPLOAD });
+    gitCommitAll(origin, "Начало", "2026-09-09T10:00:00+03:00");
+    await writeFiles(origin, { "src/upload.ts": editUploadFile(UPLOAD) });
+    gitCommitAll(origin, "Правка строки задачи после отметки", "2026-09-12T10:00:00+03:00");
+    const repo = join(home, "projects/spa");
+    execFileSync("git", ["clone", "--quiet", `file://${origin}`, repo]);
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/upload.ts:2\nanchor: ${anchorOf(UPLOAD, "src/upload.ts:2")}\n`) });
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), diff: expect.stringContaining('+  return "v2";') })]);
+  });
+
   it("в репозитории с коммитами у задач проекта нет source — проверка проходит без кандидатов", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");

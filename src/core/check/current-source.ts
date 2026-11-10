@@ -1,12 +1,11 @@
 import { runGit } from "../git/run";
 import type { TaskOrigin } from "../journal/events";
 import type { Task } from "../model/types";
-import { remembered } from "../remembered";
 import { anchorOf, anchorRange, locateAnchor, remappedSource, windowMatches } from "./anchor";
-import { reviewMark } from "./reviewed-task";
+import { checkoutAtMark, reviewMark } from "./reviewed-task";
 import { changesSinceMark, type SourceHistory } from "./source-commits";
 import { baseText, currentLine, modifiesLines, type Hunk } from "./diff-hunks";
-import { collectRepoFacts, diffsFrom, diffsSince, headsAt, type Commit, type DiffFrom, type DiffSince, type FileDiff, type HeadAt } from "./repo-facts";
+import { ancestorsOfHead, collectRepoFacts, diffsFrom, diffsSince, headCommitsAt, headsAt, type Commit, type DiffFrom, type DiffSince, type FileDiff, type HeadAt } from "./repo-facts";
 import { hasLines, sourcePath } from "../model/source";
 
 export type TaskDiff = (task: Task, path: string) => Promise<FileDiff | null>;
@@ -26,16 +25,13 @@ const UNTRACED: SourceTrace = { kind: "untraced" };
 export function repoDiffs(repo: string, origins: ReadonlyMap<string, TaskOrigin>): FileDiffs {
   const from = diffsFrom(repo);
   const since = diffsSince(repo, runGit, from);
-  return { since, from, headAt: headsAt(repo), sinceTaskMark: diffsSinceTaskMark(repo, since, from, origins) };
-}
-
-function diffsSinceTaskMark(repo: string, since: DiffSince, from: DiffFrom, origins: ReadonlyMap<string, TaskOrigin>): TaskDiff {
-  const onThisLine = new Map<string, Promise<boolean>>();
-  const isOnThisLine = (commit: string) => remembered(onThisLine, commit, async () => (await runGit(repo, ["merge-base", "--is-ancestor", commit, "HEAD"])) !== null);
-  return async (task, path) => {
-    const origin = task.verified === undefined ? origins.get(task.id) : undefined;
-    return origin !== undefined && (await isOnThisLine(origin.commit)) ? from(path, origin.commit) : since(path, new Date(reviewMark(task)));
+  const headCommitAt = headCommitsAt(repo);
+  const isOnThisLine = ancestorsOfHead(repo);
+  const sinceTaskMark: TaskDiff = async (task, path) => {
+    const checkout = await checkoutAtMark(task, origins, headCommitAt);
+    return checkout !== null && (await isOnThisLine(checkout)) ? from(path, checkout) : since(path, new Date(reviewMark(task)));
   };
+  return { since, from, headAt: headsAt(headCommitAt, isOnThisLine), sinceTaskMark };
 }
 
 export async function traceSources(tasks: readonly Task[], history: SourceHistory, diffs: FileDiffs): Promise<SourceTraces> {

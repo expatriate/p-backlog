@@ -4,7 +4,7 @@ import type { Task } from "../model/types";
 import { sourcePath } from "../model/source";
 import { judgedByCommits, type AnchorStates, type KnownCommits } from "./candidates";
 import { headCommitsAt, isInsideRepo, mainlineCommitsOff, type Commit, type RepoFacts } from "./repo-facts";
-import { reviewMark } from "./reviewed-task";
+import { checkoutAtMark, reviewMark } from "./reviewed-task";
 import { changesSinceMark, commitsTouchingUntil, type LateCommits } from "./source-commits";
 
 export type LateCommitsQuestion = { repo: string; tasks: readonly Task[]; facts: RepoFacts; anchors: AnchorStates; origins: ReadonlyMap<string, TaskOrigin>; knownCommits: KnownCommits };
@@ -39,10 +39,8 @@ async function markedSources({ repo, tasks, facts, anchors, origins, knownCommit
       if (task.source === undefined || !judgedByCommits(task, anchors)) return [];
       const path = sourcePath(task.source);
       if (!facts.existing.has(path) || !isInsideRepo(path) || changedByDate(task, path, facts, knownCommits)) return [];
-      const mark = reviewMark(task);
-      const origin = task.verified === undefined ? origins.get(task.id) : undefined;
-      const checkout = origin?.commit ?? (await headCommitAt(new Date(mark)));
-      return checkout === null ? [] : [{ taskId: task.id, path, mark, checkout }];
+      const checkout = await checkoutAtMark(task, origins, headCommitAt);
+      return checkout === null ? [] : [{ taskId: task.id, path, mark: reviewMark(task), checkout }];
     }),
   );
   return sourcesByTask.flat();

@@ -139,29 +139,32 @@ export type HeadAt = (moment: Date) => Promise<{ commit: string; onThisLine: boo
 
 type HeadMove = { commit: string; at: number };
 
-type HeadCommitAt = (moment: Date) => Promise<string | null>;
+export type HeadCommitAt = (moment: Date) => Promise<string | null>;
 
-export function headCommitsAt(repo: string, git: GitRunner = runGit): HeadCommitAt {
+export function headCommitsAt(repo: string): HeadCommitAt {
   let moves: Promise<HeadMove[]> | null = null;
   return async (moment) => {
-    moves ??= headMovesNewestFirst(repo, git);
+    moves ??= headMovesNewestFirst(repo);
     return (await moves).find((move) => move.at <= moment.getTime())?.commit ?? null;
   };
 }
 
-export function headsAt(repo: string, git: GitRunner = runGit): HeadAt {
-  const headCommitAt = headCommitsAt(repo, git);
+export type IsAncestorOfHead = (commit: string) => Promise<boolean>;
+
+export function ancestorsOfHead(repo: string): IsAncestorOfHead {
   const ancestors = new Map<string, Promise<boolean>>();
+  return (commit) => remembered(ancestors, commit, async () => (await runGit(repo, ["merge-base", "--is-ancestor", commit, "HEAD"])) !== null);
+}
+
+export function headsAt(headCommitAt: HeadCommitAt, isOnThisLine: IsAncestorOfHead): HeadAt {
   return async (moment) => {
     const commit = await headCommitAt(moment);
-    if (commit === null) return null;
-    const onThisLine = await remembered(ancestors, commit, async () => (await git(repo, ["merge-base", "--is-ancestor", commit, "HEAD"])) !== null);
-    return { commit, onThisLine };
+    return commit === null ? null : { commit, onThisLine: await isOnThisLine(commit) };
   };
 }
 
-async function headMovesNewestFirst(repo: string, git: GitRunner): Promise<HeadMove[]> {
-  const reflog = await git(repo, ["log", "--walk-reflogs", "--date=unix", `--format=%H${FIELD}%gd`, "HEAD"]);
+async function headMovesNewestFirst(repo: string): Promise<HeadMove[]> {
+  const reflog = await runGit(repo, ["log", "--walk-reflogs", "--date=unix", `--format=%H${FIELD}%gd`, "HEAD"]);
   return (reflog ?? "").split("\n").flatMap((line): HeadMove[] => {
     const [commit = "", selector = ""] = line.split(FIELD);
     const seconds = REFLOG_MOMENT.exec(selector)?.[1];

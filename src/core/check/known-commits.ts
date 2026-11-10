@@ -3,7 +3,7 @@ import type { TaskOrigin } from "../journal/events";
 import type { Task } from "../model/types";
 import { remembered } from "../remembered";
 import { judgedByCommits, type AnchorStates, type KnownCommits } from "./candidates";
-import { reviewMark } from "./reviewed-task";
+import { creationOrigin, reviewMark } from "./reviewed-task";
 import { commitsTouchingSince } from "./source-commits";
 import { commitsCarryingContent } from "./landed-content";
 import { sourcePath } from "../model/source";
@@ -24,8 +24,8 @@ type CreationCopies = {
 
 export async function commitsKnownAtCreation({ repo, tasks, facts, anchors, origins, git = runGit }: KnownCommitsQuestion): Promise<KnownCommits> {
   const questions = tasks.flatMap((task): CreationQuestion[] => {
-    const origin = origins.get(task.id);
-    if (origin === undefined || task.verified !== undefined || task.source === undefined || !judgedByCommits(task, anchors)) return [];
+    const origin = creationOrigin(task, origins);
+    if (origin === undefined || task.source === undefined || !judgedByCommits(task, anchors)) return [];
     const path = sourcePath(task.source);
     return [{ taskId: task.id, site: { commit: origin.commit, path }, changes: commitsTouchingSince(facts.commits, path, reviewMark(task)) }];
   });
