@@ -1,5 +1,4 @@
 import { execFileSync } from "node:child_process";
-import { realpathSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { chmod, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -20,6 +19,7 @@ import {
   gitShortHead,
   makeGitRepo,
   makeTempDir,
+  withForwardSlashes,
   projectFile,
   taskFile,
   writeFiles,
@@ -1460,7 +1460,7 @@ describe("checkBacklog", () => {
 
     const report = await check(root, home, "full");
 
-    const trustCommand = `git config --global --add safe.directory ${realpathSync(repo)}`;
+    const trustCommand = `git config --global --add safe.directory ${withForwardSlashes(repo)}`;
     expect(report.problems).toEqual([{ kind: "project-repo-unsafe", projectId: "spa", repo: app, trustCommand }]);
     expect(report.problems.map((problem) => RU.checkProblem(problem))).toEqual([expect.stringContaining(`Исправление: ${trustCommand}`)]);
   });

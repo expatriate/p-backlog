@@ -18,7 +18,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 const LOCK_HELD_MS = 200;
 
 describe("writeFileAtomic", () => {
-  it("на файловой системе, где каталог нельзя синхронизировать, запись проходит и не сообщает о сбое", async () => {
+  it.skipIf(process.platform === "win32")("на файловой системе, где каталог нельзя синхронизировать, запись проходит и не сообщает о сбое (на Windows каталог не синхронизируют вовсе)", async () => {
     const path = join(await makeTempDir(), "task.md");
     await failingOnce(
       open,

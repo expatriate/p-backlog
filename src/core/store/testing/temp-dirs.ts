@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { onTestFinished } from "vitest";
 
 export { taskFile } from "./task-file-text.ts";
@@ -10,6 +10,10 @@ export async function makeTempDir(): Promise<string> {
   const dir = await realpath(await mkdtemp(join(tmpdir(), "backlog-test-")));
   onTestFinished(() => rm(dir, { recursive: true, force: true }));
   return dir;
+}
+
+export function withForwardSlashes(path: string): string {
+  return path.split(sep).join("/");
 }
 
 export const ISOLATED_GIT_ENV = { GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" } as const;

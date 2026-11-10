@@ -1,11 +1,10 @@
-import { realpathSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { formatLocalIso } from "../../core/model/dates";
 import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
-import { gitCheckout, gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, withForwardSlashes, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
 
@@ -97,7 +96,7 @@ describe("backlog verify", () => {
     const verified = await run(["verify", "SPA-1", "--source", "src/other.ts:1"]);
 
     expect(verified.code).toBe(EXIT.ok);
-    expect(verified.err).toContain(`Исправление: git config --global --add safe.directory ${realpathSync(repo)}`);
+    expect(verified.err).toContain(`Исправление: git config --global --add safe.directory ${withForwardSlashes(repo)}`);
   });
 
   it("подтверждение пишет в журнал verified, с --source — с новым местом", async () => {
