@@ -1,5 +1,65 @@
 # Changelog
 
+## 0.13.1
+
+Follow-up fixes from the full review and a second pass over `backlog check`.
+
+### Tasks and storage
+
+- A write that reached the disk is no longer reported as failed. When syncing the directory, removing the temporary
+  file or releasing the lock fails after a task, `project.md`, the journal or a settings file was written, the command
+  warns and carries on; repeating `new` after such a warning no longer creates a duplicate.
+- Tasks of a project whose `project.md` is broken are called "not loaded" instead of deleted or not found — in the
+  CLI, the web app and the API — and references to them are reported as `reference-unparsed`. A broken `project.md`
+  that covers a directory more precisely than its parent project stops `new`, `list`, `take`, the Stop hook and Costs
+  instead of handing the directory to the parent.
+- A task of an epic whose file can't be parsed can still be edited and is not deleted while the epic is unreadable;
+  `check` reports `epic-unparsed`.
+- Cleanup no longer holds the locks of the tasks it deletes while it waits for the journal.
+- Windows: releasing a lock retries while another process holds the file, an abandoned lock is taken over within the
+  usual limit, and a lock that can't be removed no longer turns a finished write into an `EBUSY` error.
+
+### `backlog check` and git
+
+- An edit that arrives by fast-forward (`git pull`, `merge --ff-only`) with a commit date earlier than the task's
+  mark now makes a task without an anchor a candidate. Commits are counted from the checkout the task was written
+  against — its creation commit, or `HEAD` from the reflog — when the file differs from it. The symbol filter and the
+  diff excerpt use the same base, so such an edit keeps the candidate, shows its diff and doesn't rewrite the anchor.
+- The Stop hook names a task again in the same session after it was verified and its lines changed again, and also
+  when its lines change again without a verify. Shifted lines and edits further away don't repeat it, and sessions in
+  different checkouts don't wake each other with their verifies.
+- A copy of the task's commit next to someone else's edit is recognised, a line of a task without an anchor is traced
+  from the task's creation commit, and a file removed from the index but still on disk counts as "changes unknown".
+- In a directory git doesn't trust, `check`, `verify` and `new --source` give the ready-to-run
+  `git config … safe.directory` command for the repository root (`trustCommand` in `check --json`). When git can't
+  tell whether the clone is complete, an unmerged branch is reported as unknown instead of "not awaiting merge".
+
+### CLI
+
+- `backlog --help=x`, `--h` and `-hx` print help instead of an error.
+- `take --path` from a nested git repository or a linked worktree counts the path from the project's repository.
+
+### Web app
+
+- Requests to the API have a time limit — 60 s to read, 120 s to write: a server that accepted a request and went
+  silent ends with "didn't answer in time" instead of loading forever. A save's limit is counted from the moment it
+  is queued, and a timed-out write says the change may have been written.
+- An ID typed into the links field but not added counts as an unsaved edit: closing the card asks instead of dropping
+  it.
+- "Saved" reflects the card's own saves, so a later successful save doesn't hide an earlier failure, and a draft field
+  recognises its last save after an x → y → x edit.
+- The settings and projects error screens stay while a retry is running, "Retrying…" shows only after the button is
+  pressed, and focus isn't lost after a successful retry.
+- The delete-project dialog no longer picks up the project row's bold text and hover, and typing in the card no
+  longer forces a layout on every keystroke.
+
+### Statistics
+
+- The "Created" summary by weeks says "since the week of <date>" and doesn't invent an average for a project started
+  in the current period.
+- Costs: a directory of an inactive project nested in another project's repository is no longer counted for that
+  project.
+
 ## 0.13.0
 
 Fixes from a full review of the code base.
