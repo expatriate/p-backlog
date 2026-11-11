@@ -4,6 +4,8 @@ import { chmod, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { warnPathErrors } from "../errors";
+import type { GitOutcomeRunner } from "../git/run";
+import { gitFailing } from "../git/testing/failing-git";
 import type { CheckMode } from "../journal/events";
 import { coreMessages } from "../messages";
 import { toJsonLines } from "../store/json-lines";
@@ -34,8 +36,8 @@ const NOW = new Date("2026-09-18T12:00:00Z");
 
 const ignoreWarning = () => undefined;
 
-async function check(root: string, home: string, mode: CheckMode, projectIds: readonly string[] = ["spa"]) {
-  return checkBacklog(root, await loadBacklog(root), { projectIds, mode, now: NOW, context: { home, onUnreadable: ignoreWarning }, messages: RU, warn: ignoreWarning, workingRoots: null });
+async function check(root: string, home: string, mode: CheckMode, projectIds: readonly string[] = ["spa"], git?: GitOutcomeRunner) {
+  return checkBacklog(root, await loadBacklog(root), { projectIds, mode, now: NOW, context: { home, onUnreadable: ignoreWarning }, messages: RU, warn: ignoreWarning, workingRoots: null, git });
 }
 
 async function checkCollectingWarnings(root: string, home: string, mode: CheckMode) {
@@ -1486,6 +1488,32 @@ describe("checkBacklog", () => {
 
     expect(report.candidates).toEqual([]);
     expect((await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate-gone")).toEqual([]);
+  });
+
+  it("сбой git при поиске правок, пришедших перемоткой, — открытая находка «код изменился» не считается ушедшей", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true, at: "2026-09-09T11:00:00+03:00" });
+    await writeFiles(repo, { "src/a.ts": "a2\n" });
+    gitCommitAll(repo, "Правка a на ветке", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "master", { at: "2026-09-10T11:00:00+03:00" });
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts:1\n") });
+    gitMergeFastForward(repo, "feat", "2026-09-12T10:00:00+03:00");
+    const opened = (await check(root, home, "full")).candidates.map((candidate) => [candidate.task.id, candidate.kind]);
+
+    await check(
+      root,
+      home,
+      "full",
+      ["spa"],
+      gitFailing((args) => args[0] === "merge-base"),
+    );
+
+    const gone = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate-gone");
+    expect({ opened, gone }).toEqual({ opened: [["SPA-1", "source-changed"]], gone: [] });
   });
 
   it("ветки git не читаются из-за битой ссылки в refs — своя проблема проекта, а задача, чьего файла нет на диске, не выдаётся за пропавшую", async () => {

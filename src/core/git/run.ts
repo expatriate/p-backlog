@@ -10,6 +10,8 @@ export type GitOutcome = { status: "ok"; stdout: string } | { status: "exited"; 
 
 export type GitOutcomeRunner = (repo: string, args: string[], input?: string) => Promise<GitOutcome>;
 
+export type HeadAncestry = "ancestor" | "not-ancestor" | "missing" | "unknown";
+
 export const PARSED_DIFF_OPTIONS = ["--no-color", "--no-ext-diff", "--no-textconv"] as const;
 
 export const RECORD = "\x1e";
@@ -18,6 +20,7 @@ export const FIELD = "\x1f";
 const runFile = promisify(execFile);
 const GIT_OUTPUT_LIMIT = 64 * BYTES_PER_MEBIBYTE;
 const GREP_NO_MATCH_EXIT = 1;
+const NOT_AN_ANCESTOR_EXIT = 1;
 const GIT_PROCESS_LIMIT = 8;
 const FULL_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const FOUND_OBJECT_FIELDS = 3;
@@ -148,6 +151,14 @@ async function resolveObjects<T>(git: GitRunner, repo: string, revisions: readon
       return name === null ? [] : [[revision, name]];
     }),
   );
+}
+
+export async function headAncestryOf(git: GitOutcomeRunner, repo: string, commit: string): Promise<HeadAncestry> {
+  const answer = await git(repo, ["merge-base", "--is-ancestor", commit, "HEAD"]);
+  if (answer.status === "ok") return "ancestor";
+  if (answer.status === "exited" && answer.exitCode === NOT_AN_ANCESTOR_EXIT) return "not-ancestor";
+  const present = await resolveCommits(asGitRunner(git), repo, [commit]);
+  return present !== null && !present.has(commit) ? "missing" : "unknown";
 }
 
 function stderrOf(error: unknown): string {

@@ -5,6 +5,7 @@ import type { CandidateEvidence, CheckMode, FilteredSighting, TaskEvidence, Task
 import type { Project, Task } from "../model/types";
 import { attemptReportingFailure, readTextIfFile } from "../store/fs-utils";
 import { readJournal } from "../store/journal";
+import { asGitRunner, runGitOutcome, type GitOutcomeRunner } from "../git/run";
 import { codeStateOf, snippetOf } from "./anchor";
 import { commitsKnownAtCreation } from "./known-commits";
 import { commitsArrivedLate } from "./late-commits";
@@ -44,7 +45,7 @@ export type ProjectReview = {
   skipped: string[];
 };
 
-export type ReviewScope = { repo: string | undefined; origins: ReadonlyMap<string, TaskOrigin>; mode: CheckMode; onUnreadable: PathErrorHandler };
+export type ReviewScope = { repo: string | undefined; origins: ReadonlyMap<string, TaskOrigin>; mode: CheckMode; onUnreadable: PathErrorHandler; git?: GitOutcomeRunner | undefined };
 
 type ProjectContext = SymbolFilterContext & { facts: RepoFacts; traces: SourceTraces };
 
@@ -58,7 +59,7 @@ type RepoScope = ReviewScope & { repo: string; facts: RepoFacts; late: LateCommi
 
 type SightingScope = Pick<RepoScope, "mode"> & { skipped: ReadonlySet<string> };
 
-type MergeScope = Pick<RepoScope, "repo" | "origins"> & { projectId: string };
+type MergeScope = Pick<RepoScope, "repo" | "origins"> & { projectId: string; git: GitOutcomeRunner };
 
 type MergeJudgement = Pick<ProjectReview, "candidates" | "filtered" | "plans" | "awaitingMerge" | "problems">;
 
@@ -70,7 +71,7 @@ export async function creationOrigins(root: string, projectId: string, onJournal
   return new Map((journal?.events ?? []).flatMap((event) => (event.kind === "created" && event.origin !== undefined ? [[event.task, event.origin] as const] : [])));
 }
 
-export async function projectReview(project: Project, allTasks: readonly Task[], { repo, origins, mode, onUnreadable }: ReviewScope): Promise<ProjectReview> {
+export async function projectReview(project: Project, allTasks: readonly Task[], { repo, origins, mode, onUnreadable, git = runGitOutcome }: ReviewScope): Promise<ProjectReview> {
   const tasks = allTasks.filter((task) => task.projectId === project.id && isReviewable(task));
   const nothing = { projectId: project.id, candidates: [], filtered: [], plans: [], problems: [], unchecked: [], awaitingMerge: [], skipped: [] };
   if (tasks.length === 0) return nothing;
@@ -84,14 +85,14 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
   try {
     const anchors = anchorStates(readable, facts);
     const question = { repo, tasks: readable, facts, anchors, origins };
-    const knownCommits = await commitsKnownAtCreation(question);
-    const late = await commitsArrivedLate({ ...question, knownCommits });
+    const knownCommits = await commitsKnownAtCreation({ ...question, git: asGitRunner(git) });
+    const { late, unknown: lateUnknown } = await commitsArrivedLate({ ...question, knownCommits, git });
     const scope: RepoScope = { repo, facts, late, origins, mode, onUnreadable, graph };
     const review = await withRenamesFollowed(codeReview(readable, { facts, late }, knownCommits, anchors), readable, scope);
     const context = await projectContext(readable, review, scope);
     const sighted = await sightedBySymbol(tasks, review, context, { mode, skipped });
-    const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, { repo, origins, projectId: project.id });
-    return { projectId: project.id, ...judged, skipped: [...skipped], problems: [...historyProblems(project, repo, facts), ...mergeProblems], unchecked: uncheckedEvidence(tasks, anchors, facts) };
+    const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, { repo, origins, projectId: project.id, git });
+    return { projectId: project.id, ...judged, skipped: [...skipped], problems: [...historyProblems(project, repo, facts), ...mergeProblems], unchecked: uncheckedEvidence(tasks, anchors, facts, lateUnknown) };
   } finally {
     graph?.close();
   }
@@ -117,8 +118,8 @@ async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, conte
   return { kept, filtered, plans: settledPlans(review.plans, settlement, context), duplicates };
 }
 
-async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectContext, { repo, origins, projectId }: MergeScope): Promise<MergeJudgement> {
-  const { pending, unknownBranches } = await awaitingMerge({ repo, taskIds: involvedTaskIds(sighted), origins });
+async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectContext, { repo, origins, projectId, git }: MergeScope): Promise<MergeJudgement> {
+  const { pending, unknownBranches } = await awaitingMerge({ repo, taskIds: involvedTaskIds(sighted), origins, git });
   const judged = (id: string) => !pending.has(id);
   const code = await Promise.all(sighted.kept.filter((candidate) => judged(candidate.task.id)).map((candidate) => withContext(candidate, context)));
   return {
@@ -161,8 +162,8 @@ function involvedTaskIds({ kept, filtered, plans }: SymbolSightings): string[] {
   return [...new Set([...kept.map((candidate) => candidate.task.id), ...filtered.map((sighting) => sighting.task), ...plans.map((plan) => plan.id)])];
 }
 
-function uncheckedEvidence(tasks: readonly Task[], anchors: AnchorStates, { history, branches, existing }: RepoFacts): TaskEvidence[] {
-  const changeUnchecked = history === "read" ? [] : tasks.filter((task) => judgedByCommits(task, anchors));
+function uncheckedEvidence(tasks: readonly Task[], anchors: AnchorStates, { history, branches, existing }: RepoFacts, lateUnknown: ReadonlySet<string>): TaskEvidence[] {
+  const changeUnchecked = tasks.filter((task) => (history === "read" ? lateUnknown.has(task.id) : judgedByCommits(task, anchors)));
   const missingUnchecked = branches.kind === "unreadable" ? tasks.filter((task) => task.source !== undefined && !existing.has(sourcePath(task.source))) : [];
   return [...evidenceOf(changeUnchecked, "source-changed"), ...evidenceOf(missingUnchecked, "source-missing")];
 }

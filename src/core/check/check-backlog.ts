@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { errorText, warnPathErrors } from "../errors";
+import type { GitOutcomeRunner } from "../git/run";
 import { candidateEvents, candidateGoneEvents, episodeStates, filteredEvents } from "../journal/episodes";
 import type { CandidateSighting, CheckMode, FilteredSighting, TaskEvidence } from "../journal/events";
 import type { CoreMessages } from "../messages";
@@ -17,7 +18,16 @@ import { creationOrigins, projectReview, type ProjectReview } from "./project-re
 
 type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed" | "branchOriginsReadFailed">;
 
-export type CheckRequest = { projectIds: readonly string[]; mode: CheckMode; now: Date; context: RepoContext; messages: CheckTexts; warn: (line: string) => void; workingRoots: GitRoots | null };
+export type CheckRequest = {
+  projectIds: readonly string[];
+  mode: CheckMode;
+  now: Date;
+  context: RepoContext;
+  messages: CheckTexts;
+  warn: (line: string) => void;
+  workingRoots: GitRoots | null;
+  git?: GitOutcomeRunner | undefined;
+};
 
 export type CheckReport = { fixed: CheckFix[]; problems: CheckProblem[]; candidates: ReportedCandidate[] };
 
@@ -47,7 +57,10 @@ async function reviewProjects(root: string, tasks: readonly Task[], projects: re
   return Promise.all(
     projects.map(async (project) => {
       const checkout = await projectCheckout(project, request.workingRoots, request.context);
-      return { review: await projectReview(project, tasks, { repo: checkout?.path, origins: await originsOf(project.id), mode: request.mode, onUnreadable: request.context.onUnreadable }), checkout };
+      return {
+        review: await projectReview(project, tasks, { repo: checkout?.path, origins: await originsOf(project.id), mode: request.mode, onUnreadable: request.context.onUnreadable, git: request.git }),
+        checkout,
+      };
     }),
   );
 }

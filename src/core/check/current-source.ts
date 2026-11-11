@@ -5,7 +5,7 @@ import { anchorOf, anchorRange, locateAnchor, remappedSource, windowMatches } fr
 import { checkoutAtMark, reviewMark } from "./reviewed-task";
 import { changesSinceMark, type SourceHistory } from "./source-commits";
 import { baseText, currentLine, modifiesLines, type Hunk } from "./diff-hunks";
-import { ancestorsOfHead, collectRepoFacts, diffsFrom, diffsSince, headCommitsAt, headsAt, type Commit, type DiffFrom, type DiffSince, type FileDiff, type HeadAt } from "./repo-facts";
+import { ancestorsOfHead, collectRepoFacts, diffsFrom, diffsSince, headCommitsAt, headsAt, type Commit, type DiffFrom, type DiffSince, type FileDiff, type HeadAt, type IsAncestorOfHead } from "./repo-facts";
 import { hasLines, sourcePath } from "../model/source";
 
 export type TaskDiff = (task: Task, path: string) => Promise<FileDiff | null>;
@@ -22,16 +22,19 @@ const LATER_COMMITS_TO_SEARCH = 5;
 
 const UNTRACED: SourceTrace = { kind: "untraced" };
 
-export function repoDiffs(repo: string, origins: ReadonlyMap<string, TaskOrigin>): FileDiffs {
+export function repoDiffs(repo: string, origins: ReadonlyMap<string, TaskOrigin>, isAncestorOfHead: IsAncestorOfHead = ancestorsOfHead(repo)): FileDiffs {
   const from = diffsFrom(repo);
   const since = diffsSince(repo, runGit, from);
   const headCommitAt = headCommitsAt(repo);
-  const isOnThisLine = ancestorsOfHead(repo);
   const sinceTaskMark: TaskDiff = async (task, path) => {
     const checkout = await checkoutAtMark(task, origins, headCommitAt);
-    return checkout !== null && (await isOnThisLine(checkout)) ? from(path, checkout) : since(path, new Date(reviewMark(task)));
+    const sinceMark = () => since(path, new Date(reviewMark(task)));
+    if (checkout === null) return sinceMark();
+    const onThisLine = await isAncestorOfHead(checkout);
+    if (onThisLine === null) return null;
+    return onThisLine ? from(path, checkout) : sinceMark();
   };
-  return { since, from, headAt: headsAt(headCommitAt, isOnThisLine), sinceTaskMark };
+  return { since, from, headAt: headsAt(headCommitAt, isAncestorOfHead), sinceTaskMark };
 }
 
 export async function traceSources(tasks: readonly Task[], history: SourceHistory, diffs: FileDiffs): Promise<SourceTraces> {

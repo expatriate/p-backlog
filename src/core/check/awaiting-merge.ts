@@ -1,4 +1,4 @@
-import { asGitRunner, commitHashOf, outputLine, runGitOutcome, stdoutOf, type GitOutcome, type GitOutcomeRunner } from "../git/run";
+import { asGitRunner, commitHashOf, headAncestryOf, outputLine, runGitOutcome, stdoutOf, type GitOutcome, type GitOutcomeRunner } from "../git/run";
 import type { TaskOrigin } from "../journal/events";
 import { remembered } from "../remembered";
 import { landingState, type LandingState } from "./landed-content";
@@ -10,8 +10,6 @@ type MergeWait = { pending: ReadonlySet<string>; unknownBranches: string[] };
 type BranchState = LandingState | "deleted";
 
 type CloneCompleteness = "shallow" | "full" | "unknown";
-
-const NOT_AN_ANCESTOR_EXIT = 1;
 
 const NO_SUCH_REF_EXIT = 1;
 
@@ -28,13 +26,13 @@ export async function awaitingMerge({ repo, taskIds, origins, git = runGitOutcom
   const nested = await Promise.all(
     branched.map(async ({ id, commit, branch }) => {
       if (branch === current) return [];
-      const ancestry = await git(repo, ["merge-base", "--is-ancestor", commit, "HEAD"]);
-      if (ancestry.status === "unfinished") return [{ id, branch, state: "unknown" as const }];
-      if (ancestry.status === "ok") return [];
-      const creationCommitUnreadable = ancestry.exitCode !== NOT_AN_ANCESTOR_EXIT;
-      if (creationCommitUnreadable && (await cloneCompleteness()) === "full") return [];
+      const ancestry = await headAncestryOf(git, repo, commit);
+      if (ancestry === "unknown") return [{ id, branch, state: "unknown" as const }];
+      if (ancestry === "ancestor") return [];
+      const creationCommitMissing = ancestry === "missing";
+      if (creationCommitMissing && (await cloneCompleteness()) === "full") return [];
       const state = await remembered(branchStates, branch, () => branchState(repo, branch, git));
-      const pendingOnlyIfShallow = creationCommitUnreadable && state === "pending" && (await cloneCompleteness()) === "unknown";
+      const pendingOnlyIfShallow = creationCommitMissing && state === "pending" && (await cloneCompleteness()) === "unknown";
       return [{ id, branch, state: pendingOnlyIfShallow ? ("unknown" as const) : state }];
     }),
   );

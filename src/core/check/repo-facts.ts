@@ -1,5 +1,5 @@
 import { isAbsolute, join, normalize, sep } from "node:path";
-import { FIELD, literalPathspecs, outputLine, PARSED_DIFF_OPTIONS, RECORD, runGit, runGitOutcome, type CommitHash, type GitRunner } from "../git/run";
+import { FIELD, headAncestryOf, literalPathspecs, outputLine, PARSED_DIFF_OPTIONS, RECORD, runGit, runGitOutcome, type CommitHash, type GitOutcomeRunner, type HeadAncestry, type GitRunner } from "../git/run";
 import type { LineRange } from "./anchor";
 import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
 import { SECOND_MS } from "../model/dates";
@@ -94,14 +94,14 @@ function logArgs(selection: readonly string[]): string[] {
   return ["log", ...selection, "--relative", LOG_FORMAT, "--name-status", "-M", "--diff-merges=first-parent", ...FACTS_HISTORY_OPTIONS, "-z"];
 }
 
-async function pathLog(repo: string, selection: readonly string[], paths: readonly string[]): Promise<string | null> {
+async function pathLog(repo: string, selection: readonly string[], paths: readonly string[], git: GitRunner = runGit): Promise<string | null> {
   const inside = paths.filter(isInsideRepo);
   if (inside.length === 0) return "";
-  return runGit(repo, [...logArgs(selection), "--", ...literalPathspecs(inside)]);
+  return git(repo, [...logArgs(selection), "--", ...literalPathspecs(inside)]);
 }
 
-export async function mainlineCommitsOff(repo: string, base: CommitHash, paths: readonly string[]): Promise<Commit[] | null> {
-  const log = await pathLog(repo, ["--first-parent", `${base}..HEAD`], paths);
+export async function mainlineCommitsOff(repo: string, base: CommitHash, paths: readonly string[], git: GitRunner = runGit): Promise<Commit[] | null> {
+  const log = await pathLog(repo, ["--first-parent", `${base}..HEAD`], paths, git);
   return log === null ? null : parseLog(log);
 }
 
@@ -135,7 +135,7 @@ export function diffsSince(repo: string, git: GitRunner = runGit, diffFrom: Diff
   };
 }
 
-export type HeadAt = (moment: Date) => Promise<{ commit: string; onThisLine: boolean } | null>;
+export type HeadAt = (moment: Date) => Promise<{ commit: string; onThisLine: boolean | null } | null>;
 
 type HeadMove = { commit: string; at: number };
 
@@ -149,17 +149,21 @@ export function headCommitsAt(repo: string): HeadCommitAt {
   };
 }
 
-export type IsAncestorOfHead = (commit: string) => Promise<boolean>;
+export type IsAncestorOfHead = (commit: string) => Promise<boolean | null>;
 
-export function ancestorsOfHead(repo: string): IsAncestorOfHead {
-  const ancestors = new Map<string, Promise<boolean>>();
-  return (commit) => remembered(ancestors, commit, async () => (await runGit(repo, ["merge-base", "--is-ancestor", commit, "HEAD"])) !== null);
+export function ancestorsOfHead(repo: string, git: GitOutcomeRunner = runGitOutcome): IsAncestorOfHead {
+  const ancestors = new Map<string, Promise<boolean | null>>();
+  return (commit) => remembered(ancestors, commit, async () => lineAnswerOf(await headAncestryOf(git, repo, commit)));
 }
 
-export function headsAt(headCommitAt: HeadCommitAt, isOnThisLine: IsAncestorOfHead): HeadAt {
+function lineAnswerOf(ancestry: HeadAncestry): boolean | null {
+  return ancestry === "unknown" ? null : ancestry === "ancestor";
+}
+
+export function headsAt(headCommitAt: HeadCommitAt, isAncestorOfHead: IsAncestorOfHead): HeadAt {
   return async (moment) => {
     const commit = await headCommitAt(moment);
-    return commit === null ? null : { commit, onThisLine: await isOnThisLine(commit) };
+    return commit === null ? null : { commit, onThisLine: await isAncestorOfHead(commit) };
   };
 }
 

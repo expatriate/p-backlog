@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runGitOutcome, type GitOutcomeRunner } from "../git/run";
+import { gitFailing } from "../git/testing/failing-git";
 import type { TaskOrigin } from "../journal/events";
 import { gitCheckout, gitCommitAll, gitMergeSquash, gitRebaseMerge, gitShortHead, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { awaitingMerge } from "./awaiting-merge";
@@ -88,11 +89,6 @@ const awaiting = async (repo: string, origins: Record<string, TaskOrigin>, git =
   (await awaitingMerge({ repo, taskIds: Object.keys(origins), origins: new Map(Object.entries(origins)), git })).pending;
 
 const mergeWait = (repo: string, origins: Record<string, TaskOrigin>, git: GitOutcomeRunner) => awaitingMerge({ repo, taskIds: Object.keys(origins), origins: new Map(Object.entries(origins)), git });
-
-const gitFailing =
-  (fails: (args: string[], input: string | undefined) => boolean): GitOutcomeRunner =>
-  async (repo, args, input) =>
-    fails(args, input) ? { status: "exited", exitCode: 128, stderr: "fatal: сбой" } : runGitOutcome(repo, args, input);
 
 const gitWithBlobIdsMaskedForPatchId: GitOutcomeRunner = (repo, args, input) => runGitOutcome(repo, args, args[0] === "patch-id" ? input?.replace(/^index [0-9a-f]+\.\.[0-9a-f]+/gm, "index 0..0") : input);
 
@@ -238,6 +234,18 @@ describe("awaitingMerge", () => {
         repo,
         { "SPA-1": feat },
         gitFailing((args) => args[0] === "cat-file"),
+      ),
+    ).toEqual({ pending: new Set(), unknownBranches: ["feat"] });
+  });
+
+  it("git не ответил, предок ли HEAD коммит создания, хотя коммит есть, — ветка названа неизвестной, а не молча «не ждёт слияния»", async () => {
+    const { repo, feat } = await featureOfTwoCommits();
+
+    expect(
+      await mergeWait(
+        repo,
+        { "SPA-1": feat },
+        gitFailing((args) => args[0] === "merge-base"),
       ),
     ).toEqual({ pending: new Set(), unknownBranches: ["feat"] });
   });
