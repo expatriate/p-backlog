@@ -1,6 +1,5 @@
 import type { JournalEvent, TaskOrigin } from "../journal/events";
 import type { Task } from "../model/types";
-import type { HeadCommitAt, HeadLine, HeadLineOf } from "./repo-facts";
 
 type VerifiedCommit = { at: string; commit: string };
 
@@ -28,27 +27,12 @@ export function commitAtMark(task: Task, marks: MarkCommits): string | undefined
   return task.verified === undefined ? marks.origins.get(task.id)?.commit : verifiedCommit(task, task.verified, marks);
 }
 
-export async function checkoutAtMark(task: Task, marks: MarkCommits, headCommitAt: HeadCommitAt, headLine: HeadLineOf): Promise<string | null> {
-  const reflogCheckout = () => headCommitAt(new Date(reviewMark(task)));
-  const commit = commitAtMark(task, marks);
-  if (commit === undefined) return reflogCheckout();
-  if (task.verified === undefined) return commit;
-  return seenFromHead(await headLine(commit)) ? commit : reflogCheckout();
+export function latestRecordedCommit(task: Task, marks: MarkCommits): string | undefined {
+  return commitAtMark(task, marks) ?? marks.origins.get(task.id)?.commit;
 }
 
 function verifiedCommit(task: Task, verifiedAt: string, { verifications }: MarkCommits): string | undefined {
   const verification = verifications.get(task.id);
   const recordsCurrentVerification = verification !== undefined && Date.parse(verification.at) >= Date.parse(verifiedAt);
   return recordsCurrentVerification ? verification.commit : undefined;
-}
-
-function seenFromHead(line: HeadLine): boolean {
-  switch (line) {
-    case "this-line":
-    case "unknown":
-      return true;
-    case "other-branch":
-    case "missing":
-      return false;
-  }
 }

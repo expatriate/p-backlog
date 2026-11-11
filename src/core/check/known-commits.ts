@@ -2,15 +2,16 @@ import { literalPathspecs, outputLines, runGit, type GitRunner } from "../git/ru
 import type { Task } from "../model/types";
 import { remembered } from "../remembered";
 import { judgedByCommits, type AnchorStates, type KnownCommits } from "./candidates";
-import { commitAtMark, reviewMark, type MarkCommits } from "./reviewed-task";
+import { reviewMark } from "./reviewed-task";
 import { commitsTouchingSince } from "./source-commits";
 import { commitsCarryingContent } from "./landed-content";
 import { sourcePath } from "../model/source";
 import { FACTS_HISTORY_OPTIONS, type Commit, type RepoFacts } from "./repo-facts";
+import type { TaskBases } from "./task-base";
 
 const MERGE_PARENTS = 2;
 
-export type KnownCommitsQuestion = { repo: string; tasks: readonly Task[]; facts: RepoFacts; anchors: AnchorStates; marks: MarkCommits; git?: GitRunner };
+export type KnownCommitsQuestion = { repo: string; tasks: readonly Task[]; facts: RepoFacts; anchors: AnchorStates; git?: GitRunner; bases: TaskBases };
 
 type MarkSite = { commit: string; path: string };
 
@@ -21,13 +22,17 @@ type MarkCopies = {
   copiesOf: (site: MarkSite) => Promise<ReadonlySet<string>>;
 };
 
-export async function commitsKnownAtMark({ repo, tasks, facts, anchors, marks, git = runGit }: KnownCommitsQuestion): Promise<KnownCommits> {
-  const questions = tasks.flatMap((task): MarkQuestion[] => {
-    const commit = commitAtMark(task, marks);
-    if (commit === undefined || task.source === undefined || !judgedByCommits(task, anchors)) return [];
-    const path = sourcePath(task.source);
-    return [{ taskId: task.id, site: { commit, path }, changes: commitsTouchingSince(facts.commits, path, reviewMark(task)) }];
-  });
+export async function commitsKnownAtMark({ repo, tasks, facts, anchors, git = runGit, bases }: KnownCommitsQuestion): Promise<KnownCommits> {
+  const asked = await Promise.all(
+    tasks.map(async (task): Promise<MarkQuestion[]> => {
+      if (task.source === undefined || !judgedByCommits(task, anchors)) return [];
+      const path = sourcePath(task.source);
+      const changes = commitsTouchingSince(facts.commits, path, reviewMark(task));
+      const commit = changes.length === 0 ? null : await bases.markCommit(task);
+      return commit === null ? [] : [{ taskId: task.id, site: { commit, path }, changes }];
+    }),
+  );
+  const questions = asked.flat();
   const copies = markCopies(repo, git);
   const answers = await Promise.all(
     questions.map(async ({ taskId, site, changes }) => {

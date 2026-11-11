@@ -24,10 +24,11 @@ import {
 } from "./candidates";
 import { isReviewable, markCommitsIn, reviewMark, type MarkCommits } from "./reviewed-task";
 import { duplicateCandidates } from "./duplicates";
-import { currentSourcesOf, repoDiffs, traceSources, type LineAtMark, type SourceTraces } from "./current-source";
+import { currentSourcesOf, traceSources, type SourceTraces } from "./current-source";
 import type { CheckProblem } from "./findings";
 import { awaitingMerge } from "./awaiting-merge";
-import { collectRepoFacts, headLineOf, type DiffExcerpt, type HeadLine, type HeadLineOf, type KnownHistory, type RepoFacts } from "./repo-facts";
+import { collectRepoFacts, type DiffExcerpt, type KnownHistory, type RepoFacts } from "./repo-facts";
+import { markLineOf, taskBases, type TaskBases } from "./task-base";
 import { sourcePath } from "../model/source";
 import { tasksByCheckout, type ProjectCheckout } from "./project-repo";
 import type { LateCommits } from "./source-commits";
@@ -52,17 +53,17 @@ type RepoReviewScope = Pick<ReviewScope, "marks" | "mode" | "onUnreadable"> & { 
 
 type RepoReview = Omit<ProjectReview, "projectId"> & { symbols: ReadonlyMap<string, string | null> };
 
-type ProjectContext = SymbolFilterContext & { facts: RepoFacts; traces: SourceTraces; lineAtMark: LineAtMark };
+type ProjectContext = SymbolFilterContext & { facts: RepoFacts; traces: SourceTraces; bases: TaskBases };
 
 type SymbolSightings = SymbolFilterResult & { plans: AnchorPlan[] };
 
-type LineJudgement = { kept: Candidate[]; linesIntact: string[]; notOnBranch: string[] };
+type LineJudgement = { kept: Candidate[]; linesIntact: string[]; onOtherBranch: string[] };
 
 type PlanSettlement = { untouchable: ReadonlySet<string>; relocatable: readonly string[] };
 
-type RepoScope = RepoReviewScope & { facts: RepoFacts; late: LateCommits; graph: CodeGraph | null; headLine: HeadLineOf };
+type RepoScope = RepoReviewScope & { facts: RepoFacts; late: LateCommits; graph: CodeGraph | null; bases: TaskBases };
 
-type MergeScope = Pick<RepoScope, "repo" | "marks" | "git"> & { projectId: string };
+type MergeScope = Pick<RepoScope, "repo" | "marks" | "git" | "bases"> & { projectId: string };
 
 type MergeJudgement = Pick<ProjectReview, "candidates" | "filtered" | "plans" | "awaitingMerge" | "problems">;
 
@@ -104,22 +105,22 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
 
 async function repoReview(project: Project, tasks: readonly Task[], scope: RepoReviewScope): Promise<RepoReview> {
   const { repo, marks, mode, onUnreadable, git } = scope;
-  const facts = await collectRepoFacts(repo, earliestMarks(tasks), scope.history);
+  const facts = await collectRepoFacts(repo, earliestMarks(tasks), scope.history, git);
   for (const [path, error] of facts.unreadable) onUnreadable(join(repo, path), error);
   const skipped = new Set(tasks.filter((task) => task.source !== undefined && facts.unreadable.has(sourcePath(task.source))).map((task) => task.id));
   const readable = tasks.filter((task) => !skipped.has(task.id));
   const graph = openCodeGraph(repo);
   try {
     const anchors = anchorStates(readable, facts);
-    const question = { repo, tasks: readable, facts, anchors, marks };
+    const bases = taskBases(repo, marks, git);
+    const question = { repo, tasks: readable, facts, anchors, marks, bases };
     const knownCommits = await commitsKnownAtMark({ ...question, git: asGitRunner(git) });
-    const headLine = headLineOf(repo, git);
-    const { late, unknown: lateUnknown } = await commitsArrivedLate({ ...question, knownCommits, git, headLine });
-    const repoScope: RepoScope = { ...scope, facts, late, graph, headLine };
+    const { late, unknown: lateUnknown } = await commitsArrivedLate({ ...question, knownCommits, git });
+    const repoScope: RepoScope = { ...scope, facts, late, graph, bases };
     const review = await withRenamesFollowed(codeReview(readable, { facts, late }, knownCommits, anchors), readable, repoScope);
     const context = await projectContext(readable, review, repoScope);
     const sighted = await sightedBySymbol(review, context);
-    const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, { repo, marks, projectId: project.id, git });
+    const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, { repo, marks, projectId: project.id, git, bases });
     return {
       ...judged,
       skipped: [...skipped],
@@ -142,52 +143,37 @@ function repoSymbolNames(repo: string, tasks: readonly Task[], { symbolAt, locat
   );
 }
 
-async function projectContext(tasks: readonly Task[], review: CodeReview, { repo, facts, late, marks, mode, onUnreadable, graph, headLine }: RepoScope): Promise<ProjectContext> {
-  const diffs = repoDiffs(repo, marks, headLine);
+async function projectContext(tasks: readonly Task[], review: CodeReview, { repo, facts, late, mode, onUnreadable, graph, bases }: RepoScope): Promise<ProjectContext> {
   const symbolAt = symbolLookup(graph, fileHashes(repo, onUnreadable));
   const changedIds = new Set(review.candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? [candidate.task.id] : [])));
   const locating = mode === "full" && graph !== null ? tasks : tasks.filter((task) => changedIds.has(task.id));
-  const traces = await traceSources(locating, { facts, late }, diffs);
-  return { tasksById: new Map(tasks.map((task) => [task.id, task])), located: currentSourcesOf(traces), traces, facts, diffOf: diffs.sinceTaskMark, lineAtMark: diffs.lineAtMark, symbolAt };
+  const traces = await traceSources(locating, { facts, late }, bases);
+  return { tasksById: new Map(tasks.map((task) => [task.id, task])), located: currentSourcesOf(traces), traces, facts, diffOf: bases.diffSinceBase, bases, symbolAt };
 }
 
 async function sightedBySymbol(review: CodeReview, context: ProjectContext): Promise<SymbolSightings> {
   const byLines = judgedByLines(review.candidates, context.traces);
   const { kept, filtered } = await filterBySymbol(byLines.kept, context);
   const relocatable = [...filtered.map((sighting) => sighting.task), ...byLines.linesIntact];
-  const maybeOnAnotherBranch = await unanchoredMaybeOnAnotherBranch(
+  const markedOffThisLine = await unanchoredMarkedOffThisLine(
     review.plans.map((plan) => plan.id),
     context,
   );
   const settlement: PlanSettlement = {
-    untouchable: new Set([...kept.map((candidate) => candidate.task.id), ...byLines.notOnBranch, ...maybeOnAnotherBranch]),
+    untouchable: new Set([...kept.map((candidate) => candidate.task.id), ...byLines.onOtherBranch, ...markedOffThisLine]),
     relocatable,
   };
   return { kept, filtered, plans: settledPlans(review.plans, settlement, context) };
 }
 
-async function unanchoredMaybeOnAnotherBranch(ids: readonly string[], { tasksById, lineAtMark }: ProjectContext): Promise<Set<string>> {
-  const unanchored = [...new Set(ids)].flatMap((id) => {
-    const task = tasksById.get(id);
-    return task === undefined || task.anchor !== undefined ? [] : [task];
-  });
-  const lines = await Promise.all(unanchored.map(async (task) => ({ id: task.id, line: await lineAtMark(task) })));
-  return new Set(lines.filter(({ line }) => line !== null && firstAnchorWaits(line)).map(({ id }) => id));
+async function unanchoredMarkedOffThisLine(ids: readonly string[], { tasksById, bases }: ProjectContext): Promise<Set<string>> {
+  const unanchored = tasksOf([...new Set(ids)], tasksById).filter((task) => task.anchor === undefined);
+  const lines = await Promise.all(unanchored.map(async (task) => ({ id: task.id, line: markLineOf(await bases.baseOf(task)) })));
+  return new Set(lines.filter(({ line }) => line !== "this-line").map(({ id }) => id));
 }
 
-function firstAnchorWaits(line: HeadLine): boolean {
-  switch (line) {
-    case "other-branch":
-    case "unknown":
-      return true;
-    case "this-line":
-    case "missing":
-      return false;
-  }
-}
-
-async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectContext, { repo, marks, projectId, git }: MergeScope): Promise<MergeJudgement> {
-  const { pending, unknownBranches } = await awaitingMerge({ repo, taskIds: involvedTaskIds(sighted), origins: marks.origins, git });
+async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectContext, { repo, marks, projectId, git, bases }: MergeScope): Promise<MergeJudgement> {
+  const { pending, unknownBranches } = await awaitingMerge({ repo, tasks: tasksOf(involvedTaskIds(sighted), context.tasksById), marks, git, bases });
   const judged = (id: string) => !pending.has(id);
   const code = await Promise.all(sighted.kept.filter((candidate) => judged(candidate.task.id)).map((candidate) => withContext(candidate, context)));
   return {
@@ -200,10 +186,10 @@ async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectCon
 }
 
 function judgedByLines(candidates: readonly Candidate[], traces: SourceTraces): LineJudgement {
-  const judgement: LineJudgement = { kept: [], linesIntact: [], notOnBranch: [] };
+  const judgement: LineJudgement = { kept: [], linesIntact: [], onOtherBranch: [] };
   for (const candidate of candidates) {
     const trace = candidate.kind === "source-changed" && candidate.method === "anchor" ? traces.get(candidate.task.id) : undefined;
-    if (trace?.kind === "not-on-branch") judgement.notOnBranch.push(candidate.task.id);
+    if (trace?.kind === "other-branch") judgement.onOtherBranch.push(candidate.task.id);
     else if (trace?.kind === "traced" && !trace.linesChanged) judgement.linesIntact.push(candidate.task.id);
     else judgement.kept.push(candidate);
   }
@@ -224,6 +210,10 @@ async function withRenamesFollowed(review: CodeReview, tasks: readonly Task[], {
     candidates: review.candidates.filter((_, index) => renamePlans[index] === null),
     plans: [...review.plans, ...renamePlans.filter((plan) => plan !== null)],
   };
+}
+
+function tasksOf(ids: readonly string[], tasksById: ReadonlyMap<string, Task>): Task[] {
+  return ids.flatMap((id) => tasksById.get(id) ?? []);
 }
 
 function involvedTaskIds({ kept, filtered, plans }: SymbolSightings): string[] {

@@ -12,6 +12,8 @@ export type GitOutcomeRunner = (repo: string, args: string[], input?: string) =>
 
 export type HeadAncestry = "ancestor" | "not-ancestor" | "missing" | "unknown";
 
+export type CloneCompleteness = "shallow" | "full" | "unknown";
+
 export const PARSED_DIFF_OPTIONS = ["--no-color", "--no-ext-diff", "--no-textconv"] as const;
 
 export const RECORD = "\x1e";
@@ -19,7 +21,7 @@ export const FIELD = "\x1f";
 
 const runFile = promisify(execFile);
 const GIT_OUTPUT_LIMIT = 64 * BYTES_PER_MEBIBYTE;
-const GREP_NO_MATCH_EXIT = 1;
+const FOUND_NOTHING_EXIT = 1;
 const NOT_AN_ANCESTOR_EXIT = 1;
 const GIT_PROCESS_LIMIT = 8;
 const FULL_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
@@ -59,8 +61,12 @@ export const runGitOutcome: GitOutcomeRunner = (repo, args, input) =>
 export function asGitRunner(git: GitOutcomeRunner): GitRunner {
   return async (repo, args, input) => {
     const outcome = await git(repo, args, input);
-    return args[0] === "grep" && outcome.status === "exited" && outcome.exitCode === GREP_NO_MATCH_EXIT ? "" : stdoutOf(outcome);
+    return outcome.status === "exited" && outcome.exitCode === FOUND_NOTHING_EXIT && reportsNothingFoundByExitOne(args) ? "" : stdoutOf(outcome);
   };
+}
+
+function reportsNothingFoundByExitOne(args: readonly string[]): boolean {
+  return args[0] === "grep" || (args[0] === "merge-base" && !args.includes("--is-ancestor"));
 }
 
 export const runGit: GitRunner = asGitRunner(runGitOutcome);
@@ -159,6 +165,13 @@ export async function headAncestryOf(git: GitOutcomeRunner, repo: string, commit
   if (answer.status === "exited" && answer.exitCode === NOT_AN_ANCESTOR_EXIT) return "not-ancestor";
   const present = await resolveCommits(asGitRunner(git), repo, [commit]);
   return present !== null && !present.has(commit) ? "missing" : "unknown";
+}
+
+export async function cloneCompletenessOf(git: GitRunner, repo: string): Promise<CloneCompleteness> {
+  const answer = outputLine(await git(repo, ["rev-parse", "--is-shallow-repository"]));
+  if (answer === "true") return "shallow";
+  if (answer === "false") return "full";
+  return "unknown";
 }
 
 function stderrOf(error: unknown): string {

@@ -9,7 +9,7 @@ import { anchorOf } from "./anchor";
 import { sourcePath } from "../model/source";
 import { anchorHolds, committedIn, presenceOffDisk, type AnchoredTask, type PresenceOffDisk } from "./candidates";
 import { currentSourceIn } from "./current-source";
-import { commitAtMark, type MarkCommits } from "./reviewed-task";
+import { latestRecordedCommit, type MarkCommits } from "./reviewed-task";
 import { branchHistoryOf, locateRepo, pathsEverCommitted, type EverCommitted, type KnownHistory } from "./repo-facts";
 
 export type SourcePresence = { kind: PresenceOffDisk } | { kind: "unsafe-repo"; trustCommand: string };
@@ -94,7 +94,7 @@ function repoChoice({ path }: ProjectCheckout, recordable: boolean): RepoChoice 
 }
 
 function ownedSource(task: Task, marks: MarkCommits): OwnedSource {
-  return { source: task.source, anchor: task.anchor, ownerCommit: commitAtMark(task, marks) ?? marks.origins.get(task.id)?.commit };
+  return { source: task.source, anchor: task.anchor, ownerCommit: latestRecordedCommit(task, marks) };
 }
 
 async function sourceChoices(checkouts: readonly ProjectCheckout[], tasks: readonly OwnedSource[]): Promise<ProjectChoices> {

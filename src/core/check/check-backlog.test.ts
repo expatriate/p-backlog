@@ -378,6 +378,23 @@ describe("checkBacklog", () => {
     expect(await spa1()).toMatchObject({ source: "src/code.ts:12", anchor: anchorOf(after, "src/code.ts:12") });
   });
 
+  it("git не ответил, на линии ли HEAD коммит отметки, — строку задачи не ищут по дате: кандидат показан без нового места source, пока git не ответит", async () => {
+    const commentAboveBeta = (code: string) => code.replace("}\n\nexport function beta", "}\n// beta\nexport function beta");
+    const { root, home, spa1 } = await shiftedFixture((before) => `source: src/code.ts:8\nanchor: ${anchorOf(before, "src/code.ts:8")}\n`, commentAboveBeta);
+
+    const report = await check(
+      root,
+      home,
+      "changed",
+      ["spa"],
+      gitFailing((args) => args[0] === "merge-base"),
+    );
+
+    expect(report.candidates.map((candidate) => [candidate.task.id, "source" in candidate ? candidate.source : undefined])).toEqual([["SPA-1", undefined]]);
+    expect(report.fixed).toEqual([]);
+    expect((await spa1())?.source).toBe("src/code.ts:8");
+  });
+
   it("задача без якоря, записанная по грязному файлу, — строку не переводим: кандидат остаётся, source не переезжает", async () => {
     const { root, home, spa1 } = await shiftedFixture(() => "source: src/code.ts:12\n", editBeta);
 
@@ -790,6 +807,88 @@ describe("checkBacklog", () => {
     expect(report.problems).toEqual(problems(repo));
   });
 
+  it("задачу завели на невлитой ветке и подтвердили на master — правка её файла на master делает её кандидатом, а не держит в ожидании слияния ветки", async () => {
+    const { home, root, repo } = await featRepo();
+    const created = createdOnFeat("SPA-1", "2026-09-11T10:00:00+03:00", gitShortHead(repo));
+    gitCheckout(repo, "master");
+    const verifiedAt = "2026-09-11T12:00:00+03:00";
+    const verified = { at: verifiedAt, task: "SPA-1", via: "cli", kind: "verified", commit: gitShortHead(repo) };
+    await writeFiles(root, {
+      "spa/project.md": projectFile("SPA", [repo]),
+      "spa/SPA-1.md": task("SPA-1", `source: src/a.ts\nverified: ${verifiedAt}\n`),
+      "spa/journal.jsonl": toJsonLines([created, verified]),
+    });
+    await writeFile(join(repo, "src/a.ts"), "a3\n");
+    gitCommitAll(repo, "Правка a на master после подтверждения", "2026-09-12T10:00:00+03:00");
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", commits: [expect.objectContaining({ subject: "Правка a на master после подтверждения" })] })]);
+  });
+
+  it("ветка задачи не имеет общей истории с HEAD — задача ждёт её слияния, а ветка не названа неизвестной", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    execFileSync("git", ["checkout", "-q", "--orphan", "orphan"], { cwd: repo });
+    await writeFiles(repo, { "src/a.ts": "o1\n" });
+    gitCommitAll(repo, "Своя история ветки", "2026-09-10T10:00:00+03:00");
+    const created = createdAt(gitShortHead(repo), "orphan");
+    gitCheckout(repo, "master");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\n"), "spa/journal.jsonl": toJsonLines([created]) });
+    await writeFile(join(repo, "src/a.ts"), "a2\n");
+    gitCommitAll(repo, "Правка a на master", "2026-09-12T10:00:00+03:00");
+
+    const report = await check(root, home, "full");
+
+    expect({ candidates: report.candidates, problems: report.problems }).toEqual({ candidates: [], problems: [] });
+  });
+
+  describe("коммита отметки нет в клоне", () => {
+    const atMark = numbered("a");
+    const elsewhere = atMark.replace("a3 = 3", "a3 = 33");
+    const missingOrigin = { ...createdOnFeat("SPA-1", "2026-09-11T10:00:00+03:00", "1".repeat(40)), source: "src/a.ts:3", origin: { commit: "1".repeat(40) } };
+    const verifiedAt = "2026-09-11T12:00:00+03:00";
+    const marks = {
+      "коммит создания": { fields: "", journal: [missingOrigin] },
+      "коммит подтверждения": { fields: `verified: ${verifiedAt}\n`, journal: [missingOrigin, { at: verifiedAt, task: "SPA-1", via: "cli", kind: "verified", commit: "2".repeat(40) }] },
+      "ни коммита, ни reflog": { fields: "", journal: [] },
+    };
+
+    async function markedOutsideClone({ shallow, anchor, mark = marks["коммит создания"] }: { shallow: boolean; anchor?: string | undefined; mark?: (typeof marks)[keyof typeof marks] }) {
+      const home = await makeTempDir();
+      const root = join(home, "backlog");
+      const upstream = await makeGitRepo(home, "upstream");
+      await writeFiles(upstream, { "src/a.ts": atMark, "src/b.ts": "b1\n" });
+      gitCommitAll(upstream, "Начало", "2026-09-09T10:00:00+03:00");
+      await writeFiles(upstream, { "src/b.ts": "b2\n" });
+      gitCommitAll(upstream, "Правка b", "2026-09-10T10:00:00+03:00");
+      const repo = join(home, "projects/spa");
+      execFileSync("git", ["clone", "--quiet", ...(shallow ? ["--depth=1"] : []), `file://${upstream}`, repo]);
+      const anchorLine = anchor === undefined ? "" : `anchor: ${anchor}\n`;
+      await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3\n${anchorLine}${mark.fields}`), "spa/journal.jsonl": toJsonLines(mark.journal) });
+      const report = await check(root, home, "changed");
+      return { report, anchor: (await loadBacklog(root)).tasks[0]?.anchor };
+    }
+
+    it("в полном клоне это не чужая ветка: задача с якорем, чьих строк в файле нет, — кандидат", async () => {
+      const { report } = await markedOutsideClone({ shallow: false, anchor: anchorOf(elsewhere, "src/a.ts:3") ?? undefined });
+
+      expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", method: "anchor", task: expect.objectContaining({ id: "SPA-1" }) })]);
+    });
+
+    it.each(
+      Object.keys(marks).flatMap((name) => [
+        { clone: "полном", name, shallow: false, anchor: anchorOf(atMark, "src/a.ts:3") ?? undefined },
+        { clone: "неполном", name, shallow: true, anchor: undefined },
+      ]),
+    )("в $clone клоне ($name) задаче без якоря первый якорь пишется, только если клон полный", async ({ shallow, anchor, name }) => {
+      expect((await markedOutsideClone({ shallow, mark: marks[name as keyof typeof marks] })).anchor).toBe(anchor);
+    });
+  });
+
   it("файла задачи нет только в текущей ветке — кандидата «файл пропал» нет", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
@@ -1145,6 +1244,26 @@ describe("checkBacklog", () => {
       expect({ candidates: whileUnmerged.candidates, anchor: anchorWhileUnmerged }).toEqual({ candidates: [], anchor: undefined });
       expect(afterMerge.candidates).toEqual(candidateOfEdit);
     });
+  });
+
+  it("задача без коммита создания в журнале: локальная правка её файла, переписанная pull --rebase после отметки, кандидатом её не делает", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": "a1\n", "src/b.ts": "b1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "upstream", { create: true, at: "2026-09-09T11:00:00+03:00" });
+    await writeFiles(repo, { "src/b.ts": "b2\n" });
+    gitCommitAll(repo, "Правка b в upstream", "2026-09-09T12:00:00+03:00");
+    gitCheckout(repo, "master", { at: "2026-09-09T13:00:00+03:00" });
+    await writeFiles(repo, { "src/a.ts": "a2\n" });
+    gitCommitAll(repo, "Локальная правка a", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts\n") });
+    gitRebase(repo, "upstream", "2026-09-12T10:00:00+03:00");
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([]);
   });
 
   it("чужой merge нашего же коммита, пришедший перемоткой: текст файла задачи тот же — кандидата нет", async () => {

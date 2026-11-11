@@ -7,6 +7,7 @@ import { commitsKnownAtMark } from "./known-commits";
 import { commitsArrivedLate } from "./late-commits";
 import { collectRepoFacts } from "./repo-facts";
 import { NO_MARK_COMMITS, reviewMark } from "./reviewed-task";
+import { taskBases } from "./task-base";
 
 async function editFastForwardedAfterMarkWithEarlierDate() {
   const repo = await makeGitRepo(await makeTempDir(), "spa");
@@ -39,7 +40,7 @@ async function questionAbout(repo: string) {
   const facts = await collectRepoFacts(repo, new Map(tasks.map((task) => ["src/a.ts", reviewMark(task)])));
   const anchors = anchorStates(tasks, facts);
   const question = { repo, tasks, facts, anchors, marks: NO_MARK_COMMITS };
-  return { ...question, knownCommits: await commitsKnownAtMark(question) };
+  return { ...question, knownCommits: await commitsKnownAtMark({ ...question, bases: taskBases(repo, NO_MARK_COMMITS) }) };
 }
 
 describe("commitsArrivedLate", () => {

@@ -1,33 +1,15 @@
-import { runGit } from "../git/run";
 import type { Task } from "../model/types";
 import { anchorOf, anchorRange, locateAnchor, remappedSource, windowMatches } from "./anchor";
-import { checkoutAtMark, NO_MARK_COMMITS, reviewMark, type MarkCommits } from "./reviewed-task";
+import { NO_MARK_COMMITS, reviewMark } from "./reviewed-task";
 import { changesSinceMark, type SourceHistory } from "./source-commits";
 import { baseText, currentLine, modifiesLines, type Hunk } from "./diff-hunks";
-import {
-  collectRepoFacts,
-  diffsFrom,
-  diffsSince,
-  headCommitsAt,
-  headLineOf,
-  headsAt,
-  type Commit,
-  type DiffFrom,
-  type DiffSince,
-  type FileDiff,
-  type HeadAt,
-  type HeadLine,
-  type HeadLineOf,
-} from "./repo-facts";
+import { collectRepoFacts, type Commit, type FileDiff } from "./repo-facts";
+import { markLineOf, taskBases, type TaskBase, type TaskBases } from "./task-base";
 import { hasLines, sourcePath } from "../model/source";
 
 export type TaskDiff = (task: Task, path: string) => Promise<FileDiff | null>;
 
-export type LineAtMark = (task: Task) => Promise<HeadLine | null>;
-
-type FileDiffs = { since: DiffSince; from: DiffFrom; headAt: HeadAt; sinceTaskMark: TaskDiff; lineAtMark: LineAtMark };
-
-type SourceTrace = { kind: "traced"; current: string | null; linesChanged: boolean } | { kind: "not-on-branch" } | { kind: "untraced" };
+type SourceTrace = { kind: "traced"; current: string | null; linesChanged: boolean } | { kind: "other-branch" } | { kind: "untraced" };
 
 export type SourceTraces = ReadonlyMap<string, SourceTrace>;
 
@@ -37,34 +19,8 @@ const LATER_COMMITS_TO_SEARCH = 5;
 
 const UNTRACED: SourceTrace = { kind: "untraced" };
 
-export function repoDiffs(repo: string, marks: MarkCommits, headLine: HeadLineOf = headLineOf(repo)): FileDiffs {
-  const from = diffsFrom(repo);
-  const since = diffsSince(repo, runGit, from);
-  const headCommitAt = headCommitsAt(repo);
-  const checkoutLineAtMark = async (task: Task) => {
-    const checkout = await checkoutAtMark(task, marks, headCommitAt, headLine);
-    return checkout === null ? null : { checkout, line: await headLine(checkout) };
-  };
-  const sinceTaskMark: TaskDiff = async (task, path) => {
-    const atMark = await checkoutLineAtMark(task);
-    const sinceMark = () => since(path, new Date(reviewMark(task)));
-    if (atMark === null) return sinceMark();
-    switch (atMark.line) {
-      case "this-line":
-        return from(path, atMark.checkout);
-      case "other-branch":
-      case "missing":
-        return sinceMark();
-      case "unknown":
-        return null;
-    }
-  };
-  const lineAtMark: LineAtMark = async (task) => (await checkoutLineAtMark(task))?.line ?? null;
-  return { since, from, headAt: headsAt(headCommitAt, headLine), sinceTaskMark, lineAtMark };
-}
-
-export async function traceSources(tasks: readonly Task[], history: SourceHistory, diffs: FileDiffs): Promise<SourceTraces> {
-  return new Map(await Promise.all(tasks.map(async (task) => [task.id, await traceSource(task, history, diffs)] as const)));
+export async function traceSources(tasks: readonly Task[], history: SourceHistory, bases: TaskBases): Promise<SourceTraces> {
+  return new Map(await Promise.all(tasks.map(async (task) => [task.id, await traceSource(task, history, bases)] as const)));
 }
 
 export function currentSourcesOf(traces: SourceTraces): CurrentSources {
@@ -74,7 +30,7 @@ export function currentSourcesOf(traces: SourceTraces): CurrentSources {
 export async function currentSourceIn(repo: string, task: Task): Promise<string | null> {
   if (task.source === undefined) return null;
   const facts = await collectRepoFacts(repo, new Map([[sourcePath(task.source), reviewMark(task)]]));
-  return currentOf(await traceSource(task, { facts, late: new Map() }, repoDiffs(repo, NO_MARK_COMMITS)));
+  return currentOf(await traceSource(task, { facts, late: new Map() }, taskBases(repo, NO_MARK_COMMITS)));
 }
 
 function currentOf(trace: SourceTrace): string | null {
@@ -83,11 +39,11 @@ function currentOf(trace: SourceTrace): string | null {
 
 type FoundReference = { kind: "found"; hunks: readonly Hunk[]; source: string };
 
-type ReferenceSearch = FoundReference | { kind: "not-on-branch" } | { kind: "untraced" };
+type ReferenceSearch = FoundReference | { kind: "other-branch" } | { kind: "untraced" };
 
 type Traced = Task & { source: string };
 
-async function traceSource(task: Task, history: SourceHistory, diffs: FileDiffs): Promise<SourceTrace> {
+async function traceSource(task: Task, history: SourceHistory, bases: TaskBases): Promise<SourceTrace> {
   const { source, anchor } = task;
   if (source === undefined || !hasLines(source)) return UNTRACED;
   const text = history.facts.texts.get(sourcePath(source));
@@ -96,8 +52,8 @@ async function traceSource(task: Task, history: SourceHistory, diffs: FileDiffs)
   const fileUntouched = commits.length === 0 && !uncommitted;
   if (fileUntouched && (anchor === undefined || windowMatches(text, source, anchor))) return { kind: "traced", current: source, linesChanged: false };
   const traced: Traced = { ...task, source };
-  const reference = await referenceOf(traced, text, commits, diffs);
-  if (reference.kind === "not-on-branch") return fileUntouched ? { kind: "not-on-branch" } : UNTRACED;
+  const reference = await referenceOf(traced, text, commits, bases);
+  if (reference.kind === "other-branch") return fileUntouched ? reference : UNTRACED;
   if (reference.kind === "untraced") return UNTRACED;
   const lines = anchorRange(reference.source);
   return { kind: "traced", current: currentSource(reference, text, traced), linesChanged: lines === null || modifiesLines(reference.hunks, lines) };
@@ -109,22 +65,20 @@ function currentSource(reference: FoundReference, text: string, { source, anchor
   return anchor === undefined && current !== source ? null : current;
 }
 
-async function referenceOf(task: Traced, text: string, laterCommits: readonly Commit[], diffs: FileDiffs): Promise<ReferenceSearch> {
+async function referenceOf(task: Traced, text: string, laterCommits: readonly Commit[], bases: TaskBases): Promise<ReferenceSearch> {
   const path = sourcePath(task.source);
   const { anchor } = task;
-  const mark = new Date(reviewMark(task));
-  const head = anchor === undefined ? null : await diffs.headAt(mark);
-  const headAtMark = async () => (head?.line === "this-line" ? diffs.from(path, head.commit) : null);
-  const lastCommitBeforeMark = () => diffs.since(path, mark);
-  const sinceTaskMark = () => diffs.sinceTaskMark(task, path);
-  const afterMark = laterCommits
-    .toReversed()
-    .slice(0, LATER_COMMITS_TO_SEARCH)
-    .map((commit) => () => diffs.from(path, commit.sha));
-  const references = anchor === undefined ? [sinceTaskMark] : [headAtMark, lastCommitBeforeMark, ...afterMark];
-  const unmatched: ReferenceSearch = head === null ? { kind: "untraced" } : unmatchedOn(head.line);
+  const atBase = () => bases.diffSinceBase(task, path);
+  const afterMark =
+    anchor === undefined
+      ? []
+      : laterCommits
+          .toReversed()
+          .slice(0, LATER_COMMITS_TO_SEARCH)
+          .map((commit) => () => bases.diffFrom(path, commit.sha));
+  const unmatched = unmatchedOn(await bases.baseOf(task));
   let search: ReferenceSearch = { kind: "untraced" };
-  for (const diffFromReference of references) {
+  for (const diffFromReference of [atBase, ...afterMark]) {
     const hunks = (await diffFromReference())?.hunks ?? null;
     if (hunks === null) continue;
     const source = anchor === undefined ? task.source : locateAnchor(baseText(hunks, text), task.source, anchor);
@@ -134,13 +88,6 @@ async function referenceOf(task: Traced, text: string, laterCommits: readonly Co
   return search;
 }
 
-function unmatchedOn(line: HeadLine): ReferenceSearch {
-  switch (line) {
-    case "other-branch":
-    case "missing":
-      return { kind: "not-on-branch" };
-    case "this-line":
-    case "unknown":
-      return { kind: "untraced" };
-  }
+function unmatchedOn(base: TaskBase): ReferenceSearch {
+  return markLineOf(base) === "other-branch" ? { kind: "other-branch" } : { kind: "untraced" };
 }

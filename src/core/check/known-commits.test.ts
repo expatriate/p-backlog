@@ -14,6 +14,7 @@ import { anchorStates, codeReview } from "./candidates";
 import { commitsCarryingContent } from "./landed-content";
 import { collectRepoFacts, FACTS_HISTORY_OPTIONS } from "./repo-facts";
 import { NO_MARK_COMMITS, type MarkCommits } from "./reviewed-task";
+import { taskBases } from "./task-base";
 import { fileOf, twinBlocks } from "./testing/source-files";
 
 const CREATED = "2026-09-11T10:00:00+03:00";
@@ -33,7 +34,7 @@ async function changedCommitSubjects(repo: string, origin: TaskOrigin, source = 
   const tasks = [makeTask({ id: "SPA-1", ...MARKED_TASK[mark], source })];
   const facts = await collectRepoFacts(repo, new Map([[source, Date.parse(CREATED)]]));
   const anchors = anchorStates(tasks, facts);
-  const known = await commitsKnownAtMark({ repo, tasks, facts, anchors, marks: marksAt(mark, origin) });
+  const known = await commitsKnownAtMark({ repo, tasks, facts, anchors, bases: taskBases(repo, marksAt(mark, origin)) });
   return codeReview(tasks, { facts, late: new Map() }, known, anchors).candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? candidate.commits.map((commit) => commit.subject) : []));
 }
 
@@ -99,7 +100,7 @@ describe("коммиты, уже известные задаче при созд
       tasks,
       facts,
       anchors: anchorStates(tasks, facts),
-      marks: { ...NO_MARK_COMMITS, origins: new Map(tasks.map((task) => [task.id, origin])) },
+      bases: taskBases(repo, { ...NO_MARK_COMMITS, origins: new Map(tasks.map((task) => [task.id, origin])) }),
       git: counting.git,
     });
 

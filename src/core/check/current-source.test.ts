@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { gitFailing } from "../git/testing/failing-git";
 import { makeTask } from "../model/testing/make-task";
 import { gitCheckout, gitCommitAll, gitMergeFastForward, gitShortHead, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { anchorOf } from "./anchor";
-import { repoDiffs, traceSources } from "./current-source";
-import { collectRepoFacts, type HeadLineOf } from "./repo-facts";
+import { traceSources } from "./current-source";
+import { collectRepoFacts, diffsSince } from "./repo-facts";
 import { NO_MARK_COMMITS, reviewMark } from "./reviewed-task";
+import { markLineOf, taskBases } from "./task-base";
 
-const lineUnknown: HeadLineOf = async () => "unknown";
+const ancestryUnanswered = gitFailing((args) => args[0] === "merge-base");
 
 const numbered = [1, 2, 3, 4, 5, 6, 7, 8].map((index) => `export const a${index} = ${index};`).join("\n");
 
@@ -28,18 +30,18 @@ describe("traceSources", () => {
     const task = makeTask({ id: "SPA-1", source: "src/a.ts:3", anchor: anchorOf(numbered, "src/a.ts:3") ?? undefined, created: "2026-09-11T10:00:00+03:00" });
     const facts = await collectRepoFacts(repo, new Map([["src/a.ts", reviewMark(task)]]));
 
-    const traces = await traceSources([task], { facts, late: new Map() }, repoDiffs(repo, NO_MARK_COMMITS, lineUnknown));
+    const traces = await traceSources([task], { facts, late: new Map() }, taskBases(repo, NO_MARK_COMMITS, ancestryUnanswered));
 
     expect(traces.get("SPA-1")).toEqual({ kind: "untraced" });
   });
 });
 
-describe("repoDiffs", () => {
+describe("taskBases", () => {
   it("сбой git на вопросе «checkout на момент отметки — предок HEAD?» не подменяет дифф от checkout диффом от даты, где правки строки задачи не видно", async () => {
     const repo = await lineEditedOnBranchBeforeMarkAndFastForwardedAfter();
     const task = makeTask({ id: "SPA-1", source: "src/a.ts:3", created: "2026-09-11T10:00:00+03:00" });
 
-    const diff = await repoDiffs(repo, NO_MARK_COMMITS, lineUnknown).sinceTaskMark(task, "src/a.ts");
+    const diff = await taskBases(repo, NO_MARK_COMMITS, ancestryUnanswered).diffSinceBase(task, "src/a.ts");
 
     expect(diff).toBeNull();
   });
@@ -47,9 +49,9 @@ describe("repoDiffs", () => {
   it("коммита создания задачи нет в клоне — дифф берётся от даты отметки, а не пропадает", async () => {
     const repo = await lineEditedOnBranchBeforeMarkAndFastForwardedAfter();
     const task = makeTask({ id: "SPA-1", source: "src/a.ts:3", created: "2026-09-11T10:00:00+03:00" });
-    const diffs = repoDiffs(repo, { ...NO_MARK_COMMITS, origins: new Map([["SPA-1", { commit: "1".repeat(40) }]]) });
+    const bases = taskBases(repo, { ...NO_MARK_COMMITS, origins: new Map([["SPA-1", { commit: "1".repeat(40) }]]) });
 
-    const [fromCreation, sinceMark] = await Promise.all([diffs.sinceTaskMark(task, "src/a.ts"), diffs.since("src/a.ts", new Date(reviewMark(task)))]);
+    const [fromCreation, sinceMark] = await Promise.all([bases.diffSinceBase(task, "src/a.ts"), diffsSince(repo)("src/a.ts", new Date(reviewMark(task)))]);
 
     expect({ fromCreation, sinceMark }).toEqual({ fromCreation: sinceMark, sinceMark: expect.objectContaining({ changed: expect.any(Array) }) });
   });
@@ -58,7 +60,7 @@ describe("repoDiffs", () => {
     const repo = await lineEditedOnBranchBeforeMarkAndFastForwardedAfter();
     const verifiedOnBranch = verifiedTask(gitShortHead(repo));
 
-    const diff = await repoDiffs(repo, verifiedOnBranch.marks).sinceTaskMark(verifiedOnBranch.task, "src/a.ts");
+    const diff = await taskBases(repo, verifiedOnBranch.marks).diffSinceBase(verifiedOnBranch.task, "src/a.ts");
 
     expect(diff).toMatchObject({ excerpt: undefined, changed: [] });
   });
@@ -73,7 +75,7 @@ describe("repoDiffs", () => {
     gitCommitAll(repo, "Правка на полосе", "2026-09-09T12:00:00+03:00");
     gitCheckout(repo, "master", { at: "2026-09-12T10:00:00+03:00" });
 
-    const line = await repoDiffs(repo, verifiedOnMaster.marks).lineAtMark(verifiedOnMaster.task);
+    const line = markLineOf(await taskBases(repo, verifiedOnMaster.marks).baseOf(verifiedOnMaster.task));
 
     expect(line).toBe("this-line");
   });
