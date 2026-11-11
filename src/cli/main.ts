@@ -1,6 +1,6 @@
 import { mebibytesOf } from "../core/api/memory";
 import { BYTES_PER_KIBIBYTE } from "../core/numbers";
-import { errorText, hasErrorCode } from "../core/errors";
+import { errorText, hasAnyErrorCode, hasErrorCode } from "../core/errors";
 import { SERVE_COMMAND_NAME } from "../core/serve-command";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -32,6 +32,11 @@ const cliPath = fileURLToPath(import.meta.url);
 const packageRoot = resolve(dirname(cliPath), "..");
 const argv = process.argv.slice(2);
 const warn = (line: string): void => void process.stderr.write(`${line}\n`);
+const CLOSED_READER_CODES = ["EPIPE", "EOF"];
+
+process.stdout.on("error", (error) => {
+  if (!hasAnyErrorCode(error, CLOSED_READER_CODES)) throw error;
+});
 
 const exitCode = await runCli(argv, {
   cwd: process.cwd(),
