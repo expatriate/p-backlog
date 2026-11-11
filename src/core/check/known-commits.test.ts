@@ -6,12 +6,14 @@ import { literalPathspecs } from "../git/run";
 import { countingGit } from "../git/testing/counting-git";
 import type { TaskOrigin } from "../journal/events";
 import { makeTask } from "../model/testing/make-task";
+import type { Task } from "../model/types";
 import { gitCheckout, gitCommitAll, gitMergeNoFastForward, gitMergeSquash, gitRebase, gitRebaseMerge, gitShortHead, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { anchorOf } from "./anchor";
-import { commitsKnownAtCreation } from "./known-commits";
+import { commitsKnownAtMark } from "./known-commits";
 import { anchorStates, codeReview } from "./candidates";
 import { commitsCarryingContent } from "./landed-content";
 import { collectRepoFacts, FACTS_HISTORY_OPTIONS } from "./repo-facts";
+import { NO_MARK_COMMITS, type MarkCommits } from "./reviewed-task";
 import { fileOf, twinBlocks } from "./testing/source-files";
 
 const CREATED = "2026-09-11T10:00:00+03:00";
@@ -19,11 +21,19 @@ const LINES = Array.from({ length: 40 }, (_, index) => `export const value${inde
 
 const withValues = (lines: readonly string[], values: Record<number, number>) => lines.map((line, index) => (values[index + 1] === undefined ? line : `export const value${index + 1} = ${values[index + 1]};`));
 
-async function changedCommitSubjects(repo: string, origin: TaskOrigin, source = "src/a.ts"): Promise<string[]> {
-  const tasks = [makeTask({ id: "SPA-1", created: CREATED, source })];
+type MarkKind = "created" | "verified";
+
+const MARKED_TASK: Record<MarkKind, Partial<Task>> = { created: { created: CREATED }, verified: { created: "2026-09-01T10:00:00+03:00", verified: CREATED } };
+
+function marksAt(kind: MarkKind, origin: TaskOrigin): MarkCommits {
+  return kind === "created" ? { ...NO_MARK_COMMITS, origins: new Map([["SPA-1", origin]]) } : { ...NO_MARK_COMMITS, verifications: new Map([["SPA-1", { at: CREATED, commit: origin.commit }]]) };
+}
+
+async function changedCommitSubjects(repo: string, origin: TaskOrigin, source = "src/a.ts", mark: MarkKind = "created"): Promise<string[]> {
+  const tasks = [makeTask({ id: "SPA-1", ...MARKED_TASK[mark], source })];
   const facts = await collectRepoFacts(repo, new Map([[source, Date.parse(CREATED)]]));
   const anchors = anchorStates(tasks, facts);
-  const known = await commitsKnownAtCreation({ repo, tasks, facts, anchors, origins: new Map([["SPA-1", origin]]) });
+  const known = await commitsKnownAtMark({ repo, tasks, facts, anchors, marks: marksAt(mark, origin) });
   return codeReview(tasks, { facts, late: new Map() }, known, anchors).candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? candidate.commits.map((commit) => commit.subject) : []));
 }
 
@@ -84,7 +94,14 @@ describe("коммиты, уже известные задаче при созд
     await commitsCarryingContent(repo, copiesQuestion.git, FACTS_HISTORY_OPTIONS)(origin.commit, literalPathspecs(["src/a.ts"]));
     const counting = countingGit();
 
-    const known = await commitsKnownAtCreation({ repo, tasks, facts, anchors: anchorStates(tasks, facts), origins: new Map(tasks.map((task) => [task.id, origin])), git: counting.git });
+    const known = await commitsKnownAtMark({
+      repo,
+      tasks,
+      facts,
+      anchors: anchorStates(tasks, facts),
+      marks: { ...NO_MARK_COMMITS, origins: new Map(tasks.map((task) => [task.id, origin])) },
+      git: counting.git,
+    });
 
     expect(counting.processes()).toBe(merges.length + copiesQuestion.processes());
     expect(known.size).toBe(0);
@@ -128,7 +145,7 @@ describe("коммиты, уже известные задаче при созд
     expect(await changedCommitSubjects(repo, origin)).toEqual(["Основная ветка так же правит второй блок"]);
   });
 
-  it("ветку задачи перебазировали на основную и влили merge-коммитом — ни копия её коммита, ни merge-коммит не делают задачу кандидатом", async () => {
+  it.each(["created", "verified"] as const)("ветку задачи перебазировали на основную и влили merge-коммитом — ни копия её коммита, ни merge-коммит не делают задачу кандидатом: отметка %s", async (mark) => {
     const { repo, origin } = await featureEditingA();
     await writeFiles(repo, { "src/b.ts": "b2\n" });
     gitCommitAll(repo, "Основная ветка правит b", "2026-09-10T12:00:00+03:00");
@@ -137,7 +154,7 @@ describe("коммиты, уже известные задаче при созд
     gitCheckout(repo, "master");
     gitMergeNoFastForward(repo, "feat", "2026-09-12T10:00:00+03:00");
 
-    expect(await changedCommitSubjects(repo, origin)).toEqual([]);
+    expect(await changedCommitSubjects(repo, origin, "src/a.ts", mark)).toEqual([]);
   });
 
   it("задача заведена на detached HEAD, в origin нет ветки — squash-коммит, несущий её коммит создания, не делает её кандидатом", async () => {

@@ -14,9 +14,9 @@ import { applyAnchorPlans, applyFixes, type FixOutcome } from "./check-fixes";
 import { findProblems } from "./find-problems";
 import type { CheckFix, CheckProblem } from "./findings";
 import { projectCheckout, type ProjectCheckout } from "./project-repo";
-import { creationOrigins, projectReview, type ProjectReview } from "./project-review";
+import { projectReview, readMarkCommits, type ProjectReview } from "./project-review";
 
-type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed" | "branchOriginsReadFailed">;
+type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed" | "markCommitsReadFailed">;
 
 export type CheckRequest = {
   projectIds: readonly string[];
@@ -53,12 +53,12 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
 type CheckedProject = { review: ProjectReview; checkout: ProjectCheckout | undefined };
 
 async function reviewProjects(root: string, tasks: readonly Task[], projects: readonly Project[], request: CheckRequest): Promise<CheckedProject[]> {
-  const originsOf = (projectId: string) => creationOrigins(root, projectId, (error) => request.warn(request.messages.branchOriginsReadFailed(projectId, errorText(error))));
+  const marksOf = (projectId: string) => readMarkCommits(root, projectId, (error) => request.warn(request.messages.markCommitsReadFailed(projectId, errorText(error))));
   return Promise.all(
     projects.map(async (project) => {
       const checkout = await projectCheckout(project, request.workingRoots, request.context);
       return {
-        review: await projectReview(project, tasks, { repo: checkout?.path, origins: await originsOf(project.id), mode: request.mode, onUnreadable: request.context.onUnreadable, git: request.git }),
+        review: await projectReview(project, tasks, { repo: checkout?.path, marks: await marksOf(project.id), mode: request.mode, onUnreadable: request.context.onUnreadable, git: request.git }),
         checkout,
       };
     }),

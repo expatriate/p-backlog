@@ -28,6 +28,7 @@ export type UpdateTaskRequest = WriteOrigin & {
   changes: TaskChanges;
   expectedVersion: string;
   closure?: Closure | undefined;
+  headCommit?: string | undefined;
 };
 
 type AppliedSeparately = "status" | "epic" | "category" | "anchor";
@@ -69,7 +70,7 @@ export async function reopenEpicOfOpenedTask(index: BacklogIndex, { before, afte
   }
 }
 
-async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion, now, closure, via, onError, journal = appendingJournal(onError) }: UpdateTaskRequest): Promise<UpdateTaskResult> {
+async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion, now, closure, headCommit, via, onError, journal = appendingJournal(onError) }: UpdateTaskRequest): Promise<UpdateTaskResult> {
   const current = index.byId.get(id);
   if (!current) return { ok: false, reason: "not-found" };
   if (expectedVersion !== current.version) return { ok: false, reason: "conflict", current };
@@ -96,7 +97,7 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
     onError(current.path, error);
     return { ok: true, task };
   } finally {
-    if (written) await journal(dirname(current.path), changeEvents(current, task, now, via));
+    if (written) await journal(dirname(current.path), changeEvents(current, task, now, via, headCommit));
   }
 }
 

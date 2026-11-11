@@ -1,19 +1,20 @@
 import { warnPathErrors } from "../core/errors";
 import type { BacklogIndex } from "../core/model/graph";
-import type { Closure } from "../core/model/lifecycle";
 import type { Task } from "../core/model/types";
-import { updateTaskInIndex, type TaskChanges } from "../core/store/update";
+import { updateTaskInIndex, type TaskChanges, type UpdateTaskRequest } from "../core/store/update";
 import type { UpdateTaskFailure, WrittenTask } from "../core/store/write-result";
 import { EXIT, type CliIo, type ExitCode } from "./io";
 
 export type TaskWrite = ({ ok: true } & WrittenTask) | { ok: false; exitCode: ExitCode };
 
-export type TaskWriter = (task: Task, changes: TaskChanges, closure?: Closure) => Promise<TaskWrite>;
+type WriteDetails = Pick<UpdateTaskRequest, "closure" | "headCommit">;
+
+export type TaskWriter = (task: Task, changes: TaskChanges, details?: WriteDetails) => Promise<TaskWrite>;
 
 export function taskWriter(io: CliIo, index: BacklogIndex): TaskWriter {
   const onError = warnPathErrors(io.warn);
-  return async (task, changes, closure) => {
-    const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now: io.now(), via: "cli", onError, closure });
+  return async (task, changes, details = {}) => {
+    const result = await updateTaskInIndex(index, { id: task.id, changes, expectedVersion: task.version, now: io.now(), via: "cli", onError, ...details });
     if (!result.ok) return { ok: false, exitCode: reportUpdateFailure(io, task.id, result) };
     if (result.reopenedEpic !== undefined) io.warn(io.cli.epicReopened(result.reopenedEpic.id));
     return result;

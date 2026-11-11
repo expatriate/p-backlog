@@ -8,6 +8,7 @@ import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
 import { projectOf, findTaskOrWarn, repoLookup, sourcePresenceOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
+import { readHeadCommit } from "../origin";
 import { taskWriter, type TaskWriter } from "../task-write";
 
 export const verifyCommand: CliCommand = {
@@ -45,7 +46,8 @@ async function verifyOne(id: string, { loaded, source, write, io }: Verification
   const target = source ?? (await relocatedSource(repo, task));
   const anchored = target ?? task.source;
   const anchor = anchored === undefined ? undefined : anchorChange(await sourceAnchor(repo, anchored, lookup.onUnreadable));
-  const written = await write(task, { verified: formatLocalIso(io.now()), source: target, anchor });
+  const headCommit = repo === undefined ? undefined : await readHeadCommit(repo);
+  const written = await write(task, { verified: formatLocalIso(io.now()), source: target, anchor }, { headCommit });
   if (!written.ok) return written.exitCode;
   io.print(target === undefined ? io.cli.verified(id) : io.cli.verifiedWithSource(id, target));
   return EXIT.ok;

@@ -296,7 +296,8 @@ export const coreRu: CoreMessages = {
   closedNotSwept: (error) => `Не удалось удалить закрытые задачи: ${error}`,
   serviceLogNotTrimmed: (error) => `Не удалось обрезать лог службы: ${error}`,
   candidatesRecordFailed: (projectId, detail) => `Не удалось записать кандидатов в журнал ${projectId}: ${detail}`,
-  branchOriginsReadFailed: (projectId, detail) => `Не удалось прочитать журнал ${projectId} — задачи из невлитых веток проверяются как обычные: ${detail}`,
+  markCommitsReadFailed: (projectId, detail) =>
+    `Не удалось прочитать журнал ${projectId} — неизвестно, на каких коммитах задачи заводили и подтверждали: задачи из невлитых веток проверяются как обычные, а код на момент отметки берётся из reflog: ${detail}`,
   unreadableSkipped: (path, detail) => `Не удалось прочитать ${path}, он пропущен: ${detail}`,
   settingsNotSaved: (path, detail) => `Не удалось сохранить язык в ${path}: ${detail}. Он определяется заново при каждом запуске — разрешите запись в каталог беклога.`,
   settingsFileInvalid: (path) => `${path} не разобран, язык для этого запуска определён автоматически. Файл не изменён — поправьте его вручную.`,

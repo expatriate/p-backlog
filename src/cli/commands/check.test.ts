@@ -4,7 +4,9 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { CheckReport } from "../../core/check/check-backlog";
 import type { Language } from "../../core/i18n/language";
 import { writeSettings } from "../../core/store/settings";
-import { gitAddWorktree, gitCommitAll, gitMergeNoFastForward, makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitAddWorktree, gitCheckout, gitCommitAll, gitMergeFastForward, gitMergeNoFastForward, makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
+import { toJsonLines } from "../../core/store/json-lines";
+import { JOURNAL_FILE, readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
@@ -58,6 +60,66 @@ describe("backlog check", () => {
     expect(fromWorktree.candidates).toEqual([]);
     expect([...fromWorktree.fixed, ...fromMain.fixed]).toEqual([]);
     expect((await loadBacklog(root)).tasks.find((task) => task.id === "SPA-1")?.source).toBe("src/a.ts:2");
+  });
+
+  it("задача без якоря, подтверждённая в основном checkout, не становится кандидатом в отставшем worktree, догнавшем master перемоткой", async () => {
+    const { run, repo, home } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts"], { now: new Date("2026-09-16T11:00:00Z") });
+    const worktree = join(home, "projects/spa-lane");
+    gitAddWorktree(repo, worktree, "lane", "2026-09-16T12:00:00Z");
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Поправить таймаут", "2026-09-17T10:00:00Z");
+    await run(["verify", "SPA-1"], { now: new Date("2026-09-17T11:00:00Z") });
+    const checkFromWorktree = async () => (JSON.parse((await run(["check", "--json"], { cwd: worktree })).out) as CheckReport).candidates;
+
+    const beforeFastForward = await checkFromWorktree();
+    gitMergeFastForward(worktree, "master", "2026-09-17T12:00:00Z");
+    const afterFastForward = await checkFromWorktree();
+
+    expect({ beforeFastForward, afterFastForward }).toEqual({ beforeFastForward: [], afterFastForward: [] });
+  });
+
+  it("задача без якоря, подтверждённая в worktree невлитой полосы, — правка из master, пришедшая перемоткой с датой до отметки, делает её кандидатом в основном checkout", async () => {
+    const { run, repo, home } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n", "src/b.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts"], { now: new Date("2026-09-16T11:00:00Z") });
+    const worktree = join(home, "projects/spa-lane");
+    gitAddWorktree(repo, worktree, "lane", "2026-09-16T12:00:00Z");
+    await writeFile(join(worktree, "src/b.ts"), "2\n");
+    gitCommitAll(worktree, "Работа полосы", "2026-09-16T13:00:00Z");
+    gitCheckout(repo, "feat", { create: true, at: "2026-09-16T14:00:00Z" });
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Поправить таймаут", "2026-09-16T15:00:00Z");
+    gitCheckout(repo, "master", { at: "2026-09-16T16:00:00Z" });
+    await run(["verify", "SPA-1"], { cwd: worktree, now: new Date("2026-09-17T11:00:00Z") });
+    gitMergeFastForward(repo, "feat", "2026-09-17T12:00:00Z");
+
+    const report = JSON.parse((await run(["check", "--json"])).out) as CheckReport;
+
+    expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-changed", path: "src/a.ts", commits: [expect.objectContaining({ subject: "Поправить таймаут" })] })]);
+  });
+
+  it("подтверждение без коммита (от прежней версии CLI) берёт базу из reflog, а не из коммита предыдущего подтверждения", async () => {
+    const { run, repo, root } = await makeCliSandbox();
+    await writeFiles(repo, { "src/a.ts": "1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
+    await run(["new", "--category", "bug", "--title", "Таймаут", "--source", "src/a.ts"], { now: new Date("2026-09-16T11:00:00Z") });
+    await run(["verify", "SPA-1"], { now: new Date("2026-09-16T12:00:00Z") });
+    await writeFile(join(repo, "src/a.ts"), "2\n");
+    gitCommitAll(repo, "Поправить таймаут", "2026-09-17T10:00:00Z");
+    await run(["verify", "SPA-1"], { now: new Date("2026-09-17T11:00:00Z") });
+    const projectDir = join(root, "spa");
+    const { events } = await readJournal(projectDir, "spa");
+    const lastVerification = events.at(-1);
+    await writeFile(join(projectDir, JOURNAL_FILE), toJsonLines(events.map((event) => (event === lastVerification ? { ...event, commit: undefined } : event))));
+
+    const report = JSON.parse((await run(["check", "--json"])).out) as CheckReport;
+
+    const recordedCommits = (await readJournal(projectDir, "spa")).events.flatMap((event) => (event.kind === "verified" ? [typeof event.commit] : []));
+    expect({ recordedCommits, candidates: report.candidates }).toEqual({ recordedCommits: ["string", "undefined"], candidates: [] });
   });
 
   it("перечисляет кандидатов с уликами и завершается кодом 5", async () => {

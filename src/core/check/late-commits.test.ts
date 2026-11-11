@@ -3,10 +3,10 @@ import { gitFailing } from "../git/testing/failing-git";
 import { makeTask } from "../model/testing/make-task";
 import { gitCheckout, gitCommitAll, gitMergeFastForward, gitRebase, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { anchorStates } from "./candidates";
-import { commitsKnownAtCreation } from "./known-commits";
+import { commitsKnownAtMark } from "./known-commits";
 import { commitsArrivedLate } from "./late-commits";
 import { collectRepoFacts } from "./repo-facts";
-import { reviewMark } from "./reviewed-task";
+import { NO_MARK_COMMITS, reviewMark } from "./reviewed-task";
 
 async function editFastForwardedAfterMarkWithEarlierDate() {
   const repo = await makeGitRepo(await makeTempDir(), "spa");
@@ -38,8 +38,8 @@ async function questionAbout(repo: string) {
   const tasks = [makeTask({ id: "SPA-1", source: "src/a.ts:1", created: "2026-09-11T10:00:00+03:00" })];
   const facts = await collectRepoFacts(repo, new Map(tasks.map((task) => ["src/a.ts", reviewMark(task)])));
   const anchors = anchorStates(tasks, facts);
-  const question = { repo, tasks, facts, anchors, origins: new Map() };
-  return { ...question, knownCommits: await commitsKnownAtCreation(question) };
+  const question = { repo, tasks, facts, anchors, marks: NO_MARK_COMMITS };
+  return { ...question, knownCommits: await commitsKnownAtMark(question) };
 }
 
 describe("commitsArrivedLate", () => {

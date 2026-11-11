@@ -64,7 +64,7 @@ async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
   }
 
   const index = indexOfLoaded(loaded);
-  const written = await taskWriter(io, index)(task, { status, related }, { resolution, reason });
+  const written = await taskWriter(io, index)(task, { status, related }, { closure: { resolution, reason } });
   if (!written.ok) return written.exitCode;
   const deletion = scheduledDeletion(written.task, indexWithWritten(index, [written]));
   const change = attachesFix ? status : `${task.status} → ${status}`;

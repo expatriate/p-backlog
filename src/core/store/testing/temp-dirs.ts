@@ -54,8 +54,12 @@ export function gitRebaseMerge(repo: string, branch: string, isoDate: string): v
   execFileSync("git", [...TEST_COMMITTER, "cherry-pick", `HEAD..${branch}`], { cwd: repo, env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
 }
 
+function committerEnv(at: string | undefined): NodeJS.ProcessEnv {
+  return at === undefined ? process.env : { ...process.env, GIT_COMMITTER_DATE: at };
+}
+
 export function gitCheckout(repo: string, branch: string, { create = false, at }: { create?: boolean; at?: string } = {}): void {
-  execFileSync("git", ["checkout", "-q", ...(create ? ["-b"] : []), branch], { cwd: repo, env: at === undefined ? process.env : { ...process.env, GIT_COMMITTER_DATE: at } });
+  execFileSync("git", ["checkout", "-q", ...(create ? ["-b"] : []), branch], { cwd: repo, env: committerEnv(at) });
 }
 
 export function gitMergeFastForward(repo: string, branch: string, isoDate: string): void {
@@ -66,8 +70,8 @@ export function gitShortHead(repo: string): string {
   return execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
 }
 
-export function gitAddWorktree(repo: string, path: string, branch: string): void {
-  execFileSync("git", ["worktree", "add", "-q", "-b", branch, path], { cwd: repo });
+export function gitAddWorktree(repo: string, path: string, branch: string, at?: string): void {
+  execFileSync("git", ["worktree", "add", "-q", "-b", branch, path], { cwd: repo, env: committerEnv(at) });
 }
 
 export async function writeFiles(root: string, files: Record<string, string>): Promise<void> {

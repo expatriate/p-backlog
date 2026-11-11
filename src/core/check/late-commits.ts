@@ -1,10 +1,9 @@
 import { asGitRunner, commitHashOf, objectIds, runGitOutcome, type CommitHash, type GitOutcomeRunner, type GitRunner } from "../git/run";
-import type { TaskOrigin } from "../journal/events";
 import type { Task } from "../model/types";
 import { sourcePath } from "../model/source";
 import { judgedByCommits, type AnchorStates, type KnownCommits } from "./candidates";
 import { headCommitsAt, headLineOf, isInsideRepo, mainlineCommitsOff, type Commit, type HeadLineOf, type RepoFacts } from "./repo-facts";
-import { checkoutAtMark, reviewMark } from "./reviewed-task";
+import { checkoutAtMark, reviewMark, type MarkCommits } from "./reviewed-task";
 import { changesSinceMark, commitsTouchingUntil, type LateCommits } from "./source-commits";
 
 export type LateCommitsQuestion = {
@@ -12,7 +11,7 @@ export type LateCommitsQuestion = {
   tasks: readonly Task[];
   facts: RepoFacts;
   anchors: AnchorStates;
-  origins: ReadonlyMap<string, TaskOrigin>;
+  marks: MarkCommits;
   knownCommits: KnownCommits;
   git?: GitOutcomeRunner;
   headLine?: HeadLineOf;
@@ -36,7 +35,7 @@ export async function commitsArrivedLate(question: LateCommitsQuestion): Promise
   if (question.facts.history !== "read") return NO_LATE_ARRIVALS;
   const { repo, git = runGitOutcome, headLine = headLineOf(repo, git) } = question;
   const history: RepoHistory = { repo, git: asGitRunner(git), headLine };
-  const arrivals = await arrivalsOf(history, await markedSources(question));
+  const arrivals = await arrivalsOf(history, await markedSources(question, headLine));
   return {
     late: new Map(arrivals.flatMap(({ taskId, commits }) => (commits === null ? [] : [[taskId, commits] as const]))),
     unknown: new Set(arrivals.filter(({ commits }) => commits === null).map(({ taskId }) => taskId)),
@@ -59,14 +58,14 @@ async function arrivalsOf(history: RepoHistory, marked: readonly MarkedSource[])
   return byCheckout.flat();
 }
 
-async function markedSources({ repo, tasks, facts, anchors, origins, knownCommits }: LateCommitsQuestion): Promise<MarkedSource[]> {
+async function markedSources({ repo, tasks, facts, anchors, marks, knownCommits }: LateCommitsQuestion, headLine: HeadLineOf): Promise<MarkedSource[]> {
   const headCommitAt = headCommitsAt(repo);
   const sourcesByTask = await Promise.all(
     tasks.map(async (task) => {
       if (task.source === undefined || !judgedByCommits(task, anchors)) return [];
       const path = sourcePath(task.source);
       if (!facts.existing.has(path) || !isInsideRepo(path) || changedByDate(task, path, facts, knownCommits)) return [];
-      const checkout = await checkoutAtMark(task, origins, headCommitAt);
+      const checkout = await checkoutAtMark(task, marks, headCommitAt, headLine);
       return checkout === null ? [] : [{ taskId: task.id, path, mark: reviewMark(task), checkout }];
     }),
   );

@@ -1,8 +1,7 @@
 import { runGit } from "../git/run";
-import type { TaskOrigin } from "../journal/events";
 import type { Task } from "../model/types";
 import { anchorOf, anchorRange, locateAnchor, remappedSource, windowMatches } from "./anchor";
-import { checkoutAtMark, reviewMark } from "./reviewed-task";
+import { checkoutAtMark, NO_MARK_COMMITS, reviewMark, type MarkCommits } from "./reviewed-task";
 import { changesSinceMark, type SourceHistory } from "./source-commits";
 import { baseText, currentLine, modifiesLines, type Hunk } from "./diff-hunks";
 import {
@@ -38,12 +37,12 @@ const LATER_COMMITS_TO_SEARCH = 5;
 
 const UNTRACED: SourceTrace = { kind: "untraced" };
 
-export function repoDiffs(repo: string, origins: ReadonlyMap<string, TaskOrigin>, headLine: HeadLineOf = headLineOf(repo)): FileDiffs {
+export function repoDiffs(repo: string, marks: MarkCommits, headLine: HeadLineOf = headLineOf(repo)): FileDiffs {
   const from = diffsFrom(repo);
   const since = diffsSince(repo, runGit, from);
   const headCommitAt = headCommitsAt(repo);
   const checkoutLineAtMark = async (task: Task) => {
-    const checkout = await checkoutAtMark(task, origins, headCommitAt);
+    const checkout = await checkoutAtMark(task, marks, headCommitAt, headLine);
     return checkout === null ? null : { checkout, line: await headLine(checkout) };
   };
   const sinceTaskMark: TaskDiff = async (task, path) => {
@@ -75,7 +74,7 @@ export function currentSourcesOf(traces: SourceTraces): CurrentSources {
 export async function currentSourceIn(repo: string, task: Task): Promise<string | null> {
   if (task.source === undefined) return null;
   const facts = await collectRepoFacts(repo, new Map([[sourcePath(task.source), reviewMark(task)]]));
-  return currentOf(await traceSource(task, { facts, late: new Map() }, repoDiffs(repo, new Map())));
+  return currentOf(await traceSource(task, { facts, late: new Map() }, repoDiffs(repo, NO_MARK_COMMITS)));
 }
 
 function currentOf(trace: SourceTrace): string | null {
