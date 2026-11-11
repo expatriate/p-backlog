@@ -287,7 +287,8 @@ export const coreEn: CoreMessages = {
   closedNotSwept: (error) => `Could not delete closed tasks: ${error}`,
   serviceLogNotTrimmed: (error) => `Could not trim the service log: ${error}`,
   candidatesRecordFailed: (projectId, detail) => `Could not record candidates to the ${projectId} journal: ${detail}`,
-  branchOriginsReadFailed: (projectId, detail) => `Could not read the ${projectId} journal — tasks from unmerged branches are checked as usual: ${detail}`,
+  markCommitsReadFailed: (projectId, detail) =>
+    `Could not read the ${projectId} journal — the commits tasks were created and confirmed on are unknown: tasks from unmerged branches are checked as usual, and the code at the mark is taken from the reflog: ${detail}`,
   unreadableSkipped: (path, detail) => `Could not read ${path}, skipped: ${detail}`,
   settingsNotSaved: (path, detail) => `Could not save the language to ${path}: ${detail}. It is detected again on every run — make the backlog directory writable.`,
   settingsFileInvalid: (path) => `${path} could not be parsed, the language for this run was detected automatically. The file was not changed — fix it manually.`,

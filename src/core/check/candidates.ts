@@ -31,6 +31,8 @@ type AnchorState = { kind: "none" } | ({ kind: "same" | "moved" } & AnchoredSour
 
 export type AnchorStates = ReadonlyMap<string, AnchorState>;
 
+export type AnchoredTask = Pick<Task, "source" | "anchor">;
+
 const MAX_COMMITS = 3;
 
 export function anchorStates(tasks: readonly Task[], facts: RepoFacts): AnchorStates {
@@ -92,7 +94,12 @@ function anchorState(task: Task, facts: RepoFacts): AnchorState {
   return anchorStateIn(task, task.source === undefined ? undefined : facts.texts.get(sourcePath(task.source)));
 }
 
-function anchorStateIn(task: Task, text: string | undefined): AnchorState {
+export function anchorHolds(task: AnchoredTask, text: string | null): boolean {
+  const state = anchorStateIn(task, text ?? undefined);
+  return state.kind === "same" || state.kind === "moved";
+}
+
+function anchorStateIn(task: AnchoredTask, text: string | undefined): AnchorState {
   if (task.anchor === undefined || task.source === undefined || !hasLines(task.source) || !isAnchorFor(task.anchor, task.source)) return { kind: "none" };
   if (text === undefined) return { kind: "none" };
   if (windowMatches(text, task.source, task.anchor)) return { kind: "same", source: task.source, anchor: task.anchor };
@@ -115,8 +122,11 @@ export function presenceOffDisk(path: string, branches: BranchHistory): Presence
 }
 
 function livesOnAnotherBranch(path: string, facts: Extract<BranchHistory, { kind: "read" }>): boolean {
-  const committedIn = (files: ReadonlySet<string>) => [...files].some((file) => isWithin(file, path));
-  return !committedIn(facts.committedHere) && committedIn(facts.committedAnywhere);
+  return !committedIn(facts.committedHere, path) && committedIn(facts.committedAnywhere, path);
+}
+
+export function committedIn(files: ReadonlySet<string>, path: string): boolean {
+  return [...files].some((file) => isWithin(file, path));
 }
 
 function followRenames(path: string, commits: readonly Commit[], mark: number): string | undefined {

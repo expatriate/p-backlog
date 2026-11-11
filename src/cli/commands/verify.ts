@@ -1,13 +1,18 @@
-import { findRepo, relocatedSource, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
+import { explicitSourceRepo, relocatedSource, sourceAnchor, taskRepo, type RepoChoice, type SourceAnchor } from "../../core/check/project-repo";
+import { readMarkCommits } from "../../core/check/project-review";
+import { NO_MARK_COMMITS } from "../../core/check/reviewed-task";
+import { errorText } from "../../core/errors";
 import { formatLocalIso } from "../../core/model/dates";
+import type { Project, Task } from "../../core/model/types";
 import { isClosed } from "../../core/model/graph";
 import { indexOfLoaded, loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import type { TaskChanges } from "../../core/store/update";
 import { applyAll } from "../apply-all";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
-import { projectOf, findTaskOrWarn, repoLookup, sourcePresenceOrWarn } from "../lookups";
+import { projectOf, findTaskOrWarn, repoContext, repoLookup, sourcePresenceOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
+import { readHeadCommit } from "../origin";
 import { taskWriter, type TaskWriter } from "../task-write";
 
 export const verifyCommand: CliCommand = {
@@ -39,16 +44,24 @@ async function verifyOne(id: string, { loaded, source, write, io }: Verification
   }
 
   const project = projectOf(loaded, task);
-  const lookup = repoLookup(io);
-  const repo = project === undefined ? undefined : await findRepo(project, lookup);
-  if (source !== undefined && repo !== undefined && (await sourcePresenceOrWarn(io, repo, source)).kind === "missing") return EXIT.invalid;
-  const target = source ?? (await relocatedSource(repo, task));
+  const choice = project === undefined ? undefined : await verifiedRepo(project, task, source, io);
+  if (source !== undefined && choice !== undefined && (await sourcePresenceOrWarn(io, choice.path, source)).kind === "missing") return EXIT.invalid;
+  const recordIn = choice?.recordIn;
+  const target = source ?? (await relocatedSource(recordIn, task));
   const anchored = target ?? task.source;
-  const anchor = anchored === undefined ? undefined : anchorChange(await sourceAnchor(repo, anchored, lookup.onUnreadable));
-  const written = await write(task, { verified: formatLocalIso(io.now()), source: target, anchor });
+  const anchor = anchored === undefined ? undefined : anchorChange(await sourceAnchor(recordIn, anchored, repoContext(io).onUnreadable));
+  const headCommit = recordIn === undefined ? undefined : await readHeadCommit(recordIn);
+  const written = await write(task, { verified: formatLocalIso(io.now()), source: target, anchor }, { headCommit });
   if (!written.ok) return written.exitCode;
   io.print(target === undefined ? io.cli.verified(id) : io.cli.verifiedWithSource(id, target));
   return EXIT.ok;
+}
+
+async function verifiedRepo(project: Project, task: Task, source: string | undefined, io: CliIo): Promise<RepoChoice | undefined> {
+  const lookup = repoLookup(io);
+  if (source !== undefined) return explicitSourceRepo(project, lookup, source);
+  const marks = project.repos.length > 1 ? await readMarkCommits(io.backlogRoot, project.id, (error) => io.warn(io.core.markCommitsReadFailed(project.id, errorText(error)))) : NO_MARK_COMMITS;
+  return taskRepo(project, lookup, task, marks);
 }
 
 function anchorChange(found: SourceAnchor): TaskChanges["anchor"] {

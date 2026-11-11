@@ -91,7 +91,7 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
   z.object({ ...eventBase, kind: z.literal("priority"), from: recordedEnum(PRIORITIES), to: recordedEnum(PRIORITIES) }),
   z.object({ ...eventBase, kind: z.literal("deleted"), snapshot: taskSnapshotSchema }),
   z.object({ ...eventBase, kind: z.literal("category"), from: recordedEnum(TASK_CATEGORIES).optional(), to: recordedEnum(TASK_CATEGORIES).optional() }),
-  z.object({ ...eventBase, kind: z.literal("verified"), source: z.string().optional() }),
+  z.object({ ...eventBase, kind: z.literal("verified"), source: z.string().optional(), commit: z.string().min(1).optional().catch(undefined) }),
   z.object({
     ...eventBase,
     kind: z.literal("candidate"),
@@ -152,7 +152,7 @@ export function createdEvent(task: Task, now: Date, via: ChangeSource, provenanc
   };
 }
 
-export function changeEvents(before: Task, after: Task, now: Date, via: ChangeSource): JournalEvent[] {
+export function changeEvents(before: Task, after: Task, now: Date, via: ChangeSource, headCommit?: string): JournalEvent[] {
   const at = formatLocalIso(now);
   const events: JournalEvent[] = [];
   if (before.status !== after.status) {
@@ -162,7 +162,7 @@ export function changeEvents(before: Task, after: Task, now: Date, via: ChangeSo
   if (before.priority !== after.priority) events.push({ at, task: after.id, via, kind: "priority", from: before.priority, to: after.priority });
   if (before.category !== after.category) events.push({ at, task: after.id, via, kind: "category", from: before.category, to: after.category });
   if (before.verified !== after.verified) {
-    events.push({ at, task: after.id, via, kind: "verified", source: before.source === after.source ? undefined : after.source });
+    events.push({ at, task: after.id, via, kind: "verified", source: before.source === after.source ? undefined : after.source, commit: headCommit });
   }
   return events;
 }

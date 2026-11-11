@@ -1,12 +1,13 @@
 import { join } from "node:path";
 import type { PathErrorHandler } from "../errors";
 import { openCodeGraph, type CodeGraph } from "../code-review-graph/graph-db";
-import type { CandidateEvidence, CheckMode, FilteredSighting, TaskEvidence, TaskOrigin } from "../journal/events";
+import type { CandidateEvidence, CheckMode, FilteredSighting, TaskEvidence } from "../journal/events";
 import type { Project, Task } from "../model/types";
 import { attemptReportingFailure, readTextIfFile } from "../store/fs-utils";
 import { readJournal } from "../store/journal";
+import { asGitRunner, runGitOutcome, type GitOutcomeRunner } from "../git/run";
 import { codeStateOf, snippetOf } from "./anchor";
-import { commitsKnownAtCreation } from "./known-commits";
+import { commitsKnownAtMark } from "./known-commits";
 import { commitsArrivedLate } from "./late-commits";
 import {
   anchorStates,
@@ -21,13 +22,15 @@ import {
   type CodeReview,
   type ReportedCandidate,
 } from "./candidates";
-import { isReviewable, reviewMark } from "./reviewed-task";
+import { isReviewable, markCommitsIn, reviewMark, type MarkCommits } from "./reviewed-task";
 import { duplicateCandidates } from "./duplicates";
-import { currentSourcesOf, repoDiffs, traceSources, type SourceTraces } from "./current-source";
+import { currentSourcesOf, traceSources, type SourceTraces } from "./current-source";
 import type { CheckProblem } from "./findings";
 import { awaitingMerge } from "./awaiting-merge";
-import { collectRepoFacts, type DiffExcerpt, type RepoFacts } from "./repo-facts";
+import { collectRepoFacts, type DiffExcerpt, type KnownHistory, type RepoFacts } from "./repo-facts";
+import { markLineOf, taskBases, type TaskBases } from "./task-base";
 import { sourcePath } from "../model/source";
+import { tasksByCheckout, type ProjectCheckout } from "./project-repo";
 import type { LateCommits } from "./source-commits";
 import { fileHashes, filterBySymbol, symbolLookup, symbolNames, type SymbolFilterContext, type SymbolFilterResult } from "./symbol-filter";
 
@@ -44,85 +47,137 @@ export type ProjectReview = {
   skipped: string[];
 };
 
-export type ReviewScope = { repo: string | undefined; origins: ReadonlyMap<string, TaskOrigin>; mode: CheckMode; onUnreadable: PathErrorHandler };
+export type ReviewScope = { checkouts: readonly ProjectCheckout[]; marks: MarkCommits; mode: CheckMode; onUnreadable: PathErrorHandler; git?: GitOutcomeRunner | undefined };
 
-type ProjectContext = SymbolFilterContext & { facts: RepoFacts; traces: SourceTraces };
+type RepoReviewScope = Pick<ReviewScope, "marks" | "mode" | "onUnreadable"> & { repo: string; git: GitOutcomeRunner; history: KnownHistory | undefined };
 
-type SymbolSightings = SymbolFilterResult & { plans: AnchorPlan[]; duplicates: Candidate[] };
+type RepoReview = Omit<ProjectReview, "projectId"> & { symbols: ReadonlyMap<string, string | null> };
 
-type LineJudgement = { kept: Candidate[]; linesIntact: string[]; notOnBranch: string[] };
+type ProjectContext = SymbolFilterContext & { facts: RepoFacts; traces: SourceTraces; bases: TaskBases };
+
+type SymbolSightings = SymbolFilterResult & { plans: AnchorPlan[] };
+
+type LineJudgement = { kept: Candidate[]; linesIntact: string[]; onOtherBranch: string[] };
 
 type PlanSettlement = { untouchable: ReadonlySet<string>; relocatable: readonly string[] };
 
-type RepoScope = ReviewScope & { repo: string; facts: RepoFacts; late: LateCommits; graph: CodeGraph | null };
+type RepoScope = RepoReviewScope & { facts: RepoFacts; late: LateCommits; graph: CodeGraph | null; bases: TaskBases };
 
-type SightingScope = Pick<RepoScope, "mode"> & { skipped: ReadonlySet<string> };
-
-type MergeScope = Pick<RepoScope, "repo" | "origins"> & { projectId: string };
+type MergeScope = Pick<RepoScope, "repo" | "marks" | "git" | "bases"> & { projectId: string };
 
 type MergeJudgement = Pick<ProjectReview, "candidates" | "filtered" | "plans" | "awaitingMerge" | "problems">;
 
-export async function creationOrigins(root: string, projectId: string, onJournalUnreadable: (error: unknown) => void): Promise<Map<string, TaskOrigin>> {
+export async function readMarkCommits(root: string, projectId: string, onJournalUnreadable: (error: unknown) => void): Promise<MarkCommits> {
   const journal = await readJournal(join(root, projectId), projectId).catch((error: unknown) => {
     onJournalUnreadable(error);
     return null;
   });
-  return new Map((journal?.events ?? []).flatMap((event) => (event.kind === "created" && event.origin !== undefined ? [[event.task, event.origin] as const] : [])));
+  return markCommitsIn(journal?.events ?? []);
 }
 
-export async function projectReview(project: Project, allTasks: readonly Task[], { repo, origins, mode, onUnreadable }: ReviewScope): Promise<ProjectReview> {
+export async function projectReview(project: Project, allTasks: readonly Task[], { checkouts, git = runGitOutcome, ...scope }: ReviewScope): Promise<ProjectReview> {
   const tasks = allTasks.filter((task) => task.projectId === project.id && isReviewable(task));
   const nothing = { projectId: project.id, candidates: [], filtered: [], plans: [], problems: [], unchecked: [], awaitingMerge: [], skipped: [] };
   if (tasks.length === 0) return nothing;
-  if (repo === undefined) return { ...nothing, candidates: mode === "full" ? duplicateCandidates(tasks) : [], unchecked: [...evidenceOf(tasks, "source-changed"), ...evidenceOf(tasks, "source-missing")] };
+  if (checkouts.length === 0)
+    return { ...nothing, candidates: scope.mode === "full" ? duplicateCandidates(tasks) : [], unchecked: [...evidenceOf(tasks, "source-changed"), ...evidenceOf(tasks, "source-missing")] };
 
-  const facts = await collectRepoFacts(repo, earliestMarks(tasks));
+  const reviews = await Promise.all(
+    (await tasksByCheckout(checkouts, tasks, scope.marks)).map(async ({ checkout, tasks: own, unsettled, history }) => {
+      const review = await repoReview(project, own, { ...scope, repo: checkout.path, git, history });
+      return { ...review, plans: checkout.linkedWorktree ? [] : review.plans.filter((plan) => !unsettled.has(plan.id)) };
+    }),
+  );
+  const skipped = new Set(reviews.flatMap((review) => review.skipped));
+  const symbols = new Map(reviews.flatMap((review) => [...review.symbols]));
+  const duplicates = scope.mode === "full" ? duplicateCandidates(tasks, (task) => symbols.get(task.id) ?? null).filter((candidate) => !skipped.has(candidate.task.id)) : [];
+  return {
+    projectId: project.id,
+    candidates: [...reviews.flatMap((review) => review.candidates), ...duplicates],
+    filtered: reviews.flatMap((review) => review.filtered),
+    plans: reviews.flatMap((review) => review.plans),
+    problems: reviews.flatMap((review) => review.problems),
+    unchecked: reviews.flatMap((review) => review.unchecked),
+    awaitingMerge: reviews.flatMap((review) => review.awaitingMerge),
+    skipped: [...skipped],
+  };
+}
+
+async function repoReview(project: Project, tasks: readonly Task[], scope: RepoReviewScope): Promise<RepoReview> {
+  const { repo, marks, mode, onUnreadable, git } = scope;
+  const facts = await collectRepoFacts(repo, earliestMarks(tasks), scope.history, git);
   for (const [path, error] of facts.unreadable) onUnreadable(join(repo, path), error);
   const skipped = new Set(tasks.filter((task) => task.source !== undefined && facts.unreadable.has(sourcePath(task.source))).map((task) => task.id));
   const readable = tasks.filter((task) => !skipped.has(task.id));
   const graph = openCodeGraph(repo);
   try {
     const anchors = anchorStates(readable, facts);
-    const question = { repo, tasks: readable, facts, anchors, origins };
-    const knownCommits = await commitsKnownAtCreation(question);
-    const late = await commitsArrivedLate({ ...question, knownCommits });
-    const scope: RepoScope = { repo, facts, late, origins, mode, onUnreadable, graph };
-    const review = await withRenamesFollowed(codeReview(readable, { facts, late }, knownCommits, anchors), readable, scope);
-    const context = await projectContext(readable, review, scope);
-    const sighted = await sightedBySymbol(tasks, review, context, { mode, skipped });
-    const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, { repo, origins, projectId: project.id });
-    return { projectId: project.id, ...judged, skipped: [...skipped], problems: [...historyProblems(project, repo, facts), ...mergeProblems], unchecked: uncheckedEvidence(tasks, anchors, facts) };
+    const bases = taskBases(repo, marks, git);
+    const question = { repo, tasks: readable, facts, anchors, marks, bases };
+    const knownCommits = await commitsKnownAtMark({ ...question, git: asGitRunner(git) });
+    const { late, unknown: lateUnknown } = await commitsArrivedLate({ ...question, knownCommits, git });
+    const repoScope: RepoScope = { ...scope, facts, late, graph, bases };
+    const review = await withRenamesFollowed(codeReview(readable, { facts, late }, knownCommits, anchors), readable, repoScope);
+    const context = await projectContext(readable, review, repoScope);
+    const sighted = await sightedBySymbol(review, context);
+    const { problems: mergeProblems, ...judged } = await judgedAgainstMerges(sighted, context, { repo, marks, projectId: project.id, git, bases });
+    return {
+      ...judged,
+      skipped: [...skipped],
+      problems: [...historyProblems(project, repo, facts), ...mergeProblems],
+      unchecked: uncheckedEvidence(tasks, anchors, facts, lateUnknown),
+      symbols: mode === "full" ? repoSymbolNames(repo, readable, context) : new Map(),
+    };
   } finally {
     graph?.close();
   }
 }
 
-async function projectContext(tasks: readonly Task[], review: CodeReview, { repo, facts, late, origins, mode, onUnreadable, graph }: RepoScope): Promise<ProjectContext> {
-  const diffs = repoDiffs(repo, origins);
+function repoSymbolNames(repo: string, tasks: readonly Task[], { symbolAt, located }: ProjectContext): Map<string, string | null> {
+  const symbolOf = symbolNames(symbolAt, located);
+  return new Map(
+    tasks.map((task) => {
+      const name = symbolOf(task);
+      return [task.id, name === null ? null : `${repo}\0${name}`];
+    }),
+  );
+}
+
+async function projectContext(tasks: readonly Task[], review: CodeReview, { repo, facts, late, mode, onUnreadable, graph, bases }: RepoScope): Promise<ProjectContext> {
   const symbolAt = symbolLookup(graph, fileHashes(repo, onUnreadable));
   const changedIds = new Set(review.candidates.flatMap((candidate) => (candidate.kind === "source-changed" ? [candidate.task.id] : [])));
   const locating = mode === "full" && graph !== null ? tasks : tasks.filter((task) => changedIds.has(task.id));
-  const traces = await traceSources(locating, { facts, late }, diffs);
-  return { tasksById: new Map(tasks.map((task) => [task.id, task])), located: currentSourcesOf(traces), traces, facts, diffOf: diffs.sinceTaskMark, symbolAt };
+  const traces = await traceSources(locating, { facts, late }, bases);
+  return { tasksById: new Map(tasks.map((task) => [task.id, task])), located: currentSourcesOf(traces), traces, facts, diffOf: bases.diffSinceBase, bases, symbolAt };
 }
 
-async function sightedBySymbol(tasks: readonly Task[], review: CodeReview, context: ProjectContext, { mode, skipped }: SightingScope): Promise<SymbolSightings> {
-  const duplicates = mode === "full" ? duplicateCandidates(tasks, symbolNames(context.symbolAt, context.located)).filter((candidate) => !skipped.has(candidate.task.id)) : [];
+async function sightedBySymbol(review: CodeReview, context: ProjectContext): Promise<SymbolSightings> {
   const byLines = judgedByLines(review.candidates, context.traces);
   const { kept, filtered } = await filterBySymbol(byLines.kept, context);
+  const relocatable = [...filtered.map((sighting) => sighting.task), ...byLines.linesIntact];
+  const markedOffThisLine = await unanchoredMarkedOffThisLine(
+    review.plans.map((plan) => plan.id),
+    context,
+  );
   const settlement: PlanSettlement = {
-    untouchable: new Set([...kept.map((candidate) => candidate.task.id), ...byLines.notOnBranch]),
-    relocatable: [...filtered.map((sighting) => sighting.task), ...byLines.linesIntact],
+    untouchable: new Set([...kept.map((candidate) => candidate.task.id), ...byLines.onOtherBranch, ...markedOffThisLine]),
+    relocatable,
   };
-  return { kept, filtered, plans: settledPlans(review.plans, settlement, context), duplicates };
+  return { kept, filtered, plans: settledPlans(review.plans, settlement, context) };
 }
 
-async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectContext, { repo, origins, projectId }: MergeScope): Promise<MergeJudgement> {
-  const { pending, unknownBranches } = await awaitingMerge({ repo, taskIds: involvedTaskIds(sighted), origins });
+async function unanchoredMarkedOffThisLine(ids: readonly string[], { tasksById, bases }: ProjectContext): Promise<Set<string>> {
+  const unanchored = tasksOf([...new Set(ids)], tasksById).filter((task) => task.anchor === undefined);
+  const lines = await Promise.all(unanchored.map(async (task) => ({ id: task.id, line: markLineOf(await bases.baseOf(task)) })));
+  return new Set(lines.filter(({ line }) => line !== "this-line").map(({ id }) => id));
+}
+
+async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectContext, { repo, marks, projectId, git, bases }: MergeScope): Promise<MergeJudgement> {
+  const { pending, unknownBranches } = await awaitingMerge({ repo, tasks: tasksOf(involvedTaskIds(sighted), context.tasksById), marks, git, bases });
   const judged = (id: string) => !pending.has(id);
   const code = await Promise.all(sighted.kept.filter((candidate) => judged(candidate.task.id)).map((candidate) => withContext(candidate, context)));
   return {
-    candidates: [...code, ...sighted.duplicates],
+    candidates: code,
     filtered: sighted.filtered.filter((sighting) => judged(sighting.task)),
     plans: sighted.plans.filter((plan) => judged(plan.id)),
     awaitingMerge: [...pending],
@@ -131,10 +186,10 @@ async function judgedAgainstMerges(sighted: SymbolSightings, context: ProjectCon
 }
 
 function judgedByLines(candidates: readonly Candidate[], traces: SourceTraces): LineJudgement {
-  const judgement: LineJudgement = { kept: [], linesIntact: [], notOnBranch: [] };
+  const judgement: LineJudgement = { kept: [], linesIntact: [], onOtherBranch: [] };
   for (const candidate of candidates) {
     const trace = candidate.kind === "source-changed" && candidate.method === "anchor" ? traces.get(candidate.task.id) : undefined;
-    if (trace?.kind === "not-on-branch") judgement.notOnBranch.push(candidate.task.id);
+    if (trace?.kind === "other-branch") judgement.onOtherBranch.push(candidate.task.id);
     else if (trace?.kind === "traced" && !trace.linesChanged) judgement.linesIntact.push(candidate.task.id);
     else judgement.kept.push(candidate);
   }
@@ -157,12 +212,16 @@ async function withRenamesFollowed(review: CodeReview, tasks: readonly Task[], {
   };
 }
 
+function tasksOf(ids: readonly string[], tasksById: ReadonlyMap<string, Task>): Task[] {
+  return ids.flatMap((id) => tasksById.get(id) ?? []);
+}
+
 function involvedTaskIds({ kept, filtered, plans }: SymbolSightings): string[] {
   return [...new Set([...kept.map((candidate) => candidate.task.id), ...filtered.map((sighting) => sighting.task), ...plans.map((plan) => plan.id)])];
 }
 
-function uncheckedEvidence(tasks: readonly Task[], anchors: AnchorStates, { history, branches, existing }: RepoFacts): TaskEvidence[] {
-  const changeUnchecked = history === "read" ? [] : tasks.filter((task) => judgedByCommits(task, anchors));
+function uncheckedEvidence(tasks: readonly Task[], anchors: AnchorStates, { history, branches, existing }: RepoFacts, lateUnknown: ReadonlySet<string>): TaskEvidence[] {
+  const changeUnchecked = tasks.filter((task) => (history === "read" ? lateUnknown.has(task.id) : judgedByCommits(task, anchors)));
   const missingUnchecked = branches.kind === "unreadable" ? tasks.filter((task) => task.source !== undefined && !existing.has(sourcePath(task.source))) : [];
   return [...evidenceOf(changeUnchecked, "source-changed"), ...evidenceOf(missingUnchecked, "source-missing")];
 }

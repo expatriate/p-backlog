@@ -1,7 +1,7 @@
 import { isClosed } from "../../core/model/graph";
 import { normalizeClosingReason, RESOLUTION_STATUS, scheduledDeletion } from "../../core/model/lifecycle";
 import type { Task } from "../../core/model/types";
-import { findRepo, hasCommit } from "../../core/check/project-repo";
+import { hasCommit, projectCheckouts } from "../../core/check/project-repo";
 import { reasonHashes } from "../../core/stats/code/fixes";
 import { indexOfLoaded, loadBacklog, type LoadedBacklog } from "../../core/store/load";
 import { indexWithWritten } from "../../core/store/write-result";
@@ -64,7 +64,7 @@ async function runClose(args: string[], io: CliIo): Promise<ExitCode> {
   }
 
   const index = indexOfLoaded(loaded);
-  const written = await taskWriter(io, index)(task, { status, related }, { resolution, reason });
+  const written = await taskWriter(io, index)(task, { status, related }, { closure: { resolution, reason } });
   if (!written.ok) return written.exitCode;
   const deletion = scheduledDeletion(written.task, indexWithWritten(index, [written]));
   const change = attachesFix ? status : `${task.status} → ${status}`;
@@ -81,8 +81,8 @@ function originalProblem(cli: CliMessages, task: Task, original: Task): string |
 
 async function fixCommitFound(loaded: LoadedBacklog, task: Task, reason: string, io: CliIo): Promise<boolean> {
   const project = projectOf(loaded, task);
-  const repo = project === undefined ? undefined : await findRepo(project, repoLookup(io));
-  if (repo === undefined) return true;
-  for (const sha of reasonHashes(reason)) if (await hasCommit(repo, sha)) return true;
+  const checkouts = project === undefined ? [] : await projectCheckouts(project, repoLookup(io));
+  if (checkouts.length === 0) return true;
+  for (const sha of reasonHashes(reason)) for (const { path } of checkouts) if (await hasCommit(path, sha)) return true;
   return false;
 }

@@ -37,7 +37,7 @@ async function runPrune(args: string[], io: CliIo): Promise<ExitCode> {
 
   const write = taskWriter(io, indexOfLoaded(loaded));
   return applyAll(stale, async (task) => {
-    const written = await write(task, { status: "cancelled" }, { resolution: "obsolete", reason: io.cli.pruneReason(STALE_LOW_DAYS) });
+    const written = await write(task, { status: "cancelled" }, { closure: { resolution: "obsolete", reason: io.cli.pruneReason(STALE_LOW_DAYS) } });
     if (!written.ok) return written.exitCode;
     io.print(io.cli.taskCancelled(task.id));
     return EXIT.ok;

@@ -42,6 +42,10 @@ export function gitMergeSquash(repo: string, branch: string): void {
   execFileSync("git", [...TEST_COMMITTER, "merge", "--squash", "-q", branch], { cwd: repo, stdio: "pipe" });
 }
 
+export function gitAmend(repo: string, message: string, isoDate: string): void {
+  execFileSync("git", [...TEST_COMMITTER, "commit", "-q", "--amend", "-m", message], { cwd: repo, env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
+}
+
 export function gitRebase(repo: string, onto: string, isoDate: string): void {
   execFileSync("git", [...TEST_COMMITTER, "rebase", "-q", onto], { cwd: repo, stdio: "pipe", env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
 }
@@ -50,8 +54,12 @@ export function gitRebaseMerge(repo: string, branch: string, isoDate: string): v
   execFileSync("git", [...TEST_COMMITTER, "cherry-pick", `HEAD..${branch}`], { cwd: repo, env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
 }
 
+function committerEnv(at: string | undefined): NodeJS.ProcessEnv {
+  return at === undefined ? process.env : { ...process.env, GIT_COMMITTER_DATE: at };
+}
+
 export function gitCheckout(repo: string, branch: string, { create = false, at }: { create?: boolean; at?: string } = {}): void {
-  execFileSync("git", ["checkout", "-q", ...(create ? ["-b"] : []), branch], { cwd: repo, env: at === undefined ? process.env : { ...process.env, GIT_COMMITTER_DATE: at } });
+  execFileSync("git", ["checkout", "-q", ...(create ? ["-b"] : []), branch], { cwd: repo, env: committerEnv(at) });
 }
 
 export function gitMergeFastForward(repo: string, branch: string, isoDate: string): void {
@@ -62,8 +70,8 @@ export function gitShortHead(repo: string): string {
   return execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
 }
 
-export function gitAddWorktree(repo: string, path: string, branch: string): void {
-  execFileSync("git", ["worktree", "add", "-q", "-b", branch, path], { cwd: repo });
+export function gitAddWorktree(repo: string, path: string, branch: string, at?: string): void {
+  execFileSync("git", ["worktree", "add", "-q", "-b", branch, path], { cwd: repo, env: committerEnv(at) });
 }
 
 export async function writeFiles(root: string, files: Record<string, string>): Promise<void> {

@@ -3,7 +3,7 @@ import type { Project, Task } from "../model/types";
 import { sourcePath } from "../model/source";
 import { sourceRange } from "./anchor";
 import { isReviewable } from "./reviewed-task";
-import { findRepo } from "./project-repo";
+import { projectCheckouts } from "./project-repo";
 import { fileHashes, symbolLookup, symbolOfSource, type FileHashes } from "./symbol-filter";
 
 export type GraphState = "none" | "unreadable" | "stale" | "fresh";
@@ -12,7 +12,7 @@ export type GraphHealth = { state: GraphState; pinned: number; resolved: number 
 
 export async function projectGraphHealth(project: Project, tasks: readonly Task[], home: string): Promise<GraphHealth> {
   return graphHealth(
-    await findRepo(project, { home, onUnreadable: unreadableRepoHasNoGraph, workingRoots: null }),
+    (await projectCheckouts(project, { home, onUnreadable: unreadableRepoHasNoGraph, workingRoots: null }))[0]?.path,
     tasks.filter((task) => task.projectId === project.id),
   );
 }

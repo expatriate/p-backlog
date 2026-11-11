@@ -10,6 +10,10 @@ export type GitOutcome = { status: "ok"; stdout: string } | { status: "exited"; 
 
 export type GitOutcomeRunner = (repo: string, args: string[], input?: string) => Promise<GitOutcome>;
 
+export type HeadAncestry = "ancestor" | "not-ancestor" | "missing" | "unknown";
+
+export type CloneCompleteness = "shallow" | "full" | "unknown";
+
 export const PARSED_DIFF_OPTIONS = ["--no-color", "--no-ext-diff", "--no-textconv"] as const;
 
 export const RECORD = "\x1e";
@@ -17,17 +21,34 @@ export const FIELD = "\x1f";
 
 const runFile = promisify(execFile);
 const GIT_OUTPUT_LIMIT = 64 * BYTES_PER_MEBIBYTE;
-const GREP_NO_MATCH_EXIT = 1;
+const FOUND_NOTHING_EXIT = 1;
+const NOT_AN_ANCESTOR_EXIT = 1;
 const GIT_PROCESS_LIMIT = 8;
 const FULL_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const FOUND_OBJECT_FIELDS = 3;
+
+const REPOSITORY_BOUND_ENV: ReadonlySet<string> = new Set([
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_COMMON_DIR",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_SHALLOW_FILE",
+  "GIT_GRAFT_FILE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_NAMESPACE",
+  "GIT_PREFIX",
+]);
 
 const gitProcessSlot = createLimiter(GIT_PROCESS_LIMIT);
 
 export const runGitOutcome: GitOutcomeRunner = (repo, args, input) =>
   gitProcessSlot(async () => {
     try {
-      const running = runFile("git", gitArgs(repo, args), { maxBuffer: GIT_OUTPUT_LIMIT });
+      const running = runFile("git", gitArgs(repo, args), { maxBuffer: GIT_OUTPUT_LIMIT, env: envForRepoGit() });
       running.child.stdin?.on("error", ignoreStdinOfExitedGit).end(input);
       const { stdout } = await running;
       return { status: "ok", stdout };
@@ -40,8 +61,12 @@ export const runGitOutcome: GitOutcomeRunner = (repo, args, input) =>
 export function asGitRunner(git: GitOutcomeRunner): GitRunner {
   return async (repo, args, input) => {
     const outcome = await git(repo, args, input);
-    return args[0] === "grep" && outcome.status === "exited" && outcome.exitCode === GREP_NO_MATCH_EXIT ? "" : stdoutOf(outcome);
+    return outcome.status === "exited" && outcome.exitCode === FOUND_NOTHING_EXIT && reportsNothingFoundByExitOne(args) ? "" : stdoutOf(outcome);
   };
+}
+
+function reportsNothingFoundByExitOne(args: readonly string[]): boolean {
+  return args[0] === "grep" || (args[0] === "merge-base" && !args.includes("--is-ancestor"));
 }
 
 export const runGit: GitRunner = asGitRunner(runGitOutcome);
@@ -77,7 +102,7 @@ export function topLiteralPathspecs(paths: readonly string[]): string[] {
 
 export function runGitSync(repo: string, args: string[]): string | null {
   try {
-    return execFileSync("git", gitArgs(repo, args), { encoding: "utf8", maxBuffer: GIT_OUTPUT_LIMIT, stdio: ["ignore", "pipe", "ignore"] });
+    return execFileSync("git", gitArgs(repo, args), { encoding: "utf8", maxBuffer: GIT_OUTPUT_LIMIT, stdio: ["ignore", "pipe", "ignore"], env: envForRepoGit() });
   } catch (error) {
     if (isChildProcessFailure(error)) return null;
     throw error;
@@ -86,6 +111,11 @@ export function runGitSync(repo: string, args: string[]): string | null {
 
 function isChildProcessFailure(error: unknown): boolean {
   return typeof error === "object" && error !== null && "status" in error;
+}
+
+function envForRepoGit(): NodeJS.ProcessEnv {
+  // eslint-disable-next-line no-restricted-properties -- git inherits the user's environment, but the variables git sets for a hook's repository must not override -C <repo>
+  return Object.fromEntries(Object.entries(process.env).filter(([name]) => !REPOSITORY_BOUND_ENV.has(name)));
 }
 
 function gitArgs(repo: string, args: readonly string[]): string[] {
@@ -127,6 +157,21 @@ async function resolveObjects<T>(git: GitRunner, repo: string, revisions: readon
       return name === null ? [] : [[revision, name]];
     }),
   );
+}
+
+export async function headAncestryOf(git: GitOutcomeRunner, repo: string, commit: string): Promise<HeadAncestry> {
+  const answer = await git(repo, ["merge-base", "--is-ancestor", commit, "HEAD"]);
+  if (answer.status === "ok") return "ancestor";
+  if (answer.status === "exited" && answer.exitCode === NOT_AN_ANCESTOR_EXIT) return "not-ancestor";
+  const present = await resolveCommits(asGitRunner(git), repo, [commit]);
+  return present !== null && !present.has(commit) ? "missing" : "unknown";
+}
+
+export async function cloneCompletenessOf(git: GitRunner, repo: string): Promise<CloneCompleteness> {
+  const answer = outputLine(await git(repo, ["rev-parse", "--is-shallow-repository"]));
+  if (answer === "true") return "shallow";
+  if (answer === "false") return "full";
+  return "unknown";
 }
 
 function stderrOf(error: unknown): string {

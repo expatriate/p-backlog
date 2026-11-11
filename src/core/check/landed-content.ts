@@ -1,6 +1,6 @@
 import { groupBy } from "../collections";
 import { firstParentLanding } from "../git/landing";
-import { commitHashOf, outputLine, PARSED_DIFF_OPTIONS, resolveCommits, resolveTrees, topLiteralPathspecs, type CommitHash, type GitRunner } from "../git/run";
+import { cloneCompletenessOf, commitHashOf, outputLine, PARSED_DIFF_OPTIONS, resolveCommits, resolveTrees, topLiteralPathspecs, type CommitHash, type GitRunner } from "../git/run";
 import { remembered } from "../remembered";
 import { firstLineOf, hunkHeaderOf, patchShapes, type BlobPair, type ChangeStart, type HunkHeader } from "./diff-hunks";
 
@@ -46,6 +46,7 @@ export type LandingState = "landed" | "pending" | "unknown";
 
 export async function landingState(repo: string, tip: CommitHash, git: GitRunner): Promise<LandingState> {
   const fork = await forkAt(repo, "HEAD", tip, git);
+  if (fork === "unrelated") return (await cloneCompletenessOf(git, repo)) === "full" ? "pending" : "unknown";
   if (fork === null) return "unknown";
   const view: ForkView = { ...fork, repo, historyOptions: [], git };
   const changed = await branchChanges(view, []);
@@ -90,18 +91,24 @@ async function commitsCarrying(view: ForkView, scope: readonly string[]): Promis
   return carrying.flat();
 }
 
-async function forkAt(repo: string, head: string, tip: CommitHash, git: GitRunner): Promise<Fork | null> {
-  const base = commitHashOf(outputLine(await git(repo, ["merge-base", head, tip])));
+async function forkAt(repo: string, head: string, tip: CommitHash, git: GitRunner): Promise<Fork | "unrelated" | null> {
+  const mergeBase = await git(repo, ["merge-base", head, tip]);
+  if (mergeBase?.trim() === "") return "unrelated";
+  const base = commitHashOf(outputLine(mergeBase));
   return base === null ? null : { base, tip, head };
 }
 
 async function forkBeforeLanding(repo: string, revision: string, git: GitRunner): Promise<Fork | null> {
   const tip = (await resolveCommits(git, repo, [revision]))?.get(revision);
   if (tip === undefined) return null;
-  const fork = await forkAt(repo, "HEAD", tip, git);
+  const sharedHistoryFork = async (head: string) => {
+    const fork = await forkAt(repo, head, tip, git);
+    return fork === "unrelated" ? null : fork;
+  };
+  const fork = await sharedHistoryFork("HEAD");
   if (fork === null || !tipInHead(fork)) return fork;
   const landing = await firstParentLanding(git, repo, tip, "HEAD");
-  return landing === null ? fork : forkAt(repo, landing.firstParent, tip, git);
+  return landing === null ? fork : sharedHistoryFork(landing.firstParent);
 }
 
 function tipInHead({ base, tip }: Fork): boolean {
