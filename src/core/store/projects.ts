@@ -4,7 +4,7 @@ import type { PathErrorHandler } from "../errors";
 import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { Problem } from "../model/problems";
 import type { ParseResult, Project } from "../model/types";
-import { withFileLock } from "./file-lock";
+import { withWriteLock } from "./file-lock";
 import { fileExists, readTextOrNull } from "./fs-utils";
 import { writeFileAtomic } from "./atomic-write";
 import { projectDirNames } from "./load";
@@ -43,23 +43,19 @@ export async function readProjectFile({ id, path }: Pick<Project, "id" | "path">
 
 async function editProjectFile({ id, path }: Pick<Project, "id" | "path">, onError: PathErrorHandler, edit: (project: Project) => Project): Promise<ProjectWriteResult> {
   if (!(await fileExists(path))) return NOT_FOUND;
-  let written: ProjectWriteResult | null = null;
-  try {
-    return await withFileLock(path, async () => {
+  return withWriteLock(
+    path,
+    async (afterPublish) => {
       const parsed = await readProjectFile({ id, path });
       if (parsed === null) return NOT_FOUND;
       if (!parsed.ok) return { ok: false, reason: "invalid", problems: parsed.problems };
       const project = edit(parsed.value);
       const changed = project !== parsed.value;
-      if (changed) await writeFileAtomic(path, serializeProject(project), { onErrorAfterPublish: onError });
-      written = { ok: true, project, changed };
-      return written;
-    });
-  } catch (error) {
-    if (written === null) throw error;
-    onError(path, error);
-    return written;
-  }
+      if (changed) await writeFileAtomic(path, serializeProject(project), afterPublish);
+      return { ok: true, project, changed };
+    },
+    { onErrorAfterPublish: onError },
+  );
 }
 
 export async function deleteProject(root: string, id: string): Promise<ProjectDeleteResult> {

@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import { rm, utimes, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { errorCode, hasErrorCode } from "../errors";
+import { errorCode, hasErrorCode, type PathErrorHandler } from "../errors";
 import { SECOND_MS } from "../model/dates";
+import type { AfterPublish } from "./atomic-write";
 import { blockedOnWindows, onWindows, readTextOrNull, retryWhileBlockedOnWindows, statOrNull } from "./fs-utils";
 
 const RETRY_MS = 10;
@@ -40,43 +41,70 @@ type Holder = { token: string; changedAt: number };
 
 type HolderOutcome = Holder | Refusal | null;
 
-export async function withFileLock<T>(path: string, action: () => Promise<T>, options: LockOptions = {}): Promise<T> {
+export function lockPathOf(path: string): string {
+  return join(dirname(path), `.${basename(path)}.lock`);
+}
+
+export async function withWriteLock<T>(path: string, write: (afterPublish: AfterPublish) => Promise<T>, { onErrorAfterPublish, ...options }: AfterPublish & LockOptions): Promise<T> {
   const held = await acquire(path, options);
   if (held instanceof Refusal) throw held.error;
-  try {
-    return await action();
-  } finally {
-    await release(held);
-  }
+  return releasingAfter([held], () => write({ onErrorAfterPublish }), onErrorAfterPublish);
 }
 
-export async function withAvailableLocks<T>(paths: readonly string[], action: (locked: ReadonlySet<string>) => Promise<T>, { waitLimitMs = DEFAULT_WAIT_LIMIT_MS }: LockOptions = {}): Promise<T> {
+export async function withAvailableLocks<T>(
+  paths: readonly string[],
+  action: (locked: ReadonlySet<string>) => Promise<T>,
+  { waitLimitMs = DEFAULT_WAIT_LIMIT_MS, onErrorAfterPublish }: AfterPublish & LockOptions,
+): Promise<T> {
   const held: HeldLock[] = [];
   const giveUpAt = Date.now() + waitLimitMs;
-  try {
-    for (const path of [...paths].sort()) {
-      try {
-        const acquired = await acquire(path, { waitLimitMs: giveUpAt - Date.now() });
-        if (!(acquired instanceof Refusal)) held.push(acquired);
-      } catch (error) {
-        if (!(error instanceof FileBusyError)) throw error;
+  return releasingAfter(
+    held,
+    async () => {
+      for (const path of [...paths].sort()) {
+        try {
+          const acquired = await acquire(path, { waitLimitMs: giveUpAt - Date.now() });
+          if (!(acquired instanceof Refusal)) held.push(acquired);
+        } catch (error) {
+          if (!(error instanceof FileBusyError)) throw error;
+        }
       }
-    }
-    return await action(new Set(held.map(({ path }) => path)));
-  } finally {
-    await releaseAll(held);
-  }
+      return action(new Set(held.map(({ path }) => path)));
+    },
+    onErrorAfterPublish,
+  );
 }
 
-async function releaseAll(held: readonly HeldLock[]): Promise<void> {
-  const failure = (await Promise.allSettled(held.map(release))).find((result) => result.status === "rejected");
-  if (failure !== undefined) throw failure.reason;
+async function releasingAfter<T>(held: readonly HeldLock[], action: () => Promise<T>, onErrorAfterPublish: PathErrorHandler): Promise<T> {
+  let outcome: T;
+  try {
+    outcome = await action();
+  } catch (error) {
+    const [failure] = await releaseFailures(held);
+    throw failure === undefined ? error : failure.error;
+  }
+  for (const { path, error } of await releaseFailures(held)) onErrorAfterPublish(path, error);
+  return outcome;
+}
+
+type ReleaseFailure = { path: string; error: unknown };
+
+async function releaseFailures(held: readonly HeldLock[]): Promise<ReleaseFailure[]> {
+  const failures = await Promise.all(
+    held.map((lock) =>
+      release(lock).then(
+        (): ReleaseFailure[] => [],
+        (error: unknown) => [{ path: lock.path, error }],
+      ),
+    ),
+  );
+  return failures.flat();
 }
 
 type RefusalStreak = { refusal: Refusal; since: number };
 
 async function acquire(path: string, { waitLimitMs = DEFAULT_WAIT_LIMIT_MS }: LockOptions): Promise<HeldLock | Refusal> {
-  const lock = join(dirname(path), `.${basename(path)}.lock`);
+  const lock = lockPathOf(path);
   const token = `${process.pid} ${randomUUID()}`;
   const giveUpAt = Date.now() + waitLimitMs;
   let streak: RefusalStreak | null = null;

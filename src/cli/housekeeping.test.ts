@@ -7,6 +7,7 @@ import { appendRun } from "../core/store/runs";
 import { SWEPT_AT_FILE } from "../core/store/sweep";
 import { readRuns } from "../core/store/testing/runs";
 import { createdLine, journalWithTaskGoneLongAgo } from "../core/store/testing/stale-journal";
+import { failOnPathError } from "../core/store/testing/path-errors";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import { tidyAfterCommand } from "./housekeeping";
 
@@ -57,8 +58,8 @@ describe("уборка после команды CLI", () => {
   it("хук хода агента обрезает устаревший журнал запусков — иначе без службы он растёт с каждым ходом", async () => {
     const root = await makeTempDir();
     const run = (daysAgo: number, command: string) => ({ at: formatLocalIso(new Date(NOW.getTime() - daysAgo * DAY_MS)), command, cwd: "/repo", ms: 1, rssMb: 1, exitCode: 0 });
-    await appendRun(root, run(200, "old"));
-    await appendRun(root, run(1, "recent"));
+    await appendRun(root, run(200, "old"), failOnPathError);
+    await appendRun(root, run(1, "recent"), failOnPathError);
 
     await tidyIn(root)("hook stop");
 

@@ -48,7 +48,7 @@ export function sweepClosedWhenDue(root: string, writes: SweepWrites, messages: 
 }
 
 export function sweepClosedAndStamp(root: string, writes: SweepWrites, messages: StoreMessages): Promise<SweepReport> {
-  return runAndStamp(join(root, SWEPT_AT_FILE), writes, () => sweepClosed(root, writes, messages));
+  return runAndStamp(join(root, SWEPT_AT_FILE), { now: writes.now, onErrorAfterPublish: writes.onError }, () => sweepClosed(root, writes, messages));
 }
 
 export async function sweepClosed(root: string, writes: SweepWrites, messages: StoreMessages): Promise<SweepReport> {
@@ -101,6 +101,7 @@ async function removeWithReferences(remaining: IndexedTasks, removable: readonly
         const untouched = removable.filter((task) => !unchanged.includes(task)).map(conflict);
         return { deleted: removal.deleted, failures: [...updates.failures, ...untouched, ...removal.failures] };
       },
+      { onErrorAfterPublish: writes.onError },
     );
   } finally {
     await journal.flush();

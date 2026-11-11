@@ -1,6 +1,6 @@
 import { mebibytesOf } from "../core/api/memory";
 import { BYTES_PER_KIBIBYTE } from "../core/numbers";
-import { errorText, hasAnyErrorCode, hasErrorCode } from "../core/errors";
+import { errorText, hasAnyErrorCode, hasErrorCode, warnPathErrors } from "../core/errors";
 import { SERVE_COMMAND_NAME } from "../core/serve-command";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -71,6 +71,6 @@ if (command !== SERVE_COMMAND_NAME) {
     exitCode,
   };
   const language = await readLanguageOrLocale(backlogRoot, process.env, alreadyReportedByRunCli);
-  await appendRun(backlogRoot, run).catch((error: unknown) => warn(cliMessages(language).runNotRecorded(errorText(error))));
+  await appendRun(backlogRoot, run, warnPathErrors(warn)).catch((error: unknown) => warn(cliMessages(language).runNotRecorded(errorText(error))));
   await tidyAfterCommand({ backlogRoot, command, language, now: new Date(), warn });
 }

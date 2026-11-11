@@ -1,7 +1,8 @@
 import { mkdir, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { withFileLock } from "./file-lock";
+import type { PathErrorHandler } from "../errors";
+import { withWriteLock } from "./file-lock";
 import { readAt, withExistingFile } from "./fs-utils";
 import { parseJson } from "./json-file";
 import { appendJsonLines, readJsonLines, toJsonLines } from "./json-lines";
@@ -26,22 +27,26 @@ export const cliRunSchema = z.object({
 
 export type CliRun = z.infer<typeof cliRunSchema>;
 
-export async function appendRun(root: string, run: CliRun): Promise<void> {
+export async function appendRun(root: string, run: CliRun, onError: PathErrorHandler): Promise<void> {
   await mkdir(root, { recursive: true });
   const path = join(root, RUNS_FILE);
-  await withFileLock(path, () => appendJsonLines(path, [run]));
+  await withWriteLock(path, (afterPublish) => appendJsonLines(path, [run], afterPublish), { onErrorAfterPublish: onError });
 }
 
 export async function trimRuns(root: string, { now, onError }: WriteContext): Promise<number> {
   const path = join(root, RUNS_FILE);
-  return withFileLock(path, async () => {
-    const { values: runs, invalidLines } = await readJsonLines(path, cliRunSchema);
-    const cutoff = retainedSince(now);
-    const kept = runs.filter((run) => Date.parse(run.at) >= cutoff);
-    const removed = runs.length - kept.length + invalidLines;
-    if (removed > 0) await writeFileAtomic(path, toJsonLines(kept), { onErrorAfterPublish: onError });
-    return removed;
-  });
+  return withWriteLock(
+    path,
+    async (afterPublish) => {
+      const { values: runs, invalidLines } = await readJsonLines(path, cliRunSchema);
+      const cutoff = retainedSince(now);
+      const kept = runs.filter((run) => Date.parse(run.at) >= cutoff);
+      const removed = runs.length - kept.length + invalidLines;
+      if (removed > 0) await writeFileAtomic(path, toJsonLines(kept), afterPublish);
+      return removed;
+    },
+    { onErrorAfterPublish: onError },
+  );
 }
 
 export async function trimRunsWhenStale(root: string, writes: WriteContext): Promise<number> {

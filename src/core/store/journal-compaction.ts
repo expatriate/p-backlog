@@ -5,7 +5,7 @@ import { taskCreation } from "../journal/creation";
 import { episodeOpeners } from "../journal/episodes";
 import { journalEventSchema, type JournalEvent } from "../journal/events";
 import { runWhenDue } from "./daily";
-import { withFileLock } from "./file-lock";
+import { withWriteLock } from "./file-lock";
 import { fileExists, NEWLINE, readBytesOrNull } from "./fs-utils";
 import { parseJson } from "./json-file";
 import { replacePrefixAtomic } from "./atomic-write";
@@ -44,17 +44,21 @@ async function compactProjectWhenDue(dir: string, writes: WriteContext): Promise
 export async function compactJournal(projectDir: string, liveTaskIds: ReadonlySet<string>, { now, onError }: WriteContext): Promise<number> {
   const path = join(projectDir, JOURNAL_FILE);
   if (!(await fileExists(path))) return 0;
-  return withFileLock(path, async () => {
-    const journal = (await readBytesOrNull(path)) ?? Buffer.alloc(0);
-    const completeLines = journal.subarray(0, journal.lastIndexOf(NEWLINE) + 1);
-    const lines = journalLines(completeLines.toString("utf8"));
-    const kept = retainedLines(lines, liveTaskIds, retainedSince(now));
-    const keptLines = new Set(kept);
-    const dropped = lines.filter((line) => !keptLines.has(line));
-    if (dropped.length === 0 || !(await reserveDroppedNumbers(projectDir, dropped, onError))) return 0;
-    const replaced = await replacePrefixAtomic(path, completeLines, kept.map(({ text }) => `${text}\n`).join(""), { onErrorAfterPublish: onError });
-    return replaced ? dropped.length : 0;
-  });
+  return withWriteLock(
+    path,
+    async (afterPublish) => {
+      const journal = (await readBytesOrNull(path)) ?? Buffer.alloc(0);
+      const completeLines = journal.subarray(0, journal.lastIndexOf(NEWLINE) + 1);
+      const lines = journalLines(completeLines.toString("utf8"));
+      const kept = retainedLines(lines, liveTaskIds, retainedSince(now));
+      const keptLines = new Set(kept);
+      const dropped = lines.filter((line) => !keptLines.has(line));
+      if (dropped.length === 0 || !(await reserveDroppedNumbers(projectDir, dropped, onError))) return 0;
+      const replaced = await replacePrefixAtomic(path, completeLines, kept.map(({ text }) => `${text}\n`).join(""), afterPublish);
+      return replaced ? dropped.length : 0;
+    },
+    { onErrorAfterPublish: onError },
+  );
 }
 
 async function reserveDroppedNumbers(projectDir: string, dropped: readonly JournalLine[], onError: PathErrorHandler): Promise<boolean> {

@@ -2,7 +2,8 @@ import { join } from "node:path";
 import { journalEventSchema, type JournalEvent, type ProjectJournal } from "../journal/events";
 import type { PathErrorHandler } from "../errors";
 import { SECOND_MS } from "../model/dates";
-import { FileBusyError, withFileLock } from "./file-lock";
+import { FileBusyError, withWriteLock } from "./file-lock";
+import type { AfterPublish } from "./atomic-write";
 import { BLOCKED_RETRIES_TOTAL_MS } from "./fs-utils";
 import { appendJsonLines, readJsonLines, type JsonLines } from "./json-lines";
 
@@ -12,7 +13,7 @@ export async function appendJournal(projectDir: string, events: readonly Journal
   if (events.length === 0) return;
   const path = join(projectDir, JOURNAL_FILE);
   try {
-    await appendWaitingForLock(path, events);
+    await appendWaitingForLock(path, events, { onErrorAfterPublish: onError });
   } catch (error) {
     onError(path, error);
   }
@@ -21,13 +22,13 @@ export async function appendJournal(projectDir: string, events: readonly Journal
 // On Windows a compacting holder may wait for the project.md lock, then retry blocked renames and lock removals of project.md and of the journal.
 export const JOURNAL_LOCK_WAIT_MS = 4 * BLOCKED_RETRIES_TOTAL_MS + 10 * SECOND_MS;
 
-async function appendWaitingForLock(path: string, events: readonly JournalEvent[]): Promise<void> {
+async function appendWaitingForLock(path: string, events: readonly JournalEvent[], afterPublish: AfterPublish): Promise<void> {
   try {
-    await withFileLock(path, () => appendJsonLines(path, events), { waitLimitMs: JOURNAL_LOCK_WAIT_MS });
+    await withWriteLock(path, (underLock) => appendJsonLines(path, events, underLock), { ...afterPublish, waitLimitMs: JOURNAL_LOCK_WAIT_MS });
   } catch (error) {
     if (!(error instanceof FileBusyError)) throw error;
     // A command must not hang on a stuck journal lock; the wait above outlasts a rewrite with all its Windows rename retries.
-    await appendJsonLines(path, events);
+    await appendJsonLines(path, events, afterPublish);
   }
 }
 

@@ -13,8 +13,14 @@ import { createTask } from "./create";
 import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 import { failOnPathError } from "./testing/path-errors";
+import { failingLockRelease } from "./testing/locks";
 import { updateTask } from "./testing/update-task";
 import { updateTaskInIndex, type TaskChanges } from "./update";
+
+vi.mock("./fs-utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./fs-utils")>();
+  return { ...actual, readTextOrNull: vi.fn(actual.readTextOrNull) };
+});
 
 const NOW = new Date("2026-09-18T12:00:00Z");
 
@@ -50,6 +56,17 @@ describe("updateTask", () => {
     expect(await first).toMatchObject({ ok: true });
   });
 
+  it("сбой снятия блокировки после записи задачи не выдаёт записанную правку за незаписанную: правка в журнале, сбой — в onError", async () => {
+    const root = await setup();
+    const reported: string[] = [];
+
+    const result = await failingLockRelease(join(root, "spa/SPA-2.md"), () => updateTask(root, { id: "SPA-2", changes: { priority: "high" }, now: NOW, via: "cli", onError: (path) => reported.push(path) }));
+
+    expect(result).toMatchObject({ ok: true, task: { priority: "high" } });
+    expect((await readJournal(join(root, "spa"), "spa")).events).toContainEqual(expect.objectContaining({ task: "SPA-2", kind: "priority", to: "high" }));
+    expect(reported).toEqual([join(root, "spa/SPA-2.md")]);
+  });
+
   it("меняет поля, сохраняет неизвестные и возвращает новую версию", async () => {
     const root = await setup();
     const before = await version(root, "SPA-2");
@@ -78,17 +95,25 @@ describe("updateTask", () => {
     });
   });
 
-  it("файл изменили после загрузки снимка — conflict со свежей задачей, правка на диске сохраняется", async () => {
+  it("файл изменили после загрузки снимка — conflict со свежей задачей, правка на диске сохраняется, отвергнутая правка в журнал не попадает", async () => {
     const root = await setup();
     const { tasks } = await loadBacklog(root);
     const edited = taskFile("SPA-2", "epic: SPA-1\nstatus: in-progress\n");
     await writeFiles(root, { "spa/SPA-2.md": edited });
     const snapshotVersion = tasks.find((task) => task.id === "SPA-2")?.version ?? "";
 
-    const result = await updateTaskInIndex(buildIndex(tasks, NO_UNLOADED_TASKS), { id: "SPA-2", changes: { title: "Новое" }, expectedVersion: snapshotVersion, now: NOW, via: "cli", onError: failOnPathError });
+    const result = await updateTaskInIndex(buildIndex(tasks, NO_UNLOADED_TASKS), {
+      id: "SPA-2",
+      changes: { priority: "high" },
+      expectedVersion: snapshotVersion,
+      now: NOW,
+      via: "cli",
+      onError: failOnPathError,
+    });
 
     expect(result).toMatchObject({ ok: false, reason: "conflict", current: { id: "SPA-2", status: "in-progress" } });
     expect(await readFile(join(root, "spa/SPA-2.md"), "utf8")).toBe(edited);
+    expect((await readJournal(join(root, "spa"), "spa")).events).toEqual([]);
   });
 
   it("файл пересохранили не в UTF-8 после загрузки снимка — причина в кодировке, а не конфликт с испорченным текстом", async () => {

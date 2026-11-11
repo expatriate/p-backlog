@@ -5,10 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { PathErrorHandler } from "../errors";
 import { createdEvent, type JournalEvent } from "../journal/events";
 import { makeTask } from "../model/testing/make-task";
-import { withFileLock } from "./file-lock";
 import { readBytesOrNull, readTextOrNull } from "./fs-utils";
 import { appendJournal, JOURNAL_FILE, JOURNAL_LOCK_WAIT_MS, readJournal, readJournals } from "./journal";
 import { compactJournal } from "./journal-compaction";
+import { withLockFailingOnPathError } from "./testing/locks";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
 import { failOnPathError } from "./testing/path-errors";
 
@@ -125,7 +125,7 @@ describe("файл журнала", () => {
     const path = join(dir, JOURNAL_FILE);
     let appended: Promise<void> = Promise.resolve();
 
-    await withFileLock(path, async () => {
+    await withLockFailingOnPathError(path, async () => {
       appended = appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")], failOnPathError);
       await sleep(50);
       expect(await readTextOrNull(path)).toBeNull();
@@ -140,7 +140,7 @@ describe("файл журнала", () => {
     const path = join(dir, JOURNAL_FILE);
     const failures: unknown[] = [];
 
-    await withFileLock(path, () => appendAfterLockWaitRunsOut(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")], (_, error) => failures.push(error)));
+    await withLockFailingOnPathError(path, () => appendAfterLockWaitRunsOut(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")], (_, error) => failures.push(error)));
 
     expect(failures).toEqual([]);
     expect((await readJournal(dir, "spa")).events.map((event) => event.task)).toEqual(["SPA-1"]);

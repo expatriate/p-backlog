@@ -7,8 +7,8 @@ import { parseTaskFile } from "../model/task-file";
 import type { OptionalFields, Task, TaskCategory, TaskStatus } from "../model/types";
 import { changeEvents, statusBeforeAutoClose, type ChangeSource } from "../journal/events";
 import { contentVersion } from "./fs-utils";
-import { writeFileAtomic } from "./atomic-write";
-import { FileBusyError, withFileLock } from "./file-lock";
+import { writeFileAtomic, type AfterPublish } from "./atomic-write";
+import { FileBusyError, withWriteLock } from "./file-lock";
 import { appendingJournal, readJournal, type JournalWriter } from "./journal";
 import { taskText } from "./task-text";
 import { readDocumentOrNull } from "./read-document";
@@ -82,31 +82,27 @@ async function writeChanges(index: BacklogIndex, { id, changes, expectedVersion,
   const problems = [...integrity, ...epicClosingProblems(current, task, index)];
   if (problems.length > 0) return invalid(problems);
 
-  let written = false;
-  try {
-    return await withTaskLock(current.path, async () => {
+  const result = await withTaskLock(
+    current.path,
+    async (afterPublish) => {
       const changedOnDisk = await diskChange(current, expectedVersion);
       if (changedOnDisk !== null) return changedOnDisk;
-      await writeFileAtomic(current.path, text, { onErrorAfterPublish: onError });
-      written = true;
+      await writeFileAtomic(current.path, text, afterPublish);
       return { ok: true, task };
-    });
-  } catch (error) {
-    if (!written) throw error;
-    onError(current.path, error);
-    return { ok: true, task };
-  } finally {
-    if (written) await journal(dirname(current.path), changeEvents(current, task, now, via));
-  }
+    },
+    { onErrorAfterPublish: onError },
+  );
+  if (result.ok) await journal(dirname(current.path), changeEvents(current, task, now, via));
+  return result;
 }
 
 function isUnloadedEpic(problem: Problem): boolean {
   return problem.code === "epic-missing" || problem.code === "epic-unparsed";
 }
 
-async function withTaskLock(path: string, write: () => Promise<UpdateTaskResult>): Promise<UpdateTaskResult> {
+async function withTaskLock(path: string, write: (afterPublish: AfterPublish) => Promise<UpdateTaskResult>, afterPublish: AfterPublish): Promise<UpdateTaskResult> {
   try {
-    return await withFileLock(path, write);
+    return await withWriteLock(path, write, afterPublish);
   } catch (error) {
     if (!(error instanceof FileBusyError) || error.path !== path) throw error;
     return { ok: false, reason: "busy", path, lock: error.lock, seconds: error.seconds };

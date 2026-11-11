@@ -1,9 +1,10 @@
 import { mkdir, readdir, readFile, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { readTextOrNull, withFile } from "./fs-utils";
+import { withFile } from "./fs-utils";
 import { deleteProject, reserveIssuedUpTo, setProjectActive } from "./projects";
 import { failingOnce } from "./testing/fs-failures";
+import { failingLockRelease } from "./testing/locks";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 import { loadBacklog } from "./load";
 import { failOnPathError } from "./testing/path-errors";
@@ -35,11 +36,7 @@ describe("проекты", () => {
     await writeFiles(root, { "spa/project.md": projectFile("SPA") });
     const reported: string[] = [];
 
-    const result = await failingOnce(
-      readTextOrNull,
-      (path) => path === join(root, "spa/.project.md.lock"),
-      () => setProjectActive(root, "spa", false, (path) => reported.push(path)),
-    );
+    const result = await failingLockRelease(join(root, "spa/project.md"), () => setProjectActive(root, "spa", false, (path) => reported.push(path)));
 
     expect(result).toMatchObject({ ok: true, changed: true });
     expect((await loadBacklog(root)).projects.map((project) => project.active)).toEqual([false]);

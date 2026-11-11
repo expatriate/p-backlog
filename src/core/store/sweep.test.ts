@@ -14,10 +14,16 @@ import { reserveIssuedUpTo } from "./projects";
 import { sweepClosed } from "./sweep";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
 import { failOnPathError } from "./testing/path-errors";
+import { failingLockRelease } from "./testing/locks";
 
 const RU = coreMessages("ru");
 
 vi.mock("./file-lock", async (importOriginal) => (await import("./testing/lock-wait")).fileLockWithShortWait(await importOriginal<typeof import("./file-lock")>()));
+
+vi.mock("./fs-utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./fs-utils")>();
+  return { ...actual, readTextOrNull: vi.fn(actual.readTextOrNull) };
+});
 
 vi.mock("./projects", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./projects")>();
@@ -406,6 +412,19 @@ describe("sweepClosed", () => {
 
     expect(report.deleted).toEqual(["SPA-1"]);
     expect(lockedWhenDeletionJournaled).toBe(false);
+  });
+
+  it("сбой снятия блокировки после удаления не выдаёт удалённое за неубранное: отчёт сохраняется, удаление в журнале, сбой — в onError", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1", `status: done\n${EXPIRED}`) });
+    const reported: string[] = [];
+
+    const report = await failingLockRelease(join(root, "spa/SPA-1.md"), () => sweepClosed(root, { now: NOW, onError: (path) => reported.push(path) }, RU));
+
+    expect(report.deleted).toEqual(["SPA-1"]);
+    expect(await exists(join(root, "spa/SPA-1.md"))).toBe(false);
+    expect((await readJournal(join(root, "spa"), "spa")).events).toContainEqual(expect.objectContaining({ kind: "deleted", task: "SPA-1" }));
+    expect(reported).toEqual([join(root, "spa/SPA-1.md")]);
   });
 
   it("номер не зарезервирован — проход не удаляет задачи этого проекта", async () => {
