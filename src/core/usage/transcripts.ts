@@ -65,15 +65,20 @@ export async function scanTranscripts({ files, cache, byteBudget, now }: ScanTra
     await yieldToEventLoop();
   }
 
-  const merged = { ...deletedStillReported(cache, listedFiles, now), ...listedFiles };
-  const pruned = pruneStaleBuckets(merged, now);
+  const stillReported = deletedStillReported(listedFiles, now);
+  const merged: UsageCache = {
+    version: USAGE_CACHE_VERSION,
+    files: { ...entriesWhere(cache.files, (path, entry) => stillReported(path, entry.buckets)), ...listedFiles },
+    carried: entriesWhere(cache.carried, stillReported),
+  };
+  const pruned = withoutStaleBuckets(merged, now);
 
   return {
-    cache: { version: USAGE_CACHE_VERSION, files: pruned.files },
+    cache: pruned,
     bytesRead: byteBudget - remainingBudget,
     bytesLeft: sum(Object.values(listedFiles).map((entry) => entry.size - entry.offset)),
     filesDone: Object.values(listedFiles).filter((entry) => entry.offset === entry.size).length,
-    prunedBuckets: pruned.prunedBuckets,
+    prunedBuckets: bucketCount(merged) - bucketCount(pruned),
   };
 }
 
@@ -89,22 +94,31 @@ async function scanFile(file: TranscriptFile, previous: UsageCacheEntry | undefi
   return { entry: { ...scanned, mtimeMs: file.mtimeMs, fingerprint }, budgetUsed: Math.max(chunkSize, 0) };
 }
 
-function pruneStaleBuckets(entries: Readonly<Record<string, UsageCacheEntry>>, now: Date): { files: Record<string, UsageCacheEntry>; prunedBuckets: number } {
+function withoutStaleBuckets(cache: UsageCache, now: Date): UsageCache {
   const retained = retainedSince(now);
-  const files: Record<string, UsageCacheEntry> = {};
-  let prunedBuckets = 0;
-  for (const [path, entry] of Object.entries(entries)) {
-    const buckets = entry.buckets.filter((bucket) => Date.parse(bucket.slot) >= retained);
-    files[path] = buckets.length === entry.buckets.length ? entry : { ...entry, buckets };
-    prunedBuckets += entry.buckets.length - buckets.length;
-  }
-  return { files, prunedBuckets };
+  const fresh = (buckets: UsageBucket[]) => {
+    const kept = buckets.filter((bucket) => Date.parse(bucket.slot) >= retained);
+    return kept.length === buckets.length ? buckets : kept;
+  };
+  return {
+    ...cache,
+    files: Object.fromEntries(Object.entries(cache.files).map(([path, entry]) => [path, { ...entry, buckets: fresh(entry.buckets) }])),
+    carried: Object.fromEntries(Object.entries(cache.carried).map(([path, buckets]) => [path, fresh(buckets)])),
+  };
 }
 
-function deletedStillReported(cache: UsageCache, listedFiles: Readonly<Record<string, UsageCacheEntry>>, now: Date): Record<string, UsageCacheEntry> {
+function bucketCount(cache: UsageCache): number {
+  return sum([...Object.values(cache.files).map((entry) => entry.buckets.length), ...Object.values(cache.carried).map((buckets) => buckets.length)]);
+}
+
+function deletedStillReported(listedFiles: Readonly<Record<string, UsageCacheEntry>>, now: Date): (path: string, buckets: UsageBucket[]) => boolean {
   const reportStart = statsPeriod(now).from;
   const listedSessions = new Set(Object.keys(listedFiles).map((path) => basename(path)));
-  return Object.fromEntries(Object.entries(cache.files).filter(([path, entry]) => !listedSessions.has(basename(path)) && entry.buckets.some((bucket) => Date.parse(bucket.slot) >= reportStart)));
+  return (path, buckets) => !listedSessions.has(basename(path)) && buckets.some((bucket) => Date.parse(bucket.slot) >= reportStart);
+}
+
+function entriesWhere<T>(records: Readonly<Record<string, T>>, keeps: (path: string, value: T) => boolean): Record<string, T> {
+  return Object.fromEntries(Object.entries(records).filter(([path, value]) => keeps(path, value)));
 }
 
 async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: number, { longestReadableLine, now }: ChunkLimits): Promise<Omit<UsageCacheEntry, "fingerprint">> {

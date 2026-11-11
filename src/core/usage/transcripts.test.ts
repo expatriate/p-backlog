@@ -2,13 +2,15 @@ import { appendFile, chmod, readFile, stat, utimes, writeFile } from "node:fs/pr
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { failOnPathError } from "../store/testing/path-errors";
 import { newTranscriptState } from "../stats/cost/attribute";
 import { costReport } from "../stats/cost/cost-report";
 import type { ScanProgress } from "../stats/types";
 import type { UsageBucket } from "../stats/cost/usage-state";
 import { listTranscripts, scanTranscripts, type TranscriptFile } from "./transcripts";
-import { emptyUsageCache, readUsageCache, USAGE_CACHE_VERSION, writeUsageCache, type UsageCache, type UsageCacheEntry } from "./usage-cache";
+import { emptyUsageCache, readUsageCache, USAGE_CACHE_VERSION, usageBucketsOf, writeUsageCache, type UsageCache, type UsageCacheEntry } from "./usage-cache";
 import { DAY_MS } from "../model/dates";
+import { sum } from "../numbers";
 
 const CWD = "/Users/x/projects/spa";
 const BIG_BUDGET = 10_000_000;
@@ -289,7 +291,7 @@ describe("чтение расшифровок по частям", () => {
     const file = await transcriptFile(path, jsonl([assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
     const { cache } = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
 
-    await writeUsageCache(root, cache);
+    await writeUsageCache(root, cache, failOnPathError);
     const reloaded = await readUsageCache(root);
 
     expect(reloaded).toEqual(cache);
@@ -307,7 +309,7 @@ describe("чтение расшифровок по частям", () => {
     const file = await transcriptFile(path, jsonl(lines));
     const { cache } = await scanTranscripts({ files: [file], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
 
-    await writeUsageCache(root, cache);
+    await writeUsageCache(root, cache, failOnPathError);
     const raw = await readFile(join(root, ".usage-cache.json"), "utf8");
 
     expect(raw).not.toContain(marker);
@@ -315,20 +317,65 @@ describe("чтение расшифровок по частям", () => {
   });
 });
 
-describe("обрезка корзин старше окна хранения", () => {
-  function bucketAt(daysAgo: number, input: number): UsageBucket {
-    return {
-      slot: new Date(NOW.getTime() - daysAgo * DAY_MS).toISOString(),
-      cwd: CWD,
-      model: "claude-sonnet-5",
-      kind: "hook",
-      tokens: { input, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 },
-      hookTurns: 0,
-    };
+function hookBucket(slot: string, input: number): UsageBucket {
+  return { slot, cwd: CWD, model: "claude-sonnet-5", kind: "hook", tokens: { input, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 }, hookTurns: 0 };
+}
+
+function reportOf(buckets: readonly UsageBucket[]) {
+  return costReport({ buckets, runs: [], projectOf: () => null, now: NOW, scan: SCAN });
+}
+
+describe("кэш другой версии или с испорченной записью", () => {
+  function entryOf(file: TranscriptFile, buckets: unknown): unknown {
+    return { size: file.size, mtimeMs: file.mtimeMs, offset: file.size, fingerprint: "old-rules", state: newTranscriptState(), buckets };
   }
 
-  function reportOf(buckets: readonly UsageBucket[]) {
-    return costReport({ buckets, runs: [], projectOf: () => null, now: NOW, scan: SCAN });
+  function weeklyHookTokens(cache: UsageCache): number {
+    return sum(reportOf(usageBucketsOf(cache)).weeks.map((week) => week.hookTokens));
+  }
+
+  async function liveTranscript(root: string): Promise<TranscriptFile> {
+    return transcriptFile(join(root, "live.jsonl"), jsonl([hookFeedbackLine("2026-09-19T08:59:00.000Z"), assistantLine("2026-09-19T09:00:00.000Z", "claude-sonnet-5", { input: 100, output: 20 })]));
+  }
+
+  const oldRulesBuckets = [hookBucket("2026-09-19T09:00:00.000Z", 999)];
+
+  it.each([
+    { kind: "прежней версии", version: USAGE_CACHE_VERSION - 1, goneIn: "files", liveBuckets: oldRulesBuckets },
+    { kind: "прежней версии, уже перенёсший удалённую сессию", version: USAGE_CACHE_VERSION - 1, goneIn: "carried", liveBuckets: oldRulesBuckets },
+    { kind: "будущей версии (откат пакета)", version: USAGE_CACHE_VERSION + 1, goneIn: "files", liveBuckets: oldRulesBuckets },
+    { kind: "текущей версии с испорченной записью", version: USAGE_CACHE_VERSION, goneIn: "files", liveBuckets: "испорчено" },
+  ])("кэш $kind: удалённая сессия остаётся в 12-недельном графике, живая расшифровка пересчитана заново", async ({ version, goneIn, liveBuckets }) => {
+    const root = await makeTempDir();
+    const live = await liveTranscript(root);
+    const gone: TranscriptFile = { path: join(root, "gone.jsonl"), size: 10, mtimeMs: 0 };
+    const goneBuckets = [hookBucket("2026-08-20T09:00:00.000Z", 7)];
+    const files = { [live.path]: entryOf(live, liveBuckets), ...(goneIn === "files" ? { [gone.path]: entryOf(gone, goneBuckets) } : {}) };
+    const carried = goneIn === "carried" ? { [gone.path]: goneBuckets } : {};
+    await writeFile(join(root, ".usage-cache.json"), JSON.stringify({ version, files, carried }), "utf8");
+
+    const { cache } = await scanTranscripts({ files: [live], cache: await readUsageCache(root), byteBudget: BIG_BUDGET, now: NOW });
+    await writeUsageCache(root, cache, failOnPathError);
+
+    expect(weeklyHookTokens(await readUsageCache(root))).toBe(100 + 20 + 7);
+  });
+
+  it("кэш текущей версии без раздела перенесённых сессий не перечитывает расшифровки", async () => {
+    const root = await makeTempDir();
+    const live = await liveTranscript(root);
+    const counted = await scanTranscripts({ files: [live], cache: emptyUsageCache(), byteBudget: BIG_BUDGET, now: NOW });
+    await writeFile(join(root, ".usage-cache.json"), JSON.stringify({ version: USAGE_CACHE_VERSION, files: counted.cache.files }), "utf8");
+
+    const pass = await scanTranscripts({ files: [live], cache: await readUsageCache(root), byteBudget: BIG_BUDGET, now: NOW });
+
+    expect(pass.bytesRead).toBe(0);
+    expect(weeklyHookTokens(pass.cache)).toBe(100 + 20);
+  });
+});
+
+describe("обрезка корзин старше окна хранения", () => {
+  function bucketAt(daysAgo: number, input: number): UsageBucket {
+    return hookBucket(new Date(NOW.getTime() - daysAgo * DAY_MS).toISOString(), input);
   }
 
   async function staleAndFreshFixture(root: string) {
@@ -343,7 +390,7 @@ describe("обрезка корзин старше окна хранения", (
       state: newTranscriptState(),
       buckets: [bucketAt(100, 1000), freshBucket],
     };
-    const cache: UsageCache = { version: USAGE_CACHE_VERSION, files: { [path]: previous } };
+    const cache: UsageCache = { version: USAGE_CACHE_VERSION, files: { [path]: previous }, carried: {} };
     return { path, file, previous, cache, freshBucket };
   }
 

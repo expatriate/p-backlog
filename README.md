@@ -138,7 +138,7 @@ If there's no project yet, `backlog new` creates it.
 | Task files | One file per task, closed ones included | 7 days after closing (tasks of an open epic: after the epic closes), then deleted (service: hourly; without the service: once a day, after a CLI command other than the agent hook) |
 | `journal.jsonl` | Per-project history of task and check events | Full history for tasks whose file still exists; other events for 13 weeks (compacted once a day, by the service and after CLI commands other than the agent hook) |
 | `.runs.jsonl` | CLI run log | 13 weeks |
-| `.usage-cache.json` | Claude Code usage parsed from transcripts | 13 weeks |
+| `.usage-cache.json` | Claude Code usage parsed from transcripts; for transcripts Claude Code has already deleted, the only copy | 13 weeks |
 | `.code-cache.json` | Cached git history for the Code tab | 90 days |
 | Service log | `launchd` stdout/stderr on macOS, `p-backlog.log` in `%LOCALAPPDATA%` on Windows | macOS: trimmed to the last 256 KiB once it exceeds 1 MiB. Windows: over 1 MiB it is moved to `p-backlog.log.old` when the service starts. Linux: `journald` limits it |
 | `.swept-at`, `.journal-compacted-at` | Timestamp of the last sweep/compaction | Until the next one |

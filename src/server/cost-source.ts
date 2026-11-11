@@ -4,7 +4,7 @@ import type { CostReport } from "../core/stats/types";
 import { createJsonlTail } from "../core/store/jsonl-tail";
 import { cachedRepoRoots, lookupProjectForRecordedDir, type KnownProjects, type RepoContext, type RepoRootLookup } from "../core/store/resolve-project";
 import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
-import type { UsageCache } from "../core/usage/usage-cache";
+import { usageBucketsOf } from "../core/usage/usage-cache";
 import type { UsageSnapshot } from "./usage-scanner";
 
 type CostRequest = { usage: UsageSnapshot; known: KnownProjects; projectId: string | undefined; now: Date };
@@ -56,7 +56,3 @@ async function projectIdsOfCwds(cwds: readonly string[], known: KnownProjects, c
 }
 
 function unreadablePathHasNoProject(): void {}
-
-function usageBucketsOf(cache: UsageCache) {
-  return Object.values(cache.files).flatMap((entry) => entry.buckets);
-}

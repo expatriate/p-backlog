@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { newTranscriptState } from "../core/stats/cost/attribute";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
+import { failOnPathError } from "../core/store/testing/path-errors";
 import { emptyUsageCache, readUsageCache, USAGE_CACHE_VERSION, writeUsageCache } from "../core/usage/usage-cache";
 import { localizedWarn } from "./messages";
 import { CATCH_UP_DELAY_MS, createUsageScanner, type UsageScannerOptions } from "./usage-scanner";
@@ -124,10 +125,15 @@ describe("createUsageScanner", () => {
       tokens: { input: 1, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 },
       hookTurns: 0,
     };
-    await writeUsageCache(root, {
-      version: USAGE_CACHE_VERSION,
-      files: { [path]: { size, mtimeMs, offset: size, fingerprint: "unchanged", state: newTranscriptState(), buckets: [staleBucket] } },
-    });
+    await writeUsageCache(
+      root,
+      {
+        version: USAGE_CACHE_VERSION,
+        files: { [path]: { size, mtimeMs, offset: size, fingerprint: "unchanged", state: newTranscriptState(), buckets: [staleBucket] } },
+        carried: {},
+      },
+      failOnPathError,
+    );
     const scanner = scannerOf({ root, claudeProjectsDir: transcriptsDir, now: () => now });
 
     await scanner.scanOnce();
