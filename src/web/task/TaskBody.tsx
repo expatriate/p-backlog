@@ -1,4 +1,4 @@
-import { Children, createContext, isValidElement, useContext, useMemo, useRef, type ComponentProps, type ReactNode } from "react";
+import { Children, createContext, isValidElement, useContext, useMemo, useRef, type ComponentProps, type ReactElement, type ReactNode } from "react";
 import Markdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { checklistItems, type ChecklistItem } from "../../core/model/checklist";
@@ -107,14 +107,29 @@ function MarkdownItem({ node, children }: ComponentProps<"li"> & ExtraProps) {
   const line = (node?.position?.start.line ?? 0) - 1;
   const item = items.find((candidate) => candidate.line === line);
   if (!item) return <li>{children}</li>;
-  // remark-gfm inserts its own disabled checkbox into the item — strip it, we draw our own below
-  const text = Children.toArray(children).filter((child) => !(isValidElement(child) && child.type === "input"));
+  const { label, continuation } = checkItemParts(children);
   return (
     <li className={styles.checkItem}>
       <label>
         <input type="checkbox" checked={item.checked} onChange={() => onToggleLine(item.line)} />
-        <span>{text}</span>
+        <span>{label}</span>
       </label>
+      {continuation.length > 0 && <div className={styles.continuation}>{continuation}</div>}
     </li>
   );
+}
+
+function checkItemParts(children: ReactNode): { label: ReactNode[]; continuation: ReactNode[] } {
+  const parts = Children.toArray(children);
+  const leadElement = parts.find((part) => isValidElement(part));
+  if (!isParagraph(leadElement)) return { label: withoutGfmCheckbox(parts), continuation: [] };
+  return { label: withoutGfmCheckbox(leadElement.props.children), continuation: parts.filter((part) => isValidElement(part) && part !== leadElement) };
+}
+
+function isParagraph(node: ReactNode): node is ReactElement<{ children?: ReactNode }> {
+  return isValidElement(node) && node.type === "p";
+}
+
+function withoutGfmCheckbox(children: ReactNode): ReactNode[] {
+  return Children.toArray(children).filter((child) => !(isValidElement(child) && child.type === "input"));
 }

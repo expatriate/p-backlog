@@ -31,14 +31,18 @@
 }
 
 .checkItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--space-2);
   list-style: none;
   margin-left: calc(var(--space-4) * -1);
 }
 
 .checkItem label {
-  display: flex;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: baseline;
-  gap: var(--space-2);
   padding: 2px var(--space-2);
   border-radius: var(--radius-chip);
   cursor: pointer;
@@ -51,7 +55,20 @@
   }
 }
 
-.checkItem input:checked + span {
+.continuation {
+  display: flex;
+  grid-column: 2;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: 2px;
+}
+
+.checkItem .continuation > * {
+  margin: 0;
+}
+
+.checkItem input:checked + span,
+.checkItem:has(> label > input:checked) > .continuation {
   color: var(--ink-muted);
 }
 

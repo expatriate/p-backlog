@@ -222,6 +222,16 @@ describe("карточка задачи", () => {
     await waitFor(() => expect(within(panel).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("100"));
   });
 
+  it("чеклист с пустыми строками между пунктами — у пункта один чекбокс, абзац под пунктом не входит в его имя", async () => {
+    const looseChecklist = "- [ ] первый шаг\n\n  подробности шага\n\n- [x] второй шаг";
+    await renderApp({ ...FILES, "spa/SPA-2.md": taskFile("SPA-2", { title: "Блокер" }, looseChecklist) }, "/p/spa/t/SPA-2");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });
+
+    expect(within(panel).getAllByRole("checkbox")).toHaveLength(2);
+    expect(within(panel).getByRole("checkbox", { name: "первый шаг" })).toHaveProperty("checked", false);
+    expect(within(panel).getByRole("checkbox", { name: "второй шаг" })).toHaveProperty("checked", true);
+  });
+
   it("после сохранения не перебрасывает фокус на сам ящик", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-1");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
