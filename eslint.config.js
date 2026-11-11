@@ -1,11 +1,13 @@
 import js from "@eslint/js";
+import { build } from "esbuild";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 const TESTS = ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/testing/**"];
 const SOURCES = ["src/**/*.ts", "src/**/*.tsx"];
-const WEB = ["src/web/**/*.ts", "src/web/**/*.tsx"];
+const WEB_ROOT = "src/web";
+const WEB = [`${WEB_ROOT}/**/*.ts`, `${WEB_ROOT}/**/*.tsx`];
 const CATALOGS = ["src/**/messages.*.ts"];
 const CORE_CATALOGS = ["src/core/messages/ru.ts", "src/core/messages/en.ts"];
 const catalogImports = (allowed, message) => ({
@@ -26,11 +28,38 @@ const BROWSER_WRAPPERS = [
   { file: "src/web/ui/platform.ts", globals: [], properties: [{ property: "platform" }], message: "Ask isApplePlatform in ui/platform.ts." },
   { file: "src/web/ui/use-leave-guard.ts", globals: ["confirm"], properties: onGlobalObjects("confirm"), message: "Ask before leaving through useLeaveGuard in ui/use-leave-guard.ts." },
 ];
-const NODE_ONLY_GLOBALS = Object.keys(globals.node)
-  .filter((name) => !(name in globals.browser))
-  .map((name) => ({ name, message: "The web UI runs in the browser; Node globals are undefined there." }));
-const browserFences = (wrappers) => ({
-  "no-restricted-globals": ["error", ...NODE_ONLY_GLOBALS, ...wrappers.flatMap(({ globals, message }) => globals.map((name) => ({ name, message })))],
+const SCRIPT_FILE = /\.[cm]?[jt]sx?$/;
+const TS_SOURCE = /\.tsx?$/;
+const loadScriptsOnly = {
+  name: "load-scripts-only",
+  setup: (bundler) => bundler.onLoad({ filter: /.*/ }, ({ path }) => (SCRIPT_FILE.test(path) ? undefined : { contents: "", loader: "empty" })),
+};
+const traceSharedWithWeb = async () => {
+  try {
+    const { metafile } = await build({
+      entryPoints: [`${WEB_ROOT}/main.tsx`],
+      absWorkingDir: import.meta.dirname,
+      bundle: true,
+      write: false,
+      metafile: true,
+      packages: "external",
+      plugins: [loadScriptsOnly],
+      logLevel: "silent",
+    });
+    return { files: Object.keys(metafile.inputs).filter((file) => TS_SOURCE.test(file) && !file.startsWith(`${WEB_ROOT}/`)), untracedReason: "" };
+  } catch (error) {
+    const reason = error.errors?.[0]?.text ?? error.message;
+    return { files: ["src/core/**/*.ts"], untracedReason: ` The web import graph could not be traced (${reason}), so every core module is fenced until it can be.` };
+  }
+};
+const SHARED_WITH_WEB = await traceSharedWithWeb();
+const globalsOnlyIn = (runtime, other) => Object.keys(globals[runtime]).filter((name) => !(name in globals[other]));
+const WEB_STORAGE_BEHIND_NODE_FLAG = ["localStorage", "sessionStorage", "Storage"];
+const restrictedGlobals = (names, message) => names.map((name) => ({ name, message }));
+const NODE_ONLY_GLOBALS = restrictedGlobals(globalsOnlyIn("node", "browser"), `This module runs in the browser as part of the web UI; Node globals are undefined there.${SHARED_WITH_WEB.untracedReason}`);
+const BROWSER_ONLY_GLOBALS = restrictedGlobals([...globalsOnlyIn("browser", "node"), ...WEB_STORAGE_BEHIND_NODE_FLAG], "This module runs in Node; browser globals are undefined there.");
+const browserFences = ({ wrappers = [], alsoRunsInNode = false } = {}) => ({
+  "no-restricted-globals": ["error", ...NODE_ONLY_GLOBALS, ...(alsoRunsInNode ? BROWSER_ONLY_GLOBALS : []), ...wrappers.flatMap(({ globals, message }) => globals.map((name) => ({ name, message })))],
   "no-restricted-properties": [
     "error",
     ...NODE_ONLY_GLOBALS.flatMap(({ name, message }) => onGlobalObjects(name).map((restricted) => ({ ...restricted, message }))),
@@ -164,12 +193,22 @@ export default tseslint.config(
     rules: webImports(RECHARTS, LIST_PAGE),
   },
   {
+    files: SOURCES,
+    ignores: WEB,
+    rules: { "no-restricted-globals": ["error", ...BROWSER_ONLY_GLOBALS] },
+  },
+  {
+    files: SHARED_WITH_WEB.files,
+    ignores: TESTS,
+    rules: browserFences({ alsoRunsInNode: true }),
+  },
+  {
     files: WEB,
     ignores: TESTS,
-    rules: browserFences(BROWSER_WRAPPERS),
+    rules: browserFences({ wrappers: BROWSER_WRAPPERS }),
   },
   ...BROWSER_WRAPPERS.map((wrapper) => ({
     files: [wrapper.file],
-    rules: browserFences(BROWSER_WRAPPERS.filter((other) => other !== wrapper)),
+    rules: browserFences({ wrappers: BROWSER_WRAPPERS.filter((other) => other !== wrapper) }),
   })),
 );

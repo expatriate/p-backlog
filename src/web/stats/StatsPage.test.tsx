@@ -441,6 +441,9 @@ describe("вкладка «Эффект»", () => {
     const noise = await screen.findByRole("group", { name: "Шум без беклога" });
     expect(within(noise).getByText("—")).toBeDefined();
     expect(screen.getByText(/^Задач, вынесенных агентом попутно, пока нет/)).toBeDefined();
+    expect(within(screen.getByRole("group", { name: "Строк в пулреквестах" })).getByText("2")).toBeDefined();
+    const explainer = screen.getByRole("region", { name: "Как считается выигрыш" });
+    expect(within(explainer).getByText("Сейчас: вынесенных задач пока нет — считать не из чего")).toBeDefined();
   });
 
   it("числа, график и таблица; без 5 исправлений — оценки нет", async () => {

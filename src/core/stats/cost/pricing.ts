@@ -38,6 +38,10 @@ const PRICE_TABLE = new Map<string, ModelPricing>([
 const DATED_SUFFIX = /-\d{8}$/;
 const BRACKET_SUFFIX = /\[[^\]]*\]$/;
 
+export function pricedModelIds(): string[] {
+  return [...PRICE_TABLE.keys()];
+}
+
 function baseModelId(model: string): string {
   return model.replace(BRACKET_SUFFIX, "").replace(DATED_SUFFIX, "");
 }

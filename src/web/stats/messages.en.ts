@@ -180,8 +180,11 @@ export function createStatsEn(constants: StatsConstants): StatsMessages {
     noPending: "nothing pending",
     pendingWithoutEstimate: (openTasks) => `${tasks(openTasks)}, ${estimateLater}`,
     pendingEstimated: ({ openTasks, estimated, perTask }) => `${tasks(openTasks)} ${linesText(estimated)}, on average ${perTask} per task`,
-    estimateLater,
-    noCommitsSinceAdoption: "no commits since adoption",
+    noiseMissing: {
+      "no-commits": "no commits since adoption",
+      "no-deferred-tasks": "no tasks deferred yet — nothing to measure",
+      "estimate-pending": estimateLater,
+    },
     noiseFormula: (deferred, real, estimated, share) => `${deferred} ÷ (${real} + ${estimated}) ${share}`,
 
     scanStarting: "Counting usage from Claude Code transcripts…",

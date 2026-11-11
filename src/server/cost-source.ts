@@ -2,9 +2,9 @@ import { join } from "node:path";
 import { costReport } from "../core/stats/cost/cost-report";
 import type { CostReport } from "../core/stats/types";
 import { createJsonlTail } from "../core/store/jsonl-tail";
-import { cachedRepoRoots, lookupProjectForDir, type KnownProjects, type RepoContext, type RepoRootLookup } from "../core/store/resolve-project";
+import { cachedRepoRoots, lookupProjectForRecordedDir, type KnownProjects, type RepoContext, type RepoRootLookup } from "../core/store/resolve-project";
 import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
-import type { UsageCache } from "../core/usage/usage-cache";
+import { usageBucketsOf } from "../core/usage/usage-cache";
 import type { UsageSnapshot } from "./usage-scanner";
 
 type CostRequest = { usage: UsageSnapshot; known: KnownProjects; projectId: string | undefined; now: Date };
@@ -48,18 +48,11 @@ async function computeCostReport({ usage: { cache, scan }, runs, known, projectI
 }
 
 async function projectIdsOfCwds(cwds: readonly string[], known: KnownProjects, context: RepoContext, lookupRepoRoot: RepoRootLookup): Promise<Map<string, string | null>> {
-  const unique = [...new Set(cwds)];
-  const dirRoots = await Promise.all(unique.map(lookupRepoRoot));
-  return new Map(
-    unique.map((cwd, position) => {
-      const lookup = lookupProjectForDir(known, cwd, dirRoots[position] ?? "unreadable", context);
-      return [cwd, "project" in lookup ? lookup.project.id : null];
-    }),
-  );
+  const projectIdOf = async (cwd: string) => {
+    const lookup = await lookupProjectForRecordedDir(known, cwd, lookupRepoRoot, context);
+    return [cwd, "project" in lookup ? lookup.project.id : null] as const;
+  };
+  return new Map(await Promise.all([...new Set(cwds)].map(projectIdOf)));
 }
 
 function unreadablePathHasNoProject(): void {}
-
-function usageBucketsOf(cache: UsageCache) {
-  return Object.values(cache.files).flatMap((entry) => entry.buckets);
-}

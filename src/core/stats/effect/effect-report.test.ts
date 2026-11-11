@@ -53,7 +53,18 @@ describe("эффект беклога", () => {
   it("исправленные — точно, открытые — по медиане, закрытые без исправления не считаются", () => {
     const report = effectOf({ ...incidental([...fixes.map((fix) => fix.task), ...others]), now: NOW, projectId: "spa" }, code(fixes.map((fix) => fix.commit)));
 
-    expect(report.totals).toEqual({ realLines: 400, fixedTasks: 6, fixedLines: 210, openTasks: 2, deferredTasks: 8, estimatedLines: 70, deferredLines: 280, deferredTestLines: 140, noiseShare: 280 / 470 });
+    expect(report.totals).toEqual({
+      realLines: 400,
+      fixedTasks: 6,
+      fixedLines: 210,
+      openTasks: 2,
+      deferredTasks: 8,
+      estimatedLines: 70,
+      deferredLines: 280,
+      deferredTestLines: 140,
+      noiseShare: 280 / 470,
+      noiseMissing: null,
+    });
     expect(report.weeks).toHaveLength(12);
     expect(report.weeks.at(-1)).toMatchObject({ onTopicLines: 300, deferredLines: 70, deferredTestLines: 35, estimatedLines: 70, deferredTasks: 2 });
     expect(report.weeks.at(-2)).toMatchObject({ onTopicLines: 0, deferredLines: 210, estimatedLines: 0, deferredTasks: 6 });
@@ -80,7 +91,7 @@ describe("эффект беклога", () => {
 
     const report = effectOf({ tasks: review, journals: journalsOf(review, "review"), now: NOW, projectId: "spa" }, code(fixes.map((fix) => fix.commit)));
 
-    expect(report.totals).toMatchObject({ realLines: 400, fixedTasks: 0, openTasks: 0, noiseShare: null });
+    expect(report.totals).toMatchObject({ realLines: 400, fixedTasks: 0, openTasks: 0, noiseShare: null, noiseMissing: "no-deferred-tasks" });
     expect(report.projects[0]?.noiseShare).toBeNull();
   });
 
@@ -144,7 +155,7 @@ describe("эффект беклога", () => {
 
     const report = effectOf({ ...incidental([...few.map((fix) => fix.task), ...others]), now: NOW, projectId: "spa" }, code(few.map((fix) => fix.commit)));
 
-    expect(report.totals).toMatchObject({ openTasks: 2, estimatedLines: null, noiseShare: null });
+    expect(report.totals).toMatchObject({ openTasks: 2, estimatedLines: null, noiseShare: null, noiseMissing: "estimate-pending" });
   });
 
   it("без коммитов после внедрения сравнивать не с чем — доля шума пустая", () => {
@@ -156,8 +167,21 @@ describe("эффект беклога", () => {
       ),
     );
 
-    expect(report.totals.realLines).toBe(0);
-    expect(report.totals.noiseShare).toBeNull();
+    expect(report.totals).toMatchObject({ realLines: 0, noiseShare: null, noiseMissing: "no-commits" });
+  });
+
+  it("без коммитов после внедрения причина — коммиты, даже когда оценки ожидающих ещё нет", () => {
+    const few = fixes.slice(0, 4);
+
+    const report = effectOf(
+      { ...incidental([...few.map((fix) => fix.task), ...others]), now: NOW, projectId: "spa" },
+      code(
+        few.map((fix) => fix.commit),
+        [],
+      ),
+    );
+
+    expect(report.totals).toMatchObject({ estimatedLines: null, noiseShare: null, noiseMissing: "no-commits" });
   });
 
   it("одна и та же задача-исправление на нескольких задачах — коммит учтён один раз, в медиане тоже один раз", () => {

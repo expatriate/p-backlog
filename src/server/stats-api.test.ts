@@ -1,4 +1,5 @@
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { appendFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { BatchResponse, CodeReport, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport } from "../core/api/contract";
@@ -10,7 +11,7 @@ import { reportContext } from "../core/stats/scope";
 import { appendJournal, readJournals } from "../core/store/journal";
 import { loadBacklog, unparsedTasks, type LoadedBacklog } from "../core/store/load";
 import { readRuns } from "../core/store/testing/runs";
-import { gitCommitAll, gitShortHead, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
+import { gitAddWorktree, gitCommitAll, gitShortHead, makeGitRepo, makeTempDir, projectFile, taskFile, writeFiles } from "../core/store/testing/temp-dirs";
 import { failOnPathError } from "../core/store/testing/path-errors";
 import type { UsageCache } from "../core/usage/usage-cache";
 import { createJournalSources } from "./journal-sources";
@@ -355,6 +356,9 @@ describe("GET /api/stats/signals", () => {
 });
 
 describe("GET /api/stats/cost и /api/stats/memory", () => {
+  const writeListRuns = (root: string, cwds: readonly string[]) =>
+    writeFile(join(root, ".runs.jsonl"), cwds.map((cwd) => `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd, ms: 10, rssMb: 50, exitCode: 0 })}\n`).join(""), "utf8");
+
   it("после scanOnce считает токены, ход хука, вызовы CLI и деньги; неизвестный проект — 404", async () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     const transcriptsDir = await makeTempDir();
@@ -439,7 +443,7 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     const sharedRepo = await makeGitRepo(home, "shared");
     const backlog = await makeTestApp({ "spa/project.md": projectFile("SPA", [primaryRepo]) });
     await backlog.usage.scanOnce();
-    await writeFile(join(backlog.root, ".runs.jsonl"), `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd: sharedRepo, ms: 10, rssMb: 50, exitCode: 0 })}\n`, "utf8");
+    await writeListRuns(backlog.root, [sharedRepo]);
 
     const before = (await (await backlog.request("/api/stats/cost?project=spa")).json()) as CostReport;
     expect(before.totals.cliRuns).toBe(0);
@@ -458,8 +462,7 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     await mkdir(plainDir);
     const backlog = await makeTestApp({ "work/project.md": projectFile("WK", [home]), "spa/project.md": `repos: [${nestedRepo}]\n`, "notes/project.md": "без frontmatter\n" });
     await backlog.usage.scanOnce();
-    const run = (cwd: string) => JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd, ms: 10, rssMb: 50, exitCode: 0 });
-    await writeFile(join(backlog.root, ".runs.jsonl"), `${run(nestedRepo)}\n${run(plainDir)}\n`, "utf8");
+    await writeListRuns(backlog.root, [nestedRepo, plainDir]);
 
     const report = (await (await backlog.request("/api/stats/cost?project=work")).json()) as CostReport;
 
@@ -471,7 +474,7 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     const nestedRepo = await makeGitRepo(home, "spa");
     const backlog = await makeTestApp({ "work/project.md": projectFile("WK", [home]), "spa/project.md": projectFile("SPA", [nestedRepo], { active: false }) });
     await backlog.usage.scanOnce();
-    await writeFile(join(backlog.root, ".runs.jsonl"), `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd: nestedRepo, ms: 10, rssMb: 50, exitCode: 0 })}\n`, "utf8");
+    await writeListRuns(backlog.root, [nestedRepo]);
 
     const report = (await (await backlog.request("/api/stats/cost?project=work")).json()) as CostReport;
 
@@ -482,7 +485,7 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     const backlog = await makeTestApp({ "alpha/project.md": projectFile("AL", [repo], { active: false }), "zeta/project.md": projectFile("ZE", [repo]) });
     await backlog.usage.scanOnce();
-    await writeFile(join(backlog.root, ".runs.jsonl"), `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd: repo, ms: 10, rssMb: 50, exitCode: 0 })}\n`, "utf8");
+    await writeListRuns(backlog.root, [repo]);
 
     const report = (await (await backlog.request("/api/stats/cost?project=zeta")).json()) as CostReport;
 
@@ -494,7 +497,7 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     const sharedRepo = await makeGitRepo(home, "shared");
     const backlog = await makeTestApp({ "spa/project.md": projectFile("SPA", [home]), "ops/project.md": projectFile("OPS", []) });
     await backlog.usage.scanOnce();
-    await writeFile(join(backlog.root, ".runs.jsonl"), `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd: sharedRepo, ms: 10, rssMb: 50, exitCode: 0 })}\n`, "utf8");
+    await writeListRuns(backlog.root, [sharedRepo]);
 
     const before = (await (await backlog.request("/api/stats/cost?project=spa")).json()) as CostReport;
     expect(before.totals.cliRuns).toBe(1);
@@ -504,6 +507,65 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
 
     const after = (await (await backlog.request("/api/stats/cost?project=spa")).json()) as CostReport;
     expect(after.totals.cliRuns).toBe(0);
+  });
+
+  it("запуски и токены из удалённых worktree и подпапки репозитория остаются в «Стоимости» проекта", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "x\n" });
+    gitCommitAll(repo, "начало", "2026-09-17T10:00:00+03:00");
+    const worktree = join(repo, ".claude/worktrees/agent");
+    gitAddWorktree(repo, worktree, "agent");
+    const subdir = join(repo, "scratch");
+    await mkdir(subdir);
+    const transcriptsDir = await makeTempDir();
+    const hookLine = JSON.stringify({ type: "user", isMeta: true, timestamp: "2026-09-18T08:59:00.000Z", cwd: worktree, message: { content: "Stop hook feedback:\nБеклог spa: тест" } });
+    const assistantLine = JSON.stringify({ type: "assistant", timestamp: "2026-09-18T09:00:00.000Z", cwd: worktree, message: { model: "claude-opus-5", usage: { input_tokens: 1000, output_tokens: 100 } } });
+    await writeFiles(transcriptsDir, { "proj/a.jsonl": `${hookLine}\n${assistantLine}\n` });
+    const backlog = await makeTestApp({ "spa/project.md": projectFile("SPA", [repo]) }, { transcriptsDir });
+    await writeListRuns(backlog.root, [repo, worktree, join(subdir, "deep")]);
+    execFileSync("git", ["worktree", "remove", "--force", worktree], { cwd: repo });
+    await rm(subdir, { recursive: true });
+    await backlog.usage.scanOnce();
+
+    const all = (await (await backlog.request("/api/stats/cost")).json()) as CostReport;
+    const spa = (await (await backlog.request("/api/stats/cost?project=spa")).json()) as CostReport;
+
+    expect(all.totals.tokens).toBeGreaterThan(0);
+    expect(spa.totals).toMatchObject({ cliRuns: 3, tokens: all.totals.tokens, cost: all.totals.cost });
+  });
+
+  it("запуск из удалённой подпапки worktree, лежащего вне каталога репозитория, остаётся в «Стоимости» проекта", async () => {
+    const home = await makeTempDir();
+    const repo = await makeGitRepo(home, "spa");
+    await writeFiles(repo, { "src/a.ts": "x\n" });
+    gitCommitAll(repo, "начало", "2026-09-17T10:00:00+03:00");
+    const lane = join(home, "spa-lanes/stats");
+    gitAddWorktree(repo, lane, "stats");
+    const scratch = join(lane, "scratch");
+    await mkdir(scratch);
+    const backlog = await makeTestApp({ "spa/project.md": projectFile("SPA", [repo]) });
+    await backlog.usage.scanOnce();
+    await writeListRuns(backlog.root, [join(scratch, "deep")]);
+    await rm(scratch, { recursive: true });
+
+    const spa = (await (await backlog.request("/api/stats/cost?project=spa")).json()) as CostReport;
+
+    expect(spa.totals.cliRuns).toBe(1);
+  });
+
+  it("запуск из удалённого репозитория проекта, вложенного в репозиторий другого проекта, засчитывается своему проекту", async () => {
+    const home = await makeTempDir();
+    const nestedRepo = await makeGitRepo(home, "spa");
+    const backlog = await makeTestApp({ "work/project.md": projectFile("WK", [home]), "spa/project.md": projectFile("SPA", [nestedRepo]) });
+    await backlog.usage.scanOnce();
+    await writeListRuns(backlog.root, [join(nestedRepo, "src")]);
+    await rm(nestedRepo, { recursive: true });
+
+    const spa = (await (await backlog.request("/api/stats/cost?project=spa")).json()) as CostReport;
+    const work = (await (await backlog.request("/api/stats/cost?project=work")).json()) as CostReport;
+
+    expect(spa.totals.cliRuns).toBe(1);
+    expect(work.totals.cliRuns).toBe(0);
   });
 
   it("обрезка журнала запусков не ломает отчёт: результат равен пересчёту с нуля", async () => {

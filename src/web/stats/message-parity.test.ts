@@ -24,6 +24,7 @@ const TOTALS: EffectTotals = {
   deferredLines: 1234.5,
   deferredTestLines: 300.4,
   noiseShare: 0.123,
+  noiseMissing: null,
 };
 
 const CASES: Record<string, (language: Language) => string> = {

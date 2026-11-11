@@ -4,7 +4,7 @@ import { mkdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Project } from "../model/types";
-import { cachedRepoRoots, lookupProjectForDir, readGitRoots, type DirGitRoots, type RepoContext } from "./resolve-project";
+import { cachedRepoRoots, lookupProjectForDir, lookupProjectForRecordedDir, readGitRoots, type DirGitRoots, type RepoContext } from "./resolve-project";
 import { failOnPathError } from "./testing/path-errors";
 import { gitAddWorktree, gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "./testing/temp-dirs";
 
@@ -99,6 +99,22 @@ describe("lookupProjectForDir", () => {
     await makeGitRepo(home, "spa");
     const neighbour = await makeGitRepo(home, "spa-admin");
     expect(projectForDir([project("spa", [join(home, "spa")])], neighbour, contextIn(home))).toBeUndefined();
+  });
+
+  it.each([[""], ["."], ["src"]])("относительный путь %j в repos не покрывает каталог, из которого запущен процесс", async (repo) => {
+    const context = contextIn(await makeTempDir());
+    const known = { projects: [project("relative", [repo])], errors: [] };
+    const recorded = await lookupProjectForRecordedDir(known, join(process.cwd(), "src", "deleted-lane-dir"), cachedRepoRoots(context), context);
+
+    expect(projectForDir(known.projects, process.cwd(), context)).toBeUndefined();
+    expect("project" in recorded).toBe(false);
+  });
+
+  it("строгий поиск не приписывает удалённый каталог проекту с удалённым репозиторием", async () => {
+    const home = await makeTempDir();
+    const gone = join(home, "projects/spa-lanes/stats");
+
+    expect(projectForRoots([project("spa", [gone])], join(gone, "src"), "not-in-repo", contextIn(home))).toBeUndefined();
   });
 
   it("корни git нечитаемы — проект не определяется, а не подбирается по самому каталогу", async () => {

@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import { errorText } from "../core/errors";
+import { errorText, warnPathErrors } from "../core/errors";
 import { MINUTE_MS } from "../core/model/dates";
 import { BYTES_PER_MEBIBYTE, sum } from "../core/numbers";
 import type { ScanProgress } from "../core/stats/types";
@@ -43,6 +43,8 @@ export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAU
   let inFlight: Promise<PassEnd> | null = null;
   let schedule: Schedule = STOPPED;
 
+  const onErrorAfterPublish = warnPathErrors((line) => void warn(() => line));
+
   const setScan = (next: ScanProgress): void => {
     if (!scanEquals(scan, next)) revision += 1;
     scan = next;
@@ -57,7 +59,7 @@ export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAU
     if (cacheChanged(published, result.cache)) revision += 1;
     cache = result.cache;
     setScan({ listed: true, filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft });
-    if (result.bytesRead > 0 || result.prunedBuckets > 0) await writeUsageCache(root, result.cache);
+    if (result.bytesRead > 0 || result.prunedBuckets > 0) await writeUsageCache(root, result.cache, onErrorAfterPublish);
     return result.bytesRead >= byteBudget ? "budget-spent" : "settled";
   };
 
@@ -102,7 +104,7 @@ function scanEquals(a: ScanProgress, b: ScanProgress): boolean {
 
 function cacheChanged(previous: UsageCache, next: UsageCache): boolean {
   const previousPaths = Object.keys(previous.files);
-  if (previousPaths.length !== Object.keys(next.files).length) return true;
+  if (previousPaths.length !== Object.keys(next.files).length || !isDeepStrictEqual(previous.carried, next.carried)) return true;
   return previousPaths.some((path) => entryChanged(previous.files[path], next.files[path]));
 }
 

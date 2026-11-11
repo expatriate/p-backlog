@@ -2,7 +2,7 @@
 set -euo pipefail
 sha="$1"
 workflow=ci.yml
-# Must outlast the slowest job's timeout-minutes in ci.yml and stay under the publish job's timeout-minutes in release.yml.
+# Must outlast the slowest job's timeout-minutes in ci.yml and stay under the verify job's timeout-minutes in release.yml.
 wait_minutes=38
 interval_seconds=30
 attempts=$((wait_minutes * 60 / interval_seconds))
