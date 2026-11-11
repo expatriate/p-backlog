@@ -1,10 +1,12 @@
-import { Children, createContext, isValidElement, useContext, useMemo, useRef, type ComponentProps, type ReactNode } from "react";
+import { Children, createContext, isValidElement, useContext, useMemo, useRef, type ComponentProps, type ReactElement, type ReactNode } from "react";
 import Markdown, { type Components, type ExtraProps } from "react-markdown";
+import { Link } from "react-router";
 import remarkGfm from "remark-gfm";
 import { checklistItems, type ChecklistItem } from "../../core/model/checklist";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
+import type { SaveOutcome } from "../ui/save-outcome";
 import { useRestoreFocus } from "../ui/use-restore-focus";
 import type { BodyEditorView } from "./use-task-saving";
 import styles from "./TaskBody.module.css";
@@ -15,7 +17,7 @@ export type TaskBodyProps = {
   onEdit: (draft: string) => void;
   onCloseEditor: () => void;
   onToggleLine: (line: number) => void;
-  onSave: (body: string) => Promise<boolean>;
+  onSave: (body: string) => Promise<SaveOutcome>;
 };
 
 type Checklist = { items: ChecklistItem[]; onToggleLine: (line: number) => void };
@@ -26,7 +28,11 @@ const ChecklistContext = createContext<Checklist>({ items: [], onToggleLine: () 
 
 const InsideCodeBlock = createContext(false);
 
-const MARKDOWN_COMPONENTS: Components = { table: MarkdownTable, li: MarkdownItem, pre: MarkdownPre, code: MarkdownCode };
+const MARKDOWN_COMPONENTS: Components = { a: MarkdownLink, table: MarkdownTable, li: MarkdownItem, pre: MarkdownPre, code: MarkdownCode };
+
+const WEB_PATH = /^\/(?!\/)/;
+const HTTP_URL = /^https?:/i;
+const ANCHOR_OR_MAILTO = /^(#|mailto:)/i;
 
 export function TaskBody({ body, editor, onEdit, onCloseEditor, onToggleLine, onSave }: TaskBodyProps) {
   const { ui, task: taskMessages } = useMessages();
@@ -49,14 +55,14 @@ export function TaskBody({ body, editor, onEdit, onCloseEditor, onToggleLine, on
   };
 
   const save = async (text: string) => {
-    if (await onSave(text)) closeEditor();
+    if ((await onSave(text)).kind === "saved") closeEditor();
   };
 
   if (editor.phase !== "closed") {
     const saving = editor.phase === "saving";
     return (
       <div ref={editorBox} className={styles.editor}>
-        <textarea autoFocus value={editor.text} rows={EDITOR_ROWS} aria-label={taskMessages.description} onChange={(event) => onEdit(event.target.value)} />
+        <textarea autoFocus value={editor.text} readOnly={saving} rows={EDITOR_ROWS} aria-label={taskMessages.description} onChange={(event) => onEdit(event.target.value)} />
         <div className={styles.editorActions}>
           <Button variant="primary" busy={saving} onClick={() => void save(editor.text)}>
             {saving ? taskMessages.saving : taskMessages.save}
@@ -79,6 +85,14 @@ export function TaskBody({ body, editor, onEdit, onCloseEditor, onToggleLine, on
       </Button>
     </div>
   );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- node must not reach the DOM as an attribute
+function MarkdownLink({ node, href = "", ...props }: ComponentProps<"a"> & ExtraProps) {
+  if (WEB_PATH.test(href)) return <Link {...props} to={href} />;
+  if (HTTP_URL.test(href)) return <a {...props} href={href} target="_blank" rel="noreferrer" />;
+  if (ANCHOR_OR_MAILTO.test(href)) return <a {...props} href={href} />;
+  return <>{props.children}</>;
 }
 
 function MarkdownTable({ children }: { children?: ReactNode }) {
@@ -107,14 +121,29 @@ function MarkdownItem({ node, children }: ComponentProps<"li"> & ExtraProps) {
   const line = (node?.position?.start.line ?? 0) - 1;
   const item = items.find((candidate) => candidate.line === line);
   if (!item) return <li>{children}</li>;
-  // remark-gfm inserts its own disabled checkbox into the item — strip it, we draw our own below
-  const text = Children.toArray(children).filter((child) => !(isValidElement(child) && child.type === "input"));
+  const { label, continuation } = checkItemParts(children);
   return (
     <li className={styles.checkItem}>
       <label>
         <input type="checkbox" checked={item.checked} onChange={() => onToggleLine(item.line)} />
-        <span>{text}</span>
+        <span>{label}</span>
       </label>
+      {continuation.length > 0 && <div className={styles.continuation}>{continuation}</div>}
     </li>
   );
+}
+
+function checkItemParts(children: ReactNode): { label: ReactNode[]; continuation: ReactNode[] } {
+  const parts = Children.toArray(children);
+  const leadElement = parts.find((part) => isValidElement(part));
+  if (!isParagraph(leadElement)) return { label: withoutGfmCheckbox(parts), continuation: [] };
+  return { label: withoutGfmCheckbox(leadElement.props.children), continuation: parts.filter((part) => isValidElement(part) && part !== leadElement) };
+}
+
+function isParagraph(node: ReactNode): node is ReactElement<{ children?: ReactNode }> {
+  return isValidElement(node) && node.type === "p";
+}
+
+function withoutGfmCheckbox(children: ReactNode): ReactNode[] {
+  return Children.toArray(children).filter((child) => !(isValidElement(child) && child.type === "input"));
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
+import type { SaveOutcome } from "./save-outcome";
 
 export type Draft<E extends HTMLElement = HTMLInputElement> = {
   ref: RefObject<E | null>;
@@ -8,7 +9,7 @@ export type Draft<E extends HTMLElement = HTMLInputElement> = {
   unsaved: boolean;
   conflicted: boolean;
   failed: boolean;
-  commit: (save: (canonical: string) => Promise<boolean>) => void;
+  commit: (save: (canonical: string) => Promise<SaveOutcome>) => void;
   reset: () => void;
 };
 
@@ -40,7 +41,7 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
 
   const canonicalText = canonical(state.text);
 
-  const send = (save: (canonical: string) => Promise<boolean>) => {
+  const send = (save: (canonical: string) => Promise<SaveOutcome>) => {
     const saveNumber = ++saveCounter.current;
     setState((current) => ({ ...current, base: canonicalText, savesInFlight: current.savesInFlight + 1, latestSaveNumber: saveNumber }));
     const settle = (saved: boolean) =>
@@ -49,10 +50,10 @@ export function useDraft<E extends HTMLElement = HTMLInputElement>(serverValue: 
         if (current.latestSaveNumber !== saveNumber) return settled;
         return saved ? { ...settled, conflicted: false, failed: false } : { ...settled, base: current.confirmed, failed: true };
       });
-    void save(canonicalText).then(settle);
+    void save(canonicalText).then((outcome) => settle(outcome.kind === "saved"));
   };
 
-  const commit = (save: (canonical: string) => Promise<boolean>) => {
+  const commit = (save: (canonical: string) => Promise<SaveOutcome>) => {
     if (savingNow(state)) {
       if (!untouchedSinceBase(state, canonicalText)) send(save);
     } else if (canonicalText === serverValue) {

@@ -13,6 +13,7 @@ import { DeletionCountdown } from "../ui/Deletion";
 import { toneOf } from "../ui/epic-tone";
 import { Notice } from "../ui/Notice";
 import { ProgressBar } from "../ui/ProgressBar";
+import type { SaveOutcome } from "../ui/save-outcome";
 import type { Draft } from "../ui/use-draft";
 import { useLeaveGuard } from "../ui/use-leave-guard";
 import { SidePanel } from "../ui/SidePanel";
@@ -24,7 +25,7 @@ import { TaskFields } from "./TaskFields";
 import { TaskRef } from "./TaskRef";
 import { TaskOptions, TaskRefs, type TaskRefsProps } from "./TaskRefs";
 import { useFieldDrafts } from "./use-field-drafts";
-import { useSaveNote, useTaskSaving, type RefsSaveResult } from "./use-task-saving";
+import { useSaveNote, useTaskSaving } from "./use-task-saving";
 import { useScrollSpaceFor } from "../ui/use-scroll-space";
 import styles from "./TaskPanel.module.css";
 
@@ -123,7 +124,7 @@ type EditableRefsProps = {
   task: Task;
   idPrefix: string;
   drafts: { blockedBy: RefDraft; related: RefDraft };
-  saveRefs: (change: TaskChange) => Promise<RefsSaveResult>;
+  saveRefs: (change: TaskChange) => Promise<SaveOutcome>;
 };
 
 function EditableRefs({ task, idPrefix, drafts, saveRefs }: EditableRefsProps) {
@@ -205,7 +206,7 @@ function CardStatus({ saveNote, alerts }: { saveNote: string; alerts: readonly s
   );
 }
 
-type TitleFieldProps = { draft: Draft<HTMLTextAreaElement>; label: string; onSave: (title: string) => Promise<boolean> };
+type TitleFieldProps = { draft: Draft<HTMLTextAreaElement>; label: string; onSave: (title: string) => Promise<SaveOutcome> };
 
 function TitleField({ draft: title, label, onSave }: TitleFieldProps) {
   const { ref: titleRef } = title;

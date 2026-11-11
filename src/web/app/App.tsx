@@ -1,10 +1,13 @@
-import { Navigate, type RouteObject } from "react-router";
-import { ROUTE_PATTERNS, statsTabSegment } from "../../core/api/web-paths";
+import { useEffect, useRef } from "react";
+import { Link, Navigate, type RouteObject } from "react-router";
+import { listPath, ROUTE_PATTERNS, statsTabSegment } from "../../core/api/web-paths";
 import { useMessages } from "../i18n";
 import { AppLayout } from "../layout/AppLayout";
 import { TaskListPage } from "../list/TaskListPage";
 import { STATS_TABS } from "../stats/stats-tabs";
-import { PageMessage } from "../ui/Page";
+import { focusDropped } from "../ui/focus-dropped";
+import { PageHeading, PageMessage } from "../ui/Page";
+import { useDocumentTitle } from "../ui/use-document-title";
 import styles from "./App.module.css";
 import { useLiveUpdates } from "./live-updates";
 
@@ -31,6 +34,7 @@ export const routes: RouteObject[] = [
       { path: ROUTE_PATTERNS.projectTask, element: <TaskListPage /> },
       { path: ROUTE_PATTERNS.stats, lazy: loadStatsPage, children: STATS_TAB_ROUTES },
       { path: ROUTE_PATTERNS.projectStats, lazy: loadStatsPage, children: STATS_TAB_ROUTES },
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ];
@@ -47,5 +51,22 @@ function CrashScreen() {
       <h1>{app.crashTitle}</h1>
       <p>{app.crashHint}</p>
     </PageMessage>
+  );
+}
+
+function NotFoundPage() {
+  const { app, list } = useMessages();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useDocumentTitle(list.docTitle(app.notFoundTitle));
+  useEffect(() => {
+    if (focusDropped()) heading.current?.focus();
+  }, []);
+  return (
+    <main id="content" tabIndex={-1}>
+      <PageHeading ref={heading}>{app.notFoundTitle}</PageHeading>
+      <PageMessage>
+        <Link to={listPath()}>{app.backToProjects}</Link>
+      </PageMessage>
+    </main>
   );
 }

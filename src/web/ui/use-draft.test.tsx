@@ -1,7 +1,11 @@
 import { act, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import type { SaveOutcome } from "./save-outcome";
 import { useDraft } from "./use-draft";
+
+const SAVED: SaveOutcome = { kind: "saved" };
+const FAILED: SaveOutcome = { kind: "failed" };
 
 function Field({ serverValue }: { serverValue: string }) {
   const { ref, value, set } = useDraft(serverValue);
@@ -36,7 +40,7 @@ describe("useDraft", () => {
     const sent: string[] = [];
     const save = (text: string) => {
       sent.push(text);
-      return new Promise<boolean>((resolve) => answers.push(resolve));
+      return new Promise<SaveOutcome>((resolve) => answers.push((saved) => resolve(saved ? SAVED : FAILED)));
     };
     const { result } = renderHook(() => useDraft("исходное"));
 
@@ -56,7 +60,7 @@ describe("useDraft", () => {
     const sent: string[] = [];
     const save = (text: string) => {
       sent.push(text);
-      return new Promise<boolean>((resolve) => answers.push(resolve));
+      return new Promise<SaveOutcome>((resolve) => answers.push((saved) => resolve(saved ? SAVED : FAILED)));
     };
     const { result } = renderHook(() => useDraft("исходное"));
 

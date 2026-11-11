@@ -7,6 +7,7 @@ import { updateTask } from "../../core/store/testing/update-task";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import { TEST_NOW } from "../../server/testing/test-app";
 import { freezeDate } from "../testing/freeze-date";
+import { applyPanelStyles } from "../testing/side-panel";
 import { SAVE_WAIT_BEFORE_ASKING_MS } from "../ui/use-leave-guard";
 import { interceptApi, renderApp, type RenderedApp, serverUnreachable } from "../testing/render-app";
 
@@ -161,6 +162,20 @@ describe("карточка задачи", () => {
     expect(screen.getByRole("complementary", { name: "Задача SPA-1" })).toBeDefined();
   });
 
+  it("в узком окне тап по фону с правкой в поле закрывает карточку и сохраняет правку без вопроса", async () => {
+    applyPanelStyles("narrow");
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    await app.user.type(within(panel).getByRole("textbox", { name: "Название задачи" }), " и повторы");
+    await app.user.pointer({ keys: "[MouseLeft]", target: document.body });
+
+    await waitFor(() => expect(app.route()).toBe("/p/spa"));
+    expect(confirm).not.toHaveBeenCalled();
+    expect((await app.taskOnDisk("SPA-1")).title).toBe("Таймауты загрузки и повторы");
+  });
+
   it("Enter в названии сохраняет его", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-1");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
@@ -220,6 +235,64 @@ describe("карточка задачи", () => {
 
     await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).body).toContain("- [x] первый шаг"));
     await waitFor(() => expect(within(panel).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("100"));
+  });
+
+  it("чеклист с пустыми строками между пунктами — у пункта один чекбокс, абзац под пунктом не входит в его имя", async () => {
+    const looseChecklist = "- [ ] первый шаг\n\n  подробности шага\n\n- [x] второй шаг";
+    await renderApp({ ...FILES, "spa/SPA-2.md": taskFile("SPA-2", { title: "Блокер" }, looseChecklist) }, "/p/spa/t/SPA-2");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });
+
+    expect(within(panel).getAllByRole("checkbox")).toHaveLength(2);
+    expect(within(panel).getByRole("checkbox", { name: "первый шаг" })).toHaveProperty("checked", false);
+    expect(within(panel).getByRole("checkbox", { name: "второй шаг" })).toHaveProperty("checked", true);
+  });
+
+  describe("ссылки в описании", () => {
+    const withBody = (body: string) => ({ ...FILES, "spa/SPA-1.md": taskFile("SPA-1", { title: "Таймауты загрузки" }, body) });
+
+    it("внешняя открывается в новой вкладке, путь веба ведёт роутером на карточку", async () => {
+      const app = await renderApp(withBody("[сайт](https://example.com/a) и [блокер](/p/spa/t/SPA-2)"), "/p/spa/t/SPA-1");
+      const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+      const site = within(panel).getByRole("link", { name: "сайт" });
+      expect([site.getAttribute("href"), site.getAttribute("target"), site.getAttribute("rel")]).toEqual(["https://example.com/a", "_blank", "noreferrer"]);
+
+      await app.user.click(within(panel).getByRole("link", { name: "блокер" }));
+      expect(await screen.findByRole("complementary", { name: "Задача SPA-2" })).toBeDefined();
+      expect(app.route()).toBe("/p/spa/t/SPA-2");
+    });
+
+    it("путь веба на несуществующий адрес — «Страница не найдена», фокус на её заголовке", async () => {
+      const app = await renderApp(withBody("[старый адрес](/tasks)"), "/p/spa/t/SPA-1");
+      const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+      await app.user.click(within(panel).getByRole("link", { name: "старый адрес" }));
+
+      expect(document.activeElement).toBe(await screen.findByRole("heading", { level: 1, name: "Страница не найдена" }));
+    });
+
+    it.each([
+      { kind: "якорь", href: "#user-content-fn-1" },
+      { kind: "mailto:", href: "mailto:dev@example.com" },
+    ])("$kind — обычная ссылка без новой вкладки", async ({ href }) => {
+      await renderApp(withBody(`Смотри [x.ts](${href})`), "/p/spa/t/SPA-1");
+      const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+      const link = within(panel).getByRole("link", { name: "x.ts" });
+      expect([link.getAttribute("href"), link.getAttribute("target")]).toEqual([href, null]);
+    });
+
+    it.each([
+      { kind: "относительная", link: "[x.ts](src/web/x.ts)" },
+      { kind: "javascript:", link: "[x.ts](javascript:alert(1))" },
+      { kind: "чужой хост через //", link: "[x.ts](//evil.host/x)" },
+    ])("$kind — текст, а не ссылка", async ({ link }) => {
+      await renderApp(withBody(`Смотри ${link}`), "/p/spa/t/SPA-1");
+      const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+      expect(within(panel).getByText("Смотри x.ts")).toBeDefined();
+      expect(within(panel).queryByRole("link", { name: "x.ts" })).toBeNull();
+    });
   });
 
   it("после сохранения не перебрасывает фокус на сам ящик", async () => {
@@ -348,6 +421,21 @@ describe("связи и название: ошибки у поля", () => {
     expect((await within(blockedBy).findByRole("alert")).textContent).toContain("цикл блокеров");
     expect(field).toHaveProperty("value", "SPA-1");
     expect(within(panel).getAllByRole("alert")).toHaveLength(1);
+  });
+
+  it("конфликт версий при добавлении связи показан в карточке, а не у поля", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-2", undefined, {
+      beforeRender: interceptApi(async (_path, init, passOn) => (init?.method === "PATCH" ? Response.json({ errors: ["version conflict"] }, { status: 409 }) : passOn())),
+    });
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });
+    const blockedBy = within(panel).getByRole("region", { name: "Блокируется" });
+    const field = within(blockedBy).getByRole("combobox", { name: "Добавить в «Блокируется»" });
+
+    await app.user.type(field, "SPA-4{Enter}");
+
+    await waitFor(() => expect(alertTexts(panel)).toEqual(["Задача изменилась на диске, показана актуальная версия. Повторите правку."]));
+    expect(within(blockedBy).queryByRole("alert")).toBeNull();
+    expect(field).toHaveProperty("value", "SPA-4");
   });
 
   it("отказ сервера у поля связей переживает сохранение другого поля и уходит, когда ввод правят", async () => {
@@ -1002,6 +1090,21 @@ describe("черновик описания при уходе с задачи", 
     await waitFor(() => expect(within(panel).getByRole("button", { name: "Редактировать описание" })).toBeDefined());
     expect(document.activeElement).toBe(title);
     expect(patches.sent).toHaveLength(1);
+  });
+
+  it("пока описание сохраняется, поле не принимает дописанное", async () => {
+    const patches = holdFirstPatch();
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });
+    const panel = await startDraft(app);
+    const description = within(panel).getByRole<HTMLTextAreaElement>("textbox", { name: "Описание задачи" });
+    const sentText = description.value;
+
+    await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
+    await app.user.type(description, " ещё");
+
+    expect(description.value).toBe(sentText);
+    patches.release();
+    await waitFor(() => expect(within(panel).getByRole("button", { name: "Редактировать описание" })).toBeDefined());
   });
 
   it("фокус уходит в поле описания и возвращается на «Редактировать описание» после «Отмена» и «Сохранить»", async () => {

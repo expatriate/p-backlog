@@ -36,6 +36,7 @@ export function SidePanel({ label, heading, onClose, className, children }: Side
     drawer?.focus();
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (releaseBackground === null || (event.target instanceof Node && drawer?.contains(event.target))) return;
+      drawer?.focus();
       close.current();
     };
     document.addEventListener("pointerdown", closeOnOutsidePointer);

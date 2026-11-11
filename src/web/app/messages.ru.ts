@@ -3,6 +3,8 @@ import { countRu, NBSP } from "../../core/i18n/plural";
 export const appRu = {
   crashTitle: "Интерфейс беклога сломался",
   crashHint: "Обновите страницу. Если ошибка повторится, перезапустите сервер беклога.",
+  notFoundTitle: "Страница не найдена",
+  backToProjects: "Вернуться к проектам",
   serverErrorPrefixed: (message: string): string => `Сервер вернул ошибку: ${message}. Повторите; если не проходит — перезапустите сервер беклога.`,
   serverStatusError: (status: number): string => `Сервер вернул ошибку ${status}. Повторите; если не проходит — перезапустите сервер беклога.`,
   unreachableMessage: <T>(command: (text: string) => T): Array<string | T> => [

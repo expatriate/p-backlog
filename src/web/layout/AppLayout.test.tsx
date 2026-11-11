@@ -119,6 +119,14 @@ describe("боковая панель", () => {
     expect(document.activeElement).toBe(screen.getByRole("link", { name: "Проекты" }));
   });
 
+  it("диалог удаления считает и задачи проекта с неразобранным фронтматтером, но не чужие", async () => {
+    const { user } = await renderApp({ ...FILES, "spa/SPA-2.md": "сломано", "torg-io/TI-2.md": "сломано" });
+
+    await user.click(await screen.findByRole("button", { name: "Удалить проект spa" }));
+
+    expect(await screen.findByText(/^Задач: 2\./)).toBeDefined();
+  });
+
   it.each([
     { from: "/stats/code", deleted: "spa", to: "/stats/code" },
     { from: "/p/torg-io", deleted: "spa", to: "/p/torg-io" },
