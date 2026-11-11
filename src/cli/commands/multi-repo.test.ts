@@ -1,9 +1,10 @@
 import { execFileSync } from "node:child_process";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { anchorOf } from "../../core/check/anchor";
 import type { CheckReport } from "../../core/check/check-backlog";
-import { readJournal } from "../../core/store/journal";
+import { JOURNAL_FILE, readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
 import { gitAddWorktree, gitCommitAll, gitShortHead, makeGitRepo, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
@@ -36,6 +37,34 @@ async function withTasksInBothRepos() {
 
 async function checkFrom(run: CliSandbox["run"], cwd: string): Promise<CheckReport> {
   return JSON.parse((await run(["check", "--json"], { cwd })).out) as CheckReport;
+}
+
+async function journalEvents(root: string) {
+  return (await readJournal(join(root, "spa"), "spa")).events;
+}
+
+async function withOriginIn(root: string, fromRepo: string, toRepo: string): Promise<void> {
+  const journal = join(root, "spa", JOURNAL_FILE);
+  await writeFile(journal, (await readFile(journal, "utf8")).replaceAll(gitShortHead(fromRepo), gitShortHead(toRepo)));
+}
+
+async function serverDeletedInWeb() {
+  const sandbox = await twoRepoSandbox();
+  await writeFiles(sandbox.web, { "src/server.ts": "const old = 1;\nconst legacy = 2;\n" });
+  gitCommitAll(sandbox.web, "Старый сервер", "2026-09-16T11:00:00Z");
+  execFileSync("git", ["rm", "-q", "src/server.ts"], { cwd: sandbox.web });
+  gitCommitAll(sandbox.web, "Убрать сервер", "2026-09-16T12:00:00Z");
+  await writeFiles(sandbox.api, { "src/server.ts": "const server = 1;\nconst keepAlive = 5;\n" });
+  gitCommitAll(sandbox.api, "Сервер", "2026-09-16T12:00:00Z");
+  return sandbox;
+}
+
+async function sharedTaskAnchoredInBoth() {
+  const sandbox = await twoRepoSandbox();
+  await writeFiles(sandbox.root, { "spa/SPA-1.md": taskFile("SPA-1", { title: "Таймаут общий", source: "src/shared.ts:2", anchor: anchorOf(SHARED_CODE, "src/shared.ts:2") ?? "" }) });
+  await writeFiles(sandbox.web, { "src/shared.ts": `// настройки\n${SHARED_CODE}` });
+  gitCommitAll(sandbox.web, "Заголовок", "2026-09-18T10:00:00Z");
+  return sandbox;
 }
 
 async function savedTask(root: string, id: string) {
@@ -229,6 +258,7 @@ describe("проект с двумя repos", () => {
 
     expect(verified.code).toBe(EXIT.ok);
     expect((await savedTask(root, "SPA-1"))?.anchor).toBeUndefined();
+    expect((await journalEvents(root)).find((event) => event.kind === "verified")).not.toHaveProperty("commit");
   });
 
   it("verify из другого repo записывает в журнал коммит HEAD repo задачи", async () => {
@@ -252,5 +282,110 @@ describe("проект с двумя repos", () => {
 
     expect(report.candidates).toEqual([]);
     expect((await savedTask(root, "SPA-1"))?.anchor).toBe(anchorOf(WEB_INDEX, "src/index.ts:2"));
+  });
+
+  it("new из repo, где файл когда-то был, записывает origin repo с файлом: задача не пропавшая, verify из этого repo пишет его коммит", async () => {
+    const { run, root, web, api } = await serverDeletedInWeb();
+    await run(["new", "--category", "bug", "--title", "Keep-alive", "--source", "src/server.ts:2"], { cwd: web });
+
+    const fromWeb = await checkFrom(run, web);
+    const fromApi = await checkFrom(run, api);
+    await run(["verify", "SPA-1"], { cwd: api });
+
+    const events = await journalEvents(root);
+    expect([...fromWeb.candidates, ...fromApi.candidates]).toEqual([]);
+    expect(events.find((event) => event.kind === "created")).toMatchObject({ origin: { commit: gitShortHead(api) } });
+    expect(events.find((event) => event.kind === "verified")).toMatchObject({ commit: gitShortHead(api) });
+  });
+
+  it("старая задача с origin из repo, где файл удалён, судится по repo, где сходится её якорь", async () => {
+    const { run, root, web, api } = await serverDeletedInWeb();
+    await run(["new", "--category", "bug", "--title", "Keep-alive", "--source", "src/server.ts:2"], { cwd: api });
+    await withOriginIn(root, api, web);
+
+    const report = await checkFrom(run, web);
+
+    expect(report.candidates).toEqual([]);
+  });
+
+  it("origin из repo, где пути никогда не было, не делает задачу без якоря пропавшей", async () => {
+    const { run, root, web, api } = await twoRepoSandbox();
+    await run(["new", "--category", "bug", "--title", "Ретраи веба", "--source", "src/web.ts"], { cwd: web });
+    await withOriginIn(root, web, api);
+
+    const report = await checkFrom(run, api);
+
+    expect(report.candidates).toEqual([]);
+  });
+
+  it("якорь сходится в обоих repos — check не переносит source по repo из cwd", async () => {
+    const { run, root, web } = await sharedTaskAnchoredInBoth();
+
+    await checkFrom(run, web);
+
+    expect((await savedTask(root, "SPA-1"))?.source).toBe("src/shared.ts:2");
+  });
+
+  it("якорь сходится в обоих repos — verify без --source не переносит source и не пишет коммит", async () => {
+    const { run, root, web } = await sharedTaskAnchoredInBoth();
+
+    const verified = await run(["verify", "SPA-1"], { cwd: web });
+
+    expect(verified.code).toBe(EXIT.ok);
+    expect((await savedTask(root, "SPA-1"))?.source).toBe("src/shared.ts:2");
+    expect((await journalEvents(root)).find((event) => event.kind === "verified")).not.toHaveProperty("commit");
+  });
+
+  it("коммит origin есть в обоих repos — repo задачи решает её якорь, а не repo из cwd", async () => {
+    const sandbox = await makeCliSandbox();
+    const web = sandbox.repo;
+    await writeFiles(web, { "src/index.ts": API_INDEX });
+    gitCommitAll(web, "Начало", "2026-09-16T10:00:00Z");
+    const api = join(sandbox.home, "projects/api");
+    execFileSync("git", ["clone", "-q", web, api]);
+    await writeFiles(sandbox.root, { "spa/project.md": projectFile("SPA", [web, api]) });
+    await sandbox.run(["new", "--category", "bug", "--title", "Порт API", "--source", "src/index.ts:2"], { cwd: api });
+    await writeFiles(web, { "src/index.ts": API_INDEX.replace("8080", "3000") });
+    gitCommitAll(web, "Порт веба", "2026-09-18T10:00:00Z");
+
+    const report = await checkFrom(sandbox.run, web);
+
+    expect(report.candidates).toEqual([]);
+  });
+
+  it("история repo не читается — пропажа файла не определена, и задача не становится пропавшей по другому repo", async () => {
+    const { run, root, web, api } = await twoRepoSandbox();
+    await writeFiles(root, { "spa/SPA-1.md": taskFile("SPA-1", { title: "Пропавший модуль", source: "src/gone.ts:1" }) });
+    await writeFiles(api, { ".git/refs/heads/broken": `${"1".repeat(40)}\n` });
+
+    const report = await checkFrom(run, web);
+
+    expect(report.candidates.filter((candidate) => candidate.kind === "source-missing")).toEqual([]);
+  });
+
+  it("старая задача без якоря с origin из repo, где файл удалён, а он есть в другом repo, — verify не закрепляет repo origin", async () => {
+    const { run, root, web, api } = await serverDeletedInWeb();
+    await run(["new", "--category", "bug", "--title", "Сервер целиком", "--source", "src/server.ts"], { cwd: api });
+    await withOriginIn(root, api, web);
+
+    await run(["verify", "SPA-1"], { cwd: api });
+
+    expect((await journalEvents(root)).find((event) => event.kind === "verified")).not.toHaveProperty("commit");
+  });
+
+  it("история repo не читается — verify не записывает коммит ни для задачи с origin, ни без него", async () => {
+    const { run, root, web, api } = await twoRepoSandbox();
+    await run(["new", "--category", "bug", "--title", "Таймаут API", "--source", "src/api.ts:2"], { cwd: api });
+    await writeFiles(root, { "spa/SPA-2.md": taskFile("SPA-2", { title: "Пропавший модуль", source: "src/gone.ts:1" }) });
+    execFileSync("git", ["rm", "-q", "src/api.ts"], { cwd: api });
+    gitCommitAll(api, "Убрать API", "2026-09-18T10:00:00Z");
+    await writeFiles(api, { ".git/refs/heads/broken": `${"1".repeat(40)}\n` });
+
+    await run(["verify", "SPA-1", "SPA-2"], { cwd: web });
+
+    expect((await journalEvents(root)).filter((event) => event.kind === "verified")).toEqual([
+      expect.not.objectContaining({ commit: expect.anything() }),
+      expect.not.objectContaining({ commit: expect.anything() }),
+    ]);
   });
 });

@@ -27,7 +27,7 @@ import { duplicateCandidates } from "./duplicates";
 import { currentSourcesOf, repoDiffs, traceSources, type LineAtMark, type SourceTraces } from "./current-source";
 import type { CheckProblem } from "./findings";
 import { awaitingMerge } from "./awaiting-merge";
-import { collectRepoFacts, headLineOf, type DiffExcerpt, type HeadLine, type HeadLineOf, type RepoFacts } from "./repo-facts";
+import { collectRepoFacts, headLineOf, type DiffExcerpt, type HeadLine, type HeadLineOf, type KnownHistory, type RepoFacts } from "./repo-facts";
 import { sourcePath } from "../model/source";
 import { tasksByCheckout, type ProjectCheckout } from "./project-repo";
 import type { LateCommits } from "./source-commits";
@@ -48,7 +48,7 @@ export type ProjectReview = {
 
 export type ReviewScope = { checkouts: readonly ProjectCheckout[]; marks: MarkCommits; mode: CheckMode; onUnreadable: PathErrorHandler; git?: GitOutcomeRunner | undefined };
 
-type RepoReviewScope = Pick<ReviewScope, "marks" | "mode" | "onUnreadable"> & { repo: string; git: GitOutcomeRunner };
+type RepoReviewScope = Pick<ReviewScope, "marks" | "mode" | "onUnreadable"> & { repo: string; git: GitOutcomeRunner; history: KnownHistory | undefined };
 
 type RepoReview = Omit<ProjectReview, "projectId"> & { symbols: ReadonlyMap<string, string | null> };
 
@@ -82,8 +82,8 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
     return { ...nothing, candidates: scope.mode === "full" ? duplicateCandidates(tasks) : [], unchecked: [...evidenceOf(tasks, "source-changed"), ...evidenceOf(tasks, "source-missing")] };
 
   const reviews = await Promise.all(
-    (await tasksByCheckout(checkouts, tasks, scope.marks)).map(async ({ checkout, tasks: own, unsettled }) => {
-      const review = await repoReview(project, own, { ...scope, repo: checkout.path, git });
+    (await tasksByCheckout(checkouts, tasks, scope.marks)).map(async ({ checkout, tasks: own, unsettled, history }) => {
+      const review = await repoReview(project, own, { ...scope, repo: checkout.path, git, history });
       return { ...review, plans: checkout.linkedWorktree ? [] : review.plans.filter((plan) => !unsettled.has(plan.id)) };
     }),
   );
@@ -104,7 +104,7 @@ export async function projectReview(project: Project, allTasks: readonly Task[],
 
 async function repoReview(project: Project, tasks: readonly Task[], scope: RepoReviewScope): Promise<RepoReview> {
   const { repo, marks, mode, onUnreadable, git } = scope;
-  const facts = await collectRepoFacts(repo, earliestMarks(tasks));
+  const facts = await collectRepoFacts(repo, earliestMarks(tasks), scope.history);
   for (const [path, error] of facts.unreadable) onUnreadable(join(repo, path), error);
   const skipped = new Set(tasks.filter((task) => task.source !== undefined && facts.unreadable.has(sourcePath(task.source))).map((task) => task.id));
   const readable = tasks.filter((task) => !skipped.has(task.id));

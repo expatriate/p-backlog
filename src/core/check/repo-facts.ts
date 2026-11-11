@@ -71,7 +71,7 @@ function trustCommandIn(stderr: string): string | undefined {
     .find((line) => TRUST_COMMAND.test(line));
 }
 
-export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Promise<RepoFacts> {
+export async function collectRepoFacts(repo: string, pathMarks: PathMarks, known?: KnownHistory): Promise<RepoFacts> {
   const paths = [...pathMarks.keys()];
   const [location, files] = await Promise.all([locateRepo(repo), sourceFiles(repo, paths)]);
   const withoutHistory = (noHistory: NoHistory): RepoFacts => ({ ...noHistory, commits: [], renames: [], dirtyModifiedAt: new Map(), branches: unknownBranches(noHistory.history), ...files });
@@ -82,7 +82,7 @@ export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Prom
     hasCommits && paths.length > 0 ? pathLog(repo, [sinceEarliestMark(pathMarks, paths)], paths) : "",
     hasCommits && missing.length > 0 ? runGit(repo, [...logArgs([sinceEarliestMark(pathMarks, missing)]), "--diff-filter=R"]) : "",
     runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
-    branchHistoryOf(repo, location, missing),
+    branchHistoryOf(repo, location, missing, known),
   ]);
   if (log === null || renames === null || status === null) return withoutHistory({ history: "unreadable" });
   const dirty = withinRepo(parseStatus(status), prefix);
@@ -91,13 +91,20 @@ export async function collectRepoFacts(repo: string, pathMarks: PathMarks): Prom
 
 export type BranchHistory = { kind: "no-repo" } | { kind: "unreadable" } | { kind: "read"; committedHere: ReadonlySet<string>; committedAnywhere: ReadonlySet<string> };
 
-export async function branchHistoryOf(repo: string, location: RepoLocation, paths: readonly string[]): Promise<BranchHistory> {
+export async function branchHistoryOf(repo: string, location: RepoLocation, paths: readonly string[], known?: KnownHistory): Promise<BranchHistory> {
   if (location.history !== "read") return unknownBranches(location.history);
-  const [here, anywhere] = await Promise.all([location.hasCommits ? committedPaths(repo, "HEAD", paths) : [], committedPaths(repo, "--all", paths)]);
+  const [here, anywhere] = await Promise.all([location.hasCommits ? committedPaths(repo, "HEAD", paths) : [], knownAnywhere(paths, known) ?? committedPaths(repo, "--all", paths)]);
   return here === null || anywhere === null ? { kind: "unreadable" } : { kind: "read", committedHere: new Set(here), committedAnywhere: new Set(anywhere) };
 }
 
 export type EverCommitted = { kind: "no-repo" } | { kind: "unreadable" } | { kind: "read"; committed: ReadonlySet<string> };
+
+export type KnownHistory = { paths: ReadonlySet<string>; anywhere: EverCommitted };
+
+function knownAnywhere(paths: readonly string[], known: KnownHistory | undefined): string[] | undefined {
+  if (known === undefined || known.anywhere.kind !== "read" || !paths.every((path) => known.paths.has(path))) return undefined;
+  return [...known.anywhere.committed];
+}
 
 export async function pathsEverCommitted(repo: string, paths: readonly string[]): Promise<EverCommitted> {
   const location = await locateRepo(repo);

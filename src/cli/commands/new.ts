@@ -1,7 +1,7 @@
 import { findSimilarTask } from "../../core/check/duplicates";
 import { warnPathErrors } from "../../core/errors";
 import { explicitSourceRepo, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
-import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
+import { FOUND_HOW, type FoundHow, type TaskOrigin } from "../../core/journal/events";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project, type Task } from "../../core/model/types";
 import { createTask } from "../../core/store/create";
 import { indexOfLoaded, loadBacklog } from "../../core/store/load";
@@ -15,6 +15,10 @@ import { formatJson } from "../format";
 import { indexWithWritten } from "../../core/store/write-result";
 
 const DEFAULT_FOUND: FoundHow = "manual";
+
+type CreationSource = { anchor: SourceAnchor; recordIn: string | undefined };
+
+type CreationFacts = { anchor: SourceAnchor | undefined; origin: TaskOrigin | undefined };
 
 export const newCommand: CliCommand = {
   name: "new",
@@ -55,11 +59,8 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   const projectTasks = loaded.tasks.filter((task) => task.projectId === project.id);
   if (!values.force && warnedOfSimilarTask({ title: values.title, source: values.source }, projectTasks, io)) return EXIT.refused;
 
-  const [atSource, body, origin] = await allAfterSettling([
-    values.source === undefined ? undefined : anchorOf(project, values.source, io),
-    io.readStdin(),
-    values.project === undefined || cwdBelongsTo(project, loaded, io) ? readOrigin(io.cwd) : undefined,
-  ]);
+  const mayRecordOrigin = values.project === undefined || cwdBelongsTo(project, loaded, io);
+  const [{ anchor, origin }, body] = await allAfterSettling([creationFacts(project, values.source, mayRecordOrigin, io), io.readStdin()]);
   const index = indexOfLoaded(loaded);
   const result = await createTask(io.backlogRoot, {
     project,
@@ -70,7 +71,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
       category,
       tags: splitList(values.tags),
       source: values.source,
-      anchor: atSource?.kind === "anchor" ? atSource.anchor : undefined,
+      anchor: anchor?.kind === "anchor" ? anchor.anchor : undefined,
       epic: values.epic,
       blockedBy: splitList(values["blocked-by"]),
       related: splitList(values.related),
@@ -100,11 +101,17 @@ function warnedOfSimilarTask(draft: { title: string; source?: string | undefined
   return true;
 }
 
-async function anchorOf(project: Project, source: string, io: CliIo): Promise<SourceAnchor | undefined> {
+async function creationFacts(project: Project, source: string | undefined, mayRecordOrigin: boolean, io: CliIo): Promise<CreationFacts> {
+  const atSource = source === undefined ? undefined : await sourceAtCreation(project, source, io);
+  const originDir = atSource === undefined ? io.cwd : atSource.recordIn;
+  return { anchor: atSource?.anchor, origin: mayRecordOrigin && originDir !== undefined ? await readOrigin(originDir) : undefined };
+}
+
+async function sourceAtCreation(project: Project, source: string, io: CliIo): Promise<CreationSource> {
   const lookup = repoLookup(io);
   const choice = await explicitSourceRepo(project, lookup, source);
   if (choice !== undefined) await sourcePresenceOrWarn(io, choice.path, source);
-  return choice?.settled === false ? undefined : sourceAnchor(choice?.path, source, lookup.onUnreadable);
+  return { anchor: await sourceAnchor(choice?.recordIn, source, lookup.onUnreadable), recordIn: choice?.recordIn };
 }
 
 async function allAfterSettling<T extends readonly unknown[] | []>(work: T): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }> {

@@ -45,13 +45,12 @@ async function verifyOne(id: string, { loaded, source, write, io }: Verification
 
   const project = projectOf(loaded, task);
   const choice = project === undefined ? undefined : await verifiedRepo(project, task, source, io);
-  const repo = choice?.path;
-  if (source !== undefined && repo !== undefined && (await sourcePresenceOrWarn(io, repo, source)).kind === "missing") return EXIT.invalid;
-  const settled = choice?.settled !== false;
-  const target = source ?? (settled ? await relocatedSource(repo, task) : undefined);
+  if (source !== undefined && choice !== undefined && (await sourcePresenceOrWarn(io, choice.path, source)).kind === "missing") return EXIT.invalid;
+  const recordIn = choice?.recordIn;
+  const target = source ?? (await relocatedSource(recordIn, task));
   const anchored = target ?? task.source;
-  const anchor = anchored === undefined ? undefined : settled ? anchorChange(await sourceAnchor(repo, anchored, repoContext(io).onUnreadable)) : anchorOfUnsettled(task, target);
-  const headCommit = repo === undefined || !settled ? undefined : await readHeadCommit(repo);
+  const anchor = anchored === undefined ? undefined : anchorChange(await sourceAnchor(recordIn, anchored, repoContext(io).onUnreadable));
+  const headCommit = recordIn === undefined ? undefined : await readHeadCommit(recordIn);
   const written = await write(task, { verified: formatLocalIso(io.now()), source: target, anchor }, { headCommit });
   if (!written.ok) return written.exitCode;
   io.print(target === undefined ? io.cli.verified(id) : io.cli.verifiedWithSource(id, target));
@@ -63,10 +62,6 @@ async function verifiedRepo(project: Project, task: Task, source: string | undef
   if (source !== undefined) return explicitSourceRepo(project, lookup, source);
   const marks = project.repos.length > 1 ? await readMarkCommits(io.backlogRoot, project.id, (error) => io.warn(io.core.markCommitsReadFailed(project.id, errorText(error)))) : NO_MARK_COMMITS;
   return taskRepo(project, lookup, task, marks);
-}
-
-function anchorOfUnsettled(task: Task, target: string | undefined): TaskChanges["anchor"] {
-  return target === undefined || target === task.source ? undefined : null;
 }
 
 function anchorChange(found: SourceAnchor): TaskChanges["anchor"] {
