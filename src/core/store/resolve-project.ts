@@ -104,8 +104,10 @@ type Canonicalize = (path: string) => string | null;
 
 type LookupContext = RepoContext & { canonicalize: Canonicalize };
 
+const strictly = (context: RepoContext): LookupContext => ({ ...context, canonicalize: realpathOrNull });
+
 export function lookupProjectForDir(known: KnownProjects, dir: string, dirRoots: DirGitRoots, context: RepoContext): ProjectLookup {
-  return lookupProjectCanonicalizing(known, dir, dirRoots, { ...context, canonicalize: realpathOrNull });
+  return lookupProjectCanonicalizing(known, dir, dirRoots, strictly(context));
 }
 
 export async function lookupProjectForRecordedDir(known: KnownProjects, dir: string, lookupRepoRoot: RepoRootLookup, context: RepoContext): Promise<ProjectLookup> {
@@ -158,7 +160,7 @@ function findProjectForRoots(projects: readonly Project[], roots: GitRoots, cont
 }
 
 export function pathFromProjectRepo(project: Project, roots: GitRoots, context: RepoContext, path: string): string | null {
-  const repoPath = closestCoveringRepo(project.repos, roots, { ...context, canonicalize: realpathOrNull });
+  const repoPath = closestCoveringRepo(project.repos, roots, strictly(context));
   if (repoPath === undefined) return null;
   const enclosingRootsOf = (dir: string) => repoRootsOf(readGitRoots(dirname(dir), context.onUnreadable));
   return relativeInside(repoPath, asInProjectRepoCheckout(path, roots, { repoPath, enclosingRootsOf }));
@@ -197,5 +199,6 @@ function isSameOrInside(path: string, container: string): boolean {
 }
 
 function resolvedRepo(repo: string, { home, onUnreadable, canonicalize }: LookupContext): string | null {
-  return attemptReportingFailureSync(expandHome(repo, home), canonicalize, onUnreadable);
+  const path = expandHome(repo, home);
+  return isAbsolute(path) ? attemptReportingFailureSync(path, canonicalize, onUnreadable) : null;
 }
