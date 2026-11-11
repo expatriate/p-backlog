@@ -1,8 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router";
-import type { ProjectView } from "../../core/api/contract";
+import type { ProjectView, TasksResponse } from "../../core/api/contract";
 import { countBy } from "../../core/collections";
-import type { Task } from "../../core/model/types";
 import { useProjects, useTasks } from "../app/queries";
 import { RequestFailure } from "../app/RequestFailure";
 import { useFailureKeptWhileRefetching } from "../app/use-failure-kept-while-refetching";
@@ -27,7 +26,7 @@ export function ProjectsScope({ projectId, scopePath, search }: ProjectsScopePro
   const tasks = useTasks();
   const allProjects = useMemo(() => projects.data ?? [], [projects.data]);
   const isInScope = useMemo(() => taskScope(projects.data, undefined), [projects.data]);
-  const counts = useMemo(() => (tasks.data === undefined ? undefined : taskCounts(tasks.data.tasks, isInScope)), [tasks.data, isInScope]);
+  const counts = useMemo(() => (tasks.data === undefined ? undefined : taskCounts(tasks.data, isInScope)), [tasks.data, isInScope]);
   const [listOpen, setListOpen] = useState(true);
   const scopeLink = useRef<HTMLAnchorElement>(null);
   const navigate = useNavigate();
@@ -136,12 +135,13 @@ function ProjectRow({ to, search, openTasks, taskCount, project, onDeleted }: Pr
 
 type TaskCounts = { scopeOpen: number | undefined; openByProject: ReadonlyMap<string, number>; totalByProject: ReadonlyMap<string, number> };
 
-function taskCounts(tasks: readonly Task[], isInScope: TaskScope | undefined): TaskCounts {
+function taskCounts({ tasks, errors }: Pick<TasksResponse, "tasks" | "errors">, isInScope: TaskScope | undefined): TaskCounts {
   const open = tasks.filter(isOpenTask);
+  const taskParseErrors = errors.filter((error) => error.fileKind === "task");
   return {
     scopeOpen: isInScope === undefined ? undefined : countOpenTasks(tasks, isInScope).inScope,
     openByProject: countBy(open, (task) => task.projectId),
-    totalByProject: countBy(tasks, (task) => task.projectId),
+    totalByProject: countBy([...tasks, ...taskParseErrors], ({ projectId }) => projectId),
   };
 }
 
