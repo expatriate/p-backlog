@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { attributeLine, newTranscriptState } from "./attribute";
-import { fastModel } from "./pricing";
+import { costOf } from "./pricing";
 
 const CWD = "/Users/x/projects/spa";
 
@@ -159,9 +159,18 @@ describe("отнесение строк расшифровки к накладн
     const state = newTranscriptState();
     attributeLine(hookFeedbackLine("2026-09-19T09:00:00.000Z"), state);
 
-    const [bucket] = attributeLine(assistantLine("2026-09-19T09:00:01.000Z", "claude-opus-5", { ...usage(100, 20), speed: "fast" }), state);
+    const [bucket] = attributeLine(assistantLine("2026-09-19T09:00:01.000Z", "claude-opus-5", { ...usage(1_000_000, 0), speed: "fast" }), state);
 
-    expect(bucket?.model).toBe(fastModel("claude-opus-5"));
+    expect(bucket === undefined ? null : costOf(bucket.model, bucket.tokens)).toBeCloseTo(10);
+  });
+
+  it("ответ haiku 5.5 на запрос длиннее 100 000 токенов с учётом чтения кэша стоит по старшему тарифу", () => {
+    const state = newTranscriptState();
+    attributeLine(hookFeedbackLine("2026-09-19T09:00:00.000Z"), state);
+
+    const [bucket] = attributeLine(assistantLine("2026-09-19T09:00:01.000Z", "claude-haiku-5-5", { ...usage(1_000, 0), cache_read_input_tokens: 100_000 }), state);
+
+    expect(bucket === undefined ? null : costOf(bucket.model, bucket.tokens)).toBeCloseTo((1_000 * 0.5 + 100_000 * 0.05) / 1_000_000);
   });
 
   it("вывод backlog внутри хода хука не оценивается отдельно: он уже во входе ответов хода", () => {

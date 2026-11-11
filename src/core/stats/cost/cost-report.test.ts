@@ -6,6 +6,7 @@ import type { TokenCounts } from "./token-counts";
 import type { UsageBucket } from "./usage-state";
 import { attributeLine, newTranscriptState } from "./attribute";
 import { costReport } from "./cost-report";
+import { modelKey } from "./pricing";
 
 const NOW = new Date(2026, 8, 19, 12);
 const SCAN: ScanProgress = { listed: true, filesTotal: 3, filesDone: 3, bytesLeft: 0 };
@@ -123,6 +124,21 @@ describe("отчёт о стоимости", () => {
     const report = costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
 
     expect(report.models.map((model) => model.model)).toEqual(["claude-opus-5", "claude-haiku-4-5"]);
+  });
+
+  it("запросы haiku 5.5 обоих тарифов — одна строка модели, стоимость каждого по своему тарифу", () => {
+    const short = tokens({ input: 1_000 });
+    const long = tokens({ input: 200_000 });
+    const buckets = [
+      bucket({ model: modelKey({ model: "claude-haiku-5-5", fast: false, tokens: short }), tokens: short }),
+      bucket({ model: modelKey({ model: "claude-haiku-5-5", fast: false, tokens: long }), tokens: long }),
+    ];
+
+    const report = costReport({ buckets, runs: [], projectOf: PROJECT_OF, now: NOW, scan: SCAN });
+
+    expect(report.models).toHaveLength(1);
+    expect(report.models[0]).toMatchObject({ model: "claude-haiku-5-5", fast: false, tokens: 201_000 });
+    expect(report.models[0]?.cost).toBeCloseTo((1_000 * 0.1 + 200_000 * 0.5) / 1_000_000);
   });
 
   it("команды за 30 дней — среднее время и память, пик памяти, порядок по числу запусков", () => {

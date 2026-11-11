@@ -2,7 +2,7 @@ import { z } from "zod";
 import { addTokens, tokensGrowth, totalTokens, ZERO_TOKENS, type TokenCounts } from "./token-counts";
 import type { TranscriptState, UsageBucket } from "./usage-state";
 import { isBacklogHookFeedback } from "../../hook-signature";
-import { fastModel } from "./pricing";
+import { modelKey } from "./pricing";
 import { invokesBacklog } from "./shell-commands";
 import { SKILL_NAME } from "../../skill-name";
 import { HOUR_MS } from "../../model/dates";
@@ -86,8 +86,8 @@ function attributeAssistant(rawMessage: unknown, state: TranscriptState, context
   const buckets: UsageBucket[] = [];
   const repeatOfCountedMessage = id !== undefined && id === state.lastMessageId;
   if (usage !== undefined && isPricedModel(model)) {
-    const pricedModel = usage.speed === FAST_SPEED ? fastModel(model) : model;
     const tokens = tokensFrom(usage);
+    const pricedModel = modelKey({ model, fast: usage.speed === FAST_SPEED, tokens });
     if (repeatOfCountedMessage) {
       const counted = state.lastMessageTokens ?? tokens;
       const growth = tokensGrowth(counted, tokens);

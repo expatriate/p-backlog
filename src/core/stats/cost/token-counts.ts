@@ -21,6 +21,10 @@ export function tokensGrowth(before: TokenCounts, after: TokenCounts): TokenCoun
   return { input: grown("input"), cacheWrite5m: grown("cacheWrite5m"), cacheWrite1h: grown("cacheWrite1h"), cacheRead: grown("cacheRead"), output: grown("output") };
 }
 
+export function promptTokens(tokens: TokenCounts): number {
+  return tokens.input + tokens.cacheWrite5m + tokens.cacheWrite1h + tokens.cacheRead;
+}
+
 export function totalTokens(tokens: TokenCounts): number {
-  return tokens.input + tokens.cacheWrite5m + tokens.cacheWrite1h + tokens.cacheRead + tokens.output;
+  return promptTokens(tokens) + tokens.output;
 }

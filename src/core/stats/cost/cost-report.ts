@@ -5,7 +5,7 @@ import { totalTokens } from "./token-counts";
 import type { UsageBucket } from "./usage-state";
 import { HOOK_STOP_COMMAND } from "../../hook-signature";
 import { SERVE_COMMAND_NAME } from "../../serve-command";
-import { costOf, splitFastModel } from "./pricing";
+import { costOf, splitFastModel, modelRowKey } from "./pricing";
 import { dayWindows, STATS_DAYS } from "../days";
 import { statsPeriod, weekWindows } from "../weeks";
 import type { Period } from "../period";
@@ -109,7 +109,7 @@ function costNumbers({ buckets, runs }: UsageInPeriod): CostNumbers {
 }
 
 function modelsOf(buckets: readonly UsageBucket[]): CostModel[] {
-  return [...groupBy(buckets, (bucket) => bucket.model).entries()]
+  return [...groupBy(buckets, (bucket) => modelRowKey(bucket.model)).entries()]
     .map(([key, modelBuckets]) => ({ ...splitFastModel(key), tokens: tokensTotalOf(modelBuckets), cost: costOfBuckets(modelBuckets) }))
     .filter((row) => row.tokens > 0)
     .sort((a, b) => b.tokens - a.tokens);
