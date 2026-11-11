@@ -7,6 +7,7 @@ import { updateTask } from "../../core/store/testing/update-task";
 import { projectFile, taskFile } from "../../core/store/testing/temp-dirs";
 import { TEST_NOW } from "../../server/testing/test-app";
 import { freezeDate } from "../testing/freeze-date";
+import { applyPanelStyles } from "../testing/side-panel";
 import { SAVE_WAIT_BEFORE_ASKING_MS } from "../ui/use-leave-guard";
 import { interceptApi, renderApp, type RenderedApp, serverUnreachable } from "../testing/render-app";
 
@@ -159,6 +160,20 @@ describe("карточка задачи", () => {
 
     await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).title).toBe("Таймауты загрузки и повторы"));
     expect(screen.getByRole("complementary", { name: "Задача SPA-1" })).toBeDefined();
+  });
+
+  it("в узком окне тап по фону с правкой в поле закрывает карточку и сохраняет правку без вопроса", async () => {
+    applyPanelStyles("narrow");
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+    await app.user.type(within(panel).getByRole("textbox", { name: "Название задачи" }), " и повторы");
+    await app.user.pointer({ keys: "[MouseLeft]", target: document.body });
+
+    await waitFor(() => expect(app.route()).toBe("/p/spa"));
+    expect(confirm).not.toHaveBeenCalled();
+    expect((await app.taskOnDisk("SPA-1")).title).toBe("Таймауты загрузки и повторы");
   });
 
   it("Enter в названии сохраняет его", async () => {
