@@ -1,4 +1,4 @@
-import { basename, dirname, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import type { PathErrorHandler } from "../errors";
 import { runGit, runGitSync } from "../git/run";
 import { projectIdBase } from "../model/ids";
@@ -50,9 +50,20 @@ function rootsOf({ topLevel }: RevParse, worktreeList: string | null): GitRoots 
   return canonicalRoots(topLevel, mainWorktreeIn(worktreeList) ?? topLevel);
 }
 
-function plainDirRoots(dir: string): GitRoots | null {
-  const path = realpathOrNull(dir);
-  return path === null ? null : { worktree: path, main: path };
+type ExistingAncestor = { real: string; missing: string[] };
+
+function nearestExistingAncestor(path: string): ExistingAncestor | null {
+  const real = realpathOrNull(path);
+  if (real !== null) return { real, missing: [] };
+  const parent = dirname(path);
+  if (parent === path || !isAbsolute(path)) return null;
+  const ancestor = nearestExistingAncestor(parent);
+  return ancestor === null ? null : { real: ancestor.real, missing: [...ancestor.missing, basename(path)] };
+}
+
+function realpathThroughExistingAncestor(path: string): string | null {
+  const ancestor = nearestExistingAncestor(path);
+  return ancestor === null ? null : join(ancestor.real, ...ancestor.missing);
 }
 
 function parseRevParse(dir: string, output: string | null): RevParse | null {
@@ -89,7 +100,25 @@ export type KnownProjects = { projects: readonly Project[]; errors: readonly Par
 
 export type ProjectLookup = { project: Project } | { broken: ProjectFileError[] };
 
+type Canonicalize = (path: string) => string | null;
+
+type LookupContext = RepoContext & { canonicalize: Canonicalize };
+
 export function lookupProjectForDir(known: KnownProjects, dir: string, dirRoots: DirGitRoots, context: RepoContext): ProjectLookup {
+  return lookupProjectCanonicalizing(known, dir, dirRoots, { ...context, canonicalize: realpathOrNull });
+}
+
+export async function lookupProjectForRecordedDir(known: KnownProjects, dir: string, lookupRepoRoot: RepoRootLookup, context: RepoContext): Promise<ProjectLookup> {
+  const dirRoots = await lookupRepoRoot(dir);
+  const byPath = lookupProjectCanonicalizing(known, dir, dirRoots, { ...context, canonicalize: realpathThroughExistingAncestor });
+  if ("project" in byPath || byPath.broken.length > 0 || dirRoots !== "not-in-repo") return byPath;
+  const ancestor = attemptReportingFailureSync(dir, nearestExistingAncestor, context.onUnreadable);
+  if (ancestor === null || ancestor.missing.length === 0) return byPath;
+  const ancestorRoots = await lookupRepoRoot(ancestor.real);
+  return typeof ancestorRoots === "string" ? byPath : lookupProjectForDir(known, ancestor.real, ancestorRoots, context);
+}
+
+function lookupProjectCanonicalizing(known: KnownProjects, dir: string, dirRoots: DirGitRoots, context: LookupContext): ProjectLookup {
   const roots = matchingRoots(dir, dirRoots, context);
   if (roots === null) return { broken: [] };
   const repo = repoRootsOf(dirRoots);
@@ -98,7 +127,7 @@ export function lookupProjectForDir(known: KnownProjects, dir: string, dirRoots:
 
 type DirRepo = { roots: GitRoots; repoDirName: string | undefined };
 
-function lookupProject({ projects, errors }: KnownProjects, { roots, repoDirName }: DirRepo, context: RepoContext): ProjectLookup {
+function lookupProject({ projects, errors }: KnownProjects, { roots, repoDirName }: DirRepo, context: LookupContext): ProjectLookup {
   const coveredLength = (repos: readonly string[]) => closestCoveringRepo(repos, roots, context)?.length ?? 0;
   const coverageOf = (error: ProjectFileError) => {
     const namedAfterRepo = error.claimedRepos.length === 0 && error.projectId === repoDirName;
@@ -113,12 +142,14 @@ function lookupProject({ projects, errors }: KnownProjects, { roots, repoDirName
   return { broken: covering.map(({ error }) => error) };
 }
 
-function matchingRoots(dir: string, dirRoots: DirGitRoots, context: RepoContext): GitRoots | null {
+function matchingRoots(dir: string, dirRoots: DirGitRoots, { canonicalize, onUnreadable }: LookupContext): GitRoots | null {
   if (dirRoots === "unreadable") return null;
-  return dirRoots === "not-in-repo" ? attemptReportingFailureSync(dir, plainDirRoots, context.onUnreadable) : dirRoots;
+  if (dirRoots !== "not-in-repo") return dirRoots;
+  const path = attemptReportingFailureSync(dir, canonicalize, onUnreadable);
+  return path === null ? null : { worktree: path, main: path };
 }
 
-function findProjectForRoots(projects: readonly Project[], roots: GitRoots, context: RepoContext): Project | undefined {
+function findProjectForRoots(projects: readonly Project[], roots: GitRoots, context: LookupContext): Project | undefined {
   const matches = projects.flatMap((project) => {
     const repoPath = closestCoveringRepo(project.repos, roots, context);
     return repoPath === undefined ? [] : [{ project, repoPath }];
@@ -127,7 +158,7 @@ function findProjectForRoots(projects: readonly Project[], roots: GitRoots, cont
 }
 
 export function pathFromProjectRepo(project: Project, roots: GitRoots, context: RepoContext, path: string): string | null {
-  const repoPath = closestCoveringRepo(project.repos, roots, context);
+  const repoPath = closestCoveringRepo(project.repos, roots, { ...context, canonicalize: realpathOrNull });
   if (repoPath === undefined) return null;
   const enclosingRootsOf = (dir: string) => repoRootsOf(readGitRoots(dirname(dir), context.onUnreadable));
   return relativeInside(repoPath, asInProjectRepoCheckout(path, roots, { repoPath, enclosingRootsOf }));
@@ -152,7 +183,7 @@ function asInMainCheckout({ worktree, main }: GitRoots, path: string): string {
   return inWorktree === null ? path : resolve(main, inWorktree);
 }
 
-function closestCoveringRepo(repos: readonly string[], roots: GitRoots, context: RepoContext): string | undefined {
+function closestCoveringRepo(repos: readonly string[], roots: GitRoots, context: LookupContext): string | undefined {
   const covering = repos.map((repo) => resolvedRepo(repo, context)).filter((repoPath): repoPath is string => repoPath !== null && repoCovers(repoPath, roots));
   return covering.sort((a, b) => b.length - a.length)[0];
 }
@@ -165,6 +196,6 @@ function isSameOrInside(path: string, container: string): boolean {
   return relativeInside(container, path) !== null;
 }
 
-function resolvedRepo(repo: string, { home, onUnreadable }: RepoContext): string | null {
-  return attemptReportingFailureSync(expandHome(repo, home), realpathOrNull, onUnreadable);
+function resolvedRepo(repo: string, { home, onUnreadable, canonicalize }: LookupContext): string | null {
+  return attemptReportingFailureSync(expandHome(repo, home), canonicalize, onUnreadable);
 }

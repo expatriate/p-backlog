@@ -101,6 +101,12 @@ describe("lookupProjectForDir", () => {
     expect(projectForDir([project("spa", [join(home, "spa")])], neighbour, contextIn(home))).toBeUndefined();
   });
 
+  it("пустой путь в repos не покрывает каталог, из которого запущен процесс", async () => {
+    const home = await makeTempDir();
+
+    expect(projectForDir([project("blank", [""])], process.cwd(), contextIn(home))).toBeUndefined();
+  });
+
   it("корни git нечитаемы — проект не определяется, а не подбирается по самому каталогу", async () => {
     const { home, worktree } = await repoWithOutsideWorktree();
     const projects = [project("umbrella", [join(home, "projects")])];
