@@ -5,6 +5,7 @@ import { checklistItems, type ChecklistItem } from "../../core/model/checklist";
 import { useMessages } from "../i18n";
 import { Button } from "../ui/Button";
 import { cx } from "../ui/cx";
+import type { SaveOutcome } from "../ui/save-outcome";
 import { useRestoreFocus } from "../ui/use-restore-focus";
 import type { BodyEditorView } from "./use-task-saving";
 import styles from "./TaskBody.module.css";
@@ -15,7 +16,7 @@ export type TaskBodyProps = {
   onEdit: (draft: string) => void;
   onCloseEditor: () => void;
   onToggleLine: (line: number) => void;
-  onSave: (body: string) => Promise<boolean>;
+  onSave: (body: string) => Promise<SaveOutcome>;
 };
 
 type Checklist = { items: ChecklistItem[]; onToggleLine: (line: number) => void };
@@ -49,7 +50,7 @@ export function TaskBody({ body, editor, onEdit, onCloseEditor, onToggleLine, on
   };
 
   const save = async (text: string) => {
-    if (await onSave(text)) closeEditor();
+    if ((await onSave(text)).kind === "saved") closeEditor();
   };
 
   if (editor.phase !== "closed") {

@@ -5,6 +5,7 @@ import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, type Task } fro
 import { useAllTasks } from "../app/all-tasks";
 import { useMessages } from "../i18n";
 import { FieldError, useFieldError } from "../ui/FieldError";
+import type { SaveOutcome } from "../ui/save-outcome";
 import type { Draft } from "../ui/use-draft";
 import { parseTagInput } from "./tag-input";
 import styles from "./TaskFields.module.css";
@@ -12,7 +13,7 @@ import styles from "./TaskFields.module.css";
 export type TaskFieldsProps = {
   task: Task;
   epicListId: string;
-  onChange: (changes: TaskChangesRequest) => Promise<boolean>;
+  onChange: (changes: TaskChangesRequest) => Promise<SaveOutcome>;
   tags: Draft;
   epic: Draft;
 };

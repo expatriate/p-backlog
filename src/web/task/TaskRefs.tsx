@@ -6,9 +6,9 @@ import { Button } from "../ui/Button";
 import { CloseIcon } from "../ui/CloseIcon";
 import { FieldError, useFieldError } from "../ui/FieldError";
 import { IconButton } from "../ui/IconButton";
+import type { SaveOutcome } from "../ui/save-outcome";
 import { normalizeTaskId } from "./normalize-task-id";
 import { TaskRef } from "./TaskRef";
-import type { RefsSaveResult } from "./use-task-saving";
 import styles from "./TaskRefs.module.css";
 
 export type TaskRefsProps = {
@@ -18,7 +18,7 @@ export type TaskRefsProps = {
   idPrefix: string;
   draft: string;
   setDraft: Dispatch<SetStateAction<string>>;
-  onChange: (update: (ids: readonly string[]) => string[]) => Promise<RefsSaveResult>;
+  onChange: (update: (ids: readonly string[]) => string[]) => Promise<SaveOutcome>;
 };
 
 const EXAMPLE_TASK_NUMBER = 12;
@@ -29,8 +29,8 @@ export function TaskRefs({ label, ids, listId, idPrefix, draft, setDraft, onChan
   const { task: taskMessages } = useMessages();
   const [notice, setNotice] = useState<FieldNotice | null>(null);
   const addField = useFieldError(shownNoticeText(notice, ids));
-  const showRejection = (result: RefsSaveResult) => {
-    if (!result.saved) setNotice(result.fieldError === null ? null : { text: result.fieldError });
+  const showRejection = (outcome: SaveOutcome) => {
+    if (outcome.kind !== "saved") setNotice(outcome.kind === "fieldError" ? { text: outcome.message } : null);
   };
 
   const add = () => {
@@ -45,10 +45,10 @@ export function TaskRefs({ label, ids, listId, idPrefix, draft, setDraft, onChan
       return;
     }
     setDraft("");
-    void onChange((current) => [...current, id]).then((result) => {
-      if (result.saved) return;
+    void onChange((current) => [...current, id]).then((outcome) => {
+      if (outcome.kind === "saved") return;
       setDraft((typed) => (typed === "" ? draft : typed));
-      showRejection(result);
+      showRejection(outcome);
     });
   };
 

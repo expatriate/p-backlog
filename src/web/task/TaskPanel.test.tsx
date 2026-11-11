@@ -375,6 +375,21 @@ describe("связи и название: ошибки у поля", () => {
     expect(within(panel).getAllByRole("alert")).toHaveLength(1);
   });
 
+  it("конфликт версий при добавлении связи показан в карточке, а не у поля", async () => {
+    const app = await renderApp(FILES, "/p/spa/t/SPA-2", undefined, {
+      beforeRender: interceptApi(async (_path, init, passOn) => (init?.method === "PATCH" ? Response.json({ errors: ["version conflict"] }, { status: 409 }) : passOn())),
+    });
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });
+    const blockedBy = within(panel).getByRole("region", { name: "Блокируется" });
+    const field = within(blockedBy).getByRole("combobox", { name: "Добавить в «Блокируется»" });
+
+    await app.user.type(field, "SPA-4{Enter}");
+
+    await waitFor(() => expect(alertTexts(panel)).toEqual(["Задача изменилась на диске, показана актуальная версия. Повторите правку."]));
+    expect(within(blockedBy).queryByRole("alert")).toBeNull();
+    expect(field).toHaveProperty("value", "SPA-4");
+  });
+
   it("отказ сервера у поля связей переживает сохранение другого поля и уходит, когда ввод правят", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-2");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });

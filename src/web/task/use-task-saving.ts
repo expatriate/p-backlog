@@ -5,10 +5,10 @@ import type { Task } from "../../core/model/types";
 import { ApiError, apiErrorKind } from "../api/client";
 import { useUpdateTask, type BodyEdit, type TaskChange, type UpdateTaskVariables } from "../app/queries";
 import { useMessages } from "../i18n";
-import type { TaskMessages } from "./messages.ru";
+import type { SaveOutcome } from "../ui/save-outcome";
 import { saveErrorText } from "./save-error";
 
-export type RefsSaveResult = { saved: true } | { saved: false; fieldError: string | null };
+type SaveOrigin = "card" | "refs" | "body";
 
 type BodyDraft = { text: string; from: BodyEdit };
 
@@ -16,81 +16,79 @@ type BodyEditor = { phase: "closed" } | { phase: "editing"; draft: BodyDraft; er
 
 export type BodyEditorView = { phase: "closed" } | { phase: "editing" | "saving"; text: string };
 
-type SaveOutcome = { phase: "idle" | "failed" } | { phase: "saved"; at: number };
+type LastSave = { phase: "idle" | "failed" } | { phase: "saved"; at: number };
 
-type SaveStatus = SaveOutcome | { phase: "saving" };
+type SaveStatus = LastSave | { phase: "saving" };
 
 const CLOSED: BodyEditor = { phase: "closed" };
 
 const SAVING: SaveStatus = { phase: "saving" };
 
-const IDLE: SaveOutcome = { phase: "idle" };
+const IDLE: LastSave = { phase: "idle" };
 
-const FAILED: SaveOutcome = { phase: "failed" };
+const FAILED: LastSave = { phase: "failed" };
+
+const isConflict = (error: Error) => apiErrorKind(error) === "conflict";
 
 export function useTaskSaving(task: Task) {
   const { app, task: taskMessages } = useMessages();
   const updateTask = useUpdateTask();
   const [bodyEditor, setBodyEditor] = useState<BodyEditor>(CLOSED);
-  const [saveError, setSaveError] = useState<Error | null>(null);
+  const [cardError, setCardError] = useState<Error | null>(null);
   const [savesInFlight, setSavesInFlight] = useState(0);
-  const [outcome, setOutcome] = useState<SaveOutcome>(IDLE);
+  const [lastSave, setLastSave] = useState<LastSave>(IDLE);
   const errorText = (error: Error) => saveErrorText(error, app, taskMessages);
 
-  const attemptSave = async (variables: Omit<UpdateTaskVariables, "id">): Promise<Error | null> => {
-    setSaveError(null);
-    setOutcome(IDLE);
+  const routeFailure = (error: Error, origin: SaveOrigin): SaveOutcome => {
+    if (origin === "refs" && !isConflict(error)) return { kind: "fieldError", message: errorText(error) };
+    if (origin === "body") setBodyEditor((editor) => failedBodySave(editor, error));
+    else setCardError(error);
+    return { kind: "failed" };
+  };
+
+  const saveFrom = async (origin: SaveOrigin, variables: Omit<UpdateTaskVariables, "id">): Promise<SaveOutcome> => {
+    setCardError(null);
+    setLastSave(IDLE);
     setSavesInFlight((count) => count + 1);
     try {
       await updateTask.save({ id: task.id, ...variables });
-      setOutcome(unlessFailed({ phase: "saved", at: Date.now() }));
-      return null;
+      setLastSave(unlessFailed({ phase: "saved", at: Date.now() }));
+      return { kind: "saved" };
     } catch (error) {
-      setOutcome(FAILED);
-      return asError(error);
+      setLastSave(FAILED);
+      return routeFailure(asError(error), origin);
     } finally {
       setSavesInFlight((count) => count - 1);
     }
   };
 
-  const save = async (change: TaskChange): Promise<boolean> => {
-    const failure = await attemptSave({ change });
-    if (failure !== null) setSaveError(failure);
-    return failure === null;
-  };
-
-  const saveRefs = async (change: TaskChange): Promise<RefsSaveResult> => {
-    const failure = await attemptSave({ change });
-    if (failure === null) return { saved: true };
-    if (apiErrorKind(failure) !== "conflict") return { saved: false, fieldError: errorText(failure) };
-    setSaveError(failure);
-    return { saved: false, fieldError: null };
-  };
+  const save = (change: TaskChange) => saveFrom("card", { change });
 
   const taskOrigin: BodyEdit = { version: task.version, body: task.body };
   const editBody = (text: string) => setBodyEditor((editor) => withBodyText(editor, text, taskOrigin));
 
-  const saveBody = async (text: string): Promise<boolean> => {
+  const saveBody = async (text: string): Promise<SaveOutcome> => {
     const from = bodyEditor.phase === "closed" ? taskOrigin : bodyEditor.draft.from;
     setBodyEditor((editor) => (editor.phase === "closed" ? editor : { phase: "saving", draft: editor.draft }));
-    const failure = await attemptSave({ change: () => ({ body: text }), bodyEdit: from });
-    setBodyEditor((editor) => (failure === null ? savedBody(editor) : failedBodySave(editor, failure)));
-    return failure === null;
+    const outcome = await saveFrom("body", { change: () => ({ body: text }), bodyEdit: from });
+    if (outcome.kind === "saved") setBodyEditor(savedBody);
+    return outcome;
   };
 
+  const bodyErrorText = (error: Error) => (isConflict(error) ? taskMessages.draftConflict : errorText(error));
   const bodyError = bodyEditor.phase === "editing" ? bodyEditor.error : null;
-  const bodyAlert = bodyError === null ? null : bodyErrorText(bodyError, errorText, taskMessages);
+  const bodyAlert = bodyError === null ? null : bodyErrorText(bodyError);
   const saving = savesInFlight > 0;
 
   return {
     save,
     apply: (changes: TaskChangesRequest) => save(() => changes),
-    saveRefs,
+    saveRefs: (change: TaskChange) => saveFrom("refs", { change }),
     body: { editor: bodyEditorView(bodyEditor), edit: editBody, close: () => setBodyEditor(CLOSED), save: saveBody },
-    alerts: [bodyAlert, saveError === null ? null : errorText(saveError)],
-    lastSave: saving ? SAVING : outcome,
+    alerts: [bodyAlert, cardError === null ? null : errorText(cardError)],
+    lastSave: saving ? SAVING : lastSave,
     saving,
-    saveFailed: outcome.phase === "failed",
+    saveFailed: lastSave.phase === "failed",
   };
 }
 
@@ -98,7 +96,7 @@ function bodyEditorView(editor: BodyEditor): BodyEditorView {
   return editor.phase === "closed" ? editor : { phase: editor.phase, text: editor.draft.text };
 }
 
-function unlessFailed(saved: SaveOutcome): (current: SaveOutcome) => SaveOutcome {
+function unlessFailed(saved: LastSave): (current: LastSave) => LastSave {
   return (current) => (current.phase === "failed" ? current : saved);
 }
 
@@ -116,10 +114,6 @@ function failedBodySave(editor: BodyEditor, error: Error): BodyEditor {
   const current = error instanceof ApiError ? error.current : undefined;
   const from = current === undefined ? editor.draft.from : { version: current.version, body: current.body };
   return { phase: "editing", draft: { ...editor.draft, from }, error };
-}
-
-function bodyErrorText(error: Error, errorText: (error: Error) => string, taskMessages: TaskMessages): string {
-  return apiErrorKind(error) === "conflict" ? taskMessages.draftConflict : errorText(error);
 }
 
 const SAVED_NOTE_MS = 2000;
