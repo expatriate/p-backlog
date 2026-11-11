@@ -97,7 +97,16 @@ export async function branchHistoryOf(repo: string, location: RepoLocation, path
   return here === null || anywhere === null ? { kind: "unreadable" } : { kind: "read", committedHere: new Set(here), committedAnywhere: new Set(anywhere) };
 }
 
-function unknownBranches(history: NoHistory["history"]): BranchHistory {
+export type EverCommitted = { kind: "no-repo" } | { kind: "unreadable" } | { kind: "read"; committed: ReadonlySet<string> };
+
+export async function pathsEverCommitted(repo: string, paths: readonly string[]): Promise<EverCommitted> {
+  const location = await locateRepo(repo);
+  if (location.history !== "read") return unknownBranches(location.history);
+  const committed = await committedPaths(repo, "--all", paths);
+  return committed === null ? { kind: "unreadable" } : { kind: "read", committed: new Set(committed) };
+}
+
+function unknownBranches(history: NoHistory["history"]): { kind: "no-repo" } | { kind: "unreadable" } {
   return history === "not-a-repo" ? { kind: "no-repo" } : { kind: "unreadable" };
 }
 

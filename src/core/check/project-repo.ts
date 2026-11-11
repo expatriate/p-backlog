@@ -1,15 +1,16 @@
 import { join } from "node:path";
 import type { PathErrorHandler } from "../errors";
-import { runGit } from "../git/run";
+import { resolveCommits, runGit } from "../git/run";
+import type { TaskOrigin } from "../journal/events";
 import type { Project, Task } from "../model/types";
 import { fileExists, attemptReportingFailure, readTextIfFile, realpathOrNull } from "../store/fs-utils";
 import { expandHome } from "../store/paths";
 import type { GitRoots, RepoContext } from "../store/resolve-project";
 import { anchorOf } from "./anchor";
 import { sourcePath } from "../model/source";
-import { presenceOffDisk, type PresenceOffDisk } from "./candidates";
+import { anchorHolds, committedIn, presenceOffDisk, type AnchoredTask, type PresenceOffDisk } from "./candidates";
 import { currentSourceIn } from "./current-source";
-import { branchHistoryOf, locateRepo } from "./repo-facts";
+import { branchHistoryOf, locateRepo, pathsEverCommitted } from "./repo-facts";
 
 export type SourcePresence = { kind: PresenceOffDisk } | { kind: "unsafe-repo"; trustCommand: string };
 
@@ -39,24 +40,135 @@ export async function relocatedSource(repo: string | undefined, task: Task): Pro
   return current === null || current === task.source ? undefined : current;
 }
 
-export type ProjectCheckout = { path: string; linkedWorktree: boolean };
+export type ProjectCheckout = { path: string; linkedWorktree: boolean; holdsCwd: boolean };
 
-export async function findRepo(project: Project, { workingRoots, ...context }: RepoLookup): Promise<string | undefined> {
-  return (await projectCheckout(project, workingRoots, context))?.path;
+export type RepoChoice = { path: string; settled: boolean };
+
+type CheckoutTasks = { checkout: ProjectCheckout; tasks: Task[]; unsettled: ReadonlySet<string> };
+
+type SourceChoice = { checkout: ProjectCheckout; settled: boolean };
+
+type OwnedSource = AnchoredTask & { origin?: string | undefined };
+
+type PathTrace = "committed" | "unknown" | "none";
+
+type SourceEvidence = { onDisk: readonly ProjectCheckout[]; origin: ProjectCheckout | undefined; traceIn: (checkout: ProjectCheckout) => PathTrace };
+
+export async function projectCheckouts(project: Project, { workingRoots, ...context }: RepoLookup): Promise<ProjectCheckout[]> {
+  const repos = await existingRepos(project, context);
+  const cwdRepo = workingRoots === null ? undefined : repos.find((repo) => realpathOrNull(repo) === workingRoots.main);
+  const others = repos.filter((repo) => repo !== cwdRepo).map((path) => ({ path, linkedWorktree: false, holdsCwd: false }));
+  if (cwdRepo === undefined || workingRoots === null) return others;
+  return [{ path: workingRoots.worktree, linkedWorktree: workingRoots.worktree !== workingRoots.main, holdsCwd: true }, ...others];
 }
 
-export async function projectCheckout(project: Project, workingRoots: GitRoots | null, context: RepoContext): Promise<ProjectCheckout | undefined> {
-  const repo = await firstExistingRepo(project, context);
-  if (repo === undefined) return undefined;
-  if (workingRoots === null || workingRoots.main !== realpathOrNull(repo)) return { path: repo, linkedWorktree: false };
-  return { path: workingRoots.worktree, linkedWorktree: workingRoots.worktree !== workingRoots.main };
+export async function explicitSourceRepo(project: Project, lookup: RepoLookup, source: string): Promise<RepoChoice | undefined> {
+  const [choice] = await sourceChoices(await projectCheckouts(project, lookup), [{ source }]);
+  return choice === undefined ? undefined : { path: choice.checkout.path, settled: choice.settled || choice.checkout.holdsCwd };
 }
 
-async function firstExistingRepo(project: Project, { home, onUnreadable }: RepoContext): Promise<string | undefined> {
-  for (const repo of project.repos.map((path) => expandHome(path, home))) {
-    if ((await attemptReportingFailure(repo, fileExists, onUnreadable)) === true) return repo;
-  }
-  return undefined;
+export async function taskRepo(project: Project, lookup: RepoLookup, task: OwnedSource): Promise<RepoChoice | undefined> {
+  const [choice] = await sourceChoices(await projectCheckouts(project, lookup), [task]);
+  return choice === undefined ? undefined : { path: choice.checkout.path, settled: choice.settled };
+}
+
+export async function tasksByCheckout(checkouts: readonly ProjectCheckout[], tasks: readonly Task[], origins: ReadonlyMap<string, TaskOrigin>): Promise<CheckoutTasks[]> {
+  const choices = await sourceChoices(
+    checkouts,
+    tasks.map((task) => ({ ...task, origin: origins.get(task.id)?.commit })),
+  );
+  const chosen = tasks.map((task, index) => ({ task, choice: choices[index] }));
+  return checkouts.flatMap((checkout) => {
+    const own = chosen.filter(({ choice }) => choice?.checkout === checkout);
+    const unsettled = new Set(own.filter(({ choice }) => choice?.settled === false).map(({ task }) => task.id));
+    return own.length === 0 ? [] : [{ checkout, tasks: own.map(({ task }) => task), unsettled }];
+  });
+}
+
+async function sourceChoices(checkouts: readonly ProjectCheckout[], tasks: readonly OwnedSource[]): Promise<(SourceChoice | undefined)[]> {
+  const [first] = checkouts;
+  if (first === undefined) return tasks.map(() => undefined);
+  if (checkouts.length === 1) return tasks.map(() => ({ checkout: first, settled: true }));
+  const [onDisk, originOf] = await Promise.all([Promise.all(tasks.map((task) => checkoutsWithSource(checkouts, task.source))), originCheckouts(checkouts, tasks)]);
+  const asked = tasks.flatMap((task, index) => historyQuestions(checkouts, task, onDisk[index] ?? [], originOf(task)));
+  const traceOf = await pathTraces(checkouts, asked);
+  return Promise.all(
+    tasks.map((task, index) => {
+      const path = task.source === undefined ? undefined : sourcePath(task.source);
+      const evidence = { onDisk: onDisk[index] ?? [], origin: originOf(task), traceIn: (checkout: ProjectCheckout) => (path === undefined ? "none" : traceOf(checkout, path)) };
+      return sourceChoice(checkouts, first, task, evidence);
+    }),
+  );
+}
+
+async function sourceChoice(checkouts: readonly ProjectCheckout[], first: ProjectCheckout, task: OwnedSource, { onDisk, origin, traceIn }: SourceEvidence): Promise<SourceChoice> {
+  if (task.source === undefined) return { checkout: first, settled: true };
+  if (origin !== undefined && (onDisk.includes(origin) || traceIn(origin) !== "none")) return { checkout: origin, settled: true };
+  const [preferred] = onDisk;
+  if (preferred !== undefined) return anchoredChoice(preferred, onDisk, sourcePath(task.source), task);
+  const committed = checkouts.filter((checkout) => traceIn(checkout) === "committed");
+  const traced = committed.length > 0 ? committed : checkouts.filter((checkout) => traceIn(checkout) === "unknown");
+  return { checkout: traced[0] ?? first, settled: traced.length <= 1 };
+}
+
+async function anchoredChoice(preferred: ProjectCheckout, onDisk: readonly ProjectCheckout[], path: string, task: AnchoredTask): Promise<SourceChoice> {
+  if (onDisk.length === 1 || task.anchor === undefined) return { checkout: preferred, settled: onDisk.length === 1 };
+  const texts = await Promise.all(onDisk.map((checkout) => attemptReportingFailure(join(checkout.path, path), readTextIfFile, unreadableIsLeftToReview)));
+  const anchored = onDisk.filter((_, index) => anchorHolds(task, texts[index] ?? null));
+  return { checkout: anchored[0] ?? preferred, settled: anchored.length === 1 };
+}
+
+async function checkoutsWithSource(checkouts: readonly ProjectCheckout[], source: string | undefined): Promise<ProjectCheckout[]> {
+  if (source === undefined) return [];
+  const path = sourcePath(source);
+  const onDisk = await Promise.all(checkouts.map((checkout) => attemptReportingFailure(join(checkout.path, path), fileExists, unreadableIsLeftToReview)));
+  return checkouts.filter((_, index) => onDisk[index] !== false);
+}
+
+async function originCheckouts(checkouts: readonly ProjectCheckout[], tasks: readonly OwnedSource[]): Promise<(task: OwnedSource) => ProjectCheckout | undefined> {
+  const commits = [...new Set(tasks.flatMap((task) => (task.source === undefined || task.origin === undefined ? [] : [task.origin])))];
+  const found = commits.length === 0 ? [] : await Promise.all(checkouts.map((checkout) => resolveCommits(runGit, checkout.path, commits)));
+  return ({ origin }) => {
+    if (origin === undefined) return undefined;
+    const holders = checkouts.filter((_, index) => found[index]?.has(origin) === true);
+    return holders.length === 1 ? holders[0] : undefined;
+  };
+}
+
+function historyQuestions(checkouts: readonly ProjectCheckout[], task: OwnedSource, onDisk: readonly ProjectCheckout[], origin: ProjectCheckout | undefined): [ProjectCheckout, string][] {
+  if (task.source === undefined) return [];
+  const path = sourcePath(task.source);
+  if (onDisk.length === 0) return checkouts.map((checkout) => [checkout, path]);
+  return origin === undefined || onDisk.includes(origin) ? [] : [[origin, path]];
+}
+
+async function pathTraces(checkouts: readonly ProjectCheckout[], asked: readonly [ProjectCheckout, string][]): Promise<(checkout: ProjectCheckout, path: string) => PathTrace> {
+  const histories = await Promise.all(
+    checkouts.map(async (checkout) => {
+      const paths = [...new Set(asked.flatMap(([asker, path]) => (asker === checkout ? [path] : [])))];
+      return paths.length === 0 ? null : pathsEverCommitted(checkout.path, paths);
+    }),
+  );
+  return (checkout, path) => {
+    const history = histories[checkouts.indexOf(checkout)];
+    switch (history?.kind) {
+      case undefined:
+      case "no-repo":
+        return "none";
+      case "unreadable":
+        return "unknown";
+      case "read":
+        return committedIn(history.committed, path) ? "committed" : "none";
+    }
+  };
+}
+
+function unreadableIsLeftToReview(): void {}
+
+async function existingRepos(project: Project, { home, onUnreadable }: RepoContext): Promise<string[]> {
+  const repos = project.repos.map((path) => expandHome(path, home));
+  const exists = await Promise.all(repos.map((repo) => attemptReportingFailure(repo, fileExists, onUnreadable)));
+  return repos.filter((_, index) => exists[index] === true);
 }
 
 export async function hasCommit(repo: string, sha: string): Promise<boolean> {
