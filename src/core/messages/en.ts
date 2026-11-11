@@ -185,6 +185,12 @@ function problem(p: Problem): string {
       return `YAML error: ${p.detail}`;
     case "schema":
       return p.path === "" ? schemaIssue(p.issue) : `${p.path}: ${schemaIssue(p.issue)}`;
+    case "not-a-file":
+      return "not a file — the backlog reads only regular files and links to them";
+    case "link-unreachable":
+      return "the link does not lead to an accessible file or directory";
+    case "task-is-link":
+      return "the task is a link; links are supported only for a project directory";
     case "id-mismatch":
       return `id ${p.id} does not match the file name ${p.file}.md`;
     case "prefix-mismatch":

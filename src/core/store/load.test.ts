@@ -1,5 +1,6 @@
+import { chmod, mkdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { contentVersion } from "./fs-utils";
 import { loadBacklog } from "./load";
 import { makeTempDir, projectFile, taskFile, writeFiles } from "./testing/temp-dirs";
@@ -57,4 +58,60 @@ describe("loadBacklog", () => {
       ["spa", join("spa", "TI-1.md")],
     ]);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "проект за ссылкой на каталог загружается как обычный, а задача-ссылка на файл — ошибка разбора: запись через неё разорвала бы ссылку (ссылки на Windows требуют прав)",
+    async () => {
+      const outside = await makeTempDir();
+      const root = join(outside, "backlog");
+      await writeFiles(outside, {
+        "sync/spa/project.md": projectFile("SPA"),
+        "sync/spa/SPA-1.md": taskFile("SPA-1"),
+        "backlog/web/project.md": projectFile("WEB"),
+        "shared/WEB-1.md": taskFile("WEB-1"),
+      });
+      await symlink(join(outside, "sync/spa"), join(root, "spa"));
+      await symlink(join(outside, "shared/WEB-1.md"), join(root, "web/WEB-1.md"));
+
+      const loaded = await loadBacklog(root);
+
+      expect(loaded.projects.map((project) => project.id)).toEqual(["spa", "web"]);
+      expect(loaded.tasks.map((task) => [task.id, task.projectId])).toEqual([["SPA-1", "spa"]]);
+      expect(loaded.errors.map((error) => [error.path.slice(root.length + 1), error.problems.map((problem) => problem.code)])).toEqual([[join("web", "WEB-1.md"), ["task-is-link"]]]);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")("битая ссылка на месте проекта или задачи и каталог с именем задачи — ошибки разбора, остальной беклог загружается (ссылки на Windows требуют прав)", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1") });
+    await mkdir(join(root, "spa/SPA-2.md"));
+    await symlink(join(root, "missing.md"), join(root, "spa/SPA-3.md"));
+    await symlink(join(root, "missing"), join(root, "ghost"));
+
+    const loaded = await loadBacklog(root);
+
+    expect(loaded.tasks.map((task) => task.id)).toEqual(["SPA-1"]);
+    expect(loaded.errors.map((error) => [error.projectId, error.path.slice(root.length + 1), error.problems.map((problem) => problem.code)])).toEqual([
+      ["ghost", "ghost", ["link-unreachable"]],
+      ["spa", join("spa", "SPA-2.md"), ["not-a-file"]],
+      ["spa", join("spa", "SPA-3.md"), ["task-is-link"]],
+    ]);
+  });
+
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+    "ссылка на каталог проекта без прав доступа — ошибка разбора этого проекта, остальной беклог загружается (на Windows ссылки требуют прав, а chmod не закрывает каталог; root читает всё)",
+    async () => {
+      const outside = await makeTempDir();
+      const root = join(outside, "backlog");
+      await writeFiles(outside, { "locked/project.md": projectFile("LCK"), "backlog/spa/project.md": projectFile("SPA") });
+      await symlink(join(outside, "locked"), join(root, "lck"));
+      await chmod(join(outside, "locked"), 0o000);
+      onTestFinished(() => chmod(join(outside, "locked"), 0o700));
+
+      const loaded = await loadBacklog(root);
+
+      expect(loaded.projects.map((project) => project.id)).toEqual(["spa"]);
+      expect(loaded.errors.map((error) => [error.projectId, error.problems.map((problem) => problem.code)])).toEqual([["lck", ["link-unreachable"]]]);
+    },
+  );
 });

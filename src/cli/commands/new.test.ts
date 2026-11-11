@@ -1,11 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { chmod, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { runGit } from "../../core/git/run";
 import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
-import { gitAddWorktree, gitCommitAll, gitShortHead, makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitAddWorktree, gitCommitAll, gitShortHead, makeGitRepo, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { runCli } from "../run";
 import { baseCliEnv, makeCliSandbox } from "../testing/cli-harness";
@@ -32,6 +32,19 @@ describe("backlog new", () => {
     await run(["status", "SPA-1", "cancelled"]);
     await run(["status", "SPA-2", "cancelled"]);
     expect((await run(["new", "--category", "bug", "--title", "Загрузка: таймаут не учитывает размер файла"])).code).toBe(EXIT.ok);
+  });
+
+  it.skipIf(process.platform === "win32")("проект за ссылкой на каталог — тот же проект: задача получает его следующий номер, дубль spa-2 не заводится (ссылки на Windows требуют прав)", async () => {
+    const { run, root, repo, home } = await makeCliSandbox();
+    const synced = join(home, "sync/spa");
+    await writeFiles(synced, { "project.md": projectFile("SPA", [repo]), "SPA-1.md": taskFile("SPA-1") });
+    await symlink(synced, join(root, "spa"));
+
+    const result = await run(["new", "--category", "bug", "--title", "Вторая"]);
+
+    expect(result).toMatchObject({ code: EXIT.ok, out: `SPA-2 ${join(root, "spa/SPA-2.md")}` });
+    expect((await readdir(root)).filter((name) => !name.startsWith("."))).toEqual(["spa"]);
+    expect(await readdir(synced)).toContain("SPA-2.md");
   });
 
   it("создаёт проект по git-корню и задачу с описанием из stdin", async () => {

@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { coreMessages } from "../messages";
@@ -119,6 +119,17 @@ describe("createTask", () => {
     const result = await createTask(root, { project, input: { title: "Следующая" }, index: indexOfLoaded(loaded), now: NOW, via: "cli", onError: failOnPathError });
 
     expect(result.ok && result.task.id).toBe("SPA-2");
+  });
+
+  it("каталог с именем файла задачи занимает свой номер: новая задача получает следующий, а не id-exhausted", async () => {
+    const root = await makeTempDir();
+    await writeFiles(root, { "spa/project.md": projectFile("SPA"), "spa/SPA-1.md": taskFile("SPA-1") });
+    await mkdir(join(root, "spa/SPA-2.md"));
+    const { loaded, project } = await loadProject(root, "spa");
+
+    const result = await createTask(root, { project, input: { title: "Следующая" }, index: indexOfLoaded(loaded), now: NOW, via: "cli", onError: failOnPathError });
+
+    expect(result.ok && result.task.id).toBe("SPA-3");
   });
 
   it("не выдаёт номер задачи, которую sweep удалил после загрузки снимка", async () => {
@@ -285,6 +296,19 @@ describe("createProject", () => {
 
     expect(project).toEqual(await concurrent);
     expect((await loadBacklog(root)).projects.map((candidate) => candidate.id)).toEqual(["spa"]);
+  });
+
+  it.skipIf(process.platform === "win32")("ссылка на каталог проекта того же репозитория присоединяется, а не заводит spa-2 (ссылки на Windows требуют прав)", async () => {
+    const outside = await makeTempDir();
+    const root = join(outside, "backlog");
+    await writeFiles(outside, { "sync/spa/project.md": projectFile("SPA", ["/work/spa"]) });
+    await mkdir(root);
+    await symlink(join(outside, "sync/spa"), join(root, "spa"));
+
+    const project = await createProject(root, "/work/spa", [], failOnPathError);
+
+    expect(project).toMatchObject({ id: "spa", prefix: "SPA" });
+    expect(await readdir(root)).toEqual(["spa"]);
   });
 
   it("создаёт корневой каталог, если его нет", async () => {

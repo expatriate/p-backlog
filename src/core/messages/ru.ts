@@ -198,6 +198,12 @@ function problem(p: Problem): string {
       return `ошибка YAML: ${p.detail}`;
     case "schema":
       return p.path === "" ? schemaIssue(p.issue) : `${p.path}: ${schemaIssue(p.issue)}`;
+    case "not-a-file":
+      return "не файл — беклог читает только обычные файлы и ссылки на них";
+    case "link-unreachable":
+      return "ссылка не ведёт к доступному файлу или каталогу";
+    case "task-is-link":
+      return "задача — ссылка; ссылки поддерживаются только для каталога проекта";
     case "id-mismatch":
       return `id ${p.id} не совпадает с именем файла ${p.file}.md`;
     case "prefix-mismatch":

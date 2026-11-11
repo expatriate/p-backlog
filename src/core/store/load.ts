@@ -1,10 +1,11 @@
+import type { Dirent } from "node:fs";
 import { basename, join } from "node:path";
 import { buildIndex, type BacklogIndex } from "../model/graph";
 import { compareIds, ID_PATTERN, parseId } from "../model/ids";
 import { parseProjectFile, claimedReposOf } from "../model/project-file";
 import { parseTaskFile } from "../model/task-file";
 import type { NotLoadedTasks, ParseError, ParseResult, Project, ProjectFileError, Task, UnparsedFile } from "../model/types";
-import { contentVersion, listDir, readBytesOrNull } from "./fs-utils";
+import { contentVersion, listDir, listDirFollowingLinks, readBytesOrNull, type ListedEntry } from "./fs-utils";
 import { PROJECT_FILE } from "./paths";
 import { documentOf, parseDocumentOrNull } from "./read-document";
 
@@ -40,17 +41,27 @@ function taskIdOfFile(path: string): string {
   return basename(path, ".md");
 }
 
+async function projectEntries(root: string): Promise<ListedEntry[]> {
+  return (await listDirFollowingLinks(root)).filter((entry) => !entry.name.startsWith(".") && (entry.kind === "directory" || entry.kind === "link-unreachable"));
+}
+
 export async function projectDirNames(root: string): Promise<string[]> {
-  return (await listDir(root)).filter((entry) => entry.isDirectory() && !entry.name.startsWith(".")).map((entry) => entry.name);
+  return (await projectEntries(root)).filter((entry) => entry.kind === "directory").map((entry) => entry.name);
 }
 
 export async function loadBacklog(root: string): Promise<LoadedBacklog> {
-  const parts = await Promise.all((await projectDirNames(root)).map((name) => loadProjectDir(join(root, name), name)));
+  const parts = await Promise.all((await projectEntries(root)).map((entry) => loadProjectEntry(root, entry)));
   return {
     projects: parts.flatMap((part) => part.projects).sort((a, b) => a.id.localeCompare(b.id)),
     tasks: parts.flatMap((part) => part.tasks).sort((a, b) => compareIds(a.id, b.id)),
     errors: parts.flatMap((part) => part.errors).sort((a, b) => a.path.localeCompare(b.path)),
   };
+}
+
+async function loadProjectEntry(root: string, { name, kind }: ListedEntry): Promise<LoadedBacklog> {
+  const path = join(root, name);
+  if (kind === "directory") return loadProjectDir(path, name);
+  return { projects: [], tasks: [], errors: [{ path, projectId: name, fileKind: "project", problems: [{ code: "link-unreachable" }], hiddenTasks: [], claimedRepos: [] }] };
 }
 
 async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBacklog> {
@@ -65,13 +76,18 @@ async function loadProjectDir(dir: string, projectId: string): Promise<LoadedBac
     return { projects: [], tasks: [], errors: [{ path: projectPath, projectId, fileKind: "project", problems: project.problems, hiddenTasks, claimedRepos }] };
   }
 
-  const taskPaths = (await taskFileNames(dir)).map((name) => join(dir, name));
-  const loaded = await Promise.all(taskPaths.map(async (path) => ({ path, result: await loadTaskFile(path, project.value) })));
+  const taskEntries = (await listDir(dir)).filter((entry) => isTaskFileName(entry.name)).map((entry) => ({ path: join(dir, entry.name), entry }));
+  const loaded = await Promise.all(taskEntries.map(async ({ path, entry }) => ({ path, result: await loadTaskEntry(path, entry, project.value) })));
   return {
     projects: [project.value],
     tasks: loaded.flatMap(({ result }) => (result?.ok ? [result.value] : [])),
     errors: loaded.flatMap(({ path, result }) => (result && !result.ok ? [{ path, projectId, fileKind: "task" as const, problems: result.problems }] : [])),
   };
+}
+
+async function loadTaskEntry(path: string, entry: Dirent, project: Project): Promise<ParseResult<Task> | null> {
+  if (entry.isFile()) return loadTaskFile(path, project);
+  return { ok: false, problems: [{ code: entry.isSymbolicLink() ? "task-is-link" : "not-a-file" }] };
 }
 
 async function loadTaskFile(path: string, project: Project): Promise<ParseResult<Task> | null> {
@@ -86,11 +102,7 @@ async function loadTaskFile(path: string, project: Project): Promise<ParseResult
 }
 
 export async function taskIdsOnDisk(projectDir: string): Promise<Set<string>> {
-  return new Set((await taskFileNames(projectDir)).map((name) => basename(name, ".md")));
-}
-
-async function taskFileNames(projectDir: string): Promise<string[]> {
-  return (await listDir(projectDir)).filter((entry) => entry.isFile() && isTaskFileName(entry.name)).map((entry) => entry.name);
+  return new Set((await listDir(projectDir)).filter((entry) => isTaskFileName(entry.name)).map((entry) => taskIdOfFile(entry.name)));
 }
 
 function isTaskFileName(name: string): boolean {

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
-import { readFileSync, realpathSync, type Dirent, type Stats } from "node:fs";
+import { constants, readFileSync, realpathSync, type Dirent, type Stats } from "node:fs";
 import { access, lstat, open, readdir, readFile, readlink, rm, stat, type FileHandle } from "node:fs/promises";
+import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { hasAnyErrorCode, hasErrorCode, type PathErrorHandler } from "../errors";
 import { sum } from "../numbers";
@@ -150,6 +151,34 @@ export async function listDir(path: string, { recursive = false }: { recursive?:
     if (hasErrorCode(error, "ENOENT")) return [];
     throw error;
   }
+}
+
+type EntryKind = "file" | "directory" | "link-unreachable" | "other";
+
+export type ListedEntry = { name: string; kind: EntryKind };
+
+export async function listDirFollowingLinks(path: string): Promise<ListedEntry[]> {
+  return Promise.all((await listDir(path)).map(async (entry) => ({ name: entry.name, kind: await kindFollowingLink(entry) })));
+}
+
+const UNREACHABLE_LINK_CODES = [...NO_FILE_CODES, "ELOOP", "EACCES", "EPERM"];
+
+async function kindFollowingLink(entry: Dirent): Promise<EntryKind> {
+  if (!entry.isSymbolicLink()) return kindOf(entry);
+  const path = join(entry.parentPath, entry.name);
+  try {
+    const target = await stat(path);
+    await access(path, target.isDirectory() ? constants.R_OK | constants.X_OK : constants.R_OK);
+    return kindOf(target);
+  } catch (error) {
+    if (hasAnyErrorCode(error, UNREACHABLE_LINK_CODES)) return "link-unreachable";
+    throw error;
+  }
+}
+
+function kindOf(entry: Dirent | Stats): EntryKind {
+  if (entry.isFile()) return "file";
+  return entry.isDirectory() ? "directory" : "other";
 }
 
 const BLOCKED_RETRY_DELAYS_MS = [10, 20, 40, 80, 160, 320, 640, 1000, 1000, 1000, 1000];

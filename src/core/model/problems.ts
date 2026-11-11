@@ -30,6 +30,9 @@ export type Problem =
   | { code: "frontmatter-unclosed" }
   | { code: "yaml"; detail: string }
   | { code: "schema"; path: string; issue: SchemaIssue }
+  | { code: "not-a-file" }
+  | { code: "link-unreachable" }
+  | { code: "task-is-link" }
   | { code: "id-mismatch"; id: string; file: string }
   | { code: "prefix-mismatch"; file: string; prefix: string }
   | { code: "id-exhausted"; attempts: number };

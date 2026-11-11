@@ -9,7 +9,7 @@ import { parseProjectFile, serializeProject } from "../model/project-file";
 import type { TaskDraft } from "../model/task-file";
 import type { OptionalFields, Project, Task } from "../model/types";
 import { hasErrorCode, type PathErrorHandler } from "../errors";
-import { attemptReportingFailure, listDir, readTextOrNull } from "./fs-utils";
+import { attemptReportingFailure, listDir, listDirFollowingLinks, readTextOrNull } from "./fs-utils";
 import { createFileAtomic } from "./atomic-write";
 import { appendJournal, JOURNAL_FILE, readJournal } from "./journal";
 import { PROJECT_FILE, taskFileName } from "./paths";
@@ -71,10 +71,10 @@ export async function createProject(root: string, repoRoot: string, existingProj
 
 async function draftProjectFile(root: string, repoRoot: string, existingProjects: readonly Project[]): Promise<{ id: string; path: string; text: string }> {
   const name = basename(repoRoot);
-  const entries = await listDir(root);
-  const joinable = await Promise.all(entries.map((entry) => (entry.isDirectory() ? isJoinableProjectDir(join(root, entry.name), repoRoot) : Promise.resolve(false))));
+  const entries = await listDirFollowingLinks(root);
+  const joinable = await Promise.all(entries.map((entry) => (entry.kind === "directory" ? isJoinableProjectDir(join(root, entry.name), repoRoot) : Promise.resolve(false))));
   const id = deriveProjectId(name, new Set(entries.filter((_, index) => !joinable[index]).map((entry) => entry.name)));
-  const prefixesOnDisk = await Promise.all(entries.filter((entry) => entry.isDirectory()).map((entry) => takenPrefixes(join(root, entry.name))));
+  const prefixesOnDisk = await Promise.all(entries.filter((entry) => entry.kind === "directory").map((entry) => takenPrefixes(join(root, entry.name))));
   const prefix = derivePrefix(name, new Set([...existingProjects.map((project) => project.prefix), ...prefixesOnDisk.flat()]));
   const dir = join(root, id);
   await mkdir(dir, { recursive: true });

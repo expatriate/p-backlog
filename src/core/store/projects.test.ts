@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { readTextOrNull, withFile } from "./fs-utils";
@@ -103,6 +103,20 @@ describe("проекты", () => {
     const loaded = await loadBacklog(root);
     expect(loaded.projects).toEqual([]);
     expect(await readFile(join(root, "notes/todo.md"), "utf8")).toBe("заметки");
+  });
+
+  it.skipIf(process.platform === "win32")("удаление проекта за ссылкой убирает ссылку, а задачи в каталоге-цели остаются (ссылки на Windows требуют прав)", async () => {
+    const outside = await makeTempDir();
+    const root = join(outside, "backlog");
+    const synced = join(outside, "sync/spa");
+    await writeFiles(synced, { "project.md": projectFile("SPA"), "SPA-1.md": taskFile("SPA-1") });
+    await mkdir(root);
+    await symlink(synced, join(root, "spa"));
+
+    expect(await deleteProject(root, "spa")).toEqual({ ok: true });
+
+    expect(await readdir(root)).toEqual([]);
+    expect(await readFile(join(synced, "SPA-1.md"), "utf8")).toBe(taskFile("SPA-1"));
   });
 
   it.each(["..", "spa/../..", "", "."])("ID %j вне каталогов проектов не находит проект и ничего не удаляет", async (id) => {
