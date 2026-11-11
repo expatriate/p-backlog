@@ -247,6 +247,39 @@ describe("backlog setup", () => {
     expect(result.err).toMatch(/^Cursor: /m);
   });
 
+  it.skipIf(process.platform === "win32")("незаписываемый конфиг Codex называется от имени Codex и не мешает настроить Cursor (на Windows chmod не закрывает каталог)", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    const codexDir = join(home, ".codex");
+    await mkdir(codexDir, { recursive: true });
+    await mkdir(join(home, ".cursor"), { recursive: true });
+    await chmod(codexDir, 0o555);
+    onTestFinished(() => chmod(codexDir, 0o700));
+
+    const result = await run(["setup"], { env });
+
+    expect(result.code).toBe(EXIT.failed);
+    expect(result.err).toContain(`Codex: Не удалось записать ${join(codexDir, "hooks.json")} (EACCES), хук Stop не добавлен.`);
+    expect(JSON.parse(await readFile(join(home, ".cursor/hooks.json"), "utf8")).hooks.stop).toEqual([{ command: CURSOR_COMMAND }]);
+  });
+
+  it.skipIf(process.platform === "win32")("--remove-manual с незаписываемым конфигом Codex называет его и всё равно снимает хук Cursor (на Windows chmod не закрывает каталог)", async () => {
+    const { home, run } = await makeCliSandbox();
+    const env = claudeEnv(home);
+    const codexDir = join(home, ".codex");
+    await mkdir(codexDir, { recursive: true });
+    await mkdir(join(home, ".cursor"), { recursive: true });
+    await run(["setup"], { env });
+    await chmod(codexDir, 0o555);
+    onTestFinished(() => chmod(codexDir, 0o700));
+
+    const result = await run(["setup", "--remove-manual"], { env });
+
+    expect(result.code).toBe(EXIT.failed);
+    expect(result.err).toContain(`Codex: Не удалось записать ${join(codexDir, "hooks.json")} (EACCES), хук не снят.`);
+    expect(JSON.parse(await readFile(join(home, ".cursor/hooks.json"), "utf8"))).toEqual({ hooks: {}, version: 1 });
+  });
+
   it("при включённом плагине не ставит Claude Code скилл и хук и подсказывает, как убрать ручные", async () => {
     const { home, run } = await makeCliSandbox();
     const env = claudeEnv(home);

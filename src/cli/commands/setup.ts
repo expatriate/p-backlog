@@ -5,10 +5,12 @@ import { installAgentHook, removeAgentHook } from "../agents/agent-hooks";
 import { linkAgentSkill } from "../agents/agent-skill";
 import { agentPluginReportingFailure } from "../agents/claude-plugin";
 import type { HookInstallResult, HookRemoveResult } from "../agents/grouped-stop-hooks";
+import type { JsonConfigFailure } from "../agents/json-config";
 import type { CliCommand } from "../command";
 import { isFailure } from "../failure";
 import { EXIT, parseChoice, parseOptions, UsageError, type CliIo, type ExitCode } from "../io";
 import { warnUnreadableSkipped } from "../lookups";
+import type { CliMessages } from "../messages";
 import { linkSkillFor, skillLinkPath, skillSourceDir, unlinkOurSkill, type SkillUnlinkResult } from "../skill-link";
 import { installService } from "./service";
 
@@ -95,7 +97,7 @@ function unlinkReportingFailure(skillsDir: string, io: CliIo, voice: AgentVoice)
 
 function reportHook(result: HookInstallResult, configPath: string, io: CliIo, voice: AgentVoice): boolean {
   if (isFailure(result)) {
-    voice.warn(result.failed === "unreadable" ? io.cli.installHookConfigUnreadable(configPath, result.code) : io.cli.installHookConfigInvalid(configPath));
+    voice.warn(configFailureText(result, configPath, io.cli.installHookConfigFailed));
     return false;
   }
   const report = { added: io.cli.installHookAdded, exists: io.cli.installHookExists, updated: io.cli.installHookUpdated }[result];
@@ -135,9 +137,13 @@ async function remainingSkillDirUser(agent: Agent, { removing, installed }: Manu
 
 function reportHookRemoval(result: HookRemoveResult, configPath: string, io: CliIo, voice: AgentVoice): boolean {
   if (isFailure(result)) {
-    voice.warn(result.failed === "unreadable" ? io.cli.removeHookConfigUnreadable(configPath, result.code) : io.cli.removeHookConfigInvalid(configPath));
+    voice.warn(configFailureText(result, configPath, io.cli.removeHookConfigFailed));
     return false;
   }
   voice.print(io.cli.manualHookRemoval[result](configPath));
   return true;
+}
+
+function configFailureText(failure: JsonConfigFailure, configPath: string, texts: CliMessages["installHookConfigFailed" | "removeHookConfigFailed"]): string {
+  return failure.failed === "invalid" ? texts.invalid(configPath) : texts[failure.failed](configPath, failure.code);
 }

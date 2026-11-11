@@ -9,9 +9,13 @@ const MAX_LINK_HOPS = 40;
 
 export type ConfigFile = { path: string; onError: PathErrorHandler };
 
-export type JsonConfigFailure = { failed: "unreadable"; code: string } | { failed: "invalid" };
+type JsonConfigReadFailure = { failed: "unreadable"; code: string } | { failed: "invalid" };
 
-type JsonConfigRead<T> = { config: T } | JsonConfigFailure;
+type JsonConfigWriteFailure = { failed: "unwritable"; code: string };
+
+export type JsonConfigFailure = JsonConfigReadFailure | JsonConfigWriteFailure;
+
+type JsonConfigRead<T> = { config: T } | JsonConfigReadFailure;
 
 export async function readJsonConfig<T>(path: string, schema: z.ZodType<T>): Promise<JsonConfigRead<T>> {
   const text = await readConfigText(path);
@@ -26,14 +30,19 @@ export async function readJsonConfig<T>(path: string, schema: z.ZodType<T>): Pro
   return schema.safeParse(value).success ? { config: value as T } : { failed: "invalid" };
 }
 
-export async function writeJsonConfig({ path, onError }: ConfigFile, config: unknown): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  const target = await writeTargetOf(path);
-  const existing = await statOrNull(target);
-  await writeJsonFile(target, config, { mode: existing === null ? undefined : existing.mode & 0o777, onErrorAfterPublish: onError });
+export async function writeJsonConfig({ path, onError }: ConfigFile, config: unknown): Promise<"written" | JsonConfigWriteFailure> {
+  try {
+    await mkdir(dirname(path), { recursive: true });
+    const target = await writeTargetOf(path);
+    const existing = await statOrNull(target);
+    await writeJsonFile(target, config, { mode: existing === null ? undefined : existing.mode & 0o777, onErrorAfterPublish: onError });
+    return "written";
+  } catch (error) {
+    return { failed: "unwritable", code: errorCodeOrText(error) };
+  }
 }
 
-async function readConfigText(path: string): Promise<string | JsonConfigFailure> {
+async function readConfigText(path: string): Promise<string | JsonConfigReadFailure> {
   try {
     return await readFile(path, "utf8");
   } catch (error) {

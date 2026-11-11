@@ -33,8 +33,11 @@ export const cliRu = {
   installHookAdded: (settingsPath: string): string => `Хук Stop добавлен в ${settingsPath}`,
   installHookUpdated: (settingsPath: string): string => `Хук Stop обновлён в ${settingsPath}`,
   hookApproval: (agent: string, command: string): string => `одобрите хук в ${agent}: ${command}`,
-  installHookConfigUnreadable: (path: string, detail: string): string => `${path} не прочитать (${detail}), хук Stop не добавлен.`,
-  installHookConfigInvalid: (path: string): string => `${path} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`,
+  installHookConfigFailed: {
+    unreadable: (path: string, detail: string): string => `Не удалось прочитать ${path} (${detail}), хук Stop не добавлен.`,
+    unwritable: (path: string, detail: string): string => `Не удалось записать ${path} (${detail}), хук Stop не добавлен.`,
+    invalid: (path: string): string => `${path} — не объект JSON, хук Stop не добавлен. Исправьте файл и повторите.`,
+  },
   agentNotFound: (dir: string): string => `не найден (${dir})`,
   pluginManages: (plugin: string): string => `скилл и хук подключает плагин ${plugin}. Ручные можно убрать: backlog setup --remove-manual`,
   pluginLanguageHint: (installed: string, wanted: string): string => `скилл даёт плагин ${installed}; для этого языка поставьте другой: /plugin uninstall ${installed}, затем /plugin install ${wanted}`,
@@ -49,8 +52,11 @@ export const cliRu = {
     removed: (path: string): string => `хук Stop снят из ${path}`,
     absent: (path: string): string => `хука Stop p-backlog в ${path} нет`,
   },
-  removeHookConfigUnreadable: (path: string, detail: string): string => `Не удалось прочитать ${path} (${detail}), хук не снят.`,
-  removeHookConfigInvalid: (path: string): string => `${path} — не объект JSON, хук не снят. Исправьте файл и повторите.`,
+  removeHookConfigFailed: {
+    unreadable: (path: string, detail: string): string => `Не удалось прочитать ${path} (${detail}), хук не снят.`,
+    unwritable: (path: string, detail: string): string => `Не удалось записать ${path} (${detail}), хук не снят.`,
+    invalid: (path: string): string => `${path} — не объект JSON, хук не снят. Исправьте файл и повторите.`,
+  },
 
   serviceInstalled: (file: string): string => `Служба установлена: ${file}`,
   serviceLogs: (hint: string): string => `Логи: ${hint}`,

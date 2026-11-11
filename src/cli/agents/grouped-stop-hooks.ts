@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isFailure } from "../failure";
 import { readJsonConfig, writeJsonConfig, type ConfigFile, type JsonConfigFailure } from "./json-config";
 
 export type HookInstallResult = "added" | "exists" | "updated" | JsonConfigFailure;
@@ -50,7 +51,8 @@ export async function addStopHookIn<T>(file: ConfigFile, schema: z.ZodType<T>, s
   const refreshed = refreshOurHook(slots.lists, hook, ourHook);
   if (refreshed === "exists") return "exists";
   if (refreshed === "missing") slots.append(hook);
-  await writeJsonConfig(file, read.config);
+  const written = await writeJsonConfig(file, read.config);
+  if (isFailure(written)) return written;
   return refreshed === "missing" ? "added" : "updated";
 }
 
@@ -58,8 +60,8 @@ export async function removeStopHookIn<T>(file: ConfigFile, schema: z.ZodType<T>
   const read = await readJsonConfig(file.path, schema);
   if (!("config" in read)) return read;
   if (!removeOurs(read.config)) return "absent";
-  await writeJsonConfig(file, read.config);
-  return "removed";
+  const written = await writeJsonConfig(file, read.config);
+  return isFailure(written) ? written : "removed";
 }
 
 export function addGroupedStopHook(file: ConfigFile, hook: object, ourHook: OurHook): Promise<HookInstallResult> {

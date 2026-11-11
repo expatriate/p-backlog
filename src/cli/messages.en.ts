@@ -34,8 +34,11 @@ export const cliEn: CliMessages = {
   installHookAdded: (settingsPath) => `Stop hook added to ${settingsPath}`,
   installHookUpdated: (settingsPath) => `Stop hook updated in ${settingsPath}`,
   hookApproval: (agent, command) => `approve the hook in ${agent}: ${command}`,
-  installHookConfigUnreadable: (path, detail) => `Could not read ${path} (${detail}), Stop hook not added.`,
-  installHookConfigInvalid: (path) => `${path} is not a JSON object, Stop hook not added. Fix the file and try again.`,
+  installHookConfigFailed: {
+    unreadable: (path, detail) => `Could not read ${path} (${detail}), Stop hook not added.`,
+    unwritable: (path, detail) => `Could not write ${path} (${detail}), Stop hook not added.`,
+    invalid: (path) => `${path} is not a JSON object, Stop hook not added. Fix the file and try again.`,
+  },
   agentNotFound: (dir) => `not found (${dir})`,
   pluginManages: (plugin) => `the ${plugin} plugin provides the skill and the hook. Remove the manual ones with: backlog setup --remove-manual`,
   pluginLanguageHint: (installed, wanted) => `the skill comes from the ${installed} plugin; for this language switch plugins: /plugin uninstall ${installed}, then /plugin install ${wanted}`,
@@ -50,8 +53,11 @@ export const cliEn: CliMessages = {
     removed: (path) => `Stop hook removed from ${path}`,
     absent: (path) => `no p-backlog Stop hook in ${path}`,
   },
-  removeHookConfigUnreadable: (path, detail) => `Could not read ${path} (${detail}), the hook was not removed.`,
-  removeHookConfigInvalid: (path) => `${path} is not a JSON object, the hook was not removed. Fix the file and try again.`,
+  removeHookConfigFailed: {
+    unreadable: (path, detail) => `Could not read ${path} (${detail}), the hook was not removed.`,
+    unwritable: (path, detail) => `Could not write ${path} (${detail}), the hook was not removed.`,
+    invalid: (path) => `${path} is not a JSON object, the hook was not removed. Fix the file and try again.`,
+  },
 
   serviceInstalled: (file) => `Service installed: ${file}`,
   serviceLogs: (hint) => `Logs: ${hint}`,
