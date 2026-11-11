@@ -1,5 +1,6 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { portNumber } from "../../core/server-address";
 import { fileExists } from "../../core/store/fs-utils";
 import type { CliEnv } from "../io";
 import { SERVE_COMMAND_NAME } from "../../core/serve-command";
@@ -65,6 +66,6 @@ export function systemdManager(context: ServiceContext): ServiceManager {
     async registered() {
       return (await fileExists(file)) && (await context.exec("systemctl", ["--user", "is-enabled", UNIT])).code === 0;
     },
-    installedPort: () => numberRecordedIn(file, /^Environment="PORT=(\d+)"$/m),
+    installedPort: () => numberRecordedIn(file, /^Environment="PORT=(\d+)"$/m, portNumber),
   };
 }

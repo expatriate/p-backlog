@@ -1,6 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
+import { portNumber } from "../../core/server-address";
 import { launchdLogPath } from "../../core/service-log";
 import { fileExists } from "../../core/store/fs-utils";
 import { SERVE_COMMAND_NAME } from "../../core/serve-command";
@@ -86,6 +87,6 @@ export function launchdManager(context: ServiceContext, delay: (ms: number) => P
     async registered() {
       return (await fileExists(file)) && (await context.exec("launchctl", ["print", `${domain}/${LABEL}`])).code === 0;
     },
-    installedPort: () => numberRecordedIn(file, /<key>PORT<\/key>\s*<string>(\d+)<\/string>/),
+    installedPort: () => numberRecordedIn(file, /<key>PORT<\/key>\s*<string>(\d+)<\/string>/, portNumber),
   };
 }

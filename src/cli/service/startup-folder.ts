@@ -1,5 +1,6 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, win32 } from "node:path";
+import { portNumber } from "../../core/server-address";
 import { SERVICE_LOG_LIMIT_BYTES } from "../../core/service-log";
 import { fileExists } from "../../core/store/fs-utils";
 import { PID_FILE_ENV } from "../../core/store/paths";
@@ -9,6 +10,8 @@ import { numberRecordedIn, serviceEnvironment, type ServiceContext, type Service
 const SCRIPT_NAME = "p-backlog.vbs";
 const COMMAND_LINE_ARGUMENT = /"[^"]*"|\S+/g;
 const PROCESS_QUERY_TIMEOUT_MS = 15_000;
+const WINDOWS_MAX_PID = 0xffff_ffff;
+const RECORDED_PID = /^(\d+)\s*$/;
 
 type ProcessIdentity = "ours" | "other" | "unknown";
 
@@ -76,9 +79,15 @@ export function startupScript(launch: ServiceLaunch): string {
   ].join("\r\n");
 }
 
+function pidNumber(recorded: string): number | null {
+  if (!/^\d+$/.test(recorded)) return null;
+  const pid = Number(recorded);
+  return pid > 0 && pid <= WINDOWS_MAX_PID ? pid : null;
+}
+
 async function stopRunningServer(context: ServiceContext): Promise<void> {
   const file = pidFilePath(context);
-  const pid = await numberRecordedIn(file, /^(\d+)$/);
+  const pid = await numberRecordedIn(file, RECORDED_PID, pidNumber);
   if (pid !== null) {
     const identity = await processIdentity(context, pid);
     if (identity === "unknown") {
@@ -130,6 +139,6 @@ export function startupFolderManager(context: ServiceContext): ServiceManager {
     async registered() {
       return fileExists(file);
     },
-    installedPort: () => numberRecordedIn(file, /env\("PORT"\) = "(\d+)"/, "utf16le"),
+    installedPort: () => numberRecordedIn(file, /env\("PORT"\) = "(\d+)"/, portNumber, "utf16le"),
   };
 }

@@ -62,8 +62,8 @@ async function writePidFile(roots: Roots, pid: string): Promise<void> {
   await writeFile(pidFilePath(roots.localAppData), pid);
 }
 
-function execAnswering(commandLine: string): CliEnv["exec"] {
-  return fakeExec((command) => ({ code: 0, output: command.startsWith("powershell.exe") && command.includes("ProcessId=4242") ? commandLine : "" })).exec;
+function execAnswering(commandLine: string, pid = 4242): CliEnv["exec"] {
+  return fakeExec((command) => ({ code: 0, output: command.startsWith("powershell.exe") && command.includes(`ProcessId=${pid}`) ? commandLine : "" })).exec;
 }
 
 function powershellFailing(result: ExecResult): CliEnv["exec"] {
@@ -163,15 +163,20 @@ describe("startupFolderManager", () => {
     expect(decoded).toContain('env("HOME") = "C:\\Users\\Дмитрий"');
   });
 
-  it("install останавливает прежний сервер из server.pid и убирает файл PID", async () => {
+  it.each([
+    ["4242", 4242],
+    ["70000", 70000],
+    ["4294967292", 4_294_967_292],
+    ["4242\r\n", 4242],
+  ])("install останавливает прежний сервер из server.pid с записью %j и убирает файл PID", async (recorded, pid) => {
     const roots = await tempRoots();
-    await writePidFile(roots, "4242");
+    await writePidFile(roots, recorded);
     const stopped: number[] = [];
-    const context = contextFor(roots, execAnswering(ourServerCommandLine), recordInto(stopped));
+    const context = contextFor(roots, execAnswering(ourServerCommandLine, pid), recordInto(stopped));
 
     await startupFolderManager(context).install(SERVICE_PORT);
 
-    expect(stopped).toEqual([4242]);
+    expect(stopped).toEqual([pid]);
     await expect(access(pidFilePath(roots.localAppData))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
