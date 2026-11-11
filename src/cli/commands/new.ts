@@ -1,6 +1,6 @@
 import { findSimilarTask } from "../../core/check/duplicates";
 import { warnPathErrors } from "../../core/errors";
-import { findRepo, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
+import { explicitSourceRepo, sourceAnchor, type SourceAnchor } from "../../core/check/project-repo";
 import { FOUND_HOW, type FoundHow } from "../../core/journal/events";
 import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project, type Task } from "../../core/model/types";
 import { createTask } from "../../core/store/create";
@@ -100,11 +100,11 @@ function warnedOfSimilarTask(draft: { title: string; source?: string | undefined
   return true;
 }
 
-async function anchorOf(project: Project, source: string, io: CliIo): Promise<SourceAnchor> {
+async function anchorOf(project: Project, source: string, io: CliIo): Promise<SourceAnchor | undefined> {
   const lookup = repoLookup(io);
-  const repo = await findRepo(project, lookup);
-  if (repo !== undefined) await sourcePresenceOrWarn(io, repo, source);
-  return sourceAnchor(repo, source, lookup.onUnreadable);
+  const choice = await explicitSourceRepo(project, lookup, source);
+  if (choice !== undefined) await sourcePresenceOrWarn(io, choice.path, source);
+  return choice?.settled === false ? undefined : sourceAnchor(choice?.path, source, lookup.onUnreadable);
 }
 
 async function allAfterSettling<T extends readonly unknown[] | []>(work: T): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }> {

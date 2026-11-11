@@ -8,12 +8,12 @@ import type { Project, Task } from "../model/types";
 import { appendJournal, readJournal } from "../store/journal";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
 import type { GitRoots, RepoContext } from "../store/resolve-project";
-import type { AnchorPlan, Candidate, ReportedCandidate } from "./candidates";
+import type { Candidate, ReportedCandidate } from "./candidates";
 import { isReviewable } from "./reviewed-task";
 import { applyAnchorPlans, applyFixes, type FixOutcome } from "./check-fixes";
 import { findProblems } from "./find-problems";
 import type { CheckFix, CheckProblem } from "./findings";
-import { projectCheckout, type ProjectCheckout } from "./project-repo";
+import { projectCheckouts } from "./project-repo";
 import { projectReview, readMarkCommits, type ProjectReview } from "./project-review";
 
 type CheckTexts = Pick<CoreMessages, "epicDoneReason" | "candidatesRecordFailed" | "markCommitsReadFailed">;
@@ -42,31 +42,31 @@ export async function checkBacklog(root: string, loaded: LoadedBacklog, request:
   const projects = current.projects.filter((project) => inScope(project.id));
   const checked = await reviewProjects(root, current.tasks, projects, request);
   const reviews = checked.map(({ review }) => review);
-  const anchors = await applyAnchorPlans(current, checked.flatMap(plansToApply), writes);
+  const anchors = await applyAnchorPlans(
+    current,
+    reviews.flatMap((review) => review.plans),
+    writes,
+  );
   const outcome = candidateOutcome(reviews);
   await recordCandidates(root, current.tasks, outcome, request);
-  const repos = new Map(checked.map(({ review, checkout }) => [review.projectId, checkout?.path]));
+  const repos = new Map(checked.map(({ review, repo }) => [review.projectId, repo]));
   const problems = full ? [...fixes.failed, ...anchors.failed, ...findProblems(current, projects, repos, inScope), ...reviews.flatMap((review) => review.problems)] : [];
   return { fixed: [...fixes.fixed, ...anchors.fixed], problems, candidates: outcome.candidates };
 }
 
-type CheckedProject = { review: ProjectReview; checkout: ProjectCheckout | undefined };
+type CheckedProject = { review: ProjectReview; repo: string | undefined };
 
 async function reviewProjects(root: string, tasks: readonly Task[], projects: readonly Project[], request: CheckRequest): Promise<CheckedProject[]> {
   const marksOf = (projectId: string) => readMarkCommits(root, projectId, (error) => request.warn(request.messages.markCommitsReadFailed(projectId, errorText(error))));
   return Promise.all(
     projects.map(async (project) => {
-      const checkout = await projectCheckout(project, request.workingRoots, request.context);
+      const checkouts = await projectCheckouts(project, { ...request.context, workingRoots: request.workingRoots });
       return {
-        review: await projectReview(project, tasks, { repo: checkout?.path, marks: await marksOf(project.id), mode: request.mode, onUnreadable: request.context.onUnreadable, git: request.git }),
-        checkout,
+        review: await projectReview(project, tasks, { checkouts, marks: await marksOf(project.id), mode: request.mode, onUnreadable: request.context.onUnreadable, git: request.git }),
+        repo: checkouts[0]?.path,
       };
     }),
   );
-}
-
-function plansToApply({ review, checkout }: CheckedProject): AnchorPlan[] {
-  return checkout?.linkedWorktree === true ? [] : review.plans;
 }
 
 type CandidateOutcome = { candidates: ReportedCandidate[]; filtered: readonly FilteredSighting[]; unchecked: ReadonlyMap<string, readonly TaskEvidence[]>; unjudged: ReadonlySet<string> };
