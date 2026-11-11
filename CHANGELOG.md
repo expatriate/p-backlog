@@ -1,5 +1,83 @@
 # Changelog
 
+## 0.14.0
+
+Projects with several repositories, a single "state at the task's mark" for `backlog check`, and fixes from the full
+review.
+
+### `backlog check` and git
+
+- In a project with several `repos`, each task is judged in its own repository. The repository is chosen by the
+  commit the task was created or verified on, then by where the file exists, where the anchor matches and where the
+  path was ever committed. `source-missing` is reported only when the file is gone from every repository, `close`
+  finds the fixing commit in any of them, and `new` / `verify --source` check the file in the repository you run them
+  from. When the choice is ambiguous, nothing is written: no first anchor, no moved source, no verify commit.
+- `backlog verify` records the `HEAD` commit in the journal's `verified` event (new optional field `commit`). A
+  verified task now has one base for every worktree: a worktree that was behind and then fast-forwarded no longer
+  shows an edit the verifier had already seen. Older events without the field fall back to the reflog as before.
+- The state of the code at a task's mark is computed in one place (commit of the mark, then the reflog, then the
+  date), and candidates, line tracing, the symbol filter, the diff excerpt, known and late commits all use it.
+- A task whose mark commit was rewritten by `pull --rebase`, `commit --amend` or a squash merge is judged as being on
+  the current line when its content reached `HEAD`, so an edit the rebase brought in makes it a candidate again. An
+  unmerged branch, a rebased lane checked from `master` and a detached worktree stay "another branch": no candidate
+  and no first anchor taken from that branch's text.
+- A git failure in `merge-base --is-ancestor`, `log --first-parent` or `cat-file` leaves the task unchecked instead of
+  being read as "not an ancestor" or "no late commits". A branch with no common history with `HEAD` is "another
+  branch" in a full clone and unknown in a shallow one; in a shallow clone a task whose mark commit is missing waits
+  for its first anchor.
+- A verified task awaits a merge from its verify commit, so a task created on a branch and verified on `master` no
+  longer hangs as "awaiting merge".
+- "File gone" is detected on a branch that merged `master` (path history is read with `--full-history`).
+- `check` and the Stop hook run from a git hook in a linked worktree now look at the project's repository: git is
+  started without `GIT_DIR`, `GIT_INDEX_FILE` and the other variables a hook inherits.
+
+### Tasks and storage
+
+- A project directory behind a symlink is loaded, and `new` no longer creates a duplicate project with the same
+  prefix; `project delete` removes only the link. A broken link or a task file that is a link is a parse error.
+- `project delete` and `project status` (and the project API) match the exact directory ID: an ID in a different case
+  on macOS and Windows no longer deletes or changes another project.
+- Writes under a lock share one helper: a failure to release the lock or sync the directory after a write is a
+  warning, not a "not written" error, including for the runs log.
+
+### Costs and Effect
+
+- Prices for current models from Anthropic's price list: Fable/Mythos 5.2, Sonnet 5.5, Haiku 5.5, Opus 4.5, Sonnet
+  4.5, and fast mode of Fable/Mythos 5.2 and Opus 4.8. Haiku 5.5 is billed at two rates: a request longer than 100,000
+  tokens including cache is billed entirely at the higher one.
+- Costs keep runs and tokens from directories that no longer exist: a deleted `cwd` is matched to the project through
+  its nearest existing parent and that parent's git repository. A relative path in `repos` no longer covers the
+  directory the server was started from.
+- Cost history survives a change of the usage cache format, a downgrade of the package and a damaged cache entry:
+  buckets of transcripts Claude Code has already deleted are carried over, and the cache is now written durably,
+  since it is the only copy of them.
+- Effect names the reason the noise share is empty (no commits, no extracted tasks, open tasks not estimated) instead
+  of always saying "no commits after adoption".
+
+### Web app
+
+- An unknown address shows "Page not found" inside the app instead of the crash screen. Links in a task description:
+  app paths go through the router, `http(s)` opens in a new tab, anchors and `mailto` work as is, anything else is
+  plain text.
+- A checklist with blank lines between items shows one checkbox per item.
+- Text typed into the description while it is being saved is no longer lost.
+- Tapping the dimmed backdrop saves a pending edit of the title, tags or epic, like the close button and Esc, instead
+  of asking whether to leave without saving.
+- The delete-project dialog counts task files whose frontmatter can't be parsed, which are deleted with the project.
+
+### CLI and service
+
+- `backlog … | head` no longer crashes with `write EPIPE`; the run is still logged.
+- `setup` carries on when writing one agent's config fails, names that agent and exits with a failure code.
+- Windows: the server with a PID of 65536 or more is stopped on service reinstall and uninstall.
+
+### Security and release
+
+- `zod`, `hono` and `@hono/node-server` are updated to patched versions; CI runs `npm audit --omit=dev` as a separate
+  job.
+- The release workflow grants `id-token: write` only to the publish job, which publishes the tarball built and tested
+  by a separate verify job with `--ignore-scripts`; release actions are pinned by SHA.
+
 ## 0.13.1
 
 Follow-up fixes from the full review and a second pass over `backlog check`.
