@@ -97,8 +97,9 @@ export type EffectTotals = {
   estimatedLines: number | null;
   deferredLines: number;
   deferredTestLines: number;
-  noiseShare: number | null;
-};
+} & EffectNoise;
+export type NoiseMissing = "no-commits" | "no-deferred-tasks" | "estimate-pending";
+export type EffectNoise = { noiseShare: number; noiseMissing: null } | { noiseShare: null; noiseMissing: NoiseMissing };
 export type EffectPeriod = { start: string; onTopicLines: number; deferredLines: number; deferredTestLines: number; estimatedLines: number | null; deferredTasks: number };
 export type EffectProject = { projectId: string; name: string; realLines: number; deferredTasks: number; fixedLines: number; estimatedLines: number | null; noiseShare: number | null };
 export type EffectReport = ReportHead & {

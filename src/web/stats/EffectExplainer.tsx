@@ -53,8 +53,7 @@ function pendingText(stats: StatsMessages, language: Language, totals: EffectTot
 }
 
 function noiseText(stats: StatsMessages, language: Language, totals: EffectTotals): string {
-  if (totals.estimatedLines === null && totals.openTasks > 0) return stats.estimateLater;
-  if (totals.noiseShare === null) return stats.noCommitsSinceAdoption;
+  if (totals.noiseMissing !== null) return stats.noiseMissing[totals.noiseMissing];
   const lines = (value: number) => formatLines(language, value, totals.estimatedLines);
   return stats.noiseFormula(lines(totals.deferredLines), formatWhole(language, totals.realLines), lines(totals.estimatedLines ?? 0), formatFormulaShare(totals.noiseShare, totals.estimatedLines));
 }

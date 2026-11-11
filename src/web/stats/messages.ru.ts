@@ -1,7 +1,7 @@
 import { formatDay, formatDecimal, formatWhole } from "../../core/i18n/format";
 import { countRu, NBSP, pluralRu } from "../../core/i18n/plural";
 import type { Priority } from "../../core/model/types";
-import type { AgeBucket, ClosingReason } from "../../core/api/contract";
+import type { AgeBucket, ClosingReason, NoiseMissing } from "../../core/api/contract";
 import type { ChartId, ChartStep, Grain } from "./charts/chart-style";
 import type { FigureTone } from "./Figure";
 import type { StatsConstants } from "./stats-constants";
@@ -195,8 +195,11 @@ export function createStatsRu(constants: StatsConstants) {
     noPending: "ожидающих нет",
     pendingWithoutEstimate: (openTasks: number): string => `${tasks(openTasks)}, ${estimateLater}`,
     pendingEstimated: ({ openTasks, estimated, perTask }: PendingEstimate): string => `${tasks(openTasks)} ${linesText(estimated)}, в среднем ${perTask} на задачу`,
-    estimateLater,
-    noCommitsSinceAdoption: "нет коммитов после внедрения",
+    noiseMissing: {
+      "no-commits": "нет коммитов после внедрения",
+      "no-deferred-tasks": "вынесенных задач пока нет — считать не из чего",
+      "estimate-pending": estimateLater,
+    } satisfies Record<NoiseMissing, string>,
     noiseFormula: (deferred: string, real: string, estimated: string, share: string): string => `${deferred} ÷ (${real} + ${estimated}) ${share}`,
 
     scanStarting: "Считаем расход по расшифровкам Claude Code…",

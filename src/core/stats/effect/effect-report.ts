@@ -10,7 +10,7 @@ import { period, type Period } from "../period";
 import { grainPeriods } from "../report-periods";
 import { filterByProject, type ReportContext } from "../scope";
 import type { CollectedCode, CommitUnit, ProjectCode } from "../../code/types";
-import type { EffectProject, EffectReport, EffectTotals, EffectPeriod } from "../types";
+import type { EffectProject, EffectReport, EffectTotals, EffectPeriod, EffectNoise } from "../types";
 import { dayWindows } from "../days";
 import { statsPeriod, weekWindows } from "../weeks";
 
@@ -124,9 +124,6 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
   const realLines = sum(units.map((unit) => unit.lines));
   const fixedLines = sum(fixed.map((item) => item.lines));
   const deferredLines = fixedLines + (estimatedLines ?? 0);
-  const denominator = realLines + (estimatedLines ?? 0);
-  const openSizeUnknown = estimatedLines === null && open.length > 0;
-  const measurable = realLines > 0 && deferred.length > 0 && !openSizeUnknown;
   return {
     realLines,
     fixedTasks: fixed.length,
@@ -136,8 +133,15 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
     estimatedLines,
     deferredLines,
     deferredTestLines: sum(fixed.map((item) => item.testLines)) + (estimated?.testLines ?? 0),
-    noiseShare: measurable ? Math.min(1, deferredLines / denominator) : null,
+    ...noiseOf(realLines, deferred.length, deferredLines, estimatedLines),
   };
+}
+
+function noiseOf(realLines: number, deferredTasks: number, deferredLines: number, estimatedLines: number | null): EffectNoise {
+  if (realLines === 0) return { noiseShare: null, noiseMissing: "no-commits" };
+  if (deferredTasks === 0) return { noiseShare: null, noiseMissing: "no-deferred-tasks" };
+  if (estimatedLines === null) return { noiseShare: null, noiseMissing: "estimate-pending" };
+  return { noiseShare: Math.min(1, deferredLines / (realLines + estimatedLines)), noiseMissing: null };
 }
 
 function byKind(deferred: readonly Deferred[]): { fixed: FixedDeferred[]; open: OpenDeferred[] } {
