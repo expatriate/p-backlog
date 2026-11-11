@@ -247,6 +247,54 @@ describe("карточка задачи", () => {
     expect(within(panel).getByRole("checkbox", { name: "второй шаг" })).toHaveProperty("checked", true);
   });
 
+  describe("ссылки в описании", () => {
+    const withBody = (body: string) => ({ ...FILES, "spa/SPA-1.md": taskFile("SPA-1", { title: "Таймауты загрузки" }, body) });
+
+    it("внешняя открывается в новой вкладке, путь веба ведёт роутером на карточку", async () => {
+      const app = await renderApp(withBody("[сайт](https://example.com/a) и [блокер](/p/spa/t/SPA-2)"), "/p/spa/t/SPA-1");
+      const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+      const site = within(panel).getByRole("link", { name: "сайт" });
+      expect([site.getAttribute("href"), site.getAttribute("target"), site.getAttribute("rel")]).toEqual(["https://example.com/a", "_blank", "noreferrer"]);
+
+      await app.user.click(within(panel).getByRole("link", { name: "блокер" }));
+      expect(await screen.findByRole("complementary", { name: "Задача SPA-2" })).toBeDefined();
+      expect(app.route()).toBe("/p/spa/t/SPA-2");
+    });
+
+    it("путь веба на несуществующий адрес — «Страница не найдена», фокус на её заголовке", async () => {
+      const app = await renderApp(withBody("[старый адрес](/tasks)"), "/p/spa/t/SPA-1");
+      const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+      await app.user.click(within(panel).getByRole("link", { name: "старый адрес" }));
+
+      expect(document.activeElement).toBe(await screen.findByRole("heading", { level: 1, name: "Страница не найдена" }));
+    });
+
+    it.each([
+      { kind: "якорь", href: "#user-content-fn-1" },
+      { kind: "mailto:", href: "mailto:dev@example.com" },
+    ])("$kind — обычная ссылка без новой вкладки", async ({ href }) => {
+      await renderApp(withBody(`Смотри [x.ts](${href})`), "/p/spa/t/SPA-1");
+      const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+      const link = within(panel).getByRole("link", { name: "x.ts" });
+      expect([link.getAttribute("href"), link.getAttribute("target")]).toEqual([href, null]);
+    });
+
+    it.each([
+      { kind: "относительная", link: "[x.ts](src/web/x.ts)" },
+      { kind: "javascript:", link: "[x.ts](javascript:alert(1))" },
+      { kind: "чужой хост через //", link: "[x.ts](//evil.host/x)" },
+    ])("$kind — текст, а не ссылка", async ({ link }) => {
+      await renderApp(withBody(`Смотри ${link}`), "/p/spa/t/SPA-1");
+      const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });
+
+      expect(within(panel).getByText("Смотри x.ts")).toBeDefined();
+      expect(within(panel).queryByRole("link", { name: "x.ts" })).toBeNull();
+    });
+  });
+
   it("после сохранения не перебрасывает фокус на сам ящик", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-1");
     const panel = await screen.findByRole("complementary", { name: "Задача SPA-1" });

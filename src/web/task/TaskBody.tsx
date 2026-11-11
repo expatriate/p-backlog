@@ -1,5 +1,6 @@
 import { Children, createContext, isValidElement, useContext, useMemo, useRef, type ComponentProps, type ReactElement, type ReactNode } from "react";
 import Markdown, { type Components, type ExtraProps } from "react-markdown";
+import { Link } from "react-router";
 import remarkGfm from "remark-gfm";
 import { checklistItems, type ChecklistItem } from "../../core/model/checklist";
 import { useMessages } from "../i18n";
@@ -27,7 +28,11 @@ const ChecklistContext = createContext<Checklist>({ items: [], onToggleLine: () 
 
 const InsideCodeBlock = createContext(false);
 
-const MARKDOWN_COMPONENTS: Components = { table: MarkdownTable, li: MarkdownItem, pre: MarkdownPre, code: MarkdownCode };
+const MARKDOWN_COMPONENTS: Components = { a: MarkdownLink, table: MarkdownTable, li: MarkdownItem, pre: MarkdownPre, code: MarkdownCode };
+
+const WEB_PATH = /^\/(?!\/)/;
+const HTTP_URL = /^https?:/i;
+const ANCHOR_OR_MAILTO = /^(#|mailto:)/i;
 
 export function TaskBody({ body, editor, onEdit, onCloseEditor, onToggleLine, onSave }: TaskBodyProps) {
   const { ui, task: taskMessages } = useMessages();
@@ -80,6 +85,14 @@ export function TaskBody({ body, editor, onEdit, onCloseEditor, onToggleLine, on
       </Button>
     </div>
   );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- node must not reach the DOM as an attribute
+function MarkdownLink({ node, href = "", ...props }: ComponentProps<"a"> & ExtraProps) {
+  if (WEB_PATH.test(href)) return <Link {...props} to={href} />;
+  if (HTTP_URL.test(href)) return <a {...props} href={href} target="_blank" rel="noreferrer" />;
+  if (ANCHOR_OR_MAILTO.test(href)) return <a {...props} href={href} />;
+  return <>{props.children}</>;
 }
 
 function MarkdownTable({ children }: { children?: ReactNode }) {
