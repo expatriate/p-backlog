@@ -22,12 +22,28 @@ const GIT_PROCESS_LIMIT = 8;
 const FULL_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const FOUND_OBJECT_FIELDS = 3;
 
+const REPOSITORY_BOUND_ENV: ReadonlySet<string> = new Set([
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_COMMON_DIR",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_SHALLOW_FILE",
+  "GIT_GRAFT_FILE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_NAMESPACE",
+  "GIT_PREFIX",
+]);
+
 const gitProcessSlot = createLimiter(GIT_PROCESS_LIMIT);
 
 export const runGitOutcome: GitOutcomeRunner = (repo, args, input) =>
   gitProcessSlot(async () => {
     try {
-      const running = runFile("git", gitArgs(repo, args), { maxBuffer: GIT_OUTPUT_LIMIT });
+      const running = runFile("git", gitArgs(repo, args), { maxBuffer: GIT_OUTPUT_LIMIT, env: envForRepoGit() });
       running.child.stdin?.on("error", ignoreStdinOfExitedGit).end(input);
       const { stdout } = await running;
       return { status: "ok", stdout };
@@ -77,7 +93,7 @@ export function topLiteralPathspecs(paths: readonly string[]): string[] {
 
 export function runGitSync(repo: string, args: string[]): string | null {
   try {
-    return execFileSync("git", gitArgs(repo, args), { encoding: "utf8", maxBuffer: GIT_OUTPUT_LIMIT, stdio: ["ignore", "pipe", "ignore"] });
+    return execFileSync("git", gitArgs(repo, args), { encoding: "utf8", maxBuffer: GIT_OUTPUT_LIMIT, stdio: ["ignore", "pipe", "ignore"], env: envForRepoGit() });
   } catch (error) {
     if (isChildProcessFailure(error)) return null;
     throw error;
@@ -86,6 +102,11 @@ export function runGitSync(repo: string, args: string[]): string | null {
 
 function isChildProcessFailure(error: unknown): boolean {
   return typeof error === "object" && error !== null && "status" in error;
+}
+
+function envForRepoGit(): NodeJS.ProcessEnv {
+  // eslint-disable-next-line no-restricted-properties -- git inherits the user's environment, but the variables git sets for a hook's repository must not override -C <repo>
+  return Object.fromEntries(Object.entries(process.env).filter(([name]) => !REPOSITORY_BOUND_ENV.has(name)));
 }
 
 function gitArgs(repo: string, args: readonly string[]): string[] {

@@ -1,10 +1,10 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { CheckReport } from "../../core/check/check-backlog";
 import type { Language } from "../../core/i18n/language";
 import { writeSettings } from "../../core/store/settings";
-import { gitAddWorktree, gitCommitAll, gitMergeNoFastForward, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitAddWorktree, gitCommitAll, gitMergeNoFastForward, makeGitRepo, writeFiles } from "../../core/store/testing/temp-dirs";
 import { loadBacklog } from "../../core/store/load";
 import { EXIT } from "../io";
 import { makeCliSandbox } from "../testing/cli-harness";
@@ -88,6 +88,21 @@ describe("backlog check", () => {
     expect(report).toMatchObject({ fixed: [], problems: [], candidates: [{ kind: "source-changed", task: { id: "SPA-1" }, path: "src/a.ts" }] });
     expect(report.candidates[0]).toHaveProperty("snippet");
     expect(report.candidates[0]).not.toHaveProperty("codeState");
+  });
+
+  it("из git-хука linked worktree чужого репозитория судит код проекта, а не репозиторий хука", async () => {
+    const { run, home } = await sandboxWithChangedSource();
+    const hookRepo = await makeGitRepo(home, "projects/other");
+    await writeFiles(hookRepo, { "src/a.ts": "1\n" });
+    gitCommitAll(hookRepo, "Чужое начало", "2026-09-16T10:00:00Z");
+    gitAddWorktree(hookRepo, join(home, "projects/other-x"), "x");
+    onTestFinished(() => void vi.unstubAllEnvs());
+    vi.stubEnv("GIT_DIR", join(hookRepo, ".git/worktrees/x"));
+    vi.stubEnv("GIT_INDEX_FILE", join(hookRepo, ".git/worktrees/x/index"));
+
+    const report = JSON.parse((await run(["check", "--json"])).out) as CheckReport;
+
+    expect(report).toMatchObject({ problems: [], candidates: [{ kind: "source-changed", task: { id: "SPA-1" }, path: "src/a.ts", uncommitted: false }] });
   });
 
   it("--json от языка не зависит: исправления, проблемы и обрезанный diff — данные, а не фразы", async () => {
