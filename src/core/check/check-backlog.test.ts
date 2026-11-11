@@ -805,6 +805,29 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([]);
   });
 
+  it("файл добавили и удалили в master, а ветка влила master — на ветке кандидат «файл пропал»", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/b.ts": "b1\n" });
+    gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+    gitCheckout(repo, "feat", { create: true });
+    await writeFiles(repo, { "src/f.ts": "f1\n" });
+    gitCommitAll(repo, "Фича добавляет f", "2026-09-09T12:00:00+03:00");
+    gitCheckout(repo, "master");
+    await writeFiles(repo, { "src/a.ts": "a1\n" });
+    gitCommitAll(repo, "Добавить a", "2026-09-10T10:00:00+03:00");
+    await rm(join(repo, "src/a.ts"));
+    gitCommitAll(repo, "Удалить a", "2026-09-12T10:00:00+03:00");
+    gitCheckout(repo, "feat");
+    gitMergeNoFastForward(repo, "master", "2026-09-13T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts:1\n") });
+
+    const report = await check(root, home, "changed");
+
+    expect(report.candidates).toEqual([expect.objectContaining({ kind: "source-missing", task: expect.objectContaining({ id: "SPA-1" }) })]);
+  });
+
   it("файл удалён в этой ветке — коммитом после отметки, коммитом до подтверждения задачи или в рабочем дереве — или никогда не был в git: кандидат «файл пропал»", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");

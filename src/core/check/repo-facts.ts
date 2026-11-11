@@ -108,7 +108,7 @@ export async function mainlineCommitsOff(repo: string, base: CommitHash, paths: 
 async function committedPaths(repo: string, revisions: string, paths: readonly string[]): Promise<string[] | null> {
   const inside = paths.filter(isInsideRepo);
   if (inside.length === 0) return [];
-  const names = await runGit(repo, ["log", revisions, "--relative", "--format=", "--name-only", "-z", "--", ...literalPathspecs(inside)]);
+  const names = await runGit(repo, ["log", revisions, "--relative", "--format=", "--name-only", ...FACTS_HISTORY_OPTIONS, "-z", "--", ...literalPathspecs(inside)]);
   return names === null ? null : names.split(/[\0\n]/).filter((name) => name !== "");
 }
 
