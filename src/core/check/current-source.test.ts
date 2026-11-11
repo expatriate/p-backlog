@@ -3,10 +3,10 @@ import { makeTask } from "../model/testing/make-task";
 import { gitCheckout, gitCommitAll, gitMergeFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { anchorOf } from "./anchor";
 import { repoDiffs, traceSources } from "./current-source";
-import { collectRepoFacts, type IsAncestorOfHead } from "./repo-facts";
+import { collectRepoFacts, type HeadLineOf } from "./repo-facts";
 import { reviewMark } from "./reviewed-task";
 
-const ancestryUnknown: IsAncestorOfHead = async () => null;
+const lineUnknown: HeadLineOf = async () => "unknown";
 
 const numbered = [1, 2, 3, 4, 5, 6, 7, 8].map((index) => `export const a${index} = ${index};`).join("\n");
 
@@ -28,7 +28,7 @@ describe("traceSources", () => {
     const task = makeTask({ id: "SPA-1", source: "src/a.ts:3", anchor: anchorOf(numbered, "src/a.ts:3") ?? undefined, created: "2026-09-11T10:00:00+03:00" });
     const facts = await collectRepoFacts(repo, new Map([["src/a.ts", reviewMark(task)]]));
 
-    const traces = await traceSources([task], { facts, late: new Map() }, repoDiffs(repo, new Map(), ancestryUnknown));
+    const traces = await traceSources([task], { facts, late: new Map() }, repoDiffs(repo, new Map(), lineUnknown));
 
     expect(traces.get("SPA-1")).toEqual({ kind: "untraced" });
   });
@@ -39,7 +39,7 @@ describe("repoDiffs", () => {
     const repo = await lineEditedOnBranchBeforeMarkAndFastForwardedAfter();
     const task = makeTask({ id: "SPA-1", source: "src/a.ts:3", created: "2026-09-11T10:00:00+03:00" });
 
-    const diff = await repoDiffs(repo, new Map(), ancestryUnknown).sinceTaskMark(task, "src/a.ts");
+    const diff = await repoDiffs(repo, new Map(), lineUnknown).sinceTaskMark(task, "src/a.ts");
 
     expect(diff).toBeNull();
   });

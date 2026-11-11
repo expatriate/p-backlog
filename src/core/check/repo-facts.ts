@@ -1,7 +1,22 @@
 import { isAbsolute, join, normalize, sep } from "node:path";
-import { FIELD, headAncestryOf, literalPathspecs, outputLine, PARSED_DIFF_OPTIONS, RECORD, runGit, runGitOutcome, type CommitHash, type GitOutcomeRunner, type HeadAncestry, type GitRunner } from "../git/run";
+import {
+  asGitRunner,
+  FIELD,
+  headAncestryOf,
+  literalPathspecs,
+  outputLine,
+  PARSED_DIFF_OPTIONS,
+  RECORD,
+  resolveCommits,
+  runGit,
+  runGitOutcome,
+  type CommitHash,
+  type GitOutcomeRunner,
+  type GitRunner,
+} from "../git/run";
 import type { LineRange } from "./anchor";
 import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
+import { landingState } from "./landed-content";
 import { SECOND_MS } from "../model/dates";
 import { remembered } from "../remembered";
 import { fileExists, lstatOrNull, attemptReportingFailure, readTextIfFile } from "../store/fs-utils";
@@ -135,7 +150,7 @@ export function diffsSince(repo: string, git: GitRunner = runGit, diffFrom: Diff
   };
 }
 
-export type HeadAt = (moment: Date) => Promise<{ commit: string; onThisLine: boolean | null } | null>;
+export type HeadAt = (moment: Date) => Promise<{ commit: string; line: HeadLine } | null>;
 
 type HeadMove = { commit: string; at: number };
 
@@ -149,21 +164,45 @@ export function headCommitsAt(repo: string): HeadCommitAt {
   };
 }
 
-export type IsAncestorOfHead = (commit: string) => Promise<boolean | null>;
+export type HeadLine = "this-line" | "other-branch" | "missing" | "unknown";
 
-export function ancestorsOfHead(repo: string, git: GitOutcomeRunner = runGitOutcome): IsAncestorOfHead {
-  const ancestors = new Map<string, Promise<boolean | null>>();
-  return (commit) => remembered(ancestors, commit, async () => lineAnswerOf(await headAncestryOf(git, repo, commit)));
+export type HeadLineOf = (commit: string) => Promise<HeadLine>;
+
+export function headLineOf(repo: string, git: GitOutcomeRunner = runGitOutcome): HeadLineOf {
+  const answers = new Map<string, Promise<HeadLine>>();
+  return (commit) => remembered(answers, commit, () => lineOfCommit(repo, commit, git));
 }
 
-function lineAnswerOf(ancestry: HeadAncestry): boolean | null {
-  return ancestry === "unknown" ? null : ancestry === "ancestor";
+async function lineOfCommit(repo: string, commit: string, git: GitOutcomeRunner): Promise<HeadLine> {
+  const ancestry = await headAncestryOf(git, repo, commit);
+  switch (ancestry) {
+    case "ancestor":
+      return "this-line";
+    case "not-ancestor":
+      return lineOfNonAncestor(repo, commit, asGitRunner(git));
+    case "missing":
+    case "unknown":
+      return ancestry;
+  }
 }
 
-export function headsAt(headCommitAt: HeadCommitAt, isAncestorOfHead: IsAncestorOfHead): HeadAt {
+async function lineOfNonAncestor(repo: string, commit: string, git: GitRunner): Promise<HeadLine> {
+  const tip = (await resolveCommits(git, repo, [commit]))?.get(commit);
+  if (tip === undefined) return "unknown";
+  switch (await landingState(repo, tip, git)) {
+    case "landed":
+      return "this-line";
+    case "pending":
+      return "other-branch";
+    case "unknown":
+      return "unknown";
+  }
+}
+
+export function headsAt(headCommitAt: HeadCommitAt, headLine: HeadLineOf): HeadAt {
   return async (moment) => {
     const commit = await headCommitAt(moment);
-    return commit === null ? null : { commit, onThisLine: await isAncestorOfHead(commit) };
+    return commit === null ? null : { commit, line: await headLine(commit) };
   };
 }
 

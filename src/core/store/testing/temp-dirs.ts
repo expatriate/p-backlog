@@ -42,6 +42,10 @@ export function gitMergeSquash(repo: string, branch: string): void {
   execFileSync("git", [...TEST_COMMITTER, "merge", "--squash", "-q", branch], { cwd: repo, stdio: "pipe" });
 }
 
+export function gitAmend(repo: string, message: string, isoDate: string): void {
+  execFileSync("git", [...TEST_COMMITTER, "commit", "-q", "--amend", "-m", message], { cwd: repo, env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
+}
+
 export function gitRebase(repo: string, onto: string, isoDate: string): void {
   execFileSync("git", [...TEST_COMMITTER, "rebase", "-q", onto], { cwd: repo, stdio: "pipe", env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
 }

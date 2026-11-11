@@ -3,11 +3,20 @@ import type { TaskOrigin } from "../journal/events";
 import type { Task } from "../model/types";
 import { sourcePath } from "../model/source";
 import { judgedByCommits, type AnchorStates, type KnownCommits } from "./candidates";
-import { ancestorsOfHead, headCommitsAt, isInsideRepo, mainlineCommitsOff, type Commit, type IsAncestorOfHead, type RepoFacts } from "./repo-facts";
+import { headCommitsAt, headLineOf, isInsideRepo, mainlineCommitsOff, type Commit, type HeadLineOf, type RepoFacts } from "./repo-facts";
 import { checkoutAtMark, reviewMark } from "./reviewed-task";
 import { changesSinceMark, commitsTouchingUntil, type LateCommits } from "./source-commits";
 
-export type LateCommitsQuestion = { repo: string; tasks: readonly Task[]; facts: RepoFacts; anchors: AnchorStates; origins: ReadonlyMap<string, TaskOrigin>; knownCommits: KnownCommits; git?: GitOutcomeRunner };
+export type LateCommitsQuestion = {
+  repo: string;
+  tasks: readonly Task[];
+  facts: RepoFacts;
+  anchors: AnchorStates;
+  origins: ReadonlyMap<string, TaskOrigin>;
+  knownCommits: KnownCommits;
+  git?: GitOutcomeRunner;
+  headLine?: HeadLineOf;
+};
 
 export type LateArrivals = { late: LateCommits; unknown: ReadonlySet<string> };
 
@@ -17,7 +26,7 @@ type EditedSource = MarkedSource & { checkout: CommitHash };
 
 type Arrival = { taskId: string; commits: Commit[] | null };
 
-type RepoHistory = { repo: string; git: GitRunner; isAncestorOfHead: IsAncestorOfHead };
+type RepoHistory = { repo: string; git: GitRunner; headLine: HeadLineOf };
 
 const NO_LATE_COMMITS: LateCommits = new Map();
 
@@ -25,8 +34,8 @@ const NO_LATE_ARRIVALS: LateArrivals = { late: NO_LATE_COMMITS, unknown: new Set
 
 export async function commitsArrivedLate(question: LateCommitsQuestion): Promise<LateArrivals> {
   if (question.facts.history !== "read") return NO_LATE_ARRIVALS;
-  const { repo, git = runGitOutcome } = question;
-  const history: RepoHistory = { repo, git: asGitRunner(git), isAncestorOfHead: ancestorsOfHead(repo, git) };
+  const { repo, git = runGitOutcome, headLine = headLineOf(repo, git) } = question;
+  const history: RepoHistory = { repo, git: asGitRunner(git), headLine };
   const arrivals = await arrivalsOf(history, await markedSources(question));
   return {
     late: new Map(arrivals.flatMap(({ taskId, commits }) => (commits === null ? [] : [[taskId, commits] as const]))),
@@ -84,9 +93,20 @@ async function editedSinceCheckout({ repo, git }: RepoHistory, sources: readonly
   });
 }
 
-async function arrivedAfter({ repo, git, isAncestorOfHead }: RepoHistory, checkout: CommitHash, sources: readonly EditedSource[]): Promise<Arrival[]> {
-  const descentFromCheckout = await isAncestorOfHead(checkout);
-  if (descentFromCheckout === false) return [];
-  const arrived = descentFromCheckout === null ? null : await mainlineCommitsOff(repo, checkout, [...new Set(sources.map(({ path }) => path))], git);
+async function arrivedAfter(history: RepoHistory, checkout: CommitHash, sources: readonly EditedSource[]): Promise<Arrival[]> {
+  const arrived = await commitsOnLineSince(history, checkout, [...new Set(sources.map(({ path }) => path))]);
+  if (arrived === "off-line") return [];
   return sources.map(({ taskId, path, mark }) => ({ taskId, commits: arrived === null ? null : commitsTouchingUntil(arrived, path, mark) }));
+}
+
+async function commitsOnLineSince({ repo, git, headLine }: RepoHistory, checkout: CommitHash, paths: readonly string[]): Promise<Commit[] | "off-line" | null> {
+  switch (await headLine(checkout)) {
+    case "this-line":
+      return mainlineCommitsOff(repo, checkout, paths, git);
+    case "other-branch":
+    case "missing":
+      return "off-line";
+    case "unknown":
+      return null;
+  }
 }

@@ -12,11 +12,13 @@ import { toJsonLines } from "../store/json-lines";
 import { readJournal } from "../store/journal";
 import { loadBacklog } from "../store/load";
 import {
+  gitAmend,
   gitCheckout,
   gitCommitAll,
   gitMergeFastForward,
   gitMergeNoFastForward,
   gitMergeSquash,
+  gitRebase,
   gitRebaseMerge,
   gitShortHead,
   makeGitRepo,
@@ -998,6 +1000,153 @@ describe("checkBacklog", () => {
     expect(report.candidates).toEqual([]);
   });
 
+  describe("коммит, на котором стояли при отметке, не предок HEAD", () => {
+    const before = numbered("a");
+    const edited = before.replace("a3 = 3", "a3 = 33");
+    const anchorOn = (text: string) => anchorOf(text, "src/a.ts:3") ?? undefined;
+    const candidateOfEdit = [expect.objectContaining({ kind: "source-changed", task: expect.objectContaining({ id: "SPA-1" }), diff: expect.stringContaining("+export const a3 = 33;") })];
+
+    async function markedRepo(anchored: boolean) {
+      const home = await makeTempDir();
+      const root = join(home, "backlog");
+      const repo = await makeGitRepo(home, "projects/spa");
+      await writeFiles(repo, { "src/a.ts": before, "src/b.ts": "b1\n" });
+      gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
+      const markTask = async ({ textAtMark = before, origin }: { textAtMark?: string; origin?: string } = {}) => {
+        const anchor = anchored ? anchorOn(textAtMark) : undefined;
+        const journal =
+          origin === undefined ? {} : { "spa/journal.jsonl": `${JSON.stringify({ ...createdOnFeat("SPA-1", "2026-09-11T10:00:00+03:00", origin), source: "src/a.ts:3", origin: { commit: origin } })}\n` };
+        const anchorLine = anchor === undefined ? "" : `anchor: ${anchor}\n`;
+        await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", `source: src/a.ts:3\n${anchorLine}`), ...journal });
+        return anchor;
+      };
+      const editTaskLine = async (at: string) => {
+        await writeFiles(repo, { "src/a.ts": edited });
+        gitCommitAll(repo, "Правка строки задачи", at);
+      };
+      const commitOnB = async (subject: string, at: string, where = repo) => {
+        await writeFiles(where, { "src/b.ts": `${subject}\n` });
+        gitCommitAll(where, subject, at);
+      };
+      const anchorNow = async () => (await loadBacklog(root)).tasks[0]?.anchor;
+      return { home, root, repo, markTask, editTaskLine, commitOnB, anchorNow };
+    }
+
+    async function localCommitRebasedOntoUpstream(anchored: boolean) {
+      const marked = await markedRepo(anchored);
+      const { repo } = marked;
+      gitCheckout(repo, "upstream", { create: true, at: "2026-09-09T11:00:00+03:00" });
+      await marked.editTaskLine("2026-09-09T12:00:00+03:00");
+      gitCheckout(repo, "master", { at: "2026-09-09T13:00:00+03:00" });
+      await marked.commitOnB("Локальный коммит", "2026-09-10T10:00:00+03:00");
+      await marked.markTask();
+      gitRebase(repo, "upstream", "2026-09-12T10:00:00+03:00");
+      return marked;
+    }
+
+    async function squashedBranch(anchored: boolean) {
+      const marked = await markedRepo(anchored);
+      const { repo } = marked;
+      gitCheckout(repo, "feat", { create: true, at: "2026-09-09T11:00:00+03:00" });
+      await marked.commitOnB("Фича", "2026-09-10T10:00:00+03:00");
+      gitCheckout(repo, "master", { at: "2026-09-10T10:30:00+03:00" });
+      gitMergeSquash(repo, "feat");
+      gitCommitAll(repo, "Слить feat одним коммитом", "2026-09-10T11:00:00+03:00");
+      await marked.editTaskLine("2026-09-10T12:00:00+03:00");
+      gitCheckout(repo, "feat", { at: "2026-09-10T13:00:00+03:00" });
+      await marked.markTask();
+      gitCheckout(repo, "master", { at: "2026-09-12T10:00:00+03:00" });
+      return marked;
+    }
+
+    async function squashedBranchDeleted(anchored: boolean) {
+      const marked = await squashedBranch(anchored);
+      execFileSync("git", ["branch", "-q", "-D", "feat"], { cwd: marked.repo });
+      return marked;
+    }
+
+    it.each([
+      { case: "локальный коммит переписан pull --rebase, задача с якорем", arrange: localCommitRebasedOntoUpstream, anchored: true },
+      { case: "локальный коммит переписан pull --rebase, задача без якоря", arrange: localCommitRebasedOntoUpstream, anchored: false },
+      { case: "ветку слили squash, она жива, задача с якорем", arrange: squashedBranch, anchored: true },
+      { case: "ветку слили squash, она жива, задача без якоря", arrange: squashedBranch, anchored: false },
+      { case: "ветку слили squash и удалили, задача с якорем", arrange: squashedBranchDeleted, anchored: true },
+      { case: "ветку слили squash и удалили, задача без якоря", arrange: squashedBranchDeleted, anchored: false },
+    ])("его содержимое пришло в HEAD — правка строки задачи с датой до отметки, пришедшая после неё, — кандидат: $case", async ({ arrange, anchored }) => {
+      const { home, root, anchorNow } = await arrange(anchored);
+
+      const report = await check(root, home, "changed");
+
+      expect(report.candidates).toEqual(candidateOfEdit);
+      expect(await anchorNow()).toBe(anchored ? anchorOn(before) : undefined);
+    });
+
+    async function amendedThenOldBranch(anchored: boolean) {
+      const marked = await markedRepo(anchored);
+      const { repo } = marked;
+      gitCheckout(repo, "old", { create: true, at: "2026-09-09T11:00:00+03:00" });
+      gitCheckout(repo, "master", { at: "2026-09-09T12:00:00+03:00" });
+      await marked.editTaskLine("2026-09-10T10:00:00+03:00");
+      const anchorAtMark = await marked.markTask({ textAtMark: edited });
+      gitAmend(repo, "Правка строки задачи, уточнённое сообщение", "2026-09-12T10:00:00+03:00");
+      gitCheckout(repo, "old", { at: "2026-09-12T11:00:00+03:00" });
+      return { ...marked, anchorAtMark };
+    }
+
+    async function laneCheckedOnMaster(anchored: boolean, { rebased }: { rebased: boolean }) {
+      const marked = await markedRepo(anchored);
+      const { repo } = marked;
+      gitCheckout(repo, "lane", { create: true, at: "2026-09-09T11:00:00+03:00" });
+      gitCheckout(repo, "master", { at: "2026-09-09T12:00:00+03:00" });
+      await marked.editTaskLine("2026-09-09T13:00:00+03:00");
+      gitCheckout(repo, "lane", { at: "2026-09-09T14:00:00+03:00" });
+      await marked.commitOnB("Работа полосы", "2026-09-10T10:00:00+03:00");
+      const anchorAtMark = await marked.markTask();
+      if (rebased) gitRebase(repo, "master", "2026-09-12T10:00:00+03:00");
+      gitCheckout(repo, "master", { at: "2026-09-12T11:00:00+03:00" });
+      return { ...marked, anchorAtMark };
+    }
+
+    const rebasedLaneCheckedOnMaster = (anchored: boolean) => laneCheckedOnMaster(anchored, { rebased: true });
+
+    async function markedInDetachedWorktree(anchored: boolean) {
+      const marked = await markedRepo(anchored);
+      const { home, repo } = marked;
+      const worktree = join(home, "projects/spa-detached");
+      execFileSync("git", ["worktree", "add", "-q", "--detach", worktree], { cwd: repo });
+      await marked.commitOnB("Работа в отсоединённом worktree", "2026-09-10T10:00:00+03:00", worktree);
+      await marked.editTaskLine("2026-09-10T12:00:00+03:00");
+      const anchorAtMark = await marked.markTask({ origin: gitShortHead(worktree) });
+      return { ...marked, anchorAtMark };
+    }
+
+    it.each([
+      { case: "коммит отметки исправили amend, потом перешли на старую ветку, задача с якорем", arrange: amendedThenOldBranch, anchored: true },
+      { case: "коммит отметки исправили amend, потом перешли на старую ветку, задача без якоря", arrange: amendedThenOldBranch, anchored: false },
+      { case: "полосу, где отмечена задача, перебазировали на master, проверка на master, задача с якорем", arrange: rebasedLaneCheckedOnMaster, anchored: true },
+      { case: "полосу, где отмечена задача, перебазировали на master, проверка на master, задача без якоря", arrange: rebasedLaneCheckedOnMaster, anchored: false },
+      { case: "задача заведена в отсоединённом worktree, проверка в основном checkout, задача без якоря", arrange: markedInDetachedWorktree, anchored: false },
+    ])("его содержимого в HEAD нет — чужая линия: кандидата нет, якорь по её тексту не пишется: $case", async ({ arrange, anchored }) => {
+      const { home, root, anchorNow, anchorAtMark } = await arrange(anchored);
+
+      const report = await check(root, home, "changed");
+
+      expect({ candidates: report.candidates, anchor: await anchorNow() }).toEqual({ candidates: [], anchor: anchorAtMark });
+    });
+
+    it("невлитая живая ветка — у задачи без якоря нет ни кандидата, ни якоря по тексту master; ветку влили — правка строки задачи становится кандидатом", async () => {
+      const { home, root, repo, anchorNow } = await laneCheckedOnMaster(false, { rebased: false });
+
+      const whileUnmerged = await check(root, home, "changed");
+      const anchorWhileUnmerged = await anchorNow();
+      gitMergeNoFastForward(repo, "lane", "2026-09-13T10:00:00+03:00");
+      const afterMerge = await check(root, home, "changed");
+
+      expect({ candidates: whileUnmerged.candidates, anchor: anchorWhileUnmerged }).toEqual({ candidates: [], anchor: undefined });
+      expect(afterMerge.candidates).toEqual(candidateOfEdit);
+    });
+  });
+
   it("чужой merge нашего же коммита, пришедший перемоткой: текст файла задачи тот же — кандидата нет", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
@@ -1115,7 +1264,7 @@ describe("checkBacklog", () => {
     expect(await filteredSymbols(root)).toEqual(["uploadFile"]);
   });
 
-  it("HEAD на момент отметки стоял на невлитой ветке с другим текстом функции задачи: правку соседней на master судят от последнего коммита master до отметки — кандидата нет", async () => {
+  it("HEAD на момент отметки стоял на невлитой ветке с другим текстом функции задачи: правку соседней на master судят от последнего коммита master до отметки — кандидата нет, якорь по тексту master не пишется", async () => {
     const home = await makeTempDir();
     const root = join(home, "backlog");
     const repo = await makeGitRepo(home, "projects/spa");
@@ -1134,6 +1283,7 @@ describe("checkBacklog", () => {
 
     expect(report.candidates).toEqual([]);
     expect(await filteredSymbols(root)).toEqual(["uploadFile"]);
+    expect((await loadBacklog(root)).tasks[0]?.anchor).toBeUndefined();
   });
 
   it("в свежем клоне, чей reflog не помнит отметку, выдержка правки считается от последнего коммита до отметки", async () => {
@@ -1537,6 +1687,28 @@ describe("checkBacklog", () => {
 
     const gone = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate-gone");
     expect({ opened, gone }).toEqual({ opened: [["SPA-1", "source-changed"]], gone: [] });
+  });
+
+  it("сбой git на вопросе, на линии ли HEAD коммит отметки, — первый якорь задаче без якоря не пишется, пока git не ответит", async () => {
+    const home = await makeTempDir();
+    const root = join(home, "backlog");
+    const repo = await makeGitRepo(home, "projects/spa");
+    await writeFiles(repo, { "src/a.ts": numbered("a") });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    await writeFiles(root, { "spa/project.md": projectFile("SPA", [repo]), "spa/SPA-1.md": task("SPA-1", "source: src/a.ts:3\n") });
+    const anchorNow = async () => (await loadBacklog(root)).tasks[0]?.anchor;
+
+    await check(
+      root,
+      home,
+      "changed",
+      ["spa"],
+      gitFailing((args) => args[0] === "merge-base"),
+    );
+    const anchorAfterFailure = await anchorNow();
+    await check(root, home, "changed");
+
+    expect({ anchorAfterFailure, anchorAfterAnswer: await anchorNow() }).toEqual({ anchorAfterFailure: undefined, anchorAfterAnswer: anchorOf(numbered("a"), "src/a.ts:3") });
   });
 
   it("ветки git не читаются из-за битой ссылки в refs — своя проблема проекта, а задача, чьего файла нет на диске, не выдаётся за пропавшую", async () => {

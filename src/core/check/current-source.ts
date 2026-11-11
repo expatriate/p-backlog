@@ -5,12 +5,28 @@ import { anchorOf, anchorRange, locateAnchor, remappedSource, windowMatches } fr
 import { checkoutAtMark, reviewMark } from "./reviewed-task";
 import { changesSinceMark, type SourceHistory } from "./source-commits";
 import { baseText, currentLine, modifiesLines, type Hunk } from "./diff-hunks";
-import { ancestorsOfHead, collectRepoFacts, diffsFrom, diffsSince, headCommitsAt, headsAt, type Commit, type DiffFrom, type DiffSince, type FileDiff, type HeadAt, type IsAncestorOfHead } from "./repo-facts";
+import {
+  collectRepoFacts,
+  diffsFrom,
+  diffsSince,
+  headCommitsAt,
+  headLineOf,
+  headsAt,
+  type Commit,
+  type DiffFrom,
+  type DiffSince,
+  type FileDiff,
+  type HeadAt,
+  type HeadLine,
+  type HeadLineOf,
+} from "./repo-facts";
 import { hasLines, sourcePath } from "../model/source";
 
 export type TaskDiff = (task: Task, path: string) => Promise<FileDiff | null>;
 
-type FileDiffs = { since: DiffSince; from: DiffFrom; headAt: HeadAt; sinceTaskMark: TaskDiff };
+export type LineAtMark = (task: Task) => Promise<HeadLine | null>;
+
+type FileDiffs = { since: DiffSince; from: DiffFrom; headAt: HeadAt; sinceTaskMark: TaskDiff; lineAtMark: LineAtMark };
 
 type SourceTrace = { kind: "traced"; current: string | null; linesChanged: boolean } | { kind: "not-on-branch" } | { kind: "untraced" };
 
@@ -22,19 +38,30 @@ const LATER_COMMITS_TO_SEARCH = 5;
 
 const UNTRACED: SourceTrace = { kind: "untraced" };
 
-export function repoDiffs(repo: string, origins: ReadonlyMap<string, TaskOrigin>, isAncestorOfHead: IsAncestorOfHead = ancestorsOfHead(repo)): FileDiffs {
+export function repoDiffs(repo: string, origins: ReadonlyMap<string, TaskOrigin>, headLine: HeadLineOf = headLineOf(repo)): FileDiffs {
   const from = diffsFrom(repo);
   const since = diffsSince(repo, runGit, from);
   const headCommitAt = headCommitsAt(repo);
-  const sinceTaskMark: TaskDiff = async (task, path) => {
+  const checkoutLineAtMark = async (task: Task) => {
     const checkout = await checkoutAtMark(task, origins, headCommitAt);
-    const sinceMark = () => since(path, new Date(reviewMark(task)));
-    if (checkout === null) return sinceMark();
-    const onThisLine = await isAncestorOfHead(checkout);
-    if (onThisLine === null) return null;
-    return onThisLine ? from(path, checkout) : sinceMark();
+    return checkout === null ? null : { checkout, line: await headLine(checkout) };
   };
-  return { since, from, headAt: headsAt(headCommitAt, isAncestorOfHead), sinceTaskMark };
+  const sinceTaskMark: TaskDiff = async (task, path) => {
+    const atMark = await checkoutLineAtMark(task);
+    const sinceMark = () => since(path, new Date(reviewMark(task)));
+    if (atMark === null) return sinceMark();
+    switch (atMark.line) {
+      case "this-line":
+        return from(path, atMark.checkout);
+      case "other-branch":
+      case "missing":
+        return sinceMark();
+      case "unknown":
+        return null;
+    }
+  };
+  const lineAtMark: LineAtMark = async (task) => (await checkoutLineAtMark(task))?.line ?? null;
+  return { since, from, headAt: headsAt(headCommitAt, headLine), sinceTaskMark, lineAtMark };
 }
 
 export async function traceSources(tasks: readonly Task[], history: SourceHistory, diffs: FileDiffs): Promise<SourceTraces> {
@@ -88,7 +115,7 @@ async function referenceOf(task: Traced, text: string, laterCommits: readonly Co
   const { anchor } = task;
   const mark = new Date(reviewMark(task));
   const head = anchor === undefined ? null : await diffs.headAt(mark);
-  const headAtMark = async () => (head?.onThisLine === true ? diffs.from(path, head.commit) : null);
+  const headAtMark = async () => (head?.line === "this-line" ? diffs.from(path, head.commit) : null);
   const lastCommitBeforeMark = () => diffs.since(path, mark);
   const sinceTaskMark = () => diffs.sinceTaskMark(task, path);
   const afterMark = laterCommits
@@ -96,7 +123,7 @@ async function referenceOf(task: Traced, text: string, laterCommits: readonly Co
     .slice(0, LATER_COMMITS_TO_SEARCH)
     .map((commit) => () => diffs.from(path, commit.sha));
   const references = anchor === undefined ? [sinceTaskMark] : [headAtMark, lastCommitBeforeMark, ...afterMark];
-  const unmatched: ReferenceSearch = head?.onThisLine === false ? { kind: "not-on-branch" } : { kind: "untraced" };
+  const unmatched: ReferenceSearch = head === null ? { kind: "untraced" } : unmatchedOn(head.line);
   let search: ReferenceSearch = { kind: "untraced" };
   for (const diffFromReference of references) {
     const hunks = (await diffFromReference())?.hunks ?? null;
@@ -106,4 +133,15 @@ async function referenceOf(task: Traced, text: string, laterCommits: readonly Co
     search = unmatched;
   }
   return search;
+}
+
+function unmatchedOn(line: HeadLine): ReferenceSearch {
+  switch (line) {
+    case "other-branch":
+    case "missing":
+      return { kind: "not-on-branch" };
+    case "this-line":
+    case "unknown":
+      return { kind: "untraced" };
+  }
 }
