@@ -56,7 +56,7 @@ export function TaskBody({ body, editor, onEdit, onCloseEditor, onToggleLine, on
     const saving = editor.phase === "saving";
     return (
       <div ref={editorBox} className={styles.editor}>
-        <textarea autoFocus value={editor.text} rows={EDITOR_ROWS} aria-label={taskMessages.description} onChange={(event) => onEdit(event.target.value)} />
+        <textarea autoFocus value={editor.text} readOnly={saving} rows={EDITOR_ROWS} aria-label={taskMessages.description} onChange={(event) => onEdit(event.target.value)} />
         <div className={styles.editorActions}>
           <Button variant="primary" busy={saving} onClick={() => void save(editor.text)}>
             {saving ? taskMessages.saving : taskMessages.save}

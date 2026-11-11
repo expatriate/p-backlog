@@ -1014,6 +1014,21 @@ describe("черновик описания при уходе с задачи", 
     expect(patches.sent).toHaveLength(1);
   });
 
+  it("пока описание сохраняется, поле не принимает дописанное", async () => {
+    const patches = holdFirstPatch();
+    const app = await renderApp(FILES, "/p/spa/t/SPA-1", undefined, { beforeRender: patches.beforeRender });
+    const panel = await startDraft(app);
+    const description = within(panel).getByRole<HTMLTextAreaElement>("textbox", { name: "Описание задачи" });
+    const sentText = description.value;
+
+    await app.user.click(within(panel).getByRole("button", { name: "Сохранить" }));
+    await app.user.type(description, " ещё");
+
+    expect(description.value).toBe(sentText);
+    patches.release();
+    await waitFor(() => expect(within(panel).getByRole("button", { name: "Редактировать описание" })).toBeDefined());
+  });
+
   it("фокус уходит в поле описания и возвращается на «Редактировать описание» после «Отмена» и «Сохранить»", async () => {
     const app = await renderApp(FILES, "/p/spa/t/SPA-1");
     const panel = await startDraft(app);
