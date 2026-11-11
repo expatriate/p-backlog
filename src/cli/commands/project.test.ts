@@ -169,4 +169,16 @@ describe("backlog project", () => {
     expect((await loadBacklog(root)).projects).toEqual([]);
     expect((await run(["project", "delete", "spa", "--confirm", "spa"])).code).toBe(EXIT.notFound);
   });
+
+  it("ID в другом регистре не находит проект: delete не удаляет каталог, status не правит project.md", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Задача"]);
+    const projectFile = join(root, "spa", "project.md");
+    const before = await readFile(projectFile, "utf8");
+
+    expect(await run(["project", "status", "SPA", "inactive"])).toMatchObject({ code: EXIT.notFound, err: expect.stringContaining("SPA") });
+    expect(await run(["project", "delete", "SPA", "--confirm", "SPA"])).toMatchObject({ code: EXIT.notFound, out: "" });
+
+    expect(await readFile(projectFile, "utf8")).toBe(before);
+  });
 });

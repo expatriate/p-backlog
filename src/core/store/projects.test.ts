@@ -104,4 +104,17 @@ describe("проекты", () => {
     expect(loaded.projects).toEqual([]);
     expect(await readFile(join(root, "notes/todo.md"), "utf8")).toBe("заметки");
   });
+
+  it.each(["..", "spa/../..", "", "."])("ID %j вне каталогов проектов не находит проект и ничего не удаляет", async (id) => {
+    const outside = await makeTempDir();
+    const root = join(outside, "backlog");
+    await writeFiles(outside, { "project.md": projectFile("OUT"), "backlog/project.md": projectFile("ROOT"), "backlog/spa/project.md": projectFile("SPA") });
+
+    expect(await setProjectActive(root, id, false, failOnPathError)).toEqual({ ok: false, reason: "not-found" });
+    expect(await deleteProject(root, id)).toEqual({ ok: false, reason: "not-found" });
+
+    expect(await readFile(join(outside, "project.md"), "utf8")).toBe(projectFile("OUT"));
+    expect(await readFile(join(root, "project.md"), "utf8")).toBe(projectFile("ROOT"));
+    expect((await loadBacklog(root)).projects.map((project) => project.id)).toEqual(["spa"]);
+  });
 });

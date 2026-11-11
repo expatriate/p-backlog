@@ -7,7 +7,8 @@ import type { ParseResult, Project } from "../model/types";
 import { withFileLock } from "./file-lock";
 import { fileExists, readTextOrNull } from "./fs-utils";
 import { writeFileAtomic } from "./atomic-write";
-import { PROJECT_FILE, projectDir } from "./paths";
+import { projectDirNames } from "./load";
+import { PROJECT_FILE } from "./paths";
 import { parseDocumentOrNull } from "./read-document";
 
 type ProjectNotFound = { ok: false; reason: "not-found" };
@@ -19,7 +20,7 @@ export type ProjectWriteResult = { ok: true; project: Project; changed: boolean 
 export type ProjectDeleteResult = { ok: true } | ProjectNotFound;
 
 export async function setProjectActive(root: string, id: string, active: boolean, onError: PathErrorHandler): Promise<ProjectWriteResult> {
-  const dir = projectDir(root, id);
+  const dir = await existingProjectDir(root, id);
   if (dir === null) return NOT_FOUND;
   return editProjectFile({ id, path: join(dir, PROJECT_FILE) }, onError, (project) => (project.active === active ? project : { ...project, active }));
 }
@@ -62,8 +63,12 @@ async function editProjectFile({ id, path }: Pick<Project, "id" | "path">, onErr
 }
 
 export async function deleteProject(root: string, id: string): Promise<ProjectDeleteResult> {
-  const dir = projectDir(root, id);
+  const dir = await existingProjectDir(root, id);
   if (dir === null || (await readTextOrNull(join(dir, PROJECT_FILE))) === null) return NOT_FOUND;
   await rm(dir, { recursive: true, force: true });
   return { ok: true };
+}
+
+async function existingProjectDir(root: string, id: string): Promise<string | null> {
+  return (await projectDirNames(root)).includes(id) ? join(root, id) : null;
 }
