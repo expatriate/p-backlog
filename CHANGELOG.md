@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.14.1
+
+Rewritten branches keep their candidates, removed lanes keep their costs, and CI no longer depends on Ubuntu mirrors.
+
+- `backlog check`: a mark commit that was the tip of the current branch counts as the current line once that branch
+  was rewritten, whatever the rewrite did to its content: `pull --rebase` (including from a URL) or `rebase` with a
+  resolved conflict in any file, `commit --amend` followed by a rebase, `rebase --autosquash` and
+  `rebase --update-refs` for the branches of a stack. An edit to the task's lines is a candidate again instead of
+  silently disappearing. A rebased lane checked from `master` and a branch reset back past the mark still count as
+  another branch. A git failure while reading the branch's reflog leaves the task unchecked.
+- Costs: runs and tokens of a git worktree that lived outside the repository directory stay with the repository's
+  project after `git worktree remove`. While such a worktree exists, the service remembers its root and main
+  repository from the working directories of transcripts and CLI runs; a live repository at the path still wins.
+  Worktrees removed before this version are not recovered.
+- CI: the Linux end-to-end job no longer installs fonts through apt, so an outage of the Ubuntu mirrors no longer
+  fails CI and blocks a release.
+
 ## 0.14.0
 
 Projects with several repositories, a single "state at the task's mark" for `backlog check`, and fixes from the full
