@@ -20,9 +20,12 @@ import {
   gitMergeSquash,
   gitRebase,
   gitRebaseMerge,
+  gitRun,
+  gitRunResolvingConflict,
   gitShortHead,
   makeGitRepo,
   makeTempDir,
+  pullRebaseFromItself,
   withForwardSlashes,
   projectFile,
   taskFile,
@@ -1131,15 +1134,78 @@ describe("checkBacklog", () => {
       return { home, root, repo, markTask, editTaskLine, commitOnB, anchorNow };
     }
 
-    async function localCommitRebasedOntoUpstream(anchored: boolean) {
+    async function localCommitMarkedBehindUpstream(anchored: boolean, upstreamFiles: Record<string, string> = {}) {
       const marked = await markedRepo(anchored);
       const { repo } = marked;
       gitCheckout(repo, "upstream", { create: true, at: "2026-09-09T11:00:00+03:00" });
-      await marked.editTaskLine("2026-09-09T12:00:00+03:00");
+      await writeFiles(repo, { "src/a.ts": edited, ...upstreamFiles });
+      gitCommitAll(repo, "Правка строки задачи в upstream", "2026-09-09T12:00:00+03:00");
       gitCheckout(repo, "master", { at: "2026-09-09T13:00:00+03:00" });
       await marked.commitOnB("Локальный коммит", "2026-09-10T10:00:00+03:00");
       await marked.markTask();
-      gitRebase(repo, "upstream", "2026-09-12T10:00:00+03:00");
+      return marked;
+    }
+
+    async function localCommitRebasedOntoUpstream(anchored: boolean) {
+      const marked = await localCommitMarkedBehindUpstream(anchored);
+      gitRebase(marked.repo, "upstream", "2026-09-12T10:00:00+03:00");
+      return marked;
+    }
+
+    const upstreamEditsB = { "src/b.ts": "Правка b в upstream\n" };
+    const conflictInBResolved = { "src/b.ts": "Конфликт в b разрешён\n" };
+
+    async function localCommitRebasedThroughConflict(anchored: boolean) {
+      const marked = await localCommitMarkedBehindUpstream(anchored, upstreamEditsB);
+      await gitRunResolvingConflict(marked.repo, pullRebaseFromItself(marked.repo, "upstream"), "2026-09-12T10:00:00+03:00", conflictInBResolved);
+      return marked;
+    }
+
+    async function amendedWithOtherContentThenPulledByUrl(anchored: boolean) {
+      const marked = await localCommitMarkedBehindUpstream(anchored);
+      await writeFiles(marked.repo, { "src/b.ts": "Локальный коммит, исправленный\n" });
+      gitAmend(marked.repo, "Локальный коммит, исправленный", "2026-09-12T10:00:00+03:00");
+      gitRun(marked.repo, pullRebaseFromItself(marked.repo, "upstream"), "2026-09-12T11:00:00+03:00");
+      return marked;
+    }
+
+    async function fixupAutosquashedOntoUpstream(anchored: boolean) {
+      const marked = await localCommitMarkedBehindUpstream(anchored);
+      await writeFiles(marked.repo, { "src/b.ts": "Локальный коммит с поправкой\n" });
+      gitRun(marked.repo, ["commit", "-q", "-a", "--fixup", "HEAD"], "2026-09-12T10:00:00+03:00");
+      gitRun(marked.repo, ["rebase", "-q", "-i", "--autosquash", "upstream"], "2026-09-12T11:00:00+03:00");
+      return marked;
+    }
+
+    async function resetBackAndReturnedThenRebasedThroughConflict(anchored: boolean) {
+      const marked = await localCommitMarkedBehindUpstream(anchored, upstreamEditsB);
+      gitRun(marked.repo, ["reset", "-q", "--hard", "HEAD~1"], "2026-09-12T09:00:00+03:00");
+      gitRun(marked.repo, ["reset", "-q", "--hard", "HEAD@{1}"], "2026-09-12T09:30:00+03:00");
+      await gitRunResolvingConflict(marked.repo, pullRebaseFromItself(marked.repo, "upstream"), "2026-09-12T10:00:00+03:00", conflictInBResolved);
+      return marked;
+    }
+
+    async function rebasedThroughConflictThenFastForwarded(anchored: boolean) {
+      const marked = await localCommitRebasedThroughConflict(anchored);
+      const { repo } = marked;
+      gitCheckout(repo, "next", { create: true, at: "2026-09-12T11:00:00+03:00" });
+      await writeFiles(repo, { "src/c.ts": "c1\n" });
+      gitCommitAll(repo, "Первый коммит next", "2026-09-12T11:10:00+03:00");
+      await writeFiles(repo, { "src/c.ts": "c2\n" });
+      gitCommitAll(repo, "Второй коммит next", "2026-09-12T11:20:00+03:00");
+      gitCheckout(repo, "master", { at: "2026-09-12T11:30:00+03:00" });
+      gitMergeFastForward(repo, "next", "2026-09-12T12:00:00+03:00");
+      return marked;
+    }
+
+    async function lowerStackBranchRewrittenByUpdateRefs(anchored: boolean) {
+      const marked = await localCommitMarkedBehindUpstream(anchored, upstreamEditsB);
+      const { repo } = marked;
+      gitCheckout(repo, "upper", { create: true, at: "2026-09-12T09:00:00+03:00" });
+      await writeFiles(repo, { "src/c.ts": "c1\n" });
+      gitCommitAll(repo, "Верхняя ветка стопки", "2026-09-12T09:30:00+03:00");
+      await gitRunResolvingConflict(repo, ["rebase", "-q", "--update-refs", "upstream"], "2026-09-12T10:00:00+03:00", conflictInBResolved);
+      gitCheckout(repo, "master", { at: "2026-09-12T11:00:00+03:00" });
       return marked;
     }
 
@@ -1167,17 +1233,43 @@ describe("checkBacklog", () => {
     it.each([
       { case: "локальный коммит переписан pull --rebase, задача с якорем", arrange: localCommitRebasedOntoUpstream, anchored: true },
       { case: "локальный коммит переписан pull --rebase, задача без якоря", arrange: localCommitRebasedOntoUpstream, anchored: false },
+      { case: "pull --rebase с конфликтом в постороннем файле, задача с якорем", arrange: localCommitRebasedThroughConflict, anchored: true },
+      { case: "pull --rebase с конфликтом в постороннем файле, задача без якоря", arrange: localCommitRebasedThroughConflict, anchored: false },
+      { case: "коммит отметки исправили amend с другим содержимым, потом pull --rebase по URL, задача с якорем", arrange: amendedWithOtherContentThenPulledByUrl, anchored: true },
+      { case: "коммит отметки исправили amend с другим содержимым, потом pull --rebase по URL, задача без якоря", arrange: amendedWithOtherContentThenPulledByUrl, anchored: false },
+      { case: "fixup коммита отметки влит rebase --autosquash на upstream, задача с якорем", arrange: fixupAutosquashedOntoUpstream, anchored: true },
+      { case: "fixup коммита отметки влит rebase --autosquash на upstream, задача без якоря", arrange: fixupAutosquashedOntoUpstream, anchored: false },
+      { case: "ветку откатили reset назад и вернули, потом pull --rebase с конфликтом, задача с якорем", arrange: resetBackAndReturnedThenRebasedThroughConflict, anchored: true },
+      { case: "ветку откатили reset назад и вернули, потом pull --rebase с конфликтом, задача без якоря", arrange: resetBackAndReturnedThenRebasedThroughConflict, anchored: false },
+      { case: "pull --rebase с конфликтом, потом перемотка merge --ff-only, задача с якорем", arrange: rebasedThroughConflictThenFastForwarded, anchored: true },
+      { case: "pull --rebase с конфликтом, потом перемотка merge --ff-only, задача без якоря", arrange: rebasedThroughConflictThenFastForwarded, anchored: false },
+      { case: "нижнюю ветку стопки переписал rebase --update-refs с конфликтом, задача с якорем", arrange: lowerStackBranchRewrittenByUpdateRefs, anchored: true },
+      { case: "нижнюю ветку стопки переписал rebase --update-refs с конфликтом, задача без якоря", arrange: lowerStackBranchRewrittenByUpdateRefs, anchored: false },
       { case: "ветку слили squash, она жива, задача с якорем", arrange: squashedBranch, anchored: true },
       { case: "ветку слили squash, она жива, задача без якоря", arrange: squashedBranch, anchored: false },
       { case: "ветку слили squash и удалили, задача с якорем", arrange: squashedBranchDeleted, anchored: true },
       { case: "ветку слили squash и удалили, задача без якоря", arrange: squashedBranchDeleted, anchored: false },
-    ])("его содержимое пришло в HEAD — правка строки задачи с датой до отметки, пришедшая после неё, — кандидат: $case", async ({ arrange, anchored }) => {
+    ])("его содержимое пришло в HEAD или текущую ветку с ним переписали — правка строки задачи с датой до отметки, пришедшая после неё, — кандидат: $case", async ({ arrange, anchored }) => {
       const { home, root, anchorNow } = await arrange(anchored);
 
       const report = await check(root, home, "changed");
 
       expect(report.candidates).toEqual(candidateOfEdit);
       expect(await anchorNow()).toBe(anchored ? anchorOn(before) : undefined);
+    });
+
+    it.each([
+      { case: "symbolic-ref", arrange: localCommitRebasedThroughConflict, fails: (args: string[]) => args[0] === "symbolic-ref" },
+      { case: "log --walk-reflogs по ветке", arrange: localCommitRebasedThroughConflict, fails: (args: string[]) => args.includes("--walk-reflogs") && !args.includes("HEAD") },
+      { case: "merge-base --is-ancestor о шаге ветки", arrange: rebasedThroughConflictThenFastForwarded, fails: (args: string[]) => args[1] === "--is-ancestor" && args[3] !== "HEAD" },
+    ])("сбой git на вопросе, переписали ли текущую ветку с коммитом отметки, — открытый кандидат не закрывается, пока git не ответит: $case", async ({ arrange, fails }) => {
+      const { home, root } = await arrange(false);
+      const opened = (await check(root, home, "full")).candidates.map((candidate) => [candidate.task.id, candidate.kind]);
+
+      await check(root, home, "full", ["spa"], gitFailing(fails));
+
+      const gone = (await readJournal(join(root, "spa"), "spa")).events.filter((event) => event.kind === "candidate-gone");
+      expect({ opened, gone }).toEqual({ opened: [["SPA-1", "source-changed"]], gone: [] });
     });
 
     async function amendedThenOldBranch(anchored: boolean) {
@@ -1189,6 +1281,16 @@ describe("checkBacklog", () => {
       const anchorAtMark = await marked.markTask({ textAtMark: edited });
       gitAmend(repo, "Правка строки задачи, уточнённое сообщение", "2026-09-12T10:00:00+03:00");
       gitCheckout(repo, "old", { at: "2026-09-12T11:00:00+03:00" });
+      return { ...marked, anchorAtMark };
+    }
+
+    async function amendedThenResetBack(anchored: boolean) {
+      const marked = await markedRepo(anchored);
+      const { repo } = marked;
+      await marked.editTaskLine("2026-09-10T10:00:00+03:00");
+      const anchorAtMark = await marked.markTask({ textAtMark: edited });
+      gitAmend(repo, "Правка строки задачи, уточнённое сообщение", "2026-09-12T10:00:00+03:00");
+      gitRun(repo, ["reset", "-q", "--hard", "HEAD~1"], "2026-09-12T11:00:00+03:00");
       return { ...marked, anchorAtMark };
     }
 
@@ -1222,6 +1324,8 @@ describe("checkBacklog", () => {
     it.each([
       { case: "коммит отметки исправили amend, потом перешли на старую ветку, задача с якорем", arrange: amendedThenOldBranch, anchored: true },
       { case: "коммит отметки исправили amend, потом перешли на старую ветку, задача без якоря", arrange: amendedThenOldBranch, anchored: false },
+      { case: "коммит отметки исправили amend, потом откатили ветку reset --hard назад, задача с якорем", arrange: amendedThenResetBack, anchored: true },
+      { case: "коммит отметки исправили amend, потом откатили ветку reset --hard назад, задача без якоря", arrange: amendedThenResetBack, anchored: false },
       { case: "полосу, где отмечена задача, перебазировали на master, проверка на master, задача с якорем", arrange: rebasedLaneCheckedOnMaster, anchored: true },
       { case: "полосу, где отмечена задача, перебазировали на master, проверка на master, задача без якоря", arrange: rebasedLaneCheckedOnMaster, anchored: false },
       { case: "задача заведена в отсоединённом worktree, проверка в основном checkout, задача без якоря", arrange: markedInDetachedWorktree, anchored: false },

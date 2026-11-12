@@ -17,6 +17,7 @@ import {
 import type { LineRange } from "./anchor";
 import { changedRanges, parseHunks, type Hunk } from "./diff-hunks";
 import { landingState } from "./landed-content";
+import { currentBranchRewroteTipOf, type RewroteTip } from "./rewritten-branch";
 import { SECOND_MS } from "../model/dates";
 import { remembered } from "../remembered";
 import { fileExists, lstatOrNull, attemptReportingFailure, readTextIfFile } from "../store/fs-utils";
@@ -185,32 +186,36 @@ type HeadLineOf = (commit: string) => Promise<HeadLine>;
 
 export type HeadAncestryOf = (commit: string) => Promise<HeadAncestry>;
 
-export function headLineOf(repo: string, git: GitOutcomeRunner, ancestryOf: HeadAncestryOf): HeadLineOf {
+export function headLineOf(repo: string, gitOutcome: GitOutcomeRunner, ancestryOf: HeadAncestryOf): HeadLineOf {
+  const git = asGitRunner(gitOutcome);
+  const rewroteTip = currentBranchRewroteTipOf(repo, gitOutcome);
   const answers = new Map<string, Promise<HeadLine>>();
-  return (commit) => remembered(answers, commit, () => lineOfCommit(repo, commit, git, ancestryOf));
+  return (commit) => remembered(answers, commit, () => lineOfCommit(commit, ancestryOf, () => lineOfNonAncestor(repo, commit, git, rewroteTip)));
 }
 
-async function lineOfCommit(repo: string, commit: string, git: GitOutcomeRunner, ancestryOf: HeadAncestryOf): Promise<HeadLine> {
+async function lineOfCommit(commit: string, ancestryOf: HeadAncestryOf, lineOfNonAncestor: () => Promise<HeadLine>): Promise<HeadLine> {
   const ancestry = await ancestryOf(commit);
   switch (ancestry) {
     case "ancestor":
       return "this-line";
     case "not-ancestor":
-      return lineOfNonAncestor(repo, commit, asGitRunner(git));
+      return lineOfNonAncestor();
     case "missing":
     case "unknown":
       return ancestry;
   }
 }
 
-async function lineOfNonAncestor(repo: string, commit: string, git: GitRunner): Promise<HeadLine> {
+async function lineOfNonAncestor(repo: string, commit: string, git: GitRunner, rewroteTip: RewroteTip): Promise<HeadLine> {
   const tip = (await resolveCommits(git, repo, [commit]))?.get(commit);
   if (tip === undefined) return "unknown";
+  const rewrite = await rewroteTip(tip);
+  if (rewrite === "rewritten") return "this-line";
   switch (await landingState(repo, tip, git)) {
     case "landed":
       return "this-line";
     case "pending":
-      return "other-branch";
+      return rewrite === "unknown" ? "unknown" : "other-branch";
     case "unknown":
       return "unknown";
   }

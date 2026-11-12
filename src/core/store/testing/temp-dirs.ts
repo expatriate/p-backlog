@@ -1,7 +1,8 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 import { onTestFinished } from "vitest";
 
 export { taskFile } from "./task-file-text.ts";
@@ -43,15 +44,36 @@ export function gitMergeSquash(repo: string, branch: string): void {
 }
 
 export function gitAmend(repo: string, message: string, isoDate: string): void {
-  execFileSync("git", [...TEST_COMMITTER, "commit", "-q", "--amend", "-m", message], { cwd: repo, env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
+  execFileSync("git", ["add", "-A"], { cwd: repo });
+  execFileSync("git", [...TEST_COMMITTER, "commit", "-q", "--amend", "-m", message], { cwd: repo, env: committerEnv(isoDate) });
 }
 
 export function gitRebase(repo: string, onto: string, isoDate: string): void {
-  execFileSync("git", [...TEST_COMMITTER, "rebase", "-q", onto], { cwd: repo, stdio: "pipe", env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
+  execFileSync("git", [...TEST_COMMITTER, "rebase", "-q", onto], { cwd: repo, stdio: "pipe", env: committerEnv(isoDate) });
+}
+
+export function pullRebaseFromItself(repo: string, branch: string): string[] {
+  return ["pull", "-q", "--rebase", pathToFileURL(repo).href, branch];
+}
+
+export function gitRun(repo: string, command: readonly string[], isoDate: string): void {
+  execFileSync("git", [...TEST_COMMITTER, ...command], { cwd: repo, stdio: "pipe", env: editorsAcceptingEnv(isoDate) });
+}
+
+export async function gitRunResolvingConflict(repo: string, command: readonly string[], isoDate: string, resolution: Record<string, string>): Promise<void> {
+  const env = editorsAcceptingEnv(isoDate);
+  if (spawnSync("git", [...TEST_COMMITTER, ...command], { cwd: repo, env }).status === 0) throw new Error(`git ${command.join(" ")} прошёл без конфликта`);
+  await writeFiles(repo, resolution);
+  execFileSync("git", ["add", "-A"], { cwd: repo });
+  execFileSync("git", [...TEST_COMMITTER, "rebase", "--continue"], { cwd: repo, stdio: "pipe", env });
+}
+
+function editorsAcceptingEnv(isoDate: string): NodeJS.ProcessEnv {
+  return { ...committerEnv(isoDate), GIT_EDITOR: "true", GIT_SEQUENCE_EDITOR: "true" };
 }
 
 export function gitRebaseMerge(repo: string, branch: string, isoDate: string): void {
-  execFileSync("git", [...TEST_COMMITTER, "cherry-pick", `HEAD..${branch}`], { cwd: repo, env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
+  execFileSync("git", [...TEST_COMMITTER, "cherry-pick", `HEAD..${branch}`], { cwd: repo, env: committerEnv(isoDate) });
 }
 
 function committerEnv(at: string | undefined): NodeJS.ProcessEnv {
@@ -63,7 +85,7 @@ export function gitCheckout(repo: string, branch: string, { create = false, at }
 }
 
 export function gitMergeFastForward(repo: string, branch: string, isoDate: string): void {
-  execFileSync("git", ["merge", "-q", "--ff-only", branch], { cwd: repo, env: { ...process.env, GIT_COMMITTER_DATE: isoDate } });
+  execFileSync("git", ["merge", "-q", "--ff-only", branch], { cwd: repo, env: committerEnv(isoDate) });
 }
 
 export function gitShortHead(repo: string): string {
