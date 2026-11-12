@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { gitFailing } from "../git/testing/failing-git";
 import { makeTask } from "../model/testing/make-task";
-import { gitCheckout, gitCommitAll, gitMergeFastForward, gitRebase, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeFastForward, gitMergeSquash, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { anchorStates } from "./candidates";
 import { commitsKnownAtMark } from "./known-commits";
 import { commitsArrivedLate } from "./late-commits";
@@ -21,17 +21,20 @@ async function editFastForwardedAfterMarkWithEarlierDate() {
   return questionAbout(repo);
 }
 
-async function localCommitRebasedOverEarlierEdit() {
+async function markedBranchSquashedThenEditedBeforeMark() {
   const repo = await makeGitRepo(await makeTempDir(), "spa");
   await writeFiles(repo, { "src/a.ts": "a1\n", "src/b.ts": "b1\n" });
   gitCommitAll(repo, "Начало", "2026-09-09T10:00:00+03:00");
-  gitCheckout(repo, "upstream", { create: true, at: "2026-09-09T11:00:00+03:00" });
-  await writeFiles(repo, { "src/a.ts": "a2\n" });
-  gitCommitAll(repo, "Правка a в upstream", "2026-09-09T12:00:00+03:00");
-  gitCheckout(repo, "master", { at: "2026-09-09T13:00:00+03:00" });
+  gitCheckout(repo, "feat", { create: true, at: "2026-09-09T11:00:00+03:00" });
   await writeFiles(repo, { "src/b.ts": "b2\n" });
-  gitCommitAll(repo, "Локальный коммит", "2026-09-10T10:00:00+03:00");
-  gitRebase(repo, "upstream", "2026-09-12T10:00:00+03:00");
+  gitCommitAll(repo, "Фича", "2026-09-10T10:00:00+03:00");
+  gitCheckout(repo, "master", { at: "2026-09-10T10:30:00+03:00" });
+  gitMergeSquash(repo, "feat");
+  gitCommitAll(repo, "Слить feat одним коммитом", "2026-09-10T11:00:00+03:00");
+  await writeFiles(repo, { "src/a.ts": "a2\n" });
+  gitCommitAll(repo, "Правка a", "2026-09-10T12:00:00+03:00");
+  gitCheckout(repo, "feat", { at: "2026-09-10T13:00:00+03:00" });
+  gitCheckout(repo, "master", { at: "2026-09-12T10:00:00+03:00" });
   return questionAbout(repo);
 }
 
@@ -64,8 +67,8 @@ describe("commitsArrivedLate", () => {
     expect(failed).toEqual({ late: new Map(), unknown: new Set(["SPA-1"]) });
   });
 
-  it("сбой git на вопросе, пришло ли в HEAD содержимое переписанного rebase коммита отметки, — поздние коммиты задачи неизвестны, а не «их нет»", async () => {
-    const question = await localCommitRebasedOverEarlierEdit();
+  it("сбой git на вопросе, пришло ли в HEAD содержимое слитого squash коммита отметки, — поздние коммиты задачи неизвестны, а не «их нет»", async () => {
+    const question = await markedBranchSquashedThenEditedBeforeMark();
 
     const [late, failed] = await Promise.all([commitsArrivedLate(question), commitsArrivedLate({ ...question, git: gitFailing((args) => args[0] === "diff-tree") })]);
 
