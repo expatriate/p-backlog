@@ -70,8 +70,6 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ matrix.browser }}
       - if: steps.playwright-browsers.outputs.cache-hit != 'true'
         run: npx playwright install ${{ matrix.browser }}
-      - if: runner.os == 'Linux'
-        run: npx playwright install-deps ${{ matrix.browser }}
       - run: bash scripts/ci-failure-tail.sh npx playwright test --project=${{ matrix.browser }} --no-deps
         shell: bash
       - if: failure()
