@@ -104,10 +104,23 @@ describe("lookupProjectForDir", () => {
   it.each([[""], ["."], ["src"]])("относительный путь %j в repos не покрывает каталог, из которого запущен процесс", async (repo) => {
     const context = contextIn(await makeTempDir());
     const known = { projects: [project("relative", [repo])], errors: [] };
-    const recorded = await lookupProjectForRecordedDir(known, join(process.cwd(), "src", "deleted-lane-dir"), cachedRepoRoots(context), context);
+    const recorded = await lookupProjectForRecordedDir(known, join(process.cwd(), "src", "deleted-lane-dir"), { lookupRepoRoot: cachedRepoRoots(context), worktreeRepos: {} }, context);
 
     expect(projectForDir(known.projects, process.cwd(), context)).toBeUndefined();
     expect("project" in recorded).toBe(false);
+  });
+
+  it("линия другого репозитория, занявшая путь удалённой линии, важнее запомненного репозитория линии", async () => {
+    const { home, repo: ops } = await repoWithOutsideWorktree();
+    const spa = await makeGitRepo(home, "projects/spa-old");
+    const lane = join(home, "projects/lanes/stats");
+    gitAddWorktree(ops, lane, "stats");
+    const context = contextIn(home);
+    const known = { projects: [project("spa", [spa]), project("ops", [ops])], errors: [] };
+
+    const recorded = await lookupProjectForRecordedDir(known, join(lane, "deleted"), { lookupRepoRoot: cachedRepoRoots(context), worktreeRepos: { [lane]: spa } }, context);
+
+    expect("project" in recorded ? recorded.project.id : null).toBe("ops");
   });
 
   it("строгий поиск не приписывает удалённый каталог проекту с удалённым репозиторием", async () => {

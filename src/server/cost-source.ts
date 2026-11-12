@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { costReport } from "../core/stats/cost/cost-report";
 import type { CostReport } from "../core/stats/types";
 import { createJsonlTail } from "../core/store/jsonl-tail";
-import { cachedRepoRoots, lookupProjectForRecordedDir, type KnownProjects, type RepoContext, type RepoRootLookup } from "../core/store/resolve-project";
+import { cachedRepoRoots, lookupProjectForRecordedDir, unreadableDirHasNoRepo, type KnownProjects, type RecordedRepos, type RepoContext, type RepoRootLookup } from "../core/store/resolve-project";
 import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
 import { usageBucketsOf } from "../core/usage/usage-cache";
 import type { UsageSnapshot } from "./usage-scanner";
@@ -18,8 +18,8 @@ type CostSource = {
 
 export function createCostSource(root: string, home: string): CostSource {
   const runsTail = createJsonlTail<CliRun>(join(root, RUNS_FILE), cliRunSchema);
-  const context: RepoContext = { home, onUnreadable: unreadablePathHasNoProject };
-  const lookupRepoRoot = cachedRepoRoots({ onUnreadable: unreadablePathHasNoProject });
+  const context: RepoContext = { home, onUnreadable: unreadableDirHasNoRepo };
+  const lookupRepoRoot = cachedRepoRoots({ onUnreadable: unreadableDirHasNoRepo });
 
   return {
     stateKey: async (usage) => {
@@ -42,17 +42,15 @@ async function computeCostReport({ usage: { cache, scan }, runs, known, projectI
           [...buckets, ...runs].map((entry) => entry.cwd),
           known,
           context,
-          lookupRepoRoot,
+          { lookupRepoRoot, worktreeRepos: cache.worktreeRepos },
         );
   return costReport({ buckets, runs, projectOf: (cwd) => projectIds.get(cwd) ?? null, projectId, now, scan });
 }
 
-async function projectIdsOfCwds(cwds: readonly string[], known: KnownProjects, context: RepoContext, lookupRepoRoot: RepoRootLookup): Promise<Map<string, string | null>> {
+async function projectIdsOfCwds(cwds: readonly string[], known: KnownProjects, context: RepoContext, recordedRepos: RecordedRepos): Promise<Map<string, string | null>> {
   const projectIdOf = async (cwd: string) => {
-    const lookup = await lookupProjectForRecordedDir(known, cwd, lookupRepoRoot, context);
+    const lookup = await lookupProjectForRecordedDir(known, cwd, recordedRepos, context);
     return [cwd, "project" in lookup ? lookup.project.id : null] as const;
   };
   return new Map(await Promise.all([...new Set(cwds)].map(projectIdOf)));
 }
-
-function unreadablePathHasNoProject(): void {}

@@ -12,6 +12,8 @@ export const USAGE_CACHE_VERSION = 6;
 
 const bucketsSchema = z.array(usageBucketSchema);
 
+const worktreeReposSchema = z.record(z.string(), z.string());
+
 const usageCacheEntrySchema = z.object({
   size: z.number(),
   mtimeMs: z.number().optional(),
@@ -25,6 +27,7 @@ const usageCacheSchema = z.object({
   version: z.literal(USAGE_CACHE_VERSION),
   files: z.record(z.string(), usageCacheEntrySchema),
   carried: z.record(z.string(), bucketsSchema).default({}),
+  worktreeRepos: worktreeReposSchema.default({}),
 });
 
 const salvagedEntrySchema = z.object({ buckets: bucketsSchema }).transform((entry) => entry.buckets);
@@ -33,10 +36,11 @@ const salvagedCacheSchema = z
   .object({
     files: z.record(z.string(), salvagedEntrySchema.nullable().catch(null)).catch({}),
     carried: z.record(z.string(), bucketsSchema.nullable().catch(null)).catch({}),
+    worktreeRepos: worktreeReposSchema.catch({}),
   })
-  .transform(({ files, carried }): UsageCache => {
+  .transform(({ files, carried, worktreeRepos }): UsageCache => {
     const salvaged = [...Object.entries(carried), ...Object.entries(files)].flatMap(([path, buckets]) => (buckets === null ? [] : [[path, buckets] as const]));
-    return { ...emptyUsageCache(), carried: Object.fromEntries(salvaged) };
+    return { ...emptyUsageCache(), carried: Object.fromEntries(salvaged), worktreeRepos };
   });
 
 const storedCacheSchema = z.union([usageCacheSchema, salvagedCacheSchema]);
@@ -45,7 +49,7 @@ export type UsageCacheEntry = z.infer<typeof usageCacheEntrySchema>;
 export type UsageCache = z.infer<typeof usageCacheSchema>;
 
 export function emptyUsageCache(): UsageCache {
-  return { version: USAGE_CACHE_VERSION, files: {}, carried: {} };
+  return { version: USAGE_CACHE_VERSION, files: {}, carried: {}, worktreeRepos: {} };
 }
 
 export function usageBucketsOf(cache: UsageCache): UsageBucket[] {

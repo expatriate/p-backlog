@@ -4,7 +4,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { newTranscriptState } from "../core/stats/cost/attribute";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
 import { failOnPathError } from "../core/store/testing/path-errors";
-import { emptyUsageCache, readUsageCache, USAGE_CACHE_VERSION, writeUsageCache } from "../core/usage/usage-cache";
+import { emptyUsageCache, readUsageCache, writeUsageCache } from "../core/usage/usage-cache";
 import { localizedWarn } from "./messages";
 import { CATCH_UP_DELAY_MS, createUsageScanner, type UsageScannerOptions } from "./usage-scanner";
 import { DAY_MS } from "../core/model/dates";
@@ -128,9 +128,8 @@ describe("createUsageScanner", () => {
     await writeUsageCache(
       root,
       {
-        version: USAGE_CACHE_VERSION,
+        ...emptyUsageCache(),
         files: { [path]: { size, mtimeMs, offset: size, fingerprint: "unchanged", state: newTranscriptState(), buckets: [staleBucket] } },
-        carried: {},
       },
       failOnPathError,
     );
