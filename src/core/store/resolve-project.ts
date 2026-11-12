@@ -110,14 +110,37 @@ export function lookupProjectForDir(known: KnownProjects, dir: string, dirRoots:
   return lookupProjectCanonicalizing(known, dir, dirRoots, strictly(context));
 }
 
-export async function lookupProjectForRecordedDir(known: KnownProjects, dir: string, lookupRepoRoot: RepoRootLookup, context: RepoContext): Promise<ProjectLookup> {
+type WorktreeRepos = Readonly<Record<string, string>>;
+
+export type RecordedRepos = { lookupRepoRoot: RepoRootLookup; worktreeRepos: WorktreeRepos };
+
+export async function lookupProjectForRecordedDir(known: KnownProjects, dir: string, { lookupRepoRoot, worktreeRepos }: RecordedRepos, context: RepoContext): Promise<ProjectLookup> {
   const dirRoots = await lookupRepoRoot(dir);
-  const byPath = lookupProjectCanonicalizing(known, dir, dirRoots, { ...context, canonicalize: realpathThroughExistingAncestor });
+  const leniently: LookupContext = { ...context, canonicalize: realpathThroughExistingAncestor };
+  const byPath = lookupProjectCanonicalizing(known, dir, dirRoots, leniently);
   if ("project" in byPath || byPath.broken.length > 0 || dirRoots !== "not-in-repo") return byPath;
+  const byLiveAncestor = await lookupThroughLiveAncestor(known, dir, lookupRepoRoot, context);
+  if (byLiveAncestor !== null) return byLiveAncestor;
+  const recordedWorktree = recordedWorktreeOf(dir, worktreeRepos, context);
+  return recordedWorktree === null ? byPath : lookupProjectCanonicalizing(known, dir, recordedWorktree, leniently);
+}
+
+async function lookupThroughLiveAncestor(known: KnownProjects, dir: string, lookupRepoRoot: RepoRootLookup, context: RepoContext): Promise<ProjectLookup | null> {
   const ancestor = attemptReportingFailureSync(dir, nearestExistingAncestor, context.onUnreadable);
-  if (ancestor === null || ancestor.missing.length === 0) return byPath;
-  const ancestorRoots = await lookupRepoRoot(ancestor.real);
-  return typeof ancestorRoots === "string" ? byPath : lookupProjectForDir(known, ancestor.real, ancestorRoots, context);
+  if (ancestor === null || ancestor.missing.length === 0) return null;
+  const roots = repoRootsOf(await lookupRepoRoot(ancestor.real));
+  return roots === null ? null : lookupProjectForDir(known, ancestor.real, roots, context);
+}
+
+export function unreadableDirHasNoRepo(): void {}
+
+function recordedWorktreeOf(dir: string, worktreeRepos: WorktreeRepos, { onUnreadable }: RepoContext): GitRoots | null {
+  const path = attemptReportingFailureSync(dir, realpathThroughExistingAncestor, onUnreadable);
+  if (path === null) return null;
+  const [deepest] = Object.entries(worktreeRepos)
+    .filter(([worktree]) => isSameOrInside(path, worktree))
+    .sort(([a], [b]) => b.length - a.length);
+  return deepest === undefined ? null : { worktree: deepest[0], main: deepest[1] };
 }
 
 function lookupProjectCanonicalizing(known: KnownProjects, dir: string, dirRoots: DirGitRoots, context: LookupContext): ProjectLookup {

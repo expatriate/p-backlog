@@ -7,7 +7,7 @@ import { addTokens } from "../stats/cost/token-counts";
 import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
 import { EMPTY_FINGERPRINT, listDir, NEWLINE, readAt, readFileAt, statOrNull, withFile } from "../store/fs-utils";
 import { parseJson } from "../store/json-file";
-import { USAGE_CACHE_VERSION, type UsageCache, type UsageCacheEntry } from "./usage-cache";
+import type { UsageCache, UsageCacheEntry } from "./usage-cache";
 import { retainedSince } from "../model/history-window";
 
 export type TranscriptFile = { path: string; size: number; mtimeMs: number };
@@ -67,7 +67,7 @@ export async function scanTranscripts({ files, cache, byteBudget, now }: ScanTra
 
   const stillReported = deletedStillReported(listedFiles, now);
   const merged: UsageCache = {
-    version: USAGE_CACHE_VERSION,
+    ...cache,
     files: { ...entriesWhere(cache.files, (path, entry) => stillReported(path, entry.buckets)), ...listedFiles },
     carried: entriesWhere(cache.carried, stillReported),
   };
