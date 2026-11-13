@@ -2,7 +2,7 @@ import { readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { HOUR_MS, SECOND_MS } from "../model/dates";
-import { FileBusyError, withAvailableLocks } from "./file-lock";
+import { FileBusyError, withAvailableLocks, withWriteLock } from "./file-lock";
 import { BLOCKED_RETRIES_TOTAL_MS } from "./fs-utils";
 import { failingEvery, failingOnce } from "./testing/fs-failures";
 import { SHORT_LOCK_WAIT } from "./testing/lock-wait";
@@ -57,6 +57,19 @@ describe("блокировка файла", () => {
     expect(result).toBe("записано");
     expect(reported).toEqual([join(dir, "T-1.md")]);
     expect(await withLockFailingOnPathError(join(dir, "T-2.md"), async () => "свободен", SHORT_LOCK_WAIT)).toBe("свободен");
+  });
+
+  it("если упали и запись под блокировкой, и снятие блокировки, наружу уходит ошибка записи, а сбой снятия — в onError", async () => {
+    const path = join(await makeTempDir(), "SPA-1.md");
+    const reported: string[] = [];
+    const failingWrite = async () => {
+      throw new Error("injected write");
+    };
+
+    const outcome = failingOnce(readFile, endingWith(".SPA-1.md.lock"), () => withWriteLock(path, failingWrite, { onErrorAfterPublish: (target) => reported.push(target) }));
+
+    await expect(outcome).rejects.toThrow("injected write");
+    expect(reported).toEqual([path]);
   });
 
   it("на Windows постоянный отказ в создании блокировки по истечении предела выдаётся как есть, а не как «занято»", async () => {
