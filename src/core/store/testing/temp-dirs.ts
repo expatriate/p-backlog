@@ -60,12 +60,15 @@ export function gitRun(repo: string, command: readonly string[], isoDate: string
   execFileSync("git", [...TEST_COMMITTER, ...command], { cwd: repo, stdio: "pipe", env: editorsAcceptingEnv(isoDate) });
 }
 
+export function gitRunStoppedByConflict(repo: string, command: readonly string[], isoDate: string): void {
+  if (spawnSync("git", [...TEST_COMMITTER, ...command], { cwd: repo, env: editorsAcceptingEnv(isoDate) }).status === 0) throw new Error(`git ${command.join(" ")} прошёл без конфликта`);
+}
+
 export async function gitRunResolvingConflict(repo: string, command: readonly string[], isoDate: string, resolution: Record<string, string>): Promise<void> {
-  const env = editorsAcceptingEnv(isoDate);
-  if (spawnSync("git", [...TEST_COMMITTER, ...command], { cwd: repo, env }).status === 0) throw new Error(`git ${command.join(" ")} прошёл без конфликта`);
+  gitRunStoppedByConflict(repo, command, isoDate);
   await writeFiles(repo, resolution);
   execFileSync("git", ["add", "-A"], { cwd: repo });
-  execFileSync("git", [...TEST_COMMITTER, "rebase", "--continue"], { cwd: repo, stdio: "pipe", env });
+  execFileSync("git", [...TEST_COMMITTER, "rebase", "--continue"], { cwd: repo, stdio: "pipe", env: editorsAcceptingEnv(isoDate) });
 }
 
 function editorsAcceptingEnv(isoDate: string): NodeJS.ProcessEnv {
