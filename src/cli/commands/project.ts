@@ -1,6 +1,6 @@
 import { warnPathErrors } from "../../core/errors";
 import { isClosed } from "../../core/model/graph";
-import { loadBacklog, unparsedProjectFiles } from "../../core/store/load";
+import { loadBacklog, unparsedProjectFiles, unparsedTasks } from "../../core/store/load";
 import { deleteProject, setProjectActive } from "../../core/store/projects";
 import { usageError, type CliCommand } from "../command";
 import { EXIT, UsageError, parseCommandArgs, type CliIo, type ExitCode } from "../io";
@@ -65,7 +65,7 @@ async function removeProject(positionals: string[], confirm: string | undefined,
   if (id === undefined || rest.length > 0) throw usageError(projectCommand, io.language);
   if (confirm !== id) throw new UsageError(io.cli.confirmProjectDelete(id));
   const loaded = await loadBacklog(io.backlogRoot);
-  const taskCount = loaded.tasks.filter((task) => task.projectId === id).length;
+  const taskCount = [...loaded.tasks, ...unparsedTasks(loaded.errors)].filter((task) => task.projectId === id).length;
   const result = await deleteProject(io.backlogRoot, id);
   if (!result.ok) {
     io.warn(io.cli.projectNotFound(id));
