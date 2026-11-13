@@ -22,6 +22,8 @@ type Deferred = OpenDeferred | FixedDeferred;
 type FixSize = { lines: number; testLines: number };
 type FixSample = FixSize & { category: Recorded<TaskCategory> | undefined };
 type Estimate = (category: Recorded<TaskCategory> | undefined) => FixSize | null;
+type CodeScope = { hasRepos: boolean; units: readonly CommitUnit[] };
+type NoiseInput = { hasRepos: boolean; realLines: number; deferredTasks: number; deferredLines: number; estimatedLines: number | null };
 
 export function effectReport(context: ReportContext, code: CollectedCode, wholeBacklog: ReportContext): EffectReport {
   const {
@@ -39,11 +41,7 @@ export function effectReport(context: ReportContext, code: CollectedCode, wholeB
     ...context.head,
     periods: grainPeriods(now),
     unavailableRepos: code.unavailableRepos,
-    totals: totalsOf(
-      deferred,
-      adopted.flatMap(({ units }) => units),
-      estimate,
-    ),
+    totals: totalsOf(deferred, { hasRepos: projects.length > 0, units: adopted.flatMap(({ units }) => units) }, estimate),
     weeks: effectPeriodsOf(weekWindows(now), deferred, periodUnits, estimate),
     days: effectPeriodsOf(dayWindows(now), deferred, periodUnits, estimate),
     projects: adopted.map(({ project, units }) =>
@@ -51,7 +49,7 @@ export function effectReport(context: ReportContext, code: CollectedCode, wholeB
         project,
         totalsOf(
           deferred.filter((item) => item.history.projectId === project.projectId),
-          units,
+          { hasRepos: true, units },
           estimate,
         ),
       ),
@@ -117,7 +115,7 @@ function sizeOf(samples: readonly FixSample[]): FixSize | null {
   return { lines, testLines: lines * testShare };
 }
 
-function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], estimate: Estimate): EffectTotals {
+function totalsOf(deferred: readonly Deferred[], { hasRepos, units }: CodeScope, estimate: Estimate): EffectTotals {
   const { fixed, open } = byKind(deferred);
   const estimated = estimatedSizeOf(open, estimate);
   const estimatedLines = estimated?.lines ?? null;
@@ -133,12 +131,13 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
     estimatedLines,
     deferredLines,
     deferredTestLines: sum(fixed.map((item) => item.testLines)) + (estimated?.testLines ?? 0),
-    ...noiseOf(realLines, deferred.length, deferredLines, estimatedLines),
+    ...noiseOf({ hasRepos, realLines, deferredTasks: deferred.length, deferredLines, estimatedLines }),
   };
 }
 
-function noiseOf(realLines: number, deferredTasks: number, deferredLines: number, estimatedLines: number | null): EffectNoise {
-  if (realLines === 0) return { noiseShare: null, noiseMissing: "no-commits" };
+function noiseOf({ hasRepos, realLines, deferredTasks, deferredLines, estimatedLines }: NoiseInput): EffectNoise {
+  if (!hasRepos) return { noiseShare: null, noiseMissing: "no-repos" };
+  if (realLines === 0) return { noiseShare: null, noiseMissing: "no-lines" };
   if (deferredTasks === 0) return { noiseShare: null, noiseMissing: "no-deferred-tasks" };
   if (estimatedLines === null) return { noiseShare: null, noiseMissing: "estimate-pending" };
   return { noiseShare: Math.min(1, deferredLines / (realLines + estimatedLines)), noiseMissing: null };
