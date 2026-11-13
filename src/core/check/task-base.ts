@@ -1,7 +1,7 @@
 import { asGitRunner, cloneCompletenessOf, headAncestryOf, runGitOutcome, type CloneCompleteness, type GitOutcomeRunner, type HeadAncestry } from "../git/run";
 import type { Task } from "../model/types";
 import { remembered } from "../remembered";
-import { diffsFrom, diffsSince, headCommitsAt, headLineOf, type DiffFrom, type FileDiff, type HeadAncestryOf, type HeadLine } from "./repo-facts";
+import { diffsFrom, diffsSince, headCommitsAt, headLineOf, type CommitLookup, type DiffFrom, type FileDiff, type HeadAncestryOf, type HeadLine } from "./repo-facts";
 import { commitAtMark, reviewMark, type MarkCommits } from "./reviewed-task";
 
 type MarkLine = Exclude<HeadLine, "missing">;
@@ -9,7 +9,7 @@ type MarkLine = Exclude<HeadLine, "missing">;
 export type TaskBase = { kind: "exact"; commit: string } | { kind: "approximate"; since: Date; markLine: MarkLine } | { kind: "unknown" };
 
 export type TaskBases = {
-  markCommit: (task: Task) => Promise<string | null>;
+  markCommit: (task: Task) => Promise<CommitLookup>;
   baseOf: (task: Task) => Promise<TaskBase>;
   diffSinceBase: (task: Task, path: string) => Promise<FileDiff | null>;
   diffFrom: DiffFrom;
@@ -28,14 +28,15 @@ export function taskBases(repo: string, marks: MarkCommits, gitOutcome: GitOutco
   let completeness: Promise<CloneCompleteness> | undefined;
   const cloneCompleteness = () => (completeness ??= cloneCompletenessOf(git, repo));
 
-  const markCommits = new Map<string, Promise<string | null>>();
+  const markCommits = new Map<string, Promise<CommitLookup>>();
   const markCommit = (task: Task) =>
-    remembered(markCommits, task.id, async (): Promise<string | null> => {
+    remembered(markCommits, task.id, async (): Promise<CommitLookup> => {
       const reflogCommit = () => headCommitAt(new Date(reviewMark(task)));
       const recorded = commitAtMark(task, marks);
       if (recorded === undefined) return reflogCommit();
-      if (task.verified === undefined) return recorded;
-      return seenFromHead(await headLine(recorded)) ? recorded : reflogCommit();
+      const found: CommitLookup = { kind: "found", commit: recorded };
+      if (task.verified === undefined) return found;
+      return seenFromHead(await headLine(recorded)) ? found : reflogCommit();
     });
 
   const bases = new Map<string, Promise<TaskBase>>();
@@ -43,8 +44,10 @@ export function taskBases(repo: string, marks: MarkCommits, gitOutcome: GitOutco
     remembered(bases, task.id, async (): Promise<TaskBase> => {
       const since = new Date(reviewMark(task));
       const noCommitAtMark = async (): Promise<TaskBase> => ({ kind: "approximate", since, markLine: (await cloneCompleteness()) === "full" ? "this-line" : "unknown" });
-      const commit = await markCommit(task);
-      if (commit === null) return noCommitAtMark();
+      const lookup = await markCommit(task);
+      if (lookup.kind === "none") return noCommitAtMark();
+      if (lookup.kind === "unknown") return { kind: "unknown" };
+      const { commit } = lookup;
       const line = await headLine(commit);
       switch (line) {
         case "this-line":

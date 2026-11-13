@@ -2,7 +2,7 @@ import { asGitRunner, commitHashOf, objectIds, runGitOutcome, type CommitHash, t
 import type { Task } from "../model/types";
 import { sourcePath } from "../model/source";
 import { judgedByCommits, type AnchorStates, type KnownCommits } from "./candidates";
-import { isInsideRepo, mainlineCommitsOff, type Commit, type RepoFacts } from "./repo-facts";
+import { isInsideRepo, mainlineCommitsOff, type Commit, type CommitLookup, type RepoFacts } from "./repo-facts";
 import { reviewMark, type MarkCommits } from "./reviewed-task";
 import { changesSinceMark, commitsTouchingUntil, type LateCommits } from "./source-commits";
 import { taskBases, type TaskBases } from "./task-base";
@@ -22,6 +22,8 @@ export type LateArrivals = { late: LateCommits; unknown: ReadonlySet<string> };
 
 type MarkedSource = { task: Task; path: string; mark: number; markCommit: string };
 
+type LookedUpSource = Omit<MarkedSource, "markCommit"> & { lookup: CommitLookup };
+
 type EditedSource = MarkedSource & { markCommit: CommitHash };
 
 type Arrival = { taskId: string; commits: Commit[] | null };
@@ -36,7 +38,10 @@ export async function commitsArrivedLate(question: LateCommitsQuestion): Promise
   if (question.facts.history !== "read") return NO_LATE_ARRIVALS;
   const { repo, git = runGitOutcome, bases = taskBases(repo, question.marks, git) } = question;
   const history: RepoHistory = { repo, git: asGitRunner(git), bases };
-  const arrivals = await arrivalsOf(history, await markedSources(question, bases));
+  const sources = await lookedUpSources(question, bases);
+  const marked = sources.flatMap(({ lookup, ...source }) => (lookup.kind === "found" ? [{ ...source, markCommit: lookup.commit }] : []));
+  const markUnknown = sources.flatMap(({ task, lookup }) => (lookup.kind === "unknown" ? [{ taskId: task.id, commits: null }] : []));
+  const arrivals = [...markUnknown, ...(await arrivalsOf(history, marked))];
   return {
     late: new Map(arrivals.flatMap(({ taskId, commits }) => (commits === null ? [] : [[taskId, commits] as const]))),
     unknown: new Set(arrivals.filter(({ commits }) => commits === null).map(({ taskId }) => taskId)),
@@ -62,14 +67,14 @@ async function arrivalsOf(history: RepoHistory, marked: readonly MarkedSource[])
   return [...unknown, ...byMarkCommit.flat()];
 }
 
-async function markedSources({ tasks, facts, anchors, knownCommits }: LateCommitsQuestion, bases: TaskBases): Promise<MarkedSource[]> {
+async function lookedUpSources({ tasks, facts, anchors, knownCommits }: LateCommitsQuestion, bases: TaskBases): Promise<LookedUpSource[]> {
   const sourcesByTask = await Promise.all(
     tasks.map(async (task) => {
       if (task.source === undefined || !judgedByCommits(task, anchors)) return [];
       const path = sourcePath(task.source);
       if (!facts.existing.has(path) || !isInsideRepo(path) || changedByDate(task, path, facts, knownCommits)) return [];
-      const markCommit = await bases.markCommit(task);
-      return markCommit === null ? [] : [{ task, path, mark: reviewMark(task), markCommit }];
+      const lookup = await bases.markCommit(task);
+      return lookup.kind === "none" ? [] : [{ task, path, mark: reviewMark(task), lookup }];
     }),
   );
   return sourcesByTask.flat();

@@ -170,13 +170,18 @@ export function diffsSince(repo: string, git: GitRunner = runGit, diffFrom: Diff
 
 type HeadMove = { commit: string; at: number };
 
-type HeadCommitAt = (moment: Date) => Promise<string | null>;
+export type CommitLookup = { kind: "found"; commit: string } | { kind: "none" } | { kind: "unknown" };
+
+type HeadCommitAt = (moment: Date) => Promise<CommitLookup>;
 
 export function headCommitsAt(repo: string, git: GitRunner): HeadCommitAt {
-  let moves: Promise<HeadMove[]> | null = null;
+  let moves: Promise<HeadMove[] | null> | undefined;
   return async (moment) => {
     moves ??= headMovesNewestFirst(repo, git);
-    return (await moves).find((move) => move.at <= moment.getTime())?.commit ?? null;
+    const known = await moves;
+    if (known === null) return { kind: "unknown" };
+    const move = known.find(({ at }) => at <= moment.getTime());
+    return move === undefined ? { kind: "none" } : { kind: "found", commit: move.commit };
   };
 }
 
@@ -221,9 +226,10 @@ async function lineOfNonAncestor(repo: string, commit: string, git: GitRunner, r
   }
 }
 
-async function headMovesNewestFirst(repo: string, git: GitRunner): Promise<HeadMove[]> {
-  const reflog = await git(repo, ["log", "--walk-reflogs", "--date=unix", `--format=%H${FIELD}%gd`, "HEAD"]);
-  return (reflog ?? "").split("\n").flatMap((line): HeadMove[] => {
+async function headMovesNewestFirst(repo: string, git: GitRunner): Promise<HeadMove[] | null> {
+  const reflog = await git(repo, ["log", "--ignore-missing", "--walk-reflogs", "--date=unix", `--format=%H${FIELD}%gd`, "HEAD"]);
+  if (reflog === null) return null;
+  return reflog.split("\n").flatMap((line): HeadMove[] => {
     const [commit = "", selector = ""] = line.split(FIELD);
     const seconds = REFLOG_MOMENT.exec(selector)?.[1];
     return seconds === undefined ? [] : [{ commit, at: Number(seconds) * SECOND_MS }];

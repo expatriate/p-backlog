@@ -19,4 +19,5 @@ export type CheckProblem =
   | { kind: "project-history-unreadable"; projectId: string; repo: string }
   | { kind: "project-branches-unreadable"; projectId: string; repo: string }
   | { kind: "merge-state-unknown"; projectId: string; repo: string; branches: string[] }
+  | { kind: "late-commits-unknown"; projectId: string; repo: string; taskIds: string[] }
   | { kind: "prefix-shared"; prefix: string; projectIds: string[] };

@@ -28,8 +28,8 @@ export async function commitsKnownAtMark({ repo, tasks, facts, anchors, git = ru
       if (task.source === undefined || !judgedByCommits(task, anchors)) return [];
       const path = sourcePath(task.source);
       const changes = commitsTouchingSince(facts.commits, path, reviewMark(task));
-      const commit = changes.length === 0 ? null : await bases.markCommit(task);
-      return commit === null ? [] : [{ taskId: task.id, site: { commit, path }, changes }];
+      const lookup = changes.length === 0 ? null : await bases.markCommit(task);
+      return lookup?.kind === "found" ? [{ taskId: task.id, site: { commit: lookup.commit, path }, changes }] : [];
     }),
   );
   const questions = asked.flat();

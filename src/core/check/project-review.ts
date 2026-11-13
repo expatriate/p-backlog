@@ -124,7 +124,7 @@ async function repoReview(project: Project, tasks: readonly Task[], scope: RepoR
     return {
       ...judged,
       skipped: [...skipped],
-      problems: [...historyProblems(project, repo, facts), ...mergeProblems],
+      problems: [...historyProblems(project, repo, facts), ...lateCommitsProblems(project, repo, lateUnknown), ...mergeProblems],
       unchecked: uncheckedEvidence(tasks, anchors, facts, lateUnknown),
       symbols: mode === "full" ? repoSymbolNames(repo, readable, context) : new Map(),
     };
@@ -241,6 +241,10 @@ function historyProblems(project: Project, repo: string, facts: RepoFacts): Chec
     case "unreadable":
       return [{ kind: "project-history-unreadable", projectId: project.id, repo }];
   }
+}
+
+function lateCommitsProblems(project: Project, repo: string, lateUnknown: ReadonlySet<string>): CheckProblem[] {
+  return lateUnknown.size === 0 ? [] : [{ kind: "late-commits-unknown", projectId: project.id, repo, taskIds: [...lateUnknown] }];
 }
 
 function earliestMarks(tasks: readonly Task[]): Map<string, number> {
