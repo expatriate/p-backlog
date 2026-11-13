@@ -1258,6 +1258,14 @@ describe("checkBacklog", () => {
       expect(await anchorNow()).toBe(anchored ? anchorOn(before) : undefined);
     });
 
+    it("у кандидата по якорю, чью строку правил коммит с датой до отметки, принесённый rebase, этот коммит назван", async () => {
+      const { home, root } = await localCommitRebasedOntoUpstream(true);
+
+      const report = await check(root, home, "changed");
+
+      expect(report.candidates).toEqual([expect.objectContaining({ method: "anchor", commits: [expect.objectContaining({ subject: "Правка строки задачи в upstream" })] })]);
+    });
+
     it.each([
       { case: "symbolic-ref", arrange: localCommitRebasedThroughConflict, fails: (args: string[]) => args[0] === "symbolic-ref" },
       { case: "log --walk-reflogs по ветке", arrange: localCommitRebasedThroughConflict, fails: (args: string[]) => args.includes("--walk-reflogs") && !args.includes("HEAD") },

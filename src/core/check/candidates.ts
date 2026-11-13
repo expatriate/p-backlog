@@ -90,6 +90,10 @@ export function judgedByCommits(task: Task, anchors: AnchorStates): boolean {
   return task.source !== undefined && anchors.get(task.id)?.kind === "none";
 }
 
+export function namesCommitsSinceMark(task: Task, anchors: AnchorStates): boolean {
+  return judgedByCommits(task, anchors) || anchors.get(task.id)?.kind === "changed";
+}
+
 function anchorState(task: Task, facts: RepoFacts): AnchorState {
   return anchorStateIn(task, task.source === undefined ? undefined : facts.texts.get(sourcePath(task.source)));
 }
