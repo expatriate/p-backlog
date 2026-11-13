@@ -10,7 +10,7 @@ import { sourcePath } from "../model/source";
 import { anchorHolds, committedIn, presenceOffDisk, type AnchoredTask, type PresenceOffDisk } from "./candidates";
 import { currentSourceIn } from "./current-source";
 import { latestRecordedCommit, type MarkCommits } from "./reviewed-task";
-import { branchHistoryOf, locateRepo, pathsEverCommitted, type EverCommitted, type KnownHistory } from "./repo-facts";
+import { branchHistoryOf, locateRepo, pathsEverCommitted, type EverCommitted } from "./repo-facts";
 
 export type SourcePresence = { kind: PresenceOffDisk } | { kind: "unsafe-repo"; trustCommand: string };
 
@@ -44,7 +44,7 @@ export type ProjectCheckout = { path: string; linkedWorktree: boolean; holdsCwd:
 
 export type RepoChoice = { path: string; recordIn: string | undefined };
 
-type CheckoutTasks = { checkout: ProjectCheckout; tasks: Task[]; unsettled: ReadonlySet<string>; history: KnownHistory | undefined };
+type CheckoutTasks = { checkout: ProjectCheckout; tasks: Task[]; unsettled: ReadonlySet<string> };
 
 type SourceChoice = { checkout: ProjectCheckout; settled: boolean };
 
@@ -52,11 +52,11 @@ type OwnedSource = AnchoredTask & { ownerCommit?: string | undefined };
 
 type PathTrace = "committed" | "unknown" | "none";
 
+type KnownHistory = { paths: ReadonlySet<string>; anywhere: EverCommitted };
+
 type Histories = ReadonlyMap<ProjectCheckout, KnownHistory>;
 
 type SourceEvidence = { onDisk: readonly ProjectCheckout[]; owner: ProjectCheckout | undefined; traceIn: (checkout: ProjectCheckout) => PathTrace };
-
-type ProjectChoices = { choices: (SourceChoice | undefined)[]; histories: Histories };
 
 export async function projectCheckouts(project: Project, { workingRoots, ...context }: RepoLookup): Promise<ProjectCheckout[]> {
   const repos = await existingRepos(project, context);
@@ -67,17 +67,17 @@ export async function projectCheckouts(project: Project, { workingRoots, ...cont
 }
 
 export async function explicitSourceRepo(project: Project, lookup: RepoLookup, source: string): Promise<RepoChoice | undefined> {
-  const [choice] = (await sourceChoices(await projectCheckouts(project, lookup), [{ source }])).choices;
+  const [choice] = await sourceChoices(await projectCheckouts(project, lookup), [{ source }]);
   return choice === undefined ? undefined : repoChoice(choice.checkout, choice.settled || choice.checkout.holdsCwd);
 }
 
 export async function taskRepo(project: Project, lookup: RepoLookup, task: Task, marks: MarkCommits): Promise<RepoChoice | undefined> {
-  const [choice] = (await sourceChoices(await projectCheckouts(project, lookup), [ownedSource(task, marks)])).choices;
+  const [choice] = await sourceChoices(await projectCheckouts(project, lookup), [ownedSource(task, marks)]);
   return choice === undefined ? undefined : repoChoice(choice.checkout, choice.settled);
 }
 
 export async function tasksByCheckout(checkouts: readonly ProjectCheckout[], tasks: readonly Task[], marks: MarkCommits): Promise<CheckoutTasks[]> {
-  const { choices, histories } = await sourceChoices(
+  const choices = await sourceChoices(
     checkouts,
     tasks.map((task) => ownedSource(task, marks)),
   );
@@ -85,7 +85,7 @@ export async function tasksByCheckout(checkouts: readonly ProjectCheckout[], tas
   return checkouts.flatMap((checkout) => {
     const own = chosen.filter(({ choice }) => choice?.checkout === checkout);
     const unsettled = new Set(own.filter(({ choice }) => choice?.settled === false).map(({ task }) => task.id));
-    return own.length === 0 ? [] : [{ checkout, tasks: own.map(({ task }) => task), unsettled, history: histories.get(checkout) }];
+    return own.length === 0 ? [] : [{ checkout, tasks: own.map(({ task }) => task), unsettled }];
   });
 }
 
@@ -97,10 +97,10 @@ function ownedSource(task: Task, marks: MarkCommits): OwnedSource {
   return { source: task.source, anchor: task.anchor, ownerCommit: latestRecordedCommit(task, marks) };
 }
 
-async function sourceChoices(checkouts: readonly ProjectCheckout[], tasks: readonly OwnedSource[]): Promise<ProjectChoices> {
+async function sourceChoices(checkouts: readonly ProjectCheckout[], tasks: readonly OwnedSource[]): Promise<(SourceChoice | undefined)[]> {
   const [first] = checkouts;
-  if (first === undefined) return { choices: tasks.map(() => undefined), histories: new Map() };
-  if (checkouts.length === 1) return { choices: tasks.map(() => ({ checkout: first, settled: true })), histories: new Map() };
+  if (first === undefined) return tasks.map(() => undefined);
+  if (checkouts.length === 1) return tasks.map(() => ({ checkout: first, settled: true }));
   const [onDisk, ownerOf] = await Promise.all([Promise.all(tasks.map((task) => checkoutsWithSource(checkouts, task.source))), ownerCheckouts(checkouts, tasks)]);
   const ownerHistories = await askHistories(
     checkouts,
@@ -111,14 +111,13 @@ async function sourceChoices(checkouts: readonly ProjectCheckout[], tasks: reado
     tasks.flatMap((task, index) => otherQuestions(checkouts, task, onDisk[index] ?? [], ownerOf(task), ownerHistories)),
   );
   const histories = mergedHistories(ownerHistories, otherHistories);
-  const choices = await Promise.all(
+  return Promise.all(
     tasks.map((task, index) => {
       const path = task.source === undefined ? undefined : sourcePath(task.source);
       const traceIn = (checkout: ProjectCheckout) => (path === undefined ? "none" : traceOf(histories, checkout, path));
       return sourceChoice(checkouts, first, task, { onDisk: onDisk[index] ?? [], owner: ownerOf(task), traceIn });
     }),
   );
-  return { choices, histories };
 }
 
 async function sourceChoice(checkouts: readonly ProjectCheckout[], first: ProjectCheckout, task: OwnedSource, evidence: SourceEvidence): Promise<SourceChoice> {

@@ -2,8 +2,9 @@ import { execFileSync } from "node:child_process";
 import { readFile, rename, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { gitCheckout, gitCommitAll, gitMergeNoFastForward, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
+import { gitCheckout, gitCommitAll, gitMergeNoFastForward, gitRun, makeGitRepo, makeTempDir, writeFiles } from "../store/testing/temp-dirs";
 import { countingGit } from "../git/testing/counting-git";
+import { presenceOffDisk } from "./candidates";
 import { collectRepoFacts, diffsSince } from "./repo-facts";
 
 const marksSince = (iso: string, paths: readonly string[]) => new Map(paths.map((path) => [path, Date.parse(iso)]));
@@ -66,7 +67,7 @@ describe("collectRepoFacts", () => {
 
     expect(facts.commits.map(({ files }) => files)).toEqual([[{ path: "src/a.ts" }]]);
     expect([...facts.dirtyModifiedAt.keys()]).toEqual(["src/a.ts"]);
-    expect(facts.branches).toEqual({ kind: "read", committedHere: new Set(["src/gone.ts"]), committedAnywhere: new Set(["src/gone.ts"]) });
+    expect(facts.branches).toEqual({ kind: "read", committedHere: new Set(["src/gone.ts"]), onBranchTips: new Set(["src/gone.ts"]) });
   });
 
   it.skipIf(process.platform === "win32")("изменённая ссылка, ведущая сама на себя, — незакоммиченная правка со своим временем, а не сбой сбора фактов (ссылки на Windows требуют прав)", async () => {
@@ -124,6 +125,75 @@ describe("collectRepoFacts", () => {
     expect(facts.branches).toEqual({ kind: "unreadable" });
   });
 
+  async function laneBehindMaster() {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a\n" });
+    gitCommitAll(repo, "Начало", "2026-09-10T10:00:00+03:00");
+    gitCheckout(repo, "lane", { create: true });
+    gitCheckout(repo, "master");
+    return repo;
+  }
+
+  async function sideBranchMergedThenDeleted(mergeArgs: readonly string[], deletedOnSide: boolean) {
+    const repo = await laneBehindMaster();
+    gitCheckout(repo, "side", { create: true });
+    await writeFiles(repo, { "src/gone.ts": "g\n" });
+    gitCommitAll(repo, "Боковая ветка добавляет файл", "2026-09-11T10:00:00+03:00");
+    if (deletedOnSide) {
+      await rm(join(repo, "src/gone.ts"));
+      gitCommitAll(repo, "Боковая ветка удаляет файл", "2026-09-11T11:00:00+03:00");
+    }
+    gitCheckout(repo, "master");
+    gitRun(repo, ["merge", "-q", "--no-ff", ...mergeArgs, "-m", "Слить side", "side"], "2026-09-12T10:00:00+03:00");
+    gitRun(repo, ["branch", "-q", "-D", "side"], "2026-09-12T11:00:00+03:00");
+    gitCheckout(repo, "lane");
+    return repo;
+  }
+
+  async function addedAndDeletedOnMaster() {
+    const repo = await laneBehindMaster();
+    await writeFiles(repo, { "src/gone.ts": "g\n" });
+    gitCommitAll(repo, "master добавляет файл", "2026-09-11T10:00:00+03:00");
+    await rm(join(repo, "src/gone.ts"));
+    gitCommitAll(repo, "master удаляет файл", "2026-09-11T11:00:00+03:00");
+    gitCheckout(repo, "lane");
+    return repo;
+  }
+
+  async function stashedUntracked() {
+    const repo = await laneBehindMaster();
+    await writeFiles(repo, { "src/gone.ts": "g\n" });
+    gitRun(repo, ["stash", "push", "-q", "--include-untracked"], "2026-09-12T10:00:00+03:00");
+    return repo;
+  }
+
+  it.each([
+    { case: "боковую ветку влили в master с -s ours и удалили, HEAD master не вливал", arrange: () => sideBranchMergedThenDeleted(["-s", "ours"], false) },
+    { case: "боковая ветка добавила и удалила файл, master её влил, ветку удалили, HEAD master не вливал", arrange: () => sideBranchMergedThenDeleted([], true) },
+    { case: "master добавил и удалил файл, HEAD master не вливал", arrange: addedAndDeletedOnMaster },
+    { case: "новый файл убран в git stash -u", arrange: stashedUntracked },
+  ])("файла нет ни на одной вершине ветки — он пропал, а не живёт в другой ветке: $case", async ({ arrange }) => {
+    const repo = await arrange();
+
+    const facts = await collectRepoFacts(repo, marksSince("2026-09-09T00:00:00Z", ["src/gone.ts"]));
+
+    expect(presenceOffDisk("src/gone.ts", facts.branches)).toBe("missing");
+  });
+
+  it("файл есть только на вершине ветки origin — он живёт в другой ветке, а не пропал", async () => {
+    const origin = await laneBehindMaster();
+    gitCheckout(origin, "feat", { create: true });
+    await writeFiles(origin, { "src/feat.ts": "f\n" });
+    gitCommitAll(origin, "Фича", "2026-09-11T10:00:00+03:00");
+    gitCheckout(origin, "master");
+    const repo = join(await makeTempDir(), "clone");
+    execFileSync("git", ["clone", "-q", origin, repo]);
+
+    const facts = await collectRepoFacts(repo, marksSince("2026-09-09T00:00:00Z", ["src/feat.ts"]));
+
+    expect(presenceOffDisk("src/feat.ts", facts.branches)).toBe("present");
+  });
+
   it("каталог без git: только существование файлов", async () => {
     const dir = await makeTempDir();
     await writeFiles(dir, { "src/a.ts": "" });
@@ -152,7 +222,7 @@ describe("collectRepoFacts", () => {
       history: "read",
       commits: [],
       renames: [],
-      branches: { kind: "read", committedHere: new Set(), committedAnywhere: new Set() },
+      branches: { kind: "read", committedHere: new Set(), onBranchTips: new Set() },
     });
   });
 

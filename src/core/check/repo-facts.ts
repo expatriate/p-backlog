@@ -3,7 +3,9 @@ import {
   asGitRunner,
   FIELD,
   literalPathspecs,
+  objectIds,
   outputLine,
+  outputLines,
   PARSED_DIFF_OPTIONS,
   RECORD,
   resolveCommits,
@@ -46,6 +48,7 @@ const STATUS_CODE_WIDTH = 3;
 const RENAME_OR_COPY = /^[RC]/;
 const DELETED_FILE_HEADER = /^deleted file mode /m;
 const ORIGINAL_PATH_FOLLOWS = /^(?:[RC].|.[RC])/;
+const BRANCH_REFS = ["refs/heads", "refs/remotes"];
 const LOG_FORMAT = `--format=${RECORD}%H${FIELD}%h${FIELD}%cI${FIELD}%P${FIELD}%s`;
 
 export type PathMarks = ReadonlyMap<string, number>;
@@ -72,7 +75,7 @@ function trustCommandIn(stderr: string): string | undefined {
     .find((line) => TRUST_COMMAND.test(line));
 }
 
-export async function collectRepoFacts(repo: string, pathMarks: PathMarks, known?: KnownHistory, gitOutcome: GitOutcomeRunner = runGitOutcome): Promise<RepoFacts> {
+export async function collectRepoFacts(repo: string, pathMarks: PathMarks, gitOutcome: GitOutcomeRunner = runGitOutcome): Promise<RepoFacts> {
   const git = asGitRunner(gitOutcome);
   const paths = [...pathMarks.keys()];
   const [location, files] = await Promise.all([locateRepo(repo, gitOutcome), sourceFiles(repo, paths)]);
@@ -84,29 +87,34 @@ export async function collectRepoFacts(repo: string, pathMarks: PathMarks, known
     hasCommits && paths.length > 0 ? pathLog(repo, [sinceEarliestMark(pathMarks, paths)], paths, git) : "",
     hasCommits && missing.length > 0 ? git(repo, [...logArgs([sinceEarliestMark(pathMarks, missing)]), "--diff-filter=R"]) : "",
     git(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]),
-    branchHistoryOf(repo, location, missing, known, git),
+    branchHistoryOf(repo, location, missing, git),
   ]);
   if (log === null || renames === null || status === null) return withoutHistory({ history: "unreadable" });
   const dirty = withinRepo(parseStatus(status), prefix);
   return { history: "read", commits: parseLog(log), renames: parseLog(renames), dirtyModifiedAt: await modificationTimes(repo, dirty), branches, ...files };
 }
 
-export type BranchHistory = { kind: "no-repo" } | { kind: "unreadable" } | { kind: "read"; committedHere: ReadonlySet<string>; committedAnywhere: ReadonlySet<string> };
+export type BranchHistory = { kind: "no-repo" } | { kind: "unreadable" } | { kind: "read"; committedHere: ReadonlySet<string>; onBranchTips: ReadonlySet<string> };
 
-export async function branchHistoryOf(repo: string, location: RepoLocation, paths: readonly string[], known?: KnownHistory, git: GitRunner = runGit): Promise<BranchHistory> {
+export async function branchHistoryOf(repo: string, location: RepoLocation, paths: readonly string[], git: GitRunner = runGit): Promise<BranchHistory> {
   if (location.history !== "read") return unknownBranches(location.history);
-  const [here, anywhere] = await Promise.all([location.hasCommits ? committedPaths(repo, "HEAD", paths, git) : [], knownAnywhere(paths, known) ?? committedPaths(repo, "--all", paths, git)]);
-  return here === null || anywhere === null ? { kind: "unreadable" } : { kind: "read", committedHere: new Set(here), committedAnywhere: new Set(anywhere) };
+  const [here, onTips] = await Promise.all([location.hasCommits ? committedPaths(repo, "HEAD", paths, git) : [], pathsOnBranchTips(repo, paths, git)]);
+  return here === null || onTips === null ? { kind: "unreadable" } : { kind: "read", committedHere: new Set(here), onBranchTips: new Set(onTips) };
+}
+
+async function pathsOnBranchTips(repo: string, paths: readonly string[], git: GitRunner): Promise<string[] | null> {
+  const inside = paths.filter(isInsideRepo);
+  if (inside.length === 0) return [];
+  const tips = outputLines(await git(repo, ["for-each-ref", "--format=%(objectname)", ...BRANCH_REFS]));
+  if (tips === null) return null;
+  const uniqueTips = [...new Set(tips)];
+  const atTip = (tip: string, path: string) => `${tip}:./${path}`;
+  const ids = await objectIds(git, repo, [...uniqueTips, ...uniqueTips.flatMap((tip) => inside.map((path) => atTip(tip, path)))]);
+  if (ids === null || !uniqueTips.every((tip) => ids.has(tip))) return null;
+  return inside.filter((path) => uniqueTips.some((tip) => ids.has(atTip(tip, path))));
 }
 
 export type EverCommitted = { kind: "no-repo" } | { kind: "unreadable" } | { kind: "read"; committed: ReadonlySet<string> };
-
-export type KnownHistory = { paths: ReadonlySet<string>; anywhere: EverCommitted };
-
-function knownAnywhere(paths: readonly string[], known: KnownHistory | undefined): string[] | undefined {
-  if (known === undefined || known.anywhere.kind !== "read" || !paths.every((path) => known.paths.has(path))) return undefined;
-  return [...known.anywhere.committed];
-}
 
 export async function pathsEverCommitted(repo: string, paths: readonly string[]): Promise<EverCommitted> {
   const location = await locateRepo(repo);
