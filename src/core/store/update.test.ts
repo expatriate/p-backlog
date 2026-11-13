@@ -6,7 +6,7 @@ import { warnPathErrors } from "../errors";
 import { coreMessages } from "../messages";
 import { formatLocalIso } from "../model/dates";
 import { buildIndex, NO_UNLOADED_TASKS } from "../model/graph";
-import { appendingJournal, JOURNAL_FILE, readJournal, undoJournal } from "./journal";
+import { appendingJournal, appendJournal, JOURNAL_FILE, readJournal, undoJournal } from "./journal";
 import { indexOfLoaded, loadBacklog } from "./load";
 import { allClosingsOf, reopeningsOf, taskHistories } from "../stats/history";
 import { createTask } from "./create";
@@ -54,6 +54,35 @@ describe("updateTask", () => {
 
     expect(settledQuickly).toMatchObject({ ok: true });
     expect(await first).toMatchObject({ ok: true });
+  });
+
+  it("правки одной задачи в одну секунду, попавшие в журнал в обратном порядке, дают ту же историю: отменённое закрытие не считается", async () => {
+    const root = await setup();
+    const { promise: closingMayJournal, resolve: journalClosing }: PromiseWithResolvers<void> = Promise.withResolvers();
+    const closing = updateTask(root, {
+      id: "SPA-3",
+      changes: { status: "done" },
+      now: new Date("2026-09-18T12:00:00.100Z"),
+      via: "web",
+      journal: (projectDir, events) => closingMayJournal.then(() => appendJournal(projectDir, events, failOnPathError)),
+    });
+    await vi.waitFor(async () => expect(await readFile(join(root, "spa/SPA-3.md"), "utf8")).toContain("status: done"));
+
+    const closedVersion = await version(root, "SPA-3");
+    await updateTask(root, {
+      id: "SPA-3",
+      changes: { status: "backlog" },
+      expectedVersion: closedVersion,
+      now: new Date("2026-09-18T12:00:00.400Z"),
+      via: "web",
+      journal: undoJournal(appendingJournal(failOnPathError)),
+    });
+    journalClosing();
+    await closing;
+
+    const { tasks } = await loadBacklog(root);
+    const history = taskHistories(tasks, [await readJournal(join(root, "spa"), "spa")]).find((candidate) => candidate.id === "SPA-3");
+    expect(history && [allClosingsOf(history).length, reopeningsOf(history).length]).toEqual([0, 0]);
   });
 
   it("сбой снятия блокировки после записи задачи не выдаёт записанную правку за незаписанную: правка в журнале, сбой — в onError", async () => {
