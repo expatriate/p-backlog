@@ -12,7 +12,6 @@ import type { Period } from "../period";
 import { smallest, sum } from "../../numbers";
 import { groupBy } from "../../collections";
 import { grainPeriods, lastDays, lastDaysPeriod } from "../report-periods";
-import { remembered } from "../../remembered";
 import { filterByProject } from "../scope";
 
 export const COST_TOTALS_DAYS = 7;
@@ -20,7 +19,7 @@ export const COST_TOTALS_DAYS = 7;
 export type CostInput = {
   buckets: readonly UsageBucket[];
   runs: readonly CliRun[];
-  projectOf: (cwd: string) => string | null;
+  projectOf: (cwd: string, at: number) => string | null;
   projectId?: string | undefined;
   now: Date;
   scan: ScanProgress;
@@ -31,16 +30,20 @@ type UsageInPeriod = { buckets: UsageBucket[]; runs: CliRun[] };
 type Timed<T> = { item: T; at: number };
 
 export function costReport({ buckets, runs, projectOf, projectId, now, scan }: CostInput): CostReport {
-  const projectByCwd = new Map<string, string | null>();
-  const projectOfCwd = (cwd: string) => remembered(projectByCwd, cwd, () => projectOf(cwd));
-  const scopedBuckets = filterByProject(buckets, projectId, (bucket) => projectOfCwd(bucket.cwd));
-  const scopedRuns = filterByProject(
-    runs.filter((run) => run.command !== SERVE_COMMAND_NAME),
+  const projectOfTimed = ({ item, at }: Timed<{ cwd: string }>) => projectOf(item.cwd, at);
+  const timedBuckets = filterByProject(
+    timed(buckets, (bucket) => bucket.slot),
     projectId,
-    (run) => projectOfCwd(run.cwd),
+    projectOfTimed,
   );
-  const timedBuckets = timed(scopedBuckets, (bucket) => bucket.slot);
-  const timedRuns = timed(scopedRuns, (run) => run.at);
+  const timedRuns = filterByProject(
+    timed(
+      runs.filter((run) => run.command !== SERVE_COMMAND_NAME),
+      (run) => run.at,
+    ),
+    projectId,
+    projectOfTimed,
+  );
   const within = (period: Period): UsageInPeriod => ({ buckets: itemsWithin(timedBuckets, period), runs: itemsWithin(timedRuns, period) });
   const reported = within(lastDaysPeriod(now, STATS_DAYS));
 

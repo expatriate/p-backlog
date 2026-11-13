@@ -2,7 +2,16 @@ import { join } from "node:path";
 import { costReport } from "../core/stats/cost/cost-report";
 import type { CostReport } from "../core/stats/types";
 import { createJsonlTail } from "../core/store/jsonl-tail";
-import { cachedRepoRoots, lookupProjectForRecordedDir, unreadableDirHasNoRepo, type KnownProjects, type RecordedRepos, type RepoContext, type RepoRootLookup } from "../core/store/resolve-project";
+import {
+  cachedRepoRoots,
+  lookupProjectForRecordedDir,
+  unreadableDirHasNoRepo,
+  type KnownProjects,
+  type ProjectLookup,
+  type RecordedRepos,
+  type RepoContext,
+  type RepoRootLookup,
+} from "../core/store/resolve-project";
 import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
 import { usageBucketsOf } from "../core/usage/usage-cache";
 import type { UsageSnapshot } from "./usage-scanner";
@@ -37,20 +46,27 @@ async function computeCostReport({ usage: { cache, scan }, runs, known, projectI
   const buckets = usageBucketsOf(cache);
   const projectIds =
     projectId === undefined
-      ? new Map<string, string | null>()
+      ? new Map<string, ProjectIdAt>()
       : await projectIdsOfCwds(
           [...buckets, ...runs].map((entry) => entry.cwd),
           known,
           context,
           { lookupRepoRoot, worktreeRepos: cache.worktreeRepos },
         );
-  return costReport({ buckets, runs, projectOf: (cwd) => projectIds.get(cwd) ?? null, projectId, now, scan });
+  return costReport({ buckets, runs, projectOf: (cwd, at) => projectIds.get(cwd)?.(at) ?? null, projectId, now, scan });
 }
 
-async function projectIdsOfCwds(cwds: readonly string[], known: KnownProjects, context: RepoContext, recordedRepos: RecordedRepos): Promise<Map<string, string | null>> {
+type ProjectIdAt = (at: number) => string | null;
+
+async function projectIdsOfCwds(cwds: readonly string[], known: KnownProjects, context: RepoContext, recordedRepos: RecordedRepos): Promise<Map<string, ProjectIdAt>> {
   const projectIdOf = async (cwd: string) => {
-    const lookup = await lookupProjectForRecordedDir(known, cwd, recordedRepos, context);
-    return [cwd, "project" in lookup ? lookup.project.id : null] as const;
+    const lookupAt = await lookupProjectForRecordedDir(known, cwd, recordedRepos, context);
+    const projectIdAt: ProjectIdAt = (at) => projectIdIn(lookupAt(at));
+    return [cwd, projectIdAt] as const;
   };
   return new Map(await Promise.all([...new Set(cwds)].map(projectIdOf)));
+}
+
+function projectIdIn(lookup: ProjectLookup): string | null {
+  return "project" in lookup ? lookup.project.id : null;
 }

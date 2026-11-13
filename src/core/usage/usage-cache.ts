@@ -12,7 +12,13 @@ export const USAGE_CACHE_VERSION = 6;
 
 const bucketsSchema = z.array(usageBucketSchema);
 
-const worktreeReposSchema = z.record(z.string(), z.string());
+const worktreeTenureSchema = z.object({ main: z.string(), since: z.number() });
+
+const SINCE_EVER = 0;
+
+const worktreeTenuresSchema = z.union([z.array(worktreeTenureSchema), z.string().transform((main) => [{ main, since: SINCE_EVER }])]);
+
+const worktreeReposSchema = z.record(z.string(), worktreeTenuresSchema);
 
 const usageCacheEntrySchema = z.object({
   size: z.number(),

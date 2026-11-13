@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { appendFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { BatchResponse, CodeReport, CostReport, EffectReport, ErrorResponse, MemorySamplesResponse, QualityReport, SignalsReport, StatsReport } from "../core/api/contract";
@@ -355,6 +355,12 @@ describe("GET /api/stats/signals", () => {
   });
 });
 
+function hookTurnIn(cwd: string, at: string): string {
+  const hook = { type: "user", isMeta: true, timestamp: at, cwd, message: { content: "Stop hook feedback:\nБеклог spa: тест" } };
+  const turn = { type: "assistant", timestamp: at, cwd, message: { model: "claude-opus-5", usage: { input_tokens: 1000, output_tokens: 100 } } };
+  return `${JSON.stringify(hook)}\n${JSON.stringify(turn)}\n`;
+}
+
 describe("GET /api/stats/cost и /api/stats/memory", () => {
   const writeListRuns = (root: string, cwds: readonly string[]) =>
     writeFile(join(root, ".runs.jsonl"), cwds.map((cwd) => `${JSON.stringify({ at: "2026-09-18T09:00:00+03:00", command: "list", cwd, ms: 10, rssMb: 50, exitCode: 0 })}\n`).join(""), "utf8");
@@ -603,6 +609,62 @@ describe("GET /api/stats/cost и /api/stats/memory", () => {
     const spa = (await (await afterRestart.request("/api/stats/cost?project=spa")).json()) as CostReport;
 
     expect(spa.totals.cliRuns).toBe(1);
+  });
+
+  it("путь линии, который по очереди занимали линии двух репозиториев, делит «Стоимость» по времени: токены первой линии не переезжают во второй репозиторий", async () => {
+    const home = await makeTempDir();
+    const spa = await makeGitRepo(home, "spa");
+    const api = await makeGitRepo(home, "api");
+    for (const repo of [spa, api]) {
+      await writeFiles(repo, { "src/a.ts": "x\n" });
+      gitCommitAll(repo, "начало", "2026-09-15T10:00:00+03:00");
+    }
+    const lane = join(home, "lanes/fix");
+    const transcriptsDir = await makeTempDir();
+    const addLane = async (repo: string, createdAt: string) => {
+      gitAddWorktree(repo, lane, "fix");
+      await utimes(join(lane, ".git"), new Date(createdAt), new Date(createdAt));
+    };
+    const removeLane = (repo: string) => execFileSync("git", ["worktree", "remove", "--force", lane], { cwd: repo });
+    const files = { "spa/project.md": projectFile("SPA", [spa]), "api/project.md": projectFile("API", [api]) };
+    const scanner = await makeTestApp(files, { transcriptsDir });
+    await addLane(spa, "2026-09-16T08:00:00.000Z");
+    await writeFiles(transcriptsDir, { "proj/spa.jsonl": hookTurnIn(lane, "2026-09-16T09:00:00.000Z") });
+    await scanner.usage.scanOnce();
+    removeLane(spa);
+    await addLane(api, "2026-09-17T08:00:00.000Z");
+    await writeFiles(transcriptsDir, { "proj/api.jsonl": hookTurnIn(lane, "2026-09-17T09:00:00.000Z") });
+    await scanner.usage.scanOnce();
+    removeLane(api);
+    const afterRestart = await makeTestApp({ ...files, ".usage-cache.json": await readFile(join(scanner.root, ".usage-cache.json"), "utf8") }, { transcriptsDir });
+    await afterRestart.usage.scanOnce();
+
+    const tokensOf = async (project: string) => ((await (await afterRestart.request(`/api/stats/cost?project=${project}`)).json()) as CostReport).totals.tokens;
+
+    expect({ spa: await tokensOf("spa"), api: await tokensOf("api") }).toEqual({ spa: 1100, api: 1100 });
+  });
+
+  it("связь линии с репозиторием из кэша 0.14.1 читается: токены удалённой линии остаются в «Стоимости» проекта", async () => {
+    const home = await makeTempDir();
+    const repo = await makeGitRepo(home, "spa");
+    await writeFiles(repo, { "src/a.ts": "x\n" });
+    gitCommitAll(repo, "начало", "2026-09-17T10:00:00+03:00");
+    const lane = join(home, "spa-lanes/stats");
+    gitAddWorktree(repo, lane, "stats");
+    const transcriptsDir = await makeTempDir();
+    await writeFiles(transcriptsDir, { "proj/a.jsonl": hookTurnIn(lane, "2026-09-18T09:00:00.000Z") });
+    const files = { "spa/project.md": projectFile("SPA", [repo]) };
+    const whileLaneAlive = await makeTestApp(files, { transcriptsDir });
+    await whileLaneAlive.usage.scanOnce();
+    execFileSync("git", ["worktree", "remove", "--force", lane], { cwd: repo });
+    const cache = JSON.parse(await readFile(join(whileLaneAlive.root, ".usage-cache.json"), "utf8")) as UsageCache;
+    const cacheOf0141 = { ...cache, worktreeRepos: Object.fromEntries(Object.keys(cache.worktreeRepos).map((worktree) => [worktree, repo])) };
+    const afterUpgrade = await makeTestApp({ ...files, ".usage-cache.json": JSON.stringify(cacheOf0141) }, { transcriptsDir });
+    await afterUpgrade.usage.scanOnce();
+
+    const spa = (await (await afterUpgrade.request("/api/stats/cost?project=spa")).json()) as CostReport;
+
+    expect(spa.totals.tokens).toBe(1100);
   });
 
   it("запуск из удалённого репозитория проекта, вложенного в репозиторий другого проекта, засчитывается своему проекту", async () => {

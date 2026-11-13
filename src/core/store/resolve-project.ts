@@ -110,19 +110,35 @@ export function lookupProjectForDir(known: KnownProjects, dir: string, dirRoots:
   return lookupProjectCanonicalizing(known, dir, dirRoots, strictly(context));
 }
 
-type WorktreeRepos = Readonly<Record<string, string>>;
+export type WorktreeTenure = { main: string; since: number };
+
+type WorktreeRepos = Readonly<Record<string, readonly WorktreeTenure[]>>;
 
 export type RecordedRepos = { lookupRepoRoot: RepoRootLookup; worktreeRepos: WorktreeRepos };
 
-export async function lookupProjectForRecordedDir(known: KnownProjects, dir: string, { lookupRepoRoot, worktreeRepos }: RecordedRepos, context: RepoContext): Promise<ProjectLookup> {
-  const dirRoots = await lookupRepoRoot(dir);
+export type ProjectLookupAt = (at: number) => ProjectLookup;
+
+type OwnerLookup = { since: number; lookup: ProjectLookup };
+
+export async function lookupProjectForRecordedDir(known: KnownProjects, dir: string, { lookupRepoRoot, worktreeRepos }: RecordedRepos, context: RepoContext): Promise<ProjectLookupAt> {
   const leniently: LookupContext = { ...context, canonicalize: realpathThroughExistingAncestor };
-  const byPath = lookupProjectCanonicalizing(known, dir, dirRoots, leniently);
+  const live = await lookupLiveProject(known, dir, lookupRepoRoot, leniently);
+  const owners = recordedOwnersOf(known, dir, worktreeRepos, leniently);
+  const current = live ?? owners.at(-1)?.lookup ?? { broken: [] };
+  const pastOwners = owners.slice(0, -1);
+  const ownerAt = (at: number) =>
+    Math.max(
+      0,
+      owners.findLastIndex(({ since }) => since <= at),
+    );
+  return (at) => pastOwners[ownerAt(at)]?.lookup ?? current;
+}
+
+async function lookupLiveProject(known: KnownProjects, dir: string, lookupRepoRoot: RepoRootLookup, context: LookupContext): Promise<ProjectLookup | null> {
+  const dirRoots = await lookupRepoRoot(dir);
+  const byPath = lookupProjectCanonicalizing(known, dir, dirRoots, context);
   if ("project" in byPath || byPath.broken.length > 0 || dirRoots !== "not-in-repo") return byPath;
-  const byLiveAncestor = await lookupThroughLiveAncestor(known, dir, lookupRepoRoot, context);
-  if (byLiveAncestor !== null) return byLiveAncestor;
-  const recordedWorktree = recordedWorktreeOf(dir, worktreeRepos, context);
-  return recordedWorktree === null ? byPath : lookupProjectCanonicalizing(known, dir, recordedWorktree, leniently);
+  return lookupThroughLiveAncestor(known, dir, lookupRepoRoot, context);
 }
 
 async function lookupThroughLiveAncestor(known: KnownProjects, dir: string, lookupRepoRoot: RepoRootLookup, context: RepoContext): Promise<ProjectLookup | null> {
@@ -134,13 +150,15 @@ async function lookupThroughLiveAncestor(known: KnownProjects, dir: string, look
 
 export function unreadableDirHasNoRepo(): void {}
 
-function recordedWorktreeOf(dir: string, worktreeRepos: WorktreeRepos, { onUnreadable }: RepoContext): GitRoots | null {
-  const path = attemptReportingFailureSync(dir, realpathThroughExistingAncestor, onUnreadable);
-  if (path === null) return null;
+function recordedOwnersOf(known: KnownProjects, dir: string, worktreeRepos: WorktreeRepos, context: LookupContext): OwnerLookup[] {
+  const path = attemptReportingFailureSync(dir, realpathThroughExistingAncestor, context.onUnreadable);
+  if (path === null) return [];
   const [deepest] = Object.entries(worktreeRepos)
     .filter(([worktree]) => isSameOrInside(path, worktree))
     .sort(([a], [b]) => b.length - a.length);
-  return deepest === undefined ? null : { worktree: deepest[0], main: deepest[1] };
+  if (deepest === undefined) return [];
+  const [worktree, tenures] = deepest;
+  return tenures.toSorted((a, b) => a.since - b.since).map(({ main, since }) => ({ since, lookup: lookupProjectCanonicalizing(known, dir, { worktree, main }, context) }));
 }
 
 function lookupProjectCanonicalizing(known: KnownProjects, dir: string, dirRoots: DirGitRoots, context: LookupContext): ProjectLookup {

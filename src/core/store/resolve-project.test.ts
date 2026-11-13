@@ -4,7 +4,7 @@ import { mkdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Project } from "../model/types";
-import { cachedRepoRoots, lookupProjectForDir, lookupProjectForRecordedDir, readGitRoots, type DirGitRoots, type RepoContext } from "./resolve-project";
+import { cachedRepoRoots, lookupProjectForDir, lookupProjectForRecordedDir, readGitRoots, type DirGitRoots, type ProjectLookup, type RepoContext, type WorktreeTenure } from "./resolve-project";
 import { failOnPathError } from "./testing/path-errors";
 import { gitAddWorktree, gitCommitAll, makeGitRepo, makeTempDir, writeFiles } from "./testing/temp-dirs";
 
@@ -107,20 +107,45 @@ describe("lookupProjectForDir", () => {
     const recorded = await lookupProjectForRecordedDir(known, join(process.cwd(), "src", "deleted-lane-dir"), { lookupRepoRoot: cachedRepoRoots(context), worktreeRepos: {} }, context);
 
     expect(projectForDir(known.projects, process.cwd(), context)).toBeUndefined();
-    expect("project" in recorded).toBe(false);
+    expect("project" in recorded(Date.now())).toBe(false);
   });
 
-  it("линия другого репозитория, занявшая путь удалённой линии, важнее запомненного репозитория линии", async () => {
-    const { home, repo: ops } = await repoWithOutsideWorktree();
-    const spa = await makeGitRepo(home, "projects/spa-old");
-    const lane = join(home, "projects/lanes/stats");
-    gitAddWorktree(ops, lane, "stats");
-    const context = contextIn(home);
-    const known = { projects: [project("spa", [spa]), project("ops", [ops])], errors: [] };
+  describe("линия другого репозитория, занявшая путь удалённой линии", () => {
+    const OPS_LANE_SINCE = Date.parse("2026-09-17T08:00:00Z");
 
-    const recorded = await lookupProjectForRecordedDir(known, join(lane, "deleted"), { lookupRepoRoot: cachedRepoRoots(context), worktreeRepos: { [lane]: spa } }, context);
+    async function opsLaneOverSpaLane() {
+      const { home, repo: ops } = await repoWithOutsideWorktree();
+      const spa = await makeGitRepo(home, "projects/spa-old");
+      const lane = join(home, "projects/lanes/stats");
+      gitAddWorktree(ops, lane, "stats");
+      const context = contextIn(home);
+      const known = { projects: [project("spa", [spa]), project("ops", [ops])], errors: [] };
+      const lookupAt = (worktreeRepos: Record<string, WorktreeTenure[]>) => lookupProjectForRecordedDir(known, join(lane, "deleted"), { lookupRepoRoot: cachedRepoRoots(context), worktreeRepos }, context);
+      return { spa, ops, lane, lookupAt };
+    }
 
-    expect("project" in recorded ? recorded.project.id : null).toBe("ops");
+    const projectIdOf = (lookup: ProjectLookup) => ("project" in lookup ? lookup.project.id : null);
+
+    it("важнее запомненного репозитория линии, пока её саму не запомнили", async () => {
+      const { spa, lane, lookupAt } = await opsLaneOverSpaLane();
+
+      const recorded = await lookupAt({ [lane]: [{ main: spa, since: 0 }] });
+
+      expect(projectIdOf(recorded(OPS_LANE_SINCE - 1))).toBe("ops");
+    });
+
+    it("не забирает запуски, сделанные на этом пути до её появления", async () => {
+      const { spa, ops, lane, lookupAt } = await opsLaneOverSpaLane();
+
+      const recorded = await lookupAt({
+        [lane]: [
+          { main: spa, since: 0 },
+          { main: ops, since: OPS_LANE_SINCE },
+        ],
+      });
+
+      expect([recorded(OPS_LANE_SINCE - 1), recorded(OPS_LANE_SINCE)].map(projectIdOf)).toEqual(["spa", "ops"]);
+    });
   });
 
   it("строгий поиск не приписывает удалённый каталог проекту с удалённым репозиторием", async () => {
