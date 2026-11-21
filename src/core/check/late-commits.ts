@@ -1,7 +1,7 @@
 import { asGitRunner, commitHashOf, objectIds, runGitOutcome, type CommitHash, type GitOutcomeRunner, type GitRunner } from "../git/run";
 import type { Task } from "../model/types";
 import { sourcePath } from "../model/source";
-import { judgedByCommits, type AnchorStates, type KnownCommits } from "./candidates";
+import { namesCommitsSinceMark, type AnchorStates, type KnownCommits } from "./candidates";
 import { isInsideRepo, mainlineCommitsOff, type Commit, type CommitLookup, type RepoFacts } from "./repo-facts";
 import { reviewMark, type MarkCommits } from "./reviewed-task";
 import { changesSinceMark, commitsTouchingUntil, type LateCommits } from "./source-commits";
@@ -70,7 +70,7 @@ async function arrivalsOf(history: RepoHistory, marked: readonly MarkedSource[])
 async function lookedUpSources({ tasks, facts, anchors, knownCommits }: LateCommitsQuestion, bases: TaskBases): Promise<LookedUpSource[]> {
   const sourcesByTask = await Promise.all(
     tasks.map(async (task) => {
-      if (task.source === undefined || !judgedByCommits(task, anchors)) return [];
+      if (task.source === undefined || !namesCommitsSinceMark(task, anchors)) return [];
       const path = sourcePath(task.source);
       if (!facts.existing.has(path) || !isInsideRepo(path) || changedByDate(task, path, facts, knownCommits)) return [];
       const lookup = await bases.markCommit(task);

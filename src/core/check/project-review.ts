@@ -221,7 +221,7 @@ function involvedTaskIds({ kept, filtered, plans }: SymbolSightings): string[] {
 }
 
 function uncheckedEvidence(tasks: readonly Task[], anchors: AnchorStates, { history, branches, existing }: RepoFacts, lateUnknown: ReadonlySet<string>): TaskEvidence[] {
-  const changeUnchecked = tasks.filter((task) => (history === "read" ? lateUnknown.has(task.id) : judgedByCommits(task, anchors)));
+  const changeUnchecked = tasks.filter((task) => judgedByCommits(task, anchors) && (history !== "read" || lateUnknown.has(task.id)));
   const missingUnchecked = branches.kind === "unreadable" ? tasks.filter((task) => task.source !== undefined && !existing.has(sourcePath(task.source))) : [];
   return [...evidenceOf(changeUnchecked, "source-changed"), ...evidenceOf(missingUnchecked, "source-missing")];
 }
