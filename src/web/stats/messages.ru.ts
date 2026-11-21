@@ -196,7 +196,8 @@ export function createStatsRu(constants: StatsConstants) {
     pendingWithoutEstimate: (openTasks: number): string => `${tasks(openTasks)}, ${estimateLater}`,
     pendingEstimated: ({ openTasks, estimated, perTask }: PendingEstimate): string => `${tasks(openTasks)} ${linesText(estimated)}, в среднем ${perTask} на задачу`,
     noiseMissing: {
-      "no-commits": "нет коммитов после внедрения",
+      "no-repos": "у проекта нет репозиториев — добавьте repos в project.md",
+      "no-lines": "после внедрения нет строк кода в пулреквестах",
       "no-deferred-tasks": "вынесенных задач пока нет — считать не из чего",
       "estimate-pending": estimateLater,
     } satisfies Record<NoiseMissing, string>,

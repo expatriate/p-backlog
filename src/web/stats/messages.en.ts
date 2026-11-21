@@ -181,7 +181,8 @@ export function createStatsEn(constants: StatsConstants): StatsMessages {
     pendingWithoutEstimate: (openTasks) => `${tasks(openTasks)}, ${estimateLater}`,
     pendingEstimated: ({ openTasks, estimated, perTask }) => `${tasks(openTasks)} ${linesText(estimated)}, on average ${perTask} per task`,
     noiseMissing: {
-      "no-commits": "no commits since adoption",
+      "no-repos": "the project has no repositories — add repos to project.md",
+      "no-lines": "no code lines in pull requests since adoption",
       "no-deferred-tasks": "no tasks deferred yet — nothing to measure",
       "estimate-pending": estimateLater,
     },

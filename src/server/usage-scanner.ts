@@ -7,7 +7,8 @@ import { BYTES_PER_MEBIBYTE, sum } from "../core/numbers";
 import type { ScanProgress } from "../core/stats/types";
 import { createJsonlTail } from "../core/store/jsonl-tail";
 import { relativeInside } from "../core/store/paths";
-import { cachedRepoRoots, unreadableDirHasNoRepo, type DirGitRoots, type GitRoots } from "../core/store/resolve-project";
+import { cachedRepoRoots, unreadableDirHasNoRepo, type GitRoots } from "../core/store/resolve-project";
+import { attemptReportingFailure, statOrNull } from "../core/store/fs-utils";
 import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
 import { listTranscripts, scanTranscripts, type TranscriptFile } from "../core/usage/transcripts";
 import { emptyUsageCache, readUsageCache, usageBucketsOf, writeUsageCache, type UsageCache, type UsageCacheEntry } from "../core/usage/usage-cache";
@@ -51,7 +52,7 @@ export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAU
 
   const onErrorAfterPublish = warnPathErrors((line) => void warn(() => line));
   const runsTail = createJsonlTail<CliRun>(join(root, RUNS_FILE), cliRunSchema);
-  const newOutsideWorktrees = outsideWorktreeRecorder();
+  const newOutsideOwners = outsideWorktreeRecorder();
 
   const setScan = (next: ScanProgress): void => {
     if (!scanEquals(scan, next)) revision += 1;
@@ -65,8 +66,8 @@ export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAU
     setScan(progressBefore(files, current));
     const result = await scanTranscripts({ files, cache: current, byteBudget, now: now() });
     const { values: runs } = await runsTail.read();
-    const added = await newOutsideWorktrees(result.cache, runs);
-    const next = added.length === 0 ? result.cache : { ...result.cache, worktreeRepos: { ...result.cache.worktreeRepos, ...Object.fromEntries(added) } };
+    const added = await newOutsideOwners(result.cache, runs);
+    const next = added.length === 0 ? result.cache : { ...result.cache, worktreeRepos: withNewOwners(result.cache.worktreeRepos, added, now()) };
     if (cacheChanged(published, next)) revision += 1;
     cache = next;
     setScan({ listed: true, filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft });
@@ -109,23 +110,49 @@ export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAU
   };
 }
 
-type WorktreeRepo = readonly [worktree: string, main: string];
+type ObservedOwner = GitRoots & { createdAt: number | null };
 
-function outsideWorktreeRecorder(): (scanned: UsageCache, runs: readonly CliRun[]) => Promise<WorktreeRepo[]> {
-  const lookupRepoRoot = cachedRepoRoots({ onUnreadable: unreadableDirHasNoRepo });
-  const settledCwds = new Set<string>();
-  const settledRootsOf = async (cwd: string): Promise<DirGitRoots | "missing"> => {
-    const roots = existsSync(cwd) ? await lookupRepoRoot(cwd) : "missing";
-    if (roots !== "not-in-repo" && roots !== "unreadable") settledCwds.add(cwd);
-    return roots;
+type SettledCwd = { worktree: string; createdAt: number | null } | typeof IN_OWN_REPO;
+
+const IN_OWN_REPO = "in-own-repo";
+
+function outsideWorktreeRecorder(): (scanned: UsageCache, runs: readonly CliRun[]) => Promise<ObservedOwner[]> {
+  const lookupNewCwd = cachedRepoRoots({ onUnreadable: unreadableDirHasNoRepo });
+  const lookupChangedCwd = cachedRepoRoots({ onUnreadable: unreadableDirHasNoRepo, ttlMs: 0 });
+  const settledCwds = new Map<string, SettledCwd>();
+  const isStillSettled = async (cwd: string): Promise<boolean> => {
+    const settled = settledCwds.get(cwd);
+    if (settled === undefined) return false;
+    return settled === IN_OWN_REPO || (await worktreeCreatedAt(settled.worktree)) === settled.createdAt;
+  };
+  const observeOutsideOwner = async (cwd: string): Promise<ObservedOwner | null> => {
+    if ((await isStillSettled(cwd)) || !existsSync(cwd)) return null;
+    const roots = await (settledCwds.has(cwd) ? lookupChangedCwd : lookupNewCwd)(cwd);
+    if (typeof roots === "string") return null;
+    if (relativeInside(roots.main, roots.worktree) !== null) {
+      settledCwds.set(cwd, IN_OWN_REPO);
+      return null;
+    }
+    const createdAt = await worktreeCreatedAt(roots.worktree);
+    settledCwds.set(cwd, { worktree: roots.worktree, createdAt });
+    return { ...roots, createdAt };
   };
   return async (scanned, runs) => {
     const cwds = new Set([...usageBucketsOf(scanned), ...runs].map((entry) => entry.cwd));
-    const unsettled = [...cwds].filter((cwd) => isAbsolute(cwd) && !settledCwds.has(cwd));
-    const found = (await Promise.all(unsettled.map(settledRootsOf))).filter((roots): roots is GitRoots => typeof roots !== "string");
-    const outside = found.filter(({ worktree, main }) => relativeInside(main, worktree) === null && scanned.worktreeRepos[worktree] !== main);
-    return [...new Map(outside.map(({ worktree, main }): WorktreeRepo => [worktree, main])).entries()];
+    const observed = await Promise.all([...cwds].filter((cwd) => isAbsolute(cwd)).map(observeOutsideOwner));
+    const newOwners = observed.filter((owner) => owner !== null).filter((owner) => scanned.worktreeRepos[owner.worktree]?.at(-1)?.main !== owner.main);
+    return [...new Map(newOwners.map((owner) => [owner.worktree, owner])).values()];
   };
+}
+
+async function worktreeCreatedAt(worktree: string): Promise<number | null> {
+  const gitFile = await attemptReportingFailure(join(worktree, ".git"), statOrNull, unreadableDirHasNoRepo);
+  return gitFile?.mtimeMs ?? null;
+}
+
+function withNewOwners(worktreeRepos: UsageCache["worktreeRepos"], owners: readonly ObservedOwner[], now: Date): UsageCache["worktreeRepos"] {
+  const tenuresOf = ({ worktree, main, createdAt }: ObservedOwner) => [...(worktreeRepos[worktree] ?? []), { main, since: createdAt ?? now.getTime() }];
+  return { ...worktreeRepos, ...Object.fromEntries(owners.map((owner) => [owner.worktree, tenuresOf(owner)])) };
 }
 
 function scanEquals(a: ScanProgress, b: ScanProgress): boolean {

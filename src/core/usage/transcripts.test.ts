@@ -360,12 +360,14 @@ describe("кэш другой версии или с испорченной за
     expect(weeklyHookTokens(await readUsageCache(root))).toBe(100 + 20 + 7);
   });
 
-  it("кэш прежней версии сохраняет запомненные репозитории worktree: запуски удалённых линий не уходят из проекта", async () => {
+  it.each([
+    ["со временем владения", [{ main: "/projects/api", since: 1 }]],
+    ["строкой, как в 0.14.1", "/projects/api"],
+  ])("кэш прежней версии сохраняет запомненные репозитории worktree, записанные %s: запуски удалённых линий не уходят из проекта", async (_format, owners) => {
     const root = await makeTempDir();
-    const worktreeRepos = { "/projects/spa-lanes/stats": "/projects/spa" };
-    await writeFile(join(root, ".usage-cache.json"), JSON.stringify({ version: USAGE_CACHE_VERSION - 1, files: {}, carried: {}, worktreeRepos }), "utf8");
+    await writeFile(join(root, ".usage-cache.json"), JSON.stringify({ version: USAGE_CACHE_VERSION - 1, files: {}, carried: {}, worktreeRepos: { "/projects/spa-lanes/stats": owners } }), "utf8");
 
-    expect((await readUsageCache(root)).worktreeRepos).toEqual(worktreeRepos);
+    expect((await readUsageCache(root)).worktreeRepos["/projects/spa-lanes/stats"]?.map((owner) => owner.main)).toEqual(["/projects/api"]);
   });
 
   it("кэш текущей версии без раздела перенесённых сессий не перечитывает расшифровки", async () => {

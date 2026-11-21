@@ -35,15 +35,16 @@ export function effectReport(context: ReportContext, code: CollectedCode, wholeB
   const estimate = estimator(estimateSamples(retainedFixes(wholeBacklog.histories, now), code));
   const adopted = projects.map((project) => ({ project, units: unitsSinceAdoption(project, histories, statsWindow) }));
   const periodUnits = projects.flatMap(unitsOf).filter((unit) => statsWindow.contains(Date.parse(unit.date)));
+  const totals = totalsOf(
+    deferred,
+    adopted.flatMap(({ units }) => units),
+    estimate,
+  );
   return {
     ...context.head,
     periods: grainPeriods(now),
     unavailableRepos: code.unavailableRepos,
-    totals: totalsOf(
-      deferred,
-      adopted.flatMap(({ units }) => units),
-      estimate,
-    ),
+    totals: projects.length > 0 ? totals : { ...totals, noiseShare: null, noiseMissing: "no-repos" },
     weeks: effectPeriodsOf(weekWindows(now), deferred, periodUnits, estimate),
     days: effectPeriodsOf(dayWindows(now), deferred, periodUnits, estimate),
     projects: adopted.map(({ project, units }) =>
@@ -138,7 +139,7 @@ function totalsOf(deferred: readonly Deferred[], units: readonly CommitUnit[], e
 }
 
 function noiseOf(realLines: number, deferredTasks: number, deferredLines: number, estimatedLines: number | null): EffectNoise {
-  if (realLines === 0) return { noiseShare: null, noiseMissing: "no-commits" };
+  if (realLines === 0) return { noiseShare: null, noiseMissing: "no-lines" };
   if (deferredTasks === 0) return { noiseShare: null, noiseMissing: "no-deferred-tasks" };
   if (estimatedLines === null) return { noiseShare: null, noiseMissing: "estimate-pending" };
   return { noiseShare: Math.min(1, deferredLines / (realLines + estimatedLines)), noiseMissing: null };

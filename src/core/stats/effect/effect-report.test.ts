@@ -167,10 +167,10 @@ describe("эффект беклога", () => {
       ),
     );
 
-    expect(report.totals).toMatchObject({ realLines: 0, noiseShare: null, noiseMissing: "no-commits" });
+    expect(report.totals).toMatchObject({ realLines: 0, noiseShare: null, noiseMissing: "no-lines" });
   });
 
-  it("без коммитов после внедрения причина — коммиты, даже когда оценки ожидающих ещё нет", () => {
+  it("без коммитов после внедрения причина — нет строк, даже когда оценки ожидающих ещё нет", () => {
     const few = fixes.slice(0, 4);
 
     const report = effectOf(
@@ -181,7 +181,23 @@ describe("эффект беклога", () => {
       ),
     );
 
-    expect(report.totals).toMatchObject({ estimatedLines: null, noiseShare: null, noiseMissing: "no-commits" });
+    expect(report.totals).toMatchObject({ estimatedLines: null, noiseShare: null, noiseMissing: "no-lines" });
+  });
+
+  it("без строк кода и без вынесенных задач причина — нет строк", () => {
+    const review = fixes.map((fix) => fix.task);
+
+    const report = effectOf({ tasks: review, journals: journalsOf(review, "review"), now: NOW, projectId: "spa" }, code([], []));
+
+    expect(report.totals).toMatchObject({ realLines: 0, deferredTasks: 0, noiseShare: null, noiseMissing: "no-lines" });
+  });
+
+  it("у проекта без репозиториев причина — нет репозиториев, а не нет коммитов", () => {
+    const withoutRepos: CollectedCode = { projects: [{ projectId: "spa", name: "Проект spa", repos: [] }], unavailableRepos: [], fixCommits: new Map() };
+
+    const report = effectOf({ ...incidental(others), now: NOW, projectId: "spa" }, withoutRepos);
+
+    expect(report.totals).toMatchObject({ realLines: 0, noiseShare: null, noiseMissing: "no-repos" });
   });
 
   it("одна и та же задача-исправление на нескольких задачах — коммит учтён один раз, в медиане тоже один раз", () => {
