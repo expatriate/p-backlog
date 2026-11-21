@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeTask } from "../model/testing/make-task";
 import { candidateEvents, candidateGoneEvents, episodeStates, filteredEvents } from "./episodes";
-import { changeEvents, createdEvent, deletedEvent, hasUnknownValue, journalEventSchema, UNKNOWN } from "./events";
+import { changeEvents, createdEvent, deletedEvent, hasUnknownValue, journalEventSchema, statusBeforeAutoClose, UNKNOWN, type JournalEvent } from "./events";
 
 const NOW = new Date(2026, 8, 18, 12, 0, 0);
 const AT = "2026-09-18T12:00:00";
@@ -65,6 +65,15 @@ describe("события журнала", () => {
     const event = deletedEvent(task, NOW, "sweep");
 
     expect(event.kind === "deleted" && event.snapshot.category).toBe("bug");
+  });
+});
+
+describe("статус эпика до автозакрытия", () => {
+  it("берётся из последнего по времени автозакрытия, даже если в файле журнала оно легло раньше", () => {
+    const autoClose = (at: string, from: "in-progress" | "blocked"): JournalEvent => ({ at, task: "SPA-1", via: "web", kind: "status", from, to: "done", resolution: "epic-done" });
+    const journal = [autoClose("2026-09-18T12:00:00.400+03:00", "in-progress"), autoClose("2026-09-18T12:00:00.100+03:00", "blocked")];
+
+    expect(statusBeforeAutoClose(journal, "SPA-1")).toBe("in-progress");
   });
 });
 

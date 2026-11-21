@@ -34,9 +34,11 @@ const argv = process.argv.slice(2);
 const warn = (line: string): void => void process.stderr.write(`${line}\n`);
 const CLOSED_READER_CODES = ["EPIPE", "EOF"];
 
-process.stdout.on("error", (error) => {
-  if (!hasAnyErrorCode(error, CLOSED_READER_CODES)) throw error;
-});
+for (const output of [process.stdout, process.stderr]) {
+  output.on("error", (error) => {
+    if (!hasAnyErrorCode(error, CLOSED_READER_CODES)) throw error;
+  });
+}
 
 const exitCode = await runCli(argv, {
   cwd: process.cwd(),

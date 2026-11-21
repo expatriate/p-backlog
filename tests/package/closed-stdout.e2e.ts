@@ -10,7 +10,9 @@ const repoRoot = join(import.meta.dirname, "../..");
 const cliPath = join(repoRoot, "dist/cli.js");
 const BODY_FAR_LARGER_THAN_PIPE_BUFFER = "x".repeat(BYTES_PER_MEBIBYTE);
 
-function runWithReaderClosedAfterFirstChunk(args: string[], options: { cwd: string; env: NodeJS.ProcessEnv }): Promise<{ code: number | null; err: string }> {
+type Spawned = { cwd: string; env: NodeJS.ProcessEnv };
+
+function runWithReaderClosedAfterFirstChunk(args: string[], options: Spawned): Promise<{ code: number | null; err: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cliPath, ...args], { ...options, stdio: ["ignore", "pipe", "pipe"] });
     let err = "";
@@ -21,22 +23,43 @@ function runWithReaderClosedAfterFirstChunk(args: string[], options: { cwd: stri
   });
 }
 
-describe("собранный CLI, когда читатель stdout закрылся раньше конца вывода", () => {
-  it("выходит с кодом команды без стека EPIPE и записывает запуск в журнал", async () => {
-    const home = await makeTempDir();
-    const backlogRoot = join(home, "backlog");
-    const env = { ...isolatedHomeEnv(home), BACKLOG_DIR: backlogRoot };
+function runWithStderrReaderClosed(args: string[], options: Spawned): Promise<number | null> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [cliPath, ...args], { ...options, stdio: ["ignore", "ignore", "pipe"] });
+    child.stderr.destroy();
+    child.on("error", reject);
+    child.on("close", resolve);
+  });
+}
 
-    const repo = await makeGitRepo(home, "demo-app");
-    await writeFiles(repo, { "src/a.ts": "1\n" });
-    gitCommitAll(repo, "init", new Date().toISOString());
-    const created = spawnSync(process.execPath, [cliPath, "new", "--category", "bug", "--title", "Huge task", "--source", "src/a.ts:1"], { cwd: repo, env, input: BODY_FAR_LARGER_THAN_PIPE_BUFFER });
-    expect(created.status).toBe(0);
+async function backlogWithHugeTask(): Promise<Spawned & { backlogRoot: string }> {
+  const home = await makeTempDir();
+  const backlogRoot = join(home, "backlog");
+  const env = { ...isolatedHomeEnv(home), BACKLOG_DIR: backlogRoot };
+  const repo = await makeGitRepo(home, "demo-app");
+  await writeFiles(repo, { "src/a.ts": "1\n" });
+  gitCommitAll(repo, "init", new Date().toISOString());
+  const created = spawnSync(process.execPath, [cliPath, "new", "--category", "bug", "--title", "Huge task", "--source", "src/a.ts:1"], { cwd: repo, env, input: BODY_FAR_LARGER_THAN_PIPE_BUFFER });
+  expect(created.status).toBe(0);
+  return { cwd: repo, env, backlogRoot };
+}
 
-    const listed = await runWithReaderClosedAfterFirstChunk(["list", "--json"], { cwd: repo, env });
+describe("собранный CLI, когда читатель его вывода закрылся раньше конца", () => {
+  it("stdout: выходит с кодом команды без стека EPIPE и записывает запуск в журнал", async () => {
+    const { backlogRoot, ...options } = await backlogWithHugeTask();
+
+    const listed = await runWithReaderClosedAfterFirstChunk(["list", "--json"], options);
 
     expect(listed.err).not.toContain("EPIPE");
     expect(listed.code).toBe(0);
+    expect((await readRuns(backlogRoot)).map((run) => run.command)).toEqual(["new", "list"]);
+  }, 60_000);
+
+  it("stderr: предупреждение после закрытия читателя не роняет команду — код команды, запуск в журнале", async () => {
+    const { backlogRoot, ...options } = await backlogWithHugeTask();
+    await writeFiles(backlogRoot, { "demo-app/DA-2.md": "без frontmatter\n" });
+
+    expect(await runWithStderrReaderClosed(["list"], options)).toBe(0);
     expect((await readRuns(backlogRoot)).map((run) => run.command)).toEqual(["new", "list"]);
   }, 60_000);
 });

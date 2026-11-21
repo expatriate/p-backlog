@@ -170,6 +170,14 @@ describe("backlog project", () => {
     expect((await run(["project", "delete", "spa", "--confirm", "spa"])).code).toBe(EXIT.notFound);
   });
 
+  it("delete считает и файлы задач с неразобранным фронтматтером, которые уходят вместе с каталогом", async () => {
+    const { run, root } = await makeCliSandbox();
+    await run(["new", "--category", "bug", "--title", "Задача"]);
+    await writeFile(join(root, "spa", "SPA-2.md"), "сломано");
+
+    expect(await run(["project", "delete", "spa", "--confirm", "spa"])).toMatchObject({ code: EXIT.ok, out: "spa удалён: задач 2" });
+  });
+
   it("ID в другом регистре не находит проект: delete не удаляет каталог, status не правит project.md", async () => {
     const { run, root } = await makeCliSandbox();
     await run(["new", "--category", "bug", "--title", "Задача"]);

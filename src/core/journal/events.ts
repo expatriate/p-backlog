@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { formatLocalIso } from "../model/dates";
+import { formatLocalIsoWithMilliseconds } from "../model/dates";
 import { isClosed } from "../model/graph";
 import { PRIORITIES, RESOLUTIONS, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskFrontmatterSchema, type Task, type TaskStatus } from "../model/types";
 
@@ -137,7 +137,7 @@ export function hasUnknownValue(event: JournalEvent): boolean {
 
 export function createdEvent(task: Task, now: Date, via: ChangeSource, provenance: Provenance = {}): JournalEvent {
   return {
-    at: formatLocalIso(now),
+    at: formatLocalIsoWithMilliseconds(now),
     task: task.id,
     via,
     kind: "created",
@@ -153,7 +153,7 @@ export function createdEvent(task: Task, now: Date, via: ChangeSource, provenanc
 }
 
 export function changeEvents(before: Task, after: Task, now: Date, via: ChangeSource, headCommit?: string): JournalEvent[] {
-  const at = formatLocalIso(now);
+  const at = formatLocalIsoWithMilliseconds(now);
   const events: JournalEvent[] = [];
   if (before.status !== after.status) {
     const resolution = isClosed(after.status) ? after.resolution : undefined;
@@ -183,13 +183,18 @@ export function withoutUndoneClosings<T extends StatusChange>(ordered: readonly 
   return kept;
 }
 
+export function chronologicalEvents<T extends { at: string }>(events: readonly T[]): T[] {
+  return [...events].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+}
+
 export function statusBeforeAutoClose(journal: readonly JournalEvent[], epicId: string): TaskStatus {
-  const autoClose = journal.findLast((event) => event.task === epicId && event.kind === "status" && event.resolution === "epic-done");
+  const autoCloses = journal.filter((event) => event.task === epicId && event.kind === "status" && event.resolution === "epic-done");
+  const autoClose = chronologicalEvents(autoCloses).at(-1);
   return autoClose?.kind === "status" && !isClosed(autoClose.from) ? autoClose.from : "backlog";
 }
 
 export function deletedEvent(task: Task, now: Date, via: ChangeSource): JournalEvent {
-  return { at: formatLocalIso(now), task: task.id, via, kind: "deleted", snapshot: snapshotOf(task) };
+  return { at: formatLocalIsoWithMilliseconds(now), task: task.id, via, kind: "deleted", snapshot: snapshotOf(task) };
 }
 
 function snapshotOf(task: Task): TaskSnapshot {

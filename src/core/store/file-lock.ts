@@ -76,15 +76,11 @@ export async function withAvailableLocks<T>(
 }
 
 async function releasingAfter<T>(held: readonly HeldLock[], action: () => Promise<T>, onErrorAfterPublish: PathErrorHandler): Promise<T> {
-  let outcome: T;
   try {
-    outcome = await action();
-  } catch (error) {
-    const [failure] = await releaseFailures(held);
-    throw failure === undefined ? error : failure.error;
+    return await action();
+  } finally {
+    for (const { path, error } of await releaseFailures(held)) onErrorAfterPublish(path, error);
   }
-  for (const { path, error } of await releaseFailures(held)) onErrorAfterPublish(path, error);
-  return outcome;
 }
 
 type ReleaseFailure = { path: string; error: unknown };
