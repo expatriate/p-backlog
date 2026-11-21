@@ -188,6 +188,19 @@ describe("уплотнение журнала проекта", () => {
     expect(lines.at(-1)).toBe("сломано");
   });
 
+  it("уплотнение сохраняет последнее подтверждение с коммитом живой задачи за пределами окна", async () => {
+    const earlier = { ...verified("SPA-1", "2026-04-25"), commit: "a".repeat(40) };
+    const latest = { ...verified("SPA-1", "2026-05-01"), commit: "b".repeat(40) };
+    const withoutCommit = verified("SPA-1", "2026-05-02");
+    const deletedTask = { ...verified("SPA-3", "2026-03-16"), commit: "c".repeat(40) };
+    const { dir } = await spaProject([created("SPA-1", "2026-01-10"), deletedTask, earlier, latest, withoutCommit, ""]);
+
+    await compact(dir);
+
+    const { events } = await readJournal(dir, "spa");
+    expect(events.filter((event) => event.kind === "verified")).toEqual([latest]);
+  });
+
   it("открытый эпизод кандидата переживает уплотнение — следующая проверка его не повторит", async () => {
     const { dir } = await spaProject();
 

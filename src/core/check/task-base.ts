@@ -35,8 +35,13 @@ export function taskBases(repo: string, marks: MarkCommits, gitOutcome: GitOutco
       const recorded = commitAtMark(task, marks);
       if (recorded === undefined) return reflogCommit();
       const found: CommitLookup = { kind: "found", commit: recorded };
-      if (task.verified === undefined) return found;
-      return seenFromHead(await headLine(recorded)) ? found : reflogCommit();
+      const line = await headLine(recorded);
+      if (line === "missing") {
+        const fromReflog = await reflogCommit();
+        return fromReflog.kind === "found" && (await headLine(fromReflog.commit)) === "other-branch" ? found : fromReflog;
+      }
+      if (line === "other-branch" && task.verified !== undefined) return reflogCommit();
+      return found;
     });
 
   const bases = new Map<string, Promise<TaskBase>>();
@@ -84,16 +89,5 @@ export function markLineOf(base: TaskBase): MarkLine {
       return base.markLine;
     case "unknown":
       return "unknown";
-  }
-}
-
-function seenFromHead(line: HeadLine): boolean {
-  switch (line) {
-    case "this-line":
-    case "unknown":
-      return true;
-    case "other-branch":
-    case "missing":
-      return false;
   }
 }

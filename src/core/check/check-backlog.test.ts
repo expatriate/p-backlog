@@ -4,7 +4,7 @@ import { chmod, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { warnPathErrors } from "../errors";
-import type { GitOutcomeRunner } from "../git/run";
+import { runGit, type GitOutcomeRunner } from "../git/run";
 import { gitFailing } from "../git/testing/failing-git";
 import type { CheckMode } from "../journal/events";
 import { coreMessages } from "../messages";
@@ -15,6 +15,7 @@ import {
   gitAmend,
   gitCheckout,
   gitCommitAll,
+  gitHead,
   gitMergeFastForward,
   gitMergeNoFastForward,
   gitMergeSquash,
@@ -1080,7 +1081,7 @@ describe("checkBacklog", () => {
     ]);
   });
 
-  it("задача с source вне репозитория и задача с неизвестным коммитом создания не мешают найти пришедшую перемоткой правку соседней", async () => {
+  it("правку из перемотки находят и для задачи с отсутствующим origin, а source вне репозитория пропускают", async () => {
     const { home, root } = await editFastForwardedAfterTask("src/a.ts");
     await writeFiles(home, { "projects/outside.ts": "снаружи\n" });
     await writeFiles(root, {
@@ -1091,7 +1092,10 @@ describe("checkBacklog", () => {
 
     const report = await check(root, home, "changed");
 
-    expect(report.candidates.map((candidate) => candidate.task.id)).toEqual(["SPA-1"]);
+    expect(report.candidates.map((candidate) => [candidate.task.id, candidate.kind])).toEqual([
+      ["SPA-1", "source-changed"],
+      ["SPA-2", "source-changed"],
+    ]);
   });
 
   it("переход на разошедшуюся ветку, где файл задачи другой, кандидатом её не делает", async () => {
@@ -1249,6 +1253,17 @@ describe("checkBacklog", () => {
       return marked;
     }
 
+    async function prunedOriginAfterRebase(anchored: boolean) {
+      const marked = await localCommitMarkedBehindUpstream(anchored);
+      const { repo } = marked;
+      const origin = gitHead(repo);
+      await marked.markTask({ origin });
+      gitRebase(repo, "upstream", "2026-09-12T10:00:00+03:00");
+      gitRun(repo, ["-c", "gc.reflogExpire=never", "-c", "gc.reflogExpireUnreachable=all", "gc", "-q", "--prune=now"], "2026-09-13T10:00:00+03:00");
+      expect(await runGit(repo, ["cat-file", "-t", origin])).toBeNull();
+      return marked;
+    }
+
     async function squashedBranch(anchored: boolean) {
       const marked = await markedRepo(anchored);
       const { repo } = marked;
@@ -1291,6 +1306,8 @@ describe("checkBacklog", () => {
       { case: "rebase остановлен конфликтом, задача без якоря", arrange: rebaseStoppedByConflict, anchored: false },
       { case: "коммит отметки пришёл в ветку перемоткой не вершиной, потом pull --rebase с конфликтом, задача с якорем", arrange: fastForwardedPastMarkThenRebasedThroughConflict, anchored: true },
       { case: "коммит отметки пришёл в ветку перемоткой не вершиной, потом pull --rebase с конфликтом, задача без якоря", arrange: fastForwardedPastMarkThenRebasedThroughConflict, anchored: false },
+      { case: "коммит создания задачи переписан rebase и удалён gc, задача с якорем", arrange: prunedOriginAfterRebase, anchored: true },
+      { case: "коммит создания задачи переписан rebase и удалён gc, задача без якоря", arrange: prunedOriginAfterRebase, anchored: false },
       { case: "ветку слили squash, она жива, задача с якорем", arrange: squashedBranch, anchored: true },
       { case: "ветку слили squash, она жива, задача без якоря", arrange: squashedBranch, anchored: false },
       { case: "ветку слили squash и удалили, задача с якорем", arrange: squashedBranchDeleted, anchored: true },

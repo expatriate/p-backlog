@@ -91,6 +91,10 @@ export function gitMergeFastForward(repo: string, branch: string, isoDate: strin
   execFileSync("git", ["merge", "-q", "--ff-only", branch], { cwd: repo, env: committerEnv(isoDate) });
 }
 
+export function gitHead(repo: string): string {
+  return execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
+}
+
 export function gitShortHead(repo: string): string {
   return execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
 }

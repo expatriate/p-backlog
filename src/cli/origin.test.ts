@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { gitCommitAll, gitShortHead, makeGitRepo, makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
+import { gitCommitAll, gitHead, makeGitRepo, makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
 import { readOrigin } from "./origin";
 
 describe("происхождение задачи", () => {
@@ -8,7 +8,7 @@ describe("происхождение задачи", () => {
     const repo = await makeGitRepo(await makeTempDir(), "spa");
     await writeFiles(repo, { "a.ts": "a\n" });
     gitCommitAll(repo, "Начало", "2026-09-16T10:00:00Z");
-    const commit = gitShortHead(repo);
+    const commit = gitHead(repo);
     const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
 
     expect(await readOrigin(repo)).toEqual({ branch, commit });

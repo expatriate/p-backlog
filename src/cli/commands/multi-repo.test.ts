@@ -6,7 +6,7 @@ import { anchorOf } from "../../core/check/anchor";
 import type { CheckReport } from "../../core/check/check-backlog";
 import { JOURNAL_FILE, readJournal } from "../../core/store/journal";
 import { loadBacklog } from "../../core/store/load";
-import { gitAddWorktree, gitCommitAll, gitShortHead, makeGitRepo, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitAddWorktree, gitCommitAll, gitHead, gitShortHead, makeGitRepo, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { makeCliSandbox, type CliSandbox } from "../testing/cli-harness";
 
@@ -45,7 +45,7 @@ async function journalEvents(root: string) {
 
 async function withOriginIn(root: string, fromRepo: string, toRepo: string): Promise<void> {
   const journal = join(root, "spa", JOURNAL_FILE);
-  await writeFile(journal, (await readFile(journal, "utf8")).replaceAll(gitShortHead(fromRepo), gitShortHead(toRepo)));
+  await writeFile(journal, (await readFile(journal, "utf8")).replaceAll(gitHead(fromRepo), gitHead(toRepo)));
 }
 
 async function serverDeletedInWeb() {
@@ -268,7 +268,7 @@ describe("проект с двумя repos", () => {
     await run(["verify", "SPA-1"], { cwd: web });
 
     const verified = (await readJournal(join(root, "spa"), "spa")).events.find((event) => event.kind === "verified");
-    expect(verified).toMatchObject({ commit: gitShortHead(api) });
+    expect(verified).toMatchObject({ commit: gitHead(api) });
   });
 
   it("verify --source из другого repo переносит задачу в него: дальше она судится по этому repo, а не по repo создания", async () => {
@@ -294,8 +294,8 @@ describe("проект с двумя repos", () => {
 
     const events = await journalEvents(root);
     expect([...fromWeb.candidates, ...fromApi.candidates]).toEqual([]);
-    expect(events.find((event) => event.kind === "created")).toMatchObject({ origin: { commit: gitShortHead(api) } });
-    expect(events.find((event) => event.kind === "verified")).toMatchObject({ commit: gitShortHead(api) });
+    expect(events.find((event) => event.kind === "created")).toMatchObject({ origin: { commit: gitHead(api) } });
+    expect(events.find((event) => event.kind === "verified")).toMatchObject({ commit: gitHead(api) });
   });
 
   it("старая задача с origin из repo, где файл удалён, судится по repo, где сходится её якорь", async () => {

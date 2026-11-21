@@ -5,7 +5,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { runGit } from "../../core/git/run";
 import { loadBacklog } from "../../core/store/load";
 import { readJournal } from "../../core/store/journal";
-import { gitAddWorktree, gitCommitAll, gitShortHead, makeGitRepo, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
+import { gitAddWorktree, gitCommitAll, gitHead, makeGitRepo, projectFile, taskFile, writeFiles } from "../../core/store/testing/temp-dirs";
 import { EXIT } from "../io";
 import { runCli } from "../run";
 import { baseCliEnv, makeCliSandbox } from "../testing/cli-harness";
@@ -112,7 +112,7 @@ describe("backlog new", () => {
     await writeFiles(repo, { "a.ts": "x" });
     gitCommitAll(repo, "начало", "2026-09-17T10:00:00+03:00");
     const branch = execFileSync("git", ["-C", repo, "rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf8" }).trim();
-    const commit = gitShortHead(repo);
+    const commit = gitHead(repo);
 
     const result = await run(["new", "--title", "X", "--category", "couplers", "--found", "review"]);
 

@@ -10,7 +10,7 @@ export async function readOrigin(dir: string): Promise<TaskOrigin | undefined> {
 }
 
 export async function readHeadCommit(dir: string): Promise<string | undefined> {
-  return (await gitLine(dir, ["rev-parse", "--short", "HEAD"])) ?? undefined;
+  return (await gitLine(dir, ["rev-parse", "HEAD"])) ?? undefined;
 }
 
 async function gitLine(dir: string, args: string[]): Promise<string | null> {

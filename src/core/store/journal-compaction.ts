@@ -82,12 +82,22 @@ function retainedLines(lines: readonly JournalLine[], liveTaskIds: ReadonlySet<s
   const keepsHistory = (task: string) => liveTaskIds.has(task) || (lastSeen.get(task) ?? 0) >= since;
   const reportStarts = reportStartEvents(events, keepsHistory);
   const openers = episodeOpeners(events);
+  const lastVerifications = lastVerificationWithCommitByTask(events);
   const firstRecent = lines.findIndex(({ event }) => event !== null && isRecent(event));
   return lines.filter(({ event }, position) => {
     if (event === null) return firstRecent !== -1 && position > firstRecent;
-    if (reportStarts.has(event) || (openers.has(event) && liveTaskIds.has(event.task))) return true;
+    if (reportStarts.has(event)) return true;
+    if (liveTaskIds.has(event.task) && (openers.has(event) || lastVerifications.get(event.task) === event)) return true;
     return EPISODE_KINDS.has(event.kind) ? isRecent(event) : keepsHistory(event.task);
   });
+}
+
+function lastVerificationWithCommitByTask(events: readonly JournalEvent[]): Map<string, JournalEvent> {
+  const lastByTask = new Map<string, JournalEvent>();
+  for (const event of events) {
+    if (event.kind === "verified" && event.commit !== undefined) lastByTask.set(event.task, event);
+  }
+  return lastByTask;
 }
 
 function reportStartEvents(events: readonly JournalEvent[], keepsHistory: (task: string) => boolean): Set<JournalEvent> {
