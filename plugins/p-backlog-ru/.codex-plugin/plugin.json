@@ -1,0 +1,28 @@
+{
+  "name": "p-backlog-ru",
+  "description": "Локальный беклог задач",
+  "version": "0.14.1",
+  "author": {
+    "name": "expatriate"
+  },
+  "homepage": "https://github.com/expatriate/p-backlog#readme",
+  "repository": "https://github.com/expatriate/p-backlog",
+  "license": "Apache-2.0",
+  "keywords": [
+    "backlog",
+    "tech-debt",
+    "code-review",
+    "tasks",
+    "stop-hook"
+  ],
+  "interface": {
+    "displayName": "p-backlog",
+    "shortDescription": "Локальный беклог задач",
+    "longDescription": "Ведите задачи проекта в Markdown. Агент записывает найденные по ходу работы баги и техдолг с привязкой к коду, а после изменений предлагает перепроверить связанные задачи. Для работы нужна команда backlog из пакета p-backlog.",
+    "composerIcon": "./assets/logo.png",
+    "logo": "./assets/logo.png",
+    "screenshots": [
+      "./assets/tasks.png"
+    ]
+  }
+}

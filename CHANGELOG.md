@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Codex shows the Russian plugin as `p-backlog`, with a Russian description, an icon, and a screenshot of the task list.
+
 ## 0.14.1
 
 Rewritten branches keep their candidates, removed lanes keep their costs, and CI no longer depends on Ubuntu mirrors.

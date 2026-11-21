@@ -5,6 +5,7 @@ import type { Language } from "../../src/core/i18n/language";
 import { SKILL_SOURCES_DIR, SKILL_VARIANTS } from "../../src/cli/skill-variants";
 import { SKILL_NAME } from "../../src/core/skill-name";
 import { jsonFileText } from "../../src/core/store/json-file";
+import { CODEX_DESCRIPTIONS } from "./messages.ru";
 
 const MARKETPLACE = "p-backlog";
 const OWNER = { name: "expatriate" };
@@ -22,10 +23,10 @@ const packageManifestSchema = z.object({ version: z.string(), license: z.string(
 const STOP_HOOK_SOURCE = "scripts/plugins/stop.mjs";
 const HOOKS = { hooks: { Stop: [{ hooks: [{ type: "command", command: "node", args: ["${CLAUDE_PLUGIN_ROOT}/hooks/stop.mjs"] }] }] } };
 
-export async function pluginFiles(repoRoot: string): Promise<Record<string, string>> {
+export async function pluginFiles(repoRoot: string): Promise<Record<string, string | Buffer>> {
   const manifest = packageManifestSchema.parse(JSON.parse(await readFile(join(repoRoot, "package.json"), "utf8")));
   const stopHook = await readFile(join(repoRoot, STOP_HOOK_SOURCE), "utf8");
-  const files: Record<string, string> = {
+  const files: Record<string, string | Buffer> = {
     ".claude-plugin/marketplace.json": jsonFileText({
       name: MARKETPLACE,
       owner: OWNER,
@@ -34,7 +35,7 @@ export async function pluginFiles(repoRoot: string): Promise<Record<string, stri
   };
   for (const plugin of PLUGINS) {
     const dir = `plugins/${plugin.name}`;
-    files[`${dir}/.claude-plugin/plugin.json`] = jsonFileText({
+    const metadata = {
       name: plugin.name,
       description: plugin.description,
       version: manifest.version,
@@ -43,10 +44,28 @@ export async function pluginFiles(repoRoot: string): Promise<Record<string, stri
       repository: REPOSITORY,
       license: manifest.license,
       keywords: KEYWORDS,
-    });
+    };
+    files[`${dir}/.claude-plugin/plugin.json`] = jsonFileText(metadata);
     files[`${dir}/skills/${SKILL_NAME}/SKILL.md`] = await readFile(join(repoRoot, plugin.skillDir, "SKILL.md"), "utf8");
     files[`${dir}/hooks/hooks.json`] = jsonFileText(HOOKS);
     files[`${dir}/hooks/stop.mjs`] = stopHook;
+    if (plugin.name === SKILL_VARIANTS.ru.plugin) {
+      const logo = "assets/logo.png";
+      const screenshot = "assets/tasks.png";
+      files[`${dir}/.codex-plugin/plugin.json`] = jsonFileText({
+        ...metadata,
+        description: CODEX_DESCRIPTIONS.shortDescription,
+        interface: {
+          displayName: "p-backlog",
+          ...CODEX_DESCRIPTIONS,
+          composerIcon: `./${logo}`,
+          logo: `./${logo}`,
+          screenshots: [`./${screenshot}`],
+        },
+      });
+      files[`${dir}/${logo}`] = await readFile(join(repoRoot, "scripts/plugins/logo.png"));
+      files[`${dir}/${screenshot}`] = await readFile(join(repoRoot, "docs/screenshots/ru/tasks.png"));
+    }
   }
   return files;
 }
