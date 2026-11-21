@@ -8,6 +8,7 @@
 }
 
 .item {
+  min-width: 0;
   padding: 6px var(--space-2);
   border-radius: var(--radius-control);
   color: var(--ink-muted);
@@ -29,6 +30,7 @@
 }
 
 .name {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
