@@ -4,6 +4,10 @@ import type { ProjectsResponse, ProjectView } from "../../src/core/api/contract"
 const longName = "очень-длинное-имя-проекта-которое-не-влезает-в-сайдбар";
 const longProject: ProjectView = { id: "long", name: longName, prefix: "LONG", repos: [], active: true, extra: {}, body: "", path: "/long/project.md", codeGraph: "none" };
 
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "wait" });
+});
+
 for (const width of [1280, 320]) {
   test(`длинное имя проекта в сайдбаре обрезается до кнопки удаления и не даёт прокрутки по ширине на ${width}px`, async ({ page }) => {
     await page.route("**/api/projects", async (route) => {
