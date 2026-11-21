@@ -3,6 +3,7 @@ import type { CostPeriod, FlowPeriod } from "../../core/api/contract";
 import { NBSP } from "../../core/i18n/plural";
 import { statsEn, statsRu } from "./messages";
 import { summarizeIntake, summarizeSpend } from "./summaries";
+import { costValue } from "./value-format";
 
 const periodFrom = (day: number, created: number): FlowPeriod => ({ start: `2026-09-${String(day).padStart(2, "0")}T00:00:00+03:00`, created, closed: 0, openAtEnd: created });
 
@@ -37,6 +38,13 @@ const spend = (cost: number | null, hasUnpricedTokens: boolean): CostPeriod => (
 });
 
 describe("деньги в сводке расхода", () => {
+  it("показывает расход меньше цента отдельно от нуля и суммы в один цент", () => {
+    expect(costValue("ru", 0.000632)).toBe(`<${NBSP}$0,01`);
+    expect(costValue("en", 0.0099)).toBe(`<${NBSP}$0.01`);
+    expect(costValue("ru", 0)).toBe(`≈${NBSP}$0,00`);
+    expect(costValue("ru", 0.01)).toBe(`≈${NBSP}$0,01`);
+  });
+
   it("без единой цены, даже рядом с днями без токенов, — прочерк без «≈» и без пометки о моделях без цены", () => {
     expect(statsRu.spendSummary(summarizeSpend("ru", "day", [spend(0, false), spend(null, true)], statsRu.unpricedNote))).toContain("по ценам API —;");
   });

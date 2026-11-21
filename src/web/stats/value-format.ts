@@ -4,6 +4,8 @@ import type { Language } from "../../core/i18n/language";
 import { NBSP } from "../../core/i18n/plural";
 import { NO_VALUE } from "../labels";
 
+const USD_CENT = 0.01;
+
 export function approx(text: string): string {
   return `≈${NBSP}${text}`;
 }
@@ -17,7 +19,9 @@ export function wholeFormatter(language: Language): (value: number) => string {
 }
 
 export function costValue(language: Language, cost: number | null): string {
-  return cost === null ? NO_VALUE : approx(formatMoney(language, cost));
+  if (cost === null) return NO_VALUE;
+  if (cost > 0 && cost < USD_CENT) return `<${NBSP}${formatMoney(language, USD_CENT)}`;
+  return approx(formatMoney(language, cost));
 }
 
 export type PricedCost = { kind: "unpriced" } | { kind: "priced"; amount: string; withoutUnpricedModels: boolean };
