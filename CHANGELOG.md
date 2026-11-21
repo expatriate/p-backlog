@@ -1,8 +1,24 @@
 # Changelog
 
-## Unreleased
+## 0.14.2
+
+More reliable backlog checks and task history, plus a Russian plugin card in Codex.
 
 - Codex shows the Russian plugin as `p-backlog`, with a Russian description, an icon, and a screenshot of the task list.
+- `backlog check` lists late commits for tasks whose source anchor changed, handles more rewritten branch histories,
+  and reports when Git history could not be read. Files kept only in dropped branches or a stash no longer count as
+  present on another branch.
+- Tasks record full Git commit IDs. Journal compaction preserves the last verification with a commit, and the checker
+  can use the current branch's reflog when Git has pruned the original commit.
+- Journal events retain millisecond timestamps, so reversing the order of writes within a second no longer changes
+  the previous status of an automatically closed epic. If an operation and lock release both fail, the operation's
+  error is preserved.
+- The CLI handles a closed stderr pipe, and `project delete` counts unreadable task files that it removes.
+- Cost reports keep older runs with the original repository when another worktree takes over the same path.
+  The Effect report distinguishes projects without repositories from projects without code changes.
+- Long project names truncate in the sidebar so task counts and remove buttons remain visible.
+- Nested lists and other Markdown blocks stay outside the parent checklist label, so screen readers announce the
+  parent item on its own.
 
 ## 0.14.1
 
