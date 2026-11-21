@@ -79,22 +79,11 @@ async function releasingAfter<T>(held: readonly HeldLock[], action: () => Promis
   try {
     return await action();
   } finally {
-    for (const { path, error } of await releaseFailures(held)) onErrorAfterPublish(path, error);
+    const failures = await Promise.all(held.map((lock) => release(lock).catch((error: unknown) => ({ path: lock.path, error }))));
+    for (const failure of failures) {
+      if (failure) onErrorAfterPublish(failure.path, failure.error);
+    }
   }
-}
-
-type ReleaseFailure = { path: string; error: unknown };
-
-async function releaseFailures(held: readonly HeldLock[]): Promise<ReleaseFailure[]> {
-  const failures = await Promise.all(
-    held.map((lock) =>
-      release(lock).then(
-        (): ReleaseFailure[] => [],
-        (error: unknown) => [{ path: lock.path, error }],
-      ),
-    ),
-  );
-  return failures.flat();
 }
 
 type RefusalStreak = { refusal: Refusal; since: number };
