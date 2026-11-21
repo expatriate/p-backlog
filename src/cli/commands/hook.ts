@@ -67,7 +67,16 @@ async function runHook(args: string[], io: CliIo): Promise<ExitCode> {
   if (!("project" in lookup)) return EXIT.ok;
   const { project } = lookup;
   if (!(await isFirstHookOfTurn(agent, event, io))) return EXIT.ok;
-  const { candidates } = await checkBacklog(io.backlogRoot, loaded, { projectIds: [project.id], mode: "changed", now: io.now(), context, messages: io.core, warn: io.warn, workingRoots: repoRootsOf(cwdRoots) });
+  const { candidates } = await checkBacklog(io.backlogRoot, loaded, {
+    projectIds: [project.id],
+    mode: "changed",
+    now: io.now(),
+    context,
+    messages: io.core,
+    warn: io.warn,
+    workingRoots: repoRootsOf(cwdRoots),
+    model: event.model,
+  });
   const lowPriority = new Set(loaded.tasks.filter((task) => task.priority === "low").map((task) => task.id));
   const pinpointed = candidates.filter((candidate) => !(candidate.kind === "source-changed" && candidate.method === "file"));
   const worthTelling = pinpointed.filter((candidate) => !lowPriority.has(candidate.task.id));

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { parseJson } from "../../core/store/json-file";
 import { AGENT_SPECS, type Agent } from "./agent";
 
-export type StopEvent = { cwd: string; session: string | undefined; turn: string | undefined; skip: boolean };
+export type StopEvent = { cwd: string; session: string | undefined; turn: string | undefined; skip: boolean; model?: string | undefined };
 
 type StopAnswer = { reason: string | null; systemMessage: string | null };
 
@@ -16,6 +16,7 @@ const claudeEventSchema = z.object({
   turn_id: z.string().optional(),
   stop_hook_active: z.boolean().optional(),
   last_assistant_message: z.string().nullish(),
+  model: z.string().trim().min(1).optional().catch(undefined),
 });
 
 const cursorEventSchema = z.object({
@@ -46,7 +47,7 @@ export function formatStopAnswer(agent: Agent, answer: StopAnswer): string | nul
 function parseClaudeEvent(text: string): StopEvent | null {
   const event = parseJson(text, claudeEventSchema);
   if (event === null) return null;
-  return { cwd: event.cwd, session: event.session_id, turn: event.turn_id ?? digest(event.last_assistant_message), skip: event.stop_hook_active === true };
+  return { cwd: event.cwd, session: event.session_id, turn: event.turn_id ?? digest(event.last_assistant_message), skip: event.stop_hook_active === true, model: event.model };
 }
 
 function parseCursorEvent(text: string): StopEvent | null {

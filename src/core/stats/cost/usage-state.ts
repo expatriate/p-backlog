@@ -19,6 +19,7 @@ export const transcriptStateSchema = z.object({
   lastMessageTokens: tokenCountsSchema.nullable().optional(),
   pending: z.record(z.string(), estimatedKindSchema),
   pendingEstimates: z.array(z.object({ kind: estimatedKindSchema, chars: z.number(), slot: z.string(), cwd: z.string() })),
+  codex: z.object({ cwd: z.string(), total: tokenCountsSchema.nullable(), toolDirectories: z.record(z.string(), z.string()).optional() }).optional(),
 });
 
 export type UsageBucket = z.infer<typeof usageBucketSchema>;

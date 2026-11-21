@@ -27,6 +27,7 @@ export type CheckRequest = {
   warn: (line: string) => void;
   workingRoots: GitRoots | null;
   git?: GitOutcomeRunner | undefined;
+  model?: string | undefined;
 };
 
 export type CheckReport = { fixed: CheckFix[]; problems: CheckProblem[]; candidates: ReportedCandidate[] };
@@ -80,7 +81,12 @@ function candidateOutcome(reviews: readonly ProjectReview[]): CandidateOutcome {
   };
 }
 
-async function recordCandidates(root: string, tasks: readonly Task[], { candidates, filtered, unchecked, unjudged }: CandidateOutcome, { mode, now, projectIds, messages, warn }: CheckRequest): Promise<void> {
+async function recordCandidates(
+  root: string,
+  tasks: readonly Task[],
+  { candidates, filtered, unchecked, unjudged }: CandidateOutcome,
+  { mode, now, projectIds, messages, warn, model }: CheckRequest,
+): Promise<void> {
   const projectOf = new Map(tasks.map((task) => [task.id, task.projectId]));
   for (const projectId of projectIds) {
     const dir = join(root, projectId);
@@ -95,7 +101,7 @@ async function recordCandidates(root: string, tasks: readonly Task[], { candidat
       const states = episodeStates(journal.events);
       const sightings = found.map(sightingOf);
       const gone = endsGone ? candidateGoneEvents({ sightings, reviewed, unchecked: unchecked.get(projectId) ?? [] }, states, now) : [];
-      await appendJournal(dir, [...candidateEvents(sightings, states, now, mode), ...gone, ...filteredEvents(filteredHere, states, now)], (_path, error) => reportFailure(error));
+      await appendJournal(dir, [...candidateEvents(sightings, states, now, mode, model), ...gone, ...filteredEvents(filteredHere, states, now)], (_path, error) => reportFailure(error));
     } catch (error) {
       reportFailure(error);
     }

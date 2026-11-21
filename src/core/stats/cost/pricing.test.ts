@@ -68,7 +68,7 @@ describe("стоимость по токенам", () => {
   });
 });
 
-describe("цена haiku 5.5 по длине запроса", () => {
+describe("стоимость по длине запроса", () => {
   const costOfRequest = (model: string, tokens: TokenCounts) => costOf(modelKey({ model, fast: false, tokens }), tokens);
 
   it("запрос длиннее 100 000 токенов вместе с кэшем — по старшему тарифу целиком", () => {
@@ -87,5 +87,13 @@ describe("цена haiku 5.5 по длине запроса", () => {
     const tokens: TokenCounts = { input: 500_000, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, output: 0 };
 
     expect(costOfRequest("claude-opus-5-5", tokens)).toBeCloseTo(2);
+  });
+
+  it("Codex использует стандартный тариф модели и повышает его после 272 000 входных токенов", () => {
+    const tokens: TokenCounts = { input: 199_000, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 73_000, output: 1_000 };
+    const snapshot = "gpt-6.2-sol-2026-11-20";
+
+    expect(costOfRequest(snapshot, tokens)).toBeCloseTo(0.4153, 6);
+    expect(costOfRequest(snapshot, { ...tokens, input: 200_000 })).toBeCloseTo(0.8296, 6);
   });
 });

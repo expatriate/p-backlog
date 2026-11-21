@@ -22,7 +22,8 @@ export type ServiceManager = {
 };
 
 export function serviceEnvironment(launch: ServiceLaunch): Record<string, string> {
-  return { BACKLOG_DIR: launch.backlogRoot, PORT: String(launch.port), PATH: launch.env.PATH ?? "", HOME: launch.home };
+  const { CODEX_HOME } = launch.env;
+  return { BACKLOG_DIR: launch.backlogRoot, PORT: String(launch.port), PATH: launch.env.PATH ?? "", HOME: launch.home, ...(CODEX_HOME ? { CODEX_HOME } : {}) };
 }
 
 export async function numberRecordedIn(file: string, pattern: RegExp, parse: (recorded: string) => number | null, encoding: BufferEncoding = "utf8"): Promise<number | null> {

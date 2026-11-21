@@ -431,14 +431,16 @@ describe("backlog hook stop", () => {
     expect(reason).not.toMatch(/[А-Яа-яЁё]/);
   });
 
-  it("Codex получает тот же ответ, что и Claude Code", async () => {
-    const { run, repo } = await changedTaskSandbox();
+  it("Codex получает ответ о кандидате, его модель остаётся в журнале", async () => {
+    const { run, repo, root } = await changedTaskSandbox();
     const event = JSON.stringify({ session_id: "s", turn_id: "t1", cwd: repo, hook_event_name: "Stop", stop_hook_active: false, model: "gpt-5" });
 
     const result = await run(["hook", "stop", "--agent", "codex"], { stdin: event });
 
     expect(result.code).toBe(EXIT.ok);
     expect(JSON.parse(result.out)).toEqual({ decision: "block", reason: EXPECTED_REASON });
+    const journal = await readJournal(join(root, "spa"), "spa");
+    expect(journal.events).toContainEqual(expect.objectContaining({ kind: "candidate", task: "SPA-1", model: "gpt-5" }));
   });
 
   it("Cursor получает follow-up и не зацикливается на своём же follow-up", async () => {

@@ -1,5 +1,5 @@
 import { formatShare } from "../../core/stats/format";
-import type { AccuracyPeriod, AccuracyRow, BranchRow, CategoryRow, FoundRow, GrainPeriods, GraphReport, MatchAccuracyRow, MethodAccuracyRow, ProjectGraphRow, ReportPeriod } from "../../core/api/contract";
+import type { AccuracyRow, BranchRow, CategoryRow, FoundRow, GraphReport, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts, ProjectGraphRow, QualityReport, ReportPeriod } from "../../core/api/contract";
 import { useMessages } from "../i18n";
 import { AccuracyChart } from "./AccuracyChart";
 import type { StatsMessages } from "./messages.ru";
@@ -12,14 +12,15 @@ import { NO_VALUE } from "../labels";
 
 type AccuracySplitRow = MethodAccuracyRow | MatchAccuracyRow;
 
-type AccuracyPanelProps = { rows: AccuracyRow[]; weeks: AccuracyPeriod[]; days: AccuracyPeriod[]; windows: GrainPeriods; methodRows: MethodAccuracyRow[]; matchRows: MatchAccuracyRow[] };
+type AccuracyReport = Pick<QualityReport, "accuracy" | "accuracyWeeks" | "accuracyDays" | "periods" | "methodAccuracy" | "matchAccuracy" | "modelAccuracy">;
 
-export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRows }: AccuracyPanelProps) {
+export function AccuracyPanel({ report }: { report: AccuracyReport }) {
+  const { accuracy: rows, accuracyWeeks: weeks, accuracyDays: days, periods: windows, methodAccuracy, matchAccuracy, modelAccuracy } = report;
   const { stats, core } = useMessages();
   const caption = usePeriodCaption();
   const { grain, periods, period, toggle } = useGrainPanel("accuracy", "week", { weeks, days }, windows);
   const tablePeriod = caption.of("weeks", windows.weeks);
-  const splits = [...methodRows, ...matchRows];
+  const splits = [...methodAccuracy, ...matchAccuracy];
   const splitLabel = (split: AccuracySplitRow): string => {
     switch (split.evidence) {
       case "source-changed":
@@ -45,11 +46,21 @@ export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRow
               {
                 key: row.evidence,
                 tone: row.evidence === "total" ? "total" : undefined,
-                cells: [core.evidenceLabel(row.evidence), row.candidates, row.closed, row.verified, row.open, formatShare(row.precision)],
+                cells: [core.evidenceLabel(row.evidence), ...outcomeCells(row)],
               },
               ...splitOf(row.evidence).map((split) => ({ ...split, key: `${row.evidence}-${split.key}` })),
             ])}
           />
+          {modelAccuracy.length > 0 && (
+            <div>
+              <h3 className={rowStyles.subTitle}>{stats.modelAccuracyTitle}</h3>
+              <StatsTable
+                label={stats.modelAccuracyTable(tablePeriod)}
+                head={[stats.modelAccuracyColumn, ...stats.accuracyHead.slice(1)]}
+                rows={modelAccuracy.map((row) => ({ key: row.model, cells: [row.model, ...outcomeCells(row)] }))}
+              />
+            </div>
+          )}
         </>
       )}
     </Panel>
@@ -57,7 +68,11 @@ export function AccuracyPanel({ rows, weeks, days, windows, methodRows, matchRow
 }
 
 function splitRow(stats: StatsMessages, split: AccuracySplitRow, label: string): StatsTableRow {
-  return { key: split.by, tone: "child", cells: [stats.splitRow(label), split.candidates, split.closed, split.verified, split.open, formatShare(split.precision)] };
+  return { key: split.by, tone: "child", cells: [stats.splitRow(label), ...outcomeCells(split)] };
+}
+
+function outcomeCells({ candidates, closed, verified, open, precision }: OutcomeCounts): Array<number | string> {
+  return [candidates, closed, verified, open, formatShare(precision)];
 }
 
 export function GraphPanel({ graph, period }: { graph: GraphReport; period: ReportPeriod }) {

@@ -8,7 +8,7 @@ declare const episodeKeyBrand: unique symbol;
 
 type EpisodeKey = string & { readonly [episodeKeyBrand]: true };
 
-export function candidateEvents(sightings: readonly CandidateSighting[], states: EpisodeStates, now: Date, mode: CheckMode): JournalEvent[] {
+export function candidateEvents(sightings: readonly CandidateSighting[], states: EpisodeStates, now: Date, mode: CheckMode, model?: string): JournalEvent[] {
   const at = formatLocalIso(now);
   return dedupeSightings(sightings)
     .filter((sighting) => states.get(episodeKey(sighting.task, sighting.evidence)) !== "open")
@@ -21,6 +21,7 @@ export function candidateEvents(sightings: readonly CandidateSighting[], states:
       mode,
       ...(sighting.method === undefined ? {} : { method: sighting.method }),
       ...(sighting.match === undefined ? {} : { match: sighting.match }),
+      ...(model === undefined ? {} : { model }),
     }));
 }
 

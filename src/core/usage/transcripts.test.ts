@@ -85,6 +85,26 @@ describe("список расшифровок", () => {
 });
 
 describe("чтение расшифровок по частям", () => {
+  it("продолжает читать сессии, если один журнал Codex стал недоступен после обхода каталогов", async () => {
+    const root = await makeTempDir();
+    const time = NOW.toISOString();
+    const claude = await transcriptFile(join(root, "claude.jsonl"), jsonl([hookFeedbackLine(time), assistantLine(time, "claude-sonnet-5", { input: 100, output: 20 })]));
+    const codex = { path: root, size: 100, mtimeMs: NOW.getTime(), codex: true } as const;
+    const unreadable: string[] = [];
+
+    const result = await scanTranscripts({
+      files: [codex, claude],
+      cache: emptyUsageCache(),
+      byteBudget: BIG_BUDGET,
+      now: NOW,
+      onUnreadable: (path) => unreadable.push(path),
+    });
+
+    expect(totalTokens(result.cache.files)).toBe(120);
+    expect(result.filesDone).toBe(1);
+    expect(unreadable).toEqual([codex.path]);
+  });
+
   it("второй проход дочитывает только новую строку, вклад не удваивается", async () => {
     const root = await makeTempDir();
     const path = join(root, "session.jsonl");

@@ -100,6 +100,7 @@ export const journalEventSchema = z.discriminatedUnion("kind", [
     method: recordedEnum(CHECK_METHODS).optional(),
     ...legacyMethodFlagsSchema.shape,
     match: recordedEnum(DUPLICATE_MATCHES).optional(),
+    model: z.string().trim().min(1).optional().catch(undefined),
   }),
   z.object({ ...eventBase, kind: z.literal("candidate-gone"), evidence: z.enum(CANDIDATE_EVIDENCE) }),
   z.object({ ...eventBase, kind: z.literal("candidate-filtered"), symbol: z.string() }),

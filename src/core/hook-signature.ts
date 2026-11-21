@@ -13,3 +13,7 @@ export function hookMessage(language: Language, projectId: string, text: string)
 export function isBacklogHookFeedback(text: string): boolean {
   return text.startsWith(STOP_HOOK_FEEDBACK_PREFIX) && LANGUAGES.some((language) => text.includes(`${coreMessages(language).hookMark} `));
 }
+
+export function isBacklogHookReason(text: string): boolean {
+  return /^\S+ [^\s:]+:/u.test(text) && LANGUAGES.some((language) => text.startsWith(`${coreMessages(language).hookMark} `));
+}

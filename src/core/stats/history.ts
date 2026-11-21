@@ -42,7 +42,7 @@ export type TaskHistory = {
   filtered: number[];
 };
 
-export type CandidateSeen = { at: number; evidence: CandidateEvidence; method: RecordedMethod; match: RecordedMatch };
+export type CandidateSeen = { at: number; evidence: CandidateEvidence; method: RecordedMethod; match: RecordedMatch; model?: string | undefined };
 
 type CategoryEvent = { at: number; to?: Recorded<TaskCategory> | undefined };
 
@@ -91,7 +91,7 @@ function collectEvent(item: Known, event: JournalEvent): void {
       item.transitions.push({ at, from: event.from, to: event.to, resolution: event.resolution, via: event.via, undo: event.undo });
       return;
     case "candidate":
-      item.candidates.push({ at, evidence: event.evidence, method: recordedMethodOf(event), match: event.match ?? UNKNOWN });
+      item.candidates.push({ at, evidence: event.evidence, method: recordedMethodOf(event), match: event.match ?? UNKNOWN, model: event.model });
       return;
     case "candidate-filtered":
       item.filtered.push(at);

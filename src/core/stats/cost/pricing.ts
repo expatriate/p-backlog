@@ -2,13 +2,14 @@ import { promptTokens, type TokenCounts } from "./token-counts";
 
 type ModelPrice = { input: number; output: number; cacheRead: number };
 
-type ModelPricing = ModelPrice & { longPrompt?: ModelPrice; fastMode?: true };
+type ModelPricing = ModelPrice & { longPrompt?: ModelPrice & { threshold: number }; fastMode?: true };
 
 type ModelVariant = { model: string; fast: boolean };
 
 const FAST_MODEL_MARKER = ":fast";
 const LONG_PROMPT_MARKER = ":long-prompt";
-const LONG_PROMPT_TOKENS = 100_000;
+const OPENAI_LONG_PROMPT_TOKENS = 272_000;
+const OPENAI_LONG_OUTPUT_FACTOR = 1.5;
 const FAST_PRICE_FACTOR = 2;
 const CACHE_WRITE_5M_FACTOR = 1.25;
 const CACHE_WRITE_1H_FACTOR = 2;
@@ -31,12 +32,22 @@ const PRICE_TABLE = new Map<string, ModelPricing>([
   ["claude-sonnet-5", { input: 2, output: 10, cacheRead: 0.2 }],
   ["claude-sonnet-4-6", { input: 3, output: 15, cacheRead: 0.3 }],
   ["claude-sonnet-4-5", { input: 3, output: 15, cacheRead: 0.3 }],
-  ["claude-haiku-5-5", { input: 0.1, output: 0.5, cacheRead: 0.01, longPrompt: { input: 0.5, output: 2.5, cacheRead: 0.05 } }],
+  ["claude-haiku-5-5", { input: 0.1, output: 0.5, cacheRead: 0.01, longPrompt: { threshold: 100_000, input: 0.5, output: 2.5, cacheRead: 0.05 } }],
   ["claude-haiku-4-5", { input: 1, output: 5, cacheRead: 0.1 }],
+  ["gpt-6.2-astra", openAiPrice({ input: 8, output: 40, cacheRead: 0.4 })],
+  ["gpt-6.2-sol", openAiPrice({ input: 2, output: 10, cacheRead: 0.1 })],
+  ["gpt-6.1-sol", openAiPrice({ input: 2, output: 10, cacheRead: 0.1 })],
+  ["gpt-6.1-terra", openAiPrice({ input: 1, output: 5, cacheRead: 0.05 })],
+  ["gpt-6-astra", openAiPrice({ input: 10, output: 50, cacheRead: 1 })],
+  ["gpt-6-luna", openAiPrice({ input: 0.1, output: 0.5, cacheRead: 0.01 })],
 ]);
 
-const DATED_SUFFIX = /-\d{8}$/;
+const DATED_SUFFIX = /-(?:\d{8}|\d{4}-\d{2}-\d{2})$/;
 const BRACKET_SUFFIX = /\[[^\]]*\]$/;
+
+function openAiPrice({ input, output, cacheRead }: ModelPrice): ModelPricing {
+  return { input, output, cacheRead, longPrompt: { threshold: OPENAI_LONG_PROMPT_TOKENS, input: input * 2, output: output * OPENAI_LONG_OUTPUT_FACTOR, cacheRead: cacheRead * 2 } };
+}
 
 export function pricedModelIds(): string[] {
   return [...PRICE_TABLE.keys()];
@@ -47,7 +58,8 @@ function baseModelId(model: string): string {
 }
 
 export function modelKey({ model, fast, tokens }: ModelVariant & { tokens: TokenCounts }): string {
-  const longPrompt = promptTokens(tokens) > LONG_PROMPT_TOKENS && PRICE_TABLE.get(baseModelId(model))?.longPrompt !== undefined;
+  const threshold = PRICE_TABLE.get(baseModelId(model))?.longPrompt?.threshold;
+  const longPrompt = threshold !== undefined && promptTokens(tokens) > threshold;
   return `${model}${fast ? FAST_MODEL_MARKER : ""}${longPrompt ? LONG_PROMPT_MARKER : ""}`;
 }
 

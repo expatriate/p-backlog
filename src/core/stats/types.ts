@@ -69,6 +69,7 @@ export type OutcomeCounts = { candidates: number; closed: number; verified: numb
 export type AccuracyRow = { evidence: CandidateEvidence | "total" } & OutcomeCounts;
 export type MethodAccuracyRow = { evidence: "source-changed"; by: RecordedMethod } & OutcomeCounts;
 export type MatchAccuracyRow = { evidence: "duplicate"; by: RecordedMatch } & OutcomeCounts;
+export type ModelAccuracyRow = { model: string } & OutcomeCounts;
 export type GraphFilterEffect = { filtered: number; caught: number; missed: number; quiet: number };
 export type ProjectGraphRow = { projectId: string; name: string; state: GraphState; pinned: number; resolved: number };
 export type GraphReport = { projects: ProjectGraphRow[]; filter: GraphFilterEffect };
@@ -82,6 +83,7 @@ export type QualityReport = ReportHead & {
   accuracyDays: AccuracyPeriod[];
   methodAccuracy: MethodAccuracyRow[];
   matchAccuracy: MatchAccuracyRow[];
+  modelAccuracy: ModelAccuracyRow[];
   graph: GraphReport;
   categories: CategoryRow[];
   found: FoundRow[];

@@ -20,14 +20,25 @@ const RUNNER_SUBCOMMANDS: Readonly<Record<string, readonly string[]>> = { pnpm: 
 const BIN_RUNNERS = new Set(["yarn"]);
 
 export function invokesBacklog(script: string): boolean {
-  return simpleCommands(script).some((command) => {
-    const [program, ...args] = programWords(command.split(/\s+/));
-    if (program === undefined) return false;
-    const name = executableName(program);
-    if (name === BACKLOG_BIN || (BIN_RUNNERS.has(name) && args[0] === BACKLOG_BIN)) return true;
-    const runnerArgs = packageRunnerArguments(name, args);
-    return runnerArgs !== null && runsBacklogPackage(runnerArgs);
-  });
+  return simpleCommands(script).some(isBacklogCommand);
+}
+
+export function invokesOnlyBacklog(script: string): boolean {
+  const commands = simpleCommands(script);
+  return commands.length > 0 && commands.every(isBacklogCommand);
+}
+
+export function isSingleShellCommand(script: string): boolean {
+  return simpleCommands(script).length === 1;
+}
+
+function isBacklogCommand(command: string): boolean {
+  const [program, ...args] = programWords(command.split(/\s+/));
+  if (program === undefined) return false;
+  const name = executableName(program);
+  if (name === BACKLOG_BIN || (BIN_RUNNERS.has(name) && args[0] === BACKLOG_BIN)) return true;
+  const runnerArgs = packageRunnerArguments(name, args);
+  return runnerArgs !== null && runsBacklogPackage(runnerArgs);
 }
 
 function programWords(words: readonly string[]): string[] {

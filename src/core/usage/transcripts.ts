@@ -1,22 +1,25 @@
 import { createHash } from "node:crypto";
 import { basename, join } from "node:path";
+import type { PathErrorHandler } from "../errors";
 import { attributeLine, flushEstimates, newTranscriptState, transcriptLineSchema } from "../stats/cost/attribute";
+import { attributeCodexLine } from "./attribute-codex";
 import { sum } from "../numbers";
 import { statsPeriod } from "../stats/weeks";
 import { addTokens } from "../stats/cost/token-counts";
 import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
-import { EMPTY_FINGERPRINT, listDir, NEWLINE, readAt, readFileAt, statOrNull, withFile } from "../store/fs-utils";
+import { attemptReportingFailure, EMPTY_FINGERPRINT, listDir, NEWLINE, readAt, readFileAt, statOrNull, withFile } from "../store/fs-utils";
 import { parseJson } from "../store/json-file";
 import type { UsageCache, UsageCacheEntry } from "./usage-cache";
 import { retainedSince } from "../model/history-window";
 
-export type TranscriptFile = { path: string; size: number; mtimeMs: number };
+export type TranscriptFile = { path: string; size: number; mtimeMs: number; codex?: true };
 
 export type ScanTranscriptsInput = {
   files: readonly TranscriptFile[];
   cache: UsageCache;
   byteBudget: number;
   now: Date;
+  onUnreadable?: PathErrorHandler;
 };
 
 export type ScanTranscriptsResult = { cache: UsageCache; bytesRead: number; bytesLeft: number; filesDone: number; prunedBuckets: number };
@@ -50,18 +53,36 @@ async function listedFile(path: string): Promise<TranscriptFile[]> {
   return stats === null ? [] : [{ path, size: stats.size, mtimeMs: stats.mtimeMs }];
 }
 
+export async function listCodexTranscripts(home: string, now: Date, onUnreadable: PathErrorHandler): Promise<TranscriptFile[]> {
+  const retained = retainedSince(now);
+  const bySession = new Map<string, TranscriptFile>();
+  for (const folder of ["sessions", "archived_sessions"]) {
+    const entries = await attemptReportingFailure(join(home, folder), (path) => listDir(path, { recursive: true }), onUnreadable);
+    for (const entry of entries ?? []) {
+      if (!entry.isFile() || !entry.name.startsWith("rollout-") || !entry.name.endsWith(".jsonl") || bySession.has(entry.name)) continue;
+      const path = join(entry.parentPath, entry.name);
+      const stat = await attemptReportingFailure(path, statOrNull, onUnreadable);
+      if (stat !== null && stat.mtimeMs >= retained) bySession.set(entry.name, { path, size: stat.size, mtimeMs: stat.mtimeMs, codex: true });
+    }
+  }
+  return [...bySession.values()];
+}
+
 type ChunkLimits = { longestReadableLine: number; now: Date };
 
 type ScanStart = { offset: number; state: TranscriptState; buckets: UsageBucket[] };
 
-export async function scanTranscripts({ files, cache, byteBudget, now }: ScanTranscriptsInput): Promise<ScanTranscriptsResult> {
+export async function scanTranscripts({ files, cache, byteBudget, now, onUnreadable }: ScanTranscriptsInput): Promise<ScanTranscriptsResult> {
   let remainingBudget = byteBudget;
   const listedFiles: Record<string, UsageCacheEntry> = {};
 
   for (const file of files) {
-    const { entry, budgetUsed } = await scanFile(file, cache.files[file.path], remainingBudget, { longestReadableLine: byteBudget, now });
-    listedFiles[file.path] = entry;
-    remainingBudget -= budgetUsed;
+    const read = () => scanFile(file, cache.files[file.path], remainingBudget, { longestReadableLine: byteBudget, now });
+    const result = onUnreadable === undefined ? await read() : await attemptReportingFailure(file.path, read, onUnreadable);
+    if (result !== null) {
+      listedFiles[file.path] = result.entry;
+      remainingBudget -= result.budgetUsed;
+    }
     await yieldToEventLoop();
   }
 
@@ -133,16 +154,20 @@ async function scanChunk(file: TranscriptFile, start: ScanStart, chunkSize: numb
   }
 
   const bucketsByKey = new Map(start.buckets.map((bucket) => [bucketKey(bucket), bucket]));
+  const readLine = file.codex ? attributeCodexLine : attributeClaudeLine;
   for (const line of chunk.subarray(0, readableLength).toString("utf8").split("\n")) {
-    if (!COUNTED_LINE_MARKERS.some((marker) => line.includes(marker))) continue;
-    const parsed = parseJson(line, transcriptLineSchema);
-    if (parsed === null) continue;
-    for (const addition of attributeLine(parsed, start.state)) addBucket(bucketsByKey, addition);
+    for (const addition of readLine(line, start.state)) addBucket(bucketsByKey, addition);
   }
 
   const offset = start.offset + readableLength;
   if (offset === file.size) for (const addition of flushEstimates(start.state)) addBucket(bucketsByKey, addition);
   return { size: file.size, offset, state: start.state, buckets: [...bucketsByKey.values()] };
+}
+
+function attributeClaudeLine(line: string, state: TranscriptState): UsageBucket[] {
+  if (!COUNTED_LINE_MARKERS.some((marker) => line.includes(marker))) return [];
+  const parsed = parseJson(line, transcriptLineSchema);
+  return parsed === null ? [] : attributeLine(parsed, state);
 }
 
 async function continues(file: TranscriptFile, previous: UsageCacheEntry): Promise<boolean> {

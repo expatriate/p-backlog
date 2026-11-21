@@ -1,10 +1,11 @@
 import { CANDIDATE_EVIDENCE, RECORDED_MATCHES, RECORDED_METHODS, type CandidateEvidence } from "../../journal/events";
 import { allClosingsOf, type CandidateSeen, type TaskHistory } from "../history";
 import { formatLocalIso } from "../../model/dates";
+import { remembered } from "../../remembered";
 import { dayWindows } from "../days";
 import type { Period, Span } from "../period";
 import { weekWindows } from "../weeks";
-import type { AccuracyPeriod, AccuracyRow, MatchAccuracyRow, MethodAccuracyRow, OutcomeCounts } from "../types";
+import type { AccuracyPeriod, AccuracyRow, MatchAccuracyRow, MethodAccuracyRow, ModelAccuracyRow, OutcomeCounts } from "../types";
 
 export const METHOD_EVIDENCE: MethodAccuracyRow["evidence"] = "source-changed";
 
@@ -49,6 +50,15 @@ export function methodAccuracy(histories: readonly TaskHistory[], span: Span): M
 
 export function matchAccuracy(histories: readonly TaskHistory[], span: Span): MatchAccuracyRow[] {
   return splitAccuracy(histories, span, { evidence: MATCH_EVIDENCE, keys: RECORDED_MATCHES, keyOf: (candidate) => candidate.match });
+}
+
+export function modelAccuracy(histories: readonly TaskHistory[], span: Span): ModelAccuracyRow[] {
+  const byModel = new Map<string, Episode[]>();
+  for (const episode of episodesOf(histories, ({ at, model }) => model !== undefined && span.contains(at))) {
+    const { model } = episode.candidate;
+    if (model !== undefined) remembered(byModel, model, () => []).push(episode);
+  }
+  return [...byModel].sort(([a], [b]) => a.localeCompare(b)).map(([model, episodes]) => ({ model, ...outcomeCounts(episodes) }));
 }
 
 type AccuracySplit<E extends CandidateEvidence, K extends string> = { evidence: E; keys: readonly K[]; keyOf: (candidate: CandidateSeen) => K };

@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { errorText, warnPathErrors } from "../core/errors";
+import { errorText, warnPathErrors, type PathErrorHandler } from "../core/errors";
 import { MINUTE_MS } from "../core/model/dates";
 import { BYTES_PER_MEBIBYTE, sum } from "../core/numbers";
 import type { ScanProgress } from "../core/stats/types";
@@ -10,13 +10,14 @@ import { relativeInside } from "../core/store/paths";
 import { cachedRepoRoots, unreadableDirHasNoRepo, type GitRoots } from "../core/store/resolve-project";
 import { attemptReportingFailure, statOrNull } from "../core/store/fs-utils";
 import { cliRunSchema, RUNS_FILE, type CliRun } from "../core/store/runs";
-import { listTranscripts, scanTranscripts, type TranscriptFile } from "../core/usage/transcripts";
+import { listCodexTranscripts, listTranscripts, scanTranscripts, type TranscriptFile } from "../core/usage/transcripts";
 import { emptyUsageCache, readUsageCache, usageBucketsOf, writeUsageCache, type UsageCache, type UsageCacheEntry } from "../core/usage/usage-cache";
 import type { LocalizedWarn } from "./messages";
 
 export type UsageScannerOptions = {
   root: string;
   claudeProjectsDir: string;
+  codexHome?: string;
   byteBudget?: number;
   intervalMs?: number;
   warn: LocalizedWarn;
@@ -43,14 +44,14 @@ export const CATCH_UP_DELAY_MS = 100;
 const NOT_LISTED: ScanProgress = { listed: false, filesTotal: 0, filesDone: 0, bytesLeft: 0 };
 const STOPPED: Schedule = { running: false };
 
-export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAULT_BYTE_BUDGET, intervalMs = DEFAULT_INTERVAL_MS, warn, now = () => new Date() }: UsageScannerOptions): UsageScanner {
+export function createUsageScanner({ root, claudeProjectsDir, codexHome, byteBudget = DEFAULT_BYTE_BUDGET, intervalMs = DEFAULT_INTERVAL_MS, warn, now = () => new Date() }: UsageScannerOptions): UsageScanner {
   let cache: UsageCache | null = null;
   let scan: ScanProgress = NOT_LISTED;
   let revision = 0;
   let inFlight: Promise<PassEnd> | null = null;
   let schedule: Schedule = STOPPED;
 
-  const onErrorAfterPublish = warnPathErrors((line) => void warn(() => line));
+  const reportPathError = warnPathErrors((line) => void warn(() => line));
   const runsTail = createJsonlTail<CliRun>(join(root, RUNS_FILE), cliRunSchema);
   const newOutsideOwners = outsideWorktreeRecorder();
 
@@ -60,18 +61,18 @@ export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAU
   };
 
   const runPass = async (): Promise<PassEnd> => {
-    const published = cache ?? emptyUsageCache();
     const current = cache ?? (await readUsageCache(root));
-    const files = await listTranscripts(claudeProjectsDir);
+    const moment = now();
+    const files = await transcriptFiles(claudeProjectsDir, codexHome, moment, reportPathError);
     setScan(progressBefore(files, current));
-    const result = await scanTranscripts({ files, cache: current, byteBudget, now: now() });
+    const result = await scanTranscripts({ files, cache: current, byteBudget, now: moment, onUnreadable: reportPathError });
     const { values: runs } = await runsTail.read();
     const added = await newOutsideOwners(result.cache, runs);
     const next = added.length === 0 ? result.cache : { ...result.cache, worktreeRepos: withNewOwners(result.cache.worktreeRepos, added, now()) };
-    if (cacheChanged(published, next)) revision += 1;
+    if (cacheChanged(cache ?? emptyUsageCache(), next)) revision += 1;
     cache = next;
     setScan({ listed: true, filesTotal: files.length, filesDone: result.filesDone, bytesLeft: result.bytesLeft });
-    if (result.bytesRead > 0 || result.prunedBuckets > 0 || added.length > 0) await writeUsageCache(root, next, onErrorAfterPublish);
+    if (result.bytesRead > 0 || result.prunedBuckets > 0 || added.length > 0) await writeUsageCache(root, next, reportPathError);
     return result.bytesRead >= byteBudget ? "budget-spent" : "settled";
   };
 
@@ -108,6 +109,13 @@ export function createUsageScanner({ root, claudeProjectsDir, byteBudget = DEFAU
     },
     snapshot: () => ({ cache: cache ?? emptyUsageCache(), scan, revision }),
   };
+}
+
+async function transcriptFiles(claudeDir: string, codexHome: string | undefined, now: Date, onUnreadable: PathErrorHandler): Promise<TranscriptFile[]> {
+  const claudeFiles = attemptReportingFailure(claudeDir, listTranscripts, onUnreadable);
+  const codexFiles = codexHome === undefined ? [] : listCodexTranscripts(codexHome, now, onUnreadable);
+  const [claude, codex] = await Promise.all([claudeFiles, codexFiles]);
+  return [...(claude ?? []), ...codex];
 }
 
 type ObservedOwner = GitRoots & { createdAt: number | null };

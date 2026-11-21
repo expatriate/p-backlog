@@ -142,14 +142,14 @@ function registerToolUseBlock(raw: unknown, state: TranscriptState): void {
   if (block.data.name === BASH_TOOL) {
     const input = bashInputSchema.safeParse(block.data.input);
     if (!input.success || !invokesBacklog(input.data.command)) return;
-    state.pending[block.data.id] = "cli";
-    forgetOldestPending(state);
+    rememberToolCall(state, block.data.id, "cli");
   }
 }
 
-function forgetOldestPending(state: TranscriptState): void {
+export function rememberToolCall(state: TranscriptState, id: string, kind: TranscriptState["pending"][string]): void {
+  state.pending[id] = kind;
   const ids = Object.keys(state.pending);
-  for (const id of ids.slice(0, Math.max(0, ids.length - PENDING_TOOL_LIMIT))) Reflect.deleteProperty(state.pending, id);
+  for (const expiredId of ids.slice(0, Math.max(0, ids.length - PENDING_TOOL_LIMIT))) Reflect.deleteProperty(state.pending, expiredId);
 }
 
 export function flushEstimates(state: TranscriptState): UsageBucket[] {
@@ -162,15 +162,15 @@ function drainEstimates(state: TranscriptState, model: string): UsageBucket[] {
     cwd: estimate.cwd,
     model,
     kind: estimate.kind,
-    tokens: promptCacheWriteOf(estimate.chars),
+    tokens: { ...ZERO_TOKENS, cacheWrite5m: estimateTextTokens(estimate.chars) },
     hookTurns: 0,
   }));
   state.pendingEstimates = [];
   return buckets;
 }
 
-function promptCacheWriteOf(chars: number): TokenCounts {
-  return { ...ZERO_TOKENS, cacheWrite5m: Math.ceil(chars / CHARS_PER_TOKEN) };
+export function estimateTextTokens(chars: number): number {
+  return Math.ceil(chars / CHARS_PER_TOKEN);
 }
 
 function isToolResultOnly(content: unknown): content is unknown[] {
@@ -195,7 +195,7 @@ function tokensFrom(usage: Usage): TokenCounts {
   return { input: usage.input_tokens ?? 0, cacheWrite5m, cacheWrite1h, cacheRead: usage.cache_read_input_tokens ?? 0, output: usage.output_tokens ?? 0 };
 }
 
-function slotOf(timestamp: string): string {
+export function slotOf(timestamp: string): string {
   const moment = Date.parse(timestamp);
   return Number.isNaN(moment) ? "" : new Date(moment - (moment % ZONE_OFFSET_STEP_MS)).toISOString();
 }

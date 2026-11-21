@@ -1,5 +1,5 @@
 {
-  "usageCacheVersion": 6,
+  "usageCacheVersion": 7,
   "buckets": {
     "cli-and-skill.jsonl": [
       {
@@ -197,6 +197,30 @@
       "200000": "claude-haiku-5-5:long-prompt",
       "500000": "claude-haiku-5-5:long-prompt",
       "1000000": "claude-haiku-5-5:long-prompt"
+    },
+    "gpt-6.2-astra": {
+      "500000": "gpt-6.2-astra:long-prompt",
+      "1000000": "gpt-6.2-astra:long-prompt"
+    },
+    "gpt-6.2-sol": {
+      "500000": "gpt-6.2-sol:long-prompt",
+      "1000000": "gpt-6.2-sol:long-prompt"
+    },
+    "gpt-6.1-sol": {
+      "500000": "gpt-6.1-sol:long-prompt",
+      "1000000": "gpt-6.1-sol:long-prompt"
+    },
+    "gpt-6.1-terra": {
+      "500000": "gpt-6.1-terra:long-prompt",
+      "1000000": "gpt-6.1-terra:long-prompt"
+    },
+    "gpt-6-astra": {
+      "500000": "gpt-6-astra:long-prompt",
+      "1000000": "gpt-6-astra:long-prompt"
+    },
+    "gpt-6-luna": {
+      "500000": "gpt-6-luna:long-prompt",
+      "1000000": "gpt-6-luna:long-prompt"
     }
   }
 }

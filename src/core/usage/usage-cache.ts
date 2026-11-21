@@ -8,7 +8,7 @@ import type { PathErrorHandler } from "../errors";
 
 const USAGE_CACHE_FILE = ".usage-cache.json";
 
-export const USAGE_CACHE_VERSION = 6;
+export const USAGE_CACHE_VERSION = 7;
 
 const bucketsSchema = z.array(usageBucketSchema);
 

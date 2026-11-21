@@ -2,7 +2,7 @@ import { grainPeriods } from "../report-periods";
 import type { ReportContext } from "../scope";
 import type { ProjectGraphRow, QualityReport } from "../types";
 import { statsPeriod } from "../weeks";
-import { accuracy, accuracyDays, accuracyWeeks, matchAccuracy, methodAccuracy } from "./accuracy";
+import { accuracy, accuracyDays, accuracyWeeks, matchAccuracy, methodAccuracy, modelAccuracy } from "./accuracy";
 import { categoryBreakdown } from "./categories";
 import { graphFilterEffect } from "./graph-filter";
 import { branchBreakdown, foundBreakdown } from "./origin";
@@ -23,6 +23,7 @@ export function qualityReport(context: ReportContext, graphs: ProjectGraphRow[])
     accuracyDays: accuracyDays(histories, now),
     methodAccuracy: methodAccuracy(histories, period),
     matchAccuracy: matchAccuracy(histories, period),
+    modelAccuracy: modelAccuracy(histories, period),
     graph: { projects: graphs, filter: graphFilterEffect(histories, period) },
     categories: categoryBreakdown(openTasks, histories, period),
     found: foundBreakdown(histories, period),

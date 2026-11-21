@@ -408,11 +408,36 @@ describe("вкладка «Качество»", () => {
     await waitFor(() => expect(document.title).toBe("Качество · Статистика · Проекты — Беклог"));
     expect(cells(within(accuracyPanel).getByRole("row", { name: /код изменился/ }))).toEqual(["код изменился", "1", "0", "1", "0", "0%"]);
     expect(cells(within(accuracyPanel).getByRole("row", { name: /до записи способа/ }))).toEqual(["└ из них до записи способа", "1", "0", "1", "0", "0%"]);
+    expect(within(accuracyPanel).queryByRole("heading", { name: "Точность по моделям" })).toBeNull();
     const categoriesPanel = screen.getByRole("region", { name: "Категории" });
     expect(cells(within(categoriesPanel).getByRole("row", { name: /не указана/ }))).toEqual(["не указана", "3", "8", "4", "1"]);
     const originPanel = screen.getByRole("region", { name: "Происхождение" });
     expect(cells(within(originPanel).getByRole("row", { name: /не записано/ }))).toEqual(["не записано", "4", "3", "0"]);
     expect(within(originPanel).getByText("Ветки появятся у задач, заведённых через backlog new в репозитории")).toBeDefined();
+  });
+
+  it("точность по моделям сохраняет кандидатов без модели в общем итоге", async () => {
+    const candidate = (task: string, model?: string) => JSON.stringify({ at: "2026-09-16T10:00:00+03:00", task, via: "check", kind: "candidate", evidence: "source-changed", mode: "changed", model });
+    await renderApp(
+      {
+        ...FILES,
+        "spa/journal.jsonl": [
+          candidate("SPA-1", "gpt-5"),
+          candidate("SPA-2"),
+          candidate("SPA-3", "gpt-5"),
+          JSON.stringify({ at: "2026-09-17T10:00:00+03:00", task: "SPA-1", via: "cli", kind: "verified" }),
+        ].join("\n"),
+        "torg-io/journal.jsonl": candidate("TI-1", "claude-opus-4-6"),
+      },
+      "/stats/quality",
+    );
+
+    const accuracy = await screen.findByRole("region", { name: "Точность проверки" });
+    const models = within(accuracy).getByRole("region", { name: /Точность по моделям/ });
+    expect(cells(within(models).getByRole("row", { name: /gpt-5/ }))).toEqual(["gpt-5", "2", "1", "1", "0", "50%"]);
+    expect(cells(within(models).getByRole("row", { name: /claude-opus-4-6/ }))).toEqual(["claude-opus-4-6", "1", "0", "0", "1", "—"]);
+    expect(within(models).getAllByRole("rowheader")).toHaveLength(2);
+    expect(cells(within(accuracy).getByRole("row", { name: /Всего/ }))).toEqual(["Всего", "4", "1", "1", "2", "50%"]);
   });
 
   it("категория, которой нет в списке, — строка «неизвестна»", async () => {
@@ -582,7 +607,7 @@ describe("вкладка «Стоимость»", () => {
   it("каталог расшифровок пуст — вкладка говорит, что расшифровки не найдены", async () => {
     await renderApp({ "spa/project.md": projectFile("SPA") }, "/stats/cost", routes, { transcriptsDir: await makeTempDir() });
 
-    expect(await screen.findByText("Расшифровки Claude Code не найдены.")).toBeDefined();
+    expect(await screen.findByText("Расшифровки Claude Code и Codex не найдены.")).toBeDefined();
   });
 });
 

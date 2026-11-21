@@ -59,7 +59,7 @@ export async function startServer({ root, port, home, env, platform, log, warn, 
   const readLanguage = () => readLanguageOrLocale(root, env, onLanguageUnreadable);
   const readMessages = () => readLanguage().then(serverMessages);
   const warnLocalized = localizedWarn(readLanguage, warn);
-  const usage = createUsageScanner({ root, claudeProjectsDir: claudeProjectsDir(env, home), warn: warnLocalized, now });
+  const usage = createUsageScanner({ root, claudeProjectsDir: claudeProjectsDir(env, home), codexHome: env.CODEX_HOME || join(home, ".codex"), warn: warnLocalized, now });
   const memory = createMemorySampler({ now });
   const changes = createChangeFeed({ root, debounceMs: CHANGE_DEBOUNCE_MS, warn: warnLocalized });
   const allowedHosts = new Set<string>();

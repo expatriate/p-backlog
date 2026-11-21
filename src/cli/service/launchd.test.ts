@@ -27,7 +27,8 @@ const plistPath = (home: string) => join(home, "Library/LaunchAgents/local.p-bac
 describe("launchdPlist", () => {
   it("запускает serve собранного cli.js с окружением на момент установки и пишет лог в ~/Library/Logs", () => {
     const home = "/Users/ann";
-    const plist = launchdPlist(contextFor(home));
+    const context = contextFor(home);
+    const plist = launchdPlist({ ...context, env: { ...context.env, CODEX_HOME: "/opt/codex" } });
 
     expect(plist).toContain("<key>Label</key>\n  <string>local.p-backlog</string>");
     expect(plist).toContain("<key>ProgramArguments</key>\n  <array>\n    <string>/opt/node/bin/node</string>\n    <string>/opt/p-backlog/dist/cli.js</string>\n    <string>serve</string>\n  </array>");
@@ -35,6 +36,7 @@ describe("launchdPlist", () => {
     expect(plist).toContain(`<key>PORT</key>\n    <string>${SERVICE_PORT}</string>`);
     expect(plist).toContain("<key>PATH</key>\n    <string>/usr/local/bin:/usr/bin:/bin</string>");
     expect(plist).toContain("<key>HOME</key>\n    <string>/Users/ann</string>");
+    expect(plist).toContain("<key>CODEX_HOME</key>\n    <string>/opt/codex</string>");
     expect(plist).toContain("<key>StandardOutPath</key>\n  <string>/Users/ann/Library/Logs/p-backlog.log</string>");
     expect(plist).toContain("<key>StandardErrorPath</key>\n  <string>/Users/ann/Library/Logs/p-backlog.log</string>");
   });

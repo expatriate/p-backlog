@@ -1,10 +1,11 @@
-import { rm, stat, writeFile } from "node:fs/promises";
+import { appendFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { newTranscriptState } from "../core/stats/cost/attribute";
+import { costReport } from "../core/stats/cost/cost-report";
 import { makeTempDir, writeFiles } from "../core/store/testing/temp-dirs";
 import { failOnPathError } from "../core/store/testing/path-errors";
-import { emptyUsageCache, readUsageCache, writeUsageCache } from "../core/usage/usage-cache";
+import { emptyUsageCache, readUsageCache, usageBucketsOf, writeUsageCache } from "../core/usage/usage-cache";
 import { localizedWarn } from "./messages";
 import { CATCH_UP_DELAY_MS, createUsageScanner, type UsageScannerOptions } from "./usage-scanner";
 import { DAY_MS } from "../core/model/dates";
@@ -28,6 +29,99 @@ describe("createUsageScanner", () => {
     await scanner.scanOnce();
 
     expect(scanner.snapshot().scan).toEqual({ listed: true, filesTotal: 0, filesDone: 0, bytesLeft: 0 });
+  });
+
+  it("после смены модели Codex показывает разные цены и не считает весь диалог или повтор счётчика", async () => {
+    const root = await makeTempDir();
+    const codexHome = join(root, ".codex");
+    const sessionPath = "sessions/2026/09/19/rollout-demo.jsonl";
+    const timestamp = "2026-09-19T09:00:00.000Z";
+    const cwd = join(root, "repo");
+    const now = () => new Date(timestamp);
+    const event = (type: string, payload: object) => JSON.stringify({ timestamp, type, payload }) + "\n";
+    const total = (input_tokens: number, cached_input_tokens: number, output_tokens: number) =>
+      event("event_msg", { type: "token_count", info: { total_token_usage: { input_tokens, cached_input_tokens, output_tokens } } });
+    const input = (text: string) => event("response_item", { type: "message", role: "user", content: [{ type: "input_text", text }] });
+    const options = { root, claudeProjectsDir: join(root, ".claude", "projects"), codexHome, now };
+    await writeFiles(codexHome, {
+      [sessionPath]: event("turn_context", { model: "gpt-6.2-sol", cwd }) + total(100, 0, 10) + input('<hook_prompt hook_run_id="stop:1">Беклог проект: перепроверь задачу</hook_prompt>'),
+    });
+    await scannerOf(options).scanOnce();
+
+    await appendFile(
+      join(codexHome, sessionPath),
+      total(120, 8, 13) +
+        total(120, 8, 13) +
+        event("turn_context", { model: "gpt-6-luna", cwd }) +
+        input("Беклог проект: покажи список задач") +
+        total(200, 8, 20) +
+        event("response_item", { type: "function_call", name: "exec_command", call_id: "cli", arguments: JSON.stringify({ cmd: "backlog list", workdir: "other" }) }) +
+        event("response_item", { type: "function_call_output", call_id: "cli", output: "abcdef" }) +
+        event("response_item", { type: "custom_tool_call", name: "exec", call_id: "app", input: 'text(await tools.exec_command({cmd: "backlog show SPA-1"}));' }) +
+        event("response_item", {
+          type: "custom_tool_call_output",
+          call_id: "app",
+          output: [
+            { type: "input_text", text: "abcdef" },
+            { type: "input_image", image_url: "data:image/png;base64,AA==" },
+          ],
+        }) +
+        event("response_item", {
+          type: "custom_tool_call",
+          name: "exec",
+          call_id: "mixed",
+          input: 'text(await tools.exec_command({cmd: "backlog list"})); text(await tools.exec_command({cmd: "git status"}));',
+        }) +
+        event("response_item", { type: "custom_tool_call_output", call_id: "mixed", output: "backlog result and a long git status" }) +
+        event("response_item", { type: "function_call", name: "exec_command", call_id: "mixed-shell", arguments: JSON.stringify({ cmd: "git status && backlog list" }) }) +
+        event("response_item", { type: "function_call_output", call_id: "mixed-shell", output: "backlog result and a long git status" }) +
+        event("response_item", { type: "function_call", name: "exec_command", call_id: "mixed-skill", arguments: JSON.stringify({ cmd: "cat ~/skills/backlog/SKILL.md && git diff" }) }) +
+        event("response_item", { type: "function_call_output", call_id: "mixed-skill", output: "skill and a long diff" }),
+    );
+    const scanner = scannerOf(options);
+    await scanner.scanOnce();
+    await scanner.scanOnce();
+
+    const { cache, scan } = scanner.snapshot();
+    expect(
+      usageBucketsOf(cache)
+        .filter((bucket) => bucket.kind === "cli")
+        .map((bucket) => bucket.cwd)
+        .sort(),
+    ).toEqual([cwd, join(cwd, "other")]);
+    const report = costReport({ buckets: usageBucketsOf(cache), runs: [], projectOf: () => "spa", projectId: "spa", now: now(), scan });
+    expect(report.totals).toMatchObject({ hookTokens: 23, hookTurns: 1, cliTokens: 4, hasUnpricedTokens: false });
+    expect(report.models.map(({ model, tokens }) => [model, tokens])).toEqual([
+      ["gpt-6.2-sol", 23],
+      ["gpt-6-luna", 4],
+    ]);
+    expect(report.models[0]?.cost).toBeCloseTo(0.0000548, 10);
+    expect(report.models[1]?.cost).toBeCloseTo(0.0000004, 10);
+  });
+
+  it("недоступный каталог сессий Codex не прерывает чтение архива и сессий Claude Code", async () => {
+    const root = await makeTempDir();
+    const claudeProjectsDir = join(root, ".claude", "projects");
+    const codexHome = join(root, ".codex");
+    const timestamp = "2026-09-19T09:00:00Z";
+    const now = () => new Date(timestamp);
+    const hook = { type: "user", isMeta: true, timestamp, cwd: root, message: { content: "Stop hook feedback:\nБеклог spa: перепроверь задачу" } };
+    const assistant = { type: "assistant", timestamp, cwd: root, message: { model: "claude-opus-5", usage: { input_tokens: 100, output_tokens: 20 } } };
+    const archive = [
+      { type: "turn_context", timestamp, payload: { cwd: root, model: "gpt-6.2-sol" } },
+      { type: "response_item", timestamp, payload: { type: "message", role: "user", content: [{ type: "input_text", text: '<hook_prompt hook_run_id="stop:1">Беклог spa: перепроверь задачу</hook_prompt>' }] } },
+      { type: "event_msg", timestamp, payload: { type: "token_count", info: { total_token_usage: { input_tokens: 50, output_tokens: 10 } } } },
+    ];
+    await writeFiles(codexHome, { sessions: "not a directory", "archived_sessions/rollout-demo.jsonl": archive.map((line) => JSON.stringify(line) + "\n").join("") });
+    await writeFiles(claudeProjectsDir, { "proj/run.jsonl": [hook, assistant].map((line) => JSON.stringify(line) + "\n").join("") });
+    const warn = vi.fn();
+    const scanner = scannerOf({ root, claudeProjectsDir, codexHome, now }, warn);
+
+    await scanner.scanOnce();
+
+    expect(usageBucketsOf(scanner.snapshot().cache)).toContainEqual(expect.objectContaining({ model: "claude-opus-5", tokens: expect.objectContaining({ input: 100, output: 20 }) }));
+    expect(usageBucketsOf(scanner.snapshot().cache)).toContainEqual(expect.objectContaining({ model: "gpt-6.2-sol", tokens: expect.objectContaining({ input: 50, output: 10 }) }));
+    expect(warn).toHaveBeenCalledOnce();
   });
 
   it("повторный вызов scanOnce во время прохода ждёт текущий, а не запускает второй", async () => {
