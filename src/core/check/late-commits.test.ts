@@ -55,10 +55,20 @@ describe("commitsArrivedLate", () => {
     expect({ late: [...late.keys()], unknown }).toEqual({ late: ["SPA-1"], unknown: new Set() });
   });
 
+  it("в репозитории ещё нет коммитов — reflog пуст, а не сбой: задача не «неизвестна»", async () => {
+    const repo = await makeGitRepo(await makeTempDir(), "spa");
+    await writeFiles(repo, { "src/a.ts": "a1\n" });
+
+    const arrivals = await commitsArrivedLate(await questionAbout(repo));
+
+    expect(arrivals).toEqual({ late: new Map(), unknown: new Set() });
+  });
+
   it.each([
     ["merge-base --is-ancestor", (args: string[]) => args[0] === "merge-base"],
     ["log --first-parent", (args: string[]) => args[0] === "log" && args.includes("--first-parent")],
     ["cat-file", (args: string[]) => args[0] === "cat-file"],
+    ["log --walk-reflogs HEAD", (args: string[]) => args.includes("--walk-reflogs") && args.includes("HEAD")],
   ])("сбой git на %s — поздние коммиты задачи неизвестны, а не «их нет»", async (_command, fails) => {
     const question = await editFastForwardedAfterMarkWithEarlierDate();
 

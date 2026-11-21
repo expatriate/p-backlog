@@ -245,6 +245,8 @@ function checkProblem(p: CheckProblem): string {
       return `Project ${p.projectId}: could not read the git branches in ${p.repo} (a broken ref or a git failure) — missing code files of its tasks were not checked`;
     case "merge-state-unknown":
       return `Project ${p.projectId}: git in ${p.repo} could not tell whether ${pluralEn(p.branches.length, "branch", "branches")} ${p.branches.join(", ")} landed in the current branch (shallow clone, unrelated history or a git failure) — tasks created there were checked as usual, without waiting for the merge`;
+    case "late-commits-unknown":
+      return `Project ${p.projectId}: git in ${p.repo} could not read the late commits or the reflog of ${pluralEn(p.taskIds.length, "task", "tasks")} ${p.taskIds.join(", ")} (shallow clone or a git failure) — their code edits were not checked, the next run will try again`;
     case "prefix-shared":
       return `Projects ${p.projectIds.join(", ")} share the prefix ${p.prefix} — their task IDs collide. Change prefix in project.md of one of them`;
   }

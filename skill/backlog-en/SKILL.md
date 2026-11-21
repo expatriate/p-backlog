@@ -185,6 +185,7 @@ subagent, do the re-check yourself.
    trust the directory `repo` owned by another user — don't edit `repos` in `project.md`, the user needs to run
    the command from `trustCommand`), `project-history-unreadable`,
    `project-branches-unreadable` (git branches couldn't be read — missing task files weren't checked), `merge-state-unknown` (git couldn't tell whether branches `branches` landed — their tasks were checked as usual),
+   `late-commits-unknown` (git couldn't read the late commits or the reflog of tasks `taskIds` — their code edits weren't checked, the next run will retry),
    `prefix-shared` (projects `projectIds` share one prefix — their task IDs collide).
 5. End your answer with a block the user can use to find what was closed:
    ```

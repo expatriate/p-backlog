@@ -260,6 +260,8 @@ function checkProblem(p: CheckProblem): string {
       return `Проект ${p.projectId}: не удалось прочитать ветки git в ${p.repo} (битая ссылка в refs или сбой git) — пропавшие файлы кода его задач не проверены`;
     case "merge-state-unknown":
       return `Проект ${p.projectId}: git в ${p.repo} не смог ответить, ${p.branches.length === 1 ? "влита ли ветка" : "влиты ли ветки"} ${p.branches.join(", ")} в текущую (неполный клон, несвязанная история или сбой git) — созданные там задачи проверены как обычные, без ожидания слияния`;
+    case "late-commits-unknown":
+      return `Проект ${p.projectId}: git в ${p.repo} не смог прочитать поздние коммиты или reflog ${p.taskIds.length === 1 ? "задачи" : "задач"} ${p.taskIds.join(", ")} (неполный клон или сбой git) — правки их кода не проверены, проверка повторится при следующем запуске`;
     case "prefix-shared":
       return `У проектов ${p.projectIds.join(", ")} один префикс ${p.prefix} — ID их задач пересекаются. Смените prefix в project.md одного из них`;
   }

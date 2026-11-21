@@ -61,6 +61,7 @@ const PROBLEM_NEEDS_REVIEW: Record<CheckProblem["kind"], boolean> = {
   "project-history-unreadable": false,
   "project-branches-unreadable": false,
   "merge-state-unknown": false,
+  "late-commits-unknown": false,
   "prefix-shared": false,
 };
 

@@ -381,17 +381,14 @@ describe("checkBacklog", () => {
     expect(await spa1()).toMatchObject({ source: "src/code.ts:12", anchor: anchorOf(after, "src/code.ts:12") });
   });
 
-  it("git не ответил, на линии ли HEAD коммит отметки, — строку задачи не ищут по дате: кандидат показан без нового места source, пока git не ответит", async () => {
+  it.each([
+    { case: "на линии ли HEAD коммит отметки", fails: (args: string[]) => args[0] === "merge-base" },
+    { case: "где стоял HEAD в момент отметки (reflog)", fails: (args: string[]) => args.includes("--walk-reflogs") && args.includes("HEAD") },
+  ])("git не ответил, $case, — строку задачи не ищут по дате: кандидат показан без нового места source, пока git не ответит", async ({ fails }) => {
     const commentAboveBeta = (code: string) => code.replace("}\n\nexport function beta", "}\n// beta\nexport function beta");
     const { root, home, spa1 } = await shiftedFixture((before) => `source: src/code.ts:8\nanchor: ${anchorOf(before, "src/code.ts:8")}\n`, commentAboveBeta);
 
-    const report = await check(
-      root,
-      home,
-      "changed",
-      ["spa"],
-      gitFailing((args) => args[0] === "merge-base"),
-    );
+    const report = await check(root, home, "changed", ["spa"], gitFailing(fails));
 
     expect(report.candidates.map((candidate) => [candidate.task.id, "source" in candidate ? candidate.source : undefined])).toEqual([["SPA-1", undefined]]);
     expect(report.fixed).toEqual([]);
@@ -1012,6 +1009,20 @@ describe("checkBacklog", () => {
 
     expect(report.candidates).toEqual(changedByFastForward);
     expect((await loadBacklog(root)).tasks[0]?.anchor).toBeUndefined();
+  });
+
+  it("git не прочитал reflog HEAD — пришедшую перемоткой правку не теряют молча: задачу называют в проблеме late-commits-unknown", async () => {
+    const { home, root, repo } = await editFastForwardedAfterTask("src/a.ts");
+
+    const report = await check(
+      root,
+      home,
+      "full",
+      ["spa"],
+      gitFailing((args) => args.includes("--walk-reflogs") && args.includes("HEAD")),
+    );
+
+    expect(report.problems).toEqual([{ kind: "late-commits-unknown", projectId: "spa", repo, taskIds: ["SPA-1"] }]);
   });
 
   it("в клоне, чей reflog не помнит момент отметки, пришедшую перемоткой правку находят по коммиту создания задачи", async () => {

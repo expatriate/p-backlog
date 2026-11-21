@@ -122,7 +122,7 @@ export function presenceOffDisk(path: string, branches: BranchHistory): Presence
 }
 
 function livesOnAnotherBranch(path: string, facts: Extract<BranchHistory, { kind: "read" }>): boolean {
-  return !committedIn(facts.committedHere, path) && committedIn(facts.committedAnywhere, path);
+  return !committedIn(facts.committedHere, path) && committedIn(facts.onBranchTips, path);
 }
 
 export function committedIn(files: ReadonlySet<string>, path: string): boolean {

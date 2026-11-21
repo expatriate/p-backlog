@@ -20,7 +20,7 @@ function facts(overrides: Partial<Omit<RepoFacts, "history">>): RepoFacts {
     commits: [],
     renames: [],
     dirtyModifiedAt: new Map(),
-    branches: { kind: "read", committedHere: new Set(), committedAnywhere: new Set() },
+    branches: { kind: "read", committedHere: new Set(), onBranchTips: new Set() },
     existing: new Set(),
     texts: new Map(),
     unreadable: new Map(),
