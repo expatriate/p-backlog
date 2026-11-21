@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.14.3
+
 - Costs include backlog-related Codex usage and estimate its cost at standard OpenAI API prices.
 - Quality shows candidate outcomes by model for new Stop hook events that include a model.
 
