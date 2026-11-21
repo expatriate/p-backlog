@@ -247,6 +247,26 @@ describe("карточка задачи", () => {
     expect(within(panel).getByRole("checkbox", { name: "второй шаг" })).toHaveProperty("checked", true);
   });
 
+  it("вложенный чеклист и блок кода под пунктом не входят в имя его чекбокса", async () => {
+    const nestedChecklist = "- [ ] родитель\n  - [ ] вложенный\n- [ ] с `примером`\n  ```\n  npm test\n  ```\n  подробности примера";
+    await renderApp({ ...FILES, "spa/SPA-2.md": taskFile("SPA-2", { title: "Блокер" }, nestedChecklist) }, "/p/spa/t/SPA-2");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });
+
+    expect(within(panel).getAllByRole("checkbox")).toHaveLength(3);
+    for (const name of ["родитель", "вложенный", "с примером"]) expect(within(panel).getByRole("checkbox", { name })).toBeDefined();
+    expect(within(panel).getByText("npm test").closest("label")).toBeNull();
+    expect(within(panel).getByText("подробности примера").closest("label")).toBeNull();
+  });
+
+  it("чекбокс сохраняет доступное имя, когда Markdown превращает текст пункта в заголовок", async () => {
+    const checklist = "- [ ] родитель\n  -----\n  подробности";
+    await renderApp({ ...FILES, "spa/SPA-2.md": taskFile("SPA-2", { title: "Блокер" }, checklist) }, "/p/spa/t/SPA-2");
+    const panel = await screen.findByRole("complementary", { name: "Задача SPA-2" });
+
+    expect(within(panel).getByRole("checkbox", { name: "родитель" })).toHaveProperty("checked", false);
+    expect(within(panel).getByText("подробности").closest("label")).toBeNull();
+  });
+
   describe("ссылки в описании", () => {
     const withBody = (body: string) => ({ ...FILES, "spa/SPA-1.md": taskFile("SPA-1", { title: "Таймауты загрузки" }, body) });
 

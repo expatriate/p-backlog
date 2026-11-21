@@ -30,6 +30,8 @@ const InsideCodeBlock = createContext(false);
 
 const MARKDOWN_COMPONENTS: Components = { a: MarkdownLink, table: MarkdownTable, li: MarkdownItem, pre: MarkdownPre, code: MarkdownCode };
 
+const MARKDOWN_BLOCK_TYPES = new Set<ReactElement["type"]>(["p", "ul", "ol", "blockquote", "hr", "h1", "h2", "h3", "h4", "h5", "h6", MarkdownPre, MarkdownTable]);
+
 const WEB_PATH = /^\/(?!\/)/;
 const HTTP_URL = /^https?:/i;
 const ANCHOR_OR_MAILTO = /^(#|mailto:)/i;
@@ -125,23 +127,28 @@ function MarkdownItem({ node, children }: ComponentProps<"li"> & ExtraProps) {
   return (
     <li className={styles.checkItem}>
       <label>
-        <input type="checkbox" checked={item.checked} onChange={() => onToggleLine(item.line)} />
+        <input type="checkbox" checked={item.checked} aria-label={hasMarkdownContent(label) ? undefined : item.text} onChange={() => onToggleLine(item.line)} />
         <span>{label}</span>
       </label>
-      {continuation.length > 0 && <div className={styles.continuation}>{continuation}</div>}
+      {hasMarkdownContent(continuation) && <div className={styles.continuation}>{continuation}</div>}
     </li>
   );
 }
 
-function checkItemParts(children: ReactNode): { label: ReactNode[]; continuation: ReactNode[] } {
-  const parts = Children.toArray(children);
-  const leadElement = parts.find((part) => isValidElement(part));
-  if (!isParagraph(leadElement)) return { label: withoutGfmCheckbox(parts), continuation: [] };
-  return { label: withoutGfmCheckbox(leadElement.props.children), continuation: parts.filter((part) => isValidElement(part) && part !== leadElement) };
+function hasMarkdownContent(parts: readonly ReactNode[]): boolean {
+  return parts.some((part) => typeof part !== "string" || part.trim().length > 0);
 }
 
-function isParagraph(node: ReactNode): node is ReactElement<{ children?: ReactNode }> {
-  return isValidElement(node) && node.type === "p";
+function checkItemParts(children: ReactNode): { label: ReactNode[]; continuation: ReactNode[] } {
+  const parts = Children.toArray(children);
+  const blockIndex = parts.findIndex((part) => isValidElement(part) && MARKDOWN_BLOCK_TYPES.has(part.type));
+  const inlineEnd = blockIndex === -1 ? parts.length : blockIndex;
+  const firstBlock = parts[inlineEnd];
+  const wrappedLabel = isValidElement<{ children?: ReactNode }>(firstBlock) && firstBlock.type === "p";
+  return {
+    label: withoutGfmCheckbox(wrappedLabel ? firstBlock.props.children : parts.slice(0, inlineEnd)),
+    continuation: parts.slice(wrappedLabel ? inlineEnd + 1 : inlineEnd),
+  };
 }
 
 function withoutGfmCheckbox(children: ReactNode): ReactNode[] {
