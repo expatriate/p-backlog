@@ -5,6 +5,7 @@ import { NBSP } from "../../core/i18n/plural";
 import { NO_VALUE } from "../labels";
 
 const USD_CENT = 0.01;
+const COST_ROUNDING_TOLERANCE_USD = 1e-10;
 
 export function approx(text: string): string {
   return `≈${NBSP}${text}`;
@@ -20,7 +21,7 @@ export function wholeFormatter(language: Language): (value: number) => string {
 
 export function costValue(language: Language, cost: number | null): string {
   if (cost === null) return NO_VALUE;
-  if (cost > 0 && cost < USD_CENT) return `<${NBSP}${formatMoney(language, USD_CENT)}`;
+  if (cost > 0 && cost + COST_ROUNDING_TOLERANCE_USD < USD_CENT) return `<${NBSP}${formatMoney(language, USD_CENT)}`;
   return approx(formatMoney(language, cost));
 }
 

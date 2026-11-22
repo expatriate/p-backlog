@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CostPeriod, FlowPeriod } from "../../core/api/contract";
 import { NBSP } from "../../core/i18n/plural";
+import { sum } from "../../core/numbers";
 import { statsEn, statsRu } from "./messages";
 import { summarizeIntake, summarizeSpend } from "./summaries";
 import { costValue } from "./value-format";
@@ -40,9 +41,16 @@ const spend = (cost: number | null, hasUnpricedTokens: boolean): CostPeriod => (
 describe("деньги в сводке расхода", () => {
   it("показывает расход меньше цента отдельно от нуля и суммы в один цент", () => {
     expect(costValue("ru", 0.000632)).toBe(`<${NBSP}$0,01`);
-    expect(costValue("en", 0.0099)).toBe(`<${NBSP}$0.01`);
+    expect(costValue("en", 0.00999999)).toBe(`<${NBSP}$0.01`);
     expect(costValue("ru", 0)).toBe(`≈${NBSP}$0,00`);
     expect(costValue("ru", 0.01)).toBe(`≈${NBSP}$0,01`);
+  });
+
+  it("отображает ровно один цент при погрешности сложения", () => {
+    const periods = [spend(0.000008, false), spend(0.009992, false)];
+    expect(summarizeSpend("ru", "day", periods, statsRu.unpricedNote).money).toBe(`≈${NBSP}$0,01`);
+    const outputTokenCosts = Array<number>(20_000).fill(0.0000005);
+    expect(costValue("en", sum(outputTokenCosts))).toBe(`≈${NBSP}$0.01`);
   });
 
   it("без единой цены, даже рядом с днями без токенов, — прочерк без «≈» и без пометки о моделях без цены", () => {
