@@ -5,7 +5,7 @@ import { candidateEvents, candidateGoneEvents, episodeStates, filteredEvents } f
 import type { CandidateSighting, CheckMode, FilteredSighting, TaskEvidence } from "../journal/events";
 import type { CoreMessages } from "../messages";
 import type { Project, Task } from "../model/types";
-import { appendJournal, readJournal } from "../store/journal";
+import { appendDerivedJournalEvents } from "../store/journal";
 import { loadBacklog, type LoadedBacklog } from "../store/load";
 import type { GitRoots, RepoContext } from "../store/resolve-project";
 import type { Candidate, ReportedCandidate } from "./candidates";
@@ -88,23 +88,21 @@ async function recordCandidates(
   { mode, now, projectIds, messages, warn, model }: CheckRequest,
 ): Promise<void> {
   const projectOf = new Map(tasks.map((task) => [task.id, task.projectId]));
+  const endsGone = mode === "full";
   for (const projectId of projectIds) {
-    const dir = join(root, projectId);
-    const found = candidates.filter((candidate) => projectOf.get(candidate.task.id) === projectId);
+    const sightings = candidates.filter((candidate) => projectOf.get(candidate.task.id) === projectId).map(sightingOf);
     const filteredHere = filtered.filter((sighting) => projectOf.get(sighting.task) === projectId);
     const reviewed = tasks.filter((task) => task.projectId === projectId && isReviewable(task) && !unjudged.has(task.id)).map((task) => task.id);
-    const endsGone = mode === "full";
-    if (found.length === 0 && filteredHere.length === 0 && (!endsGone || reviewed.length === 0)) continue;
-    const reportFailure = (error: unknown) => warn(messages.candidatesRecordFailed(projectId, errorText(error)));
-    try {
-      const journal = await readJournal(dir, projectId);
-      const states = episodeStates(journal.events);
-      const sightings = found.map(sightingOf);
-      const gone = endsGone ? candidateGoneEvents({ sightings, reviewed, unchecked: unchecked.get(projectId) ?? [] }, states, now) : [];
-      await appendJournal(dir, [...candidateEvents(sightings, states, now, mode, model), ...gone, ...filteredEvents(filteredHere, states, now)], (_path, error) => reportFailure(error));
-    } catch (error) {
-      reportFailure(error);
-    }
+    if (sightings.length === 0 && filteredHere.length === 0 && (!endsGone || reviewed.length === 0)) continue;
+    await appendDerivedJournalEvents(
+      join(root, projectId),
+      (events) => {
+        const states = episodeStates(events);
+        const gone = endsGone ? candidateGoneEvents({ sightings, reviewed, unchecked: unchecked.get(projectId) ?? [] }, states, now) : [];
+        return [...candidateEvents(sightings, states, now, mode, model), ...gone, ...filteredEvents(filteredHere, states, now)];
+      },
+      (_path, error) => warn(messages.candidatesRecordFailed(projectId, errorText(error))),
+    );
   }
 }
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Concurrent rechecks record one candidate and count it once in Quality.
+
 ## 0.14.4
 
 - Positive costs below one cent are shown as less than one cent.

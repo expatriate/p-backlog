@@ -22,6 +22,23 @@ export async function appendJournal(projectDir: string, events: readonly Journal
 // On Windows a compacting holder may wait for the project.md lock, then retry blocked renames and lock removals of project.md and of the journal.
 export const JOURNAL_LOCK_WAIT_MS = 4 * BLOCKED_RETRIES_TOTAL_MS + 10 * SECOND_MS;
 
+export async function appendDerivedJournalEvents(projectDir: string, derive: (previous: readonly JournalEvent[]) => readonly JournalEvent[], onError: PathErrorHandler): Promise<void> {
+  const path = join(projectDir, JOURNAL_FILE);
+  try {
+    await withWriteLock(
+      path,
+      async (afterPublish) => {
+        const { values } = await readJsonLines(path, journalEventSchema);
+        const events = derive(values);
+        if (events.length > 0) await appendJsonLines(path, events, afterPublish);
+      },
+      { onErrorAfterPublish: onError },
+    );
+  } catch (error) {
+    onError(path, error);
+  }
+}
+
 async function appendWaitingForLock(path: string, events: readonly JournalEvent[], afterPublish: AfterPublish): Promise<void> {
   try {
     await withWriteLock(path, (underLock) => appendJsonLines(path, events, underLock), { ...afterPublish, waitLimitMs: JOURNAL_LOCK_WAIT_MS });

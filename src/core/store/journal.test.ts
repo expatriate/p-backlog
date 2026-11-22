@@ -1,12 +1,12 @@
-import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, utimes } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { describe, expect, it, vi } from "vitest";
-import type { PathErrorHandler } from "../errors";
-import { createdEvent, type JournalEvent } from "../journal/events";
+import { createdEvent } from "../journal/events";
 import { makeTask } from "../model/testing/make-task";
+import { FileBusyError, lockPathOf } from "./file-lock";
 import { readBytesOrNull, readTextOrNull } from "./fs-utils";
-import { appendJournal, JOURNAL_FILE, JOURNAL_LOCK_WAIT_MS, readJournal, readJournals } from "./journal";
+import { appendDerivedJournalEvents, appendJournal, JOURNAL_FILE, JOURNAL_LOCK_WAIT_MS, readJournal, readJournals } from "./journal";
 import { compactJournal } from "./journal-compaction";
 import { withLockFailingOnPathError } from "./testing/locks";
 import { makeTempDir, writeFiles } from "./testing/temp-dirs";
@@ -20,11 +20,14 @@ vi.mock("./fs-utils", async (importOriginal) => {
 const NOW = new Date(2026, 8, 18, 12, 0, 0);
 const WRITES = { now: NOW, onError: failOnPathError };
 
-async function appendAfterLockWaitRunsOut(dir: string, events: readonly JournalEvent[], onError: PathErrorHandler = failOnPathError): Promise<void> {
-  vi.useFakeTimers({ toFake: ["Date"] });
+async function runPastLockDeadline(path: string, append: () => Promise<void>): Promise<void> {
+  const now = Date.now();
+  const afterDeadline = new Date(now + JOURNAL_LOCK_WAIT_MS + 1);
+  await utimes(lockPathOf(path), afterDeadline, afterDeadline);
+  vi.useFakeTimers({ now, toFake: ["Date"] });
   try {
-    const appended = appendJournal(dir, events, onError);
-    vi.setSystemTime(Date.now() + JOURNAL_LOCK_WAIT_MS + 1_000);
+    const appended = append();
+    vi.setSystemTime(afterDeadline);
     await appended;
   } finally {
     vi.useRealTimers();
@@ -140,10 +143,23 @@ describe("файл журнала", () => {
     const path = join(dir, JOURNAL_FILE);
     const failures: unknown[] = [];
 
-    await withLockFailingOnPathError(path, () => appendAfterLockWaitRunsOut(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")], (_, error) => failures.push(error)));
+    await withLockFailingOnPathError(path, () => runPastLockDeadline(path, () => appendJournal(dir, [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")], (_, error) => failures.push(error))));
 
     expect(failures).toEqual([]);
     expect((await readJournal(dir, "spa")).events.map((event) => event.task)).toEqual(["SPA-1"]);
+  });
+
+  it("при занятом журнале события не пишутся, а ожидание короче 30-секундного лимита Codex", async () => {
+    const dir = await makeTempDir();
+    const path = join(dir, JOURNAL_FILE);
+    const failures: unknown[] = [];
+    const derive = () => [createdEvent(makeTask({ id: "SPA-1" }), NOW, "cli")];
+
+    await withLockFailingOnPathError(path, () => runPastLockDeadline(path, () => appendDerivedJournalEvents(dir, derive, (_, error) => failures.push(error))));
+
+    expect(failures).toEqual([expect.any(FileBusyError)]);
+    expect((failures[0] as FileBusyError).seconds).toBeLessThan(30);
+    expect((await readJournal(dir, "spa")).events).toEqual([]);
   });
 
   it("строки, дописанные во время уплотнения, не теряются", async () => {
@@ -164,7 +180,7 @@ describe("файл журнала", () => {
     await appendJournal(dir, [createdEvent(makeTask({ id: "SPA-3" }), old, "cli"), createdEvent(makeTask({ id: "SPA-4" }), old, "cli")], failOnPathError);
     vi.mocked(readBytesOrNull).mockImplementationOnce(async (path) => {
       const journal = await readFile(path);
-      await appendAfterLockWaitRunsOut(dir, [createdEvent(makeTask({ id: "SPA-5" }), NOW, "cli")]);
+      await runPastLockDeadline(path, () => appendJournal(dir, [createdEvent(makeTask({ id: "SPA-5" }), NOW, "cli")], failOnPathError));
       return journal;
     });
 

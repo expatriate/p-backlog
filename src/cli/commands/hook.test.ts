@@ -2,7 +2,11 @@ import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { NBSP } from "../../core/i18n/plural";
-import { readJournal } from "../../core/store/journal";
+import { qualityReport } from "../../core/stats/quality/quality-report";
+import { reportContext } from "../../core/stats/scope";
+import * as fileLock from "../../core/store/file-lock";
+import { JOURNAL_FILE, readJournal } from "../../core/store/journal";
+import { loadBacklog } from "../../core/store/load";
 import { SIGNALS_SHOWN_FILE } from "../../core/store/signals-shown";
 import { gitAddWorktree, gitCommitAll, writeFiles } from "../../core/store/testing/temp-dirs";
 import { writeSettings } from "../../core/store/settings";
@@ -441,6 +445,53 @@ describe("backlog hook stop", () => {
     expect(JSON.parse(result.out)).toEqual({ decision: "block", reason: EXPECTED_REASON });
     const journal = await readJournal(join(root, "spa"), "spa");
     expect(journal.events).toContainEqual(expect.objectContaining({ kind: "candidate", task: "SPA-1", model: "gpt-5" }));
+  });
+
+  it("два одновременных Stop-хука от разных моделей дают одного кандидата в отчёте качества", async () => {
+    const { run, repo, root } = await changedTaskSandbox();
+    const dir = join(root, "spa");
+    const journalPath = join(dir, JOURNAL_FILE);
+    const { promise: bothAtJournal, resolve: release }: PromiseWithResolvers<void> = Promise.withResolvers();
+    let arrivals = 0;
+    const acquire = fileLock.withWriteLock;
+    const { withWriteLock: acquireJournal } = await vi.importActual<typeof fileLock>("../../core/store/file-lock");
+    const lock = vi.spyOn(fileLock, "withWriteLock").mockImplementation(async (path, action, options) => {
+      if (path !== journalPath) return acquire(path, action, options);
+      if (++arrivals === 2) release();
+      await bothAtJournal;
+      return acquireJournal(path, action, options);
+    });
+    onTestFinished(() => {
+      release();
+      lock.mockRestore();
+    });
+
+    const models = { claude: "claude-opus-5", codex: "gpt-6.2-sol" };
+    const responses = await Promise.all(
+      Object.entries(models).map(([agent, model]) =>
+        run(["hook", "stop", "--agent", agent], {
+          stdin: JSON.stringify({ session_id: agent, turn_id: "t1", cwd: repo, hook_event_name: "Stop", stop_hook_active: false, model }),
+        }),
+      ),
+    );
+    for (const response of responses) {
+      expect(response.code).toBe(EXIT.ok);
+      expect(JSON.parse(response.out)).toEqual({ decision: "block", reason: EXPECTED_REASON });
+    }
+
+    const now = new Date("2026-09-18T12:00:00Z");
+    expect((await run(["verify", "SPA-1"], { now })).code).toBe(EXIT.ok);
+    const journal = await readJournal(dir, "spa");
+    const { tasks } = await loadBacklog(root);
+    const report = qualityReport(reportContext({ tasks, journals: [journal], projectId: "spa", now }), []);
+    const counts = { candidates: 1, verified: 1, open: 0 };
+
+    expect(report.accuracy.find(({ evidence }) => evidence === "total")).toMatchObject(counts);
+    const events = journal.events.filter((event) => event.kind === "candidate");
+    expect(events).toHaveLength(1);
+    const model = events[0]?.model;
+    expect(Object.values(models)).toContain(model);
+    expect(report.modelAccuracy).toMatchObject([{ model, ...counts }]);
   });
 
   it("Cursor получает follow-up и не зацикливается на своём же follow-up", async () => {
