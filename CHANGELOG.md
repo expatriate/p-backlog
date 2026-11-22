@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.14.4
+
 - Positive costs below one cent are shown as less than one cent.
 
 ## 0.14.3
