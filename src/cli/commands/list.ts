@@ -1,3 +1,4 @@
+import { parseProbabilityFilter } from "../../core/model/probability";
 import { filterTasks, OPEN_STATUSES, sortTasks } from "../../core/model/query";
 import { TASK_STATUSES } from "../../core/model/types";
 import { indexOfLoaded, loadBacklog } from "../../core/store/load";
@@ -19,12 +20,15 @@ async function runList(args: string[], io: CliIo): Promise<ExitCode> {
     query: { type: "string" },
     status: { type: "string" },
     tag: { type: "string" },
+    probability: { type: "string" },
     ...SCOPE_OPTIONS,
     json: { type: "boolean", default: false },
   });
   const requestedStatuses = splitList(values.status);
   if (requestedStatuses?.length === 0) throw new UsageError(io.cli.invalidChoice("--status", TASK_STATUSES, values.status ?? ""));
   const statuses = requestedStatuses?.map((status) => parseChoice(io.language, status, TASK_STATUSES, "--status")) ?? OPEN_STATUSES;
+  const probability = parseProbabilityFilter(values.probability);
+  if (values.probability !== undefined && probability === undefined) throw new UsageError(io.cli.invalidProbabilityFilter(values.probability));
 
   const loaded = await loadBacklog(io.backlogRoot);
   const scope = resolveScope(loaded, io, values);
@@ -39,7 +43,7 @@ async function runList(args: string[], io: CliIo): Promise<ExitCode> {
   const inScope = new Set(scope.activeIds);
   const filtered = filterTasks(
     loaded.tasks.filter((task) => inScope.has(task.projectId)),
-    { projectId, query: values.query, statuses, tags: splitList(values.tag) },
+    { projectId, query: values.query, statuses, tags: splitList(values.tag), probability },
     index,
   );
   const tasks = sortTasks(filtered, { key: "priority", direction: "desc" }, index, io.language);

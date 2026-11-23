@@ -3,6 +3,7 @@ import { localeOf, type Language } from "../i18n/language";
 import { compareIds } from "./ids";
 import { normalizeTag, PRIORITIES, TASK_STATUSES, type Priority, type Task, type TaskStatus, type TaskType } from "./types";
 import { DAY_MS, DAYS_PER_MONTH } from "./dates";
+import { MAX_PROBABILITY, type ProbabilityFilter } from "./probability";
 
 export const OPEN_STATUSES: readonly TaskStatus[] = TASK_STATUSES.filter((status) => !isClosed(status));
 const STATUS_SORT_ORDER: readonly TaskStatus[] = ["in-progress", "blocked", "backlog", "done", "cancelled"];
@@ -12,6 +13,7 @@ export type TaskFilter = {
   query?: string | undefined;
   statuses?: readonly TaskStatus[] | undefined;
   priorities?: readonly Priority[] | undefined;
+  probability?: ProbabilityFilter | undefined;
   tags?: readonly string[] | undefined;
   epic?: string | null | undefined;
   type?: TaskType | undefined;
@@ -50,6 +52,7 @@ export function filterTasks(tasks: readonly Task[], filter: TaskFilter, index: B
       (filter.query === undefined || matchesQuery(task, filter.query)) &&
       anyOrIncludes(filter.statuses, task.status) &&
       anyOrIncludes(filter.priorities, task.priority) &&
+      matchesProbability(task.probability, filter.probability) &&
       tags.every((tag) => task.tags.includes(tag)) &&
       matchesEpic(task, filter.epic) &&
       (filter.type === undefined || task.type === filter.type) &&
@@ -129,6 +132,12 @@ function matchesEpic(task: Task, epic: string | null | undefined): boolean {
   if (epic === undefined) return true;
   if (epic === null) return task.epic === undefined;
   return task.epic === epic;
+}
+
+function matchesProbability(probability: number | undefined, filter: ProbabilityFilter | undefined): boolean {
+  if (filter === undefined) return true;
+  if (filter === "none") return probability === undefined;
+  return probability !== undefined && probability >= (filter.min ?? 0) && probability <= (filter.max ?? MAX_PROBABILITY);
 }
 
 function anyOrIncludes<T>(allowed: readonly T[] | undefined, value: T): boolean {

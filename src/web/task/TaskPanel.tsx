@@ -73,7 +73,7 @@ export function TaskPanel({ task, onClose, gone }: TaskPanelProps) {
     <SidePanel label={taskMessages.cardLabel(task.id)} heading={<TaskId id={task.id} tone={toneOf(task, tones)} />} onClose={onClose} className={cardAlerts.length > 0 ? styles.alertsPinned : undefined}>
       <TitleField draft={fields.title} label={taskMessages.title} onSave={(next) => saver.apply({ title: next })} />
 
-      <TaskFields task={task} epicListId={EPIC_LIST_ID} onChange={saver.apply} tags={fields.tags} epic={fields.epic} />
+      <TaskFields task={task} epicListId={EPIC_LIST_ID} onChange={saver.apply} tags={fields.tags} epic={fields.epic} probability={fields.probability} />
 
       <TaskMeta task={task} index={index} />
 

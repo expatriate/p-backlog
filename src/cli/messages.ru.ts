@@ -14,6 +14,8 @@ export const cliRu = {
   },
   invalidChoice: (label: string, allowed: readonly string[], value: string): string => `${label}: ожидается одно из ${allowed.join(", ")}, получено «${value}»`,
   invalidPort: (source: string, value: string): string => `${source}: ожидается число от 1 до 65535, получено «${value}»`,
+  invalidProbability: (value: string): string => `Вероятность должна быть целым числом от 0 до 100, получено «${value}»`,
+  invalidProbabilityFilter: (value: string): string => `Для --probability укажите диапазон включительно (20..80, ..80 или 20..) с границами от 0 до 100 или none. Получено «${value}»`,
   commandFailed: (name: string, reason: string): string => `Команда ${name} не выполнена: ${reason}`,
   runNotRecorded: (error: string): string => `Не удалось записать запуск: ${error}`,
   sweepConflicts: (ids: string): string => `Задачи менялись во время уборки закрытых, она повторится через сутки: ${ids}`,
@@ -187,7 +189,7 @@ export const cliRu = {
 
   newUsage: (types: string, priorities: string, found: string, defaultFound: string): string =>
     [
-      `--title <заголовок> [--type ${types}] [--priority ${priorities}] [--tags a,b]`,
+      `--title <заголовок> [--type ${types}] [--priority ${priorities}] [--probability <0..100>] [--tags a,b]`,
       `--category <категория> (для задач обязателен) [--found ${found}, по умолчанию ${defaultFound}]`,
       "[--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]",
       "[--force — создать, даже если похожая открытая задача уже есть]",
@@ -216,7 +218,7 @@ export const cliRu = {
   deletesAtTail: (date: string): string => `. Удалится ${date}`,
   afterEpicCloses: (epic: string): string => `после закрытия эпика ${epic}`,
 
-  listUsage: (): string => "[--query текст] [--status s,…] [--tag t,…] [--project id | --all-projects] [--json]",
+  listUsage: (): string => "[--query текст] [--status s,…] [--tag t,…] [--probability <min..max|none>] [--project id | --all-projects] [--json]",
   parseErrorLine: (path: string, problems: string): string => `Ошибка разбора ${path}: ${problems}`,
   noTasksFound: "Задач не найдено",
 

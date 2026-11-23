@@ -2,6 +2,7 @@ import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 import { errorText } from "../core/errors";
 import type { Language } from "../core/i18n/language";
 import { coreMessages, type CoreMessages } from "../core/messages";
+import { parseProbability } from "../core/model/probability";
 import { envPortOrDefault, portNumber } from "../core/server-address";
 import { cliMessages, type CliMessages } from "./messages";
 
@@ -119,6 +120,12 @@ export function parseChoice<T extends string>(language: Language, value: string,
   const match = allowed.find((candidate) => candidate === value);
   if (match === undefined) throw new UsageError(cliMessages(language).invalidChoice(label, allowed, value));
   return match;
+}
+
+export function parseProbabilityValue(language: Language, value: string): number {
+  const probability = parseProbability(value);
+  if (probability === undefined) throw new UsageError(cliMessages(language).invalidProbability(value));
+  return probability;
 }
 
 export function parsePort(language: Language, value: string): number {

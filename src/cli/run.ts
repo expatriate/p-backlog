@@ -14,6 +14,7 @@ import { hookCommand, namesStopEvent } from "./commands/hook";
 import { listCommand } from "./commands/list";
 import { newCommand } from "./commands/new";
 import { priorityCommand } from "./commands/priority";
+import { probabilityCommand } from "./commands/probability";
 import { projectCommand } from "./commands/project";
 import { pruneCommand } from "./commands/prune";
 import { serveCommand } from "./commands/serve";
@@ -34,6 +35,7 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
   takeCommand,
   statusCommand,
   priorityCommand,
+  probabilityCommand,
   categoryCommand,
   epicCommand,
   checkCommand,

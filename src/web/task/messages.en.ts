@@ -24,6 +24,9 @@ export const taskEn: TaskMessages = {
 
   statusField: "Status",
   priorityField: "Priority",
+  probabilityField: "Probability, %",
+  probabilityPlaceholder: "Not estimated",
+  invalidProbability: "Enter a whole number from 0 to 100.",
   categoryField: "Category",
   typeField: "Type",
   epicField: "Epic",

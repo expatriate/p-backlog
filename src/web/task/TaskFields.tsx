@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { TaskChangesRequest } from "../../core/api/contract";
 import { epicProblems } from "../../core/model/integrity";
+import { parseProbability } from "../../core/model/probability";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, type Task } from "../../core/model/types";
 import { useAllTasks } from "../app/all-tasks";
 import { useMessages } from "../i18n";
@@ -16,9 +17,10 @@ export type TaskFieldsProps = {
   onChange: (changes: TaskChangesRequest) => Promise<SaveOutcome>;
   tags: Draft;
   epic: Draft;
+  probability: Draft;
 };
 
-export function TaskFields({ task, epicListId, onChange, tags, epic }: TaskFieldsProps) {
+export function TaskFields({ task, epicListId, onChange, tags, epic, probability }: TaskFieldsProps) {
   const { core, task: taskMessages } = useMessages();
   const { index } = useAllTasks();
   const { ref: epicRef } = epic;
@@ -42,6 +44,7 @@ export function TaskFields({ task, epicListId, onChange, tags, epic }: TaskField
       <div className={styles.grid}>
         <ChoiceSelect label={taskMessages.statusField} value={task.status} choices={TASK_STATUSES} labelFor={core.statusLabel} onChange={(status) => void onChange({ status })} />
         <ChoiceSelect label={taskMessages.priorityField} value={task.priority} choices={PRIORITIES} labelFor={core.priorityLabel} onChange={(priority) => void onChange({ priority })} />
+        <ProbabilityField draft={probability} onChange={onChange} />
         <OptionalChoiceSelect
           label={taskMessages.categoryField}
           value={task.category}
@@ -74,6 +77,42 @@ export function TaskFields({ task, epicListId, onChange, tags, epic }: TaskField
         <input ref={tagsRef} value={tags.value} onChange={(event) => tags.set(event.target.value)} onBlur={saveTags} />
       </label>
     </>
+  );
+}
+
+function ProbabilityField({ draft, onChange }: { draft: Draft; onChange: TaskFieldsProps["onChange"] }) {
+  const { task } = useMessages();
+  const { ref } = draft;
+  const [invalid, setInvalid] = useState(false);
+  const field = useFieldError(invalid ? task.invalidProbability : null);
+
+  const commit = () => {
+    const value = parseProbability(draft.canonical);
+    const rejected = draft.canonical !== "" && value === undefined;
+    setInvalid(rejected);
+    if (!rejected) draft.commit(() => onChange({ probability: value ?? null }));
+  };
+
+  return (
+    <label>
+      {task.probabilityField}
+      <input
+        ref={ref}
+        inputMode="numeric"
+        value={draft.value}
+        placeholder={task.probabilityPlaceholder}
+        {...field.inputProps}
+        onChange={(event) => {
+          draft.set(event.target.value);
+          setInvalid(false);
+        }}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur();
+        }}
+      />
+      <FieldError {...field.error} />
+    </label>
   );
 }
 

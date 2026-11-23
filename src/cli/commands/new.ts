@@ -6,7 +6,7 @@ import { PRIORITIES, TASK_CATEGORIES, TASK_TYPES, type Project, type Task } from
 import { createTask } from "../../core/store/create";
 import { indexOfLoaded, loadBacklog } from "../../core/store/load";
 import type { CliCommand } from "../command";
-import { EXIT, parseChoice, parseOptions, splitList, UsageError, type CliIo, type ExitCode } from "../io";
+import { EXIT, parseChoice, parseOptions, parseProbabilityValue, splitList, UsageError, type CliIo, type ExitCode } from "../io";
 import { cwdBelongsTo, ensureProject, repoLookup, sourcePresenceOrWarn } from "../lookups";
 import { cliMessages } from "../messages";
 import { readOrigin } from "../origin";
@@ -30,6 +30,7 @@ const NEW_OPTIONS = {
   title: { type: "string" },
   type: { type: "string" },
   priority: { type: "string" },
+  probability: { type: "string" },
   tags: { type: "string" },
   category: { type: "string" },
   found: { type: "string" },
@@ -47,6 +48,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
   if (values.title === undefined) throw new UsageError(io.cli.titleRequired);
   const type = values.type === undefined ? undefined : parseChoice(io.language, values.type, TASK_TYPES, "--type");
   const priority = values.priority === undefined ? undefined : parseChoice(io.language, values.priority, PRIORITIES, "--priority");
+  const probability = values.probability === undefined ? undefined : parseProbabilityValue(io.language, values.probability);
   const category = values.category === undefined ? undefined : parseChoice(io.language, values.category, TASK_CATEGORIES, "--category");
   if (category === undefined && type !== "epic") throw new UsageError(io.cli.categoryRequired);
   const found = values.found === undefined ? DEFAULT_FOUND : parseChoice(io.language, values.found, FOUND_HOW, "--found");
@@ -68,6 +70,7 @@ async function runNew(args: string[], io: CliIo): Promise<ExitCode> {
       title: values.title,
       type,
       priority,
+      probability,
       category,
       tags: splitList(values.tags),
       source: values.source,

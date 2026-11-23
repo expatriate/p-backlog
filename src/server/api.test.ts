@@ -71,6 +71,17 @@ describe("GET /api/projects: граф кода", () => {
 });
 
 describe("PATCH /api/tasks/:id", () => {
+  it("отклоняет нецелую вероятность и значения за пределами процентов без записи на диск", async () => {
+    const backlog = await makeTestApp(SAMPLE_FILES);
+    const version = await backlog.taskVersion("SPA-1");
+
+    for (const probability of [-1, 101, 0.5, "50"]) {
+      const response = await backlog.json("/api/tasks/SPA-1", "PATCH", { version, changes: { probability } });
+      expect(response.status).toBe(422);
+    }
+    expect(await backlog.taskOnDisk("SPA-1")).toMatchObject({ version });
+  });
+
   it("меняет задачу и возвращает новую версию", async () => {
     const backlog = await makeTestApp(SAMPLE_FILES);
     const version = await backlog.taskVersion("SPA-1");

@@ -14,6 +14,8 @@ export const cliEn: CliMessages = {
   },
   invalidChoice: (label, allowed, value) => `${label}: expected one of ${allowed.join(", ")}, got "${value}"`,
   invalidPort: (source, value) => `${source}: expected a number from 1 to 65535, got "${value}"`,
+  invalidProbability: (value) => `Probability must be a whole number from 0 to 100, got "${value}"`,
+  invalidProbabilityFilter: (value) => `--probability expects an inclusive range (20..80, ..80 or 20..) with bounds from 0 to 100, or none, got "${value}"`,
   commandFailed: (name, reason) => `Command ${name} failed: ${reason}`,
   runNotRecorded: (error) => `Could not record the run: ${error}`,
   sweepConflicts: (ids) => `Tasks changed while closed tasks were swept, the sweep will run again in a day: ${ids}`,
@@ -182,7 +184,7 @@ export const cliEn: CliMessages = {
 
   newUsage: (types, priorities, found, defaultFound) =>
     [
-      `--title <title> [--type ${types}] [--priority ${priorities}] [--tags a,b]`,
+      `--title <title> [--type ${types}] [--priority ${priorities}] [--probability <0..100>] [--tags a,b]`,
       `--category <category> (required for tasks) [--found ${found}, default ${defaultFound}]`,
       "[--source file:line] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--json]",
       "[--force — create anyway even if a similar open task already exists]",
@@ -211,7 +213,7 @@ export const cliEn: CliMessages = {
   deletesAtTail: (date) => `. Will be deleted ${date}`,
   afterEpicCloses: (epic) => `after epic ${epic} closes`,
 
-  listUsage: () => "[--query text] [--status s,…] [--tag t,…] [--project id | --all-projects] [--json]",
+  listUsage: () => "[--query text] [--status s,…] [--tag t,…] [--probability <min..max|none>] [--project id | --all-projects] [--json]",
   parseErrorLine: (path, problems) => `Parse error in ${path}: ${problems}`,
   noTasksFound: "No tasks found",
 

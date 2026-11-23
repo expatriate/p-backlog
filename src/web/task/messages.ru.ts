@@ -22,6 +22,9 @@ export const taskRu = {
 
   statusField: "Статус",
   priorityField: "Приоритет",
+  probabilityField: "Вероятность, %",
+  probabilityPlaceholder: "Не оценено",
+  invalidProbability: "Введите целое число от 0 до 100.",
   categoryField: "Категория",
   typeField: "Тип",
   epicField: "Эпик",

@@ -19,7 +19,7 @@ import { taskText } from "./task-text";
 import { reopenEpicOfOpenedTask, type WriteOrigin } from "./update";
 import { invalid, type CreateTaskResult } from "./write-result";
 
-type NewTaskInput = Pick<Task, "title"> & OptionalFields<Pick<Task, "type" | "priority" | "tags" | "epic" | "blockedBy" | "related" | "source" | "anchor" | "body" | "category">>;
+type NewTaskInput = Pick<Task, "title"> & OptionalFields<Pick<Task, "type" | "priority" | "probability" | "tags" | "epic" | "blockedBy" | "related" | "source" | "anchor" | "body" | "category">>;
 
 export type CreateTaskRequest = Pick<WriteOrigin, "now" | "via" | "onError"> & {
   project: Project;
@@ -133,6 +133,7 @@ function draftTask(id: string, path: string, { project, input, now }: CreateTask
     type: input.type ?? "task",
     status: "backlog",
     priority: input.priority ?? "medium",
+    probability: input.probability,
     category: input.category,
     tags: input.tags ?? [],
     epic: input.epic,

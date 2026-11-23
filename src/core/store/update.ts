@@ -18,6 +18,7 @@ import { invalid, type UpdateTaskFailure, type UpdateTaskResult } from "./write-
 export type TaskChanges = OptionalFields<Pick<Task, "title" | "type" | "status" | "priority" | "tags" | "blockedBy" | "related" | "body" | "source" | "verified">> & {
   epic?: string | null | undefined;
   category?: TaskCategory | null | undefined;
+  probability?: number | null | undefined;
   anchor?: string | null | undefined;
 };
 
@@ -31,7 +32,7 @@ export type UpdateTaskRequest = WriteOrigin & {
   headCommit?: string | undefined;
 };
 
-type AppliedSeparately = "status" | "epic" | "category" | "anchor";
+type AppliedSeparately = "status" | "epic" | "category" | "probability" | "anchor";
 
 const COPIED_CHANGES = { title: true, type: true, priority: true, tags: true, blockedBy: true, related: true, body: true, source: true, verified: true } satisfies Record<
   Exclude<keyof TaskChanges, AppliedSeparately>,
@@ -127,6 +128,7 @@ function applyChanges(task: Task, changes: TaskChanges, now: Date, closure: Clos
     ...pickDefined(changes, CHANGE_FIELDS),
     epic: nextOptional(task.epic, changes.epic),
     category: nextOptional(task.category, changes.category),
+    probability: nextOptional(task.probability, changes.probability),
     anchor: nextAnchor(task, changes),
   };
   const moved = changes.status === undefined ? edited : changeStatus(edited, changes.status, now, closure);

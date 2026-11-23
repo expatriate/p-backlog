@@ -12,6 +12,7 @@ describe("readListParams", () => {
         query: undefined,
         statuses: OPEN_STATUSES,
         priorities: undefined,
+        probability: undefined,
         tags: undefined,
         epic: undefined,
         type: undefined,
@@ -23,11 +24,12 @@ describe("readListParams", () => {
   });
 
   it("читает все фильтры и сортировку", () => {
-    const { filter, sort } = read("q=таймаут&status=done,backlog&priority=high&tag=upload,network&epic=SPA-3&type=task&unblocked=1&sort=title&dir=asc");
+    const { filter, sort } = read("q=таймаут&status=done,backlog&priority=high&probability=0..80&tag=upload,network&epic=SPA-3&type=task&unblocked=1&sort=title&dir=asc");
     expect(filter).toEqual({
       query: "таймаут",
       statuses: ["done", "backlog"],
       priorities: ["high"],
+      probability: { min: 0, max: 80 },
       tags: ["upload", "network"],
       epic: "SPA-3",
       type: "task",
@@ -49,6 +51,7 @@ describe("readListParams", () => {
         query: undefined,
         statuses: OPEN_STATUSES,
         priorities: undefined,
+        probability: undefined,
         tags: undefined,
         epic: undefined,
         type: undefined,
@@ -56,6 +59,14 @@ describe("readListParams", () => {
       },
       sort: DEFAULT_SORT,
     });
+  });
+
+  it("сохраняет односторонние границы вероятности и игнорирует недопустимый диапазон", () => {
+    expect(write("probability=..0")).toBe("probability=..0");
+    expect(write("probability=100..")).toBe("probability=100..");
+    expect(write("probability=none")).toBe("probability=none");
+    expect(read("probability=80..20").filter.probability).toBeUndefined();
+    expect(read("probability=..101").filter.probability).toBeUndefined();
   });
 });
 

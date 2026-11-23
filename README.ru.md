@@ -148,13 +148,14 @@
 
 | Команда | Что делает |
 |---|---|
-| `backlog new --title <t> --category <категория> [--type task\|epic] [--priority low\|medium\|high\|critical] [--tags a,b] [--found incidental\|review\|manual] [--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--force] [--json]` | Создаёт задачу, описание читается из stdin; похожая открытая задача — отказ (код 3), `--force` создаёт всё равно; `--found`: `incidental` — агент заметил попутно (в «Эффекте» считаются только такие), `review` — находка ревью, `manual` — заведена по просьбе пользователя (по умолчанию) |
-| `backlog list [--query q] [--status s,…] [--tag t,…] [--project id \| --all-projects] [--json]` | Список задач, по умолчанию открытые задачи текущего проекта |
+| `backlog new --title <t> --category <категория> [--type task\|epic] [--priority low\|medium\|high\|critical] [--probability <0..100>] [--tags a,b] [--found incidental\|review\|manual] [--source файл:строка] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--force] [--json]` | Создаёт задачу, описание читается из stdin; похожая открытая задача — отказ (код 3), `--force` создаёт всё равно; `--found`: `incidental` — агент заметил попутно (в «Эффекте» считаются только такие), `review` — находка ревью, `manual` — заведена по просьбе пользователя (по умолчанию) |
+| `backlog list [--query q] [--status s,…] [--tag t,…] [--probability <min..max\|none>] [--project id \| --all-projects] [--json]` | Список задач, по умолчанию открытые задачи текущего проекта. Границы диапазона вероятности включены (например, `20..80`, `..80` или `20..`). Значение `none` показывает задачи без оценки |
 | `backlog show <ID> [--json]` | Задача целиком: связи, блокеры, предупреждения |
 | `backlog take <ID> [--force] [--json]` \| `--next [--project id] [--json]` | Берёт задачу в работу, проверяя блокеры |
 | `backlog take --path <файл\|каталог> [--project id] [--json]` | Берёт в работу все открытые задачи внутри пути |
 | `backlog status <ID> <backlog\|in-progress\|blocked\|done\|cancelled>` | Меняет статус |
 | `backlog priority <ID> <low\|medium\|high\|critical>` | Меняет приоритет |
+| `backlog probability <ID> <0..100\|none>` | Задаёт вероятность сценария в целых процентах или снимает оценку через `none` |
 | `backlog category <ID> <категория\|none>` | Меняет категорию или убирает её |
 | `backlog epic <ID> [<ID> …] --to <ID эпика\|none>` | Переносит задачи в эпик или вынимает из него |
 | `backlog check [--changed] [--project id \| --all-projects] [--json]` | Чинит висячие ссылки и завершённые эпики, находит задачи, которые пора перепроверить |

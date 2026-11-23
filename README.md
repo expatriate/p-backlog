@@ -149,13 +149,14 @@ The retention window isn't configurable.
 
 | Command | What it does |
 |---|---|
-| `backlog new --title <t> --category <category> [--type task\|epic] [--priority low\|medium\|high\|critical] [--tags a,b] [--found incidental\|review\|manual] [--source file:line] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--force] [--json]` | Creates a task, the description is read from stdin; a similar open task refuses the command (code 3), `--force` creates it anyway; `--found`: `incidental` — the agent noticed it in passing (only these count in Effect), `review` — a review finding, `manual` — recorded at the user's request (the default) |
-| `backlog list [--query q] [--status s,…] [--tag t,…] [--project id \| --all-projects] [--json]` | Lists tasks, by default the open tasks of the current project |
+| `backlog new --title <t> --category <category> [--type task\|epic] [--priority low\|medium\|high\|critical] [--probability <0..100>] [--tags a,b] [--found incidental\|review\|manual] [--source file:line] [--epic ID] [--blocked-by ID,…] [--related ID,…] [--project id] [--force] [--json]` | Creates a task, the description is read from stdin; a similar open task refuses the command (code 3), `--force` creates it anyway; `--found`: `incidental` — the agent noticed it in passing (only these count in Effect), `review` — a review finding, `manual` — recorded at the user's request (the default) |
+| `backlog list [--query q] [--status s,…] [--tag t,…] [--probability <min..max\|none>] [--project id \| --all-projects] [--json]` | Lists tasks, by default the open tasks of the current project. The probability range is inclusive (e.g. `20..80`, `..80` or `20..`). Use `none` for tasks without an estimate |
 | `backlog show <ID> [--json]` | The full task: links, blockers, warnings |
 | `backlog take <ID> [--force] [--json]` \| `--next [--project id] [--json]` | Takes a task into progress, checking blockers |
 | `backlog take --path <file\|directory> [--project id] [--json]` | Takes into progress every open task inside the path |
 | `backlog status <ID> <backlog\|in-progress\|blocked\|done\|cancelled>` | Changes the status |
 | `backlog priority <ID> <low\|medium\|high\|critical>` | Changes the priority |
+| `backlog probability <ID> <0..100\|none>` | Sets the scenario probability as a whole percentage or clears it with `none` |
 | `backlog category <ID> <category\|none>` | Changes the category or clears it |
 | `backlog epic <ID> [<ID> …] --to <epic ID\|none>` | Moves tasks into an epic or takes them out of it |
 | `backlog check [--changed] [--project id \| --all-projects] [--json]` | Fixes dangling links and completed epics, finds tasks that are due for a re-check |

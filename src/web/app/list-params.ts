@@ -1,4 +1,5 @@
 import { isClosed } from "../../core/model/graph";
+import { formatProbabilityFilter, parseProbabilityFilter } from "../../core/model/probability";
 import { OPEN_STATUSES, SORT_KEYS, type ListFilter, type SortDirection, type SortKey, type TaskSort } from "../../core/model/query";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type TaskStatus } from "../../core/model/types";
 
@@ -52,6 +53,7 @@ export function readListParams(search: URLSearchParams): ListParams {
       query: search.get("q") ?? undefined,
       statuses: readStatuses(search.get("status")),
       priorities: readList(search.get("priority"), PRIORITIES),
+      probability: parseProbabilityFilter(search.get("probability")),
       tags: readTags(search.get("tag")),
       epic: readEpic(search.get("epic")),
       type: readOne(search.get("type"), TASK_TYPES),
@@ -98,6 +100,7 @@ export function writeListParams({ filter, sort }: ListParams): URLSearchParams {
   else if (filter.statuses.length === 0) search.set("status", "");
   else if (!sameValues(filter.statuses, OPEN_STATUSES)) search.set("status", filter.statuses.join(","));
   if (filter.priorities?.length) search.set("priority", filter.priorities.join(","));
+  if (filter.probability !== undefined) search.set("probability", formatProbabilityFilter(filter.probability));
   if (filter.tags?.length) search.set("tag", filter.tags.join(","));
   if (filter.epic !== undefined) search.set("epic", filter.epic ?? NO_EPIC);
   if (filter.type) search.set("type", filter.type);

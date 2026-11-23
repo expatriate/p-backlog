@@ -61,6 +61,11 @@ describe("parseTaskFile", () => {
     });
   });
 
+  it("читает карточку с пустой вероятностью как карточку без оценки", () => {
+    const result = parseTaskFile(FILE.replace("priority: high", "priority: high\nprobability:"), location);
+    expect(result).toMatchObject({ ok: true, value: { id: "SPA-12", probability: undefined } });
+  });
+
   it.each([
     ["без frontmatter", "Просто текст"],
     ["незакрытый frontmatter", "---\nid: SPA-1\n"],

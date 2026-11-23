@@ -3,6 +3,7 @@ import type { GraphState } from "../check/graph-health";
 import type { Language } from "../i18n/language";
 import { PRIORITIES, TASK_CATEGORIES, TASK_STATUSES, TASK_TYPES, taskIdSchema, type Project, type Task, type UnparsedFile } from "../model/types";
 import { normalizeClosingReason } from "../model/lifecycle";
+import { probabilitySchema } from "../model/probability";
 import { settingsSchema } from "../model/settings";
 import type { BatchSkipReason } from "../store/batch";
 import type { MemorySample } from "../stats/types";
@@ -14,6 +15,7 @@ const taskChangesSchema = z.strictObject({
   type: z.enum(TASK_TYPES).optional(),
   status: z.enum(TASK_STATUSES).optional(),
   priority: z.enum(PRIORITIES).optional(),
+  probability: probabilitySchema.nullable().optional(),
   tags: z.array(z.string()).optional(),
   epic: taskIdSchema.nullable().optional(),
   blockedBy: idList.optional(),

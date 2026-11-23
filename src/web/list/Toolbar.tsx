@@ -8,6 +8,7 @@ import { focusDropped } from "../ui/focus-dropped";
 import { toggled, toggledOrUnset, withTagToggled } from "./filter-toggle";
 import { Popover, POPOVER_INITIAL_FOCUS } from "../ui/Popover";
 import { EpicPicker } from "./EpicPicker";
+import { ProbabilityPicker } from "./ProbabilityPicker";
 import type { EpicChoices } from "./epic-choices";
 import { AUTO_CLOSED_VIEW, type ListParams } from "../app/list-params";
 import styles from "./Toolbar.module.css";
@@ -57,6 +58,7 @@ export function Toolbar({ params, onChange, tags, epicChoices, autoClosedCount }
             </ToggleChip>
           ))}
         </div>
+        <ProbabilityPicker selected={filter.probability} onSelect={(probability) => setFilter({ probability })} />
         <div className={styles.group} role="group" aria-label={list.type}>
           {TASK_TYPES.map((type) => (
             <ToggleChip key={type} pressed={filter.type === type} onToggle={() => setFilter({ type: filter.type === type ? undefined : type })}>

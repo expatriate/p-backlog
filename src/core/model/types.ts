@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ID_PATTERN, PREFIX_PATTERN } from "./ids";
 import { schemaCode, type Problem } from "./problems";
+import { probabilitySchema } from "./probability";
 
 export type OptionalFields<T> = { [K in keyof T]?: T[K] | undefined };
 
@@ -45,6 +46,10 @@ export const taskFrontmatterSchema = z.object({
   type: z.enum(TASK_TYPES).default("task"),
   status: z.enum(TASK_STATUSES).default("backlog"),
   priority: z.enum(PRIORITIES).default("medium"),
+  probability: probabilitySchema
+    .nullable()
+    .transform((value) => value ?? undefined)
+    .optional(),
   category: z.enum(TASK_CATEGORIES).optional(),
   tags: z.array(z.string()).default([]).transform(normalizeTags),
   epic: taskIdSchema.optional(),

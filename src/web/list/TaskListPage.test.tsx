@@ -6,6 +6,38 @@ import { renderApp } from "../testing/render-app";
 import { LIST_FILES, rowTitles } from "../testing/task-list";
 
 describe("список задач", () => {
+  it("сохраняет вероятность и фильтрует нулевую оценку отдельно от отсутствующей", async () => {
+    const app = await renderApp({ ...LIST_FILES, "spa/SPA-3.md": taskFile("SPA-3", { title: "Разобрать очередь", probability: "100" }) }, "/t/SPA-1");
+    const probability = await screen.findByRole("textbox", { name: "Вероятность, %" });
+    await app.user.type(probability, "101");
+    await app.user.tab();
+    expect(await screen.findByText("Введите целое число от 0 до 100.")).toBeDefined();
+    expect((await app.taskOnDisk("SPA-1")).probability).toBeUndefined();
+
+    await app.user.clear(probability);
+    await app.user.type(probability, "0");
+    await app.user.tab();
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).probability).toBe(0));
+
+    await act(() => app.router.navigate("/"));
+    await app.user.click(await screen.findByRole("button", { name: "Вероятность" }));
+    await app.user.type(screen.getByRole("textbox", { name: "От, %" }), "0");
+    await app.user.type(screen.getByRole("textbox", { name: "До, %" }), "0");
+    await app.user.click(screen.getByRole("button", { name: "Применить" }));
+    await waitFor(async () => expect(await rowTitles()).toEqual(["Таймауты загрузки"]));
+    expect(app.route()).toBe("/?probability=0..0");
+
+    await app.user.click(screen.getByRole("button", { name: /^Вероятность/ }));
+    await app.user.click(screen.getByRole("button", { name: "Без оценки" }));
+    await waitFor(async () => expect(await rowTitles()).toEqual(["Каталог тормозит"]));
+    expect(app.route()).toBe("/?probability=none");
+
+    await act(() => app.router.navigate("/t/SPA-1"));
+    await app.user.clear(await screen.findByRole("textbox", { name: "Вероятность, %" }));
+    await app.user.tab();
+    await waitFor(async () => expect((await app.taskOnDisk("SPA-1")).probability).toBeUndefined());
+  });
+
   it("показывает открытые задачи всех проектов и счётчики в боковой панели", async () => {
     await renderApp(LIST_FILES);
 

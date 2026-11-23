@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Tasks can carry an optional probability from 0 to 100%. Filter by a range or find tasks without an estimate in the web app and CLI.
+
 ## 0.14.5
 
 - Concurrent rechecks record one candidate and count it once in Quality.
