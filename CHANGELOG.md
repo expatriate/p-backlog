@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.14.5
+
 - Concurrent rechecks record one candidate and count it once in Quality.
 
 ## 0.14.4
