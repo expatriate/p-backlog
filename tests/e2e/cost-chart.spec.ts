@@ -7,16 +7,24 @@ import { writeServedProject } from "./served-project";
 const projectDir = join(E2E_BACKLOG_DIR, "spend");
 
 for (const width of [1280, 375]) {
+  const desktop = width === 1280;
   test(`график «Расход по дням» с осью дат и подсказкой на ${width}px`, async ({ page }) => {
     await writeServedProject(page.request, projectDir, { prefix: "SPND" });
     const run = { at: new Date().toISOString(), command: "hook stop", cwd: "/nowhere", ms: 100, rssMb: 90, exitCode: 0 };
     await appendFile(join(E2E_BACKLOG_DIR, ".runs.jsonl"), `${JSON.stringify(run)}\n`, "utf8");
 
-    await page.setViewportSize({ width, height: 900 });
+    await page.setViewportSize({ width, height: desktop ? 400 : 900 });
     await page.goto("/stats/cost");
     const chart = page.getByRole("figure", { name: /^За 30\s+дней: .*запусков хука [1-9]/ });
     await expect(chart).toBeVisible();
     await expect(chart.locator(".recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value").first()).toBeVisible();
+
+    await expect(page.getByRole("region", { name: "Память сервера" }).getByRole("figure")).toBeAttached();
+    const scroll = await page.getByRole("main").evaluate((main) => ({
+      document: document.documentElement.scrollHeight > document.documentElement.clientHeight,
+      main: main.scrollHeight > main.clientHeight,
+    }));
+    expect(scroll).toEqual({ document: !desktop, main: desktop });
 
     const plot = chart.locator(".recharts-surface");
     await plot.scrollIntoViewIfNeeded();
