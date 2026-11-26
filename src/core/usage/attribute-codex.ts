@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { isBacklogHookFeedback, isBacklogHookReason } from "../hook-signature";
 import { SKILL_NAME } from "../skill-name";
@@ -12,10 +13,12 @@ import type { TranscriptState, UsageBucket } from "../stats/cost/usage-state";
 type CodexState = NonNullable<TranscriptState["codex"]>;
 type UsageContext = Pick<UsageBucket, "slot" | "cwd" | "model">;
 
-const ROLLOUT_MARKERS = /"type"\s*:\s*"(?:session_meta|turn_context|token_count|message|function_call(?:_output)?|custom_tool_call(?:_output)?)"/u;
+const ROLLOUT_MARKERS = /"type"\s*:\s*"(?:session_meta|turn_context|token_count|item_completed|message|function_call(?:_output)?|custom_tool_call(?:_output)?)"/u;
 const INLINE_SHELL_FIELDS = /\b(cmd|workdir)\s*:\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\[\s\S]|[^`\\])*`)/gu;
 const APP_TOOL_CALL = /\btools\.(\w+)\s*\(/gu;
 const SKILL_READER = /^\s*(?:cat|sed|head|tail|nl|Get-Content)\b/iu;
+const SHELL_PROGRAM = /(?:^|[\\/])(?:bash|zsh|sh|dash|ksh|fish|pwsh|powershell|cmd)(?:\.exe)?$/iu;
+const SHELL_SCRIPT_FLAG = /^(?:-[il]*c|-command|\/c)$/iu;
 const STOP_HOOK_PROMPT = /^<hook_prompt hook_run_id="stop:[^"]+">\s*([\s\S]*?)<\/hook_prompt>$/u;
 
 const rolloutSchema = z.object({
@@ -26,6 +29,8 @@ const rolloutSchema = z.object({
       type: z.string().optional(),
       cwd: z.string().optional(),
       model: z.string().min(1).optional(),
+      originator: z.string().optional(),
+      history_mode: z.string().optional(),
     })
     .passthrough(),
 });
@@ -39,6 +44,16 @@ const usageSchema = z.object({
 type CodexUsage = z.infer<typeof usageSchema>;
 
 const eventSchema = z.object({ info: z.object({ total_token_usage: usageSchema, last_token_usage: usageSchema.optional() }) });
+const completedCommandSchema = z.object({
+  item: z.object({
+    type: z.literal("CommandExecution"),
+    id: z.string().startsWith("exec-"),
+    source: z.literal("unified_exec_startup"),
+    cwd: z.string().min(1),
+    command: z.tuple([z.string()], z.string()),
+    aggregated_output: z.string(),
+  }),
+});
 const messageSchema = z.object({ role: z.string(), content: z.array(z.object({ text: z.string().optional() })) });
 const callSchema = z.object({ name: z.string(), call_id: z.string(), arguments: z.string().optional(), input: z.string().optional() });
 const shellSchema = z.object({ cmd: z.string().optional(), command: z.string().optional(), workdir: z.string().optional() });
@@ -52,14 +67,36 @@ export function attributeCodexLine(line: string, state: TranscriptState): UsageB
   const codex = (state.codex ??= { cwd: "", total: null });
   const { type, timestamp, payload } = event;
   if (type === "session_meta" || type === "turn_context") {
+    if (type === "session_meta" && payload.originator === "Codex Desktop" && payload.history_mode === "paginated") codex.desktopCommandEvents = true;
     codex.cwd = payload.cwd ?? codex.cwd;
     state.lastModel = payload.model ?? state.lastModel;
     return [];
   }
   const context = { cwd: codex.cwd, model: state.lastModel ?? "unknown", slot: slotOf(timestamp) };
   if (type === "event_msg" && payload.type === "token_count") return tokenBuckets(payload, state, codex, context);
+  if (type === "event_msg" && payload.type === "item_completed" && codex.desktopCommandEvents && !state.hookOpen) return desktopCommandBuckets(payload, context);
   if (type === "response_item") return responseBuckets(payload, state, codex, context);
   return [];
+}
+
+function desktopCommandBuckets(payload: unknown, context: UsageContext): UsageBucket[] {
+  const completed = completedCommandSchema.safeParse(payload);
+  if (!completed.success) return [];
+  const { cwd, command, aggregated_output: output } = completed.data.item;
+  const [program, ...args] = command;
+  const script = SHELL_PROGRAM.test(program) && SHELL_SCRIPT_FLAG.test(args.at(-2) ?? "") ? args.at(-1) : program;
+  if (script === undefined || !invokesOnlyBacklog(script)) return [];
+  return estimatedOutput(output.length, "cli", { ...context, cwd: commandDirectory(cwd) });
+}
+
+function commandDirectory(cwd: string): string {
+  if (!cwd.startsWith("file:")) return cwd;
+  try {
+    return fileURLToPath(cwd);
+  } catch (error) {
+    if (!(error instanceof TypeError || error instanceof URIError)) throw error;
+    return cwd;
+  }
 }
 
 function tokenBuckets(payload: unknown, state: TranscriptState, codex: CodexState, context: UsageContext): UsageBucket[] {
@@ -110,7 +147,7 @@ function isBacklogPrompt(text: string): boolean {
 function rememberBacklogCall(call: z.infer<typeof callSchema>, state: TranscriptState, codex: CodexState): void {
   const { commands, workdir } = shellDetails(call);
   if (commands.length === 0) return;
-  if (commands.every(invokesOnlyBacklog)) rememberToolCall(state, call.call_id, "cli");
+  if (!(codex.desktopCommandEvents && call.name === "exec") && commands.every(invokesOnlyBacklog)) rememberToolCall(state, call.call_id, "cli");
   else if (commands.every(readsBacklogSkill)) rememberToolCall(state, call.call_id, "skill");
   if (workdir && Object.hasOwn(state.pending, call.call_id)) {
     codex.toolDirectories ??= {};
@@ -157,6 +194,10 @@ function toolOutputBuckets(payload: unknown, state: TranscriptState, codex: Code
   Reflect.deleteProperty(directories, id);
   if (state.hookOpen || kind === undefined) return [];
   const chars = typeof output === "string" ? output.length : output.reduce<number>((total, part) => total + (textOutputSchema.safeParse(part).data?.text.length ?? 0), 0);
+  return estimatedOutput(chars, kind, { ...context, cwd });
+}
+
+function estimatedOutput(chars: number, kind: "cli" | "skill", context: UsageContext): UsageBucket[] {
   if (chars === 0) return [];
-  return [{ ...context, cwd, kind, tokens: { ...ZERO_TOKENS, input: estimateTextTokens(chars) }, hookTurns: 0 }];
+  return [{ ...context, kind, tokens: { ...ZERO_TOKENS, input: estimateTextTokens(chars) }, hookTurns: 0 }];
 }

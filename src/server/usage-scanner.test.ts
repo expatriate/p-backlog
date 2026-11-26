@@ -1,5 +1,6 @@
 import { appendFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { newTranscriptState } from "../core/stats/cost/attribute";
 import { costReport } from "../core/stats/cost/cost-report";
@@ -44,7 +45,11 @@ describe("createUsageScanner", () => {
     const input = (text: string) => event("response_item", { type: "message", role: "user", content: [{ type: "input_text", text }] });
     const options = { root, claudeProjectsDir: join(root, ".claude", "projects"), codexHome, now };
     await writeFiles(codexHome, {
-      [sessionPath]: event("turn_context", { model: "gpt-6.2-sol", cwd }) + total(100, 0, 10) + input('<hook_prompt hook_run_id="stop:1">Беклог проект: перепроверь задачу</hook_prompt>'),
+      [sessionPath]:
+        event("session_meta", { originator: "Codex Desktop", history_mode: "legacy", cwd }) +
+        event("turn_context", { model: "gpt-6.2-sol", cwd }) +
+        total(100, 0, 10) +
+        input('<hook_prompt hook_run_id="stop:1">Беклог проект: перепроверь задачу</hook_prompt>'),
     });
     await scannerOf(options).scanOnce();
 
@@ -97,6 +102,57 @@ describe("createUsageScanner", () => {
     ]);
     expect(report.models[0]?.cost).toBeCloseTo(0.0000548, 10);
     expect(report.models[1]?.cost).toBeCloseTo(0.0000004, 10);
+  });
+
+  it("в Codex Desktop считает вывод каждой команды один раз в проекте её рабочего каталога", async () => {
+    const root = await makeTempDir();
+    const codexHome = join(root, ".codex");
+    const sessionPath = "sessions/2026/09/19/rollout-desktop.jsonl";
+    const timestamp = "2026-09-19T09:00:00.000Z";
+    const now = () => new Date(timestamp);
+    const spa = join(root, "spa");
+    const web = join(root, "web repo");
+    const event = (type: string, payload: object) => JSON.stringify({ timestamp, type, payload }) + "\n";
+    const toolCall = (id: string, input: string) => event("response_item", { type: "custom_tool_call", name: "exec", call_id: id, input });
+    const toolOutput = (id: string, output: string) => event("response_item", { type: "custom_tool_call_output", call_id: id, output });
+    const commandOutput = (id: string, script: string, cwd: string, output: string) =>
+      event("event_msg", {
+        type: "item_completed",
+        item: { type: "CommandExecution", id, source: "unified_exec_startup", cwd: pathToFileURL(cwd).href, command: ["/bin/zsh", "-lc", script], aggregated_output: output },
+      });
+    const spaOutput = "a".repeat(90);
+    const webOutput = "b".repeat(150);
+    const gitOutput = "g".repeat(300);
+    const options = { root, claudeProjectsDir: join(root, "no-claude"), codexHome, now };
+    await writeFiles(codexHome, {
+      [sessionPath]:
+        event("session_meta", { originator: "Codex Desktop", history_mode: "paginated", cwd: spa }) +
+        event("turn_context", { model: "gpt-6.2-sol", cwd: spa }) +
+        toolCall("mixed", 'await Promise.all([tools.exec_command({cmd: "backlog list"}), tools.exec_command({cmd: "git status"})]);') +
+        commandOutput("exec-mixed-backlog", "backlog list", web, webOutput) +
+        commandOutput("exec-mixed-git", "git status", spa, gitOutput) +
+        toolOutput("mixed", webOutput + gitOutput) +
+        toolCall("pure", 'text((await tools.exec_command({cmd: "backlog stats"})).output);') +
+        toolOutput("pure", spaOutput),
+    });
+    await scannerOf(options).scanOnce();
+    await appendFile(join(codexHome, sessionPath), commandOutput("exec-pure-backlog", "backlog stats", spa, spaOutput));
+
+    const scanner = scannerOf(options);
+    await scanner.scanOnce();
+    await scanner.scanOnce();
+
+    const { cache, scan } = scanner.snapshot();
+    const buckets = usageBucketsOf(cache);
+    const projects = new Map([
+      [spa, "spa"],
+      [web, "web"],
+    ]);
+    const projectOf = (cwd: string) => projects.get(cwd) ?? null;
+    const report = (projectId?: string) => costReport({ buckets, runs: [], projectOf, projectId, now: now(), scan }).totals;
+    expect(report()).toMatchObject({ cliTokens: 80, cost: expect.closeTo(0.00016, 10) });
+    expect(report("spa")).toMatchObject({ cliTokens: 30, cost: expect.closeTo(0.00006, 10) });
+    expect(report("web")).toMatchObject({ cliTokens: 50, cost: expect.closeTo(0.0001, 10) });
   });
 
   it("недоступный каталог сессий Codex не прерывает чтение архива и сессий Claude Code", async () => {
