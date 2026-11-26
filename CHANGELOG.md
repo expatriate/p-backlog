@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.14.6
+
 - Tasks can carry an optional probability from 0 to 100%. Filter by a range or find tasks without an estimate in the web app and CLI.
 
 ## 0.14.5
