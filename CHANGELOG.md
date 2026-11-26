@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.14.8
+
+- Statistics charts no longer cause a second vertical scrollbar on wide screens.
+
 ## 0.14.7
 
 - Costs count each backlog command once in mixed Codex Desktop tool calls and attribute it to the command's project.
