@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.14.7
+
+- Costs count each backlog command once in mixed Codex Desktop tool calls and attribute it to the command's project.
+
 ## 0.14.6
 
 - Tasks can carry an optional probability from 0 to 100%. Filter by a range or find tasks without an estimate in the web app and CLI.
